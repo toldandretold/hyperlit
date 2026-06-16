@@ -102,7 +102,7 @@ import { isChunkLoadingInProgress, getLoadingChunkId } from '../utilities/chunkL
 import { SelectionDeletionHandler } from '../utilities/selectionDelete.js';
 import { getEditToolbar } from '../editToolbar';
 import { delinkHypercite, handleHyperciteDeletion } from "../hypercites/index";
-import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/toc.js';
+import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/tocContainer/index';
 
 // ================================================================
 // MODULE STATE

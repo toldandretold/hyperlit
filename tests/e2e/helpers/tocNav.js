@@ -3,7 +3,7 @@
  *
  * The TOC is rendered into #toc-container with anchor links like
  * <a href="#100">. Toggle via #toc-toggle-button. Click handler in
- * resources/js/components/toc.js calls navigateToInternalId(targetId) and
+ * resources/js/components/tocContainer/index.ts calls navigateToInternalId(targetId) and
  * closes the TOC. These helpers wait for the close + scroll to settle so
  * the caller can immediately assert on the landing.
  */

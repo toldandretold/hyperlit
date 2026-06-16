@@ -1,39 +1,34 @@
-// ✅ Lazy-loaded edit modules (only imported when entering edit mode)
-// import { startObserving, stopObserving } from "../divEditor/index";
-// import { addPasteListener } from '../paste';
-// import { initEditToolbar, getEditToolbar } from '../editToolbar';
+// Edit-mode controller for #editButton (button-only — toggles contentEditable on
+// the book div, no ContainerManager). Owns enable/disable/enforce, the click/touch
+// listeners (the ButtonRegistry entry), the login/sync custom alert, URL auto-edit,
+// and the module-load visibility side-effect. Pure caret helpers live in ./cursor;
+// the lock/permission UI in ./lock (re-exported here so importers have one entry).
+import { book } from "../../app.js";
+import { log } from "../../utilities/logger.js";
+import { getCurrentUser, canUserEditBook } from "../../utilities/auth.js";
+import userManager from "../userButton/userButton";
+import {
+  placeCursorAtEndOfElement, getSavedScrollElementId, getFirstElementWithId,
+  doesContentExceedViewport, getLastContentElement,
+} from './cursor';
+import { replaceEditButtonWithLock, updateEditButtonVisibility } from './lock';
 
-import { book } from "../app.js";
-import { log, verbose } from "../utilities/logger.js";
-import { incrementPendingOperations, decrementPendingOperations } from '../utilities/operationState.js';
-import { getCurrentUser, canUserEditBook } from "../utilities/auth.js";
-import { getLibraryObjectFromIndexedDB } from '../indexedDB/index';
-import userManager from "./userButton/userButton";
-import { pendingFirstChunkLoadedPromise } from '../pageLoad';
-
-
-
-// Detect "edit" from URL
-const params   = new URLSearchParams(location.search);
-const isEditQ  = params.get("edit") === "1";
-const isEditP  = location.pathname.endsWith("/edit");
-const shouldAutoEdit = isEditQ || isEditP;
-
+// Re-export the lock/permission API so external importers keep one entry point.
+export { updateEditButtonVisibility, checkEditPermissionsAndUpdateUI } from './lock';
 
 // State flags
-window.isEditing = false;
+(window as any).isEditing = false;
 
-// Add this at the top with your other variables
 let editModeCheckInProgress = false;
 
 export function resetEditModeState() {
-    window.isEditing = false;
-    editModeCheckInProgress = false;
+  (window as any).isEditing = false;
+  editModeCheckInProgress = false;
 }
 
 export function handleAutoEdit() {
   const urlParams = new URLSearchParams(window.location.search);
-  const isEditQ = urlParams.get("edit") === "1"; // ✅ Match the top logic
+  const isEditQ = urlParams.get("edit") === "1";
   const isEditP = location.pathname.endsWith("/edit");
   const shouldAutoEdit = isEditQ || isEditP;
   const targetElementId = urlParams.get('target');
@@ -43,125 +38,28 @@ export function handleAutoEdit() {
   }
 }
 
-
-// Add this function to handle edit mode cancellation without reload
+// Handle edit mode cancellation without reload
 function handleEditModeCancel() {
   editModeCheckInProgress = false;
   disableEditMode();
-  
+
   // Clean up ALL edit-related URL parameters
-  const currentUrl = new URL(window.location);
+  const currentUrl = new URL(window.location.href);
   currentUrl.searchParams.delete('edit');
   currentUrl.searchParams.delete('target');
-  
+
   if (currentUrl.pathname.endsWith('/edit')) {
     currentUrl.pathname = currentUrl.pathname.replace(/\/edit$/, '');
   }
-  
+
   window.history.pushState({}, '', currentUrl.toString());
 }
 
-// Add this helper function to get the saved scroll position
-function getSavedScrollElementId(bookId) {
-  const storageKey = `scrollPosition_${bookId}`;
-  try {
-    const scrollData = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
-    if (scrollData) {
-      const parsed = JSON.parse(scrollData);
-      return parsed.elementId;
-    }
-  } catch (error) {
-    console.warn("Error parsing saved scroll position:", error);
-  }
-  return null;
-}
-
-// Add this helper function to place cursor at end of specific element
-function placeCursorAtEndOfElement(elementId) {
-  const targetElement = document.getElementById(elementId);
-
-  if (!targetElement) {
-    console.warn(`Element with id="${elementId}" not found`);
-    return false;
-  }
-
-  try {
-    // Focus the element first
-    targetElement.focus();
-
-    // Create range and selection
-    const range = document.createRange();
-    const selection = window.getSelection();
-
-    // Select all content in the element
-    range.selectNodeContents(targetElement);
-    // Collapse to end (cursor at end of content)
-    range.collapse(false);
-
-    // Apply the selection
-    selection.removeAllRanges();
-    selection.addRange(range);
-
-    return true;
-  } catch (error) {
-    console.error(`Error placing cursor in element ${elementId}:`, error);
-    return false;
-  }
-}
-// Add this helper function to find the first element with an ID
-function getFirstElementWithId(container) {
-  const elementsWithId = container.querySelectorAll("[id]");
-  if (elementsWithId.length > 0) {
-    // Filter out sentinel divs that lazy loader creates
-    const contentElements = Array.from(elementsWithId).filter(el => {
-      const id = el.id;
-      return !id.endsWith('-top-sentinel') && !id.endsWith('-bottom-sentinel');
-    });
-
-    if (contentElements.length > 0) {
-      return contentElements[0].id;
-    }
-  }
-  return null;
-}
-
-function doesContentExceedViewport(container) {
-  const containerRect = container.getBoundingClientRect();
-  const viewportHeight = window.innerHeight;
-  
-  // Check if container bottom is beyond viewport
-  return containerRect.bottom > viewportHeight;
-}
-
-// Add this helper function to find the last element with meaningful content
-function getLastContentElement(container) {
-  const elementsWithId = container.querySelectorAll("[id]");
-  if (elementsWithId.length === 0) return null;
-
-  // Filter out elements that are empty, structural, or sentinel divs
-  const contentElements = Array.from(elementsWithId).filter(el => {
-    const id = el.id;
-    const text = el.textContent?.trim();
-    // Exclude sentinels and empty elements
-    return text &&
-           text.length > 0 &&
-           !id.endsWith('-top-sentinel') &&
-           !id.endsWith('-bottom-sentinel');
-  });
-
-  if (contentElements.length === 0) return null;
-
-  // Return the last element with content
-  return contentElements[contentElements.length - 1].id;
-}
-
-// PASTE THIS ENTIRE FUNCTION INTO resources/js/editButton.js
-
-export async function enableEditMode(targetElementId = null, isNewBook = false) {
+export async function enableEditMode(targetElementId: any = null, isNewBook = false) {
   const editBtn = document.getElementById("editButton");
-  const editableDiv = document.getElementById(book);
+  const editableDiv = document.getElementById(book) as any;
 
-  if (window.isEditing || editModeCheckInProgress) {
+  if ((window as any).isEditing || editModeCheckInProgress) {
     return;
   }
 
@@ -172,11 +70,10 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
 
   editModeCheckInProgress = true;
 
-
   // This block for permission checking is perfect.
-  if (window.pendingBookSyncPromise) {
+  if ((window as any).pendingBookSyncPromise) {
     try {
-      await window.pendingBookSyncPromise;
+      await (window as any).pendingBookSyncPromise;
     } catch (e) {
       console.error("Sync failed, cannot enable edit mode.", e);
       showCustomAlert(
@@ -187,32 +84,25 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
       editModeCheckInProgress = false;
       return;
     } finally {
-      window.pendingBookSyncPromise = null;
+      (window as any).pendingBookSyncPromise = null;
     }
   }
 
   // Wait for background download if still in progress (chunked lazy loading).
-  // Edit operations (paste, renumber, footnote insert) need the full dataset —
-  // block edit mode until all chunks are available.
-  if (window._backgroundDownloadInProgress) {
-    const { waitForBackgroundDownload } = await import('../pageLoad');
+  if ((window as any)._backgroundDownloadInProgress) {
+    const { waitForBackgroundDownload } = await import('../../pageLoad');
     await waitForBackgroundDownload();
   }
 
-  // =================================================================
   // THE SINGLE, CORRECT PERMISSION CHECK
-  // =================================================================
   const canEdit = await canUserEditBook(book);
 
-  // This block handles the case where the user does NOT have permission.
   if (!canEdit) {
     const currentUser = await getCurrentUser();
 
     if (!currentUser) {
       // User not logged in - show login prompt
       userManager.setPostLoginAction(() => {
-        // After successful login, simply try to enable edit mode again
-        // This will trigger the permission check and show appropriate UI
         enableEditMode(targetElementId);
       });
 
@@ -230,21 +120,21 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
     }
 
     editModeCheckInProgress = false;
-    return; // IMPORTANT: Stop the function here.
+    return;
   }
 
-  // =================================================================
   // If the code reaches this point, the user HAS permission.
-  // The rest of the function will now execute correctly.
-  // =================================================================
 
   try {
+    // pageLoad is a bootstrap module — dynamic import avoids a static
+    // component→bootstrap import cycle (flagged by the acyclic-import gate).
+    const { pendingFirstChunkLoadedPromise } = await import("../../pageLoad");
     await pendingFirstChunkLoadedPromise;
 
     setTimeout(async () => {
       try {
-        window.isEditing = true;
-        log.init('Edit mode entered via edit button', '/components/editButton.js');
+        (window as any).isEditing = true;
+        log.init('Edit mode entered via edit button', '/components/editButton/index.ts');
         if (editBtn) editBtn.classList.add("inverted");
 
         // Ensure perimeter buttons are visible in edit mode
@@ -262,7 +152,7 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         editableDiv.contentEditable = "true";
 
         // ✅ Dynamically import edit toolbar
-        const { getEditToolbar } = await import('../editToolbar/index');
+        const { getEditToolbar } = await import('../../editToolbar/index');
         const toolbar = getEditToolbar();
         if (toolbar) {
           toolbar.setEditMode(true);
@@ -270,14 +160,12 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
 
         // ✅ ONLY call ensureMinimumDocumentStructure for new blank books
         if (isNewBook) {
-          import("../divEditor/index").then(({ ensureMinimumDocumentStructure }) => {
-            ensureMinimumDocumentStructure();
+          import("../../divEditor/index").then((m: any) => {
+            m.ensureMinimumDocumentStructure();
           });
         }
 
-        // =================================================================
-        // YOUR CURSOR PLACEMENT LOGIC - INCLUDED AND IN THE CORRECT PLACE
-        // =================================================================
+        // Cursor placement
         let cursorPlaced = false;
         if (targetElementId) {
           cursorPlaced = placeCursorAtEndOfElement(targetElementId);
@@ -318,14 +206,13 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
 
         // 4. Final fallback - original logic (unchanged)
         if (!cursorPlaced) {
-          const selection = window.getSelection();
+          const selection = window.getSelection()!;
           if (!selection.rangeCount || selection.isCollapsed) {
             const range = document.createRange();
             const walker = document.createTreeWalker(
               editableDiv,
               NodeFilter.SHOW_TEXT,
-              null,
-              false
+              null
             );
 
             let textNode = walker.nextNode();
@@ -341,8 +228,8 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
         editableDiv.focus();
 
         // ✅ Dynamically import divEditor and paste modules
-        const { startObserving } = await import('../divEditor/index');
-        const { addPasteListener } = await import('../paste/index.js');
+        const { startObserving } = await import('../../divEditor/index');
+        const { addPasteListener } = await import('../../paste/index.js');
 
         startObserving(editableDiv, book);
         addPasteListener(editableDiv);
@@ -358,12 +245,11 @@ export async function enableEditMode(targetElementId = null, isNewBook = false) 
   }
 }
 
-export function disableEditMode({ skipPersistence = false } = {}) {
-  window.isEditing = false; // Reset state immediately
+export function disableEditMode({ skipPersistence = false }: any = {}) {
+  (window as any).isEditing = false; // Reset state immediately
 
-  // ✅ QUERY FOR ELEMENTS AT THE TIME OF EXECUTION
   const editBtn = document.getElementById("editButton");
-  const editableDiv = document.getElementById(book);
+  const editableDiv = document.getElementById(book) as any;
 
   if (!editableDiv) {
     console.warn("Editable div not found during disableEditMode, but state was reset.");
@@ -374,17 +260,14 @@ export function disableEditMode({ skipPersistence = false } = {}) {
     editBtn.classList.remove("inverted");
   }
 
-  // Don't modify nav button visibility when exiting edit mode
-  // Let the scroll handlers control visibility naturally
-
   enforceEditableState();
   editableDiv.contentEditable = "false";
 
   // ✅ Dynamically import edit modules (they should already be loaded if we were editing)
   Promise.all([
-    import('../editToolbar/index'),
-    import('../divEditor/index')
-  ]).then(async ([editToolbar, divEditor]) => {
+    import('../../editToolbar/index'),
+    import('../../divEditor/index')
+  ]).then(async ([editToolbar, divEditor]: any[]) => {
     const { getEditToolbar } = editToolbar;
     const { stopObserving, flushAllPendingSaves, flushInputDebounce } = divEditor;
 
@@ -408,12 +291,12 @@ export function disableEditMode({ skipPersistence = false } = {}) {
     // [diagnostic] snapshot IDB node.content before flush so we can tell
     // whether flushAllPendingSaves itself is mutating IDB content during
     // edit-mode-exit (case a/b) vs the divergence pre-existing (case c).
-    let __preFlushSnapshot = null;
+    let __preFlushSnapshot: any = null;
     try {
-      const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index');
+      const { getNodeChunksFromIndexedDB } = await import('../../indexedDB/index');
       const preNodes = await getNodeChunksFromIndexedDB(book);
       __preFlushSnapshot = new Map(
-        (preNodes || []).map(n => [String(n.startLine), n.content || ''])
+        (preNodes || []).map((n: any) => [String(n.startLine), n.content || ''])
       );
       console.log(`[diag][editButton] pre-flush IDB snapshot: ${__preFlushSnapshot.size} nodes for ${book}`);
     } catch (e) {
@@ -425,7 +308,7 @@ export function disableEditMode({ skipPersistence = false } = {}) {
     // [diagnostic] diff IDB content after flush
     if (__preFlushSnapshot) {
       try {
-        const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index');
+        const { getNodeChunksFromIndexedDB } = await import('../../indexedDB/index');
         const postNodes = await getNodeChunksFromIndexedDB(book);
         const changed = [];
         for (const n of postNodes || []) {
@@ -453,7 +336,7 @@ export function disableEditMode({ skipPersistence = false } = {}) {
 
     // Verify all saved nodes made it to IDB before leaving edit mode
     try {
-      const { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } = await import('../integrity/verifier.js');
+      const { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } = await import('../../integrity/verifier.js');
       const container = document.getElementById(book);
       if (container) {
         // Auto-heal verbatim DOM duplicates BEFORE counting nodes so the
@@ -462,15 +345,15 @@ export function disableEditMode({ skipPersistence = false } = {}) {
         const healedIds = healVerbatimDuplicates(book);
 
         const nodeEls = container.querySelectorAll('[id]');
-        const nodeIds = [];
-        nodeEls.forEach(el => {
+        const nodeIds: any[] = [];
+        nodeEls.forEach((el: any) => {
           if (/^\d+(\.\d+)*$/.test(el.id)) nodeIds.push(el.id);
         });
         if (nodeIds.length > 0) {
           const result = await verifyNodesIntegrity(book, nodeIds);
           const orphans = findOrphanedNodes(book);
           if (result.mismatches.length > 0 || result.missingFromIDB.length > 0 || result.duplicateIds.length > 0 || orphans.length > 0) {
-            const { reportIntegrityFailure } = await import('../integrity/reporter.js');
+            const { reportIntegrityFailure } = await import('../../integrity/reporter.js');
             reportIntegrityFailure({
               bookId: book,
               mismatches: result.mismatches,
@@ -480,7 +363,7 @@ export function disableEditMode({ skipPersistence = false } = {}) {
               trigger: 'edit-mode-exit',
               selfHealed: healedIds.length > 0,
               selfHealedNodeIds: healedIds,
-            });
+            } as any);
           }
         }
       }
@@ -493,7 +376,7 @@ export function disableEditMode({ skipPersistence = false } = {}) {
     const MAX_DECIMAL_DEPTH = 3;
     const needsRenumbering = Array.from(
       document.querySelectorAll('[data-node-id]')
-    ).some(el => {
+    ).some((el: any) => {
       if (!el.id) return false;
       const decimalPart = el.id.split('.')[1];
       return decimalPart && decimalPart.length >= MAX_DECIMAL_DEPTH;
@@ -501,33 +384,32 @@ export function disableEditMode({ skipPersistence = false } = {}) {
 
     if (needsRenumbering) {
       console.log('🔄 IDs need cleanup - triggering renumbering on edit exit');
-      import('../utilities/IDfunctions.js').then(({ triggerRenumberingWithModal }) => {
+      import('../../utilities/IDfunctions.js').then(({ triggerRenumberingWithModal }) => {
         triggerRenumberingWithModal(0);
       });
     }
   }).catch(err => {
     console.warn('Edit modules not loaded:', err);
   });
-  
+
   // Safely clear NodeIdManager if it exists
-  if (window.NodeIdManager && typeof NodeIdManager.usedIds !== 'undefined') {
-    NodeIdManager.usedIds.clear();
+  if ((window as any).NodeIdManager && typeof (window as any).NodeIdManager.usedIds !== 'undefined') {
+    (window as any).NodeIdManager.usedIds.clear();
   }
 }
 
 // Store handler references for proper cleanup (like logoNav pattern)
-let editClickHandler = null;
-let editTouchHandler = null;
+let editClickHandler: any = null;
+let editTouchHandler: any = null;
 
-// ✅ CREATE A NEW, EXPORTED INITIALIZER FOR THE LISTENERS
 export function initializeEditButtonListeners() {
-  const editBtn = document.getElementById("editButton");
+  const editBtn = document.getElementById("editButton") as any;
   if (editBtn) {
     // This check prevents adding listeners multiple times
     if (editBtn.dataset.listenersAttached) return;
 
     // Store handler references
-    editClickHandler = (e) => {
+    editClickHandler = (e: any) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -536,14 +418,14 @@ export function initializeEditButtonListeners() {
         return;
       }
 
-      if (window.isEditing) {
+      if ((window as any).isEditing) {
         disableEditMode();
       } else {
         enableEditMode();
       }
     };
 
-    editTouchHandler = (e) => {
+    editTouchHandler = (e: any) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -552,7 +434,7 @@ export function initializeEditButtonListeners() {
         return;
       }
 
-      if (window.isEditing) {
+      if ((window as any).isEditing) {
         disableEditMode();
       } else {
         enableEditMode();
@@ -570,9 +452,8 @@ export function initializeEditButtonListeners() {
  * Properly removes event listeners to prevent accumulation
  */
 export function destroyEditButtonListeners() {
-  const editBtn = document.getElementById("editButton");
+  const editBtn = document.getElementById("editButton") as any;
   if (editBtn) {
-    // ✅ CRITICAL FIX: Remove actual listeners
     if (editClickHandler) {
       editBtn.removeEventListener("click", editClickHandler);
       editClickHandler = null;
@@ -585,115 +466,7 @@ export function destroyEditButtonListeners() {
   }
 }
 
-
-
-export async function updateEditButtonVisibility(bookId) {
-  log.init(`Edit permissions checked for: ${bookId}`, '/components/editButton.js');
-  const editButton = document.getElementById('editButton');
-  if (!editButton) {
-    verbose.init('Edit button not found in DOM', '/components/editButton.js');
-    return;
-  }
-
-  editButton.style.display = 'block';
-  editButton.classList.remove('hidden');
-
-  // After making button visible, check permissions and update UI
-  await checkEditPermissionsAndUpdateUI();
-}
-
-updateEditButtonVisibility(book);
-
-// Function to replace edit button with lock icon
-function replaceEditButtonWithLock() {
-  const editBtn = document.getElementById("editButton");
-  if (!editBtn) return;
-
-  // Don't replace if already in locked state
-  if (editBtn.dataset.isLocked === 'true') {
-    return;
-  }
-
-  // Store original button content and classes for potential restoration
-  if (!editBtn.dataset.originalContent) {
-    editBtn.dataset.originalContent = editBtn.innerHTML;
-    editBtn.dataset.originalClasses = editBtn.className;
-  }
-
-  // Replace with lock SVG
-  editBtn.innerHTML = `
-    <svg fill="currentColor" viewBox="0 0 574.65 574.65" width="100%" height="100%" style="width: 100%; height: 100%;">
-      <path d="M424.94,217.315v-79.656C424.94,61.755,363.185,0,287.291,0S149.658,61.739,149.658,137.623v79.742
-        c-41.326,28.563-68.46,76.238-68.46,130.287v162.264c0,35.748,28.986,64.734,64.733,64.734h282.787
-        c35.748,0,64.734-28.986,64.734-64.734V347.652C493.456,293.574,466.306,245.892,424.94,217.315z M322.136,421.457v49.314
-        c0,19.221-15.577,34.811-34.808,34.811c-19.23,0-34.829-15.59-34.829-34.83v-49.283c-14.155-10.627-23.441-27.385-23.441-46.447
-        c0-32.174,26.102-58.254,58.252-58.254c32.173,0,58.255,26.084,58.255,58.254C345.563,394.084,336.276,410.832,322.136,421.457z
-         M348.241,189.969c-4.344-0.357-8.707-0.665-13.145-0.665h-95.538c-4.456,0-8.837,0.308-13.201,0.665v-52.346
-        c0-33.595,27.338-60.922,60.933-60.922c33.612,0,60.95,27.348,60.95,60.959V189.969L348.241,189.969z"/>
-    </svg>
-  `;
-
-  // Add lock-specific styling
-  editBtn.className = editBtn.dataset.originalClasses + ' locked-state';
-  editBtn.dataset.isLocked = 'true';
-
-  // Remove any existing event listeners by cloning the element
-  const newEditBtn = editBtn.cloneNode(true);
-  editBtn.parentNode.replaceChild(newEditBtn, editBtn);
-}
-
-// Function to restore edit button from lock state
-function restoreEditButtonFromLock() {
-  const editBtn = document.getElementById("editButton");
-  if (!editBtn || !editBtn.dataset.isLocked) return;
-  
-  // Restore original content and classes
-  if (editBtn.dataset.originalContent) {
-    editBtn.innerHTML = editBtn.dataset.originalContent;
-  }
-  if (editBtn.dataset.originalClasses) {
-    editBtn.className = editBtn.dataset.originalClasses;
-  }
-  
-  // Clean up lock-specific data
-  delete editBtn.dataset.isLocked;
-  delete editBtn.dataset.originalContent;
-  delete editBtn.dataset.originalClasses;
-  
-  // Re-initialize event listeners
-  initializeEditButtonListeners();
-}
-
-// Function to check if user has edit permissions and handle UI accordingly
-export async function checkEditPermissionsAndUpdateUI() {
-  const currentUser = await getCurrentUser();
-  const editBtn = document.getElementById("editButton");
-
-  if (!editBtn) return;
-
-  // Don't modify button during edit mode
-  if (window.isEditing) {
-    return;
-  }
-
-  // User is logged in - check permissions
-  const canEdit = await canUserEditBook(book);
-
-  if (canEdit) {
-    // User has permissions - show edit button
-    restoreEditButtonFromLock();
-  } else {
-    // User doesn't have permissions - show lock
-    replaceEditButtonWithLock();
-  }
-}
-
-// Add this function to your file
-// reader-edit.js
-
-// reader-edit.js
-
-async function showCustomAlert(title, message, options = {}) {
+async function showCustomAlert(title: any, message: any, options: any = {}) {
   const overlay = document.createElement("div");
   overlay.className = "custom-alert-overlay";
 
@@ -737,8 +510,7 @@ async function showCustomAlert(title, message, options = {}) {
   }
 
   // Use event delegation on the alertBox to handle all clicks.
-  // This works even after the content changes.
-  alertBox.addEventListener("click", (e) => {
+  alertBox.addEventListener("click", (e: any) => {
     const targetId = e.target.id;
 
     if (targetId === "customAlertRead" || targetId === "cancelAlert") {
@@ -769,7 +541,7 @@ async function showCustomAlert(title, message, options = {}) {
   });
 
   // Prevent default form submission to avoid 422 errors
-  alertBox.addEventListener("submit", (e) => {
+  alertBox.addEventListener("submit", (e: any) => {
     e.preventDefault();
   });
 
@@ -777,7 +549,7 @@ async function showCustomAlert(title, message, options = {}) {
   overlay.addEventListener("click", closeAlertAndCancel);
 
   // The Escape key should ALWAYS allow cancellation.
-  function handleEscape(e) {
+  function handleEscape(e: any) {
     if (e.key === "Escape") {
       closeAlertAndCancel();
     }
@@ -786,10 +558,10 @@ async function showCustomAlert(title, message, options = {}) {
 }
 
 export function enforceEditableState() {
-  const editableDiv = document.getElementById(book);
+  const editableDiv = document.getElementById(book) as any;
   if (!editableDiv) return;
 
-  const shouldBeEditable = window.isEditing === true;
+  const shouldBeEditable = (window as any).isEditing === true;
   const currentlyEditable = editableDiv.contentEditable === "true";
 
   if (shouldBeEditable !== currentlyEditable) {
@@ -797,3 +569,6 @@ export function enforceEditableState() {
   }
 }
 
+// Module-load side-effect: reveal the edit button + run the permission check
+// (runs at boot via viewManager's static import — unchanged from the original).
+updateEditButtonVisibility(book);

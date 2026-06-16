@@ -4,7 +4,7 @@
  */
 
 import { cleanupReaderView } from '../../viewManager';
-import { resetEditModeState } from '../../../components/editButton.js';
+import { resetEditModeState } from '../../../components/editButton/index';
 import { destroyUserContainer } from '../../../components/userButton/userButton';
 import { destroyUserProfileEditor } from '../../../components/userProfileEditor.js';
 import { destroyLogoNav } from '../../../components/logoNavToggle.js';

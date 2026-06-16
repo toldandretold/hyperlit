@@ -144,7 +144,7 @@ export default defineConfig({
                 'resources/js/components/newbookContainer/citeForm/index.ts',
                 'resources/js/pageLoad/readerEntry.ts',
                 'resources/js/scrolling/index.ts',
-                'resources/js/components/toc.js',      // ✅ NEW
+                'resources/js/components/tocContainer/index.ts',      // ✅ NEW
                 'resources/js/SPA/viewManager.ts',
                 'resources/js/components/homepageDisplayUnit.js',
 

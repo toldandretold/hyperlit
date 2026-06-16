@@ -30,7 +30,7 @@ import {
 import {
   initializeTocManager,
   destroyTocManager
-} from './toc.js';
+} from './tocToggleButton/tocToggleButton';
 
 import {
   initializeNewBookContainer,
@@ -47,7 +47,7 @@ import TogglePerimeterButtons from './togglePerimeterButtons.js';
 import {
   initializeEditButtonListeners,
   destroyEditButtonListeners
-} from './editButton.js';
+} from './editButton/index';
 
 import {
   initializeSourceButtonListener,

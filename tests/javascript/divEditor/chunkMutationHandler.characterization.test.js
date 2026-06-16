@@ -34,7 +34,7 @@ vi.mock('../../../resources/js/divEditor/chunkManager', () => ({
   chunkNodeCounts: {},
   handleChunkOverflow: vi.fn(() => Promise.resolve(false)),
 }));
-vi.mock('../../../resources/js/components/toc.js', () => ({
+vi.mock('../../../resources/js/components/tocContainer/index', () => ({
   checkAndInvalidateTocCache: vi.fn(),
   invalidateTocCacheForDeletion: vi.fn(),
 }));

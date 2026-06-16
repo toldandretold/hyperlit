@@ -2,7 +2,7 @@
 import { log, verbose } from '../utilities/logger.js';
 import { book, setCurrentBook } from "../app.js";
 import { getCurrentUser, getAnonymousToken, initializeAuthBroadcastListener, initializeAuthStateListener } from "../utilities/auth.js";
-import { checkEditPermissionsAndUpdateUI } from "../components/editButton.js";
+import { checkEditPermissionsAndUpdateUI } from "../components/editButton/index";
 
 // ✅ ButtonRegistry - Centralized component initialization
 import { buttonRegistry } from '../utilities/buttonRegistry.js';
@@ -27,7 +27,8 @@ import { initializeHighlightingControls, cleanupHighlightingControls } from "../
 import { initializeHypercitingControls, cleanupHypercitingControls } from "../hypercites/index";
 import { initializeBroadcastListener } from "../utilities/BroadcastListener.js";
 import { setupUnloadSync } from "../indexedDB/index.js";
-import { generateTableOfContents, destroyTocManager, initializeTocManager } from "../components/toc.js";
+import { generateTableOfContents } from "../components/tocContainer/index";
+import { destroyTocManager, initializeTocManager } from "../components/tocToggleButton/tocToggleButton";
 import { destroySettingsManager, initializeSettingsManager } from "../components/settingsButton/settingsButton";
 import { KeyboardManager } from "../components/keyboardManager.js";
 import {
@@ -35,7 +36,7 @@ import {
   updateEditButtonVisibility,
   handleAutoEdit,
   enforceEditableState
-} from "../components/editButton.js";
+} from "../components/editButton/index";
 import { initializeSourceButtonListener } from "../components/topRightContainer/cloudRef/cloudRefButton";
 import {
   initializeSelectionHandler,

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1070,
-    "moduleCount": 217,
+    "fnCount": 1103,
+    "moduleCount": 224,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 2081,
+    "edgeCount": 2165,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -170,6 +170,134 @@
       "stage": "citations",
       "module": "citations/citationInserter",
       "leaf": true
+    },
+    {
+      "id": "components/editButton/cursor:doesContentExceedViewport",
+      "label": "doesContentExceedViewport",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/cursor",
+      "leaf": false
+    },
+    {
+      "id": "components/editButton/cursor:getFirstElementWithId",
+      "label": "getFirstElementWithId",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/cursor",
+      "leaf": false
+    },
+    {
+      "id": "components/editButton/cursor:getLastContentElement",
+      "label": "getLastContentElement",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/cursor",
+      "leaf": false
+    },
+    {
+      "id": "components/editButton/cursor:getSavedScrollElementId",
+      "label": "getSavedScrollElementId",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/cursor",
+      "leaf": true
+    },
+    {
+      "id": "components/editButton/cursor:placeCursorAtEndOfElement",
+      "label": "placeCursorAtEndOfElement",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/cursor",
+      "leaf": false
+    },
+    {
+      "id": "components/editButton/index:destroyEditButtonListeners",
+      "label": "destroyEditButtonListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/index",
+      "leaf": false
+    },
+    {
+      "id": "components/editButton/index:disableEditMode",
+      "label": "disableEditMode",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/index",
+      "leaf": false
+    },
+    {
+      "id": "components/editButton/index:enableEditMode",
+      "label": "enableEditMode",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/index",
+      "leaf": false
+    },
+    {
+      "id": "components/editButton/index:enforceEditableState",
+      "label": "enforceEditableState",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/index",
+      "leaf": false
+    },
+    {
+      "id": "components/editButton/index:handleAutoEdit",
+      "label": "handleAutoEdit",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/index",
+      "leaf": true
+    },
+    {
+      "id": "components/editButton/index:initializeEditButtonListeners",
+      "label": "initializeEditButtonListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/index",
+      "leaf": false
+    },
+    {
+      "id": "components/editButton/index:resetEditModeState",
+      "label": "resetEditModeState",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/index",
+      "leaf": true
+    },
+    {
+      "id": "components/editButton/lock:checkEditPermissionsAndUpdateUI",
+      "label": "checkEditPermissionsAndUpdateUI",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/lock",
+      "leaf": false
+    },
+    {
+      "id": "components/editButton/lock:replaceEditButtonWithLock",
+      "label": "replaceEditButtonWithLock",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/lock",
+      "leaf": false
+    },
+    {
+      "id": "components/editButton/lock:restoreEditButtonFromLock",
+      "label": "restoreEditButtonFromLock",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/lock",
+      "leaf": false
+    },
+    {
+      "id": "components/editButton/lock:updateEditButtonVisibility",
+      "label": "updateEditButtonVisibility",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/editButton/lock",
+      "leaf": false
     },
     {
       "id": "components/newBookButton/newBookButton:destroyNewBookContainer",
@@ -1018,6 +1146,142 @@
       "stage": "components",
       "module": "components/settingsContainer/vibeCSS/storage",
       "leaf": false
+    },
+    {
+      "id": "components/tocContainer/bookmark:setInitialBookmarkPosition",
+      "label": "setInitialBookmarkPosition",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocContainer/bookmark",
+      "leaf": false
+    },
+    {
+      "id": "components/tocContainer/bookmark:updateOrInsertBookmark",
+      "label": "updateOrInsertBookmark",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocContainer/bookmark",
+      "leaf": false
+    },
+    {
+      "id": "components/tocContainer/index:checkAndInvalidateTocCache",
+      "label": "checkAndInvalidateTocCache",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/tocContainer/index:generateTableOfContents",
+      "label": "generateTableOfContents",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/tocContainer/index:invalidateTocCache",
+      "label": "invalidateTocCache",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/tocContainer/index:invalidateTocCacheForDeletion",
+      "label": "invalidateTocCacheForDeletion",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/tocContainer/index:refreshTOC",
+      "label": "refreshTOC",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/tocContainer/index:renderTOC",
+      "label": "renderTOC",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/tocContainer/index:TocContainerManager.constructor",
+      "label": "TocContainerManager.constructor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/tocContainer/index:TocContainerManager.openContainer",
+      "label": "TocContainerManager.openContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/tocContainer/managerRef:getTocManager",
+      "label": "getTocManager",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocContainer/managerRef",
+      "leaf": true
+    },
+    {
+      "id": "components/tocContainer/managerRef:setTocManager",
+      "label": "setTocManager",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocContainer/managerRef",
+      "leaf": true
+    },
+    {
+      "id": "components/tocToggleButton/tocToggleButton:closeTOC",
+      "label": "closeTOC",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocToggleButton/tocToggleButton",
+      "leaf": true
+    },
+    {
+      "id": "components/tocToggleButton/tocToggleButton:destroyTocManager",
+      "label": "destroyTocManager",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocToggleButton/tocToggleButton",
+      "leaf": true
+    },
+    {
+      "id": "components/tocToggleButton/tocToggleButton:initializeTocManager",
+      "label": "initializeTocManager",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocToggleButton/tocToggleButton",
+      "leaf": false
+    },
+    {
+      "id": "components/tocToggleButton/tocToggleButton:openTOC",
+      "label": "openTOC",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocToggleButton/tocToggleButton",
+      "leaf": true
+    },
+    {
+      "id": "components/tocToggleButton/tocToggleButton:toggleTOC",
+      "label": "toggleTOC",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocToggleButton/tocToggleButton",
+      "leaf": true
     },
     {
       "id": "components/topRightContainer/cloudRef/cloudRefButton:destroySourceButtonListener",
@@ -8796,6 +9060,46 @@
       ]
     },
     {
+      "id": "components/editButton/cursor",
+      "label": "components/editButton/cursor",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/editButton/cursor:doesContentExceedViewport",
+        "components/editButton/cursor:getFirstElementWithId",
+        "components/editButton/cursor:getLastContentElement",
+        "components/editButton/cursor:getSavedScrollElementId",
+        "components/editButton/cursor:placeCursorAtEndOfElement"
+      ]
+    },
+    {
+      "id": "components/editButton/index",
+      "label": "components/editButton/index",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/editButton/index:destroyEditButtonListeners",
+        "components/editButton/index:disableEditMode",
+        "components/editButton/index:enableEditMode",
+        "components/editButton/index:enforceEditableState",
+        "components/editButton/index:handleAutoEdit",
+        "components/editButton/index:initializeEditButtonListeners",
+        "components/editButton/index:resetEditModeState"
+      ]
+    },
+    {
+      "id": "components/editButton/lock",
+      "label": "components/editButton/lock",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/editButton/lock:checkEditPermissionsAndUpdateUI",
+        "components/editButton/lock:replaceEditButtonWithLock",
+        "components/editButton/lock:restoreEditButtonFromLock",
+        "components/editButton/lock:updateEditButtonVisibility"
+      ]
+    },
+    {
       "id": "components/newBookButton/newBookButton",
       "label": "components/newBookButton/newBookButton",
       "stage": "components",
@@ -9123,6 +9427,55 @@
         "components/settingsContainer/vibeCSS/storage:getVibePrompt",
         "components/settingsContainer/vibeCSS/storage:hasVibeCSS",
         "components/settingsContainer/vibeCSS/storage:removeVibeCSS"
+      ]
+    },
+    {
+      "id": "components/tocContainer/bookmark",
+      "label": "components/tocContainer/bookmark",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/tocContainer/bookmark:setInitialBookmarkPosition",
+        "components/tocContainer/bookmark:updateOrInsertBookmark"
+      ]
+    },
+    {
+      "id": "components/tocContainer/index",
+      "label": "components/tocContainer/index",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/tocContainer/index:TocContainerManager.constructor",
+        "components/tocContainer/index:TocContainerManager.openContainer",
+        "components/tocContainer/index:checkAndInvalidateTocCache",
+        "components/tocContainer/index:generateTableOfContents",
+        "components/tocContainer/index:invalidateTocCache",
+        "components/tocContainer/index:invalidateTocCacheForDeletion",
+        "components/tocContainer/index:refreshTOC",
+        "components/tocContainer/index:renderTOC"
+      ]
+    },
+    {
+      "id": "components/tocContainer/managerRef",
+      "label": "components/tocContainer/managerRef",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/tocContainer/managerRef:getTocManager",
+        "components/tocContainer/managerRef:setTocManager"
+      ]
+    },
+    {
+      "id": "components/tocToggleButton/tocToggleButton",
+      "label": "components/tocToggleButton/tocToggleButton",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/tocToggleButton/tocToggleButton:closeTOC",
+        "components/tocToggleButton/tocToggleButton:destroyTocManager",
+        "components/tocToggleButton/tocToggleButton:initializeTocManager",
+        "components/tocToggleButton/tocToggleButton:openTOC",
+        "components/tocToggleButton/tocToggleButton:toggleTOC"
       ]
     },
     {
@@ -11630,6 +11983,183 @@
       "rel": "write"
     },
     {
+      "id": "components/editButton/index:disableEditMode__call__components/editButton/index:enforceEditableState",
+      "source": "components/editButton/index:disableEditMode",
+      "target": "components/editButton/index:enforceEditableState",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:disableEditMode__call__editToolbar/index:getEditToolbar",
+      "source": "components/editButton/index:disableEditMode",
+      "target": "editToolbar/index:getEditToolbar",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:disableEditMode__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "components/editButton/index:disableEditMode",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/editButton/index:disableEditMode__domwrite__dom",
+      "source": "components/editButton/index:disableEditMode",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__components/editButton/cursor:doesContentExceedViewport",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "components/editButton/cursor:doesContentExceedViewport",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__components/editButton/cursor:getFirstElementWithId",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "components/editButton/cursor:getFirstElementWithId",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__components/editButton/cursor:getLastContentElement",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "components/editButton/cursor:getLastContentElement",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__components/editButton/cursor:getSavedScrollElementId",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "components/editButton/cursor:getSavedScrollElementId",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__components/editButton/cursor:placeCursorAtEndOfElement",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "components/editButton/cursor:placeCursorAtEndOfElement",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__components/editButton/index:disableEditMode",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "components/editButton/index:disableEditMode",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__components/editButton/index:enableEditMode",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "components/editButton/index:enableEditMode",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__components/editButton/index:enforceEditableState",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "components/editButton/index:enforceEditableState",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__components/editButton/lock:replaceEditButtonWithLock",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "components/editButton/lock:replaceEditButtonWithLock",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__divEditor/index:startObserving",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "divEditor/index:startObserving",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__editToolbar/index:getEditToolbar",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "editToolbar/index:getEditToolbar",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__domwrite__dom",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/editButton/index:handleAutoEdit__call__components/editButton/index:enableEditMode",
+      "source": "components/editButton/index:handleAutoEdit",
+      "target": "components/editButton/index:enableEditMode",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/editButton/index:initializeEditButtonListeners__call__components/editButton/index:disableEditMode",
+      "source": "components/editButton/index:initializeEditButtonListeners",
+      "target": "components/editButton/index:disableEditMode",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/editButton/index:initializeEditButtonListeners__call__components/editButton/index:enableEditMode",
+      "source": "components/editButton/index:initializeEditButtonListeners",
+      "target": "components/editButton/index:enableEditMode",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/editButton/index:initializeEditButtonListeners__domwrite__dom",
+      "source": "components/editButton/index:initializeEditButtonListeners",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/editButton/lock:checkEditPermissionsAndUpdateUI__call__components/editButton/lock:replaceEditButtonWithLock",
+      "source": "components/editButton/lock:checkEditPermissionsAndUpdateUI",
+      "target": "components/editButton/lock:replaceEditButtonWithLock",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/lock:checkEditPermissionsAndUpdateUI__call__components/editButton/lock:restoreEditButtonFromLock",
+      "source": "components/editButton/lock:checkEditPermissionsAndUpdateUI",
+      "target": "components/editButton/lock:restoreEditButtonFromLock",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/editButton/lock:replaceEditButtonWithLock__domwrite__dom",
+      "source": "components/editButton/lock:replaceEditButtonWithLock",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/editButton/lock:restoreEditButtonFromLock__call__components/editButton/index:initializeEditButtonListeners",
+      "source": "components/editButton/lock:restoreEditButtonFromLock",
+      "target": "components/editButton/index:initializeEditButtonListeners",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/editButton/lock:restoreEditButtonFromLock__domwrite__dom",
+      "source": "components/editButton/lock:restoreEditButtonFromLock",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/editButton/lock:updateEditButtonVisibility__call__components/editButton/lock:checkEditPermissionsAndUpdateUI",
+      "source": "components/editButton/lock:updateEditButtonVisibility",
+      "target": "components/editButton/lock:checkEditPermissionsAndUpdateUI",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/editButton/lock:updateEditButtonVisibility__domwrite__dom",
+      "source": "components/editButton/lock:updateEditButtonVisibility",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal__call__components/newbookContainer/citeForm/bookId:findAvailableBookId",
       "source": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
       "target": "components/newbookContainer/citeForm/bookId:findAvailableBookId",
@@ -12611,6 +13141,154 @@
       "source": "components/settingsContainer/vibeCSS/storage:removeVibeCSS",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/tocContainer/bookmark:updateOrInsertBookmark__call__indexedDB/core/utilities:getLocalStorageKey",
+      "source": "components/tocContainer/bookmark:updateOrInsertBookmark",
+      "target": "indexedDB/core/utilities:getLocalStorageKey",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocContainer/bookmark:updateOrInsertBookmark__domwrite__dom",
+      "source": "components/tocContainer/bookmark:updateOrInsertBookmark",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/tocContainer/index:checkAndInvalidateTocCache__call__components/tocContainer/index:invalidateTocCache",
+      "source": "components/tocContainer/index:checkAndInvalidateTocCache",
+      "target": "components/tocContainer/index:invalidateTocCache",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocContainer/index:generateTableOfContents__call__components/tocContainer/index:renderTOC",
+      "source": "components/tocContainer/index:generateTableOfContents",
+      "target": "components/tocContainer/index:renderTOC",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocContainer/index:generateTableOfContents__call__components/tocContainer/managerRef:getTocManager",
+      "source": "components/tocContainer/index:generateTableOfContents",
+      "target": "components/tocContainer/managerRef:getTocManager",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocContainer/index:generateTableOfContents__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "components/tocContainer/index:generateTableOfContents",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/tocContainer/index:generateTableOfContents__call__scrolling/internalNav:navigateToInternalId",
+      "source": "components/tocContainer/index:generateTableOfContents",
+      "target": "scrolling/internalNav:navigateToInternalId",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/tocContainer/index:generateTableOfContents__domwrite__dom",
+      "source": "components/tocContainer/index:generateTableOfContents",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/tocContainer/index:invalidateTocCacheForDeletion__call__components/tocContainer/index:invalidateTocCache",
+      "source": "components/tocContainer/index:invalidateTocCacheForDeletion",
+      "target": "components/tocContainer/index:invalidateTocCache",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocContainer/index:refreshTOC__call__components/tocContainer/index:generateTableOfContents",
+      "source": "components/tocContainer/index:refreshTOC",
+      "target": "components/tocContainer/index:generateTableOfContents",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/tocContainer/index:refreshTOC__call__components/tocContainer/index:invalidateTocCache",
+      "source": "components/tocContainer/index:refreshTOC",
+      "target": "components/tocContainer/index:invalidateTocCache",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocContainer/index:renderTOC__domwrite__dom",
+      "source": "components/tocContainer/index:renderTOC",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/tocContainer/index:TocContainerManager.openContainer__call__components/tocContainer/bookmark:setInitialBookmarkPosition",
+      "source": "components/tocContainer/index:TocContainerManager.openContainer",
+      "target": "components/tocContainer/bookmark:setInitialBookmarkPosition",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocContainer/index:TocContainerManager.openContainer__call__components/tocContainer/bookmark:updateOrInsertBookmark",
+      "source": "components/tocContainer/index:TocContainerManager.openContainer",
+      "target": "components/tocContainer/bookmark:updateOrInsertBookmark",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocContainer/index:TocContainerManager.openContainer__call__components/tocContainer/index:generateTableOfContents",
+      "source": "components/tocContainer/index:TocContainerManager.openContainer",
+      "target": "components/tocContainer/index:generateTableOfContents",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/tocContainer/index:TocContainerManager.openContainer__domwrite__dom",
+      "source": "components/tocContainer/index:TocContainerManager.openContainer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/tocToggleButton/tocToggleButton:closeTOC__call__components/tocContainer/managerRef:getTocManager",
+      "source": "components/tocToggleButton/tocToggleButton:closeTOC",
+      "target": "components/tocContainer/managerRef:getTocManager",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocToggleButton/tocToggleButton:destroyTocManager__call__components/tocContainer/index:invalidateTocCache",
+      "source": "components/tocToggleButton/tocToggleButton:destroyTocManager",
+      "target": "components/tocContainer/index:invalidateTocCache",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocToggleButton/tocToggleButton:destroyTocManager__call__components/tocContainer/managerRef:getTocManager",
+      "source": "components/tocToggleButton/tocToggleButton:destroyTocManager",
+      "target": "components/tocContainer/managerRef:getTocManager",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocToggleButton/tocToggleButton:destroyTocManager__call__components/tocContainer/managerRef:setTocManager",
+      "source": "components/tocToggleButton/tocToggleButton:destroyTocManager",
+      "target": "components/tocContainer/managerRef:setTocManager",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocToggleButton/tocToggleButton:initializeTocManager__call__components/tocContainer/managerRef:getTocManager",
+      "source": "components/tocToggleButton/tocToggleButton:initializeTocManager",
+      "target": "components/tocContainer/managerRef:getTocManager",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocToggleButton/tocToggleButton:initializeTocManager__call__components/tocContainer/managerRef:setTocManager",
+      "source": "components/tocToggleButton/tocToggleButton:initializeTocManager",
+      "target": "components/tocContainer/managerRef:setTocManager",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocToggleButton/tocToggleButton:openTOC__call__components/tocContainer/managerRef:getTocManager",
+      "source": "components/tocToggleButton/tocToggleButton:openTOC",
+      "target": "components/tocContainer/managerRef:getTocManager",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocToggleButton/tocToggleButton:toggleTOC__call__components/tocContainer/managerRef:getTocManager",
+      "source": "components/tocToggleButton/tocToggleButton:toggleTOC",
+      "target": "components/tocContainer/managerRef:getTocManager",
+      "rel": "call"
     },
     {
       "id": "components/topRightContainer/cloudRef/cloudRefButton:destroySourceButtonListener__domwrite__dom",
@@ -13871,6 +14549,12 @@
       "rel": "call"
     },
     {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__components/tocContainer/index:invalidateTocCacheForDeletion",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "target": "components/tocContainer/index:invalidateTocCacheForDeletion",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__divEditor/chunkManager:handleChunkOverflow",
       "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
       "target": "divEditor/chunkManager:handleChunkOverflow",
@@ -13942,6 +14626,12 @@
       "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.queueTocInvalidation__call__components/tocContainer/index:checkAndInvalidateTocCache",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.queueTocInvalidation",
+      "target": "components/tocContainer/index:checkAndInvalidateTocCache",
+      "rel": "call"
     },
     {
       "id": "divEditor/chunkMutationHandler/spanDestroyer:destroySpan__domwrite__dom",
@@ -14224,6 +14914,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "divEditor/index:startObserving__call__components/tocContainer/index:checkAndInvalidateTocCache",
+      "source": "divEditor/index:startObserving",
+      "target": "components/tocContainer/index:checkAndInvalidateTocCache",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/index:startObserving__call__divEditor/chunkManager:getCurrentChunk",
       "source": "divEditor/index:startObserving",
       "target": "divEditor/chunkManager:getCurrentChunk",
@@ -14414,6 +15110,84 @@
       "id": "dom__domread__citations/citationInserter:insertCitationAtCursor",
       "source": "dom",
       "target": "citations/citationInserter:insertCitationAtCursor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/editButton/cursor:doesContentExceedViewport",
+      "source": "dom",
+      "target": "components/editButton/cursor:doesContentExceedViewport",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/editButton/cursor:getFirstElementWithId",
+      "source": "dom",
+      "target": "components/editButton/cursor:getFirstElementWithId",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/editButton/cursor:getLastContentElement",
+      "source": "dom",
+      "target": "components/editButton/cursor:getLastContentElement",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/editButton/cursor:placeCursorAtEndOfElement",
+      "source": "dom",
+      "target": "components/editButton/cursor:placeCursorAtEndOfElement",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/editButton/index:destroyEditButtonListeners",
+      "source": "dom",
+      "target": "components/editButton/index:destroyEditButtonListeners",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/editButton/index:disableEditMode",
+      "source": "dom",
+      "target": "components/editButton/index:disableEditMode",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/editButton/index:enableEditMode",
+      "source": "dom",
+      "target": "components/editButton/index:enableEditMode",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/editButton/index:enforceEditableState",
+      "source": "dom",
+      "target": "components/editButton/index:enforceEditableState",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/editButton/index:initializeEditButtonListeners",
+      "source": "dom",
+      "target": "components/editButton/index:initializeEditButtonListeners",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/editButton/lock:checkEditPermissionsAndUpdateUI",
+      "source": "dom",
+      "target": "components/editButton/lock:checkEditPermissionsAndUpdateUI",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/editButton/lock:replaceEditButtonWithLock",
+      "source": "dom",
+      "target": "components/editButton/lock:replaceEditButtonWithLock",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/editButton/lock:restoreEditButtonFromLock",
+      "source": "dom",
+      "target": "components/editButton/lock:restoreEditButtonFromLock",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/editButton/lock:updateEditButtonVisibility",
+      "source": "dom",
+      "target": "components/editButton/lock:updateEditButtonVisibility",
       "rel": "domread"
     },
     {
@@ -14684,6 +15458,36 @@
       "id": "dom__domread__components/settingsContainer/vibeCSS/storage:removeVibeCSS",
       "source": "dom",
       "target": "components/settingsContainer/vibeCSS/storage:removeVibeCSS",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/tocContainer/bookmark:setInitialBookmarkPosition",
+      "source": "dom",
+      "target": "components/tocContainer/bookmark:setInitialBookmarkPosition",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/tocContainer/bookmark:updateOrInsertBookmark",
+      "source": "dom",
+      "target": "components/tocContainer/bookmark:updateOrInsertBookmark",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/tocContainer/index:generateTableOfContents",
+      "source": "dom",
+      "target": "components/tocContainer/index:generateTableOfContents",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/tocContainer/index:renderTOC",
+      "source": "dom",
+      "target": "components/tocContainer/index:renderTOC",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/tocToggleButton/tocToggleButton:initializeTocManager",
+      "source": "dom",
+      "target": "components/tocToggleButton/tocToggleButton:initializeTocManager",
       "rel": "domread"
     },
     {
@@ -18983,6 +19787,12 @@
       "rel": "call"
     },
     {
+      "id": "hyperlitContainer/containerListeners:cleanupContainerListeners__call__components/editButton/index:enforceEditableState",
+      "source": "hyperlitContainer/containerListeners:cleanupContainerListeners",
+      "target": "components/editButton/index:enforceEditableState",
+      "rel": "call"
+    },
+    {
       "id": "hyperlitContainer/containerListeners:cleanupContainerListeners__call__divEditor/editSessionManager:getActiveEditSession",
       "source": "hyperlitContainer/containerListeners:cleanupContainerListeners",
       "target": "divEditor/editSessionManager:getActiveEditSession",
@@ -23273,6 +24083,12 @@
       "rel": "call"
     },
     {
+      "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.cleanupCurrentReader__call__components/editButton/index:resetEditModeState",
+      "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.cleanupCurrentReader",
+      "target": "components/editButton/index:resetEditModeState",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.cleanupCurrentReader__call__components/userButton/userButton:destroyUserContainer",
       "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.cleanupCurrentReader",
       "target": "components/userButton/userButton:destroyUserContainer",
@@ -23346,6 +24162,12 @@
       "dataPath": true
     },
     {
+      "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.replacePageContent__call__components/editButton/index:enforceEditableState",
+      "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.replacePageContent",
+      "target": "components/editButton/index:enforceEditableState",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.replacePageContent__domwrite__dom",
       "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.replacePageContent",
       "target": "dom",
@@ -23408,6 +24230,19 @@
       "target": "SPA/viewManager:universalPageInitializer",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.setupFreshPageLoadHandling__call__components/editButton/lock:checkEditPermissionsAndUpdateUI",
+      "source": "SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.setupFreshPageLoadHandling",
+      "target": "components/editButton/lock:checkEditPermissionsAndUpdateUI",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState__call__components/editButton/index:resetEditModeState",
+      "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState",
+      "target": "components/editButton/index:resetEditModeState",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState__call__components/newBookButton/newBookButton:destroyNewBookContainer",
@@ -23485,6 +24320,12 @@
       "target": "SPA/viewManager:universalPageInitializer",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent__call__components/editButton/index:enforceEditableState",
+      "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent",
+      "target": "components/editButton/index:enforceEditableState",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent__domwrite__dom",
@@ -23579,6 +24420,12 @@
       "target": "SPA/viewManager:universalPageInitializer",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.replaceBodyContent__call__components/editButton/index:enforceEditableState",
+      "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.replaceBodyContent",
+      "target": "components/editButton/index:enforceEditableState",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.replaceBodyContent__domwrite__dom",
@@ -23706,6 +24553,12 @@
       "target": "SPA/navigation/utils/cleanupHelpers:closeOpenContainers",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/utils/cleanupHelpers:cleanupReader__call__components/editButton/index:resetEditModeState",
+      "source": "SPA/navigation/utils/cleanupHelpers:cleanupReader",
+      "target": "components/editButton/index:resetEditModeState",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/utils/cleanupHelpers:cleanupReader__call__components/userButton/userButton:destroyUserContainer",
@@ -23952,6 +24805,26 @@
       "source": "SPA/viewManager:cleanupReaderView",
       "target": "hyperlitContainer/core:destroyHyperlitManager",
       "rel": "call"
+    },
+    {
+      "id": "SPA/viewManager:universalPageInitializer__call__components/editButton/index:enforceEditableState",
+      "source": "SPA/viewManager:universalPageInitializer",
+      "target": "components/editButton/index:enforceEditableState",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/viewManager:universalPageInitializer__call__components/editButton/lock:checkEditPermissionsAndUpdateUI",
+      "source": "SPA/viewManager:universalPageInitializer",
+      "target": "components/editButton/lock:checkEditPermissionsAndUpdateUI",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "SPA/viewManager:universalPageInitializer__call__components/editButton/lock:updateEditButtonVisibility",
+      "source": "SPA/viewManager:universalPageInitializer",
+      "target": "components/editButton/lock:updateEditButtonVisibility",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "SPA/viewManager:universalPageInitializer__call__editToolbar/index:initEditToolbar",
@@ -24759,6 +25632,11 @@
     },
     {
       "source": "SPA/navigation/pathways/BookToBookTransition",
+      "target": "components/editButton/index",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/BookToBookTransition",
       "target": "components/userButton/userButton",
       "kind": "static"
     },
@@ -24813,6 +25691,11 @@
       "kind": "lazy"
     },
     {
+      "source": "SPA/navigation/pathways/FreshPageLoader",
+      "target": "components/editButton/index",
+      "kind": "lazy"
+    },
+    {
       "source": "SPA/navigation/pathways/ImportBookTransition",
       "target": "SPA/navigation/ProgressOverlayConductor",
       "kind": "static"
@@ -24825,6 +25708,11 @@
     {
       "source": "SPA/navigation/pathways/ImportBookTransition",
       "target": "SPA/viewManager",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/ImportBookTransition",
+      "target": "components/editButton/index",
       "kind": "static"
     },
     {
@@ -24865,6 +25753,11 @@
     {
       "source": "SPA/navigation/pathways/NewBookTransition",
       "target": "SPA/viewManager",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/NewBookTransition",
+      "target": "components/editButton/index",
       "kind": "static"
     },
     {
@@ -24929,6 +25822,11 @@
     },
     {
       "source": "SPA/navigation/utils/cleanupHelpers",
+      "target": "components/editButton/index",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/cleanupHelpers",
       "target": "components/userButton/userButton",
       "kind": "static"
     },
@@ -24989,7 +25887,22 @@
     },
     {
       "source": "SPA/viewManager",
+      "target": "components/editButton/index",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/viewManager",
       "target": "components/settingsButton/settingsButton",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "components/tocContainer/index",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "components/tocToggleButton/tocToggleButton",
       "kind": "static"
     },
     {
@@ -25071,6 +25984,41 @@
       "source": "citations/citationInserter",
       "target": "indexedDB/index",
       "kind": "static"
+    },
+    {
+      "source": "components/editButton/index",
+      "target": "components/editButton/cursor",
+      "kind": "static"
+    },
+    {
+      "source": "components/editButton/index",
+      "target": "components/editButton/lock",
+      "kind": "static"
+    },
+    {
+      "source": "components/editButton/index",
+      "target": "components/userButton/userButton",
+      "kind": "static"
+    },
+    {
+      "source": "components/editButton/index",
+      "target": "divEditor/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/editButton/index",
+      "target": "editToolbar/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/editButton/index",
+      "target": "indexedDB/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/editButton/lock",
+      "target": "components/editButton/index",
+      "kind": "breaker"
     },
     {
       "source": "components/newBookButton/newBookButton",
@@ -25373,6 +26321,41 @@
       "kind": "lazy"
     },
     {
+      "source": "components/tocContainer/bookmark",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/tocContainer/index",
+      "target": "components/tocContainer/bookmark",
+      "kind": "static"
+    },
+    {
+      "source": "components/tocContainer/index",
+      "target": "components/tocContainer/managerRef",
+      "kind": "static"
+    },
+    {
+      "source": "components/tocContainer/index",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/tocContainer/index",
+      "target": "scrolling/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/tocToggleButton/tocToggleButton",
+      "target": "components/tocContainer/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/tocToggleButton/tocToggleButton",
+      "target": "components/tocContainer/managerRef",
+      "kind": "static"
+    },
+    {
       "source": "components/topRightContainer/cloudRef/cloudRefButton",
       "target": "components/topRightContainer/sourceContainer/index",
       "kind": "static"
@@ -25634,6 +26617,11 @@
     },
     {
       "source": "divEditor/chunkMutationHandler/index",
+      "target": "components/tocContainer/index",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/chunkMutationHandler/index",
       "target": "divEditor/chunkManager",
       "kind": "static"
     },
@@ -25715,6 +26703,11 @@
     {
       "source": "divEditor/enterKeyHandler/index",
       "target": "divEditor/enterKeyHandler/caretHelpers",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/index",
+      "target": "components/tocContainer/index",
       "kind": "static"
     },
     {
@@ -26346,6 +27339,11 @@
       "source": "hyperlitContainer/containerListeners",
       "target": "hyperlitContainer/containerState",
       "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/containerListeners",
+      "target": "components/editButton/index",
+      "kind": "lazy"
     },
     {
       "source": "hyperlitContainer/containerListeners",
@@ -27504,6 +28502,11 @@
     },
     {
       "source": "pageLoad/readerEntry",
+      "target": "components/tocContainer/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/readerEntry",
       "target": "hyperlights/index",
       "kind": "static"
     },
@@ -27662,6 +28665,10 @@
         "SPA/navigation/utils/contentSwapHelpers",
         "SPA/navigation/utils/initHelpers",
         "SPA/viewManager",
+        "components/editButton/index",
+        "components/editButton/lock",
+        "components/tocContainer/index",
+        "components/tocToggleButton/tocToggleButton",
         "components/topRightContainer/cloudRef/cloudRefButton",
         "components/topRightContainer/sourceContainer/creatorTools/reconvert",
         "components/topRightContainer/sourceContainer/downloads",
@@ -27704,7 +28711,7 @@
         "scrolling/restore"
       ]
     ],
-    "breakerCount": 18,
-    "lazyCount": 138
+    "breakerCount": 22,
+    "lazyCount": 143
   }
 }

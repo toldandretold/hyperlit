@@ -654,7 +654,7 @@ export function initializeAuthStateListener() {
       // If user is in edit mode and logging out, exit edit mode first
       if (type === 'logout' && window.isEditing) {
         console.log('🔄 User was in edit mode, disabling edit mode on logout...');
-        const { disableEditMode } = await import('../components/editButton.js');
+        const { disableEditMode } = await import('../components/editButton/index');
         // IDB was already wiped by clearDatabase() above and the content is on
         // the server — skip the flush + integrity sweep so we don't emit a false
         // "missingFromIDB" report (DOM nodes vs an emptied DB) on every logout.
@@ -690,7 +690,7 @@ export function initializeAuthStateListener() {
         }
       }
 
-      const { checkEditPermissionsAndUpdateUI } = await import('../components/editButton.js');
+      const { checkEditPermissionsAndUpdateUI } = await import('../components/editButton/index');
       await checkEditPermissionsAndUpdateUI();
     }
     // Home page doesn't need special handling - no auth-dependent UI
@@ -744,7 +744,7 @@ export function initializeAuthBroadcastListener() {
       } else if (pageType === 'reader') {
         // Reader page: update edit button permissions
         console.log('🔄 Updating edit button permissions...');
-        const { checkEditPermissionsAndUpdateUI } = await import('../components/editButton.js');
+        const { checkEditPermissionsAndUpdateUI } = await import('../components/editButton/index');
         await checkEditPermissionsAndUpdateUI();
 
       } else {

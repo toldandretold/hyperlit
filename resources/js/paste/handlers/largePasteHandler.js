@@ -321,7 +321,7 @@ export async function handleLargePaste(
   }
 
   // Invalidate TOC cache after paste (heading IDs have changed)
-  const { invalidateTocCache } = await import('../../components/toc.js');
+  const { invalidateTocCache } = await import('../../components/tocContainer/index');
   invalidateTocCache();
   console.log('🔄 TOC cache invalidated after paste');
 

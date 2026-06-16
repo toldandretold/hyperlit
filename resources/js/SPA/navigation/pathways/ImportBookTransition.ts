@@ -12,7 +12,7 @@ import { waitForLayoutStabilization, waitForContentReady } from '../../../utilit
 import { destroyUserContainer } from '../../../components/userButton/userButton';
 import { destroyNewBookContainer } from '../../../components/newBookButton/newBookButton';
 import { destroyHomepageDisplayUnit } from '../../../components/homepageDisplayUnit.js';
-import { resetEditModeState, enforceEditableState, enableEditMode } from '../../../components/editButton.js';
+import { resetEditModeState, enforceEditableState, enableEditMode } from '../../../components/editButton/index';
 import { cleanupReaderView } from '../../viewManager';
 import { setCurrentBook } from '../../../app.js';
 import { resolveFirstChunkPromise, loadFromJSONFiles } from '../../../pageLoad';

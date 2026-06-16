@@ -13,7 +13,7 @@ import { universalPageInitializer } from "../SPA/viewManager";
 import { initializeHomepage } from "../components/homepage.js";
 // ✅ REMOVED: initializeFootnoteCitationListeners now managed by ButtonRegistry
 import { setInitialBookSyncPromise, withPending, getInitialBookSyncPromise } from "../utilities/operationState.js";
-import { generateTableOfContents } from "../components/toc.js";
+import { generateTableOfContents } from "../components/tocContainer/index";
 import { attachMarkListeners } from "../hyperlights/index";
 // ✅ REMOVED: TogglePerimeterButtons now managed exclusively by ButtonRegistry
 // import TogglePerimeterButtons from "./components/togglePerimeterButtons.js";

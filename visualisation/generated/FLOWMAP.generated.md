@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1070 functions in 217 modules · 8 object stores · 6 PG tables · 2081 edges
+**MarkdownDB** schema v27 · 1103 functions in 224 modules · 8 object stores · 6 PG tables · 2165 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -13,6 +13,22 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `generateReferenceId` | `citations/citationInserter` | — | — | — | — |
 | `insertCitationAtCursor` | `citations/citationInserter` | — | `bibliography` | read/write | — |
 | `parseAuthorYear` | `citations/citationInserter` | — | — | — | — |
+| `doesContentExceedViewport` | `components/editButton/cursor` | — | — | read | — |
+| `getFirstElementWithId` | `components/editButton/cursor` | — | — | read | — |
+| `getLastContentElement` | `components/editButton/cursor` | — | — | read | — |
+| `getSavedScrollElementId` | `components/editButton/cursor` | — | — | — | — |
+| `placeCursorAtEndOfElement` | `components/editButton/cursor` | — | — | read | — |
+| `destroyEditButtonListeners` | `components/editButton/index` | — | — | read | — |
+| `disableEditMode` | `components/editButton/index` | — | — | read/write | — |
+| `enableEditMode` | `components/editButton/index` | — | — | read/write | — |
+| `enforceEditableState` | `components/editButton/index` | — | — | read | — |
+| `handleAutoEdit` | `components/editButton/index` | — | — | — | — |
+| `initializeEditButtonListeners` | `components/editButton/index` | — | — | read/write | — |
+| `resetEditModeState` | `components/editButton/index` | — | — | — | — |
+| `checkEditPermissionsAndUpdateUI` | `components/editButton/lock` | — | — | read | — |
+| `replaceEditButtonWithLock` | `components/editButton/lock` | — | — | read/write | — |
+| `restoreEditButtonFromLock` | `components/editButton/lock` | — | — | read/write | — |
+| `updateEditButtonVisibility` | `components/editButton/lock` | — | — | read/write | — |
 | `destroyNewBookContainer` | `components/newBookButton/newBookButton` | — | — | — | — |
 | `initializeNewBookContainer` | `components/newBookButton/newBookButton` | — | — | read | — |
 | `checkBibtexAndReveal` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
@@ -119,6 +135,23 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hasVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | — | — |
 | `removeVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | read/write | — |
 | `handleVibeClick` | `components/settingsContainer/vibe` | — | — | — | — |
+| `setInitialBookmarkPosition` | `components/tocContainer/bookmark` | — | — | read | — |
+| `updateOrInsertBookmark` | `components/tocContainer/bookmark` | — | — | read/write | — |
+| `checkAndInvalidateTocCache` | `components/tocContainer/index` | — | — | — | — |
+| `generateTableOfContents` | `components/tocContainer/index` | — | — | read/write | — |
+| `invalidateTocCache` | `components/tocContainer/index` | — | — | — | — |
+| `invalidateTocCacheForDeletion` | `components/tocContainer/index` | — | — | — | — |
+| `refreshTOC` | `components/tocContainer/index` | — | — | — | — |
+| `renderTOC` | `components/tocContainer/index` | — | — | read/write | — |
+| `TocContainerManager.constructor` | `components/tocContainer/index` | — | — | — | — |
+| `TocContainerManager.openContainer` | `components/tocContainer/index` | — | — | write | — |
+| `getTocManager` | `components/tocContainer/managerRef` | — | — | — | — |
+| `setTocManager` | `components/tocContainer/managerRef` | — | — | — | — |
+| `closeTOC` | `components/tocToggleButton/tocToggleButton` | — | — | — | — |
+| `destroyTocManager` | `components/tocToggleButton/tocToggleButton` | — | — | — | — |
+| `initializeTocManager` | `components/tocToggleButton/tocToggleButton` | — | — | read | — |
+| `openTOC` | `components/tocToggleButton/tocToggleButton` | — | — | — | — |
+| `toggleTOC` | `components/tocToggleButton/tocToggleButton` | — | — | — | — |
 | `destroySourceButtonListener` | `components/topRightContainer/cloudRef/cloudRefButton` | — | — | write | — |
 | `initializeSourceButtonListener` | `components/topRightContainer/cloudRef/cloudRefButton` | — | — | write | — |
 | `cancelForcedVisibility` | `components/topRightContainer/cloudRef/editIndicator` | — | — | — | — |
@@ -1083,17 +1116,18 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 18 · lazy-loads (code-split): 138
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 22 · lazy-loads (code-split): 143
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
 ### Cycles masked by dynamic imports (coupling debt)
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
 - (2 modules) `components/topRightContainer/cloudRef/editIndicator`, `indexedDB/core/healthMonitor`
-- (51 modules) `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/topRightContainer/cloudRef/cloudRefButton`, `components/topRightContainer/sourceContainer/creatorTools/reconvert`, `components/topRightContainer/sourceContainer/downloads`, `components/topRightContainer/sourceContainer/index`, `components/userButton/userButton`, `components/userContainer/index`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
+- (55 modules) `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/editButton/index`, `components/editButton/lock`, `components/tocContainer/index`, `components/tocToggleButton/tocToggleButton`, `components/topRightContainer/cloudRef/cloudRefButton`, `components/topRightContainer/sourceContainer/creatorTools/reconvert`, `components/topRightContainer/sourceContainer/downloads`, `components/topRightContainer/sourceContainer/index`, `components/userButton/userButton`, `components/userContainer/index`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
 - `SPA/viewManager` → `SPA/navigation/LinkNavigationHandler`
+- `components/editButton/lock` → `components/editButton/index`
 - `components/topRightContainer/sourceContainer/creatorTools/reconvert` → `SPA/navigation/pathways/ImportBookTransition`
 - `components/userContainer/index` → `SPA/navigation/NavigationManager`
 - `divEditor/chunkManager` → `divEditor/index`
@@ -1114,6 +1148,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/NewBookTransition`
 - `SPA/navigation/chunkLoadRouter` → `SPA/navigation/loadInitialChunkLocal`
 - `SPA/navigation/pathways/FreshPageLoader` → `SPA/viewManager`
+- `SPA/navigation/pathways/FreshPageLoader` → `components/editButton/index`
 - `SPA/navigation/pathways/SameTemplateTransition` → `SPA/navigation/pathways/BookToBookTransition`
 - `SPA/navigation/pathways/SameTemplateTransition` → `SPA/navigation/pathways/DifferentTemplateTransition`
 - `SPA/navigation/resolveTargetChunk` → `indexedDB/hypercites/index`
@@ -1124,6 +1159,9 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `SPA/viewManager` → `indexedDB/core/connection`
 - `SPA/viewManager` → `indexedDB/core/healthMonitor`
 - `SPA/viewManager` → `indexedDB/core/recoveryToast`
+- `components/editButton/index` → `divEditor/index`
+- `components/editButton/index` → `editToolbar/index`
+- `components/editButton/index` → `indexedDB/index`
 - `components/newbookContainer/citeForm/submission` → `SPA/navigation/pathways/ImportBookTransition`
 - `components/newbookContainer/citeForm/submission` → `components/userButton/userButton`
 - `components/newbookContainer/citeForm/urlImport` → `components/userButton/userButton`
@@ -1134,6 +1172,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/settingsContainer/gate` → `indexedDB/syncQueue/queue`
 - `components/settingsContainer/vibeCSS/galleryUI` → `components/userButton/userButton`
 - `components/settingsContainer/vibeCSS/storage` → `components/settingsContainer/vibeCanvas`
+- `components/tocContainer/index` → `scrolling/index`
 - `components/topRightContainer/sourceContainer/aiReview/pipelineViz` → `hyperlights/deletion`
 - `components/topRightContainer/sourceContainer/aiReview/pipelineViz` → `indexedDB/core/library`
 - `components/topRightContainer/sourceContainer/creatorTools/deleteBook` → `indexedDB/index`
@@ -1157,6 +1196,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/brainQuery` → `hyperlitContainer/core`
 - `hyperlitContainer/brainQuery` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/brainQuery` → `indexedDB/index`
+- `hyperlitContainer/containerListeners` → `components/editButton/index`
 - `hyperlitContainer/containerListeners` → `divEditor/editSessionManager`
 - `hyperlitContainer/containerListeners` → `divEditor/index`
 - `hyperlitContainer/containerListeners` → `editToolbar/index`

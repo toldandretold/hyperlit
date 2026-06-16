@@ -69,7 +69,7 @@ export class FreshPageLoader {
           setTimeout(async () => {
             try {
               // Check and update edit permissions
-              const { checkEditPermissionsAndUpdateUI } = await import('../../../components/editButton.js');
+              const { checkEditPermissionsAndUpdateUI } = await import('../../../components/editButton/index');
               await checkEditPermissionsAndUpdateUI();
 
             } catch (error: any) {

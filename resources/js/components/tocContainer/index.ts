@@ -1,0 +1,297 @@
+// TocContainerManager — the #toc-container panel. Owns the openContainer override
+// (render TOC + bookmark before showing), heading scan + 30s cache, TOC render +
+// click navigation, and the cache-invalidation API consumed by the data layer
+// (divEditor / largePasteHandler). The singleton lives in ./managerRef so the
+// button folder and these standalone functions share it without a cycle; the
+// bookmark UI is in ./bookmark. Registry init/destroy live in
+// ../tocToggleButton/tocToggleButton.
+import { getNodeChunksFromIndexedDB } from "../../indexedDB/index";
+import { book } from "../../app.js";
+import { ContainerManager } from "../containerManager.js";
+import { getTocManager } from "./managerRef";
+import { updateOrInsertBookmark, setInitialBookmarkPosition } from "./bookmark";
+
+// Invalidate TOC cache when background download completes/fails (chunked lazy loading)
+window.addEventListener('backgroundDownloadComplete', () => {
+  if (tocCache) {
+    tocCache.data = null;
+    tocCache.lastScanTime = 0;
+  }
+});
+window.addEventListener('backgroundDownloadFailed', () => {
+  if (tocCache) {
+    tocCache.data = null;
+    tocCache.lastScanTime = 0;
+  }
+});
+
+export class TocContainerManager extends (ContainerManager as any) {
+  constructor(containerId: any, overlayId: any, buttonId: any, frozenContainerIds: any = []) {
+    super(containerId, overlayId, buttonId, frozenContainerIds);
+  }
+
+  async openContainer() {
+    // Restore baseline container structure (scroller, masks, controls).
+    if (this.initialContent) {
+      this.container.innerHTML = this.initialContent;
+    }
+    // Now render TOC into the restored structure.
+    await generateTableOfContents();
+
+    // Prepare container for opening but keep it hidden until fully ready
+    if ((window as any).containerCustomizer) (window as any).containerCustomizer.loadCustomizations();
+
+    // Set up all state BEFORE making container visible
+    this.isOpen = true;
+    (window as any).activeContainer = this.container.id;
+
+    if (this.container.id === "toc-container") {
+      this.saveNavElementsState();
+    }
+
+    this.updateState();
+
+    // Add bookmark and set scroll position BEFORE showing container
+    updateOrInsertBookmark(this.container, tocCache.data);
+    setInitialBookmarkPosition(this.container);
+
+    // NOW make container visible with open class applied immediately
+    this.container.classList.remove("hidden");
+    this.container.classList.add("open");
+
+    // Only focus the container if it's not a back button navigation
+    if (!this.isBackNavigation) {
+      this.container.focus();
+    }
+  }
+}
+
+// TOC cache management
+let tocCache: any = {
+  data: null,
+  lastScanTime: 0,
+  bookId: null,
+  headingCount: 0
+};
+
+/** Check if TOC cache is valid for the current book */
+function isTocCacheValid() {
+  const currentBook = book;
+  const isValid = (
+    tocCache.data !== null &&
+    tocCache.bookId === currentBook &&
+    Date.now() - tocCache.lastScanTime < 30000 // 30 second cache
+  );
+
+  return isValid;
+}
+
+/**
+ * Scan nodes content for heading elements.
+ * When the book is not fully loaded, fetches headings from the server
+ * instead of scanning IndexedDB (which only has a partial dataset).
+ */
+async function scanForHeadings() {
+  // pageLoad is a bootstrap module — import it dynamically to avoid a static
+  // component→bootstrap import cycle (flagged by the acyclic-import gate).
+  const { currentLazyLoader } = await import("../../pageLoad");
+  // If not fully loaded, fetch headings from server endpoint
+  if (!currentLazyLoader?.isFullyLoaded) {
+    try {
+      console.log("📖 Book not fully loaded — fetching headings from server...");
+      const url = `/api/database-to-indexeddb/books/${book}/headings`;
+      const resp = await fetch(url);
+      if (resp.ok) {
+        const headings = await resp.json();
+        // Server returns sorted [{id, type, text}] — add link property
+        const withLinks = headings.map((h: any) => ({ ...h, link: `#${h.id}` }));
+        console.log(`📖 Server returned ${withLinks.length} headings`);
+        return withLinks;
+      }
+    } catch (e) {
+      console.warn('Server headings fetch failed, falling back to IndexedDB:', e);
+    }
+  }
+
+  // Existing IndexedDB scan (used when fully loaded or server fails)
+  console.log("📖 Scanning nodes for headings...");
+
+  let nodes: any[] = [];
+  try {
+    nodes = await getNodeChunksFromIndexedDB(book);
+  } catch (e) {
+    console.error("Error retrieving nodes from IndexedDB:", e);
+    return [];
+  }
+
+  const headings: any[] = [];
+  // Match id="..." but NOT data-node-id="..." (require space or < before id)
+  const headingRegex = /^<(h[1-6])[^>]*\sid="([^"]+)"[^>]*>([\s\S]*?)<\/h[1-6]>/i;
+
+  for (const chunk of nodes) {
+    if (!chunk.content) continue;
+
+    const match = chunk.content.match(headingRegex);
+    if (match) {
+      const [, tagName, id, textContent] = match;
+
+      // Clean up the text content (remove any nested HTML tags and decode entities)
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = textContent.replace(/<[^>]*>/g, '');
+      const cleanText = tempDiv.textContent!.trim();
+
+      if (cleanText) {
+        headings.push({
+          id,
+          type: tagName.toLowerCase(),
+          text: cleanText,
+          link: `#${id}`,
+        });
+      }
+    }
+  }
+
+  console.log(`📖 Found ${headings.length} headings`);
+  return headings.sort((a, b) => {
+    // Sort by numerical ID if possible, otherwise alphabetically
+    const aNum = parseFloat(a.id);
+    const bNum = parseFloat(b.id);
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      return aNum - bNum;
+    }
+    return a.id.localeCompare(b.id);
+  });
+}
+
+/** Generates the Table of Contents with caching. */
+export async function generateTableOfContents(containerIdLegacy?: any, buttonIdLegacy?: any) {
+  console.log("📋 generateTableOfContents called");
+
+  const tocContainer = document.getElementById("toc-container"); // Get fresh reference
+  if (!tocContainer) {
+    console.error("TOC container not found!");
+    return;
+  }
+
+  // Check if we can use cached data
+  if (isTocCacheValid()) {
+    console.log("📋 Using cached TOC data");
+    renderTOC(tocContainer, tocCache.data);
+    attachTocClickHandler();
+    return;
+  }
+
+  // Scan for headings and cache the results
+  console.log("📋 Cache invalid, scanning for headings...");
+  const tocData = await scanForHeadings();
+
+  // Update cache
+  tocCache = {
+    data: tocData,
+    lastScanTime: Date.now(),
+    bookId: book,
+    headingCount: tocData.length
+  };
+
+  console.log("📋 Cache updated, rendering TOC");
+  // Render the TOC
+  renderTOC(tocContainer, tocData);
+  attachTocClickHandler();
+}
+
+/** Attach click handler for TOC navigation (separated for reuse) */
+function attachTocClickHandler() {
+  const tocContainer = document.getElementById("toc-container") as any; // Get fresh reference
+  if (!tocContainer) return;
+
+  // Remove existing listeners to avoid duplicates
+  const existingHandler = tocContainer._tocClickHandler;
+  if (existingHandler) {
+    tocContainer.removeEventListener("click", existingHandler);
+  }
+
+  // Add new click handler
+  const clickHandler = async (event: any) => {
+    const link = event.target.closest("a");
+    if (link) {
+      event.preventDefault();
+      const targetId = link.hash.substring(1);
+      if (!targetId) return;
+
+      getTocManager().closeContainer();
+      console.log(`📌 Navigating via TOC to: ${targetId}`);
+      // scrolling + pageLoad are bootstrap modules — dynamic import breaks the
+      // static component→bootstrap cycle the acyclic-import gate guards.
+      const { navigateToInternalId } = await import("../../scrolling");
+      const { currentLazyLoader } = await import("../../pageLoad");
+      navigateToInternalId(targetId, currentLazyLoader, false);
+    }
+  };
+
+  tocContainer.addEventListener("click", clickHandler);
+  tocContainer._tocClickHandler = clickHandler;
+}
+
+/** Renders the TOC data into a container. */
+export function renderTOC(container: any, tocData: any) {
+  // Scroller is now pre-rendered in HTML - just find it
+  const scroller = container.querySelector('.scroller');
+
+  if (!scroller) {
+    console.error('❌ Scroller not found in TOC container - check reader.blade.php');
+    return;
+  }
+
+  // Clear existing content and repopulate (no DOM structure changes)
+  scroller.innerHTML = '';
+
+  // Create the TOC entries inside the scroller.
+  tocData.forEach((item: any, index: number) => {
+    const anchor = document.createElement("a");
+    anchor.href = item.link;
+
+    const heading = document.createElement(item.type);
+    heading.textContent = item.text;
+
+    // If this is the first heading, add the "first" class.
+    if (index === 0) {
+      heading.classList.add("first");
+    }
+
+    anchor.appendChild(heading);
+    scroller.appendChild(anchor);
+  });
+}
+
+/** Force invalidate cache - rescan on next access */
+export function invalidateTocCache() {
+  tocCache.data = null;
+  tocCache.lastScanTime = 0;
+}
+
+/** Check if a node change affects headings and invalidate cache if needed */
+export function checkAndInvalidateTocCache(nodeId: any, nodeElement: any) {
+  if (!nodeElement) return false;
+
+  // Check if this is a heading element
+  const isHeading = /^h[1-6]$/i.test(nodeElement.tagName);
+
+  if (isHeading) {
+    console.log(`🔄 Heading ${nodeId} changed, invalidating TOC cache`);
+    invalidateTocCache();
+    return true;
+  }
+
+  return false;
+}
+
+/** Force invalidate cache for any node deletion (safer approach) */
+export function invalidateTocCacheForDeletion(nodeId: any) {
+  invalidateTocCache();
+}
+
+/** Force immediate TOC refresh (bypasses cache) */
+export async function refreshTOC() {
+  invalidateTocCache();
+  await generateTableOfContents();
+}

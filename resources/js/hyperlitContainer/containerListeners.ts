@@ -65,7 +65,7 @@ export async function cleanupContainerListeners({ stackPop = false }: any = {}) 
   }
 
   // Defensive: ensure main content and edit button match restored state
-  const { enforceEditableState }: any = await import('../components/editButton.js');
+  const { enforceEditableState }: any = await import('../components/editButton/index');
   enforceEditableState();
 
   const mainEditBtn = document.getElementById('editButton');
