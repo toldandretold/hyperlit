@@ -3,7 +3,7 @@
  *
  * Used by:
  *  - integrity/reporter.js (modal "Download emergency backup" button)
- *  - components/topRightContainer/sourceContainer/downloads.ts (blackBox folder in raw zip download)
+ *  - components/sourceContainer/downloads.ts (blackBox folder in raw zip download)
  */
 
 import { isIDBBroken } from '../indexedDB/core/healthMonitor';

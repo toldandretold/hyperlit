@@ -1,7 +1,7 @@
 // Re-upload section (#reupload-dropzone / #reupload-file-input) inside Creator
 // Tools: validate a dropped/selected file, POST it to the reconvert endpoint,
 // and hand off to self._awaitReconvert for progress + reload. Takes `self`.
-import { book } from '../../../../app.js';
+import { book } from '../../../app.js';
 
 export async function handleReupload(self: any, file: any) {
   const statusEl = self.container.querySelector("#reupload-status");

@@ -116,7 +116,7 @@ export async function closeOpenContainers() {
     const sourceButton = document.getElementById('cloudRef');
     if (sourceButton) {
       // Dynamically import to avoid circular dependency
-      const sourceButtonModule = await import('../../../components/topRightContainer/sourceContainer/index');
+      const sourceButtonModule = await import('../../../components/sourceContainer/index');
       const sourceManager = sourceButtonModule.default;
       if (sourceManager && sourceManager.isOpen) {
         sourceManager.closeContainer();

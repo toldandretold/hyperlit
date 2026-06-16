@@ -52,7 +52,7 @@ import {
 import {
   initializeSourceButtonListener,
   destroySourceButtonListener
-} from '../topRightContainer/cloudRef/cloudRefButton';
+} from '../cloudRef/cloudRefButton';
 
 import {
   initializeLogoNav,

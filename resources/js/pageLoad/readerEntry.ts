@@ -106,7 +106,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   log.init("IndexedDB initialized", "readerDOMContentLoaded.js");
 
   // Initialize database modules with dependencies
-  const { glowCloudGreen, glowCloudRed, glowCloudLocalSave } = await import('../components/topRightContainer/cloudRef/editIndicator');
+  const { glowCloudGreen, glowCloudRed, glowCloudLocalSave } = await import('../components/cloudRef/editIndicator');
   initializeDatabaseModules({
     book,
     withPending,

@@ -1,8 +1,8 @@
 // Version-history list (#version-history-list) inside Creator Tools. Pulls
 // snapshots via the shared loadSnapshots helper and renders relative-time links
 // to the time-machine, with a "Show More" cutoff after 5 entries.
-import { book } from '../../../../app.js';
-import { loadSnapshots } from '../../../../conversion/versionRestore.js';
+import { book } from '../../../app.js';
+import { loadSnapshots } from '../../../conversion/versionRestore.js';
 import { formatRelativeTime } from '../helpers';
 
 export async function loadVersionHistory(self: any) {

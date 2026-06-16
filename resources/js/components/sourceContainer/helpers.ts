@@ -2,7 +2,7 @@
 // download-name sanitisation, synthetic-book detection, relative-time
 // formatting, and the privacy-toggle SVG icons. Zero imports from sibling
 // source-container modules (keeps the static graph acyclic).
-import { openDatabase } from '../../../indexedDB/index';
+import { openDatabase } from '../../indexedDB/index';
 
 // SVG icons for privacy toggle
 export const PUBLIC_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ea44f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

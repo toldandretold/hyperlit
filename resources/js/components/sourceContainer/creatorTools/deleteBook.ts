@@ -1,8 +1,8 @@
 // Delete-book section (#delete-book-btn) inside Creator Tools: double-confirm,
 // refresh CSRF, DELETE on the server first, then remove from IndexedDB and
 // redirect to the owner's home. Takes the SourceContainerManager as `self`.
-import { book } from '../../../../app.js';
-import { canUserEditBook, getAuthContextSync } from '../../../../utilities/auth.js';
+import { book } from '../../../app.js';
+import { canUserEditBook, getAuthContextSync } from '../../../utilities/auth.js';
 
 export async function handleDeleteBook(self: any) {
   // Re-check permissions
@@ -39,7 +39,7 @@ export async function handleDeleteBook(self: any) {
 
   try {
     // 1. Verify session is still valid & refresh CSRF
-    const { refreshCsrfToken } = await import('../../../../utilities/auth.js');
+    const { refreshCsrfToken } = await import('../../../utilities/auth.js');
     const isAuthenticated = await refreshCsrfToken();
     if (!isAuthenticated) {
       throw new Error('Your session has expired. Please log in again.');
@@ -63,7 +63,7 @@ export async function handleDeleteBook(self: any) {
     }
 
     // 3. Delete from IndexedDB only after server confirms
-    const { deleteBookFromIndexedDB } = await import('../../../../indexedDB/index');
+    const { deleteBookFromIndexedDB } = await import('../../../indexedDB/index');
     await deleteBookFromIndexedDB(book);
 
     console.log(`Book ${book} deleted successfully.`);

@@ -3,7 +3,7 @@ import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB, clearPendingSyn
 import { executeSyncPayload, updateHistoryLog, debouncedMasterSync } from "../indexedDB/syncQueue/master.js";
 import { currentLazyLoader } from "../pageLoad";
 import { book } from "../app.js";
-import { glowCloudGreen, glowCloudRed, glowCloudLocalSave } from "../components/topRightContainer/cloudRef/editIndicator";
+import { glowCloudGreen, glowCloudRed, glowCloudLocalSave } from "../components/cloudRef/editIndicator";
 import { ProgressOverlayConductor } from "../SPA/navigation/ProgressOverlayConductor.js";
 import { verbose } from './logger.js';
 import { ID_SKIP_TAGS } from './blockElements.js';

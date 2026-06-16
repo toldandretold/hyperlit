@@ -4,10 +4,10 @@
 // string builder — listeners are wired by sourceContainer/index.ts after this
 // HTML is injected. Kept in its own leaf so editForm/index can both import it
 // without a static import cycle.
-import { openDatabase } from '../../../indexedDB/index';
-import { formatBibtexToCitation } from '../../../utilities/bibtexProcessor.js';
-import { book } from '../../../app.js';
-import { canUserEditBook, getAuthContextSync } from '../../../utilities/auth.js';
+import { openDatabase } from '../../indexedDB/index';
+import { formatBibtexToCitation } from '../../utilities/bibtexProcessor.js';
+import { book } from '../../app.js';
+import { canUserEditBook, getAuthContextSync } from '../../utilities/auth.js';
 import { getRecord, isSyntheticBook, PUBLIC_SVG, PRIVATE_SVG } from './helpers';
 
 /**

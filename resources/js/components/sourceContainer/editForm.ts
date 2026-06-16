@@ -4,10 +4,10 @@
 // save (IndexedDB + backend upsert). Each function takes the
 // SourceContainerManager instance as `self`; the class delegates to these and
 // is the single dispatch hub, so peer calls go through `self.*`.
-import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from '../../../indexedDB/index';
-import { generateBibtexFromForm } from '../../../utilities/bibtexProcessor.js';
-import { book } from '../../../app.js';
-import { canUserEditBook } from '../../../utilities/auth.js';
+import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from '../../indexedDB/index';
+import { generateBibtexFromForm } from '../../utilities/bibtexProcessor.js';
+import { book } from '../../app.js';
+import { canUserEditBook } from '../../utilities/auth.js';
 import { getRecord } from './helpers';
 import { buildSourceHtml } from './buildSourceHtml';
 

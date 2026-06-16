@@ -285,8 +285,8 @@ export function renderPipelineViz(self: any, pipeline: any) {
  */
 export async function syncPipelineHighlights(self: any, bookId: any) {
   try {
-    const { syncAnnotationsOnly } = await import('../../../../indexedDB/serverSync');
-    const { updateLocalAnnotationsTimestamp } = await import('../../../../indexedDB/core/library');
+    const { syncAnnotationsOnly } = await import('../../../indexedDB/serverSync');
+    const { updateLocalAnnotationsTimestamp } = await import('../../../indexedDB/core/library');
 
     // Sync highlights + hypercites from server into IndexedDB
     await syncAnnotationsOnly(bookId);
@@ -309,7 +309,7 @@ export async function syncPipelineHighlights(self: any, bookId: any) {
     ).filter((el: any) => /^\d+$/.test(el.id)).map((el: any) => el.id);
 
     if (visibleNodeIds.length > 0) {
-      const { reprocessHighlightsForNodes } = await import('../../../../hyperlights/deletion');
+      const { reprocessHighlightsForNodes } = await import('../../../hyperlights/deletion');
       await reprocessHighlightsForNodes(bookId, visibleNodeIds);
     }
 

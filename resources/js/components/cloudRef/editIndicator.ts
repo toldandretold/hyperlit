@@ -4,9 +4,9 @@
 // - Green: save successful
 // - Red: save error
 
-import { verbose } from '../../../utilities/logger.js';
-import { getPerimeterButtonsHidden } from '../../../utilities/operationState.js';
-import { isIDBBroken } from '../../../indexedDB/core/healthMonitor';
+import { verbose } from '../../utilities/logger.js';
+import { getPerimeterButtonsHidden } from '../../utilities/operationState.js';
+import { isIDBBroken } from '../../indexedDB/core/healthMonitor';
 
 export let isProcessing = false
 export let isComplete   = false
@@ -138,7 +138,7 @@ export function glowCloudRed(errorInfo?: any) {
 
   // Explain WHAT went wrong (severity-tiered toast). Lazy import keeps editIndicator light.
   if (errorInfo) {
-    import('../../saveErrorToast/saveErrorToast')
+    import('../saveErrorToast/saveErrorToast')
       .then(({ showSaveErrorToast }) => showSaveErrorToast(errorInfo))
       .catch(() => { /* toast module unavailable — glow still conveys the error */ })
   }

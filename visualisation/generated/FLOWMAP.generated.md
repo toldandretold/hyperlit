@@ -13,6 +13,14 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `generateReferenceId` | `citations/citationInserter` | — | — | — | — |
 | `insertCitationAtCursor` | `citations/citationInserter` | — | `bibliography` | read/write | — |
 | `parseAuthorYear` | `citations/citationInserter` | — | — | — | — |
+| `destroySourceButtonListener` | `components/cloudRef/cloudRefButton` | — | — | write | — |
+| `initializeSourceButtonListener` | `components/cloudRef/cloudRefButton` | — | — | write | — |
+| `cancelForcedVisibility` | `components/cloudRef/editIndicator` | — | — | — | — |
+| `glowCloudGreen` | `components/cloudRef/editIndicator` | — | — | read/write | — |
+| `glowCloudLocalSave` | `components/cloudRef/editIndicator` | — | — | read/write | — |
+| `glowCloudOrange` | `components/cloudRef/editIndicator` | — | — | read/write | — |
+| `glowCloudRed` | `components/cloudRef/editIndicator` | — | — | read/write | — |
+| `glowCloudSyncSuccess` | `components/cloudRef/editIndicator` | — | — | read/write | — |
 | `doesContentExceedViewport` | `components/editButton/cursor` | — | — | read | — |
 | `getFirstElementWithId` | `components/editButton/cursor` | — | — | read | — |
 | `getLastContentElement` | `components/editButton/cursor` | — | — | read | — |
@@ -151,6 +159,94 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hasVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | — | — |
 | `removeVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | read/write | — |
 | `handleVibeClick` | `components/settingsContainer/vibe` | — | — | — | — |
+| `ensureAiReviewLivePanel` | `components/sourceContainer/aiReview/index` | — | — | read/write | — |
+| `handleAiReviewGenerate` | `components/sourceContainer/aiReview/index` | — | — | read/write | — |
+| `loadAiReviewStatus` | `components/sourceContainer/aiReview/index` | — | — | read | — |
+| `setAiReviewState` | `components/sourceContainer/aiReview/index` | — | — | read/write | — |
+| `closeAiReviewVizOverlay` | `components/sourceContainer/aiReview/pipelineViz` | — | — | read/write | — |
+| `fetchPipelineMap` | `components/sourceContainer/aiReview/pipelineViz` | — | — | — | — |
+| `openAiReviewVizOverlay` | `components/sourceContainer/aiReview/pipelineViz` | — | — | read/write | — |
+| `renderPipelineViz` | `components/sourceContainer/aiReview/pipelineViz` | — | — | read/write | — |
+| `syncPipelineHighlights` | `components/sourceContainer/aiReview/pipelineViz` | — | — | read | — |
+| `pollAiReviewStatus` | `components/sourceContainer/aiReview/polling` | — | — | read/write | — |
+| `startAiReviewPolling` | `components/sourceContainer/aiReview/polling` | — | — | — | — |
+| `stopAiReviewPolling` | `components/sourceContainer/aiReview/polling` | — | — | — | — |
+| `buildSourceHtml` | `components/sourceContainer/buildSourceHtml` | — | `library` | — | — |
+| `handlePrivacyToggle` | `components/sourceContainer/citationDisplay` | — | `library` | read/write | — |
+| `handleDeleteBook` | `components/sourceContainer/creatorTools/deleteBook` | — | — | read/write | — |
+| `loadCreatorTools` | `components/sourceContainer/creatorTools/index` | — | — | read/write | — |
+| `_awaitReconvert` | `components/sourceContainer/creatorTools/reconvert` | — | — | — | — |
+| `handleReconvert` | `components/sourceContainer/creatorTools/reconvert` | — | — | read/write | — |
+| `loadReconvertInfo` | `components/sourceContainer/creatorTools/reconvert` | — | — | read/write | — |
+| `handleReupload` | `components/sourceContainer/creatorTools/reupload` | — | — | read/write | — |
+| `loadVersionHistory` | `components/sourceContainer/creatorTools/versionHistory` | — | — | read/write | — |
+| `downloadAllForBook` | `components/sourceContainer/downloads` | — | — | write | — |
+| `exportBookAsDocxStyled` | `components/sourceContainer/downloads` | `bibliography` `footnotes` | — | read/write | — |
+| `exportBookAsEpub` | `components/sourceContainer/downloads` | `bibliography` `footnotes` | — | read/write | — |
+| `exportBookAsMarkdown` | `components/sourceContainer/downloads` | `bibliography` `footnotes` | — | read/write | — |
+| `cleanUrl` | `components/sourceContainer/editForm` | — | — | — | — |
+| `collectFormData` | `components/sourceContainer/editForm` | — | — | read | — |
+| `expandForEditForm` | `components/sourceContainer/editForm` | — | — | — | — |
+| `handleEditClick` | `components/sourceContainer/editForm` | — | — | — | — |
+| `handleFormSubmit` | `components/sourceContainer/editForm` | — | `library` | — | — |
+| `hideEditForm` | `components/sourceContainer/editForm` | — | — | read/write | — |
+| `populateEditForm` | `components/sourceContainer/editForm` | — | — | read | — |
+| `populateFieldsFromBibtex` | `components/sourceContainer/editForm` | — | — | read | — |
+| `refreshCitationDisplay` | `components/sourceContainer/editForm` | — | — | write | — |
+| `saveEditForm` | `components/sourceContainer/editForm` | — | `library` | — | — |
+| `setupEditFormListeners` | `components/sourceContainer/editForm` | — | — | read | — |
+| `showEditForm` | `components/sourceContainer/editForm` | — | — | read/write | — |
+| `showOptionalFieldsForType` | `components/sourceContainer/editForm` | — | — | read | — |
+| `syncLibraryRecordToBackend` | `components/sourceContainer/editForm` | — | — | read | — |
+| `validateUrl` | `components/sourceContainer/editForm` | — | — | — | — |
+| `formatRelativeTime` | `components/sourceContainer/helpers` | — | — | — | — |
+| `getBookDownloadName` | `components/sourceContainer/helpers` | — | — | — | — |
+| `getRecord` | `components/sourceContainer/helpers` | — | — | — | — |
+| `isSyntheticBook` | `components/sourceContainer/helpers` | — | — | — | — |
+| `destroySourceManager` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager._awaitReconvert` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager._settleAnimation` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.attachInternalListeners` | `components/sourceContainer/index` | — | — | read/write | — |
+| `SourceContainerManager.cleanUrl` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.closeAiReviewVizOverlay` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.closeContainer` | `components/sourceContainer/index` | — | — | write | — |
+| `SourceContainerManager.closeOnOverlayClick` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.collectFormData` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.constructor` | `components/sourceContainer/index` | — | — | read | — |
+| `SourceContainerManager.ensureAiReviewLivePanel` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.expandForEditForm` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.fetchPipelineMap` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.handleAiReviewGenerate` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.handleDeleteBook` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.handleEditClick` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.handleFormSubmit` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.handlePrivacyToggle` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.handleReconvert` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.handleReupload` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.hideEditForm` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.loadAiReviewStatus` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.loadCreatorTools` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.loadReconvertInfo` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.loadVersionHistory` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.openAiReviewVizOverlay` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.openContainer` | `components/sourceContainer/index` | — | — | write | — |
+| `SourceContainerManager.pollAiReviewStatus` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.populateEditForm` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.populateFieldsFromBibtex` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.rebindElements` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.refreshCitationDisplay` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.renderPipelineViz` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.saveEditForm` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.setAiReviewState` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.setupEditFormListeners` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.setupSourceContainerStyles` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.showEditForm` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.showOptionalFieldsForType` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.startAiReviewPolling` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.stopAiReviewPolling` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.syncLibraryRecordToBackend` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.syncPipelineHighlights` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.validateUrl` | `components/sourceContainer/index` | — | — | — | — |
 | `setInitialBookmarkPosition` | `components/tocContainer/bookmark` | — | — | read | — |
 | `updateOrInsertBookmark` | `components/tocContainer/bookmark` | — | — | read/write | — |
 | `checkAndInvalidateTocCache` | `components/tocContainer/index` | — | — | — | — |
@@ -181,102 +277,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `TogglePerimeterButtons.shouldIgnoreEvent` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | read | — |
 | `TogglePerimeterButtons.syncPerimeterButtons` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | read/write | — |
 | `TogglePerimeterButtons.updatePosition` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | read/write | — |
-| `destroySourceButtonListener` | `components/topRightContainer/cloudRef/cloudRefButton` | — | — | write | — |
-| `initializeSourceButtonListener` | `components/topRightContainer/cloudRef/cloudRefButton` | — | — | write | — |
-| `cancelForcedVisibility` | `components/topRightContainer/cloudRef/editIndicator` | — | — | — | — |
-| `glowCloudGreen` | `components/topRightContainer/cloudRef/editIndicator` | — | — | read/write | — |
-| `glowCloudLocalSave` | `components/topRightContainer/cloudRef/editIndicator` | — | — | read/write | — |
-| `glowCloudOrange` | `components/topRightContainer/cloudRef/editIndicator` | — | — | read/write | — |
-| `glowCloudRed` | `components/topRightContainer/cloudRef/editIndicator` | — | — | read/write | — |
-| `glowCloudSyncSuccess` | `components/topRightContainer/cloudRef/editIndicator` | — | — | read/write | — |
-| `ensureAiReviewLivePanel` | `components/topRightContainer/sourceContainer/aiReview/index` | — | — | read/write | — |
-| `handleAiReviewGenerate` | `components/topRightContainer/sourceContainer/aiReview/index` | — | — | read/write | — |
-| `loadAiReviewStatus` | `components/topRightContainer/sourceContainer/aiReview/index` | — | — | read | — |
-| `setAiReviewState` | `components/topRightContainer/sourceContainer/aiReview/index` | — | — | read/write | — |
-| `closeAiReviewVizOverlay` | `components/topRightContainer/sourceContainer/aiReview/pipelineViz` | — | — | read/write | — |
-| `fetchPipelineMap` | `components/topRightContainer/sourceContainer/aiReview/pipelineViz` | — | — | — | — |
-| `openAiReviewVizOverlay` | `components/topRightContainer/sourceContainer/aiReview/pipelineViz` | — | — | read/write | — |
-| `renderPipelineViz` | `components/topRightContainer/sourceContainer/aiReview/pipelineViz` | — | — | read/write | — |
-| `syncPipelineHighlights` | `components/topRightContainer/sourceContainer/aiReview/pipelineViz` | — | — | read | — |
-| `pollAiReviewStatus` | `components/topRightContainer/sourceContainer/aiReview/polling` | — | — | read/write | — |
-| `startAiReviewPolling` | `components/topRightContainer/sourceContainer/aiReview/polling` | — | — | — | — |
-| `stopAiReviewPolling` | `components/topRightContainer/sourceContainer/aiReview/polling` | — | — | — | — |
-| `buildSourceHtml` | `components/topRightContainer/sourceContainer/buildSourceHtml` | — | `library` | — | — |
-| `handlePrivacyToggle` | `components/topRightContainer/sourceContainer/citationDisplay` | — | `library` | read/write | — |
-| `handleDeleteBook` | `components/topRightContainer/sourceContainer/creatorTools/deleteBook` | — | — | read/write | — |
-| `loadCreatorTools` | `components/topRightContainer/sourceContainer/creatorTools/index` | — | — | read/write | — |
-| `_awaitReconvert` | `components/topRightContainer/sourceContainer/creatorTools/reconvert` | — | — | — | — |
-| `handleReconvert` | `components/topRightContainer/sourceContainer/creatorTools/reconvert` | — | — | read/write | — |
-| `loadReconvertInfo` | `components/topRightContainer/sourceContainer/creatorTools/reconvert` | — | — | read/write | — |
-| `handleReupload` | `components/topRightContainer/sourceContainer/creatorTools/reupload` | — | — | read/write | — |
-| `loadVersionHistory` | `components/topRightContainer/sourceContainer/creatorTools/versionHistory` | — | — | read/write | — |
-| `downloadAllForBook` | `components/topRightContainer/sourceContainer/downloads` | — | — | write | — |
-| `exportBookAsDocxStyled` | `components/topRightContainer/sourceContainer/downloads` | `bibliography` `footnotes` | — | read/write | — |
-| `exportBookAsEpub` | `components/topRightContainer/sourceContainer/downloads` | `bibliography` `footnotes` | — | read/write | — |
-| `exportBookAsMarkdown` | `components/topRightContainer/sourceContainer/downloads` | `bibliography` `footnotes` | — | read/write | — |
-| `cleanUrl` | `components/topRightContainer/sourceContainer/editForm` | — | — | — | — |
-| `collectFormData` | `components/topRightContainer/sourceContainer/editForm` | — | — | read | — |
-| `expandForEditForm` | `components/topRightContainer/sourceContainer/editForm` | — | — | — | — |
-| `handleEditClick` | `components/topRightContainer/sourceContainer/editForm` | — | — | — | — |
-| `handleFormSubmit` | `components/topRightContainer/sourceContainer/editForm` | — | `library` | — | — |
-| `hideEditForm` | `components/topRightContainer/sourceContainer/editForm` | — | — | read/write | — |
-| `populateEditForm` | `components/topRightContainer/sourceContainer/editForm` | — | — | read | — |
-| `populateFieldsFromBibtex` | `components/topRightContainer/sourceContainer/editForm` | — | — | read | — |
-| `refreshCitationDisplay` | `components/topRightContainer/sourceContainer/editForm` | — | — | write | — |
-| `saveEditForm` | `components/topRightContainer/sourceContainer/editForm` | — | `library` | — | — |
-| `setupEditFormListeners` | `components/topRightContainer/sourceContainer/editForm` | — | — | read | — |
-| `showEditForm` | `components/topRightContainer/sourceContainer/editForm` | — | — | read/write | — |
-| `showOptionalFieldsForType` | `components/topRightContainer/sourceContainer/editForm` | — | — | read | — |
-| `syncLibraryRecordToBackend` | `components/topRightContainer/sourceContainer/editForm` | — | — | read | — |
-| `validateUrl` | `components/topRightContainer/sourceContainer/editForm` | — | — | — | — |
-| `formatRelativeTime` | `components/topRightContainer/sourceContainer/helpers` | — | — | — | — |
-| `getBookDownloadName` | `components/topRightContainer/sourceContainer/helpers` | — | — | — | — |
-| `getRecord` | `components/topRightContainer/sourceContainer/helpers` | — | — | — | — |
-| `isSyntheticBook` | `components/topRightContainer/sourceContainer/helpers` | — | — | — | — |
-| `destroySourceManager` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager._awaitReconvert` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager._settleAnimation` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.attachInternalListeners` | `components/topRightContainer/sourceContainer/index` | — | — | read/write | — |
-| `SourceContainerManager.cleanUrl` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.closeAiReviewVizOverlay` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.closeContainer` | `components/topRightContainer/sourceContainer/index` | — | — | write | — |
-| `SourceContainerManager.closeOnOverlayClick` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.collectFormData` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.constructor` | `components/topRightContainer/sourceContainer/index` | — | — | read | — |
-| `SourceContainerManager.ensureAiReviewLivePanel` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.expandForEditForm` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.fetchPipelineMap` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.handleAiReviewGenerate` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.handleDeleteBook` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.handleEditClick` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.handleFormSubmit` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.handlePrivacyToggle` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.handleReconvert` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.handleReupload` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.hideEditForm` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.loadAiReviewStatus` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.loadCreatorTools` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.loadReconvertInfo` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.loadVersionHistory` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.openAiReviewVizOverlay` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.openContainer` | `components/topRightContainer/sourceContainer/index` | — | — | write | — |
-| `SourceContainerManager.pollAiReviewStatus` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.populateEditForm` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.populateFieldsFromBibtex` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.rebindElements` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.refreshCitationDisplay` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.renderPipelineViz` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.saveEditForm` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.setAiReviewState` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.setupEditFormListeners` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.setupSourceContainerStyles` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.showEditForm` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.showOptionalFieldsForType` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.startAiReviewPolling` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.stopAiReviewPolling` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.syncLibraryRecordToBackend` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.syncPipelineHighlights` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.validateUrl` | `components/topRightContainer/sourceContainer/index` | — | — | — | — |
 | `destroyUserContainer` | `components/userButton/userButton` | — | — | — | — |
 | `initializeUserContainer` | `components/userButton/userButton` | — | — | read | — |
 | `buildContentSummary` | `components/userContainer/anonymousTransfer` | — | — | — | — |
@@ -1213,14 +1213,14 @@ Only *static-import* rings can crash with a TDZ "Cannot access X before initiali
 
 ### Cycles masked by dynamic imports (coupling debt)
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
-- (2 modules) `components/topRightContainer/cloudRef/editIndicator`, `indexedDB/core/healthMonitor`
-- (68 modules) `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/editButton/index`, `components/editButton/lock`, `components/fileDropTarget/fileDropTarget`, `components/homepage/homepage`, `components/homepage/homepageDisplayUnit`, `components/newBookButton/newBookButton`, `components/newbookContainer/index`, `components/settingsButton/settingsButton`, `components/settingsContainer/index`, `components/tocContainer/index`, `components/tocToggleButton/tocToggleButton`, `components/togglePerimeterButtons/togglePerimeterButtons`, `components/topRightContainer/cloudRef/cloudRefButton`, `components/topRightContainer/sourceContainer/creatorTools/reconvert`, `components/topRightContainer/sourceContainer/downloads`, `components/topRightContainer/sourceContainer/index`, `components/userButton/userButton`, `components/userContainer/index`, `components/userProfile/userProfileEditor`, `components/utilities/containerManager`, `components/utilities/registerComponents`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/footnoteTapExtender`, `hyperlitContainer/footnotesCitations`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
+- (2 modules) `components/cloudRef/editIndicator`, `indexedDB/core/healthMonitor`
+- (68 modules) `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/cloudRef/cloudRefButton`, `components/editButton/index`, `components/editButton/lock`, `components/fileDropTarget/fileDropTarget`, `components/homepage/homepage`, `components/homepage/homepageDisplayUnit`, `components/newBookButton/newBookButton`, `components/newbookContainer/index`, `components/settingsButton/settingsButton`, `components/settingsContainer/index`, `components/sourceContainer/creatorTools/reconvert`, `components/sourceContainer/downloads`, `components/sourceContainer/index`, `components/tocContainer/index`, `components/tocToggleButton/tocToggleButton`, `components/togglePerimeterButtons/togglePerimeterButtons`, `components/userButton/userButton`, `components/userContainer/index`, `components/userProfile/userProfileEditor`, `components/utilities/containerManager`, `components/utilities/registerComponents`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/footnoteTapExtender`, `hyperlitContainer/footnotesCitations`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
 - `SPA/viewManager` → `SPA/navigation/LinkNavigationHandler`
 - `components/editButton/lock` → `components/editButton/index`
 - `components/newbookContainer/index` → `SPA/navigation/NavigationManager`
-- `components/topRightContainer/sourceContainer/creatorTools/reconvert` → `SPA/navigation/pathways/ImportBookTransition`
+- `components/sourceContainer/creatorTools/reconvert` → `SPA/navigation/pathways/ImportBookTransition`
 - `components/userContainer/index` → `SPA/navigation/NavigationManager`
 - `components/utilities/containerManager` → `divEditor/index`
 - `divEditor/chunkManager` → `divEditor/index`
@@ -1228,7 +1228,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/history` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/index` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/stack` → `hyperlitContainer/subBookLoader`
-- `indexedDB/core/healthMonitor` → `components/topRightContainer/cloudRef/editIndicator`
+- `indexedDB/core/healthMonitor` → `components/cloudRef/editIndicator`
 - `pageLoad/loadHyperText` → `pageLoad/readerEntry`
 - `pageLoad/readerEntry` → `SPA/navigation/NavigationManager`
 
@@ -1246,7 +1246,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `SPA/navigation/pathways/SameTemplateTransition` → `SPA/navigation/pathways/DifferentTemplateTransition`
 - `SPA/navigation/resolveTargetChunk` → `indexedDB/hypercites/index`
 - `SPA/navigation/utils/cleanupHelpers` → `components/newBookButton/newBookButton`
-- `SPA/navigation/utils/cleanupHelpers` → `components/topRightContainer/sourceContainer/index`
+- `SPA/navigation/utils/cleanupHelpers` → `components/sourceContainer/index`
 - `SPA/navigation/utils/initHelpers` → `components/newBookButton/newBookButton`
 - `SPA/viewManager` → `components/homepage/homepage`
 - `SPA/viewManager` → `components/userProfile/userProfileEditor`
@@ -1255,6 +1255,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `SPA/viewManager` → `indexedDB/core/connection`
 - `SPA/viewManager` → `indexedDB/core/healthMonitor`
 - `SPA/viewManager` → `indexedDB/core/recoveryToast`
+- `components/cloudRef/editIndicator` → `components/saveErrorToast/saveErrorToast`
 - `components/editButton/index` → `divEditor/index`
 - `components/editButton/index` → `editToolbar/index`
 - `components/editButton/index` → `indexedDB/index`
@@ -1272,12 +1273,11 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/settingsContainer/index` → `components/utilities/gateFilter`
 - `components/settingsContainer/vibeCSS/galleryUI` → `components/userButton/userButton`
 - `components/settingsContainer/vibeCSS/storage` → `components/settingsContainer/vibeCanvas`
+- `components/sourceContainer/aiReview/pipelineViz` → `hyperlights/deletion`
+- `components/sourceContainer/aiReview/pipelineViz` → `indexedDB/core/library`
+- `components/sourceContainer/creatorTools/deleteBook` → `indexedDB/index`
+- `components/sourceContainer/creatorTools/reconvert` → `indexedDB/index`
 - `components/tocContainer/index` → `scrolling/index`
-- `components/topRightContainer/cloudRef/editIndicator` → `components/saveErrorToast/saveErrorToast`
-- `components/topRightContainer/sourceContainer/aiReview/pipelineViz` → `hyperlights/deletion`
-- `components/topRightContainer/sourceContainer/aiReview/pipelineViz` → `indexedDB/core/library`
-- `components/topRightContainer/sourceContainer/creatorTools/deleteBook` → `indexedDB/index`
-- `components/topRightContainer/sourceContainer/creatorTools/reconvert` → `indexedDB/index`
 - `components/userProfile/userProfilePage` → `components/floatingActionMenu/floatingActionMenu`
 - `components/userProfile/userProfilePage` → `indexedDB/index`
 - `components/utilities/containerManager` → `hyperlitContainer/stack`
@@ -1371,9 +1371,9 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `pageLoad/loadHyperText` → `hyperlights/deletion`
 - `pageLoad/loadHyperText` → `indexedDB/hydration/rebuild`
 - `pageLoad/loadHyperText` → `pageLoad/backgroundDownload`
-- `pageLoad/onlineRetry` → `components/topRightContainer/cloudRef/editIndicator`
+- `pageLoad/onlineRetry` → `components/cloudRef/editIndicator`
 - `pageLoad/readerEntry` → `SPA/navigation/ProgressOverlayConductor`
-- `pageLoad/readerEntry` → `components/topRightContainer/cloudRef/editIndicator`
+- `pageLoad/readerEntry` → `components/cloudRef/editIndicator`
 - `scrolling/internalNav` → `SPA/navigation/resolveTargetChunk`
 - `scrolling/internalNav` → `hypercites/animations`
 

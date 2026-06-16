@@ -115,7 +115,7 @@ async function retryFailedBatches() {
     if (successCount > 0) {
       console.log(`✅ Successfully synced ${successCount} pending batches after coming online`);
       try {
-        const { glowCloudSyncSuccess } = await import('../components/topRightContainer/cloudRef/editIndicator');
+        const { glowCloudSyncSuccess } = await import('../components/cloudRef/editIndicator');
         glowCloudSyncSuccess();
       } catch (e) {
         // Edit indicator might not be loaded if user hasn't edited

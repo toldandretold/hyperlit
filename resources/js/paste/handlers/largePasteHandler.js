@@ -13,7 +13,7 @@ import {
   writeNodeChunks,
   getNodeChunksFromIndexedDB
 } from '../../indexedDB/index';
-import { glowCloudOrange, glowCloudRed } from '../../components/topRightContainer/cloudRef/editIndicator';
+import { glowCloudOrange, glowCloudRed } from '../../components/cloudRef/editIndicator';
 import { processContentForFootnotesAndReferences } from '../fallback-processor.js';
 import { parseHtmlToBlocks } from '../utils/html-block-parser.js';
 import { ProgressOverlayConductor } from '../../SPA/navigation/ProgressOverlayConductor.js';
@@ -387,7 +387,7 @@ export async function undoLastLargePaste() {
     console.log('✅ Large paste undo complete');
 
     // 4. Full book sync to PostgreSQL in background
-    const { glowCloudOrange, glowCloudGreen, glowCloudRed } = await import('../../components/topRightContainer/cloudRef/editIndicator');
+    const { glowCloudOrange, glowCloudGreen, glowCloudRed } = await import('../../components/cloudRef/editIndicator');
     glowCloudOrange();
 
     const response = await fetch('/api/db/node-chunks/upsert', {

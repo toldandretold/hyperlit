@@ -3,7 +3,7 @@
 // background job; _awaitReconvert polls progress, shows the footnote-audit
 // modal if needed, clears stale IDB content, and reloads. Shared by the
 // re-upload path (which also calls self._awaitReconvert). Takes `self`.
-import { book } from '../../../../app.js';
+import { book } from '../../../app.js';
 
 export async function loadReconvertInfo(self: any) {
   try {
@@ -94,7 +94,7 @@ export async function handleReconvert(self: any) {
  * synchronous shape), we skip polling and use it directly.
  */
 export async function _awaitReconvert(self: any, result: any, bookId: any, progressUI: any) {
-  const { ImportBookTransition } = await import('../../../../SPA/navigation/pathways/ImportBookTransition');
+  const { ImportBookTransition } = await import('../../../SPA/navigation/pathways/ImportBookTransition');
 
   let completedResult = result;
   if (result?.status === 'processing') {
@@ -116,7 +116,7 @@ export async function _awaitReconvert(self: any, result: any, bookId: any, progr
   }
 
   // Clear the now-stale IndexedDB content (keeps library record), then reload
-  const { clearBookContentFromIndexedDB } = await import('../../../../indexedDB/index');
+  const { clearBookContentFromIndexedDB } = await import('../../../indexedDB/index');
   await clearBookContentFromIndexedDB(bookId);
   window.location.reload();
 }

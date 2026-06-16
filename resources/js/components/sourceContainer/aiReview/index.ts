@@ -3,8 +3,8 @@
 // ⇄ completed), the "results emailed / see live pipeline" panel, and triggering
 // a new review. Polling lives in ./polling, the live overlay in ./pipelineViz;
 // peer calls route through `self`.
-import { book } from '../../../../app.js';
-import { openDatabase } from '../../../../indexedDB/index';
+import { book } from '../../../app.js';
+import { openDatabase } from '../../../indexedDB/index';
 import { getRecord } from '../helpers';
 
 export async function handleAiReviewGenerate(self: any) {

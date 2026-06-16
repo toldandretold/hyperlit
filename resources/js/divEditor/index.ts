@@ -69,7 +69,7 @@ export {
   setNoDeleteMarker
 };
 
-import { glowCloudOrange, glowCloudGreen, isProcessing } from '../components/topRightContainer/cloudRef/editIndicator';
+import { glowCloudOrange, glowCloudGreen, isProcessing } from '../components/cloudRef/editIndicator';
 import { verbose } from '../utilities/logger.js';
 
 import { buildBibtexEntry } from "../utilities/bibtexProcessor.js";

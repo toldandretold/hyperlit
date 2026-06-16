@@ -1,6 +1,6 @@
 // operationState.js
 
-import { glowCloudOrange } from "../components/topRightContainer/cloudRef/editIndicator";
+import { glowCloudOrange } from "../components/cloudRef/editIndicator";
 
 let pendingOperations = 0;
 let unloadWarningActive = false;
