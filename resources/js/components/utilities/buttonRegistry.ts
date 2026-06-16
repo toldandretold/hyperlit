@@ -28,9 +28,10 @@
  * buttonRegistry.destroyAll();
  */
 
-import { log, verbose } from './logger.js';
+import { log, verbose } from '../../utilities/logger.js';
 
 class ButtonRegistry {
+  [key: string]: any;
   constructor() {
     // Component registry: Map<componentName, ComponentConfig>
     this.components = new Map();
@@ -57,7 +58,7 @@ class ButtonRegistry {
    * @param {Array<string>} [config.dependencies=[]] - Component names that must init first
    * @param {boolean} [config.required=false] - Whether initialization failure should throw
    */
-  register(config) {
+  register(config: any) {
     const {
       name,
       initFn,
@@ -77,7 +78,7 @@ class ButtonRegistry {
     }
 
     if (this.components.has(name)) {
-      verbose.init(`ButtonRegistry: Overwriting registration for "${name}"`, '/utilities/buttonRegistry.js');
+      verbose.init(`ButtonRegistry: Overwriting registration for "${name}"`, '/components/utilities/buttonRegistry.ts');
     }
 
     this.components.set(name, {
@@ -89,7 +90,7 @@ class ButtonRegistry {
       required
     });
 
-    verbose.init(`ButtonRegistry: Registered "${name}" for pages: ${pages.join(', ')}`, '/utilities/buttonRegistry.js');
+    verbose.init(`ButtonRegistry: Registered "${name}" for pages: ${pages.join(', ')}`, '/components/utilities/buttonRegistry.ts');
   }
 
   /**
@@ -99,23 +100,23 @@ class ButtonRegistry {
    * @param {string} pageType - Page type ('reader', 'home', 'user', etc.)
    * @returns {Promise<Object>} - Success/failure stats
    */
-  async initializeAll(pageType) {
+  async initializeAll(pageType: any) {
     if (this.isInitializing) {
-      verbose.init('ButtonRegistry: Already initializing, skipping', '/utilities/buttonRegistry.js');
+      verbose.init('ButtonRegistry: Already initializing, skipping', '/components/utilities/buttonRegistry.ts');
       return { success: 0, failed: 0, skipped: 0 };
     }
 
     this.isInitializing = true;
     this.currentPage = pageType;
 
-    log.init(`ButtonRegistry: Initializing all components for page type: ${pageType}`, '/utilities/buttonRegistry.js');
+    log.init(`ButtonRegistry: Initializing all components for page type: ${pageType}`, '/components/utilities/buttonRegistry.ts');
 
     const stats = { success: 0, failed: 0, skipped: 0 };
 
     try {
       // Filter components for this page type
       const componentsForPage = Array.from(this.components.values())
-        .filter(config => config.pages.includes(pageType));
+        .filter((config: any) => config.pages.includes(pageType));
 
       // Sort by dependency order
       const sortedComponents = this._resolveDependencyOrder(componentsForPage);
@@ -126,10 +127,10 @@ class ButtonRegistry {
         stats[result]++;
       }
 
-      log.init(`ButtonRegistry: Initialization complete - ${stats.success} success, ${stats.failed} failed, ${stats.skipped} skipped`, '/utilities/buttonRegistry.js');
+      log.init(`ButtonRegistry: Initialization complete - ${stats.success} success, ${stats.failed} failed, ${stats.skipped} skipped`, '/components/utilities/buttonRegistry.ts');
 
     } catch (error) {
-      log.error('ButtonRegistry: Critical error during initialization', '/utilities/buttonRegistry.js', error);
+      log.error('ButtonRegistry: Critical error during initialization', '/components/utilities/buttonRegistry.ts', error as any);
     } finally {
       this.isInitializing = false;
     }
@@ -141,11 +142,11 @@ class ButtonRegistry {
    * Initialize a single component
    * @private
    */
-  async _initializeComponent(config) {
+  async _initializeComponent(config: any) {
     const startTime = performance.now();
 
     try {
-      verbose.init(`ButtonRegistry: Initializing "${config.name}"...`, '/utilities/buttonRegistry.js');
+      verbose.init(`ButtonRegistry: Initializing "${config.name}"...`, '/components/utilities/buttonRegistry.ts');
 
       // Call init function (may be async)
       const result = await config.initFn();
@@ -157,17 +158,17 @@ class ButtonRegistry {
       // Mark as active
       this.activeComponents.add(config.name);
 
-      verbose.init(`ButtonRegistry: ✅ "${config.name}" initialized in ${duration.toFixed(2)}ms`, '/utilities/buttonRegistry.js');
+      verbose.init(`ButtonRegistry: ✅ "${config.name}" initialized in ${duration.toFixed(2)}ms`, '/components/utilities/buttonRegistry.ts');
       return 'success';
 
     } catch (error) {
       const duration = performance.now() - startTime;
 
       if (config.required) {
-        log.error(`ButtonRegistry: ❌ REQUIRED component "${config.name}" failed to initialize`, '/utilities/buttonRegistry.js', error);
+        log.error(`ButtonRegistry: ❌ REQUIRED component "${config.name}" failed to initialize`, '/components/utilities/buttonRegistry.ts', error as any);
         throw error; // Re-throw if required
       } else {
-        verbose.init(`ButtonRegistry: ⚠️ "${config.name}" failed to initialize (non-critical) after ${duration.toFixed(2)}ms`, '/utilities/buttonRegistry.js');
+        verbose.init(`ButtonRegistry: ⚠️ "${config.name}" failed to initialize (non-critical) after ${duration.toFixed(2)}ms`, '/components/utilities/buttonRegistry.ts');
         console.warn(`ButtonRegistry: ${config.name} init error:`, error);
         return 'failed';
       }
@@ -179,21 +180,21 @@ class ButtonRegistry {
    * Calls in reverse dependency order (cleanup dependencies last)
    */
   destroyAll() {
-    log.init('ButtonRegistry: Destroying all active components', '/utilities/buttonRegistry.js');
+    log.init('ButtonRegistry: Destroying all active components', '/components/utilities/buttonRegistry.ts');
 
     let destroyCount = 0;
     let errorCount = 0;
 
     // Get active components in reverse order
     const activeConfigs = Array.from(this.components.values())
-      .filter(config => this.activeComponents.has(config.name));
+      .filter((config: any) => this.activeComponents.has(config.name));
 
     const reversedComponents = this._resolveDependencyOrder(activeConfigs).reverse();
 
     for (const config of reversedComponents) {
       try {
         if (config.destroyFn) {
-          verbose.init(`ButtonRegistry: Destroying "${config.name}"...`, '/utilities/buttonRegistry.js');
+          verbose.init(`ButtonRegistry: Destroying "${config.name}"...`, '/components/utilities/buttonRegistry.ts');
           config.destroyFn();
           destroyCount++;
         }
@@ -203,13 +204,13 @@ class ButtonRegistry {
 
       } catch (error) {
         errorCount++;
-        log.error(`ButtonRegistry: Error destroying "${config.name}"`, '/utilities/buttonRegistry.js', error);
+        log.error(`ButtonRegistry: Error destroying "${config.name}"`, '/components/utilities/buttonRegistry.ts', error as any);
       }
     }
 
     this.currentPage = null;
 
-    log.init(`ButtonRegistry: Destroyed ${destroyCount} components (${errorCount} errors)`, '/utilities/buttonRegistry.js');
+    log.init(`ButtonRegistry: Destroyed ${destroyCount} components (${errorCount} errors)`, '/components/utilities/buttonRegistry.ts');
   }
 
   /**
@@ -219,8 +220,8 @@ class ButtonRegistry {
    * @param {string} newPageType - New page type
    * @returns {Promise<Object>} - Initialization stats
    */
-  async reinitializeAll(newPageType) {
-    log.init(`ButtonRegistry: Reinitializing from "${this.currentPage}" to "${newPageType}"`, '/utilities/buttonRegistry.js');
+  async reinitializeAll(newPageType: any) {
+    log.init(`ButtonRegistry: Reinitializing from "${this.currentPage}" to "${newPageType}"`, '/components/utilities/buttonRegistry.ts');
 
     this.destroyAll();
     return await this.initializeAll(newPageType);
@@ -230,12 +231,12 @@ class ButtonRegistry {
    * Resolve dependency order using topological sort
    * @private
    */
-  _resolveDependencyOrder(components) {
-    const sorted = [];
+  _resolveDependencyOrder(components: any) {
+    const sorted: any[] = [];
     const visited = new Set();
     const visiting = new Set();
 
-    const visit = (config) => {
+    const visit = (config: any) => {
       if (visited.has(config.name)) return;
 
       if (visiting.has(config.name)) {
@@ -246,11 +247,11 @@ class ButtonRegistry {
 
       // Visit dependencies first
       for (const depName of config.dependencies) {
-        const depConfig = components.find(c => c.name === depName);
+        const depConfig = components.find((c: any) => c.name === depName);
         if (depConfig) {
           visit(depConfig);
         } else {
-          verbose.init(`ButtonRegistry: Warning - dependency "${depName}" not found for "${config.name}"`, '/utilities/buttonRegistry.js');
+          verbose.init(`ButtonRegistry: Warning - dependency "${depName}" not found for "${config.name}"`, '/components/utilities/buttonRegistry.ts');
         }
       }
 
@@ -327,7 +328,7 @@ class ButtonRegistry {
         issues.push({
           type: 'error',
           component: name,
-          message: error.message
+          message: (error as any).message
         });
       }
     }
@@ -351,7 +352,7 @@ class ButtonRegistry {
       return null;
     }
 
-    const times = Array.from(this.initTimes.entries())
+    const times = (Array.from(this.initTimes.entries()) as any[])
       .map(([name, time]) => ({ component: name, time: time.toFixed(2) }))
       .sort((a, b) => b.time - a.time);
 
@@ -370,5 +371,5 @@ export const buttonRegistry = new ButtonRegistry();
 
 // Make available globally for debugging
 if (typeof window !== 'undefined') {
-  window.buttonRegistry = buttonRegistry;
+  (window as any).buttonRegistry = buttonRegistry;
 }

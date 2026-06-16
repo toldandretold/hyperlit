@@ -1,11 +1,12 @@
-import { cancelForcedVisibility, isProcessing } from './topRightContainer/cloudRef/editIndicator';
-import { log, verbose } from '../utilities/logger.js';
-import { setPerimeterButtonsHidden } from '../utilities/operationState.js';
-import { hasFootnoteTapTarget } from '../hyperlitContainer/footnoteTapExtender';
+import { cancelForcedVisibility, isProcessing } from '../topRightContainer/cloudRef/editIndicator';
+import { log, verbose } from '../../utilities/logger.js';
+import { setPerimeterButtonsHidden } from '../../utilities/operationState.js';
+import { hasFootnoteTapTarget } from '../../hyperlitContainer/footnoteTapExtender';
 
 // Export the TogglePerimeterButtons class
 export default class TogglePerimeterButtons {
-  constructor(options = {}) {
+  [key: string]: any;
+  constructor(options: any = {}) {
     // 1. Store the configuration.
     this.elementIds = options.elementIds || [
       "bottom-right-buttons",
@@ -47,12 +48,12 @@ export default class TogglePerimeterButtons {
   rebindElements() {
     // Find the elements that exist on the CURRENT page.
     this.elements = this.elementIds
-      .map((id) => document.getElementById(id))
-      .filter((el) => el !== null);
+      .map((id: any) => document.getElementById(id))
+      .filter((el: any) => el !== null);
 
     this.loadingElements = this.possibleLoadingElementIds
-      .map((id) => document.getElementById(id))
-      .filter((el) => el !== null);
+      .map((id: any) => document.getElementById(id))
+      .filter((el: any) => el !== null);
   }
 
   init() {
@@ -72,7 +73,7 @@ export default class TogglePerimeterButtons {
     window.addEventListener('keyboardStateChange', this.handleKeyboardChange);
 
     this.isInitialized = true;
-    log.init('Perimeter button controls initialized', '/components/togglePerimeterButtons.js');
+    log.init('Perimeter button controls initialized', '/components/togglePerimeterButtons/togglePerimeterButtons.ts');
   }
   
 
@@ -101,7 +102,7 @@ export default class TogglePerimeterButtons {
 
 
 
-  handleKeyboardChange(event) {
+  handleKeyboardChange(event: any) {
     this.isKeyboardVisible = event.detail.isOpen;
     console.log('Keyboard state changed:', this.isKeyboardVisible);
   }
@@ -110,7 +111,7 @@ export default class TogglePerimeterButtons {
    * Checks if a click is near important buttons (logo, user, source, edit, TOC)
    * Returns true if the click is within an expanded area around these buttons
    */
-  isClickNearImportantButton(event) {
+  isClickNearImportantButton(event: any) {
     const logoNavWrapper = document.getElementById('logoNavWrapper');
     const userButton = document.getElementById('userButton');
     const userButtonContainer = document.getElementById('userButtonContainer');
@@ -187,14 +188,14 @@ export default class TogglePerimeterButtons {
   /**
    * Checks if an event should be ignored.
    */
-shouldIgnoreEvent(event) {
+shouldIgnoreEvent(event: any) {
   // Always ignore edit toolbar - let it handle its own events without toggling nav
   if (event.target.closest('#edit-toolbar')) {
     return true;
   }
 
   // Ignore events when search toolbar is open - allow search toolbar to handle clicks outside
-  if (window.searchToolbarBlockingNavigation) {
+  if ((window as any).searchToolbarBlockingNavigation) {
     return true;
   }
 
@@ -216,7 +217,7 @@ shouldIgnoreEvent(event) {
   }
   
   // Don't toggle nav buttons when in edit mode
-  if (window.isEditing) {
+  if ((window as any).isEditing) {
     return true;
   }
   
@@ -251,7 +252,7 @@ shouldIgnoreEvent(event) {
 
   
 
-    handleTouchStart(event) {
+    handleTouchStart(event: any) {
     // Early exit for edit toolbar to avoid any interference
     if (event.target.closest('#edit-toolbar')) {
       return;
@@ -265,7 +266,7 @@ shouldIgnoreEvent(event) {
     this.touchStartTime = Date.now();
   }
 
-  handleTouchEnd(event) {
+  handleTouchEnd(event: any) {
     // Early exit for edit toolbar to avoid any interference
     if (event.target.closest('#edit-toolbar')) {
       return;
@@ -294,7 +295,7 @@ shouldIgnoreEvent(event) {
     // Only toggle if it's a quick tap with minimal movement
     if (deltaX < this.tapThreshold && deltaY < this.tapThreshold && deltaTime < 500) {
       // Don't toggle nav visibility in edit mode
-      if (window.isEditing) {
+      if ((window as any).isEditing) {
         // edit mode active — skip toggle
       } else {
         // Cancel any forced visibility from edit indicator
@@ -327,20 +328,20 @@ shouldIgnoreEvent(event) {
     // If we should respect the edit indicator and it's currently processing,
     // exclude topRightContainer from sync operations
     if (respectEditIndicator && isProcessing && topRightContainer) {
-      elementsToSync = this.elements.filter(el => el !== topRightContainer);
+      elementsToSync = this.elements.filter((el: any) => el !== topRightContainer);
       console.log('🔵 Excluding topRightContainer from sync - edit indicator is active');
     }
 
     // Count how many are currently visible (excluding topRightContainer if needed)
     const visibleCount = elementsToSync.filter(
-      (el) => !el.classList.contains("perimeter-hidden")
+      (el: any) => !el.classList.contains("perimeter-hidden")
     ).length;
 
     // If majority are visible, hide all. Otherwise, show all.
     const shouldHide = visibleCount > elementsToSync.length / 2;
 
     // Apply sync only to the filtered elements
-    elementsToSync.forEach((element) => {
+    elementsToSync.forEach((element: any) => {
       if (shouldHide) {
         element.classList.add("perimeter-hidden");
       } else {
@@ -358,13 +359,13 @@ shouldIgnoreEvent(event) {
   /**
    * On click (desktop), toggle the perimeter buttons.
    */
-  handleClick(event) {
+  handleClick(event: any) {
     if (this.shouldIgnoreEvent(event)) {
       return;
     }
 
     // Don't toggle perimeter button visibility in edit mode
-    if (window.isEditing) {
+    if ((window as any).isEditing) {
       return;
     }
 
@@ -382,7 +383,7 @@ shouldIgnoreEvent(event) {
   updatePosition() {
     // On mobile, let CSS handle everything. Remove any inline styles.
     if (window.innerWidth < this.desktopBreakpoint) {
-      this.loadingElements.forEach((element) => {
+      this.loadingElements.forEach((element: any) => {
         element.style.removeProperty("left");
         element.style.removeProperty("right");
         element.style.removeProperty("bottom");
@@ -405,7 +406,7 @@ shouldIgnoreEvent(event) {
 
         // Toggle transparent background when buttons overlap content column
         const isOverlapping = newPos < 10;
-        this.loadingElements.forEach((element) => {
+        this.loadingElements.forEach((element: any) => {
           element.classList.toggle('perimeter-transparent', isOverlapping);
         });
 
@@ -415,7 +416,7 @@ shouldIgnoreEvent(event) {
         const verticalGap = 20; // Gap between toolbar and buttons
         const bottomOffset = toolbarHeight + verticalGap;
 
-        this.loadingElements.forEach((element) => {
+        this.loadingElements.forEach((element: any) => {
           if (
             element.id === "bottom-right-buttons" ||
             element.id === "topRightContainer"
@@ -443,7 +444,7 @@ shouldIgnoreEvent(event) {
     // This part runs regardless of device to prevent Flash of Unstyled Content
     if (!this.isInitialized) {
       setTimeout(() => {
-        this.loadingElements.forEach((element) => {
+        this.loadingElements.forEach((element: any) => {
           element.classList.remove("loading");
         });
       }, 50);

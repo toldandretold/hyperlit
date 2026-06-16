@@ -38,7 +38,7 @@ const JS_ROOT = path.join(ROOT, 'resources/js');
 // Non-component bootstrap scripts legitimately loaded directly by reader.blade.php's
 // @vite. Anything NOT here is presumed an interactive component and must be registered.
 const ALLOWED_READER_VITE_JS = new Set([
-  'resources/js/components/containerCustomization.js', // applies persisted container styles (no listeners)
+  'resources/js/components/utilities/containerCustomization.ts', // applies persisted container styles (no listeners)
   'resources/js/pageLoad/readerEntry.ts', // the reader bootstrap entry (imports app.js + viewManager)
 ]);
 
@@ -82,7 +82,7 @@ function readerViteJsEntries() {
   const entries = new Set();
   const viteBlocks = blade.match(/@vite\(\[([\s\S]*?)\]\)/g) || [];
   for (const block of viteBlocks) {
-    for (const m of block.matchAll(/'(resources\/js\/[^']+\.js)'/g)) {
+    for (const m of block.matchAll(/'(resources\/js\/[^']+\.(?:js|ts))'/g)) {
       entries.add(m[1]);
     }
   }
@@ -90,7 +90,7 @@ function readerViteJsEntries() {
 }
 
 function registeredComponentNames() {
-  const src = fs.readFileSync(path.join(ROOT, 'resources/js/components/registerComponents.js'), 'utf8');
+  const src = fs.readFileSync(path.join(ROOT, 'resources/js/components/utilities/registerComponents.ts'), 'utf8');
   // Names inside `buttonRegistry.register({ name: '...' })`. Ignore commented-out lines.
   const names = new Set();
   for (const line of src.split('\n')) {
@@ -113,7 +113,7 @@ describe('interactive components go through ButtonRegistry', () => {
       `reader.blade.php loads JS via @vite that isn't an approved bootstrap: ${JSON.stringify(offenders)}.\n` +
         `Interactive components must NOT be loaded as @vite side-effects — they won't re-init after\n` +
         `in-SPA navigation (the blade only renders on a full page load). Register the component in\n` +
-        `resources/js/components/registerComponents.js (ButtonRegistry, pages: ['reader']) instead.\n` +
+        `resources/js/components/utilities/registerComponents.ts (ButtonRegistry, pages: ['reader']) instead.\n` +
         `If this genuinely is a non-component bootstrap, add it to ALLOWED_READER_VITE_JS with a reason.`,
     ).toEqual([]);
   });

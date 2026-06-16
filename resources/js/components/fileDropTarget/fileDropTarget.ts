@@ -9,30 +9,30 @@
  * - On drop (anonymous): the same overlay morphs into a login/register prompt
  *   with Close / Login / Register actions, instead of the import form opening.
  *
- * Lifecycle is managed by buttonRegistry — see registerComponents.js. The
+ * Lifecycle is managed by buttonRegistry — see registerComponents.ts. The
  * registry filters this to `['home', 'user']` pages; reader pages get nothing.
  */
 
-import { log, verbose } from '../utilities/logger.js';
-import { isLoggedIn } from '../utilities/auth.js';
-import { initializeUserContainer } from './userButton/userButton';
+import { log, verbose } from '../../utilities/logger.js';
+import { isLoggedIn } from '../../utilities/auth.js';
+import { initializeUserContainer } from '../userButton/userButton';
 import {
   attachFilesToInput,
   isAcceptableImportExt,
-} from '../utilities/fileImportHelpers.js';
+} from '../../utilities/fileImportHelpers.js';
 
 const OVERLAY_ID = 'page-drop-overlay';
 
 // Module-scoped state so the registered destroyFn can clean up by reference.
-let overlayEl = null;
-let cardEl = null;
+let overlayEl: any = null;
+let cardEl: any = null;
 let dragDepth = 0;
-let onDragEnter = null;
-let onDragOver = null;
-let onDragLeave = null;
-let onDrop = null;
+let onDragEnter: any = null;
+let onDragOver: any = null;
+let onDragLeave: any = null;
+let onDrop: any = null;
 
-function isFileDrag(e) {
+function isFileDrag(e: any) {
   const types = e.dataTransfer && e.dataTransfer.types;
   if (!types) return false;
   for (let i = 0; i < types.length; i++) {
@@ -134,7 +134,7 @@ function renderAnonAlert() {
   const actions = document.createElement('div');
   actions.style.cssText = 'display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;';
 
-  const styleBtn = (btn, variant) => {
+  const styleBtn = (btn: any, variant: any) => {
     const baseCss = [
       'padding: 8px 16px',
       'border-radius: 6px',
@@ -182,11 +182,11 @@ function renderAnonAlert() {
   cardEl.appendChild(actions);
 }
 
-function openUserContainerThenHide(mode) {
+function openUserContainerThenHide(mode: any) {
   hideOverlay();
   const userManager = initializeUserContainer();
   if (!userManager) {
-    log.error(`homepageDropTarget: user container unavailable for ${mode} prompt`, '/components/homepageDropTarget.js');
+    log.error(`fileDropTarget: user container unavailable for ${mode} prompt`, '/components/fileDropTarget/fileDropTarget.ts');
     return;
   }
   // Use show*Form() — these inject the form HTML AND open the container.
@@ -240,14 +240,14 @@ function waitForFileInput(timeoutMs = 1500) {
   });
 }
 
-async function handleAcceptedDrop(file) {
+async function handleAcceptedDrop(file: any) {
   // Gate on auth — anonymous users can't upload, so morph the overlay into
   // a login/register prompt instead of opening the import form.
   let loggedIn = false;
   try {
     loggedIn = await isLoggedIn();
   } catch (e) {
-    verbose.init(`homepageDropTarget: isLoggedIn() threw — assuming anonymous (${e.message})`, '/components/homepageDropTarget.js');
+    verbose.init(`fileDropTarget: isLoggedIn() threw — assuming anonymous (${(e as any).message})`, '/components/fileDropTarget/fileDropTarget.ts');
   }
   if (!loggedIn) {
     showAnonAlertOverlay();
@@ -259,28 +259,28 @@ async function handleAcceptedDrop(file) {
   if (importBtn) {
     importBtn.click();
   } else {
-    verbose.init('homepageDropTarget: #importBook not present — cannot open form', '/components/homepageDropTarget.js');
+    verbose.init('fileDropTarget: #importBook not present — cannot open form', '/components/fileDropTarget/fileDropTarget.ts');
     return;
   }
 
   const fileInput = await waitForFileInput();
   if (!fileInput) {
-    log.error('homepageDropTarget: #markdown_file did not appear in time', '/components/homepageDropTarget.js');
+    log.error('fileDropTarget: #markdown_file did not appear in time', '/components/fileDropTarget/fileDropTarget.ts');
     return;
   }
   attachFilesToInput(fileInput, [file]);
-  verbose.init(`homepageDropTarget: attached "${file.name}" (${file.size} bytes) to import form`, '/components/homepageDropTarget.js');
+  verbose.init(`fileDropTarget: attached "${file.name}" (${file.size} bytes) to import form`, '/components/fileDropTarget/fileDropTarget.ts');
 }
 
 /* ── Lifecycle ──────────────────────────────────────────────────────────── */
 
-export function initializeHomepageDropTarget() {
+export function initializeFileDropTarget() {
   if (overlayEl) return; // idempotent
 
   overlayEl = buildOverlay();
   document.body.appendChild(overlayEl);
 
-  onDragEnter = (e) => {
+  onDragEnter = (e: any) => {
     if (!isFileDrag(e)) return;
     e.preventDefault();
     // Form already open → defer to its inline dropzone, no page-level overlay.
@@ -292,7 +292,7 @@ export function initializeHomepageDropTarget() {
     if (dragDepth === 1) showDragOverlay();
   };
 
-  onDragOver = (e) => {
+  onDragOver = (e: any) => {
     if (!isFileDrag(e)) return;
     // MUST preventDefault on every dragover or the browser navigates to
     // the dropped file when it lands outside any drop handler — even when
@@ -301,7 +301,7 @@ export function initializeHomepageDropTarget() {
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
   };
 
-  onDragLeave = (e) => {
+  onDragLeave = (e: any) => {
     if (!isFileDrag(e)) return;
     if (isImportFormOpen()) return;
     if (overlayEl && overlayEl.style.pointerEvents === 'auto') return;
@@ -309,7 +309,7 @@ export function initializeHomepageDropTarget() {
     if (dragDepth === 0) hideOverlay();
   };
 
-  onDrop = (e) => {
+  onDrop = (e: any) => {
     if (!isFileDrag(e)) return;
     e.preventDefault();
     // Reset drag depth — drop ends the drag sequence.
@@ -321,7 +321,7 @@ export function initializeHomepageDropTarget() {
     }
     const file = files[0];
     if (!isAcceptableImportExt(file)) {
-      verbose.init(`homepageDropTarget: rejected drop "${file.name}" — extension not in allowlist`, '/components/homepageDropTarget.js');
+      verbose.init(`fileDropTarget: rejected drop "${file.name}" — extension not in allowlist`, '/components/fileDropTarget/fileDropTarget.ts');
       hideOverlay();
       return;
     }
@@ -346,10 +346,10 @@ export function initializeHomepageDropTarget() {
   window.addEventListener('dragleave', onDragLeave);
   window.addEventListener('drop', onDrop);
 
-  log.init('Homepage drop target initialized', '/components/homepageDropTarget.js');
+  log.init('File drop target initialized', '/components/fileDropTarget/fileDropTarget.ts');
 }
 
-export function destroyHomepageDropTarget() {
+export function destroyFileDropTarget() {
   if (onDragEnter) window.removeEventListener('dragenter', onDragEnter);
   if (onDragOver) window.removeEventListener('dragover', onDragOver);
   if (onDragLeave) window.removeEventListener('dragleave', onDragLeave);

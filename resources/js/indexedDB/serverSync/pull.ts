@@ -34,7 +34,7 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<any> {
     verbose.content('Making API request', 'serverSync/pull');
 
     // Include gate filter as query param so server-side annotation filtering matches client
-    const { appendGateParam } = await import('../../components/gateFilter.js');
+    const { appendGateParam } = await import('../../components/utilities/gateFilter');
     const response = await fetch(appendGateParam(`/api/database-to-indexeddb/books/${bookId}/data`));
 
     verbose.content(`API response received: ${response.status}`, 'serverSync/pull');
@@ -157,7 +157,7 @@ export async function syncAnnotationsOnly(bookId: string): Promise<any> {
     // 1. Fetch only annotations (not the full book with all nodes)
     // Include gate filter as query param so server applies it immediately
     // (avoids race with async preference save, works for anonymous users)
-    const { appendGateParam } = await import('../../components/gateFilter.js');
+    const { appendGateParam } = await import('../../components/utilities/gateFilter');
     const response = await fetch(appendGateParam(`/api/database-to-indexeddb/books/${bookId}/annotations`));
 
     if (!response.ok) {

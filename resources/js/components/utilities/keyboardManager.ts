@@ -1,9 +1,10 @@
 // This is your working code, with the "bad guess" removed and the scroll call made reliable.
 
-import { getKeyboardWasRecentlyClosed, setKeyboardWasRecentlyClosed } from '../utilities/operationState.js';
-import { verbose } from '../utilities/logger.js';
+import { getKeyboardWasRecentlyClosed, setKeyboardWasRecentlyClosed } from '../../utilities/operationState.js';
+import { verbose } from '../../utilities/logger.js';
 
 class KeyboardManager {
+  [key: string]: any;
   constructor() {
     this.isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
     this.initialVisualHeight = null;
@@ -48,7 +49,7 @@ class KeyboardManager {
   }
 
   // SIMPLIFIED: This now only tracks the focused element. No more guessing.
-  handleFocusIn(e) {
+  handleFocusIn(e: any) {
     if (
       !e.target.isContentEditable &&
       !["INPUT", "TEXTAREA"].includes(e.target.tagName)
@@ -70,7 +71,7 @@ class KeyboardManager {
     // CITATION/BRAIN INPUT FIX: Prevent iOS from scrolling when citation/brain input focuses
     if ((e.target.id === 'citation-search-input' || e.target.id === 'brain-search-input') && this.isKeyboardOpen) {
       console.log('🚫 Preventing iOS scroll for citation input - forcing scroll position to stay put');
-      const vv = window.visualViewport;
+      const vv: any = window.visualViewport;
       const currentOffsetTop = vv.offsetTop;
 
       // Force scroll position to stay the same (prevent iOS auto-scroll)
@@ -92,7 +93,7 @@ class KeyboardManager {
       // Wait briefly for iOS to start keyboard animation
       setTimeout(() => {
         if (!this.isKeyboardOpen && this.state.focusedElement) {
-          const vv = window.visualViewport;
+          const vv: any = window.visualViewport;
 
           // SEARCH-INPUT SPECIAL CASE: If offsetTop is still 0 due to iOS scroll lag
           if (vv.offsetTop === 0 && this.isIOS && this.state.focusedElement.id === 'search-input') {
@@ -142,7 +143,7 @@ class KeyboardManager {
     }
   }
 
-  handleFocusOut(e) {
+  handleFocusOut(e: any) {
     console.log(`👋 FOCUSOUT: from ${e.target.id || e.target.tagName}, relatedTarget=${e.relatedTarget?.id || e.relatedTarget?.tagName || 'null'}, isKeyboardOpen=${this.isKeyboardOpen}`);
 
     // CRITICAL FIX: Don't close keyboard if focus is moving to another editable element
@@ -208,7 +209,7 @@ class KeyboardManager {
     this.state.focusedElement = null;
   }
 
-  preventToolbarScroll(e) {
+  preventToolbarScroll(e: any) {
     // Allow scrolling inside scrollable containers (like citation results)
     const scrollableContainer = e.target.closest('#citation-toolbar-results');
     if (scrollableContainer) {
@@ -242,7 +243,7 @@ class KeyboardManager {
 handleViewportScroll() {
   if (!this.isKeyboardOpen) return;
 
-  const vv = window.visualViewport;
+  const vv: any = window.visualViewport;
   const newOffsetTop = vv.offsetTop;
 
   // Only act if offsetTop actually changed
@@ -267,7 +268,7 @@ handleViewportChange() {
 
 // Process viewport changes
 processViewportChange() {
-  const vv = window.visualViewport;
+  const vv: any = window.visualViewport;
   const referenceHeight = this.isIOS
     ? this.initialVisualHeight
     : window.innerHeight;
@@ -276,7 +277,7 @@ processViewportChange() {
   // Early exit if viewport shrinks but no editable element is focused
   // This prevents false keyboard detection from focus-preserver or other non-editable elements
   if (keyboardOpen && !this.state.focusedElement) {
-    verbose.debug('Viewport shrunk but no editable element focused - skipping keyboard layout', 'keyboardManager.js');
+    verbose.debug('Viewport shrunk but no editable element focused - skipping keyboard layout', '/components/utilities/keyboardManager.ts');
     return;
   }
 
@@ -327,7 +328,7 @@ processViewportChange() {
 
   // QUICK REOPEN FIX: If keyboard was recently closed and we detect it's open now, force repositioning
   if (keyboardOpen && getKeyboardWasRecentlyClosed()) {
-    verbose.debug('Quick reopen detected - forcing layout adjustment', 'keyboardManager.js');
+    verbose.debug('Quick reopen detected - forcing layout adjustment', '/components/utilities/keyboardManager.ts');
     this.isKeyboardOpen = true;
     this.lastOffsetTop = vv.offsetTop;
     this.adjustLayout(true);
@@ -423,9 +424,9 @@ processViewportChange() {
 }
 
 // Renamed and cleaned up for production
-scrollCaretIntoView(element) {
+scrollCaretIntoView(element: any) {
   // Get the actual cursor/caret position
-  const selection = window.getSelection();
+  const selection: any = window.getSelection();
   let caretRect = null;
 
   if (selection.rangeCount > 0) {
@@ -435,7 +436,7 @@ scrollCaretIntoView(element) {
     // If caret rect is empty (in empty paragraph with <br>), use parent element's rect
     if (!caretRect || (caretRect.width === 0 && caretRect.height === 0)) {
       const node = range.startContainer;
-      const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      const el: any = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
       if (el) {
         caretRect = el.getBoundingClientRect();
         console.log('📍 KeyboardManager: caret rect was empty, using parent element rect');
@@ -449,7 +450,7 @@ scrollCaretIntoView(element) {
   
   const toolbar = document.querySelector("#edit-toolbar");
   const toolbarRect = toolbar ? toolbar.getBoundingClientRect() : null;
-  const vv = window.visualViewport;
+  const vv: any = window.visualViewport;
   
   if (toolbarRect) {
     const viewportTop = vv.offsetTop;
@@ -475,10 +476,10 @@ scrollCaretIntoView(element) {
 }
 
   // All the functions below are from YOUR working version. They are unchanged.
-  adjustLayout(keyboardOpen, overrideOffsetTop = null, wasKeyboardOpen = null) {
-    verbose.debug(`KeyboardManager.adjustLayout called with keyboardOpen=${keyboardOpen}, overrideOffsetTop=${overrideOffsetTop}, wasKeyboardOpen=${wasKeyboardOpen}`, 'keyboardManager.js');
+  adjustLayout(keyboardOpen: any, overrideOffsetTop = null, wasKeyboardOpen = null) {
+    verbose.debug(`KeyboardManager.adjustLayout called with keyboardOpen=${keyboardOpen}, overrideOffsetTop=${overrideOffsetTop}, wasKeyboardOpen=${wasKeyboardOpen}`, '/components/utilities/keyboardManager.ts');
 
-    const appContainer = document.querySelector("#app-container");
+    const appContainer: any = document.querySelector("#app-container");
     const mainContent = document.querySelector(".main-content");
     const editToolbar = document.querySelector("#edit-toolbar");
     const searchToolbar = document.querySelector("#search-toolbar");
@@ -507,7 +508,7 @@ scrollCaretIntoView(element) {
 
     if (keyboardOpen) {
       console.log(`🔧 KeyboardManager: KEYBOARD OPENING - will modify layout`);
-      const vv = window.visualViewport;
+      const vv: any = window.visualViewport;
       const effectiveOffsetTop = overrideOffsetTop !== null ? overrideOffsetTop : vv.offsetTop;
 
       console.log(`🔍 adjustLayout: vv.offsetTop=${vv.offsetTop}, effectiveOffsetTop=${effectiveOffsetTop}, vv.height=${vv.height}, window.innerHeight=${window.innerHeight}`);
@@ -534,7 +535,7 @@ scrollCaretIntoView(element) {
       }
 
       // Adjust stacked containers height when keyboard opens
-      document.querySelectorAll('.hyperlit-container-stacked.open').forEach(c => {
+      document.querySelectorAll('.hyperlit-container-stacked.open').forEach((c: any) => {
         const stackedEditToolbar = document.getElementById('edit-toolbar');
         const stackedBottomGap = stackedEditToolbar ? stackedEditToolbar.offsetHeight : 4;
         const maxH = vv.offsetTop + vv.height - 16 - stackedBottomGap;
@@ -577,7 +578,7 @@ scrollCaretIntoView(element) {
       }
 
       // Reset stacked containers to full height
-      document.querySelectorAll('.hyperlit-container-stacked').forEach(c => {
+      document.querySelectorAll('.hyperlit-container-stacked').forEach((c: any) => {
         const stackedEditToolbar = document.getElementById('edit-toolbar');
         const stackedBottomGap = stackedEditToolbar ? stackedEditToolbar.offsetHeight : 4;
         c.style.maxHeight = `${window.innerHeight - 16 - stackedBottomGap}px`;
@@ -593,7 +594,7 @@ scrollCaretIntoView(element) {
     }
   }
 
-  moveToolbarAboveKeyboard(editToolbar, searchToolbar, citationToolbar, bottomRightButtons, mainContent) {
+  moveToolbarAboveKeyboard(editToolbar: any, searchToolbar: any, citationToolbar: any, bottomRightButtons: any, mainContent: any) {
     console.log("🔧 KeyboardManager.moveToolbarAboveKeyboard called");
 
     // Determine which toolbar is visible
@@ -757,7 +758,7 @@ scrollCaretIntoView(element) {
     }
   }
 
-  adjustHyperlitContainerHeight(container, vv) {
+  adjustHyperlitContainerHeight(container: any, vv: any) {
     const topMargin = 16; // 1em top spacing (matches CSS top: 1em)
     const editToolbar = document.getElementById('edit-toolbar');
     const bottomGap = editToolbar ? editToolbar.offsetHeight : 4;
@@ -777,7 +778,7 @@ scrollCaretIntoView(element) {
   }
    
 
-  resetInlineStyles(...elements) {
+  resetInlineStyles(...elements: any[]) {
     const props = [
       "position",
       "top",
@@ -796,8 +797,8 @@ scrollCaretIntoView(element) {
       props.forEach((p) => el.style.removeProperty(p));
     });
   }
-createOrUpdateSpacer(height) {
-  const spacer = document.querySelector("#keyboard-spacer");
+createOrUpdateSpacer(height: any) {
+  const spacer: any = document.querySelector("#keyboard-spacer");
   if (spacer) {
     // Use the larger of keyboard height or minimum reading height
     const minHeight = 100;
@@ -806,7 +807,7 @@ createOrUpdateSpacer(height) {
 }
 
 removeSpacer() {
-  const spacer = document.querySelector("#keyboard-spacer");
+  const spacer: any = document.querySelector("#keyboard-spacer");
   if (spacer) {
     // Reset to minimum height instead of removing
     spacer.style.height = "100px";

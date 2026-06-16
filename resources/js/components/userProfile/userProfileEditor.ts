@@ -1,16 +1,16 @@
-import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from '../indexedDB/index';
-import { canUserEditBook } from "../utilities/auth.js";
-import { book } from '../app.js';
-import { fixHeaderSpacing } from './homepageDisplayUnit.js';
+import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from '../../indexedDB/index';
+import { canUserEditBook } from "../../utilities/auth.js";
+import { book } from '../../app.js';
+import { fixHeaderSpacing } from '../homepage/homepageDisplayUnit';
 
-let titleDebounceTimer = null;
-let bioDebounceTimer = null;
+let titleDebounceTimer: any = null;
+let bioDebounceTimer: any = null;
 
 // Store listener references to prevent duplicate attachment
-let titleInputListener = null;
-let bioInputListener = null;
-let currentTitleElement = null;
-let currentBioElement = null;
+let titleInputListener: any = null;
+let bioInputListener: any = null;
+let currentTitleElement: any = null;
+let currentBioElement: any = null;
 
 /**
  * Initialize the user profile editor
@@ -59,10 +59,10 @@ export async function initializeUserProfileEditor() {
 
     // Display title and bio only if not already present (server-rendered)
     if (!titleEl.textContent.trim()) {
-      titleEl.textContent = record.title || `${book}'s library`;
+      titleEl.textContent = (record as any).title || `${book}'s library`;
     }
     if (!bioEl.textContent.trim()) {
-      bioEl.textContent = record.note || '';
+      bioEl.textContent = (record as any).note || '';
     }
 
     // Recalculate header spacing now that content is loaded
@@ -103,7 +103,7 @@ export async function initializeUserProfileEditor() {
  * Attach debounced save listeners to title and bio fields
  * Removes old listeners first to prevent duplicates
  */
-function attachSaveListeners(titleEl, bioEl, originalRecord) {
+function attachSaveListeners(titleEl: any, bioEl: any, originalRecord: any) {
   // 🧹 CRITICAL: Remove old listeners first to prevent duplicates
   if (currentTitleElement && titleInputListener) {
     currentTitleElement.removeEventListener('input', titleInputListener);
@@ -160,7 +160,7 @@ function attachSaveListeners(titleEl, bioEl, originalRecord) {
 /**
  * Save a library field to IndexedDB and sync to PostgreSQL
  */
-async function saveLibraryField(fieldName, value, originalRecord) {
+async function saveLibraryField(fieldName: any, value: any, originalRecord: any) {
   try {
     console.log(`💾 Saving library field: ${fieldName} = "${value}"`);
 
@@ -178,7 +178,7 @@ async function saveLibraryField(fieldName, value, originalRecord) {
     const db = await openDatabase();
     const tx = db.transaction('library', 'readwrite');
     const store = tx.objectStore('library');
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const req = store.put(cleanedRecord);
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
@@ -196,7 +196,7 @@ async function saveLibraryField(fieldName, value, originalRecord) {
 
   } catch (error) {
     console.error(`Error saving library field ${fieldName}:`, error);
-    alert(`Error saving ${fieldName}: ` + error.message);
+    alert(`Error saving ${fieldName}: ` + (error as any).message);
   }
 }
 
@@ -204,8 +204,8 @@ async function saveLibraryField(fieldName, value, originalRecord) {
  * Sync library record to PostgreSQL backend
  * Reuses the same endpoint as sourceButton.js
  */
-async function syncLibraryRecordToBackend(libraryRecord) {
-  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+async function syncLibraryRecordToBackend(libraryRecord: any) {
+  const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
 
   // Clean the library record and prepare raw_json for PostgreSQL
   const cleanedForSync = {

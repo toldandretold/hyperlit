@@ -2,7 +2,7 @@ import katex from 'katex';
 import { verbose } from '../utilities/logger.js';
 import { renderBlockToHtml } from "../utilities/convertMarkdown.js";
 import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
-import { applyGateFilter } from "../components/gateFilter.js";
+import { applyGateFilter } from "../components/utilities/gateFilter";
 import { isNewlyCreatedHighlight } from "../utilities/operationState.js";
 import { renderCharts } from '../utilities/chartRenderer.js';
 import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements.js';

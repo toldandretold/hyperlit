@@ -243,7 +243,7 @@ export async function loadLibraryToIndexedDB(db: IDBDatabase, library: any): Pro
   });
 
   // Keep the gate filter's book-level defaults cache in sync
-  const { setBookGateDefaults } = await import('../../components/gateFilter.js');
+  const { setBookGateDefaults } = await import('../../components/utilities/gateFilter');
   setBookGateDefaults(library.gate_defaults || null);
 
   verbose.content('Loaded library data (cleaned)', 'serverSync/loaders');

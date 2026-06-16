@@ -5,14 +5,14 @@
 import { log } from '../../../utilities/logger.js';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { showNavigationLoading, hideNavigationLoading, navigateToInternalId } from '../../../scrolling';
-import { destroyHomepageDisplayUnit, initializeHomepageButtons, fixHeaderSpacing } from '../../../components/homepageDisplayUnit.js';
-import { destroyUserProfileEditor, initializeUserProfileEditor } from '../../../components/userProfileEditor.js';
+import { destroyHomepageDisplayUnit, initializeHomepageButtons, fixHeaderSpacing } from '../../../components/homepage/homepageDisplayUnit';
+import { destroyUserProfileEditor, initializeUserProfileEditor } from '../../../components/userProfile/userProfileEditor';
 import { setCurrentBook, setCurrentBookSlug } from '../../../app.js';
 import { updateDatabaseBookId } from '../../../indexedDB/index';
 import { resetCurrentLazyLoader, currentLazyLoader } from '../../../pageLoad';
 // ✅ REMOVED: togglePerimeterButtons now managed by ButtonRegistry
 // import { togglePerimeterButtons } from '../../../pageLoad';
-import { destroyLogoNav, initializeLogoNav } from '../../../components/logoNavToggle.js';
+import { destroyLogoNav, initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { initializeUserContainer } from '../../../components/userButton/userButton';
 
 /**

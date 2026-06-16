@@ -4,7 +4,7 @@
  * for both system shelves (Public/Private) and custom shelves.
  */
 
-import { fixHeaderSpacing, transitionToBookContent } from '../homepageDisplayUnit.js';
+import { fixHeaderSpacing, transitionToBookContent } from '../homepage/homepageDisplayUnit';
 import DOMPurify from 'dompurify';
 
 let currentHeader = null;

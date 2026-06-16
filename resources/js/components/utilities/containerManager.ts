@@ -1,12 +1,13 @@
 
 // (Removed dead upward imports of hyperlights/index, scrolling and pageLoad: none were used —
-// the only currentLazyLoader reference is `window.currentLazyLoader`. They put this base class,
+// the only currentLazyLoader reference is `(window as any).currentLazyLoader`. They put this base class,
 // which 5+ components `extends`, into an import cycle that TDZ-crashed the bundle at init.)
-import { isProcessing, isComplete } from './topRightContainer/cloudRef/editIndicator'
-import { book } from '../app.js';
+import { isProcessing, isComplete } from '../topRightContainer/cloudRef/editIndicator'
+import { book } from '../../app.js';
 
 export class ContainerManager {
-  constructor(containerId, overlayId, buttonId = null, frozenContainerIds = [], options = {}) {
+  [key: string]: any;
+  constructor(containerId: any, overlayId: any, buttonId: any = null, frozenContainerIds: any = [], options: any = {}) {
     // 1. Store the IDs. This is the only thing the constructor should do.
     // It runs only once when the app first loads.
     this.containerId = containerId;
@@ -38,7 +39,7 @@ export class ContainerManager {
   // =================================================================
   rebindElements() {
     // Reset any stale drag/resize state from before SPA navigation
-    if (window.containerDragger) window.containerDragger.reset();
+    if ((window as any).containerDragger) (window as any).containerDragger.reset();
 
     // Store old element references for cleanup
     const oldContainer = this.container;
@@ -49,7 +50,7 @@ export class ContainerManager {
     this.container = document.getElementById(this.containerId);
     this.overlay = document.getElementById(this.overlayId);
     this.button = this.buttonId ? document.getElementById(this.buttonId) : null;
-    this.frozenElements = this.frozenContainerIds.map(id => document.getElementById(id)).filter(Boolean);
+    this.frozenElements = this.frozenContainerIds.map((id: any) => document.getElementById(id)).filter(Boolean);
     
     // Always remove old handlers before creating new ones.
     // The old check (oldEl !== this.el) missed the case where the DOM element is the
@@ -73,7 +74,7 @@ export class ContainerManager {
       this.initialContent = this.container.innerHTML;
       
       // Create and store container click handler
-      this.containerClickHandler = (e) => {
+      this.containerClickHandler = (e: any) => {
         // This handler is intentionally left sparse for link clicks.
         // Link navigation is managed by a global, layered system to support SPA functionality.
         // This container-specific handler should only contain logic for non-navigation clicks.
@@ -116,7 +117,7 @@ export class ContainerManager {
         this.overlay.removeEventListener("click", this.overlay[handlerKey]);
       }
 
-      this.overlayClickHandler = async (e) => {
+      this.overlayClickHandler = async (e: any) => {
         e.stopPropagation();
         e.preventDefault();
         if (!this.isOpen || this._closePending) return;
@@ -130,7 +131,7 @@ export class ContainerManager {
           // keeps browser history aligned with the visible stack so
           // back/forward behaves as the user expects (one container per step).
           if (this.containerId === 'hyperlit-container') {
-            const { isStackPopPending } = await import('../hyperlitContainer/stack');
+            const { isStackPopPending } = await import('../../hyperlitContainer/stack');
             if (isStackPopPending()) {
               console.warn('Overlay click BLOCKED — pop already in flight');
               return;
@@ -139,7 +140,7 @@ export class ContainerManager {
             // (popstate handler will flush again as part of its teardown,
             // but flushing here too keeps autosave timing tight).
             try {
-              const { flushInputDebounce, flushAllPendingSaves } = await import('../divEditor/index');
+              const { flushInputDebounce, flushAllPendingSaves } = await import('../../divEditor/index');
               flushInputDebounce();
               await flushAllPendingSaves();
             } catch (err) {
@@ -161,7 +162,7 @@ export class ContainerManager {
 
     // If the button exists, set up its click handler
     if (this.button) {
-      this.buttonClickHandler = (e) => {
+      this.buttonClickHandler = (e: any) => {
         e.stopPropagation();
         e.preventDefault();
         this.toggleContainer();
@@ -213,7 +214,7 @@ export class ContainerManager {
   // =================================================================
   // ALL YOUR OTHER METHODS ARE PRESERVED HERE, UNCHANGED.
   // =================================================================
-  freezeElement(el) {
+  freezeElement(el: any) {
     if (el) {
       el.dataset.scrollPos = el.scrollTop;
       el.style.pointerEvents = "none";
@@ -221,7 +222,7 @@ export class ContainerManager {
     }
   }
 
-  unfreezeElement(el) {
+  unfreezeElement(el: any) {
     if (el) {
       el.style.pointerEvents = "";
       el.style.overflow = "";
@@ -231,7 +232,7 @@ export class ContainerManager {
         
         // Check if we're currently navigating - if so, don't restore scroll position
         const mainContent = document.getElementById('test555yeah') || document.querySelector('.main-content');
-        if (mainContent && window.currentLazyLoader && window.currentLazyLoader.scrollLocked) {
+        if (mainContent && (window as any).currentLazyLoader && (window as any).currentLazyLoader.scrollLocked) {
           console.log(`🔧 CONTAINER MANAGER: SKIPPING scroll restoration - navigation in progress`);
         } else {
           console.log(`🔧 CONTAINER MANAGER: Applying scroll restoration to ${el.dataset.scrollPos}`);
@@ -284,11 +285,11 @@ export class ContainerManager {
     if (this.isOpen) {
       this.container.classList.add("open");
       if (this.overlay) this.overlay.classList.add("active");
-      this.frozenElements.forEach((el) => this.freezeElement(el));
+      this.frozenElements.forEach((el: any) => this.freezeElement(el));
     } else {
       this.container.classList.remove("open");
       if (this.overlay) this.overlay.classList.remove("active");
-      this.frozenElements.forEach((el) => this.unfreezeElement(el));
+      this.frozenElements.forEach((el: any) => this.unfreezeElement(el));
     }
   }
 
@@ -299,7 +300,7 @@ export class ContainerManager {
     }
 
     if (highlightId) this.highlightId = highlightId;
-    if (window.containerCustomizer) window.containerCustomizer.loadCustomizations();
+    if ((window as any).containerCustomizer) (window as any).containerCustomizer.loadCustomizations();
 
     // Clear any inline styles that might interfere
     this.container.style.visibility = '';
@@ -308,7 +309,7 @@ export class ContainerManager {
     this.container.classList.remove("hidden");
     this.container.classList.add("open");
     this.isOpen = true;
-    window.activeContainer = this.container.id;
+    (window as any).activeContainer = this.container.id;
 
     if (this.container.id === "toc-container") {
       this.saveNavElementsState();
@@ -356,7 +357,7 @@ export class ContainerManager {
 
     // Don't set inline visibility - let CSS classes handle it
     this.isOpen = false;
-    window.activeContainer = "main-content";
+    (window as any).activeContainer = "main-content";
 
     if (this.container.id === "toc-container") {
       const navButtons = document.getElementById("nav-buttons");

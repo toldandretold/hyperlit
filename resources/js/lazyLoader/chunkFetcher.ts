@@ -1,6 +1,6 @@
 import { openDatabase, parseNodeId } from '../indexedDB/index';
 import { verbose } from '../utilities/logger.js';
-import { appendGateParam } from '../components/gateFilter.js';
+import { appendGateParam } from '../components/utilities/gateFilter';
 
 /**
  * Fetch a single chunk from the server by chunk_id.

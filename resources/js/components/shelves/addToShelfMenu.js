@@ -6,7 +6,7 @@
 import { isLoggedIn } from '../../utilities/auth.js';
 
 async function getFloatingMenu() {
-    return await import('../floatingActionMenu.js');
+    return await import('../floatingActionMenu/floatingActionMenu');
 }
 
 async function doInvalidateShelfCache() {

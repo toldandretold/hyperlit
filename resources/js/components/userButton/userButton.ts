@@ -3,7 +3,7 @@
 // ContainerManager wires the #userButton click → toggleContainer). The panel +
 // all auth logic live in ../userContainer; this module is the thin button-side
 // entry point, registered as the 'userContainer' component in
-// registerComponents.js. Default export is the manager singleton (consumed by
+// registerComponents.ts. Default export is the manager singleton (consumed by
 // editButton.js).
 import { UserContainerManager } from "../userContainer/index";
 import { verbose } from "../../utilities/logger.js";

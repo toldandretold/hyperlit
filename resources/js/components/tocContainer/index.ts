@@ -7,7 +7,7 @@
 // ../tocToggleButton/tocToggleButton.
 import { getNodeChunksFromIndexedDB } from "../../indexedDB/index";
 import { book } from "../../app.js";
-import { ContainerManager } from "../containerManager.js";
+import { ContainerManager } from "../utilities/containerManager";
 import { getTocManager } from "./managerRef";
 import { updateOrInsertBookmark, setInitialBookmarkPosition } from "./bookmark";
 

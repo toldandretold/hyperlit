@@ -1,18 +1,17 @@
-import { loadHyperText, resetCurrentLazyLoader } from '../pageLoad';
-import { setCurrentBook } from '../app.js';
-import { showNavigationLoading, hideNavigationLoading } from '../scrolling';
-import { log, verbose } from '../utilities/logger.js';
-import { getAllOfflineAvailableBooks } from '../indexedDB/index';
+import { setCurrentBook } from '../../app.js';
+import { showNavigationLoading, hideNavigationLoading } from '../../scrolling';
+import { log, verbose } from '../../utilities/logger.js';
+import { getAllOfflineAvailableBooks } from '../../indexedDB/index';
 
 // Storage key for active button persistence
 const STORAGE_KEY_ACTIVE_BUTTON = 'homepage_active_button';
 
-let resizeHandler = null;
+let resizeHandler: any = null;
 const buttonHandlers = new Map();
 
 // Mirror the active arranger-button into history.state so the browser
 // back/forward restores the correct tab per history entry.
-function persistActiveTabToHistory(filter, content, shelfId = null) {
+function persistActiveTabToHistory(filter: any, content: any, shelfId = null) {
   try {
     const currentState = history.state || {};
     history.replaceState(
@@ -27,8 +26,8 @@ function persistActiveTabToHistory(filter, content, shelfId = null) {
 
 // Fix header spacing dynamically based on actual header height
 export function fixHeaderSpacing() {
-  const header = document.querySelector('.fixed-header');
-  const wrapper = document.querySelector('.home-content-wrapper') || document.querySelector('.user-content-wrapper');
+  const header: any = document.querySelector('.fixed-header');
+  const wrapper: any = document.querySelector('.home-content-wrapper') || document.querySelector('.user-content-wrapper');
 
   if (header && wrapper) {
     const headerHeight = header.offsetHeight;
@@ -40,7 +39,7 @@ export function fixHeaderSpacing() {
 function alignHeaderContent() {
   const mainContent = document.querySelector('body[data-page="home"] .main-content, body[data-page="user"] .main-content');
   const headerContainer = document.getElementById('imageContainer') || document.getElementById('userLibraryContainer');
-  const buttonsContainer = document.querySelector('.arranger-buttons-container');
+  const buttonsContainer: any = document.querySelector('.arranger-buttons-container');
 
   if (mainContent && headerContainer && buttonsContainer) {
     // Calculate the left edge of the actual text content
@@ -97,13 +96,13 @@ export async function initializeHomepageButtons() {
 
   // Owner shelf tabs are dynamic — created later by initializeShelfTabs. Only
   // defer when (a) the current page actually hosts shelf tabs (the picker is
-  // user.blade-only — window.isOwner/isUserPage globals can leak across SPA
+  // user.blade-only — (window as any).isOwner/isUserPage globals can leak across SPA
   // body swaps, so we check DOM presence instead), (b) the saved active tab
   // is a shelf, and (c) that shelf appears in the persisted open-shelves list.
   // Skipping the default load when any of these fail would leave the page empty.
   let deferToShelfTabs = false;
   const hasShelfTabsUI = !!document.getElementById('shelf-picker-trigger');
-  if (hasShelfTabsUI && window.isOwner === true) {
+  if (hasShelfTabsUI && (window as any).isOwner === true) {
     const histShelfId = histActiveTab?.filter === 'shelf' ? histActiveTab.shelfId : null;
     const lsShelfId = !histActiveTab ? localStorage.getItem('homepage_active_shelf_id') : null;
     const targetShelfId = histShelfId || lsShelfId;
@@ -118,15 +117,15 @@ export async function initializeHomepageButtons() {
   }
 
   if (deferToShelfTabs) {
-    document.querySelectorAll('.arranger-button').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.arranger-button').forEach((btn: any) => btn.classList.remove('active'));
   } else if (histActiveTab?.filter === 'shelf' && histActiveTab.shelfId) {
     // Visitor shelf tab — server-rendered, match by data-shelf-id
-    document.querySelectorAll('.arranger-button').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.arranger-button').forEach((btn: any) => btn.classList.remove('active'));
     const visitorShelf = document.querySelector(`.arranger-button[data-filter="shelf"][data-shelf-id="${histActiveTab.shelfId}"]`);
     if (visitorShelf) visitorShelf.classList.add('active');
   } else if (histActiveTab?.filter && histActiveTab.filter !== 'shelf') {
     // library / account — match by filter (more robust than data-content)
-    document.querySelectorAll('.arranger-button').forEach(btn => {
+    document.querySelectorAll('.arranger-button').forEach((btn: any) => {
       btn.classList.remove('active');
       if (btn.dataset.filter === histActiveTab.filter) {
         btn.classList.add('active');
@@ -134,7 +133,7 @@ export async function initializeHomepageButtons() {
     });
   } else if (savedActiveButton) {
     // Legacy localStorage path: match by data-content
-    document.querySelectorAll('.arranger-button').forEach(btn => {
+    document.querySelectorAll('.arranger-button').forEach((btn: any) => {
       btn.classList.remove('active');
       if (btn.dataset.content === savedActiveButton) {
         btn.classList.add('active');
@@ -144,12 +143,12 @@ export async function initializeHomepageButtons() {
 
   // Initialize the default active content on page load — but skip the content
   // load when deferring to initializeShelfTabs, which will activate the right shelf.
-  const activeButton = deferToShelfTabs ? null : document.querySelector('.arranger-button.active');
+  const activeButton: any = deferToShelfTabs ? null : document.querySelector('.arranger-button.active');
   if (activeButton) {
     const filter = activeButton.dataset.filter;
 
     // Visitor shelf tab: load via public API
-    if (filter === 'shelf' && !window.isOwner && window.isUserPage) {
+    if (filter === 'shelf' && !(window as any).isOwner && (window as any).isUserPage) {
       const shelfId = activeButton.dataset.shelfId;
       const sort = activeButton.dataset.sort || 'recent';
       const shelfName = activeButton.dataset.shelfName || 'Shelf';
@@ -160,7 +159,7 @@ export async function initializeHomepageButtons() {
         if (data.bookId) {
           activeButton.dataset.content = data.bookId;
           await transitionToBookContent(data.bookId, false);
-          const { showShelfHeader } = await import('./shelves/shelfHeader.js');
+          const { showShelfHeader } = await import('../shelves/shelfHeader.js') as any;
           showShelfHeader({
             shelfId,
             shelfName,
@@ -168,7 +167,7 @@ export async function initializeHomepageButtons() {
             currentSort: sort,
             isSystemShelf: false,
             isOwner: false,
-            username: window.username,
+            username: (window as any).username,
             slug: shelfSlug,
           });
         }
@@ -184,30 +183,30 @@ export async function initializeHomepageButtons() {
       let initialTargetId = activeButton.dataset.content;
 
       // For owner on library tab, respect saved filter preference
-      if (window.isUserPage && window.isOwner && filter === 'library') {
+      if ((window as any).isUserPage && (window as any).isOwner && filter === 'library') {
         const savedFilter = localStorage.getItem('user_library_filter') || 'all';
-        if (savedFilter === 'public' && window.userPageBook) {
-          initialTargetId = window.userPageBook;
-        } else if (savedFilter === 'private' && window.userPageBook) {
-          initialTargetId = window.userPageBook + 'Private';
+        if (savedFilter === 'public' && (window as any).userPageBook) {
+          initialTargetId = (window as any).userPageBook;
+        } else if (savedFilter === 'private' && (window as any).userPageBook) {
+          initialTargetId = (window as any).userPageBook + 'Private';
         }
       }
 
       await transitionToBookContent(initialTargetId, false); // No loading overlay on initial load
 
       // Show shelf header for initial Library tab on user page
-      if (window.isUserPage) {
+      if ((window as any).isUserPage) {
         if (filter === 'library') {
-          const { showShelfHeader } = await import('./shelves/shelfHeader.js');
+          const { showShelfHeader } = await import('../shelves/shelfHeader.js') as any;
           const savedSort = localStorage.getItem('user_shelf_sort_library') || 'recent';
           showShelfHeader({
             shelfId: null,
             shelfName: 'Library',
-            visibility: window.isOwner ? 'all' : 'public',
+            visibility: (window as any).isOwner ? 'all' : 'public',
             currentSort: savedSort,
             isSystemShelf: true,
-            isOwner: window.isOwner,
-            username: window.username,
+            isOwner: (window as any).isOwner,
+            username: (window as any).username,
           });
         }
       }
@@ -221,8 +220,8 @@ export async function initializeHomepageButtons() {
       await transitionToBookContent(mainContent.id, false);
 
       // Show shelf header for visitors so search works on library tab
-      if (window.isUserPage && !window.isOwner) {
-        const { showShelfHeader } = await import('./shelves/shelfHeader.js');
+      if ((window as any).isUserPage && !(window as any).isOwner) {
+        const { showShelfHeader } = await import('../shelves/shelfHeader.js') as any;
         showShelfHeader({
           shelfId: null,
           shelfName: 'Library',
@@ -230,25 +229,25 @@ export async function initializeHomepageButtons() {
           currentSort: 'recent',
           isSystemShelf: true,
           isOwner: false,
-          username: window.username,
+          username: (window as any).username,
         });
       }
     }
   }
   
   document.querySelectorAll('.arranger-button').forEach(button => {
-    const handler = async function() {
+    const handler = async function(this: any) {
       if (this.classList.contains('active')) {
         return;
       }
 
-      document.querySelectorAll('.arranger-button').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.arranger-button').forEach((btn: any) => btn.classList.remove('active'));
       this.classList.add('active');
 
       const filter = this.dataset.filter;
 
       // Visitor shelf tab click
-      if (filter === 'shelf' && !window.isOwner && window.isUserPage) {
+      if (filter === 'shelf' && !(window as any).isOwner && (window as any).isUserPage) {
         const shelfId = this.dataset.shelfId;
         const sort = this.dataset.sort || 'recent';
         const shelfName = this.dataset.shelfName || 'Shelf';
@@ -271,7 +270,7 @@ export async function initializeHomepageButtons() {
 
         if (bookId) {
           await transitionToBookContent(bookId, true);
-          const { showShelfHeader } = await import('./shelves/shelfHeader.js');
+          const { showShelfHeader } = await import('../shelves/shelfHeader.js') as any;
           showShelfHeader({
             shelfId,
             shelfName,
@@ -279,7 +278,7 @@ export async function initializeHomepageButtons() {
             currentSort: sort,
             isSystemShelf: false,
             isOwner: false,
-            username: window.username,
+            username: (window as any).username,
             slug: shelfSlug,
           });
           persistActiveTabToHistory('shelf', bookId, shelfId);
@@ -290,12 +289,12 @@ export async function initializeHomepageButtons() {
       let targetId = this.dataset.content;
 
       // For owner on library tab, respect saved filter preference
-      if (window.isUserPage && window.isOwner && filter === 'library') {
+      if ((window as any).isUserPage && (window as any).isOwner && filter === 'library') {
         const savedFilter = localStorage.getItem('user_library_filter') || 'all';
-        if (savedFilter === 'public' && window.userPageBook) {
-          targetId = window.userPageBook;
-        } else if (savedFilter === 'private' && window.userPageBook) {
-          targetId = window.userPageBook + 'Private';
+        if (savedFilter === 'public' && (window as any).userPageBook) {
+          targetId = (window as any).userPageBook;
+        } else if (savedFilter === 'private' && (window as any).userPageBook) {
+          targetId = (window as any).userPageBook + 'Private';
         }
       }
 
@@ -313,21 +312,21 @@ export async function initializeHomepageButtons() {
       await transitionToBookContent(targetId, true);
 
       // Show/hide shelf header on user page
-      if (window.isUserPage) {
+      if ((window as any).isUserPage) {
         if (filter === 'library') {
-          const { showShelfHeader } = await import('./shelves/shelfHeader.js');
+          const { showShelfHeader } = await import('../shelves/shelfHeader.js') as any;
           const savedSort = localStorage.getItem('user_shelf_sort_library') || 'recent';
           showShelfHeader({
             shelfId: null,
             shelfName: 'Library',
-            visibility: window.isOwner ? 'all' : 'public',
+            visibility: (window as any).isOwner ? 'all' : 'public',
             currentSort: savedSort,
             isSystemShelf: true,
-            isOwner: window.isOwner,
-            username: window.username,
+            isOwner: (window as any).isOwner,
+            username: (window as any).username,
           });
         } else {
-          const { removeShelfHeader } = await import('./shelves/shelfHeader.js');
+          const { removeShelfHeader } = await import('../shelves/shelfHeader.js') as any;
           removeShelfHeader();
         }
       }
@@ -341,29 +340,29 @@ export function destroyHomepageDisplayUnit() {
   if (resizeHandler) {
     window.removeEventListener('resize', resizeHandler);
     resizeHandler = null;
-    verbose.init('Homepage resize listener removed', 'homepageDisplayUnit.js');
+    verbose.init('Homepage resize listener removed', '/components/homepage/homepageDisplayUnit.ts');
   }
 
   buttonHandlers.forEach((handler, button) => {
     button.removeEventListener('click', handler);
   });
   buttonHandlers.clear();
-  verbose.init('Homepage button listeners removed', 'homepageDisplayUnit.js');
+  verbose.init('Homepage button listeners removed', '/components/homepage/homepageDisplayUnit.ts');
 
   // Note: Homepage search cleanup is handled by ButtonRegistry
 }
 
-export async function transitionToBookContent(bookId, showLoader = true) {
+export async function transitionToBookContent(bookId: any, showLoader = true) {
   try {
     if (showLoader) {
       showNavigationLoading(`Loading ${bookId}...`);
     }
 
-    log.content(`Homepage content transition: ${bookId}`, 'homepageDisplayUnit.js');
+    log.content(`Homepage content transition: ${bookId}`, '/components/homepage/homepageDisplayUnit.ts');
 
     // Remove existing content containers
     document.querySelectorAll('.main-content').forEach(content => {
-      verbose.content(`Removing existing content: ${content.id}`, 'homepageDisplayUnit.js');
+      verbose.content(`Removing existing content: ${content.id}`, '/components/homepage/homepageDisplayUnit.ts');
       content.remove();
     });
 
@@ -379,12 +378,13 @@ export async function transitionToBookContent(bookId, showLoader = true) {
     newContentDiv.id = bookId;
     newContentDiv.className = 'main-content active-content';
     mainContainer.appendChild(newContentDiv);
-    verbose.content(`Created fresh content container: ${bookId}`, 'homepageDisplayUnit.js');
+    verbose.content(`Created fresh content container: ${bookId}`, '/components/homepage/homepageDisplayUnit.ts');
 
     // Note: setCurrentBook() is handled by the navigation pathway
     // (initHelpers.js for Different-Template, or transition pathway for Same-Template)
 
     // Reset the current lazy loader so a fresh one gets created
+    const { loadHyperText, resetCurrentLazyLoader } = await import('../../pageLoad');
     resetCurrentLazyLoader();
 
     // Use the same loading pipeline as regular page transitions
@@ -393,7 +393,7 @@ export async function transitionToBookContent(bookId, showLoader = true) {
     // Realign header content after new content is loaded
     alignHeaderContent();
 
-    verbose.content(`Successfully loaded ${bookId} content`, 'homepageDisplayUnit.js');
+    verbose.content(`Successfully loaded ${bookId} content`, '/components/homepage/homepageDisplayUnit.ts');
     
     if (showLoader) {
       hideNavigationLoading();
@@ -417,7 +417,7 @@ async function initializeOfflineHomepage() {
 
   // Dim the tab buttons
   const buttons = document.querySelectorAll('.arranger-button');
-  buttons.forEach(btn => {
+  buttons.forEach((btn: any) => {
     btn.classList.add('offline-disabled');
     btn.disabled = true;
     btn.style.opacity = '0.5';
@@ -425,7 +425,7 @@ async function initializeOfflineHomepage() {
   });
 
   // Add offline mode indicator above the buttons
-  const buttonsContainer = document.querySelector('.arranger-buttons-container');
+  const buttonsContainer: any = document.querySelector('.arranger-buttons-container');
   if (buttonsContainer && !document.getElementById('offline-mode-indicator')) {
     const offlineIndicator = document.createElement('div');
     offlineIndicator.id = 'offline-mode-indicator';
@@ -473,8 +473,8 @@ async function initializeOfflineHomepage() {
   // Fix header spacing AFTER content is created to ensure proper layout
   // Use requestAnimationFrame to ensure DOM has updated
   requestAnimationFrame(() => {
-    const header = document.querySelector('.fixed-header');
-    const wrapper = document.querySelector('.home-content-wrapper');
+    const header: any = document.querySelector('.fixed-header');
+    const wrapper: any = document.querySelector('.home-content-wrapper');
 
     if (header && wrapper) {
       const headerHeight = header.offsetHeight || 200; // Default if not rendered yet
@@ -501,7 +501,7 @@ async function initializeOfflineHomepage() {
  * @param {Object} libraryRecord - Library record from IndexedDB
  * @returns {HTMLElement} Book card paragraph element
  */
-function createOfflineBookCard(libraryRecord) {
+function createOfflineBookCard(libraryRecord: any) {
   const p = document.createElement('p');
   p.className = 'libraryCard';
   p.id = `offline-${libraryRecord.book}`;
@@ -541,15 +541,15 @@ function createOfflineBookCard(libraryRecord) {
  * @param {string} bibtex - BibTeX entry string
  * @returns {string} Formatted citation HTML or empty string
  */
-function parseBibtexToCitation(bibtex) {
+function parseBibtexToCitation(bibtex: any) {
   if (!bibtex || typeof bibtex !== 'string') return '';
 
   try {
     // Extract fields from bibtex
-    const getField = (field) => {
+    const getField = (field: any) => {
       const regex = new RegExp(`${field}\\s*=\\s*[{"]([^}"]+)[}"]`, 'i');
       const match = bibtex.match(regex);
-      return match ? match[1].trim() : '';
+      return match ? match[1]!.trim() : '';
     };
 
     const author = getField('author');
@@ -588,7 +588,7 @@ function parseBibtexToCitation(bibtex) {
  * @param {string} text - Text to escape
  * @returns {string} Escaped text
  */
-function escapeHtml(text) {
+function escapeHtml(text: any) {
   if (!text) return '';
   const div = document.createElement('div');
   div.textContent = text;
@@ -608,7 +608,7 @@ function handleOnlineRestored() {
 
   // Re-enable buttons
   const buttons = document.querySelectorAll('.arranger-button');
-  buttons.forEach(btn => {
+  buttons.forEach((btn: any) => {
     btn.classList.remove('offline-disabled');
     btn.disabled = false;
     btn.style.opacity = '';

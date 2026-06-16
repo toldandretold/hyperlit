@@ -3,7 +3,7 @@
  *
  * Used by:
  *   - The inline dropzone in `showImportForm()` (newBookButton.js)
- *   - The page-level drop overlay (homepageDropTarget.js)
+ *   - The page-level drop overlay (fileDropTarget.ts)
  *
  * Both entry points feed dropped files into the existing `#markdown_file` input
  * so the existing change-event pipeline (validateFile → validateForm →

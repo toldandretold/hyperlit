@@ -5,8 +5,8 @@ import { getCurrentUser, getAnonymousToken, initializeAuthBroadcastListener, ini
 import { checkEditPermissionsAndUpdateUI } from "../components/editButton/index";
 
 // ✅ ButtonRegistry - Centralized component initialization
-import { buttonRegistry } from '../utilities/buttonRegistry.js';
-import { registerAllComponents } from '../components/registerComponents.js';
+import { buttonRegistry } from '../components/utilities/buttonRegistry';
+import { registerAllComponents } from '../components/utilities/registerComponents';
 
 // ✅ Register all UI components with ButtonRegistry
 // This must happen at module load time before any initialization
@@ -30,7 +30,7 @@ import { setupUnloadSync } from "../indexedDB/index.js";
 import { generateTableOfContents } from "../components/tocContainer/index";
 import { destroyTocManager, initializeTocManager } from "../components/tocToggleButton/tocToggleButton";
 import { destroySettingsManager, initializeSettingsManager } from "../components/settingsButton/settingsButton";
-import { KeyboardManager } from "../components/keyboardManager.js";
+import { KeyboardManager } from "../components/utilities/keyboardManager";
 import {
   initializeEditButtonListeners,
   updateEditButtonVisibility,
@@ -350,7 +350,7 @@ export async function universalPageInitializer(progressCallback = null) {
     const user = await getCurrentUser();
     verbose.init(`User profile check: user=${user?.name || 'null'}, currentBookId=${currentBookId}`, 'viewManager.js');
     if (user && user.name === currentBookId) {
-      const { initializeUserProfilePage } = await import('../components/userProfilePage.js');
+      const { initializeUserProfilePage } = await import('../components/userProfile/userProfilePage');
       initializeUserProfilePage();
       verbose.init('User profile page functionality initialized', 'viewManager.js');
     }
@@ -520,7 +520,7 @@ async function initializeUniversalComponents(pageType: any) {
         if (pageType === 'home' || pageType === 'user') {
           try {
             verbose.init(`Initializing homepage components for ${pageType} page`, 'viewManager.js');
-            const { initializeHomepage } = await import('../components/homepage.js');
+            const { initializeHomepage } = await import('../components/homepage/homepage');
             await initializeHomepage();
             verbose.init('Homepage components initialized successfully', 'viewManager.js');
           } catch (error) {
@@ -532,7 +532,7 @@ async function initializeUniversalComponents(pageType: any) {
         if (pageType === 'user') {
           try {
             verbose.init('Initializing user profile editor', 'viewManager.js');
-            const { initializeUserProfileEditor } = await import('../components/userProfileEditor.js');
+            const { initializeUserProfileEditor } = await import('../components/userProfile/userProfileEditor');
             await initializeUserProfileEditor();
             verbose.init('User profile editor initialized successfully', 'viewManager.js');
           } catch (error) {

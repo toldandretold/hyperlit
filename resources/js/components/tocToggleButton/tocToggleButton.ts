@@ -2,7 +2,7 @@
 // rebinds the singleton TocContainerManager (whose base ContainerManager wires the
 // #toc-toggle-button click → toggleContainer) and stores it in the shared ref leaf.
 // The panel + all TOC logic live in ../tocContainer; this is the thin button entry,
-// registered as the 'toc' component in registerComponents.js.
+// registered as the 'toc' component in registerComponents.ts.
 import { TocContainerManager, invalidateTocCache } from "../tocContainer/index";
 import { getTocManager, setTocManager } from "../tocContainer/managerRef";
 import { log } from "../../utilities/logger.js";

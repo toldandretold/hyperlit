@@ -15,7 +15,7 @@ import { setCurrentBook, setCurrentBookSlug, bookSlug as _bookSlug } from '../..
 import { updateDatabaseBookId } from '../../../indexedDB/index';
 import { setSkipScrollRestoration } from '../../../utilities/operationState.js';
 import { universalPageInitializer } from '../../viewManager';
-import { initializeLogoNav } from '../../../components/logoNavToggle.js';
+import { initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, openContainerChain } from '../../../pageLoad';
 import { navigateToHyperciteTarget } from '../../../hypercites/index';
 import { navigateToFootnoteTarget } from '../../../hypercites/navigation';

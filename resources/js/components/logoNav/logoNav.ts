@@ -3,11 +3,11 @@
  * Handles the logo button that rotates and shows/hides navigation menu
  */
 
-import { log, verbose } from '../utilities/logger.js';
+import { log, verbose } from '../../utilities/logger.js';
 
 let isOpen = false;
-let clickOutsideHandler = null;
-let logoClickHandler = null; // Store handler reference for cleanup
+let clickOutsideHandler: any = null;
+let logoClickHandler: any = null; // Store handler reference for cleanup
 
 /**
  * Initialize logo navigation toggle
@@ -18,20 +18,20 @@ export function initializeLogoNav() {
   const navMenu = document.getElementById('logoNavMenu');
 
   if (!logoBtn || !navMenu || !logoWrapper) {
-    verbose.init('Logo nav elements not found, skipping initialization', '/components/logoNavToggle.js');
+    verbose.init('Logo nav elements not found, skipping initialization', '/components/logoNav/logoNav.ts');
     return;
   }
 
   // Prevent duplicate listeners
   if (logoBtn.dataset.logoNavAttached) {
-    verbose.init('Logo nav listener already attached', '/components/logoNavToggle.js');
+    verbose.init('Logo nav listener already attached', '/components/logoNav/logoNav.ts');
     return;
   }
 
-  log.init('Logo navigation toggle initialized', '/components/logoNavToggle.js');
+  log.init('Logo navigation toggle initialized', '/components/logoNav/logoNav.ts');
 
   // Store handler reference for cleanup
-  logoClickHandler = (e) => {
+  logoClickHandler = (e: any) => {
     e.stopPropagation(); // Prevent immediate close from document click
     toggleLogoNav();
   };
@@ -61,7 +61,7 @@ function toggleLogoNav() {
 /**
  * Open logo navigation menu
  */
-function openLogoNav(logoBtn, navMenu) {
+function openLogoNav(logoBtn: any, navMenu: any) {
   // Rotate logo
   logoBtn.classList.add('rotated');
 
@@ -70,7 +70,7 @@ function openLogoNav(logoBtn, navMenu) {
 
   // Add click-outside handler
   setTimeout(() => {
-    clickOutsideHandler = (e) => {
+    clickOutsideHandler = (e: any) => {
       // Check if click is outside both logo button and menu
       const clickedLogo = logoBtn.contains(e.target);
       const clickedMenu = navMenu.contains(e.target);
@@ -86,7 +86,7 @@ function openLogoNav(logoBtn, navMenu) {
 /**
  * Close logo navigation menu
  */
-function closeLogoNav(logoBtn, navMenu) {
+function closeLogoNav(logoBtn: any, navMenu: any) {
   isOpen = false;
 
   // Rotate logo back
@@ -132,5 +132,5 @@ export function destroyLogoNav() {
   }
 
   isOpen = false;
-  verbose.init('Logo nav destroyed', '/components/logoNavToggle.js');
+  verbose.init('Logo nav destroyed', '/components/logoNav/logoNav.ts');
 }

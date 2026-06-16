@@ -7,7 +7,7 @@
 // here. The #userButton CLICK is wired by the base ContainerManager
 // (rebindElements), not here. Registry lifecycle + the default-export singleton
 // live in ../userButton/userButton.
-import { ContainerManager } from "../containerManager.js";
+import { ContainerManager } from "../utilities/containerManager";
 import { book } from "../../app.js";
 import { getCurrentUser } from "../../utilities/auth.js";
 import { syncBookDataFromDatabase } from "../../indexedDB/serverSync";

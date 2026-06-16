@@ -6,7 +6,7 @@
 // The cite-form HTML comes from ./citeForm/template; its behavior is lazy-loaded
 // from ./citeForm when the import form opens. Registry lifecycle + the
 // default-export singleton live in ../newBookButton/newBookButton.
-import { ContainerManager } from "../containerManager.js";
+import { ContainerManager } from "../utilities/containerManager";
 import { log, verbose } from "../../utilities/logger.js";
 import { getCiteFormHTML } from "./citeForm/template";
 

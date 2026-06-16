@@ -1,13 +1,13 @@
-// resources/js/userProfilePage.js
+// resources/js/components/userProfile/userProfilePage.ts
 
 let userProfilePageInitialized = false;
 
 // Stored handler references for cleanup
-let tierSelectorToggleHandler = null;
-let tierOptionSelectionHandler = null;
-let tierDropdownOutsideClickHandler = null;
-let stripeTopUpHandler = null;
-let userBookActionsHandler = null;
+let tierSelectorToggleHandler: any = null;
+let tierOptionSelectionHandler: any = null;
+let tierDropdownOutsideClickHandler: any = null;
+let stripeTopUpHandler: any = null;
+let userBookActionsHandler: any = null;
 
 export function destroyUserProfilePage() {
     if (tierSelectorToggleHandler) {
@@ -44,7 +44,7 @@ export function initializeUserProfilePage() {
     userProfilePageInitialized = true;
 
     // Tier selector toggle (delegated — survives DOMPurify sanitization)
-    tierSelectorToggleHandler = (e) => {
+    tierSelectorToggleHandler = (e: any) => {
         const selector = e.target.closest('.tier-selector');
         if (!selector) return;
         e.preventDefault();
@@ -55,7 +55,7 @@ export function initializeUserProfilePage() {
     document.addEventListener('click', tierSelectorToggleHandler);
 
     // Tier option selection
-    tierOptionSelectionHandler = async (e) => {
+    tierOptionSelectionHandler = async (e: any) => {
         const option = e.target.closest('.tier-option');
         if (!option) return;
         e.preventDefault();
@@ -97,7 +97,7 @@ export function initializeUserProfilePage() {
                     if (selector) selector.dataset.currentTier = tier;
 
                     // Update active class on options
-                    totalCredit.querySelectorAll('.tier-option').forEach(opt => opt.classList.remove('active'));
+                    totalCredit.querySelectorAll('.tier-option').forEach((opt: any) => opt.classList.remove('active'));
                     option.classList.add('active');
                 }
 
@@ -112,7 +112,7 @@ export function initializeUserProfilePage() {
     document.addEventListener('click', tierOptionSelectionHandler);
 
     // Close tier dropdown on outside click
-    tierDropdownOutsideClickHandler = (e) => {
+    tierDropdownOutsideClickHandler = (e: any) => {
         if (!e.target.closest('.tier-dropdown') && !e.target.closest('.tier-selector')) {
             document.querySelectorAll('.tier-dropdown').forEach(d => d.classList.add('hidden'));
         }
@@ -120,7 +120,7 @@ export function initializeUserProfilePage() {
     document.addEventListener('click', tierDropdownOutsideClickHandler);
 
     // Stripe top-up button handler (delegated — survives DOMPurify sanitization)
-    stripeTopUpHandler = async (e) => {
+    stripeTopUpHandler = async (e: any) => {
         const topup = e.target.closest('.stripe-topup');
         if (!topup) return;
         e.preventDefault();
@@ -144,9 +144,9 @@ export function initializeUserProfilePage() {
     document.addEventListener('click', stripeTopUpHandler);
 
     // Book actions menu (replaces old .delete-book handler)
-    // Only handle on user pages — homepage has its own handler in homepage.js
-    userBookActionsHandler = async (e) => {
-        if (!window.isUserPage) return;
+    // Only handle on user pages — homepage has its own handler in homepage.ts
+    userBookActionsHandler = async (e: any) => {
+        if (!(window as any).isUserPage) return;
         const target = e.target.closest('.book-actions');
         if (!target) return;
         e.preventDefault();
@@ -162,14 +162,14 @@ export function initializeUserProfilePage() {
 
         // Owner-only: prefetch citation for Share, and add Share + Delete items
         let citationPromise = null;
-        if (window.isOwner) {
+        if ((window as any).isOwner) {
             citationPromise = (async () => {
-                const { prepareCitationShare } = await import('../utilities/bibtexProcessor.js');
+                const { prepareCitationShare } = await import('../../utilities/bibtexProcessor.js');
                 return prepareCitationShare(bookId);
             })().catch(err => { console.error('Citation prep failed:', err); return null; });
 
             const activeTab = document.querySelector('.arranger-button.active');
-            const isShelfTab = activeTab?.dataset.filter === 'shelf';
+            const isShelfTab = (activeTab as any)?.dataset.filter === 'shelf';
             const deleteLabel = isShelfTab ? 'Remove from shelf' : 'Delete book';
 
             menuItems.push(
@@ -178,16 +178,16 @@ export function initializeUserProfilePage() {
             );
         }
 
-        const { showFloatingMenu } = await import('./floatingActionMenu.js');
-        showFloatingMenu(target, menuItems, async (action) => {
+        const { showFloatingMenu } = await import('../floatingActionMenu/floatingActionMenu');
+        showFloatingMenu(target, menuItems, async (action: any) => {
             switch (action) {
                 case 'preview':
-                    const { showShelfPreview } = await import('./shelves/shelfPreview.js');
+                    const { showShelfPreview } = await import('../shelves/shelfPreview.js');
                     showShelfPreview(bookId);
                     break;
 
                 case 'add-to-shelf':
-                    const { showAddToShelfMenu } = await import('./shelves/addToShelfMenu.js');
+                    const { showAddToShelfMenu } = await import('../shelves/addToShelfMenu.js');
                     showAddToShelfMenu(target, bookId);
                     break;
 
@@ -195,7 +195,7 @@ export function initializeUserProfilePage() {
                     try {
                         const data = await citationPromise;
                         if (!data) return;
-                        const { copyCitationToClipboard } = await import('../utilities/bibtexProcessor.js');
+                        const { copyCitationToClipboard } = await import('../../utilities/bibtexProcessor.js');
                         copyCitationToClipboard(data);
                     } catch (err) {
                         console.error('Share citation failed:', err);
@@ -214,22 +214,22 @@ export function initializeUserProfilePage() {
 /**
  * Handle book deletion (extracted from old .delete-book handler).
  */
-async function handleDeleteBook(bookId, target) {
+async function handleDeleteBook(bookId: any, target: any) {
     if (!confirm(`Delete "${bookId}" and all associated data?`)) return;
 
     const libraryCard = target.closest('.libraryCard');
     if (libraryCard) libraryCard.remove();
 
     // Delete from IndexedDB
-    const { deleteBookFromIndexedDB } = await import('../indexedDB/index');
+    const { deleteBookFromIndexedDB } = await import('../../indexedDB/index');
     await deleteBookFromIndexedDB(bookId);
 
     // Send delete request to server
     try {
-        const { refreshAuth } = await import('../utilities/auth.js');
+        const { refreshAuth } = await import('../../utilities/auth.js');
         await refreshAuth();
 
-        const csrfToken = window.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content;
+        const csrfToken = (window as any).csrfToken || (document.querySelector('meta[name="csrf-token"]') as any)?.content;
         const resp = await fetch(`/api/books/${encodeURIComponent(bookId)}`, {
             method: 'DELETE',
             headers: {

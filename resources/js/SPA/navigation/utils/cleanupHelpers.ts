@@ -6,10 +6,10 @@
 import { cleanupReaderView } from '../../viewManager';
 import { resetEditModeState } from '../../../components/editButton/index';
 import { destroyUserContainer } from '../../../components/userButton/userButton';
-import { destroyUserProfileEditor } from '../../../components/userProfileEditor.js';
-import { destroyLogoNav } from '../../../components/logoNavToggle.js';
+import { destroyUserProfileEditor } from '../../../components/userProfile/userProfileEditor';
+import { destroyLogoNav } from '../../../components/logoNav/logoNav';
 import { closeHyperlitContainer } from '../../../hyperlitContainer/index';
-import { buttonRegistry } from '../../../utilities/buttonRegistry.js';
+import { buttonRegistry } from '../../../components/utilities/buttonRegistry';
 
 /**
  * Clean up reader state

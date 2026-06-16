@@ -9,7 +9,7 @@ import {
 } from '../indexedDB/serverSync';
 import { log, verbose } from '../utilities/logger.js';
 import { OpenHyperlightID, OpenFootnoteID } from '../app.js';
-import { gateQueryParam } from '../components/gateFilter.js';
+import { gateQueryParam } from '../components/utilities/gateFilter';
 
 /**
  * Fetch the initial chunk from the server for fast first-render loading.

@@ -4,9 +4,9 @@
  * Mobile (<768px): fixed bottom sheet.
  */
 
-let activeMenu = null;
-let activeBackdrop = null;
-let dismissHandler = null;
+let activeMenu: any = null;
+let activeBackdrop: any = null;
+let dismissHandler: any = null;
 
 /**
  * Show a floating menu near an anchor element.
@@ -14,7 +14,7 @@ let dismissHandler = null;
  * @param {Array} items - [{id, label, icon?}]
  * @param {Function} onSelect - Called with item.id when selected
  */
-export function showFloatingMenu(anchorEl, items, onSelect) {
+export function showFloatingMenu(anchorEl: any, items: any, onSelect: any) {
     hideFloatingMenu();
 
     const isMobile = window.innerWidth < 768;
@@ -66,7 +66,7 @@ export function showFloatingMenu(anchorEl, items, onSelect) {
     activeBackdrop = backdrop;
 
     // ESC + scroll still close (the backdrop handles outside clicks).
-    dismissHandler = (e) => {
+    dismissHandler = (e: any) => {
         if (e.type === 'keydown' && e.key !== 'Escape') return;
         hideFloatingMenu();
     };
@@ -100,7 +100,7 @@ export function hideFloatingMenu() {
  * Position the menu to the left of the anchor element, vertically centered,
  * with a speech-bubble arrow pointing at the anchor.
  */
-function positionNearAnchor(menu, anchor) {
+function positionNearAnchor(menu: any, anchor: any) {
     const rect = anchor.getBoundingClientRect();
     const menuWidth = menu.offsetWidth || 160;
     const menuHeight = menu.offsetHeight || 120;

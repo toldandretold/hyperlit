@@ -3,7 +3,7 @@
  * Container lifecycle management (initialize, open, close)
  */
 
-import { ContainerManager } from '../components/containerManager.js';
+import { ContainerManager } from '../components/utilities/containerManager';
 import { log, verbose } from '../utilities/logger.js';
 import { ProgressOverlayConductor } from '../SPA/navigation/ProgressOverlayConductor.js';
 import { clearCascadeOriginId } from '../scrolling';

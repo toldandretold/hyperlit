@@ -29,7 +29,7 @@ const TRANSIENT_DISMISS_MS = 5000;
  * @returns {{severity:'transient'|'action', title:string, message:string, action?:{label:string,type:string}}|null}
  *          null = show nothing (just the glow).
  */
-export function classifySyncError(errorInfo) {
+export function classifySyncError(errorInfo: any) {
   // No context provided → preserve legacy behaviour (glow only, no toast).
   if (!errorInfo || typeof errorInfo !== 'object') return null;
 
@@ -101,7 +101,7 @@ export function classifySyncError(errorInfo) {
 }
 
 /** Run the action button's effect. */
-function runAction(type) {
+function runAction(type: any) {
   if (type === 'refresh') {
     window.location.reload();
   } else if (type === 'login') {
@@ -113,7 +113,7 @@ function runAction(type) {
 }
 
 /** Shared button styling (mirrors feedbackToast.applyBtnStyle). */
-function applyBtnStyle(btn) {
+function applyBtnStyle(btn: any) {
   Object.assign(btn.style, {
     background: '#555',
     color: '#fff',
@@ -133,7 +133,7 @@ function applyBtnStyle(btn) {
  * Classify `errorInfo` and, if it warrants surfacing, render the toast.
  * Single live instance — a newer error replaces the current toast.
  */
-export function showSaveErrorToast(errorInfo) {
+export function showSaveErrorToast(errorInfo: any) {
   const info = classifySyncError(errorInfo);
   if (!info) return;
 

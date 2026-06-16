@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1103 functions in 224 modules · 8 object stores · 6 PG tables · 2165 edges
+**MarkdownDB** schema v27 · 1194 functions in 239 modules · 8 object stores · 6 PG tables · 2294 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -29,6 +29,19 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `replaceEditButtonWithLock` | `components/editButton/lock` | — | — | read/write | — |
 | `restoreEditButtonFromLock` | `components/editButton/lock` | — | — | read/write | — |
 | `updateEditButtonVisibility` | `components/editButton/lock` | — | — | read/write | — |
+| `destroyFileDropTarget` | `components/fileDropTarget/fileDropTarget` | — | — | write | — |
+| `initializeFileDropTarget` | `components/fileDropTarget/fileDropTarget` | — | — | read/write | — |
+| `hideFloatingMenu` | `components/floatingActionMenu/floatingActionMenu` | — | — | write | — |
+| `showFloatingMenu` | `components/floatingActionMenu/floatingActionMenu` | — | — | read/write | — |
+| `destroyHomepageListeners` | `components/homepage/homepage` | — | — | — | — |
+| `destroyHomepageDisplayUnit` | `components/homepage/homepageDisplayUnit` | — | — | — | — |
+| `fixHeaderSpacing` | `components/homepage/homepageDisplayUnit` | — | — | read | — |
+| `initializeHomepageButtons` | `components/homepage/homepageDisplayUnit` | — | — | read/write | — |
+| `transitionToBookContent` | `components/homepage/homepageDisplayUnit` | — | — | read/write | — |
+| `initializeHomepage` | `components/homepage/homepage` | — | — | — | — |
+| `initializeHomepageBookActions` | `components/homepage/homepage` | — | — | read | — |
+| `destroyLogoNav` | `components/logoNav/logoNav` | — | — | read/write | — |
+| `initializeLogoNav` | `components/logoNav/logoNav` | — | — | read/write | — |
 | `destroyNewBookContainer` | `components/newBookButton/newBookButton` | — | — | — | — |
 | `initializeNewBookContainer` | `components/newBookButton/newBookButton` | — | — | read | — |
 | `checkBibtexAndReveal` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
@@ -85,6 +98,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `NewBookContainerManager.setupResizeListener` | `components/newbookContainer/index` | — | — | read | — |
 | `NewBookContainerManager.showImportForm` | `components/newbookContainer/index` | — | — | read/write | — |
 | `NewBookContainerManager.toggleOptionalFields` | `components/newbookContainer/index` | — | — | read | — |
+| `classifySyncError` | `components/saveErrorToast/saveErrorToast` | — | — | — | — |
+| `hideSaveErrorToast` | `components/saveErrorToast/saveErrorToast` | — | — | read/write | — |
+| `showSaveErrorToast` | `components/saveErrorToast/saveErrorToast` | — | — | read/write | — |
 | `closeSettings` | `components/settingsButton/settingsButton` | — | — | — | — |
 | `destroySettingsManager` | `components/settingsButton/settingsButton` | — | — | — | — |
 | `initializeSettingsManager` | `components/settingsButton/settingsButton` | — | — | read | — |
@@ -152,6 +168,19 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initializeTocManager` | `components/tocToggleButton/tocToggleButton` | — | — | read | — |
 | `openTOC` | `components/tocToggleButton/tocToggleButton` | — | — | — | — |
 | `toggleTOC` | `components/tocToggleButton/tocToggleButton` | — | — | — | — |
+| `TogglePerimeterButtons.constructor` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | — | — |
+| `TogglePerimeterButtons.destroy` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | — | — |
+| `TogglePerimeterButtons.handleClick` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | — | — |
+| `TogglePerimeterButtons.handleKeyboardChange` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | — | — |
+| `TogglePerimeterButtons.handleResize` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | — | — |
+| `TogglePerimeterButtons.handleTouchEnd` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | read | — |
+| `TogglePerimeterButtons.handleTouchStart` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | read | — |
+| `TogglePerimeterButtons.init` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | — | — |
+| `TogglePerimeterButtons.isClickNearImportantButton` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | read | — |
+| `TogglePerimeterButtons.rebindElements` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | read | — |
+| `TogglePerimeterButtons.shouldIgnoreEvent` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | read | — |
+| `TogglePerimeterButtons.syncPerimeterButtons` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | read/write | — |
+| `TogglePerimeterButtons.updatePosition` | `components/togglePerimeterButtons/togglePerimeterButtons` | — | — | read/write | — |
 | `destroySourceButtonListener` | `components/topRightContainer/cloudRef/cloudRefButton` | — | — | write | — |
 | `initializeSourceButtonListener` | `components/topRightContainer/cloudRef/cloudRefButton` | — | — | write | — |
 | `cancelForcedVisibility` | `components/topRightContainer/cloudRef/editIndicator` | — | — | — | — |
@@ -333,6 +362,68 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `validateForm` | `components/userContainer/validation` | — | — | read | — |
 | `validatePassword` | `components/userContainer/validation` | — | — | — | — |
 | `validateUsername` | `components/userContainer/validation` | — | — | — | — |
+| `destroyUserProfileEditor` | `components/userProfile/userProfileEditor` | — | — | write | — |
+| `initializeUserProfileEditor` | `components/userProfile/userProfileEditor` | `library` | `library` | read/write | — |
+| `destroyUserProfilePage` | `components/userProfile/userProfilePage` | — | — | — | — |
+| `initializeUserProfilePage` | `components/userProfile/userProfilePage` | — | — | read/write | — |
+| `ButtonRegistry._initializeComponent` | `components/utilities/buttonRegistry` | — | — | — | — |
+| `ButtonRegistry._resolveDependencyOrder` | `components/utilities/buttonRegistry` | — | — | — | — |
+| `ButtonRegistry.constructor` | `components/utilities/buttonRegistry` | — | — | — | — |
+| `ButtonRegistry.destroyAll` | `components/utilities/buttonRegistry` | — | — | — | — |
+| `ButtonRegistry.getPerformanceReport` | `components/utilities/buttonRegistry` | — | — | — | — |
+| `ButtonRegistry.getStatus` | `components/utilities/buttonRegistry` | — | — | — | — |
+| `ButtonRegistry.initializeAll` | `components/utilities/buttonRegistry` | — | — | — | — |
+| `ButtonRegistry.register` | `components/utilities/buttonRegistry` | — | — | — | — |
+| `ButtonRegistry.reinitializeAll` | `components/utilities/buttonRegistry` | — | — | — | — |
+| `ButtonRegistry.validate` | `components/utilities/buttonRegistry` | — | — | — | — |
+| `ContainerCustomizer.applyCustomizations` | `components/utilities/containerCustomization` | — | — | write | — |
+| `ContainerCustomizer.constructor` | `components/utilities/containerCustomization` | — | — | — | — |
+| `ContainerCustomizer.createStyleElement` | `components/utilities/containerCustomization` | — | — | read/write | — |
+| `ContainerCustomizer.getCustomizations` | `components/utilities/containerCustomization` | — | — | — | — |
+| `ContainerCustomizer.init` | `components/utilities/containerCustomization` | — | — | — | — |
+| `ContainerCustomizer.loadCustomizations` | `components/utilities/containerCustomization` | — | — | — | — |
+| `ContainerCustomizer.resetAll` | `components/utilities/containerCustomization` | — | — | write | — |
+| `ContainerCustomizer.resetContainer` | `components/utilities/containerCustomization` | — | — | — | — |
+| `ContainerCustomizer.saveCustomizations` | `components/utilities/containerCustomization` | — | — | — | — |
+| `ContainerCustomizer.updateContainer` | `components/utilities/containerCustomization` | — | — | — | — |
+| `ContainerManager._applyTopRightVisibility` | `components/utilities/containerManager` | — | — | read/write | — |
+| `ContainerManager.cleanupURL` | `components/utilities/containerManager` | — | — | — | — |
+| `ContainerManager.closeContainer` | `components/utilities/containerManager` | — | — | read/write | — |
+| `ContainerManager.constructor` | `components/utilities/containerManager` | — | — | — | — |
+| `ContainerManager.destroy` | `components/utilities/containerManager` | — | — | — | — |
+| `ContainerManager.freezeElement` | `components/utilities/containerManager` | — | — | write | — |
+| `ContainerManager.openContainer` | `components/utilities/containerManager` | — | — | read/write | — |
+| `ContainerManager.rebindElements` | `components/utilities/containerManager` | — | — | read | — |
+| `ContainerManager.resetContainerState` | `components/utilities/containerManager` | — | — | write | — |
+| `ContainerManager.restoreNavElementsState` | `components/utilities/containerManager` | — | — | read/write | — |
+| `ContainerManager.saveNavElementsState` | `components/utilities/containerManager` | — | — | read | — |
+| `ContainerManager.toggleContainer` | `components/utilities/containerManager` | — | — | — | — |
+| `ContainerManager.unfreezeElement` | `components/utilities/containerManager` | — | — | read | — |
+| `ContainerManager.updateState` | `components/utilities/containerManager` | — | — | write | — |
+| `appendGateParam` | `components/utilities/gateFilter` | — | — | — | — |
+| `applyGateFilter` | `components/utilities/gateFilter` | — | — | — | — |
+| `gateQueryParam` | `components/utilities/gateFilter` | — | — | — | — |
+| `getBookGateDefaults` | `components/utilities/gateFilter` | — | — | — | — |
+| `getGateSettings` | `components/utilities/gateFilter` | — | — | — | — |
+| `reapplyAnnotationsWithGate` | `components/utilities/gateFilter` | — | — | read | — |
+| `setBookGateDefaults` | `components/utilities/gateFilter` | — | — | — | — |
+| `KeyboardManager.adjustHyperlitContainerHeight` | `components/utilities/keyboardManager` | — | — | read | — |
+| `KeyboardManager.adjustLayout` | `components/utilities/keyboardManager` | — | — | read | — |
+| `KeyboardManager.constructor` | `components/utilities/keyboardManager` | — | — | — | — |
+| `KeyboardManager.createOrUpdateSpacer` | `components/utilities/keyboardManager` | — | — | read | — |
+| `KeyboardManager.destroy` | `components/utilities/keyboardManager` | — | — | read | — |
+| `KeyboardManager.handleFocusIn` | `components/utilities/keyboardManager` | — | — | — | — |
+| `KeyboardManager.handleFocusOut` | `components/utilities/keyboardManager` | — | — | — | — |
+| `KeyboardManager.handleViewportChange` | `components/utilities/keyboardManager` | — | — | — | — |
+| `KeyboardManager.handleViewportScroll` | `components/utilities/keyboardManager` | — | — | — | — |
+| `KeyboardManager.init` | `components/utilities/keyboardManager` | — | — | — | — |
+| `KeyboardManager.moveToolbarAboveKeyboard` | `components/utilities/keyboardManager` | — | — | read | — |
+| `KeyboardManager.preventToolbarScroll` | `components/utilities/keyboardManager` | — | — | read | — |
+| `KeyboardManager.processViewportChange` | `components/utilities/keyboardManager` | — | — | read | — |
+| `KeyboardManager.removeSpacer` | `components/utilities/keyboardManager` | — | — | read | — |
+| `KeyboardManager.resetInlineStyles` | `components/utilities/keyboardManager` | — | — | — | — |
+| `KeyboardManager.scrollCaretIntoView` | `components/utilities/keyboardManager` | — | — | read | — |
+| `registerAllComponents` | `components/utilities/registerComponents` | — | — | — | — |
 | `getCurrentChunk` | `divEditor/chunkManager` | — | — | read | — |
 | `handleChunkOverflow` | `divEditor/chunkManager` | — | — | read/write | — |
 | `trackChunkNodeCount` | `divEditor/chunkManager` | — | — | read | — |
@@ -1116,20 +1207,22 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 22 · lazy-loads (code-split): 143
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 26 · lazy-loads (code-split): 160
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
 ### Cycles masked by dynamic imports (coupling debt)
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
 - (2 modules) `components/topRightContainer/cloudRef/editIndicator`, `indexedDB/core/healthMonitor`
-- (55 modules) `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/editButton/index`, `components/editButton/lock`, `components/tocContainer/index`, `components/tocToggleButton/tocToggleButton`, `components/topRightContainer/cloudRef/cloudRefButton`, `components/topRightContainer/sourceContainer/creatorTools/reconvert`, `components/topRightContainer/sourceContainer/downloads`, `components/topRightContainer/sourceContainer/index`, `components/userButton/userButton`, `components/userContainer/index`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
+- (68 modules) `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/editButton/index`, `components/editButton/lock`, `components/fileDropTarget/fileDropTarget`, `components/homepage/homepage`, `components/homepage/homepageDisplayUnit`, `components/newBookButton/newBookButton`, `components/newbookContainer/index`, `components/settingsButton/settingsButton`, `components/settingsContainer/index`, `components/tocContainer/index`, `components/tocToggleButton/tocToggleButton`, `components/togglePerimeterButtons/togglePerimeterButtons`, `components/topRightContainer/cloudRef/cloudRefButton`, `components/topRightContainer/sourceContainer/creatorTools/reconvert`, `components/topRightContainer/sourceContainer/downloads`, `components/topRightContainer/sourceContainer/index`, `components/userButton/userButton`, `components/userContainer/index`, `components/userProfile/userProfileEditor`, `components/utilities/containerManager`, `components/utilities/registerComponents`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/footnoteTapExtender`, `hyperlitContainer/footnotesCitations`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
 - `SPA/viewManager` → `SPA/navigation/LinkNavigationHandler`
 - `components/editButton/lock` → `components/editButton/index`
+- `components/newbookContainer/index` → `SPA/navigation/NavigationManager`
 - `components/topRightContainer/sourceContainer/creatorTools/reconvert` → `SPA/navigation/pathways/ImportBookTransition`
 - `components/userContainer/index` → `SPA/navigation/NavigationManager`
+- `components/utilities/containerManager` → `divEditor/index`
 - `divEditor/chunkManager` → `divEditor/index`
 - `hyperlitContainer/core` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/history` → `hyperlitContainer/subBookLoader`
@@ -1155,6 +1248,9 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `SPA/navigation/utils/cleanupHelpers` → `components/newBookButton/newBookButton`
 - `SPA/navigation/utils/cleanupHelpers` → `components/topRightContainer/sourceContainer/index`
 - `SPA/navigation/utils/initHelpers` → `components/newBookButton/newBookButton`
+- `SPA/viewManager` → `components/homepage/homepage`
+- `SPA/viewManager` → `components/userProfile/userProfileEditor`
+- `SPA/viewManager` → `components/userProfile/userProfilePage`
 - `SPA/viewManager` → `editToolbar/index`
 - `SPA/viewManager` → `indexedDB/core/connection`
 - `SPA/viewManager` → `indexedDB/core/healthMonitor`
@@ -1162,21 +1258,32 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/editButton/index` → `divEditor/index`
 - `components/editButton/index` → `editToolbar/index`
 - `components/editButton/index` → `indexedDB/index`
+- `components/homepage/homepage` → `components/floatingActionMenu/floatingActionMenu`
+- `components/homepage/homepage` → `components/newBookButton/newBookButton`
+- `components/homepage/homepage` → `components/userButton/userButton`
 - `components/newbookContainer/citeForm/submission` → `SPA/navigation/pathways/ImportBookTransition`
 - `components/newbookContainer/citeForm/submission` → `components/userButton/userButton`
 - `components/newbookContainer/citeForm/urlImport` → `components/userButton/userButton`
-- `components/newbookContainer/index` → `SPA/navigation/NavigationManager`
 - `components/newbookContainer/index` → `components/newbookContainer/citeForm/index`
+- `components/settingsContainer/gate` → `components/utilities/gateFilter`
 - `components/settingsContainer/gate` → `indexedDB/core/library`
 - `components/settingsContainer/gate` → `indexedDB/index`
 - `components/settingsContainer/gate` → `indexedDB/syncQueue/queue`
+- `components/settingsContainer/index` → `components/utilities/gateFilter`
 - `components/settingsContainer/vibeCSS/galleryUI` → `components/userButton/userButton`
 - `components/settingsContainer/vibeCSS/storage` → `components/settingsContainer/vibeCanvas`
 - `components/tocContainer/index` → `scrolling/index`
+- `components/topRightContainer/cloudRef/editIndicator` → `components/saveErrorToast/saveErrorToast`
 - `components/topRightContainer/sourceContainer/aiReview/pipelineViz` → `hyperlights/deletion`
 - `components/topRightContainer/sourceContainer/aiReview/pipelineViz` → `indexedDB/core/library`
 - `components/topRightContainer/sourceContainer/creatorTools/deleteBook` → `indexedDB/index`
 - `components/topRightContainer/sourceContainer/creatorTools/reconvert` → `indexedDB/index`
+- `components/userProfile/userProfilePage` → `components/floatingActionMenu/floatingActionMenu`
+- `components/userProfile/userProfilePage` → `indexedDB/index`
+- `components/utilities/containerManager` → `hyperlitContainer/stack`
+- `components/utilities/gateFilter` → `hyperlights/deletion`
+- `components/utilities/gateFilter` → `indexedDB/hydration/rebuild`
+- `components/utilities/gateFilter` → `indexedDB/index`
 - `divEditor/chunkMutationHandler/index` → `hypercites/database`
 - `divEditor/chunkMutationHandler/index` → `hypercites/deletion`
 - `divEditor/domUtilities` → `hypercites/database`
@@ -1242,6 +1349,8 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `indexedDB/serverSync/flush` → `footnotes/footnoteAnnotations`
 - `indexedDB/serverSync/flush` → `indexedDB/syncQueue/master`
 - `indexedDB/serverSync/flush` → `indexedDB/syncQueue/queue`
+- `indexedDB/serverSync/loaders` → `components/utilities/gateFilter`
+- `indexedDB/serverSync/pull` → `components/utilities/gateFilter`
 - `indexedDB/serverSync/pull` → `pageLoad/accessGuards`
 - `indexedDB/syncQueue/master` → `indexedDB/hydration/rebuild`
 - `lazyLoader/chunkRender` → `divEditor/domUtilities`

@@ -1,6 +1,7 @@
-// containerCustomization.js
+// containerCustomization.ts
 
 class ContainerCustomizer {
+  [key: string]: any;
   constructor() {
     this.storageKey = 'containerCustomizations';
     this.styleElementId = 'dynamic-container-styles';
@@ -13,7 +14,7 @@ class ContainerCustomizer {
   }
 
   createStyleElement() {
-    let styleEl = document.getElementById(this.styleElementId);
+    let styleEl: any = document.getElementById(this.styleElementId);
     if (!styleEl) {
       styleEl = document.createElement('style');
       styleEl.id = this.styleElementId;
@@ -33,7 +34,7 @@ class ContainerCustomizer {
     }
   }
 
-  saveCustomizations(customizations) {
+  saveCustomizations(customizations: any) {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(customizations));
       console.log('✅ Container customizations saved');
@@ -47,13 +48,13 @@ class ContainerCustomizer {
     this.applyCustomizations(customizations);
   }
 
-  applyCustomizations(customizations) {
+  applyCustomizations(customizations: any) {
     let css = '/* Dynamic Container Customizations */\n';
     
     Object.entries(customizations).forEach(([containerId, styles]) => {
       // Target the .open state specifically
       css += `#${containerId}.open {\n`;
-      Object.entries(styles).forEach(([property, value]) => {
+      Object.entries(styles as any).forEach(([property, value]: any) => {
         // Keep the transform: translateX(0) and add other positioning
         if (property === 'transform') {
           css += `  ${property}: translateX(0) ${value};\n`;
@@ -67,7 +68,7 @@ class ContainerCustomizer {
     this.styleElement.textContent = css;
   }
 
-  updateContainer(containerId, styles) {
+  updateContainer(containerId: any, styles: any) {
     const customizations = this.getCustomizations();
     
     if (!customizations[containerId]) {
@@ -80,7 +81,7 @@ class ContainerCustomizer {
     this.applyCustomizations(customizations);
   }
 
-  resetContainer(containerId) {
+  resetContainer(containerId: any) {
     const customizations = this.getCustomizations();
     delete customizations[containerId];
     this.saveCustomizations(customizations);
@@ -98,10 +99,10 @@ class ContainerCustomizer {
 const containerCustomizer = new ContainerCustomizer();
 
 // Make it globally available
-window.containerCustomizer = containerCustomizer;
+(window as any).containerCustomizer = containerCustomizer;
 
 // Console testing functions
-window.testContainerCustomization = {
+(window as any).testContainerCustomization = {
   testHighlightPosition: () => {
     containerCustomizer.updateContainer('highlight-container', {
       'right': '5em',

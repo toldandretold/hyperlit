@@ -2,7 +2,7 @@
 // toggles the source-container panel. The panel itself (and its singleton
 // manager) lives in ../sourceContainer; this module only owns the button →
 // open/close wiring, registered with ButtonRegistry as the 'sourceButton'
-// component (see components/registerComponents.js).
+// component (see components/registerComponents.ts).
 import sourceManager from "../sourceContainer/index";
 import { log } from "../../../utilities/logger.js";
 

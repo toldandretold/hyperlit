@@ -1,10 +1,8 @@
-// In resources/js/homepage.js
+// resources/js/components/homepage/homepage.ts
 
-import TogglePerimeterButtons from './togglePerimeterButtons.js';
-import { initializeLazyLoaderForContainer } from '../pageLoad';
-import { log, verbose } from '../utilities/logger.js';
+import { log, verbose } from '../../utilities/logger.js';
 
-let homepageBookActionsHandler = null;
+let homepageBookActionsHandler: any = null;
 
 export function destroyHomepageListeners() {
   if (homepageBookActionsHandler) {
@@ -19,8 +17,8 @@ export function initializeHomepageBookActions() {
     document.removeEventListener('click', homepageBookActionsHandler);
   }
 
-  homepageBookActionsHandler = async (e) => {
-    if (window.isUserPage) return;
+  homepageBookActionsHandler = async (e: any) => {
+    if ((window as any).isUserPage) return;
     const target = e.target.closest('.book-actions');
     if (!target) return;
     e.preventDefault();
@@ -34,15 +32,15 @@ export function initializeHomepageBookActions() {
       { id: 'add-to-shelf', label: 'Add to shelf', icon: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' },
     ];
 
-    const { showFloatingMenu } = await import('./floatingActionMenu.js');
-    showFloatingMenu(target, menuItems, async (action) => {
+    const { showFloatingMenu } = await import('../floatingActionMenu/floatingActionMenu');
+    showFloatingMenu(target, menuItems, async (action: any) => {
       switch (action) {
         case 'preview':
-          const { showShelfPreview } = await import('./shelves/shelfPreview.js');
+          const { showShelfPreview } = await import('../shelves/shelfPreview.js');
           showShelfPreview(bookId);
           break;
         case 'add-to-shelf':
-          const { showAddToShelfMenu } = await import('./shelves/addToShelfMenu.js');
+          const { showAddToShelfMenu } = await import('../shelves/addToShelfMenu.js');
           showAddToShelfMenu(target, bookId);
           break;
       }
@@ -52,12 +50,12 @@ export function initializeHomepageBookActions() {
 }
 
 export async function initializeHomepage() {
-  log.init("Homepage components initializing", 'homepage.js');
+  log.init("Homepage components initializing", '/components/homepage/homepage.ts');
 
   // Import progress functions
   let updatePageLoadProgress, hidePageLoadProgress;
   try {
-    const progressModule = await import('../pageLoad');
+    const progressModule = await import('../../pageLoad');
     updatePageLoadProgress = progressModule.updatePageLoadProgress;
     hidePageLoadProgress = progressModule.hidePageLoadProgress;
   } catch (e) {
@@ -76,10 +74,10 @@ export async function initializeHomepage() {
   // Rebind button managers after SPA transition to ensure they reference correct DOM elements
   try {
     // Import and rebind userContainer manager
-    const userContainerModule = await import('./userButton/userButton');
+    const userContainerModule = await import('../userButton/userButton');
     if (userContainerModule.default && userContainerModule.default.rebindElements) {
       userContainerModule.default.rebindElements();
-      verbose.init('User button rebound after SPA transition', 'homepage.js');
+      verbose.init('User button rebound after SPA transition', '/components/homepage/homepage.ts');
 
       // Re-initialize user state after SPA transition
       if (userContainerModule.default.initializeUser) {
@@ -88,17 +86,17 @@ export async function initializeHomepage() {
     }
 
     // Import and initialize newBookButton manager
-    const newBookModule = await import('./newBookButton/newBookButton');
+    const newBookModule = await import('../newBookButton/newBookButton');
     const newBookManager = newBookModule.initializeNewBookContainer();
     if (newBookManager) {
-      verbose.init('New book button initialized', 'homepage.js');
+      verbose.init('New book button initialized', '/components/homepage/homepage.ts');
     }
   } catch (error) {
     console.warn('Could not rebind button managers:', error);
   }
 
   // Note: homepageDisplayUnit, homepageBookActions, shelfTabs are initialized via ButtonRegistry
-  // Note: Homepage search is initialized via ButtonRegistry in registerComponents.js
+  // Note: Homepage search is initialized via ButtonRegistry in registerComponents.ts
 
   updatePageLoadProgress(70, "Interface ready...");
 

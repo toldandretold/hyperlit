@@ -6,9 +6,9 @@ import { log } from '../../../utilities/logger.js';
 import { setCurrentBook } from '../../../app.js';
 import { updateDatabaseBookId } from '../../../indexedDB/index';
 import { universalPageInitializer } from '../../viewManager';
-import { initializeLogoNav } from '../../../components/logoNavToggle.js';
+import { initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { initializeUserContainer } from '../../../components/userButton/userButton';
-import { initializeUserProfileEditor } from '../../../components/userProfileEditor.js';
+import { initializeUserProfileEditor } from '../../../components/userProfile/userProfileEditor';
 import { currentLazyLoader } from '../../../pageLoad';
 
 /**

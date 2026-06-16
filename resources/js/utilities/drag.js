@@ -340,7 +340,7 @@ class ContainerDragger {
 // The dragger listens via delegation on `document`, which survives SPA navigation, so one
 // instance per page session is enough: create it once, and just clear any stale resize state
 // on re-entry. It stays exposed as window.containerDragger because container lifecycle code
-// (containerManager.js) calls reset() through that global.
+// (containerManager.ts) calls reset() through that global.
 export function initContainerDragger() {
   if (!window.containerDragger) {
     window.containerDragger = new ContainerDragger();

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1103,
-    "moduleCount": 224,
+    "fnCount": 1194,
+    "moduleCount": 239,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 2165,
+    "edgeCount": 2294,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -297,6 +297,110 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/editButton/lock",
+      "leaf": false
+    },
+    {
+      "id": "components/fileDropTarget/fileDropTarget:destroyFileDropTarget",
+      "label": "destroyFileDropTarget",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/fileDropTarget/fileDropTarget",
+      "leaf": false
+    },
+    {
+      "id": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget",
+      "label": "initializeFileDropTarget",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/fileDropTarget/fileDropTarget",
+      "leaf": false
+    },
+    {
+      "id": "components/floatingActionMenu/floatingActionMenu:hideFloatingMenu",
+      "label": "hideFloatingMenu",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/floatingActionMenu/floatingActionMenu",
+      "leaf": false
+    },
+    {
+      "id": "components/floatingActionMenu/floatingActionMenu:showFloatingMenu",
+      "label": "showFloatingMenu",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/floatingActionMenu/floatingActionMenu",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/homepage:destroyHomepageListeners",
+      "label": "destroyHomepageListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/homepage",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/homepage:initializeHomepage",
+      "label": "initializeHomepage",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/homepage",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/homepage:initializeHomepageBookActions",
+      "label": "initializeHomepageBookActions",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/homepage",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
+      "label": "destroyHomepageDisplayUnit",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/homepageDisplayUnit",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:fixHeaderSpacing",
+      "label": "fixHeaderSpacing",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/homepageDisplayUnit",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "label": "initializeHomepageButtons",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/homepageDisplayUnit",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "label": "transitionToBookContent",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/homepageDisplayUnit",
+      "leaf": false
+    },
+    {
+      "id": "components/logoNav/logoNav:destroyLogoNav",
+      "label": "destroyLogoNav",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/logoNav/logoNav",
+      "leaf": false
+    },
+    {
+      "id": "components/logoNav/logoNav:initializeLogoNav",
+      "label": "initializeLogoNav",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/logoNav/logoNav",
       "leaf": false
     },
     {
@@ -745,6 +849,30 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/newbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/saveErrorToast/saveErrorToast:classifySyncError",
+      "label": "classifySyncError",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/saveErrorToast/saveErrorToast",
+      "leaf": true
+    },
+    {
+      "id": "components/saveErrorToast/saveErrorToast:hideSaveErrorToast",
+      "label": "hideSaveErrorToast",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/saveErrorToast/saveErrorToast",
+      "leaf": false
+    },
+    {
+      "id": "components/saveErrorToast/saveErrorToast:showSaveErrorToast",
+      "label": "showSaveErrorToast",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/saveErrorToast/saveErrorToast",
       "leaf": false
     },
     {
@@ -1282,6 +1410,110 @@
       "stage": "components",
       "module": "components/tocToggleButton/tocToggleButton",
       "leaf": true
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.constructor",
+      "label": "TogglePerimeterButtons.constructor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "leaf": true
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.destroy",
+      "label": "TogglePerimeterButtons.destroy",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "leaf": true
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleClick",
+      "label": "TogglePerimeterButtons.handleClick",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "leaf": true
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleKeyboardChange",
+      "label": "TogglePerimeterButtons.handleKeyboardChange",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "leaf": true
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleResize",
+      "label": "TogglePerimeterButtons.handleResize",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "leaf": true
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleTouchEnd",
+      "label": "TogglePerimeterButtons.handleTouchEnd",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "leaf": false
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleTouchStart",
+      "label": "TogglePerimeterButtons.handleTouchStart",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "leaf": false
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.init",
+      "label": "TogglePerimeterButtons.init",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "leaf": true
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.isClickNearImportantButton",
+      "label": "TogglePerimeterButtons.isClickNearImportantButton",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "leaf": false
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.rebindElements",
+      "label": "TogglePerimeterButtons.rebindElements",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "leaf": false
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.shouldIgnoreEvent",
+      "label": "TogglePerimeterButtons.shouldIgnoreEvent",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "leaf": false
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.syncPerimeterButtons",
+      "label": "TogglePerimeterButtons.syncPerimeterButtons",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "leaf": false
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.updatePosition",
+      "label": "TogglePerimeterButtons.updatePosition",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "leaf": false
     },
     {
       "id": "components/topRightContainer/cloudRef/cloudRefButton:destroySourceButtonListener",
@@ -2729,6 +2961,502 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/userContainer/validation",
+      "leaf": true
+    },
+    {
+      "id": "components/userProfile/userProfileEditor:destroyUserProfileEditor",
+      "label": "destroyUserProfileEditor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userProfileEditor",
+      "leaf": false
+    },
+    {
+      "id": "components/userProfile/userProfileEditor:initializeUserProfileEditor",
+      "label": "initializeUserProfileEditor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userProfileEditor",
+      "leaf": false
+    },
+    {
+      "id": "components/userProfile/userProfilePage:destroyUserProfilePage",
+      "label": "destroyUserProfilePage",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userProfilePage",
+      "leaf": true
+    },
+    {
+      "id": "components/userProfile/userProfilePage:initializeUserProfilePage",
+      "label": "initializeUserProfilePage",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userProfilePage",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/buttonRegistry:ButtonRegistry._initializeComponent",
+      "label": "ButtonRegistry._initializeComponent",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/buttonRegistry",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/buttonRegistry:ButtonRegistry._resolveDependencyOrder",
+      "label": "ButtonRegistry._resolveDependencyOrder",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/buttonRegistry",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/buttonRegistry:ButtonRegistry.constructor",
+      "label": "ButtonRegistry.constructor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/buttonRegistry",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/buttonRegistry:ButtonRegistry.destroyAll",
+      "label": "ButtonRegistry.destroyAll",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/buttonRegistry",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/buttonRegistry:ButtonRegistry.getPerformanceReport",
+      "label": "ButtonRegistry.getPerformanceReport",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/buttonRegistry",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/buttonRegistry:ButtonRegistry.getStatus",
+      "label": "ButtonRegistry.getStatus",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/buttonRegistry",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/buttonRegistry:ButtonRegistry.initializeAll",
+      "label": "ButtonRegistry.initializeAll",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/buttonRegistry",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/buttonRegistry:ButtonRegistry.register",
+      "label": "ButtonRegistry.register",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/buttonRegistry",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/buttonRegistry:ButtonRegistry.reinitializeAll",
+      "label": "ButtonRegistry.reinitializeAll",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/buttonRegistry",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/buttonRegistry:ButtonRegistry.validate",
+      "label": "ButtonRegistry.validate",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/buttonRegistry",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.applyCustomizations",
+      "label": "ContainerCustomizer.applyCustomizations",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerCustomization",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.constructor",
+      "label": "ContainerCustomizer.constructor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerCustomization",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.createStyleElement",
+      "label": "ContainerCustomizer.createStyleElement",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerCustomization",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.getCustomizations",
+      "label": "ContainerCustomizer.getCustomizations",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerCustomization",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.init",
+      "label": "ContainerCustomizer.init",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerCustomization",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.loadCustomizations",
+      "label": "ContainerCustomizer.loadCustomizations",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerCustomization",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.resetAll",
+      "label": "ContainerCustomizer.resetAll",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerCustomization",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.resetContainer",
+      "label": "ContainerCustomizer.resetContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerCustomization",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.saveCustomizations",
+      "label": "ContainerCustomizer.saveCustomizations",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerCustomization",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.updateContainer",
+      "label": "ContainerCustomizer.updateContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerCustomization",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager._applyTopRightVisibility",
+      "label": "ContainerManager._applyTopRightVisibility",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.cleanupURL",
+      "label": "ContainerManager.cleanupURL",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.closeContainer",
+      "label": "ContainerManager.closeContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.constructor",
+      "label": "ContainerManager.constructor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.destroy",
+      "label": "ContainerManager.destroy",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.freezeElement",
+      "label": "ContainerManager.freezeElement",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.openContainer",
+      "label": "ContainerManager.openContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.rebindElements",
+      "label": "ContainerManager.rebindElements",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.resetContainerState",
+      "label": "ContainerManager.resetContainerState",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.restoreNavElementsState",
+      "label": "ContainerManager.restoreNavElementsState",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.saveNavElementsState",
+      "label": "ContainerManager.saveNavElementsState",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.toggleContainer",
+      "label": "ContainerManager.toggleContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.unfreezeElement",
+      "label": "ContainerManager.unfreezeElement",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.updateState",
+      "label": "ContainerManager.updateState",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/gateFilter:appendGateParam",
+      "label": "appendGateParam",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/gateFilter:applyGateFilter",
+      "label": "applyGateFilter",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/gateFilter:gateQueryParam",
+      "label": "gateQueryParam",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/gateFilter:getBookGateDefaults",
+      "label": "getBookGateDefaults",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/gateFilter:getGateSettings",
+      "label": "getGateSettings",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/gateFilter:reapplyAnnotationsWithGate",
+      "label": "reapplyAnnotationsWithGate",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/gateFilter:setBookGateDefaults",
+      "label": "setBookGateDefaults",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.adjustHyperlitContainerHeight",
+      "label": "KeyboardManager.adjustHyperlitContainerHeight",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.adjustLayout",
+      "label": "KeyboardManager.adjustLayout",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.constructor",
+      "label": "KeyboardManager.constructor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.createOrUpdateSpacer",
+      "label": "KeyboardManager.createOrUpdateSpacer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.destroy",
+      "label": "KeyboardManager.destroy",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.handleFocusIn",
+      "label": "KeyboardManager.handleFocusIn",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.handleFocusOut",
+      "label": "KeyboardManager.handleFocusOut",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.handleViewportChange",
+      "label": "KeyboardManager.handleViewportChange",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.handleViewportScroll",
+      "label": "KeyboardManager.handleViewportScroll",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.init",
+      "label": "KeyboardManager.init",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.moveToolbarAboveKeyboard",
+      "label": "KeyboardManager.moveToolbarAboveKeyboard",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.preventToolbarScroll",
+      "label": "KeyboardManager.preventToolbarScroll",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.processViewportChange",
+      "label": "KeyboardManager.processViewportChange",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.removeSpacer",
+      "label": "KeyboardManager.removeSpacer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.resetInlineStyles",
+      "label": "KeyboardManager.resetInlineStyles",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/keyboardManager:KeyboardManager.scrollCaretIntoView",
+      "label": "KeyboardManager.scrollCaretIntoView",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/keyboardManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/registerComponents:registerAllComponents",
+      "label": "registerAllComponents",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/registerComponents",
       "leaf": true
     },
     {
@@ -9100,6 +9828,59 @@
       ]
     },
     {
+      "id": "components/fileDropTarget/fileDropTarget",
+      "label": "components/fileDropTarget/fileDropTarget",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/fileDropTarget/fileDropTarget:destroyFileDropTarget",
+        "components/fileDropTarget/fileDropTarget:initializeFileDropTarget"
+      ]
+    },
+    {
+      "id": "components/floatingActionMenu/floatingActionMenu",
+      "label": "components/floatingActionMenu/floatingActionMenu",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/floatingActionMenu/floatingActionMenu:hideFloatingMenu",
+        "components/floatingActionMenu/floatingActionMenu:showFloatingMenu"
+      ]
+    },
+    {
+      "id": "components/homepage/homepage",
+      "label": "components/homepage/homepage",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/homepage/homepage:destroyHomepageListeners",
+        "components/homepage/homepage:initializeHomepage",
+        "components/homepage/homepage:initializeHomepageBookActions"
+      ]
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit",
+      "label": "components/homepage/homepageDisplayUnit",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
+        "components/homepage/homepageDisplayUnit:fixHeaderSpacing",
+        "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+        "components/homepage/homepageDisplayUnit:transitionToBookContent"
+      ]
+    },
+    {
+      "id": "components/logoNav/logoNav",
+      "label": "components/logoNav/logoNav",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/logoNav/logoNav:destroyLogoNav",
+        "components/logoNav/logoNav:initializeLogoNav"
+      ]
+    },
+    {
       "id": "components/newBookButton/newBookButton",
       "label": "components/newBookButton/newBookButton",
       "stage": "components",
@@ -9292,6 +10073,17 @@
       ]
     },
     {
+      "id": "components/saveErrorToast/saveErrorToast",
+      "label": "components/saveErrorToast/saveErrorToast",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/saveErrorToast/saveErrorToast:classifySyncError",
+        "components/saveErrorToast/saveErrorToast:hideSaveErrorToast",
+        "components/saveErrorToast/saveErrorToast:showSaveErrorToast"
+      ]
+    },
+    {
       "id": "components/settingsButton/settingsButton",
       "label": "components/settingsButton/settingsButton",
       "stage": "components",
@@ -9476,6 +10268,27 @@
         "components/tocToggleButton/tocToggleButton:initializeTocManager",
         "components/tocToggleButton/tocToggleButton:openTOC",
         "components/tocToggleButton/tocToggleButton:toggleTOC"
+      ]
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "label": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.constructor",
+        "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.destroy",
+        "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleClick",
+        "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleKeyboardChange",
+        "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleResize",
+        "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleTouchEnd",
+        "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleTouchStart",
+        "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.init",
+        "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.isClickNearImportantButton",
+        "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.rebindElements",
+        "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.shouldIgnoreEvent",
+        "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.syncPerimeterButtons",
+        "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.updatePosition"
       ]
     },
     {
@@ -9865,6 +10678,132 @@
         "components/userContainer/validation:validateForm",
         "components/userContainer/validation:validatePassword",
         "components/userContainer/validation:validateUsername"
+      ]
+    },
+    {
+      "id": "components/userProfile/userProfileEditor",
+      "label": "components/userProfile/userProfileEditor",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/userProfile/userProfileEditor:destroyUserProfileEditor",
+        "components/userProfile/userProfileEditor:initializeUserProfileEditor"
+      ]
+    },
+    {
+      "id": "components/userProfile/userProfilePage",
+      "label": "components/userProfile/userProfilePage",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/userProfile/userProfilePage:destroyUserProfilePage",
+        "components/userProfile/userProfilePage:initializeUserProfilePage"
+      ]
+    },
+    {
+      "id": "components/utilities/buttonRegistry",
+      "label": "components/utilities/buttonRegistry",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/utilities/buttonRegistry:ButtonRegistry._initializeComponent",
+        "components/utilities/buttonRegistry:ButtonRegistry._resolveDependencyOrder",
+        "components/utilities/buttonRegistry:ButtonRegistry.constructor",
+        "components/utilities/buttonRegistry:ButtonRegistry.destroyAll",
+        "components/utilities/buttonRegistry:ButtonRegistry.getPerformanceReport",
+        "components/utilities/buttonRegistry:ButtonRegistry.getStatus",
+        "components/utilities/buttonRegistry:ButtonRegistry.initializeAll",
+        "components/utilities/buttonRegistry:ButtonRegistry.register",
+        "components/utilities/buttonRegistry:ButtonRegistry.reinitializeAll",
+        "components/utilities/buttonRegistry:ButtonRegistry.validate"
+      ]
+    },
+    {
+      "id": "components/utilities/containerCustomization",
+      "label": "components/utilities/containerCustomization",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/utilities/containerCustomization:ContainerCustomizer.applyCustomizations",
+        "components/utilities/containerCustomization:ContainerCustomizer.constructor",
+        "components/utilities/containerCustomization:ContainerCustomizer.createStyleElement",
+        "components/utilities/containerCustomization:ContainerCustomizer.getCustomizations",
+        "components/utilities/containerCustomization:ContainerCustomizer.init",
+        "components/utilities/containerCustomization:ContainerCustomizer.loadCustomizations",
+        "components/utilities/containerCustomization:ContainerCustomizer.resetAll",
+        "components/utilities/containerCustomization:ContainerCustomizer.resetContainer",
+        "components/utilities/containerCustomization:ContainerCustomizer.saveCustomizations",
+        "components/utilities/containerCustomization:ContainerCustomizer.updateContainer"
+      ]
+    },
+    {
+      "id": "components/utilities/containerManager",
+      "label": "components/utilities/containerManager",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/utilities/containerManager:ContainerManager._applyTopRightVisibility",
+        "components/utilities/containerManager:ContainerManager.cleanupURL",
+        "components/utilities/containerManager:ContainerManager.closeContainer",
+        "components/utilities/containerManager:ContainerManager.constructor",
+        "components/utilities/containerManager:ContainerManager.destroy",
+        "components/utilities/containerManager:ContainerManager.freezeElement",
+        "components/utilities/containerManager:ContainerManager.openContainer",
+        "components/utilities/containerManager:ContainerManager.rebindElements",
+        "components/utilities/containerManager:ContainerManager.resetContainerState",
+        "components/utilities/containerManager:ContainerManager.restoreNavElementsState",
+        "components/utilities/containerManager:ContainerManager.saveNavElementsState",
+        "components/utilities/containerManager:ContainerManager.toggleContainer",
+        "components/utilities/containerManager:ContainerManager.unfreezeElement",
+        "components/utilities/containerManager:ContainerManager.updateState"
+      ]
+    },
+    {
+      "id": "components/utilities/gateFilter",
+      "label": "components/utilities/gateFilter",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/utilities/gateFilter:appendGateParam",
+        "components/utilities/gateFilter:applyGateFilter",
+        "components/utilities/gateFilter:gateQueryParam",
+        "components/utilities/gateFilter:getBookGateDefaults",
+        "components/utilities/gateFilter:getGateSettings",
+        "components/utilities/gateFilter:reapplyAnnotationsWithGate",
+        "components/utilities/gateFilter:setBookGateDefaults"
+      ]
+    },
+    {
+      "id": "components/utilities/keyboardManager",
+      "label": "components/utilities/keyboardManager",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/utilities/keyboardManager:KeyboardManager.adjustHyperlitContainerHeight",
+        "components/utilities/keyboardManager:KeyboardManager.adjustLayout",
+        "components/utilities/keyboardManager:KeyboardManager.constructor",
+        "components/utilities/keyboardManager:KeyboardManager.createOrUpdateSpacer",
+        "components/utilities/keyboardManager:KeyboardManager.destroy",
+        "components/utilities/keyboardManager:KeyboardManager.handleFocusIn",
+        "components/utilities/keyboardManager:KeyboardManager.handleFocusOut",
+        "components/utilities/keyboardManager:KeyboardManager.handleViewportChange",
+        "components/utilities/keyboardManager:KeyboardManager.handleViewportScroll",
+        "components/utilities/keyboardManager:KeyboardManager.init",
+        "components/utilities/keyboardManager:KeyboardManager.moveToolbarAboveKeyboard",
+        "components/utilities/keyboardManager:KeyboardManager.preventToolbarScroll",
+        "components/utilities/keyboardManager:KeyboardManager.processViewportChange",
+        "components/utilities/keyboardManager:KeyboardManager.removeSpacer",
+        "components/utilities/keyboardManager:KeyboardManager.resetInlineStyles",
+        "components/utilities/keyboardManager:KeyboardManager.scrollCaretIntoView"
+      ]
+    },
+    {
+      "id": "components/utilities/registerComponents",
+      "label": "components/utilities/registerComponents",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/utilities/registerComponents:registerAllComponents"
       ]
     },
     {
@@ -12160,6 +13099,123 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/fileDropTarget/fileDropTarget:destroyFileDropTarget__domwrite__dom",
+      "source": "components/fileDropTarget/fileDropTarget:destroyFileDropTarget",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget__call__components/userButton/userButton:initializeUserContainer",
+      "source": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget",
+      "target": "components/userButton/userButton:initializeUserContainer",
+      "rel": "call"
+    },
+    {
+      "id": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget__domwrite__dom",
+      "source": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/floatingActionMenu/floatingActionMenu:hideFloatingMenu__domwrite__dom",
+      "source": "components/floatingActionMenu/floatingActionMenu:hideFloatingMenu",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/floatingActionMenu/floatingActionMenu:showFloatingMenu__call__components/floatingActionMenu/floatingActionMenu:hideFloatingMenu",
+      "source": "components/floatingActionMenu/floatingActionMenu:showFloatingMenu",
+      "target": "components/floatingActionMenu/floatingActionMenu:hideFloatingMenu",
+      "rel": "call"
+    },
+    {
+      "id": "components/floatingActionMenu/floatingActionMenu:showFloatingMenu__domwrite__dom",
+      "source": "components/floatingActionMenu/floatingActionMenu:showFloatingMenu",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/homepage:initializeHomepageBookActions__call__components/floatingActionMenu/floatingActionMenu:showFloatingMenu",
+      "source": "components/homepage/homepage:initializeHomepageBookActions",
+      "target": "components/floatingActionMenu/floatingActionMenu:showFloatingMenu",
+      "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
+      "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "target": "components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
+      "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__components/homepage/homepageDisplayUnit:fixHeaderSpacing",
+      "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "target": "components/homepage/homepageDisplayUnit:fixHeaderSpacing",
+      "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "target": "components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__indexedDB/core/library:getAllOfflineAvailableBooks",
+      "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "target": "indexedDB/core/library:getAllOfflineAvailableBooks",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__domwrite__dom",
+      "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:transitionToBookContent__call__pageLoad/lazyLoaderRegistry:resetCurrentLazyLoader",
+      "source": "components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "target": "pageLoad/lazyLoaderRegistry:resetCurrentLazyLoader",
+      "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:transitionToBookContent__call__pageLoad/loadHyperText:loadHyperText",
+      "source": "components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "target": "pageLoad/loadHyperText:loadHyperText",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:transitionToBookContent__call__scrolling/navOverlay:hideNavigationLoading",
+      "source": "components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "target": "scrolling/navOverlay:hideNavigationLoading",
+      "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:transitionToBookContent__call__scrolling/navOverlay:showNavigationLoading",
+      "source": "components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "target": "scrolling/navOverlay:showNavigationLoading",
+      "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:transitionToBookContent__domwrite__dom",
+      "source": "components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/logoNav/logoNav:destroyLogoNav__domwrite__dom",
+      "source": "components/logoNav/logoNav:destroyLogoNav",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/logoNav/logoNav:initializeLogoNav__domwrite__dom",
+      "source": "components/logoNav/logoNav:initializeLogoNav",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal__call__components/newbookContainer/citeForm/bookId:findAvailableBookId",
       "source": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
       "target": "components/newbookContainer/citeForm/bookId:findAvailableBookId",
@@ -12838,6 +13894,55 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/saveErrorToast/saveErrorToast:hideSaveErrorToast__domwrite__dom",
+      "source": "components/saveErrorToast/saveErrorToast:hideSaveErrorToast",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/saveErrorToast/saveErrorToast:showSaveErrorToast__call__components/saveErrorToast/saveErrorToast:classifySyncError",
+      "source": "components/saveErrorToast/saveErrorToast:showSaveErrorToast",
+      "target": "components/saveErrorToast/saveErrorToast:classifySyncError",
+      "rel": "call"
+    },
+    {
+      "id": "components/saveErrorToast/saveErrorToast:showSaveErrorToast__call__components/saveErrorToast/saveErrorToast:hideSaveErrorToast",
+      "source": "components/saveErrorToast/saveErrorToast:showSaveErrorToast",
+      "target": "components/saveErrorToast/saveErrorToast:hideSaveErrorToast",
+      "rel": "call"
+    },
+    {
+      "id": "components/saveErrorToast/saveErrorToast:showSaveErrorToast__domwrite__dom",
+      "source": "components/saveErrorToast/saveErrorToast:showSaveErrorToast",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/gate:_openGatePanel__call__components/utilities/gateFilter:getBookGateDefaults",
+      "source": "components/settingsContainer/gate:_openGatePanel",
+      "target": "components/utilities/gateFilter:getBookGateDefaults",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/gate:_openGatePanel__call__components/utilities/gateFilter:getGateSettings",
+      "source": "components/settingsContainer/gate:_openGatePanel",
+      "target": "components/utilities/gateFilter:getGateSettings",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/gate:_openGatePanel__call__components/utilities/gateFilter:reapplyAnnotationsWithGate",
+      "source": "components/settingsContainer/gate:_openGatePanel",
+      "target": "components/utilities/gateFilter:reapplyAnnotationsWithGate",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/settingsContainer/gate:_openGatePanel__call__components/utilities/gateFilter:setBookGateDefaults",
+      "source": "components/settingsContainer/gate:_openGatePanel",
+      "target": "components/utilities/gateFilter:setBookGateDefaults",
+      "rel": "call"
+    },
+    {
       "id": "components/settingsContainer/gate:_openGatePanel__call__indexedDB/core/connection:openDatabase",
       "source": "components/settingsContainer/gate:_openGatePanel",
       "target": "indexedDB/core/connection:openDatabase",
@@ -12924,6 +14029,12 @@
       "id": "components/settingsContainer/index:SettingsContainerManager.toggleFullWidth__call__components/settingsContainer/textControls:toggleFullWidth",
       "source": "components/settingsContainer/index:SettingsContainerManager.toggleFullWidth",
       "target": "components/settingsContainer/textControls:toggleFullWidth",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates__call__components/utilities/gateFilter:getGateSettings",
+      "source": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates",
+      "target": "components/utilities/gateFilter:getGateSettings",
       "rel": "call"
     },
     {
@@ -13289,6 +14400,36 @@
       "source": "components/tocToggleButton/tocToggleButton:toggleTOC",
       "target": "components/tocContainer/managerRef:getTocManager",
       "rel": "call"
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleClick__call__components/topRightContainer/cloudRef/editIndicator:cancelForcedVisibility",
+      "source": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleClick",
+      "target": "components/topRightContainer/cloudRef/editIndicator:cancelForcedVisibility",
+      "rel": "call"
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleTouchEnd__call__components/topRightContainer/cloudRef/editIndicator:cancelForcedVisibility",
+      "source": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleTouchEnd",
+      "target": "components/topRightContainer/cloudRef/editIndicator:cancelForcedVisibility",
+      "rel": "call"
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleTouchEnd__call__hyperlitContainer/footnoteTapExtender:hasFootnoteTapTarget",
+      "source": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleTouchEnd",
+      "target": "hyperlitContainer/footnoteTapExtender:hasFootnoteTapTarget",
+      "rel": "call"
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.syncPerimeterButtons__domwrite__dom",
+      "source": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.syncPerimeterButtons",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.updatePosition__domwrite__dom",
+      "source": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.updatePosition",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "components/topRightContainer/cloudRef/cloudRefButton:destroySourceButtonListener__domwrite__dom",
@@ -14517,6 +15658,200 @@
       "rel": "call"
     },
     {
+      "id": "components/userProfile/userProfileEditor:destroyUserProfileEditor__domwrite__dom",
+      "source": "components/userProfile/userProfileEditor:destroyUserProfileEditor",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userProfile/userProfileEditor:initializeUserProfileEditor__call__components/homepage/homepageDisplayUnit:fixHeaderSpacing",
+      "source": "components/userProfile/userProfileEditor:initializeUserProfileEditor",
+      "target": "components/homepage/homepageDisplayUnit:fixHeaderSpacing",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userProfileEditor:initializeUserProfileEditor__call__indexedDB/core/connection:openDatabase",
+      "source": "components/userProfile/userProfileEditor:initializeUserProfileEditor",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userProfile/userProfileEditor:initializeUserProfileEditor__call__indexedDB/core/library:cleanLibraryItemForStorage",
+      "source": "components/userProfile/userProfileEditor:initializeUserProfileEditor",
+      "target": "indexedDB/core/library:cleanLibraryItemForStorage",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userProfileEditor:initializeUserProfileEditor__call__indexedDB/core/library:prepareLibraryForIndexedDB",
+      "source": "components/userProfile/userProfileEditor:initializeUserProfileEditor",
+      "target": "indexedDB/core/library:prepareLibraryForIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userProfileEditor:initializeUserProfileEditor__domwrite__dom",
+      "source": "components/userProfile/userProfileEditor:initializeUserProfileEditor",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userProfile/userProfileEditor:initializeUserProfileEditor__write__store:library",
+      "source": "components/userProfile/userProfileEditor:initializeUserProfileEditor",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "components/userProfile/userProfilePage:initializeUserProfilePage__call__components/floatingActionMenu/floatingActionMenu:showFloatingMenu",
+      "source": "components/userProfile/userProfilePage:initializeUserProfilePage",
+      "target": "components/floatingActionMenu/floatingActionMenu:showFloatingMenu",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userProfilePage:initializeUserProfilePage__call__indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
+      "source": "components/userProfile/userProfilePage:initializeUserProfilePage",
+      "target": "indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userProfile/userProfilePage:initializeUserProfilePage__domwrite__dom",
+      "source": "components/userProfile/userProfilePage:initializeUserProfilePage",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.applyCustomizations__domwrite__dom",
+      "source": "components/utilities/containerCustomization:ContainerCustomizer.applyCustomizations",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.createStyleElement__domwrite__dom",
+      "source": "components/utilities/containerCustomization:ContainerCustomizer.createStyleElement",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.resetAll__domwrite__dom",
+      "source": "components/utilities/containerCustomization:ContainerCustomizer.resetAll",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager._applyTopRightVisibility__domwrite__dom",
+      "source": "components/utilities/containerManager:ContainerManager._applyTopRightVisibility",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.closeContainer__domwrite__dom",
+      "source": "components/utilities/containerManager:ContainerManager.closeContainer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.freezeElement__domwrite__dom",
+      "source": "components/utilities/containerManager:ContainerManager.freezeElement",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.openContainer__domwrite__dom",
+      "source": "components/utilities/containerManager:ContainerManager.openContainer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.rebindElements__call__divEditor/index:flushAllPendingSaves",
+      "source": "components/utilities/containerManager:ContainerManager.rebindElements",
+      "target": "divEditor/index:flushAllPendingSaves",
+      "rel": "call"
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.rebindElements__call__divEditor/index:flushInputDebounce",
+      "source": "components/utilities/containerManager:ContainerManager.rebindElements",
+      "target": "divEditor/index:flushInputDebounce",
+      "rel": "call"
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.rebindElements__call__hyperlitContainer/stack:isStackPopPending",
+      "source": "components/utilities/containerManager:ContainerManager.rebindElements",
+      "target": "hyperlitContainer/stack:isStackPopPending",
+      "rel": "call"
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.resetContainerState__domwrite__dom",
+      "source": "components/utilities/containerManager:ContainerManager.resetContainerState",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.restoreNavElementsState__domwrite__dom",
+      "source": "components/utilities/containerManager:ContainerManager.restoreNavElementsState",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.updateState__domwrite__dom",
+      "source": "components/utilities/containerManager:ContainerManager.updateState",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/utilities/gateFilter:appendGateParam__call__components/utilities/gateFilter:gateQueryParam",
+      "source": "components/utilities/gateFilter:appendGateParam",
+      "target": "components/utilities/gateFilter:gateQueryParam",
+      "rel": "call"
+    },
+    {
+      "id": "components/utilities/gateFilter:applyGateFilter__call__components/utilities/gateFilter:getGateSettings",
+      "source": "components/utilities/gateFilter:applyGateFilter",
+      "target": "components/utilities/gateFilter:getGateSettings",
+      "rel": "call"
+    },
+    {
+      "id": "components/utilities/gateFilter:reapplyAnnotationsWithGate__call__hyperlights/deletion:reprocessHighlightsForNodes",
+      "source": "components/utilities/gateFilter:reapplyAnnotationsWithGate",
+      "target": "hyperlights/deletion:reprocessHighlightsForNodes",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/utilities/gateFilter:reapplyAnnotationsWithGate__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "components/utilities/gateFilter:reapplyAnnotationsWithGate",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/utilities/gateFilter:reapplyAnnotationsWithGate__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "components/utilities/gateFilter:reapplyAnnotationsWithGate",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/utilities/gateFilter:reapplyAnnotationsWithGate__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "components/utilities/gateFilter:reapplyAnnotationsWithGate",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/utilities/gateFilter:reapplyAnnotationsWithGate__call__indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "source": "components/utilities/gateFilter:reapplyAnnotationsWithGate",
+      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/utilities/registerComponents:registerAllComponents__call__hyperlitContainer/footnoteTapExtender:initFootnoteTapExtender",
+      "source": "components/utilities/registerComponents:registerAllComponents",
+      "target": "hyperlitContainer/footnoteTapExtender:initFootnoteTapExtender",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "divEditor/chunkManager:handleChunkOverflow__call__divEditor/chunkManager:trackChunkNodeCount",
       "source": "divEditor/chunkManager:handleChunkOverflow",
       "target": "divEditor/chunkManager:trackChunkNodeCount",
@@ -15191,6 +16526,54 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/fileDropTarget/fileDropTarget:initializeFileDropTarget",
+      "source": "dom",
+      "target": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/floatingActionMenu/floatingActionMenu:showFloatingMenu",
+      "source": "dom",
+      "target": "components/floatingActionMenu/floatingActionMenu:showFloatingMenu",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/homepage/homepage:initializeHomepageBookActions",
+      "source": "dom",
+      "target": "components/homepage/homepage:initializeHomepageBookActions",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/homepage/homepageDisplayUnit:fixHeaderSpacing",
+      "source": "dom",
+      "target": "components/homepage/homepageDisplayUnit:fixHeaderSpacing",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "source": "dom",
+      "target": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "source": "dom",
+      "target": "components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/logoNav/logoNav:destroyLogoNav",
+      "source": "dom",
+      "target": "components/logoNav/logoNav:destroyLogoNav",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/logoNav/logoNav:initializeLogoNav",
+      "source": "dom",
+      "target": "components/logoNav/logoNav:initializeLogoNav",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/newBookButton/newBookButton:initializeNewBookContainer",
       "source": "dom",
       "target": "components/newBookButton/newBookButton:initializeNewBookContainer",
@@ -15332,6 +16715,18 @@
       "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.toggleOptionalFields",
       "source": "dom",
       "target": "components/newbookContainer/index:NewBookContainerManager.toggleOptionalFields",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/saveErrorToast/saveErrorToast:hideSaveErrorToast",
+      "source": "dom",
+      "target": "components/saveErrorToast/saveErrorToast:hideSaveErrorToast",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/saveErrorToast/saveErrorToast:showSaveErrorToast",
+      "source": "dom",
+      "target": "components/saveErrorToast/saveErrorToast:showSaveErrorToast",
       "rel": "domread"
     },
     {
@@ -15488,6 +16883,48 @@
       "id": "dom__domread__components/tocToggleButton/tocToggleButton:initializeTocManager",
       "source": "dom",
       "target": "components/tocToggleButton/tocToggleButton:initializeTocManager",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleTouchEnd",
+      "source": "dom",
+      "target": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleTouchEnd",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleTouchStart",
+      "source": "dom",
+      "target": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.handleTouchStart",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.isClickNearImportantButton",
+      "source": "dom",
+      "target": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.isClickNearImportantButton",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.rebindElements",
+      "source": "dom",
+      "target": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.rebindElements",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.shouldIgnoreEvent",
+      "source": "dom",
+      "target": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.shouldIgnoreEvent",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.syncPerimeterButtons",
+      "source": "dom",
+      "target": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.syncPerimeterButtons",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.updatePosition",
+      "source": "dom",
+      "target": "components/togglePerimeterButtons/togglePerimeterButtons:TogglePerimeterButtons.updatePosition",
       "rel": "domread"
     },
     {
@@ -15830,6 +17267,126 @@
       "id": "dom__domread__components/userContainer/validation:validateForm",
       "source": "dom",
       "target": "components/userContainer/validation:validateForm",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userProfile/userProfileEditor:initializeUserProfileEditor",
+      "source": "dom",
+      "target": "components/userProfile/userProfileEditor:initializeUserProfileEditor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userProfile/userProfilePage:initializeUserProfilePage",
+      "source": "dom",
+      "target": "components/userProfile/userProfilePage:initializeUserProfilePage",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/containerCustomization:ContainerCustomizer.createStyleElement",
+      "source": "dom",
+      "target": "components/utilities/containerCustomization:ContainerCustomizer.createStyleElement",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/containerManager:ContainerManager._applyTopRightVisibility",
+      "source": "dom",
+      "target": "components/utilities/containerManager:ContainerManager._applyTopRightVisibility",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/containerManager:ContainerManager.closeContainer",
+      "source": "dom",
+      "target": "components/utilities/containerManager:ContainerManager.closeContainer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/containerManager:ContainerManager.openContainer",
+      "source": "dom",
+      "target": "components/utilities/containerManager:ContainerManager.openContainer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/containerManager:ContainerManager.rebindElements",
+      "source": "dom",
+      "target": "components/utilities/containerManager:ContainerManager.rebindElements",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/containerManager:ContainerManager.restoreNavElementsState",
+      "source": "dom",
+      "target": "components/utilities/containerManager:ContainerManager.restoreNavElementsState",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/containerManager:ContainerManager.saveNavElementsState",
+      "source": "dom",
+      "target": "components/utilities/containerManager:ContainerManager.saveNavElementsState",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/containerManager:ContainerManager.unfreezeElement",
+      "source": "dom",
+      "target": "components/utilities/containerManager:ContainerManager.unfreezeElement",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/gateFilter:reapplyAnnotationsWithGate",
+      "source": "dom",
+      "target": "components/utilities/gateFilter:reapplyAnnotationsWithGate",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/keyboardManager:KeyboardManager.adjustHyperlitContainerHeight",
+      "source": "dom",
+      "target": "components/utilities/keyboardManager:KeyboardManager.adjustHyperlitContainerHeight",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/keyboardManager:KeyboardManager.adjustLayout",
+      "source": "dom",
+      "target": "components/utilities/keyboardManager:KeyboardManager.adjustLayout",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/keyboardManager:KeyboardManager.createOrUpdateSpacer",
+      "source": "dom",
+      "target": "components/utilities/keyboardManager:KeyboardManager.createOrUpdateSpacer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/keyboardManager:KeyboardManager.destroy",
+      "source": "dom",
+      "target": "components/utilities/keyboardManager:KeyboardManager.destroy",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/keyboardManager:KeyboardManager.moveToolbarAboveKeyboard",
+      "source": "dom",
+      "target": "components/utilities/keyboardManager:KeyboardManager.moveToolbarAboveKeyboard",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/keyboardManager:KeyboardManager.preventToolbarScroll",
+      "source": "dom",
+      "target": "components/utilities/keyboardManager:KeyboardManager.preventToolbarScroll",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/keyboardManager:KeyboardManager.processViewportChange",
+      "source": "dom",
+      "target": "components/utilities/keyboardManager:KeyboardManager.processViewportChange",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/keyboardManager:KeyboardManager.removeSpacer",
+      "source": "dom",
+      "target": "components/utilities/keyboardManager:KeyboardManager.removeSpacer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/keyboardManager:KeyboardManager.scrollCaretIntoView",
+      "source": "dom",
+      "target": "components/utilities/keyboardManager:KeyboardManager.scrollCaretIntoView",
       "rel": "domread"
     },
     {
@@ -22371,6 +23928,12 @@
       "rel": "write"
     },
     {
+      "id": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB__call__components/utilities/gateFilter:setBookGateDefaults",
+      "source": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+      "target": "components/utilities/gateFilter:setBookGateDefaults",
+      "rel": "call"
+    },
+    {
       "id": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB__call__indexedDB/core/library:prepareLibraryForIndexedDB",
       "source": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
       "target": "indexedDB/core/library:prepareLibraryForIndexedDB",
@@ -22386,6 +23949,12 @@
       "id": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB__call__indexedDB/core/utilities:parseNodeId",
       "source": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
       "target": "indexedDB/core/utilities:parseNodeId",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__components/utilities/gateFilter:appendGateParam",
+      "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "target": "components/utilities/gateFilter:appendGateParam",
       "rel": "call"
     },
     {
@@ -22425,6 +23994,12 @@
       "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
       "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
       "target": "indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__components/utilities/gateFilter:appendGateParam",
+      "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "target": "components/utilities/gateFilter:appendGateParam",
       "rel": "call"
     },
     {
@@ -22788,6 +24363,12 @@
       "rel": "call"
     },
     {
+      "id": "lazyLoader/chunkFetcher:fetchSingleChunkFromServer__call__components/utilities/gateFilter:appendGateParam",
+      "source": "lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
+      "target": "components/utilities/gateFilter:appendGateParam",
+      "rel": "call"
+    },
+    {
       "id": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
@@ -22807,10 +24388,22 @@
       "rel": "write"
     },
     {
+      "id": "lazyLoader/chunkRender:applyHighlights__call__components/utilities/gateFilter:applyGateFilter",
+      "source": "lazyLoader/chunkRender:applyHighlights",
+      "target": "components/utilities/gateFilter:applyGateFilter",
+      "rel": "call"
+    },
+    {
       "id": "lazyLoader/chunkRender:applyHighlights__domwrite__dom",
       "source": "lazyLoader/chunkRender:applyHighlights",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/chunkRender:applyHypercites__call__components/utilities/gateFilter:applyGateFilter",
+      "source": "lazyLoader/chunkRender:applyHypercites",
+      "target": "components/utilities/gateFilter:applyGateFilter",
+      "rel": "call"
     },
     {
       "id": "lazyLoader/chunkRender:applyHypercites__domwrite__dom",
@@ -23103,6 +24696,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__components/utilities/gateFilter:appendGateParam",
+      "source": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "target": "components/utilities/gateFilter:appendGateParam",
+      "rel": "call"
+    },
+    {
       "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__footnotes/FootnoteNumberingService:rebuildAndRenumber",
       "source": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
       "target": "footnotes/FootnoteNumberingService:rebuildAndRenumber",
@@ -23186,6 +24785,12 @@
       "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__components/utilities/gateFilter:gateQueryParam",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "components/utilities/gateFilter:gateQueryParam",
+      "rel": "call"
     },
     {
       "id": "pageLoad/initialChunk:fetchInitialChunk__call__indexedDB/core/connection:openDatabase",
@@ -24135,6 +25740,12 @@
       "dataPath": true
     },
     {
+      "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.initializeReader__call__components/logoNav/logoNav:initializeLogoNav",
+      "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.initializeReader",
+      "target": "components/logoNav/logoNav:initializeLogoNav",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.initializeReader__call__indexedDB/index:updateDatabaseBookId",
       "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.initializeReader",
       "target": "indexedDB/index:updateDatabaseBookId",
@@ -24245,6 +25856,12 @@
       "rel": "call"
     },
     {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState__call__components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
+      "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState",
+      "target": "components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState__call__components/newBookButton/newBookButton:destroyNewBookContainer",
       "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState",
       "target": "components/newBookButton/newBookButton:destroyNewBookContainer",
@@ -24303,6 +25920,12 @@
       "rel": "write"
     },
     {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.initializeImportedReader__call__components/logoNav/logoNav:initializeLogoNav",
+      "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.initializeImportedReader",
+      "target": "components/logoNav/logoNav:initializeLogoNav",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.initializeImportedReader__call__indexedDB/index:updateDatabaseBookId",
       "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.initializeImportedReader",
       "target": "indexedDB/index:updateDatabaseBookId",
@@ -24338,6 +25961,12 @@
       "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.showFootnoteAuditModal",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.cleanupPreviousState__call__components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
+      "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.cleanupPreviousState",
+      "target": "components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.cleanupPreviousState__call__components/newBookButton/newBookButton:destroyNewBookContainer",
@@ -24403,6 +26032,12 @@
       "rel": "call"
     },
     {
+      "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.initializeReader__call__components/logoNav/logoNav:initializeLogoNav",
+      "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.initializeReader",
+      "target": "components/logoNav/logoNav:initializeLogoNav",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.initializeReader__call__indexedDB/index:updateDatabaseBookId",
       "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.initializeReader",
       "target": "indexedDB/index:updateDatabaseBookId",
@@ -24450,7 +26085,8 @@
       "id": "SPA/navigation/pathways/SameTemplateTransition:SameTemplateTransition.handleHomeToHome__call__SPA/navigation/utils/contentSwapHelpers:swapHomeContent",
       "source": "SPA/navigation/pathways/SameTemplateTransition:SameTemplateTransition.handleHomeToHome",
       "target": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "SPA/navigation/pathways/SameTemplateTransition:SameTemplateTransition.handleHomeToHome__call__SPA/navigation/utils/contentSwapHelpers:updateUrl",
@@ -24555,6 +26191,12 @@
       "dataPath": true
     },
     {
+      "id": "SPA/navigation/utils/cleanupHelpers:cleanupLogoNav__call__components/logoNav/logoNav:destroyLogoNav",
+      "source": "SPA/navigation/utils/cleanupHelpers:cleanupLogoNav",
+      "target": "components/logoNav/logoNav:destroyLogoNav",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/utils/cleanupHelpers:cleanupReader__call__components/editButton/index:resetEditModeState",
       "source": "SPA/navigation/utils/cleanupHelpers:cleanupReader",
       "target": "components/editButton/index:resetEditModeState",
@@ -24579,6 +26221,12 @@
       "target": "SPA/viewManager:cleanupReaderView",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/utils/cleanupHelpers:cleanupUser__call__components/userProfile/userProfileEditor:destroyUserProfileEditor",
+      "source": "SPA/navigation/utils/cleanupHelpers:cleanupUser",
+      "target": "components/userProfile/userProfileEditor:destroyUserProfileEditor",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/utils/cleanupHelpers:cleanupUser__call__SPA/navigation/utils/cleanupHelpers:cleanupHome",
@@ -24608,9 +26256,46 @@
       "rel": "domwrite"
     },
     {
+      "id": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent__call__components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
+      "source": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent",
+      "target": "components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent__call__components/homepage/homepageDisplayUnit:fixHeaderSpacing",
+      "source": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent",
+      "target": "components/homepage/homepageDisplayUnit:fixHeaderSpacing",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent__call__components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "source": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent",
+      "target": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent__call__components/logoNav/logoNav:destroyLogoNav",
+      "source": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent",
+      "target": "components/logoNav/logoNav:destroyLogoNav",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent__call__components/logoNav/logoNav:initializeLogoNav",
+      "source": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent",
+      "target": "components/logoNav/logoNav:initializeLogoNav",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent__call__components/userButton/userButton:initializeUserContainer",
       "source": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent",
       "target": "components/userButton/userButton:initializeUserContainer",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent__call__components/userProfile/userProfileEditor:destroyUserProfileEditor",
+      "source": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent",
+      "target": "components/userProfile/userProfileEditor:destroyUserProfileEditor",
       "rel": "call"
     },
     {
@@ -24644,6 +26329,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "SPA/navigation/utils/initHelpers:initializeHome__call__components/logoNav/logoNav:initializeLogoNav",
+      "source": "SPA/navigation/utils/initHelpers:initializeHome",
+      "target": "components/logoNav/logoNav:initializeLogoNav",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/utils/initHelpers:initializeHome__call__indexedDB/index:updateDatabaseBookId",
       "source": "SPA/navigation/utils/initHelpers:initializeHome",
       "target": "indexedDB/index:updateDatabaseBookId",
@@ -24667,6 +26358,12 @@
       "source": "SPA/navigation/utils/initHelpers:initializeHome",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "SPA/navigation/utils/initHelpers:initializeReader__call__components/logoNav/logoNav:initializeLogoNav",
+      "source": "SPA/navigation/utils/initHelpers:initializeReader",
+      "target": "components/logoNav/logoNav:initializeLogoNav",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/utils/initHelpers:initializeReader__call__components/userButton/userButton:initializeUserContainer",
@@ -24719,6 +26416,12 @@
       "target": "SPA/navigation/utils/initHelpers:initializeUser",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/utils/initHelpers:initializeUser__call__components/logoNav/logoNav:initializeLogoNav",
+      "source": "SPA/navigation/utils/initHelpers:initializeUser",
+      "target": "components/logoNav/logoNav:initializeLogoNav",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/utils/initHelpers:initializeUser__call__indexedDB/index:updateDatabaseBookId",
@@ -24823,6 +26526,26 @@
       "id": "SPA/viewManager:universalPageInitializer__call__components/editButton/lock:updateEditButtonVisibility",
       "source": "SPA/viewManager:universalPageInitializer",
       "target": "components/editButton/lock:updateEditButtonVisibility",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "SPA/viewManager:universalPageInitializer__call__components/homepage/homepage:initializeHomepage",
+      "source": "SPA/viewManager:universalPageInitializer",
+      "target": "components/homepage/homepage:initializeHomepage",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/viewManager:universalPageInitializer__call__components/userProfile/userProfileEditor:initializeUserProfileEditor",
+      "source": "SPA/viewManager:universalPageInitializer",
+      "target": "components/userProfile/userProfileEditor:initializeUserProfileEditor",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "SPA/viewManager:universalPageInitializer__call__components/userProfile/userProfilePage:initializeUserProfilePage",
+      "source": "SPA/viewManager:universalPageInitializer",
+      "target": "components/userProfile/userProfilePage:initializeUserProfilePage",
       "rel": "call",
       "dataPath": true
     },
@@ -25165,6 +26888,12 @@
       "id": "store:library__read__components/userContainer/anonymousTransfer:updateBookOwnership",
       "source": "store:library",
       "target": "components/userContainer/anonymousTransfer:updateBookOwnership",
+      "rel": "read"
+    },
+    {
+      "id": "store:library__read__components/userProfile/userProfileEditor:initializeUserProfileEditor",
+      "source": "store:library",
+      "target": "components/userProfile/userProfileEditor:initializeUserProfileEditor",
       "rel": "read"
     },
     {
@@ -25637,6 +27366,11 @@
     },
     {
       "source": "SPA/navigation/pathways/BookToBookTransition",
+      "target": "components/logoNav/logoNav",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/BookToBookTransition",
       "target": "components/userButton/userButton",
       "kind": "static"
     },
@@ -25717,6 +27451,16 @@
     },
     {
       "source": "SPA/navigation/pathways/ImportBookTransition",
+      "target": "components/homepage/homepageDisplayUnit",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/ImportBookTransition",
+      "target": "components/logoNav/logoNav",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/ImportBookTransition",
       "target": "components/newBookButton/newBookButton",
       "kind": "static"
     },
@@ -25758,6 +27502,16 @@
     {
       "source": "SPA/navigation/pathways/NewBookTransition",
       "target": "components/editButton/index",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/NewBookTransition",
+      "target": "components/homepage/homepageDisplayUnit",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/NewBookTransition",
+      "target": "components/logoNav/logoNav",
       "kind": "static"
     },
     {
@@ -25827,7 +27581,22 @@
     },
     {
       "source": "SPA/navigation/utils/cleanupHelpers",
+      "target": "components/logoNav/logoNav",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/cleanupHelpers",
       "target": "components/userButton/userButton",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/cleanupHelpers",
+      "target": "components/userProfile/userProfileEditor",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/cleanupHelpers",
+      "target": "components/utilities/buttonRegistry",
       "kind": "static"
     },
     {
@@ -25852,7 +27621,22 @@
     },
     {
       "source": "SPA/navigation/utils/contentSwapHelpers",
+      "target": "components/homepage/homepageDisplayUnit",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/contentSwapHelpers",
+      "target": "components/logoNav/logoNav",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/contentSwapHelpers",
       "target": "components/userButton/userButton",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/contentSwapHelpers",
+      "target": "components/userProfile/userProfileEditor",
       "kind": "static"
     },
     {
@@ -25872,7 +27656,17 @@
     },
     {
       "source": "SPA/navigation/utils/initHelpers",
+      "target": "components/logoNav/logoNav",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/initHelpers",
       "target": "components/userButton/userButton",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/initHelpers",
+      "target": "components/userProfile/userProfileEditor",
       "kind": "static"
     },
     {
@@ -25908,6 +27702,21 @@
     {
       "source": "SPA/viewManager",
       "target": "components/topRightContainer/cloudRef/cloudRefButton",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "components/utilities/buttonRegistry",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "components/utilities/keyboardManager",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "components/utilities/registerComponents",
       "kind": "static"
     },
     {
@@ -25959,6 +27768,21 @@
       "source": "SPA/viewManager",
       "target": "SPA/navigation/LinkNavigationHandler",
       "kind": "breaker"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "components/homepage/homepage",
+      "kind": "lazy"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "components/userProfile/userProfileEditor",
+      "kind": "lazy"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "components/userProfile/userProfilePage",
+      "kind": "lazy"
     },
     {
       "source": "SPA/viewManager",
@@ -26019,6 +27843,36 @@
       "source": "components/editButton/lock",
       "target": "components/editButton/index",
       "kind": "breaker"
+    },
+    {
+      "source": "components/fileDropTarget/fileDropTarget",
+      "target": "components/userButton/userButton",
+      "kind": "static"
+    },
+    {
+      "source": "components/homepage/homepage",
+      "target": "components/floatingActionMenu/floatingActionMenu",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/homepage/homepage",
+      "target": "components/newBookButton/newBookButton",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/homepage/homepage",
+      "target": "components/userButton/userButton",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/homepage/homepageDisplayUnit",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/homepage/homepageDisplayUnit",
+      "target": "scrolling/index",
+      "kind": "static"
     },
     {
       "source": "components/newBookButton/newBookButton",
@@ -26247,8 +28101,13 @@
     },
     {
       "source": "components/newbookContainer/index",
+      "target": "components/utilities/containerManager",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/index",
       "target": "SPA/navigation/NavigationManager",
-      "kind": "lazy"
+      "kind": "breaker"
     },
     {
       "source": "components/newbookContainer/index",
@@ -26259,6 +28118,11 @@
       "source": "components/settingsButton/settingsButton",
       "target": "components/settingsContainer/index",
       "kind": "static"
+    },
+    {
+      "source": "components/settingsContainer/gate",
+      "target": "components/utilities/gateFilter",
+      "kind": "lazy"
     },
     {
       "source": "components/settingsContainer/gate",
@@ -26289,6 +28153,16 @@
       "source": "components/settingsContainer/index",
       "target": "components/settingsContainer/vibe",
       "kind": "static"
+    },
+    {
+      "source": "components/settingsContainer/index",
+      "target": "components/utilities/containerManager",
+      "kind": "static"
+    },
+    {
+      "source": "components/settingsContainer/index",
+      "target": "components/utilities/gateFilter",
+      "kind": "lazy"
     },
     {
       "source": "components/settingsContainer/vibeCSS/galleryUI",
@@ -26337,6 +28211,11 @@
     },
     {
       "source": "components/tocContainer/index",
+      "target": "components/utilities/containerManager",
+      "kind": "static"
+    },
+    {
+      "source": "components/tocContainer/index",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -26356,6 +28235,16 @@
       "kind": "static"
     },
     {
+      "source": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "target": "components/topRightContainer/cloudRef/editIndicator",
+      "kind": "static"
+    },
+    {
+      "source": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "target": "hyperlitContainer/footnoteTapExtender",
+      "kind": "static"
+    },
+    {
       "source": "components/topRightContainer/cloudRef/cloudRefButton",
       "target": "components/topRightContainer/sourceContainer/index",
       "kind": "static"
@@ -26364,6 +28253,11 @@
       "source": "components/topRightContainer/cloudRef/editIndicator",
       "target": "indexedDB/core/healthMonitor",
       "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/cloudRef/editIndicator",
+      "target": "components/saveErrorToast/saveErrorToast",
+      "kind": "lazy"
     },
     {
       "source": "components/topRightContainer/sourceContainer/aiReview/index",
@@ -26516,6 +28410,11 @@
       "kind": "static"
     },
     {
+      "source": "components/topRightContainer/sourceContainer/index",
+      "target": "components/utilities/containerManager",
+      "kind": "static"
+    },
+    {
       "source": "components/userButton/userButton",
       "target": "components/userContainer/index",
       "kind": "static"
@@ -26592,12 +28491,142 @@
     },
     {
       "source": "components/userContainer/index",
+      "target": "components/utilities/containerManager",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/index",
       "target": "SPA/navigation/NavigationManager",
       "kind": "breaker"
     },
     {
       "source": "components/userContainer/profile",
       "target": "components/userContainer/forms",
+      "kind": "static"
+    },
+    {
+      "source": "components/userProfile/userProfileEditor",
+      "target": "components/homepage/homepageDisplayUnit",
+      "kind": "static"
+    },
+    {
+      "source": "components/userProfile/userProfileEditor",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/userProfile/userProfilePage",
+      "target": "components/floatingActionMenu/floatingActionMenu",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userProfilePage",
+      "target": "indexedDB/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/utilities/containerManager",
+      "target": "components/topRightContainer/cloudRef/editIndicator",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/containerManager",
+      "target": "divEditor/index",
+      "kind": "breaker"
+    },
+    {
+      "source": "components/utilities/containerManager",
+      "target": "hyperlitContainer/stack",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/utilities/gateFilter",
+      "target": "hyperlights/deletion",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/utilities/gateFilter",
+      "target": "indexedDB/hydration/rebuild",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/utilities/gateFilter",
+      "target": "indexedDB/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/editButton/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/fileDropTarget/fileDropTarget",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/homepage/homepage",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/homepage/homepageDisplayUnit",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/logoNav/logoNav",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/newBookButton/newBookButton",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/settingsButton/settingsButton",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/tocToggleButton/tocToggleButton",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/togglePerimeterButtons/togglePerimeterButtons",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/topRightContainer/cloudRef/cloudRefButton",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/userButton/userButton",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/userProfile/userProfilePage",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/utilities/buttonRegistry",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "hyperlitContainer/footnoteTapExtender",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "hyperlitContainer/footnotesCitations",
       "kind": "static"
     },
     {
@@ -27437,6 +29466,11 @@
     },
     {
       "source": "hyperlitContainer/core",
+      "target": "components/utilities/containerManager",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/core",
       "target": "scrolling/index",
       "kind": "static"
     },
@@ -28156,6 +30190,11 @@
       "kind": "static"
     },
     {
+      "source": "indexedDB/serverSync/loaders",
+      "target": "components/utilities/gateFilter",
+      "kind": "lazy"
+    },
+    {
       "source": "indexedDB/serverSync/pull",
       "target": "indexedDB/index",
       "kind": "static"
@@ -28174,6 +30213,11 @@
       "source": "indexedDB/serverSync/pull",
       "target": "indexedDB/serverSync/loaders",
       "kind": "static"
+    },
+    {
+      "source": "indexedDB/serverSync/pull",
+      "target": "components/utilities/gateFilter",
+      "kind": "lazy"
     },
     {
       "source": "indexedDB/serverSync/pull",
@@ -28232,7 +30276,17 @@
     },
     {
       "source": "lazyLoader/chunkFetcher",
+      "target": "components/utilities/gateFilter",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/chunkFetcher",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/chunkRender",
+      "target": "components/utilities/gateFilter",
       "kind": "static"
     },
     {
@@ -28312,6 +30366,11 @@
     },
     {
       "source": "pageLoad/backgroundDownload",
+      "target": "components/utilities/gateFilter",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/backgroundDownload",
       "target": "footnotes/FootnoteNumberingService",
       "kind": "static"
     },
@@ -28344,6 +30403,11 @@
       "source": "pageLoad/containerChain",
       "target": "hyperlitContainer/stack",
       "kind": "lazy"
+    },
+    {
+      "source": "pageLoad/initialChunk",
+      "target": "components/utilities/gateFilter",
+      "kind": "static"
     },
     {
       "source": "pageLoad/initialChunk",
@@ -28502,7 +30566,27 @@
     },
     {
       "source": "pageLoad/readerEntry",
+      "target": "components/homepage/homepage",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/readerEntry",
+      "target": "components/logoNav/logoNav",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/readerEntry",
       "target": "components/tocContainer/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/readerEntry",
+      "target": "components/userProfile/userProfileEditor",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/readerEntry",
+      "target": "components/userProfile/userProfilePage",
       "kind": "static"
     },
     {
@@ -28667,14 +30751,25 @@
         "SPA/viewManager",
         "components/editButton/index",
         "components/editButton/lock",
+        "components/fileDropTarget/fileDropTarget",
+        "components/homepage/homepage",
+        "components/homepage/homepageDisplayUnit",
+        "components/newBookButton/newBookButton",
+        "components/newbookContainer/index",
+        "components/settingsButton/settingsButton",
+        "components/settingsContainer/index",
         "components/tocContainer/index",
         "components/tocToggleButton/tocToggleButton",
+        "components/togglePerimeterButtons/togglePerimeterButtons",
         "components/topRightContainer/cloudRef/cloudRefButton",
         "components/topRightContainer/sourceContainer/creatorTools/reconvert",
         "components/topRightContainer/sourceContainer/downloads",
         "components/topRightContainer/sourceContainer/index",
         "components/userButton/userButton",
         "components/userContainer/index",
+        "components/userProfile/userProfileEditor",
+        "components/utilities/containerManager",
+        "components/utilities/registerComponents",
         "divEditor/chunkManager",
         "divEditor/chunkMutationHandler/index",
         "divEditor/domUtilities",
@@ -28694,6 +30789,8 @@
         "hyperlitContainer/contentTypes/registry",
         "hyperlitContainer/core",
         "hyperlitContainer/editMode",
+        "hyperlitContainer/footnoteTapExtender",
+        "hyperlitContainer/footnotesCitations",
         "hyperlitContainer/history",
         "hyperlitContainer/index",
         "hyperlitContainer/noteListener",
@@ -28711,7 +30808,7 @@
         "scrolling/restore"
       ]
     ],
-    "breakerCount": 22,
-    "lazyCount": 143
+    "breakerCount": 26,
+    "lazyCount": 160
   }
 }

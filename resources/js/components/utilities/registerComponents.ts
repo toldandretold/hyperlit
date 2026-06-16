@@ -8,93 +8,93 @@
  * are registered before any initialization attempts.
  */
 
-import { buttonRegistry } from '../utilities/buttonRegistry.js';
+import { buttonRegistry } from './buttonRegistry';
 
 // Import initialization and cleanup functions
 import {
   initializeSettingsManager,
   destroySettingsManager
-} from './settingsButton/settingsButton';
+} from '../settingsButton/settingsButton';
 
 import {
   initializeSearchToolbar,
   destroySearchToolbar,
   checkHighlightParam
-} from '../search/inTextSearch/searchToolbar.js';
+} from '../../search/inTextSearch/searchToolbar.js';
 
 import {
   initializeUserContainer,
   destroyUserContainer
-} from './userButton/userButton';
+} from '../userButton/userButton';
 
 import {
   initializeTocManager,
   destroyTocManager
-} from './tocToggleButton/tocToggleButton';
+} from '../tocToggleButton/tocToggleButton';
 
 import {
   initializeNewBookContainer,
   destroyNewBookContainer
-} from './newBookButton/newBookButton';
+} from '../newBookButton/newBookButton';
 
 import {
-  initializeHomepageDropTarget,
-  destroyHomepageDropTarget
-} from './homepageDropTarget.js';
+  initializeFileDropTarget,
+  destroyFileDropTarget
+} from '../fileDropTarget/fileDropTarget';
 
-import TogglePerimeterButtons from './togglePerimeterButtons.js';
+import TogglePerimeterButtons from '../togglePerimeterButtons/togglePerimeterButtons';
 
 import {
   initializeEditButtonListeners,
   destroyEditButtonListeners
-} from './editButton/index';
+} from '../editButton/index';
 
 import {
   initializeSourceButtonListener,
   destroySourceButtonListener
-} from './topRightContainer/cloudRef/cloudRefButton';
+} from '../topRightContainer/cloudRef/cloudRefButton';
 
 import {
   initializeLogoNav,
   destroyLogoNav
-} from './logoNavToggle.js';
+} from '../logoNav/logoNav';
 
 import {
   initializeHomepageSearch,
   destroyHomepageSearch
-} from '../search/postgreSQLsearch/homepageSearch.js';
+} from '../../search/postgreSQLsearch/homepageSearch.js';
 
 import {
   initializeHomepageButtons,
   destroyHomepageDisplayUnit
-} from './homepageDisplayUnit.js';
+} from '../homepage/homepageDisplayUnit';
 
 import {
   initializeHomepageBookActions,
   destroyHomepageListeners
-} from './homepage.js';
+} from '../homepage/homepage';
 
 import {
   initializeUserProfilePage,
   destroyUserProfilePage
-} from './userProfilePage.js';
+} from '../userProfile/userProfilePage';
 
 import {
   initializeShelfTabs,
   destroyShelfTabs
-} from './shelves/shelfTabs.js';
+} from '../shelves/shelfTabs.js';
 
 import {
   initializeFootnoteCitationListeners,
   destroyFootnoteCitationListeners
-} from '../hyperlitContainer/footnotesCitations';
+} from '../../hyperlitContainer/footnotesCitations';
 
-import { initFootnoteTapExtender } from '../hyperlitContainer/footnoteTapExtender';
+import { initFootnoteTapExtender } from '../../hyperlitContainer/footnoteTapExtender';
 
 import {
   initContainerDragger,
   destroyContainerDragger
-} from '../utilities/drag.js';
+} from '../../utilities/drag.js';
 
 /**
  * Register all components
@@ -131,7 +131,7 @@ export function registerAllComponents() {
 
   // Note: togglePerimeterButtons is a class instance, not a function
   // We need to handle it differently
-  let perimeterButtonsInstance = null;
+  let perimeterButtonsInstance: any = null;
 
   buttonRegistry.register({
     name: 'perimeterButtons',
@@ -241,7 +241,7 @@ export function registerAllComponents() {
     required: false
   });
 
-  let footnoteTapExtenderHandle = null;
+  let footnoteTapExtenderHandle: any = null;
 
   buttonRegistry.register({
     name: 'footnoteTapExtender',
@@ -274,9 +274,9 @@ export function registerAllComponents() {
   });
 
   buttonRegistry.register({
-    name: 'homepageDropTarget',
-    initFn: initializeHomepageDropTarget,
-    destroyFn: destroyHomepageDropTarget,
+    name: 'fileDropTarget',
+    initFn: initializeFileDropTarget,
+    destroyFn: destroyFileDropTarget,
     pages: ['home', 'user'],
     dependencies: ['newBookButton'], // Drop opens the import form via #importBook
     required: false

@@ -3,7 +3,7 @@
 // ContainerManager wires the #newBookButton click → toggleContainer). The panel
 // + the cite-form live in ../newbookContainer; this is the thin button-side
 // entry point, registered as the 'newBookButton' component in
-// registerComponents.js. Also exposes the singleton on window.newBookManager
+// registerComponents.ts. Also exposes the singleton on window.newBookManager
 // (read by the cite-form modules) and as the default export.
 import { NewBookContainerManager } from "../newbookContainer/index";
 import { log, verbose } from "../../utilities/logger.js";

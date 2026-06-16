@@ -4,7 +4,7 @@
 // gate panel, and text/width controls to sibling modules via self-as-first-arg.
 // Registry lifecycle + the default-export singleton live in
 // ../settingsButton/settingsButton.
-import { ContainerManager } from "../containerManager.js";
+import { ContainerManager } from "../utilities/containerManager";
 import { verbose } from "../../utilities/logger.js";
 import { switchTheme, getCurrentTheme, THEMES } from "../../utilities/themeSwitcher.js";
 import { openSearchToolbar } from "../../search/inTextSearch/searchToolbar.js";
@@ -163,7 +163,7 @@ export class SettingsContainerManager extends (ContainerManager as any) {
     // Gate button: active (aqua) when filtering is on (mode !== 'all')
     if (gateButton) {
       try {
-        const { getGateSettings } = await import('../gateFilter.js');
+        const { getGateSettings } = await import('../utilities/gateFilter');
         gateButton.classList.toggle('active', getGateSettings().mode !== 'all');
       } catch { /* module not loaded yet — leave default */ }
     }

@@ -2,7 +2,7 @@
 // Creates / rebinds the singleton SettingsContainerManager (whose base
 // ContainerManager wires the #settingsButton click → toggleContainer). The panel
 // + all settings logic live in ../settingsContainer; this is the thin button-side
-// entry point, registered as the 'settings' component in registerComponents.js.
+// entry point, registered as the 'settings' component in registerComponents.ts.
 import { SettingsContainerManager } from "../settingsContainer/index";
 import { log, verbose } from "../../utilities/logger.js";
 

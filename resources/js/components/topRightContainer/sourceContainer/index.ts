@@ -6,7 +6,7 @@
 // as `self` and call peers via `self.*`, so the only static edges are
 // index → submodules → leaves (acyclic). The default export is the singleton
 // `sourceManager`; the #cloudRef trigger lives in ../cloudRef/cloudRefButton.
-import { ContainerManager } from "../../containerManager.js";
+import { ContainerManager } from "../../utilities/containerManager";
 import { book } from "../../../app.js";
 import { buildSourceHtml } from "./buildSourceHtml";
 import { exportBookAsMarkdown, exportBookAsDocxStyled, exportBookAsEpub, downloadAllForBook } from "./downloads";

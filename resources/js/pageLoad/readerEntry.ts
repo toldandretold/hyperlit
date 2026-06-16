@@ -10,7 +10,7 @@ import { log } from "../utilities/logger.js";
 import { openDatabase, initializeDatabaseModules } from "../indexedDB/index.js";
 import { fireAndForgetSync } from "../SPA/createNewBook";
 import { universalPageInitializer } from "../SPA/viewManager";
-import { initializeHomepage } from "../components/homepage.js";
+import { initializeHomepage } from "../components/homepage/homepage";
 // ✅ REMOVED: initializeFootnoteCitationListeners now managed by ButtonRegistry
 import { setInitialBookSyncPromise, withPending, getInitialBookSyncPromise } from "../utilities/operationState.js";
 import { generateTableOfContents } from "../components/tocContainer/index";
@@ -19,9 +19,9 @@ import { attachMarkListeners } from "../hyperlights/index";
 // import TogglePerimeterButtons from "./components/togglePerimeterButtons.js";
 import { showNavigationLoading, hideNavigationLoading } from "../scrolling";
 import { pendingFirstChunkLoadedPromise } from "./firstChunkPromise";
-import { initializeUserProfileEditor } from "../components/userProfileEditor.js";
-import { initializeUserProfilePage } from "../components/userProfilePage.js";
-import { initializeLogoNav } from "../components/logoNavToggle.js";
+import { initializeUserProfileEditor } from "../components/userProfile/userProfileEditor";
+import { initializeUserProfilePage } from "../components/userProfile/userProfilePage";
+import { initializeLogoNav } from "../components/logoNav/logoNav";
 
 // ═════════════════════════════════════════════════════════════════════
 // PROGRESS BAR CONTROL - DELEGATED TO PROGRESSOVERLAYCONDUCTOR
@@ -49,7 +49,7 @@ export async function hidePageLoadProgress() {
 // OLD CODE (caused conflict with ButtonRegistry):
 // export const togglePerimeterButtons = new TogglePerimeterButtons({...});
 // togglePerimeterButtons.init();
-// NOW: ButtonRegistry handles initialization via registerComponents.js
+// NOW: ButtonRegistry handles initialization via registerComponents.ts
 
 function handlePendingNewBookSync() {
   const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");

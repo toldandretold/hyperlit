@@ -7,7 +7,7 @@ import {
 } from '../indexedDB/serverSync';
 import { log, verbose } from '../utilities/logger.js';
 import { rebuildAndRenumber } from '../footnotes/FootnoteNumberingService';
-import { appendGateParam } from '../components/gateFilter.js';
+import { appendGateParam } from '../components/utilities/gateFilter';
 
 /**
  * How many chunks to fetch per batch request.

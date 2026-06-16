@@ -138,7 +138,7 @@ export function glowCloudRed(errorInfo?: any) {
 
   // Explain WHAT went wrong (severity-tiered toast). Lazy import keeps editIndicator light.
   if (errorInfo) {
-    import('../../saveErrorToast.js')
+    import('../../saveErrorToast/saveErrorToast')
       .then(({ showSaveErrorToast }) => showSaveErrorToast(errorInfo))
       .catch(() => { /* toast module unavailable — glow still conveys the error */ })
   }
