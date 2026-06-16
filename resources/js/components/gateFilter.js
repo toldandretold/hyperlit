@@ -216,7 +216,7 @@ export async function reapplyAnnotationsWithGate(bookId) {
 /**
  * Render the gate settings sub-panel inside the bottom-up-container.
  *
- * @param {HTMLElement} container — the #bottom-up-container element
+ * @param {HTMLElement} container — the #settings-container element
  * @param {object} currentSettings — current gate settings object
  * @param {object} callbacks — { onApply(settings), onCancel() }
  */

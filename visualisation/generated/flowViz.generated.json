@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1020,
-    "moduleCount": 206,
+    "fnCount": 1070,
+    "moduleCount": 217,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 2011,
+    "edgeCount": 2081,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -617,6 +617,406 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/newbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsButton/settingsButton:closeSettings",
+      "label": "closeSettings",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsButton/settingsButton",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsButton/settingsButton:destroySettingsManager",
+      "label": "destroySettingsManager",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsButton/settingsButton",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsButton/settingsButton:initializeSettingsManager",
+      "label": "initializeSettingsManager",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsButton/settingsButton",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsButton/settingsButton:openSettings",
+      "label": "openSettings",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsButton/settingsButton",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsButton/settingsButton:toggleSettings",
+      "label": "toggleSettings",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsButton/settingsButton",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/canvasEngines/utils:clamp",
+      "label": "clamp",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/canvasEngines/utils",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/canvasEngines/utils:parseColors",
+      "label": "parseColors",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/canvasEngines/utils",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/gate:_openGatePanel",
+      "label": "_openGatePanel",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/gate",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager._debounceResize",
+      "label": "SettingsContainerManager._debounceResize",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager._openGatePanel",
+      "label": "SettingsContainerManager._openGatePanel",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager._openVibeGallery",
+      "label": "SettingsContainerManager._openVibeGallery",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager._openVibeUI",
+      "label": "SettingsContainerManager._openVibeUI",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.applyTextAdjustments",
+      "label": "SettingsContainerManager.applyTextAdjustments",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.constructor",
+      "label": "SettingsContainerManager.constructor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.destroy",
+      "label": "SettingsContainerManager.destroy",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
+      "label": "SettingsContainerManager.handleDocumentClick",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.handleSliderInput",
+      "label": "SettingsContainerManager.handleSliderInput",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.handleVibeClick",
+      "label": "SettingsContainerManager.handleVibeClick",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.openContainer",
+      "label": "SettingsContainerManager.openContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.rebindElements",
+      "label": "SettingsContainerManager.rebindElements",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.setupSettingsListeners",
+      "label": "SettingsContainerManager.setupSettingsListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.syncSliderUI",
+      "label": "SettingsContainerManager.syncSliderUI",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.toggleFullWidth",
+      "label": "SettingsContainerManager.toggleFullWidth",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates",
+      "label": "SettingsContainerManager.updateButtonStates",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/textControls:_debounceResize",
+      "label": "_debounceResize",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/textControls",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/textControls:applyTextAdjustments",
+      "label": "applyTextAdjustments",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/textControls",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/textControls:handleSliderInput",
+      "label": "handleSliderInput",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/textControls",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/textControls:syncSliderUI",
+      "label": "syncSliderUI",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/textControls",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/textControls:toggleFullWidth",
+      "label": "toggleFullWidth",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/textControls",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibe:_openVibeGallery",
+      "label": "_openVibeGallery",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibe",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibe:_openVibeUI",
+      "label": "_openVibeUI",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibe",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibe:handleVibeClick",
+      "label": "handleVibeClick",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibe",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/vibeCanvas:startVibeCanvas",
+      "label": "startVibeCanvas",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCanvas",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibeCanvas:stopVibeCanvas",
+      "label": "stopVibeCanvas",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCanvas",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/api:checkBalance",
+      "label": "checkBalance",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/api",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/api:deleteVibe",
+      "label": "deleteVibe",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/api",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/api:fetchMyVibes",
+      "label": "fetchMyVibes",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/api",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/api:fetchPublicVibes",
+      "label": "fetchPublicVibes",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/api",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/api:saveVibe",
+      "label": "saveVibe",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/api",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/api:submitVibeRequest",
+      "label": "submitVibeRequest",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/api",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/api:updateVibe",
+      "label": "updateVibe",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/api",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "label": "showVibeGallery",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/galleryUI",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/inputUI:showTopUpUI",
+      "label": "showTopUpUI",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/inputUI",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/inputUI:showVibeInput",
+      "label": "showVibeInput",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/inputUI",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/storage:applyVibeCSS",
+      "label": "applyVibeCSS",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/storage",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/storage:clearVibeCSS",
+      "label": "clearVibeCSS",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/storage",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/storage:getVibeCSS",
+      "label": "getVibeCSS",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/storage",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/storage:getVibePrompt",
+      "label": "getVibePrompt",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/storage",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/storage:hasVibeCSS",
+      "label": "hasVibeCSS",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/storage",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/storage:removeVibeCSS",
+      "label": "removeVibeCSS",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/vibeCSS/storage",
       "leaf": false
     },
     {
@@ -8399,7 +8799,7 @@
       "id": "components/newBookButton/newBookButton",
       "label": "components/newBookButton/newBookButton",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/newBookButton/newBookButton:destroyNewBookContainer",
         "components/newBookButton/newBookButton:initializeNewBookContainer"
@@ -8409,7 +8809,7 @@
       "id": "components/newbookContainer/citeForm/bibtex",
       "label": "components/newbookContainer/citeForm/bibtex",
       "stage": "components",
-      "band": "store",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
         "components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex",
@@ -8420,7 +8820,7 @@
       "id": "components/newbookContainer/citeForm/bookId",
       "label": "components/newbookContainer/citeForm/bookId",
       "stage": "components",
-      "band": "sync",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/bookId:findAvailableBookId",
         "components/newbookContainer/citeForm/bookId:generateBookIdFromMetadata",
@@ -8434,7 +8834,7 @@
       "id": "components/newbookContainer/citeForm/dom",
       "label": "components/newbookContainer/citeForm/dom",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/dom:$",
         "components/newbookContainer/citeForm/dom:qs",
@@ -8445,7 +8845,7 @@
       "id": "components/newbookContainer/citeForm/fields",
       "label": "components/newbookContainer/citeForm/fields",
       "stage": "components",
-      "band": "store",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/fields:showFieldsForType"
       ]
@@ -8454,7 +8854,7 @@
       "id": "components/newbookContainer/citeForm/fileUpload",
       "label": "components/newbookContainer/citeForm/fileUpload",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
         "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
@@ -8469,7 +8869,7 @@
       "id": "components/newbookContainer/citeForm/index",
       "label": "components/newbookContainer/citeForm/index",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
         "components/newbookContainer/citeForm/index:setupFormSubmissionHandler"
@@ -8479,7 +8879,7 @@
       "id": "components/newbookContainer/citeForm/modes",
       "label": "components/newbookContainer/citeForm/modes",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/modes:setupModeSwitching",
         "components/newbookContainer/citeForm/modes:switchImportMode"
@@ -8489,7 +8889,7 @@
       "id": "components/newbookContainer/citeForm/persistence",
       "label": "components/newbookContainer/citeForm/persistence",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/persistence:loadFormData",
         "components/newbookContainer/citeForm/persistence:saveFormData",
@@ -8501,7 +8901,7 @@
       "id": "components/newbookContainer/citeForm/search",
       "label": "components/newbookContainer/citeForm/search",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/search:setupImportSearch"
       ]
@@ -8510,7 +8910,7 @@
       "id": "components/newbookContainer/citeForm/sourceToggle",
       "label": "components/newbookContainer/citeForm/sourceToggle",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/sourceToggle:setupSourceToggle"
       ]
@@ -8519,7 +8919,7 @@
       "id": "components/newbookContainer/citeForm/state",
       "label": "components/newbookContainer/citeForm/state",
       "stage": "components",
-      "band": "store",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/state:getAllowedResubmitBookId",
         "components/newbookContainer/citeForm/state:setAllowedResubmitBookId"
@@ -8529,7 +8929,7 @@
       "id": "components/newbookContainer/citeForm/submission",
       "label": "components/newbookContainer/citeForm/submission",
       "stage": "components",
-      "band": "sync",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/submission:setupFormSubmission"
       ]
@@ -8538,7 +8938,7 @@
       "id": "components/newbookContainer/citeForm/template",
       "label": "components/newbookContainer/citeForm/template",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/template:getCiteFormHTML"
       ]
@@ -8547,7 +8947,7 @@
       "id": "components/newbookContainer/citeForm/urlImport",
       "label": "components/newbookContainer/citeForm/urlImport",
       "stage": "components",
-      "band": "sync",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/urlImport:setupUrlImport"
       ]
@@ -8556,7 +8956,7 @@
       "id": "components/newbookContainer/citeForm/validation",
       "label": "components/newbookContainer/citeForm/validation",
       "stage": "components",
-      "band": "sync",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/citeForm/validation:setupRealTimeValidation"
       ]
@@ -8565,7 +8965,7 @@
       "id": "components/newbookContainer/index",
       "label": "components/newbookContainer/index",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/newbookContainer/index:NewBookContainerManager.cleanupResizeListener",
         "components/newbookContainer/index:NewBookContainerManager.clearSavedFormData",
@@ -8588,10 +8988,148 @@
       ]
     },
     {
+      "id": "components/settingsButton/settingsButton",
+      "label": "components/settingsButton/settingsButton",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/settingsButton/settingsButton:closeSettings",
+        "components/settingsButton/settingsButton:destroySettingsManager",
+        "components/settingsButton/settingsButton:initializeSettingsManager",
+        "components/settingsButton/settingsButton:openSettings",
+        "components/settingsButton/settingsButton:toggleSettings"
+      ]
+    },
+    {
+      "id": "components/settingsContainer/canvasEngines/utils",
+      "label": "components/settingsContainer/canvasEngines/utils",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/settingsContainer/canvasEngines/utils:clamp",
+        "components/settingsContainer/canvasEngines/utils:parseColors"
+      ]
+    },
+    {
+      "id": "components/settingsContainer/gate",
+      "label": "components/settingsContainer/gate",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/settingsContainer/gate:_openGatePanel"
+      ]
+    },
+    {
+      "id": "components/settingsContainer/index",
+      "label": "components/settingsContainer/index",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/settingsContainer/index:SettingsContainerManager._debounceResize",
+        "components/settingsContainer/index:SettingsContainerManager._openGatePanel",
+        "components/settingsContainer/index:SettingsContainerManager._openVibeGallery",
+        "components/settingsContainer/index:SettingsContainerManager._openVibeUI",
+        "components/settingsContainer/index:SettingsContainerManager.applyTextAdjustments",
+        "components/settingsContainer/index:SettingsContainerManager.constructor",
+        "components/settingsContainer/index:SettingsContainerManager.destroy",
+        "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
+        "components/settingsContainer/index:SettingsContainerManager.handleSliderInput",
+        "components/settingsContainer/index:SettingsContainerManager.handleVibeClick",
+        "components/settingsContainer/index:SettingsContainerManager.openContainer",
+        "components/settingsContainer/index:SettingsContainerManager.rebindElements",
+        "components/settingsContainer/index:SettingsContainerManager.setupSettingsListeners",
+        "components/settingsContainer/index:SettingsContainerManager.syncSliderUI",
+        "components/settingsContainer/index:SettingsContainerManager.toggleFullWidth",
+        "components/settingsContainer/index:SettingsContainerManager.updateButtonStates"
+      ]
+    },
+    {
+      "id": "components/settingsContainer/textControls",
+      "label": "components/settingsContainer/textControls",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/settingsContainer/textControls:_debounceResize",
+        "components/settingsContainer/textControls:applyTextAdjustments",
+        "components/settingsContainer/textControls:handleSliderInput",
+        "components/settingsContainer/textControls:syncSliderUI",
+        "components/settingsContainer/textControls:toggleFullWidth"
+      ]
+    },
+    {
+      "id": "components/settingsContainer/vibe",
+      "label": "components/settingsContainer/vibe",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/settingsContainer/vibe:_openVibeGallery",
+        "components/settingsContainer/vibe:_openVibeUI",
+        "components/settingsContainer/vibe:handleVibeClick"
+      ]
+    },
+    {
+      "id": "components/settingsContainer/vibeCanvas",
+      "label": "components/settingsContainer/vibeCanvas",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/settingsContainer/vibeCanvas:startVibeCanvas",
+        "components/settingsContainer/vibeCanvas:stopVibeCanvas"
+      ]
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/api",
+      "label": "components/settingsContainer/vibeCSS/api",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/settingsContainer/vibeCSS/api:checkBalance",
+        "components/settingsContainer/vibeCSS/api:deleteVibe",
+        "components/settingsContainer/vibeCSS/api:fetchMyVibes",
+        "components/settingsContainer/vibeCSS/api:fetchPublicVibes",
+        "components/settingsContainer/vibeCSS/api:saveVibe",
+        "components/settingsContainer/vibeCSS/api:submitVibeRequest",
+        "components/settingsContainer/vibeCSS/api:updateVibe"
+      ]
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/galleryUI",
+      "label": "components/settingsContainer/vibeCSS/galleryUI",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery"
+      ]
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/inputUI",
+      "label": "components/settingsContainer/vibeCSS/inputUI",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/settingsContainer/vibeCSS/inputUI:showTopUpUI",
+        "components/settingsContainer/vibeCSS/inputUI:showVibeInput"
+      ]
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/storage",
+      "label": "components/settingsContainer/vibeCSS/storage",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/settingsContainer/vibeCSS/storage:applyVibeCSS",
+        "components/settingsContainer/vibeCSS/storage:clearVibeCSS",
+        "components/settingsContainer/vibeCSS/storage:getVibeCSS",
+        "components/settingsContainer/vibeCSS/storage:getVibePrompt",
+        "components/settingsContainer/vibeCSS/storage:hasVibeCSS",
+        "components/settingsContainer/vibeCSS/storage:removeVibeCSS"
+      ]
+    },
+    {
       "id": "components/topRightContainer/cloudRef/cloudRefButton",
       "label": "components/topRightContainer/cloudRef/cloudRefButton",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/cloudRef/cloudRefButton:destroySourceButtonListener",
         "components/topRightContainer/cloudRef/cloudRefButton:initializeSourceButtonListener"
@@ -8601,7 +9139,7 @@
       "id": "components/topRightContainer/cloudRef/editIndicator",
       "label": "components/topRightContainer/cloudRef/editIndicator",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/cloudRef/editIndicator:cancelForcedVisibility",
         "components/topRightContainer/cloudRef/editIndicator:glowCloudGreen",
@@ -8615,7 +9153,7 @@
       "id": "components/topRightContainer/sourceContainer/aiReview/index",
       "label": "components/topRightContainer/sourceContainer/aiReview/index",
       "stage": "components",
-      "band": "sync",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/sourceContainer/aiReview/index:ensureAiReviewLivePanel",
         "components/topRightContainer/sourceContainer/aiReview/index:handleAiReviewGenerate",
@@ -8627,7 +9165,7 @@
       "id": "components/topRightContainer/sourceContainer/aiReview/pipelineViz",
       "label": "components/topRightContainer/sourceContainer/aiReview/pipelineViz",
       "stage": "components",
-      "band": "sync",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/sourceContainer/aiReview/pipelineViz:closeAiReviewVizOverlay",
         "components/topRightContainer/sourceContainer/aiReview/pipelineViz:fetchPipelineMap",
@@ -8640,7 +9178,7 @@
       "id": "components/topRightContainer/sourceContainer/aiReview/polling",
       "label": "components/topRightContainer/sourceContainer/aiReview/polling",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/sourceContainer/aiReview/polling:pollAiReviewStatus",
         "components/topRightContainer/sourceContainer/aiReview/polling:startAiReviewPolling",
@@ -8651,7 +9189,7 @@
       "id": "components/topRightContainer/sourceContainer/buildSourceHtml",
       "label": "components/topRightContainer/sourceContainer/buildSourceHtml",
       "stage": "components",
-      "band": "store",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml"
       ]
@@ -8660,7 +9198,7 @@
       "id": "components/topRightContainer/sourceContainer/citationDisplay",
       "label": "components/topRightContainer/sourceContainer/citationDisplay",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle"
       ]
@@ -8669,7 +9207,7 @@
       "id": "components/topRightContainer/sourceContainer/creatorTools/deleteBook",
       "label": "components/topRightContainer/sourceContainer/creatorTools/deleteBook",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/sourceContainer/creatorTools/deleteBook:handleDeleteBook"
       ]
@@ -8678,7 +9216,7 @@
       "id": "components/topRightContainer/sourceContainer/creatorTools/index",
       "label": "components/topRightContainer/sourceContainer/creatorTools/index",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/sourceContainer/creatorTools/index:loadCreatorTools"
       ]
@@ -8687,7 +9225,7 @@
       "id": "components/topRightContainer/sourceContainer/creatorTools/reconvert",
       "label": "components/topRightContainer/sourceContainer/creatorTools/reconvert",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/sourceContainer/creatorTools/reconvert:_awaitReconvert",
         "components/topRightContainer/sourceContainer/creatorTools/reconvert:handleReconvert",
@@ -8698,7 +9236,7 @@
       "id": "components/topRightContainer/sourceContainer/creatorTools/reupload",
       "label": "components/topRightContainer/sourceContainer/creatorTools/reupload",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/sourceContainer/creatorTools/reupload:handleReupload"
       ]
@@ -8707,7 +9245,7 @@
       "id": "components/topRightContainer/sourceContainer/creatorTools/versionHistory",
       "label": "components/topRightContainer/sourceContainer/creatorTools/versionHistory",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/sourceContainer/creatorTools/versionHistory:loadVersionHistory"
       ]
@@ -8716,7 +9254,7 @@
       "id": "components/topRightContainer/sourceContainer/downloads",
       "label": "components/topRightContainer/sourceContainer/downloads",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/sourceContainer/downloads:downloadAllForBook",
         "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
@@ -8728,7 +9266,7 @@
       "id": "components/topRightContainer/sourceContainer/editForm",
       "label": "components/topRightContainer/sourceContainer/editForm",
       "stage": "components",
-      "band": "sync",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/sourceContainer/editForm:cleanUrl",
         "components/topRightContainer/sourceContainer/editForm:collectFormData",
@@ -8751,7 +9289,7 @@
       "id": "components/topRightContainer/sourceContainer/helpers",
       "label": "components/topRightContainer/sourceContainer/helpers",
       "stage": "components",
-      "band": "store",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/sourceContainer/helpers:formatRelativeTime",
         "components/topRightContainer/sourceContainer/helpers:getBookDownloadName",
@@ -8763,7 +9301,7 @@
       "id": "components/topRightContainer/sourceContainer/index",
       "label": "components/topRightContainer/sourceContainer/index",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/topRightContainer/sourceContainer/index:SourceContainerManager._awaitReconvert",
         "components/topRightContainer/sourceContainer/index:SourceContainerManager._settleAnimation",
@@ -8815,7 +9353,7 @@
       "id": "components/userButton/userButton",
       "label": "components/userButton/userButton",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/userButton/userButton:destroyUserContainer",
         "components/userButton/userButton:initializeUserContainer"
@@ -8825,7 +9363,7 @@
       "id": "components/userContainer/anonymousTransfer",
       "label": "components/userContainer/anonymousTransfer",
       "stage": "components",
-      "band": "sync",
+      "band": "components",
       "fnIds": [
         "components/userContainer/anonymousTransfer:buildContentSummary",
         "components/userContainer/anonymousTransfer:confirmBookTransfer",
@@ -8843,7 +9381,7 @@
       "id": "components/userContainer/auth",
       "label": "components/userContainer/auth",
       "stage": "components",
-      "band": "sync",
+      "band": "components",
       "fnIds": [
         "components/userContainer/auth:handleLogin",
         "components/userContainer/auth:handleLogout",
@@ -8859,7 +9397,7 @@
       "id": "components/userContainer/cache",
       "label": "components/userContainer/cache",
       "stage": "components",
-      "band": "store",
+      "band": "components",
       "fnIds": [
         "components/userContainer/cache:clearAllCachedData",
         "components/userContainer/cache:clearAndRefreshDatabase",
@@ -8870,7 +9408,7 @@
       "id": "components/userContainer/email",
       "label": "components/userContainer/email",
       "stage": "components",
-      "band": "sync",
+      "band": "components",
       "fnIds": [
         "components/userContainer/email:handleChangeEmail",
         "components/userContainer/email:handleResendVerification",
@@ -8882,7 +9420,7 @@
       "id": "components/userContainer/forgotPassword",
       "label": "components/userContainer/forgotPassword",
       "stage": "components",
-      "band": "sync",
+      "band": "components",
       "fnIds": [
         "components/userContainer/forgotPassword:handleForgotPassword",
         "components/userContainer/forgotPassword:showForgotPasswordForm"
@@ -8892,7 +9430,7 @@
       "id": "components/userContainer/forms",
       "label": "components/userContainer/forms",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/userContainer/forms:getChangeEmailHTML",
         "components/userContainer/forms:getErrorHTML",
@@ -8910,7 +9448,7 @@
       "id": "components/userContainer/index",
       "label": "components/userContainer/index",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/userContainer/index:UserContainerManager.attachProfileButtonListeners",
         "components/userContainer/index:UserContainerManager.closeContainer",
@@ -8956,7 +9494,7 @@
       "id": "components/userContainer/profile",
       "label": "components/userContainer/profile",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/userContainer/profile:attachProfileButtonListeners",
         "components/userContainer/profile:showUserProfile"
@@ -8966,7 +9504,7 @@
       "id": "components/userContainer/validation",
       "label": "components/userContainer/validation",
       "stage": "components",
-      "band": "capture",
+      "band": "components",
       "fnIds": [
         "components/userContainer/validation:attachValidationListeners",
         "components/userContainer/validation:showValidationMessage",
@@ -11770,6 +12308,311 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/settingsContainer/gate:_openGatePanel__call__indexedDB/core/connection:openDatabase",
+      "source": "components/settingsContainer/gate:_openGatePanel",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/settingsContainer/gate:_openGatePanel__call__indexedDB/core/library:getLibraryObjectFromIndexedDB",
+      "source": "components/settingsContainer/gate:_openGatePanel",
+      "target": "indexedDB/core/library:getLibraryObjectFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/settingsContainer/gate:_openGatePanel__call__indexedDB/syncQueue/queue:queueForSync",
+      "source": "components/settingsContainer/gate:_openGatePanel",
+      "target": "indexedDB/syncQueue/queue:queueForSync",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/gate:_openGatePanel__domwrite__dom",
+      "source": "components/settingsContainer/gate:_openGatePanel",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/gate:_openGatePanel__write__store:library",
+      "source": "components/settingsContainer/gate:_openGatePanel",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager._debounceResize__call__components/settingsContainer/textControls:_debounceResize",
+      "source": "components/settingsContainer/index:SettingsContainerManager._debounceResize",
+      "target": "components/settingsContainer/textControls:_debounceResize",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager._openGatePanel__call__components/settingsContainer/gate:_openGatePanel",
+      "source": "components/settingsContainer/index:SettingsContainerManager._openGatePanel",
+      "target": "components/settingsContainer/gate:_openGatePanel",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager._openVibeGallery__call__components/settingsContainer/vibe:_openVibeGallery",
+      "source": "components/settingsContainer/index:SettingsContainerManager._openVibeGallery",
+      "target": "components/settingsContainer/vibe:_openVibeGallery",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager._openVibeUI__call__components/settingsContainer/vibe:_openVibeUI",
+      "source": "components/settingsContainer/index:SettingsContainerManager._openVibeUI",
+      "target": "components/settingsContainer/vibe:_openVibeUI",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.applyTextAdjustments__call__components/settingsContainer/textControls:applyTextAdjustments",
+      "source": "components/settingsContainer/index:SettingsContainerManager.applyTextAdjustments",
+      "target": "components/settingsContainer/textControls:applyTextAdjustments",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.handleSliderInput__call__components/settingsContainer/textControls:handleSliderInput",
+      "source": "components/settingsContainer/index:SettingsContainerManager.handleSliderInput",
+      "target": "components/settingsContainer/textControls:handleSliderInput",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.handleVibeClick__call__components/settingsContainer/vibe:handleVibeClick",
+      "source": "components/settingsContainer/index:SettingsContainerManager.handleVibeClick",
+      "target": "components/settingsContainer/vibe:handleVibeClick",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.syncSliderUI__call__components/settingsContainer/textControls:syncSliderUI",
+      "source": "components/settingsContainer/index:SettingsContainerManager.syncSliderUI",
+      "target": "components/settingsContainer/textControls:syncSliderUI",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.toggleFullWidth__call__components/settingsContainer/textControls:toggleFullWidth",
+      "source": "components/settingsContainer/index:SettingsContainerManager.toggleFullWidth",
+      "target": "components/settingsContainer/textControls:toggleFullWidth",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates__domwrite__dom",
+      "source": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/textControls:applyTextAdjustments__domwrite__dom",
+      "source": "components/settingsContainer/textControls:applyTextAdjustments",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/textControls:handleSliderInput__domwrite__dom",
+      "source": "components/settingsContainer/textControls:handleSliderInput",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/textControls:syncSliderUI__domwrite__dom",
+      "source": "components/settingsContainer/textControls:syncSliderUI",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/textControls:toggleFullWidth__domwrite__dom",
+      "source": "components/settingsContainer/textControls:toggleFullWidth",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/vibe:_openVibeGallery__call__components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "source": "components/settingsContainer/vibe:_openVibeGallery",
+      "target": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/settingsContainer/vibe:_openVibeGallery__domwrite__dom",
+      "source": "components/settingsContainer/vibe:_openVibeGallery",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/vibe:_openVibeUI__call__components/settingsContainer/vibeCSS/inputUI:showVibeInput",
+      "source": "components/settingsContainer/vibe:_openVibeUI",
+      "target": "components/settingsContainer/vibeCSS/inputUI:showVibeInput",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/settingsContainer/vibe:_openVibeUI__domwrite__dom",
+      "source": "components/settingsContainer/vibe:_openVibeUI",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/vibe:handleVibeClick__call__components/settingsContainer/vibeCSS/storage:hasVibeCSS",
+      "source": "components/settingsContainer/vibe:handleVibeClick",
+      "target": "components/settingsContainer/vibeCSS/storage:hasVibeCSS",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCanvas:startVibeCanvas__call__components/settingsContainer/vibeCanvas:stopVibeCanvas",
+      "source": "components/settingsContainer/vibeCanvas:startVibeCanvas",
+      "target": "components/settingsContainer/vibeCanvas:stopVibeCanvas",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCanvas:startVibeCanvas__domwrite__dom",
+      "source": "components/settingsContainer/vibeCanvas:startVibeCanvas",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/vibeCanvas:stopVibeCanvas__domwrite__dom",
+      "source": "components/settingsContainer/vibeCanvas:stopVibeCanvas",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/api:deleteVibe",
+      "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "target": "components/settingsContainer/vibeCSS/api:deleteVibe",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/api:fetchMyVibes",
+      "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "target": "components/settingsContainer/vibeCSS/api:fetchMyVibes",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/api:fetchPublicVibes",
+      "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "target": "components/settingsContainer/vibeCSS/api:fetchPublicVibes",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/api:saveVibe",
+      "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "target": "components/settingsContainer/vibeCSS/api:saveVibe",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/api:updateVibe",
+      "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "target": "components/settingsContainer/vibeCSS/api:updateVibe",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/storage:applyVibeCSS",
+      "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "target": "components/settingsContainer/vibeCSS/storage:applyVibeCSS",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/storage:getVibeCSS",
+      "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "target": "components/settingsContainer/vibeCSS/storage:getVibeCSS",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/storage:getVibePrompt",
+      "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "target": "components/settingsContainer/vibeCSS/storage:getVibePrompt",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/userButton/userButton:initializeUserContainer",
+      "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "target": "components/userButton/userButton:initializeUserContainer",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__domwrite__dom",
+      "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/inputUI:showTopUpUI__domwrite__dom",
+      "source": "components/settingsContainer/vibeCSS/inputUI:showTopUpUI",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/inputUI:showVibeInput__call__components/settingsContainer/vibeCSS/api:submitVibeRequest",
+      "source": "components/settingsContainer/vibeCSS/inputUI:showVibeInput",
+      "target": "components/settingsContainer/vibeCSS/api:submitVibeRequest",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/inputUI:showVibeInput__call__components/settingsContainer/vibeCSS/inputUI:showTopUpUI",
+      "source": "components/settingsContainer/vibeCSS/inputUI:showVibeInput",
+      "target": "components/settingsContainer/vibeCSS/inputUI:showTopUpUI",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/inputUI:showVibeInput__call__components/settingsContainer/vibeCSS/storage:applyVibeCSS",
+      "source": "components/settingsContainer/vibeCSS/inputUI:showVibeInput",
+      "target": "components/settingsContainer/vibeCSS/storage:applyVibeCSS",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/inputUI:showVibeInput__call__components/settingsContainer/vibeCSS/storage:clearVibeCSS",
+      "source": "components/settingsContainer/vibeCSS/inputUI:showVibeInput",
+      "target": "components/settingsContainer/vibeCSS/storage:clearVibeCSS",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/inputUI:showVibeInput__call__components/settingsContainer/vibeCSS/storage:hasVibeCSS",
+      "source": "components/settingsContainer/vibeCSS/inputUI:showVibeInput",
+      "target": "components/settingsContainer/vibeCSS/storage:hasVibeCSS",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/inputUI:showVibeInput__domwrite__dom",
+      "source": "components/settingsContainer/vibeCSS/inputUI:showVibeInput",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/storage:applyVibeCSS__call__components/settingsContainer/vibeCSS/storage:getVibeCSS",
+      "source": "components/settingsContainer/vibeCSS/storage:applyVibeCSS",
+      "target": "components/settingsContainer/vibeCSS/storage:getVibeCSS",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/storage:applyVibeCSS__domwrite__dom",
+      "source": "components/settingsContainer/vibeCSS/storage:applyVibeCSS",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/storage:clearVibeCSS__call__components/settingsContainer/vibeCSS/storage:removeVibeCSS",
+      "source": "components/settingsContainer/vibeCSS/storage:clearVibeCSS",
+      "target": "components/settingsContainer/vibeCSS/storage:removeVibeCSS",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/storage:hasVibeCSS__call__components/settingsContainer/vibeCSS/storage:getVibeCSS",
+      "source": "components/settingsContainer/vibeCSS/storage:hasVibeCSS",
+      "target": "components/settingsContainer/vibeCSS/storage:getVibeCSS",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/storage:removeVibeCSS__domwrite__dom",
+      "source": "components/settingsContainer/vibeCSS/storage:removeVibeCSS",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/topRightContainer/cloudRef/cloudRefButton:destroySourceButtonListener__domwrite__dom",
       "source": "components/topRightContainer/cloudRef/cloudRefButton:destroySourceButtonListener",
       "target": "dom",
@@ -13715,6 +14558,132 @@
       "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.toggleOptionalFields",
       "source": "dom",
       "target": "components/newbookContainer/index:NewBookContainerManager.toggleOptionalFields",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsButton/settingsButton:initializeSettingsManager",
+      "source": "dom",
+      "target": "components/settingsButton/settingsButton:initializeSettingsManager",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/gate:_openGatePanel",
+      "source": "dom",
+      "target": "components/settingsContainer/gate:_openGatePanel",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
+      "source": "dom",
+      "target": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/index:SettingsContainerManager.updateButtonStates",
+      "source": "dom",
+      "target": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/textControls:applyTextAdjustments",
+      "source": "dom",
+      "target": "components/settingsContainer/textControls:applyTextAdjustments",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/textControls:handleSliderInput",
+      "source": "dom",
+      "target": "components/settingsContainer/textControls:handleSliderInput",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/textControls:syncSliderUI",
+      "source": "dom",
+      "target": "components/settingsContainer/textControls:syncSliderUI",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/textControls:toggleFullWidth",
+      "source": "dom",
+      "target": "components/settingsContainer/textControls:toggleFullWidth",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/vibe:_openVibeGallery",
+      "source": "dom",
+      "target": "components/settingsContainer/vibe:_openVibeGallery",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/vibe:_openVibeUI",
+      "source": "dom",
+      "target": "components/settingsContainer/vibe:_openVibeUI",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/vibeCSS/api:checkBalance",
+      "source": "dom",
+      "target": "components/settingsContainer/vibeCSS/api:checkBalance",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/vibeCSS/api:deleteVibe",
+      "source": "dom",
+      "target": "components/settingsContainer/vibeCSS/api:deleteVibe",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/vibeCSS/api:fetchMyVibes",
+      "source": "dom",
+      "target": "components/settingsContainer/vibeCSS/api:fetchMyVibes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/vibeCSS/api:saveVibe",
+      "source": "dom",
+      "target": "components/settingsContainer/vibeCSS/api:saveVibe",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/vibeCSS/api:submitVibeRequest",
+      "source": "dom",
+      "target": "components/settingsContainer/vibeCSS/api:submitVibeRequest",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/vibeCSS/api:updateVibe",
+      "source": "dom",
+      "target": "components/settingsContainer/vibeCSS/api:updateVibe",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "source": "dom",
+      "target": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/vibeCSS/inputUI:showTopUpUI",
+      "source": "dom",
+      "target": "components/settingsContainer/vibeCSS/inputUI:showTopUpUI",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/vibeCSS/inputUI:showVibeInput",
+      "source": "dom",
+      "target": "components/settingsContainer/vibeCSS/inputUI:showVibeInput",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/vibeCSS/storage:applyVibeCSS",
+      "source": "dom",
+      "target": "components/settingsContainer/vibeCSS/storage:applyVibeCSS",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/vibeCSS/storage:removeVibeCSS",
+      "source": "dom",
+      "target": "components/settingsContainer/vibeCSS/storage:removeVibeCSS",
       "rel": "domread"
     },
     {
@@ -24020,6 +24989,11 @@
     },
     {
       "source": "SPA/viewManager",
+      "target": "components/settingsButton/settingsButton",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/viewManager",
       "target": "components/topRightContainer/cloudRef/cloudRefButton",
       "kind": "static"
     },
@@ -24331,6 +25305,71 @@
     {
       "source": "components/newbookContainer/index",
       "target": "components/newbookContainer/citeForm/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/settingsButton/settingsButton",
+      "target": "components/settingsContainer/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/settingsContainer/gate",
+      "target": "indexedDB/core/library",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/settingsContainer/gate",
+      "target": "indexedDB/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/settingsContainer/gate",
+      "target": "indexedDB/syncQueue/queue",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/settingsContainer/index",
+      "target": "components/settingsContainer/gate",
+      "kind": "static"
+    },
+    {
+      "source": "components/settingsContainer/index",
+      "target": "components/settingsContainer/textControls",
+      "kind": "static"
+    },
+    {
+      "source": "components/settingsContainer/index",
+      "target": "components/settingsContainer/vibe",
+      "kind": "static"
+    },
+    {
+      "source": "components/settingsContainer/vibeCSS/galleryUI",
+      "target": "components/settingsContainer/vibeCSS/api",
+      "kind": "static"
+    },
+    {
+      "source": "components/settingsContainer/vibeCSS/galleryUI",
+      "target": "components/settingsContainer/vibeCSS/storage",
+      "kind": "static"
+    },
+    {
+      "source": "components/settingsContainer/vibeCSS/galleryUI",
+      "target": "components/userButton/userButton",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/settingsContainer/vibeCSS/inputUI",
+      "target": "components/settingsContainer/vibeCSS/api",
+      "kind": "static"
+    },
+    {
+      "source": "components/settingsContainer/vibeCSS/inputUI",
+      "target": "components/settingsContainer/vibeCSS/storage",
+      "kind": "static"
+    },
+    {
+      "source": "components/settingsContainer/vibeCSS/storage",
+      "target": "components/settingsContainer/vibeCanvas",
       "kind": "lazy"
     },
     {
@@ -26666,6 +27705,6 @@
       ]
     ],
     "breakerCount": 18,
-    "lazyCount": 132
+    "lazyCount": 138
   }
 }

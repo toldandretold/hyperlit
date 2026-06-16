@@ -1,5 +1,5 @@
 <!-- Settings container - slides up from bottom -->
-<div id="bottom-up-container" class="hidden">
+<div id="settings-container" class="hidden">
   <!-- Theme buttons row -->
   <div class="settings-row settings-theme-row">
     <button type="button" id="darkModeButton" class="settings-button active">Dark</button>

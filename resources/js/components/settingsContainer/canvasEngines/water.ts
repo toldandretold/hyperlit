@@ -1,13 +1,13 @@
-import { clamp, parseColors } from './utils.js';
+import { clamp, parseColors } from './utils';
 
 const DEFAULT_COLORS = ['#1e90ff', '#00bfff', '#4dd0e1', '#0077be', '#87ceeb'];
 const MAX = 100;
 
-let ripples = [];
-let colors, intensity, speed, spawnTimer;
+let ripples: any[] = [];
+let colors: any, intensity: any, speed: any, spawnTimer: any;
 
 export default {
-  init(params, w, h) {
+  init(params: any, w: any, h: any) {
     colors = parseColors(params.colors);
     if (colors.length === 0 || colors[0] === '#ff0080') colors = DEFAULT_COLORS;
     intensity = Math.round(clamp(parseFloat(params.intensity) || 3, 1, 8));
@@ -16,7 +16,7 @@ export default {
     spawnTimer = 0;
   },
 
-  tick(ctx, w, h) {
+  tick(ctx: any, w: any, h: any) {
     ctx.clearRect(0, 0, w, h);
 
     // Spawn ripples periodically (not every frame)

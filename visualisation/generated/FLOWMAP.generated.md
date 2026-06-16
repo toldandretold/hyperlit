@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1020 functions in 206 modules · 8 object stores · 6 PG tables · 2011 edges
+**MarkdownDB** schema v27 · 1070 functions in 217 modules · 8 object stores · 6 PG tables · 2081 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -69,6 +69,56 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `NewBookContainerManager.setupResizeListener` | `components/newbookContainer/index` | — | — | read | — |
 | `NewBookContainerManager.showImportForm` | `components/newbookContainer/index` | — | — | read/write | — |
 | `NewBookContainerManager.toggleOptionalFields` | `components/newbookContainer/index` | — | — | read | — |
+| `closeSettings` | `components/settingsButton/settingsButton` | — | — | — | — |
+| `destroySettingsManager` | `components/settingsButton/settingsButton` | — | — | — | — |
+| `initializeSettingsManager` | `components/settingsButton/settingsButton` | — | — | read | — |
+| `openSettings` | `components/settingsButton/settingsButton` | — | — | — | — |
+| `toggleSettings` | `components/settingsButton/settingsButton` | — | — | — | — |
+| `clamp` | `components/settingsContainer/canvasEngines/utils` | — | — | — | — |
+| `parseColors` | `components/settingsContainer/canvasEngines/utils` | — | — | — | — |
+| `_openGatePanel` | `components/settingsContainer/gate` | — | `library` | read/write | — |
+| `SettingsContainerManager._debounceResize` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager._openGatePanel` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager._openVibeGallery` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager._openVibeUI` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.applyTextAdjustments` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.constructor` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.destroy` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.handleDocumentClick` | `components/settingsContainer/index` | — | — | read | — |
+| `SettingsContainerManager.handleSliderInput` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.handleVibeClick` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.openContainer` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.rebindElements` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.setupSettingsListeners` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.syncSliderUI` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.toggleFullWidth` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.updateButtonStates` | `components/settingsContainer/index` | — | — | read/write | — |
+| `_debounceResize` | `components/settingsContainer/textControls` | — | — | — | — |
+| `applyTextAdjustments` | `components/settingsContainer/textControls` | — | — | read/write | — |
+| `handleSliderInput` | `components/settingsContainer/textControls` | — | — | read/write | — |
+| `syncSliderUI` | `components/settingsContainer/textControls` | — | — | read/write | — |
+| `toggleFullWidth` | `components/settingsContainer/textControls` | — | — | read/write | — |
+| `_openVibeGallery` | `components/settingsContainer/vibe` | — | — | read/write | — |
+| `_openVibeUI` | `components/settingsContainer/vibe` | — | — | read/write | — |
+| `startVibeCanvas` | `components/settingsContainer/vibeCanvas` | — | — | write | — |
+| `stopVibeCanvas` | `components/settingsContainer/vibeCanvas` | — | — | write | — |
+| `checkBalance` | `components/settingsContainer/vibeCSS/api` | — | — | read | — |
+| `deleteVibe` | `components/settingsContainer/vibeCSS/api` | — | — | read | — |
+| `fetchMyVibes` | `components/settingsContainer/vibeCSS/api` | — | — | read | — |
+| `fetchPublicVibes` | `components/settingsContainer/vibeCSS/api` | — | — | — | — |
+| `saveVibe` | `components/settingsContainer/vibeCSS/api` | — | — | read | — |
+| `submitVibeRequest` | `components/settingsContainer/vibeCSS/api` | — | — | read | — |
+| `updateVibe` | `components/settingsContainer/vibeCSS/api` | — | — | read | — |
+| `showVibeGallery` | `components/settingsContainer/vibeCSS/galleryUI` | — | — | read/write | — |
+| `showTopUpUI` | `components/settingsContainer/vibeCSS/inputUI` | — | — | read/write | — |
+| `showVibeInput` | `components/settingsContainer/vibeCSS/inputUI` | — | — | read/write | — |
+| `applyVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | read/write | — |
+| `clearVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | — | — |
+| `getVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | — | — |
+| `getVibePrompt` | `components/settingsContainer/vibeCSS/storage` | — | — | — | — |
+| `hasVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | — | — |
+| `removeVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | read/write | — |
+| `handleVibeClick` | `components/settingsContainer/vibe` | — | — | — | — |
 | `destroySourceButtonListener` | `components/topRightContainer/cloudRef/cloudRefButton` | — | — | write | — |
 | `initializeSourceButtonListener` | `components/topRightContainer/cloudRef/cloudRefButton` | — | — | write | — |
 | `cancelForcedVisibility` | `components/topRightContainer/cloudRef/editIndicator` | — | — | — | — |
@@ -1033,7 +1083,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 18 · lazy-loads (code-split): 132
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 18 · lazy-loads (code-split): 138
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1079,6 +1129,11 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/newbookContainer/citeForm/urlImport` → `components/userButton/userButton`
 - `components/newbookContainer/index` → `SPA/navigation/NavigationManager`
 - `components/newbookContainer/index` → `components/newbookContainer/citeForm/index`
+- `components/settingsContainer/gate` → `indexedDB/core/library`
+- `components/settingsContainer/gate` → `indexedDB/index`
+- `components/settingsContainer/gate` → `indexedDB/syncQueue/queue`
+- `components/settingsContainer/vibeCSS/galleryUI` → `components/userButton/userButton`
+- `components/settingsContainer/vibeCSS/storage` → `components/settingsContainer/vibeCanvas`
 - `components/topRightContainer/sourceContainer/aiReview/pipelineViz` → `hyperlights/deletion`
 - `components/topRightContainer/sourceContainer/aiReview/pipelineViz` → `indexedDB/core/library`
 - `components/topRightContainer/sourceContainer/creatorTools/deleteBook` → `indexedDB/index`

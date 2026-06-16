@@ -1,12 +1,12 @@
-import { clamp, parseColors } from './utils.js';
+import { clamp, parseColors } from './utils';
 
 const DEFAULT_COLORS = ['#00ffff', '#ffffff', '#8080ff', '#00ccff'];
 const MAX = 20;
 
-let bolts = [];
-let colors, intensity, speed, spawnTimer;
+let bolts: any[] = [];
+let colors: any, intensity: any, speed: any, spawnTimer: any;
 
-function generateBolt(x0, y0, x1, y1) {
+function generateBolt(x0: number, y0: number, x1: number, y1: number) {
   const points = [{ x: x0, y: y0 }];
   const dx = x1 - x0;
   const dy = y1 - y0;
@@ -23,7 +23,7 @@ function generateBolt(x0, y0, x1, y1) {
 }
 
 export default {
-  init(params, w, h) {
+  init(params: any, w: any, h: any) {
     colors = parseColors(params.colors);
     if (colors.length === 0 || colors[0] === '#ff0080') colors = DEFAULT_COLORS;
     intensity = Math.round(clamp(parseFloat(params.intensity) || 3, 1, 8));
@@ -32,7 +32,7 @@ export default {
     spawnTimer = 0;
   },
 
-  tick(ctx, w, h) {
+  tick(ctx: any, w: any, h: any) {
     ctx.clearRect(0, 0, w, h);
 
     // Spawn bolts periodically

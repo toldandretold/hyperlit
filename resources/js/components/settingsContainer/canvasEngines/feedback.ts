@@ -1,10 +1,10 @@
-import { clamp, parseColors } from './utils.js';
+import { clamp, parseColors } from './utils';
 
-let buffer = null;
-let bufferCtx = null;
-let blur, rotation, scale, fade, colors, intensity, blend, drift, shape, speed, frame;
+let buffer: any = null;
+let bufferCtx: any = null;
+let blur: any, rotation: any, scale: any, fade: any, colors: any, intensity: any, blend: any, drift: any, shape: any, speed: any, frame: any;
 
-function drawShape(ctx, x, y, type) {
+function drawShape(ctx: any, x: number, y: number, type: any) {
   const SHAPES = ['circle', 'line', 'rect'];
   const pick = type === 'mixed' ? SHAPES[Math.floor(Math.random() * SHAPES.length)] : type;
 
@@ -28,7 +28,7 @@ function drawShape(ctx, x, y, type) {
 }
 
 export default {
-  init(params, w, h) {
+  init(params: any, w: any, h: any) {
     blur = clamp(parseFloat(params.blur) || 0.5, 0.1, 3);
     rotation = clamp(parseFloat(params.rotation) || 0.2, 0.05, 1) * Math.PI / 180;
     scale = clamp(parseFloat(params.scale) || 1.003, 1.001, 1.01);
@@ -50,7 +50,7 @@ export default {
     bufferCtx = buffer.getContext('2d');
   },
 
-  tick(ctx, w, h) {
+  tick(ctx: any, w: any, h: any) {
     if (!bufferCtx || !buffer) return;
     const cx = w / 2;
     const cy = h / 2;

@@ -57,9 +57,9 @@ export function switchTheme(theme) {
 
   // Handle vibe CSS overrides
   if (theme === THEMES.VIBE) {
-    import('../components/vibeCSS.js').then(m => m.applyVibeCSS());
+    import('../components/settingsContainer/vibeCSS').then(m => m.applyVibeCSS());
   } else {
-    import('../components/vibeCSS.js').then(m => m.removeVibeCSS());
+    import('../components/settingsContainer/vibeCSS').then(m => m.removeVibeCSS());
   }
 
   // Save preference to localStorage and backend
@@ -80,7 +80,7 @@ export function initializeTheme() {
     currentTheme = savedTheme;
     applyThemeClass(savedTheme);
     if (savedTheme === THEMES.VIBE) {
-      import('../components/vibeCSS.js').then(m => m.applyVibeCSS());
+      import('../components/settingsContainer/vibeCSS').then(m => m.applyVibeCSS());
     }
   } else {
     currentTheme = THEMES.DARK;

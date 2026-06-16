@@ -1591,7 +1591,7 @@ body.hyperlit-container-open .reader-content-wrapper {
 }
 
 /* Bottom-up settings container */
-#bottom-up-container {
+#settings-container {
   transform: translateY(calc(100% + 2em)); /* Off-screen, below viewport */
   transition: transform 0.3s ease-in-out;
   position: fixed;
@@ -1616,13 +1616,13 @@ body.hyperlit-container-open .reader-content-wrapper {
 }
 
 /* When hidden, ensure container is fully removed from rendering */
-#bottom-up-container.hidden {
+#settings-container.hidden {
   display: none !important; /* Completely hide to prevent backdrop-filter from showing */
   transform: translateY(calc(100% + 2em));
 }
 
 /* When open, slide up into view */
-#bottom-up-container.open {
+#settings-container.open {
   transform: translateY(0);
 }
 
@@ -1785,7 +1785,7 @@ body.hyperlit-container-open .reader-content-wrapper {
 
 /* Mobile adjustments for settings sliders */
 @media (max-width: 480px) {
-  #bottom-up-container {
+  #settings-container {
     padding: 0.75em 1em;
   }
 }

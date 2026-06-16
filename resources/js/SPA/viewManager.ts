@@ -28,7 +28,7 @@ import { initializeHypercitingControls, cleanupHypercitingControls } from "../hy
 import { initializeBroadcastListener } from "../utilities/BroadcastListener.js";
 import { setupUnloadSync } from "../indexedDB/index.js";
 import { generateTableOfContents, destroyTocManager, initializeTocManager } from "../components/toc.js";
-import { destroySettingsManager, initializeSettingsManager } from "../components/settingsContainer.js";
+import { destroySettingsManager, initializeSettingsManager } from "../components/settingsButton/settingsButton";
 import { KeyboardManager } from "../components/keyboardManager.js";
 import {
   initializeEditButtonListeners,
@@ -280,7 +280,7 @@ export async function universalPageInitializer(progressCallback = null) {
   // Re-apply vibe CSS after SPA navigation so the canvas + theme persist
   import('../utilities/themeSwitcher.js').then(({ getCurrentTheme, THEMES }) => {
     if (getCurrentTheme() === THEMES.VIBE) {
-      import('../components/vibeCSS.js').then(m => m.applyVibeCSS());
+      import('../components/settingsContainer/vibeCSS').then(m => m.applyVibeCSS());
     }
   });
 

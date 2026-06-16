@@ -53,7 +53,7 @@ const IDB_ROOT = path.join(RES_ROOT, 'indexedDB');         // the front-end data
  * the heaviest DOM writer, mutation-observer-driven). They form the JS tier
  * between the reader page and the object stores.
  */
-const EXTRA_ROOTS = [path.join(RES_ROOT, 'hyperlights'), path.join(RES_ROOT, 'hypercites'), path.join(RES_ROOT, 'divEditor'), path.join(RES_ROOT, 'editToolbar'), path.join(RES_ROOT, 'footnotes'), path.join(RES_ROOT, 'citations'), path.join(RES_ROOT, 'hyperlitContainer'), path.join(RES_ROOT, 'lazyLoader'), path.join(RES_ROOT, 'scrolling'), path.join(RES_ROOT, 'pageLoad'), path.join(RES_ROOT, 'SPA'), path.join(RES_ROOT, 'components', 'topRightContainer'), path.join(RES_ROOT, 'components', 'userButton'), path.join(RES_ROOT, 'components', 'userContainer'), path.join(RES_ROOT, 'components', 'newBookButton'), path.join(RES_ROOT, 'components', 'newbookContainer')];
+const EXTRA_ROOTS = [path.join(RES_ROOT, 'hyperlights'), path.join(RES_ROOT, 'hypercites'), path.join(RES_ROOT, 'divEditor'), path.join(RES_ROOT, 'editToolbar'), path.join(RES_ROOT, 'footnotes'), path.join(RES_ROOT, 'citations'), path.join(RES_ROOT, 'hyperlitContainer'), path.join(RES_ROOT, 'lazyLoader'), path.join(RES_ROOT, 'scrolling'), path.join(RES_ROOT, 'pageLoad'), path.join(RES_ROOT, 'SPA'), path.join(RES_ROOT, 'components', 'topRightContainer'), path.join(RES_ROOT, 'components', 'userButton'), path.join(RES_ROOT, 'components', 'userContainer'), path.join(RES_ROOT, 'components', 'newBookButton'), path.join(RES_ROOT, 'components', 'newbookContainer'), path.join(RES_ROOT, 'components', 'settingsButton'), path.join(RES_ROOT, 'components', 'settingsContainer')];
 
 /** Per-store key + index names — what each object store holds — straight from the schema. */
 const STORE_SCHEMA: Record<string, { keyPath: string; indices: string[] }> = Object.fromEntries(
@@ -132,8 +132,11 @@ export interface GraphModule {
    *  - 'capture' = touches the DOM (DOM↔IndexedDB layer)
    *  - 'sync'    = pushes/pulls Postgres (IndexedDB↔Postgres layer)
    *  - 'store'   = store-only CRUD / pure helper (the IndexedDB layer itself)
+   *  - 'components' = a `components/` UI module — laid out as its own band
+   *    directly above the DOM (it drives the DOM most directly), regardless of
+   *    what it touches.
    */
-  band: 'capture' | 'sync' | 'store';
+  band: 'capture' | 'sync' | 'store' | 'components';
   fnIds: string[];
 }
 
@@ -644,6 +647,8 @@ export function collect(): FlowViz {
     agg.set(fn.module, a);
   }
   const bandOf = (moduleId: string): GraphModule['band'] => {
+    // components sit in their own DOM-adjacent band, whatever they touch.
+    if (moduleId.startsWith('components/')) return 'components';
     const a = agg.get(moduleId);
     if (a?.pg) return 'sync';       // ships data IndexedDB → Postgres
     if (a?.dom) return 'capture';   // bridges DOM ↔ IndexedDB
@@ -930,53 +935,75 @@ function rebuild(){
   var TABLEY=70, GAP=90, TARGET_ROWS=8;
   var els=[];
 
-  var byBand={capture:[],store:[],sync:[]};
+  var byBand={capture:[],store:[],sync:[],components:[]};
   VIZ.modules.forEach(function(m){ (byBand[m.band]||byBand.store).push(m); });
 
   // folder zones across the X axis. Known folders in a fixed order, extras appended.
   var FOLDER_ORDER=["hyperlights","hypercites","divEditor","editToolbar","indexedDB","footnotes","citations","hyperlitContainer","lazyLoader","scrolling","pageLoad","SPA","components"];
   var FCOLOR={indexedDB:"#9aa6bd",hyperlights:"#3fb6b6",hypercites:"#caa14b",divEditor:"#5e8fd6",editToolbar:"#d18ad0",footnotes:"#c98a5e",citations:"#7bbf6a",hyperlitContainer:"#c45d6d",lazyLoader:"#6abf9f",scrolling:"#bf8a6a",pageLoad:"#8a7bbf",SPA:"#b06a8a",components:"#9c8f4e"};
-  var folders=[]; VIZ.modules.forEach(function(m){ var f=m.id.split("/")[0]; if(folders.indexOf(f)<0) folders.push(f); });
-  folders.sort(function(a,b){ var ia=FOLDER_ORDER.indexOf(a),ib=FOLDER_ORDER.indexOf(b); ia=ia<0?99:ia; ib=ib<0?99:ib; return ia-ib||(a<b?-1:1); });
-  // a folder gets >1 sub-column only when one band would otherwise stack too tall
-  var subCols={}, startCol={}, totalCols=0;
-  folders.forEach(function(f){
-    var maxIn=1;
-    ["sync","store","capture"].forEach(function(b){ var c=byBand[b].filter(function(m){return m.id.split("/")[0]===f;}).length; if(c>maxIn)maxIn=c; });
-    subCols[f]=Math.max(1,Math.ceil(maxIn/TARGET_ROWS)); startCol[f]=totalCols; totalCols+=subCols[f];
-  });
-  var NCOLS=Math.max(1,totalCols);
 
-  // place each band's modules into their folder's sub-column(s); cumulative Y per column
-  function layoutBand(mods, topY){
+  // The DATA-LAYER folders form the tall upper column grid. components/ modules are
+  // pulled OUT of that grid into their own band directly above the DOM (they drive the
+  // DOM most directly), sub-divided by their 2nd path segment (topRightContainer, etc).
+  function dataFolderOf(m){ return m.id.split("/")[0]; }
+  function compFolderOf(m){ return m.id.split("/")[1] || "components"; }
+
+  var folders=[]; VIZ.modules.forEach(function(m){ if(m.band==="components") return; var f=dataFolderOf(m); if(folders.indexOf(f)<0) folders.push(f); });
+  folders.sort(function(a,b){ var ia=FOLDER_ORDER.indexOf(a),ib=FOLDER_ORDER.indexOf(b); ia=ia<0?99:ia; ib=ib<0?99:ib; return ia-ib||(a<b?-1:1); });
+  var compFolders=[]; byBand.components.forEach(function(m){ var f=compFolderOf(m); if(compFolders.indexOf(f)<0) compFolders.push(f); });
+  compFolders.sort(function(a,b){return a<b?-1:(a>b?1:0);});
+
+  // a folder gets >1 sub-column only when one band would otherwise stack too tall
+  function buildCols(folderList, bands, colKeyOf){
+    var subCols={}, startCol={}, total=0;
+    folderList.forEach(function(f){
+      var maxIn=1;
+      bands.forEach(function(b){ var c=byBand[b].filter(function(m){return colKeyOf(m)===f;}).length; if(c>maxIn)maxIn=c; });
+      subCols[f]=Math.max(1,Math.ceil(maxIn/TARGET_ROWS)); startCol[f]=total; total+=subCols[f];
+    });
+    return {subCols:subCols,startCol:startCol,ncols:Math.max(1,total)};
+  }
+  var dataCols=buildCols(folders,["sync","store","capture"],dataFolderOf);
+  var compCols=buildCols(compFolders,["components"],compFolderOf);
+  var NCOLS=Math.max(dataCols.ncols,compCols.ncols);
+  // centre each band within the widest band's footprint (half the leftover columns)
+  var dataOff=(NCOLS-dataCols.ncols)/2, compOff=(NCOLS-compCols.ncols)/2;
+
+  // place each band's modules into their folder's sub-column(s); cumulative Y per column.
+  // colKeyOf → which column a module lands in; styleFolderOf → the folder used for colour;
+  // xOff → columns to shift the band right so it's horizontally centred.
+  function layoutBand(mods, topY, cols, folderList, colKeyOf, styleFolderOf, xOff){
     var colY=[]; for(var c=0;c<NCOLS;c++) colY[c]=topY;
-    var byFolder={}; mods.forEach(function(m){ var f=m.id.split("/")[0]; (byFolder[f]=byFolder[f]||[]).push(m); });
-    folders.forEach(function(f){
+    var byFolder={}; mods.forEach(function(m){ var f=colKeyOf(m); (byFolder[f]=byFolder[f]||[]).push(m); });
+    folderList.forEach(function(f){
       var list=(byFolder[f]||[]).sort(function(a,c){return a.id<c.id?-1:(a.id>c.id?1:0);});
       list.forEach(function(m,i){
-        var c=startCol[f]+(i%subCols[f]), colX=STARTX+c*COLW;
+        var c=cols.startCol[f]+(i%cols.subCols[f]), colX=STARTX+(c+xOff)*COLW, sf=styleFolderOf(m);
         if(expanded[m.id]){
-          els.push({data:{id:"mod:"+m.id,label:m.label,kind:"module",expanded:1,band:m.band,folder:f}});
+          els.push({data:{id:"mod:"+m.id,label:m.label,kind:"module",expanded:1,band:m.band,folder:sf}});
           var sy=colY[c]+30;
-          m.fnIds.forEach(function(fid,j){ var n=nodeById[fid]; els.push({data:{id:fid,label:n.label,kind:"fn",parent:"mod:"+m.id,stage:n.stage,band:m.band,folder:f,leaf:n.leaf?1:0},position:{x:colX,y:sy+j*ROWH}}); });
+          m.fnIds.forEach(function(fid,j){ var n=nodeById[fid]; els.push({data:{id:fid,label:n.label,kind:"fn",parent:"mod:"+m.id,stage:n.stage,band:m.band,folder:sf,leaf:n.leaf?1:0},position:{x:colX,y:sy+j*ROWH}}); });
           colY[c]=sy+m.fnIds.length*ROWH+30;
         } else {
-          els.push({data:{id:"mod:"+m.id,label:m.label+"  ("+m.fnIds.length+")",kind:"module",expanded:0,band:m.band,folder:f},position:{x:colX,y:colY[c]}});
+          els.push({data:{id:"mod:"+m.id,label:m.label+"  ("+m.fnIds.length+")",kind:"module",expanded:0,band:m.band,folder:sf},position:{x:colX,y:colY[c]}});
           colY[c]+=MODH+14;
         }
       });
     });
     return Math.max.apply(null,colY);
   }
+  function compStyle(){ return "components"; }
 
   var SYNC_TOP=TABLEY+GAP+24;
-  var syncBottom=layoutBand(byBand.sync, SYNC_TOP);
+  var syncBottom=layoutBand(byBand.sync, SYNC_TOP, dataCols, folders, dataFolderOf, dataFolderOf, dataOff);
   var STORECODE_TOP=syncBottom+GAP;
-  var storeBottom=layoutBand(byBand.store, STORECODE_TOP);
+  var storeBottom=layoutBand(byBand.store, STORECODE_TOP, dataCols, folders, dataFolderOf, dataFolderOf, dataOff);
   var STOREY=storeBottom+GAP;                 // object-store barrels row (the IndexedDB level)
   var CAPTURE_TOP=STOREY+GAP;
-  var capBottom=layoutBand(byBand.capture, CAPTURE_TOP);
-  var DOMY=capBottom+GAP;
+  var capBottom=layoutBand(byBand.capture, CAPTURE_TOP, dataCols, folders, dataFolderOf, dataFolderOf, dataOff);
+  var COMPONENTS_TOP=capBottom+GAP;           // components band sits directly above the DOM
+  var compBottom=layoutBand(byBand.components, COMPONENTS_TOP, compCols, compFolders, compFolderOf, compStyle, compOff);
+  var DOMY=compBottom+GAP;
 
   var fullW=STARTX+(NCOLS-1)*COLW;
   function spread(n,i){ return STARTX+(n<=1?fullW/2:(i*fullW)/(n-1)); }
@@ -997,8 +1024,13 @@ function rebuild(){
 
   // folder column headers across the top (the HORIZONTAL legend)
   folders.forEach(function(f){
-    var cx=STARTX+(startCol[f]+(subCols[f]-1)/2)*COLW;
+    var cx=STARTX+(dataOff+dataCols.startCol[f]+(dataCols.subCols[f]-1)/2)*COLW;
     els.push({data:{id:"colh:"+f,label:f,kind:"colheader",hcolor:FCOLOR[f]||"#9aa6bd"},position:{x:cx,y:TABLEY-60}});
+  });
+  // components sub-folder headers, sitting just above the components band
+  compFolders.forEach(function(f){
+    var cx=STARTX+(compOff+compCols.startCol[f]+(compCols.subCols[f]-1)/2)*COLW;
+    els.push({data:{id:"colh:comp:"+f,label:f,kind:"colheader",hcolor:FCOLOR.components},position:{x:cx,y:COMPONENTS_TOP-44}});
   });
 
   // left-margin labels: 3 big DATA levels + 2 role labels for the code GAPS
@@ -1007,6 +1039,7 @@ function rebuild(){
   els.push({data:{id:"band:sync",label:"code:\\nIndexedDB ↔ server",kind:"codeband"},position:{x:labelX,y:(SYNC_TOP+syncBottom)/2}});
   els.push({data:{id:"tier:idb",label:"INDEXEDDB\\n(object stores)",kind:"tier"},position:{x:labelX,y:(STORECODE_TOP+STOREY)/2}});
   els.push({data:{id:"band:capture",label:"code:\\npage ↔ IndexedDB",kind:"codeband"},position:{x:labelX,y:(CAPTURE_TOP+capBottom)/2}});
+  els.push({data:{id:"band:components",label:"code:\\nDOM components",kind:"codeband"},position:{x:labelX,y:(COMPONENTS_TOP+compBottom)/2}});
   els.push({data:{id:"tier:dom",label:"DOM\\n(reader.blade.php)",kind:"tier"},position:{x:labelX,y:DOMY}});
 
   // folder of an endpoint id ("mod:hyperlights/x" / "hyperlights/x:fn" → "hyperlights")

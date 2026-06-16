@@ -1,13 +1,13 @@
-import { clamp, parseColors } from './utils.js';
+import { clamp, parseColors } from './utils';
 
 const DEFAULT_COLORS = ['#ff4500', '#ff6b35', '#ffa500', '#ff0000', '#ffcc00'];
 const MAX = 200;
 
-let particles = [];
-let colors, intensity, speed, w0, h0;
+let particles: any[] = [];
+let colors: any, intensity: any, speed: any, w0: any, h0: any;
 
 export default {
-  init(params, w, h) {
+  init(params: any, w: any, h: any) {
     w0 = w; h0 = h;
     colors = parseColors(params.colors);
     if (colors.length === 0 || colors[0] === '#ff0080') colors = DEFAULT_COLORS;
@@ -16,7 +16,7 @@ export default {
     particles = [];
   },
 
-  tick(ctx, w, h) {
+  tick(ctx: any, w: any, h: any) {
     ctx.clearRect(0, 0, w, h);
 
     // Spawn new particles from bottom

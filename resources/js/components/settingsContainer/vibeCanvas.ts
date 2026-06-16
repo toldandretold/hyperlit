@@ -1,28 +1,28 @@
 /**
  * Canvas animation orchestrator — dispatches to engine modules by mode.
- * Lazy-loaded via dynamic import() from vibeCSS.js — zero cost for non-canvas vibes.
+ * Lazy-loaded via dynamic import() from vibeCSS — zero cost for non-canvas vibes.
  */
-import feedback from './canvasEngines/feedback.js';
-import fire from './canvasEngines/fire.js';
-import water from './canvasEngines/water.js';
-import wind from './canvasEngines/wind.js';
-import electricity from './canvasEngines/electricity.js';
+import feedback from './canvasEngines/feedback';
+import fire from './canvasEngines/fire';
+import water from './canvasEngines/water';
+import wind from './canvasEngines/wind';
+import electricity from './canvasEngines/electricity';
 
-const engines = { feedback, fire, water, wind, electricity };
+const engines: any = { feedback, fire, water, wind, electricity };
 
-let canvas = null;
-let ctx = null;
-let rafId = null;
-let resizeHandler = null;
-let activeEngine = null;
-let activeParams = null;
+let canvas: any = null;
+let ctx: any = null;
+let rafId: any = null;
+let resizeHandler: any = null;
+let activeEngine: any = null;
+let activeParams: any = null;
 let frameCount = 0;
 
 /**
  * Start (or restart) the canvas with the given mode's engine.
- * @param {object} params — parsed from --vibe-canvas-* keys (without prefix)
+ * @param params — parsed from --vibe-canvas-* keys (without prefix)
  */
-export function startVibeCanvas(params) {
+export function startVibeCanvas(params: any) {
   stopVibeCanvas();
 
   const mode = (params.mode && engines[params.mode]) ? params.mode : 'feedback';

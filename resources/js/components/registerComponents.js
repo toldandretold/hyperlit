@@ -14,7 +14,7 @@ import { buttonRegistry } from '../utilities/buttonRegistry.js';
 import {
   initializeSettingsManager,
   destroySettingsManager
-} from './settingsContainer.js';
+} from './settingsButton/settingsButton';
 
 import {
   initializeSearchToolbar,

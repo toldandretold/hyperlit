@@ -1,13 +1,13 @@
-import { clamp, parseColors } from './utils.js';
+import { clamp, parseColors } from './utils';
 
 const DEFAULT_COLORS = ['#e0e0e0', '#b0c4de', '#d3d3d3', '#a8c8e0', '#f0f0f0'];
 const MAX = 150;
 
-let streaks = [];
-let colors, intensity, speed, frame;
+let streaks: any[] = [];
+let colors: any, intensity: any, speed: any, frame: any;
 
 export default {
-  init(params, w, h) {
+  init(params: any, w: any, h: any) {
     colors = parseColors(params.colors);
     if (colors.length === 0 || colors[0] === '#ff0080') colors = DEFAULT_COLORS;
     intensity = Math.round(clamp(parseFloat(params.intensity) || 3, 1, 8));
@@ -16,7 +16,7 @@ export default {
     frame = 0;
   },
 
-  tick(ctx, w, h) {
+  tick(ctx: any, w: any, h: any) {
     ctx.clearRect(0, 0, w, h);
     frame++;
 
