@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1265 functions in 254 modules · 8 object stores · 6 PG tables · 2435 edges
+**MarkdownDB** schema v27 · 1312 functions in 258 modules · 8 object stores · 6 PG tables · 2478 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1097,6 +1097,53 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setNavigatingState` | `scrolling/userScrollDetection` | — | — | — | — |
 | `setupUserScrollDetection` | `scrolling/userScrollDetection` | — | — | — | — |
 | `shouldSkipScrollRestoration` | `scrolling/userScrollDetection` | — | — | — | — |
+| `buildSearchIndex` | `search/inTextSearch/searchEngine` | — | — | — | — |
+| `normalizeText` | `search/inTextSearch/searchEngine` | — | — | — | — |
+| `searchIndex` | `search/inTextSearch/searchEngine` | — | — | — | — |
+| `stripHtml` | `search/inTextSearch/searchEngine` | — | — | write | — |
+| `applySearchHighlight` | `search/inTextSearch/searchHighlight` | — | — | read/write | — |
+| `clearSearchHighlights` | `search/inTextSearch/searchHighlight` | — | — | read/write | — |
+| `setCurrentHighlight` | `search/inTextSearch/searchHighlight` | — | — | read/write | — |
+| `setSearchMode` | `search/inTextSearch/searchHighlight` | — | — | write | — |
+| `checkHighlightParam` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `closeSearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `destroySearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `getSearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `initializeSearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `invalidateSearchIndex` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `isSearchToolbarOpen` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `openSearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `openSearchToolbarWithQuery` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.applyMarksForChunk` | `search/inTextSearch/searchToolbar` | — | — | read | — |
+| `SearchToolbarManager.applyMarksToLoadedChunks` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.bindElements` | `search/inTextSearch/searchToolbar` | — | — | read | — |
+| `SearchToolbarManager.clearSearch` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.close` | `search/inTextSearch/searchToolbar` | — | — | write | — |
+| `SearchToolbarManager.constructor` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.destroy` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.ensureSearchIndex` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.findNearestMatchIndex` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.getCurrentVisibleStartLine` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.handleClickOutside` | `search/inTextSearch/searchToolbar` | — | — | read | — |
+| `SearchToolbarManager.handleInput` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.handleKeydown` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.handleNext` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.handlePrev` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.hidePerimeterButtons` | `search/inTextSearch/searchToolbar` | — | — | read/write | — |
+| `SearchToolbarManager.highlightCurrentMatch` | `search/inTextSearch/searchToolbar` | — | — | read/write | — |
+| `SearchToolbarManager.invalidateIndex` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.navigateToCurrentMatch` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.open` | `search/inTextSearch/searchToolbar` | — | — | write | — |
+| `SearchToolbarManager.performSearch` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.rebindElements` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.setupEventListeners` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.showPerimeterButtons` | `search/inTextSearch/searchToolbar` | — | — | read/write | — |
+| `SearchToolbarManager.toggle` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.updateMatchCounter` | `search/inTextSearch/searchToolbar` | — | — | write | — |
+| `SearchToolbarManager.updateNavigationButtons` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `toggleSearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `destroyHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | — | — | — | — |
+| `initializeHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | — | — | read | — |
 | `createNewBook` | `SPA/createNewBook` | — | `library` `nodes` | — | — |
 | `fireAndForgetSync` | `SPA/createNewBook` | `library` `nodes` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `markdownStore` `nodes` | read | — |
 | `waitForChunkLoadingComplete` | `SPA/domReadiness` | — | — | read | — |
@@ -1285,7 +1332,7 @@ Only *static-import* rings can crash with a TDZ "Cannot access X before initiali
 ### Cycles masked by dynamic imports (coupling debt)
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
 - (2 modules) `components/cloudRef/editIndicator`, `indexedDB/core/healthMonitor`
-- (70 modules) `SPA/domReadiness`, `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/cloudRef/cloudRefButton`, `components/editButton/index`, `components/editButton/lock`, `components/fileDropTarget/fileDropTarget`, `components/homepage/homepage`, `components/homepage/homepageDisplayUnit`, `components/newBookButton/newBookButton`, `components/newbookContainer/index`, `components/selectionHandler/selectionHandler`, `components/settingsButton/settingsButton`, `components/settingsContainer/index`, `components/sourceContainer/creatorTools/reconvert`, `components/sourceContainer/downloads`, `components/sourceContainer/index`, `components/tocContainer/index`, `components/tocToggleButton/tocToggleButton`, `components/togglePerimeterButtons/togglePerimeterButtons`, `components/userButton/userButton`, `components/userContainer/index`, `components/userProfile/userProfileEditor`, `components/utilities/containerManager`, `components/utilities/registerComponents`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/footnoteTapExtender`, `hyperlitContainer/footnotesCitations`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
+- (72 modules) `SPA/domReadiness`, `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/cloudRef/cloudRefButton`, `components/editButton/index`, `components/editButton/lock`, `components/fileDropTarget/fileDropTarget`, `components/homepage/homepage`, `components/homepage/homepageDisplayUnit`, `components/newBookButton/newBookButton`, `components/newbookContainer/index`, `components/selectionHandler/selectionHandler`, `components/settingsButton/settingsButton`, `components/settingsContainer/index`, `components/sourceContainer/creatorTools/reconvert`, `components/sourceContainer/downloads`, `components/sourceContainer/index`, `components/tocContainer/index`, `components/tocToggleButton/tocToggleButton`, `components/togglePerimeterButtons/togglePerimeterButtons`, `components/userButton/userButton`, `components/userContainer/index`, `components/userProfile/userProfileEditor`, `components/utilities/containerManager`, `components/utilities/registerComponents`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `divEditor/saveQueue`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/footnoteTapExtender`, `hyperlitContainer/footnotesCitations`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`, `search/inTextSearch/searchToolbar`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
 - `SPA/viewManager` → `SPA/navigation/LinkNavigationHandler`

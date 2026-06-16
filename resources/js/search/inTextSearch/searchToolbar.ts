@@ -2,10 +2,13 @@
 
 import { log, verbose } from "../../utilities/logger";
 import { debounce } from "../../utilities/debounce";
-import { cancelPendingNavigationCleanup, navigateToInternalId } from "../../scrolling/index";
+// Import from source modules (not the scrolling/ barrel) so searchToolbar doesn't pull the
+// whole scrolling graph in — keeps the static import graph acyclic.
+import { navigateToInternalId } from "../../scrolling/internalNav";
+import { cancelPendingNavigationCleanup } from "../../scrolling/userScrollDetection";
 import { getNodeChunksFromIndexedDB } from "../../indexedDB/nodes/read";
 import { getLocalStorageKey } from "../../indexedDB/index";
-import { currentLazyLoader } from "../../pageLoad/index";
+import { currentLazyLoader } from "../../pageLoad/currentLazyLoaderState"; // zero-import leaf (not the pageLoad barrel) → no cycle
 import { buildSearchIndex, searchIndex } from "./searchEngine";
 import {
   applySearchHighlight,

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1265,
-    "moduleCount": 254,
+    "fnCount": 1312,
+    "moduleCount": 258,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 2435,
+    "edgeCount": 2478,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -8879,6 +8879,382 @@
       "leaf": true
     },
     {
+      "id": "search/inTextSearch/searchEngine:buildSearchIndex",
+      "label": "buildSearchIndex",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchEngine",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchEngine:normalizeText",
+      "label": "normalizeText",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchEngine",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchEngine:searchIndex",
+      "label": "searchIndex",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchEngine",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchEngine:stripHtml",
+      "label": "stripHtml",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchEngine",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchHighlight:applySearchHighlight",
+      "label": "applySearchHighlight",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchHighlight",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchHighlight:clearSearchHighlights",
+      "label": "clearSearchHighlights",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchHighlight",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchHighlight:setCurrentHighlight",
+      "label": "setCurrentHighlight",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchHighlight",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchHighlight:setSearchMode",
+      "label": "setSearchMode",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchHighlight",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:checkHighlightParam",
+      "label": "checkHighlightParam",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:closeSearchToolbar",
+      "label": "closeSearchToolbar",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:destroySearchToolbar",
+      "label": "destroySearchToolbar",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:getSearchToolbar",
+      "label": "getSearchToolbar",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:initializeSearchToolbar",
+      "label": "initializeSearchToolbar",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:invalidateSearchIndex",
+      "label": "invalidateSearchIndex",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:isSearchToolbarOpen",
+      "label": "isSearchToolbarOpen",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:openSearchToolbar",
+      "label": "openSearchToolbar",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:openSearchToolbarWithQuery",
+      "label": "openSearchToolbarWithQuery",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.applyMarksForChunk",
+      "label": "SearchToolbarManager.applyMarksForChunk",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.applyMarksToLoadedChunks",
+      "label": "SearchToolbarManager.applyMarksToLoadedChunks",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.bindElements",
+      "label": "SearchToolbarManager.bindElements",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.clearSearch",
+      "label": "SearchToolbarManager.clearSearch",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.close",
+      "label": "SearchToolbarManager.close",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.constructor",
+      "label": "SearchToolbarManager.constructor",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.destroy",
+      "label": "SearchToolbarManager.destroy",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.ensureSearchIndex",
+      "label": "SearchToolbarManager.ensureSearchIndex",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.findNearestMatchIndex",
+      "label": "SearchToolbarManager.findNearestMatchIndex",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.getCurrentVisibleStartLine",
+      "label": "SearchToolbarManager.getCurrentVisibleStartLine",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleClickOutside",
+      "label": "SearchToolbarManager.handleClickOutside",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleInput",
+      "label": "SearchToolbarManager.handleInput",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleKeydown",
+      "label": "SearchToolbarManager.handleKeydown",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleNext",
+      "label": "SearchToolbarManager.handleNext",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.handlePrev",
+      "label": "SearchToolbarManager.handlePrev",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.hidePerimeterButtons",
+      "label": "SearchToolbarManager.hidePerimeterButtons",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.highlightCurrentMatch",
+      "label": "SearchToolbarManager.highlightCurrentMatch",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.invalidateIndex",
+      "label": "SearchToolbarManager.invalidateIndex",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.navigateToCurrentMatch",
+      "label": "SearchToolbarManager.navigateToCurrentMatch",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.open",
+      "label": "SearchToolbarManager.open",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.performSearch",
+      "label": "SearchToolbarManager.performSearch",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.rebindElements",
+      "label": "SearchToolbarManager.rebindElements",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.setupEventListeners",
+      "label": "SearchToolbarManager.setupEventListeners",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.showPerimeterButtons",
+      "label": "SearchToolbarManager.showPerimeterButtons",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.toggle",
+      "label": "SearchToolbarManager.toggle",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.updateMatchCounter",
+      "label": "SearchToolbarManager.updateMatchCounter",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.updateNavigationButtons",
+      "label": "SearchToolbarManager.updateNavigationButtons",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:toggleSearchToolbar",
+      "label": "toggleSearchToolbar",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/postgreSQLsearch/homepageSearch:destroyHomepageSearch",
+      "label": "destroyHomepageSearch",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/postgreSQLsearch/homepageSearch",
+      "leaf": true
+    },
+    {
+      "id": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
+      "label": "initializeHomepageSearch",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/postgreSQLsearch/homepageSearch",
+      "leaf": false
+    },
+    {
       "id": "SPA/createNewBook:createNewBook",
       "label": "createNewBook",
       "kind": "fn",
@@ -13272,6 +13648,85 @@
       ]
     },
     {
+      "id": "search/inTextSearch/searchEngine",
+      "label": "search/inTextSearch/searchEngine",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "search/inTextSearch/searchEngine:buildSearchIndex",
+        "search/inTextSearch/searchEngine:normalizeText",
+        "search/inTextSearch/searchEngine:searchIndex",
+        "search/inTextSearch/searchEngine:stripHtml"
+      ]
+    },
+    {
+      "id": "search/inTextSearch/searchHighlight",
+      "label": "search/inTextSearch/searchHighlight",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "search/inTextSearch/searchHighlight:applySearchHighlight",
+        "search/inTextSearch/searchHighlight:clearSearchHighlights",
+        "search/inTextSearch/searchHighlight:setCurrentHighlight",
+        "search/inTextSearch/searchHighlight:setSearchMode"
+      ]
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar",
+      "label": "search/inTextSearch/searchToolbar",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.applyMarksForChunk",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.applyMarksToLoadedChunks",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.bindElements",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.clearSearch",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.close",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.constructor",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.destroy",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.ensureSearchIndex",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.findNearestMatchIndex",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.getCurrentVisibleStartLine",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.handleClickOutside",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.handleInput",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.handleKeydown",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.handleNext",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.handlePrev",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.hidePerimeterButtons",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.highlightCurrentMatch",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.invalidateIndex",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.navigateToCurrentMatch",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.open",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.performSearch",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.rebindElements",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.setupEventListeners",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.showPerimeterButtons",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.toggle",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.updateMatchCounter",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.updateNavigationButtons",
+        "search/inTextSearch/searchToolbar:checkHighlightParam",
+        "search/inTextSearch/searchToolbar:closeSearchToolbar",
+        "search/inTextSearch/searchToolbar:destroySearchToolbar",
+        "search/inTextSearch/searchToolbar:getSearchToolbar",
+        "search/inTextSearch/searchToolbar:initializeSearchToolbar",
+        "search/inTextSearch/searchToolbar:invalidateSearchIndex",
+        "search/inTextSearch/searchToolbar:isSearchToolbarOpen",
+        "search/inTextSearch/searchToolbar:openSearchToolbar",
+        "search/inTextSearch/searchToolbar:openSearchToolbarWithQuery",
+        "search/inTextSearch/searchToolbar:toggleSearchToolbar"
+      ]
+    },
+    {
+      "id": "search/postgreSQLsearch/homepageSearch",
+      "label": "search/postgreSQLsearch/homepageSearch",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "search/postgreSQLsearch/homepageSearch:destroyHomepageSearch",
+        "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch"
+      ]
+    },
+    {
       "id": "SPA/createNewBook",
       "label": "SPA/createNewBook",
       "stage": "SPA",
@@ -14884,6 +15339,12 @@
       "id": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick__call__components/settingsContainer/themeSwitcher:switchTheme",
       "source": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
       "target": "components/settingsContainer/themeSwitcher:switchTheme",
+      "rel": "call"
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick__call__search/inTextSearch/searchToolbar:openSearchToolbar",
+      "source": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
+      "target": "search/inTextSearch/searchToolbar:openSearchToolbar",
       "rel": "call"
     },
     {
@@ -16725,6 +17186,18 @@
       "dataPath": true
     },
     {
+      "id": "components/utilities/registerComponents:registerAllComponents__call__search/inTextSearch/searchToolbar:checkHighlightParam",
+      "source": "components/utilities/registerComponents:registerAllComponents",
+      "target": "search/inTextSearch/searchToolbar:checkHighlightParam",
+      "rel": "call"
+    },
+    {
+      "id": "components/utilities/registerComponents:registerAllComponents__call__search/inTextSearch/searchToolbar:initializeSearchToolbar",
+      "source": "components/utilities/registerComponents:registerAllComponents",
+      "target": "search/inTextSearch/searchToolbar:initializeSearchToolbar",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/chunkManager:handleChunkOverflow__call__divEditor/chunkManager:trackChunkNodeCount",
       "source": "divEditor/chunkManager:handleChunkOverflow",
       "target": "divEditor/chunkManager:trackChunkNodeCount",
@@ -17268,6 +17741,12 @@
       "rel": "call"
     },
     {
+      "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__search/inTextSearch/searchToolbar:invalidateSearchIndex",
+      "source": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+      "target": "search/inTextSearch/searchToolbar:invalidateSearchIndex",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/core/healthMonitor:isIDBBroken",
       "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
       "target": "indexedDB/core/healthMonitor:isIDBBroken",
@@ -17304,6 +17783,12 @@
       "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__lazyLoader/utilities/cacheState:markCacheDirty",
       "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
       "target": "lazyLoader/utilities/cacheState:markCacheDirty",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__search/inTextSearch/searchToolbar:invalidateSearchIndex",
+      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "target": "search/inTextSearch/searchToolbar:invalidateSearchIndex",
       "rel": "call"
     },
     {
@@ -19979,6 +20464,66 @@
       "id": "dom__domread__scrolling/scrollHelpers:waitForElementAndScroll",
       "source": "dom",
       "target": "scrolling/scrollHelpers:waitForElementAndScroll",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__search/inTextSearch/searchHighlight:applySearchHighlight",
+      "source": "dom",
+      "target": "search/inTextSearch/searchHighlight:applySearchHighlight",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__search/inTextSearch/searchHighlight:clearSearchHighlights",
+      "source": "dom",
+      "target": "search/inTextSearch/searchHighlight:clearSearchHighlights",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__search/inTextSearch/searchHighlight:setCurrentHighlight",
+      "source": "dom",
+      "target": "search/inTextSearch/searchHighlight:setCurrentHighlight",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__search/inTextSearch/searchToolbar:SearchToolbarManager.applyMarksForChunk",
+      "source": "dom",
+      "target": "search/inTextSearch/searchToolbar:SearchToolbarManager.applyMarksForChunk",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__search/inTextSearch/searchToolbar:SearchToolbarManager.bindElements",
+      "source": "dom",
+      "target": "search/inTextSearch/searchToolbar:SearchToolbarManager.bindElements",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__search/inTextSearch/searchToolbar:SearchToolbarManager.handleClickOutside",
+      "source": "dom",
+      "target": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleClickOutside",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__search/inTextSearch/searchToolbar:SearchToolbarManager.hidePerimeterButtons",
+      "source": "dom",
+      "target": "search/inTextSearch/searchToolbar:SearchToolbarManager.hidePerimeterButtons",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__search/inTextSearch/searchToolbar:SearchToolbarManager.highlightCurrentMatch",
+      "source": "dom",
+      "target": "search/inTextSearch/searchToolbar:SearchToolbarManager.highlightCurrentMatch",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__search/inTextSearch/searchToolbar:SearchToolbarManager.showPerimeterButtons",
+      "source": "dom",
+      "target": "search/inTextSearch/searchToolbar:SearchToolbarManager.showPerimeterButtons",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
+      "source": "dom",
+      "target": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
       "rel": "domread"
     },
     {
@@ -26787,6 +27332,12 @@
       "rel": "call"
     },
     {
+      "id": "scrolling/restore:restoreScrollPosition__call__search/inTextSearch/searchToolbar:isSearchToolbarOpen",
+      "source": "scrolling/restore:restoreScrollPosition",
+      "target": "search/inTextSearch/searchToolbar:isSearchToolbarOpen",
+      "rel": "call"
+    },
+    {
       "id": "scrolling/restore:restoreScrollPosition__domwrite__dom",
       "source": "scrolling/restore:restoreScrollPosition",
       "target": "dom",
@@ -26827,6 +27378,171 @@
       "source": "scrolling/userScrollDetection:shouldSkipScrollRestoration",
       "target": "scrolling/userScrollDetection:isUserCurrentlyScrolling",
       "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchEngine:buildSearchIndex__call__search/inTextSearch/searchEngine:normalizeText",
+      "source": "search/inTextSearch/searchEngine:buildSearchIndex",
+      "target": "search/inTextSearch/searchEngine:normalizeText",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchEngine:buildSearchIndex__call__search/inTextSearch/searchEngine:stripHtml",
+      "source": "search/inTextSearch/searchEngine:buildSearchIndex",
+      "target": "search/inTextSearch/searchEngine:stripHtml",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchEngine:searchIndex__call__search/inTextSearch/searchEngine:normalizeText",
+      "source": "search/inTextSearch/searchEngine:searchIndex",
+      "target": "search/inTextSearch/searchEngine:normalizeText",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchEngine:stripHtml__domwrite__dom",
+      "source": "search/inTextSearch/searchEngine:stripHtml",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "search/inTextSearch/searchHighlight:applySearchHighlight__domwrite__dom",
+      "source": "search/inTextSearch/searchHighlight:applySearchHighlight",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "search/inTextSearch/searchHighlight:clearSearchHighlights__domwrite__dom",
+      "source": "search/inTextSearch/searchHighlight:clearSearchHighlights",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "search/inTextSearch/searchHighlight:setCurrentHighlight__domwrite__dom",
+      "source": "search/inTextSearch/searchHighlight:setCurrentHighlight",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "search/inTextSearch/searchHighlight:setSearchMode__domwrite__dom",
+      "source": "search/inTextSearch/searchHighlight:setSearchMode",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:checkHighlightParam__call__search/inTextSearch/searchToolbar:openSearchToolbarWithQuery",
+      "source": "search/inTextSearch/searchToolbar:checkHighlightParam",
+      "target": "search/inTextSearch/searchToolbar:openSearchToolbarWithQuery",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.applyMarksForChunk__call__search/inTextSearch/searchHighlight:applySearchHighlight",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.applyMarksForChunk",
+      "target": "search/inTextSearch/searchHighlight:applySearchHighlight",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.close__call__search/inTextSearch/searchHighlight:clearSearchHighlights",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.close",
+      "target": "search/inTextSearch/searchHighlight:clearSearchHighlights",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.close__call__search/inTextSearch/searchHighlight:setSearchMode",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.close",
+      "target": "search/inTextSearch/searchHighlight:setSearchMode",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.close__domwrite__dom",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.close",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.ensureSearchIndex__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.ensureSearchIndex",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.ensureSearchIndex__call__search/inTextSearch/searchEngine:buildSearchIndex",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.ensureSearchIndex",
+      "target": "search/inTextSearch/searchEngine:buildSearchIndex",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.getCurrentVisibleStartLine__call__indexedDB/core/utilities:getLocalStorageKey",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.getCurrentVisibleStartLine",
+      "target": "indexedDB/core/utilities:getLocalStorageKey",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleInput__call__scrolling/internalNav:navigateToInternalId",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleInput",
+      "target": "scrolling/internalNav:navigateToInternalId",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleInput__call__search/inTextSearch/searchHighlight:clearSearchHighlights",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleInput",
+      "target": "search/inTextSearch/searchHighlight:clearSearchHighlights",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.hidePerimeterButtons__domwrite__dom",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.hidePerimeterButtons",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.highlightCurrentMatch__domwrite__dom",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.highlightCurrentMatch",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.navigateToCurrentMatch__call__scrolling/internalNav:navigateToInternalId",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.navigateToCurrentMatch",
+      "target": "scrolling/internalNav:navigateToInternalId",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.open__call__scrolling/userScrollDetection:cancelPendingNavigationCleanup",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.open",
+      "target": "scrolling/userScrollDetection:cancelPendingNavigationCleanup",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.open__call__search/inTextSearch/searchHighlight:setSearchMode",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.open",
+      "target": "search/inTextSearch/searchHighlight:setSearchMode",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.open__domwrite__dom",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.open",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.performSearch__call__search/inTextSearch/searchEngine:searchIndex",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.performSearch",
+      "target": "search/inTextSearch/searchEngine:searchIndex",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.showPerimeterButtons__domwrite__dom",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.showPerimeterButtons",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.updateMatchCounter__domwrite__dom",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.updateMatchCounter",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "SPA/createNewBook:createNewBook__call__indexedDB/core/connection:openDatabase",
@@ -29872,6 +30588,11 @@
     },
     {
       "source": "components/settingsContainer/index",
+      "target": "search/inTextSearch/searchToolbar",
+      "kind": "static"
+    },
+    {
+      "source": "components/settingsContainer/index",
       "target": "components/utilities/gateFilter",
       "kind": "lazy"
     },
@@ -30341,6 +31062,16 @@
       "kind": "static"
     },
     {
+      "source": "components/utilities/registerComponents",
+      "target": "search/inTextSearch/searchToolbar",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "search/postgreSQLsearch/homepageSearch",
+      "kind": "static"
+    },
+    {
       "source": "divEditor/chunkManager",
       "target": "indexedDB/index",
       "kind": "static"
@@ -30553,6 +31284,11 @@
     {
       "source": "divEditor/saveQueue",
       "target": "lazyLoader/utilities/chunkLoadingState",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/saveQueue",
+      "target": "search/inTextSearch/searchToolbar",
       "kind": "static"
     },
     {
@@ -32656,8 +33392,48 @@
       "kind": "static"
     },
     {
+      "source": "scrolling/restore",
+      "target": "search/inTextSearch/searchToolbar",
+      "kind": "static"
+    },
+    {
       "source": "scrolling/scrollHelpers",
       "target": "scrolling/userScrollDetection",
+      "kind": "static"
+    },
+    {
+      "source": "search/inTextSearch/searchToolbar",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "search/inTextSearch/searchToolbar",
+      "target": "indexedDB/nodes/read",
+      "kind": "static"
+    },
+    {
+      "source": "search/inTextSearch/searchToolbar",
+      "target": "pageLoad/currentLazyLoaderState",
+      "kind": "static"
+    },
+    {
+      "source": "search/inTextSearch/searchToolbar",
+      "target": "scrolling/internalNav",
+      "kind": "static"
+    },
+    {
+      "source": "search/inTextSearch/searchToolbar",
+      "target": "scrolling/userScrollDetection",
+      "kind": "static"
+    },
+    {
+      "source": "search/inTextSearch/searchToolbar",
+      "target": "search/inTextSearch/searchEngine",
+      "kind": "static"
+    },
+    {
+      "source": "search/inTextSearch/searchToolbar",
+      "target": "search/inTextSearch/searchHighlight",
       "kind": "static"
     }
   ],
@@ -32707,6 +33483,7 @@
         "divEditor/chunkMutationHandler/index",
         "divEditor/domUtilities",
         "divEditor/index",
+        "divEditor/saveQueue",
         "hypercites/index",
         "hypercites/listeners",
         "hypercites/navigation",
@@ -32738,7 +33515,8 @@
         "pageLoad/readerEntry",
         "scrolling/index",
         "scrolling/internalNav",
-        "scrolling/restore"
+        "scrolling/restore",
+        "search/inTextSearch/searchToolbar"
       ]
     ],
     "breakerCount": 27,
