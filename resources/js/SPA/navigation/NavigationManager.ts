@@ -12,7 +12,7 @@
  * NavigationManager is the ONLY place that calls ProgressOverlayEnactor.hide()
  * All pathways just do their work - NavigationManager handles overlay lifecycle
  */
-import { log } from '../../utilities/logger.js';
+import { log } from '../../utilities/logger';
 import { ProgressOverlayEnactor } from './ProgressOverlayEnactor.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 import { SameTemplateTransition } from './pathways/SameTemplateTransition.js';

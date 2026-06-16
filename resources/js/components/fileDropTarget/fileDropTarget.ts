@@ -13,13 +13,13 @@
  * registry filters this to `['home', 'user']` pages; reader pages get nothing.
  */
 
-import { log, verbose } from '../../utilities/logger.js';
-import { isLoggedIn } from '../../utilities/auth.js';
+import { log, verbose } from '../../utilities/logger';
+import { isLoggedIn } from '../../utilities/auth/index';
 import { initializeUserContainer } from '../userButton/userButton';
 import {
   attachFilesToInput,
   isAcceptableImportExt,
-} from '../../utilities/fileImportHelpers.js';
+} from '../utilities/fileImportHelpers';
 
 const OVERLAY_ID = 'page-drop-overlay';
 

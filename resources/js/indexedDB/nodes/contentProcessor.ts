@@ -17,7 +17,7 @@ import {
   type ExistingHypercite,
 } from './positionCollector';
 import { extractFootnoteIdsFromElement } from '../../paste/utils/extractFootnoteIds.js';
-import { stripInlineStylePreservingIntensity } from '../../utilities/stripInlineStyle.js';
+import { stripInlineStylePreservingIntensity } from '../../utilities/stripInlineStyle';
 import type { CitationRef, FootnoteRef } from '../types';
 
 export interface ProcessedNodeContent {

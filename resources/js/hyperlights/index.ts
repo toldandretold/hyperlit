@@ -4,7 +4,7 @@
  */
 
 import { book } from '../app.js';
-import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from "../lazyLoader";
+import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from "../lazyLoader/index";
 
 // Import for internal use
 import { attachMarkListeners as _attachMarkListeners } from './listeners';
@@ -33,7 +33,7 @@ export {
   initializeHyperlitManager as initializeHighlightManager,
   openHyperlitContainer as openHighlightContainer,
   closeHyperlitContainer as closeHighlightContainer,
-} from '../utilities/containerActions';
+} from '../hyperlitContainer/containerActions';
 
 // Lazy loader state
 let highlightId: any;

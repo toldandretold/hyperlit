@@ -8,14 +8,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const { queueNodeForSave } = vi.hoisted(() => ({ queueNodeForSave: vi.fn() }));
 vi.mock('../../../resources/js/app.js', () => ({ book: 'bookA' }));
 vi.mock('../../../resources/js/divEditor/editorState', () => ({ queueNodeForSave }));
-vi.mock('../../../resources/js/utilities/logger.js', () => ({ verbose: { content: vi.fn() } }));
-vi.mock('../../../resources/js/utilities/IDfunctions.js', () => ({
+vi.mock('../../../resources/js/utilities/logger', () => ({ verbose: { content: vi.fn() } }));
+vi.mock('../../../resources/js/utilities/IDfunctions', () => ({
   ensureNodeHasValidId: (el) => { if (!el.id) el.id = 'gen'; },
   setElementIds: (el, before) => { el.id = before ? `${before}.1` : '1'; el.setAttribute('data-node-id', `N${el.id}`); },
   triggerRenumberingWithModal: vi.fn(),
 }));
 
-import { createAndInsertParagraph, moveCaretTo } from '../../../resources/js/divEditor/enterKeyHandler/caretHelpers.ts';
+import { createAndInsertParagraph, moveCaretTo } from '../../../resources/js/divEditor/enterKeyHandler/caretHelpers';
 
 beforeEach(() => { document.body.innerHTML = ''; vi.clearAllMocks(); });
 

@@ -5,9 +5,9 @@
 import { openDatabase, updateBookTimestamp, updateAnnotationsTimestamp, queueForSync, getNodeChunksFromIndexedDB } from '../indexedDB/index';
 import { removeHighlightFromHyperlights, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion } from './database';
 import { attachMarkListeners } from './listeners';
-import { setProgrammaticUpdateInProgress } from '../utilities/operationState.js';
-import { getCascadeOriginId } from '../scrolling';
-import { buildSubBookId } from '../utilities/subBookIdHelper.js';
+import { setProgrammaticUpdateInProgress } from '../utilities/operationState';
+import { getCascadeOriginId } from '../scrolling/index';
+import { buildSubBookId } from '../utilities/subBookIdHelper';
 import { deleteBookFromIndexedDB } from '../indexedDB/utilities/cleanup';
 
 interface HighlightActionResult {
@@ -297,7 +297,7 @@ export async function reprocessHighlightsForNodes(bookId: string, affectedIDnume
   console.log(`🔄 Reprocessing highlights for nodes:`, affectedIDnumericals);
 
   try {
-    const { applyHighlights } = await import('../lazyLoader');
+    const { applyHighlights } = await import('../lazyLoader/index');
 
     // Get the updated node chunks which should have the correct hyperlights after deletion
     // Use preloaded nodes when available (e.g. after highlight creation) to avoid full-book scan
@@ -373,7 +373,7 @@ export async function reprocessHighlightsForNodes(bookId: string, affectedIDnume
         const nodeHypercites = nodeData.hypercites || [];
         if (nodeHypercites.length > 0) {
           console.log(`Also applying ${nodeHypercites.length} hypercites to node ${IDnumerical}`);
-          const { applyHypercites } = await import('../lazyLoader');
+          const { applyHypercites } = await import('../lazyLoader/index');
           newHtml = applyHypercites(newHtml, nodeHypercites);
         }
 

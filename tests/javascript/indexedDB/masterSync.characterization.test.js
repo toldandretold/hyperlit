@@ -11,13 +11,13 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-vi.mock('../../../resources/js/utilities/auth.js', () => ({
+vi.mock('../../../resources/js/utilities/auth', () => ({
   refreshCsrfToken: vi.fn(),
 }));
 vi.mock('../../../resources/js/components/editIndicator.js', () => ({
   glowCloudOrange: vi.fn(),
 }));
-vi.mock('../../../resources/js/utilities/BroadcastListener.js', () => ({
+vi.mock('../../../resources/js/utilities/BroadcastListener', () => ({
   showStaleTabOverlay: vi.fn(),
 }));
 vi.mock('../../../resources/js/integrity/reporter.js', () => ({

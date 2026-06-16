@@ -10,7 +10,7 @@ const { queueForSync, updateAnnotationsTimestamp } = vi.hoisted(() => ({
   queueForSync: vi.fn(),
   updateAnnotationsTimestamp: vi.fn(),
 }));
-vi.mock('../../../resources/js/utilities/operationState.js', () => ({ withPending: (fn) => fn() }));
+vi.mock('../../../resources/js/utilities/operationState', () => ({ withPending: (fn) => fn() }));
 vi.mock('../../../resources/js/hyperlitContainer/stack', () => ({ getCurrentContainer: () => null }));
 vi.mock('../../../resources/js/indexedDB/index.js', async () => {
   const conn = await import('../../../resources/js/indexedDB/core/connection');

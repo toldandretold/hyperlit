@@ -7,7 +7,7 @@
  * not on each other.
  */
 
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../utilities/logger';
 
 // Module-level cache
 let footnoteMap = new Map<string, number | string>(); // footnoteId → displayNumber (or preserved marker)

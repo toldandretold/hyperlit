@@ -4,7 +4,7 @@
 
 import { book } from '../app.js';
 import { openDatabase, parseNodeId, createNodeChunksKey } from '../indexedDB/index';
-import { getAuthContextSync, getAuthContext } from '../utilities/auth.js';
+import { getAuthContextSync, getAuthContext } from '../utilities/auth/index';
 import type { BookId } from '../indexedDB/types';
 
 interface AuthUser { name?: string; username?: string; email?: string }

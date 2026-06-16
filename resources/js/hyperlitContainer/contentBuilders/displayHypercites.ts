@@ -6,11 +6,11 @@
 
 import { book } from '../../app.js';
 import { openDatabase } from '../../indexedDB/index';
-import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
-import { canUserEditBook } from "../../utilities/auth.js";
+import { formatBibtexToCitation } from "../../utilities/bibtexProcessor";
+import { canUserEditBook } from "../../utilities/auth/index";
 import DOMPurify from 'dompurify';
-import { buildSubBookId, parseSubBookId } from '../../utilities/subBookIdHelper.js';
-import { showTargetNotFoundToast } from '../../utilities/toast.js';
+import { buildSubBookId, parseSubBookId } from '../../utilities/subBookIdHelper';
+import { showTargetNotFoundToast } from '../../components/toast/toast';
 
 /**
  * Build the full-data API URL, handling sub-book IDs with slashes.
@@ -1142,7 +1142,7 @@ async function removeSpecificCitations(sourceBook: any, sourceHyperciteIds: any,
   console.log('✅ Sync queue flushed');
 
   // Broadcast changes to other tabs
-  const { broadcastToOpenTabs }: any = await import('../../utilities/BroadcastListener.js');
+  const { broadcastToOpenTabs }: any = await import('../../utilities/BroadcastListener');
   updatedNodeChunks.forEach((chunk: any) => {
     broadcastToOpenTabs(sourceBook, chunk.startLine);
   });

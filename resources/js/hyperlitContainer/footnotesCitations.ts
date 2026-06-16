@@ -2,8 +2,8 @@
 // Capture-phase listener that turns a tap on any footnote/citation marker into
 // an "open the hyperlit container" call. Lives alongside the container it opens.
 import { handleUnifiedContentClick, openHyperlitContainer, closeHyperlitContainer } from './index';
-import { log, verbose } from '../utilities/logger.js';
-import { isActivelyScrollingForLinkBlock } from '../scrolling';
+import { log, verbose } from '../utilities/logger';
+import { isActivelyScrollingForLinkBlock } from '../scrolling/index';
 
 // Function to open the reference container with content (now redirects to unified system)
 export function openReferenceContainer(content: any): void {

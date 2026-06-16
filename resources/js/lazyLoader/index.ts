@@ -1,4 +1,4 @@
-import { log, verbose } from '../utilities/logger.js';
+import { log, verbose } from '../utilities/logger';
 // NOTE: attachMarkListeners / attachUnderlineClickListeners are deliberately NOT imported here.
 // The render engine is a LEAF: both attachers are INJECTED via createLazyLoader's config and held
 // on `instance` (instance.attachMarkListeners / instance.attachUnderlineClickListeners). Importing
@@ -16,12 +16,12 @@ import {
   clearChunkLoadingInProgress,
   isChunkLoadingInProgress,
   scheduleAutoClear
-} from "../utilities/chunkLoadingState.js";
-import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock, setNavigatingState, getCascadeOriginId } from '../scrolling';
-import { scrollElementIntoMainContent } from "../scrolling";
+} from "./utilities/chunkLoadingState";
+import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock, setNavigatingState, getCascadeOriginId } from '../scrolling/index';
+import { scrollElementIntoMainContent } from "../scrolling/index";
 import { handleContentLinkClick } from '../utilities/linkClickRegistry';
-import { isCacheDirty, clearCacheDirtyFlag } from '../utilities/cacheState.js';
-import { restoreScrollAnchor } from '../utilities/scrollAnchor.js';
+import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState';
+import { restoreScrollAnchor } from '../utilities/scrollAnchor';
 import {
   createChunkElement,
   ensureNoDeleteMarkerForBook,
@@ -190,7 +190,7 @@ export function createLazyLoader(config: any) {
 
           // If book is private, check access
           if (libraryData && libraryData.visibility === 'private') {
-            const { canUserEditBook }: any = await import('../utilities/auth.js');
+            const { canUserEditBook }: any = await import('../utilities/auth/index');
             const hasAccess = await canUserEditBook(targetBookId);
 
             if (!hasAccess) {

@@ -17,7 +17,7 @@ import {
 } from "./toolbarDOMUtils";
 import {
   setProgrammaticUpdateInProgress,
-} from "../utilities/operationState.js";
+} from "../utilities/operationState";
 
 // ⚠️ LEGACY-ENTANGLEMENT FLAG (do not deep-clean here):
 // This file is believed to contain traces of an OLDER undo implementation mixed with

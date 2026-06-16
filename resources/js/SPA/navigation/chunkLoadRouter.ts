@@ -6,7 +6,7 @@
  */
 
 import { openDatabase } from '../../indexedDB/core/connection';
-import { verbose } from '../../utilities/logger.js';
+import { verbose } from '../../utilities/logger';
 
 /**
  * Load the initial chunk for a target, choosing the optimal source.
@@ -45,7 +45,7 @@ export async function loadChunkForTarget(bookId: any, target: any, opts: any = {
  * This preserves the current buildInitialChunkParams → fetchInitialChunk flow.
  */
 async function fetchFromServer(bookId: any) {
-  const { fetchInitialChunk } = await import('../../pageLoad');
+  const { fetchInitialChunk } = await import('../../pageLoad/index');
   return fetchInitialChunk(bookId);
 }
 

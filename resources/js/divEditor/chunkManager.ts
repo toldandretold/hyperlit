@@ -1,7 +1,7 @@
 import { updateSingleIndexedDBRecord } from '../indexedDB/index';
-import { generateIdBetween } from '../utilities/IDfunctions.js';
-import { setChunkOverflowInProgress } from '../utilities/operationState.js';
-import { verbose } from '../utilities/logger.js';
+import { generateIdBetween } from '../utilities/IDfunctions';
+import { setChunkOverflowInProgress } from '../utilities/operationState';
+import { verbose } from '../utilities/logger';
 // ✅ Lazy-loaded: divEditor index only used during editing
 // import { startObserving, stopObserving, movedNodesByOverflow } from './index';
 

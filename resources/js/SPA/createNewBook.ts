@@ -7,10 +7,10 @@ import {
   addNewBookToIndexedDB,
   syncNodeChunksToPostgreSQL,
 } from "../indexedDB/index.js";
-import { buildBibtexEntry } from "../utilities/bibtexProcessor.js";
-import { syncIndexedDBtoPostgreSQL } from "../indexedDB/serverSync";
-import { getCurrentUser, getAnonymousToken } from "../utilities/auth.js";
-import { generateNodeId } from "../utilities/IDfunctions.js";
+import { buildBibtexEntry } from "../utilities/bibtexProcessor";
+import { syncIndexedDBtoPostgreSQL } from "../indexedDB/serverSync/index";
+import { getCurrentUser, getAnonymousToken } from "../utilities/auth/index";
+import { generateNodeId } from "../utilities/IDfunctions";
 
 
 

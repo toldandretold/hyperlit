@@ -1,7 +1,7 @@
 // This is your working code, with the "bad guess" removed and the scroll call made reliable.
 
-import { getKeyboardWasRecentlyClosed, setKeyboardWasRecentlyClosed } from '../../utilities/operationState.js';
-import { verbose } from '../../utilities/logger.js';
+import { getKeyboardWasRecentlyClosed, setKeyboardWasRecentlyClosed } from '../../utilities/operationState';
+import { verbose } from '../../utilities/logger';
 
 class KeyboardManager {
   [key: string]: any;

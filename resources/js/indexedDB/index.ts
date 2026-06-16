@@ -8,7 +8,7 @@
  * @module database
  */
 
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../utilities/logger';
 import { queueForSync } from './syncQueue/queue';
 import { debouncedMasterSync } from './syncQueue/master';
 import { updateBookTimestamp } from './core/library';

@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-vi.mock('../../../resources/js/utilities/auth.js', () => ({
+vi.mock('../../../resources/js/utilities/auth', () => ({
   refreshCsrfToken: vi.fn(),
 }));
 vi.mock('../../../resources/js/components/editIndicator.js', () => ({

@@ -8,9 +8,9 @@ import { buildFootnoteContent } from '../contentBuilders/displayFootnotes';
 import { getCurrentContainer } from '../stack';
 import { containerState } from '../containerState';
 import { book } from '../../app.js';
-import { buildSubBookId } from '../../utilities/subBookIdHelper.js';
+import { buildSubBookId } from '../../utilities/subBookIdHelper';
 import { openDatabase } from '../../indexedDB/index';
-import { canUserEditBook } from '../../utilities/auth.js';
+import { canUserEditBook } from '../../utilities/auth/index';
 
 export const footnoteHandler: ContentTypeHandler = {
   type: 'footnote',

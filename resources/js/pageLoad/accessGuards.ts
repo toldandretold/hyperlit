@@ -5,7 +5,7 @@
 export async function handlePrivateBookAccessDenied(bookId: string) {
   console.log(`🔒 handlePrivateBookAccessDenied called for book: ${bookId}`);
 
-  const { getCurrentUser } = await import('../utilities/auth.js');
+  const { getCurrentUser } = await import('../utilities/auth/index');
   const user = await getCurrentUser();
 
   if (!user) {

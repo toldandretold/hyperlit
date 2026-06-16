@@ -6,7 +6,7 @@
 import { book } from '../../app.js';
 import { openDatabase } from '../../indexedDB/index';
 import { resolveBibliographyTarget } from '../../indexedDB/bibliography/index';
-import { formatBibtexToCitation } from "../../utilities/bibtexProcessor.js";
+import { formatBibtexToCitation } from "../../utilities/bibtexProcessor";
 import { getHyperciteFromIndexedDB } from '../../indexedDB/hypercites/index';
 
 /**
@@ -161,7 +161,7 @@ export async function buildCitationContent(contentType: any, db: any = null) {
           const isDeleted = libraryRecord && libraryRecord.visibility === 'deleted';
 
           if (isPrivate) {
-            const { canUserEditBook }: any = await import('../../utilities/auth.js');
+            const { canUserEditBook }: any = await import('../../utilities/auth/index');
             hasAccess = await canUserEditBook(result.source_id);
           }
 
@@ -408,7 +408,7 @@ export async function resolveButtonStatus(contentType: any, db: any, container: 
     // Handle access check for private books
     const accessCheckBtn = root.querySelector('.see-in-source-btn[data-needs-access-check="true"]');
     if (accessCheckBtn) {
-      const { canUserEditBook }: any = await import('../../utilities/auth.js');
+      const { canUserEditBook }: any = await import('../../utilities/auth/index');
       const bookId = accessCheckBtn.getAttribute('data-book-id');
       const hasAccess: any = await canUserEditBook(bookId);
 

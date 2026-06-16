@@ -4,7 +4,7 @@
  *
  * Two independent code paths were involved:
  *
- *   Bug A — `generateIdBetween` in utilities/IDfunctions.js had CASE 3/4
+ *   Bug A — `generateIdBetween` in utilities/IDfunctions had CASE 3/4
  *           branches that returned `${beforeNum}.1` for integer-gap-1
  *           neighbors without checking `isIdInUse`, so a new node could be
  *           minted with an id that already existed in the DOM.

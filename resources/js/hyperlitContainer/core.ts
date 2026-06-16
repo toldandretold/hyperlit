@@ -4,9 +4,9 @@
  */
 
 import { ContainerManager } from '../components/utilities/containerManager';
-import { log, verbose } from '../utilities/logger.js';
+import { log, verbose } from '../utilities/logger';
 import { ProgressOverlayConductor } from '../SPA/navigation/ProgressOverlayConductor.js';
-import { clearCascadeOriginId } from '../scrolling';
+import { clearCascadeOriginId } from '../scrolling/index';
 import { flushPendingEdits } from '../utilities/pendingEditsRegistry';
 // Note: cleanupContainerListeners and cleanupFootnoteListeners are imported dynamically
 // to avoid circular dependency (index.js imports from core.js)
@@ -381,7 +381,7 @@ export async function savePreviewNodes() {
     const { subBookLoaders }: any = await import('./subBookState.js');
     const { getNodeChunksFromIndexedDB, openDatabase }: any = await import('../indexedDB/index');
 
-    const { parseSubBookId }: any = await import('../utilities/subBookIdHelper.js');
+    const { parseSubBookId }: any = await import('../utilities/subBookIdHelper');
 
     for (const [subBookId] of subBookLoaders) {
       const nodes: any = await getNodeChunksFromIndexedDB(subBookId);

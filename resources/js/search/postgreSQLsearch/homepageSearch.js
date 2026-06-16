@@ -4,7 +4,7 @@
  */
 
 import DOMPurify from 'dompurify';
-import { log, verbose } from '../../utilities/logger.js';
+import { log, verbose } from '../../utilities/logger';
 
 // Configuration
 const DEBOUNCE_MS = 300;

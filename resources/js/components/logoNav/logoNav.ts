@@ -3,7 +3,7 @@
  * Handles the logo button that rotates and shows/hides navigation menu
  */
 
-import { log, verbose } from '../../utilities/logger.js';
+import { log, verbose } from '../../utilities/logger';
 
 let isOpen = false;
 let clickOutsideHandler: any = null;

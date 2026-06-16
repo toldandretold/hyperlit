@@ -7,9 +7,9 @@
 
 import { handleCopyEvent } from './copy';
 import { handleUnderlineClick } from './navigation';
-import { initializeHyperlitManager } from '../utilities/containerActions';
-import { log, verbose } from '../utilities/logger.js';
-import { getActiveBook } from '../utilities/activeContext.js';
+import { initializeHyperlitManager } from '../hyperlitContainer/containerActions';
+import { log, verbose } from '../utilities/logger';
+import { getActiveBook } from '../hyperlitContainer/utilities/activeContext';
 
 interface HyperciteListenerSet {
   mousedown: (e: Event) => void;

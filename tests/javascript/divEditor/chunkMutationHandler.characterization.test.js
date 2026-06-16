@@ -15,11 +15,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const { NUMERICAL_ID_PATTERN } = vi.hoisted(() => ({ NUMERICAL_ID_PATTERN: /^\d+(\.\d+)?$/ }));
 
-vi.mock('../../../resources/js/utilities/operationState.js', () => ({
+vi.mock('../../../resources/js/utilities/operationState', () => ({
   chunkOverflowInProgress: false,
   userDeletionInProgress: false,
 }));
-vi.mock('../../../resources/js/utilities/IDfunctions.js', () => ({
+vi.mock('../../../resources/js/utilities/IDfunctions', () => ({
   isNumericalId: (id) => !!id && NUMERICAL_ID_PATTERN.test(id),
   ensureNodeHasValidId: (el) => { if (!el.id) el.id = 'gen'; },
   NUMERICAL_ID_PATTERN,
@@ -45,8 +45,8 @@ vi.mock('../../../resources/js/indexedDB/index', () => ({
   openDatabase: vi.fn(() => Promise.resolve({})),
 }));
 vi.mock('../../../resources/js/paste', () => ({ isPasteOperationActive: () => false }));
-vi.mock('../../../resources/js/utilities/logger.js', () => ({ verbose: { content: vi.fn() } }));
-vi.mock('../../../resources/js/utilities/chunkLoadingState.js', () => ({ setChunkLoadingInProgress: vi.fn() }));
+vi.mock('../../../resources/js/utilities/logger', () => ({ verbose: { content: vi.fn() } }));
+vi.mock('../../../resources/js/lazyLoader/utilities/chunkLoadingState', () => ({ setChunkLoadingInProgress: vi.fn() }));
 vi.mock('../../../resources/js/divEditor/domUtilities', () => ({
   getNoDeleteNode: vi.fn(),
   setNoDeleteMarker: vi.fn(),
@@ -54,8 +54,8 @@ vi.mock('../../../resources/js/divEditor/domUtilities', () => ({
   findNextNoDeleteNode: vi.fn(),
 }));
 
-import { ChunkMutationHandler } from '../../../resources/js/divEditor/chunkMutationHandler';
-import { destroySpan } from '../../../resources/js/divEditor/chunkMutationHandler/spanDestroyer.ts';
+import { ChunkMutationHandler } from '../../../resources/js/divEditor/chunkMutationHandler/index';
+import { destroySpan } from '../../../resources/js/divEditor/chunkMutationHandler/spanDestroyer';
 
 let saveQueue, queueNodeForSave, handleHyperciteRemoval, ensureMinimumStructure, handler;
 beforeEach(() => {

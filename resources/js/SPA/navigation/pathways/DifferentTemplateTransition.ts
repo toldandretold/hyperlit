@@ -11,7 +11,7 @@ import { getPageStructure, getBookIdFromUrl } from '../utils/structureDetection.
 import { cleanupFromStructure } from '../utils/cleanupHelpers.js';
 import { initializeToStructure } from '../utils/initHelpers.js';
 import { fetchHtml, replaceBodyContent, navigateToHash, updateUrl } from '../utils/contentSwapHelpers.js';
-import { log } from '../../../utilities/logger.js';
+import { log } from '../../../utilities/logger';
 
 export class DifferentTemplateTransition {
   /**
@@ -56,7 +56,7 @@ export class DifferentTemplateTransition {
       progress(70, 'Waiting for DOM stabilization...');
 
       // Wait for DOM to stabilize
-      const { waitForLayoutStabilization } = await import('../../../utilities/domReadiness');
+      const { waitForLayoutStabilization } = await import('../../domReadiness');
       await waitForLayoutStabilization();
 
       progress(80, 'Initializing new page...');

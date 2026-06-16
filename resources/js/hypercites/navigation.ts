@@ -5,19 +5,19 @@
  * Manages navigation between books, highlights, and internal IDs.
  */
 
-import { getActiveBook } from '../utilities/activeContext.js';
+import { getActiveBook } from '../hyperlitContainer/utilities/activeContext';
 import { book as globalBookId } from '../app.js';
-import { navigateToInternalId, showNavigationLoading } from '../scrolling';
-import { waitForElementReady } from '../utilities/domReadiness';
+import { navigateToInternalId, showNavigationLoading } from '../scrolling/index';
+import { waitForElementReady } from '../SPA/domReadiness';
 import { getLocalStorageKey, openDatabase } from '../indexedDB/index';
 import { getHyperciteData, getHyperciteById } from './database';
 import { highlightTargetHypercite, revealGhostIfTombstone } from './animations';
 import { createOverlappingPolyContainer } from './containers';
 // Container actions via the DI registry leaf — no import into hyperlitContainer/* (no cycle).
-import { closeHyperlitContainer, getCurrentContainer, handleUnifiedContentClick } from '../utilities/containerActions';
+import { closeHyperlitContainer, getCurrentContainer, handleUnifiedContentClick } from '../hyperlitContainer/containerActions';
 // Static, downward import of the lazy-loader singleton from its zero-import leaf (no cycle).
 import { currentLazyLoader } from '../pageLoad/currentLazyLoaderState';
-import { showTargetNotFoundToast } from '../utilities/toast.js';
+import { showTargetNotFoundToast } from '../components/toast/toast';
 
 /**
  * Handle couple click - navigates directly to the single citation
@@ -425,7 +425,7 @@ export async function navigateToHyperciteLink(link: string, clickedHyperciteId =
 
     // openContainerChain/buildChainFromUrl are pageLoad orchestration fns reached at call-time
     // (genuine cross-layer call; dynamic). currentLazyLoader comes statically from its leaf above.
-    const { openContainerChain, buildChainFromUrl } = await import('../pageLoad');
+    const { openContainerChain, buildChainFromUrl } = await import('../pageLoad/index');
 
     if (bookSegment === currentBook && fnSegment && hlSegment) {
       console.log("✅ Same-book multi-level cascade detected in hypercite");

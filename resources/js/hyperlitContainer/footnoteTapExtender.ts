@@ -6,7 +6,7 @@
 // Touch counterpart of footnotesCitations.ts: both turn a marker tap into a
 // handleFootnoteOrCitationClick call — this one with expanded tap zones.
 
-import { isActivelyScrollingForLinkBlock } from '../scrolling';
+import { isActivelyScrollingForLinkBlock } from '../scrolling/index';
 import { handleFootnoteOrCitationClick } from './footnotesCitations';
 
 const TAP_MAX_DURATION = 250;  // ms

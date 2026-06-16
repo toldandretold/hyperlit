@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1194 functions in 239 modules · 8 object stores · 6 PG tables · 2294 edges
+**MarkdownDB** schema v27 · 1265 functions in 254 modules · 8 object stores · 6 PG tables · 2435 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -21,6 +21,20 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `glowCloudOrange` | `components/cloudRef/editIndicator` | — | — | read/write | — |
 | `glowCloudRed` | `components/cloudRef/editIndicator` | — | — | read/write | — |
 | `glowCloudSyncSuccess` | `components/cloudRef/editIndicator` | — | — | read/write | — |
+| `ContainerDragger.constructor` | `components/containerDragger/containerDragger` | — | — | — | — |
+| `ContainerDragger.endDragOrResize` | `components/containerDragger/containerDragger` | — | — | read/write | — |
+| `ContainerDragger.handleMouseDown` | `components/containerDragger/containerDragger` | — | — | read | — |
+| `ContainerDragger.handleMouseMove` | `components/containerDragger/containerDragger` | — | — | — | — |
+| `ContainerDragger.handleMouseUp` | `components/containerDragger/containerDragger` | — | — | — | — |
+| `ContainerDragger.handleTouchEnd` | `components/containerDragger/containerDragger` | — | — | — | — |
+| `ContainerDragger.handleTouchMove` | `components/containerDragger/containerDragger` | — | — | — | — |
+| `ContainerDragger.handleTouchStart` | `components/containerDragger/containerDragger` | — | — | read | — |
+| `ContainerDragger.init` | `components/containerDragger/containerDragger` | — | — | — | — |
+| `ContainerDragger.reset` | `components/containerDragger/containerDragger` | — | — | read/write | — |
+| `ContainerDragger.resize` | `components/containerDragger/containerDragger` | — | — | read | — |
+| `ContainerDragger.startResize` | `components/containerDragger/containerDragger` | — | — | read/write | — |
+| `destroyContainerDragger` | `components/containerDragger/containerDragger` | — | — | — | — |
+| `initContainerDragger` | `components/containerDragger/containerDragger` | — | — | — | — |
 | `doesContentExceedViewport` | `components/editButton/cursor` | — | — | read | — |
 | `getFirstElementWithId` | `components/editButton/cursor` | — | — | read | — |
 | `getLastContentElement` | `components/editButton/cursor` | — | — | read | — |
@@ -88,6 +102,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getCiteFormHTML` | `components/newbookContainer/citeForm/template` | — | — | read | — |
 | `setupUrlImport` | `components/newbookContainer/citeForm/urlImport` | — | — | read/write | — |
 | `setupRealTimeValidation` | `components/newbookContainer/citeForm/validation` | — | — | read/write | — |
+| `createDebugPanel` | `components/newbookContainer/debugLog` | — | — | read/write | — |
+| `debugLog` | `components/newbookContainer/debugLog` | — | — | — | — |
+| `updateDebugPanel` | `components/newbookContainer/debugLog` | — | — | read/write | — |
 | `NewBookContainerManager.cleanupResizeListener` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.clearSavedFormData` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.closeContainer` | `components/newbookContainer/index` | — | — | read/write | — |
@@ -109,6 +126,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `classifySyncError` | `components/saveErrorToast/saveErrorToast` | — | — | — | — |
 | `hideSaveErrorToast` | `components/saveErrorToast/saveErrorToast` | — | — | read/write | — |
 | `showSaveErrorToast` | `components/saveErrorToast/saveErrorToast` | — | — | read/write | — |
+| `destroySelectionHandler` | `components/selectionHandler/selectionHandler` | — | — | — | — |
+| `initializeSelectionHandler` | `components/selectionHandler/selectionHandler` | — | — | read | — |
 | `closeSettings` | `components/settingsButton/settingsButton` | — | — | — | — |
 | `destroySettingsManager` | `components/settingsButton/settingsButton` | — | — | — | — |
 | `initializeSettingsManager` | `components/settingsButton/settingsButton` | — | — | read | — |
@@ -138,6 +157,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleSliderInput` | `components/settingsContainer/textControls` | — | — | read/write | — |
 | `syncSliderUI` | `components/settingsContainer/textControls` | — | — | read/write | — |
 | `toggleFullWidth` | `components/settingsContainer/textControls` | — | — | read/write | — |
+| `getCurrentTheme` | `components/settingsContainer/themeSwitcher` | — | — | — | — |
+| `initializeTheme` | `components/settingsContainer/themeSwitcher` | — | — | write | — |
+| `switchTheme` | `components/settingsContainer/themeSwitcher` | — | — | write | — |
 | `_openVibeGallery` | `components/settingsContainer/vibe` | — | — | read/write | — |
 | `_openVibeUI` | `components/settingsContainer/vibe` | — | — | read/write | — |
 | `startVibeCanvas` | `components/settingsContainer/vibeCanvas` | — | — | write | — |
@@ -247,6 +269,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.syncLibraryRecordToBackend` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.syncPipelineHighlights` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.validateUrl` | `components/sourceContainer/index` | — | — | — | — |
+| `showTargetNotFoundToast` | `components/toast/toast` | — | — | read/write | — |
 | `setInitialBookmarkPosition` | `components/tocContainer/bookmark` | — | — | read | — |
 | `updateOrInsertBookmark` | `components/tocContainer/bookmark` | — | — | read/write | — |
 | `checkAndInvalidateTocCache` | `components/tocContainer/index` | — | — | — | — |
@@ -400,6 +423,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ContainerManager.toggleContainer` | `components/utilities/containerManager` | — | — | — | — |
 | `ContainerManager.unfreezeElement` | `components/utilities/containerManager` | — | — | read | — |
 | `ContainerManager.updateState` | `components/utilities/containerManager` | — | — | write | — |
+| `attachFilesToInput` | `components/utilities/fileImportHelpers` | — | — | — | — |
+| `isAcceptableImportExt` | `components/utilities/fileImportHelpers` | — | — | — | — |
+| `extractFileMetadata` | `components/utilities/fileMetadataExtractor` | — | — | read | — |
 | `appendGateParam` | `components/utilities/gateFilter` | — | — | — | — |
 | `applyGateFilter` | `components/utilities/gateFilter` | — | — | — | — |
 | `gateQueryParam` | `components/utilities/gateFilter` | — | — | — | — |
@@ -503,6 +529,20 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SaveQueue.saveNodeToDatabase` | `divEditor/saveQueue` | — | — | read | — |
 | `SaveQueue.startMonitoring` | `divEditor/saveQueue` | — | — | — | — |
 | `SaveQueue.stopMonitoring` | `divEditor/saveQueue` | — | — | — | — |
+| `SelectionDeletionHandler._handleSpecialElementDeletion` | `divEditor/selectionDelete` | — | — | read/write | — |
+| `SelectionDeletionHandler._rangeIntersectsNode` | `divEditor/selectionDelete` | — | — | read | — |
+| `SelectionDeletionHandler.batchDeleteFromIndexedDB` | `divEditor/selectionDelete` | — | — | — | — |
+| `SelectionDeletionHandler.captureSelectionForDeletion` | `divEditor/selectionDelete` | — | — | read | — |
+| `SelectionDeletionHandler.checkAndUnwrapLinks` | `divEditor/selectionDelete` | — | — | read/write | — |
+| `SelectionDeletionHandler.checkForSpecialElements` | `divEditor/selectionDelete` | — | — | read | — |
+| `SelectionDeletionHandler.constructor` | `divEditor/selectionDelete` | — | — | — | — |
+| `SelectionDeletionHandler.deleteNodes` | `divEditor/selectionDelete` | — | — | write | — |
+| `SelectionDeletionHandler.destroy` | `divEditor/selectionDelete` | — | — | — | — |
+| `SelectionDeletionHandler.findEmptyParagraphs` | `divEditor/selectionDelete` | — | — | read | — |
+| `SelectionDeletionHandler.getAffectedElements` | `divEditor/selectionDelete` | — | — | read | — |
+| `SelectionDeletionHandler.handlePostDeletion` | `divEditor/selectionDelete` | — | — | read | — |
+| `SelectionDeletionHandler.isEffectivelyEmpty` | `divEditor/selectionDelete` | — | — | read | — |
+| `SelectionDeletionHandler.setupListeners` | `divEditor/selectionDelete` | — | — | — | — |
 | `hyperciteArrowHandler` | `divEditor/supTagHandler/arrowHandler` | — | — | read | — |
 | `supDeleteHandler` | `divEditor/supTagHandler/deleteHandler` | — | — | read/write | — |
 | `supEscapeHandler` | `divEditor/supTagHandler/escapeHandler` | — | — | read/write | — |
@@ -778,6 +818,16 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `cleanupPendingBrainHighlight` | `hyperlitContainer/brainQuery` | — | — | — | — |
 | `injectBrainInput` | `hyperlitContainer/brainQuery` | `hyperlights` | `hypercites` `hyperlights` `library` `nodes` | read/write | — |
 | `injectBrainPolling` | `hyperlitContainer/brainQuery` | `hyperlights` | `hyperlights` | read/write | — |
+| `closeHyperlitContainer` | `hyperlitContainer/containerActions` | — | — | — | — |
+| `getCurrentContainer` | `hyperlitContainer/containerActions` | — | — | — | — |
+| `handleHyperciteDelete` | `hyperlitContainer/containerActions` | — | — | — | — |
+| `handleHyperciteHealthCheck` | `hyperlitContainer/containerActions` | — | — | — | — |
+| `handleUnifiedContentClick` | `hyperlitContainer/containerActions` | — | — | — | — |
+| `initializeHyperlitManager` | `hyperlitContainer/containerActions` | — | — | — | — |
+| `isStackPopping` | `hyperlitContainer/containerActions` | — | — | — | — |
+| `openHighlightById` | `hyperlitContainer/containerActions` | — | — | — | — |
+| `openHyperlitContainer` | `hyperlitContainer/containerActions` | — | — | — | — |
+| `registerContainerActions` | `hyperlitContainer/containerActions` | — | — | — | — |
 | `attachDataContentIdLinkListeners` | `hyperlitContainer/containerListeners` | — | — | read | — |
 | `checkPrivateBookAccess` | `hyperlitContainer/containerListeners` | — | — | read | — |
 | `cleanupContainerListeners` | `hyperlitContainer/containerListeners` | — | — | read/write | — |
@@ -869,6 +919,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `resetSubBookState` | `hyperlitContainer/subBookLoader` | — | — | — | — |
 | `restoreSubBookState` | `hyperlitContainer/subBookLoader` | — | — | — | — |
 | `saveSubBookState` | `hyperlitContainer/subBookLoader` | — | — | — | — |
+| `clearActiveBook` | `hyperlitContainer/utilities/activeContext` | — | — | — | — |
+| `getActiveBook` | `hyperlitContainer/utilities/activeContext` | — | — | — | — |
+| `setActiveBook` | `hyperlitContainer/utilities/activeContext` | — | — | — | — |
 | `fetchLibraryFromServer` | `hyperlitContainer/utils` | — | — | read | — |
 | `formatRelativeTime` | `hyperlitContainer/utils` | — | — | — | — |
 | `scrollFocusedElementIntoView` | `hyperlitContainer/utils` | — | — | read | — |
@@ -975,6 +1028,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `deleteBookFromIndexedDB` | `indexedDB/utilities/cleanup` | `library` | `bibliography` `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
 | `deleteIndexedDBRecordWithRetry` | `indexedDB/utilities/retry` | — | — | — | — |
 | `retryOperation` | `indexedDB/utilities/retry` | — | — | — | — |
+| `renderCharts` | `lazyLoader/chartRenderer` | — | — | read/write | — |
 | `fetchSingleChunkFromServer` | `lazyLoader/chunkFetcher` | — | — | — | — |
 | `storeSingleChunkToIndexedDB` | `lazyLoader/chunkFetcher` | — | `nodes` | — | — |
 | `applyHighlights` | `lazyLoader/chunkRender` | — | — | read/write | — |
@@ -990,6 +1044,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getLastChunkId` | `lazyLoader/index` | — | — | read | — |
 | `loadNextChunkFixed` | `lazyLoader/index` | — | — | read/write | — |
 | `loadPreviousChunkFixed` | `lazyLoader/index` | — | — | read/write | — |
+| `clearCacheDirtyFlag` | `lazyLoader/utilities/cacheState` | — | — | — | — |
+| `isCacheDirty` | `lazyLoader/utilities/cacheState` | — | — | — | — |
+| `markCacheDirty` | `lazyLoader/utilities/cacheState` | — | — | — | — |
+| `clearChunkLoadingInProgress` | `lazyLoader/utilities/chunkLoadingState` | — | — | — | — |
+| `getLoadingChunkId` | `lazyLoader/utilities/chunkLoadingState` | — | — | — | — |
+| `isChunkLoadingInProgress` | `lazyLoader/utilities/chunkLoadingState` | — | — | — | — |
+| `setChunkLoadingInProgress` | `lazyLoader/utilities/chunkLoadingState` | — | — | — | — |
 | `handleDeletedBookAccess` | `pageLoad/accessGuards` | — | — | read/write | — |
 | `handlePrivateBookAccessDenied` | `pageLoad/accessGuards` | — | — | read/write | — |
 | `backgroundDownloadRemainingChunks` | `pageLoad/backgroundDownload` | — | — | — | — |
@@ -1013,6 +1074,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setupOnlineSyncListener` | `pageLoad/onlineRetry` | `historyLog` | — | — | — |
 | `hidePageLoadProgress` | `pageLoad/readerEntry` | — | — | — | — |
 | `updatePageLoadProgress` | `pageLoad/readerEntry` | — | — | — | — |
+| `initializeTimeMachine` | `pageLoad/timeMachine` | — | — | read/write | — |
 | `clearNavigatedHashes` | `scrolling/index` | — | — | — | — |
 | `fallbackScrollPosition` | `scrolling/internalNav` | — | — | read/write | — |
 | `loadDefaultContent` | `scrolling/internalNav` | — | — | write | — |
@@ -1037,6 +1099,15 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `shouldSkipScrollRestoration` | `scrolling/userScrollDetection` | — | — | — | — |
 | `createNewBook` | `SPA/createNewBook` | — | `library` `nodes` | — | — |
 | `fireAndForgetSync` | `SPA/createNewBook` | `library` `nodes` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `markdownStore` `nodes` | read | — |
+| `waitForChunkLoadingComplete` | `SPA/domReadiness` | — | — | read | — |
+| `waitForCompleteReadiness` | `SPA/domReadiness` | — | — | read | — |
+| `waitForContentReady` | `SPA/domReadiness` | — | — | read | — |
+| `waitForElementReady` | `SPA/domReadiness` | — | — | read | — |
+| `waitForElementReadyWithProgress` | `SPA/domReadiness` | — | — | read | — |
+| `waitForLayoutStabilization` | `SPA/domReadiness` | — | — | — | — |
+| `waitForMultipleElementsReady` | `SPA/domReadiness` | — | — | — | — |
+| `waitForMultipleElementsReadyWithProgress` | `SPA/domReadiness` | — | — | read | — |
+| `waitForNavigationTarget` | `SPA/domReadiness` | — | — | — | — |
 | `clearCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
 | `getCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
 | `setCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
@@ -1207,14 +1278,14 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 26 · lazy-loads (code-split): 160
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 27 · lazy-loads (code-split): 173
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
 ### Cycles masked by dynamic imports (coupling debt)
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
 - (2 modules) `components/cloudRef/editIndicator`, `indexedDB/core/healthMonitor`
-- (68 modules) `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/cloudRef/cloudRefButton`, `components/editButton/index`, `components/editButton/lock`, `components/fileDropTarget/fileDropTarget`, `components/homepage/homepage`, `components/homepage/homepageDisplayUnit`, `components/newBookButton/newBookButton`, `components/newbookContainer/index`, `components/settingsButton/settingsButton`, `components/settingsContainer/index`, `components/sourceContainer/creatorTools/reconvert`, `components/sourceContainer/downloads`, `components/sourceContainer/index`, `components/tocContainer/index`, `components/tocToggleButton/tocToggleButton`, `components/togglePerimeterButtons/togglePerimeterButtons`, `components/userButton/userButton`, `components/userContainer/index`, `components/userProfile/userProfileEditor`, `components/utilities/containerManager`, `components/utilities/registerComponents`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/footnoteTapExtender`, `hyperlitContainer/footnotesCitations`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
+- (70 modules) `SPA/domReadiness`, `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/cloudRef/cloudRefButton`, `components/editButton/index`, `components/editButton/lock`, `components/fileDropTarget/fileDropTarget`, `components/homepage/homepage`, `components/homepage/homepageDisplayUnit`, `components/newBookButton/newBookButton`, `components/newbookContainer/index`, `components/selectionHandler/selectionHandler`, `components/settingsButton/settingsButton`, `components/settingsContainer/index`, `components/sourceContainer/creatorTools/reconvert`, `components/sourceContainer/downloads`, `components/sourceContainer/index`, `components/tocContainer/index`, `components/tocToggleButton/tocToggleButton`, `components/togglePerimeterButtons/togglePerimeterButtons`, `components/userButton/userButton`, `components/userContainer/index`, `components/userProfile/userProfileEditor`, `components/utilities/containerManager`, `components/utilities/registerComponents`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/footnoteTapExtender`, `hyperlitContainer/footnotesCitations`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
 - `SPA/viewManager` → `SPA/navigation/LinkNavigationHandler`
@@ -1233,6 +1304,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `pageLoad/readerEntry` → `SPA/navigation/NavigationManager`
 
 ### Lazy-loads (code-split points)
+- `SPA/domReadiness` → `SPA/navigation/ProgressOverlayEnactor`
 - `SPA/navigation/LinkNavigationHandler` → `hyperlitContainer/history`
 - `SPA/navigation/LinkNavigationHandler` → `hyperlitContainer/stack`
 - `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/BookToBookTransition`
@@ -1240,6 +1312,8 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/ImportBookTransition`
 - `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/NewBookTransition`
 - `SPA/navigation/chunkLoadRouter` → `SPA/navigation/loadInitialChunkLocal`
+- `SPA/navigation/pathways/BookToBookTransition` → `components/toast/toast`
+- `SPA/navigation/pathways/DifferentTemplateTransition` → `SPA/domReadiness`
 - `SPA/navigation/pathways/FreshPageLoader` → `SPA/viewManager`
 - `SPA/navigation/pathways/FreshPageLoader` → `components/editButton/index`
 - `SPA/navigation/pathways/SameTemplateTransition` → `SPA/navigation/pathways/BookToBookTransition`
@@ -1248,7 +1322,9 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `SPA/navigation/utils/cleanupHelpers` → `components/newBookButton/newBookButton`
 - `SPA/navigation/utils/cleanupHelpers` → `components/sourceContainer/index`
 - `SPA/navigation/utils/initHelpers` → `components/newBookButton/newBookButton`
+- `SPA/viewManager` → `SPA/domReadiness`
 - `SPA/viewManager` → `components/homepage/homepage`
+- `SPA/viewManager` → `components/settingsContainer/themeSwitcher`
 - `SPA/viewManager` → `components/userProfile/userProfileEditor`
 - `SPA/viewManager` → `components/userProfile/userProfilePage`
 - `SPA/viewManager` → `editToolbar/index`
@@ -1262,6 +1338,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/homepage/homepage` → `components/floatingActionMenu/floatingActionMenu`
 - `components/homepage/homepage` → `components/newBookButton/newBookButton`
 - `components/homepage/homepage` → `components/userButton/userButton`
+- `components/newbookContainer/citeForm/fileUpload` → `components/utilities/fileMetadataExtractor`
 - `components/newbookContainer/citeForm/submission` → `SPA/navigation/pathways/ImportBookTransition`
 - `components/newbookContainer/citeForm/submission` → `components/userButton/userButton`
 - `components/newbookContainer/citeForm/urlImport` → `components/userButton/userButton`
@@ -1272,6 +1349,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/settingsContainer/gate` → `indexedDB/syncQueue/queue`
 - `components/settingsContainer/index` → `components/utilities/gateFilter`
 - `components/settingsContainer/vibeCSS/galleryUI` → `components/userButton/userButton`
+- `components/settingsContainer/vibeCSS/storage` → `components/settingsContainer/themeSwitcher`
 - `components/settingsContainer/vibeCSS/storage` → `components/settingsContainer/vibeCanvas`
 - `components/sourceContainer/aiReview/pipelineViz` → `hyperlights/deletion`
 - `components/sourceContainer/aiReview/pipelineViz` → `indexedDB/core/library`
@@ -1289,6 +1367,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `divEditor/domUtilities` → `hypercites/database`
 - `divEditor/domUtilities` → `hypercites/deletion`
 - `divEditor/domUtilities` → `indexedDB/index`
+- `divEditor/selectionDelete` → `hypercites/database`
 - `divEditor/supTagHandler/deleteHandler` → `hypercites/database`
 - `divEditor/supTagHandler/deleteHandler` → `indexedDB/index`
 - `editToolbar/citationMode` → `citations/citationInserter`
@@ -1368,13 +1447,17 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/history`
 - `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/index`
 - `pageLoad/loadHyperText` → `SPA/navigation/resolveTargetChunk`
+- `pageLoad/loadHyperText` → `components/toast/toast`
 - `pageLoad/loadHyperText` → `hyperlights/deletion`
 - `pageLoad/loadHyperText` → `indexedDB/hydration/rebuild`
+- `pageLoad/loadHyperText` → `lazyLoader/utilities/cacheState`
 - `pageLoad/loadHyperText` → `pageLoad/backgroundDownload`
 - `pageLoad/onlineRetry` → `components/cloudRef/editIndicator`
 - `pageLoad/readerEntry` → `SPA/navigation/ProgressOverlayConductor`
 - `pageLoad/readerEntry` → `components/cloudRef/editIndicator`
+- `pageLoad/readerEntry` → `pageLoad/timeMachine`
 - `scrolling/internalNav` → `SPA/navigation/resolveTargetChunk`
+- `scrolling/internalNav` → `components/toast/toast`
 - `scrolling/internalNav` → `hypercites/animations`
 
 ## Legend

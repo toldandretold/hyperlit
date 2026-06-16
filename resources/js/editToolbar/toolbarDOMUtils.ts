@@ -6,7 +6,7 @@
  */
 
 import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements.js';
-import { placeCaretInEmptyListItem } from '../utilities/listItemCaret.js';
+import { placeCaretInEmptyListItem } from '../utilities/listItemCaret';
 
 /**
  * Check if element or any of its parents has the specified tag

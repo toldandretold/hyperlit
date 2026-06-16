@@ -1,6 +1,6 @@
 // searchEngine.js - Core search functionality for in-page search
 
-import { verbose } from "../../utilities/logger.js";
+import { verbose } from "../../utilities/logger";
 
 /**
  * Strip HTML tags from content and return plain text

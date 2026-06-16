@@ -15,7 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // operationState pulls in app wiring we don't want in a unit test.
-vi.mock('../../../resources/js/utilities/operationState.js', () => ({
+vi.mock('../../../resources/js/utilities/operationState', () => ({
   setProgrammaticUpdateInProgress: vi.fn(),
 }));
 

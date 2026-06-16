@@ -7,10 +7,10 @@
 
 import { openDatabase } from '../indexedDB/index';
 import { fetchLibraryFromServer } from './database';
-import { getActiveBook } from '../utilities/activeContext.js';
-import { formatBibtexToCitation } from "../utilities/bibtexProcessor.js";
-import { canUserEditBook } from "../utilities/auth.js";
-import { openHyperlitContainer, handleHyperciteHealthCheck, handleHyperciteDelete } from '../utilities/containerActions';
+import { getActiveBook } from '../hyperlitContainer/utilities/activeContext';
+import { formatBibtexToCitation } from "../utilities/bibtexProcessor";
+import { canUserEditBook } from "../utilities/auth/index";
+import { openHyperlitContainer, handleHyperciteHealthCheck, handleHyperciteDelete } from '../hyperlitContainer/containerActions';
 
 /**
  * Handle poly click - shows "cited by" container with all citations

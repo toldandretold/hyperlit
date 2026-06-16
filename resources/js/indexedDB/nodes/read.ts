@@ -5,7 +5,7 @@
 
 import { openDatabase } from '../core/connection';
 import { parseNodeId } from '../core/utilities';
-import { verbose } from '../../utilities/logger.js';
+import { verbose } from '../../utilities/logger';
 import type { BookId, NodeRecord } from '../types';
 
 /**

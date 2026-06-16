@@ -4,8 +4,8 @@
 // back-edge — restoreEditButtonFromLock re-wiring the listeners — uses a dynamic
 // import('./index') so there's no static cycle with the controller.
 import { book } from "../../app.js";
-import { log, verbose } from "../../utilities/logger.js";
-import { getCurrentUser, canUserEditBook } from "../../utilities/auth.js";
+import { log, verbose } from "../../utilities/logger";
+import { getCurrentUser, canUserEditBook } from "../../utilities/auth/index";
 
 // Replace the edit button with a lock icon (logged in, but no permission).
 export function replaceEditButtonWithLock() {

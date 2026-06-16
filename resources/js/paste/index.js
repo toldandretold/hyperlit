@@ -22,14 +22,14 @@
 
 import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
 import { marked } from 'marked';
-import { getActiveBook } from '../utilities/activeContext.js';
+import { getActiveBook } from '../hyperlitContainer/utilities/activeContext';
 import { getCurrentChunk } from '../divEditor/chunkManager';
-import { initializeMainLazyLoader, lazyLoaders } from '../pageLoad';
+import { initializeMainLazyLoader, lazyLoaders } from '../pageLoad/index';
 import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../components/cloudRef/editIndicator';
 import {
   setPasteInProgress,
   isPasteInProgress as isPasteInProgressState
-} from '../utilities/operationState.js';
+} from '../utilities/operationState';
 
 // Import handlers
 import { handleCodeBlockPaste } from './handlers/codeBlockHandler.js';
@@ -92,7 +92,7 @@ export function addPasteListener(editableDiv) {
 
 // Export extractQuotedText for external use
 // Re-export from utilities (moved to avoid circular dependency with hyperlights)
-export { extractQuotedText } from '../utilities/textExtraction.js';
+export { extractQuotedText } from '../utilities/textExtraction';
 
 /**
  * Sync pasted nodes to PostgreSQL in background
@@ -102,7 +102,7 @@ async function syncPasteToPostgreSQL(bookId) {
   console.log(`📤 Syncing FULL BOOK to PostgreSQL in background after paste...`);
 
   // Wait for initial book sync to complete first (prevents race condition with new book creation)
-  const { getInitialBookSyncPromise } = await import('../utilities/operationState.js');
+  const { getInitialBookSyncPromise } = await import('../utilities/operationState');
   const initialSyncPromise = getInitialBookSyncPromise();
   if (initialSyncPromise) {
     console.log("PASTE SYNC: Waiting for initial book sync to complete...");
@@ -283,7 +283,7 @@ function _schedulePasteVerification(bookId, pasteOpId) {
       const orphans = findOrphanedNodes(bookId);
       if (orphans.length > 0) {
         console.warn(`[integrity] Post-paste orphan check: found ${orphans.length} orphaned node(s)`);
-        const { setElementIds, findPreviousElementId, findNextElementId } = await import('../utilities/IDfunctions.js');
+        const { setElementIds, findPreviousElementId, findNextElementId } = await import('../utilities/IDfunctions');
 
         const orphanedNodes = [];
         for (const orphan of orphans) {

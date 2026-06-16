@@ -3,9 +3,9 @@
  * Handles saving footnote content edits (similar to highlight annotations)
  */
 
-import { withPending } from "../utilities/operationState.js";
+import { withPending } from "../utilities/operationState";
 import { openDatabase, queueForSync } from "../indexedDB/index.js";
-import { getCurrentContainer } from "../utilities/containerActions";
+import { getCurrentContainer } from "../hyperlitContainer/containerActions";
 import { registerPendingEditFlush } from "../utilities/pendingEditsRegistry";
 
 /**

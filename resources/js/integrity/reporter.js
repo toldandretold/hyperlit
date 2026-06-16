@@ -18,7 +18,7 @@ import {
   buildStitchedUpMd,
   buildReadme,
 } from './emergencyBackup.js';
-import { isLoggedIn } from '../utilities/auth.js';
+import { isLoggedIn } from '../utilities/auth/index';
 
 const _sessionStartTs = Date.now();
 let _lastPopupTs = 0;

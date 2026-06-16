@@ -3,7 +3,7 @@
  * Manages the queue of pending sync operations
  */
 
-import { isUndoRedoInProgress } from '../../utilities/operationState.js';
+import { isUndoRedoInProgress } from '../../utilities/operationState';
 import type { BookId, SyncOperationType, SyncQueueItem, SyncRecordData, SyncStore } from '../types';
 
 // Global pending syncs map

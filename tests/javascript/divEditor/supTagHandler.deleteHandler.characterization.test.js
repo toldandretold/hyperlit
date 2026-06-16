@@ -12,7 +12,7 @@ const { queueNodeForSave, queueNodeForDeletion } = vi.hoisted(() => ({
 vi.mock('../../../resources/js/divEditor/editorState', () => ({ queueNodeForSave, queueNodeForDeletion }));
 vi.mock('../../../resources/js/indexedDB/syncQueue/queue', () => ({ queueForSync: vi.fn() }));
 
-import { supDeleteHandler } from '../../../resources/js/divEditor/supTagHandler/deleteHandler.ts';
+import { supDeleteHandler } from '../../../resources/js/divEditor/supTagHandler/deleteHandler';
 
 beforeEach(() => { document.body.innerHTML = ''; window.isEditing = true; vi.clearAllMocks(); });
 function cursorAt(node, offset) {

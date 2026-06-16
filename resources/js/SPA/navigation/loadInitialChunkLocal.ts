@@ -10,7 +10,7 @@ import { getNodeChunksFromIndexedDB } from '../../indexedDB/nodes/read';
 import { getLibraryObjectFromIndexedDB } from '../../indexedDB/core/library';
 import { openDatabase } from '../../indexedDB/core/connection';
 import { resolveTargetChunkId } from './resolveTargetChunk.js';
-import { verbose } from '../../utilities/logger.js';
+import { verbose } from '../../utilities/logger';
 
 /**
  * @param {string} bookId

@@ -17,7 +17,7 @@
  *   'cleanup' -> All processes done, cleanup in progress
  */
 
-import { verbose } from '../../utilities/logger.js';
+import { verbose } from '../../utilities/logger';
 
 export const NavigationProcess = {
   SCROLL_COMPLETE: 'scroll_complete',           // Navigation scroll finished

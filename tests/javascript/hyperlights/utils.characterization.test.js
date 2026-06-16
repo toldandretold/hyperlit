@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const { handleUnifiedContentClick } = vi.hoisted(() => ({ handleUnifiedContentClick: vi.fn().mockResolvedValue(undefined) }));
 // hyperlights now reaches the container via the containerActions DI registry, not hyperlitContainer/index.
-vi.mock('../../../resources/js/utilities/containerActions', () => ({ handleUnifiedContentClick, registerContainerActions: vi.fn() }));
+vi.mock('../../../resources/js/hyperlitContainer/containerActions', () => ({ handleUnifiedContentClick, registerContainerActions: vi.fn() }));
 
 import { generateHighlightID, openHighlightById, attachPlaceholderBehavior } from '../../../resources/js/hyperlights/utils';
 

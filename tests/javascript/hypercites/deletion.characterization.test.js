@@ -15,7 +15,7 @@ const { updateBookTimestamp, queueForSync, getNodesByDataNodeIDs, rebuildNodeArr
   rebuildNodeArrays: vi.fn().mockResolvedValue(undefined),
   flush: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock('../../../resources/js/utilities/activeContext.js', () => ({ getActiveBook: () => 'bookA' }));
+vi.mock('../../../resources/js/hyperlitContainer/utilities/activeContext', () => ({ getActiveBook: () => 'bookA' }));
 vi.mock('../../../resources/js/indexedDB/index', async () => {
   const conn = await import('../../../resources/js/indexedDB/core/connection');
   const util = await import('../../../resources/js/indexedDB/core/utilities');

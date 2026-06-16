@@ -9,18 +9,18 @@
  * - Chunk overflow management
  */
 
-import { chunkOverflowInProgress, userDeletionInProgress } from "../../utilities/operationState.js";
-import { isNumericalId, ensureNodeHasValidId } from "../../utilities/IDfunctions.js";
+import { chunkOverflowInProgress, userDeletionInProgress } from "../../utilities/operationState";
+import { isNumericalId, ensureNodeHasValidId } from "../../utilities/IDfunctions";
 import { movedNodesByOverflow } from '../editorState';
 import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager';
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../../components/tocContainer/index';
 import { deleteIndexedDBRecordWithRetry, updateSingleIndexedDBRecord } from '../../indexedDB/index';
-import { isPasteOperationActive } from '../../paste';
-import { verbose } from '../../utilities/logger.js';
-import { setChunkLoadingInProgress } from '../../utilities/chunkLoadingState.js';
+import { isPasteOperationActive } from '../../paste/index.js';
+import { verbose } from '../../utilities/logger';
+import { setChunkLoadingInProgress } from '../../lazyLoader/utilities/chunkLoadingState';
 
 // 🚀 PERFORMANCE: Import cached regex pattern
-import { NUMERICAL_ID_PATTERN } from '../../utilities/IDfunctions.js';
+import { NUMERICAL_ID_PATTERN } from '../../utilities/IDfunctions';
 
 // 🆕 NO-DELETE-ID MARKER SYSTEM
 import {

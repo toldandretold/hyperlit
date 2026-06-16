@@ -172,7 +172,7 @@ export async function reapplyAnnotationsWithGate(bookId?: any) {
   }
   if (!bookId) return;
 
-  const { syncAnnotationsOnly } = await import('../../indexedDB/serverSync');
+  const { syncAnnotationsOnly } = await import('../../indexedDB/serverSync/index');
   const syncResult = await syncAnnotationsOnly(bookId);
 
   if (!syncResult?.success) {

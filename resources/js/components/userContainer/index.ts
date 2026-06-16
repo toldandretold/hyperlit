@@ -9,8 +9,8 @@
 // live in ../userButton/userButton.
 import { ContainerManager } from "../utilities/containerManager";
 import { book } from "../../app.js";
-import { getCurrentUser } from "../../utilities/auth.js";
-import { syncBookDataFromDatabase } from "../../indexedDB/serverSync";
+import { getCurrentUser } from "../../utilities/auth/index";
+import { syncBookDataFromDatabase } from "../../indexedDB/serverSync/index";
 import { getErrorHTML } from "./forms";
 import { showLoginForm, showRegisterForm, handleLogin, handleRegister, handleLogout, performLogoutCleanup, showLoginError, showRegisterError } from "./auth";
 import { showVerifyEmailScreen, showChangeEmailForm, handleChangeEmail, handleResendVerification } from "./email";
@@ -306,7 +306,7 @@ export class UserContainerManager extends (ContainerManager as any) {
 
   async triggerContentRefresh(bookId: any) {
     try {
-      const { currentLazyLoader }: any = await import('../../pageLoad');
+      const { currentLazyLoader }: any = await import('../../pageLoad/index');
       if (currentLazyLoader && typeof currentLazyLoader.refresh === 'function') {
         await currentLazyLoader.refresh();
       } else {

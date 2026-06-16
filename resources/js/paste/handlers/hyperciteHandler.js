@@ -5,7 +5,7 @@
  * Updates citedIN arrays and relationship statuses in both source and target documents.
  */
 
-import { getActiveBook } from '../../utilities/activeContext.js';
+import { getActiveBook } from '../../hyperlitContainer/utilities/activeContext';
 import {
   updateCitationForExistingHypercite,
   getNodeChunksFromIndexedDB,
@@ -20,13 +20,13 @@ import { parseHyperciteHref, attachUnderlineClickListeners, delinkHypercite } fr
 import { getEditToolbar } from '../../editToolbar/index';
 import { getTextOffsetInElement } from '../../editToolbar/toolbarDOMUtils';
 import { determineRelationshipStatus } from '../../hypercites/utils.js';
-import { broadcastToOpenTabs } from '../../utilities/BroadcastListener.js';
+import { broadcastToOpenTabs } from '../../utilities/BroadcastListener';
 import {
   setHandleHypercitePaste
-} from '../../utilities/operationState.js';
+} from '../../utilities/operationState';
 import { queueNodeForSave } from '../../divEditor/index';
 import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
-import { extractQuotedText } from '../../utilities/textExtraction.js';
+import { extractQuotedText } from '../../utilities/textExtraction';
 import { ensureSpaceAfterAnchor } from '../utils/anchorSpacing.js';
 
 /**
@@ -75,9 +75,9 @@ function extractQuotedTextBeforeLink(container, linkElement) {
 
 /**
  * Extract quoted text from a paste wrapper element
- * Moved to utilities/textExtraction.js to avoid circular dependencies
+ * Moved to utilities/textExtraction to avoid circular dependencies
  */
-export { extractQuotedText } from '../../utilities/textExtraction.js';
+export { extractQuotedText } from '../../utilities/textExtraction';
 
 /**
  * Save the current paragraph after a paste operation

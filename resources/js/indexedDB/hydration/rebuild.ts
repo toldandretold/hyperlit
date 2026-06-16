@@ -15,7 +15,7 @@
  */
 
 import { openDatabase } from '../core/connection';
-import { verbose } from '../../utilities/logger.js';
+import { verbose } from '../../utilities/logger';
 import type {
   HyperciteRecord,
   HyperlightRecord,

@@ -94,7 +94,7 @@ function isTocCacheValid() {
 async function scanForHeadings() {
   // pageLoad is a bootstrap module — import it dynamically to avoid a static
   // component→bootstrap import cycle (flagged by the acyclic-import gate).
-  const { currentLazyLoader } = await import("../../pageLoad");
+  const { currentLazyLoader } = await import("../../pageLoad/index");
   // If not fully loaded, fetch headings from server endpoint
   if (!currentLazyLoader?.isFullyLoaded) {
     try {
@@ -222,8 +222,8 @@ function attachTocClickHandler() {
       console.log(`📌 Navigating via TOC to: ${targetId}`);
       // scrolling + pageLoad are bootstrap modules — dynamic import breaks the
       // static component→bootstrap cycle the acyclic-import gate guards.
-      const { navigateToInternalId } = await import("../../scrolling");
-      const { currentLazyLoader } = await import("../../pageLoad");
+      const { navigateToInternalId } = await import("../../scrolling/index");
+      const { currentLazyLoader } = await import("../../pageLoad/index");
       navigateToInternalId(targetId, currentLazyLoader, false);
     }
   };

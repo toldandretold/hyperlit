@@ -17,12 +17,12 @@ import {
   syncLibraryRecordToBackend, collectFormData, refreshCitationDisplay,
 } from "./editForm";
 import { handlePrivacyToggle } from "./citationDisplay";
-import { loadCreatorTools } from "./creatorTools";
+import { loadCreatorTools } from "./creatorTools/index";
 import { loadVersionHistory } from "./creatorTools/versionHistory";
 import { loadReconvertInfo, handleReconvert, _awaitReconvert } from "./creatorTools/reconvert";
 import { handleReupload } from "./creatorTools/reupload";
 import { handleDeleteBook } from "./creatorTools/deleteBook";
-import { loadAiReviewStatus, setAiReviewState, handleAiReviewGenerate, ensureAiReviewLivePanel } from "./aiReview";
+import { loadAiReviewStatus, setAiReviewState, handleAiReviewGenerate, ensureAiReviewLivePanel } from "./aiReview/index";
 import { startAiReviewPolling, stopAiReviewPolling, pollAiReviewStatus } from "./aiReview/polling";
 import { openAiReviewVizOverlay, closeAiReviewVizOverlay, fetchPipelineMap, renderPipelineViz, syncPipelineHighlights } from "./aiReview/pipelineViz";
 

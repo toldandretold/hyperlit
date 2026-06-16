@@ -13,7 +13,7 @@
  * the `./footnoteCache` leaf; the DOM/HTML transforms live in `./footnoteDom`.
  */
 
-import { log, verbose } from '../utilities/logger.js';
+import { log, verbose } from '../utilities/logger';
 import { buildFootnoteMap, getCurrentMap, getMapSize } from './footnoteCache';
 import { updateFootnoteNumbersInDOM, applyFootnoteMapToStoredHTML } from './footnoteDom';
 

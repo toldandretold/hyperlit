@@ -5,12 +5,12 @@
 import { NavigationManager } from './NavigationManager.js';
 import { BookToBookTransition } from './pathways/BookToBookTransition.js';
 import { getPageStructure, areStructuresCompatible, getSubdomain, getBookIdFromUrl } from './utils/structureDetection.js';
-import { log, verbose } from '../../utilities/logger.js';
-import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } from '../../scrolling';
+import { log, verbose } from '../../utilities/logger';
+import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } from '../../scrolling/index';
 import { book, bookSlug as _bookSlug } from '../../app.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../../hypercites/navigation';
-import { currentLazyLoader, openContainerChain, buildChainFromUrl } from '../../pageLoad';
+import { currentLazyLoader, openContainerChain, buildChainFromUrl } from '../../pageLoad/index';
 import { getLocalStorageKey } from '../../indexedDB/index';
 import { closeHyperlitContainer } from '../../hyperlitContainer/index';
 import { registerLinkClickHandler } from '../../utilities/linkClickRegistry';

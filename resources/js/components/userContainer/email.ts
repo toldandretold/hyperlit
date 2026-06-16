@@ -2,7 +2,7 @@
 // screen, the change-email form + submit, and resend-verification. Takes the
 // UserContainerManager as `self`.
 import { getVerifyEmailHTML, getChangeEmailHTML } from './forms';
-import { setCurrentUser } from '../../utilities/auth.js';
+import { setCurrentUser } from '../../utilities/auth/index';
 
 export function showVerifyEmailScreen(self: any) {
   const container = document.querySelector(".custom-alert") || self.container;

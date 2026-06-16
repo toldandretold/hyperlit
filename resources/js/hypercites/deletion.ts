@@ -6,7 +6,7 @@
  */
 
 import { openDatabase, updateBookTimestamp, getHyperciteFromIndexedDB, syncHyperciteWithNodeChunkImmediately, getNodesByDataNodeIDs, rebuildNodeArrays, queueForSync, debouncedMasterSync } from '../indexedDB/index';
-import { getActiveBook } from '../utilities/activeContext.js';
+import { getActiveBook } from '../hyperlitContainer/utilities/activeContext';
 import { extractHyperciteIdFromHref, determineRelationshipStatus, removeCitedINEntry } from './utils';
 import { getHyperciteById } from './database';
 
@@ -160,7 +160,7 @@ export async function delinkHypercite(hyperciteElementId: string, hrefUrl: strin
 
     // 🔥 NEW: Broadcast the update to other tabs so they can refresh the hypercite's appearance
     if (foundNodeChunk) {
-      const { broadcastToOpenTabs } = await import('../utilities/BroadcastListener.js');
+      const { broadcastToOpenTabs } = await import('../utilities/BroadcastListener');
       broadcastToOpenTabs(targetHypercite.book, foundNodeChunk.startLine);
       console.log(`📡 Broadcasted delink update for node ${foundNodeChunk.startLine} to other tabs`);
     }

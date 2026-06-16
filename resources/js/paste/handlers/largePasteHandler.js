@@ -5,7 +5,7 @@
  * Converts blocks to JSON, writes to IndexedDB, syncs to PostgreSQL immediately.
  */
 
-import { getNextIntegerId, generateNodeId } from '../../utilities/IDfunctions.js';
+import { getNextIntegerId, generateNodeId } from '../../utilities/IDfunctions';
 import { NODE_LIMIT } from '../../divEditor/chunkManager';
 import {
   getNodeChunksAfter,
@@ -48,7 +48,7 @@ export async function handleLargePaste(
 
   // Wait for background download if still in progress (chunked lazy loading)
   if (window._backgroundDownloadInProgress) {
-    const { waitForBackgroundDownload } = await import('../../pageLoad');
+    const { waitForBackgroundDownload } = await import('../../pageLoad/index');
     await waitForBackgroundDownload();
   }
 
@@ -273,8 +273,8 @@ export async function handleLargePaste(
     if (extractedFootnotes.length > 0) {
       // Generate preview_nodes + initial sub-book nodes so opening a footnote
       // after paste doesn't hit the synthesize branch (which triggers stuck orange CloudRef).
-      const { generateNodeId } = await import('../../utilities/IDfunctions.js');
-      const { buildSubBookId } = await import('../../utilities/subBookIdHelper.js');
+      const { generateNodeId } = await import('../../utilities/IDfunctions');
+      const { buildSubBookId } = await import('../../utilities/subBookIdHelper');
 
       const subBookNodes = [];
 
@@ -346,7 +346,7 @@ export async function undoLastLargePaste() {
   console.log(`⏪ Undoing large paste: restoring ${allNodes.length} nodes for book ${bookId}`);
 
   // Suppress MutationObserver + integrity checks during undo (same as paste handler)
-  const { setPasteInProgress } = await import('../../utilities/operationState.js');
+  const { setPasteInProgress } = await import('../../utilities/operationState');
   setPasteInProgress(true);
 
   ProgressOverlayConductor.showSPATransition(10, 'Undoing paste...', true);
@@ -363,7 +363,7 @@ export async function undoLastLargePaste() {
     ProgressOverlayConductor.updateProgress(60, 'Refreshing view...');
 
     // 3. Refresh lazy loader (remove all chunks, reload chunk 0)
-    const { initializeMainLazyLoader } = await import('../../pageLoad');
+    const { initializeMainLazyLoader } = await import('../../pageLoad/index');
     const loader = initializeMainLazyLoader();
     loader.nodes = await loader.getNodeChunks();
 

@@ -5,8 +5,8 @@
 // Registry lifecycle + the default-export singleton live in
 // ../settingsButton/settingsButton.
 import { ContainerManager } from "../utilities/containerManager";
-import { verbose } from "../../utilities/logger.js";
-import { switchTheme, getCurrentTheme, THEMES } from "../../utilities/themeSwitcher.js";
+import { verbose } from "../../utilities/logger";
+import { switchTheme, getCurrentTheme, THEMES } from "./themeSwitcher";
 import { openSearchToolbar } from "../../search/inTextSearch/searchToolbar.js";
 import { handleVibeClick, _openVibeGallery, _openVibeUI } from "./vibe";
 import { _openGatePanel } from "./gate";

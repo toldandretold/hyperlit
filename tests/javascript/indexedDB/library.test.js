@@ -11,7 +11,7 @@ vi.mock('../../../resources/js/components/editIndicator.js', () => ({
 }));
 // bibtexProcessor → auth.js → the root indexedDB barrel → editor import cycle.
 // Stub the only name the graph needs.
-vi.mock('../../../resources/js/utilities/auth.js', () => ({
+vi.mock('../../../resources/js/utilities/auth', () => ({
   getCurrentUserId: vi.fn(() => null),
   refreshCsrfToken: vi.fn(),
 }));

@@ -107,7 +107,7 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/js/divEditor/chunkManager.ts',
                 'resources/js/components/utilities/containerCustomization.ts',
-                'resources/js/utilities/convertMarkdown.js',
+                'resources/js/utilities/convertMarkdown.ts',
                 // drag.js is imported via components/registerComponents.js (ButtonRegistry-managed),
                 // no longer a standalone entry — see reader.blade.php note.
                 'resources/js/editToolbar/index.ts',

@@ -2,16 +2,16 @@
  * Content Swap Helpers - Shared content swapping logic for navigation transitions
  * Extracted from DifferentTemplateTransition and SameTemplateTransition for reusability
  */
-import { log } from '../../../utilities/logger.js';
+import { log } from '../../../utilities/logger';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
-import { showNavigationLoading, hideNavigationLoading, navigateToInternalId } from '../../../scrolling';
+import { showNavigationLoading, hideNavigationLoading, navigateToInternalId } from '../../../scrolling/index';
 import { destroyHomepageDisplayUnit, initializeHomepageButtons, fixHeaderSpacing } from '../../../components/homepage/homepageDisplayUnit';
 import { destroyUserProfileEditor, initializeUserProfileEditor } from '../../../components/userProfile/userProfileEditor';
 import { setCurrentBook, setCurrentBookSlug } from '../../../app.js';
 import { updateDatabaseBookId } from '../../../indexedDB/index';
-import { resetCurrentLazyLoader, currentLazyLoader } from '../../../pageLoad';
+import { resetCurrentLazyLoader, currentLazyLoader } from '../../../pageLoad/index';
 // ✅ REMOVED: togglePerimeterButtons now managed by ButtonRegistry
-// import { togglePerimeterButtons } from '../../../pageLoad';
+// import { togglePerimeterButtons } from '../../../pageLoad/index';
 import { destroyLogoNav, initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { initializeUserContainer } from '../../../components/userButton/userButton';
 

@@ -4,8 +4,8 @@
  */
 
 import { openDatabase } from './connection';
-import { buildBibtexEntry } from '../../utilities/bibtexProcessor.js';
-import { parseSubBookId } from '../../utilities/subBookIdHelper.js';
+import { buildBibtexEntry } from '../../utilities/bibtexProcessor';
+import { parseSubBookId } from '../../utilities/subBookIdHelper';
 
 import { queueForSync } from '../syncQueue/queue';
 import type { BookId, LibraryRecord } from '../types';

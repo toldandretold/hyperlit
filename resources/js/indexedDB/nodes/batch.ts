@@ -5,13 +5,13 @@
 
 import { openDatabase } from '../core/connection';
 import { parseNodeId } from '../core/utilities';
-import { verbose } from '../../utilities/logger.js';
+import { verbose } from '../../utilities/logger';
 import { syncFirstNodeToTitle, updateBookTimestamp } from '../core/library';
 // debounce comes from the zero-import leaf, NOT divEditor/saveQueue.js —
 // importing it via saveQueue welded this module into the editor import cycle
 // (the circular-import TDZ landmine).
-import { debounce } from '../../utilities/debounce.js';
-import { withPending } from '../../utilities/operationState.js';
+import { debounce } from '../../utilities/debounce';
+import { withPending } from '../../utilities/operationState';
 import { queueForSync } from '../syncQueue/queue';
 import { reportIntegrityFailure } from '../../integrity/reporter.js';
 import { INLINE_SKIP_TAGS } from '../../utilities/blockElements.js';

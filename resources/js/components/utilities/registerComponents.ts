@@ -94,7 +94,7 @@ import { initFootnoteTapExtender } from '../../hyperlitContainer/footnoteTapExte
 import {
   initContainerDragger,
   destroyContainerDragger
-} from '../../utilities/drag.js';
+} from '../containerDragger/containerDragger';
 
 /**
  * Register all components

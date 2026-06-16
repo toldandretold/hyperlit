@@ -6,7 +6,7 @@
 // registerComponents.ts. Also exposes the singleton on window.newBookManager
 // (read by the cite-form modules) and as the default export.
 import { NewBookContainerManager } from "../newbookContainer/index";
-import { log, verbose } from "../../utilities/logger.js";
+import { log, verbose } from "../../utilities/logger";
 
 // Container manager instance
 let newBookManager: any = null;

@@ -103,7 +103,7 @@ export async function showShelfPreview(bookId) {
 
                 // Server delete
                 try {
-                    const { refreshAuth } = await import('../../utilities/auth.js');
+                    const { refreshAuth } = await import('../../utilities/auth/index');
                     await refreshAuth();
                     const csrfToken = window.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content;
                     const resp = await fetch(`/api/books/${encodeURIComponent(bookId)}`, {

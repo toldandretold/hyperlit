@@ -15,9 +15,9 @@ import { isContentLink } from './deletion';
 import { addTouchAndClickListener } from './listeners';
 import { createHighlightHandler, openBrainFromSelection } from './createHighlight';
 import { deleteHighlightHandler } from './deleteHighlight';
-import { getActiveBook, setActiveBook, clearActiveBook } from '../utilities/activeContext.js';
-import { isStackPopping } from '../utilities/containerActions';
-import { log, verbose } from '../utilities/logger.js';
+import { getActiveBook, setActiveBook, clearActiveBook } from '../hyperlitContainer/utilities/activeContext';
+import { isStackPopping } from '../hyperlitContainer/containerActions';
+import { log, verbose } from '../utilities/logger';
 
 // Track whether document listeners are attached
 let documentListenersAttached = false;

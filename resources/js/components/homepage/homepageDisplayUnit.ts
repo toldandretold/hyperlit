@@ -1,6 +1,6 @@
 import { setCurrentBook } from '../../app.js';
-import { showNavigationLoading, hideNavigationLoading } from '../../scrolling';
-import { log, verbose } from '../../utilities/logger.js';
+import { showNavigationLoading, hideNavigationLoading } from '../../scrolling/index';
+import { log, verbose } from '../../utilities/logger';
 import { getAllOfflineAvailableBooks } from '../../indexedDB/index';
 
 // Storage key for active button persistence
@@ -384,7 +384,7 @@ export async function transitionToBookContent(bookId: any, showLoader = true) {
     // (initHelpers.js for Different-Template, or transition pathway for Same-Template)
 
     // Reset the current lazy loader so a fresh one gets created
-    const { loadHyperText, resetCurrentLazyLoader } = await import('../../pageLoad');
+    const { loadHyperText, resetCurrentLazyLoader } = await import('../../pageLoad/index');
     resetCurrentLazyLoader();
 
     // Use the same loading pipeline as regular page transitions

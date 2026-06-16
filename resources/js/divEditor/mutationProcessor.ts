@@ -6,10 +6,10 @@
  * rapid typing or large paste operations.
  */
 
-import { isPasteInProgress, isProgrammaticUpdateInProgress, hypercitePasteInProgress, keyboardLayoutInProgress, isUndoRedoInProgress } from "../utilities/operationState.js";
-import { isChunkLoadingInProgress, getLoadingChunkId } from "../utilities/chunkLoadingState.js";
-import { getEditToolbar } from '../editToolbar';
-import { verbose } from '../utilities/logger.js';
+import { isPasteInProgress, isProgrammaticUpdateInProgress, hypercitePasteInProgress, keyboardLayoutInProgress, isUndoRedoInProgress } from "../utilities/operationState";
+import { isChunkLoadingInProgress, getLoadingChunkId } from "../lazyLoader/utilities/chunkLoadingState";
+import { getEditToolbar } from '../editToolbar/index';
+import { verbose } from '../utilities/logger';
 
 interface MutationProcessorOptions {
   filterMutations?: (mutations: any[]) => any[];

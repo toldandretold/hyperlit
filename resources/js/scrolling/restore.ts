@@ -6,11 +6,11 @@
  * currentLazyLoader is dynamically imported (it lives in the page-load layer,
  * which imports scrolling back) to keep this folder's static graph acyclic.
  */
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../utilities/logger';
 import { book, OpenHyperlightID, OpenFootnoteID } from '../app.js';
 import { getNodeChunksFromIndexedDB, getLocalStorageKey } from '../indexedDB/index.js';
-import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown.js';
-import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from '../utilities/operationState.js';
+import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
+import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from '../utilities/operationState';
 import { isSearchToolbarOpen } from '../search/inTextSearch/searchToolbar.js';
 import { navigatedHashes } from './navState';
 import { shouldSkipScrollRestoration } from './userScrollDetection';

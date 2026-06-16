@@ -3,7 +3,7 @@
  * navigation loading overlay. Legacy entry points kept for back-compat; the
  * Conductor owns the actual overlay state machine.
  */
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../utilities/logger';
 import { ProgressOverlayConductor } from '../SPA/navigation/ProgressOverlayConductor.js';
 
 export interface NavigationProgressIndicator {

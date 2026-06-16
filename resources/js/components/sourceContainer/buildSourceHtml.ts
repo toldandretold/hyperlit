@@ -5,9 +5,9 @@
 // HTML is injected. Kept in its own leaf so editForm/index can both import it
 // without a static import cycle.
 import { openDatabase } from '../../indexedDB/index';
-import { formatBibtexToCitation } from '../../utilities/bibtexProcessor.js';
+import { formatBibtexToCitation } from '../../utilities/bibtexProcessor';
 import { book } from '../../app.js';
-import { canUserEditBook, getAuthContextSync } from '../../utilities/auth.js';
+import { canUserEditBook, getAuthContextSync } from '../../utilities/auth/index';
 import { getRecord, isSyntheticBook, PUBLIC_SVG, PRIVATE_SVG } from './helpers';
 
 /**

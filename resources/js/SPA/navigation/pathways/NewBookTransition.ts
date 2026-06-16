@@ -9,8 +9,8 @@
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { glowCloudOrange, glowCloudGreen, glowCloudRed } from '../../../components/cloudRef/editIndicator';
-import { waitForElementReady, waitForContentReady } from '../../../utilities/domReadiness';
-import { log, verbose } from '../../../utilities/logger.js';
+import { waitForElementReady, waitForContentReady } from '../../domReadiness';
+import { log, verbose } from '../../../utilities/logger';
 import { debouncedMasterSync, pendingSyncs, updateDatabaseBookId } from '../../../indexedDB/index';
 import { destroyUserContainer } from '../../../components/userButton/userButton';
 import { destroyNewBookContainer } from '../../../components/newBookButton/newBookButton';
@@ -22,8 +22,8 @@ import { universalPageInitializer } from '../../viewManager';
 import { reinitializeContainerManagers } from '../utils/initHelpers.js';
 import { initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { createNewBook, fireAndForgetSync } from '../../createNewBook';
-import { setInitialBookSyncPromise } from '../../../utilities/operationState.js';
-import { syncIndexedDBtoPostgreSQL } from '../../../indexedDB/serverSync';
+import { setInitialBookSyncPromise } from '../../../utilities/operationState';
+import { syncIndexedDBtoPostgreSQL } from '../../../indexedDB/serverSync/index';
 
 export class NewBookTransition {
   /**

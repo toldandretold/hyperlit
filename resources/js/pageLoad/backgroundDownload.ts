@@ -4,8 +4,8 @@ import {
     loadBibliographyToIndexedDB,
     loadHyperlightsToIndexedDB,
     loadHypercitesToIndexedDB,
-} from '../indexedDB/serverSync';
-import { log, verbose } from '../utilities/logger.js';
+} from '../indexedDB/serverSync/index';
+import { log, verbose } from '../utilities/logger';
 import { rebuildAndRenumber } from '../footnotes/FootnoteNumberingService';
 import { appendGateParam } from '../components/utilities/gateFilter';
 

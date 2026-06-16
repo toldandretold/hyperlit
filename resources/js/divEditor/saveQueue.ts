@@ -10,14 +10,14 @@ import {
   batchDeleteIndexedDBRecords,
   deleteIndexedDBRecordWithRetry
 } from '../indexedDB/index';
-import { isPasteOperationActive } from '../paste';
-import { verbose } from '../utilities/logger.js';
-import { clearChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
-import { markCacheDirty } from '../utilities/cacheState.js';
-import { debounce } from '../utilities/debounce.js';
+import { isPasteOperationActive } from '../paste/index.js';
+import { verbose } from '../utilities/logger';
+import { clearChunkLoadingInProgress } from '../lazyLoader/utilities/chunkLoadingState';
+import { markCacheDirty } from '../lazyLoader/utilities/cacheState';
+import { debounce } from '../utilities/debounce';
 import { invalidateSearchIndex } from '../search/inTextSearch/searchToolbar.js';
 import { reportIDBFailure, reportIDBSuccess, isIDBBroken } from '../indexedDB/core/healthMonitor';
-import { TAB_ID, markBookEditedLocally } from '../utilities/BroadcastListener.js';
+import { TAB_ID, markBookEditedLocally } from '../utilities/BroadcastListener';
 import { book as currentBook } from '../app.js';
 import { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } from '../integrity/verifier.js';
 import { reportIntegrityFailure as _reportIntegrityFailure } from '../integrity/reporter.js';
@@ -731,7 +731,7 @@ export class SaveQueue {
           const orphans = findOrphanedNodes(bookId);
           if (orphans.length > 0) {
             console.warn(`[integrity] Full-scan orphan check: found ${orphans.length} orphaned node(s)`);
-            const { setElementIds, findPreviousElementId, findNextElementId } = await import('../utilities/IDfunctions.js');
+            const { setElementIds, findPreviousElementId, findNextElementId } = await import('../utilities/IDfunctions');
 
             const orphanedNodes: any[] = [];
             for (const orphan of orphans) {

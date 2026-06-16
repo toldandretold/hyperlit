@@ -38,7 +38,7 @@ vi.mock('../../../resources/js/indexedDB/index', () => ({
   queueForSync: (...args) => queueSpy(...args),
 }));
 
-vi.mock('../../../resources/js/utilities/bibtexProcessor.js', () => ({
+vi.mock('../../../resources/js/utilities/bibtexProcessor', () => ({
   formatBibtexToCitation: vi.fn(async (bibtex) => `[FORMATTED] ${bibtex}`),
 }));
 

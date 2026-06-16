@@ -285,7 +285,7 @@ export function renderPipelineViz(self: any, pipeline: any) {
  */
 export async function syncPipelineHighlights(self: any, bookId: any) {
   try {
-    const { syncAnnotationsOnly } = await import('../../../indexedDB/serverSync');
+    const { syncAnnotationsOnly } = await import('../../../indexedDB/serverSync/index');
     const { updateLocalAnnotationsTimestamp } = await import('../../../indexedDB/core/library');
 
     // Sync highlights + hypercites from server into IndexedDB

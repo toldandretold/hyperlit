@@ -12,7 +12,7 @@
  */
 
 import { openDatabase, queueForSync } from '../indexedDB/index';
-import { formatBibtexToCitation } from '../utilities/bibtexProcessor.js';
+import { formatBibtexToCitation } from '../utilities/bibtexProcessor';
 
 /**
  * Generate a unique reference ID

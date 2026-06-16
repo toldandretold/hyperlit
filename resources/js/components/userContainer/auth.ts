@@ -11,8 +11,8 @@ import {
   clearCurrentUser,
   broadcastAuthChange,
   refreshAuth,
-} from '../../utilities/auth.js';
-import { flushAllPendingEdits } from '../../indexedDB/serverSync';
+} from '../../utilities/auth/index';
+import { flushAllPendingEdits } from '../../indexedDB/serverSync/index';
 
 export function showLoginForm(self: any) {
   const container = document.querySelector(".custom-alert") || self.container;

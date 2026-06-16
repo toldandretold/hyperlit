@@ -1,5 +1,5 @@
 import { book } from "../app.js";
-import { getCurrentUserId } from "../utilities/auth.js";
+import { getCurrentUserId } from "../utilities/auth/index";
 import { registerPendingEditFlush } from "../utilities/pendingEditsRegistry";
 import {
   updateSingleIndexedDBRecord,
@@ -22,21 +22,21 @@ import {
   keyboardLayoutInProgress,
   isProgrammaticUpdateInProgress,
   isPasteInProgress
-} from '../utilities/operationState.js';
+} from '../utilities/operationState';
 
 import { SaveQueue } from './saveQueue';
 // `debounce` lives in a zero-import leaf — import it directly rather than bouncing
 // through saveQueue. index↔saveQueue is a circular import (via ../paste); reaching
 // through it for a top-level debounce() call hit a TDZ ("debounce is not a function")
 // when load order flipped. The SaveQueue class is only used at runtime, so it's safe.
-import { debounce } from '../utilities/debounce.js';
+import { debounce } from '../utilities/debounce';
 // Shared editor state + enqueue API — extracted to a leaf to break the index↔handler cycle.
 import { movedNodesByOverflow, queueNodeForSave, queueNodeForDeletion, setActiveSaveQueue } from './editorState';
 export { movedNodesByOverflow, queueNodeForSave, queueNodeForDeletion };
 import { MutationProcessor } from './mutationProcessor';
-import { EnterKeyHandler } from './enterKeyHandler';
-import { SupTagHandler } from './supTagHandler';
-import { ChunkMutationHandler } from './chunkMutationHandler';
+import { EnterKeyHandler } from './enterKeyHandler/index';
+import { SupTagHandler } from './supTagHandler/index';
+import { ChunkMutationHandler } from './chunkMutationHandler/index';
 import {
   registerEditSession,
   unregisterEditSession,
@@ -70,9 +70,9 @@ export {
 };
 
 import { glowCloudOrange, glowCloudGreen, isProcessing } from '../components/cloudRef/editIndicator';
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../utilities/logger';
 
-import { buildBibtexEntry } from "../utilities/bibtexProcessor.js";
+import { buildBibtexEntry } from "../utilities/bibtexProcessor";
 import { generateIdBetween,
          setElementIds,
          isNumericalId,
@@ -80,15 +80,15 @@ import { generateIdBetween,
          NUMERICAL_ID_PATTERN,
          findPreviousElementId,
          findNextElementId,
-          } from "../utilities/IDfunctions.js";
+          } from "../utilities/IDfunctions";
 import {
   broadcastToOpenTabs
-} from '../utilities/BroadcastListener.js';
+} from '../utilities/BroadcastListener';
 
-import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown.js';
+import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
 import { BLOCK_ELEMENT_SELECTOR } from '../utilities/blockElements.js';
-import { listItemIsEmpty, placeCaretAtEndOfListItem } from '../utilities/listItemCaret.js';
-import { stripInlineStylePreservingIntensity } from '../utilities/stripInlineStyle.js';
+import { listItemIsEmpty, placeCaretAtEndOfListItem } from '../utilities/listItemCaret';
+import { stripInlineStylePreservingIntensity } from '../utilities/stripInlineStyle';
 
 import {
   trackChunkNodeCount,
@@ -97,10 +97,10 @@ import {
   chunkNodeCounts,
   getCurrentChunk
 } from './chunkManager';
-import { isPasteOperationActive } from '../paste';
-import { isChunkLoadingInProgress, getLoadingChunkId } from '../utilities/chunkLoadingState.js';
-import { SelectionDeletionHandler } from '../utilities/selectionDelete.js';
-import { getEditToolbar } from '../editToolbar';
+import { isPasteOperationActive } from '../paste/index.js';
+import { isChunkLoadingInProgress, getLoadingChunkId } from '../lazyLoader/utilities/chunkLoadingState';
+import { SelectionDeletionHandler } from './selectionDelete';
+import { getEditToolbar } from '../editToolbar/index';
 import { delinkHypercite, handleHyperciteDeletion } from "../hypercites/index";
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/tocContainer/index';
 

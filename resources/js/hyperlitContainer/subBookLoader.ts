@@ -4,15 +4,15 @@
  * within the hyperlit container's scroller div.
  */
 
-import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, createChunkElement } from '../lazyLoader';
+import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, createChunkElement } from '../lazyLoader/index';
 // NOTE: hyperlights/index.js and hypercites/index.js are imported DYNAMICALLY
 // (inside async functions) to break a circular dependency chain:
 //   subBookLoader → hyperlights/index → hyperlitContainer/index → (dynamic) subBookLoader
 // Static imports here would leave subBookLoaders in the TDZ during module evaluation.
 import { getNodeChunksFromIndexedDB, writeNodeChunks } from '../indexedDB/index';
-import { lazyLoaders } from '../pageLoad';
-import { generateNodeId } from '../utilities/IDfunctions.js';
-import { setChunkLoadingInProgress, clearChunkLoadingInProgress } from '../utilities/chunkLoadingState.js';
+import { lazyLoaders } from '../pageLoad/index';
+import { generateNodeId } from '../utilities/IDfunctions';
+import { setChunkLoadingInProgress, clearChunkLoadingInProgress } from '../lazyLoader/utilities/chunkLoadingState';
 
 import { subBookLoaders, enrichedSubBooks } from './subBookState.js';
 export { subBookLoaders };
@@ -312,7 +312,7 @@ async function enrichSubBookFromDB(subBookId: any, subBookState: any) {
       if (serverAnnotationsTs > localAnnotationsTs) {
         console.log(`📝 Sub-book "${subBookId}": annotations changed. Syncing annotations only...`);
 
-        const { syncAnnotationsOnly }: any = await import('../indexedDB/serverSync');
+        const { syncAnnotationsOnly }: any = await import('../indexedDB/serverSync/index');
         const { updateLocalAnnotationsTimestamp }: any = await import('../indexedDB/core/library');
 
         await syncAnnotationsOnly(subBookId);
@@ -348,7 +348,7 @@ async function enrichSubBookFromDB(subBookId: any, subBookState: any) {
     }
 
     console.log(`🔥 Sub-book "${subBookId}": server is newer, syncing...`);
-    const { syncBookDataFromDatabase }: any = await import('../indexedDB/serverSync');
+    const { syncBookDataFromDatabase }: any = await import('../indexedDB/serverSync/index');
     const result: any = await syncBookDataFromDatabase(subBookId);
 
     // Only process if the sub-book is still mounted (user hasn't closed the container)

@@ -1,4 +1,4 @@
-import { log, verbose } from '../utilities/logger.js';
+import { log, verbose } from '../utilities/logger';
 
 import {
   openDatabase,

@@ -4,7 +4,7 @@
  * then ask each present type's handler. Lives outside index.ts so history.ts imports it here —
  * breaking the index↔history cycle.
  */
-import { getAuthContextSync, getAuthContext } from '../utilities/auth.js';
+import { getAuthContextSync, getAuthContext } from '../utilities/auth/index';
 import { getHandler } from './contentTypes/registry';
 
 export async function checkIfUserHasAnyEditPermission(contentTypes: any, newHighlightIds: any = [], db: any = null) {

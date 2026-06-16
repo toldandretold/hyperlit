@@ -3,7 +3,7 @@
 // takes the manager as `self`) plus the pure transfer helpers (was
 // userContainer/anonymousContentManager.js): book ownership reassignment,
 // the associate-content API call, and the content-summary builder.
-import { getAnonymousToken } from '../../utilities/auth.js';
+import { getAnonymousToken } from '../../utilities/auth/index';
 import { getTransferConfirmationHTML, getTransferPromptHTML } from './forms';
 import { clearAllCachedData } from './cache';
 

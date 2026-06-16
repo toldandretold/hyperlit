@@ -4,7 +4,7 @@
 // + all settings logic live in ../settingsContainer; this is the thin button-side
 // entry point, registered as the 'settings' component in registerComponents.ts.
 import { SettingsContainerManager } from "../settingsContainer/index";
-import { log, verbose } from "../../utilities/logger.js";
+import { log, verbose } from "../../utilities/logger";
 
 // Settings manager instance (singleton)
 let settingsManager: any = null;

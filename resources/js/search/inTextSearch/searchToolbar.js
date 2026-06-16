@@ -1,11 +1,11 @@
 // searchToolbar.js - Manages the search toolbar for in-text search
 
-import { log, verbose } from "../../utilities/logger.js";
-import { debounce } from "../../utilities/debounce.js";
-import { cancelPendingNavigationCleanup, navigateToInternalId } from "../../scrolling";
+import { log, verbose } from "../../utilities/logger";
+import { debounce } from "../../utilities/debounce";
+import { cancelPendingNavigationCleanup, navigateToInternalId } from "../../scrolling/index";
 import { getNodeChunksFromIndexedDB } from "../../indexedDB/nodes/read.js";
 import { getLocalStorageKey } from "../../indexedDB/index.js";
-import { currentLazyLoader } from "../../pageLoad";
+import { currentLazyLoader } from "../../pageLoad/index";
 import { buildSearchIndex, searchIndex } from "./searchEngine.js";
 import {
   applySearchHighlight,

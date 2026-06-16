@@ -4,7 +4,7 @@
  * <style id="vibe-css-overrides"> block, plus the canvas start/stop hook. Was
  * the storage half of components/vibeCSS.js.
  */
-import { clearPreference } from '../../../utilities/preferences.js';
+import { clearPreference } from '../../../utilities/preferences';
 
 export const VIBE_STORAGE_KEY = 'hyperlit_vibe_css';
 export const VIBE_PROMPT_KEY = 'hyperlit_vibe_prompt';
@@ -133,7 +133,7 @@ export function clearVibeCSS() {
   localStorage.removeItem(VIBE_META_KEY);
   clearPreference('vibe_css');
   removeVibeCSS();
-  import('../../../utilities/themeSwitcher.js').then(m => m.switchTheme(m.THEMES.DARK));
+  import('../themeSwitcher').then(m => m.switchTheme(m.THEMES.DARK));
 }
 
 /**

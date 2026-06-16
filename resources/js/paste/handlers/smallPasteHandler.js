@@ -5,10 +5,10 @@
  * Integrates with UndoManager for undo/redo support.
  */
 
-import { setElementIds, compareDecimalStrings, isDuplicateId } from '../../utilities/IDfunctions.js';
+import { setElementIds, compareDecimalStrings, isDuplicateId } from '../../utilities/IDfunctions';
 import { queueNodeForSave } from '../../divEditor/index';
 import { sanitizeHtml } from '../../utilities/sanitizeConfig.js';
-import { setProgrammaticUpdateInProgress } from '../../utilities/operationState.js';
+import { setProgrammaticUpdateInProgress } from '../../utilities/operationState';
 import { getEditToolbar } from '../../editToolbar/index';
 import { getTextOffsetInElement, setCursorAtTextOffset } from '../../editToolbar/toolbarDOMUtils';
 import { BLOCK_ELEMENT_SELECTOR } from '../../utilities/blockElements.js';

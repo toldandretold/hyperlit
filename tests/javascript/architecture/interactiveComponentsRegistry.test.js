@@ -1,7 +1,7 @@
 /**
  * GUARDRAIL: interactive components must go through ButtonRegistry.
  *
- * The bug this exists to prevent: `resources/js/utilities/drag.js` (the container
+ * The bug this exists to prevent: `resources/js/components/containerDragger/containerDragger` (the container
  * resize dragger) self-instantiated `window.containerDragger = new ContainerDragger()`
  * at module load and was wired ONLY into reader.blade.php's `@vite([...])` block. That
  * block runs on a full reader page load but NOT on an in-SPA book open, so after SPA
@@ -136,7 +136,7 @@ describe('interactive components go through ButtonRegistry', () => {
       `Self-instantiating global UI singleton(s) found:\n${offenders.join('\n')}\n` +
         `This is the drag.js smell — a singleton whose lifecycle nobody owns, so it never re-inits\n` +
         `after SPA navigation. Move creation into a ButtonRegistry init fn (see initContainerDragger\n` +
-        `in utilities/drag.js + its registration in registerComponents.js).`,
+        `in components/containerDragger/containerDragger.ts + its registration in registerComponents.js).`,
     ).toEqual([]);
   });
 

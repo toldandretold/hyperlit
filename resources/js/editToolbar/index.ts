@@ -1,7 +1,7 @@
 // EditToolbar - Main orchestrator for toolbar functionality
 // Delegates to specialized modules for different formatting operations
 
-import { log } from "../utilities/logger.js";
+import { log } from "../utilities/logger";
 import {
   updateSingleIndexedDBRecord,
   deleteIndexedDBRecord,

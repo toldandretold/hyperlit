@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 vi.mock('../../../resources/js/app.js', () => ({ book: 'bookA' }));
 vi.mock('../../../resources/js/paste', () => ({ isPasteOperationActive: () => false }));
 vi.mock('../../../resources/js/chunkManager.js', () => ({ trackChunkNodeCount: vi.fn() }));
-vi.mock('../../../resources/js/utilities/IDfunctions.js', () => ({
+vi.mock('../../../resources/js/utilities/IDfunctions', () => ({
   isNumericalId: (id) => /^\d+(\.\d+)?$/.test(id),
   setElementIds: vi.fn(),
 }));

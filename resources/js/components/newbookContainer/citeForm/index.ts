@@ -4,7 +4,7 @@
 // functions the NewBookContainerManager lazy-imports after injecting the form.
 // (The original file's DOMContentLoaded auto-init is dropped — this module is
 // only ever loaded lazily, after DOMContentLoaded has fired.)
-import '../../../utilities/debugLog.js';
+import '../debugLog';
 import { $, qs } from './dom';
 import { showFieldsForType } from './fields';
 import { populateFieldsFromBibtex, setupBibtexModeAutoReveal } from './bibtex';

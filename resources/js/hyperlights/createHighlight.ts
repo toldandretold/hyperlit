@@ -14,12 +14,12 @@ import { updateAnnotationsTimestamp, queueForSync, rebuildNodeArrays, getNodesBy
 import { calculateCleanTextOffset, findContainerWithNumericalId } from './calculations';
 import { modifyNewMarks } from './marks';
 import { attachMarkListeners } from './listeners';
-import { handleUnifiedContentClick } from '../utilities/containerActions';
+import { handleUnifiedContentClick } from '../hyperlitContainer/containerActions';
 import { addToHighlightsTable } from './database';
 import { reprocessHighlightsForNodes } from './deletion';
 import { generateHighlightID, openHighlightById } from './utils';
 import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements.js';
-import { withPending, addNewlyCreatedHighlight, removeNewlyCreatedHighlight } from '../utilities/operationState.js';
+import { withPending, addNewlyCreatedHighlight, removeNewlyCreatedHighlight } from '../utilities/operationState';
 
 // rangy is a global loaded via a <script> tag in the blade layout.
 declare const rangy: any;

@@ -33,7 +33,7 @@ vi.mock('../../../resources/js/footnotes/FootnoteNumberingService', () => ({
 }));
 // master.js (reachable via the dynamic `import('../index.js')`) imports auth.js,
 // which boots the session layer — stub the only name the graph needs.
-vi.mock('../../../resources/js/utilities/auth.js', () => ({
+vi.mock('../../../resources/js/utilities/auth', () => ({
   refreshCsrfToken: vi.fn(),
 }));
 

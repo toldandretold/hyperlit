@@ -4,8 +4,8 @@
  */
 
 import { openDatabase } from '../../indexedDB/index';
-import { getAuthContextSync, getAuthContext } from "../../utilities/auth.js";
-import { buildSubBookId } from '../../utilities/subBookIdHelper.js';
+import { getAuthContextSync, getAuthContext } from "../../utilities/auth/index";
+import { buildSubBookId } from '../../utilities/subBookIdHelper';
 import DOMPurify from 'dompurify';
 
 /**
@@ -91,7 +91,7 @@ export async function buildHighlightContent(contentType: any, newHighlightIds: a
 
 
     // Check if current user can edit any of the books these highlights belong to
-    const { canUserEditBook }: any = await import('../../utilities/auth.js');
+    const { canUserEditBook }: any = await import('../../utilities/auth/index');
     const bookPermissions = new Map();
 
     // Get unique book IDs and check permissions (parallel)

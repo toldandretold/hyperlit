@@ -3,7 +3,7 @@
  * Arrow keys should skip the whole hypercite <a> anchor in one press.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { hyperciteArrowHandler } from '../../../resources/js/divEditor/supTagHandler/arrowHandler.ts';
+import { hyperciteArrowHandler } from '../../../resources/js/divEditor/supTagHandler/arrowHandler';
 
 let p, anchor;
 beforeEach(() => {

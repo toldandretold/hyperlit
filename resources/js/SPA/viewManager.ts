@@ -1,7 +1,7 @@
 
-import { log, verbose } from '../utilities/logger.js';
+import { log, verbose } from '../utilities/logger';
 import { book, setCurrentBook } from "../app.js";
-import { getCurrentUser, getAnonymousToken, initializeAuthBroadcastListener, initializeAuthStateListener } from "../utilities/auth.js";
+import { getCurrentUser, getAnonymousToken, initializeAuthBroadcastListener, initializeAuthStateListener } from "../utilities/auth/index";
 import { checkEditPermissionsAndUpdateUI } from "../components/editButton/index";
 
 // ✅ ButtonRegistry - Centralized component initialization
@@ -14,10 +14,10 @@ registerAllComponents();
 
 // ✅ Lazy-loaded edit modules (only loaded when editing)
 // import { stopObserving } from "../divEditor/index";
-// import { initEditToolbar, destroyEditToolbar } from "../editToolbar";
-import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "../scrolling";
+// import { initEditToolbar, destroyEditToolbar } from "../editToolbar/index";
+import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "../scrolling/index";
 import { attachMarkListeners, initializeHighlightManager, openHighlightById } from "../hyperlights/index";
-import { registerContainerActions } from "../utilities/containerActions";
+import { registerContainerActions } from "../hyperlitContainer/containerActions";
 
 // Register the hyperlights "open highlight" action into the DI leaf so lower layers (scrolling)
 // can call it via a static downward import — no scrolling→hyperlights upward edge. viewManager is
@@ -25,7 +25,7 @@ import { registerContainerActions } from "../utilities/containerActions";
 registerContainerActions({ openHighlightById });
 import { initializeHighlightingControls, cleanupHighlightingControls } from "../hyperlights/selectionToolbar";
 import { initializeHypercitingControls, cleanupHypercitingControls } from "../hypercites/index";
-import { initializeBroadcastListener } from "../utilities/BroadcastListener.js";
+import { initializeBroadcastListener } from "../utilities/BroadcastListener";
 import { setupUnloadSync } from "../indexedDB/index.js";
 import { generateTableOfContents } from "../components/tocContainer/index";
 import { destroyTocManager, initializeTocManager } from "../components/tocToggleButton/tocToggleButton";
@@ -41,8 +41,8 @@ import { initializeSourceButtonListener } from "../components/cloudRef/cloudRefB
 import {
   initializeSelectionHandler,
   destroySelectionHandler,
-} from "../utilities/selectionHandler.js";
-import { SelectionDeletionHandler } from "../utilities/selectionDelete.js";
+} from "../components/selectionHandler/selectionHandler";
+import { SelectionDeletionHandler } from "../divEditor/selectionDelete";
 import { queueNodeForDeletion, queueNodeForSave } from "../divEditor/index";
 import { loadHyperText } from "../pageLoad/loadHyperText";
 import {
@@ -279,9 +279,9 @@ export async function universalPageInitializer(progressCallback = null) {
   enforceEditableState();
 
   // Re-apply vibe CSS after SPA navigation so the canvas + theme persist
-  import('../utilities/themeSwitcher.js').then(({ getCurrentTheme, THEMES }) => {
+  import('../components/settingsContainer/themeSwitcher').then(({ getCurrentTheme, THEMES }) => {
     if (getCurrentTheme() === THEMES.VIBE) {
-      import('../components/settingsContainer/vibeCSS').then(m => m.applyVibeCSS());
+      import('../components/settingsContainer/vibeCSS/index').then(m => m.applyVibeCSS());
     }
   });
 
@@ -299,7 +299,7 @@ export async function universalPageInitializer(progressCallback = null) {
   }
 
   // Wait for DOM to be properly stable before initializing UI components
-  const { waitForLayoutStabilization } = await import('../utilities/domReadiness');
+  const { waitForLayoutStabilization } = await import('./domReadiness');
 
   // Wait for both content loading and layout stabilization to complete
   await Promise.all([loadPromise, waitForLayoutStabilization()]);
@@ -308,7 +308,7 @@ export async function universalPageInitializer(progressCallback = null) {
 
   // ✅ REMOVED: Manual TogglePerimeterButtons management
   // OLD CODE (conflicted with ButtonRegistry):
-  // import('../pageLoad').then(module => {
+  // import('../pageLoad/index').then(module => {
   //   module.togglePerimeterButtons.destroy();
   //   module.togglePerimeterButtons.rebindElements();
   //   module.togglePerimeterButtons.init();
@@ -346,7 +346,7 @@ export async function universalPageInitializer(progressCallback = null) {
     initializeSelectionHandler();
     
     // Initialize user profile page functionality if user owns this book
-    const { getCurrentUser } = await import('../utilities/auth.js');
+    const { getCurrentUser } = await import('../utilities/auth/index');
     const user = await getCurrentUser();
     verbose.init(`User profile check: user=${user?.name || 'null'}, currentBookId=${currentBookId}`, 'viewManager.js');
     if (user && user.name === currentBookId) {

@@ -16,11 +16,11 @@ import { getInsertionPoint } from '../utils/insertion-point-calculator.js';
 import { handleLargePaste } from './largePasteHandler.js';
 import { getCurrentChunk } from '../../divEditor/chunkManager';
 import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../../components/cloudRef/editIndicator';
-import { initializeMainLazyLoader, lazyLoaders } from '../../pageLoad';
+import { initializeMainLazyLoader, lazyLoaders } from '../../pageLoad/index';
 import {
   setPasteInProgress,
   isPasteInProgress as isPasteInProgressState
-} from '../../utilities/operationState.js';
+} from '../../utilities/operationState';
 
 // ─── Standalone progress overlay ────────────────────────────────────────────
 // Completely separate from ProgressOverlayConductor / ProgressOverlayEnactor.

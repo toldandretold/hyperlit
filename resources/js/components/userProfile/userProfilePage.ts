@@ -164,7 +164,7 @@ export function initializeUserProfilePage() {
         let citationPromise = null;
         if ((window as any).isOwner) {
             citationPromise = (async () => {
-                const { prepareCitationShare } = await import('../../utilities/bibtexProcessor.js');
+                const { prepareCitationShare } = await import('../../utilities/bibtexProcessor');
                 return prepareCitationShare(bookId);
             })().catch(err => { console.error('Citation prep failed:', err); return null; });
 
@@ -195,7 +195,7 @@ export function initializeUserProfilePage() {
                     try {
                         const data = await citationPromise;
                         if (!data) return;
-                        const { copyCitationToClipboard } = await import('../../utilities/bibtexProcessor.js');
+                        const { copyCitationToClipboard } = await import('../../utilities/bibtexProcessor');
                         copyCitationToClipboard(data);
                     } catch (err) {
                         console.error('Share citation failed:', err);
@@ -226,7 +226,7 @@ async function handleDeleteBook(bookId: any, target: any) {
 
     // Send delete request to server
     try {
-        const { refreshAuth } = await import('../../utilities/auth.js');
+        const { refreshAuth } = await import('../../utilities/auth/index');
         await refreshAuth();
 
         const csrfToken = (window as any).csrfToken || (document.querySelector('meta[name="csrf-token"]') as any)?.content;

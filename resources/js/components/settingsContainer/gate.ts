@@ -2,7 +2,7 @@
 // with the gate UI (showGatePanel is defined locally below), persists choices to
 // localStorage + backend + the book's library record, and reapplies annotations.
 // Was _openGatePanel of settingsContainer.js. Takes the manager as `self`.
-import { savePreference } from '../../utilities/preferences.js';
+import { savePreference } from '../../utilities/preferences';
 
 export async function _openGatePanel(self: any) {
   const container = document.getElementById('settings-container');
@@ -17,7 +17,7 @@ export async function _openGatePanel(self: any) {
   };
 
   const { getGateSettings, getBookGateDefaults, setBookGateDefaults, reapplyAnnotationsWithGate } = await import('../utilities/gateFilter');
-  const { canUserEditBook } = await import('../../utilities/auth.js');
+  const { canUserEditBook } = await import('../../utilities/auth/index');
   const currentSettings = getGateSettings();
 
   const bookId = (document.querySelector('.main-content') as any)?.id;

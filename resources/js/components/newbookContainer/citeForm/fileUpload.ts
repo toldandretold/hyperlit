@@ -5,9 +5,9 @@
 // validateFileInput functions of newBookForm.js.
 import { $ } from './dom';
 import { generateBookIdFromMetadata, findAvailableBookId, updateBookUrlPreview } from './bookId';
-import { getCurrentUserInfo } from '../../../utilities/auth.js';
+import { getCurrentUserInfo } from '../../../utilities/auth/index';
 import { showImportFailureModal } from '../../../conversion/bugReportModal.js';
-import { attachFilesToInput } from '../../../utilities/fileImportHelpers.js';
+import { attachFilesToInput } from '../../utilities/fileImportHelpers';
 
 // ─── PDF Cost Estimate ───────────────────────────────────────────────
 const MISTRAL_OCR_COST_PER_1K_PAGES = 1.00;
@@ -220,7 +220,7 @@ export async function handleFileMetadataExtraction(fileInput: any) {
   if (!['md', 'epub', 'docx', 'html', 'htm'].includes(ext)) return;
 
   try {
-    const { extractFileMetadata } = await import('../../../utilities/fileMetadataExtractor.js');
+    const { extractFileMetadata } = await import('../../utilities/fileMetadataExtractor');
     const meta = await extractFileMetadata(file);
 
     const setIfEmpty = (id: string, val: any) => {

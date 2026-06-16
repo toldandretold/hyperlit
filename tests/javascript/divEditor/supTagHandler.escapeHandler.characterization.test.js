@@ -4,7 +4,7 @@
  * to a text node OUTSIDE the element (cursor escapes), never editing the generated content.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { supEscapeHandler } from '../../../resources/js/divEditor/supTagHandler/escapeHandler.ts';
+import { supEscapeHandler } from '../../../resources/js/divEditor/supTagHandler/escapeHandler';
 
 let p, sup;
 beforeEach(() => {

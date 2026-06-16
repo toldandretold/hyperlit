@@ -4,7 +4,7 @@
  * DOM operation). NO SPANS ALLOWED in the document; the MutationObserver path
  * funnels styled/created spans through here.
  */
-import { verbose } from '../../utilities/logger.js';
+import { verbose } from '../../utilities/logger';
 
 export function destroySpan(element: any) {
   const selection: any = window.getSelection();

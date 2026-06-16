@@ -10,7 +10,7 @@ import { queueForSync, updateBookTimestamp } from '../indexedDB/index';
 import { removeHighlightFromHyperlights, removeHighlightFromNodeChunksWithDeletion } from './database';
 import { unwrapMark, unwrapElement, isContentLink } from './deletion';
 import { queueNodeForSave } from '../divEditor/index';
-import { setProgrammaticUpdateInProgress } from '../utilities/operationState.js';
+import { setProgrammaticUpdateInProgress } from '../utilities/operationState';
 
 /**
  * Delete highlight(s) that overlap with selected text

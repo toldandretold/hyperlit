@@ -5,7 +5,7 @@
  * Handles the complexities of maintaining valid selections across toolbar interactions.
  */
 
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../utilities/logger';
 
 interface SelectionManagerOptions {
   editableSelector?: string;

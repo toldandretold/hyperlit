@@ -1,5 +1,5 @@
 import { book, OpenHyperlightID, OpenFootnoteID } from '../app.js';
-import { log, verbose } from '../utilities/logger.js';
+import { log, verbose } from '../utilities/logger';
 import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier.js';
 
 import {
@@ -11,13 +11,13 @@ import {
   openDatabase,
 } from "../indexedDB/index.js";
 
-import { parseMarkdownIntoChunksInitial } from "../utilities/convertMarkdown.js";
+import { parseMarkdownIntoChunksInitial } from "../utilities/convertMarkdown";
 
-import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL, syncAnnotationsOnly } from "../indexedDB/serverSync";
+import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL, syncAnnotationsOnly } from "../indexedDB/serverSync/index";
 import { fetchInitialChunk, resolveBootstrapTarget } from "./initialChunk";
 import { loadChunkForTarget } from "../SPA/navigation/chunkLoadRouter.js";
 import { updateLocalAnnotationsTimestamp } from "../indexedDB/core/library.js";
-import { registerBookOpen } from "../utilities/BroadcastListener.js";
+import { registerBookOpen } from "../utilities/BroadcastListener";
 
 import { buildFootnoteMap, hasOldFormatFootnotes, migrateOldFormatFootnotes } from '../footnotes/FootnoteNumberingService';
 
@@ -189,7 +189,7 @@ export async function loadHyperText(bookId: string, progressCallback: any = null
           // Build footnote numbering map (needs all nodes with footnotes extracted)
           buildFootnoteMap(currentBook, cached);
           // Clear stale dirty flag — we just hydrated from source of truth
-          const { clearCacheDirtyFlag } = await import('../utilities/cacheState.js');
+          const { clearCacheDirtyFlag } = await import('../lazyLoader/utilities/cacheState');
           clearCacheDirtyFlag();
         } catch (err) {
           console.error('Background hydration failed:', err);
@@ -241,7 +241,7 @@ export async function loadHyperText(bookId: string, progressCallback: any = null
       // Fresh page load: if target wasn't resolved and there's a hash, clean it and notify
       if (!initialResult.targetResolved && window.location.hash) {
         history.replaceState(null, '', window.location.pathname);
-        import('../utilities/toast.js').then(({ showTargetNotFoundToast }) => {
+        import('../components/toast/toast').then(({ showTargetNotFoundToast }) => {
           showTargetNotFoundToast({
             target: bootstrapTarget,
             fallbackUsed: initialResult.targetFallbackUsed,

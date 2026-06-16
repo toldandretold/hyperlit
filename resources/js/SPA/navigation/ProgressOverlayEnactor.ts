@@ -18,7 +18,7 @@
  * - ProgressOverlayEnactor.forceHide() - Emergency hide (sync, no animation)
  */
 
-import { verbose } from '../../utilities/logger.js';
+import { verbose } from '../../utilities/logger';
 
 export class ProgressOverlayEnactor {
   // DOM element references

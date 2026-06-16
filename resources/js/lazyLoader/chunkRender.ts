@@ -1,10 +1,10 @@
 import katex from 'katex';
-import { verbose } from '../utilities/logger.js';
-import { renderBlockToHtml } from "../utilities/convertMarkdown.js";
+import { verbose } from '../utilities/logger';
+import { renderBlockToHtml } from "../utilities/convertMarkdown";
 import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
 import { applyGateFilter } from "../components/utilities/gateFilter";
-import { isNewlyCreatedHighlight } from "../utilities/operationState.js";
-import { renderCharts } from '../utilities/chartRenderer.js';
+import { isNewlyCreatedHighlight } from "../utilities/operationState";
+import { renderCharts } from './chartRenderer';
 import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements.js';
 import { applyDynamicFootnoteNumbers } from './footnoteSelfHeal';
 import { handleBrokenImages } from './imageState';

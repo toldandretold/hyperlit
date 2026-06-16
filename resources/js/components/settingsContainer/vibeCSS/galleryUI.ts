@@ -3,7 +3,7 @@
  * settings panel, with save/apply/publish/delete + pagination. Was showVibeGallery
  * (+ helpers) of components/vibeCSS.js.
  */
-import { savePreference } from '../../../utilities/preferences.js';
+import { savePreference } from '../../../utilities/preferences';
 import {
   getVibeCSS, getVibePrompt, applyVibeCSS,
   VIBE_STORAGE_KEY, VIBE_META_KEY,

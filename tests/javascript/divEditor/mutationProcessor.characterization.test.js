@@ -5,14 +5,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const state = vi.hoisted(() => ({ paste: false }));
-vi.mock('../../../resources/js/utilities/operationState.js', () => ({
+vi.mock('../../../resources/js/utilities/operationState', () => ({
   isPasteInProgress: () => state.paste,
   isProgrammaticUpdateInProgress: () => false,
   hypercitePasteInProgress: false,
   keyboardLayoutInProgress: false,
   isUndoRedoInProgress: () => false,
 }));
-vi.mock('../../../resources/js/utilities/chunkLoadingState.js', () => ({
+vi.mock('../../../resources/js/lazyLoader/utilities/chunkLoadingState', () => ({
   isChunkLoadingInProgress: () => false, getLoadingChunkId: () => null,
 }));
 vi.mock('../../../resources/js/editToolbar', () => ({ getEditToolbar: () => null }));

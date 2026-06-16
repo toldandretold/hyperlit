@@ -2,9 +2,9 @@
  * Listeners module - Handles event listeners for mark elements
  */
 
-import { handleUnifiedContentClick } from '../utilities/containerActions';
+import { handleUnifiedContentClick } from '../hyperlitContainer/containerActions';
 import { applyGroupHover, clearGroupHover } from './markGroup';
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../utilities/logger';
 
 // Per-element guard — prevents double-fires without blocking other buttons
 const processingElements = new WeakSet<object>();

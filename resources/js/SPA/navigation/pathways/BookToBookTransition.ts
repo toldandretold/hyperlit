@@ -7,19 +7,19 @@
  * This pathway does NOT hide the overlay - NavigationManager handles that
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
-import { waitForNavigationTarget, waitForElementReady, waitForElementReadyWithProgress, waitForMultipleElementsReadyWithProgress, waitForLayoutStabilization, waitForContentReady } from '../../../utilities/domReadiness';
+import { waitForNavigationTarget, waitForElementReady, waitForElementReadyWithProgress, waitForMultipleElementsReadyWithProgress, waitForLayoutStabilization, waitForContentReady } from '../../domReadiness';
 import { cleanupReaderView } from '../../viewManager';
 import { resetEditModeState, enforceEditableState } from '../../../components/editButton/index';
 import { destroyUserContainer } from '../../../components/userButton/userButton';
 import { setCurrentBook, setCurrentBookSlug, bookSlug as _bookSlug } from '../../../app.js';
 import { updateDatabaseBookId } from '../../../indexedDB/index';
-import { setSkipScrollRestoration } from '../../../utilities/operationState.js';
+import { setSkipScrollRestoration } from '../../../utilities/operationState';
 import { universalPageInitializer } from '../../viewManager';
 import { initializeLogoNav } from '../../../components/logoNav/logoNav';
-import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, openContainerChain } from '../../../pageLoad';
+import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, openContainerChain } from '../../../pageLoad/index';
 import { navigateToHyperciteTarget } from '../../../hypercites/index';
 import { navigateToFootnoteTarget } from '../../../hypercites/navigation';
-import { navigateToInternalId, resetUserScrollState } from '../../../scrolling';
+import { navigateToInternalId, resetUserScrollState } from '../../../scrolling/index';
 
 export class BookToBookTransition {
   static isTransitioning = false;
@@ -165,7 +165,7 @@ export class BookToBookTransition {
 
         // Wait for any container restoration triggered by initializeLazyLoader
         // (happens on back-nav when the restored entry has a matching containerStack)
-        const { pendingContainerRestorePromise } = await import('../../../pageLoad');
+        const { pendingContainerRestorePromise } = await import('../../../pageLoad/index');
         if (pendingContainerRestorePromise) {
           await pendingContainerRestorePromise;
         }
@@ -441,7 +441,7 @@ export class BookToBookTransition {
         console.warn('⚠️ BookToBookTransition: Target not resolved by backend');
 
         // Show toast for the missing citation
-        import('../../../utilities/toast.js').then(({ showTargetNotFoundToast }) => {
+        import('../../../components/toast/toast').then(({ showTargetNotFoundToast }) => {
           showTargetNotFoundToast();
         });
 

@@ -4,7 +4,7 @@
  * Provides visual feedback for hypercite navigation with highlighting and dimming effects.
  */
 
-import { showTargetNotFoundToast } from '../utilities/toast.js';
+import { showTargetNotFoundToast } from '../components/toast/toast';
 
 // Module-level timeout reference for managing highlight animations
 let highlightTimeout: ReturnType<typeof setTimeout> | null = null;

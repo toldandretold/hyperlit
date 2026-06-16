@@ -4,8 +4,8 @@
 // - Green: save successful
 // - Red: save error
 
-import { verbose } from '../../utilities/logger.js';
-import { getPerimeterButtonsHidden } from '../../utilities/operationState.js';
+import { verbose } from '../../utilities/logger';
+import { getPerimeterButtonsHidden } from '../../utilities/operationState';
 import { isIDBBroken } from '../../indexedDB/core/healthMonitor';
 
 export let isProcessing = false

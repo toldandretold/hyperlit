@@ -6,18 +6,18 @@
 import { book } from "../app.js";
 // =================================================================
 
-import { log } from "../utilities/logger.js";
+import { log } from "../utilities/logger";
 import { openDatabase, initializeDatabaseModules } from "../indexedDB/index.js";
 import { fireAndForgetSync } from "../SPA/createNewBook";
 import { universalPageInitializer } from "../SPA/viewManager";
 import { initializeHomepage } from "../components/homepage/homepage";
 // ✅ REMOVED: initializeFootnoteCitationListeners now managed by ButtonRegistry
-import { setInitialBookSyncPromise, withPending, getInitialBookSyncPromise } from "../utilities/operationState.js";
+import { setInitialBookSyncPromise, withPending, getInitialBookSyncPromise } from "../utilities/operationState";
 import { generateTableOfContents } from "../components/tocContainer/index";
 import { attachMarkListeners } from "../hyperlights/index";
 // ✅ REMOVED: TogglePerimeterButtons now managed exclusively by ButtonRegistry
 // import TogglePerimeterButtons from "./components/togglePerimeterButtons.js";
-import { showNavigationLoading, hideNavigationLoading } from "../scrolling";
+import { showNavigationLoading, hideNavigationLoading } from "../scrolling/index";
 import { pendingFirstChunkLoadedPromise } from "./firstChunkPromise";
 import { initializeUserProfileEditor } from "../components/userProfile/userProfileEditor";
 import { initializeUserProfilePage } from "../components/userProfile/userProfilePage";
@@ -120,7 +120,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Time machine: fetch historical data and store in IndexedDB BEFORE NavigationManager
   // runs loadHyperText, so it finds the data in cache and renders normally.
   if (pageType === 'timemachine') {
-    const { initializeTimeMachine } = await import('../utilities/timeMachine.js');
+    const { initializeTimeMachine } = await import('./timeMachine');
     await initializeTimeMachine();
   }
 

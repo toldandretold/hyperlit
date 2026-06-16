@@ -7,7 +7,7 @@ import { $ } from './dom';
 import { getAllowedResubmitBookId, setAllowedResubmitBookId } from './state';
 import { validateFileInput, showInsufficientBalanceBanner } from './fileUpload';
 import { updateBookUrlPreview } from './bookId';
-import { isLoggedIn } from '../../../utilities/auth.js';
+import { isLoggedIn } from '../../../utilities/auth/index';
 import { escapeHtml } from '../../../paste/utils/normalizer.js';
 import { showImportFailureModal } from '../../../conversion/bugReportModal.js';
 

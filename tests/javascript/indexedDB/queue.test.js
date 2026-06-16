@@ -16,7 +16,7 @@ import {
   clearPendingSyncsForBook,
   initSyncQueueDependencies,
 } from '../../../resources/js/indexedDB/syncQueue/queue';
-import { setUndoRedoInProgress } from '../../../resources/js/utilities/operationState.js';
+import { setUndoRedoInProgress } from '../../../resources/js/utilities/operationState';
 
 describe('queueForSync', () => {
   let masterSync;

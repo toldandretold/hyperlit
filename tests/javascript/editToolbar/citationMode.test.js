@@ -13,7 +13,7 @@ vi.mock('dompurify', () => ({
   default: { sanitize: (s) => s },
 }));
 
-vi.mock('../../../resources/js/utilities/bibtexProcessor.js', () => ({
+vi.mock('../../../resources/js/utilities/bibtexProcessor', () => ({
   formatBibtexToCitation: vi.fn(async (b) => b),
 }));
 

@@ -4,7 +4,7 @@
 // the slug suggester. Was setupUrlImport / waitForImportCompletion /
 // humanFetchReason / humanError / suggestBookId + STAGE_LABELS of newBookForm.js.
 import { $ } from './dom';
-import { isLoggedIn } from '../../../utilities/auth.js';
+import { isLoggedIn } from '../../../utilities/auth/index';
 import { escapeHtml } from '../../../paste/utils/normalizer.js';
 
 export function setupUrlImport() {

@@ -32,7 +32,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // elements — doesn't load under happy-dom); stub the other exports the rest of
 // the import graph pulls from this module.
 // hyperlights now reaches the container via the containerActions DI registry, not hyperlitContainer/index.
-vi.mock('../../../resources/js/utilities/containerActions', () => ({
+vi.mock('../../../resources/js/hyperlitContainer/containerActions', () => ({
   registerContainerActions: vi.fn(),   // called at load by hyperlitContainer/index
   handleUnifiedContentClick: vi.fn().mockResolvedValue(undefined),
   initializeHyperlitManager: vi.fn(),
@@ -50,10 +50,10 @@ vi.mock('../../../resources/js/divEditor/index.js', () => ({
   isEditorObserving: vi.fn(() => false),
 }));
 
-import { handleUnifiedContentClick } from '../../../resources/js/utilities/containerActions';
+import { handleUnifiedContentClick } from '../../../resources/js/hyperlitContainer/containerActions';
 import { handleMarkClick } from '../../../resources/js/hyperlights/listeners';
 import { collectMarkAndCitePositions } from '../../../resources/js/indexedDB/nodes/positionCollector';
-import { applyHighlights } from '../../../resources/js/lazyLoader';
+import { applyHighlights } from '../../../resources/js/lazyLoader/index';
 
 /** Render a node's HTML with highlights applied, into a detached container. */
 function renderNode(html, highlights) {

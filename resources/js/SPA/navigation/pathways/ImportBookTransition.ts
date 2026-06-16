@@ -8,14 +8,14 @@
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
-import { waitForLayoutStabilization, waitForContentReady } from '../../../utilities/domReadiness';
+import { waitForLayoutStabilization, waitForContentReady } from '../../domReadiness';
 import { destroyUserContainer } from '../../../components/userButton/userButton';
 import { destroyNewBookContainer } from '../../../components/newBookButton/newBookButton';
 import { destroyHomepageDisplayUnit } from '../../../components/homepage/homepageDisplayUnit';
 import { resetEditModeState, enforceEditableState, enableEditMode } from '../../../components/editButton/index';
 import { cleanupReaderView } from '../../viewManager';
 import { setCurrentBook } from '../../../app.js';
-import { resolveFirstChunkPromise, loadFromJSONFiles } from '../../../pageLoad';
+import { resolveFirstChunkPromise, loadFromJSONFiles } from '../../../pageLoad/index';
 import { universalPageInitializer } from '../../viewManager';
 import { initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { openDatabase, updateDatabaseBookId } from '../../../indexedDB/index';

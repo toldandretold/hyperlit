@@ -13,7 +13,7 @@
 //       Full insertion flow, bibliography record shape.
 // See tests/Feature/Citations/README.md for the full suite map.
 
-import { formatBibtexToCitation } from "../utilities/bibtexProcessor.js";
+import { formatBibtexToCitation } from "../utilities/bibtexProcessor";
 import DOMPurify from "dompurify";
 
 declare global {

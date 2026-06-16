@@ -4,7 +4,7 @@
 // open/close wiring, registered with ButtonRegistry as the 'sourceButton'
 // component (see components/registerComponents.ts).
 import sourceManager from "../sourceContainer/index";
-import { log } from "../../utilities/logger.js";
+import { log } from "../../utilities/logger";
 
 // Store handler reference for proper cleanup (like logoNav pattern)
 let sourceClickHandler: any = null;

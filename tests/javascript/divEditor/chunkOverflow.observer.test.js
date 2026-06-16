@@ -35,12 +35,12 @@ const { updateSingleIndexedDBRecord } = vi.hoisted(() => ({
   updateSingleIndexedDBRecord: vi.fn(() => Promise.resolve()),
 }));
 vi.mock('../../../resources/js/indexedDB/index', () => ({ updateSingleIndexedDBRecord }));
-vi.mock('../../../resources/js/utilities/logger.js', () => ({ verbose: { content: vi.fn() } }));
+vi.mock('../../../resources/js/utilities/logger', () => ({ verbose: { content: vi.fn() } }));
 // IDfunctions statically imports ../pageLoad + ../app.js (whole app graph); operationState
 // imports components/editIndicator. Stub the two members chunkManager actually uses so the
 // test stays light and doesn't boot app.js.
-vi.mock('../../../resources/js/utilities/IDfunctions.js', () => ({ generateIdBetween: vi.fn() }));
-vi.mock('../../../resources/js/utilities/operationState.js', () => ({ setChunkOverflowInProgress: vi.fn() }));
+vi.mock('../../../resources/js/utilities/IDfunctions', () => ({ generateIdBetween: vi.fn() }));
+vi.mock('../../../resources/js/utilities/operationState', () => ({ setChunkOverflowInProgress: vi.fn() }));
 
 import {
   handleChunkOverflow,

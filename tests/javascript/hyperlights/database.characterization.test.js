@@ -29,7 +29,7 @@ vi.mock('../../../resources/js/indexedDB/index', async () => {
 
 // Auth context is swapped per test.
 let authValue;
-vi.mock('../../../resources/js/utilities/auth.js', () => ({
+vi.mock('../../../resources/js/utilities/auth', () => ({
   getAuthContextSync: () => authValue,
   getAuthContext: async () => authValue,
 }));

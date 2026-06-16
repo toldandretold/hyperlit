@@ -25,7 +25,7 @@ import {
   setElementIds,
   findPreviousElementId,
   findNextElementId,
-} from "../utilities/IDfunctions.js";
+} from "../utilities/IDfunctions";
 import {
   batchUpdateIndexedDBRecords,
 } from "../indexedDB/index.js";

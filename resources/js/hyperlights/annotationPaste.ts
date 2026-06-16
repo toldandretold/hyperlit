@@ -4,10 +4,10 @@
 
 import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
 import { parseHyperciteHref, attachUnderlineClickListeners } from "../hypercites/index";
-import { extractQuotedText } from '../utilities/textExtraction.js';
+import { extractQuotedText } from '../utilities/textExtraction';
 import { updateCitationForExistingHypercite } from '../indexedDB/index';
 import { book } from '../app.js';
-import { broadcastToOpenTabs } from "../utilities/BroadcastListener.js";
+import { broadcastToOpenTabs } from "../utilities/BroadcastListener";
 import { saveHighlightAnnotation } from './annotations';
 import { getCurrentContainer } from "../hyperlitContainer/stack";
 

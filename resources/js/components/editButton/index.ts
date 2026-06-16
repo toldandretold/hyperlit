@@ -4,8 +4,8 @@
 // and the module-load visibility side-effect. Pure caret helpers live in ./cursor;
 // the lock/permission UI in ./lock (re-exported here so importers have one entry).
 import { book } from "../../app.js";
-import { log } from "../../utilities/logger.js";
-import { getCurrentUser, canUserEditBook } from "../../utilities/auth.js";
+import { log } from "../../utilities/logger";
+import { getCurrentUser, canUserEditBook } from "../../utilities/auth/index";
 import userManager from "../userButton/userButton";
 import {
   placeCursorAtEndOfElement, getSavedScrollElementId, getFirstElementWithId,
@@ -90,7 +90,7 @@ export async function enableEditMode(targetElementId: any = null, isNewBook = fa
 
   // Wait for background download if still in progress (chunked lazy loading).
   if ((window as any)._backgroundDownloadInProgress) {
-    const { waitForBackgroundDownload } = await import('../../pageLoad');
+    const { waitForBackgroundDownload } = await import('../../pageLoad/index');
     await waitForBackgroundDownload();
   }
 
@@ -128,7 +128,7 @@ export async function enableEditMode(targetElementId: any = null, isNewBook = fa
   try {
     // pageLoad is a bootstrap module — dynamic import avoids a static
     // component→bootstrap import cycle (flagged by the acyclic-import gate).
-    const { pendingFirstChunkLoadedPromise } = await import("../../pageLoad");
+    const { pendingFirstChunkLoadedPromise } = await import("../../pageLoad/index");
     await pendingFirstChunkLoadedPromise;
 
     setTimeout(async () => {
@@ -384,7 +384,7 @@ export function disableEditMode({ skipPersistence = false }: any = {}) {
 
     if (needsRenumbering) {
       console.log('🔄 IDs need cleanup - triggering renumbering on edit exit');
-      import('../../utilities/IDfunctions.js').then(({ triggerRenumberingWithModal }) => {
+      import('../../utilities/IDfunctions').then(({ triggerRenumberingWithModal }) => {
         triggerRenumberingWithModal(0);
       });
     }

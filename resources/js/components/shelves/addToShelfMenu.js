@@ -3,7 +3,7 @@
  * Shows user's shelves with checkboxes for toggling membership.
  */
 
-import { isLoggedIn } from '../../utilities/auth.js';
+import { isLoggedIn } from '../../utilities/auth/index';
 
 async function getFloatingMenu() {
     return await import('../floatingActionMenu/floatingActionMenu');

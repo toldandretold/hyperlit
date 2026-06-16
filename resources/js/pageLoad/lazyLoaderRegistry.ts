@@ -1,12 +1,12 @@
 import { book } from '../app.js';
-import { verbose } from '../utilities/logger.js';
-import { navigateToInternalId } from '../scrolling';
+import { verbose } from '../utilities/logger';
+import { navigateToInternalId } from '../scrolling/index';
 
 import {
   createLazyLoader,
   loadNextChunkFixed,
   loadPreviousChunkFixed,
-} from "../lazyLoader";
+} from "../lazyLoader/index";
 
 import {
   openDatabase,
@@ -20,7 +20,7 @@ import {
 // Injected into createLazyLoader so the render engine stays a leaf (downward edge: pageLoad → hypercites).
 import { attachUnderlineClickListeners } from "../hypercites/index";
 
-import { syncBookDataFromDatabase } from "../indexedDB/serverSync";
+import { syncBookDataFromDatabase } from "../indexedDB/serverSync/index";
 
 import { getFirstChunkLoadedResolver } from './firstChunkPromise';
 // Static (downward) now that the cycles are broken: nodeGen is a low-import util, and containerChain

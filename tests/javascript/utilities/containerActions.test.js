@@ -7,7 +7,7 @@
  * is wired and the delegators are asserted to forward.
  */
 import { describe, it, expect, vi } from 'vitest';
-import * as actions from '../../../resources/js/utilities/containerActions';
+import * as actions from '../../../resources/js/hyperlitContainer/containerActions';
 
 describe('containerActions (before registration)', () => {
   it('queries return safe defaults; actions no-op without throwing', () => {

@@ -6,7 +6,7 @@
  * the rendered HTML. Depends only on the footnoteCache leaf.
  */
 
-import { log, verbose } from '../utilities/logger.js';
+import { log, verbose } from '../utilities/logger';
 import { isFootnoteId, getDisplayNumber, hasOldFormatFootnotes } from './footnoteCache';
 
 /**

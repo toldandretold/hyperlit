@@ -8,11 +8,11 @@ import { saveFootnoteToIndexedDB } from '../footnotes/footnoteAnnotations.js';
 import { sanitizeHtml } from '../utilities/sanitizeConfig.js';
 import { parseHyperciteHref } from '../hypercites/utils';
 import { attachUnderlineClickListeners } from '../hypercites/listeners';
-import { extractQuotedText } from '../utilities/textExtraction.js';
+import { extractQuotedText } from '../utilities/textExtraction';
 import { updateCitationForExistingHypercite } from '../indexedDB/index';
 import { book } from '../app.js';
-import { broadcastToOpenTabs } from '../utilities/BroadcastListener.js';
-import { getCurrentContainer } from '../utilities/containerActions';
+import { broadcastToOpenTabs } from '../utilities/BroadcastListener';
+import { getCurrentContainer } from './containerActions';
 
 // Track debounce timers by ID
 const debounceTimers = new Map();

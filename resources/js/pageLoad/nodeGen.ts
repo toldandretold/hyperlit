@@ -6,8 +6,8 @@
  * old lazyLoaderRegistry↔loadHyperText mutual dependency forced a dynamic-import cycle-breaker.
  */
 import { saveAllNodeChunksToIndexedDB } from '../indexedDB/index.js';
-import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown.js';
-import { verbose } from '../utilities/logger.js';
+import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
+import { verbose } from '../utilities/logger';
 
 // Helper to add cache-busting parameter when needed
 function buildUrl(path: string, forceReload = false) {

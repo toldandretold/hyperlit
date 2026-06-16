@@ -11,9 +11,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const { queueNodeForSave } = vi.hoisted(() => ({ queueNodeForSave: vi.fn() }));
 vi.mock('../../../resources/js/app.js', () => ({ book: 'bookA' }));
 vi.mock('../../../resources/js/divEditor/editorState', () => ({ queueNodeForSave }));
-vi.mock('../../../resources/js/utilities/logger.js', () => ({ verbose: { content: vi.fn() } }));
-vi.mock('../../../resources/js/utilities/operationState.js', () => ({ chunkOverflowInProgress: false }));
-vi.mock('../../../resources/js/utilities/IDfunctions.js', () => ({
+vi.mock('../../../resources/js/utilities/logger', () => ({ verbose: { content: vi.fn() } }));
+vi.mock('../../../resources/js/utilities/operationState', () => ({ chunkOverflowInProgress: false }));
+vi.mock('../../../resources/js/utilities/IDfunctions', () => ({
   generateIdBetween: () => '1.5',
   setElementIds: (el, before) => { el.id = before ? `${before}.1` : '1'; el.setAttribute('data-node-id', `N${el.id}`); },
   ensureNodeHasValidId: (el) => { if (!el.id) el.id = 'gen'; },
@@ -21,12 +21,12 @@ vi.mock('../../../resources/js/utilities/IDfunctions.js', () => ({
   findNextElementId: () => null,
   triggerRenumberingWithModal: vi.fn(),
 }));
-vi.mock('../../../resources/js/utilities/listItemCaret.js', () => ({
+vi.mock('../../../resources/js/utilities/listItemCaret', () => ({
   listItemIsEmpty: (li) => !li.textContent.trim(),
   placeCaretInEmptyListItem: vi.fn(),
 }));
 
-import { EnterKeyHandler } from '../../../resources/js/divEditor/enterKeyHandler';
+import { EnterKeyHandler } from '../../../resources/js/divEditor/enterKeyHandler/index';
 
 let handler;
 beforeEach(() => {

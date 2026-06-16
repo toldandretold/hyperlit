@@ -7,7 +7,7 @@
 // from ./citeForm when the import form opens. Registry lifecycle + the
 // default-export singleton live in ../newBookButton/newBookButton.
 import { ContainerManager } from "../utilities/containerManager";
-import { log, verbose } from "../../utilities/logger.js";
+import { log, verbose } from "../../utilities/logger";
 import { getCiteFormHTML } from "./citeForm/template";
 
 const byId = (id: string): any => document.getElementById(id);
@@ -203,7 +203,7 @@ export class NewBookContainerManager extends (ContainerManager as any) {
           return;
         }
 
-        import("./citeForm")
+        import("./citeForm/index")
           .then(module => {
             // Call the initialization function from the imported module
             module.initializeCitationFormListeners();

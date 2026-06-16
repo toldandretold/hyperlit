@@ -1,5 +1,5 @@
 import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from '../../indexedDB/index';
-import { canUserEditBook } from "../../utilities/auth.js";
+import { canUserEditBook } from "../../utilities/auth/index";
 import { book } from '../../app.js';
 import { fixHeaderSpacing } from '../homepage/homepageDisplayUnit';
 

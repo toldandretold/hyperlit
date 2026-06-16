@@ -12,9 +12,9 @@
  * SaveQueue import is type-only and erased), so both index AND the handlers can
  * import from here without re-forming the cycle.
  */
-import { NUMERICAL_ID_PATTERN } from '../utilities/IDfunctions.js';
+import { NUMERICAL_ID_PATTERN } from '../utilities/IDfunctions';
 import { glowCloudOrange } from '../components/cloudRef/editIndicator';
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../utilities/logger';
 import type { SaveQueue } from './saveQueue';
 
 /** Nodes relocated during chunk-overflow handling; consumed by chunkMutationHandler. */

@@ -2,14 +2,14 @@
  * Initialization Helpers - Shared init logic for navigation transitions
  * Extracted from DifferentTemplateTransition and SameTemplateTransition for reusability
  */
-import { log } from '../../../utilities/logger.js';
+import { log } from '../../../utilities/logger';
 import { setCurrentBook } from '../../../app.js';
 import { updateDatabaseBookId } from '../../../indexedDB/index';
 import { universalPageInitializer } from '../../viewManager';
 import { initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { initializeUserContainer } from '../../../components/userButton/userButton';
 import { initializeUserProfileEditor } from '../../../components/userProfile/userProfileEditor';
-import { currentLazyLoader } from '../../../pageLoad';
+import { currentLazyLoader } from '../../../pageLoad/index';
 
 /**
  * Initialize reader state

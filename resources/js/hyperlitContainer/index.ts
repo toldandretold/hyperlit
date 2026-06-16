@@ -79,9 +79,9 @@ export {
 // ============================================================================
 
 import { book } from '../app.js';
-import { clearActiveBook } from '../utilities/activeContext.js';
+import { clearActiveBook } from './utilities/activeContext';
 import { openDatabase } from '../indexedDB/index';
-import { getAuthContextSync, getAuthContext, canUserEditBook } from "../utilities/auth.js";
+import { getAuthContextSync, getAuthContext, canUserEditBook } from "../utilities/auth/index";
 import { openHyperlitContainer, prepareHyperlitContainer, animateHyperlitContainerOpen, getHyperlitEditMode, setHyperlitEditMode, toggleHyperlitEditMode, prepareContainerClose, closeHyperlitContainer, initializeHyperlitManager } from './core.js';
 import { ProgressOverlayConductor } from '../SPA/navigation/ProgressOverlayConductor.js';
 import { detectContentTypes } from './detection.js';
@@ -92,8 +92,8 @@ import { buildHighlightContent } from './contentBuilders/displayHyperlights.js';
 import { buildHyperciteContent, handleHyperciteHealthCheck, handleHyperciteDelete } from './contentBuilders/displayHypercites.js';
 import { attachNoteListeners, initializePlaceholders } from './noteListener.js';
 import { getCurrentContainer, isStackPopping } from './stack.js';
-import { registerContainerActions } from '../utilities/containerActions';
-import { buildSubBookId } from '../utilities/subBookIdHelper.js';
+import { registerContainerActions } from './containerActions';
+import { buildSubBookId } from '../utilities/subBookIdHelper';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -388,7 +388,7 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
       // (dynamic import avoids circular dependency with scrolling)
       const hlId = getHighlightIdsFromMark(element)[0];
       if (hlId) {
-        import('../scrolling').then(({ setCascadeOriginId }: any) => setCascadeOriginId(hlId));
+        import('../scrolling/index').then(({ setCascadeOriginId }: any) => setCascadeOriginId(hlId));
       }
     }
 
@@ -404,7 +404,7 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
     // false save signals on the main content.
     const mainObserverWasActive = containerState.mainEditorWasActive;
     if (mainObserverWasActive) {
-      const { setProgrammaticUpdateInProgress }: any = await import('../utilities/operationState.js');
+      const { setProgrammaticUpdateInProgress }: any = await import('../utilities/operationState');
       setProgrammaticUpdateInProgress(true);
     }
 
@@ -418,7 +418,7 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
 
     // Release the guard after container open is complete
     if (mainObserverWasActive) {
-      const { setProgrammaticUpdateInProgress }: any = await import('../utilities/operationState.js');
+      const { setProgrammaticUpdateInProgress }: any = await import('../utilities/operationState');
       setProgrammaticUpdateInProgress(false);
     }
 

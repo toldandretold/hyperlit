@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../../resources/js/utilities/toast.js', () => ({ showTargetNotFoundToast: vi.fn() }));
+vi.mock('../../../resources/js/components/toast/toast', () => ({ showTargetNotFoundToast: vi.fn() }));
 
 import { revealGhostIfTombstone, restoreNormalHyperciteDisplay } from '../../../resources/js/hypercites/animations';
 

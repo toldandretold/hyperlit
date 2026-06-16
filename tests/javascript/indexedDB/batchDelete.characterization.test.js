@@ -21,7 +21,7 @@ vi.mock('../../../resources/js/integrity/reporter.js', () => ({
 vi.mock('../../../resources/js/footnotes/FootnoteNumberingService', () => ({
   rebuildAndRenumber: vi.fn(),
 }));
-vi.mock('../../../resources/js/utilities/auth.js', () => ({
+vi.mock('../../../resources/js/utilities/auth', () => ({
   refreshCsrfToken: vi.fn(),
   getCurrentUserId: vi.fn(() => null),
 }));

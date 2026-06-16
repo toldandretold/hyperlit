@@ -4,7 +4,7 @@
 // IndexedDB and the backend. Takes the SourceContainerManager as `self`.
 import { openDatabase } from '../../indexedDB/index';
 import { book } from '../../app.js';
-import { clearEditPermissionCache } from '../../utilities/auth.js';
+import { clearEditPermissionCache } from '../../utilities/auth/index';
 import { getRecord, PUBLIC_SVG, PRIVATE_SVG } from './helpers';
 
 export async function handlePrivacyToggle(self: any) {

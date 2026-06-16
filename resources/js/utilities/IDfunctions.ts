@@ -1,0 +1,940 @@
+import { updateIndexedDBRecordForNormalization } from "../indexedDB/index.js";
+import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB, clearPendingSyncsForBook, pendingSyncs, openDatabase } from "../indexedDB/index.js";
+import { executeSyncPayload, updateHistoryLog, debouncedMasterSync } from "../indexedDB/syncQueue/master.js";
+import { currentLazyLoader } from "../pageLoad/index";
+import { book } from "../app.js";
+import { glowCloudGreen, glowCloudRed, glowCloudLocalSave } from "../components/cloudRef/editIndicator";
+import { ProgressOverlayConductor } from "../SPA/navigation/ProgressOverlayConductor.js";
+import { verbose } from './logger';
+import { ID_SKIP_TAGS } from './blockElements.js';
+
+// 🚀 PERFORMANCE: Cache regex pattern (compiled once, used everywhere)
+export const NUMERICAL_ID_PATTERN = /^\d+(\.\d+)?$/;
+
+// Renumbering system: When IDs get crowded, renumber with 100-gaps
+// Uses node_id as stable reference to preserve node identity
+
+// Track if renumbering is in progress
+let isRenumberingInProgress = false;
+let renumberingPromise: any = null;
+
+/**
+ * Trigger renumbering with UI modal (non-blocking)
+ */
+export async function triggerRenumberingWithModal(delayMs = 100) {
+  // Prevent multiple renumbering operations - return existing promise
+  if (isRenumberingInProgress && renumberingPromise) {
+    console.log('⏸️ Renumbering already in progress - returning existing promise');
+    return renumberingPromise;
+  }
+
+  isRenumberingInProgress = true;
+
+  // Set global flag IMMEDIATELY to prevent mutation processor from queuing new saves
+  (window as any).renumberingInProgress = true;
+  console.log('🔒 RENUMBERING: Mutation observer disabled (early)');
+
+  // Create promise that resolves when renumbering completes
+  renumberingPromise = (async () => {
+    try {
+      // Wait for specified delay to allow any in-flight RAF callbacks to complete
+      // (they'll see the flag and skip processing)
+      if (delayMs > 0) {
+        console.log(`⏰ Waiting ${delayMs}ms for any pending RAF callbacks to settle...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+
+      // Show progress overlay with custom message and block interactions
+      ProgressOverlayConductor.showSPATransition(10, 'god damn vibe coders!', true);
+      await renumberAllNodes();
+      // renumberAllNodes() handles overlay hiding and flag reset on success
+      return true;
+    } catch (error) {
+      console.error('❌ Renumbering failed:', error);
+      await ProgressOverlayConductor.hide();
+      (window as any).renumberingInProgress = false;
+      isRenumberingInProgress = false;
+      renumberingPromise = null;
+      console.log('🔓 RENUMBERING: Mutation observer re-enabled (after error)');
+      alert('Renumbering failed. Please try again.');
+      throw error;
+    }
+  })();
+
+  return renumberingPromise;
+}
+
+/**
+ * Renumber all nodes in the current book with 100-unit gaps
+ * Called when we'd be forced to create a decimal ID
+ */
+async function renumberAllNodes() {
+  console.log('🔄 RENUMBERING: Starting system-wide ID renormalization');
+
+  try {
+    // 0. Flush all pending saves to IndexedDB first
+    console.log('💾 Flushing all pending saves before renumbering...');
+    const { flushAllPendingSaves, flushInputDebounce } = await import('../divEditor/index');
+    flushInputDebounce();          // Capture any recent typing into SaveQueue
+    await flushAllPendingSaves();  // Then flush SaveQueue → IndexedDB
+    console.log('✅ All pending saves flushed to IndexedDB');
+
+    // 0.5. CRITICAL: Also flush pending PostgreSQL syncs
+    // This ensures all nodes exist in PostgreSQL before we try to update them
+    // Otherwise, nodes that don't exist in PostgreSQL will cause startLine conflicts
+    console.log('📤 Flushing pending PostgreSQL syncs...');
+    if (pendingSyncs.size > 0) {
+      console.log(`📤 ${pendingSyncs.size} pending syncs to flush`);
+      await debouncedMasterSync.flush();
+      console.log('✅ PostgreSQL sync flushed');
+    } else {
+      console.log('✅ No pending PostgreSQL syncs');
+    }
+
+    // 1. Get all nodes from IndexedDB
+    const indexedDBNodes = await getAllNodeChunksForBook(book);
+    const indexedDBNodeIds = new Set((indexedDBNodes || []).map(n => n.node_id));
+    // Map node_id → old chunk_id so we can detect chunk reassignments later
+    const indexedDBNodeMap = new Map((indexedDBNodes || []).map(n => [n.node_id, n.chunk_id]));
+
+    // 2. Find orphaned DOM elements (in DOM but not in IndexedDB)
+    const allDomElements = document.querySelectorAll('[data-node-id]');
+    const orphanedNodes: any[] = [];
+
+    allDomElements.forEach(el => {
+      const nodeId = el.getAttribute('data-node-id');
+      if (!indexedDBNodeIds.has(nodeId)) {
+        console.log(`📦 Including orphaned DOM node in renumbering: ${el.id} (${nodeId})`);
+        orphanedNodes.push({
+          node_id: nodeId,
+          startLine: parseFloat(el.id) || 0,
+          content: el.outerHTML,
+          hyperlights: [],
+          hypercites: [],
+          footnotes: [],
+          _domElement: el
+        });
+      }
+    });
+
+    if (orphanedNodes.length > 0) {
+      console.log(`📦 Found ${orphanedNodes.length} orphaned DOM nodes to include in renumbering`);
+    }
+
+    // 3. Merge IndexedDB nodes with orphaned nodes, adding DOM references for sorting
+    const allNodesWithDom = (indexedDBNodes || []).map(node => ({
+      ...node,
+      _domElement: document.querySelector(`[data-node-id="${node.node_id}"]`)
+    }));
+
+    const combinedNodes = [...allNodesWithDom, ...orphanedNodes];
+
+    if (combinedNodes.length === 0) {
+      console.warn('⚠️ RENUMBERING: No nodes found for book:', book);
+      return false;
+    }
+
+    // 4. Sort by DOM order (preserves visual ordering)
+    combinedNodes.sort((a, b) => {
+      if (!a._domElement && !b._domElement) {
+        // Neither in DOM, fall back to startLine
+        return a.startLine - b.startLine;
+      }
+      if (!a._domElement) return 1;  // a not in DOM, put it after
+      if (!b._domElement) return -1; // b not in DOM, put it after
+
+      const position = a._domElement.compareDocumentPosition(b._domElement);
+      return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+    });
+
+    console.log(`🔄 RENUMBERING: Processing ${combinedNodes.length} nodes (${indexedDBNodes?.length || 0} from IndexedDB, ${orphanedNodes.length} orphaned)`);
+
+    // 5. Build mapping: node_id → new startLine (with 100-gaps)
+    const updates: any[] = [];
+    combinedNodes.forEach((node, index) => {
+      const newStartLine = (index + 1) * 100; // 100, 200, 300, etc.
+      const oldStartLine = node.startLine;
+
+      // Update HTML content to reflect new ID (like paste.js does)
+      const updatedContent = node.content.replace(
+        /id="[\d.]+"/g,
+        `id="${newStartLine}"`
+      );
+
+      updates.push({
+        book: book,
+        oldStartLine: oldStartLine,
+        newStartLine: newStartLine,
+        node_id: node.node_id,
+        content: updatedContent,
+        chunk_id: Math.floor(index / 100), // Recalculate chunk_id
+        hyperlights: node.hyperlights || [],
+        hypercites: node.hypercites || [],
+        footnotes: node.footnotes || []
+      });
+    });
+
+    console.log(`🔄 RENUMBERING: Generated ${updates.length} updates`);
+
+    // Note: (window as any).renumberingInProgress already set at start of triggerRenumberingWithModal()
+
+    // 7. Update DOM elements if they're currently visible (using node_id as stable reference)
+    let domUpdateCount = 0;
+    let missingElements = 0;
+
+    updates.forEach(update => {
+      const element = document.querySelector(`[data-node-id="${update.node_id}"]`);
+      if (element) {
+        const oldId = element.id;
+        element.id = update.newStartLine.toString();
+        domUpdateCount++;
+        if (oldId.includes('.')) {
+          console.log(`🔄 Updated decimal ID: ${oldId} → ${update.newStartLine}`);
+        }
+      } else {
+        missingElements++;
+      }
+    });
+    console.log(`✅ RENUMBERING: Updated ${domUpdateCount} DOM elements (${missingElements} not in DOM)`);
+
+    // 5. Update IndexedDB with new startLines
+    await renumberNodeChunksInIndexedDB(updates, book);
+    console.log('✅ RENUMBERING: IndexedDB updated');
+
+    // 6. Sync to PostgreSQL using SAFE executeSyncPayload (UPDATE by node_id, no DELETE ALL)
+    // This uses /api/db/unified-sync → bulkTargetedUpsert which does:
+    // ON CONFLICT (book, node_id) DO UPDATE SET startLine = ...
+    //
+    // Only sync nodes whose startLine or chunk_id actually changed —
+    // most renumbering runs only shift a handful of nodes while the
+    // rest keep their 100-gap positions.
+    const changedNodes = updates.filter(u => {
+      const oldChunkId = indexedDBNodeMap.get(u.node_id);
+      return u.oldStartLine !== u.newStartLine
+        || (oldChunkId !== undefined && oldChunkId !== u.chunk_id);
+    });
+
+    console.log(`🔄 RENUMBERING: ${changedNodes.length}/${updates.length} nodes actually changed — syncing only changed`);
+
+    const syncPayload = {
+      book: book,
+      updates: {
+        nodes: changedNodes.map(u => ({
+          book: u.book,
+          startLine: u.newStartLine,
+          chunk_id: u.chunk_id,
+          node_id: u.node_id,
+          content: u.content,
+          hyperlights: u.hyperlights || [],
+          hypercites: u.hypercites || [],
+          footnotes: u.footnotes || []
+        })),
+        hypercites: [],
+        hyperlights: [],
+        footnotes: [],
+        library: null
+      },
+      deletions: {
+        nodes: [],
+        hyperlights: [],
+        hypercites: []
+      }
+    };
+
+    // Save to historyLog WAL. If many nodes changed, we save as "pending"
+    // and let retryFailedBatches send it in chunks so the server doesn't timeout.
+    if (changedNodes.length > 0) {
+      const logEntry = {
+        timestamp: Date.now(),
+        bookId: book,
+        status: "pending",
+        payload: syncPayload,
+      };
+
+      const walDb = await openDatabase();
+      const walTx = walDb.transaction("historyLog", "readwrite");
+      const walStore = walTx.objectStore("historyLog");
+      const walId = await new Promise((resolve, reject) => {
+        const request = walStore.add(logEntry);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = (e: any) => reject(e.target.error);
+      });
+      (logEntry as any).id = walId;
+      await new Promise<void>((resolve, reject) => {
+        walTx.oncomplete = () => resolve();
+        walTx.onerror = () => reject(walTx.error);
+      });
+      console.log(`📦 RENUMBERING: WAL entry ${(logEntry as any).id} saved (${changedNodes.length} changed nodes, deferred sync)`);
+      glowCloudLocalSave();
+    } else {
+      console.log('✅ RENUMBERING: No nodes changed — skipping WAL/sync');
+    }
+
+    // 7. Clear any pending syncs queued during the process (they have stale pre-renumber data)
+    const clearedCount = clearPendingSyncsForBook(book);
+    console.log(`✅ RENUMBERING: Cleared ${clearedCount} stale pending syncs`);
+
+    // 8. Re-enable mutation observer
+    (window as any).renumberingInProgress = false;
+    console.log('🔓 RENUMBERING: Mutation observer re-enabled');
+
+    // 8. Update lazy loader's in-memory cache (DOM is already updated in step 4)
+    console.log('🔄 RENUMBERING: Updating lazy loader cache from IndexedDB');
+    if (currentLazyLoader) {
+      // Just update the in-memory nodes array - DOM elements already updated in step 4
+      currentLazyLoader.nodes = await getAllNodeChunksForBook(book);
+      console.log('✅ RENUMBERING: Lazy loader cache updated with fresh data');
+    } else {
+      console.warn('⚠️ RENUMBERING: Could not update cache - currentLazyLoader not available');
+    }
+
+    // 9. Hide overlay and continue
+    console.log('🎉 RENUMBERING COMPLETE');
+    await ProgressOverlayConductor.hide();
+    isRenumberingInProgress = false;
+    renumberingPromise = null;
+
+    // 10. Kick off chunked sync in the background (non-blocking).
+    // retryFailedBatches will find the pending WAL entry and send it
+    // in 500-node chunks so the server doesn't timeout.
+    import('../pageLoad/index').then(({ setupOnlineSyncListener }) => {
+      setupOnlineSyncListener();
+    });
+
+    return true;
+
+  } catch (error) {
+    console.error('❌ RENUMBERING FAILED:', error);
+    // Show red error indicator + advise a refresh (renumber can leave IDs inconsistent).
+    glowCloudRed({ error, savedLocally: false });
+    // Hide overlay on error
+    await ProgressOverlayConductor.hide();
+    // Re-enable mutation observer even on failure
+    (window as any).renumberingInProgress = false;
+    console.log('🔓 RENUMBERING: Mutation observer re-enabled (after error)');
+    return false;
+  }
+}
+
+/**
+ * Detect if we need to renumber (decimals getting too deep)
+ * Only trigger renumbering when decimals exceed MAX_DECIMAL_DEPTH
+ */
+function needsRenumbering(beforeId: any, afterId: any) {
+  const MAX_DECIMAL_DEPTH = 3; // Allow up to 3 decimal places (e.g., 1.123)
+
+  if (!beforeId || !afterId) return false;
+
+  const beforeNum = parseFloat(beforeId);
+  const afterNum = parseFloat(afterId);
+
+  if (isNaN(beforeNum) || isNaN(afterNum)) return false;
+
+  // Check current decimal depth
+  const beforeDecimal = beforeId.toString().split('.')[1] || '';
+  const afterDecimal = afterId.toString().split('.')[1] || '';
+  const currentMaxDepth = Math.max(beforeDecimal.length, afterDecimal.length);
+
+  // If we're already at max depth, trigger renumbering
+  if (currentMaxDepth >= MAX_DECIMAL_DEPTH) {
+    console.log(`🔍 RENUMBER TRIGGER: Decimal depth ${currentMaxDepth} >= ${MAX_DECIMAL_DEPTH}`);
+    return true;
+  }
+
+  // Allow normal decimal generation if under the limit
+  return false;
+}
+
+// Utility: Generate a fallback unique ID if needed (used as a last resort).
+
+export function compareDecimalStrings(a: any, b: any) {
+  verbose.content(`Comparing decimal strings: "${a}" vs "${b}"`, 'utilities/IDfunctions');
+
+  // Handle null/undefined cases
+  if (!a && !b) return 0;
+  if (!a) return -1;
+  if (!b) return 1;
+
+  // Convert to strings if they aren't already
+  const aStr = a.toString();
+  const bStr = b.toString();
+
+  // Split into integer and decimal parts
+  const [aInt, aDec = ""] = aStr.split(".");
+  const [bInt, bDec = ""] = bStr.split(".");
+
+  verbose.content(`Split results: a(${aInt}.${aDec}) vs b(${bInt}.${bDec})`, 'utilities/IDfunctions');
+
+  // Compare integer parts numerically
+  const aIntNum = parseInt(aInt);
+  const bIntNum = parseInt(bInt);
+
+  if (aIntNum !== bIntNum) {
+    const result = aIntNum - bIntNum;
+    verbose.content(`Integer parts differ: ${aIntNum} vs ${bIntNum}, result: ${result}`, 'utilities/IDfunctions');
+    return result; // -1 if a < b, 1 if a > b, 0 if equal
+  }
+
+  verbose.content(`Integer parts equal (${aIntNum}), comparing decimal parts`, 'utilities/IDfunctions');
+
+  // Integer parts are equal, compare decimal parts as strings
+  // Pad the shorter decimal with zeros for proper comparison
+  const maxLen = Math.max(aDec.length, bDec.length);
+  const aPadded = aDec.padEnd(maxLen, '0');
+  const bPadded = bDec.padEnd(maxLen, '0');
+
+  verbose.content(`Padded decimals: "${aPadded}" vs "${bPadded}"`, 'utilities/IDfunctions');
+
+  const result = aPadded.localeCompare(bPadded);
+  verbose.content(`Decimal comparison result: ${result}`, 'utilities/IDfunctions');
+
+  return result;
+}
+
+
+/**
+ * Set both id and data-node-id on an element
+ * This ensures new elements can be tracked through renumbering
+ */
+export function setElementIds(element: any, beforeId: any, afterId: any, bookId: any) {
+  // Generate and set the numerical ID
+  element.id = generateIdBetween(beforeId, afterId);
+
+  // Defense in depth: generateIdBetween should produce a unique id, but if a
+  // future bug or stale state slips one through, bump to the next available
+  // decimal for the same base before the element is inserted into the DOM.
+  // The element here is typically detached, so isIdInUse only flags conflicts
+  // against other existing nodes.
+  if (isIdInUse(element.id)) {
+    const baseMatch = element.id.match(/^(\d+)/);
+    if (baseMatch) {
+      const bumpedId = getNextDecimalForBase(baseMatch[1]);
+      console.warn(`setElementIds: generated id ${element.id} already in use, bumping to ${bumpedId}`);
+      element.id = bumpedId;
+    }
+  }
+
+  // Generate and set the permanent node_id if it doesn't exist
+  if (!element.getAttribute('data-node-id')) {
+    element.setAttribute('data-node-id', generateNodeId(bookId));
+  }
+
+  return element.id;
+}
+
+export function generateIdBetween(beforeId: any, afterId: any) {
+  verbose.content(`Generating ID between: beforeId=${beforeId}, afterId=${afterId}`, 'utilities/IDfunctions');
+
+  // RENUMBERING CHECK: Don't trigger here - let caller handle it after element is saved
+  // Store the flag so caller can trigger renumbering deterministically
+  const shouldRenumber = needsRenumbering(beforeId, afterId);
+  if (shouldRenumber) {
+    verbose.content('RENUMBERING NEEDED - Will trigger after element is saved', 'utilities/IDfunctions');
+  }
+
+  // Store renumbering flag on window for caller to check
+  (window as any).__pendingRenumbering = shouldRenumber;
+
+  // 1) No beforeId → just pick something before afterId
+  if (!beforeId) {
+    verbose.content("EXIT: No beforeId", 'utilities/IDfunctions');
+    if (!afterId) return "1";
+    const afterNum = parseFloat(afterId);
+    return isNaN(afterNum)
+      ? "1"
+      : Math.max(1, Math.floor(afterNum) - 1).toString();
+  }
+
+  // 2) No afterId → increment with 100-unit gap
+  if (!afterId) {
+    verbose.content("EXIT: No afterId", 'utilities/IDfunctions');
+    const beforeNum = parseFloat(beforeId);
+    if (isNaN(beforeNum)) return `${beforeId}_1`;
+
+    // Use 100-unit gaps to maintain renumbering pattern
+    const beforeFloor = Math.floor(beforeNum);
+    const nextInteger = beforeFloor + 100;
+
+    // isIdInUse: true when ANY element already has this ID (prevents creating a duplicate)
+    if (isIdInUse(nextInteger.toString())) {
+      console.warn(
+        `Next integer ${nextInteger} already exists, falling back to decimal`
+      );
+      const [intPart, decPart = ""] = beforeId.split(".");
+      if (Number.isInteger(beforeNum)) {
+        return `${beforeNum}.1`;
+      }
+      if (decPart.endsWith("9")) {
+        return `${intPart}.${decPart}1`;
+      }
+      const last = parseInt(decPart.slice(-1), 10);
+      return `${intPart}.${decPart.slice(0, -1)}${last + 1}`;
+    }
+
+    verbose.content(`EXIT: No afterId, using 100-gap: ${nextInteger}`, 'utilities/IDfunctions');
+    return nextInteger.toString();
+  }
+
+  // 3) Both beforeId and afterId exist
+  const beforeNum = parseFloat(beforeId);
+  const afterNum = parseFloat(afterId);
+  const cmp = compareDecimalStrings(beforeId, afterId);
+  verbose.content(`Comparison result: ${cmp}`, 'utilities/IDfunctions');
+
+  if (cmp >= 0) {
+    console.warn(`IDs out of order: ${beforeId} ≥ ${afterId}`);
+    return generateIdBetween(beforeId, null);
+  }
+
+  if (!isNaN(beforeNum) && !isNaN(afterNum)) {
+    // handle outrageously long decimals by simple string logic…
+    const beforeDecLen = beforeId.split(".")[1]?.length || 0;
+    const afterDecLen = afterId.split(".")[1]?.length || 0;
+    if (beforeDecLen > 10 || afterDecLen > 10) {
+      console.warn("Very long decimal detected, using string‐only logic");
+      const [i, d = ""] = beforeId.split(".");
+      if (d.endsWith("9")) return `${i}.${d}1`;
+      if (d) {
+        const last = parseInt(d.slice(-1), 10);
+        return `${i}.${d.slice(0, -1)}${last + 1}`;
+      }
+      return `${i}.1`;
+    }
+
+    // ✨ NEW: Check for integer gap >= 2, use midpoint
+    if (Number.isInteger(beforeNum) && Number.isInteger(afterNum)) {
+      const gap = afterNum - beforeNum;
+      if (gap >= 2) {
+        const midpoint = Math.floor((beforeNum + afterNum) / 2);
+        verbose.content(`EXIT: Integer gap ${gap}, using midpoint: ${midpoint}`, 'utilities/IDfunctions');
+        return midpoint.toString();
+      }
+    }
+
+    // ✨ Check for integer gap when one is decimal
+    // If there's room for an integer between them, use it
+    const nextIntAfterBefore = Math.floor(beforeNum) + 1;
+    if (compareDecimalStrings(nextIntAfterBefore.toString(), afterId) < 0) {
+      console.log(`EXIT: Using next available integer: ${nextIntAfterBefore}`);
+      return nextIntAfterBefore.toString();
+    }
+
+    const beforeParts = beforeId.split(".");
+    const afterParts = afterId.split(".");
+    const gap = afterNum - beforeNum;
+    const lenB = beforeParts[1]?.length || 0;
+    const lenA = afterParts[1]?.length || 0;
+
+    // CASE 1) same integer part, both have decimals
+    if (beforeParts[0] === afterParts[0] && lenB > 0 && lenA > 0) {
+      console.log("Case 1: same int & both decimals");
+      const intPart = beforeParts[0];
+      const beforeDec = beforeParts[1];
+      const afterDec = afterParts[1];
+
+      // Pad both to the LONGER length to compare properly
+      // 1.18 and 1.2 → treat as 1.18 vs 1.20
+      const workingLength = Math.max(lenB, lenA);
+      const paddedBeforeDec = beforeDec.padEnd(workingLength, "0");
+      const paddedAfterDec = afterDec.padEnd(workingLength, "0");
+      const beforeDecNum = parseInt(paddedBeforeDec, 10);
+      const afterDecNum = parseInt(paddedAfterDec, 10);
+
+      if (afterDecNum - beforeDecNum > 1) {
+        // Room to increment: 1.18 and 1.2 → 1.19
+        let newDec = (beforeDecNum + 1).toString().padStart(workingLength, "0");
+        console.log(`EXIT: Room to increment decimal: ${intPart}.${newDec}`);
+        return `${intPart}.${newDec}`;
+      }
+
+      // No room to increment, need to append a digit
+      // 1.18 and 1.19 → 1.181
+      console.log("EXIT: No room to increment, appending digit");
+      return `${beforeId}1`;
+    }
+
+    // CASE 2: before is integer, after has decimals (e.g. 100 vs 100.1)
+    verbose.content(`Checking case 2: beforeParts=${beforeParts.length}, afterParts=${afterParts.length}, sameInt=${beforeParts[0] === afterParts[0]}`, 'utilities/IDfunctions');
+    if (
+      beforeParts.length === 1 &&
+      afterParts.length === 2 &&
+      beforeParts[0] === afterParts[0]
+    ) {
+      // ... (This logic is correct for its purpose and is now protected by the fix above)
+      verbose.content("EXIT: Case 2 triggered", 'utilities/IDfunctions');
+      const suffix = "0".repeat(lenA) + "1";
+      return `${beforeParts[0]}.${suffix}`;
+    }
+
+    // CASE 3: integers with gap (e.g. 1 and 2 → 1.1, or 3 and 5 → 4)
+    verbose.content("Checking case 3...", 'utilities/IDfunctions');
+    if (Number.isInteger(beforeNum) && Number.isInteger(afterNum)) {
+      // ... (The fix above already handles the "3 and 5 -> 4" case, but this is fine as a fallback)
+      if (afterNum - beforeNum === 1) {
+        const candidate = `${beforeNum}.1`;
+        // Guard against duplicates: a `${beforeNum}.1` may already exist further
+        // down in the DOM. Recurse with a tighter range so the next call goes
+        // through CASE 1 and yields `${beforeNum}.11` etc.
+        if (isIdInUse(candidate)) {
+          console.warn(`Case 3 candidate ${candidate} already exists, recursing`);
+          return generateIdBetween(candidate, afterId);
+        }
+        return candidate;
+      } else if (afterNum - beforeNum > 1) {
+        const candidate = (beforeNum + 1).toString();
+        if (isIdInUse(candidate)) {
+          console.warn(`Case 3 candidate ${candidate} already exists, recursing`);
+          return generateIdBetween(candidate, afterId);
+        }
+        return candidate;
+      }
+    }
+
+    // CASE 4: before has decimal, after is integer
+    if (!Number.isInteger(beforeNum) && Number.isInteger(afterNum)) {
+      // ... (The fix above already handles the "3.5 and 5 -> 4" case)
+      const beforeInt = Math.floor(beforeNum);
+      if (afterNum - beforeInt > 1) {
+        const candidate = (beforeInt + 1).toString();
+        if (isIdInUse(candidate)) {
+          console.warn(`Case 4 candidate ${candidate} already exists, recursing`);
+          return generateIdBetween(candidate, afterId);
+        }
+        return candidate;
+      } else {
+        const [i, d = ""] = beforeId.split(".");
+        const candidate = d.endsWith("9")
+          ? `${i}.${d}1`
+          : `${i}.${d.slice(0, -1)}${parseInt(d.slice(-1), 10) + 1}`;
+        if (isIdInUse(candidate)) {
+          console.warn(`Case 4 decimal candidate ${candidate} already exists, recursing`);
+          return generateIdBetween(candidate, afterId);
+        }
+        return candidate;
+      }
+    }
+  }
+
+  // FINAL fallback: This should now be unreachable for valid numerical inputs.
+  console.log("EXIT: Fallback");
+  return `${beforeId}_next`;
+}
+// Helper function to find the ID of the previous element with a numerical ID
+export function findPreviousElementId(node: any) {
+  let prev = node.previousElementSibling;
+  while (prev) {
+    if (prev.id && /^\d+(\.\d+)?$/.test(prev.id)) {
+      return prev.id;
+    }
+    prev = prev.previousElementSibling;
+  }
+  return null;
+}
+
+// Helper function to find the ID of the next element with a numerical ID
+export function findNextElementId(node: any) {
+  let next = node.nextElementSibling;
+  while (next) {
+    if (next.id && /^\d+(\.\d+)?$/.test(next.id)) {
+      return next.id;
+    }
+    next = next.nextElementSibling;
+  }
+  return null;
+}
+
+// 🚀 PERFORMANCE: Optimized numerical ID check (3-5x faster)
+// Check if an id is numerical (integer or decimal)
+export function isNumericalId(id: any) {
+  return NUMERICAL_ID_PATTERN.test(id);
+}
+
+
+
+
+export function generateUniqueId() {
+  const id = "node_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
+  console.log(`🆔 generateUniqueId: Created fallback ID: ${id}`);
+  return id;
+}
+
+// Generate a unique node_id for persistent identification across renumbering
+export function generateNodeId(bookId: any) {
+  const id = `${bookId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return id;
+}
+
+// Utility: Check if an id is duplicate within the document.
+export function isDuplicateId(id: any) {
+  const elements = document.querySelectorAll(`#${CSS.escape(id)}`);
+  const isDuplicate = elements.length > 1;
+  if (isDuplicate) {
+    console.warn(`🚨 isDuplicateId: Found duplicate ID: ${id} (${elements.length} instances)`);
+    // Log the elements with this ID to help debugging
+    elements.forEach((el, i) => {
+      console.warn(`  Duplicate #${i+1}: <${el.tagName.toLowerCase()}> with content: "${el.textContent.substring(0, 30)}..."`);
+    });
+  }
+  return isDuplicate;
+}
+
+// Check if any element in the document already uses this ID (even a single one).
+// Unlike isDuplicateId (which returns true only for 2+ elements), this returns
+// true when 1+ element has the ID — used to prevent *creating* a duplicate.
+export function isIdInUse(id: any) {
+  return document.querySelector(`#${CSS.escape(id)}`) !== null;
+}
+
+// New helper for generating an ID when inserting a new node with decimal logic.
+export function generateInsertedNodeId(referenceNode: any, insertAfter = true) {
+  console.log(`🔄 generateInsertedNodeId: Called with reference node:`, 
+    referenceNode ? `#${referenceNode.id} <${referenceNode.tagName.toLowerCase()}>` : 'null', 
+    `insertAfter: ${insertAfter}`);
+  
+  if (!referenceNode || !referenceNode.id) {
+    console.warn(`⚠️ generateInsertedNodeId: No valid reference node, falling back to unique ID`);
+    return generateUniqueId();
+  }
+  
+  // Extract the numeric base from the reference node id.
+  const baseMatch = referenceNode.id.match(/^(\d+)/);
+  if (!baseMatch) {
+    console.warn(`⚠️ generateInsertedNodeId: Reference node ID "${referenceNode.id}" doesn't match expected pattern, falling back to unique ID`);
+    return generateUniqueId();
+  }
+  
+  const baseId = baseMatch[1];
+  let newId: any;
+  if (insertAfter) {
+    newId = getNextDecimalForBase(baseId);
+    console.log(`✅ generateInsertedNodeId: Inserting AFTER #${referenceNode.id} → new ID: ${newId}`);
+  } else {
+    // For inserting before, try to derive from the previous sibling.
+    const parent = referenceNode.parentElement;
+    if (!parent) {
+      console.warn(`⚠️ generateInsertedNodeId: Reference node has no parent, falling back to unique ID`);
+      return generateUniqueId();
+    }
+    
+    const siblings = Array.from(parent.children);
+    const pos = siblings.indexOf(referenceNode);
+    console.log(`🔍 generateInsertedNodeId: Reference node position among siblings: ${pos}/${siblings.length}`);
+    
+    if (pos > 0) {
+      const prevSibling: any = siblings[pos - 1];
+      if (prevSibling.id) {
+        const prevMatch = prevSibling.id.match(/^(\d+)/);
+        if (prevMatch) {
+          const prevBase = prevMatch[1];
+          newId = getNextDecimalForBase(prevBase);
+          console.log(`✅ generateInsertedNodeId: Using previous sibling #${prevSibling.id} → new ID: ${newId}`);
+        } else {
+          newId = `${baseId}.1`;
+          console.log(`⚠️ generateInsertedNodeId: Previous sibling has non-standard ID, using ${newId}`);
+        }
+      } else {
+        newId = `${baseId}.1`;
+        console.log(`⚠️ generateInsertedNodeId: Previous sibling has no ID, using ${newId}`);
+      }
+    } else {
+      newId = `${baseId}.1`;
+      console.log(`✅ generateInsertedNodeId: No previous sibling, using ${newId}`);
+    }
+  }
+  
+  return newId;
+}
+
+
+
+export function getNextDecimalForBase(base: any) {
+  // Get all elements with this base in the current chunk
+  const chunk = document.querySelector('.chunk');
+  if (!chunk) return `${base}.1`;
+  
+  const baseElements = Array.from(chunk.querySelectorAll(`[id^="${base}."], [id="${base}"]`));
+  
+  // If no elements with this base exist, start with .1
+  if (baseElements.length === 0) return `${base}.1`;
+  
+  // Sort by DOM order (visual order)
+  baseElements.sort((a, b) => {
+    const position = a.compareDocumentPosition(b);
+    return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+  });
+  
+  // Find the last element in DOM order
+  const lastElement = baseElements[baseElements.length - 1];
+  
+  // If the last element is the base itself (no decimal), use .1
+  if (lastElement!.id === base) return `${base}.1`;
+  
+  // Otherwise, increment the last decimal
+  const match = lastElement!.id.match(/^(\d+)\.(\d+)$/);
+  if (match) {
+    const lastSuffix = parseInt(match[2]!, 10);
+    return `${base}.${lastSuffix + 1}`;
+  }
+  
+  // Fallback
+  return `${base}.1`;
+}
+
+export function getNextIntegerId(id: any) {
+  const n = Math.floor(parseFloat(id));
+  return String(n + 1);
+}
+
+
+
+
+
+// Replace original ensureNodeHasValidId with enhanced version using decimal logic.
+export function ensureNodeHasValidId(node: any, options: any = {}) {
+  const { referenceNode, insertAfter } = options;
+  if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+  // Skip elements that shouldn't have IDs (e.g. inline tags, LI whose parent OL/UL has the ID)
+  if (ID_SKIP_TAGS.has(node.tagName)) {
+    console.log(`Skipping ID assignment for ${node.tagName} element`);
+    return;
+  }
+  
+  // DEAD CODE — `(window as any).__enterKeyInfo` is read here (and reset throughout the
+  // block below) but `grep -rn "__enterKeyInfo"` shows no assignment anywhere
+  // in the codebase. The intent was: on Enter, keydown stashes
+  // { nodeId, cursorPosition, timestamp } here, and ensureNodeHasValidId uses
+  // it to pick a cursor-aware reference instead of falling through to the
+  // generic `findPreviousElementId / findNextElementId` sibling scan below.
+  // Whoever started that path never wired up the writer.
+  //
+  // Would wiring it up have prevented the 2026-05-12 integrity mismatch
+  // (duplicate `6498.1`)? In that specific case yes — getNextDecimalForBase
+  // queries the DOM for existing `${base}.*` ids and increments past them,
+  // so it wouldn't have minted a colliding `6498.1`. But it's scoped to the
+  // first `.chunk` (line 753 — `document.querySelector('.chunk')`) so it
+  // can still miss decimals living in other chunks, and it only protects the
+  // Enter path. The real fix lives in `generateIdBetween` CASE 3 & 4 plus the
+  // post-check in `setElementIds`, which guard every call site.
+  //
+  // OPEN QUESTION: should this block be deleted? Pros: ~60 lines of dead
+  // code gone, no risk of future Enter-key changes accidentally bringing it
+  // back to life with stale logic. Cons: cursor-aware id assignment would
+  // be a genuine ergonomic win if someone wires up the writer side. Leaning
+  // toward delete unless someone commits to finishing the feature.
+  if ((window as any).__enterKeyInfo && Date.now() - (window as any).__enterKeyInfo.timestamp < 500) {
+    const { nodeId: IDnumerical, cursorPosition } = (window as any).__enterKeyInfo;
+    // Scope lookup to the active book container to avoid cross-book ID collisions
+    const activeContainer = node.closest('[data-book-id]') || document.querySelector('.main-content');
+    const referenceNode = activeContainer?.querySelector(`[id="${IDnumerical}"]`) || document.getElementById(IDnumerical);
+    if (referenceNode) {
+      if (cursorPosition === "start") {
+        const parent = referenceNode.parentElement;
+        if (parent) {
+          const siblings = Array.from(parent.children);
+          const refIndex = siblings.indexOf(referenceNode);
+          if (refIndex > 0) {
+            const nodeAbove: any = siblings[refIndex - 1];
+            if (nodeAbove.id) {
+              const baseMatch = nodeAbove.id.match(/^(\d+)/);
+              if (baseMatch) {
+                const baseId = baseMatch[1];
+                node.id = getNextDecimalForBase(baseId);
+                if (!node.getAttribute('data-node-id')) {
+                  node.setAttribute('data-node-id', generateNodeId(book));
+                }
+                console.log(`Cursor at start: New node gets ID ${node.id} based on node above (${nodeAbove.id})`);
+                (window as any).__enterKeyInfo = null;
+                return;
+              }
+            }
+          } else {
+            const baseMatch = referenceNode.id.match(/^(\d+)/);
+            if (baseMatch) {
+              const baseId = parseInt(baseMatch[1], 10);
+              const newBaseId = Math.max(1, baseId - 1).toString();
+              node.id = newBaseId;
+              if (!node.getAttribute('data-node-id')) {
+                node.setAttribute('data-node-id', generateNodeId(book));
+              }
+              console.log(`No node above; new node gets ID ${node.id} (one less than reference ${referenceNode.id})`);
+              (window as any).__enterKeyInfo = null;
+              return;
+            }
+          }
+        }
+      } else {
+        const baseMatch = referenceNode.id.match(/^(\d+)/);
+        if (baseMatch) {
+          const baseId = baseMatch[1];
+          node.id = getNextDecimalForBase(baseId);
+          if (!node.getAttribute('data-node-id')) {
+            node.setAttribute('data-node-id', generateNodeId(book));
+          }
+          console.log(`Cursor at ${cursorPosition}: New node gets ${node.id}, reference node stays ${referenceNode.id}`);
+          (window as any).__enterKeyInfo = null;
+          return;
+        }
+      }
+    }
+    (window as any).__enterKeyInfo = null;
+  }
+
+  
+  // If node already has an id, check for duplicates:
+  if (node.id) {
+    if (isDuplicateId(node.id)) {
+      const match = node.id.match(/^(\d+)(\.\d+)?$/);
+      if (match) {
+        const baseId = match[1];
+        const newId = getNextDecimalForBase(baseId);
+        console.log(`ID conflict detected. Changing node id from ${node.id} to ${newId}`);
+        node.id = newId;
+      } else {
+        const oldId = node.id;
+        node.id = generateUniqueId();
+        console.log(`ID conflict detected (non-numeric). Changing node id from ${oldId} to ${node.id}`);
+      }
+    }
+  } else {
+    // NEW: Determine proper numerical ID based on position
+    if (referenceNode && typeof insertAfter === "boolean") {
+      node.id = generateInsertedNodeId(referenceNode, insertAfter);
+
+      // ✅ Also set data-node-id if not present
+      if (!node.getAttribute('data-node-id')) {
+        node.setAttribute('data-node-id', generateNodeId(book));
+      }
+
+      console.log(`Assigned new id ${node.id} and data-node-id based on reference insertion direction.`);
+    } else {
+      // Find the node's position in the DOM and assign appropriate ID
+      let beforeId = findPreviousElementId(node);
+      let afterId = findNextElementId(node);
+
+      // Parent-aware fallback: when both are null (e.g. node inside a list where
+      // siblings are LI elements with no numerical IDs), use the parent's context
+      // to avoid generating ID "1" which would place the node at the top of the doc.
+      if (beforeId === null && afterId === null && node.parentElement) {
+        const parent = node.parentElement;
+        const parentId = parent.id && /^\d+(\.\d+)?$/.test(parent.id) ? parent.id : null;
+        if (parentId) {
+          beforeId = parentId;
+        } else {
+          beforeId = findPreviousElementId(parent);
+          afterId = findNextElementId(parent);
+        }
+      }
+
+      node.id = generateIdBetween(beforeId, afterId);
+
+      // ✅ Also set data-node-id if not present (same as setElementIds does)
+      if (!node.getAttribute('data-node-id')) {
+        node.setAttribute('data-node-id', generateNodeId(book));
+      }
+
+      console.log(`Assigned positional id ${node.id} and data-node-id to node <${node.tagName.toLowerCase()}> (between ${beforeId} and ${afterId})`);
+    }
+  }
+
+}

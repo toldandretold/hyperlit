@@ -15,9 +15,9 @@
  * assertions stay identical — that's the point of a characterization gate.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { resolveBootstrapTarget } from '../../../resources/js/pageLoad';
-import { buildChainFromUrl, handleDeletedBookAccess } from '../../../resources/js/pageLoad';
-import { waitForBackgroundDownload } from '../../../resources/js/pageLoad';
+import { resolveBootstrapTarget } from '../../../resources/js/pageLoad/index';
+import { buildChainFromUrl, handleDeletedBookAccess } from '../../../resources/js/pageLoad/index';
+import { waitForBackgroundDownload } from '../../../resources/js/pageLoad/index';
 
 beforeEach(() => {
   delete window._pendingChunkTarget;

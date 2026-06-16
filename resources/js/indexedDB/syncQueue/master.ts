@@ -4,10 +4,10 @@
  */
 
 import { openDatabase } from '../core/connection';
-import { debounce } from '../../utilities/debounce.js';
+import { debounce } from '../../utilities/debounce';
 import { toPublicChunk } from '../core/utilities';
 import { pendingSyncs } from './queue';
-import { refreshCsrfToken } from '../../utilities/auth.js';
+import { refreshCsrfToken } from '../../utilities/auth/index';
 // Pure helper extracted so the cross-book filter + fallback can be unit-tested
 // in isolation. Tests: tests/javascript/indexedDB/master.test.js
 import { filterFreshNodesForBook } from './freshNodeFilter';
@@ -208,7 +208,7 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
         // could diff the local edit against the server's newer version and auto-merge when
         // they don't overlap, only blocking on a true conflict — so we only throw work away
         // when we absolutely have to. (Mirror of the note in BroadcastListener.showStaleTabOverlay.)
-        import('../../utilities/BroadcastListener.js')
+        import('../../utilities/BroadcastListener')
           .then(({ showStaleTabOverlay }) => showStaleTabOverlay(
             "This book was edited elsewhere (another device or window). Refresh to load the latest version — your last change wasn't saved."
           ))

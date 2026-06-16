@@ -2,9 +2,9 @@
 // the gallery / generation sub-panels (which replace the settings panel's inner
 // HTML, then restore it). Was handleVibeClick / _openVibeGallery / _openVibeUI of
 // settingsContainer.js. Takes the SettingsContainerManager as `self`.
-import { hasVibeCSS, showVibeGallery, showVibeInput } from './vibeCSS';
-import { switchTheme, getCurrentTheme, THEMES } from '../../utilities/themeSwitcher.js';
-import { isLoggedIn } from '../../utilities/auth.js';
+import { hasVibeCSS, showVibeGallery, showVibeInput } from './vibeCSS/index';
+import { switchTheme, getCurrentTheme, THEMES } from './themeSwitcher';
+import { isLoggedIn } from '../../utilities/auth/index';
 
 /**
  * Handle vibe button click.

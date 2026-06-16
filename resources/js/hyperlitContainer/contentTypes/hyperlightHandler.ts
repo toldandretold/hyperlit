@@ -8,9 +8,9 @@ import type { ContentTypeHandler, BuildCtx, PostOpenCtx, PermissionCtx } from '.
 import { buildHighlightContent } from '../contentBuilders/displayHyperlights';
 import { getCurrentContainer } from '../stack';
 import { containerState, registerListener } from '../containerState';
-import { buildSubBookId } from '../../utilities/subBookIdHelper.js';
+import { buildSubBookId } from '../../utilities/subBookIdHelper';
 import { openDatabase } from '../../indexedDB/index';
-import { getAuthContextSync, getAuthContext } from '../../utilities/auth.js';
+import { getAuthContextSync, getAuthContext } from '../../utilities/auth/index';
 
 export const hyperlightHandler: ContentTypeHandler = {
   type: 'highlight',

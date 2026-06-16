@@ -3,7 +3,7 @@
  * consistent scroll method (offsetTop-based + image-aware correction), the
  * public scrollElementIntoMainContent entry, and small element predicates.
  */
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../utilities/logger';
 import { userScrollState } from './navState';
 import { shouldSkipScrollRestoration } from './userScrollDetection';
 

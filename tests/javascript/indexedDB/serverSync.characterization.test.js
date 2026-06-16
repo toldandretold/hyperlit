@@ -18,7 +18,7 @@ import {
   loadNodeChunksToIndexedDB,
   loadFootnotesToIndexedDB,
   clearBookDataFromIndexedDB,
-} from '../../../resources/js/indexedDB/serverSync';
+} from '../../../resources/js/indexedDB/serverSync/index';
 
 const BOOK = 'book_serversync_test';
 const OTHER = 'book_other';

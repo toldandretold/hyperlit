@@ -1,6 +1,6 @@
 import { cancelForcedVisibility, isProcessing } from '../cloudRef/editIndicator';
-import { log, verbose } from '../../utilities/logger.js';
-import { setPerimeterButtonsHidden } from '../../utilities/operationState.js';
+import { log, verbose } from '../../utilities/logger';
+import { setPerimeterButtonsHidden } from '../../utilities/operationState';
 import { hasFootnoteTapTarget } from '../../hyperlitContainer/footnoteTapExtender';
 
 // Export the TogglePerimeterButtons class

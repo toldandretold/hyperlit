@@ -8,7 +8,7 @@
  */
 
 import { containerState, activeListeners, registerListener } from './containerState';
-import { clearActiveBook } from '../utilities/activeContext.js';
+import { clearActiveBook } from './utilities/activeContext';
 import { book } from '../app.js';
 
 /**
@@ -106,7 +106,7 @@ export async function checkPrivateBookAccess() {
   const privateLinks = document.querySelectorAll('[data-private="true"]');
   if (privateLinks.length === 0) return;
 
-  const { canUserEditBook }: any = await import('../utilities/auth.js');
+  const { canUserEditBook }: any = await import('../utilities/auth/index');
 
   for (const link of privateLinks) {
     const bookId = link.getAttribute('data-book-id');

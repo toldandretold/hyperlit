@@ -4,8 +4,8 @@
 // buttons. Was the toggleFullWidth / applyTextAdjustments / syncSliderUI /
 // handleSliderInput / _debounceResize methods of settingsContainer.js. Takes the
 // manager as `self`.
-import { captureScrollAnchor, restoreScrollAnchor } from '../../utilities/scrollAnchor.js';
-import { savePreference, clearPreference } from '../../utilities/preferences.js';
+import { captureScrollAnchor, restoreScrollAnchor } from '../../utilities/scrollAnchor';
+import { savePreference, clearPreference } from '../../utilities/preferences';
 
 const STORAGE_KEYS = { TEXT_SIZE: 'hyperlit_text_size', CONTENT_WIDTH: 'hyperlit_content_width', FULL_WIDTH: 'hyperlit_full_width' };
 const DEFAULTS = { TEXT_SIZE: 28, TEXT_SIZE_MOBILE: 18, CONTENT_WIDTH: 40 };

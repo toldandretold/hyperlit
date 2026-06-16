@@ -1,7 +1,7 @@
 import './integrity/logCapture.js';
-import { log } from './utilities/logger.js';
-import { seedFromServer } from './utilities/preferences.js';
-import { initializeTheme } from './utilities/themeSwitcher.js';
+import { log } from './utilities/logger';
+import { seedFromServer } from './utilities/preferences';
+import { initializeTheme } from './components/settingsContainer/themeSwitcher';
 
 // Seed localStorage from server-injected preferences before theme init
 seedFromServer();
@@ -19,7 +19,7 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
 }
 
 // Load latency monitor (available in all environments)
-import('./utilities/latencyMonitor.js').then(() => {
+import('./dev/latencyMonitor').then(() => {
   console.log('⚡ Latency monitor loaded. Use settings button or window.latency.start(true)');
 }).catch(() => {
   // Silently fail if not available

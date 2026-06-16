@@ -6,11 +6,11 @@
  * Back-edges to hyperlights / hypercites / lazyLoaderFactory / initializePage are
  * dynamic imports so this folder has no static import cycle with them.
  */
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../utilities/logger';
 import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier.js';
 import { getNodeChunksFromIndexedDB, getLocalStorageKey } from '../indexedDB/index.js';
-import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown.js';
-import { waitForNavigationTarget, waitForElementReady } from '../utilities/domReadiness';
+import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
+import { waitForNavigationTarget, waitForElementReady } from '../SPA/domReadiness';
 import { navigatedHashes, navTimers } from './navState';
 import { showNavigationLoading, hideNavigationLoading, NavigationProgressIndicator } from './navOverlay';
 import { scrollElementWithConsistentMethod, scrollElementIntoMainContent } from './scrollHelpers';
@@ -20,7 +20,7 @@ import { shouldSkipScrollRestoration } from './userScrollDetection';
 import { pendingFirstChunkLoadedPromise } from '../pageLoad/firstChunkPromise';
 // Feature actions via the DI registry leaf (registered at bootstrap) — no upward import into
 // hyperlights / hyperlitContainer, no dynamic-import cycle-breaker.
-import { openHighlightById, handleUnifiedContentClick } from '../utilities/containerActions';
+import { openHighlightById, handleUnifiedContentClick } from '../hyperlitContainer/containerActions';
 
 // Adjusted helper: load default content if container is empty.
 export async function loadDefaultContent(lazyLoader: any): Promise<void> {
@@ -350,7 +350,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
         progressIndicator.updateProgress(40, "Loading remaining book data...");
       }
 
-      const { waitForBackgroundDownload } = await import('../pageLoad');
+      const { waitForBackgroundDownload } = await import('../pageLoad/index');
       await waitForBackgroundDownload();
 
       // Refresh nodes from IndexedDB now that all chunks are downloaded
@@ -395,7 +395,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
           lazyLoader._navigationReject = null;
         }
         // Show contextual toast
-        import('../utilities/toast.js').then(({ showTargetNotFoundToast }) => {
+        import('../components/toast/toast').then(({ showTargetNotFoundToast }) => {
           showTargetNotFoundToast({ target: targetId, fallbackUsed: resolution.fallbackUsed });
         });
         return;
@@ -403,7 +403,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
 
       // Show contextual toast after scroll completes (deferred to avoid layout shift)
       setTimeout(() => {
-        import('../utilities/toast.js').then(({ showTargetNotFoundToast }) => {
+        import('../components/toast/toast').then(({ showTargetNotFoundToast }) => {
           showTargetNotFoundToast({ target: targetId, fallbackUsed: resolution.fallbackUsed });
         });
       }, 500);

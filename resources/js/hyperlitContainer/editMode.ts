@@ -9,7 +9,7 @@
  */
 
 import { containerState, registerListener } from './containerState';
-import { getCurrentContainer } from '../utilities/containerActions';
+import { getCurrentContainer } from './containerActions';
 import { getHyperlitEditMode, toggleHyperlitEditMode, prepareContainerClose } from './core';
 import { ProgressOverlayConductor } from '../SPA/navigation/ProgressOverlayConductor.js';
 

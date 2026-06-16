@@ -4,9 +4,9 @@
  * enterKeyHandler.js (module-level functions; no `this`).
  */
 import { book } from '../../app.js';
-import { ensureNodeHasValidId, setElementIds } from '../../utilities/IDfunctions.js';
+import { ensureNodeHasValidId, setElementIds } from '../../utilities/IDfunctions';
 import { queueNodeForSave } from '../editorState';
-import { verbose } from '../../utilities/logger.js';
+import { verbose } from '../../utilities/logger';
 
 /**
  * Helper: Check if element is in viewport
@@ -162,7 +162,7 @@ export function createAndInsertParagraph(blockElement: HTMLElement, chunkContain
     console.log('🔄 Renumbering flagged - triggering renumbering');
 
     // Import and trigger renumbering
-    import('../../utilities/IDfunctions.js').then(({ triggerRenumberingWithModal }) => {
+    import('../../utilities/IDfunctions').then(({ triggerRenumberingWithModal }) => {
       triggerRenumberingWithModal(0).catch((err: any) => {
         console.error('Background renumbering failed:', err);
       });

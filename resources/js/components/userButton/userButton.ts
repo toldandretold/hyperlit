@@ -6,7 +6,7 @@
 // registerComponents.ts. Default export is the manager singleton (consumed by
 // editButton.js).
 import { UserContainerManager } from "../userContainer/index";
-import { verbose } from "../../utilities/logger.js";
+import { verbose } from "../../utilities/logger";
 
 // Container manager instance
 let userManager: any = null;

@@ -17,7 +17,7 @@
 
 import { openDatabase } from '../../indexedDB/core/connection';
 
-import { verbose } from '../../utilities/logger.js';
+import { verbose } from '../../utilities/logger';
 
 /**
  * @param {string} bookId

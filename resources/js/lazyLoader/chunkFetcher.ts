@@ -1,5 +1,5 @@
 import { openDatabase, parseNodeId } from '../indexedDB/index';
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../utilities/logger';
 import { appendGateParam } from '../components/utilities/gateFilter';
 
 /**

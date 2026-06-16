@@ -1,9 +1,9 @@
 // In indexedDB.js
 
-import { broadcastToOpenTabs } from "./utilities/BroadcastListener.js";
-import { withPending, getInitialBookSyncPromise } from "./utilities/operationState.js";
+import { broadcastToOpenTabs } from "./utilities/BroadcastListener";
+import { withPending, getInitialBookSyncPromise } from "./utilities/operationState";
 import { syncIndexedDBtoPostgreSQL } from "./postgreSQL.js";
-import { getCurrentUser } from "./utilities/auth.js";
+import { getCurrentUser } from "./utilities/auth";
 // ✅ Lazy-loaded: divEditor and editToolbar only used during editing
 // import { debounce } from "./divEditor/index";
 // import { getEditToolbar } from "./editToolbar";

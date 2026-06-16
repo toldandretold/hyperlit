@@ -8,12 +8,12 @@
  * - Shift+Enter for line breaks within paragraphs
  */
 
-import { chunkOverflowInProgress } from "../../utilities/operationState.js";
+import { chunkOverflowInProgress } from "../../utilities/operationState";
 import { book } from '../../app.js';
-import { generateIdBetween, setElementIds, ensureNodeHasValidId, findPreviousElementId, findNextElementId } from "../../utilities/IDfunctions.js";
+import { generateIdBetween, setElementIds, ensureNodeHasValidId, findPreviousElementId, findNextElementId } from "../../utilities/IDfunctions";
 import { queueNodeForSave } from '../editorState';
-import { verbose } from '../../utilities/logger.js';
-import { placeCaretInEmptyListItem, listItemIsEmpty } from '../../utilities/listItemCaret.js';
+import { verbose } from '../../utilities/logger';
+import { placeCaretInEmptyListItem, listItemIsEmpty } from '../../utilities/listItemCaret';
 
 import { isElementInViewport, scrollCaretIntoView, moveCaretTo, createAndInsertParagraph } from './caretHelpers';
 

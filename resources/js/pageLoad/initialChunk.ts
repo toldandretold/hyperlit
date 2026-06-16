@@ -6,8 +6,8 @@ import {
     loadHyperlightsToIndexedDB,
     loadHypercitesToIndexedDB,
     clearBookDataFromIndexedDB,
-} from '../indexedDB/serverSync';
-import { log, verbose } from '../utilities/logger.js';
+} from '../indexedDB/serverSync/index';
+import { log, verbose } from '../utilities/logger';
 import { OpenHyperlightID, OpenFootnoteID } from '../app.js';
 import { gateQueryParam } from '../components/utilities/gateFilter';
 

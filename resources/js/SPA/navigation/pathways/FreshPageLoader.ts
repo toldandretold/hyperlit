@@ -6,7 +6,7 @@
  * NOTE: Overlay lifecycle managed by NavigationManager
  * This pathway does NOT hide the overlay - NavigationManager handles that
  */
-import { log } from '../../../utilities/logger.js';
+import { log } from '../../../utilities/logger';
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 
 export class FreshPageLoader {

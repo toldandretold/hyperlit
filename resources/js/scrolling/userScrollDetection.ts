@@ -3,7 +3,7 @@
  * scroll restoration / navigation don't fight manual input. Reads/writes the
  * shared navState leaf.
  */
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../utilities/logger';
 import { userScrollState, navTimers } from './navState';
 
 function detectUserScrollStart(event?: any): void {

@@ -3,7 +3,7 @@
  * (insufficient balance) screen. Was showVibeInput / showTopUpUI of
  * components/vibeCSS.js.
  */
-import { savePreference } from '../../../utilities/preferences.js';
+import { savePreference } from '../../../utilities/preferences';
 import { submitVibeRequest } from './api';
 import {
   applyVibeCSS, clearVibeCSS, hasVibeCSS,

@@ -3,8 +3,8 @@
  * sends the query to the AI Brain API, and renders the response as sub-book content.
  */
 
-import { buildSubBookId } from '../utilities/subBookIdHelper.js';
-import { isLoggedIn } from '../utilities/auth.js';
+import { buildSubBookId } from '../utilities/subBookIdHelper';
+import { isLoggedIn } from '../utilities/auth/index';
 
 // Track whether a brain highlight is pending (created but not yet backed by a successful query).
 // Set when injectBrainInput() fires; cleared on successful API response + sub-book load.

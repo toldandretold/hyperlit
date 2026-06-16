@@ -2,9 +2,9 @@
  * Annotations module - Handles annotation saving and management
  */
 
-import { withPending } from "../utilities/operationState.js";
+import { withPending } from "../utilities/operationState";
 import { openDatabase, queueForSync, updateAnnotationsTimestamp } from "../indexedDB/index";
-import { getCurrentContainer } from "../utilities/containerActions";
+import { getCurrentContainer } from "../hyperlitContainer/containerActions";
 
 /**
  * Extracts the current HTML content from within the annotation element.

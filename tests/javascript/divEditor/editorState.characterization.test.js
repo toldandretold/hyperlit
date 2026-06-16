@@ -5,13 +5,13 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../../resources/js/utilities/IDfunctions.js', () => ({ NUMERICAL_ID_PATTERN: /^\d+(\.\d+)?$/ }));
+vi.mock('../../../resources/js/utilities/IDfunctions', () => ({ NUMERICAL_ID_PATTERN: /^\d+(\.\d+)?$/ }));
 vi.mock('../../../resources/js/components/editIndicator.js', () => ({ glowCloudOrange: vi.fn() }));
 
 import {
   movedNodesByOverflow, queueNodeForSave, queueNodeForDeletion,
   setActiveSaveQueue, getActiveSaveQueue,
-} from '../../../resources/js/divEditor/editorState.ts';
+} from '../../../resources/js/divEditor/editorState';
 
 let warnSpy;
 beforeEach(() => {

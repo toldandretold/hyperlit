@@ -1,4 +1,4 @@
-import { verbose } from '../utilities/logger.js';
+import { verbose } from '../utilities/logger';
 import { getDisplayNumber } from '../footnotes/FootnoteNumberingService';
 
 // Module-level self-heal queue. When a chunk renders and the renderer detects

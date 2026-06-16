@@ -6,7 +6,7 @@
  * This class provides high-level business logic and navigation pathway decisions
  */
 import { ProgressOverlayEnactor } from './ProgressOverlayEnactor.js';
-import { verbose } from '../../utilities/logger.js';
+import { verbose } from '../../utilities/logger';
 
 export class ProgressOverlayConductor {
   /**
