@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1481 functions in 302 modules · 8 object stores · 6 PG tables · 2795 edges
+**MarkdownDB** schema v27 · 1483 functions in 303 modules · 8 object stores · 6 PG tables · 2798 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1170,12 +1170,14 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleCodeBlockPaste` | `paste/handlers/codeBlockHandler` | — | — | read | — |
 | `handleHypercitePaste` | `paste/handlers/hyperciteHandler` | — | — | read/write | `↑hypercites` |
 | `saveCurrentParagraph` | `paste/handlers/hyperciteHandler` | — | — | read | — |
-| `clearPasteSnapshot` | `paste/handlers/largePasteHandler` | — | — | — | — |
 | `handleLargePaste` | `paste/handlers/largePasteHandler` | — | — | read/write | — |
 | `undoLastLargePaste` | `paste/handlers/largePasteHandler` | — | — | read/write | — |
 | `handleNovelVacuum` | `paste/handlers/novelVacuumHandler` | — | — | read/write | — |
 | `handleSmallPaste` | `paste/handlers/smallPasteHandler` | — | — | read/write | — |
 | `addPasteListener` | `paste/index` | — | — | — | — |
+| `clearPasteSnapshot` | `paste/pasteSnapshot` | — | — | — | — |
+| `getPasteSnapshot` | `paste/pasteSnapshot` | — | — | — | — |
+| `setPasteSnapshot` | `paste/pasteSnapshot` | — | — | — | — |
 | `isPasteOperationActive` | `paste/pasteState` | — | — | — | — |
 | `setPasteOperationInProgress` | `paste/pasteState` | — | — | — | — |
 | `hideConversionModal` | `paste/ui/modalManager` | — | — | — | — |
@@ -1494,16 +1496,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 194
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 0 · dynamic cycle-breakers (debt): 0 · lazy-loads (code-split): 201
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
-### Cycles masked by dynamic imports (coupling debt)
-These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
-- (25 modules) `SPA/domReadiness`, `SPA/navigation/chunkLoadRouter`, `components/tocContainer/index`, `divEditor/chunkMutationHandler/index`, `divEditor/index`, `divEditor/saveQueue`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `paste/handlers/largePasteHandler`, `paste/ui/pasteUndoToast`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`, `search/inTextSearch/searchToolbar`
-
 ### Lazy-loads (code-split points)
 - `SPA/domReadiness` → `SPA/navigation/ProgressOverlayEnactor`
+- `SPA/domReadiness` → `pageLoad/currentLazyLoaderState`
 - `SPA/navigation/LinkNavigationHandler` → `hyperlitContainer/history`
 - `SPA/navigation/LinkNavigationHandler` → `hyperlitContainer/stack`
 - `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/BookToBookTransition`
@@ -1511,6 +1510,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/ImportBookTransition`
 - `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/NewBookTransition`
 - `SPA/navigation/chunkLoadRouter` → `SPA/navigation/loadInitialChunkLocal`
+- `SPA/navigation/chunkLoadRouter` → `pageLoad/initialChunk`
 - `SPA/navigation/pathways/BookToBookTransition` → `components/toast/toast`
 - `SPA/navigation/pathways/DifferentTemplateTransition` → `SPA/domReadiness`
 - `SPA/navigation/pathways/FreshPageLoader` → `SPA/viewManager`
@@ -1555,6 +1555,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/sourceContainer/aiReview/pipelineViz` → `indexedDB/core/library`
 - `components/sourceContainer/creatorTools/deleteBook` → `indexedDB/index`
 - `components/sourceContainer/creatorTools/reconvert` → `indexedDB/index`
+- `components/tocContainer/index` → `pageLoad/currentLazyLoaderState`
 - `components/tocContainer/index` → `scrolling/index`
 - `components/userProfile/userProfilePage` → `components/floatingActionMenu/floatingActionMenu`
 - `components/userProfile/userProfilePage` → `indexedDB/index`
@@ -1575,6 +1576,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `footnotes/FootnoteNumberingService` → `indexedDB/core/connection`
 - `footnotes/FootnoteNumberingService` → `indexedDB/index`
 - `footnotes/FootnoteNumberingService` → `indexedDB/nodes/batch`
+- `hypercites/navigation` → `pageLoad/containerChain`
 - `hyperlights/deletion` → `lazyLoader/index`
 - `hyperlitContainer/brainQuery` → `components/userButton/userButton`
 - `hyperlitContainer/brainQuery` → `editToolbar/index`
@@ -1658,6 +1660,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `pageLoad/progress` → `SPA/navigation/ProgressOverlayConductor`
 - `paste/handlers/hyperciteHandler` → `indexedDB/hydration/rebuild`
 - `paste/handlers/largePasteHandler` → `components/tocContainer/index`
+- `paste/handlers/largePasteHandler` → `pageLoad/backgroundDownload`
 - `paste/handlers/novelVacuumHandler` → `SPA/navigation/ProgressOverlayConductor`
 - `paste/handlers/novelVacuumHandler` → `indexedDB/index`
 - `paste/index` → `divEditor/index`
@@ -1665,6 +1668,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `scrolling/internalNav` → `SPA/navigation/resolveTargetChunk`
 - `scrolling/internalNav` → `components/toast/toast`
 - `scrolling/internalNav` → `hypercites/animations`
+- `scrolling/internalNav` → `pageLoad/backgroundDownload`
 
 ## Legend
 

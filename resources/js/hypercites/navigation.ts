@@ -425,7 +425,7 @@ export async function navigateToHyperciteLink(link: string, clickedHyperciteId =
 
     // openContainerChain/buildChainFromUrl are pageLoad orchestration fns reached at call-time
     // (genuine cross-layer call; dynamic). currentLazyLoader comes statically from its leaf above.
-    const { openContainerChain, buildChainFromUrl } = await import('../pageLoad/index');
+    const { openContainerChain, buildChainFromUrl } = await import('../pageLoad/containerChain');
 
     if (bookSegment === currentBook && fnSegment && hlSegment) {
       console.log("✅ Same-book multi-level cascade detected in hypercite");

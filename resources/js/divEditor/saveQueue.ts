@@ -25,7 +25,7 @@ import { reportIntegrityFailure as _reportIntegrityFailure } from '../integrity/
 // we pass — widen to accept the optional selfHealed/duplicateIds/orphanedNodes fields.
 const reportIntegrityFailure: (arg: any) => void = _reportIntegrityFailure as any;
 import { hidePasteUndoToast } from '../paste/ui/pasteUndoToast';
-import { clearPasteSnapshot } from '../paste/handlers/largePasteHandler';
+import { clearPasteSnapshot } from '../paste/pasteSnapshot';
 import { INLINE_SKIP_TAGS } from '../utilities/blockElements';
 
 // Re-export debounce for backwards compatibility

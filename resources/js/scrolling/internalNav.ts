@@ -350,7 +350,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
         progressIndicator.updateProgress(40, "Loading remaining book data...");
       }
 
-      const { waitForBackgroundDownload } = await import('../pageLoad/index');
+      const { waitForBackgroundDownload } = await import('../pageLoad/backgroundDownload');
       await waitForBackgroundDownload();
 
       // Refresh nodes from IndexedDB now that all chunks are downloaded
@@ -694,7 +694,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
 
       if (targetId.startsWith('hypercite_')) {
         const { revealGhostIfTombstone } = await import('../hypercites/animations.js');
-        const { highlightTargetHypercite } = await import('../hypercites/index');
+        const { highlightTargetHypercite } = await import('../hypercites/animations.js');
         if (!revealGhostIfTombstone(targetId)) {
           highlightTargetHypercite(targetId);
         }

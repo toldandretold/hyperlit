@@ -6,6 +6,8 @@
  */
 
 import { getNextIntegerId, generateNodeId } from '../../utilities/IDfunctions';
+import { getPasteSnapshot, setPasteSnapshot } from '../pasteSnapshot';
+export { clearPasteSnapshot } from '../pasteSnapshot';
 import { NODE_LIMIT } from '../../divEditor/chunkManager';
 import {
   getNodeChunksAfter,
@@ -21,8 +23,7 @@ import { sanitizeHtml } from '../../utilities/sanitizeConfig';
 import { extractFootnoteIdsFromHtml } from '../utils/extractFootnoteIds';
 import { BLOCK_ELEMENT_SELECTOR } from '../../utilities/blockElements';
 
-// Snapshot for undo support
-let lastPasteSnapshot: any = null;
+// Snapshot for undo support lives in the ../pasteSnapshot leaf (see clearPasteSnapshot importers).
 
 /**
  * Handle large paste operations (>10 nodes)
@@ -48,7 +49,7 @@ export async function handleLargePaste(
 
   // Wait for background download if still in progress (chunked lazy loading)
   if ((window as any)._backgroundDownloadInProgress) {
-    const { waitForBackgroundDownload } = await import('../../pageLoad/index');
+    const { waitForBackgroundDownload } = await import('../../pageLoad/backgroundDownload');
     await waitForBackgroundDownload();
   }
 
@@ -143,7 +144,7 @@ export async function handleLargePaste(
 
   // Snapshot all nodes BEFORE any modifications (for undo support)
   const allNodesBeforePaste = await getNodeChunksFromIndexedDB(book);
-  lastPasteSnapshot = { bookId: book, allNodes: [...allNodesBeforePaste] };
+  setPasteSnapshot({ bookId: book, allNodes: [...allNodesBeforePaste] });
   console.log(`📸 [PASTE] Snapshot saved: ${allNodesBeforePaste.length} nodes for undo`);
 
   // Delete old tail nodes from IndexedDB (they'll be re-inserted with new IDs)
@@ -335,13 +336,14 @@ export async function handleLargePaste(
  * Deletes all current nodes, restores snapshot, refreshes lazy loader, syncs to PostgreSQL.
  */
 export async function undoLastLargePaste() {
-  if (!lastPasteSnapshot) {
+  const snapshot = getPasteSnapshot();
+  if (!snapshot) {
     console.warn('No paste snapshot available for undo');
     return;
   }
 
-  const { bookId, allNodes } = lastPasteSnapshot;
-  lastPasteSnapshot = null;
+  const { bookId, allNodes } = snapshot;
+  setPasteSnapshot(null);
 
   console.log(`⏪ Undoing large paste: restoring ${allNodes.length} nodes for book ${bookId}`);
 
@@ -418,6 +420,4 @@ export async function undoLastLargePaste() {
 /**
  * Clear the paste snapshot (e.g. when user makes subsequent edits)
  */
-export function clearPasteSnapshot() {
-  lastPasteSnapshot = null;
-}
+// clearPasteSnapshot is re-exported from ../pasteSnapshot (top of file).

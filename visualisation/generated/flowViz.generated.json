@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1481,
-    "moduleCount": 302,
+    "fnCount": 1483,
+    "moduleCount": 303,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 2795,
+    "edgeCount": 2798,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -9433,14 +9433,6 @@
       "leaf": false
     },
     {
-      "id": "paste/handlers/largePasteHandler:clearPasteSnapshot",
-      "label": "clearPasteSnapshot",
-      "kind": "fn",
-      "stage": "infra",
-      "module": "paste/handlers/largePasteHandler",
-      "leaf": true
-    },
-    {
       "id": "paste/handlers/largePasteHandler:handleLargePaste",
       "label": "handleLargePaste",
       "kind": "fn",
@@ -9478,6 +9470,30 @@
       "kind": "fn",
       "stage": "infra",
       "module": "paste/index",
+      "leaf": true
+    },
+    {
+      "id": "paste/pasteSnapshot:clearPasteSnapshot",
+      "label": "clearPasteSnapshot",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/pasteSnapshot",
+      "leaf": true
+    },
+    {
+      "id": "paste/pasteSnapshot:getPasteSnapshot",
+      "label": "getPasteSnapshot",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/pasteSnapshot",
+      "leaf": true
+    },
+    {
+      "id": "paste/pasteSnapshot:setPasteSnapshot",
+      "label": "setPasteSnapshot",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/pasteSnapshot",
       "leaf": true
     },
     {
@@ -15158,7 +15174,6 @@
       "stage": "infra",
       "band": "sync",
       "fnIds": [
-        "paste/handlers/largePasteHandler:clearPasteSnapshot",
         "paste/handlers/largePasteHandler:handleLargePaste",
         "paste/handlers/largePasteHandler:undoLastLargePaste"
       ]
@@ -15188,6 +15203,17 @@
       "band": "store",
       "fnIds": [
         "paste/index:addPasteListener"
+      ]
+    },
+    {
+      "id": "paste/pasteSnapshot",
+      "label": "paste/pasteSnapshot",
+      "stage": "infra",
+      "band": "store",
+      "fnIds": [
+        "paste/pasteSnapshot:clearPasteSnapshot",
+        "paste/pasteSnapshot:getPasteSnapshot",
+        "paste/pasteSnapshot:setPasteSnapshot"
       ]
     },
     {
@@ -19659,9 +19685,9 @@
       "rel": "call"
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.queueNode__call__paste/handlers/largePasteHandler:clearPasteSnapshot",
+      "id": "divEditor/saveQueue:SaveQueue.queueNode__call__paste/pasteSnapshot:clearPasteSnapshot",
       "source": "divEditor/saveQueue:SaveQueue.queueNode",
-      "target": "paste/handlers/largePasteHandler:clearPasteSnapshot",
+      "target": "paste/pasteSnapshot:clearPasteSnapshot",
       "rel": "call"
     },
     {
@@ -30532,6 +30558,12 @@
       "dataPath": true
     },
     {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__paste/pasteSnapshot:setPasteSnapshot",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "paste/pasteSnapshot:setPasteSnapshot",
+      "rel": "call"
+    },
+    {
       "id": "paste/handlers/largePasteHandler:handleLargePaste__call__paste/utils/extractFootnoteIds:extractFootnoteIdsFromHtml",
       "source": "paste/handlers/largePasteHandler:handleLargePaste",
       "target": "paste/utils/extractFootnoteIds:extractFootnoteIdsFromHtml",
@@ -30587,6 +30619,18 @@
       "target": "pageLoad/lazyLoaderRegistry:initializeMainLazyLoader",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__paste/pasteSnapshot:getPasteSnapshot",
+      "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
+      "target": "paste/pasteSnapshot:getPasteSnapshot",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__paste/pasteSnapshot:setPasteSnapshot",
+      "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
+      "target": "paste/pasteSnapshot:setPasteSnapshot",
+      "rel": "call"
     },
     {
       "id": "paste/handlers/largePasteHandler:undoLastLargePaste__domwrite__dom",
@@ -30706,9 +30750,9 @@
       "rel": "domwrite"
     },
     {
-      "id": "paste/ui/pasteUndoToast:showPasteUndoToast__call__paste/handlers/largePasteHandler:clearPasteSnapshot",
+      "id": "paste/ui/pasteUndoToast:showPasteUndoToast__call__paste/pasteSnapshot:clearPasteSnapshot",
       "source": "paste/ui/pasteUndoToast:showPasteUndoToast",
-      "target": "paste/handlers/largePasteHandler:clearPasteSnapshot",
+      "target": "paste/pasteSnapshot:clearPasteSnapshot",
       "rel": "call"
     },
     {
@@ -33310,6 +33354,11 @@
       "kind": "lazy"
     },
     {
+      "source": "SPA/domReadiness",
+      "target": "pageLoad/currentLazyLoaderState",
+      "kind": "lazy"
+    },
+    {
       "source": "SPA/navigation/LinkNavigationHandler",
       "target": "SPA/navigation/NavigationManager",
       "kind": "static"
@@ -33427,6 +33476,11 @@
     {
       "source": "SPA/navigation/chunkLoadRouter",
       "target": "SPA/navigation/loadInitialChunkLocal",
+      "kind": "lazy"
+    },
+    {
+      "source": "SPA/navigation/chunkLoadRouter",
+      "target": "pageLoad/initialChunk",
       "kind": "lazy"
     },
     {
@@ -34646,6 +34700,11 @@
     },
     {
       "source": "components/tocContainer/index",
+      "target": "pageLoad/currentLazyLoaderState",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/tocContainer/index",
       "target": "scrolling/index",
       "kind": "lazy"
     },
@@ -35126,7 +35185,7 @@
     },
     {
       "source": "divEditor/saveQueue",
-      "target": "paste/handlers/largePasteHandler",
+      "target": "paste/pasteSnapshot",
       "kind": "static"
     },
     {
@@ -35538,6 +35597,11 @@
       "source": "hypercites/navigation",
       "target": "scrolling/index",
       "kind": "static"
+    },
+    {
+      "source": "hypercites/navigation",
+      "target": "pageLoad/containerChain",
+      "kind": "lazy"
     },
     {
       "source": "hyperlights/annotationPaste",
@@ -37431,6 +37495,11 @@
     },
     {
       "source": "paste/handlers/largePasteHandler",
+      "target": "paste/pasteSnapshot",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/largePasteHandler",
       "target": "paste/utils/extractFootnoteIds",
       "kind": "static"
     },
@@ -37442,6 +37511,11 @@
     {
       "source": "paste/handlers/largePasteHandler",
       "target": "components/tocContainer/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "paste/handlers/largePasteHandler",
+      "target": "pageLoad/backgroundDownload",
       "kind": "lazy"
     },
     {
@@ -37606,7 +37680,7 @@
     },
     {
       "source": "paste/ui/pasteUndoToast",
-      "target": "paste/handlers/largePasteHandler",
+      "target": "paste/pasteSnapshot",
       "kind": "static"
     },
     {
@@ -37720,6 +37794,11 @@
       "kind": "lazy"
     },
     {
+      "source": "scrolling/internalNav",
+      "target": "pageLoad/backgroundDownload",
+      "kind": "lazy"
+    },
+    {
       "source": "scrolling/navOverlay",
       "target": "SPA/navigation/ProgressOverlayConductor",
       "kind": "static"
@@ -37797,36 +37876,8 @@
   ],
   "cycleSummary": {
     "staticCycles": [],
-    "latentCycles": [
-      [
-        "SPA/domReadiness",
-        "SPA/navigation/chunkLoadRouter",
-        "components/tocContainer/index",
-        "divEditor/chunkMutationHandler/index",
-        "divEditor/index",
-        "divEditor/saveQueue",
-        "hypercites/index",
-        "hypercites/listeners",
-        "hypercites/navigation",
-        "hyperlights/annotationPaste",
-        "hyperlights/createHighlight",
-        "hyperlights/deleteHighlight",
-        "hyperlights/deletion",
-        "hyperlights/index",
-        "hyperlights/selectionToolbar",
-        "lazyLoader/index",
-        "pageLoad/index",
-        "pageLoad/lazyLoaderRegistry",
-        "pageLoad/loadHyperText",
-        "paste/handlers/largePasteHandler",
-        "paste/ui/pasteUndoToast",
-        "scrolling/index",
-        "scrolling/internalNav",
-        "scrolling/restore",
-        "search/inTextSearch/searchToolbar"
-      ]
-    ],
-    "breakerCount": 7,
-    "lazyCount": 194
+    "latentCycles": [],
+    "breakerCount": 0,
+    "lazyCount": 201
   }
 }

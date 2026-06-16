@@ -8,7 +8,7 @@
  * "Report" sends email then shows thank-you state with Undo / Deal with it.
  */
 
-import { clearPasteSnapshot } from '../handlers/largePasteHandler';
+import { clearPasteSnapshot } from '../pasteSnapshot';
 import { getRecentLogs, getPasteLogs } from '../../integrity/logCapture';
 
 const TOAST_ID = 'paste-undo-toast';
