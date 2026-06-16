@@ -7,6 +7,7 @@
  * This pathway does NOT hide the overlay - NavigationManager handles that
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
+import { registerNavActions } from '../navigationRegistry';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { waitForLayoutStabilization, waitForContentReady } from '../../domReadiness';
 import { destroyUserContainer } from '../../../components/userButton/userButton';
@@ -944,3 +945,10 @@ export class ImportBookTransition {
     }
   }
 }
+
+// Register the import-progress + audit-modal entry points into the navigation leaf so
+// reconvert can drive them without a dynamic reconvert→ImportBookTransition import.
+registerNavActions({
+  pollImportProgress: (bookId: any, progressUI: any) => ImportBookTransition.pollImportProgress(bookId, progressUI),
+  showFootnoteAuditModal: (audit: any, bookId: any, options?: any) => ImportBookTransition.showFootnoteAuditModal(audit, bookId, options),
+});

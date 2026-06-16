@@ -15,6 +15,7 @@ import { generateNodeId } from '../utilities/IDfunctions';
 import { setChunkLoadingInProgress, clearChunkLoadingInProgress } from '../lazyLoader/utilities/chunkLoadingState';
 
 import { subBookLoaders, enrichedSubBooks } from './subBookState.js';
+import { registerSubBookActions } from './subBookActions';
 export { subBookLoaders };
 
 /**
@@ -755,3 +756,6 @@ export function destroyAllSubBooks() {
   // Allow enrichment to re-run on next open
   enrichedSubBooks.clear();
 }
+
+// Register state fns into the zero-import leaf so the container can call them without importing this module.
+registerSubBookActions({ saveSubBookState, restoreSubBookState, resetSubBookState, destroySubBook, destroyAllSubBooks });

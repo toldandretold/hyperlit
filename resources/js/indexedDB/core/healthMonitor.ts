@@ -48,11 +48,10 @@ export function reportIDBFailure(error: unknown, opts: { retryFn?: () => unknown
       idbBroken = true;
       console.error(`[HealthMonitor] IDB declared BROKEN after ${consecutiveFailures} consecutive failures`);
 
-      // Visual feedback — fire-and-forget dynamic import. Pass 'idb-broken-handled' so the
-      // save-error toast stays silent: showIDBRecoveryToast() below already owns the message.
-      import('../../components/cloudRef/editIndicator')
-        .then(({ glowCloudRed }) => glowCloudRed({ kind: 'idb-broken-handled' }))
-        .catch(() => { /* editIndicator may not be loaded yet */ });
+      // Visual feedback — dispatch an event the cloudRef editIndicator subscribes to. Inversion:
+      // the data layer must NOT import the UI (that was a dynamic-import cycle-breaker). 'idb-broken-handled'
+      // keeps the save-error toast silent: showIDBRecoveryToast() below owns the message.
+      window.dispatchEvent(new CustomEvent('hyperlit:idb-broken', { detail: { kind: 'idb-broken-handled' } }));
 
       showIDBRecoveryToast();
       updateIDBRecoveryToast('Reconnecting database...');

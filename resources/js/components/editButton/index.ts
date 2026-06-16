@@ -19,6 +19,9 @@ export { updateEditButtonVisibility, checkEditPermissionsAndUpdateUI } from './l
 // State flags
 (window as any).isEditing = false;
 
+// Re-attach edit-button listeners when lock.ts restores the button (event inversion — avoids lock→index import).
+window.addEventListener('editButton:reinit-listeners', () => initializeEditButtonListeners());
+
 let editModeCheckInProgress = false;
 
 export function resetEditModeState() {

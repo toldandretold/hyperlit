@@ -8,6 +8,7 @@
 // (rebindElements), not here. Registry lifecycle + the default-export singleton
 // live in ../userButton/userButton.
 import { ContainerManager } from "../utilities/containerManager";
+import { navigateByStructure } from '../../SPA/navigation/navigationRegistry';
 import { book } from "../../app.js";
 import { getCurrentUser } from "../../utilities/auth/index";
 import { syncBookDataFromDatabase } from "../../indexedDB/serverSync/index";
@@ -345,8 +346,7 @@ export class UserContainerManager extends (ContainerManager as any) {
     try {
       this.closeContainer();
 
-      const { NavigationManager } = await import('../../SPA/navigation/NavigationManager');
-      await NavigationManager.navigateByStructure({
+      await navigateByStructure({
         toBook: encodeURIComponent(sanitizedUsername),
         targetUrl: `/u/${encodeURIComponent(sanitizedUsername)}`,
         targetStructure: 'user',

@@ -79,6 +79,7 @@ export {
 // ============================================================================
 
 import { book } from '../app.js';
+import { resetSubBookState, restoreSubBookState, saveSubBookState } from './subBookActions';
 import { clearActiveBook } from './utilities/activeContext';
 import { openDatabase } from '../indexedDB/index';
 import { getAuthContextSync, getAuthContext, canUserEditBook } from "../utilities/auth/index";
@@ -506,7 +507,6 @@ async function pushStackedLayer(element: any, highlightIds: any, newHighlightIds
     getCurrentContainer: getContainer, getCurrentScroller: getScroller,
   }: any = await import('./stack.js');
   const { getHyperlitEditMode, setHyperlitEditMode }: any = await import('./core.js');
-  const { saveSubBookState, resetSubBookState }: any = await import('./subBookLoader.js');
   const { detachNoteListeners }: any = await import('./noteListener.js');
 
   const currentDepth = getDepth();
@@ -635,7 +635,6 @@ async function pushStackedLayer(element: any, highlightIds: any, newHighlightIds
 
     removeStackedContainerDOM(newContainer, newOverlay);
     restoreModuleState(savedModuleState);
-    const { restoreSubBookState }: any = await import('./subBookLoader.js');
     restoreSubBookState(savedSubBookState);
     if (currentContainer) currentContainer.style.pointerEvents = '';
     return;

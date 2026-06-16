@@ -92,7 +92,7 @@ export async function loadHyperText(bookId: string, progressCallback: any = null
     hidePageLoadProgress = () => {}; // SPA handles hiding separately
   } else {
     try {
-      const progressModule = await import('./readerEntry');
+      const progressModule = await import('./progress');
       updatePageLoadProgress = progressModule.updatePageLoadProgress;
       hidePageLoadProgress = progressModule.hidePageLoadProgress;
     } catch (e: any) {

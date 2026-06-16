@@ -63,10 +63,9 @@ export async function restoreEditButtonFromLock() {
   delete editBtn.dataset.originalContent;
   delete editBtn.dataset.originalClasses;
 
-  // Re-initialize event listeners. Dynamic import breaks the would-be static
-  // cycle with ./index (which imports this module for the lock/permission UI).
-  const { initializeEditButtonListeners } = await import('./index');
-  initializeEditButtonListeners();
+  // Re-initialize event listeners via an event (index subscribes) — inversion so lock no longer
+  // imports index (index already imports lock for the lock/permission UI; this keeps it one-way).
+  window.dispatchEvent(new CustomEvent('editButton:reinit-listeners'));
 }
 
 export async function updateEditButtonVisibility(bookId: any) {

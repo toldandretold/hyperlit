@@ -23,6 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
   topRightContainer = document.getElementById('topRightContainer')
 })
 
+// Cloud-glow on IDB-broken: subscribe to the health event (healthMonitor dispatches it rather than
+// importing this UI module — keeps the data layer one-way / acyclic).
+window.addEventListener('hyperlit:idb-broken', (e: any) => glowCloudRed(e?.detail))
+
 // helper to emit events
 function emitProcessingChange() {
   document.dispatchEvent(

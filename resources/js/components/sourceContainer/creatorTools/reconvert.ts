@@ -4,6 +4,7 @@
 // modal if needed, clears stale IDB content, and reloads. Shared by the
 // re-upload path (which also calls self._awaitReconvert). Takes `self`.
 import { book } from '../../../app.js';
+import { pollImportProgress, showFootnoteAuditModal } from '../../../SPA/navigation/navigationRegistry';
 
 export async function loadReconvertInfo(self: any) {
   try {
@@ -94,12 +95,10 @@ export async function handleReconvert(self: any) {
  * synchronous shape), we skip polling and use it directly.
  */
 export async function _awaitReconvert(self: any, result: any, bookId: any, progressUI: any) {
-  const { ImportBookTransition } = await import('../../../SPA/navigation/pathways/ImportBookTransition');
-
   let completedResult = result;
   if (result?.status === 'processing') {
     const ui = progressUI || { update() {}, showError() {}, restoreForm() {} };
-    const completeData = await ImportBookTransition.pollImportProgress(bookId, ui);
+    const completeData = await pollImportProgress(bookId, ui);
     completedResult = completeData?.result || completeData;
   }
 
@@ -111,7 +110,7 @@ export async function _awaitReconvert(self: any, result: any, bookId: any, progr
       (audit.unmatched_defs?.length || 0) +
       (audit.duplicates?.length || 0) > 0;
     if (hasIssues) {
-      await ImportBookTransition.showFootnoteAuditModal(audit, bookId, { mode: 'reconvert' });
+      await showFootnoteAuditModal(audit, bookId, { mode: 'reconvert' });
     }
   }
 

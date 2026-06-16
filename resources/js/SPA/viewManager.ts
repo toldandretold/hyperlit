@@ -1,5 +1,6 @@
 
 import { log, verbose } from '../utilities/logger';
+import { attachGlobalLinkClickHandler, removeGlobalHandlers } from './navigation/navigationRegistry';
 import { book, setCurrentBook } from "../app.js";
 import { getCurrentUser, getAnonymousToken, initializeAuthBroadcastListener, initializeAuthStateListener } from "../utilities/auth/index";
 import { checkEditPermissionsAndUpdateUI } from "../components/editButton/index";
@@ -193,8 +194,7 @@ export async function cleanupReaderView() {
   // It is shown just before the transition and must persist.
 
   // Clean up global event handlers via LinkNavigationHandler
-  const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
-  LinkNavigationHandler.removeGlobalHandlers();
+  removeGlobalHandlers();
 
   if (activeKeyboardManager) {
     activeKeyboardManager.destroy();
@@ -321,8 +321,7 @@ export async function universalPageInitializer(progressCallback = null) {
 
     // 🔧 CRITICAL: Attach global handlers (popstate/visibility, focus) for ALL page types
     // This must happen BEFORE early return for home/user pages
-    const { LinkNavigationHandler } = await import('./navigation/LinkNavigationHandler.js');
-    LinkNavigationHandler.attachGlobalLinkClickHandler();
+    attachGlobalLinkClickHandler();
     verbose.init('Navigation handlers attached', '/SPA/navigation/LinkNavigationHandler.js');
 
     // Initialize auth listeners for ALL page types

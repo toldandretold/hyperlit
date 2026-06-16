@@ -7,6 +7,7 @@
  */
 
 import { book } from '../app.js';
+import { destroySubBook, restoreSubBookState } from './subBookActions';
 import { flushPendingEdits } from '../utilities/pendingEditsRegistry';
 
 // ============================================================================
@@ -496,7 +497,6 @@ async function _popTopLayerImpl() {
   // before initialization", which made this fast-path pop fall back to full close+restore
   // (the source of the on-close scroll jump).
   const { subBookLoaders }: any = await import('./subBookState.js');
-  const { destroySubBook }: any = await import('./subBookLoader.js');
   const idsInTopLayer = [];
   for (const [id, entry] of subBookLoaders) {
     if (top.container && entry.containerDiv && top.container.contains(entry.containerDiv)) {
@@ -519,8 +519,6 @@ async function _popTopLayerImpl() {
       // Restore module state before full close
       const { restoreModuleState }: any = await import('./containerState');
       restoreModuleState(top.savedModuleState);
-
-      const { restoreSubBookState }: any = await import('./subBookLoader.js');
       restoreSubBookState(top.savedSubBookState);
     } catch (err) {
       console.warn('Error restoring state during close (non-fatal):', err);
@@ -539,8 +537,6 @@ async function _popTopLayerImpl() {
   // Restore module state + sub-book state (always needed, even during bulk close)
   const { restoreModuleState }: any = await import('./containerState');
   restoreModuleState(newTop.savedModuleState);
-
-  const { restoreSubBookState }: any = await import('./subBookLoader.js');
   restoreSubBookState(newTop.savedSubBookState);
 
   // Reset saved state — this layer is now active, not paused.

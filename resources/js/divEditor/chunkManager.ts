@@ -1,5 +1,6 @@
 import { updateSingleIndexedDBRecord } from '../indexedDB/index';
 import { generateIdBetween } from '../utilities/IDfunctions';
+import { movedNodesByOverflow } from './editorState';
 import { setChunkOverflowInProgress } from '../utilities/operationState';
 import { verbose } from '../utilities/logger';
 // ✅ Lazy-loaded: divEditor index only used during editing
@@ -82,9 +83,6 @@ export function trackChunkNodeCount(chunk: HTMLElement | null, mutations: Mutati
  * Handle overflow when a chunk reaches the node limit
  */
 export async function handleChunkOverflow(currentChunk: HTMLElement, mutations: MutationRecord[] | null): Promise<boolean | undefined> {
-  // ✅ Dynamically import divEditor state (only used during editing)
-  const { movedNodesByOverflow } = await import('./index');
-
   // Set flag at the beginning
   setChunkOverflowInProgress(true);
 

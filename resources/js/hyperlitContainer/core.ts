@@ -4,6 +4,7 @@
  */
 
 import { ContainerManager } from '../components/utilities/containerManager';
+import { destroyAllSubBooks } from './subBookActions';
 import { log, verbose } from '../utilities/logger';
 import { ProgressOverlayConductor } from '../SPA/navigation/ProgressOverlayConductor.js';
 import { clearCascadeOriginId } from '../scrolling/index';
@@ -560,7 +561,6 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
         }
 
         // STEP 2: Now safe to destroy sub-books (after saves complete)
-        const { destroyAllSubBooks }: any = await import('./subBookLoader.js');
         await destroyAllSubBooks(); // DOM elements destroyed here
         console.log('[HyperlitContainer] ✅ Sub-books destroyed');
 

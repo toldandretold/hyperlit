@@ -13,6 +13,7 @@
  * All pathways just do their work - NavigationManager handles overlay lifecycle
  */
 import { log } from '../../utilities/logger';
+import { registerNavActions } from './navigationRegistry';
 import { ProgressOverlayEnactor } from './ProgressOverlayEnactor.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 import { SameTemplateTransition } from './pathways/SameTemplateTransition.js';
@@ -307,3 +308,10 @@ export class NavigationManager {
     return await this.navigate('import-book', { bookId });
   }
 }
+
+// Register navigation entry points into the zero-import leaf so features can trigger
+// navigation without dynamic-importing this orchestrator (see navigationRegistry).
+registerNavActions({
+  navigate: (pathway: any, options?: any) => NavigationManager.navigate(pathway, options),
+  navigateByStructure: (options?: any) => NavigationManager.navigateByStructure(options),
+});

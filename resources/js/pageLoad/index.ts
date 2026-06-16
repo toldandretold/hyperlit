@@ -37,8 +37,11 @@ export { buildChainFromUrl, openContainerChain } from './containerChain';
 // accessGuards
 export { handlePrivateBookAccessDenied, handleDeletedBookAccess } from './accessGuards';
 
-// readerEntry (progress)
-export { updatePageLoadProgress, hidePageLoadProgress } from './readerEntry';
+// progress overlay (the progress fns live in the ./progress leaf; readerEntry also re-exports
+// them). Source from the leaf — NOT from ./readerEntry — so importing this barrel does not drag
+// in the readerEntry→viewManager→all-components spine (that contagion was the core of the latent
+// import tangle; see visualisation import-lens / navigationRegistry).
+export { updatePageLoadProgress, hidePageLoadProgress } from './progress';
 
 // initialChunk
 export { fetchInitialChunk, resolveBootstrapTarget } from './initialChunk';

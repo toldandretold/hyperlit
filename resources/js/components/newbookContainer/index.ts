@@ -5,6 +5,7 @@
 // cohesive lifecycle concern, so (unlike userContainer) it stays a single class.
 // The cite-form HTML comes from ./citeForm/template; its behavior is lazy-loaded
 // from ./citeForm when the import form opens. Registry lifecycle + the
+import { navigate } from '../../SPA/navigation/navigationRegistry';
 // default-export singleton live in ../newBookButton/newBookButton.
 import { ContainerManager } from "../utilities/containerManager";
 import { log, verbose } from "../../utilities/logger";
@@ -155,8 +156,7 @@ export class NewBookContainerManager extends (ContainerManager as any) {
 
       try {
         // Use NavigationManager to ensure overlay lifecycle is managed correctly
-        const { NavigationManager } = await import('../../SPA/navigation/NavigationManager');
-        await NavigationManager.navigate('create-new-book', { createAndTransition: true });
+        await navigate('create-new-book', { createAndTransition: true });
         log.init('New book transition completed successfully', 'newBookButton.js');
       } catch (error) {
         console.error("❌ New book creation failed:", error);

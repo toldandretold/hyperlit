@@ -29,21 +29,9 @@ import { initializeLogoNav } from "../components/logoNav/logoNav";
 // LEGACY: These functions used to directly manipulate DOM, now delegate to Conductor
 // This ensures all overlay management goes through the centralized state machine
 
-export async function updatePageLoadProgress(percent: number, message: any = null) {
-  console.log(`📊 [LEGACY] updatePageLoadProgress called (${percent}%, ${message}) - delegating to ProgressOverlayConductor`);
-
-  // Delegate to the new centralized system
-  const { ProgressOverlayConductor } = await import('../SPA/navigation/ProgressOverlayConductor.js');
-  ProgressOverlayConductor.updateProgress(percent, message);
-}
-
-export async function hidePageLoadProgress() {
-  console.log(`📊 [LEGACY] hidePageLoadProgress called - delegating to ProgressOverlayConductor`);
-
-  // Delegate to the new centralized system
-  const { ProgressOverlayConductor } = await import('../SPA/navigation/ProgressOverlayConductor.js');
-  return await ProgressOverlayConductor.hide();
-}
+// Page-load progress shims now live in the ./progress leaf (so loadHyperText imports them without
+// importing this bootstrap entry). Re-export for existing importers.
+export { updatePageLoadProgress, hidePageLoadProgress } from './progress';
 
 // ✅ REMOVED: TogglePerimeterButtons instance creation moved to ButtonRegistry
 // OLD CODE (caused conflict with ButtonRegistry):
@@ -124,8 +112,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     await initializeTimeMachine();
   }
 
+  // De-cycle: features (newbookContainer/userContainer/viewManager/reconvert) trigger navigation
+  // through the zero-import navigationRegistry leaf rather than dynamic-importing these orchestrators
+  // (which statically reach back into the feature cluster — a cycle-masking "breaker"). The
+  // orchestrators register their entry points at module-load, so they must be LOADED at boot.
+  // LinkNavigationHandler must register before NavigationManager.navigate() below (it attaches the
+  // global link handler via the leaf during universalPageInitializer) → await it. ImportBookTransition
+  // is only needed for the rare reconvert flow → fire-and-forget. Both land as code-split 'lazy' edges
+  // (neither statically reaches readerEntry).
+  await import('../SPA/navigation/LinkNavigationHandler.js');
+  import('../SPA/navigation/pathways/ImportBookTransition.js').catch(() => {});
+
   // ✅ UNIFIED: ALL page types go through NavigationManager for consistent initialization
-  // NavigationManager handles ALL initialization including ButtonRegistry
+  // NavigationManager handles ALL initialization including ButtonRegistry (also registers navigate()).
   const { NavigationManager } = await import('../SPA/navigation/NavigationManager.js');
   await NavigationManager.navigate('fresh-page-load');
 

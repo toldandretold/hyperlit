@@ -4,6 +4,7 @@
  */
 
 import { detectHypercites, detectHighlights } from './detection.js';
+import { resetSubBookState, saveSubBookState } from './subBookActions';
 import { buildUnifiedContent } from './contentBuild';
 import { handlePostOpenActions } from './postOpen';
 import { checkIfUserHasAnyEditPermission } from './permissions';
@@ -190,7 +191,6 @@ export async function restoreStackedLayer(containerState: any) {
       getCurrentContainer: getContainer, getCurrentScroller: getScroller,
     }: any = await import('./stack.js');
     const { setHyperlitEditMode }: any = await import('./core.js');
-    const { saveSubBookState, resetSubBookState }: any = await import('./subBookLoader.js');
     const { detachNoteListeners }: any = await import('./noteListener.js');
     const {
       saveModuleState, restoreModuleState, resetModuleState,

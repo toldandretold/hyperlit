@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1468 functions in 300 modules · 8 object stores · 6 PG tables · 2792 edges
+**MarkdownDB** schema v27 · 1481 functions in 302 modules · 8 object stores · 6 PG tables · 2795 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -913,6 +913,12 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `saveAndPopTopLayer` | `hyperlitContainer/stack` | — | — | — | — |
 | `serializeStack` | `hyperlitContainer/stack` | — | — | — | — |
 | `syncStackToHistoryState` | `hyperlitContainer/stack` | — | — | — | — |
+| `destroyAllSubBooks` | `hyperlitContainer/subBookActions` | — | — | — | — |
+| `destroySubBook` | `hyperlitContainer/subBookActions` | — | — | — | — |
+| `registerSubBookActions` | `hyperlitContainer/subBookActions` | — | — | — | — |
+| `resetSubBookState` | `hyperlitContainer/subBookActions` | — | — | — | — |
+| `restoreSubBookState` | `hyperlitContainer/subBookActions` | — | — | — | — |
+| `saveSubBookState` | `hyperlitContainer/subBookActions` | — | — | — | — |
 | `destroyAllSubBooks` | `hyperlitContainer/subBookLoader` | — | — | — | — |
 | `destroySubBook` | `hyperlitContainer/subBookLoader` | — | — | write | — |
 | `loadSubBook` | `hyperlitContainer/subBookLoader` | — | — | read/write | — |
@@ -1072,8 +1078,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `generateNodeChunksFromMarkdown` | `pageLoad/nodeGen` | — | — | — | — |
 | `cleanupOnlineSyncListener` | `pageLoad/onlineRetry` | — | — | — | — |
 | `setupOnlineSyncListener` | `pageLoad/onlineRetry` | `historyLog` | — | — | — |
-| `hidePageLoadProgress` | `pageLoad/readerEntry` | — | — | — | — |
-| `updatePageLoadProgress` | `pageLoad/readerEntry` | — | — | — | — |
+| `hidePageLoadProgress` | `pageLoad/progress` | — | — | — | — |
+| `updatePageLoadProgress` | `pageLoad/progress` | — | — | — | — |
 | `initializeTimeMachine` | `pageLoad/timeMachine` | — | — | read/write | — |
 | `processContentForFootnotesAndReferences` | `paste/fallback-processor` | — | — | read | `↑bibliography` `↑footnotes` |
 | `saveFootnotesToIndexedDB` | `paste/fallback-processor` | — | `footnotes` | — | — |
@@ -1382,6 +1388,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `NavigationManager.smartNavigate` | `SPA/navigation/NavigationManager` | — | — | — | — |
 | `NavigationManager.transitionToReaderView` | `SPA/navigation/NavigationManager` | — | — | read | — |
 | `NavigationManager.universalPageInitializer` | `SPA/navigation/NavigationManager` | — | — | — | — |
+| `attachGlobalLinkClickHandler` | `SPA/navigation/navigationRegistry` | — | — | — | — |
+| `navigate` | `SPA/navigation/navigationRegistry` | — | — | — | — |
+| `navigateByStructure` | `SPA/navigation/navigationRegistry` | — | — | — | — |
+| `pollImportProgress` | `SPA/navigation/navigationRegistry` | — | — | — | — |
+| `registerNavActions` | `SPA/navigation/navigationRegistry` | — | — | — | — |
+| `removeGlobalHandlers` | `SPA/navigation/navigationRegistry` | — | — | — | — |
+| `showFootnoteAuditModal` | `SPA/navigation/navigationRegistry` | — | — | — | — |
 | `BookToBookTransition.cleanupCurrentReader` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
 | `BookToBookTransition.cleanupNavigationOverlays` | `SPA/navigation/pathways/BookToBookTransition` | — | — | read/write | — |
 | `BookToBookTransition.createBookToBookProgressCallback` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
@@ -1481,32 +1494,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 32 · lazy-loads (code-split): 179
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 194
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
 ### Cycles masked by dynamic imports (coupling debt)
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
-- (2 modules) `components/cloudRef/editIndicator`, `indexedDB/core/healthMonitor`
-- (80 modules) `SPA/domReadiness`, `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/cloudRef/cloudRefButton`, `components/editButton/index`, `components/editButton/lock`, `components/fileDropTarget/fileDropTarget`, `components/homepage/homepage`, `components/homepage/homepageDisplayUnit`, `components/newBookButton/newBookButton`, `components/newbookContainer/index`, `components/selectionHandler/selectionHandler`, `components/settingsButton/settingsButton`, `components/settingsContainer/index`, `components/sourceContainer/creatorTools/reconvert`, `components/sourceContainer/downloads`, `components/sourceContainer/index`, `components/tocContainer/index`, `components/tocToggleButton/tocToggleButton`, `components/togglePerimeterButtons/togglePerimeterButtons`, `components/userButton/userButton`, `components/userContainer/index`, `components/userProfile/userProfileEditor`, `components/utilities/containerManager`, `components/utilities/registerComponents`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `divEditor/saveQueue`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/footnoteTapExtender`, `hyperlitContainer/footnotesCitations`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `paste/handlers/codeBlockHandler`, `paste/handlers/hyperciteHandler`, `paste/handlers/largePasteHandler`, `paste/handlers/novelVacuumHandler`, `paste/handlers/smallPasteHandler`, `paste/index`, `paste/ui/pasteUndoToast`, `paste/utils/insertion-point-calculator`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`, `search/inTextSearch/searchToolbar`
-
-### Dynamic cycle-breakers (debt — could become one-way via events/DI)
-- `SPA/viewManager` → `SPA/navigation/LinkNavigationHandler`
-- `components/editButton/index` → `paste/index`
-- `components/editButton/lock` → `components/editButton/index`
-- `components/newbookContainer/index` → `SPA/navigation/NavigationManager`
-- `components/sourceContainer/creatorTools/reconvert` → `SPA/navigation/pathways/ImportBookTransition`
-- `components/userContainer/index` → `SPA/navigation/NavigationManager`
-- `components/utilities/containerManager` → `divEditor/index`
-- `divEditor/chunkManager` → `divEditor/index`
-- `hyperlitContainer/core` → `hyperlitContainer/subBookLoader`
-- `hyperlitContainer/editMode` → `paste/index`
-- `hyperlitContainer/history` → `hyperlitContainer/subBookLoader`
-- `hyperlitContainer/index` → `hyperlitContainer/subBookLoader`
-- `hyperlitContainer/stack` → `hyperlitContainer/subBookLoader`
-- `indexedDB/core/healthMonitor` → `components/cloudRef/editIndicator`
-- `pageLoad/loadHyperText` → `pageLoad/readerEntry`
-- `pageLoad/readerEntry` → `SPA/navigation/NavigationManager`
+- (25 modules) `SPA/domReadiness`, `SPA/navigation/chunkLoadRouter`, `components/tocContainer/index`, `divEditor/chunkMutationHandler/index`, `divEditor/index`, `divEditor/saveQueue`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `paste/handlers/largePasteHandler`, `paste/ui/pasteUndoToast`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`, `search/inTextSearch/searchToolbar`
 
 ### Lazy-loads (code-split points)
 - `SPA/domReadiness` → `SPA/navigation/ProgressOverlayEnactor`
@@ -1540,6 +1534,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/editButton/index` → `divEditor/index`
 - `components/editButton/index` → `editToolbar/index`
 - `components/editButton/index` → `indexedDB/index`
+- `components/editButton/index` → `paste/index`
 - `components/homepage/homepage` → `components/floatingActionMenu/floatingActionMenu`
 - `components/homepage/homepage` → `components/newBookButton/newBookButton`
 - `components/homepage/homepage` → `components/userButton/userButton`
@@ -1608,6 +1603,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/editMode` → `divEditor/index`
 - `hyperlitContainer/editMode` → `editToolbar/index`
 - `hyperlitContainer/editMode` → `hyperlitContainer/noteListener`
+- `hyperlitContainer/editMode` → `paste/index`
 - `hyperlitContainer/history` → `divEditor/editSessionManager`
 - `hyperlitContainer/history` → `divEditor/index`
 - `hyperlitContainer/history` → `hyperlitContainer/containerState`
@@ -1657,10 +1653,9 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `pageLoad/loadHyperText` → `indexedDB/hydration/rebuild`
 - `pageLoad/loadHyperText` → `lazyLoader/utilities/cacheState`
 - `pageLoad/loadHyperText` → `pageLoad/backgroundDownload`
+- `pageLoad/loadHyperText` → `pageLoad/progress`
 - `pageLoad/onlineRetry` → `components/cloudRef/editIndicator`
-- `pageLoad/readerEntry` → `SPA/navigation/ProgressOverlayConductor`
-- `pageLoad/readerEntry` → `components/cloudRef/editIndicator`
-- `pageLoad/readerEntry` → `pageLoad/timeMachine`
+- `pageLoad/progress` → `SPA/navigation/ProgressOverlayConductor`
 - `paste/handlers/hyperciteHandler` → `indexedDB/hydration/rebuild`
 - `paste/handlers/largePasteHandler` → `components/tocContainer/index`
 - `paste/handlers/novelVacuumHandler` → `SPA/navigation/ProgressOverlayConductor`

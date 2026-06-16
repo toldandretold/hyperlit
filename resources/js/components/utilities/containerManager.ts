@@ -140,9 +140,8 @@ export class ContainerManager {
             // (popstate handler will flush again as part of its teardown,
             // but flushing here too keeps autosave timing tight).
             try {
-              const { flushInputDebounce, flushAllPendingSaves } = await import('../../divEditor/index');
-              flushInputDebounce();
-              await flushAllPendingSaves();
+              const { flushPendingEdits } = await import('../../utilities/pendingEditsRegistry');
+              await flushPendingEdits();
             } catch (err) {
               console.warn('Pre-back flush failed (non-fatal):', err);
             }

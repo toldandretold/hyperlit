@@ -3,6 +3,7 @@
  * Determines which navigation pathway to use based on link types and context
  */
 import { NavigationManager } from './NavigationManager.js';
+import { registerNavActions } from './navigationRegistry';
 import { BookToBookTransition } from './pathways/BookToBookTransition.js';
 import { getPageStructure, areStructuresCompatible, getSubdomain, getBookIdFromUrl } from './utils/structureDetection.js';
 import { log, verbose } from '../../utilities/logger';
@@ -852,3 +853,10 @@ export class LinkNavigationHandler {
 // Register the content link-click handler so lazyLoader can delegate without a
 // static lazyLoader→navigation import (see utilities/linkClickRegistry).
 registerLinkClickHandler((event: any) => LinkNavigationHandler.handleLinkClick(event));
+
+// Register global link-handler attach/remove into the navigation leaf so viewManager can
+// drive them without a dynamic viewManager→LinkNavigationHandler import (see navigationRegistry).
+registerNavActions({
+  attachGlobalLinkClickHandler: () => LinkNavigationHandler.attachGlobalLinkClickHandler(),
+  removeGlobalHandlers: () => LinkNavigationHandler.removeGlobalHandlers(),
+});
