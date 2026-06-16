@@ -3,20 +3,21 @@
 import { log, verbose } from "../../utilities/logger";
 import { debounce } from "../../utilities/debounce";
 import { cancelPendingNavigationCleanup, navigateToInternalId } from "../../scrolling/index";
-import { getNodeChunksFromIndexedDB } from "../../indexedDB/nodes/read.js";
-import { getLocalStorageKey } from "../../indexedDB/index.js";
+import { getNodeChunksFromIndexedDB } from "../../indexedDB/nodes/read";
+import { getLocalStorageKey } from "../../indexedDB/index";
 import { currentLazyLoader } from "../../pageLoad/index";
-import { buildSearchIndex, searchIndex } from "./searchEngine.js";
+import { buildSearchIndex, searchIndex } from "./searchEngine";
 import {
   applySearchHighlight,
   clearSearchHighlights,
   setSearchMode
-} from "./searchHighlight.js";
+} from "./searchHighlight";
 
 /**
  * SearchToolbarManager - Manages the search toolbar UI and state
  */
 class SearchToolbarManager {
+  [key: string]: any;
   constructor() {
     this.toolbar = null;
     this.input = null;
@@ -39,11 +40,11 @@ class SearchToolbarManager {
     this.boundKeydownHandler = this.handleKeydown.bind(this);
     this.boundClickOutsideHandler = this.handleClickOutside.bind(this);
     // Touch handlers with preventDefault to avoid ghost clicks
-    this.boundPrevTouchHandler = (e) => { e.preventDefault(); this.handlePrev(); };
-    this.boundNextTouchHandler = (e) => { e.preventDefault(); this.handleNext(); };
+    this.boundPrevTouchHandler = (e: any) => { e.preventDefault(); this.handlePrev(); };
+    this.boundNextTouchHandler = (e: any) => { e.preventDefault(); this.handleNext(); };
 
     // Debounced search handler (300ms delay to prevent rapid-fire searches)
-    this.debouncedSearch = debounce((query) => this.performSearch(query), 300);
+    this.debouncedSearch = debounce((query: any) => this.performSearch(query), 300);
 
     // Bind elements
     this.bindElements();
@@ -51,7 +52,7 @@ class SearchToolbarManager {
     // Setup event listeners
     this.setupEventListeners();
 
-    verbose.init('SearchToolbar initialized', '/search/inTextSearch/searchToolbar.js');
+    verbose.init('SearchToolbar initialized', '/search/inTextSearch/searchToolbar');
   }
 
   /**
@@ -69,7 +70,7 @@ class SearchToolbarManager {
       return;
     }
 
-    verbose.init('SearchToolbar: DOM elements bound', '/search/inTextSearch/searchToolbar.js');
+    verbose.init('SearchToolbar: DOM elements bound', '/search/inTextSearch/searchToolbar');
   }
 
   /**
@@ -95,7 +96,7 @@ class SearchToolbarManager {
       this.nextButton.addEventListener('touchend', this.boundNextTouchHandler);
     }
 
-    verbose.init('SearchToolbar: Event listeners attached', '/search/inTextSearch/searchToolbar.js');
+    verbose.init('SearchToolbar: Event listeners attached', '/search/inTextSearch/searchToolbar');
   }
 
   /**
@@ -104,11 +105,11 @@ class SearchToolbarManager {
   async open() {
     if (!this.toolbar) return;
 
-    log.init('SearchToolbar: Opening', '/search/inTextSearch/searchToolbar.js');
+    log.init('SearchToolbar: Opening', '/search/inTextSearch/searchToolbar');
 
     // Capture initial scroll position for nearest-match search
     this.initialStartLine = this.getCurrentVisibleStartLine();
-    verbose.init(`SearchToolbar: Captured initial position: ${this.initialStartLine}`, '/search/inTextSearch/searchToolbar.js');
+    verbose.init(`SearchToolbar: Captured initial position: ${this.initialStartLine}`, '/search/inTextSearch/searchToolbar');
 
     // Cancel any pending navigation cleanup timers from previous navigations
     cancelPendingNavigationCleanup();
@@ -151,7 +152,7 @@ class SearchToolbarManager {
   async ensureSearchIndex() {
     // If we already have an index, don't rebuild
     if (this.searchIndexCache) {
-      verbose.init('SearchToolbar: Using cached search index', '/search/inTextSearch/searchToolbar.js');
+      verbose.init('SearchToolbar: Using cached search index', '/search/inTextSearch/searchToolbar');
       return;
     }
 
@@ -165,7 +166,7 @@ class SearchToolbarManager {
     try {
       const nodes = await getNodeChunksFromIndexedDB(bookId);
       this.searchIndexCache = buildSearchIndex(nodes);
-      verbose.init(`SearchToolbar: Index built with ${this.searchIndexCache.length} entries`, '/search/inTextSearch/searchToolbar.js');
+      verbose.init(`SearchToolbar: Index built with ${this.searchIndexCache.length} entries`, '/search/inTextSearch/searchToolbar');
     } catch (error) {
       console.error('SearchToolbar: Failed to build search index', error);
     }
@@ -177,7 +178,7 @@ class SearchToolbarManager {
   close() {
     if (!this.toolbar) return;
 
-    log.init('SearchToolbar: Closing', '/search/inTextSearch/searchToolbar.js');
+    log.init('SearchToolbar: Closing', '/search/inTextSearch/searchToolbar');
 
     // Cancel any pending debounced search
     this.debouncedSearch.cancel();
@@ -219,9 +220,9 @@ class SearchToolbarManager {
   /**
    * Handle input changes (debounced)
    */
-  handleInput(e) {
+  handleInput(e: any) {
     const query = e.target.value;
-    verbose.init(`SearchToolbar: Input changed - "${query}"`, '/search/inTextSearch/searchToolbar.js');
+    verbose.init(`SearchToolbar: Input changed - "${query}"`, '/search/inTextSearch/searchToolbar');
 
     // Clear previous highlights immediately for visual feedback
     clearSearchHighlights();
@@ -237,7 +238,7 @@ class SearchToolbarManager {
 
       // Return to initial reading position when search is cleared
       if (this.initialStartLine !== null && currentLazyLoader) {
-        verbose.init(`SearchToolbar: Search cleared, returning to initial position: ${this.initialStartLine}`, '/search/inTextSearch/searchToolbar.js');
+        verbose.init(`SearchToolbar: Search cleared, returning to initial position: ${this.initialStartLine}`, '/search/inTextSearch/searchToolbar');
         navigateToInternalId(String(this.initialStartLine), currentLazyLoader, false);
       }
       return;
@@ -250,16 +251,16 @@ class SearchToolbarManager {
   /**
    * Perform the actual search (called after debounce)
    */
-  performSearch(query) {
+  performSearch(query: any) {
     if (!this.searchIndexCache) return;
 
-    verbose.init(`SearchToolbar: Performing search for "${query}"`, '/search/inTextSearch/searchToolbar.js');
+    verbose.init(`SearchToolbar: Performing search for "${query}"`, '/search/inTextSearch/searchToolbar');
 
     this.matches = searchIndex(this.searchIndexCache, query);
 
     if (this.matches.length > 0) {
       // Group matches by chunk_id for efficient batch insertion
-      this.matches.forEach((match, index) => {
+      this.matches.forEach((match: any, index: any) => {
         const chunkId = match.chunk_id;
         if (!this.matchesByChunk.has(chunkId)) {
           this.matchesByChunk.set(chunkId, []);
@@ -295,7 +296,7 @@ class SearchToolbarManager {
     const chunkId = match.chunk_id;
     const targetId = String(match.startLine);
 
-    verbose.init(`SearchToolbar: Navigating to match ${this.currentMatchIndex + 1}/${this.matches.length} (startLine: ${targetId}, chunk: ${chunkId})`, '/search/inTextSearch/searchToolbar.js');
+    verbose.init(`SearchToolbar: Navigating to match ${this.currentMatchIndex + 1}/${this.matches.length} (startLine: ${targetId}, chunk: ${chunkId})`, '/search/inTextSearch/searchToolbar');
 
     if (!currentLazyLoader) return;
 
@@ -347,11 +348,11 @@ class SearchToolbarManager {
    * Apply all search marks for a specific chunk
    * @param {number} chunkId - The chunk ID to apply marks for
    */
-  applyMarksForChunk(chunkId) {
+  applyMarksForChunk(chunkId: any) {
     const chunkMatches = this.matchesByChunk.get(chunkId);
     if (!chunkMatches) return;
 
-    chunkMatches.forEach(match => {
+    chunkMatches.forEach((match: any) => {
       const markId = `search-match-${match.matchIndex}`;
 
       // Skip if mark already exists (handles chunk reload case)
@@ -373,7 +374,7 @@ class SearchToolbarManager {
     if (!currentLazyLoader?.currentlyLoadedChunks) return;
 
     // For each loaded chunk, apply marks if we have matches there
-    currentLazyLoader.currentlyLoadedChunks.forEach(chunkId => {
+    currentLazyLoader.currentlyLoadedChunks.forEach((chunkId: any) => {
       if (this.matchesByChunk.has(chunkId)) {
         this.applyMarksForChunk(chunkId);
       }
@@ -415,13 +416,13 @@ class SearchToolbarManager {
     // Find first match with startLine >= initial position
     for (let i = 0; i < this.matches.length; i++) {
       if (parseFloat(this.matches[i].startLine) >= this.initialStartLine) {
-        verbose.init(`SearchToolbar: Starting from match ${i + 1} (startLine ${this.matches[i].startLine} >= initial ${this.initialStartLine})`, '/search/inTextSearch/searchToolbar.js');
+        verbose.init(`SearchToolbar: Starting from match ${i + 1} (startLine ${this.matches[i].startLine} >= initial ${this.initialStartLine})`, '/search/inTextSearch/searchToolbar');
         return i;
       }
     }
 
     // No match after initial position - wrap to first match
-    verbose.init(`SearchToolbar: No matches after initial position (${this.initialStartLine}), wrapping to first match`, '/search/inTextSearch/searchToolbar.js');
+    verbose.init(`SearchToolbar: No matches after initial position (${this.initialStartLine}), wrapping to first match`, '/search/inTextSearch/searchToolbar');
     return 0;
   }
 
@@ -431,7 +432,7 @@ class SearchToolbarManager {
   handlePrev() {
     if (this.matches.length === 0) return;
 
-    verbose.init('SearchToolbar: Previous match', '/search/inTextSearch/searchToolbar.js');
+    verbose.init('SearchToolbar: Previous match', '/search/inTextSearch/searchToolbar');
 
     // Wrap around to end if at beginning
     if (this.currentMatchIndex <= 0) {
@@ -450,7 +451,7 @@ class SearchToolbarManager {
   handleNext() {
     if (this.matches.length === 0) return;
 
-    verbose.init('SearchToolbar: Next match', '/search/inTextSearch/searchToolbar.js');
+    verbose.init('SearchToolbar: Next match', '/search/inTextSearch/searchToolbar');
 
     // Wrap around to beginning if at end
     if (this.currentMatchIndex >= this.matches.length - 1) {
@@ -466,7 +467,7 @@ class SearchToolbarManager {
   /**
    * Handle clicks outside the search toolbar
    */
-  handleClickOutside(e) {
+  handleClickOutside(e: any) {
     // Don't close if clicking inside the toolbar
     if (this.toolbar && this.toolbar.contains(e.target)) {
       return;
@@ -484,7 +485,7 @@ class SearchToolbarManager {
   /**
    * Handle keyboard shortcuts in search input
    */
-  handleKeydown(e) {
+  handleKeydown(e: any) {
     // Enter or Cmd/Ctrl+G = next match
     if (e.key === 'Enter' || (e.key === 'g' && (e.metaKey || e.ctrlKey))) {
       e.preventDefault();
@@ -504,7 +505,7 @@ class SearchToolbarManager {
   /**
    * Update match counter display
    */
-  updateMatchCounter(current, total) {
+  updateMatchCounter(current: any, total: any) {
     if (this.matchCounter) {
       this.matchCounter.textContent = `${current} of ${total}`;
     }
@@ -513,7 +514,7 @@ class SearchToolbarManager {
   /**
    * Update navigation button states
    */
-  updateNavigationButtons(enabled) {
+  updateNavigationButtons(enabled: any) {
     if (this.prevButton) {
       this.prevButton.disabled = !enabled;
     }
@@ -526,7 +527,7 @@ class SearchToolbarManager {
    * Clear search results (keeps index cached)
    */
   clearSearch() {
-    verbose.init('SearchToolbar: Clearing search', '/search/inTextSearch/searchToolbar.js');
+    verbose.init('SearchToolbar: Clearing search', '/search/inTextSearch/searchToolbar');
     this.matches = [];
     this.currentMatchIndex = -1;
     this.matchesByChunk = new Map();
@@ -537,7 +538,7 @@ class SearchToolbarManager {
    * Invalidate the search index (call when book changes)
    */
   invalidateIndex() {
-    verbose.init('SearchToolbar: Invalidating search index', '/search/inTextSearch/searchToolbar.js');
+    verbose.init('SearchToolbar: Invalidating search index', '/search/inTextSearch/searchToolbar');
     this.searchIndexCache = null;
     this.matches = [];
     this.currentMatchIndex = -1;
@@ -562,7 +563,7 @@ class SearchToolbarManager {
       }
     });
 
-    verbose.init('SearchToolbar: Perimeter buttons hidden', '/search/inTextSearch/searchToolbar.js');
+    verbose.init('SearchToolbar: Perimeter buttons hidden', '/search/inTextSearch/searchToolbar');
   }
 
   /**
@@ -584,7 +585,7 @@ class SearchToolbarManager {
       }
     });
 
-    verbose.init('SearchToolbar: Perimeter buttons shown', '/search/inTextSearch/searchToolbar.js');
+    verbose.init('SearchToolbar: Perimeter buttons shown', '/search/inTextSearch/searchToolbar');
   }
 
   /**
@@ -594,7 +595,7 @@ class SearchToolbarManager {
     this.bindElements();
     // Invalidate index on rebind since book may have changed
     this.invalidateIndex();
-    verbose.init('SearchToolbar: Elements rebound', '/search/inTextSearch/searchToolbar.js');
+    verbose.init('SearchToolbar: Elements rebound', '/search/inTextSearch/searchToolbar');
   }
 
   /**
@@ -622,12 +623,12 @@ class SearchToolbarManager {
       this.nextButton.removeEventListener('touchend', this.boundNextTouchHandler);
     }
 
-    verbose.init('SearchToolbar: Event listeners removed', '/search/inTextSearch/searchToolbar.js');
+    verbose.init('SearchToolbar: Event listeners removed', '/search/inTextSearch/searchToolbar');
   }
 }
 
 // Search toolbar manager instance (singleton)
-let searchToolbarManager = null;
+let searchToolbarManager: any = null;
 
 // Invalidate search index when background download completes (chunked lazy loading)
 window.addEventListener('backgroundDownloadComplete', () => {
@@ -643,11 +644,11 @@ export function initializeSearchToolbar() {
   if (!searchToolbarManager) {
     // Create new manager instance
     searchToolbarManager = new SearchToolbarManager();
-    log.init('Search Toolbar initialized', '/search/inTextSearch/searchToolbar.js');
+    log.init('Search Toolbar initialized', '/search/inTextSearch/searchToolbar');
   } else {
     // Manager exists, just rebind elements after SPA transition
     searchToolbarManager.rebindElements();
-    verbose.init('Search Toolbar rebound', '/search/inTextSearch/searchToolbar.js');
+    verbose.init('Search Toolbar rebound', '/search/inTextSearch/searchToolbar');
   }
 
   return searchToolbarManager;
@@ -701,7 +702,7 @@ export function destroySearchToolbar() {
   if (searchToolbarManager) {
     searchToolbarManager.destroy();
     searchToolbarManager = null;
-    verbose.init('Search Toolbar destroyed', '/search/inTextSearch/searchToolbar.js');
+    verbose.init('Search Toolbar destroyed', '/search/inTextSearch/searchToolbar');
     return true;
   }
   return false;
@@ -721,7 +722,7 @@ export function invalidateSearchIndex() {
  * @param {string} query - The search query to pre-fill and execute
  * @param {number|string} [targetStartLine] - Optional startLine to navigate to nearest match
  */
-export async function openSearchToolbarWithQuery(query, targetStartLine = null) {
+export async function openSearchToolbarWithQuery(query: any, targetStartLine: any = null) {
   if (!searchToolbarManager) {
     console.warn('SearchToolbar: Manager not initialized');
     return;
@@ -734,7 +735,7 @@ export async function openSearchToolbarWithQuery(query, targetStartLine = null) 
   // This must come after open() because open() resets initialStartLine to current scroll position
   if (targetStartLine) {
     searchToolbarManager.initialStartLine = Number(targetStartLine);
-    log.init(`SearchToolbar: Override initial position to ${targetStartLine}`, '/search/inTextSearch/searchToolbar.js');
+    log.init(`SearchToolbar: Override initial position to ${targetStartLine}`, '/search/inTextSearch/searchToolbar');
   }
 
   // Set the input value and trigger search
@@ -743,7 +744,7 @@ export async function openSearchToolbarWithQuery(query, targetStartLine = null) 
     // Trigger the input handler to perform the search
     searchToolbarManager.handleInput({ target: searchToolbarManager.input });
 
-    verbose.init(`SearchToolbar: Opened with query "${query}"`, '/search/inTextSearch/searchToolbar.js');
+    verbose.init(`SearchToolbar: Opened with query "${query}"`, '/search/inTextSearch/searchToolbar');
   }
 }
 
@@ -756,7 +757,7 @@ export function checkHighlightParam() {
   const highlightStartLine = sessionStorage.getItem('pendingHighlightStartLine');
 
   if (highlightQuery) {
-    log.init(`SearchToolbar: Found pending highlight query "${highlightQuery}", startLine: ${highlightStartLine}`, '/search/inTextSearch/searchToolbar.js');
+    log.init(`SearchToolbar: Found pending highlight query "${highlightQuery}", startLine: ${highlightStartLine}`, '/search/inTextSearch/searchToolbar');
 
     // Clear immediately so it doesn't trigger again on refresh
     sessionStorage.removeItem('pendingHighlightQuery');

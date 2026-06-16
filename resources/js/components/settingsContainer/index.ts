@@ -7,7 +7,7 @@
 import { ContainerManager } from "../utilities/containerManager";
 import { verbose } from "../../utilities/logger";
 import { switchTheme, getCurrentTheme, THEMES } from "./themeSwitcher";
-import { openSearchToolbar } from "../../search/inTextSearch/searchToolbar.js";
+import { openSearchToolbar } from "../../search/inTextSearch/searchToolbar";
 import { handleVibeClick, _openVibeGallery, _openVibeUI } from "./vibe";
 import { _openGatePanel } from "./gate";
 import { toggleFullWidth, applyTextAdjustments, syncSliderUI, handleSliderInput, _debounceResize } from "./textControls";

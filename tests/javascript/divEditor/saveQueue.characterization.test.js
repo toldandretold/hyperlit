@@ -28,7 +28,7 @@ vi.mock('../../../resources/js/indexedDB/index', async (importOriginal) => ({
 // Fire-and-forget side effects → no-ops so they can't interfere with the save path.
 vi.mock('../../../resources/js/lazyLoader/utilities/cacheState', () => ({ markCacheDirty: vi.fn() }));
 vi.mock('../../../resources/js/lazyLoader/utilities/chunkLoadingState', () => ({ clearChunkLoadingInProgress: vi.fn() }));
-vi.mock('../../../resources/js/search/inTextSearch/searchToolbar.js', () => ({ invalidateSearchIndex: vi.fn() }));
+vi.mock('../../../resources/js/search/inTextSearch/searchToolbar', () => ({ invalidateSearchIndex: vi.fn() }));
 vi.mock('../../../resources/js/utilities/BroadcastListener', () => ({ TAB_ID: 'test-tab', markBookEditedLocally: vi.fn() }));
 vi.mock('../../../resources/js/integrity/verifier', () => ({ verifyNodesIntegrity: vi.fn().mockResolvedValue({ ok: [], mismatches: [], missingFromIDB: [], duplicateIds: [] }), findOrphanedNodes: () => [], healVerbatimDuplicates: () => [] }));
 vi.mock('../../../resources/js/integrity/reporter', () => ({ reportIntegrityFailure: vi.fn() }));

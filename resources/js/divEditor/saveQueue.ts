@@ -15,7 +15,7 @@ import { verbose } from '../utilities/logger';
 import { clearChunkLoadingInProgress } from '../lazyLoader/utilities/chunkLoadingState';
 import { markCacheDirty } from '../lazyLoader/utilities/cacheState';
 import { debounce } from '../utilities/debounce';
-import { invalidateSearchIndex } from '../search/inTextSearch/searchToolbar.js';
+import { invalidateSearchIndex } from '../search/inTextSearch/searchToolbar';
 import { reportIDBFailure, reportIDBSuccess, isIDBBroken } from '../indexedDB/core/healthMonitor';
 import { TAB_ID, markBookEditedLocally } from '../utilities/BroadcastListener';
 import { book as currentBook } from '../app.js';

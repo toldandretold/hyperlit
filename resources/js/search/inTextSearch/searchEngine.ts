@@ -7,7 +7,7 @@ import { verbose } from "../../utilities/logger";
  * @param {string} html - HTML content string
  * @returns {string} Plain text without HTML tags
  */
-export function stripHtml(html) {
+export function stripHtml(html: any) {
   if (!html) return '';
 
   // Use DOM parsing for accurate text extraction
@@ -23,7 +23,7 @@ export function stripHtml(html) {
  * @param {string} text - Text to normalize
  * @returns {string} Normalized text
  */
-export function normalizeText(text) {
+export function normalizeText(text: any) {
   if (!text) return '';
   return text.toLowerCase();
   // IMPORTANT: Do NOT use .replace(/\s+/g, ' ') or .trim()
@@ -36,15 +36,15 @@ export function normalizeText(text) {
  * @param {Array} nodes - Array of node objects from IndexedDB
  * @returns {Array} Search index with startLine, chunk_id, and normalized text
  */
-export function buildSearchIndex(nodes) {
+export function buildSearchIndex(nodes: any) {
   if (!nodes || nodes.length === 0) {
-    verbose.init('SearchEngine: No nodes to index', '/search/inTextSearch/searchEngine.js');
+    verbose.init('SearchEngine: No nodes to index', '/search/inTextSearch/searchEngine');
     return [];
   }
 
   const startTime = performance.now();
 
-  const index = nodes.map(node => {
+  const index = nodes.map((node: any) => {
     const plainText = stripHtml(node.content);
     const normalizedText = normalizeText(plainText);
 
@@ -57,7 +57,7 @@ export function buildSearchIndex(nodes) {
   });
 
   const elapsed = performance.now() - startTime;
-  verbose.init(`SearchEngine: Built index for ${nodes.length} nodes in ${elapsed.toFixed(1)}ms`, '/search/inTextSearch/searchEngine.js');
+  verbose.init(`SearchEngine: Built index for ${nodes.length} nodes in ${elapsed.toFixed(1)}ms`, '/search/inTextSearch/searchEngine');
 
   return index;
 }
@@ -70,8 +70,8 @@ export function buildSearchIndex(nodes) {
  * @param {number} chunk_id - Node's chunk_id
  * @returns {Array} Array of match objects with charStart/charEnd
  */
-function findMatchesInNode(text, query, startLine, chunk_id) {
-  const matches = [];
+function findMatchesInNode(text: any, query: any, startLine: any, chunk_id: any) {
+  const matches: any[] = [];
   let pos = 0;
 
   while ((pos = text.indexOf(query, pos)) !== -1) {
@@ -93,7 +93,7 @@ function findMatchesInNode(text, query, startLine, chunk_id) {
  * @param {string} query - Search query string
  * @returns {Array} Array of match objects with startLine, chunk_id, charStart, charEnd
  */
-export function searchIndex(index, query) {
+export function searchIndex(index: any, query: any) {
   if (!index || index.length === 0 || !query) {
     return [];
   }
@@ -104,7 +104,7 @@ export function searchIndex(index, query) {
     return [];
   }
 
-  const allMatches = [];
+  const allMatches: any[] = [];
 
   for (const entry of index) {
     const nodeMatches = findMatchesInNode(
@@ -116,7 +116,7 @@ export function searchIndex(index, query) {
     allMatches.push(...nodeMatches);
   }
 
-  verbose.init(`SearchEngine: Found ${allMatches.length} matches for "${query}"`, '/search/inTextSearch/searchEngine.js');
+  verbose.init(`SearchEngine: Found ${allMatches.length} matches for "${query}"`, '/search/inTextSearch/searchEngine');
 
   return allMatches;
 }

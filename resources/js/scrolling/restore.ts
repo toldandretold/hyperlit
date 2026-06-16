@@ -11,7 +11,7 @@ import { book, OpenHyperlightID, OpenFootnoteID } from '../app.js';
 import { getNodeChunksFromIndexedDB, getLocalStorageKey } from '../indexedDB/index.js';
 import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
 import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from '../utilities/operationState';
-import { isSearchToolbarOpen } from '../search/inTextSearch/searchToolbar.js';
+import { isSearchToolbarOpen } from '../search/inTextSearch/searchToolbar';
 import { navigatedHashes } from './navState';
 import { shouldSkipScrollRestoration } from './userScrollDetection';
 import { showNavigationLoading } from './navOverlay';

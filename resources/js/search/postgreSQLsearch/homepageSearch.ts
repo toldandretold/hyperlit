@@ -16,12 +16,12 @@ const STORAGE_KEY_QUERY = 'homepage_search_query';
 const STORAGE_KEY_FULLTEXT = 'homepage_search_fulltext';
 
 // State
-let searchInput = null;
-let searchToggle = null;
-let resultsContainer = null;
-let debounceTimer = null;
+let searchInput: any = null;
+let searchToggle: any = null;
+let resultsContainer: any = null;
+let debounceTimer: any = null;
 let isFullTextMode = false;
-let abortController = null;
+let abortController: any = null;
 let currentSearchQuery = ''; // Track current query for highlighting on navigation
 
 /**
@@ -105,7 +105,7 @@ export function destroyHomepageSearch() {
 /**
  * Handle search input with debouncing
  */
-function handleSearchInput(event) {
+function handleSearchInput(event: any) {
     const query = event.target.value.trim();
 
     // Clear previous timer
@@ -143,7 +143,7 @@ function handleSearchInput(event) {
 /**
  * Perform the actual search request
  */
-async function performSearch(query) {
+async function performSearch(query: any) {
     // Store query for use in navigation links
     currentSearchQuery = query;
 
@@ -157,7 +157,7 @@ async function performSearch(query) {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+                'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as any)?.content
             },
             credentials: 'include',
             signal: abortController.signal
@@ -176,7 +176,7 @@ async function performSearch(query) {
         }
 
     } catch (error) {
-        if (error.name === 'AbortError') {
+        if ((error as any).name === 'AbortError') {
             // Request was aborted, ignore
             return;
         }
@@ -188,7 +188,7 @@ async function performSearch(query) {
 /**
  * Render search results
  */
-function renderResults(results, mode) {
+function renderResults(results: any, mode: any) {
     if (!results || results.length === 0) {
         showNoResults();
         return;
@@ -198,7 +198,7 @@ function renderResults(results, mode) {
 
     if (mode === 'library') {
         // Library results: simple list of books
-        results.forEach(result => {
+        results.forEach((result: any) => {
             html += `
                 <li class="search-result-item">
                     <a href="/${encodeURIComponent(result.book)}" class="search-result-link">
@@ -209,7 +209,7 @@ function renderResults(results, mode) {
         });
     } else {
         // Full-text results: grouped by book with multiple matches
-        results.forEach(bookResult => {
+        results.forEach((bookResult: any) => {
             const isSubbook = bookResult.is_subbook;
             const displayTitle = isSubbook
                 ? (bookResult.parent_title || 'Untitled')
@@ -232,7 +232,7 @@ function renderResults(results, mode) {
                     <ul class="search-result-matches">
             `;
 
-            bookResult.matches.slice(0, 3).forEach(match => {
+            bookResult.matches.slice(0, 3).forEach((match: any) => {
                 const nodeAnchor = match.startLine ? `#${match.startLine}` : '';
                 html += `
                     <li class="search-result-match">
@@ -260,8 +260,8 @@ function renderResults(results, mode) {
     resultsContainer.classList.add('visible');
 
     // Add click handler for full-text result links to store query for highlighting
-    resultsContainer.querySelectorAll('[data-highlight-query]').forEach(link => {
-        link.addEventListener('click', (e) => {
+    resultsContainer.querySelectorAll('[data-highlight-query]').forEach((link: any) => {
+        link.addEventListener('click', (e: any) => {
             const query = link.dataset.highlightQuery;
             if (query) {
                 // Extract startLine from the href hash
@@ -302,7 +302,7 @@ function showNoResults() {
 /**
  * Show error message
  */
-function showError(message) {
+function showError(message: any) {
     resultsContainer.innerHTML = `<div class="search-error">${escapeHtml(message)}</div>`;
     resultsContainer.classList.remove('hidden');
     resultsContainer.classList.add('visible');
@@ -320,7 +320,7 @@ function hideResults() {
 /**
  * Handle toggle between library and full-text search
  */
-function handleToggleChange(event) {
+function handleToggleChange(event: any) {
     isFullTextMode = event.target.checked;
 
     // Save toggle state to localStorage
@@ -343,7 +343,7 @@ function handleToggleChange(event) {
 /**
  * Handle keyboard navigation
  */
-function handleKeyDown(event) {
+function handleKeyDown(event: any) {
     if (event.key === 'Escape') {
         hideResults();
         searchInput.blur();
@@ -370,7 +370,7 @@ function handleFocus() {
 /**
  * Handle clicks outside search area
  */
-function handleOutsideClick(event) {
+function handleOutsideClick(event: any) {
     const searchArea = document.getElementById('homepage-search-container');
     if (searchArea && !searchArea.contains(event.target)) {
         hideResults();
@@ -380,7 +380,7 @@ function handleOutsideClick(event) {
 /**
  * Escape HTML to prevent XSS
  */
-function escapeHtml(text) {
+function escapeHtml(text: any) {
     if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;

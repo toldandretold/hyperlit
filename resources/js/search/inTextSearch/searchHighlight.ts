@@ -5,8 +5,8 @@
  * @param {HTMLElement} element - Root element to traverse
  * @returns {Array<Node>} Array of text nodes
  */
-function getTextNodes(element) {
-  const textNodes = [];
+function getTextNodes(element: any) {
+  const textNodes: any[] = [];
   for (const node of element.childNodes) {
     if (node.nodeType === Node.TEXT_NODE) {
       textNodes.push(node);
@@ -24,7 +24,7 @@ function getTextNodes(element) {
  * @param {number} endChar - Character offset where match ends
  * @returns {Object|null} Object with startNode, startOffset, endNode, endOffset
  */
-function findPositionsInDOM(rootElement, startChar, endChar) {
+function findPositionsInDOM(rootElement: any, startChar: any, endChar: any) {
   const textNodes = getTextNodes(rootElement);
   let currentIndex = 0;
   let startNode = null, startOffset = 0;
@@ -68,7 +68,7 @@ function findPositionsInDOM(rootElement, startChar, endChar) {
  * @param {number} endOffset - Offset within end node
  * @param {HTMLElement} wrapElement - Element to wrap with
  */
-function wrapRangeWithElement(startNode, startOffset, endNode, endOffset, wrapElement) {
+function wrapRangeWithElement(startNode: any, startOffset: any, endNode: any, endOffset: any, wrapElement: any) {
   try {
     const range = document.createRange();
     range.setStart(startNode, startOffset);
@@ -91,7 +91,7 @@ function wrapRangeWithElement(startNode, startOffset, endNode, endOffset, wrapEl
  * @param {string|null} markId - Optional unique ID for the mark element
  * @returns {HTMLElement|null} The created mark element, or null if failed
  */
-export function applySearchHighlight(element, charStart, charEnd, isCurrent = false, markId = null) {
+export function applySearchHighlight(element: any, charStart: any, charEnd: any, isCurrent = false, markId: any = null) {
   if (!element) {
     console.warn('SearchHighlight: No element provided');
     return null;
@@ -153,7 +153,7 @@ export function clearSearchHighlights() {
  * @param {number} startLine - The startLine of the current match
  * @param {number} charStart - The charStart of the current match
  */
-export function setCurrentHighlight(startLine, charStart) {
+export function setCurrentHighlight(startLine: any, charStart: any) {
   // Remove current class from all
   document.querySelectorAll('mark.search-highlight.current').forEach(mark => {
     mark.classList.remove('current');
@@ -167,7 +167,7 @@ export function setCurrentHighlight(startLine, charStart) {
   const marks = element.querySelectorAll('mark.search-highlight');
   // For now, just mark the first one - we could be more precise by checking char position
   if (marks.length > 0) {
-    marks[0].classList.add('current');
+    marks[0]!.classList.add('current');
   }
 }
 
@@ -175,7 +175,7 @@ export function setCurrentHighlight(startLine, charStart) {
  * Toggle search mode class on body
  * @param {boolean} enabled - Whether search mode is active
  */
-export function setSearchMode(enabled) {
+export function setSearchMode(enabled: any) {
   if (enabled) {
     document.body.classList.add('search-mode');
   } else {

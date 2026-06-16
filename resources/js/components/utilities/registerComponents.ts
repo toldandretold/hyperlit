@@ -20,7 +20,7 @@ import {
   initializeSearchToolbar,
   destroySearchToolbar,
   checkHighlightParam
-} from '../../search/inTextSearch/searchToolbar.js';
+} from '../../search/inTextSearch/searchToolbar';
 
 import {
   initializeUserContainer,
@@ -62,7 +62,7 @@ import {
 import {
   initializeHomepageSearch,
   destroyHomepageSearch
-} from '../../search/postgreSQLsearch/homepageSearch.js';
+} from '../../search/postgreSQLsearch/homepageSearch';
 
 import {
   initializeHomepageButtons,
