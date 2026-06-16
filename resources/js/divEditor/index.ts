@@ -69,7 +69,7 @@ export {
   setNoDeleteMarker
 };
 
-import { glowCloudOrange, glowCloudGreen, isProcessing } from '../components/editIndicator.js';
+import { glowCloudOrange, glowCloudGreen, isProcessing } from '../components/topRightContainer/cloudRef/editIndicator';
 import { verbose } from '../utilities/logger.js';
 
 import { buildBibtexEntry } from "../utilities/bibtexProcessor.js";
@@ -123,10 +123,23 @@ let observer: any;
 let documentChanged = false;
 let debounceTimer = null;
 
-let observedChunks = new Map(); // chunkId -> chunk element
+// Per-chunk cache — NOT "which chunk is observed" (the
+// observer always watches the whole container, below).
+//
+// Only ChunkMutationHandler.processByChunk reads it
+// (chunkMutationHandler/index.ts): when edits land it groups
+// the mutations per chunk under a `${bookId}:${chunkId}` key,
+// then looks the chunk up here to get
+//   • a cached reference to the chunk's DOM node, to skip
+//     re-querying the page on every edit, and
+//   • the bookId that chunk belongs to (the editing can
+//     hold MAIN-book and open footnote/hyperlight SUB-BOOK chunks at
+//     once)
+// On a miss it derives the bookId and caches it. index.ts
+// just owns the Map (hands it to the handler, clears it on
+// teardown); it never reads it.
+let observedChunks = new Map();
 let deletionHandler = null;
-
-let isObserverRestarting = false;
 
 // 🚀 PERFORMANCE: Input event handler for text changes (replaces characterData observer)
 let inputEventHandler: any = null;
@@ -595,22 +608,11 @@ export async function startObserving(editableDiv: any, bookId: any = null) {
   const targetId = editableDiv.id || editableDiv.getAttribute('data-book-id') || 'unknown';
   console.log(`[Observer] 🔌 CONNECTED to ${targetId}`);
 
-  // NEW: Set the current observed chunk after everything is set up
-  // ⚠️ BUG (currently broken, preserved as-is): getCurrentChunk() returns the chunk-id
-  // STRING (or null) — NOT a DOM element. A string has no `.dataset`, so the condition
-  // below is ALWAYS false and this never calls setCurrentObservedChunk(): we always fall
-  // through to the else and leave currentObservedChunk null. To fix later, either use the
-  // id string directly (`setCurrentObservedChunk(currentChunk)`) or make getCurrentChunk
-  // return the `.chunk` element. Left untouched during the chunkManager TS move to avoid
-  // changing long-standing runtime behavior.
-  const currentChunk = getCurrentChunk();
-  if (currentChunk && currentChunk.dataset) {
-    const chunkId = currentChunk.dataset.chunkId || currentChunk.id;
-    setCurrentObservedChunk(chunkId);
-    verbose.content(`Set current observed chunk to: ${chunkId}`, 'divEditor/index.js');
-  } else {
-    verbose.content(`No valid chunk detected, leaving currentObservedChunk as null`, 'divEditor/index.js');
-  }
+  // Seed the focus tracker with the chunk the caret is currently in (a chunk-id string,
+  // or null). The selectionchange handler keeps it updated from here on.
+  const currentChunkId = getCurrentChunk();
+  setCurrentObservedChunk(currentChunkId);
+  verbose.content(`Set current observed chunk to: ${currentChunkId}`, 'divEditor/index.js');
 
   verbose.content(`Multi-chunk observer attached to .main-content`, 'divEditor/index.js');
 }
@@ -758,7 +760,7 @@ export async function stopObserving() {
 // 🚀 PERFORMANCE: Use proper debounce for selectionchange instead of manual setTimeout
 const handleSelectionChange = debounce(() => {
   // The actual logic only runs after 150ms of no selection changes
-  if (!(window as any).isEditing || chunkOverflowInProgress || isObserverRestarting) return;
+  if (!(window as any).isEditing || chunkOverflowInProgress) return;
 
   const toolbar = getEditToolbar();
   if (toolbar && toolbar.isFormatting) {

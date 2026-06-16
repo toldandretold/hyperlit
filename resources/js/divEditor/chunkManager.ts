@@ -1,6 +1,6 @@
 import { updateSingleIndexedDBRecord } from '../indexedDB/index';
 import { generateIdBetween } from '../utilities/IDfunctions.js';
-import { setChunkOverflowInProgress, currentObservedChunk } from '../utilities/operationState.js';
+import { setChunkOverflowInProgress } from '../utilities/operationState.js';
 import { verbose } from '../utilities/logger.js';
 // ✅ Lazy-loaded: divEditor index only used during editing
 // import { startObserving, stopObserving, movedNodesByOverflow } from './index';
@@ -30,7 +30,15 @@ function countNumericalNodes(container: HTMLElement): number {
 }
 
 /**
- * Count nodes in a chunk and track changes
+ * Per-chunk NODE COUNTING — overflow detection.
+ *
+ * The edit-mode MutationObserver watches the whole editable CONTAINER (<main class="main-content">, or a
+ * sub-book) with subtree:true — see startObserving() in divEditor/index.ts — so it already
+ * sees every chunk at once. We do NOT observe mutations in one chunk at a time.
+ *
+ * This just maintains chunkNodeCounts[chunkId]: a running count of numeric-id nodes in each
+ * chunk, updated FROM the container-wide observer's mutations, so we can tell when a chunk
+ * crosses NODE_LIMIT (100) and must be split by handleChunkOverflow().
  */
 export function trackChunkNodeCount(chunk: HTMLElement | null, mutations: MutationRecord[] | null = null): void {
   verbose.content('trackChunkNodeCount started', 'chunkManager.js');
@@ -74,8 +82,8 @@ export function trackChunkNodeCount(chunk: HTMLElement | null, mutations: Mutati
  * Handle overflow when a chunk reaches the node limit
  */
 export async function handleChunkOverflow(currentChunk: HTMLElement, mutations: MutationRecord[] | null): Promise<boolean | undefined> {
-  // ✅ Dynamically import divEditor functions (only used during editing)
-  const { startObserving, stopObserving, movedNodesByOverflow } = await import('./index');
+  // ✅ Dynamically import divEditor state (only used during editing)
+  const { movedNodesByOverflow } = await import('./index');
 
   // Set flag at the beginning
   setChunkOverflowInProgress(true);
@@ -388,14 +396,6 @@ export async function handleChunkOverflow(currentChunk: HTMLElement, mutations: 
 
         // Ensure the node is visible
         movedNextNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-        // Also update the observer to watch the new chunk
-        if (currentObservedChunk !== targetChunk) {
-          setChunkOverflowInProgress(true);
-          await stopObserving();
-          await startObserving(targetChunk);
-          setChunkOverflowInProgress(false);
-        }
       }
     } else if (activeNodeWillMove) {
       // Standard case: active node was moved
@@ -422,20 +422,12 @@ export async function handleChunkOverflow(currentChunk: HTMLElement, mutations: 
 
         // Ensure the node is visible
         movedActiveNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-        // Also update the observer to watch the new chunk
-        if (currentObservedChunk !== targetChunk) {
-          await stopObserving();
-          await startObserving(targetChunk);
-        }
-      }
-    } else {
-      // If nothing relevant moved, make sure we're still observing the right chunk
-      if (currentObservedChunk !== targetChunk && (activeNodeWillMove || nextSiblingWillMove)) {
-        await stopObserving();
-        await startObserving(targetChunk);
       }
     }
+    // NOTE: the observer is rooted at the editable CONTAINER (main-content / sub-book)
+    // with subtree:true, and the new chunk was inserted into that same container — so it
+    // is already observed. No stop/start restart is needed here (an earlier restart that
+    // re-pointed the observer at a single chunk silently dropped edits in other chunks).
 
     return true;
   } catch (error) {
@@ -457,20 +449,18 @@ export async function handleChunkOverflow(currentChunk: HTMLElement, mutations: 
 }
 
 
-// NOTE: returns the chunk id STRING (or null) — annotated `any` to preserve the
-// original untyped contract. A caller in divEditor/index.ts treats the result as a
-// DOM element (`.dataset`/`.id`); that is a pre-existing latent bug, left untouched
-// by this move.
-export function getCurrentChunk(): any {
+// Returns the id STRING of the `.chunk` the caret is currently in, or null when there's
+// no selection / no enclosing chunk. Consumed as a string by setCurrentObservedChunk and
+// the selectionchange focus tracker in divEditor/index.ts.
+export function getCurrentChunk(): string | null {
   const selection = document.getSelection();
   if (selection && selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
-    let node: any = range.startContainer;
-    if (node.nodeType !== Node.ELEMENT_NODE) {
-      node = node.parentElement;
-    }
-    const chunkElement = node?.closest(".chunk");
-    return chunkElement ? (chunkElement.id || chunkElement.dataset.chunkId) : null;
+    const node: Node = range.startContainer;
+    const el: Element | null =
+      node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+    const chunkElement = el?.closest<HTMLElement>(".chunk");
+    return chunkElement ? (chunkElement.id || chunkElement.dataset.chunkId || null) : null;
   }
   return null;
 }

@@ -25,7 +25,10 @@ vi.mock('../../../resources/js/utilities/IDfunctions.js', () => ({
   NUMERICAL_ID_PATTERN,
 }));
 vi.mock('../../../resources/js/divEditor/editorState', () => ({ movedNodesByOverflow: new Set() }));
-vi.mock('../../../resources/js/chunkManager.js', () => ({
+// chunkManager lives in divEditor/ — mock the real path so overflow is a no-op stub here.
+// The REAL handleChunkOverflow + getCurrentChunk (incl. the "observer is not restarted on
+// overflow" invariant) are exercised in the sibling chunkOverflow.observer.test.js.
+vi.mock('../../../resources/js/divEditor/chunkManager', () => ({
   trackChunkNodeCount: vi.fn(),
   NODE_LIMIT: 100,
   chunkNodeCounts: {},

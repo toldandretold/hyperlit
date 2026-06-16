@@ -15,7 +15,7 @@ import { preprocessMarkdownFootnotes, footnoteDefinitionsToHtml, processMarkdown
 import { getInsertionPoint } from '../utils/insertion-point-calculator.js';
 import { handleLargePaste } from './largePasteHandler.js';
 import { getCurrentChunk } from '../../divEditor/chunkManager';
-import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../../components/editIndicator.js';
+import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../../components/topRightContainer/cloudRef/editIndicator';
 import { initializeMainLazyLoader, lazyLoaders } from '../../pageLoad';
 import {
   setPasteInProgress,

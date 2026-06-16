@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 783,
-    "moduleCount": 163,
+    "fnCount": 879,
+    "moduleCount": 179,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 1597,
+    "edgeCount": 1757,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -34,7 +34,8 @@
     "lazyLoader",
     "scrolling",
     "pageLoad",
-    "SPA"
+    "SPA",
+    "components"
   ],
   "legend": [
     {
@@ -168,6 +169,774 @@
       "kind": "fn",
       "stage": "citations",
       "module": "citations/citationInserter",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/cloudRefButton:destroySourceButtonListener",
+      "label": "destroySourceButtonListener",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/cloudRef/cloudRefButton",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/cloudRefButton:initializeSourceButtonListener",
+      "label": "initializeSourceButtonListener",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/cloudRef/cloudRefButton",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/editIndicator:cancelForcedVisibility",
+      "label": "cancelForcedVisibility",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/cloudRef/editIndicator",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/editIndicator:glowCloudGreen",
+      "label": "glowCloudGreen",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/cloudRef/editIndicator",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/editIndicator:glowCloudLocalSave",
+      "label": "glowCloudLocalSave",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/cloudRef/editIndicator",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/editIndicator:glowCloudOrange",
+      "label": "glowCloudOrange",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/cloudRef/editIndicator",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/editIndicator:glowCloudRed",
+      "label": "glowCloudRed",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/cloudRef/editIndicator",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/editIndicator:glowCloudSyncSuccess",
+      "label": "glowCloudSyncSuccess",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/cloudRef/editIndicator",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/index:ensureAiReviewLivePanel",
+      "label": "ensureAiReviewLivePanel",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/aiReview/index",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/index:handleAiReviewGenerate",
+      "label": "handleAiReviewGenerate",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/aiReview/index",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/index:loadAiReviewStatus",
+      "label": "loadAiReviewStatus",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/aiReview/index",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/index:setAiReviewState",
+      "label": "setAiReviewState",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/aiReview/index",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:closeAiReviewVizOverlay",
+      "label": "closeAiReviewVizOverlay",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/aiReview/pipelineViz",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:fetchPipelineMap",
+      "label": "fetchPipelineMap",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/aiReview/pipelineViz",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:openAiReviewVizOverlay",
+      "label": "openAiReviewVizOverlay",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/aiReview/pipelineViz",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:renderPipelineViz",
+      "label": "renderPipelineViz",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/aiReview/pipelineViz",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "label": "syncPipelineHighlights",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/aiReview/pipelineViz",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/polling:pollAiReviewStatus",
+      "label": "pollAiReviewStatus",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/aiReview/polling",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/polling:startAiReviewPolling",
+      "label": "startAiReviewPolling",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/aiReview/polling",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/polling:stopAiReviewPolling",
+      "label": "stopAiReviewPolling",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/aiReview/polling",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "label": "buildSourceHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/buildSourceHtml",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle",
+      "label": "handlePrivacyToggle",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/citationDisplay",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
+      "label": "handleDeleteBook",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/creatorTools/deleteBook",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/index:loadCreatorTools",
+      "label": "loadCreatorTools",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/creatorTools/index",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/reconvert:_awaitReconvert",
+      "label": "_awaitReconvert",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/creatorTools/reconvert",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/reconvert:handleReconvert",
+      "label": "handleReconvert",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/creatorTools/reconvert",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/reconvert:loadReconvertInfo",
+      "label": "loadReconvertInfo",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/creatorTools/reconvert",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/reupload:handleReupload",
+      "label": "handleReupload",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/creatorTools/reupload",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
+      "label": "loadVersionHistory",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/creatorTools/versionHistory",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:downloadAllForBook",
+      "label": "downloadAllForBook",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/downloads",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "label": "exportBookAsDocxStyled",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/downloads",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "label": "exportBookAsEpub",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/downloads",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
+      "label": "exportBookAsMarkdown",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/downloads",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:cleanUrl",
+      "label": "cleanUrl",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:collectFormData",
+      "label": "collectFormData",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:expandForEditForm",
+      "label": "expandForEditForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:handleEditClick",
+      "label": "handleEditClick",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:handleFormSubmit",
+      "label": "handleFormSubmit",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:hideEditForm",
+      "label": "hideEditForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:populateEditForm",
+      "label": "populateEditForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:populateFieldsFromBibtex",
+      "label": "populateFieldsFromBibtex",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:refreshCitationDisplay",
+      "label": "refreshCitationDisplay",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:saveEditForm",
+      "label": "saveEditForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:setupEditFormListeners",
+      "label": "setupEditFormListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:showEditForm",
+      "label": "showEditForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:showOptionalFieldsForType",
+      "label": "showOptionalFieldsForType",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:syncLibraryRecordToBackend",
+      "label": "syncLibraryRecordToBackend",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:validateUrl",
+      "label": "validateUrl",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/editForm",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/helpers:formatRelativeTime",
+      "label": "formatRelativeTime",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/helpers",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/helpers:getBookDownloadName",
+      "label": "getBookDownloadName",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/helpers",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/helpers:getRecord",
+      "label": "getRecord",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/helpers",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/helpers:isSyntheticBook",
+      "label": "isSyntheticBook",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/helpers",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:destroySourceManager",
+      "label": "destroySourceManager",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager._awaitReconvert",
+      "label": "SourceContainerManager._awaitReconvert",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager._settleAnimation",
+      "label": "SourceContainerManager._settleAnimation",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "label": "SourceContainerManager.attachInternalListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.cleanUrl",
+      "label": "SourceContainerManager.cleanUrl",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.closeAiReviewVizOverlay",
+      "label": "SourceContainerManager.closeAiReviewVizOverlay",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.closeContainer",
+      "label": "SourceContainerManager.closeContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.closeOnOverlayClick",
+      "label": "SourceContainerManager.closeOnOverlayClick",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.collectFormData",
+      "label": "SourceContainerManager.collectFormData",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.constructor",
+      "label": "SourceContainerManager.constructor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.ensureAiReviewLivePanel",
+      "label": "SourceContainerManager.ensureAiReviewLivePanel",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.expandForEditForm",
+      "label": "SourceContainerManager.expandForEditForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.fetchPipelineMap",
+      "label": "SourceContainerManager.fetchPipelineMap",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleAiReviewGenerate",
+      "label": "SourceContainerManager.handleAiReviewGenerate",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleDeleteBook",
+      "label": "SourceContainerManager.handleDeleteBook",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleEditClick",
+      "label": "SourceContainerManager.handleEditClick",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleFormSubmit",
+      "label": "SourceContainerManager.handleFormSubmit",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handlePrivacyToggle",
+      "label": "SourceContainerManager.handlePrivacyToggle",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleReconvert",
+      "label": "SourceContainerManager.handleReconvert",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleReupload",
+      "label": "SourceContainerManager.handleReupload",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.hideEditForm",
+      "label": "SourceContainerManager.hideEditForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadAiReviewStatus",
+      "label": "SourceContainerManager.loadAiReviewStatus",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadCreatorTools",
+      "label": "SourceContainerManager.loadCreatorTools",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadReconvertInfo",
+      "label": "SourceContainerManager.loadReconvertInfo",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadVersionHistory",
+      "label": "SourceContainerManager.loadVersionHistory",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.openAiReviewVizOverlay",
+      "label": "SourceContainerManager.openAiReviewVizOverlay",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.openContainer",
+      "label": "SourceContainerManager.openContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.pollAiReviewStatus",
+      "label": "SourceContainerManager.pollAiReviewStatus",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.populateEditForm",
+      "label": "SourceContainerManager.populateEditForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.populateFieldsFromBibtex",
+      "label": "SourceContainerManager.populateFieldsFromBibtex",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.rebindElements",
+      "label": "SourceContainerManager.rebindElements",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.refreshCitationDisplay",
+      "label": "SourceContainerManager.refreshCitationDisplay",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.renderPipelineViz",
+      "label": "SourceContainerManager.renderPipelineViz",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.saveEditForm",
+      "label": "SourceContainerManager.saveEditForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.setAiReviewState",
+      "label": "SourceContainerManager.setAiReviewState",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.setupEditFormListeners",
+      "label": "SourceContainerManager.setupEditFormListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.setupSourceContainerStyles",
+      "label": "SourceContainerManager.setupSourceContainerStyles",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.showEditForm",
+      "label": "SourceContainerManager.showEditForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.showOptionalFieldsForType",
+      "label": "SourceContainerManager.showOptionalFieldsForType",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.startAiReviewPolling",
+      "label": "SourceContainerManager.startAiReviewPolling",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.stopAiReviewPolling",
+      "label": "SourceContainerManager.stopAiReviewPolling",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.syncLibraryRecordToBackend",
+      "label": "SourceContainerManager.syncLibraryRecordToBackend",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.syncPipelineHighlights",
+      "label": "SourceContainerManager.syncPipelineHighlights",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.validateUrl",
+      "label": "SourceContainerManager.validateUrl",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/topRightContainer/sourceContainer/index",
       "leaf": true
     },
     {
@@ -6499,6 +7268,230 @@
       ]
     },
     {
+      "id": "components/topRightContainer/cloudRef/cloudRefButton",
+      "label": "components/topRightContainer/cloudRef/cloudRefButton",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/topRightContainer/cloudRef/cloudRefButton:destroySourceButtonListener",
+        "components/topRightContainer/cloudRef/cloudRefButton:initializeSourceButtonListener"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/editIndicator",
+      "label": "components/topRightContainer/cloudRef/editIndicator",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/topRightContainer/cloudRef/editIndicator:cancelForcedVisibility",
+        "components/topRightContainer/cloudRef/editIndicator:glowCloudGreen",
+        "components/topRightContainer/cloudRef/editIndicator:glowCloudLocalSave",
+        "components/topRightContainer/cloudRef/editIndicator:glowCloudOrange",
+        "components/topRightContainer/cloudRef/editIndicator:glowCloudRed",
+        "components/topRightContainer/cloudRef/editIndicator:glowCloudSyncSuccess"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/index",
+      "label": "components/topRightContainer/sourceContainer/aiReview/index",
+      "stage": "components",
+      "band": "sync",
+      "fnIds": [
+        "components/topRightContainer/sourceContainer/aiReview/index:ensureAiReviewLivePanel",
+        "components/topRightContainer/sourceContainer/aiReview/index:handleAiReviewGenerate",
+        "components/topRightContainer/sourceContainer/aiReview/index:loadAiReviewStatus",
+        "components/topRightContainer/sourceContainer/aiReview/index:setAiReviewState"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/pipelineViz",
+      "label": "components/topRightContainer/sourceContainer/aiReview/pipelineViz",
+      "stage": "components",
+      "band": "sync",
+      "fnIds": [
+        "components/topRightContainer/sourceContainer/aiReview/pipelineViz:closeAiReviewVizOverlay",
+        "components/topRightContainer/sourceContainer/aiReview/pipelineViz:fetchPipelineMap",
+        "components/topRightContainer/sourceContainer/aiReview/pipelineViz:openAiReviewVizOverlay",
+        "components/topRightContainer/sourceContainer/aiReview/pipelineViz:renderPipelineViz",
+        "components/topRightContainer/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/polling",
+      "label": "components/topRightContainer/sourceContainer/aiReview/polling",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/topRightContainer/sourceContainer/aiReview/polling:pollAiReviewStatus",
+        "components/topRightContainer/sourceContainer/aiReview/polling:startAiReviewPolling",
+        "components/topRightContainer/sourceContainer/aiReview/polling:stopAiReviewPolling"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/buildSourceHtml",
+      "label": "components/topRightContainer/sourceContainer/buildSourceHtml",
+      "stage": "components",
+      "band": "store",
+      "fnIds": [
+        "components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/citationDisplay",
+      "label": "components/topRightContainer/sourceContainer/citationDisplay",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/deleteBook",
+      "label": "components/topRightContainer/sourceContainer/creatorTools/deleteBook",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/topRightContainer/sourceContainer/creatorTools/deleteBook:handleDeleteBook"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/index",
+      "label": "components/topRightContainer/sourceContainer/creatorTools/index",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/topRightContainer/sourceContainer/creatorTools/index:loadCreatorTools"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/reconvert",
+      "label": "components/topRightContainer/sourceContainer/creatorTools/reconvert",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/topRightContainer/sourceContainer/creatorTools/reconvert:_awaitReconvert",
+        "components/topRightContainer/sourceContainer/creatorTools/reconvert:handleReconvert",
+        "components/topRightContainer/sourceContainer/creatorTools/reconvert:loadReconvertInfo"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/reupload",
+      "label": "components/topRightContainer/sourceContainer/creatorTools/reupload",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/topRightContainer/sourceContainer/creatorTools/reupload:handleReupload"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/versionHistory",
+      "label": "components/topRightContainer/sourceContainer/creatorTools/versionHistory",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/topRightContainer/sourceContainer/creatorTools/versionHistory:loadVersionHistory"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads",
+      "label": "components/topRightContainer/sourceContainer/downloads",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/topRightContainer/sourceContainer/downloads:downloadAllForBook",
+        "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+        "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+        "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm",
+      "label": "components/topRightContainer/sourceContainer/editForm",
+      "stage": "components",
+      "band": "sync",
+      "fnIds": [
+        "components/topRightContainer/sourceContainer/editForm:cleanUrl",
+        "components/topRightContainer/sourceContainer/editForm:collectFormData",
+        "components/topRightContainer/sourceContainer/editForm:expandForEditForm",
+        "components/topRightContainer/sourceContainer/editForm:handleEditClick",
+        "components/topRightContainer/sourceContainer/editForm:handleFormSubmit",
+        "components/topRightContainer/sourceContainer/editForm:hideEditForm",
+        "components/topRightContainer/sourceContainer/editForm:populateEditForm",
+        "components/topRightContainer/sourceContainer/editForm:populateFieldsFromBibtex",
+        "components/topRightContainer/sourceContainer/editForm:refreshCitationDisplay",
+        "components/topRightContainer/sourceContainer/editForm:saveEditForm",
+        "components/topRightContainer/sourceContainer/editForm:setupEditFormListeners",
+        "components/topRightContainer/sourceContainer/editForm:showEditForm",
+        "components/topRightContainer/sourceContainer/editForm:showOptionalFieldsForType",
+        "components/topRightContainer/sourceContainer/editForm:syncLibraryRecordToBackend",
+        "components/topRightContainer/sourceContainer/editForm:validateUrl"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/helpers",
+      "label": "components/topRightContainer/sourceContainer/helpers",
+      "stage": "components",
+      "band": "store",
+      "fnIds": [
+        "components/topRightContainer/sourceContainer/helpers:formatRelativeTime",
+        "components/topRightContainer/sourceContainer/helpers:getBookDownloadName",
+        "components/topRightContainer/sourceContainer/helpers:getRecord",
+        "components/topRightContainer/sourceContainer/helpers:isSyntheticBook"
+      ]
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index",
+      "label": "components/topRightContainer/sourceContainer/index",
+      "stage": "components",
+      "band": "capture",
+      "fnIds": [
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager._awaitReconvert",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager._settleAnimation",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.cleanUrl",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.closeAiReviewVizOverlay",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.closeContainer",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.closeOnOverlayClick",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.collectFormData",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.constructor",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.ensureAiReviewLivePanel",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.expandForEditForm",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.fetchPipelineMap",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleAiReviewGenerate",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleDeleteBook",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleEditClick",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleFormSubmit",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.handlePrivacyToggle",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleReconvert",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleReupload",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.hideEditForm",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadAiReviewStatus",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadCreatorTools",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadReconvertInfo",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadVersionHistory",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.openAiReviewVizOverlay",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.openContainer",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.pollAiReviewStatus",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.populateEditForm",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.populateFieldsFromBibtex",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.rebindElements",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.refreshCitationDisplay",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.renderPipelineViz",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.saveEditForm",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.setAiReviewState",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.setupEditFormListeners",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.setupSourceContainerStyles",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.showEditForm",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.showOptionalFieldsForType",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.startAiReviewPolling",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.stopAiReviewPolling",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.syncLibraryRecordToBackend",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.syncPipelineHighlights",
+        "components/topRightContainer/sourceContainer/index:SourceContainerManager.validateUrl",
+        "components/topRightContainer/sourceContainer/index:destroySourceManager"
+      ]
+    },
+    {
       "id": "divEditor/chunkManager",
       "label": "divEditor/chunkManager",
       "stage": "divEditor",
@@ -8614,21 +9607,737 @@
       "rel": "write"
     },
     {
+      "id": "components/topRightContainer/cloudRef/cloudRefButton:destroySourceButtonListener__domwrite__dom",
+      "source": "components/topRightContainer/cloudRef/cloudRefButton:destroySourceButtonListener",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/cloudRefButton:initializeSourceButtonListener__domwrite__dom",
+      "source": "components/topRightContainer/cloudRef/cloudRefButton:initializeSourceButtonListener",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/editIndicator:glowCloudGreen__domwrite__dom",
+      "source": "components/topRightContainer/cloudRef/editIndicator:glowCloudGreen",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/editIndicator:glowCloudLocalSave__domwrite__dom",
+      "source": "components/topRightContainer/cloudRef/editIndicator:glowCloudLocalSave",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/editIndicator:glowCloudOrange__call__components/topRightContainer/cloudRef/editIndicator:glowCloudRed",
+      "source": "components/topRightContainer/cloudRef/editIndicator:glowCloudOrange",
+      "target": "components/topRightContainer/cloudRef/editIndicator:glowCloudRed",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/editIndicator:glowCloudOrange__call__indexedDB/core/healthMonitor:isIDBBroken",
+      "source": "components/topRightContainer/cloudRef/editIndicator:glowCloudOrange",
+      "target": "indexedDB/core/healthMonitor:isIDBBroken",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/editIndicator:glowCloudOrange__domwrite__dom",
+      "source": "components/topRightContainer/cloudRef/editIndicator:glowCloudOrange",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/editIndicator:glowCloudRed__domwrite__dom",
+      "source": "components/topRightContainer/cloudRef/editIndicator:glowCloudRed",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/cloudRef/editIndicator:glowCloudSyncSuccess__domwrite__dom",
+      "source": "components/topRightContainer/cloudRef/editIndicator:glowCloudSyncSuccess",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/index:ensureAiReviewLivePanel__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/aiReview/index:ensureAiReviewLivePanel",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/index:handleAiReviewGenerate__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/aiReview/index:handleAiReviewGenerate",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/index:loadAiReviewStatus__call__components/topRightContainer/sourceContainer/helpers:getRecord",
+      "source": "components/topRightContainer/sourceContainer/aiReview/index:loadAiReviewStatus",
+      "target": "components/topRightContainer/sourceContainer/helpers:getRecord",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/index:loadAiReviewStatus__call__indexedDB/core/connection:openDatabase",
+      "source": "components/topRightContainer/sourceContainer/aiReview/index:loadAiReviewStatus",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/index:setAiReviewState__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/aiReview/index:setAiReviewState",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:closeAiReviewVizOverlay__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:closeAiReviewVizOverlay",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:openAiReviewVizOverlay__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:openAiReviewVizOverlay",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:renderPipelineViz__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:renderPipelineViz",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights__call__hyperlights/deletion:reprocessHighlightsForNodes",
+      "source": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "target": "hyperlights/deletion:reprocessHighlightsForNodes",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights__call__indexedDB/core/library:updateLocalAnnotationsTimestamp",
+      "source": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "target": "indexedDB/core/library:updateLocalAnnotationsTimestamp",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights__call__indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "source": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/aiReview/polling:pollAiReviewStatus__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/aiReview/polling:pollAiReviewStatus",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/topRightContainer/sourceContainer/helpers:getRecord",
+      "source": "components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "components/topRightContainer/sourceContainer/helpers:getRecord",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/topRightContainer/sourceContainer/helpers:isSyntheticBook",
+      "source": "components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "components/topRightContainer/sourceContainer/helpers:isSyntheticBook",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml__call__indexedDB/core/connection:openDatabase",
+      "source": "components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml__write__store:library",
+      "source": "components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle__call__components/topRightContainer/sourceContainer/helpers:getRecord",
+      "source": "components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle",
+      "target": "components/topRightContainer/sourceContainer/helpers:getRecord",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle__call__indexedDB/core/connection:openDatabase",
+      "source": "components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle__write__store:library",
+      "source": "components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/deleteBook:handleDeleteBook__call__indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
+      "source": "components/topRightContainer/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
+      "target": "indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/deleteBook:handleDeleteBook__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/index:loadCreatorTools__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/creatorTools/index:loadCreatorTools",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/reconvert:_awaitReconvert__call__indexedDB/utilities/cleanup:clearBookContentFromIndexedDB",
+      "source": "components/topRightContainer/sourceContainer/creatorTools/reconvert:_awaitReconvert",
+      "target": "indexedDB/utilities/cleanup:clearBookContentFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/reconvert:handleReconvert__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/creatorTools/reconvert:handleReconvert",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/reconvert:loadReconvertInfo__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/creatorTools/reconvert:loadReconvertInfo",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/reupload:handleReupload__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/creatorTools/reupload:handleReupload",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/versionHistory:loadVersionHistory__call__components/topRightContainer/sourceContainer/helpers:formatRelativeTime",
+      "source": "components/topRightContainer/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
+      "target": "components/topRightContainer/sourceContainer/helpers:formatRelativeTime",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/creatorTools/versionHistory:loadVersionHistory__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:downloadAllForBook__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/downloads:downloadAllForBook",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled__call__components/topRightContainer/sourceContainer/helpers:getBookDownloadName",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "target": "components/topRightContainer/sourceContainer/helpers:getBookDownloadName",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled__call__components/topRightContainer/sourceContainer/helpers:getRecord",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "target": "components/topRightContainer/sourceContainer/helpers:getRecord",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled__call__indexedDB/core/connection:openDatabase",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled__call__pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "target": "pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub__call__components/topRightContainer/sourceContainer/helpers:getBookDownloadName",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "target": "components/topRightContainer/sourceContainer/helpers:getBookDownloadName",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub__call__components/topRightContainer/sourceContainer/helpers:getRecord",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "target": "components/topRightContainer/sourceContainer/helpers:getRecord",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub__call__indexedDB/core/connection:openDatabase",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub__call__pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "target": "pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown__call__components/topRightContainer/sourceContainer/helpers:getBookDownloadName",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
+      "target": "components/topRightContainer/sourceContainer/helpers:getBookDownloadName",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown__call__components/topRightContainer/sourceContainer/helpers:getRecord",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
+      "target": "components/topRightContainer/sourceContainer/helpers:getRecord",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown__call__indexedDB/core/connection:openDatabase",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown__call__pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
+      "target": "pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:handleFormSubmit__call__indexedDB/core/connection:openDatabase",
+      "source": "components/topRightContainer/sourceContainer/editForm:handleFormSubmit",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:handleFormSubmit__call__indexedDB/core/library:prepareLibraryForIndexedDB",
+      "source": "components/topRightContainer/sourceContainer/editForm:handleFormSubmit",
+      "target": "indexedDB/core/library:prepareLibraryForIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:handleFormSubmit__write__store:library",
+      "source": "components/topRightContainer/sourceContainer/editForm:handleFormSubmit",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:hideEditForm__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/editForm:hideEditForm",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:refreshCitationDisplay__call__components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "source": "components/topRightContainer/sourceContainer/editForm:refreshCitationDisplay",
+      "target": "components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:refreshCitationDisplay__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/editForm:refreshCitationDisplay",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:saveEditForm__call__indexedDB/core/connection:openDatabase",
+      "source": "components/topRightContainer/sourceContainer/editForm:saveEditForm",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:saveEditForm__call__indexedDB/core/library:prepareLibraryForIndexedDB",
+      "source": "components/topRightContainer/sourceContainer/editForm:saveEditForm",
+      "target": "indexedDB/core/library:prepareLibraryForIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:saveEditForm__write__store:library",
+      "source": "components/topRightContainer/sourceContainer/editForm:saveEditForm",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:showEditForm__call__components/topRightContainer/sourceContainer/helpers:getRecord",
+      "source": "components/topRightContainer/sourceContainer/editForm:showEditForm",
+      "target": "components/topRightContainer/sourceContainer/helpers:getRecord",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:showEditForm__call__indexedDB/core/connection:openDatabase",
+      "source": "components/topRightContainer/sourceContainer/editForm:showEditForm",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:showEditForm__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/editForm:showEditForm",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/editForm:syncLibraryRecordToBackend__call__indexedDB/core/library:cleanLibraryItemForStorage",
+      "source": "components/topRightContainer/sourceContainer/editForm:syncLibraryRecordToBackend",
+      "target": "indexedDB/core/library:cleanLibraryItemForStorage",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/helpers:getBookDownloadName__call__components/topRightContainer/sourceContainer/helpers:getRecord",
+      "source": "components/topRightContainer/sourceContainer/helpers:getBookDownloadName",
+      "target": "components/topRightContainer/sourceContainer/helpers:getRecord",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/helpers:getBookDownloadName__call__indexedDB/core/connection:openDatabase",
+      "source": "components/topRightContainer/sourceContainer/helpers:getBookDownloadName",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager._awaitReconvert__call__components/topRightContainer/sourceContainer/creatorTools/reconvert:_awaitReconvert",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager._awaitReconvert",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/reconvert:_awaitReconvert",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/topRightContainer/sourceContainer/downloads:downloadAllForBook",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "target": "components/topRightContainer/sourceContainer/downloads:downloadAllForBook",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "target": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "target": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "target": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.attachInternalListeners__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.cleanUrl__call__components/topRightContainer/sourceContainer/editForm:cleanUrl",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.cleanUrl",
+      "target": "components/topRightContainer/sourceContainer/editForm:cleanUrl",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.closeAiReviewVizOverlay__call__components/topRightContainer/sourceContainer/aiReview/pipelineViz:closeAiReviewVizOverlay",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.closeAiReviewVizOverlay",
+      "target": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:closeAiReviewVizOverlay",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.closeContainer__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.closeContainer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.collectFormData__call__components/topRightContainer/sourceContainer/editForm:collectFormData",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.collectFormData",
+      "target": "components/topRightContainer/sourceContainer/editForm:collectFormData",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.ensureAiReviewLivePanel__call__components/topRightContainer/sourceContainer/aiReview/index:ensureAiReviewLivePanel",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.ensureAiReviewLivePanel",
+      "target": "components/topRightContainer/sourceContainer/aiReview/index:ensureAiReviewLivePanel",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.expandForEditForm__call__components/topRightContainer/sourceContainer/editForm:expandForEditForm",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.expandForEditForm",
+      "target": "components/topRightContainer/sourceContainer/editForm:expandForEditForm",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.fetchPipelineMap__call__components/topRightContainer/sourceContainer/aiReview/pipelineViz:fetchPipelineMap",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.fetchPipelineMap",
+      "target": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:fetchPipelineMap",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleAiReviewGenerate__call__components/topRightContainer/sourceContainer/aiReview/index:handleAiReviewGenerate",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleAiReviewGenerate",
+      "target": "components/topRightContainer/sourceContainer/aiReview/index:handleAiReviewGenerate",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleDeleteBook__call__components/topRightContainer/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleDeleteBook",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleEditClick__call__components/topRightContainer/sourceContainer/editForm:handleEditClick",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleEditClick",
+      "target": "components/topRightContainer/sourceContainer/editForm:handleEditClick",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleFormSubmit__call__components/topRightContainer/sourceContainer/editForm:handleFormSubmit",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleFormSubmit",
+      "target": "components/topRightContainer/sourceContainer/editForm:handleFormSubmit",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handlePrivacyToggle__call__components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handlePrivacyToggle",
+      "target": "components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleReconvert__call__components/topRightContainer/sourceContainer/creatorTools/reconvert:handleReconvert",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleReconvert",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/reconvert:handleReconvert",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleReupload__call__components/topRightContainer/sourceContainer/creatorTools/reupload:handleReupload",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.handleReupload",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/reupload:handleReupload",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.hideEditForm__call__components/topRightContainer/sourceContainer/editForm:hideEditForm",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.hideEditForm",
+      "target": "components/topRightContainer/sourceContainer/editForm:hideEditForm",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadAiReviewStatus__call__components/topRightContainer/sourceContainer/aiReview/index:loadAiReviewStatus",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadAiReviewStatus",
+      "target": "components/topRightContainer/sourceContainer/aiReview/index:loadAiReviewStatus",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadCreatorTools__call__components/topRightContainer/sourceContainer/creatorTools/index:loadCreatorTools",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadCreatorTools",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/index:loadCreatorTools",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadReconvertInfo__call__components/topRightContainer/sourceContainer/creatorTools/reconvert:loadReconvertInfo",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadReconvertInfo",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/reconvert:loadReconvertInfo",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadVersionHistory__call__components/topRightContainer/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.loadVersionHistory",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.openAiReviewVizOverlay__call__components/topRightContainer/sourceContainer/aiReview/pipelineViz:openAiReviewVizOverlay",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.openAiReviewVizOverlay",
+      "target": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:openAiReviewVizOverlay",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.openContainer__call__components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.openContainer",
+      "target": "components/topRightContainer/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.openContainer__domwrite__dom",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.openContainer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.pollAiReviewStatus__call__components/topRightContainer/sourceContainer/aiReview/polling:pollAiReviewStatus",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.pollAiReviewStatus",
+      "target": "components/topRightContainer/sourceContainer/aiReview/polling:pollAiReviewStatus",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.populateEditForm__call__components/topRightContainer/sourceContainer/editForm:populateEditForm",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.populateEditForm",
+      "target": "components/topRightContainer/sourceContainer/editForm:populateEditForm",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.populateFieldsFromBibtex__call__components/topRightContainer/sourceContainer/editForm:populateFieldsFromBibtex",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.populateFieldsFromBibtex",
+      "target": "components/topRightContainer/sourceContainer/editForm:populateFieldsFromBibtex",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.refreshCitationDisplay__call__components/topRightContainer/sourceContainer/editForm:refreshCitationDisplay",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.refreshCitationDisplay",
+      "target": "components/topRightContainer/sourceContainer/editForm:refreshCitationDisplay",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.renderPipelineViz__call__components/topRightContainer/sourceContainer/aiReview/pipelineViz:renderPipelineViz",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.renderPipelineViz",
+      "target": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:renderPipelineViz",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.saveEditForm__call__components/topRightContainer/sourceContainer/editForm:saveEditForm",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.saveEditForm",
+      "target": "components/topRightContainer/sourceContainer/editForm:saveEditForm",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.setAiReviewState__call__components/topRightContainer/sourceContainer/aiReview/index:setAiReviewState",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.setAiReviewState",
+      "target": "components/topRightContainer/sourceContainer/aiReview/index:setAiReviewState",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.setupEditFormListeners__call__components/topRightContainer/sourceContainer/editForm:setupEditFormListeners",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.setupEditFormListeners",
+      "target": "components/topRightContainer/sourceContainer/editForm:setupEditFormListeners",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.showEditForm__call__components/topRightContainer/sourceContainer/editForm:showEditForm",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.showEditForm",
+      "target": "components/topRightContainer/sourceContainer/editForm:showEditForm",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.showOptionalFieldsForType__call__components/topRightContainer/sourceContainer/editForm:showOptionalFieldsForType",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.showOptionalFieldsForType",
+      "target": "components/topRightContainer/sourceContainer/editForm:showOptionalFieldsForType",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.startAiReviewPolling__call__components/topRightContainer/sourceContainer/aiReview/polling:startAiReviewPolling",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.startAiReviewPolling",
+      "target": "components/topRightContainer/sourceContainer/aiReview/polling:startAiReviewPolling",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.stopAiReviewPolling__call__components/topRightContainer/sourceContainer/aiReview/polling:stopAiReviewPolling",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.stopAiReviewPolling",
+      "target": "components/topRightContainer/sourceContainer/aiReview/polling:stopAiReviewPolling",
+      "rel": "call"
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.syncLibraryRecordToBackend__call__components/topRightContainer/sourceContainer/editForm:syncLibraryRecordToBackend",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.syncLibraryRecordToBackend",
+      "target": "components/topRightContainer/sourceContainer/editForm:syncLibraryRecordToBackend",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.syncPipelineHighlights__call__components/topRightContainer/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.syncPipelineHighlights",
+      "target": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/topRightContainer/sourceContainer/index:SourceContainerManager.validateUrl__call__components/topRightContainer/sourceContainer/editForm:validateUrl",
+      "source": "components/topRightContainer/sourceContainer/index:SourceContainerManager.validateUrl",
+      "target": "components/topRightContainer/sourceContainer/editForm:validateUrl",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/chunkManager:handleChunkOverflow__call__divEditor/chunkManager:trackChunkNodeCount",
       "source": "divEditor/chunkManager:handleChunkOverflow",
       "target": "divEditor/chunkManager:trackChunkNodeCount",
-      "rel": "call"
-    },
-    {
-      "id": "divEditor/chunkManager:handleChunkOverflow__call__divEditor/index:startObserving",
-      "source": "divEditor/chunkManager:handleChunkOverflow",
-      "target": "divEditor/index:startObserving",
-      "rel": "call"
-    },
-    {
-      "id": "divEditor/chunkManager:handleChunkOverflow__call__divEditor/index:stopObserving",
-      "source": "divEditor/chunkManager:handleChunkOverflow",
-      "target": "divEditor/index:stopObserving",
       "rel": "call"
     },
     {
@@ -8871,6 +10580,18 @@
       "source": "divEditor/domUtilities:transferNoDeleteMarker",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/editorState:queueNodeForDeletion__call__components/topRightContainer/cloudRef/editIndicator:glowCloudOrange",
+      "source": "divEditor/editorState:queueNodeForDeletion",
+      "target": "components/topRightContainer/cloudRef/editIndicator:glowCloudOrange",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/editorState:queueNodeForSave__call__components/topRightContainer/cloudRef/editIndicator:glowCloudOrange",
+      "source": "divEditor/editorState:queueNodeForSave",
+      "target": "components/topRightContainer/cloudRef/editIndicator:glowCloudOrange",
+      "rel": "call"
     },
     {
       "id": "divEditor/editSessionManager:forceLeakTest__domwrite__dom",
@@ -9189,6 +10910,210 @@
       "id": "dom__domread__citations/citationInserter:insertCitationAtCursor",
       "source": "dom",
       "target": "citations/citationInserter:insertCitationAtCursor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/cloudRef/editIndicator:glowCloudGreen",
+      "source": "dom",
+      "target": "components/topRightContainer/cloudRef/editIndicator:glowCloudGreen",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/cloudRef/editIndicator:glowCloudLocalSave",
+      "source": "dom",
+      "target": "components/topRightContainer/cloudRef/editIndicator:glowCloudLocalSave",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/cloudRef/editIndicator:glowCloudOrange",
+      "source": "dom",
+      "target": "components/topRightContainer/cloudRef/editIndicator:glowCloudOrange",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/cloudRef/editIndicator:glowCloudRed",
+      "source": "dom",
+      "target": "components/topRightContainer/cloudRef/editIndicator:glowCloudRed",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/cloudRef/editIndicator:glowCloudSyncSuccess",
+      "source": "dom",
+      "target": "components/topRightContainer/cloudRef/editIndicator:glowCloudSyncSuccess",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/aiReview/index:ensureAiReviewLivePanel",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/aiReview/index:ensureAiReviewLivePanel",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/aiReview/index:handleAiReviewGenerate",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/aiReview/index:handleAiReviewGenerate",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/aiReview/index:loadAiReviewStatus",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/aiReview/index:loadAiReviewStatus",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/aiReview/index:setAiReviewState",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/aiReview/index:setAiReviewState",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/aiReview/pipelineViz:closeAiReviewVizOverlay",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:closeAiReviewVizOverlay",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/aiReview/pipelineViz:openAiReviewVizOverlay",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:openAiReviewVizOverlay",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/aiReview/pipelineViz:renderPipelineViz",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:renderPipelineViz",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/aiReview/polling:pollAiReviewStatus",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/aiReview/polling:pollAiReviewStatus",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/citationDisplay:handlePrivacyToggle",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/creatorTools/index:loadCreatorTools",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/index:loadCreatorTools",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/creatorTools/reconvert:handleReconvert",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/reconvert:handleReconvert",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/creatorTools/reconvert:loadReconvertInfo",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/reconvert:loadReconvertInfo",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/creatorTools/reupload:handleReupload",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/reupload:handleReupload",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/editForm:collectFormData",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/editForm:collectFormData",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/editForm:hideEditForm",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/editForm:hideEditForm",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/editForm:populateEditForm",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/editForm:populateEditForm",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/editForm:populateFieldsFromBibtex",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/editForm:populateFieldsFromBibtex",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/editForm:setupEditFormListeners",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/editForm:setupEditFormListeners",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/editForm:showEditForm",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/editForm:showEditForm",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/editForm:showOptionalFieldsForType",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/editForm:showOptionalFieldsForType",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/editForm:syncLibraryRecordToBackend",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/editForm:syncLibraryRecordToBackend",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/topRightContainer/sourceContainer/index:SourceContainerManager.constructor",
+      "source": "dom",
+      "target": "components/topRightContainer/sourceContainer/index:SourceContainerManager.constructor",
       "rel": "domread"
     },
     {
@@ -16854,6 +18779,12 @@
       "dataPath": true
     },
     {
+      "id": "pageLoad/onlineRetry:setupOnlineSyncListener__call__components/topRightContainer/cloudRef/editIndicator:glowCloudSyncSuccess",
+      "source": "pageLoad/onlineRetry:setupOnlineSyncListener",
+      "target": "components/topRightContainer/cloudRef/editIndicator:glowCloudSyncSuccess",
+      "rel": "call"
+    },
+    {
       "id": "pageLoad/onlineRetry:setupOnlineSyncListener__call__indexedDB/core/connection:openDatabase",
       "source": "pageLoad/onlineRetry:setupOnlineSyncListener",
       "target": "indexedDB/core/connection:openDatabase",
@@ -17633,6 +19564,18 @@
       "dataPath": true
     },
     {
+      "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.createAndTransition__call__components/topRightContainer/cloudRef/editIndicator:glowCloudGreen",
+      "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.createAndTransition",
+      "target": "components/topRightContainer/cloudRef/editIndicator:glowCloudGreen",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.createAndTransition__call__components/topRightContainer/cloudRef/editIndicator:glowCloudRed",
+      "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.createAndTransition",
+      "target": "components/topRightContainer/cloudRef/editIndicator:glowCloudRed",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.createAndTransition__call__indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL",
       "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.createAndTransition",
       "target": "indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL",
@@ -17651,6 +19594,18 @@
       "target": "SPA/createNewBook:fireAndForgetSync",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.ensureOrangeIndicator__call__components/topRightContainer/cloudRef/editIndicator:glowCloudOrange",
+      "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.ensureOrangeIndicator",
+      "target": "components/topRightContainer/cloudRef/editIndicator:glowCloudOrange",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.ensurePendingSyncsComplete__call__components/topRightContainer/cloudRef/editIndicator:glowCloudGreen",
+      "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.ensurePendingSyncsComplete",
+      "target": "components/topRightContainer/cloudRef/editIndicator:glowCloudGreen",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.initializeReader__call__indexedDB/index:updateDatabaseBookId",
@@ -18074,6 +20029,24 @@
       "dataPath": true
     },
     {
+      "id": "store:bibliography__read__components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "source": "store:bibliography",
+      "target": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "rel": "read"
+    },
+    {
+      "id": "store:bibliography__read__components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "source": "store:bibliography",
+      "target": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "rel": "read"
+    },
+    {
+      "id": "store:bibliography__read__components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
+      "source": "store:bibliography",
+      "target": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
+      "rel": "read"
+    },
+    {
       "id": "store:bibliography__read__hyperlitContainer/contentBuilders/displayCitations:buildCitationContent",
       "source": "store:bibliography",
       "target": "hyperlitContainer/contentBuilders/displayCitations:buildCitationContent",
@@ -18083,6 +20056,24 @@
       "id": "store:bibliography__read__indexedDB/core/connection:openDatabase",
       "source": "store:bibliography",
       "target": "indexedDB/core/connection:openDatabase",
+      "rel": "read"
+    },
+    {
+      "id": "store:footnotes__read__components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "source": "store:footnotes",
+      "target": "components/topRightContainer/sourceContainer/downloads:exportBookAsDocxStyled",
+      "rel": "read"
+    },
+    {
+      "id": "store:footnotes__read__components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "source": "store:footnotes",
+      "target": "components/topRightContainer/sourceContainer/downloads:exportBookAsEpub",
+      "rel": "read"
+    },
+    {
+      "id": "store:footnotes__read__components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
+      "source": "store:footnotes",
+      "target": "components/topRightContainer/sourceContainer/downloads:exportBookAsMarkdown",
       "rel": "read"
     },
     {
@@ -18855,6 +20846,11 @@
     },
     {
       "source": "SPA/navigation/pathways/NewBookTransition",
+      "target": "components/topRightContainer/cloudRef/editIndicator",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/NewBookTransition",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -18904,6 +20900,11 @@
       "kind": "static"
     },
     {
+      "source": "SPA/navigation/utils/cleanupHelpers",
+      "target": "components/topRightContainer/sourceContainer/index",
+      "kind": "lazy"
+    },
+    {
       "source": "SPA/navigation/utils/contentSwapHelpers",
       "target": "SPA/navigation/ProgressOverlayEnactor",
       "kind": "static"
@@ -18926,6 +20927,11 @@
     {
       "source": "SPA/navigation/utils/initHelpers",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "components/topRightContainer/cloudRef/cloudRefButton",
       "kind": "static"
     },
     {
@@ -19001,6 +21007,166 @@
     {
       "source": "citations/citationInserter",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/cloudRef/cloudRefButton",
+      "target": "components/topRightContainer/sourceContainer/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/cloudRef/editIndicator",
+      "target": "indexedDB/core/healthMonitor",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/aiReview/index",
+      "target": "components/topRightContainer/sourceContainer/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/aiReview/index",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/aiReview/pipelineViz",
+      "target": "hyperlights/deletion",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/aiReview/pipelineViz",
+      "target": "indexedDB/core/library",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/buildSourceHtml",
+      "target": "components/topRightContainer/sourceContainer/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/buildSourceHtml",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/citationDisplay",
+      "target": "components/topRightContainer/sourceContainer/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/citationDisplay",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/creatorTools/deleteBook",
+      "target": "indexedDB/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/creatorTools/reconvert",
+      "target": "SPA/navigation/pathways/ImportBookTransition",
+      "kind": "breaker"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/creatorTools/reconvert",
+      "target": "indexedDB/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/creatorTools/versionHistory",
+      "target": "components/topRightContainer/sourceContainer/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/downloads",
+      "target": "components/topRightContainer/sourceContainer/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/downloads",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/editForm",
+      "target": "components/topRightContainer/sourceContainer/buildSourceHtml",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/editForm",
+      "target": "components/topRightContainer/sourceContainer/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/editForm",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/helpers",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/index",
+      "target": "components/topRightContainer/sourceContainer/aiReview/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/index",
+      "target": "components/topRightContainer/sourceContainer/aiReview/pipelineViz",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/index",
+      "target": "components/topRightContainer/sourceContainer/aiReview/polling",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/index",
+      "target": "components/topRightContainer/sourceContainer/buildSourceHtml",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/index",
+      "target": "components/topRightContainer/sourceContainer/citationDisplay",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/index",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/deleteBook",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/index",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/index",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/reconvert",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/index",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/reupload",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/index",
+      "target": "components/topRightContainer/sourceContainer/creatorTools/versionHistory",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/index",
+      "target": "components/topRightContainer/sourceContainer/downloads",
+      "kind": "static"
+    },
+    {
+      "source": "components/topRightContainer/sourceContainer/index",
+      "target": "components/topRightContainer/sourceContainer/editForm",
       "kind": "static"
     },
     {
@@ -19084,6 +21250,11 @@
       "kind": "lazy"
     },
     {
+      "source": "divEditor/editorState",
+      "target": "components/topRightContainer/cloudRef/editIndicator",
+      "kind": "static"
+    },
+    {
       "source": "divEditor/enterKeyHandler/caretHelpers",
       "target": "divEditor/editorState",
       "kind": "static"
@@ -19096,6 +21267,11 @@
     {
       "source": "divEditor/enterKeyHandler/index",
       "target": "divEditor/enterKeyHandler/caretHelpers",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/index",
+      "target": "components/topRightContainer/cloudRef/editIndicator",
       "kind": "static"
     },
     {
@@ -20239,6 +22415,11 @@
       "kind": "static"
     },
     {
+      "source": "indexedDB/core/healthMonitor",
+      "target": "components/topRightContainer/cloudRef/editIndicator",
+      "kind": "breaker"
+    },
+    {
       "source": "indexedDB/core/library",
       "target": "indexedDB/core/connection",
       "kind": "static"
@@ -20849,6 +23030,11 @@
       "kind": "static"
     },
     {
+      "source": "pageLoad/onlineRetry",
+      "target": "components/topRightContainer/cloudRef/editIndicator",
+      "kind": "lazy"
+    },
+    {
       "source": "pageLoad/readerEntry",
       "target": "SPA/createNewBook",
       "kind": "static"
@@ -20886,6 +23072,11 @@
     {
       "source": "pageLoad/readerEntry",
       "target": "SPA/navigation/ProgressOverlayConductor",
+      "kind": "lazy"
+    },
+    {
+      "source": "pageLoad/readerEntry",
+      "target": "components/topRightContainer/cloudRef/editIndicator",
       "kind": "lazy"
     },
     {
@@ -20998,16 +23189,25 @@
     "staticCycles": [],
     "latentCycles": [
       [
+        "components/topRightContainer/cloudRef/editIndicator",
+        "indexedDB/core/healthMonitor"
+      ],
+      [
         "SPA/navigation/LinkNavigationHandler",
         "SPA/navigation/NavigationManager",
         "SPA/navigation/chunkLoadRouter",
         "SPA/navigation/pathways/BookToBookTransition",
         "SPA/navigation/pathways/DifferentTemplateTransition",
+        "SPA/navigation/pathways/ImportBookTransition",
         "SPA/navigation/pathways/SameTemplateTransition",
         "SPA/navigation/utils/cleanupHelpers",
         "SPA/navigation/utils/contentSwapHelpers",
         "SPA/navigation/utils/initHelpers",
         "SPA/viewManager",
+        "components/topRightContainer/cloudRef/cloudRefButton",
+        "components/topRightContainer/sourceContainer/creatorTools/reconvert",
+        "components/topRightContainer/sourceContainer/downloads",
+        "components/topRightContainer/sourceContainer/index",
         "divEditor/chunkManager",
         "divEditor/chunkMutationHandler/index",
         "divEditor/domUtilities",
@@ -21044,7 +23244,7 @@
         "scrolling/restore"
       ]
     ],
-    "breakerCount": 14,
-    "lazyCount": 114
+    "breakerCount": 17,
+    "lazyCount": 122
   }
 }

@@ -36,7 +36,7 @@ import {
   handleAutoEdit,
   enforceEditableState
 } from "../components/editButton.js";
-import { initializeSourceButtonListener } from "../components/sourceButton.js";
+import { initializeSourceButtonListener } from "../components/topRightContainer/cloudRef/cloudRefButton";
 import {
   initializeSelectionHandler,
   destroySelectionHandler,

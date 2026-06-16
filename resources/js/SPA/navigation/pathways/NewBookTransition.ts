@@ -8,7 +8,7 @@
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
-import { glowCloudOrange, glowCloudGreen, glowCloudRed } from '../../../components/editIndicator.js';
+import { glowCloudOrange, glowCloudGreen, glowCloudRed } from '../../../components/topRightContainer/cloudRef/editIndicator';
 import { waitForElementReady, waitForContentReady } from '../../../utilities/domReadiness';
 import { log, verbose } from '../../../utilities/logger.js';
 import { debouncedMasterSync, pendingSyncs, updateDatabaseBookId } from '../../../indexedDB/index';

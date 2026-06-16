@@ -1,22 +1,22 @@
-// editIndicator.js
+// editIndicator.ts
 // Controls the cloudRef button glow colors to indicate save status:
 // - Orange: saving in progress
 // - Green: save successful
 // - Red: save error
 
-import { verbose } from '../utilities/logger.js';
-import { getPerimeterButtonsHidden } from '../utilities/operationState.js';
-import { isIDBBroken } from '../indexedDB/core/healthMonitor';
+import { verbose } from '../../../utilities/logger.js';
+import { getPerimeterButtonsHidden } from '../../../utilities/operationState.js';
+import { isIDBBroken } from '../../../indexedDB/core/healthMonitor';
 
 export let isProcessing = false
 export let isComplete   = false
 
 // Safety timeout: auto-reset if stuck orange for too long
-let safetyTimer = null
+let safetyTimer: ReturnType<typeof setTimeout> | null = null
 
 // Keep track of topRightContainer state
-let topRightContainer = null
-let topRightVisibilityBeforeEdit = null
+let topRightContainer: HTMLElement | null = null
+let topRightVisibilityBeforeEdit: boolean | null = null
 
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
@@ -34,7 +34,7 @@ function emitProcessingChange() {
 function resetIndicator() {
   isProcessing = false
   isComplete   = false
-  clearTimeout(safetyTimer)
+  if (safetyTimer) clearTimeout(safetyTimer)
   safetyTimer = null
   emitProcessingChange()
 
@@ -72,7 +72,7 @@ export function glowCloudOrange() {
   isProcessing = true
   emitProcessingChange()
 
-  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
+  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1') as HTMLElement | null
   if (cloudSvgPath) {
     cloudSvgPath.style.fill = 'var(--status-saving)'
   }
@@ -86,7 +86,7 @@ export function glowCloudOrange() {
   }
 
   // Safety timeout: auto-reset if green/red never fires (e.g., filtered mutations, errors)
-  clearTimeout(safetyTimer)
+  if (safetyTimer) clearTimeout(safetyTimer)
   safetyTimer = setTimeout(() => {
     if (isProcessing && !isComplete) {
       if (isIDBBroken()) {
@@ -107,7 +107,7 @@ export function glowCloudGreen() {
   if (!isProcessing || isComplete) return
   isComplete = true
 
-  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
+  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1') as HTMLElement | null
   if (cloudSvgPath) {
     cloudSvgPath.style.fill = 'var(--status-success)'
   }
@@ -122,15 +122,15 @@ export function glowCloudGreen() {
 
 /**
  * Glow the cloudRef button red to indicate error, then fade back to grey after 3s.
- * @param {Object} [errorInfo] Optional error descriptor — see saveErrorToast.classifySyncError.
+ * @param errorInfo Optional error descriptor — see saveErrorToast.classifySyncError.
  *   When provided (and the error warrants it) an explanatory toast is shown. Omitting it
  *   preserves the legacy glow-only behaviour, so un-enriched callers never surface a toast.
  */
-export function glowCloudRed(errorInfo) {
+export function glowCloudRed(errorInfo?: any) {
   if (!isProcessing) return
   isComplete = true
 
-  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
+  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1') as HTMLElement | null
   if (cloudSvgPath) {
     cloudSvgPath.style.fill = 'var(--status-error)'
   }
@@ -138,7 +138,7 @@ export function glowCloudRed(errorInfo) {
 
   // Explain WHAT went wrong (severity-tiered toast). Lazy import keeps editIndicator light.
   if (errorInfo) {
-    import('./saveErrorToast.js')
+    import('../../saveErrorToast.js')
       .then(({ showSaveErrorToast }) => showSaveErrorToast(errorInfo))
       .catch(() => { /* toast module unavailable — glow still conveys the error */ })
   }
@@ -155,7 +155,7 @@ export function glowCloudLocalSave() {
   if (!isProcessing) return
   isComplete = true
 
-  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
+  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1') as HTMLElement | null
   if (cloudSvgPath) {
     cloudSvgPath.style.fill = 'var(--status-saving)'
   }
@@ -180,7 +180,7 @@ export function cancelForcedVisibility() {
  * Unlike glowCloudGreen, this doesn't require isProcessing to be true
  */
 export function glowCloudSyncSuccess() {
-  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1')
+  const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1') as HTMLElement | null
   if (cloudSvgPath) {
     cloudSvgPath.style.fill = 'var(--status-success)'
   }

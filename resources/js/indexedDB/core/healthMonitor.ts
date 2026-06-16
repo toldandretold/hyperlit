@@ -50,7 +50,7 @@ export function reportIDBFailure(error: unknown, opts: { retryFn?: () => unknown
 
       // Visual feedback — fire-and-forget dynamic import. Pass 'idb-broken-handled' so the
       // save-error toast stays silent: showIDBRecoveryToast() below already owns the message.
-      import('../../components/editIndicator.js')
+      import('../../components/topRightContainer/cloudRef/editIndicator')
         .then(({ glowCloudRed }) => glowCloudRed({ kind: 'idb-broken-handled' }))
         .catch(() => { /* editIndicator may not be loaded yet */ });
 

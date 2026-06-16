@@ -25,7 +25,7 @@ import { marked } from 'marked';
 import { getActiveBook } from '../utilities/activeContext.js';
 import { getCurrentChunk } from '../divEditor/chunkManager';
 import { initializeMainLazyLoader, lazyLoaders } from '../pageLoad';
-import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../components/editIndicator.js';
+import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../components/topRightContainer/cloudRef/editIndicator';
 import {
   setPasteInProgress,
   isPasteInProgress as isPasteInProgressState

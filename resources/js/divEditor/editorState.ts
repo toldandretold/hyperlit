@@ -13,7 +13,7 @@
  * import from here without re-forming the cycle.
  */
 import { NUMERICAL_ID_PATTERN } from '../utilities/IDfunctions.js';
-import { glowCloudOrange } from '../components/editIndicator.js';
+import { glowCloudOrange } from '../components/topRightContainer/cloudRef/editIndicator';
 import { verbose } from '../utilities/logger.js';
 import type { SaveQueue } from './saveQueue';
 
