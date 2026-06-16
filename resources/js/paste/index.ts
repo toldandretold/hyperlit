@@ -69,12 +69,10 @@ marked.setOptions(<any>{
 // Flag to prevent double-handling
 let pasteHandled = false;
 
-// Flag to temporarily disable safety mechanism during paste operations
-let isPasteOperationInProgress = false;
-
-export function isPasteOperationActive() {
-  return isPasteOperationInProgress;
-}
+// Paste-in-progress flag lives in the ./pasteState leaf (so divEditor can read it without
+// importing this barrel). Re-export the reader for existing importers.
+import { isPasteOperationActive, setPasteOperationInProgress } from './pasteState';
+export { isPasteOperationActive } from './pasteState';
 
 export function addPasteListener(editableDiv: any) {
   console.log("Adding modular paste listener");
@@ -606,7 +604,7 @@ async function handlePaste(event: any) {
 
     // Large paste DOES need the flags — it does brutal DOM surgery
     setPasteInProgress(true);
-    isPasteOperationInProgress = true;
+    setPasteOperationInProgress(true);
 
     const insertionPoint = getInsertionPoint(chunkElement, targetBookId);
     if (!insertionPoint) {
@@ -802,8 +800,8 @@ async function handlePaste(event: any) {
     if (isPasteInProgressState()) {
       setPasteInProgress(false);
     }
-    if (isPasteOperationInProgress) {
-      isPasteOperationInProgress = false;
+    if (isPasteOperationActive()) {
+      setPasteOperationInProgress(false);
     }
   }
 }

@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1312 functions in 258 modules · 8 object stores · 6 PG tables · 2478 edges
+**MarkdownDB** schema v27 · 1468 functions in 300 modules · 8 object stores · 6 PG tables · 2792 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1075,6 +1075,162 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hidePageLoadProgress` | `pageLoad/readerEntry` | — | — | — | — |
 | `updatePageLoadProgress` | `pageLoad/readerEntry` | — | — | — | — |
 | `initializeTimeMachine` | `pageLoad/timeMachine` | — | — | read/write | — |
+| `processContentForFootnotesAndReferences` | `paste/fallback-processor` | — | — | read | `↑bibliography` `↑footnotes` |
+| `saveFootnotesToIndexedDB` | `paste/fallback-processor` | — | `footnotes` | — | — |
+| `saveReferencesToIndexedDB` | `paste/fallback-processor` | — | `bibliography` | — | — |
+| `detectFormat` | `paste/format-detection/format-detector` | — | — | read | — |
+| `detectFormatVerbose` | `paste/format-detection/format-detector` | — | — | read | — |
+| `getProcessorForContent` | `paste/format-detection/format-detector` | — | — | — | — |
+| `getFormatConfig` | `paste/format-detection/format-registry` | — | — | — | — |
+| `getFormatsByPriority` | `paste/format-detection/format-registry` | — | — | — | — |
+| `registerFormat` | `paste/format-detection/format-registry` | — | — | — | — |
+| `BaseFormatProcessor.appendStaticSections` | `paste/format-processors/base-processor` | — | — | write | — |
+| `BaseFormatProcessor.cleanup` | `paste/format-processors/base-processor` | — | — | read/write | — |
+| `BaseFormatProcessor.constructor` | `paste/format-processors/base-processor` | — | — | — | — |
+| `BaseFormatProcessor.createDOM` | `paste/format-processors/base-processor` | — | — | — | — |
+| `BaseFormatProcessor.createFootnote` | `paste/format-processors/base-processor` | — | — | — | — |
+| `BaseFormatProcessor.createReference` | `paste/format-processors/base-processor` | — | — | — | — |
+| `BaseFormatProcessor.extractFootnotes` | `paste/format-processors/base-processor` | — | — | — | — |
+| `BaseFormatProcessor.extractReferences` | `paste/format-processors/base-processor` | — | — | — | — |
+| `BaseFormatProcessor.generateFootnoteId` | `paste/format-processors/base-processor` | — | — | — | — |
+| `BaseFormatProcessor.generateFootnoteRefId` | `paste/format-processors/base-processor` | — | — | — | — |
+| `BaseFormatProcessor.linkCitations` | `paste/format-processors/base-processor` | — | — | write | — |
+| `BaseFormatProcessor.linkFootnotes` | `paste/format-processors/base-processor` | — | — | write | — |
+| `BaseFormatProcessor.normalize` | `paste/format-processors/base-processor` | — | — | write | — |
+| `BaseFormatProcessor.process` | `paste/format-processors/base-processor` | — | — | write | — |
+| `BaseFormatProcessor.processLite` | `paste/format-processors/base-processor` | — | — | — | — |
+| `BaseFormatProcessor.transformStructure` | `paste/format-processors/base-processor` | — | — | — | — |
+| `CambridgeProcessor.constructor` | `paste/format-processors/cambridge-processor` | — | — | — | — |
+| `CambridgeProcessor.extractAndPreserveTitle` | `paste/format-processors/cambridge-processor` | — | — | read/write | — |
+| `CambridgeProcessor.extractFootnotes` | `paste/format-processors/cambridge-processor` | — | — | read/write | — |
+| `CambridgeProcessor.extractReferences` | `paste/format-processors/cambridge-processor` | — | — | read/write | — |
+| `CambridgeProcessor.linkFootnotes` | `paste/format-processors/cambridge-processor` | — | — | read/write | — |
+| `CambridgeProcessor.transformStructure` | `paste/format-processors/cambridge-processor` | — | — | read/write | — |
+| `GeneralProcessor.constructor` | `paste/format-processors/general-processor` | — | — | — | — |
+| `GeneralProcessor.extractFootnotes` | `paste/format-processors/general-processor` | — | — | read/write | — |
+| `GeneralProcessor.extractReferences` | `paste/format-processors/general-processor` | — | — | read/write | — |
+| `GeneralProcessor.transformStructure` | `paste/format-processors/general-processor` | — | — | read | — |
+| `MitPressProcessor.constructor` | `paste/format-processors/mit-press-processor` | — | — | — | — |
+| `MitPressProcessor.extractFootnotes` | `paste/format-processors/mit-press-processor` | — | — | read/write | — |
+| `MitPressProcessor.extractReferences` | `paste/format-processors/mit-press-processor` | — | — | read | — |
+| `MitPressProcessor.linkCitations` | `paste/format-processors/mit-press-processor` | — | — | read/write | — |
+| `MitPressProcessor.linkFootnotes` | `paste/format-processors/mit-press-processor` | — | — | read/write | — |
+| `MitPressProcessor.transformStructure` | `paste/format-processors/mit-press-processor` | — | — | read/write | — |
+| `OupProcessor.constructor` | `paste/format-processors/oup-processor` | — | — | — | — |
+| `OupProcessor.extractFootnotes` | `paste/format-processors/oup-processor` | — | — | read/write | — |
+| `OupProcessor.extractReferences` | `paste/format-processors/oup-processor` | — | — | read | — |
+| `OupProcessor.handleDuplicateTables` | `paste/format-processors/oup-processor` | — | — | read/write | — |
+| `OupProcessor.linkCitations` | `paste/format-processors/oup-processor` | — | — | read/write | — |
+| `OupProcessor.linkFootnotes` | `paste/format-processors/oup-processor` | — | — | read/write | — |
+| `OupProcessor.preserveFigureCaptions` | `paste/format-processors/oup-processor` | — | — | read/write | — |
+| `OupProcessor.preserveTableCaptions` | `paste/format-processors/oup-processor` | — | — | read/write | — |
+| `OupProcessor.removeExtractedSections` | `paste/format-processors/oup-processor` | — | — | — | — |
+| `OupProcessor.transformStructure` | `paste/format-processors/oup-processor` | — | — | read/write | — |
+| `SageProcessor.constructor` | `paste/format-processors/sage-processor` | — | — | — | — |
+| `SageProcessor.extractFootnotes` | `paste/format-processors/sage-processor` | — | — | read/write | — |
+| `SageProcessor.extractReferences` | `paste/format-processors/sage-processor` | — | — | read | — |
+| `SageProcessor.linkCitations` | `paste/format-processors/sage-processor` | — | — | read/write | — |
+| `SageProcessor.linkFootnotes` | `paste/format-processors/sage-processor` | — | — | read/write | — |
+| `SageProcessor.transformStructure` | `paste/format-processors/sage-processor` | — | — | — | — |
+| `ScienceDirectProcessor.constructor` | `paste/format-processors/science-direct-processor` | — | — | — | — |
+| `ScienceDirectProcessor.convertCitationLinks` | `paste/format-processors/science-direct-processor` | — | — | read/write | — |
+| `ScienceDirectProcessor.extractFootnotes` | `paste/format-processors/science-direct-processor` | — | — | — | — |
+| `ScienceDirectProcessor.extractReferences` | `paste/format-processors/science-direct-processor` | — | — | read | — |
+| `ScienceDirectProcessor.flattenReferenceContent` | `paste/format-processors/science-direct-processor` | — | — | read/write | — |
+| `ScienceDirectProcessor.linkCitations` | `paste/format-processors/science-direct-processor` | — | — | read/write | — |
+| `ScienceDirectProcessor.transformStructure` | `paste/format-processors/science-direct-processor` | — | — | read/write | — |
+| `SpringerProcessor.constructor` | `paste/format-processors/springer-processor` | — | — | — | — |
+| `SpringerProcessor.extractFootnotes` | `paste/format-processors/springer-processor` | — | — | read/write | — |
+| `SpringerProcessor.extractReferences` | `paste/format-processors/springer-processor` | — | — | read/write | — |
+| `SpringerProcessor.linkCitations` | `paste/format-processors/springer-processor` | — | — | read/write | — |
+| `SpringerProcessor.linkFootnotes` | `paste/format-processors/springer-processor` | — | — | read/write | — |
+| `SpringerProcessor.transformStructure` | `paste/format-processors/springer-processor` | — | — | — | — |
+| `SubstackProcessor.constructor` | `paste/format-processors/substack-processor` | — | — | — | — |
+| `SubstackProcessor.extractFootnotes` | `paste/format-processors/substack-processor` | — | — | read/write | — |
+| `SubstackProcessor.extractReferences` | `paste/format-processors/substack-processor` | — | — | — | — |
+| `SubstackProcessor.linkFootnotes` | `paste/format-processors/substack-processor` | — | — | read/write | — |
+| `SubstackProcessor.transformStructure` | `paste/format-processors/substack-processor` | — | — | read/write | — |
+| `TaylorFrancisProcessor.constructor` | `paste/format-processors/taylor-francis-processor` | — | — | — | — |
+| `TaylorFrancisProcessor.extractFootnotes` | `paste/format-processors/taylor-francis-processor` | — | — | read/write | — |
+| `TaylorFrancisProcessor.extractReferences` | `paste/format-processors/taylor-francis-processor` | — | — | read | — |
+| `TaylorFrancisProcessor.linkCitations` | `paste/format-processors/taylor-francis-processor` | — | — | read/write | — |
+| `TaylorFrancisProcessor.linkFootnotes` | `paste/format-processors/taylor-francis-processor` | — | — | read/write | — |
+| `TaylorFrancisProcessor.transformStructure` | `paste/format-processors/taylor-francis-processor` | — | — | read/write | — |
+| `WileyProcessor.constructor` | `paste/format-processors/wiley-processor` | — | — | — | — |
+| `WileyProcessor.extractFootnotes` | `paste/format-processors/wiley-processor` | — | — | read/write | — |
+| `WileyProcessor.extractReferences` | `paste/format-processors/wiley-processor` | — | — | read/write | — |
+| `WileyProcessor.linkCitations` | `paste/format-processors/wiley-processor` | — | — | read/write | — |
+| `WileyProcessor.transformStructure` | `paste/format-processors/wiley-processor` | — | — | read/write | — |
+| `handleCodeBlockPaste` | `paste/handlers/codeBlockHandler` | — | — | read | — |
+| `handleHypercitePaste` | `paste/handlers/hyperciteHandler` | — | — | read/write | `↑hypercites` |
+| `saveCurrentParagraph` | `paste/handlers/hyperciteHandler` | — | — | read | — |
+| `clearPasteSnapshot` | `paste/handlers/largePasteHandler` | — | — | — | — |
+| `handleLargePaste` | `paste/handlers/largePasteHandler` | — | — | read/write | — |
+| `undoLastLargePaste` | `paste/handlers/largePasteHandler` | — | — | read/write | — |
+| `handleNovelVacuum` | `paste/handlers/novelVacuumHandler` | — | — | read/write | — |
+| `handleSmallPaste` | `paste/handlers/smallPasteHandler` | — | — | read/write | — |
+| `addPasteListener` | `paste/index` | — | — | — | — |
+| `isPasteOperationActive` | `paste/pasteState` | — | — | — | — |
+| `setPasteOperationInProgress` | `paste/pasteState` | — | — | — | — |
+| `hideConversionModal` | `paste/ui/modalManager` | — | — | — | — |
+| `showConversionModal` | `paste/ui/modalManager` | — | — | read/write | — |
+| `hidePasteUndoToast` | `paste/ui/pasteUndoToast` | — | — | read/write | — |
+| `showPasteUndoToast` | `paste/ui/pasteUndoToast` | — | — | read/write | — |
+| `ensureSpaceAfterAnchor` | `paste/utils/anchorSpacing` | — | — | write | — |
+| `processInTextCitations` | `paste/utils/citation-linker` | — | — | read/write | — |
+| `convertTextToHtml` | `paste/utils/content-converter` | — | — | read/write | — |
+| `convertToJsonObjects` | `paste/utils/content-converter` | — | — | — | — |
+| `estimatePasteNodeCount` | `paste/utils/content-estimator` | — | — | read | — |
+| `isSmallPaste` | `paste/utils/content-estimator` | — | — | — | — |
+| `estimatePasteNodeCount` | `paste/utils/dom-helpers` | — | — | read | — |
+| `createTempDOM` | `paste/utils/dom-utils` | — | — | write | — |
+| `groupInlineElements` | `paste/utils/dom-utils` | — | — | write | — |
+| `isBlockElement` | `paste/utils/dom-utils` | — | — | — | — |
+| `isRealLink` | `paste/utils/dom-utils` | — | — | — | — |
+| `isReferenceSectionHeading` | `paste/utils/dom-utils` | — | — | — | — |
+| `removeEmptyBlocks` | `paste/utils/dom-utils` | — | — | read/write | — |
+| `replaceTag` | `paste/utils/dom-utils` | — | — | write | — |
+| `stripAttributes` | `paste/utils/dom-utils` | — | — | read/write | — |
+| `unwrap` | `paste/utils/dom-utils` | — | — | write | — |
+| `unwrapNonContentContainers` | `paste/utils/dom-utils` | — | — | read | — |
+| `visuallyStartsWith` | `paste/utils/dom-utils` | — | — | write | — |
+| `wrapLooseNodes` | `paste/utils/dom-utils` | — | — | write | — |
+| `extractFootnoteIdsFromElement` | `paste/utils/extractFootnoteIds` | — | — | read | — |
+| `extractFootnoteIdsFromHtml` | `paste/utils/extractFootnoteIds` | — | — | write | — |
+| `createFootnoteSupElement` | `paste/utils/footnote-linker` | — | — | write | — |
+| `createFootnoteSupHTML` | `paste/utils/footnote-linker` | — | — | — | — |
+| `processFootnoteReferences` | `paste/utils/footnote-linker` | — | — | read/write | — |
+| `isBlockElement` | `paste/utils/html-block-parser` | — | — | — | — |
+| `parseHtmlToBlocks` | `paste/utils/html-block-parser` | — | — | write | — |
+| `isRealLink` | `paste/utils/html-preprocessor` | — | — | — | — |
+| `preprocessHTMLContent` | `paste/utils/html-preprocessor` | — | — | read/write | — |
+| `getInsertionPoint` | `paste/utils/insertion-point-calculator` | — | — | read | — |
+| `detectMarkdown` | `paste/utils/markdown-detector` | — | — | — | — |
+| `footnoteDefinitionsToHtml` | `paste/utils/markdown-processor` | — | — | — | — |
+| `preprocessMarkdownFootnotes` | `paste/utils/markdown-processor` | — | — | — | — |
+| `processMarkdownInChunks` | `paste/utils/markdown-processor` | — | — | — | — |
+| `convertDefinitionListTags` | `paste/utils/normalizer` | — | — | — | — |
+| `escapeHtml` | `paste/utils/normalizer` | — | — | write | — |
+| `normalizeContent` | `paste/utils/normalizer` | — | — | — | — |
+| `normalizeListItems` | `paste/utils/normalizer` | — | — | read/write | — |
+| `normalizeQuotes` | `paste/utils/normalizer` | — | — | — | — |
+| `normalizeSpaces` | `paste/utils/normalizer` | — | — | — | — |
+| `stripMarkTags` | `paste/utils/normalizer` | — | — | — | — |
+| `generateReferenceKeys` | `paste/utils/reference-key-generator` | — | — | — | — |
+| `addUniqueReference` | `paste/utils/transform-helpers` | — | — | — | — |
+| `cleanTFFootnoteContent` | `paste/utils/transform-helpers` | — | — | read/write | — |
+| `cloneAndClean` | `paste/utils/transform-helpers` | — | — | read/write | — |
+| `isValidReference` | `paste/utils/transform-helpers` | — | — | — | — |
+| `reformatCitationLink` | `paste/utils/transform-helpers` | — | — | write | — |
+| `removeSectionsByHeading` | `paste/utils/transform-helpers` | — | — | read/write | — |
+| `removeStaticContentElements` | `paste/utils/transform-helpers` | — | — | read/write | — |
+| `unwrapContainers` | `paste/utils/transform-helpers` | — | — | read | — |
+| `detectAndConvertUrls` | `paste/utils/url-detector` | — | — | — | — |
+| `escapeHtml` | `paste/utils/url-detector` | — | — | write | — |
+| `detectYouTubeTranscript` | `paste/utils/youtube-helpers` | — | — | — | — |
+| `transformYouTubeTranscript` | `paste/utils/youtube-helpers` | — | — | read | — |
+| `detectYouTubeTranscript` | `paste/utils/youtube-transcript` | — | — | — | — |
+| `transformYouTubeTranscript` | `paste/utils/youtube-transcript` | — | — | read | — |
 | `clearNavigatedHashes` | `scrolling/index` | — | — | — | — |
 | `fallbackScrollPosition` | `scrolling/internalNav` | — | — | read/write | — |
 | `loadDefaultContent` | `scrolling/internalNav` | — | — | write | — |
@@ -1325,17 +1481,18 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 27 · lazy-loads (code-split): 173
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 32 · lazy-loads (code-split): 179
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
 ### Cycles masked by dynamic imports (coupling debt)
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
 - (2 modules) `components/cloudRef/editIndicator`, `indexedDB/core/healthMonitor`
-- (72 modules) `SPA/domReadiness`, `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/cloudRef/cloudRefButton`, `components/editButton/index`, `components/editButton/lock`, `components/fileDropTarget/fileDropTarget`, `components/homepage/homepage`, `components/homepage/homepageDisplayUnit`, `components/newBookButton/newBookButton`, `components/newbookContainer/index`, `components/selectionHandler/selectionHandler`, `components/settingsButton/settingsButton`, `components/settingsContainer/index`, `components/sourceContainer/creatorTools/reconvert`, `components/sourceContainer/downloads`, `components/sourceContainer/index`, `components/tocContainer/index`, `components/tocToggleButton/tocToggleButton`, `components/togglePerimeterButtons/togglePerimeterButtons`, `components/userButton/userButton`, `components/userContainer/index`, `components/userProfile/userProfileEditor`, `components/utilities/containerManager`, `components/utilities/registerComponents`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `divEditor/saveQueue`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/footnoteTapExtender`, `hyperlitContainer/footnotesCitations`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`, `search/inTextSearch/searchToolbar`
+- (80 modules) `SPA/domReadiness`, `SPA/navigation/LinkNavigationHandler`, `SPA/navigation/NavigationManager`, `SPA/navigation/chunkLoadRouter`, `SPA/navigation/pathways/BookToBookTransition`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/pathways/ImportBookTransition`, `SPA/navigation/pathways/SameTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/contentSwapHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/cloudRef/cloudRefButton`, `components/editButton/index`, `components/editButton/lock`, `components/fileDropTarget/fileDropTarget`, `components/homepage/homepage`, `components/homepage/homepageDisplayUnit`, `components/newBookButton/newBookButton`, `components/newbookContainer/index`, `components/selectionHandler/selectionHandler`, `components/settingsButton/settingsButton`, `components/settingsContainer/index`, `components/sourceContainer/creatorTools/reconvert`, `components/sourceContainer/downloads`, `components/sourceContainer/index`, `components/tocContainer/index`, `components/tocToggleButton/tocToggleButton`, `components/togglePerimeterButtons/togglePerimeterButtons`, `components/userButton/userButton`, `components/userContainer/index`, `components/userProfile/userProfileEditor`, `components/utilities/containerManager`, `components/utilities/registerComponents`, `divEditor/chunkManager`, `divEditor/chunkMutationHandler/index`, `divEditor/domUtilities`, `divEditor/index`, `divEditor/saveQueue`, `hypercites/index`, `hypercites/listeners`, `hypercites/navigation`, `hyperlights/annotationPaste`, `hyperlights/createHighlight`, `hyperlights/deleteHighlight`, `hyperlights/deletion`, `hyperlights/index`, `hyperlights/selectionToolbar`, `hyperlitContainer/contentBuild`, `hyperlitContainer/contentTypes/footnoteHandler`, `hyperlitContainer/contentTypes/hyperlightHandler`, `hyperlitContainer/contentTypes/registry`, `hyperlitContainer/core`, `hyperlitContainer/editMode`, `hyperlitContainer/footnoteTapExtender`, `hyperlitContainer/footnotesCitations`, `hyperlitContainer/history`, `hyperlitContainer/index`, `hyperlitContainer/noteListener`, `hyperlitContainer/permissions`, `hyperlitContainer/postOpen`, `hyperlitContainer/stack`, `hyperlitContainer/subBookLoader`, `lazyLoader/index`, `pageLoad/index`, `pageLoad/lazyLoaderRegistry`, `pageLoad/loadHyperText`, `pageLoad/readerEntry`, `paste/handlers/codeBlockHandler`, `paste/handlers/hyperciteHandler`, `paste/handlers/largePasteHandler`, `paste/handlers/novelVacuumHandler`, `paste/handlers/smallPasteHandler`, `paste/index`, `paste/ui/pasteUndoToast`, `paste/utils/insertion-point-calculator`, `scrolling/index`, `scrolling/internalNav`, `scrolling/restore`, `search/inTextSearch/searchToolbar`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
 - `SPA/viewManager` → `SPA/navigation/LinkNavigationHandler`
+- `components/editButton/index` → `paste/index`
 - `components/editButton/lock` → `components/editButton/index`
 - `components/newbookContainer/index` → `SPA/navigation/NavigationManager`
 - `components/sourceContainer/creatorTools/reconvert` → `SPA/navigation/pathways/ImportBookTransition`
@@ -1343,6 +1500,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/utilities/containerManager` → `divEditor/index`
 - `divEditor/chunkManager` → `divEditor/index`
 - `hyperlitContainer/core` → `hyperlitContainer/subBookLoader`
+- `hyperlitContainer/editMode` → `paste/index`
 - `hyperlitContainer/history` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/index` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/stack` → `hyperlitContainer/subBookLoader`
@@ -1503,6 +1661,12 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `pageLoad/readerEntry` → `SPA/navigation/ProgressOverlayConductor`
 - `pageLoad/readerEntry` → `components/cloudRef/editIndicator`
 - `pageLoad/readerEntry` → `pageLoad/timeMachine`
+- `paste/handlers/hyperciteHandler` → `indexedDB/hydration/rebuild`
+- `paste/handlers/largePasteHandler` → `components/tocContainer/index`
+- `paste/handlers/novelVacuumHandler` → `SPA/navigation/ProgressOverlayConductor`
+- `paste/handlers/novelVacuumHandler` → `indexedDB/index`
+- `paste/index` → `divEditor/index`
+- `paste/index` → `indexedDB/index`
 - `scrolling/internalNav` → `SPA/navigation/resolveTargetChunk`
 - `scrolling/internalNav` → `components/toast/toast`
 - `scrolling/internalNav` → `hypercites/animations`

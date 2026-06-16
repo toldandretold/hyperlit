@@ -10,7 +10,7 @@ import {
   batchDeleteIndexedDBRecords,
   deleteIndexedDBRecordWithRetry
 } from '../indexedDB/index';
-import { isPasteOperationActive } from '../paste/index';
+import { isPasteOperationActive } from '../paste/pasteState';
 import { verbose } from '../utilities/logger';
 import { clearChunkLoadingInProgress } from '../lazyLoader/utilities/chunkLoadingState';
 import { markCacheDirty } from '../lazyLoader/utilities/cacheState';

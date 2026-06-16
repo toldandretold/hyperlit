@@ -97,7 +97,7 @@ import {
   chunkNodeCounts,
   getCurrentChunk
 } from './chunkManager';
-import { isPasteOperationActive } from '../paste/index';
+import { isPasteOperationActive } from '../paste/pasteState';
 import { isChunkLoadingInProgress, getLoadingChunkId } from '../lazyLoader/utilities/chunkLoadingState';
 import { SelectionDeletionHandler } from './selectionDelete';
 import { getEditToolbar } from '../editToolbar/index';

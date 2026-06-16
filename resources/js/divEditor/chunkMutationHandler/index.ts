@@ -15,7 +15,7 @@ import { movedNodesByOverflow } from '../editorState';
 import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager';
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../../components/tocContainer/index';
 import { deleteIndexedDBRecordWithRetry, updateSingleIndexedDBRecord } from '../../indexedDB/index';
-import { isPasteOperationActive } from '../../paste/index';
+import { isPasteOperationActive } from '../../paste/pasteState';
 import { verbose } from '../../utilities/logger';
 import { setChunkLoadingInProgress } from '../../lazyLoader/utilities/chunkLoadingState';
 

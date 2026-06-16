@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1312,
-    "moduleCount": 258,
+    "fnCount": 1468,
+    "moduleCount": 300,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 2478,
+    "edgeCount": 2792,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -8673,6 +8673,1254 @@
       "leaf": false
     },
     {
+      "id": "paste/fallback-processor:processContentForFootnotesAndReferences",
+      "label": "processContentForFootnotesAndReferences",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/fallback-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/fallback-processor:saveFootnotesToIndexedDB",
+      "label": "saveFootnotesToIndexedDB",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/fallback-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/fallback-processor:saveReferencesToIndexedDB",
+      "label": "saveReferencesToIndexedDB",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/fallback-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-detection/format-detector:detectFormat",
+      "label": "detectFormat",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-detection/format-detector",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-detection/format-detector:detectFormatVerbose",
+      "label": "detectFormatVerbose",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-detection/format-detector",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-detection/format-detector:getProcessorForContent",
+      "label": "getProcessorForContent",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-detection/format-detector",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-detection/format-registry:getFormatConfig",
+      "label": "getFormatConfig",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-detection/format-registry",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-detection/format-registry:getFormatsByPriority",
+      "label": "getFormatsByPriority",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-detection/format-registry",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-detection/format-registry:registerFormat",
+      "label": "registerFormat",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-detection/format-registry",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.appendStaticSections",
+      "label": "BaseFormatProcessor.appendStaticSections",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.cleanup",
+      "label": "BaseFormatProcessor.cleanup",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.constructor",
+      "label": "BaseFormatProcessor.constructor",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.createDOM",
+      "label": "BaseFormatProcessor.createDOM",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.createFootnote",
+      "label": "BaseFormatProcessor.createFootnote",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.createReference",
+      "label": "BaseFormatProcessor.createReference",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.extractFootnotes",
+      "label": "BaseFormatProcessor.extractFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.extractReferences",
+      "label": "BaseFormatProcessor.extractReferences",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.generateFootnoteId",
+      "label": "BaseFormatProcessor.generateFootnoteId",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.generateFootnoteRefId",
+      "label": "BaseFormatProcessor.generateFootnoteRefId",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.linkCitations",
+      "label": "BaseFormatProcessor.linkCitations",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.linkFootnotes",
+      "label": "BaseFormatProcessor.linkFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.normalize",
+      "label": "BaseFormatProcessor.normalize",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.process",
+      "label": "BaseFormatProcessor.process",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.processLite",
+      "label": "BaseFormatProcessor.processLite",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.transformStructure",
+      "label": "BaseFormatProcessor.transformStructure",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.constructor",
+      "label": "CambridgeProcessor.constructor",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/cambridge-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractAndPreserveTitle",
+      "label": "CambridgeProcessor.extractAndPreserveTitle",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/cambridge-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractFootnotes",
+      "label": "CambridgeProcessor.extractFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/cambridge-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractReferences",
+      "label": "CambridgeProcessor.extractReferences",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/cambridge-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.linkFootnotes",
+      "label": "CambridgeProcessor.linkFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/cambridge-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.transformStructure",
+      "label": "CambridgeProcessor.transformStructure",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/cambridge-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.constructor",
+      "label": "GeneralProcessor.constructor",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes",
+      "label": "GeneralProcessor.extractFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.extractReferences",
+      "label": "GeneralProcessor.extractReferences",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.transformStructure",
+      "label": "GeneralProcessor.transformStructure",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor:MitPressProcessor.constructor",
+      "label": "MitPressProcessor.constructor",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/mit-press-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor:MitPressProcessor.extractFootnotes",
+      "label": "MitPressProcessor.extractFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/mit-press-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor:MitPressProcessor.extractReferences",
+      "label": "MitPressProcessor.extractReferences",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/mit-press-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor:MitPressProcessor.linkCitations",
+      "label": "MitPressProcessor.linkCitations",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/mit-press-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor:MitPressProcessor.linkFootnotes",
+      "label": "MitPressProcessor.linkFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/mit-press-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor:MitPressProcessor.transformStructure",
+      "label": "MitPressProcessor.transformStructure",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/mit-press-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.constructor",
+      "label": "OupProcessor.constructor",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/oup-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.extractFootnotes",
+      "label": "OupProcessor.extractFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/oup-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.extractReferences",
+      "label": "OupProcessor.extractReferences",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/oup-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.handleDuplicateTables",
+      "label": "OupProcessor.handleDuplicateTables",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/oup-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.linkCitations",
+      "label": "OupProcessor.linkCitations",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/oup-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.linkFootnotes",
+      "label": "OupProcessor.linkFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/oup-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.preserveFigureCaptions",
+      "label": "OupProcessor.preserveFigureCaptions",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/oup-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.preserveTableCaptions",
+      "label": "OupProcessor.preserveTableCaptions",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/oup-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.removeExtractedSections",
+      "label": "OupProcessor.removeExtractedSections",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/oup-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.transformStructure",
+      "label": "OupProcessor.transformStructure",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/oup-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.constructor",
+      "label": "SageProcessor.constructor",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/sage-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.extractFootnotes",
+      "label": "SageProcessor.extractFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/sage-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.extractReferences",
+      "label": "SageProcessor.extractReferences",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/sage-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.linkCitations",
+      "label": "SageProcessor.linkCitations",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/sage-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.linkFootnotes",
+      "label": "SageProcessor.linkFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/sage-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.transformStructure",
+      "label": "SageProcessor.transformStructure",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/sage-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.constructor",
+      "label": "ScienceDirectProcessor.constructor",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/science-direct-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationLinks",
+      "label": "ScienceDirectProcessor.convertCitationLinks",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/science-direct-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractFootnotes",
+      "label": "ScienceDirectProcessor.extractFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/science-direct-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractReferences",
+      "label": "ScienceDirectProcessor.extractReferences",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/science-direct-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.flattenReferenceContent",
+      "label": "ScienceDirectProcessor.flattenReferenceContent",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/science-direct-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkCitations",
+      "label": "ScienceDirectProcessor.linkCitations",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/science-direct-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.transformStructure",
+      "label": "ScienceDirectProcessor.transformStructure",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/science-direct-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.constructor",
+      "label": "SpringerProcessor.constructor",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/springer-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.extractFootnotes",
+      "label": "SpringerProcessor.extractFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/springer-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.extractReferences",
+      "label": "SpringerProcessor.extractReferences",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/springer-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.linkCitations",
+      "label": "SpringerProcessor.linkCitations",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/springer-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.linkFootnotes",
+      "label": "SpringerProcessor.linkFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/springer-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.transformStructure",
+      "label": "SpringerProcessor.transformStructure",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/springer-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/substack-processor:SubstackProcessor.constructor",
+      "label": "SubstackProcessor.constructor",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/substack-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/substack-processor:SubstackProcessor.extractFootnotes",
+      "label": "SubstackProcessor.extractFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/substack-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/substack-processor:SubstackProcessor.extractReferences",
+      "label": "SubstackProcessor.extractReferences",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/substack-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/substack-processor:SubstackProcessor.linkFootnotes",
+      "label": "SubstackProcessor.linkFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/substack-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/substack-processor:SubstackProcessor.transformStructure",
+      "label": "SubstackProcessor.transformStructure",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/substack-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.constructor",
+      "label": "TaylorFrancisProcessor.constructor",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/taylor-francis-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractFootnotes",
+      "label": "TaylorFrancisProcessor.extractFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/taylor-francis-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences",
+      "label": "TaylorFrancisProcessor.extractReferences",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/taylor-francis-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations",
+      "label": "TaylorFrancisProcessor.linkCitations",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/taylor-francis-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkFootnotes",
+      "label": "TaylorFrancisProcessor.linkFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/taylor-francis-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure",
+      "label": "TaylorFrancisProcessor.transformStructure",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/taylor-francis-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.constructor",
+      "label": "WileyProcessor.constructor",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/wiley-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.extractFootnotes",
+      "label": "WileyProcessor.extractFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/wiley-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.extractReferences",
+      "label": "WileyProcessor.extractReferences",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/wiley-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.linkCitations",
+      "label": "WileyProcessor.linkCitations",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/wiley-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.transformStructure",
+      "label": "WileyProcessor.transformStructure",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/wiley-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/handlers/codeBlockHandler:handleCodeBlockPaste",
+      "label": "handleCodeBlockPaste",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/handlers/codeBlockHandler",
+      "leaf": false
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "label": "handleHypercitePaste",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/handlers/hyperciteHandler",
+      "leaf": false
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:saveCurrentParagraph",
+      "label": "saveCurrentParagraph",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/handlers/hyperciteHandler",
+      "leaf": false
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:clearPasteSnapshot",
+      "label": "clearPasteSnapshot",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/handlers/largePasteHandler",
+      "leaf": true
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste",
+      "label": "handleLargePaste",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/handlers/largePasteHandler",
+      "leaf": false
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste",
+      "label": "undoLastLargePaste",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/handlers/largePasteHandler",
+      "leaf": false
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "label": "handleNovelVacuum",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/handlers/novelVacuumHandler",
+      "leaf": false
+    },
+    {
+      "id": "paste/handlers/smallPasteHandler:handleSmallPaste",
+      "label": "handleSmallPaste",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/handlers/smallPasteHandler",
+      "leaf": false
+    },
+    {
+      "id": "paste/index:addPasteListener",
+      "label": "addPasteListener",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/index",
+      "leaf": true
+    },
+    {
+      "id": "paste/pasteState:isPasteOperationActive",
+      "label": "isPasteOperationActive",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/pasteState",
+      "leaf": true
+    },
+    {
+      "id": "paste/pasteState:setPasteOperationInProgress",
+      "label": "setPasteOperationInProgress",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/pasteState",
+      "leaf": true
+    },
+    {
+      "id": "paste/ui/modalManager:hideConversionModal",
+      "label": "hideConversionModal",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/ui/modalManager",
+      "leaf": true
+    },
+    {
+      "id": "paste/ui/modalManager:showConversionModal",
+      "label": "showConversionModal",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/ui/modalManager",
+      "leaf": false
+    },
+    {
+      "id": "paste/ui/pasteUndoToast:hidePasteUndoToast",
+      "label": "hidePasteUndoToast",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/ui/pasteUndoToast",
+      "leaf": false
+    },
+    {
+      "id": "paste/ui/pasteUndoToast:showPasteUndoToast",
+      "label": "showPasteUndoToast",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/ui/pasteUndoToast",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/anchorSpacing:ensureSpaceAfterAnchor",
+      "label": "ensureSpaceAfterAnchor",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/anchorSpacing",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/citation-linker:processInTextCitations",
+      "label": "processInTextCitations",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/citation-linker",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/content-converter:convertTextToHtml",
+      "label": "convertTextToHtml",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/content-converter",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/content-converter:convertToJsonObjects",
+      "label": "convertToJsonObjects",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/content-converter",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/content-estimator:estimatePasteNodeCount",
+      "label": "estimatePasteNodeCount",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/content-estimator",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/content-estimator:isSmallPaste",
+      "label": "isSmallPaste",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/content-estimator",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/dom-helpers:estimatePasteNodeCount",
+      "label": "estimatePasteNodeCount",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/dom-helpers",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/dom-utils:createTempDOM",
+      "label": "createTempDOM",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/dom-utils",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/dom-utils:groupInlineElements",
+      "label": "groupInlineElements",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/dom-utils",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/dom-utils:isBlockElement",
+      "label": "isBlockElement",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/dom-utils",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/dom-utils:isRealLink",
+      "label": "isRealLink",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/dom-utils",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/dom-utils:isReferenceSectionHeading",
+      "label": "isReferenceSectionHeading",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/dom-utils",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/dom-utils:removeEmptyBlocks",
+      "label": "removeEmptyBlocks",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/dom-utils",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/dom-utils:replaceTag",
+      "label": "replaceTag",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/dom-utils",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/dom-utils:stripAttributes",
+      "label": "stripAttributes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/dom-utils",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/dom-utils:unwrap",
+      "label": "unwrap",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/dom-utils",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/dom-utils:unwrapNonContentContainers",
+      "label": "unwrapNonContentContainers",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/dom-utils",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/dom-utils:visuallyStartsWith",
+      "label": "visuallyStartsWith",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/dom-utils",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/dom-utils:wrapLooseNodes",
+      "label": "wrapLooseNodes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/dom-utils",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/extractFootnoteIds:extractFootnoteIdsFromElement",
+      "label": "extractFootnoteIdsFromElement",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/extractFootnoteIds",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/extractFootnoteIds:extractFootnoteIdsFromHtml",
+      "label": "extractFootnoteIdsFromHtml",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/extractFootnoteIds",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/footnote-linker:createFootnoteSupElement",
+      "label": "createFootnoteSupElement",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/footnote-linker",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/footnote-linker:createFootnoteSupHTML",
+      "label": "createFootnoteSupHTML",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/footnote-linker",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/footnote-linker:processFootnoteReferences",
+      "label": "processFootnoteReferences",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/footnote-linker",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/html-block-parser:isBlockElement",
+      "label": "isBlockElement",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/html-block-parser",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/html-block-parser:parseHtmlToBlocks",
+      "label": "parseHtmlToBlocks",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/html-block-parser",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/html-preprocessor:isRealLink",
+      "label": "isRealLink",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/html-preprocessor",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/html-preprocessor:preprocessHTMLContent",
+      "label": "preprocessHTMLContent",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/html-preprocessor",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/insertion-point-calculator:getInsertionPoint",
+      "label": "getInsertionPoint",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/insertion-point-calculator",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/markdown-detector:detectMarkdown",
+      "label": "detectMarkdown",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/markdown-detector",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/markdown-processor:footnoteDefinitionsToHtml",
+      "label": "footnoteDefinitionsToHtml",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/markdown-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/markdown-processor:preprocessMarkdownFootnotes",
+      "label": "preprocessMarkdownFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/markdown-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/markdown-processor:processMarkdownInChunks",
+      "label": "processMarkdownInChunks",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/markdown-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/normalizer:convertDefinitionListTags",
+      "label": "convertDefinitionListTags",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/normalizer",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/normalizer:escapeHtml",
+      "label": "escapeHtml",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/normalizer",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/normalizer:normalizeContent",
+      "label": "normalizeContent",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/normalizer",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/normalizer:normalizeListItems",
+      "label": "normalizeListItems",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/normalizer",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/normalizer:normalizeQuotes",
+      "label": "normalizeQuotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/normalizer",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/normalizer:normalizeSpaces",
+      "label": "normalizeSpaces",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/normalizer",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/normalizer:stripMarkTags",
+      "label": "stripMarkTags",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/normalizer",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/reference-key-generator:generateReferenceKeys",
+      "label": "generateReferenceKeys",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/reference-key-generator",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/transform-helpers:addUniqueReference",
+      "label": "addUniqueReference",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/transform-helpers",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/transform-helpers:cleanTFFootnoteContent",
+      "label": "cleanTFFootnoteContent",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/transform-helpers",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/transform-helpers:cloneAndClean",
+      "label": "cloneAndClean",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/transform-helpers",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/transform-helpers:isValidReference",
+      "label": "isValidReference",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/transform-helpers",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/transform-helpers:reformatCitationLink",
+      "label": "reformatCitationLink",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/transform-helpers",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/transform-helpers:removeSectionsByHeading",
+      "label": "removeSectionsByHeading",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/transform-helpers",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/transform-helpers:removeStaticContentElements",
+      "label": "removeStaticContentElements",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/transform-helpers",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/transform-helpers:unwrapContainers",
+      "label": "unwrapContainers",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/transform-helpers",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/url-detector:detectAndConvertUrls",
+      "label": "detectAndConvertUrls",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/url-detector",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/url-detector:escapeHtml",
+      "label": "escapeHtml",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/url-detector",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/youtube-helpers:detectYouTubeTranscript",
+      "label": "detectYouTubeTranscript",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/youtube-helpers",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/youtube-helpers:transformYouTubeTranscript",
+      "label": "transformYouTubeTranscript",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/youtube-helpers",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/youtube-transcript:detectYouTubeTranscript",
+      "label": "detectYouTubeTranscript",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/youtube-transcript",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/youtube-transcript:transformYouTubeTranscript",
+      "label": "transformYouTubeTranscript",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/youtube-transcript",
+      "leaf": false
+    },
+    {
       "id": "pg:bibliography",
       "label": "bibliography",
       "kind": "table"
@@ -13570,6 +14818,498 @@
       ]
     },
     {
+      "id": "paste/fallback-processor",
+      "label": "paste/fallback-processor",
+      "stage": "infra",
+      "band": "sync",
+      "fnIds": [
+        "paste/fallback-processor:processContentForFootnotesAndReferences",
+        "paste/fallback-processor:saveFootnotesToIndexedDB",
+        "paste/fallback-processor:saveReferencesToIndexedDB"
+      ]
+    },
+    {
+      "id": "paste/format-detection/format-detector",
+      "label": "paste/format-detection/format-detector",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/format-detection/format-detector:detectFormat",
+        "paste/format-detection/format-detector:detectFormatVerbose",
+        "paste/format-detection/format-detector:getProcessorForContent"
+      ]
+    },
+    {
+      "id": "paste/format-detection/format-registry",
+      "label": "paste/format-detection/format-registry",
+      "stage": "infra",
+      "band": "store",
+      "fnIds": [
+        "paste/format-detection/format-registry:getFormatConfig",
+        "paste/format-detection/format-registry:getFormatsByPriority",
+        "paste/format-detection/format-registry:registerFormat"
+      ]
+    },
+    {
+      "id": "paste/format-processors/base-processor",
+      "label": "paste/format-processors/base-processor",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/format-processors/base-processor:BaseFormatProcessor.appendStaticSections",
+        "paste/format-processors/base-processor:BaseFormatProcessor.cleanup",
+        "paste/format-processors/base-processor:BaseFormatProcessor.constructor",
+        "paste/format-processors/base-processor:BaseFormatProcessor.createDOM",
+        "paste/format-processors/base-processor:BaseFormatProcessor.createFootnote",
+        "paste/format-processors/base-processor:BaseFormatProcessor.createReference",
+        "paste/format-processors/base-processor:BaseFormatProcessor.extractFootnotes",
+        "paste/format-processors/base-processor:BaseFormatProcessor.extractReferences",
+        "paste/format-processors/base-processor:BaseFormatProcessor.generateFootnoteId",
+        "paste/format-processors/base-processor:BaseFormatProcessor.generateFootnoteRefId",
+        "paste/format-processors/base-processor:BaseFormatProcessor.linkCitations",
+        "paste/format-processors/base-processor:BaseFormatProcessor.linkFootnotes",
+        "paste/format-processors/base-processor:BaseFormatProcessor.normalize",
+        "paste/format-processors/base-processor:BaseFormatProcessor.process",
+        "paste/format-processors/base-processor:BaseFormatProcessor.processLite",
+        "paste/format-processors/base-processor:BaseFormatProcessor.transformStructure"
+      ]
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor",
+      "label": "paste/format-processors/cambridge-processor",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/format-processors/cambridge-processor:CambridgeProcessor.constructor",
+        "paste/format-processors/cambridge-processor:CambridgeProcessor.extractAndPreserveTitle",
+        "paste/format-processors/cambridge-processor:CambridgeProcessor.extractFootnotes",
+        "paste/format-processors/cambridge-processor:CambridgeProcessor.extractReferences",
+        "paste/format-processors/cambridge-processor:CambridgeProcessor.linkFootnotes",
+        "paste/format-processors/cambridge-processor:CambridgeProcessor.transformStructure"
+      ]
+    },
+    {
+      "id": "paste/format-processors/general-processor",
+      "label": "paste/format-processors/general-processor",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/format-processors/general-processor:GeneralProcessor.constructor",
+        "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes",
+        "paste/format-processors/general-processor:GeneralProcessor.extractReferences",
+        "paste/format-processors/general-processor:GeneralProcessor.transformStructure"
+      ]
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor",
+      "label": "paste/format-processors/mit-press-processor",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/format-processors/mit-press-processor:MitPressProcessor.constructor",
+        "paste/format-processors/mit-press-processor:MitPressProcessor.extractFootnotes",
+        "paste/format-processors/mit-press-processor:MitPressProcessor.extractReferences",
+        "paste/format-processors/mit-press-processor:MitPressProcessor.linkCitations",
+        "paste/format-processors/mit-press-processor:MitPressProcessor.linkFootnotes",
+        "paste/format-processors/mit-press-processor:MitPressProcessor.transformStructure"
+      ]
+    },
+    {
+      "id": "paste/format-processors/oup-processor",
+      "label": "paste/format-processors/oup-processor",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/format-processors/oup-processor:OupProcessor.constructor",
+        "paste/format-processors/oup-processor:OupProcessor.extractFootnotes",
+        "paste/format-processors/oup-processor:OupProcessor.extractReferences",
+        "paste/format-processors/oup-processor:OupProcessor.handleDuplicateTables",
+        "paste/format-processors/oup-processor:OupProcessor.linkCitations",
+        "paste/format-processors/oup-processor:OupProcessor.linkFootnotes",
+        "paste/format-processors/oup-processor:OupProcessor.preserveFigureCaptions",
+        "paste/format-processors/oup-processor:OupProcessor.preserveTableCaptions",
+        "paste/format-processors/oup-processor:OupProcessor.removeExtractedSections",
+        "paste/format-processors/oup-processor:OupProcessor.transformStructure"
+      ]
+    },
+    {
+      "id": "paste/format-processors/sage-processor",
+      "label": "paste/format-processors/sage-processor",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/format-processors/sage-processor:SageProcessor.constructor",
+        "paste/format-processors/sage-processor:SageProcessor.extractFootnotes",
+        "paste/format-processors/sage-processor:SageProcessor.extractReferences",
+        "paste/format-processors/sage-processor:SageProcessor.linkCitations",
+        "paste/format-processors/sage-processor:SageProcessor.linkFootnotes",
+        "paste/format-processors/sage-processor:SageProcessor.transformStructure"
+      ]
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor",
+      "label": "paste/format-processors/science-direct-processor",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/format-processors/science-direct-processor:ScienceDirectProcessor.constructor",
+        "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationLinks",
+        "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractFootnotes",
+        "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractReferences",
+        "paste/format-processors/science-direct-processor:ScienceDirectProcessor.flattenReferenceContent",
+        "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkCitations",
+        "paste/format-processors/science-direct-processor:ScienceDirectProcessor.transformStructure"
+      ]
+    },
+    {
+      "id": "paste/format-processors/springer-processor",
+      "label": "paste/format-processors/springer-processor",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/format-processors/springer-processor:SpringerProcessor.constructor",
+        "paste/format-processors/springer-processor:SpringerProcessor.extractFootnotes",
+        "paste/format-processors/springer-processor:SpringerProcessor.extractReferences",
+        "paste/format-processors/springer-processor:SpringerProcessor.linkCitations",
+        "paste/format-processors/springer-processor:SpringerProcessor.linkFootnotes",
+        "paste/format-processors/springer-processor:SpringerProcessor.transformStructure"
+      ]
+    },
+    {
+      "id": "paste/format-processors/substack-processor",
+      "label": "paste/format-processors/substack-processor",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/format-processors/substack-processor:SubstackProcessor.constructor",
+        "paste/format-processors/substack-processor:SubstackProcessor.extractFootnotes",
+        "paste/format-processors/substack-processor:SubstackProcessor.extractReferences",
+        "paste/format-processors/substack-processor:SubstackProcessor.linkFootnotes",
+        "paste/format-processors/substack-processor:SubstackProcessor.transformStructure"
+      ]
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor",
+      "label": "paste/format-processors/taylor-francis-processor",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.constructor",
+        "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractFootnotes",
+        "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences",
+        "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations",
+        "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkFootnotes",
+        "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure"
+      ]
+    },
+    {
+      "id": "paste/format-processors/wiley-processor",
+      "label": "paste/format-processors/wiley-processor",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/format-processors/wiley-processor:WileyProcessor.constructor",
+        "paste/format-processors/wiley-processor:WileyProcessor.extractFootnotes",
+        "paste/format-processors/wiley-processor:WileyProcessor.extractReferences",
+        "paste/format-processors/wiley-processor:WileyProcessor.linkCitations",
+        "paste/format-processors/wiley-processor:WileyProcessor.transformStructure"
+      ]
+    },
+    {
+      "id": "paste/handlers/codeBlockHandler",
+      "label": "paste/handlers/codeBlockHandler",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/handlers/codeBlockHandler:handleCodeBlockPaste"
+      ]
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler",
+      "label": "paste/handlers/hyperciteHandler",
+      "stage": "infra",
+      "band": "sync",
+      "fnIds": [
+        "paste/handlers/hyperciteHandler:handleHypercitePaste",
+        "paste/handlers/hyperciteHandler:saveCurrentParagraph"
+      ]
+    },
+    {
+      "id": "paste/handlers/largePasteHandler",
+      "label": "paste/handlers/largePasteHandler",
+      "stage": "infra",
+      "band": "sync",
+      "fnIds": [
+        "paste/handlers/largePasteHandler:clearPasteSnapshot",
+        "paste/handlers/largePasteHandler:handleLargePaste",
+        "paste/handlers/largePasteHandler:undoLastLargePaste"
+      ]
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler",
+      "label": "paste/handlers/novelVacuumHandler",
+      "stage": "infra",
+      "band": "sync",
+      "fnIds": [
+        "paste/handlers/novelVacuumHandler:handleNovelVacuum"
+      ]
+    },
+    {
+      "id": "paste/handlers/smallPasteHandler",
+      "label": "paste/handlers/smallPasteHandler",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/handlers/smallPasteHandler:handleSmallPaste"
+      ]
+    },
+    {
+      "id": "paste/index",
+      "label": "paste/index",
+      "stage": "infra",
+      "band": "store",
+      "fnIds": [
+        "paste/index:addPasteListener"
+      ]
+    },
+    {
+      "id": "paste/pasteState",
+      "label": "paste/pasteState",
+      "stage": "infra",
+      "band": "store",
+      "fnIds": [
+        "paste/pasteState:isPasteOperationActive",
+        "paste/pasteState:setPasteOperationInProgress"
+      ]
+    },
+    {
+      "id": "paste/ui/modalManager",
+      "label": "paste/ui/modalManager",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/ui/modalManager:hideConversionModal",
+        "paste/ui/modalManager:showConversionModal"
+      ]
+    },
+    {
+      "id": "paste/ui/pasteUndoToast",
+      "label": "paste/ui/pasteUndoToast",
+      "stage": "infra",
+      "band": "sync",
+      "fnIds": [
+        "paste/ui/pasteUndoToast:hidePasteUndoToast",
+        "paste/ui/pasteUndoToast:showPasteUndoToast"
+      ]
+    },
+    {
+      "id": "paste/utils/anchorSpacing",
+      "label": "paste/utils/anchorSpacing",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/anchorSpacing:ensureSpaceAfterAnchor"
+      ]
+    },
+    {
+      "id": "paste/utils/citation-linker",
+      "label": "paste/utils/citation-linker",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/citation-linker:processInTextCitations"
+      ]
+    },
+    {
+      "id": "paste/utils/content-converter",
+      "label": "paste/utils/content-converter",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/content-converter:convertTextToHtml",
+        "paste/utils/content-converter:convertToJsonObjects"
+      ]
+    },
+    {
+      "id": "paste/utils/content-estimator",
+      "label": "paste/utils/content-estimator",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/content-estimator:estimatePasteNodeCount",
+        "paste/utils/content-estimator:isSmallPaste"
+      ]
+    },
+    {
+      "id": "paste/utils/dom-helpers",
+      "label": "paste/utils/dom-helpers",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/dom-helpers:estimatePasteNodeCount"
+      ]
+    },
+    {
+      "id": "paste/utils/dom-utils",
+      "label": "paste/utils/dom-utils",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/dom-utils:createTempDOM",
+        "paste/utils/dom-utils:groupInlineElements",
+        "paste/utils/dom-utils:isBlockElement",
+        "paste/utils/dom-utils:isRealLink",
+        "paste/utils/dom-utils:isReferenceSectionHeading",
+        "paste/utils/dom-utils:removeEmptyBlocks",
+        "paste/utils/dom-utils:replaceTag",
+        "paste/utils/dom-utils:stripAttributes",
+        "paste/utils/dom-utils:unwrap",
+        "paste/utils/dom-utils:unwrapNonContentContainers",
+        "paste/utils/dom-utils:visuallyStartsWith",
+        "paste/utils/dom-utils:wrapLooseNodes"
+      ]
+    },
+    {
+      "id": "paste/utils/extractFootnoteIds",
+      "label": "paste/utils/extractFootnoteIds",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/extractFootnoteIds:extractFootnoteIdsFromElement",
+        "paste/utils/extractFootnoteIds:extractFootnoteIdsFromHtml"
+      ]
+    },
+    {
+      "id": "paste/utils/footnote-linker",
+      "label": "paste/utils/footnote-linker",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/footnote-linker:createFootnoteSupElement",
+        "paste/utils/footnote-linker:createFootnoteSupHTML",
+        "paste/utils/footnote-linker:processFootnoteReferences"
+      ]
+    },
+    {
+      "id": "paste/utils/html-block-parser",
+      "label": "paste/utils/html-block-parser",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/html-block-parser:isBlockElement",
+        "paste/utils/html-block-parser:parseHtmlToBlocks"
+      ]
+    },
+    {
+      "id": "paste/utils/html-preprocessor",
+      "label": "paste/utils/html-preprocessor",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/html-preprocessor:isRealLink",
+        "paste/utils/html-preprocessor:preprocessHTMLContent"
+      ]
+    },
+    {
+      "id": "paste/utils/insertion-point-calculator",
+      "label": "paste/utils/insertion-point-calculator",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/insertion-point-calculator:getInsertionPoint"
+      ]
+    },
+    {
+      "id": "paste/utils/markdown-detector",
+      "label": "paste/utils/markdown-detector",
+      "stage": "infra",
+      "band": "store",
+      "fnIds": [
+        "paste/utils/markdown-detector:detectMarkdown"
+      ]
+    },
+    {
+      "id": "paste/utils/markdown-processor",
+      "label": "paste/utils/markdown-processor",
+      "stage": "infra",
+      "band": "store",
+      "fnIds": [
+        "paste/utils/markdown-processor:footnoteDefinitionsToHtml",
+        "paste/utils/markdown-processor:preprocessMarkdownFootnotes",
+        "paste/utils/markdown-processor:processMarkdownInChunks"
+      ]
+    },
+    {
+      "id": "paste/utils/normalizer",
+      "label": "paste/utils/normalizer",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/normalizer:convertDefinitionListTags",
+        "paste/utils/normalizer:escapeHtml",
+        "paste/utils/normalizer:normalizeContent",
+        "paste/utils/normalizer:normalizeListItems",
+        "paste/utils/normalizer:normalizeQuotes",
+        "paste/utils/normalizer:normalizeSpaces",
+        "paste/utils/normalizer:stripMarkTags"
+      ]
+    },
+    {
+      "id": "paste/utils/reference-key-generator",
+      "label": "paste/utils/reference-key-generator",
+      "stage": "infra",
+      "band": "store",
+      "fnIds": [
+        "paste/utils/reference-key-generator:generateReferenceKeys"
+      ]
+    },
+    {
+      "id": "paste/utils/transform-helpers",
+      "label": "paste/utils/transform-helpers",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/transform-helpers:addUniqueReference",
+        "paste/utils/transform-helpers:cleanTFFootnoteContent",
+        "paste/utils/transform-helpers:cloneAndClean",
+        "paste/utils/transform-helpers:isValidReference",
+        "paste/utils/transform-helpers:reformatCitationLink",
+        "paste/utils/transform-helpers:removeSectionsByHeading",
+        "paste/utils/transform-helpers:removeStaticContentElements",
+        "paste/utils/transform-helpers:unwrapContainers"
+      ]
+    },
+    {
+      "id": "paste/utils/url-detector",
+      "label": "paste/utils/url-detector",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/url-detector:detectAndConvertUrls",
+        "paste/utils/url-detector:escapeHtml"
+      ]
+    },
+    {
+      "id": "paste/utils/youtube-helpers",
+      "label": "paste/utils/youtube-helpers",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/youtube-helpers:detectYouTubeTranscript",
+        "paste/utils/youtube-helpers:transformYouTubeTranscript"
+      ]
+    },
+    {
+      "id": "paste/utils/youtube-transcript",
+      "label": "paste/utils/youtube-transcript",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/youtube-transcript:detectYouTubeTranscript",
+        "paste/utils/youtube-transcript:transformYouTubeTranscript"
+      ]
+    },
+    {
       "id": "scrolling/index",
       "label": "scrolling/index",
       "stage": "scrolling",
@@ -14304,6 +16044,12 @@
       "id": "components/editButton/index:enableEditMode__call__pageLoad/backgroundDownload:waitForBackgroundDownload",
       "source": "components/editButton/index:enableEditMode",
       "target": "pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__paste/index:addPasteListener",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "paste/index:addPasteListener",
       "rel": "call"
     },
     {
@@ -15107,6 +16853,12 @@
       "rel": "call"
     },
     {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__call__paste/utils/normalizer:escapeHtml",
+      "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "target": "paste/utils/normalizer:escapeHtml",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__domwrite__dom",
       "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
       "target": "dom",
@@ -15122,6 +16874,12 @@
       "id": "components/newbookContainer/citeForm/urlImport:setupUrlImport__call__components/userButton/userButton:initializeUserContainer",
       "source": "components/newbookContainer/citeForm/urlImport:setupUrlImport",
       "target": "components/userButton/userButton:initializeUserContainer",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/urlImport:setupUrlImport__call__paste/utils/normalizer:escapeHtml",
+      "source": "components/newbookContainer/citeForm/urlImport:setupUrlImport",
+      "target": "paste/utils/normalizer:escapeHtml",
       "rel": "call"
     },
     {
@@ -15159,6 +16917,12 @@
       "id": "components/newbookContainer/citeForm/validation:setupRealTimeValidation__call__components/newbookContainer/citeForm/state:getAllowedResubmitBookId",
       "source": "components/newbookContainer/citeForm/validation:setupRealTimeValidation",
       "target": "components/newbookContainer/citeForm/state:getAllowedResubmitBookId",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/validation:setupRealTimeValidation__call__paste/utils/normalizer:escapeHtml",
+      "source": "components/newbookContainer/citeForm/validation:setupRealTimeValidation",
+      "target": "paste/utils/normalizer:escapeHtml",
       "rel": "call"
     },
     {
@@ -17309,6 +19073,12 @@
       "dataPath": true
     },
     {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__paste/pasteState:isPasteOperationActive",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "target": "paste/pasteState:isPasteOperationActive",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__domwrite__dom",
       "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
       "target": "dom",
@@ -17390,6 +19160,12 @@
       "id": "divEditor/domUtilities:ensureMinimumDocumentStructure__call__divEditor/editorState:queueNodeForSave",
       "source": "divEditor/domUtilities:ensureMinimumDocumentStructure",
       "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/domUtilities:ensureMinimumDocumentStructure__call__paste/pasteState:isPasteOperationActive",
+      "source": "divEditor/domUtilities:ensureMinimumDocumentStructure",
+      "target": "paste/pasteState:isPasteOperationActive",
       "rel": "call"
     },
     {
@@ -17747,6 +19523,18 @@
       "rel": "call"
     },
     {
+      "id": "divEditor/saveQueue:SaveQueue.queueNode__call__paste/handlers/largePasteHandler:clearPasteSnapshot",
+      "source": "divEditor/saveQueue:SaveQueue.queueNode",
+      "target": "paste/handlers/largePasteHandler:clearPasteSnapshot",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.queueNode__call__paste/ui/pasteUndoToast:hidePasteUndoToast",
+      "source": "divEditor/saveQueue:SaveQueue.queueNode",
+      "target": "paste/ui/pasteUndoToast:hidePasteUndoToast",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/core/healthMonitor:isIDBBroken",
       "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
       "target": "indexedDB/core/healthMonitor:isIDBBroken",
@@ -17783,6 +19571,12 @@
       "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__lazyLoader/utilities/cacheState:markCacheDirty",
       "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
       "target": "lazyLoader/utilities/cacheState:markCacheDirty",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__paste/pasteState:isPasteOperationActive",
+      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "target": "paste/pasteState:isPasteOperationActive",
       "rel": "call"
     },
     {
@@ -20422,6 +22216,480 @@
       "id": "dom__domread__pageLoad/timeMachine:initializeTimeMachine",
       "source": "dom",
       "target": "pageLoad/timeMachine:initializeTimeMachine",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/fallback-processor:processContentForFootnotesAndReferences",
+      "source": "dom",
+      "target": "paste/fallback-processor:processContentForFootnotesAndReferences",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-detection/format-detector:detectFormat",
+      "source": "dom",
+      "target": "paste/format-detection/format-detector:detectFormat",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-detection/format-detector:detectFormatVerbose",
+      "source": "dom",
+      "target": "paste/format-detection/format-detector:detectFormatVerbose",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/base-processor:BaseFormatProcessor.cleanup",
+      "source": "dom",
+      "target": "paste/format-processors/base-processor:BaseFormatProcessor.cleanup",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/cambridge-processor:CambridgeProcessor.extractAndPreserveTitle",
+      "source": "dom",
+      "target": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractAndPreserveTitle",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/cambridge-processor:CambridgeProcessor.extractFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/cambridge-processor:CambridgeProcessor.extractReferences",
+      "source": "dom",
+      "target": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractReferences",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/cambridge-processor:CambridgeProcessor.linkFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/cambridge-processor:CambridgeProcessor.linkFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/cambridge-processor:CambridgeProcessor.transformStructure",
+      "source": "dom",
+      "target": "paste/format-processors/cambridge-processor:CambridgeProcessor.transformStructure",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/general-processor:GeneralProcessor.extractFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/general-processor:GeneralProcessor.extractReferences",
+      "source": "dom",
+      "target": "paste/format-processors/general-processor:GeneralProcessor.extractReferences",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/general-processor:GeneralProcessor.transformStructure",
+      "source": "dom",
+      "target": "paste/format-processors/general-processor:GeneralProcessor.transformStructure",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/mit-press-processor:MitPressProcessor.extractFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/mit-press-processor:MitPressProcessor.extractFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/mit-press-processor:MitPressProcessor.extractReferences",
+      "source": "dom",
+      "target": "paste/format-processors/mit-press-processor:MitPressProcessor.extractReferences",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/mit-press-processor:MitPressProcessor.linkCitations",
+      "source": "dom",
+      "target": "paste/format-processors/mit-press-processor:MitPressProcessor.linkCitations",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/mit-press-processor:MitPressProcessor.linkFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/mit-press-processor:MitPressProcessor.linkFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/mit-press-processor:MitPressProcessor.transformStructure",
+      "source": "dom",
+      "target": "paste/format-processors/mit-press-processor:MitPressProcessor.transformStructure",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/oup-processor:OupProcessor.extractFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/oup-processor:OupProcessor.extractFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/oup-processor:OupProcessor.extractReferences",
+      "source": "dom",
+      "target": "paste/format-processors/oup-processor:OupProcessor.extractReferences",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/oup-processor:OupProcessor.handleDuplicateTables",
+      "source": "dom",
+      "target": "paste/format-processors/oup-processor:OupProcessor.handleDuplicateTables",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/oup-processor:OupProcessor.linkCitations",
+      "source": "dom",
+      "target": "paste/format-processors/oup-processor:OupProcessor.linkCitations",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/oup-processor:OupProcessor.linkFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/oup-processor:OupProcessor.linkFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/oup-processor:OupProcessor.preserveFigureCaptions",
+      "source": "dom",
+      "target": "paste/format-processors/oup-processor:OupProcessor.preserveFigureCaptions",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/oup-processor:OupProcessor.preserveTableCaptions",
+      "source": "dom",
+      "target": "paste/format-processors/oup-processor:OupProcessor.preserveTableCaptions",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/oup-processor:OupProcessor.transformStructure",
+      "source": "dom",
+      "target": "paste/format-processors/oup-processor:OupProcessor.transformStructure",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/sage-processor:SageProcessor.extractFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/sage-processor:SageProcessor.extractFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/sage-processor:SageProcessor.extractReferences",
+      "source": "dom",
+      "target": "paste/format-processors/sage-processor:SageProcessor.extractReferences",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/sage-processor:SageProcessor.linkCitations",
+      "source": "dom",
+      "target": "paste/format-processors/sage-processor:SageProcessor.linkCitations",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/sage-processor:SageProcessor.linkFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/sage-processor:SageProcessor.linkFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationLinks",
+      "source": "dom",
+      "target": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationLinks",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractReferences",
+      "source": "dom",
+      "target": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractReferences",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/science-direct-processor:ScienceDirectProcessor.flattenReferenceContent",
+      "source": "dom",
+      "target": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.flattenReferenceContent",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkCitations",
+      "source": "dom",
+      "target": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkCitations",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/science-direct-processor:ScienceDirectProcessor.transformStructure",
+      "source": "dom",
+      "target": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.transformStructure",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/springer-processor:SpringerProcessor.extractFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/springer-processor:SpringerProcessor.extractFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/springer-processor:SpringerProcessor.extractReferences",
+      "source": "dom",
+      "target": "paste/format-processors/springer-processor:SpringerProcessor.extractReferences",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/springer-processor:SpringerProcessor.linkCitations",
+      "source": "dom",
+      "target": "paste/format-processors/springer-processor:SpringerProcessor.linkCitations",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/springer-processor:SpringerProcessor.linkFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/springer-processor:SpringerProcessor.linkFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/substack-processor:SubstackProcessor.extractFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/substack-processor:SubstackProcessor.extractFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/substack-processor:SubstackProcessor.linkFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/substack-processor:SubstackProcessor.linkFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/substack-processor:SubstackProcessor.transformStructure",
+      "source": "dom",
+      "target": "paste/format-processors/substack-processor:SubstackProcessor.transformStructure",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences",
+      "source": "dom",
+      "target": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations",
+      "source": "dom",
+      "target": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure",
+      "source": "dom",
+      "target": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/wiley-processor:WileyProcessor.extractFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/wiley-processor:WileyProcessor.extractFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/wiley-processor:WileyProcessor.extractReferences",
+      "source": "dom",
+      "target": "paste/format-processors/wiley-processor:WileyProcessor.extractReferences",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/wiley-processor:WileyProcessor.linkCitations",
+      "source": "dom",
+      "target": "paste/format-processors/wiley-processor:WileyProcessor.linkCitations",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/wiley-processor:WileyProcessor.transformStructure",
+      "source": "dom",
+      "target": "paste/format-processors/wiley-processor:WileyProcessor.transformStructure",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/handlers/codeBlockHandler:handleCodeBlockPaste",
+      "source": "dom",
+      "target": "paste/handlers/codeBlockHandler:handleCodeBlockPaste",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "source": "dom",
+      "target": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/handlers/hyperciteHandler:saveCurrentParagraph",
+      "source": "dom",
+      "target": "paste/handlers/hyperciteHandler:saveCurrentParagraph",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/handlers/largePasteHandler:handleLargePaste",
+      "source": "dom",
+      "target": "paste/handlers/largePasteHandler:handleLargePaste",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/handlers/largePasteHandler:undoLastLargePaste",
+      "source": "dom",
+      "target": "paste/handlers/largePasteHandler:undoLastLargePaste",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "source": "dom",
+      "target": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/handlers/smallPasteHandler:handleSmallPaste",
+      "source": "dom",
+      "target": "paste/handlers/smallPasteHandler:handleSmallPaste",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/ui/modalManager:showConversionModal",
+      "source": "dom",
+      "target": "paste/ui/modalManager:showConversionModal",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/ui/pasteUndoToast:hidePasteUndoToast",
+      "source": "dom",
+      "target": "paste/ui/pasteUndoToast:hidePasteUndoToast",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/ui/pasteUndoToast:showPasteUndoToast",
+      "source": "dom",
+      "target": "paste/ui/pasteUndoToast:showPasteUndoToast",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/citation-linker:processInTextCitations",
+      "source": "dom",
+      "target": "paste/utils/citation-linker:processInTextCitations",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/content-converter:convertTextToHtml",
+      "source": "dom",
+      "target": "paste/utils/content-converter:convertTextToHtml",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/content-estimator:estimatePasteNodeCount",
+      "source": "dom",
+      "target": "paste/utils/content-estimator:estimatePasteNodeCount",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/dom-helpers:estimatePasteNodeCount",
+      "source": "dom",
+      "target": "paste/utils/dom-helpers:estimatePasteNodeCount",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/dom-utils:removeEmptyBlocks",
+      "source": "dom",
+      "target": "paste/utils/dom-utils:removeEmptyBlocks",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/dom-utils:stripAttributes",
+      "source": "dom",
+      "target": "paste/utils/dom-utils:stripAttributes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/dom-utils:unwrapNonContentContainers",
+      "source": "dom",
+      "target": "paste/utils/dom-utils:unwrapNonContentContainers",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/extractFootnoteIds:extractFootnoteIdsFromElement",
+      "source": "dom",
+      "target": "paste/utils/extractFootnoteIds:extractFootnoteIdsFromElement",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/footnote-linker:processFootnoteReferences",
+      "source": "dom",
+      "target": "paste/utils/footnote-linker:processFootnoteReferences",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/html-preprocessor:preprocessHTMLContent",
+      "source": "dom",
+      "target": "paste/utils/html-preprocessor:preprocessHTMLContent",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/insertion-point-calculator:getInsertionPoint",
+      "source": "dom",
+      "target": "paste/utils/insertion-point-calculator:getInsertionPoint",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/normalizer:normalizeListItems",
+      "source": "dom",
+      "target": "paste/utils/normalizer:normalizeListItems",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/transform-helpers:cleanTFFootnoteContent",
+      "source": "dom",
+      "target": "paste/utils/transform-helpers:cleanTFFootnoteContent",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/transform-helpers:cloneAndClean",
+      "source": "dom",
+      "target": "paste/utils/transform-helpers:cloneAndClean",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/transform-helpers:removeSectionsByHeading",
+      "source": "dom",
+      "target": "paste/utils/transform-helpers:removeSectionsByHeading",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/transform-helpers:removeStaticContentElements",
+      "source": "dom",
+      "target": "paste/utils/transform-helpers:removeStaticContentElements",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/transform-helpers:unwrapContainers",
+      "source": "dom",
+      "target": "paste/utils/transform-helpers:unwrapContainers",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/youtube-helpers:transformYouTubeTranscript",
+      "source": "dom",
+      "target": "paste/utils/youtube-helpers:transformYouTubeTranscript",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/youtube-transcript:transformYouTubeTranscript",
+      "source": "dom",
+      "target": "paste/utils/youtube-transcript:transformYouTubeTranscript",
       "rel": "domread"
     },
     {
@@ -23672,6 +25940,12 @@
       "rel": "call"
     },
     {
+      "id": "hyperlitContainer/editMode:applyCurrentEditModeToLayer__call__paste/index:addPasteListener",
+      "source": "hyperlitContainer/editMode:applyCurrentEditModeToLayer",
+      "target": "paste/index:addPasteListener",
+      "rel": "call"
+    },
+    {
       "id": "hyperlitContainer/editMode:applyCurrentEditModeToLayer__domwrite__dom",
       "source": "hyperlitContainer/editMode:applyCurrentEditModeToLayer",
       "target": "dom",
@@ -23717,6 +25991,12 @@
       "id": "hyperlitContainer/editMode:attachSubBookFocusSwitcher__call__hyperlitContainer/core:getHyperlitEditMode",
       "source": "hyperlitContainer/editMode:attachSubBookFocusSwitcher",
       "target": "hyperlitContainer/core:getHyperlitEditMode",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/editMode:attachSubBookFocusSwitcher__call__paste/index:addPasteListener",
+      "source": "hyperlitContainer/editMode:attachSubBookFocusSwitcher",
+      "target": "paste/index:addPasteListener",
       "rel": "call"
     },
     {
@@ -23815,6 +26095,12 @@
       "id": "hyperlitContainer/editMode:handleEditButtonClick__call__hyperlitContainer/noteListener:initializePlaceholders",
       "source": "hyperlitContainer/editMode:handleEditButtonClick",
       "target": "hyperlitContainer/noteListener:initializePlaceholders",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/editMode:handleEditButtonClick__call__paste/index:addPasteListener",
+      "source": "hyperlitContainer/editMode:handleEditButtonClick",
+      "target": "paste/index:addPasteListener",
       "rel": "call"
     },
     {
@@ -25515,6 +27801,12 @@
       "rel": "call"
     },
     {
+      "id": "indexedDB/nodes/contentProcessor:processNodeContentHighlightsAndCites__call__paste/utils/extractFootnoteIds:extractFootnoteIdsFromElement",
+      "source": "indexedDB/nodes/contentProcessor:processNodeContentHighlightsAndCites",
+      "target": "paste/utils/extractFootnoteIds:extractFootnoteIdsFromElement",
+      "rel": "call"
+    },
+    {
       "id": "indexedDB/nodes/contentProcessor:processNodeContentHighlightsAndCites__domwrite__dom",
       "source": "indexedDB/nodes/contentProcessor:processNodeContentHighlightsAndCites",
       "target": "dom",
@@ -27159,6 +29451,1367 @@
     {
       "id": "pageLoad/timeMachine:initializeTimeMachine__domwrite__dom",
       "source": "pageLoad/timeMachine:initializeTimeMachine",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/fallback-processor:processContentForFootnotesAndReferences__call__paste/fallback-processor:saveFootnotesToIndexedDB",
+      "source": "paste/fallback-processor:processContentForFootnotesAndReferences",
+      "target": "paste/fallback-processor:saveFootnotesToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/fallback-processor:processContentForFootnotesAndReferences__call__paste/fallback-processor:saveReferencesToIndexedDB",
+      "source": "paste/fallback-processor:processContentForFootnotesAndReferences",
+      "target": "paste/fallback-processor:saveReferencesToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/fallback-processor:processContentForFootnotesAndReferences__push__pg:bibliography",
+      "source": "paste/fallback-processor:processContentForFootnotesAndReferences",
+      "target": "pg:bibliography",
+      "rel": "push",
+      "label": "/api/db/references/upsert"
+    },
+    {
+      "id": "paste/fallback-processor:processContentForFootnotesAndReferences__push__pg:footnotes",
+      "source": "paste/fallback-processor:processContentForFootnotesAndReferences",
+      "target": "pg:footnotes",
+      "rel": "push",
+      "label": "/api/db/footnotes/upsert"
+    },
+    {
+      "id": "paste/fallback-processor:saveFootnotesToIndexedDB__call__indexedDB/core/connection:openDatabase",
+      "source": "paste/fallback-processor:saveFootnotesToIndexedDB",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/fallback-processor:saveFootnotesToIndexedDB__write__store:footnotes",
+      "source": "paste/fallback-processor:saveFootnotesToIndexedDB",
+      "target": "store:footnotes",
+      "rel": "write"
+    },
+    {
+      "id": "paste/fallback-processor:saveReferencesToIndexedDB__call__indexedDB/core/connection:openDatabase",
+      "source": "paste/fallback-processor:saveReferencesToIndexedDB",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/fallback-processor:saveReferencesToIndexedDB__write__store:bibliography",
+      "source": "paste/fallback-processor:saveReferencesToIndexedDB",
+      "target": "store:bibliography",
+      "rel": "write"
+    },
+    {
+      "id": "paste/format-detection/format-detector:detectFormat__call__paste/format-detection/format-registry:getFormatsByPriority",
+      "source": "paste/format-detection/format-detector:detectFormat",
+      "target": "paste/format-detection/format-registry:getFormatsByPriority",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-detection/format-detector:detectFormat__call__paste/utils/dom-utils:createTempDOM",
+      "source": "paste/format-detection/format-detector:detectFormat",
+      "target": "paste/utils/dom-utils:createTempDOM",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-detection/format-detector:detectFormatVerbose__call__paste/format-detection/format-registry:getFormatsByPriority",
+      "source": "paste/format-detection/format-detector:detectFormatVerbose",
+      "target": "paste/format-detection/format-registry:getFormatsByPriority",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-detection/format-detector:detectFormatVerbose__call__paste/utils/dom-utils:createTempDOM",
+      "source": "paste/format-detection/format-detector:detectFormatVerbose",
+      "target": "paste/utils/dom-utils:createTempDOM",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-detection/format-detector:getProcessorForContent__call__paste/format-detection/format-detector:detectFormat",
+      "source": "paste/format-detection/format-detector:getProcessorForContent",
+      "target": "paste/format-detection/format-detector:detectFormat",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-detection/format-detector:getProcessorForContent__call__paste/format-detection/format-registry:getFormatConfig",
+      "source": "paste/format-detection/format-detector:getProcessorForContent",
+      "target": "paste/format-detection/format-registry:getFormatConfig",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.appendStaticSections__call__paste/utils/dom-utils:visuallyStartsWith",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.appendStaticSections",
+      "target": "paste/utils/dom-utils:visuallyStartsWith",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.appendStaticSections__domwrite__dom",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.appendStaticSections",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.cleanup__call__paste/utils/dom-utils:groupInlineElements",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.cleanup",
+      "target": "paste/utils/dom-utils:groupInlineElements",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.cleanup__call__paste/utils/dom-utils:removeEmptyBlocks",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.cleanup",
+      "target": "paste/utils/dom-utils:removeEmptyBlocks",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.cleanup__call__paste/utils/dom-utils:stripAttributes",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.cleanup",
+      "target": "paste/utils/dom-utils:stripAttributes",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.cleanup__call__paste/utils/dom-utils:unwrapNonContentContainers",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.cleanup",
+      "target": "paste/utils/dom-utils:unwrapNonContentContainers",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.cleanup__domwrite__dom",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.cleanup",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.createDOM__call__paste/utils/dom-utils:createTempDOM",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.createDOM",
+      "target": "paste/utils/dom-utils:createTempDOM",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.linkCitations__call__paste/utils/citation-linker:processInTextCitations",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.linkCitations",
+      "target": "paste/utils/citation-linker:processInTextCitations",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.linkCitations__call__paste/utils/reference-key-generator:generateReferenceKeys",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.linkCitations",
+      "target": "paste/utils/reference-key-generator:generateReferenceKeys",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.linkCitations__domwrite__dom",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.linkCitations",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.linkFootnotes__call__paste/utils/footnote-linker:processFootnoteReferences",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.linkFootnotes",
+      "target": "paste/utils/footnote-linker:processFootnoteReferences",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.linkFootnotes__domwrite__dom",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.linkFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.normalize__call__paste/utils/normalizer:normalizeContent",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.normalize",
+      "target": "paste/utils/normalizer:normalizeContent",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.normalize__domwrite__dom",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.normalize",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.process__call__paste/utils/dom-utils:stripAttributes",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.process",
+      "target": "paste/utils/dom-utils:stripAttributes",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.process__domwrite__dom",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.process",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractAndPreserveTitle__domwrite__dom",
+      "source": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractAndPreserveTitle",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractFootnotes__call__paste/utils/footnote-linker:createFootnoteSupElement",
+      "source": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractFootnotes",
+      "target": "paste/utils/footnote-linker:createFootnoteSupElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractFootnotes__domwrite__dom",
+      "source": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractReferences__domwrite__dom",
+      "source": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractReferences",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.linkFootnotes__call__paste/utils/footnote-linker:createFootnoteSupElement",
+      "source": "paste/format-processors/cambridge-processor:CambridgeProcessor.linkFootnotes",
+      "target": "paste/utils/footnote-linker:createFootnoteSupElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.linkFootnotes__domwrite__dom",
+      "source": "paste/format-processors/cambridge-processor:CambridgeProcessor.linkFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.transformStructure__call__paste/utils/transform-helpers:removeSectionsByHeading",
+      "source": "paste/format-processors/cambridge-processor:CambridgeProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:removeSectionsByHeading",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.transformStructure__call__paste/utils/transform-helpers:removeStaticContentElements",
+      "source": "paste/format-processors/cambridge-processor:CambridgeProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:removeStaticContentElements",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.transformStructure__call__paste/utils/transform-helpers:unwrapContainers",
+      "source": "paste/format-processors/cambridge-processor:CambridgeProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:unwrapContainers",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.transformStructure__domwrite__dom",
+      "source": "paste/format-processors/cambridge-processor:CambridgeProcessor.transformStructure",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes__domwrite__dom",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.extractReferences__domwrite__dom",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.extractReferences",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.transformStructure__call__paste/utils/dom-utils:unwrap",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.transformStructure",
+      "target": "paste/utils/dom-utils:unwrap",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.transformStructure__call__paste/utils/dom-utils:wrapLooseNodes",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.transformStructure",
+      "target": "paste/utils/dom-utils:wrapLooseNodes",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor:MitPressProcessor.extractFootnotes__domwrite__dom",
+      "source": "paste/format-processors/mit-press-processor:MitPressProcessor.extractFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor:MitPressProcessor.linkCitations__domwrite__dom",
+      "source": "paste/format-processors/mit-press-processor:MitPressProcessor.linkCitations",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor:MitPressProcessor.linkFootnotes__call__paste/utils/footnote-linker:createFootnoteSupElement",
+      "source": "paste/format-processors/mit-press-processor:MitPressProcessor.linkFootnotes",
+      "target": "paste/utils/footnote-linker:createFootnoteSupElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor:MitPressProcessor.linkFootnotes__domwrite__dom",
+      "source": "paste/format-processors/mit-press-processor:MitPressProcessor.linkFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor:MitPressProcessor.transformStructure__call__paste/utils/transform-helpers:removeSectionsByHeading",
+      "source": "paste/format-processors/mit-press-processor:MitPressProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:removeSectionsByHeading",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor:MitPressProcessor.transformStructure__call__paste/utils/transform-helpers:removeStaticContentElements",
+      "source": "paste/format-processors/mit-press-processor:MitPressProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:removeStaticContentElements",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor:MitPressProcessor.transformStructure__call__paste/utils/transform-helpers:unwrapContainers",
+      "source": "paste/format-processors/mit-press-processor:MitPressProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:unwrapContainers",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/mit-press-processor:MitPressProcessor.transformStructure__domwrite__dom",
+      "source": "paste/format-processors/mit-press-processor:MitPressProcessor.transformStructure",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.extractFootnotes__domwrite__dom",
+      "source": "paste/format-processors/oup-processor:OupProcessor.extractFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.handleDuplicateTables__domwrite__dom",
+      "source": "paste/format-processors/oup-processor:OupProcessor.handleDuplicateTables",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.linkCitations__call__paste/utils/transform-helpers:reformatCitationLink",
+      "source": "paste/format-processors/oup-processor:OupProcessor.linkCitations",
+      "target": "paste/utils/transform-helpers:reformatCitationLink",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.linkCitations__domwrite__dom",
+      "source": "paste/format-processors/oup-processor:OupProcessor.linkCitations",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.linkFootnotes__call__paste/utils/footnote-linker:createFootnoteSupElement",
+      "source": "paste/format-processors/oup-processor:OupProcessor.linkFootnotes",
+      "target": "paste/utils/footnote-linker:createFootnoteSupElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.linkFootnotes__domwrite__dom",
+      "source": "paste/format-processors/oup-processor:OupProcessor.linkFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.preserveFigureCaptions__domwrite__dom",
+      "source": "paste/format-processors/oup-processor:OupProcessor.preserveFigureCaptions",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.preserveTableCaptions__domwrite__dom",
+      "source": "paste/format-processors/oup-processor:OupProcessor.preserveTableCaptions",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.removeExtractedSections__call__paste/utils/transform-helpers:removeSectionsByHeading",
+      "source": "paste/format-processors/oup-processor:OupProcessor.removeExtractedSections",
+      "target": "paste/utils/transform-helpers:removeSectionsByHeading",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.removeExtractedSections__call__paste/utils/transform-helpers:removeStaticContentElements",
+      "source": "paste/format-processors/oup-processor:OupProcessor.removeExtractedSections",
+      "target": "paste/utils/transform-helpers:removeStaticContentElements",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.transformStructure__call__paste/utils/transform-helpers:unwrapContainers",
+      "source": "paste/format-processors/oup-processor:OupProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:unwrapContainers",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/oup-processor:OupProcessor.transformStructure__domwrite__dom",
+      "source": "paste/format-processors/oup-processor:OupProcessor.transformStructure",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.extractFootnotes__domwrite__dom",
+      "source": "paste/format-processors/sage-processor:SageProcessor.extractFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.extractReferences__call__paste/utils/transform-helpers:addUniqueReference",
+      "source": "paste/format-processors/sage-processor:SageProcessor.extractReferences",
+      "target": "paste/utils/transform-helpers:addUniqueReference",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.extractReferences__call__paste/utils/transform-helpers:cloneAndClean",
+      "source": "paste/format-processors/sage-processor:SageProcessor.extractReferences",
+      "target": "paste/utils/transform-helpers:cloneAndClean",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.extractReferences__call__paste/utils/transform-helpers:isValidReference",
+      "source": "paste/format-processors/sage-processor:SageProcessor.extractReferences",
+      "target": "paste/utils/transform-helpers:isValidReference",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.linkCitations__call__paste/utils/transform-helpers:reformatCitationLink",
+      "source": "paste/format-processors/sage-processor:SageProcessor.linkCitations",
+      "target": "paste/utils/transform-helpers:reformatCitationLink",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.linkCitations__domwrite__dom",
+      "source": "paste/format-processors/sage-processor:SageProcessor.linkCitations",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.linkFootnotes__call__paste/utils/footnote-linker:createFootnoteSupElement",
+      "source": "paste/format-processors/sage-processor:SageProcessor.linkFootnotes",
+      "target": "paste/utils/footnote-linker:createFootnoteSupElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.linkFootnotes__domwrite__dom",
+      "source": "paste/format-processors/sage-processor:SageProcessor.linkFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.transformStructure__call__paste/utils/transform-helpers:removeSectionsByHeading",
+      "source": "paste/format-processors/sage-processor:SageProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:removeSectionsByHeading",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.transformStructure__call__paste/utils/transform-helpers:removeStaticContentElements",
+      "source": "paste/format-processors/sage-processor:SageProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:removeStaticContentElements",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/sage-processor:SageProcessor.transformStructure__call__paste/utils/transform-helpers:unwrapContainers",
+      "source": "paste/format-processors/sage-processor:SageProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:unwrapContainers",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationLinks__domwrite__dom",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationLinks",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractReferences__call__paste/utils/transform-helpers:cloneAndClean",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractReferences",
+      "target": "paste/utils/transform-helpers:cloneAndClean",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractReferences__call__paste/utils/transform-helpers:isValidReference",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractReferences",
+      "target": "paste/utils/transform-helpers:isValidReference",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.flattenReferenceContent__domwrite__dom",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.flattenReferenceContent",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkCitations__domwrite__dom",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkCitations",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.transformStructure__call__paste/utils/transform-helpers:unwrapContainers",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:unwrapContainers",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.transformStructure__domwrite__dom",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.transformStructure",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.extractFootnotes__call__paste/utils/transform-helpers:cloneAndClean",
+      "source": "paste/format-processors/springer-processor:SpringerProcessor.extractFootnotes",
+      "target": "paste/utils/transform-helpers:cloneAndClean",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.extractFootnotes__domwrite__dom",
+      "source": "paste/format-processors/springer-processor:SpringerProcessor.extractFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.extractReferences__call__paste/utils/transform-helpers:cloneAndClean",
+      "source": "paste/format-processors/springer-processor:SpringerProcessor.extractReferences",
+      "target": "paste/utils/transform-helpers:cloneAndClean",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.extractReferences__domwrite__dom",
+      "source": "paste/format-processors/springer-processor:SpringerProcessor.extractReferences",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.linkCitations__call__paste/utils/transform-helpers:reformatCitationLink",
+      "source": "paste/format-processors/springer-processor:SpringerProcessor.linkCitations",
+      "target": "paste/utils/transform-helpers:reformatCitationLink",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.linkCitations__domwrite__dom",
+      "source": "paste/format-processors/springer-processor:SpringerProcessor.linkCitations",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.linkFootnotes__call__paste/utils/footnote-linker:createFootnoteSupElement",
+      "source": "paste/format-processors/springer-processor:SpringerProcessor.linkFootnotes",
+      "target": "paste/utils/footnote-linker:createFootnoteSupElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.linkFootnotes__domwrite__dom",
+      "source": "paste/format-processors/springer-processor:SpringerProcessor.linkFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.transformStructure__call__paste/utils/transform-helpers:removeSectionsByHeading",
+      "source": "paste/format-processors/springer-processor:SpringerProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:removeSectionsByHeading",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.transformStructure__call__paste/utils/transform-helpers:removeStaticContentElements",
+      "source": "paste/format-processors/springer-processor:SpringerProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:removeStaticContentElements",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/springer-processor:SpringerProcessor.transformStructure__call__paste/utils/transform-helpers:unwrapContainers",
+      "source": "paste/format-processors/springer-processor:SpringerProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:unwrapContainers",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/substack-processor:SubstackProcessor.extractFootnotes__call__paste/utils/footnote-linker:createFootnoteSupElement",
+      "source": "paste/format-processors/substack-processor:SubstackProcessor.extractFootnotes",
+      "target": "paste/utils/footnote-linker:createFootnoteSupElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/substack-processor:SubstackProcessor.extractFootnotes__domwrite__dom",
+      "source": "paste/format-processors/substack-processor:SubstackProcessor.extractFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/substack-processor:SubstackProcessor.linkFootnotes__call__paste/utils/footnote-linker:createFootnoteSupElement",
+      "source": "paste/format-processors/substack-processor:SubstackProcessor.linkFootnotes",
+      "target": "paste/utils/footnote-linker:createFootnoteSupElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/substack-processor:SubstackProcessor.linkFootnotes__domwrite__dom",
+      "source": "paste/format-processors/substack-processor:SubstackProcessor.linkFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/substack-processor:SubstackProcessor.transformStructure__call__paste/utils/transform-helpers:removeSectionsByHeading",
+      "source": "paste/format-processors/substack-processor:SubstackProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:removeSectionsByHeading",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/substack-processor:SubstackProcessor.transformStructure__call__paste/utils/transform-helpers:removeStaticContentElements",
+      "source": "paste/format-processors/substack-processor:SubstackProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:removeStaticContentElements",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/substack-processor:SubstackProcessor.transformStructure__call__paste/utils/transform-helpers:unwrapContainers",
+      "source": "paste/format-processors/substack-processor:SubstackProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:unwrapContainers",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/substack-processor:SubstackProcessor.transformStructure__domwrite__dom",
+      "source": "paste/format-processors/substack-processor:SubstackProcessor.transformStructure",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractFootnotes__call__paste/utils/transform-helpers:cleanTFFootnoteContent",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractFootnotes",
+      "target": "paste/utils/transform-helpers:cleanTFFootnoteContent",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractFootnotes__domwrite__dom",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences__call__paste/utils/transform-helpers:addUniqueReference",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences",
+      "target": "paste/utils/transform-helpers:addUniqueReference",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences__call__paste/utils/transform-helpers:cloneAndClean",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences",
+      "target": "paste/utils/transform-helpers:cloneAndClean",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations__domwrite__dom",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkFootnotes__call__paste/utils/footnote-linker:createFootnoteSupElement",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkFootnotes",
+      "target": "paste/utils/footnote-linker:createFootnoteSupElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkFootnotes__domwrite__dom",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure__call__paste/utils/dom-utils:unwrap",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure",
+      "target": "paste/utils/dom-utils:unwrap",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure__call__paste/utils/transform-helpers:removeSectionsByHeading",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:removeSectionsByHeading",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure__call__paste/utils/transform-helpers:removeStaticContentElements",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:removeStaticContentElements",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure__call__paste/utils/transform-helpers:unwrapContainers",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:unwrapContainers",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure__domwrite__dom",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.extractFootnotes__call__paste/utils/transform-helpers:cloneAndClean",
+      "source": "paste/format-processors/wiley-processor:WileyProcessor.extractFootnotes",
+      "target": "paste/utils/transform-helpers:cloneAndClean",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.extractFootnotes__domwrite__dom",
+      "source": "paste/format-processors/wiley-processor:WileyProcessor.extractFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.extractReferences__call__paste/utils/reference-key-generator:generateReferenceKeys",
+      "source": "paste/format-processors/wiley-processor:WileyProcessor.extractReferences",
+      "target": "paste/utils/reference-key-generator:generateReferenceKeys",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.extractReferences__call__paste/utils/transform-helpers:cloneAndClean",
+      "source": "paste/format-processors/wiley-processor:WileyProcessor.extractReferences",
+      "target": "paste/utils/transform-helpers:cloneAndClean",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.extractReferences__domwrite__dom",
+      "source": "paste/format-processors/wiley-processor:WileyProcessor.extractReferences",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.linkCitations__call__paste/utils/transform-helpers:reformatCitationLink",
+      "source": "paste/format-processors/wiley-processor:WileyProcessor.linkCitations",
+      "target": "paste/utils/transform-helpers:reformatCitationLink",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.linkCitations__domwrite__dom",
+      "source": "paste/format-processors/wiley-processor:WileyProcessor.linkCitations",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.transformStructure__call__paste/utils/transform-helpers:removeSectionsByHeading",
+      "source": "paste/format-processors/wiley-processor:WileyProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:removeSectionsByHeading",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.transformStructure__call__paste/utils/transform-helpers:removeStaticContentElements",
+      "source": "paste/format-processors/wiley-processor:WileyProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:removeStaticContentElements",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.transformStructure__call__paste/utils/transform-helpers:unwrapContainers",
+      "source": "paste/format-processors/wiley-processor:WileyProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:unwrapContainers",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/wiley-processor:WileyProcessor.transformStructure__domwrite__dom",
+      "source": "paste/format-processors/wiley-processor:WileyProcessor.transformStructure",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__editToolbar/index:getEditToolbar",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "editToolbar/index:getEditToolbar",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__hypercites/deletion:delinkHypercite",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "hypercites/deletion:delinkHypercite",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__hypercites/listeners:attachUnderlineClickListeners",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "hypercites/listeners:attachUnderlineClickListeners",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__hypercites/utils:determineRelationshipStatus",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "hypercites/utils:determineRelationshipStatus",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__hypercites/utils:parseHyperciteHref",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "hypercites/utils:parseHyperciteHref",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__hyperlitContainer/utilities/activeContext:getActiveBook",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "hyperlitContainer/utilities/activeContext:getActiveBook",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/hypercites/index:updateCitationForExistingHypercite",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "indexedDB/hypercites/index:updateCitationForExistingHypercite",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/hypercites/index:updateHyperciteInIndexedDB",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "indexedDB/hypercites/index:updateHyperciteInIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/hypercites/read:getHyperciteFromIndexedDB",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "indexedDB/hypercites/read:getHyperciteFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/nodes/read:getNodeChunkFromIndexedDB",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "indexedDB/nodes/read:getNodeChunkFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/syncQueue/queue:queueForSync",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "indexedDB/syncQueue/queue:queueForSync",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__paste/handlers/hyperciteHandler:saveCurrentParagraph",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "paste/handlers/hyperciteHandler:saveCurrentParagraph",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__domwrite__dom",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__push__pg:hypercites",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "pg:hypercites",
+      "rel": "push",
+      "label": "/api/db/hypercites/upsert"
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__components/tocContainer/index:invalidateTocCache",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "components/tocContainer/index:invalidateTocCache",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/bibliography/index:saveAllReferencesToIndexedDB",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "indexedDB/bibliography/index:saveAllReferencesToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/footnotes/index:saveAllFootnotesToIndexedDB",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "indexedDB/footnotes/index:saveAllFootnotesToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/nodes/read:getNodeChunksAfter",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "indexedDB/nodes/read:getNodeChunksAfter",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/nodes/write:deleteNodeChunksAfter",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "indexedDB/nodes/write:deleteNodeChunksAfter",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/nodes/write:writeNodeChunks",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "indexedDB/nodes/write:writeNodeChunks",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__paste/fallback-processor:processContentForFootnotesAndReferences",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "paste/fallback-processor:processContentForFootnotesAndReferences",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__paste/utils/extractFootnoteIds:extractFootnoteIdsFromHtml",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "paste/utils/extractFootnoteIds:extractFootnoteIdsFromHtml",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__paste/utils/html-block-parser:parseHtmlToBlocks",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "paste/utils/html-block-parser:parseHtmlToBlocks",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__domwrite__dom",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__components/cloudRef/editIndicator:glowCloudGreen",
+      "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
+      "target": "components/cloudRef/editIndicator:glowCloudGreen",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__components/cloudRef/editIndicator:glowCloudOrange",
+      "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
+      "target": "components/cloudRef/editIndicator:glowCloudOrange",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__components/cloudRef/editIndicator:glowCloudRed",
+      "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
+      "target": "components/cloudRef/editIndicator:glowCloudRed",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__indexedDB/nodes/write:deleteNodeChunksAfter",
+      "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
+      "target": "indexedDB/nodes/write:deleteNodeChunksAfter",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__indexedDB/nodes/write:writeNodeChunks",
+      "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
+      "target": "indexedDB/nodes/write:writeNodeChunks",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__pageLoad/lazyLoaderRegistry:initializeMainLazyLoader",
+      "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
+      "target": "pageLoad/lazyLoaderRegistry:initializeMainLazyLoader",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__domwrite__dom",
+      "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__components/cloudRef/editIndicator:glowCloudGreen",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "components/cloudRef/editIndicator:glowCloudGreen",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__components/cloudRef/editIndicator:glowCloudOrange",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "components/cloudRef/editIndicator:glowCloudOrange",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__components/cloudRef/editIndicator:glowCloudRed",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "components/cloudRef/editIndicator:glowCloudRed",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__divEditor/chunkManager:getCurrentChunk",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "divEditor/chunkManager:getCurrentChunk",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__pageLoad/lazyLoaderRegistry:initializeMainLazyLoader",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "pageLoad/lazyLoaderRegistry:initializeMainLazyLoader",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__paste/handlers/largePasteHandler:handleLargePaste",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "paste/handlers/largePasteHandler:handleLargePaste",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__paste/utils/insertion-point-calculator:getInsertionPoint",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "paste/utils/insertion-point-calculator:getInsertionPoint",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__paste/utils/markdown-processor:footnoteDefinitionsToHtml",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "paste/utils/markdown-processor:footnoteDefinitionsToHtml",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__paste/utils/markdown-processor:preprocessMarkdownFootnotes",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "paste/utils/markdown-processor:preprocessMarkdownFootnotes",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__paste/utils/markdown-processor:processMarkdownInChunks",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "paste/utils/markdown-processor:processMarkdownInChunks",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__domwrite__dom",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/handlers/smallPasteHandler:handleSmallPaste__call__editToolbar/index:getEditToolbar",
+      "source": "paste/handlers/smallPasteHandler:handleSmallPaste",
+      "target": "editToolbar/index:getEditToolbar",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/smallPasteHandler:handleSmallPaste__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "paste/handlers/smallPasteHandler:handleSmallPaste",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/smallPasteHandler:handleSmallPaste__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "paste/handlers/smallPasteHandler:handleSmallPaste",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/smallPasteHandler:handleSmallPaste__domwrite__dom",
+      "source": "paste/handlers/smallPasteHandler:handleSmallPaste",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/ui/modalManager:showConversionModal__domwrite__dom",
+      "source": "paste/ui/modalManager:showConversionModal",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/ui/pasteUndoToast:hidePasteUndoToast__domwrite__dom",
+      "source": "paste/ui/pasteUndoToast:hidePasteUndoToast",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/ui/pasteUndoToast:showPasteUndoToast__call__paste/handlers/largePasteHandler:clearPasteSnapshot",
+      "source": "paste/ui/pasteUndoToast:showPasteUndoToast",
+      "target": "paste/handlers/largePasteHandler:clearPasteSnapshot",
+      "rel": "call"
+    },
+    {
+      "id": "paste/ui/pasteUndoToast:showPasteUndoToast__call__paste/ui/pasteUndoToast:hidePasteUndoToast",
+      "source": "paste/ui/pasteUndoToast:showPasteUndoToast",
+      "target": "paste/ui/pasteUndoToast:hidePasteUndoToast",
+      "rel": "call"
+    },
+    {
+      "id": "paste/ui/pasteUndoToast:showPasteUndoToast__domwrite__dom",
+      "source": "paste/ui/pasteUndoToast:showPasteUndoToast",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/anchorSpacing:ensureSpaceAfterAnchor__domwrite__dom",
+      "source": "paste/utils/anchorSpacing:ensureSpaceAfterAnchor",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/citation-linker:processInTextCitations__call__paste/utils/reference-key-generator:generateReferenceKeys",
+      "source": "paste/utils/citation-linker:processInTextCitations",
+      "target": "paste/utils/reference-key-generator:generateReferenceKeys",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/citation-linker:processInTextCitations__domwrite__dom",
+      "source": "paste/utils/citation-linker:processInTextCitations",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/content-converter:convertTextToHtml__domwrite__dom",
+      "source": "paste/utils/content-converter:convertTextToHtml",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/content-converter:convertToJsonObjects__call__paste/utils/content-converter:convertTextToHtml",
+      "source": "paste/utils/content-converter:convertToJsonObjects",
+      "target": "paste/utils/content-converter:convertTextToHtml",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/dom-utils:createTempDOM__domwrite__dom",
+      "source": "paste/utils/dom-utils:createTempDOM",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/dom-utils:groupInlineElements__call__paste/utils/dom-utils:isBlockElement",
+      "source": "paste/utils/dom-utils:groupInlineElements",
+      "target": "paste/utils/dom-utils:isBlockElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/dom-utils:groupInlineElements__domwrite__dom",
+      "source": "paste/utils/dom-utils:groupInlineElements",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/dom-utils:removeEmptyBlocks__domwrite__dom",
+      "source": "paste/utils/dom-utils:removeEmptyBlocks",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/dom-utils:replaceTag__domwrite__dom",
+      "source": "paste/utils/dom-utils:replaceTag",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/dom-utils:stripAttributes__domwrite__dom",
+      "source": "paste/utils/dom-utils:stripAttributes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/dom-utils:unwrap__domwrite__dom",
+      "source": "paste/utils/dom-utils:unwrap",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/dom-utils:unwrapNonContentContainers__call__paste/utils/dom-utils:unwrap",
+      "source": "paste/utils/dom-utils:unwrapNonContentContainers",
+      "target": "paste/utils/dom-utils:unwrap",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/dom-utils:unwrapNonContentContainers__call__paste/utils/dom-utils:wrapLooseNodes",
+      "source": "paste/utils/dom-utils:unwrapNonContentContainers",
+      "target": "paste/utils/dom-utils:wrapLooseNodes",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/dom-utils:visuallyStartsWith__domwrite__dom",
+      "source": "paste/utils/dom-utils:visuallyStartsWith",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/dom-utils:wrapLooseNodes__domwrite__dom",
+      "source": "paste/utils/dom-utils:wrapLooseNodes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/extractFootnoteIds:extractFootnoteIdsFromHtml__call__paste/utils/extractFootnoteIds:extractFootnoteIdsFromElement",
+      "source": "paste/utils/extractFootnoteIds:extractFootnoteIdsFromHtml",
+      "target": "paste/utils/extractFootnoteIds:extractFootnoteIdsFromElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/extractFootnoteIds:extractFootnoteIdsFromHtml__domwrite__dom",
+      "source": "paste/utils/extractFootnoteIds:extractFootnoteIdsFromHtml",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/footnote-linker:createFootnoteSupElement__domwrite__dom",
+      "source": "paste/utils/footnote-linker:createFootnoteSupElement",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/footnote-linker:processFootnoteReferences__domwrite__dom",
+      "source": "paste/utils/footnote-linker:processFootnoteReferences",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/html-block-parser:parseHtmlToBlocks__call__paste/utils/html-block-parser:isBlockElement",
+      "source": "paste/utils/html-block-parser:parseHtmlToBlocks",
+      "target": "paste/utils/html-block-parser:isBlockElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/html-block-parser:parseHtmlToBlocks__domwrite__dom",
+      "source": "paste/utils/html-block-parser:parseHtmlToBlocks",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/html-preprocessor:preprocessHTMLContent__call__paste/utils/html-preprocessor:isRealLink",
+      "source": "paste/utils/html-preprocessor:preprocessHTMLContent",
+      "target": "paste/utils/html-preprocessor:isRealLink",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/html-preprocessor:preprocessHTMLContent__domwrite__dom",
+      "source": "paste/utils/html-preprocessor:preprocessHTMLContent",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/markdown-processor:processMarkdownInChunks__call__paste/utils/normalizer:normalizeListItems",
+      "source": "paste/utils/markdown-processor:processMarkdownInChunks",
+      "target": "paste/utils/normalizer:normalizeListItems",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/normalizer:escapeHtml__domwrite__dom",
+      "source": "paste/utils/normalizer:escapeHtml",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/normalizer:normalizeContent__call__paste/utils/normalizer:normalizeQuotes",
+      "source": "paste/utils/normalizer:normalizeContent",
+      "target": "paste/utils/normalizer:normalizeQuotes",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/normalizer:normalizeContent__call__paste/utils/normalizer:normalizeSpaces",
+      "source": "paste/utils/normalizer:normalizeContent",
+      "target": "paste/utils/normalizer:normalizeSpaces",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/normalizer:normalizeListItems__domwrite__dom",
+      "source": "paste/utils/normalizer:normalizeListItems",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/transform-helpers:cleanTFFootnoteContent__domwrite__dom",
+      "source": "paste/utils/transform-helpers:cleanTFFootnoteContent",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/transform-helpers:cloneAndClean__domwrite__dom",
+      "source": "paste/utils/transform-helpers:cloneAndClean",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/transform-helpers:reformatCitationLink__domwrite__dom",
+      "source": "paste/utils/transform-helpers:reformatCitationLink",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/transform-helpers:removeSectionsByHeading__domwrite__dom",
+      "source": "paste/utils/transform-helpers:removeSectionsByHeading",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/transform-helpers:removeStaticContentElements__domwrite__dom",
+      "source": "paste/utils/transform-helpers:removeStaticContentElements",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/transform-helpers:unwrapContainers__call__paste/utils/dom-utils:unwrap",
+      "source": "paste/utils/transform-helpers:unwrapContainers",
+      "target": "paste/utils/dom-utils:unwrap",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/transform-helpers:unwrapContainers__call__paste/utils/dom-utils:wrapLooseNodes",
+      "source": "paste/utils/transform-helpers:unwrapContainers",
+      "target": "paste/utils/dom-utils:wrapLooseNodes",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/url-detector:detectAndConvertUrls__call__paste/utils/url-detector:escapeHtml",
+      "source": "paste/utils/url-detector:detectAndConvertUrls",
+      "target": "paste/utils/url-detector:escapeHtml",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/url-detector:escapeHtml__domwrite__dom",
+      "source": "paste/utils/url-detector:escapeHtml",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -30237,6 +33890,11 @@
       "kind": "lazy"
     },
     {
+      "source": "components/editButton/index",
+      "target": "paste/index",
+      "kind": "breaker"
+    },
+    {
       "source": "components/editButton/lock",
       "target": "components/editButton/index",
       "kind": "breaker"
@@ -30478,6 +34136,11 @@
     },
     {
       "source": "components/newbookContainer/citeForm/submission",
+      "target": "paste/utils/normalizer",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/submission",
       "target": "SPA/navigation/pathways/ImportBookTransition",
       "kind": "lazy"
     },
@@ -30489,6 +34152,11 @@
     {
       "source": "components/newbookContainer/citeForm/urlImport",
       "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/urlImport",
+      "target": "paste/utils/normalizer",
       "kind": "static"
     },
     {
@@ -30509,6 +34177,11 @@
     {
       "source": "components/newbookContainer/citeForm/validation",
       "target": "components/newbookContainer/citeForm/state",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/validation",
+      "target": "paste/utils/normalizer",
       "kind": "static"
     },
     {
@@ -31128,6 +34801,11 @@
     },
     {
       "source": "divEditor/chunkMutationHandler/index",
+      "target": "paste/pasteState",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/chunkMutationHandler/index",
       "target": "hypercites/database",
       "kind": "lazy"
     },
@@ -31144,6 +34822,11 @@
     {
       "source": "divEditor/domUtilities",
       "target": "divEditor/editorState",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/domUtilities",
+      "target": "paste/pasteState",
       "kind": "static"
     },
     {
@@ -31257,6 +34940,11 @@
       "kind": "static"
     },
     {
+      "source": "divEditor/index",
+      "target": "paste/pasteState",
+      "kind": "static"
+    },
+    {
       "source": "divEditor/mutationProcessor",
       "target": "editToolbar/index",
       "kind": "static"
@@ -31284,6 +34972,21 @@
     {
       "source": "divEditor/saveQueue",
       "target": "lazyLoader/utilities/chunkLoadingState",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/saveQueue",
+      "target": "paste/handlers/largePasteHandler",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/saveQueue",
+      "target": "paste/pasteState",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/saveQueue",
+      "target": "paste/ui/pasteUndoToast",
       "kind": "static"
     },
     {
@@ -32152,6 +35855,11 @@
       "kind": "lazy"
     },
     {
+      "source": "hyperlitContainer/editMode",
+      "target": "paste/index",
+      "kind": "breaker"
+    },
+    {
       "source": "hyperlitContainer/footnoteTapExtender",
       "target": "hyperlitContainer/footnotesCitations",
       "kind": "static"
@@ -32737,6 +36445,11 @@
       "kind": "static"
     },
     {
+      "source": "indexedDB/nodes/contentProcessor",
+      "target": "paste/utils/extractFootnoteIds",
+      "kind": "static"
+    },
+    {
       "source": "indexedDB/nodes/delete",
       "target": "indexedDB/core/connection",
       "kind": "static"
@@ -33277,6 +36990,571 @@
       "kind": "static"
     },
     {
+      "source": "paste/fallback-processor",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "paste/fallback-processor",
+      "target": "paste/format-processors/general-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/fallback-processor",
+      "target": "paste/utils/citation-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/fallback-processor",
+      "target": "paste/utils/footnote-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/fallback-processor",
+      "target": "paste/utils/html-preprocessor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/fallback-processor",
+      "target": "paste/utils/reference-key-generator",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-detection/format-detector",
+      "target": "paste/format-detection/format-registry",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-detection/format-detector",
+      "target": "paste/utils/dom-utils",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-detection/format-registry",
+      "target": "paste/format-processors/cambridge-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-detection/format-registry",
+      "target": "paste/format-processors/general-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-detection/format-registry",
+      "target": "paste/format-processors/mit-press-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-detection/format-registry",
+      "target": "paste/format-processors/oup-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-detection/format-registry",
+      "target": "paste/format-processors/sage-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-detection/format-registry",
+      "target": "paste/format-processors/science-direct-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-detection/format-registry",
+      "target": "paste/format-processors/springer-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-detection/format-registry",
+      "target": "paste/format-processors/substack-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-detection/format-registry",
+      "target": "paste/format-processors/taylor-francis-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-detection/format-registry",
+      "target": "paste/format-processors/wiley-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/base-processor",
+      "target": "paste/utils/citation-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/base-processor",
+      "target": "paste/utils/dom-utils",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/base-processor",
+      "target": "paste/utils/footnote-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/base-processor",
+      "target": "paste/utils/normalizer",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/base-processor",
+      "target": "paste/utils/reference-key-generator",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/cambridge-processor",
+      "target": "paste/format-processors/base-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/cambridge-processor",
+      "target": "paste/utils/dom-utils",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/cambridge-processor",
+      "target": "paste/utils/footnote-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/cambridge-processor",
+      "target": "paste/utils/transform-helpers",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/general-processor",
+      "target": "paste/format-processors/base-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/general-processor",
+      "target": "paste/utils/dom-utils",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/mit-press-processor",
+      "target": "paste/format-processors/base-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/mit-press-processor",
+      "target": "paste/utils/dom-utils",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/mit-press-processor",
+      "target": "paste/utils/footnote-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/mit-press-processor",
+      "target": "paste/utils/transform-helpers",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/oup-processor",
+      "target": "paste/format-processors/base-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/oup-processor",
+      "target": "paste/utils/dom-utils",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/oup-processor",
+      "target": "paste/utils/footnote-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/oup-processor",
+      "target": "paste/utils/transform-helpers",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/sage-processor",
+      "target": "paste/format-processors/base-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/sage-processor",
+      "target": "paste/utils/dom-utils",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/sage-processor",
+      "target": "paste/utils/footnote-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/sage-processor",
+      "target": "paste/utils/transform-helpers",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/science-direct-processor",
+      "target": "paste/format-processors/base-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/science-direct-processor",
+      "target": "paste/utils/transform-helpers",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/springer-processor",
+      "target": "paste/format-processors/base-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/springer-processor",
+      "target": "paste/utils/dom-utils",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/springer-processor",
+      "target": "paste/utils/footnote-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/springer-processor",
+      "target": "paste/utils/transform-helpers",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/substack-processor",
+      "target": "paste/format-processors/base-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/substack-processor",
+      "target": "paste/utils/footnote-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/substack-processor",
+      "target": "paste/utils/transform-helpers",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/taylor-francis-processor",
+      "target": "paste/format-processors/base-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/taylor-francis-processor",
+      "target": "paste/utils/dom-utils",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/taylor-francis-processor",
+      "target": "paste/utils/footnote-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/taylor-francis-processor",
+      "target": "paste/utils/transform-helpers",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/wiley-processor",
+      "target": "paste/format-processors/base-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/wiley-processor",
+      "target": "paste/utils/dom-utils",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/wiley-processor",
+      "target": "paste/utils/reference-key-generator",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/wiley-processor",
+      "target": "paste/utils/transform-helpers",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/codeBlockHandler",
+      "target": "divEditor/index",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/hyperciteHandler",
+      "target": "divEditor/index",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/hyperciteHandler",
+      "target": "editToolbar/index",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/hyperciteHandler",
+      "target": "editToolbar/toolbarDOMUtils",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/hyperciteHandler",
+      "target": "hypercites/utils",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/hyperciteHandler",
+      "target": "hyperlitContainer/utilities/activeContext",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/hyperciteHandler",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/hyperciteHandler",
+      "target": "paste/utils/anchorSpacing",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/hyperciteHandler",
+      "target": "indexedDB/hydration/rebuild",
+      "kind": "lazy"
+    },
+    {
+      "source": "paste/handlers/largePasteHandler",
+      "target": "SPA/navigation/ProgressOverlayConductor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/largePasteHandler",
+      "target": "components/cloudRef/editIndicator",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/largePasteHandler",
+      "target": "divEditor/chunkManager",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/largePasteHandler",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/largePasteHandler",
+      "target": "paste/fallback-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/largePasteHandler",
+      "target": "paste/utils/extractFootnoteIds",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/largePasteHandler",
+      "target": "paste/utils/html-block-parser",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/largePasteHandler",
+      "target": "components/tocContainer/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "paste/handlers/novelVacuumHandler",
+      "target": "components/cloudRef/editIndicator",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/novelVacuumHandler",
+      "target": "divEditor/chunkManager",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/novelVacuumHandler",
+      "target": "paste/handlers/largePasteHandler",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/novelVacuumHandler",
+      "target": "paste/utils/insertion-point-calculator",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/novelVacuumHandler",
+      "target": "paste/utils/markdown-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/novelVacuumHandler",
+      "target": "SPA/navigation/ProgressOverlayConductor",
+      "kind": "lazy"
+    },
+    {
+      "source": "paste/handlers/novelVacuumHandler",
+      "target": "indexedDB/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "paste/handlers/smallPasteHandler",
+      "target": "divEditor/index",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/smallPasteHandler",
+      "target": "editToolbar/index",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/smallPasteHandler",
+      "target": "editToolbar/toolbarDOMUtils",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "SPA/navigation/ProgressOverlayConductor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "components/cloudRef/editIndicator",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "divEditor/chunkManager",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "hyperlitContainer/utilities/activeContext",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/format-detection/format-detector",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/format-detection/format-registry",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/handlers/codeBlockHandler",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/handlers/hyperciteHandler",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/handlers/largePasteHandler",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/handlers/novelVacuumHandler",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/handlers/smallPasteHandler",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/pasteState",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/ui/pasteUndoToast",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/utils/dom-helpers",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/utils/insertion-point-calculator",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/utils/markdown-detector",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/utils/markdown-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/utils/normalizer",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/utils/url-detector",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/utils/youtube-helpers",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "divEditor/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "paste/index",
+      "target": "indexedDB/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "paste/ui/pasteUndoToast",
+      "target": "paste/handlers/largePasteHandler",
+      "kind": "static"
+    },
+    {
+      "source": "paste/utils/citation-linker",
+      "target": "paste/utils/reference-key-generator",
+      "kind": "static"
+    },
+    {
+      "source": "paste/utils/content-converter",
+      "target": "divEditor/chunkManager",
+      "kind": "static"
+    },
+    {
+      "source": "paste/utils/insertion-point-calculator",
+      "target": "divEditor/chunkManager",
+      "kind": "static"
+    },
+    {
+      "source": "paste/utils/markdown-processor",
+      "target": "paste/utils/normalizer",
+      "kind": "static"
+    },
+    {
+      "source": "paste/utils/transform-helpers",
+      "target": "paste/utils/dom-utils",
+      "kind": "static"
+    },
+    {
       "source": "scrolling/index",
       "target": "SPA/navigation/cascadeOriginState",
       "kind": "static"
@@ -33513,13 +37791,21 @@
         "pageLoad/lazyLoaderRegistry",
         "pageLoad/loadHyperText",
         "pageLoad/readerEntry",
+        "paste/handlers/codeBlockHandler",
+        "paste/handlers/hyperciteHandler",
+        "paste/handlers/largePasteHandler",
+        "paste/handlers/novelVacuumHandler",
+        "paste/handlers/smallPasteHandler",
+        "paste/index",
+        "paste/ui/pasteUndoToast",
+        "paste/utils/insertion-point-calculator",
         "scrolling/index",
         "scrolling/internalNav",
         "scrolling/restore",
         "search/inTextSearch/searchToolbar"
       ]
     ],
-    "breakerCount": 27,
-    "lazyCount": 173
+    "breakerCount": 32,
+    "lazyCount": 179
   }
 }
