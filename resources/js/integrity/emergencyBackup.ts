@@ -2,7 +2,7 @@
  * Emergency Backup — shared functions for generating backup markdown files.
  *
  * Used by:
- *  - integrity/reporter.js (modal "Download emergency backup" button)
+ *  - integrity/reporter (modal "Download emergency backup" button)
  *  - components/sourceContainer/downloads.ts (blackBox folder in raw zip download)
  */
 
@@ -16,12 +16,12 @@ import { isIDBBroken } from '../indexedDB/core/healthMonitor';
  * Zero-dependency HTML-to-Markdown converter using DOMParser.
  * Handles common elements; not a full spec implementation.
  */
-export function htmlToMarkdown(html) {
+export function htmlToMarkdown(html: any) : any {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   return mdWalk(doc.body).replace(/\n{3,}/g, '\n\n').trim();
 }
 
-export function mdWalk(node) {
+export function mdWalk(node: any): any {
   if (node.nodeType === Node.TEXT_NODE) return node.textContent;
   if (node.nodeType !== Node.ELEMENT_NODE) return '';
 
@@ -34,7 +34,7 @@ export function mdWalk(node) {
       return `\n\n${'#'.repeat(level)} ${kids.trim()}\n\n`;
     }
     case 'blockquote':
-      return '\n\n' + kids.trim().split('\n').map(l => `> ${l}`).join('\n') + '\n\n';
+      return '\n\n' + kids.trim().split('\n').map((l: any) => `> ${l}`).join('\n') + '\n\n';
     case 'pre': {
       const codeEl = node.querySelector('code');
       const lang = codeEl?.className?.match(/language-(\w+)/)?.[1] || '';
@@ -70,19 +70,19 @@ export function mdWalk(node) {
  * Scrape visible DOM content for a book.
  * Returns { markdown, nodeMap } where nodeMap is Map<id, md> for stitching.
  */
-export function buildBrowserMd(bookId) {
+export function buildBrowserMd(bookId: any) : any {
   const container = document.querySelector(`[data-book-id="${bookId}"]`)
     || document.getElementById(bookId);
   if (!container) return null;
 
-  const nodeEls = [];
+  const nodeEls: any[] = [];
   container.querySelectorAll('[id]').forEach(el => {
     if (/^\d+(\.\d+)?$/.test(el.id)) nodeEls.push(el);
   });
   if (nodeEls.length === 0) return null;
 
   const nodeMap = new Map();
-  const parts = [];
+  const parts: any[] = [];
   for (const el of nodeEls) {
     const md = htmlToMarkdown(el.outerHTML);
     nodeMap.set(el.id, md);
@@ -96,7 +96,7 @@ export function buildBrowserMd(bookId) {
  * Read full book from IndexedDB.
  * Returns { markdown, nodeMap } or null if IDB broken/timeout.
  */
-export async function buildBrowserDatabaseMd(bookId) {
+export async function buildBrowserDatabaseMd(bookId: any) : Promise<any> {
   if (isIDBBroken()) return null;
   try {
     return await Promise.race([
@@ -106,7 +106,7 @@ export async function buildBrowserDatabaseMd(bookId) {
         chunks.sort((a, b) => a.chunk_id - b.chunk_id || a.startLine - b.startLine);
 
         const nodeMap = new Map();
-        const parts = [];
+        const parts: any[] = [];
         for (const chunk of chunks) {
           if (!chunk.content) continue;
           const md = htmlToMarkdown(chunk.content);
@@ -127,7 +127,7 @@ export async function buildBrowserDatabaseMd(bookId) {
  * Fetch full book from server API.
  * Returns markdown string or null on failure/timeout.
  */
-export async function buildServerDatabaseMd(bookId) {
+export async function buildServerDatabaseMd(bookId: any) : Promise<any> {
   try {
     return await Promise.race([
       (async () => {
@@ -141,9 +141,9 @@ export async function buildServerDatabaseMd(bookId) {
         const data = await resp.json();
 
         const nodes = data.nodes || [];
-        nodes.sort((a, b) => a.chunk_id - b.chunk_id || a.startLine - b.startLine);
+        nodes.sort((a: any, b: any) => a.chunk_id - b.chunk_id || a.startLine - b.startLine);
 
-        const parts = [];
+        const parts: any[] = [];
         for (const node of nodes) {
           if (!node.content) continue;
           parts.push(htmlToMarkdown(node.content));
@@ -162,7 +162,7 @@ export async function buildServerDatabaseMd(bookId) {
  * Merge IDB (complete) with DOM (freshest visible).
  * For every node in IDB, if the DOM has it too, use the DOM version.
  */
-export function buildStitchedUpMd(idbNodeMap, domNodeMap) {
+export function buildStitchedUpMd(idbNodeMap: any, domNodeMap: any) : any {
   if (!idbNodeMap) return null;
 
   const merged = new Map(idbNodeMap);
@@ -174,14 +174,14 @@ export function buildStitchedUpMd(idbNodeMap, domNodeMap) {
     }
   }
 
-  const sorted = [...merged.entries()].sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]));
+  const sorted = [...merged.entries()].sort((a: any, b: any) => parseFloat(a[0]) - parseFloat(b[0]));
   return sorted.map(([, md]) => md).join('\n\n');
 }
 
 /**
  * Generate a README explaining each file in the backup.
  */
-export function buildReadme(bookId, available) {
+export function buildReadme(bookId: any, available: any) : any {
   const timestamp = new Date().toISOString();
   const lines = [
     `# Emergency Backup — ${bookId}`,
@@ -241,7 +241,7 @@ export function buildReadme(bookId, available) {
  * Generate a top-level README for the download-all zip.
  * Inspects the JSZip instance to determine which folders are present.
  */
-export function buildTopLevelReadme(bookId, zip) {
+export function buildTopLevelReadme(bookId: any, zip: any) : any {
   const timestamp = new Date().toISOString();
   const prefix = bookId + '/';
 
@@ -251,7 +251,7 @@ export function buildTopLevelReadme(bookId, zip) {
   const hasBlackBox = !!zip.file(new RegExp('^' + escapeRegExp(prefix) + 'blackBox/'));
 
   // Detect source file type
-  let sourceType = null;
+  let sourceType: any = null;
   if (hasOriginalFiles) {
     if (zip.file(new RegExp('^' + escapeRegExp(prefix) + 'original_files/.*\\.pdf$', 'i'))) {
       sourceType = 'PDF';
@@ -329,6 +329,6 @@ export function buildTopLevelReadme(bookId, zip) {
   return lines.join('\n');
 }
 
-function escapeRegExp(string) {
+function escapeRegExp(string: any) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

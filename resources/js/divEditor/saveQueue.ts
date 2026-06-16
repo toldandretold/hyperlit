@@ -19,8 +19,8 @@ import { invalidateSearchIndex } from '../search/inTextSearch/searchToolbar.js';
 import { reportIDBFailure, reportIDBSuccess, isIDBBroken } from '../indexedDB/core/healthMonitor';
 import { TAB_ID, markBookEditedLocally } from '../utilities/BroadcastListener';
 import { book as currentBook } from '../app.js';
-import { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } from '../integrity/verifier.js';
-import { reportIntegrityFailure as _reportIntegrityFailure } from '../integrity/reporter.js';
+import { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } from '../integrity/verifier';
+import { reportIntegrityFailure as _reportIntegrityFailure } from '../integrity/reporter';
 // reporter.js is JS; its inferred param type is narrower than the (varied) shapes
 // we pass — widen to accept the optional selfHealed/duplicateIds/orphanedNodes fields.
 const reportIntegrityFailure: (arg: any) => void = _reportIntegrityFailure as any;

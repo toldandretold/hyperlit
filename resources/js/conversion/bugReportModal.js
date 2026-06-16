@@ -7,7 +7,7 @@
  * report + attachment + console-logs + Laravel-log grep to maintainers.
  */
 
-import { getRecentLogs } from '../integrity/logCapture.js';
+import { getRecentLogs } from '../integrity/logCapture';
 
 const MODAL_ID = 'import-failure-modal';
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB cap matches server-side max

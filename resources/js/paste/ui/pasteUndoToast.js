@@ -9,7 +9,7 @@
  */
 
 import { clearPasteSnapshot } from '../handlers/largePasteHandler.js';
-import { getRecentLogs, getPasteLogs } from '../../integrity/logCapture.js';
+import { getRecentLogs, getPasteLogs } from '../../integrity/logCapture';
 
 const TOAST_ID = 'paste-undo-toast';
 

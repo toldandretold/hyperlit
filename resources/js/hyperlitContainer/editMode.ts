@@ -119,7 +119,7 @@ export async function handleEditButtonClick() {
       // duplicate ids and the user would never see the integrity modal —
       // only the main book's #editButton triggers that path historically.
       try {
-        const { runIntegritySweep }: any = await import('../integrity/verifier.js');
+        const { runIntegritySweep }: any = await import('../integrity/verifier');
         const editableSubBook = container?.querySelector('.sub-book-content[data-user-can-edit="true"]');
         const subBookId = editableSubBook?.getAttribute('data-book-id');
         if (editableSubBook && subBookId) {

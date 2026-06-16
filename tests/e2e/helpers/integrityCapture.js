@@ -2,7 +2,7 @@
  * Integrity capture — installed via page.addInitScript before page scripts.
  *
  * Watches console output for the `[integrity]` channel that
- * `resources/js/integrity/reporter.js` uses (`console.warn('[integrity]
+ * `resources/js/integrity/reporter` uses (`console.warn('[integrity]
  * MISMATCH DETECTED', ...)` and related), and the integrity modal DOM
  * (#integrity-send-report-btn or .integrity-card) that pops up on
  * mismatch. Pushes structured events to `window.__integrityEvents` so

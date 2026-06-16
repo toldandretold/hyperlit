@@ -13,7 +13,7 @@
  * zero-width-space text node. This is the same trick the editor already uses
  * for shift+enter (resources/js/divEditor/enterKeyHandler.js) and is
  * integrity-safe — the integrity verifier strips ​ from both sides before
- * comparing (resources/js/integrity/verifier.js), and the conversion/save paths
+ * comparing (resources/js/integrity/verifier), and the conversion/save paths
  * never treat ​ as meaningful content.
  *
  * Kept as a zero-import leaf so both the toolbar (editToolbar/toolbarDOMUtils)

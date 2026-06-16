@@ -17,7 +17,7 @@ import { INLINE_SKIP_TAGS, BLOCK_ELEMENT_TAGS } from '../utilities/blockElements
  * to a single space. This makes the check resilient to minor formatting
  * differences between live DOM and stored HTML.
  */
-function normaliseText(str) {
+function normaliseText(str: any) {
   return (str || '').replace(/[\u200B\u2060]/g, '').replace(/\s+/g, ' ').trim();
 }
 
@@ -29,10 +29,10 @@ function normaliseText(str) {
  * the LaTeX source in `data-math`). We replace either side with the same
  * stable string \u2014 the data-math attribute \u2014 so the comparison is consistent.
  */
-function textContentCanonical(node) {
+function textContentCanonical(node: any) {
   if (!node) return '';
   const clone = node.cloneNode(true);
-  clone.querySelectorAll('latex, latex-block').forEach((el) => {
+  clone.querySelectorAll('latex, latex-block').forEach((el: any) => {
     el.textContent = el.getAttribute('data-math') || '';
   });
   return clone.textContent || '';
@@ -42,7 +42,7 @@ function textContentCanonical(node) {
  * Find the first character index where two strings diverge.
  * Returns an object with the diff index and ~50-char snippets around it.
  */
-function findFirstDiff(a, b) {
+function findFirstDiff(a: any, b: any) {
   const len = Math.min(a.length, b.length);
   let i = 0;
   while (i < len && a[i] === b[i]) i++;
@@ -65,7 +65,7 @@ function findFirstDiff(a, b) {
  * that batch.js strips on save. Uses textContentCanonical so <latex>
  * elements are compared by their data-math attribute, not rendered output.
  */
-function textFromStoredHTML(html) {
+function textFromStoredHTML(html: any) {
   if (!html) return '';
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const el = doc.body.firstElementChild;
@@ -83,7 +83,7 @@ function textFromStoredHTML(html) {
  * @param {Array}  nodeIds  - Array of numeric DOM id values to check
  * @returns {Promise<{ok: string[], mismatches: Array, missingFromIDB: string[], duplicateIds: Array}>}
  */
-export function verifyNodesIntegrity(bookId, nodeIds) {
+export function verifyNodesIntegrity(bookId: any, nodeIds: any) : any {
   return new Promise((resolve) => {
     const run = () => {
       _verifySync(bookId, nodeIds).then(resolve);
@@ -100,19 +100,19 @@ export function verifyNodesIntegrity(bookId, nodeIds) {
 /**
  * Internal synchronous (but async-IDB) verification.
  */
-async function _verifySync(bookId, nodeIds) {
-  const ok = [];
-  const mismatches = [];
-  const missingFromIDB = [];
+async function _verifySync(bookId: any, nodeIds: any) {
+  const ok: any[] = [];
+  const mismatches: any[] = [];
+  const missingFromIDB: any[] = [];
 
   // Detect duplicate numeric IDs
-  const idCounts = {};
-  nodeIds.forEach(id => { idCounts[id] = (idCounts[id] || 0) + 1; });
+  const idCounts: any = {};
+  nodeIds.forEach((id: any) => { idCounts[id] = (idCounts[id] || 0) + 1; });
   const duplicateIds = Object.entries(idCounts)
-    .filter(([, count]) => count > 1)
+    .filter(([, count]: any) => count > 1)
     .map(([id, count]) => ({ id, count }));
 
-  let db;
+  let db: any;
   try {
     db = await openDatabase();
   } catch (e) {
@@ -137,10 +137,10 @@ async function _verifySync(bookId, nodeIds) {
     return { ok, mismatches, missingFromIDB, duplicateIds };
   }
 
-  const checks = nodeIds.map((nodeId) => {
-    return new Promise((res) => {
+  const checks = nodeIds.map((nodeId: any) => {
+    return new Promise<void>((res) => {
       // Scoped lookup within the book container (avoids duplicate-ID collisions)
-      let domEl = null;
+      let domEl: any = null;
       if (bookContainer) {
         domEl = bookContainer.querySelector(`[id="${nodeId}"]`);
       }
@@ -216,7 +216,7 @@ async function _verifySync(bookId, nodeIds) {
  * @param {string} bookId
  * @returns {Array<{dataNodeId: string, keeper: HTMLElement, duplicates: HTMLElement[]}>}
  */
-export function findVerbatimDuplicates(bookId) {
+export function findVerbatimDuplicates(bookId: any) : any {
   const container = document.querySelector(`[data-book-id="${bookId}"]`)
     || document.getElementById(bookId);
   if (!container) return [];
@@ -229,12 +229,12 @@ export function findVerbatimDuplicates(bookId) {
     byNodeId.get(id).push(el);
   });
 
-  const verbatim = [];
+  const verbatim: any[] = [];
   for (const [dataNodeId, els] of byNodeId) {
     if (els.length < 2) continue;
     const keeper = els[0];
     const html = keeper.innerHTML;
-    const duplicates = els.slice(1).filter(el => el.innerHTML === html);
+    const duplicates = els.slice(1).filter((el: any) => el.innerHTML === html);
     if (duplicates.length > 0) {
       verbatim.push({ dataNodeId, keeper, duplicates });
     }
@@ -251,10 +251,10 @@ export function findVerbatimDuplicates(bookId) {
  * @param {string} bookId
  * @returns {string[]}
  */
-export function healVerbatimDuplicates(bookId) {
+export function healVerbatimDuplicates(bookId: any) : any {
   const verbatim = findVerbatimDuplicates(bookId);
   if (verbatim.length === 0) return [];
-  const removedIds = [];
+  const removedIds: any[] = [];
   for (const { dataNodeId, duplicates } of verbatim) {
     for (const dup of duplicates) {
       removedIds.push(dup.id || dataNodeId);
@@ -275,13 +275,13 @@ export function healVerbatimDuplicates(bookId) {
  * @param {string} bookId - The book (or sub-book) to scan
  * @returns {Array<{tag: string, textSnippet: string, element: HTMLElement}>}
  */
-export function findOrphanedNodes(bookId) {
+export function findOrphanedNodes(bookId: any) : any {
 
   const container = document.querySelector(`[data-book-id="${bookId}"]`)
     || document.getElementById(bookId);
   if (!container) return [];
 
-  const orphans = [];
+  const orphans: any[] = [];
 
   // For chunked books, iterate direct children of each chunk wrapper
   const chunks = container.querySelectorAll('[data-chunk-id]');
@@ -331,7 +331,7 @@ export function findOrphanedNodes(bookId) {
  * @param {string} trigger - Free-form label to thread through reportIntegrityFailure
  * @returns {Promise<{ok: boolean, mismatches, missingFromIDB, duplicateIds, orphans, healedIds}>}
  */
-export async function runIntegritySweep(bookId, containerEl, trigger = 'unknown') {
+export async function runIntegritySweep(bookId: any, containerEl: any, trigger = 'unknown') : Promise<any> {
   if (!bookId || !containerEl) {
     return { ok: true, mismatches: [], missingFromIDB: [], duplicateIds: [], orphans: [], healedIds: [] };
   }
@@ -340,8 +340,8 @@ export async function runIntegritySweep(bookId, containerEl, trigger = 'unknown'
   const healedIds = healVerbatimDuplicates(bookId);
 
   // 2. Collect node ids
-  const nodeIds = [];
-  containerEl.querySelectorAll('[id]').forEach(el => {
+  const nodeIds: any[] = [];
+  containerEl.querySelectorAll('[id]').forEach((el: any) => {
     if (/^\d+(\.\d+)*$/.test(el.id)) nodeIds.push(el.id);
   });
 
@@ -350,7 +350,7 @@ export async function runIntegritySweep(bookId, containerEl, trigger = 'unknown'
   }
 
   // 3. Verify
-  const result = await verifyNodesIntegrity(bookId, nodeIds);
+  const result: any = await verifyNodesIntegrity(bookId, nodeIds);
   // 4. Orphans
   const orphans = findOrphanedNodes(bookId);
 
@@ -361,7 +361,7 @@ export async function runIntegritySweep(bookId, containerEl, trigger = 'unknown'
 
   if (hasIssue) {
     try {
-      const { reportIntegrityFailure } = await import('./reporter.js');
+      const { reportIntegrityFailure } = await import('./reporter');
       reportIntegrityFailure({
         bookId,
         mismatches: result.mismatches,

@@ -14,7 +14,7 @@ vi.mock('../../../resources/js/postgreSQL.js', () => ({
 vi.mock('../../../resources/js/components/editIndicator.js', () => ({
   glowCloudOrange: vi.fn(),
 }));
-vi.mock('../../../resources/js/integrity/reporter.js', () => ({
+vi.mock('../../../resources/js/integrity/reporter', () => ({
   reportIntegrityFailure: vi.fn(),
   reportServerError: vi.fn(),
 }));

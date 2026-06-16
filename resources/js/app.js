@@ -1,4 +1,4 @@
-import './integrity/logCapture.js';
+import './integrity/logCapture';
 import { log } from './utilities/logger';
 import { seedFromServer } from './utilities/preferences';
 import { initializeTheme } from './components/settingsContainer/themeSwitcher';

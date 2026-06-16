@@ -9,7 +9,7 @@
  * Rate-limited: one popup per 60 seconds max.
  */
 
-import { getRecentLogs } from './logCapture.js';
+import { getRecentLogs } from './logCapture';
 import { isIDBBroken } from '../indexedDB/core/healthMonitor';
 import {
   buildBrowserMd,
@@ -17,13 +17,13 @@ import {
   buildServerDatabaseMd,
   buildStitchedUpMd,
   buildReadme,
-} from './emergencyBackup.js';
+} from './emergencyBackup';
 import { isLoggedIn } from '../utilities/auth/index';
 
 const _sessionStartTs = Date.now();
 let _lastPopupTs = 0;
 const POPUP_COOLDOWN_MS = 60_000;
-let _modalEl = null;
+let _modalEl: any = null;
 
 /**
  * Report an integrity failure.
@@ -34,13 +34,13 @@ let _modalEl = null;
  * @param {string[]} opts.missingFromIDB - Node IDs present in DOM but absent from IDB
  * @param {string}   opts.trigger      - What triggered the check ("save" | "paste" | "manual")
  */
-export async function reportIntegrityFailure({ bookId, mismatches = [], missingFromIDB = [], duplicateIds = [], orphanedNodes = [], trigger = 'unknown', selfHealed = false, selfHealedNodeIds = [] }) {
+export async function reportIntegrityFailure({ bookId, mismatches = [], missingFromIDB = [], duplicateIds = [], orphanedNodes = [], trigger = 'unknown', selfHealed = false, selfHealedNodeIds = [] }: any) : Promise<any> {
   // Always log
   console.warn('[integrity] MISMATCH DETECTED', { bookId, mismatches, missingFromIDB, duplicateIds, orphanedNodes, trigger });
 
   if (orphanedNodes.length > 0) {
     console.warn(`[integrity] Orphaned nodes (${orphanedNodes.length}):`);
-    orphanedNodes.forEach(o => {
+    orphanedNodes.forEach((o: any) => {
       if (o.healFailed) {
         console.warn(`  <${o.tag}> HEAL FAILED: ${o.error || 'unknown'} — "${o.textSnippet?.substring(0, 80)}"`);
       } else {
@@ -51,7 +51,7 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
 
   if (mismatches.length > 0) {
     console.group('[integrity] Mismatch details');
-    mismatches.forEach((m, i) => {
+    mismatches.forEach((m: any, i: any) => {
       console.warn(`Node ${m.startLine || m.nodeId}:`, {
         domText: m.domText,
         idbText: m.idbText,
@@ -105,17 +105,17 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
   const payload = {
     bookId,
     suspiciousWipe,
-    mismatches: mismatches.map(m => ({
+    mismatches: mismatches.map((m: any) => ({
       startLine: m.startLine || m.nodeId,
       nodeId: m.nodeId || null,
       domText: m.domText || '',
       idbText: m.idbText || '',
       diff: m.diff || null,
     })),
-    missingFromIDB: missingFromIDB.map(m =>
+    missingFromIDB: missingFromIDB.map((m: any) =>
       typeof m === 'object' ? { startLine: m.startLine || m.nodeId, nodeId: m.nodeId || null, tag: m.tag, domText: (m.domText || '').substring(0, 300) } : { startLine: m }
     ),
-    duplicateIds: duplicateIds.map(d => {
+    duplicateIds: duplicateIds.map((d: any) => {
       const elements = container
         ? Array.from(container.querySelectorAll(`[id="${CSS.escape(d.id)}"]`))
         : [];
@@ -128,7 +128,7 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
         })),
       };
     }),
-    orphanedNodes: orphanedNodes.map(o => ({
+    orphanedNodes: orphanedNodes.map((o: any) => ({
       tag: o.tag || null,
       textSnippet: (o.textSnippet || '').substring(0, 500),
       assignedId: o.assignedId || null,
@@ -183,7 +183,7 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
  * @param {number} opts.status  - failing HTTP status (500/502/503/504…)
  * @param {Error}  [opts.error] - the caught error
  */
-export async function reportServerError({ bookId, status, error }) {
+export async function reportServerError({ bookId, status, error }: any) : Promise<any> {
   console.warn(`[integrity] Persistent server error (${status}) syncing ${bookId}`);
 
   const payload = {
@@ -213,11 +213,11 @@ export async function reportServerError({ bookId, status, error }) {
 // ================================================================
 // RETRY QUEUE — guarantees no report is silently dropped
 // ================================================================
-const _retryQueue = [];
+const _retryQueue: any[] = [];
 const RETRY_BASE_MS = 15_000;
 const RETRY_MAX_MS  = 300_000;
 const MAX_QUEUED    = 20;
-let _retryTimer     = null;
+let _retryTimer: any = null;
 
 function _scheduleRetry() {
   if (_retryTimer || _retryQueue.length === 0) return;
@@ -232,7 +232,7 @@ function _scheduleRetry() {
 async function _flushRetryQueue() {
   while (_retryQueue.length > 0) {
     const entry = _retryQueue[0];
-    const result = await _doSend(entry.payload);
+    const result: any = await _doSend(entry.payload);
     if (result.ok) {
       _retryQueue.shift();
     } else if (!result.retryable) {
@@ -252,8 +252,8 @@ async function _flushRetryQueue() {
  * Permanent failures (4xx other than 429) are dropped — retrying the same
  * payload will produce the same error forever.
  */
-async function _sendReport(payload) {
-  const result = await _doSend(payload);
+async function _sendReport(payload: any) {
+  const result: any = await _doSend(payload);
   if (result.ok) return;
   if (!result.retryable) return; // Permanent error — don't queue
 
@@ -274,9 +274,9 @@ async function _sendReport(payload) {
  *   retryable: true for network errors, 5xx, and 429 (transient)
  *              false for other 4xx (permanent — payload itself is bad)
  */
-async function _doSend(payload) {
+async function _doSend(payload: any) {
   try {
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
     const resp = await fetch('/api/integrity/report', {
       method: 'POST',
       headers: {
@@ -294,7 +294,7 @@ async function _doSend(payload) {
     // Read body so we can show *what* the server rejected (Laravel 422 returns
     // {message, errors: { 'field.path': ['rule failed'] }}). Without this the
     // "integrity debugger" is itself a black box.
-    let body = null;
+    let body: any = null;
     try {
       const text = await resp.text();
       try { body = JSON.parse(text); } catch { body = text; }
@@ -332,7 +332,7 @@ async function _doSend(payload) {
  * @param {Object}  payload    - Diagnostic payload (sent only if user clicks Send Bug Report)
  * @param {boolean} selfHealed - Whether the issue was auto-fixed
  */
-function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false, serverError = null) {
+function _showModal(bookId: any, payload: any, selfHealed = false, suspiciousWipe = false, serverError: any = null) {
   if (_modalEl) return; // Already showing
 
   const backdrop = document.createElement('div');
@@ -466,7 +466,7 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false,
 
   // Wire up all "?" info toggles
   card.querySelectorAll('.integrity-info-toggle').forEach(toggle => {
-    const detail = toggle.nextElementSibling;
+    const detail: any = toggle.nextElementSibling;
     if (detail && detail.classList.contains('integrity-info-detail')) {
       toggle.addEventListener('click', () => {
         const open = detail.style.display === 'none';
@@ -481,12 +481,12 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false,
   if (!serverError) _grantPremium();
 
   // Dismiss button
-  card.querySelector('#integrity-dismiss-btn').addEventListener('click', () => {
+  card.querySelector('#integrity-dismiss-btn')?.addEventListener('click', () => {
     _closeModal();
   });
 
   // Download emergency backup button
-  const downloadBtn = card.querySelector('#integrity-download-btn');
+  const downloadBtn : any = card.querySelector('#integrity-download-btn');
   if (downloadBtn) {
     downloadBtn.addEventListener('click', async () => {
       downloadBtn.disabled = true;
@@ -504,7 +504,7 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false,
           browserResult?.nodeMap || null,
         );
 
-        const files = {};
+        const files: any = {};
         if (browserResult?.markdown) files['browser.md'] = browserResult.markdown;
         if (idbResult?.markdown) files['browserDatabase.md'] = idbResult.markdown;
         if (serverMd) files['serverDatabase.md'] = serverMd;
@@ -538,14 +538,14 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false,
   }
 
   // Send Bug Report button (consent-based — not present in suspiciousWipe variant)
-  const reportBtn = card.querySelector('#integrity-send-report-btn');
+  const reportBtn : any = card.querySelector('#integrity-send-report-btn');
   if (reportBtn) reportBtn.addEventListener('click', async () => {
-    const reportBtn = card.querySelector('#integrity-send-report-btn');
+    const reportBtn : any = card.querySelector('#integrity-send-report-btn');
     reportBtn.disabled = true;
     reportBtn.textContent = 'Sending…';
 
     // Attach optional comment
-    const commentEl = card.querySelector('#integrity-comment');
+    const commentEl : any = card.querySelector('#integrity-comment');
     const comment = commentEl ? commentEl.value.trim() : '';
     if (comment) payload.comment = comment;
 
@@ -578,14 +578,14 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false,
           to claim your free month of premium.
         </p>
       `;
-      const infoToggleP = card.querySelector('.integrity-info-toggle')?.parentElement;
+      const infoToggleP : any = card.querySelector('.integrity-info-toggle')?.parentElement;
       if (infoToggleP) {
         infoToggleP.parentNode.insertBefore(postSendDiv, infoToggleP);
       } else {
         card.appendChild(postSendDiv);
       }
 
-      const openAuthForm = async (formType) => {
+      const openAuthForm = async (formType: any) => {
         // Hide modal so userContainer (z-index 1000) is accessible
         backdrop.style.display = 'none';
         const { initializeUserContainer } = await import('../components/userButton/userButton');
@@ -598,16 +598,16 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false,
         _pollForAuthAndClaim(backdrop, card);
       };
 
-      postSendDiv.querySelector('#integrity-login-link').addEventListener('click', () => openAuthForm('login'));
-      postSendDiv.querySelector('#integrity-register-link').addEventListener('click', () => openAuthForm('register'));
+      postSendDiv.querySelector('#integrity-login-link')?.addEventListener('click', () => openAuthForm('login'));
+      postSendDiv.querySelector('#integrity-register-link')?.addEventListener('click', () => openAuthForm('register'));
     }
   });
 
   // Emergency Rectify button (only present when selfHealed = false)
-  const rectifyBtn = card.querySelector('#integrity-rectify-btn');
+  const rectifyBtn : any = card.querySelector('#integrity-rectify-btn');
   if (rectifyBtn) {
     rectifyBtn.addEventListener('click', async () => {
-      const statusEl = card.querySelector('#integrity-rectify-status');
+      const statusEl : any = card.querySelector('#integrity-rectify-status');
 
       if (isIDBBroken()) {
         statusEl.className = 'integrity-status integrity-status-error';
@@ -635,7 +635,7 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false,
 
         // Collect all numeric-ID node elements
         const nodeEls = container.querySelectorAll('[id]');
-        const nodeIds = [];
+        const nodeIds: any[] = [];
         nodeEls.forEach(el => {
           if (/^\d+(\.\d+)?$/.test(el.id)) nodeIds.push(el.id);
         });
@@ -659,8 +659,8 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false,
         await flushAllPendingSaves();
 
         // Re-verify
-        const { verifyNodesIntegrity: verify } = await import('./verifier.js');
-        const result = await verify(bookId, nodeIds);
+        const { verifyNodesIntegrity: verify } = await import('./verifier');
+        const result: any = await verify(bookId, nodeIds);
 
         const stillBroken = result.mismatches.length + result.missingFromIDB.length + result.duplicateIds.length;
 
@@ -680,7 +680,7 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false,
         console.error('[integrity] Emergency Rectify failed:', e);
         statusEl.className = 'integrity-status integrity-status-error';
         statusEl.style.display = 'block';
-        statusEl.textContent = `Rectify error: ${e.message}`;
+        statusEl.textContent = `Rectify error: ${(e as any).message}`;
         rectifyBtn.disabled = false;
         rectifyBtn.textContent = 'Emergency Rectify';
       }
@@ -692,7 +692,7 @@ function _showModal(bookId, payload, selfHealed = false, suspiciousWipe = false,
  * Poll isLoggedIn() every 2s. Once authenticated, call claim-premium
  * and re-show the modal with a success message.
  */
-function _pollForAuthAndClaim(backdrop, card) {
+function _pollForAuthAndClaim(backdrop: any, card: any) {
   let attempts = 0;
   const MAX_ATTEMPTS = 150; // 5 minutes at 2s intervals
   const poll = setInterval(async () => {
@@ -712,7 +712,7 @@ function _pollForAuthAndClaim(backdrop, card) {
 
     // Claim premium
     try {
-      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+      const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
       await fetch('/api/integrity/claim-premium', {
         method: 'POST',
         headers: {
@@ -734,7 +734,7 @@ function _pollForAuthAndClaim(backdrop, card) {
         <button class="integrity-btn integrity-btn-primary integrity-dismiss-ok">No worries</button>
       </div>
     `;
-    card.querySelectorAll('.integrity-dismiss-ok').forEach(btn => btn.addEventListener('click', () => _closeModal()));
+    card.querySelectorAll('.integrity-dismiss-ok').forEach((btn: any) => btn.addEventListener('click', () => _closeModal()));
   }, 2000);
 }
 
@@ -744,7 +744,7 @@ function _pollForAuthAndClaim(backdrop, card) {
  */
 async function _grantPremium() {
   try {
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
     await fetch('/api/integrity/claim-premium', {
       method: 'POST',
       headers: {
@@ -775,7 +775,7 @@ function _closeModal() {
  */
 async function _loadJSZipSafe() {
   try {
-    const result = await Promise.race([
+    const result: any = await Promise.race([
       import('https://cdn.skypack.dev/jszip'),
       new Promise((_, reject) => setTimeout(() => reject(new Error('JSZip CDN timeout')), 3000)),
     ]);
@@ -786,7 +786,7 @@ async function _loadJSZipSafe() {
   }
 }
 
-function _triggerDownload(blob, filename) {
+function _triggerDownload(blob: any, filename: any) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -797,7 +797,7 @@ function _triggerDownload(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
-function _downloadAsFile(filename, content, mimeType) {
+function _downloadAsFile(filename: any, content: any, mimeType: any) {
   const blob = new Blob([content], { type: mimeType });
   _triggerDownload(blob, filename);
 }

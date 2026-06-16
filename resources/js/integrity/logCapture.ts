@@ -8,14 +8,14 @@
  * logs from the start of the session.
  */
 
-const _buffer = [];
+const _buffer: any[] = [];
 const MAX_ENTRIES = 50;
 const MAX_PASTE_ENTRIES = 2000;
-let _pasteBuffer = null;
+let _pasteBuffer: any = null;
 const _orig = { log: console.log, warn: console.warn, error: console.error };
 
 for (const level of ['log', 'warn', 'error']) {
-    console[level] = (...args) => {
+    (console as any)[level] = (...args: any[]) => {
         const msg = args.map(a => {
             try {
                 return typeof a === 'object' ? JSON.stringify(a).substring(0, 500) : String(a);
@@ -29,19 +29,19 @@ for (const level of ['log', 'warn', 'error']) {
         if (_pasteBuffer !== null && _pasteBuffer.length < MAX_PASTE_ENTRIES) {
             _pasteBuffer.push(entry);
         }
-        _orig[level](...args);
+        (_orig as any)[level](...args);
     };
 }
 
-export function getRecentLogs() {
+export function getRecentLogs() : any {
     return [..._buffer];
 }
 
-export function startPasteCapture() {
+export function startPasteCapture() : any {
     _pasteBuffer = [];
 }
 
-export function getPasteLogs() {
+export function getPasteLogs() : any {
     const logs = _pasteBuffer;
     _pasteBuffer = null;
     return logs ?? [];

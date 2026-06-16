@@ -14,7 +14,7 @@
  * responsible pipeline stage in the vibe loop (see vibe_convert.py _ISSUE_CATEGORY_MODULES).
  */
 
-import { getRecentLogs } from '../integrity/logCapture.js';
+import { getRecentLogs } from '../integrity/logCapture';
 
 const TOAST_ID = 'conversion-feedback-toast';
 

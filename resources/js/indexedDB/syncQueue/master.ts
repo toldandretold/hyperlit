@@ -527,7 +527,7 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
       if (streak >= SERVER_ERROR_MODAL_THRESHOLD) {
         _serverErrorStreak.delete(bookId); // reset so it takes another run to re-fire
         if (glowCloudRed) glowCloudRed();   // glow only — the modal carries the message
-        import('../../integrity/reporter.js')
+        import('../../integrity/reporter')
           .then(({ reportServerError }) => reportServerError({ bookId, status, error: error as Error }))
           .catch(() => { /* reporter unavailable — glow still conveys the error */ });
         return;

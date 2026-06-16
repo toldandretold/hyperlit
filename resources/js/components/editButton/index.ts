@@ -336,7 +336,7 @@ export function disableEditMode({ skipPersistence = false }: any = {}) {
 
     // Verify all saved nodes made it to IDB before leaving edit mode
     try {
-      const { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } = await import('../../integrity/verifier.js');
+      const { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } = await import('../../integrity/verifier');
       const container = document.getElementById(book);
       if (container) {
         // Auto-heal verbatim DOM duplicates BEFORE counting nodes so the
@@ -353,7 +353,7 @@ export function disableEditMode({ skipPersistence = false }: any = {}) {
           const result = await verifyNodesIntegrity(book, nodeIds);
           const orphans = findOrphanedNodes(book);
           if (result.mismatches.length > 0 || result.missingFromIDB.length > 0 || result.duplicateIds.length > 0 || orphans.length > 0) {
-            const { reportIntegrityFailure } = await import('../../integrity/reporter.js');
+            const { reportIntegrityFailure } = await import('../../integrity/reporter');
             reportIntegrityFailure({
               bookId: book,
               mismatches: result.mismatches,

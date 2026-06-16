@@ -22,7 +22,7 @@ vi.mock('../../../resources/js/postgreSQL.js', () => ({
 vi.mock('../../../resources/js/components/editIndicator.js', () => ({
   glowCloudOrange: vi.fn(),
 }));
-vi.mock('../../../resources/js/integrity/reporter.js', () => ({
+vi.mock('../../../resources/js/integrity/reporter', () => ({
   reportIntegrityFailure: vi.fn(),
   reportServerError: vi.fn(),
 }));
@@ -38,7 +38,7 @@ vi.mock('../../../resources/js/utilities/auth', () => ({
 }));
 
 import { installFreshIndexedDB, seedStore, readOne, readAll, waitFor } from './idbHarness.js';
-import { reportIntegrityFailure } from '../../../resources/js/integrity/reporter.js';
+import { reportIntegrityFailure } from '../../../resources/js/integrity/reporter';
 import {
   batchUpdateIndexedDBRecords,
   initNodeBatchDependencies,

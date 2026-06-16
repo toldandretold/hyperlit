@@ -20,7 +20,7 @@ vi.mock('../../../resources/js/components/editIndicator.js', () => ({
 vi.mock('../../../resources/js/utilities/BroadcastListener', () => ({
   showStaleTabOverlay: vi.fn(),
 }));
-vi.mock('../../../resources/js/integrity/reporter.js', () => ({
+vi.mock('../../../resources/js/integrity/reporter', () => ({
   reportIntegrityFailure: vi.fn(),
   reportServerError: vi.fn(),
 }));

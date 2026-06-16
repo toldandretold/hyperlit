@@ -548,7 +548,7 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
         // it, mismatches / orphans / duplicate ids in a sub-book would
         // pass silently on container close.
         try {
-          const { runIntegritySweep }: any = await import('../integrity/verifier.js');
+          const { runIntegritySweep }: any = await import('../integrity/verifier');
           const container = document.getElementById('hyperlit-container');
           const subBooks = container ? container.querySelectorAll('.sub-book-content[data-book-id]') : [];
           for (const el of subBooks) {

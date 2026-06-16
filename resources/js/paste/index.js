@@ -53,9 +53,9 @@ import { estimatePasteNodeCount } from './utils/dom-helpers.js';
 import { saveCurrentParagraph } from './handlers/hyperciteHandler.js';
 import { detectYouTubeTranscript, transformYouTubeTranscript } from './utils/youtube-helpers.js';
 import { stripMarkTags, convertDefinitionListTags, normalizeListItems } from './utils/normalizer.js';
-import { verifyNodesIntegrity, findOrphanedNodes } from '../integrity/verifier.js';
-import { reportIntegrityFailure } from '../integrity/reporter.js';
-import { startPasteCapture } from '../integrity/logCapture.js';
+import { verifyNodesIntegrity, findOrphanedNodes } from '../integrity/verifier';
+import { reportIntegrityFailure } from '../integrity/reporter';
+import { startPasteCapture } from '../integrity/logCapture';
 import { INLINE_SKIP_TAGS } from '../utilities/blockElements.js';
 
 // Configure marked options

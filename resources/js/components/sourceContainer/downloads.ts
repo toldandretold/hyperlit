@@ -95,7 +95,7 @@ export async function downloadAllForBook(downloadAllBtn: any, bookId: any = book
     try {
       const [{ buildBrowserMd, buildBrowserDatabaseMd, buildServerDatabaseMd, buildStitchedUpMd, buildReadme, buildTopLevelReadme }, JSZip] =
         await Promise.all([
-          import('../../integrity/emergencyBackup.js'),
+          import('../../integrity/emergencyBackup'),
           loadJSZip(),
         ]);
 
@@ -138,7 +138,7 @@ export async function downloadAllForBook(downloadAllBtn: any, bookId: any = book
     try {
       const [{ buildBrowserMd, buildBrowserDatabaseMd, buildServerDatabaseMd, buildStitchedUpMd, buildReadme, buildTopLevelReadme }, JSZip] =
         await Promise.all([
-          import('../../integrity/emergencyBackup.js'),
+          import('../../integrity/emergencyBackup'),
           loadJSZip(),
         ]);
 
