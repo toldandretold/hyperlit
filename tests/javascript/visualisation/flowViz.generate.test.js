@@ -63,6 +63,32 @@ describe('IndexedDB flow viz', () => {
     for (const id of fnIds) expect(grouped.has(id), `${id} should belong to a module`).toBe(true);
   });
 
+  it('type-trace capture: nodes table + its handler fns carry the welded node-data types', () => {
+    const viz = collect();
+    const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
+
+    // The `nodes` PG table advertises its full TS row-data lineage (PG↔IDB↔DOM).
+    const nodesTable = byId['pg:nodes'];
+    expect(nodesTable.types).toBeTruthy();
+    for (const t of ['NodeRecord', 'ServerNodeRow', 'PublicChunk', 'NodeHyperlightView', 'NodeHyperciteView']) {
+      expect(nodesTable.types, `pg:nodes should carry ${t}`).toContain(t);
+    }
+
+    // Key lineage functions are tagged with the node types they handle (read from signatures/bodies).
+    const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
+    expect(fnByLabel('createChunkElement').types).toContain('NodeRecord');          // IDB → DOM render
+    expect(fnByLabel('getNodeChunksFromIndexedDB').types).toContain('NodeRecord');  // IDB read
+    expect(fnByLabel('toPublicChunk').types).toEqual(expect.arrayContaining(['NodeRecord', 'PublicChunk']));
+    expect(fnByLabel('loadNodeChunksToIndexedDB').types).toContain('ServerNodeRow'); // wire in (+ nested processNode)
+
+    // types arrays are deduped + sorted (determinism — the byte-gate depends on stable order)
+    for (const n of viz.nodes) {
+      if (!n.types) continue;
+      expect(n.types, `${n.id} types sorted`).toEqual([...n.types].sort());
+      expect(new Set(n.types).size, `${n.id} types deduped`).toBe(n.types.length);
+    }
+  });
+
   it('import graph: NO real static-import cycles, every import edge classified', () => {
     const viz = collect();
     // The honest cycle detector: static-import rings are the only TDZ risk. We keep this at 0

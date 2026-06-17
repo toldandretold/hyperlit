@@ -468,6 +468,13 @@ export class NewBookTransition {
         try {
           verbose.nav('Ensuring initial H1 node is queued for sync', 'NewBookTransition.js');
 
+          // Wait for bulk-create to commit the library row before this redundant
+          // full-sync — otherwise the library upsert 404s ("Book not found") on a
+          // row that doesn't exist yet (self-healing race that surfaced a misleading
+          // red "Connection hiccup" toast). A genuine bulk-create failure rethrows
+          // here and is handled by the catch below ("saved locally, will retry").
+          await syncPromise;
+
           // Force a sync of the initial content to ensure the H1 doesn't get lost
           await syncIndexedDBtoPostgreSQL(pendingSyncData.bookId);
 

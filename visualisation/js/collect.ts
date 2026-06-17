@@ -108,6 +108,22 @@ const ENDPOINT_TABLES: Record<string, EndpointMap> = {
   '/api/canonical': { dir: 'push', tables: ['canonical_source'] },
 };
 
+/**
+ * The TS type lineage for a Postgres table's row data — the named types it
+ * takes on as it moves PG ↔ IndexedDB ↔ DOM (wire-in → store → wire-out, plus
+ * the embedded annotation views). Drives the "trace node data" lens: a function
+ * is tagged with whichever of these its signature/body references, so clicking a
+ * table lights the functions that actually handle its data, in code order.
+ *
+ * Scope: `nodes` only for now (its lineage is fully welded + verified). Add the
+ * other stores' lineages here to extend the lens. The values double as the
+ * capture whitelist (NODE_DATA_TYPE_SET) so fn `types` stay small + meaningful.
+ */
+const TABLE_TYPES: Record<string, string[]> = {
+  nodes: ['NodeRecord', 'ServerNodeRow', 'PublicChunk', 'NodeHyperlightView', 'NodeHyperciteView'],
+};
+const NODE_DATA_TYPE_SET = new Set<string>(Object.values(TABLE_TYPES).flat());
+
 // ── shapes ──────────────────────────────────────────────────────────
 
 export interface GraphNode {
@@ -120,6 +136,10 @@ export interface GraphNode {
   module?: string;
   /** fn nodes only: true if it has no data edge (pure helper / orchestration). */
   leaf?: boolean;
+  /** data-record type names this node carries: fn nodes = referenced in its
+   *  signature/body; table nodes = its row-data lineage (TABLE_TYPES). Drives the
+   *  type-trace lens. */
+  types?: string[];
 }
 
 /** A file/module — the default (collapsed) box; expands to its function nodes. */
@@ -195,11 +215,31 @@ interface FnRaw {
   domWrite: boolean;
   /** resolved callee fn ids (best-effort). */
   calls: Set<string>;
+  /** whitelisted data-record type names referenced in the fn's signature/body. */
+  types: string[];
 }
 
 function walk(node: ts.Node, visit: (n: ts.Node) => void): void {
   visit(node);
   ts.forEachChild(node, c => walk(c, visit));
+}
+
+/**
+ * Collect the whitelisted TS type names a function's declaration REFERENCES —
+ * anywhere in its signature OR body (params, return, local annotations, `as`
+ * casts, generic args). Walks `TypeReferenceNode`s only (so value identifiers
+ * aren't caught) and keeps the rightmost name for qualified types. Deterministic:
+ * deduped + sorted. Empty when the fn touches none of the whitelist.
+ */
+function collectTypeReferences(declNode: ts.Node, whitelist: Set<string>): string[] {
+  const found = new Set<string>();
+  walk(declNode, n => {
+    if (ts.isTypeReferenceNode(n)) {
+      const name = ts.isQualifiedName(n.typeName) ? n.typeName.right.text : n.typeName.text;
+      if (whitelist.has(name)) found.add(name);
+    }
+  });
+  return [...found].sort();
 }
 
 function isExported(node: ts.Node): boolean {
@@ -257,7 +297,7 @@ function normalizeEndpoint(url: string): string {
   return url.replace(/\$\{[^}]*\}.*$/, '').replace(/[?].*$/, '').replace(/\/+$/, '');
 }
 
-function analyzeFunctionBody(body: ts.Node): Omit<FnRaw, 'id' | 'name' | 'module' | 'exported'> {
+function analyzeFunctionBody(body: ts.Node): Omit<FnRaw, 'id' | 'name' | 'module' | 'exported' | 'types'> {
   const reads = new Set<string>();
   const writes = new Set<string>();
   const endpoints = new Set<string>();
@@ -428,17 +468,19 @@ function parseModule(abs: string, known: Set<string>): ModuleParse {
   const moduleKey = moduleKeyOf(abs);
   const importMap = buildImportMap(sf, abs, known);
   const functions: FnRaw[] = [];
-  const record = (name: string, exported: boolean, body: ts.Node) => {
-    functions.push({ id: `${moduleKey}:${name}`, name, module: moduleKey, exported, ...analyzeFunctionBody(body) });
+  // declNode = the whole declaration (params/return + body), so collectTypeReferences
+  // sees signature AND body type annotations; body is what analyzeFunctionBody walks.
+  const record = (name: string, exported: boolean, body: ts.Node, declNode: ts.Node) => {
+    functions.push({ id: `${moduleKey}:${name}`, name, module: moduleKey, exported, ...analyzeFunctionBody(body), types: collectTypeReferences(declNode, NODE_DATA_TYPE_SET) });
   };
   for (const stmt of sf.statements) {
     if (ts.isFunctionDeclaration(stmt) && stmt.name && stmt.body) {
-      record(stmt.name.text, isExported(stmt), stmt.body);
+      record(stmt.name.text, isExported(stmt), stmt.body, stmt);
     } else if (ts.isVariableStatement(stmt)) {
       const exported = isExported(stmt);
       for (const decl of stmt.declarationList.declarations) {
         if (decl.initializer && (ts.isArrowFunction(decl.initializer) || ts.isFunctionExpression(decl.initializer)) && ts.isIdentifier(decl.name)) {
-          record(decl.name.text, exported, decl.initializer.body);
+          record(decl.name.text, exported, decl.initializer.body, decl.initializer);
         }
       }
     } else if (ts.isClassDeclaration(stmt) && stmt.name) {
@@ -450,12 +492,12 @@ function parseModule(abs: string, known: Set<string>): ModuleParse {
       const cls = stmt.name.text;
       for (const member of stmt.members) {
         if (ts.isMethodDeclaration(member) && member.body && member.name && ts.isIdentifier(member.name)) {
-          record(`${cls}.${member.name.text}`, true, member.body);
+          record(`${cls}.${member.name.text}`, true, member.body, member);
         } else if (ts.isConstructorDeclaration(member) && member.body) {
-          record(`${cls}.constructor`, true, member.body);
+          record(`${cls}.constructor`, true, member.body, member);
         } else if (ts.isPropertyDeclaration(member) && member.initializer && member.name && ts.isIdentifier(member.name)
             && (ts.isArrowFunction(member.initializer) || ts.isFunctionExpression(member.initializer))) {
-          record(`${cls}.${member.name.text}`, true, member.initializer.body);
+          record(`${cls}.${member.name.text}`, true, member.initializer.body, member.initializer);
         }
       }
     }
@@ -630,11 +672,11 @@ export function collect(): FlowViz {
   }
 
   for (const { fn, hasData } of fnViews) {
-    nodes.push({ id: fn.id, label: fn.name, kind: 'fn', stage: stageIdOf(fn.module), module: fn.module, leaf: !hasData });
+    nodes.push({ id: fn.id, label: fn.name, kind: 'fn', stage: stageIdOf(fn.module), module: fn.module, leaf: !hasData, ...(fn.types.length ? { types: fn.types } : {}) });
   }
   for (const s of STORE_NAMES) nodes.push({ id: `store:${s}`, label: s, kind: 'store' });
   const tables = [...tablesSeen].sort();
-  for (const t of tables) nodes.push({ id: `pg:${t}`, label: t, kind: 'table' });
+  for (const t of tables) nodes.push({ id: `pg:${t}`, label: t, kind: 'table', ...(TABLE_TYPES[t] ? { types: [...TABLE_TYPES[t]].sort() } : {}) });
   nodes.push({ id: 'dom', label: 'reader.blade.php', kind: 'dom' });
 
   // Per-module data-movement role, aggregated from its functions' (folded) edges.
@@ -1191,6 +1233,35 @@ function applyTrace(){
 }
 function highlight(n){ selId=n.id(); applyTrace(); }
 
+// TYPE TRACE: clicking a Postgres table that carries a type lineage lights the functions whose
+// signature/body actually REFERENCE those types (the real data handlers, from the TS annotations
+// collect.ts read), plus every real call/data edge between them — forced visible past the lens, so
+// the call hops show too. The grid's rows order it PG(top) -> DOM(bottom): you watch the record
+// move through the actual code. Fixes the old empty table-trace (a sink had no edges to follow).
+function carryingForTable(tableId){
+  var tn=nodeById[tableId]; if(!tn||!tn.types||!tn.types.length) return null;
+  var want={}; tn.types.forEach(function(t){want[t]=1;});
+  var carry={}; carry[tableId]=1;
+  VIZ.nodes.forEach(function(n){ if(n.kind==="fn"&&n.types){ for(var i=0;i<n.types.length;i++){ if(want[n.types[i]]){ carry[n.id]=1; break; } } } });
+  return carry;
+}
+function paintTypeTrace(tableId){
+  var carry=carryingForTable(tableId); if(!carry) return false;
+  // map carriers to displayed ids (a collapsed fn shows as its module box)
+  var disp={}; Object.keys(carry).forEach(function(id){ disp[rep(id)]=1; });
+  // Add the DATA WAYPOINTS this table's data physically passes through: the matching
+  // IndexedDB store + the DOM. Without them the trace stops at functions — it never shows
+  // the data landing in the object store (PG→IDB) or reaching the page (IDB→DOM). With them,
+  // the read/write/domwrite edges to those nodes light up, completing PG→store→fns→DOM.
+  var name=tableId.indexOf("pg:")===0?tableId.slice(3):tableId;
+  ["store:"+name, "dom"].forEach(function(w){ if(nodeById[w]) disp[w]=1; });
+  cy.elements().addClass("faded").removeClass("hl cycle ring latentring");
+  Object.keys(disp).forEach(function(k){ var el=cy.getElementById(k); if(el&&el.length) el.removeClass("faded").addClass("hl"); });
+  // light every existing edge between two trace members (any rel), forcing display past the lens
+  cy.edges().forEach(function(e){ var s=e.source().id(), t=e.target().id(); if(disp[s]&&disp[t]){ e.style("display","element"); e.removeClass("faded").addClass("hl"); } });
+  return true;
+}
+
 function groupsFor(ids){
   var set={}; ids.forEach(function(i){set[i]=true;});
   var g={read:[],write:[],push:[],pull:[],dom:[],call:[]};
@@ -1217,7 +1288,15 @@ function showDetail(n){
     var movers=[]; VIZ.edges.forEach(function(e){ if(e.source===id) movers.push(relabel(e.target)+"  ("+e.rel+")"); if(e.target===id) movers.push(relabel(e.source)+"  ("+e.rel+")"); });
     var schemaHtml="";
     if(kind==="store"){ var sc=VIZ.storeSchema[n.data("label")]; if(sc){ schemaHtml="<h3>key</h3><ul><li>"+sc.keyPath+"</li></ul><h3>indexes</h3>"+ul(sc.indices); } }
-    d.innerHTML="<div class='name'>"+n.data("label")+"</div><div class='sub'>"+(kind==="store"?"IndexedDB object store":kind==="table"?"PostgreSQL table":"the reader page — every DOM-manipulation module reads/writes it")+"</div>"+schemaHtml+"<h3>connected functions</h3>"+ul(movers);
+    // Table with a TS type lineage: show the types being traced + the functions that handle them
+    // (the lit set), so the panel names what's flowing through the highlighted path on the map.
+    var typeHtml="";
+    if(kind==="table" && nodeById[id] && nodeById[id].types && nodeById[id].types.length){
+      var tt=nodeById[id].types, carry=carryingForTable(id);
+      var fnList=VIZ.nodes.filter(function(x){return x.kind==="fn"&&carry[x.id];}).map(function(x){return x.label+"  ("+x.types.join(", ")+")";}).sort();
+      typeHtml="<h3>data types (TS lineage)</h3>"+ul(tt)+"<h3>flows through "+fnList.length+" fns — lit on the map (rows = PG→DOM)</h3>"+ul(fnList);
+    }
+    d.innerHTML="<div class='name'>"+n.data("label")+"</div><div class='sub'>"+(kind==="store"?"IndexedDB object store":kind==="table"?"PostgreSQL table":"the reader page — every DOM-manipulation module reads/writes it")+"</div>"+schemaHtml+typeHtml+"<h3>connected functions</h3>"+ul(movers);
     return;
   }
   var ids, title, sub;
@@ -1245,9 +1324,14 @@ cy.on("tap","node",function(ev){
     var mod=cy.getElementById("mod:"+mid); if(mod&&mod.length) showDetail(mod);
     return;
   }
+  // A table with a type lineage → trace the data type through the real code (not the empty
+  // edge-trace a sink would give). Other nodes keep the normal flow/coupling trace.
+  if(kind==="table" && nodeById[id] && nodeById[id].types && nodeById[id].types.length){
+    selId=id; paintTypeTrace(id); showDetail(n); return;
+  }
   highlight(n); showDetail(n);
 });
-cy.on("tap",function(ev){ if(ev.target===cy || (ev.target.isEdge && ev.target.isEdge())){ selId=null; clearHL(); } });
+cy.on("tap",function(ev){ if(ev.target===cy || (ev.target.isEdge && ev.target.isEdge())){ selId=null; clearHL(); applyMode(); } });
 
 document.getElementById("meta").textContent=VIZ.meta.dbName+" v"+VIZ.meta.dbVersion+" · "+VIZ.meta.fnCount+" fns / "+VIZ.meta.moduleCount+" modules · "+VIZ.meta.storeCount+" stores · "+VIZ.meta.tableCount+" tables";
 var leg=document.getElementById("legend"); VIZ.legend.forEach(function(l){ var row=document.createElement("div"); row.innerHTML="<span class='sw' style='border-top-color:"+REL_COLOR[l.rel]+"'></span><b>"+l.rel+"</b> &nbsp;"+l.from+"→"+l.to; leg.appendChild(row); });

@@ -7758,7 +7758,11 @@
       "kind": "fn",
       "stage": "infra",
       "module": "indexedDB/core/utilities",
-      "leaf": true
+      "leaf": true,
+      "types": [
+        "NodeRecord",
+        "PublicChunk"
+      ]
     },
     {
       "id": "indexedDB/footnotes/index:initFootnotesDependencies",
@@ -7806,7 +7810,10 @@
       "kind": "fn",
       "stage": "hydrate",
       "module": "indexedDB/hydration/rebuild",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "indexedDB/hydration/rebuild:rebuildNodeArrays",
@@ -7814,7 +7821,10 @@
       "kind": "fn",
       "stage": "hydrate",
       "module": "indexedDB/hydration/rebuild",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "indexedDB/hypercites/helpers:resolveHypercite",
@@ -7822,7 +7832,10 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/hypercites/helpers",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "indexedDB/hypercites/index:addCitationToHypercite",
@@ -7830,7 +7843,10 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/hypercites/index",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "indexedDB/hypercites/index:initHypercitesDependencies",
@@ -7886,7 +7902,11 @@
       "kind": "fn",
       "stage": "push",
       "module": "indexedDB/hypercites/syncHypercitesToPostgreSQL",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord",
+        "PublicChunk"
+      ]
     },
     {
       "id": "indexedDB/index:initializeDatabaseModules",
@@ -7926,7 +7946,10 @@
       "kind": "fn",
       "stage": "capture",
       "module": "indexedDB/nodes/batch",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
@@ -7934,7 +7957,10 @@
       "kind": "fn",
       "stage": "capture",
       "module": "indexedDB/nodes/batch",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "indexedDB/nodes/batch:initNodeBatchDependencies",
@@ -7982,7 +8008,10 @@
       "kind": "fn",
       "stage": "capture",
       "module": "indexedDB/nodes/delete",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "indexedDB/nodes/delete:initNodeDeleteDependencies",
@@ -8030,7 +8059,10 @@
       "kind": "fn",
       "stage": "hydrate",
       "module": "indexedDB/nodes/read",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "indexedDB/nodes/read:getNodeChunkFromIndexedDB",
@@ -8038,7 +8070,10 @@
       "kind": "fn",
       "stage": "hydrate",
       "module": "indexedDB/nodes/read",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "indexedDB/nodes/read:getNodeChunksAfter",
@@ -8046,7 +8081,10 @@
       "kind": "fn",
       "stage": "hydrate",
       "module": "indexedDB/nodes/read",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
@@ -8054,7 +8092,10 @@
       "kind": "fn",
       "stage": "hydrate",
       "module": "indexedDB/nodes/read",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL",
@@ -8062,7 +8103,10 @@
       "kind": "fn",
       "stage": "push",
       "module": "indexedDB/nodes/syncNodesToPostgreSQL",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "PublicChunk"
+      ]
     },
     {
       "id": "indexedDB/nodes/write:addNewBookToIndexedDB",
@@ -8118,7 +8162,10 @@
       "kind": "fn",
       "stage": "capture",
       "module": "indexedDB/nodes/write",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB",
@@ -8142,7 +8189,10 @@
       "kind": "fn",
       "stage": "serverSync",
       "module": "indexedDB/serverSync/clear",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeHyperlightView"
+      ]
     },
     {
       "id": "indexedDB/serverSync/flush:flushAllPendingEdits",
@@ -8198,7 +8248,12 @@
       "kind": "fn",
       "stage": "serverSync",
       "module": "indexedDB/serverSync/loaders",
-      "leaf": true
+      "leaf": true,
+      "types": [
+        "NodeHyperlightView",
+        "NodeRecord",
+        "ServerNodeRow"
+      ]
     },
     {
       "id": "indexedDB/serverSync/pull:syncAnnotationsOnly",
@@ -8230,7 +8285,10 @@
       "kind": "fn",
       "stage": "push",
       "module": "indexedDB/syncQueue/freshNodeFilter",
-      "leaf": true
+      "leaf": true,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "indexedDB/syncQueue/master:executeSyncPayload",
@@ -8238,7 +8296,10 @@
       "kind": "fn",
       "stage": "push",
       "module": "indexedDB/syncQueue/master",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "PublicChunk"
+      ]
     },
     {
       "id": "indexedDB/syncQueue/master:initMasterSyncDependencies",
@@ -8254,7 +8315,11 @@
       "kind": "fn",
       "stage": "push",
       "module": "indexedDB/syncQueue/master",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord",
+        "PublicChunk"
+      ]
     },
     {
       "id": "indexedDB/syncQueue/master:updateHistoryLog",
@@ -8374,7 +8439,10 @@
       "kind": "fn",
       "stage": "lazyLoader",
       "module": "lazyLoader/chunkRender",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeHyperlightView"
+      ]
     },
     {
       "id": "lazyLoader/chunkRender:applyHypercites",
@@ -8382,7 +8450,10 @@
       "kind": "fn",
       "stage": "lazyLoader",
       "module": "lazyLoader/chunkRender",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeHyperciteView"
+      ]
     },
     {
       "id": "lazyLoader/chunkRender:createChunkElement",
@@ -8390,7 +8461,10 @@
       "kind": "fn",
       "stage": "lazyLoader",
       "module": "lazyLoader/chunkRender",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
@@ -8446,7 +8520,10 @@
       "kind": "fn",
       "stage": "lazyLoader",
       "module": "lazyLoader/index",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "lazyLoader/index:getLastChunkId",
@@ -10028,7 +10105,14 @@
     {
       "id": "pg:nodes",
       "label": "nodes",
-      "kind": "table"
+      "kind": "table",
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
     },
     {
       "id": "scrolling/index:clearNavigatedHashes",
