@@ -17,15 +17,17 @@ registerAllComponents();
 // import { stopObserving } from "../divEditor/index";
 // import { initEditToolbar, destroyEditToolbar } from "../editToolbar/index";
 import { restoreScrollPosition, restoreNavigationOverlayIfNeeded, showNavigationLoading, hideNavigationLoading } from "../scrolling/index";
-import { attachMarkListeners, initializeHighlightManager, openHighlightById } from "../hyperlights/index";
 import { registerContainerActions } from "../hyperlitContainer/containerActions";
 
-// Register the hyperlights "open highlight" action into the DI leaf so lower layers (scrolling)
-// can call it via a static downward import — no scrolling→hyperlights upward edge. viewManager is
-// a bootstrap entry imported before any navigation, and hyperlights never imports it (cycle-safe).
-registerContainerActions({ openHighlightById });
-import { initializeHighlightingControls, cleanupHighlightingControls } from "../hyperlights/selectionToolbar";
-import { initializeHypercitingControls, cleanupHypercitingControls } from "../hypercites/index";
+// hyperlights/hypercites are READER-ONLY interaction (highlight/hypercite click + selection toolbar +
+// nav). They're loaded lazily inside the reader-only init block below (and the bfcache handler), so
+// home/user pages never fetch them and they stay OUT of the eager bundle. Register the "open highlight"
+// action as a LAZY WRAPPER so lower layers (scrolling) can call it via a static downward import without
+// statically pulling hyperlights into the eager bundle (the import resolves on first click, by which
+// time reader-init has warmed the chunk).
+registerContainerActions({
+  openHighlightById: (...args: any[]) => import("../hyperlights/index").then((m) => (m.openHighlightById as any)(...args)),
+});
 import { initializeBroadcastListener } from "../utilities/BroadcastListener";
 import { setupUnloadSync } from "../indexedDB/index.js";
 import { generateTableOfContents } from "../components/tocContainer/index";
@@ -125,7 +127,10 @@ window.addEventListener("pageshow", async (event) => {
 
           await checkEditPermissionsAndUpdateUI();
 
-          // Reinitialize highlighting/selection controls (not in ButtonRegistry)
+          // Reinitialize highlighting/selection controls (not in ButtonRegistry). hyperlights/
+          // hypercites are reader-only lazy chunks (this bfcache path only runs on reader pages).
+          const [{ initializeHighlightingControls, cleanupHighlightingControls }, { initializeHypercitingControls, cleanupHypercitingControls }] =
+            await Promise.all([import('../hyperlights/selectionToolbar'), import('../hypercites/index')]);
           cleanupHighlightingControls();
           initializeHighlightingControls(book);
           cleanupHypercitingControls();
@@ -337,8 +342,12 @@ export async function universalPageInitializer(progressCallback = null) {
     // ✅ Initialize ALL registered components for reader page
     await buttonRegistry.initializeAll('reader');
 
-    // Initialize reader-specific features not managed by ButtonRegistry
+    // Initialize reader-specific features not managed by ButtonRegistry. hyperlights/hypercites are
+    // reader-only lazy chunks — loaded here (this block runs only on reader pages, after the home/user
+    // early-return above) so home/user never fetch them. Downloads run in parallel with content load.
     updateEditButtonVisibility(currentBookId);
+    const [{ initializeHighlightManager }, { initializeHighlightingControls }, { initializeHypercitingControls }] =
+      await Promise.all([import('../hyperlights/index'), import('../hyperlights/selectionToolbar'), import('../hypercites/index')]);
     initializeHighlightManager();
     initializeHighlightingControls(currentBookId);
     initializeHypercitingControls(currentBookId);
@@ -389,7 +398,7 @@ export async function universalPageInitializer(progressCallback = null) {
     if (activeKeyboardManager) activeKeyboardManager.destroy();
   });
   restoreScrollPosition();
-  attachMarkListeners();
+  import('../hyperlights/index').then(({ attachMarkListeners }) => attachMarkListeners());
 
   // ✅ Attach hypercite click listeners after content loads
   const { attachUnderlineClickListeners } = await import('../hypercites/index');

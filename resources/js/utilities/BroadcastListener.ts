@@ -2,7 +2,8 @@
 
 import { book } from "../app.js"; // current book identifier
 import { applyHypercites, applyHighlights } from "../lazyLoader/chunkRender";
-import { attachUnderlineClickListeners } from "../hypercites/index";
+// attachUnderlineClickListeners loaded lazily at its one call site (cross-tab re-render) so this EAGER
+// utility doesn't statically pull the reader-only hypercites chunk into the eager bundle.
 import { setProgrammaticUpdateInProgress } from "./operationState";
 import { openDatabase } from "../indexedDB/core/connection.js";
 
@@ -288,7 +289,7 @@ async function updateDomNode(startLine: any) {
     console.log(`✅ Node ${startLine} re-rendered from scratch.`);
     console.log(`Node HTML after update:`, node.outerHTML);
 
-    attachUnderlineClickListeners();
+    import("../hypercites/index").then((m) => m.attachUnderlineClickListeners());
     console.log(`Attached underline click listeners`);
 
   } catch (error) {

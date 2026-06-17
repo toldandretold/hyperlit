@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1482 functions in 303 modules · 8 object stores · 6 PG tables · 2795 edges
+**MarkdownDB** schema v27 · 1483 functions in 303 modules · 8 object stores · 6 PG tables · 2787 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -140,6 +140,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SettingsContainerManager._openGatePanel` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager._openVibeGallery` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager._openVibeUI` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager._reconcileWidthDebounced` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.applyTextAdjustments` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.constructor` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.destroy` | `components/settingsContainer/index` | — | — | — | — |
@@ -155,6 +156,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `_debounceResize` | `components/settingsContainer/textControls` | — | — | — | — |
 | `applyTextAdjustments` | `components/settingsContainer/textControls` | — | — | read/write | — |
 | `handleSliderInput` | `components/settingsContainer/textControls` | — | — | read/write | — |
+| `reconcileViewportWidth` | `components/settingsContainer/textControls` | — | — | read | — |
 | `syncSliderUI` | `components/settingsContainer/textControls` | — | — | read/write | — |
 | `toggleFullWidth` | `components/settingsContainer/textControls` | — | — | read/write | — |
 | `getCurrentTheme` | `components/settingsContainer/themeSwitcher` | — | — | — | — |
@@ -789,7 +791,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `deleteHighlightHandler` | `hyperlights/deleteHighlight` | — | — | read/write | — |
 | `deleteHighlightById` | `hyperlights/deletion` | `hyperlights` | — | read/write | — |
 | `hideHighlightById` | `hyperlights/deletion` | `hyperlights` | — | read/write | — |
-| `isContentLink` | `hyperlights/deletion` | — | — | read | — |
 | `reprocessHighlightsForNodes` | `hyperlights/deletion` | — | — | read/write | — |
 | `unwrapElement` | `hyperlights/deletion` | — | — | — | — |
 | `unwrapMark` | `hyperlights/deletion` | — | — | write | — |
@@ -1495,13 +1496,14 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 0 · dynamic cycle-breakers (debt): 0 · lazy-loads (code-split): 204
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 0 · dynamic cycle-breakers (debt): 0 · lazy-loads (code-split): 212
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
 ### Lazy-loads (code-split points)
 - `SPA/domReadiness` → `SPA/navigation/ProgressOverlayEnactor`
 - `SPA/domReadiness` → `pageLoad/currentLazyLoaderState`
+- `SPA/navigation/LinkNavigationHandler` → `hypercites/navigation`
 - `SPA/navigation/LinkNavigationHandler` → `hyperlitContainer/history`
 - `SPA/navigation/LinkNavigationHandler` → `hyperlitContainer/stack`
 - `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/BookToBookTransition`
@@ -1511,6 +1513,7 @@ Only *static-import* rings can crash with a TDZ "Cannot access X before initiali
 - `SPA/navigation/chunkLoadRouter` → `SPA/navigation/loadInitialChunkLocal`
 - `SPA/navigation/chunkLoadRouter` → `pageLoad/initialChunk`
 - `SPA/navigation/pathways/BookToBookTransition` → `components/toast/toast`
+- `SPA/navigation/pathways/BookToBookTransition` → `hypercites/navigation`
 - `SPA/navigation/pathways/DifferentTemplateTransition` → `SPA/domReadiness`
 - `SPA/navigation/pathways/FreshPageLoader` → `SPA/viewManager`
 - `SPA/navigation/pathways/FreshPageLoader` → `components/editButton/index`
@@ -1528,6 +1531,8 @@ Only *static-import* rings can crash with a TDZ "Cannot access X before initiali
 - `SPA/viewManager` → `divEditor/index`
 - `SPA/viewManager` → `divEditor/selectionDelete`
 - `SPA/viewManager` → `editToolbar/index`
+- `SPA/viewManager` → `hyperlights/index`
+- `SPA/viewManager` → `hyperlights/selectionToolbar`
 - `SPA/viewManager` → `indexedDB/core/connection`
 - `SPA/viewManager` → `indexedDB/core/healthMonitor`
 - `SPA/viewManager` → `indexedDB/core/recoveryToast`
@@ -1649,6 +1654,7 @@ Only *static-import* rings can crash with a TDZ "Cannot access X before initiali
 - `pageLoad/containerChain` → `hyperlitContainer/index`
 - `pageLoad/containerChain` → `hyperlitContainer/stack`
 - `pageLoad/initialChunk` → `pageLoad/accessGuards`
+- `pageLoad/lazyLoaderRegistry` → `hyperlights/index`
 - `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/history`
 - `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/index`
 - `pageLoad/loadHyperText` → `SPA/navigation/resolveTargetChunk`

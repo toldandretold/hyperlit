@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1482,
+    "fnCount": 1483,
     "moduleCount": 303,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 2795,
+    "edgeCount": 2787,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -1188,6 +1188,14 @@
       "leaf": true
     },
     {
+      "id": "components/settingsContainer/index:SettingsContainerManager._reconcileWidthDebounced",
+      "label": "SettingsContainerManager._reconcileWidthDebounced",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
       "id": "components/settingsContainer/index:SettingsContainerManager.applyTextAdjustments",
       "label": "SettingsContainerManager.applyTextAdjustments",
       "kind": "fn",
@@ -1302,6 +1310,14 @@
     {
       "id": "components/settingsContainer/textControls:handleSliderInput",
       "label": "handleSliderInput",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/textControls",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/textControls:reconcileViewportWidth",
+      "label": "reconcileViewportWidth",
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/textControls",
@@ -6379,14 +6395,6 @@
     {
       "id": "hyperlights/deletion:hideHighlightById",
       "label": "hideHighlightById",
-      "kind": "fn",
-      "stage": "hyperlights",
-      "module": "hyperlights/deletion",
-      "leaf": false
-    },
-    {
-      "id": "hyperlights/deletion:isContentLink",
-      "label": "isContentLink",
       "kind": "fn",
       "stage": "hyperlights",
       "module": "hyperlights/deletion",
@@ -12496,6 +12504,7 @@
         "components/settingsContainer/index:SettingsContainerManager._openGatePanel",
         "components/settingsContainer/index:SettingsContainerManager._openVibeGallery",
         "components/settingsContainer/index:SettingsContainerManager._openVibeUI",
+        "components/settingsContainer/index:SettingsContainerManager._reconcileWidthDebounced",
         "components/settingsContainer/index:SettingsContainerManager.applyTextAdjustments",
         "components/settingsContainer/index:SettingsContainerManager.constructor",
         "components/settingsContainer/index:SettingsContainerManager.destroy",
@@ -12519,6 +12528,7 @@
         "components/settingsContainer/textControls:_debounceResize",
         "components/settingsContainer/textControls:applyTextAdjustments",
         "components/settingsContainer/textControls:handleSliderInput",
+        "components/settingsContainer/textControls:reconcileViewportWidth",
         "components/settingsContainer/textControls:syncSliderUI",
         "components/settingsContainer/textControls:toggleFullWidth"
       ]
@@ -13945,7 +13955,6 @@
       "fnIds": [
         "hyperlights/deletion:deleteHighlightById",
         "hyperlights/deletion:hideHighlightById",
-        "hyperlights/deletion:isContentLink",
         "hyperlights/deletion:reprocessHighlightsForNodes",
         "hyperlights/deletion:unwrapElement",
         "hyperlights/deletion:unwrapMark"
@@ -17241,6 +17250,12 @@
       "dataPath": true
     },
     {
+      "id": "components/settingsContainer/index:SettingsContainerManager._reconcileWidthDebounced__call__components/settingsContainer/textControls:reconcileViewportWidth",
+      "source": "components/settingsContainer/index:SettingsContainerManager._reconcileWidthDebounced",
+      "target": "components/settingsContainer/textControls:reconcileViewportWidth",
+      "rel": "call"
+    },
+    {
       "id": "components/settingsContainer/index:SettingsContainerManager.applyTextAdjustments__call__components/settingsContainer/textControls:applyTextAdjustments",
       "source": "components/settingsContainer/index:SettingsContainerManager.applyTextAdjustments",
       "target": "components/settingsContainer/textControls:applyTextAdjustments",
@@ -17299,6 +17314,12 @@
       "source": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/textControls:applyTextAdjustments__call__components/settingsContainer/textControls:reconcileViewportWidth",
+      "source": "components/settingsContainer/textControls:applyTextAdjustments",
+      "target": "components/settingsContainer/textControls:reconcileViewportWidth",
+      "rel": "call"
     },
     {
       "id": "components/settingsContainer/textControls:applyTextAdjustments__domwrite__dom",
@@ -20230,6 +20251,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/settingsContainer/textControls:reconcileViewportWidth",
+      "source": "dom",
+      "target": "components/settingsContainer/textControls:reconcileViewportWidth",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/settingsContainer/textControls:syncSliderUI",
       "source": "dom",
       "target": "components/settingsContainer/textControls:syncSliderUI",
@@ -21739,12 +21766,6 @@
       "id": "dom__domread__hyperlights/deletion:hideHighlightById",
       "source": "dom",
       "target": "hyperlights/deletion:hideHighlightById",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__hyperlights/deletion:isContentLink",
-      "source": "dom",
-      "target": "hyperlights/deletion:isContentLink",
       "rel": "domread"
     },
     {
@@ -25083,12 +25104,6 @@
       "dataPath": true
     },
     {
-      "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__hyperlights/deletion:isContentLink",
-      "source": "hyperlights/deleteHighlight:deleteHighlightHandler",
-      "target": "hyperlights/deletion:isContentLink",
-      "rel": "call"
-    },
-    {
       "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__hyperlights/deletion:reprocessHighlightsForNodes",
       "source": "hyperlights/deleteHighlight:deleteHighlightHandler",
       "target": "hyperlights/deletion:reprocessHighlightsForNodes",
@@ -25378,12 +25393,6 @@
       "source": "hyperlights/marks:unwrapMark",
       "target": "dom",
       "rel": "domwrite"
-    },
-    {
-      "id": "hyperlights/selectionToolbar:handleSelection__call__hyperlights/deletion:isContentLink",
-      "source": "hyperlights/selectionToolbar:handleSelection",
-      "target": "hyperlights/deletion:isContentLink",
-      "rel": "call"
     },
     {
       "id": "hyperlights/selectionToolbar:handleSelection__call__hyperlitContainer/containerActions:isStackPopping",
@@ -31673,20 +31682,6 @@
       "rel": "call"
     },
     {
-      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handleSameBookNavigation__call__hypercites/navigation:navigateToFootnoteTarget",
-      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handleSameBookNavigation",
-      "target": "hypercites/navigation:navigateToFootnoteTarget",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handleSameBookNavigation__call__hypercites/navigation:navigateToHyperciteTarget",
-      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handleSameBookNavigation",
-      "target": "hypercites/navigation:navigateToHyperciteTarget",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handleSameBookNavigation__call__hyperlitContainer/core:closeHyperlitContainer",
       "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handleSameBookNavigation",
       "target": "hyperlitContainer/core:closeHyperlitContainer",
@@ -31804,13 +31799,6 @@
       "rel": "call"
     },
     {
-      "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.handleHashNavigation__call__hypercites/navigation:navigateToFootnoteTarget",
-      "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.handleHashNavigation",
-      "target": "hypercites/navigation:navigateToFootnoteTarget",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
       "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.handleHashNavigation__call__pageLoad/containerChain:buildChainFromUrl",
       "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.handleHashNavigation",
       "target": "pageLoad/containerChain:buildChainFromUrl",
@@ -31840,13 +31828,6 @@
       "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.initializeReader__call__SPA/viewManager:universalPageInitializer",
       "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.initializeReader",
       "target": "SPA/viewManager:universalPageInitializer",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.navigateToHyperciteTarget__call__hypercites/navigation:navigateToHyperciteTarget",
-      "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.navigateToHyperciteTarget",
-      "target": "hypercites/navigation:navigateToHyperciteTarget",
       "rel": "call",
       "dataPath": true
     },
@@ -32686,32 +32667,6 @@
       "rel": "call"
     },
     {
-      "id": "SPA/viewManager:universalPageInitializer__call__hypercites/listeners:initializeHypercitingControls",
-      "source": "SPA/viewManager:universalPageInitializer",
-      "target": "hypercites/listeners:initializeHypercitingControls",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "SPA/viewManager:universalPageInitializer__call__hyperlights/listeners:attachMarkListeners",
-      "source": "SPA/viewManager:universalPageInitializer",
-      "target": "hyperlights/listeners:attachMarkListeners",
-      "rel": "call"
-    },
-    {
-      "id": "SPA/viewManager:universalPageInitializer__call__hyperlights/selectionToolbar:initializeHighlightingControls",
-      "source": "SPA/viewManager:universalPageInitializer",
-      "target": "hyperlights/selectionToolbar:initializeHighlightingControls",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "SPA/viewManager:universalPageInitializer__call__hyperlitContainer/containerActions:initializeHyperlitManager",
-      "source": "SPA/viewManager:universalPageInitializer",
-      "target": "hyperlitContainer/containerActions:initializeHyperlitManager",
-      "rel": "call"
-    },
-    {
       "id": "SPA/viewManager:universalPageInitializer__call__hyperlitContainer/core:initializeHyperlitManager",
       "source": "SPA/viewManager:universalPageInitializer",
       "target": "hyperlitContainer/core:initializeHyperlitManager",
@@ -33358,11 +33313,6 @@
     },
     {
       "source": "SPA/navigation/LinkNavigationHandler",
-      "target": "hypercites/navigation",
-      "kind": "static"
-    },
-    {
-      "source": "SPA/navigation/LinkNavigationHandler",
       "target": "hyperlitContainer/index",
       "kind": "static"
     },
@@ -33375,6 +33325,11 @@
       "source": "SPA/navigation/LinkNavigationHandler",
       "target": "scrolling/index",
       "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/LinkNavigationHandler",
+      "target": "hypercites/navigation",
+      "kind": "lazy"
     },
     {
       "source": "SPA/navigation/LinkNavigationHandler",
@@ -33548,11 +33503,6 @@
     },
     {
       "source": "SPA/navigation/pathways/BookToBookTransition",
-      "target": "hypercites/navigation",
-      "kind": "static"
-    },
-    {
-      "source": "SPA/navigation/pathways/BookToBookTransition",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -33564,6 +33514,11 @@
     {
       "source": "SPA/navigation/pathways/BookToBookTransition",
       "target": "components/toast/toast",
+      "kind": "lazy"
+    },
+    {
+      "source": "SPA/navigation/pathways/BookToBookTransition",
+      "target": "hypercites/navigation",
       "kind": "lazy"
     },
     {
@@ -33928,16 +33883,6 @@
     },
     {
       "source": "SPA/viewManager",
-      "target": "hyperlights/index",
-      "kind": "static"
-    },
-    {
-      "source": "SPA/viewManager",
-      "target": "hyperlights/selectionToolbar",
-      "kind": "static"
-    },
-    {
-      "source": "SPA/viewManager",
       "target": "hyperlitContainer/containerActions",
       "kind": "static"
     },
@@ -34009,6 +33954,16 @@
     {
       "source": "SPA/viewManager",
       "target": "editToolbar/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "hyperlights/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "hyperlights/selectionToolbar",
       "kind": "lazy"
     },
     {
@@ -34385,11 +34340,6 @@
       "source": "components/newbookContainer/index",
       "target": "components/newbookContainer/citeForm/index",
       "kind": "lazy"
-    },
-    {
-      "source": "components/selectionHandler/selectionHandler",
-      "target": "hyperlights/deletion",
-      "kind": "static"
     },
     {
       "source": "components/settingsButton/settingsButton",
@@ -36953,11 +36903,6 @@
     },
     {
       "source": "pageLoad/lazyLoaderRegistry",
-      "target": "hyperlights/index",
-      "kind": "static"
-    },
-    {
-      "source": "pageLoad/lazyLoaderRegistry",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -36990,6 +36935,11 @@
       "source": "pageLoad/lazyLoaderRegistry",
       "target": "scrolling/index",
       "kind": "static"
+    },
+    {
+      "source": "pageLoad/lazyLoaderRegistry",
+      "target": "hyperlights/index",
+      "kind": "lazy"
     },
     {
       "source": "pageLoad/lazyLoaderRegistry",
@@ -37826,6 +37776,6 @@
     "staticCycles": [],
     "latentCycles": [],
     "breakerCount": 0,
-    "lazyCount": 204
+    "lazyCount": 212
   }
 }

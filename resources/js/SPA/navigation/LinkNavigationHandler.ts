@@ -10,7 +10,11 @@ import { log, verbose } from '../../utilities/logger';
 import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } from '../../scrolling/index';
 import { book, bookSlug as _bookSlug } from '../../app.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
-import { navigateToHyperciteTarget, navigateToFootnoteTarget } from '../../hypercites/navigation';
+// hypercites is a reader-only lazy chunk; wrap the nav fns as lazy importers so this (boot-loaded,
+// all-pages) handler doesn't statically pull hypercites into the eager bundle. Called on link clicks
+// (reader interaction), by which time reader-init has warmed the chunk.
+const navigateToHyperciteTarget = (...a: any[]) => import('../../hypercites/navigation').then((m) => (m.navigateToHyperciteTarget as any)(...a));
+const navigateToFootnoteTarget = (...a: any[]) => import('../../hypercites/navigation').then((m) => (m.navigateToFootnoteTarget as any)(...a));
 import { currentLazyLoader, openContainerChain, buildChainFromUrl } from '../../pageLoad/index';
 import { getLocalStorageKey } from '../../indexedDB/index';
 import { closeHyperlitContainer } from '../../hyperlitContainer/index';

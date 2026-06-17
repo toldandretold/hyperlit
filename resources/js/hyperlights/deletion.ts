@@ -46,26 +46,8 @@ export function unwrapElement(element: Element | null): void {
  * Check whether an anchor is a user-created content link (e.g. pasted URL)
  * as opposed to a system link (footnote ref, citation, hypercite).
  */
-export function isContentLink(anchor: Element | null): boolean {
-  if (!anchor || anchor.tagName !== 'A') return false;
-
-  const href = anchor.getAttribute('href');
-  if (!href) return false;
-
-  // System-generated link classes (footnotes only — citations are unwrappable)
-  if (anchor.classList.contains('footnote-ref')) return false;
-
-  // Hypercite links (id starts with "hypercite_")
-  if (anchor.id && anchor.id.startsWith('hypercite_')) return false;
-
-  // Links inside footnote sup markers
-  if (anchor.closest('sup[fn-count-id]')) return false;
-
-  // Links inside citation/hypercite sections
-  if (anchor.closest('.hypercites-section, .citations-section, .hypercite-citation-section')) return false;
-
-  return true;
-}
+// isContentLink moved to ../utilities/contentLink (zero-import leaf); re-exported for callers.
+export { isContentLink } from '../utilities/contentLink';
 
 /**
  * Delete a highlight by ID

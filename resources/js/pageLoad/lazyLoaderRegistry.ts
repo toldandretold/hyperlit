@@ -13,12 +13,11 @@ import {
   getNodeChunksFromIndexedDB,
 } from "../indexedDB/index.js";
 
-import {
-  attachMarkListeners,
-} from "../hyperlights/index";
-
-// Injected into createLazyLoader so the render engine stays a leaf (downward edge: pageLoad → hypercites).
-import { attachUnderlineClickListeners } from "../hypercites/index";
+// hyperlights/hypercites are reader-only lazy chunks. These render callbacks are passed into
+// createLazyLoader; wrap them as lazy importers so this EAGER module doesn't statically pull those
+// folders into the eager bundle. First call triggers the import (reader-only at runtime; cached after).
+const attachMarkListeners = (...a: any[]) => import("../hyperlights/index").then((m) => (m.attachMarkListeners as any)(...a));
+const attachUnderlineClickListeners = (...a: any[]) => import("../hypercites/index").then((m) => (m.attachUnderlineClickListeners as any)(...a));
 
 import { syncBookDataFromDatabase } from "../indexedDB/serverSync/index";
 

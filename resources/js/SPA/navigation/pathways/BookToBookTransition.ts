@@ -17,8 +17,10 @@ import { setSkipScrollRestoration } from '../../../utilities/operationState';
 import { universalPageInitializer } from '../../viewManager';
 import { initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, openContainerChain } from '../../../pageLoad/index';
-import { navigateToHyperciteTarget } from '../../../hypercites/index';
-import { navigateToFootnoteTarget } from '../../../hypercites/navigation';
+// hypercites is a reader-only lazy chunk; wrap as lazy importers so this pathway doesn't statically
+// pull hypercites into the eager bundle (called during reader navigation; chunk warmed at reader-init).
+const navigateToHyperciteTarget = (...a: any[]) => import('../../../hypercites/index').then((m) => (m.navigateToHyperciteTarget as any)(...a));
+const navigateToFootnoteTarget = (...a: any[]) => import('../../../hypercites/navigation').then((m) => (m.navigateToFootnoteTarget as any)(...a));
 import { navigateToInternalId, resetUserScrollState } from '../../../scrolling/index';
 
 export class BookToBookTransition {

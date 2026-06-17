@@ -14,7 +14,6 @@ import { initializeHomepage } from "../components/homepage/homepage";
 // ✅ REMOVED: initializeFootnoteCitationListeners now managed by ButtonRegistry
 import { setInitialBookSyncPromise, withPending, getInitialBookSyncPromise } from "../utilities/operationState";
 import { generateTableOfContents } from "../components/tocContainer/index";
-import { attachMarkListeners } from "../hyperlights/index";
 // ✅ REMOVED: TogglePerimeterButtons now managed exclusively by ButtonRegistry
 // import TogglePerimeterButtons from "./components/togglePerimeterButtons.js";
 import { showNavigationLoading, hideNavigationLoading } from "../scrolling/index";
