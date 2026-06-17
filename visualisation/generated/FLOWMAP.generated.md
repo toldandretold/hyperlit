@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1483 functions in 303 modules · 8 object stores · 6 PG tables · 2787 edges
+**MarkdownDB** schema v27 · 1485 functions in 304 modules · 8 object stores · 6 PG tables · 2787 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1254,6 +1254,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `scrollElementIntoMainContent` | `scrolling/scrollHelpers` | — | — | read | — |
 | `scrollElementWithConsistentMethod` | `scrolling/scrollHelpers` | — | — | read | — |
 | `waitForElementAndScroll` | `scrolling/scrollHelpers` | — | — | read | — |
+| `destroySelectionAutoScroll` | `scrolling/selectionAutoScroll` | — | — | — | — |
+| `initSelectionAutoScroll` | `scrolling/selectionAutoScroll` | — | — | — | — |
 | `cancelPendingNavigationCleanup` | `scrolling/userScrollDetection` | — | — | — | — |
 | `isActivelyScrollingForLinkBlock` | `scrolling/userScrollDetection` | — | — | — | — |
 | `isUserCurrentlyScrolling` | `scrolling/userScrollDetection` | — | — | — | — |

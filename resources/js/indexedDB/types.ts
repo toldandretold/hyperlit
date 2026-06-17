@@ -68,7 +68,7 @@ export interface CitationRef {
 export interface NodeHyperlightView extends CharRange {
   highlightID: string;
   annotation?: string;
-  creator?: string;
+  creator?: string | null;
   preview_nodes?: unknown; // TODO: characterize when hyperlights module is converted
   is_user_highlight?: boolean;
   hidden?: boolean;
@@ -123,7 +123,9 @@ export interface HyperlightRecord extends AnnotationRecordBase {
   highlightedText: string;
   highlightedHTML: string;
   annotation: string;
-  creator?: string;
+  // Written as `... || null` for anon users (see hyperlights/database.ts), so
+  // null is a real runtime value — not just absent.
+  creator?: string | null;
   preview_nodes?: unknown;
   is_user_highlight?: boolean;
   hidden?: boolean;
@@ -186,22 +188,42 @@ export type SyncStore =
 /** Any store record carried through the sync queue (NodeRecord, HyperlightRecord, …). */
 export type SyncRecordData = { book?: BookId } & object;
 
-export interface SyncQueueItem {
-  store: SyncStore;
-  id: string | number;
-  type: SyncOperationType;
-  data: SyncRecordData | null;
-  /** First-queued original state, preserved across re-queues (for undo). */
-  originalData: SyncRecordData | null;
+/**
+ * Couples each sync store to the record shape it carries. This is the single
+ * source of the store↔data correlation that makes SyncQueueItem a discriminated
+ * union: `item.store === 'nodes'` narrows `item.data` to `NodeRecord`, etc.
+ */
+export interface SyncStoreRecordMap {
+  nodes: NodeRecord;
+  hyperlights: HyperlightRecord;
+  hypercites: HyperciteRecord;
+  footnotes: FootnoteRecord;
+  bibliography: BibliographyRecord;
+  library: LibraryRecord;
 }
 
+type SyncQueueItemFor<S extends SyncStore> = {
+  store: S;
+  id: string | number;
+  type: SyncOperationType;
+  data: SyncStoreRecordMap[S] | null;
+  /** First-queued original state, preserved across re-queues (for undo). */
+  originalData: SyncStoreRecordMap[S] | null;
+};
+
+/**
+ * A queued sync operation. Discriminated over `store`, so a switch / `===` check
+ * on `item.store` narrows `item.data` to that store's record type — no casts.
+ */
+export type SyncQueueItem = { [S in SyncStore]: SyncQueueItemFor<S> }[SyncStore];
+
 /** Signature of queue.ts's queueForSync — for typing injected dependencies. */
-export type QueueForSyncFn = (
-  store: SyncStore,
+export type QueueForSyncFn = <S extends SyncStore>(
+  store: S,
   id: string | number,
   type?: SyncOperationType,
-  data?: SyncRecordData | null,
-  originalData?: SyncRecordData | null,
+  data?: SyncStoreRecordMap[S] | Partial<SyncStoreRecordMap[S]> | null,
+  originalData?: SyncStoreRecordMap[S] | Partial<SyncStoreRecordMap[S]> | null,
   skipRedoClear?: boolean,
 ) => void;
 

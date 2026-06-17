@@ -253,12 +253,18 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
 
   // Populate the history payload directly from the queued items
   for (const item of bookItems.values()) {
+    // The `item.store === 'x'` checks narrow `item.data`/`item.originalData` to that
+    // store's record type (SyncQueueItem is a discriminated union over `store`), so
+    // the nodes/library branches need no cast. The `else` branches push into a
+    // store-indexed array `historyLogPayload.updates[item.store]`; TS can't prove
+    // that the union-typed value matches the union-keyed array element (a correlated
+    // index access it cannot express), so a single `as unknown[]` cast remains there.
     if (item.type === "update") {
       // Add the new state to 'updates'
       if (item.store === "nodes") {
-        historyLogPayload.updates.nodes.push(toPublicChunk(item.data as NodeRecord | null)!);
+        historyLogPayload.updates.nodes.push(toPublicChunk(item.data)!);
       } else if (item.store === "library") {
-        historyLogPayload.updates.library = item.data as LibraryRecord | null;
+        historyLogPayload.updates.library = item.data;
       } else {
         (historyLogPayload.updates[item.store] as unknown[]).push(item.data);
       }
@@ -266,9 +272,9 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
       // Add the original state (if it exists) to 'deletions'
       if (item.originalData) {
         if (item.store === "nodes") {
-          historyLogPayload.deletions.nodes.push(toPublicChunk(item.originalData as NodeRecord | null)!);
+          historyLogPayload.deletions.nodes.push(toPublicChunk(item.originalData)!);
         } else if (item.store === "library") {
-          historyLogPayload.deletions.library = item.originalData as LibraryRecord | null;
+          historyLogPayload.deletions.library = item.originalData;
         } else {
           (historyLogPayload.deletions[item.store] as unknown[]).push(item.originalData);
         }
@@ -277,7 +283,7 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
       // Add the deleted record to 'deletions'
       if (item.data) {
         if (item.store === "nodes") {
-          historyLogPayload.deletions.nodes.push(toPublicChunk(item.data as NodeRecord | null)!);
+          historyLogPayload.deletions.nodes.push(toPublicChunk(item.data)!);
         } else {
           (historyLogPayload.deletions[item.store] as unknown[]).push(item.data);
         }
@@ -355,7 +361,7 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
     for (const item of bookItems.values()) {
       if (item.type === "update" && item.data) {
         switch (item.store) {
-          case "nodes": syncPayload.updates.nodes.push(item.data as NodeRecord); break;
+          case "nodes": syncPayload.updates.nodes.push(item.data); break;
           case "hypercites": syncPayload.updates.hypercites.push(item.data); break;
           case "hyperlights": syncPayload.updates.hyperlights.push(item.data); break;
           case "footnotes": syncPayload.updates.footnotes.push(item.data); break;

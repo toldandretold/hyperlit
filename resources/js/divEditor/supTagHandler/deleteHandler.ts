@@ -354,7 +354,7 @@ export function supDeleteHandler(e: any): void {
             || document.querySelector('.main-content')?.id;
 
           if (footnoteId && fnBook) {
-            queueForSync('footnotes', footnoteId, 'delete', { book: fnBook, footnoteId } as any);
+            queueForSync('footnotes', footnoteId, 'delete', { book: fnBook, footnoteId });
           }
         }
         // HYPERCITE LINK DELETION: Handle hypercite <a> elements

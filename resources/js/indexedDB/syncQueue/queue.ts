@@ -4,7 +4,7 @@
  */
 
 import { isUndoRedoInProgress } from '../../utilities/operationState';
-import type { BookId, SyncOperationType, SyncQueueItem, SyncRecordData, SyncStore } from '../types';
+import type { BookId, SyncOperationType, SyncQueueItem, SyncStoreRecordMap, SyncStore } from '../types';
 
 // Global pending syncs map
 export const pendingSyncs = new Map<string, SyncQueueItem>();
@@ -28,12 +28,15 @@ export function initSyncQueueDependencies(deps: { debouncedMasterSync: () => voi
  * @param originalData - Original data state (for undo)
  * @param skipRedoClear - Unused (kept for backward compatibility with callers)
  */
-export function queueForSync(
-  store: SyncStore,
+export function queueForSync<S extends SyncStore>(
+  store: S,
   id: string | number,
   type: SyncOperationType = "update",
-  data: SyncRecordData | null = null,
-  originalData: SyncRecordData | null = null,
+  // Accept a full record OR a partial: delete/hide sites legitimately queue
+  // partial payloads (e.g. footnote delete passes just { book, footnoteId };
+  // a node delete passes none). The store↔data coupling is still enforced.
+  data: SyncStoreRecordMap[S] | Partial<SyncStoreRecordMap[S]> | null = null,
+  originalData: SyncStoreRecordMap[S] | Partial<SyncStoreRecordMap[S]> | null = null,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   skipRedoClear = false,
 ): void {
@@ -66,11 +69,16 @@ export function queueForSync(
   // (e.g., when footnote renumbering updates the same node again before sync fires).
   const existing = pendingSyncs.get(key);
   if (existing && existing.originalData) {
-    // Keep the first originalData (the true original state)
-    originalData = existing.originalData;
+    // Keep the first originalData (the true original state). `existing` is the
+    // broad SyncQueueItem union; this key is for the same `store`, so its
+    // originalData is the right shape — narrow via the same-store assumption.
+    originalData = existing.originalData as SyncStoreRecordMap[S];
   }
 
-  pendingSyncs.set(key, { store, id, type, data, originalData });
+  // Single contained cast: the public params accept Partial<…> for delete/hide,
+  // but the stored item type is the full record-or-null. This is the one place
+  // the partial-vs-full seam is bridged — replacing scattered call-site `as any`.
+  pendingSyncs.set(key, { store, id, type, data, originalData } as SyncQueueItem);
 
   // Not injected = programming error; calling through undefined throws, same as the
   // pre-TS behaviour.

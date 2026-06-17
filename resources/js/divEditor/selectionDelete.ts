@@ -245,7 +245,7 @@ export class SelectionDeletionHandler {
           const fnBook = sup.closest('[data-book-id]')?.getAttribute('data-book-id')
             || document.querySelector('.main-content')?.id;
           if (footnoteId && fnBook) {
-            queueForSync('footnotes', footnoteId, 'delete', { book: fnBook, footnoteId } as any);
+            queueForSync('footnotes', footnoteId, 'delete', { book: fnBook, footnoteId });
           }
         }
 

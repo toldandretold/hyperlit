@@ -2,8 +2,8 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1483,
-    "moduleCount": 303,
+    "fnCount": 1485,
+    "moduleCount": 304,
     "storeCount": 8,
     "tableCount": 6,
     "edgeCount": 2787,
@@ -10135,6 +10135,22 @@
       "leaf": false
     },
     {
+      "id": "scrolling/selectionAutoScroll:destroySelectionAutoScroll",
+      "label": "destroySelectionAutoScroll",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/selectionAutoScroll",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/selectionAutoScroll:initSelectionAutoScroll",
+      "label": "initSelectionAutoScroll",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/selectionAutoScroll",
+      "leaf": true
+    },
+    {
       "id": "scrolling/userScrollDetection:cancelPendingNavigationCleanup",
       "label": "cancelPendingNavigationCleanup",
       "kind": "fn",
@@ -15514,6 +15530,16 @@
         "scrolling/scrollHelpers:scrollElementIntoMainContent",
         "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
         "scrolling/scrollHelpers:waitForElementAndScroll"
+      ]
+    },
+    {
+      "id": "scrolling/selectionAutoScroll",
+      "label": "scrolling/selectionAutoScroll",
+      "stage": "scrolling",
+      "band": "store",
+      "fnIds": [
+        "scrolling/selectionAutoScroll:destroySelectionAutoScroll",
+        "scrolling/selectionAutoScroll:initSelectionAutoScroll"
       ]
     },
     {
@@ -34864,6 +34890,11 @@
     {
       "source": "components/utilities/registerComponents",
       "target": "hyperlitContainer/footnotesCitations",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "scrolling/selectionAutoScroll",
       "kind": "static"
     },
     {

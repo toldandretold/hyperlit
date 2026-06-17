@@ -96,6 +96,11 @@ import {
   destroyContainerDragger
 } from '../containerDragger/containerDragger';
 
+import {
+  initSelectionAutoScroll,
+  destroySelectionAutoScroll
+} from '../../scrolling/selectionAutoScroll';
+
 /**
  * Register all components
  * This function should be called once during app initialization
@@ -237,6 +242,18 @@ export function registerAllComponents() {
     initFn: initContainerDragger,
     destroyFn: destroyContainerDragger,
     pages: ['reader', 'home', 'user'], // containers can open anywhere; the dragger is inert without a .resize-edge under the pointer
+    dependencies: [],
+    required: false
+  });
+
+  // Tames the native selection auto-scroll that races the reader upward during a drag-select
+  // (caused by scroll-padding-top:192px inflating the browser's auto-scroll trigger band).
+  // Document-level listeners → session singleton, re-init just clears stale state.
+  buttonRegistry.register({
+    name: 'selectionAutoScroll',
+    initFn: initSelectionAutoScroll,
+    destroyFn: destroySelectionAutoScroll,
+    pages: ['reader'],
     dependencies: [],
     required: false
   });

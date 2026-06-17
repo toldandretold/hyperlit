@@ -1,0 +1,40 @@
+name: typecheck
+
+# Runs `tsc --noEmit` on every push to main and every PR so the TypeScript data
+# layer's strictness can't silently rot. The front-end build (vite/esbuild) does
+# NOT type-check, and `npm test` (vitest) doesn't either — without this gate the
+# only enforcement was the local `npm run verify`. This is the CI teeth behind
+# the discriminated-union choke-point types (e.g. SyncQueueItem): re-loosening a
+# tightened type now fails the build here.
+#
+# ENFORCING (no continue-on-error): `tsc --noEmit` is green on main as of this
+# workflow landing. If a future change needs to land with known type errors,
+# flip the typecheck step to `continue-on-error: true` temporarily rather than
+# deleting the gate.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck:
+    name: tsc --noEmit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # --ignore-scripts: no app environment on the CI host; type-checking only
+      # needs the dependency tree, not post-install scripts.
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run typecheck
+        run: npm run typecheck
