@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1487 functions in 305 modules · 8 object stores · 6 PG tables · 2789 edges
+**MarkdownDB** schema v27 · 1487 functions in 305 modules · 8 object stores · 7 PG tables · 2857 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -191,11 +191,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `fetchPipelineMap` | `components/sourceContainer/aiReview/pipelineViz` | — | — | — | — |
 | `openAiReviewVizOverlay` | `components/sourceContainer/aiReview/pipelineViz` | — | — | read/write | — |
 | `renderPipelineViz` | `components/sourceContainer/aiReview/pipelineViz` | — | — | read/write | — |
-| `syncPipelineHighlights` | `components/sourceContainer/aiReview/pipelineViz` | — | — | read | — |
+| `syncPipelineHighlights` | `components/sourceContainer/aiReview/pipelineViz` | — | — | read | `↓bibliography` `↓footnotes` `↓hypercites` `↓hyperlights` `↓library` `↓nodes` |
 | `pollAiReviewStatus` | `components/sourceContainer/aiReview/polling` | — | — | read/write | — |
 | `startAiReviewPolling` | `components/sourceContainer/aiReview/polling` | — | — | — | — |
 | `stopAiReviewPolling` | `components/sourceContainer/aiReview/polling` | — | — | — | — |
-| `buildSourceHtml` | `components/sourceContainer/buildSourceHtml` | — | `library` | — | — |
+| `buildSourceHtml` | `components/sourceContainer/buildSourceHtml` | — | `library` | — | `↓bibliography` `↓footnotes` `↓hypercites` `↓hyperlights` `↓library` `↓nodes` |
 | `handlePrivacyToggle` | `components/sourceContainer/citationDisplay` | — | `library` | read/write | — |
 | `handleDeleteBook` | `components/sourceContainer/creatorTools/deleteBook` | — | — | read/write | — |
 | `loadCreatorTools` | `components/sourceContainer/creatorTools/index` | — | — | read/write | — |
@@ -275,7 +275,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setInitialBookmarkPosition` | `components/tocContainer/bookmark` | — | — | read | — |
 | `updateOrInsertBookmark` | `components/tocContainer/bookmark` | — | — | read/write | — |
 | `checkAndInvalidateTocCache` | `components/tocContainer/index` | — | — | — | — |
-| `generateTableOfContents` | `components/tocContainer/index` | — | — | read/write | — |
+| `generateTableOfContents` | `components/tocContainer/index` | — | — | read/write | `↓bibliography` `↓footnotes` `↓hypercites` `↓hyperlights` `↓library` `↓nodes` |
 | `invalidateTocCache` | `components/tocContainer/index` | — | — | — | — |
 | `invalidateTocCacheForDeletion` | `components/tocContainer/index` | — | — | — | — |
 | `refreshTOC` | `components/tocContainer/index` | — | — | — | — |
@@ -744,7 +744,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleCopyEvent` | `hypercites/copy` | — | — | read/write | — |
 | `wrapSelectedTextInDOM` | `hypercites/copy` | — | — | read/write | — |
 | `collectHyperciteData` | `hypercites/database` | — | — | read | — |
-| `fetchLibraryFromServer` | `hypercites/database` | — | — | read | — |
+| `fetchLibraryFromServer` | `hypercites/database` | — | — | read | `↓bibliography` `↓footnotes` `↓hypercites` `↓hyperlights` `↓library` `↓nodes` |
 | `getHyperciteById` | `hypercites/database` | `hypercites` | — | — | — |
 | `getHyperciteData` | `hypercites/database` | `nodes` | — | — | — |
 | `NewHyperciteIndexedDB` | `hypercites/database` | — | `hypercites` `nodes` | read/write | — |
@@ -928,11 +928,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `clearActiveBook` | `hyperlitContainer/utilities/activeContext` | — | — | — | — |
 | `getActiveBook` | `hyperlitContainer/utilities/activeContext` | — | — | — | — |
 | `setActiveBook` | `hyperlitContainer/utilities/activeContext` | — | — | — | — |
-| `fetchLibraryFromServer` | `hyperlitContainer/utils` | — | — | read | — |
+| `fetchLibraryFromServer` | `hyperlitContainer/utils` | — | — | read | `↓bibliography` `↓footnotes` `↓hypercites` `↓hyperlights` `↓library` `↓nodes` |
 | `formatRelativeTime` | `hyperlitContainer/utils` | — | — | — | — |
 | `scrollFocusedElementIntoView` | `hyperlitContainer/utils` | — | — | read | — |
 | `initReferencesDependencies` | `indexedDB/bibliography/index` | — | — | — | — |
-| `resolveBibliographyTarget` | `indexedDB/bibliography/index` | — | — | — | — |
+| `resolveBibliographyTarget` | `indexedDB/bibliography/index` | — | — | — | `↑canonical_source` |
 | `saveAllReferencesToIndexedDB` | `indexedDB/bibliography/index` | — | `bibliography` | — | — |
 | `syncReferencesToPostgreSQL` | `indexedDB/bibliography/syncReferencesToPostgreSQL` | — | — | read | `↑bibliography` |
 | `closeDatabase` | `indexedDB/core/connection` | — | — | — | — |
@@ -944,10 +944,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `reportIDBFailure` | `indexedDB/core/healthMonitor` | — | — | — | — |
 | `reportIDBSuccess` | `indexedDB/core/healthMonitor` | — | — | — | — |
 | `cleanLibraryItemForStorage` | `indexedDB/core/library` | — | — | — | — |
-| `fetchLibraryRecordWithStatus` | `indexedDB/core/library` | — | — | — | — |
+| `fetchLibraryRecordWithStatus` | `indexedDB/core/library` | — | — | — | `↓bibliography` `↓footnotes` `↓hypercites` `↓hyperlights` `↓library` `↓nodes` |
 | `getAllOfflineAvailableBooks` | `indexedDB/core/library` | `library` `nodes` | — | — | — |
 | `getLibraryObjectFromIndexedDB` | `indexedDB/core/library` | `library` | `library` | — | — |
-| `getLibraryRecordFromServer` | `indexedDB/core/library` | — | — | — | — |
+| `getLibraryRecordFromServer` | `indexedDB/core/library` | — | — | — | `↓bibliography` `↓footnotes` `↓hypercites` `↓hyperlights` `↓library` `↓nodes` |
 | `initLibraryDependencies` | `indexedDB/core/library` | — | — | — | — |
 | `prepareLibraryForIndexedDB` | `indexedDB/core/library` | — | — | — | — |
 | `syncFirstNodeToTitle` | `indexedDB/core/library` | `library` | `library` | write | — |
@@ -968,7 +968,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `syncHyperlightToPostgreSQL` | `indexedDB/highlights/syncHighlightsToPostgreSQL` | — | — | read | `↑hyperlights` |
 | `getNodesByDataNodeIDs` | `indexedDB/hydration/rebuild` | `nodes` | — | — | — |
 | `rebuildNodeArrays` | `indexedDB/hydration/rebuild` | `hypercites` `hyperlights` | `nodes` | — | — |
-| `resolveHypercite` | `indexedDB/hypercites/helpers` | — | `hypercites` `nodes` | read | — |
+| `resolveHypercite` | `indexedDB/hypercites/helpers` | — | `hypercites` `nodes` | read | `↓hypercites` |
 | `addCitationToHypercite` | `indexedDB/hypercites/index` | `nodes` | `nodes` | — | — |
 | `initHypercitesDependencies` | `indexedDB/hypercites/index` | — | — | — | — |
 | `updateCitationForExistingHypercite` | `indexedDB/hypercites/index` | — | — | — | — |
@@ -1016,8 +1016,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `loadHyperlightsToIndexedDB` | `indexedDB/serverSync/loaders` | — | — | — | — |
 | `loadLibraryToIndexedDB` | `indexedDB/serverSync/loaders` | — | `library` | — | — |
 | `loadNodeChunksToIndexedDB` | `indexedDB/serverSync/loaders` | — | — | — | — |
-| `syncAnnotationsOnly` | `indexedDB/serverSync/pull` | — | — | — | — |
-| `syncBookDataFromDatabase` | `indexedDB/serverSync/pull` | — | `bibliography` `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
+| `syncAnnotationsOnly` | `indexedDB/serverSync/pull` | — | — | — | `↓bibliography` `↓footnotes` `↓hypercites` `↓hyperlights` `↓library` `↓nodes` |
+| `syncBookDataFromDatabase` | `indexedDB/serverSync/pull` | — | `bibliography` `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | `↓bibliography` `↓footnotes` `↓hypercites` `↓hyperlights` `↓library` `↓nodes` |
 | `syncIndexedDBtoPostgreSQL` | `indexedDB/serverSync/push` | — | — | read | — |
 | `filterFreshNodesForBook` | `indexedDB/syncQueue/freshNodeFilter` | — | — | — | — |
 | `executeSyncPayload` | `indexedDB/syncQueue/master` | — | — | read | `↑bibliography` `↑footnotes` `↑hypercites` `↑hyperlights` `↑library` `↑nodes` |
@@ -1076,7 +1076,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initializeMainLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
 | `resetCurrentLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
 | `loadFromJSONFiles` | `pageLoad/loadHyperText` | — | — | — | — |
-| `loadHyperText` | `pageLoad/loadHyperText` | `library` | — | read | — |
+| `loadHyperText` | `pageLoad/loadHyperText` | `library` | — | read | `↓bibliography` `↓footnotes` `↓hypercites` `↓hyperlights` `↓library` `↓nodes` |
 | `generateNodeChunksFromMarkdown` | `pageLoad/nodeGen` | — | — | — | — |
 | `cleanupOnlineSyncListener` | `pageLoad/onlineRetry` | — | — | — | — |
 | `setupOnlineSyncListener` | `pageLoad/onlineRetry` | `historyLog` | — | — | — |
@@ -1326,7 +1326,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `clearCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
 | `getCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
 | `setCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
-| `isLocalCacheFresh` | `SPA/navigation/chunkLoadRouter` | `library` | — | — | — |
+| `isLocalCacheFresh` | `SPA/navigation/chunkLoadRouter` | `library` | — | — | `↓bibliography` `↓footnotes` `↓hypercites` `↓hyperlights` `↓library` `↓nodes` |
 | `loadChunkForTarget` | `SPA/navigation/chunkLoadRouter` | — | — | — | — |
 | `checkNavigationHealth` | `SPA/navigation/healthCheck` | — | — | read | — |
 | `compareHealth` | `SPA/navigation/healthCheck` | — | — | — | — |

@@ -249,6 +249,10 @@ function isExported(node: ts.Node): boolean {
 function stringLiteralValue(node: ts.Node | undefined): string | null {
   if (!node) return null;
   if (ts.isStringLiteralLike(node)) return node.text;
+  // A template literal with interpolation (`/api/books/${id}/data`) → its literal HEAD
+  // ("/api/books/"), which is enough to match an ENDPOINT_TABLES prefix. Without this the
+  // entire pull/load side (it builds URLs as templates) produced zero endpoints/edges.
+  if (ts.isTemplateExpression(node)) return node.head.text;
   return null;
 }
 
@@ -329,14 +333,14 @@ function analyzeFunctionBody(body: ts.Node): Omit<FnRaw, 'id' | 'name' | 'module
     }
     if (ts.isCallExpression(n)) {
       const callee = n.expression;
-      if (ts.isIdentifier(callee)) {
-        if (callee.text === 'fetch') { const url = stringLiteralValue(n.arguments[0]); if (url) endpoints.add(normalizeEndpoint(url)); }
-        calls.add(callee.text);
-      } else if (ts.isPropertyAccessExpression(callee)) {
-        if (callee.name.text === 'sendBeacon') {
-          walk(body, b => { const s = stringLiteralValue(b); if (s && s.startsWith('/api/')) endpoints.add(normalizeEndpoint(s)); });
-        }
-        if (callee.name.text === 'fetch') { const url = stringLiteralValue(n.arguments[0]); if (url) endpoints.add(normalizeEndpoint(url)); }
+      const fnName = ts.isIdentifier(callee) ? callee.text : (ts.isPropertyAccessExpression(callee) ? callee.name.text : null);
+      if (ts.isIdentifier(callee)) calls.add(callee.text);
+      // fetch (bare or obj.fetch) and sendBeacon: scan the function body for the /api/ URL. A body
+      // walk (not just arguments[0]) catches the URL even when it's a template literal or wrapped in
+      // a helper like appendGateParam(`/api/…`) — the shape the entire load/pull side uses, which
+      // previously yielded NO endpoints (hence zero pull edges; tables looked like pure sinks).
+      if (fnName === 'fetch' || fnName === 'sendBeacon') {
+        walk(body, b => { const s = stringLiteralValue(b); if (s && s.startsWith('/api/')) endpoints.add(normalizeEndpoint(s)); });
       }
     }
     if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isPropertyAccessExpression(n.left)) {
@@ -1207,6 +1211,11 @@ function paintTrace(r){
 // COUPLING lens always shows full transitive reach + red feedback-loop cycles.
 function applyTrace(){
   if(mode==="imports") return;   // imports lens isn't a data/coupling trace — click just shows detail
+  // A typed Postgres table → trace its data TYPE through the real code (the full PG↔IDB↔DOM
+  // lineage). This OVERRIDES the flow direction toggle — a type trace isn't directional, it's the
+  // whole journey of that data — so the button can't revert it to the general flow pipeline.
+  var sel = selId ? nodeById[selId] : null;
+  if(sel && sel.kind==="table" && sel.types && sel.types.length){ paintTypeTrace(selId); return; }
   cy.elements().addClass("faded").removeClass("hl cycle");
   if(mode==="coupling"){
     if(!selId){ clearHL(); return; }
@@ -1243,6 +1252,9 @@ function carryingForTable(tableId){
   var want={}; tn.types.forEach(function(t){want[t]=1;});
   var carry={}; carry[tableId]=1;
   VIZ.nodes.forEach(function(n){ if(n.kind==="fn"&&n.types){ for(var i=0;i<n.types.length;i++){ if(want[n.types[i]]){ carry[n.id]=1; break; } } } });
+  // + functions that push to OR pull from this table directly: they move its data by definition
+  // (the loader that pulls it may not name a node type in its own signature, but it IS the load entry).
+  VIZ.edges.forEach(function(e){ if(e.rel==="push"&&e.target===tableId) carry[e.source]=1; if(e.rel==="pull"&&e.source===tableId) carry[e.target]=1; });
   return carry;
 }
 function paintTypeTrace(tableId){
@@ -1294,7 +1306,9 @@ function showDetail(n){
     if(kind==="table" && nodeById[id] && nodeById[id].types && nodeById[id].types.length){
       var tt=nodeById[id].types, carry=carryingForTable(id);
       var fnList=VIZ.nodes.filter(function(x){return x.kind==="fn"&&carry[x.id];}).map(function(x){return x.label+"  ("+x.types.join(", ")+")";}).sort();
-      typeHtml="<h3>data types (TS lineage)</h3>"+ul(tt)+"<h3>flows through "+fnList.length+" fns — lit on the map (rows = PG→DOM)</h3>"+ul(fnList);
+      typeHtml="<h3>data types (TS lineage)</h3>"+ul(tt)+
+        "<p class='none' style='font-style:normal'>The full PG↔IDB↔DOM journey of this data, from the TS types — both ways at once (the <b>trace: direction</b> toggle is a flow-lens tool and doesn't apply here).</p>"+
+        "<h3>flows through "+fnList.length+" fns — lit on the map (rows = PG→DOM)</h3>"+ul(fnList);
     }
     d.innerHTML="<div class='name'>"+n.data("label")+"</div><div class='sub'>"+(kind==="store"?"IndexedDB object store":kind==="table"?"PostgreSQL table":"the reader page — every DOM-manipulation module reads/writes it")+"</div>"+schemaHtml+typeHtml+"<h3>connected functions</h3>"+ul(movers);
     return;
@@ -1324,11 +1338,8 @@ cy.on("tap","node",function(ev){
     var mod=cy.getElementById("mod:"+mid); if(mod&&mod.length) showDetail(mod);
     return;
   }
-  // A table with a type lineage → trace the data type through the real code (not the empty
-  // edge-trace a sink would give). Other nodes keep the normal flow/coupling trace.
-  if(kind==="table" && nodeById[id] && nodeById[id].types && nodeById[id].types.length){
-    selId=id; paintTypeTrace(id); showDetail(n); return;
-  }
+  // highlight() → applyTrace(), which routes a typed table to the type trace (the data-type
+  // lineage) and everything else to the normal flow/coupling trace. One path, no clobbering.
   highlight(n); showDetail(n);
 });
 cy.on("tap",function(ev){ if(ev.target===cy || (ev.target.isEdge && ev.target.isEdge())){ selId=null; clearHL(); applyMode(); } });

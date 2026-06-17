@@ -5,8 +5,8 @@
     "fnCount": 1487,
     "moduleCount": 305,
     "storeCount": 8,
-    "tableCount": 6,
-    "edgeCount": 2789,
+    "tableCount": 7,
+    "edgeCount": 2857,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -1433,7 +1433,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/vibeCSS/api",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/settingsContainer/vibeCSS/api:saveVibe",
@@ -2593,7 +2593,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/userContainer/auth",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "components/userContainer/auth:handleRegister",
@@ -7534,7 +7534,7 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/bibliography/index",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "indexedDB/bibliography/index:saveAllReferencesToIndexedDB",
@@ -7630,7 +7630,7 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/core/library",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "indexedDB/core/library:getAllOfflineAvailableBooks",
@@ -7654,7 +7654,7 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/core/library",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "indexedDB/core/library:initLibraryDependencies",
@@ -8261,7 +8261,7 @@
       "kind": "fn",
       "stage": "serverSync",
       "module": "indexedDB/serverSync/pull",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
@@ -10083,6 +10083,11 @@
       "kind": "table"
     },
     {
+      "id": "pg:canonical_source",
+      "label": "canonical_source",
+      "kind": "table"
+    },
+    {
       "id": "pg:footnotes",
       "label": "footnotes",
       "kind": "table"
@@ -11656,7 +11661,7 @@
       "kind": "fn",
       "stage": "SPA",
       "module": "SPA/navigation/pathways/ImportBookTransition",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent",
@@ -13933,7 +13938,7 @@
       "id": "hypercites/database",
       "label": "hypercites/database",
       "stage": "hypercites",
-      "band": "capture",
+      "band": "sync",
       "fnIds": [
         "hypercites/database:NewHyperciteIndexedDB",
         "hypercites/database:collectHyperciteData",
@@ -14454,7 +14459,7 @@
       "id": "hyperlitContainer/utils",
       "label": "hyperlitContainer/utils",
       "stage": "hyperlitContainer",
-      "band": "capture",
+      "band": "sync",
       "fnIds": [
         "hyperlitContainer/utils:fetchLibraryFromServer",
         "hyperlitContainer/utils:formatRelativeTime",
@@ -14465,7 +14470,7 @@
       "id": "indexedDB/bibliography/index",
       "label": "indexedDB/bibliography/index",
       "stage": "domain",
-      "band": "store",
+      "band": "sync",
       "fnIds": [
         "indexedDB/bibliography/index:initReferencesDependencies",
         "indexedDB/bibliography/index:resolveBibliographyTarget",
@@ -14509,7 +14514,7 @@
       "id": "indexedDB/core/library",
       "label": "indexedDB/core/library",
       "stage": "domain",
-      "band": "capture",
+      "band": "sync",
       "fnIds": [
         "indexedDB/core/library:cleanLibraryItemForStorage",
         "indexedDB/core/library:fetchLibraryRecordWithStatus",
@@ -14590,7 +14595,7 @@
       "id": "indexedDB/hypercites/helpers",
       "label": "indexedDB/hypercites/helpers",
       "stage": "domain",
-      "band": "capture",
+      "band": "sync",
       "fnIds": [
         "indexedDB/hypercites/helpers:resolveHypercite"
       ]
@@ -14782,7 +14787,7 @@
       "id": "indexedDB/serverSync/pull",
       "label": "indexedDB/serverSync/pull",
       "stage": "serverSync",
-      "band": "store",
+      "band": "sync",
       "fnIds": [
         "indexedDB/serverSync/pull:syncAnnotationsOnly",
         "indexedDB/serverSync/pull:syncBookDataFromDatabase"
@@ -14792,7 +14797,7 @@
       "id": "indexedDB/serverSync/push",
       "label": "indexedDB/serverSync/push",
       "stage": "serverSync",
-      "band": "capture",
+      "band": "sync",
       "fnIds": [
         "indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL"
       ]
@@ -14981,7 +14986,7 @@
       "id": "pageLoad/containerChain",
       "label": "pageLoad/containerChain",
       "stage": "pageLoad",
-      "band": "capture",
+      "band": "sync",
       "fnIds": [
         "pageLoad/containerChain:buildChainFromUrl",
         "pageLoad/containerChain:openContainerChain"
@@ -15033,7 +15038,7 @@
       "id": "pageLoad/loadHyperText",
       "label": "pageLoad/loadHyperText",
       "stage": "pageLoad",
-      "band": "capture",
+      "band": "sync",
       "fnIds": [
         "pageLoad/loadHyperText:loadFromJSONFiles",
         "pageLoad/loadHyperText:loadHyperText"
@@ -15072,7 +15077,7 @@
       "id": "pageLoad/timeMachine",
       "label": "pageLoad/timeMachine",
       "stage": "pageLoad",
-      "band": "capture",
+      "band": "sync",
       "fnIds": [
         "pageLoad/timeMachine:initializeTimeMachine"
       ]
@@ -15788,7 +15793,7 @@
       "id": "SPA/navigation/chunkLoadRouter",
       "label": "SPA/navigation/chunkLoadRouter",
       "stage": "SPA",
-      "band": "store",
+      "band": "sync",
       "fnIds": [
         "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
         "SPA/navigation/chunkLoadRouter:loadChunkForTarget"
@@ -15974,7 +15979,7 @@
       "id": "SPA/navigation/pathways/ImportBookTransition",
       "label": "SPA/navigation/pathways/ImportBookTransition",
       "stage": "SPA",
-      "band": "capture",
+      "band": "sync",
       "fnIds": [
         "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState",
         "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.clearFormData",
@@ -17571,7 +17576,8 @@
       "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/api:deleteVibe",
       "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
       "target": "components/settingsContainer/vibeCSS/api:deleteVibe",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/api:fetchMyVibes",
@@ -17584,7 +17590,8 @@
       "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/api:fetchPublicVibes",
       "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
       "target": "components/settingsContainer/vibeCSS/api:fetchPublicVibes",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/api:saveVibe",
@@ -17597,7 +17604,8 @@
       "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/api:updateVibe",
       "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
       "target": "components/settingsContainer/vibeCSS/api:updateVibe",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/storage:applyVibeCSS",
@@ -18236,13 +18244,15 @@
       "id": "components/sourceContainer/index:SourceContainerManager.handleReconvert__call__components/sourceContainer/creatorTools/reconvert:handleReconvert",
       "source": "components/sourceContainer/index:SourceContainerManager.handleReconvert",
       "target": "components/sourceContainer/creatorTools/reconvert:handleReconvert",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/sourceContainer/index:SourceContainerManager.handleReupload__call__components/sourceContainer/creatorTools/reupload:handleReupload",
       "source": "components/sourceContainer/index:SourceContainerManager.handleReupload",
       "target": "components/sourceContainer/creatorTools/reupload:handleReupload",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/sourceContainer/index:SourceContainerManager.hideEditForm__call__components/sourceContainer/editForm:hideEditForm",
@@ -18267,7 +18277,8 @@
       "id": "components/sourceContainer/index:SourceContainerManager.loadReconvertInfo__call__components/sourceContainer/creatorTools/reconvert:loadReconvertInfo",
       "source": "components/sourceContainer/index:SourceContainerManager.loadReconvertInfo",
       "target": "components/sourceContainer/creatorTools/reconvert:loadReconvertInfo",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/sourceContainer/index:SourceContainerManager.loadVersionHistory__call__components/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
@@ -18298,7 +18309,8 @@
       "id": "components/sourceContainer/index:SourceContainerManager.pollAiReviewStatus__call__components/sourceContainer/aiReview/polling:pollAiReviewStatus",
       "source": "components/sourceContainer/index:SourceContainerManager.pollAiReviewStatus",
       "target": "components/sourceContainer/aiReview/polling:pollAiReviewStatus",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/sourceContainer/index:SourceContainerManager.populateEditForm__call__components/sourceContainer/editForm:populateEditForm",
@@ -24324,7 +24336,8 @@
       "id": "hypercites/containers:createOverlappingPolyContainer__call__hypercites/database:fetchLibraryFromServer",
       "source": "hypercites/containers:createOverlappingPolyContainer",
       "target": "hypercites/database:fetchLibraryFromServer",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/containers:createOverlappingPolyContainer__call__hyperlitContainer/containerActions:openHyperlitContainer",
@@ -24349,7 +24362,8 @@
       "id": "hypercites/containers:PolyClick__call__hypercites/database:fetchLibraryFromServer",
       "source": "hypercites/containers:PolyClick",
       "target": "hypercites/database:fetchLibraryFromServer",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hypercites/containers:PolyClick__call__hyperlitContainer/containerActions:openHyperlitContainer",
@@ -25779,7 +25793,8 @@
       "id": "hyperlitContainer/contentBuilders/displayCitations:buildCitationContent__call__indexedDB/bibliography/index:resolveBibliographyTarget",
       "source": "hyperlitContainer/contentBuilders/displayCitations:buildCitationContent",
       "target": "indexedDB/bibliography/index:resolveBibliographyTarget",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/contentBuilders/displayCitations:buildCitationContent__call__indexedDB/core/connection:openDatabase",
@@ -25804,7 +25819,8 @@
       "id": "hyperlitContainer/contentBuilders/displayCitations:buildHyperciteCitationContent__call__hyperlitContainer/utils:fetchLibraryFromServer",
       "source": "hyperlitContainer/contentBuilders/displayCitations:buildHyperciteCitationContent",
       "target": "hyperlitContainer/utils:fetchLibraryFromServer",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/contentBuilders/displayCitations:buildHyperciteCitationContent__call__indexedDB/core/connection:openDatabase",
@@ -25830,7 +25846,8 @@
       "id": "hyperlitContainer/contentBuilders/displayCitations:resolveButtonStatus__call__hyperlitContainer/utils:fetchLibraryFromServer",
       "source": "hyperlitContainer/contentBuilders/displayCitations:resolveButtonStatus",
       "target": "hyperlitContainer/utils:fetchLibraryFromServer",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/contentBuilders/displayCitations:resolveButtonStatus__domwrite__dom",
@@ -25873,7 +25890,8 @@
       "id": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent__call__hyperlitContainer/utils:fetchLibraryFromServer",
       "source": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent",
       "target": "hyperlitContainer/utils:fetchLibraryFromServer",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent__call__indexedDB/core/connection:openDatabase",
@@ -27214,7 +27232,8 @@
       "id": "hyperlitContainer/subBookLoader:loadSubBook__call__indexedDB/core/library:fetchLibraryRecordWithStatus",
       "source": "hyperlitContainer/subBookLoader:loadSubBook",
       "target": "indexedDB/core/library:fetchLibraryRecordWithStatus",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/subBookLoader:loadSubBook__call__indexedDB/core/library:getLibraryObjectFromIndexedDB",
@@ -27295,6 +27314,13 @@
       "source": "hyperlitContainer/subBookLoader:loadSubBook",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "indexedDB/bibliography/index:resolveBibliographyTarget__push__pg:canonical_source",
+      "source": "indexedDB/bibliography/index:resolveBibliographyTarget",
+      "target": "pg:canonical_source",
+      "rel": "push",
+      "label": "/api/canonical"
     },
     {
       "id": "indexedDB/bibliography/index:saveAllReferencesToIndexedDB__call__indexedDB/bibliography/syncReferencesToPostgreSQL:syncReferencesToPostgreSQL",
@@ -31126,6 +31152,475 @@
       "rel": "domwrite"
     },
     {
+      "id": "pg:bibliography__pull__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "source": "pg:bibliography",
+      "target": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:bibliography__pull__components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "source": "pg:bibliography",
+      "target": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:bibliography__pull__components/tocContainer/index:generateTableOfContents",
+      "source": "pg:bibliography",
+      "target": "components/tocContainer/index:generateTableOfContents",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:bibliography__pull__hypercites/database:fetchLibraryFromServer",
+      "source": "pg:bibliography",
+      "target": "hypercites/database:fetchLibraryFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:bibliography__pull__hyperlitContainer/utils:fetchLibraryFromServer",
+      "source": "pg:bibliography",
+      "target": "hyperlitContainer/utils:fetchLibraryFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:bibliography__pull__indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "source": "pg:bibliography",
+      "target": "indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:bibliography__pull__indexedDB/core/library:getLibraryRecordFromServer",
+      "source": "pg:bibliography",
+      "target": "indexedDB/core/library:getLibraryRecordFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:bibliography__pull__indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "source": "pg:bibliography",
+      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:bibliography__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "source": "pg:bibliography",
+      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:bibliography__pull__pageLoad/loadHyperText:loadHyperText",
+      "source": "pg:bibliography",
+      "target": "pageLoad/loadHyperText:loadHyperText",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:bibliography__pull__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "source": "pg:bibliography",
+      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:footnotes__pull__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "source": "pg:footnotes",
+      "target": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:footnotes__pull__components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "source": "pg:footnotes",
+      "target": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:footnotes__pull__components/tocContainer/index:generateTableOfContents",
+      "source": "pg:footnotes",
+      "target": "components/tocContainer/index:generateTableOfContents",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:footnotes__pull__hypercites/database:fetchLibraryFromServer",
+      "source": "pg:footnotes",
+      "target": "hypercites/database:fetchLibraryFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:footnotes__pull__hyperlitContainer/utils:fetchLibraryFromServer",
+      "source": "pg:footnotes",
+      "target": "hyperlitContainer/utils:fetchLibraryFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:footnotes__pull__indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "source": "pg:footnotes",
+      "target": "indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:footnotes__pull__indexedDB/core/library:getLibraryRecordFromServer",
+      "source": "pg:footnotes",
+      "target": "indexedDB/core/library:getLibraryRecordFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:footnotes__pull__indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "source": "pg:footnotes",
+      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:footnotes__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "source": "pg:footnotes",
+      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:footnotes__pull__pageLoad/loadHyperText:loadHyperText",
+      "source": "pg:footnotes",
+      "target": "pageLoad/loadHyperText:loadHyperText",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:footnotes__pull__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "source": "pg:footnotes",
+      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hypercites__pull__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "source": "pg:hypercites",
+      "target": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hypercites__pull__components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "source": "pg:hypercites",
+      "target": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hypercites__pull__components/tocContainer/index:generateTableOfContents",
+      "source": "pg:hypercites",
+      "target": "components/tocContainer/index:generateTableOfContents",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hypercites__pull__hypercites/database:fetchLibraryFromServer",
+      "source": "pg:hypercites",
+      "target": "hypercites/database:fetchLibraryFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hypercites__pull__hyperlitContainer/utils:fetchLibraryFromServer",
+      "source": "pg:hypercites",
+      "target": "hyperlitContainer/utils:fetchLibraryFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hypercites__pull__indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "source": "pg:hypercites",
+      "target": "indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hypercites__pull__indexedDB/core/library:getLibraryRecordFromServer",
+      "source": "pg:hypercites",
+      "target": "indexedDB/core/library:getLibraryRecordFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hypercites__pull__indexedDB/hypercites/helpers:resolveHypercite",
+      "source": "pg:hypercites",
+      "target": "indexedDB/hypercites/helpers:resolveHypercite",
+      "rel": "pull",
+      "label": "/api/db/hypercites/find"
+    },
+    {
+      "id": "pg:hypercites__pull__indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "source": "pg:hypercites",
+      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hypercites__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "source": "pg:hypercites",
+      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hypercites__pull__pageLoad/loadHyperText:loadHyperText",
+      "source": "pg:hypercites",
+      "target": "pageLoad/loadHyperText:loadHyperText",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hypercites__pull__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "source": "pg:hypercites",
+      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hyperlights__pull__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "source": "pg:hyperlights",
+      "target": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hyperlights__pull__components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "source": "pg:hyperlights",
+      "target": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hyperlights__pull__components/tocContainer/index:generateTableOfContents",
+      "source": "pg:hyperlights",
+      "target": "components/tocContainer/index:generateTableOfContents",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hyperlights__pull__hypercites/database:fetchLibraryFromServer",
+      "source": "pg:hyperlights",
+      "target": "hypercites/database:fetchLibraryFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hyperlights__pull__hyperlitContainer/utils:fetchLibraryFromServer",
+      "source": "pg:hyperlights",
+      "target": "hyperlitContainer/utils:fetchLibraryFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hyperlights__pull__indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "source": "pg:hyperlights",
+      "target": "indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hyperlights__pull__indexedDB/core/library:getLibraryRecordFromServer",
+      "source": "pg:hyperlights",
+      "target": "indexedDB/core/library:getLibraryRecordFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hyperlights__pull__indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "source": "pg:hyperlights",
+      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hyperlights__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "source": "pg:hyperlights",
+      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hyperlights__pull__pageLoad/loadHyperText:loadHyperText",
+      "source": "pg:hyperlights",
+      "target": "pageLoad/loadHyperText:loadHyperText",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:hyperlights__pull__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "source": "pg:hyperlights",
+      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:library__pull__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "source": "pg:library",
+      "target": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:library__pull__components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "source": "pg:library",
+      "target": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:library__pull__components/tocContainer/index:generateTableOfContents",
+      "source": "pg:library",
+      "target": "components/tocContainer/index:generateTableOfContents",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:library__pull__hypercites/database:fetchLibraryFromServer",
+      "source": "pg:library",
+      "target": "hypercites/database:fetchLibraryFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:library__pull__hyperlitContainer/utils:fetchLibraryFromServer",
+      "source": "pg:library",
+      "target": "hyperlitContainer/utils:fetchLibraryFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:library__pull__indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "source": "pg:library",
+      "target": "indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:library__pull__indexedDB/core/library:getLibraryRecordFromServer",
+      "source": "pg:library",
+      "target": "indexedDB/core/library:getLibraryRecordFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:library__pull__indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "source": "pg:library",
+      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:library__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "source": "pg:library",
+      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:library__pull__pageLoad/loadHyperText:loadHyperText",
+      "source": "pg:library",
+      "target": "pageLoad/loadHyperText:loadHyperText",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:library__pull__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "source": "pg:library",
+      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:nodes__pull__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "source": "pg:nodes",
+      "target": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:nodes__pull__components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "source": "pg:nodes",
+      "target": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:nodes__pull__components/tocContainer/index:generateTableOfContents",
+      "source": "pg:nodes",
+      "target": "components/tocContainer/index:generateTableOfContents",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:nodes__pull__hypercites/database:fetchLibraryFromServer",
+      "source": "pg:nodes",
+      "target": "hypercites/database:fetchLibraryFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:nodes__pull__hyperlitContainer/utils:fetchLibraryFromServer",
+      "source": "pg:nodes",
+      "target": "hyperlitContainer/utils:fetchLibraryFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:nodes__pull__indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "source": "pg:nodes",
+      "target": "indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:nodes__pull__indexedDB/core/library:getLibraryRecordFromServer",
+      "source": "pg:nodes",
+      "target": "indexedDB/core/library:getLibraryRecordFromServer",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:nodes__pull__indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "source": "pg:nodes",
+      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:nodes__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "source": "pg:nodes",
+      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:nodes__pull__pageLoad/loadHyperText:loadHyperText",
+      "source": "pg:nodes",
+      "target": "pageLoad/loadHyperText:loadHyperText",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
+      "id": "pg:nodes__pull__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "source": "pg:nodes",
+      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books"
+    },
+    {
       "id": "scrolling/internalNav:fallbackScrollPosition__call__indexedDB/core/utilities:getLocalStorageKey",
       "source": "scrolling/internalNav:fallbackScrollPosition",
       "target": "indexedDB/core/utilities:getLocalStorageKey",
@@ -31558,7 +32053,8 @@
       "id": "SPA/createNewBook:fireAndForgetSync__call__indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL",
       "source": "SPA/createNewBook:fireAndForgetSync",
       "target": "indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "SPA/createNewBook:fireAndForgetSync__write__store:bibliography",
@@ -32234,7 +32730,8 @@
       "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.createAndTransition__call__indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL",
       "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.createAndTransition",
       "target": "indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.createAndTransition__call__SPA/createNewBook:createNewBook",
