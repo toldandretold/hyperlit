@@ -1,5 +1,6 @@
 /**
  * SPA Grand Tour.
+ * npm run test:e2e -- tests/e2e/specs/workflows/spa-grand-tour.spec.js
  *
  * The catch-all SPA correctness test. Per-page verifiers are exercised in
  * isolation, then chained through every transition path, looped to surface

@@ -28,6 +28,12 @@ export default defineConfig({
           if (id.includes('node_modules')) {
             if (id.includes('rangy')) return 'vendor-rangy';
           }
+          // Consolidate the indexedDB data layer (already ~all eager — core/library/batch/write/push/
+          // sync are on the content-load + sync path) into ONE eager chunk to cut the long tail of
+          // tiny per-module requests. SAFE: eager-with-eager grouping doesn't fold lazy features (we
+          // do NOT group the lazy feature folders divEditor/paste/editToolbar/hyperlights/hypercites).
+          // Verified by measurement: eager bytes flat, chunk count down, no duplication.
+          if (id.includes('/resources/js/indexedDB/')) return 'indexeddb';
         }
       }
     }

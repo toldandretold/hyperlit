@@ -1,19 +1,19 @@
 {
   "pages": {
     "reader": {
-      "eagerChunks": 20,
-      "eagerKB": 539,
-      "eagerGzipKB": 169.8
+      "eagerChunks": 11,
+      "eagerKB": 554,
+      "eagerGzipKB": 168.1
     },
     "home": {
-      "eagerChunks": 19,
-      "eagerKB": 536.9,
-      "eagerGzipKB": 169
+      "eagerChunks": 10,
+      "eagerKB": 551.9,
+      "eagerGzipKB": 167.2
     },
     "user": {
-      "eagerChunks": 19,
-      "eagerKB": 536.9,
-      "eagerGzipKB": 169
+      "eagerChunks": 10,
+      "eagerKB": 551.9,
+      "eagerGzipKB": 167.2
     }
   },
   "features": {}
