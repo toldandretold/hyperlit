@@ -1,6 +1,28 @@
 import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import os from 'os';
+import fs from 'node:fs';
+
+// Bundle-regression gate plumbing: when BUNDLE_GATE=1, emit a chunk→modules map next to the manifest
+// so scripts/check-lazy-chunks.mjs can assert the edit/feature folders stay OUT of the eager bundle.
+// Off by default (normal `npm run build` is unaffected — no extra artifact).
+const bundleGatePlugin = process.env.BUNDLE_GATE
+  ? {
+      name: 'bundle-gate-chunkmap',
+      generateBundle(_opts, bundle) {
+        const map = {};
+        for (const [file, c] of Object.entries(bundle)) {
+          if (c.type !== 'chunk') continue;
+          map[file] = {
+            imports: c.imports || [],
+            modules: Object.keys(c.modules || {}).map((m) => m.replace(process.cwd() + '/', '')),
+          };
+        }
+        fs.mkdirSync('public/build', { recursive: true });
+        fs.writeFileSync('public/build/chunkmap.json', JSON.stringify(map));
+      },
+    }
+  : null;
 
 function getNetworkIp() {
   const interfaces = os.networkInterfaces();
@@ -17,6 +39,7 @@ function getNetworkIp() {
 export default defineConfig({
   build: {
     rollupOptions: {
+      plugins: bundleGatePlugin ? [bundleGatePlugin] : [],
       output: {
         manualChunks: (id) => {
           // Trust rollup's automatic code-splitting. The source now has clean dynamic-import
