@@ -55,7 +55,7 @@
      Customize fonts and sizes
      ==================== */
 
-  --font-family-base: 'Inter', arial, sans-serif;
+  --font-family-base: 'InterVariable', 'Inter', arial, sans-serif;
   --font-family-mono: "Courier New", Courier, monospace;
 
   --font-size-base: 28px;        /* Base font size for desktop */

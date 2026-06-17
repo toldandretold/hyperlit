@@ -71,8 +71,8 @@
   --hypercite-target-opacity: 1.0;
 
   /* Typography */
-  --font-family-base: 'Inter', arial, sans-serif;
-  --font-family-display: 'InterDisplay', 'Inter', arial, sans-serif;
+  --font-family-base: 'InterVariable', 'Inter', arial, sans-serif;
+  --font-family-display: 'InterVariable', 'Inter', arial, sans-serif;
   --font-family-mono: "Courier New", Courier, monospace;
 
   --font-size-base: 28px;

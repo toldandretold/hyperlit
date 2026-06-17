@@ -129,7 +129,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // If a vibe-convert job auto-applied a fix to this book, surface the Keep/Revert toast (driven by the
   // persisted vibe_review.json, so it shows even if the original toast was lost to navigation).
-  if (book && pageType !== 'timemachine') {
+  // Skip the synthetic homepage ranking books — they can never have a vibe_review.json, and the
+  // review endpoint 401s for logged-out users, leaving a red request on every home-page load.
+  const SYNTHETIC_BOOKS = ['most-recent', 'most-connected', 'most-lit'];
+  if (book && pageType !== 'timemachine' && !SYNTHETIC_BOOKS.includes(book)) {
     import('../conversion/feedbackToast.js')
       .then(m => m.checkPendingVibeReview(book))
       .catch(() => {});
