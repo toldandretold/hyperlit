@@ -109,6 +109,30 @@ role = code acting out of place (a refactor candidate), visible at a glance.
 **Interactions:** single-click traces a node's connections (rest dims but stays legible);
 double-click a module box drills into its functions; expand/collapse all + fit; focus dropdown.
 
+**Type trace (click a Postgres table):** clicking a table that has a known TS type lineage
+(today: `nodes`) doesn't do the generic edge-trace — it lights the **functions that actually handle
+that data type**, read from the TypeScript annotations (`collect.ts` tags each function with the
+node-data types — `NodeRecord` / `ServerNodeRow` / `PublicChunk` / `NodeHyperlightView` /
+`NodeHyperciteView` — that appear in its signature or body), plus the `store:<table>` object store
+and the DOM as waypoints. So you see the data's whole **PG↔IndexedDB↔DOM lineage** at once, laid out
+top→bottom by the grid's rows. It deliberately **overrides the `trace:` direction toggle** — a type
+trace is the entire journey of that data, not a one-directional walk. (Mechanism: `TABLE_TYPES` +
+`collectTypeReferences()` in `collect.ts`; the `types` field on `fn`/`table` nodes; `paintTypeTrace`
+in the embedded page. Scope today is `nodes`; extend `TABLE_TYPES` for the other stores.)
+
+> **Known limitation — the backend/pull side is approximate.** The Postgres-table boxes are an
+> *abstraction*, not the real seam, and the edges to them are guesses, two ways. (1) **Table
+> attribution is hand-coded:** `ENDPOINT_TABLES` maps each endpoint to a fixed list of tables and
+> draws one `push`/`pull` edge per table — so a "from `nodes`" arrow only means "`nodes` is in that
+> endpoint's hand-written list", *not* that the function received node data (a library-only fetch
+> still shows an edge from `pg:nodes`). (2) **Endpoint detection sees only the URL head:** a template
+> URL like `` `/api/…/books/${id}/data` `` is captured only up to the first `${}`, so `…/data` and
+> `…/annotations` collapse to the same `…/books/` endpoint — the map can't even separate
+> book-content loads from annotation loads. The planned fix is an **API/route tier** that keys each
+> endpoint to its TS receiver and the response type it's annotated with (`BookDataResponse` /
+> `AnnotationsResponse` / `UnifiedSyncPayload`), so each endpoint shows the *specific* data it
+> carries and where TS receives it — see "Next" below.
+
 ---
 
 ## How `js/collect.ts` works
@@ -120,8 +144,11 @@ so the no-drift gate can byte-compare. It walks `resources/js/indexedDB/` plus t
 exported function AND class method** (`ClassName.method` — so class-per-file code like
 editToolbar is represented, not just function-first modules), uses the **TypeScript compiler
 API** (AST, not regex) to detect: stores read/written, API endpoints
-(`fetch`/`sendBeacon` → Postgres tables via `ENDPOINT_TABLES`), DOM touch (incl.
-selection/range/treewalker/execCommand APIs), and calls. It reads
+(`fetch`/`sendBeacon` → Postgres tables via `ENDPOINT_TABLES`; URLs are matched by the literal head
+of template strings, so `appendGateParam(`/api/…/${id}`)` is now seen), DOM touch (incl.
+selection/range/treewalker/execCommand APIs), calls, and the **data-record type names** referenced
+in each function's signature/body (filtered to `TABLE_TYPES`, e.g. `NodeRecord` — drives the
+type-trace lens). It reads
 the front-end layer's own metadata (`flowMap.ts`, `core/connection.ts` `STORE_CONFIGS`,
 `types.ts`) from `resources/js/indexedDB`. Emits nodes (`fn`/`store`/`table`/`dom`), modules
 (with a role `band`), and edges (`read`/`write`/`push`/`pull`/`domread`/`domwrite`/`call`).
@@ -146,7 +173,14 @@ the front-end layer's own metadata (`flowMap.ts`, `core/connection.ts` `STORE_CO
 
 ## Next: the PHP tier (`php/` + `merge.ts`)
 
-Planned, not built. Sketch:
+Planned, not built. **Step 0 (the immediate next build) is an API/route tier** that replaces the
+coarse `ENDPOINT_TABLES` guess (see the limitation note above): each real endpoint becomes a node
+keyed to its TS receiver and the **response type it's annotated with** — `…/books/{id}/data` →
+`BookDataResponse` (the author's content: nodes/footnotes/bibliography/library + the embedded
+annotations), `…/books/{id}/annotations` → `AnnotationsResponse` (just hyperlights/hypercites, the
+"load others' metadata separately" path), the upserts → `UnifiedSyncPayload`/per-store records. That
+makes each endpoint show the *specific* data it carries, distinguishes book-content from annotation
+loads, and is the seam the PHP tiers below join onto. Then, above it:
 
 1. **`php/collect`** — parse `routes/api.php` (+ `web.php`) for `method + URI → Controller@method`,
    then read each controller method for the Eloquent model / `DB::table('…')` it touches.
