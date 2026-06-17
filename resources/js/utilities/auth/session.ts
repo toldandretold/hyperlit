@@ -4,6 +4,7 @@
 import { getLibraryObjectFromIndexedDB, clearDatabase } from '../../indexedDB/index';
 import { log, verbose } from '../logger';
 import { authState, editPermissionCache } from './state';
+import { getCsrfTokenFromCookie } from './csrf';
 
 // Export a getter function
 export function getCurrentUserInfo() {
@@ -162,16 +163,6 @@ export async function refreshCsrfToken() {
   }
 
   return !!data.authenticated;
-}
-
-// Helper function to get CSRF token from cookie
-function getCsrfTokenFromCookie() {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; XSRF-TOKEN=`);
-  if (parts.length === 2) {
-    return decodeURIComponent(parts.pop()!.split(';').shift()!);
-  }
-  return null;
 }
 
 // BACKWARD COMPATIBLE: Keep the same function signature

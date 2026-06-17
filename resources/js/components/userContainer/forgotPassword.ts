@@ -2,6 +2,7 @@
 // form and its submit (always shows success to prevent email enumeration).
 // Takes the UserContainerManager as `self`.
 import { getForgotPasswordFormHTML, getForgotPasswordSentHTML } from './forms';
+import { ensureCsrfToken } from '../../utilities/auth/index';
 
 export function showForgotPasswordForm(self: any) {
   const container = document.querySelector(".custom-alert") || self.container;
@@ -28,8 +29,12 @@ export async function handleForgotPassword(self: any) {
   if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
 
   try {
-    await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
-    const csrfToken = self.getCsrfTokenFromCookie();
+    const csrfToken = await ensureCsrfToken();
+    if (!csrfToken) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Send Reset Link'; }
+      if (errorEl) { errorEl.textContent = 'Network error. Please try again.'; errorEl.style.display = 'block'; }
+      return;
+    }
 
     await fetch('/api/password/forgot', {
       method: 'POST',

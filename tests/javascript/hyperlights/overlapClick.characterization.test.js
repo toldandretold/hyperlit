@@ -66,7 +66,11 @@ function hl(id, charStart, charEnd) {
   // is_user_highlight: true — the gate filter (components/gateFilter.js) in its
   // 'default' mode drops non-user highlights that have no annotation, which
   // would hide our fixtures before segmentation even runs.
-  return { hyperlight_id: id, charStart, charEnd, is_user_highlight: true };
+  // `highlightID` (camelCase) is the canonical EMBEDDED node-hyperlight field that
+  // applyHighlights consumes — the same field the collect side below emits. (Was
+  // `hyperlight_id`, the store/PG key, which only worked via a defensive `||` read
+  // since removed when the embedded shape was unified on highlightID.)
+  return { highlightID: id, charStart, charEnd, is_user_highlight: true };
 }
 
 function marksOf(host) {

@@ -3,19 +3,9 @@
 // takes the manager as `self`) plus the pure transfer helpers (was
 // userContainer/anonymousContentManager.js): book ownership reassignment,
 // the associate-content API call, and the content-summary builder.
-import { getAnonymousToken } from '../../utilities/auth/index';
+import { getAnonymousToken, ensureCsrfToken } from '../../utilities/auth/index';
 import { getTransferConfirmationHTML, getTransferPromptHTML } from './forms';
 import { clearAllCachedData } from './cache';
-
-/** Gets CSRF token from cookie */
-function getCsrfTokenFromCookie(): string | null {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; XSRF-TOKEN=`);
-  if (parts.length === 2) {
-    return decodeURIComponent(parts.pop()!.split(";").shift()!);
-  }
-  return null;
-}
 
 /**
  * In-panel prompt offering to migrate content created while logged out.
@@ -211,7 +201,10 @@ export async function updateBookOwnership(bookId: any, userName: any) {
 
 /** Updates book ownership on the backend */
 export async function updateBookOwnershipBackend(bookId: any, anonId: any) {
-  const csrfToken = getCsrfTokenFromCookie();
+  const csrfToken = await ensureCsrfToken();
+  if (!csrfToken) {
+    throw new Error('Backend transfer failed: could not obtain CSRF token');
+  }
 
   const response = await fetch(`/books/${bookId}/transfer-ownership`, {
     method: 'POST',
@@ -233,7 +226,11 @@ export async function updateBookOwnershipBackend(bookId: any, anonId: any) {
 /** Associates anonymous content with logged-in user via API */
 export async function transferAnonymousContent(token: any) {
   try {
-    const csrfToken = getCsrfTokenFromCookie();
+    const csrfToken = await ensureCsrfToken();
+    if (!csrfToken) {
+      console.error("❌ Content association skipped: could not obtain CSRF token");
+      return;
+    }
     const response = await fetch('/api/auth/associate-content', {
       method: 'POST',
       headers: {

@@ -8,6 +8,7 @@ import { renderCharts } from './chartRenderer';
 import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements';
 import { applyDynamicFootnoteNumbers } from './footnoteSelfHeal';
 import { handleBrokenImages } from './imageState';
+import type { NodeRecord, NodeHyperlightView, NodeHyperciteView } from '../indexedDB/types';
 
 /**
  * Render LaTeX math elements using KaTeX (loaded on demand).
@@ -137,20 +138,20 @@ export function normalizeHyperciteElements(container: any) {
  * Helper: Creates a chunk element given an array of node objects.
  */
 // Keep createChunkElement function signature unchanged
-export function createChunkElement(nodes: any, instance: any) {
+export function createChunkElement(nodes: NodeRecord[], instance: any) {
   // <-- Correct, simple signature
-  verbose.content(`createChunkElement: ${nodes.length} nodes, chunk ${nodes.length > 0 ? nodes[0].chunk_id : 'unknown'}`, 'lazyLoaderFactory.js');
+  verbose.content(`createChunkElement: ${nodes.length} nodes, chunk ${nodes.length > 0 ? nodes[0]?.chunk_id : 'unknown'}`, 'lazyLoaderFactory.js');
 
   if (!nodes || nodes.length === 0) {
     return null;
   }
 
-  const chunkId = nodes[0].chunk_id;
+  const chunkId = nodes[0]!.chunk_id;  // length>0 guaranteed above
   const chunkWrapper = document.createElement("div");
-  chunkWrapper.setAttribute("data-chunk-id", chunkId);
+  chunkWrapper.setAttribute("data-chunk-id", String(chunkId));  // chunk_id is a number; attrs are strings
   chunkWrapper.classList.add("chunk");
 
-  nodes.forEach((node: any, nodeIndex: any) => {
+  nodes.forEach((node, nodeIndex) => {
     // ✅ Server handles migration - node_id should already exist
     // If not, log warning but continue (should not happen after migration)
     if (!node.node_id) {
@@ -281,7 +282,7 @@ export function createChunkElement(nodes: any, instance: any) {
 }
 
 
-export function applyHypercites(html: any, hypercites: any) {
+export function applyHypercites(html: any, hypercites: NodeHyperciteView[]) {
   if (!hypercites || hypercites.length === 0) return html;
 
   // Client-side gate filter — removes gated hypercites before rendering
@@ -429,7 +430,7 @@ function createHyperciteSegments(hypercites: any) {
 
 
 // Update the applyHighlights function to use server-provided is_user_highlight flag
-export function applyHighlights(html: any, highlights: any, bookId: any) {
+export function applyHighlights(html: any, highlights: NodeHyperlightView[], bookId: any) {
   if (!highlights || highlights.length === 0) {
     return html;
   }
@@ -444,7 +445,7 @@ export function applyHighlights(html: any, highlights: any, bookId: any) {
   // hover rule on only part of a highlight) and splits cohesive mark groups.
   // hyperlights:purge-overlap-phantoms removes them server-side; this guard
   // keeps stale IDB copies inert.
-  highlights = highlights.filter((h: any) => (h.hyperlight_id || h.highlightID) !== 'HL_overlap');
+  highlights = highlights.filter((h: any) => h.highlightID !== 'HL_overlap');
 
   if (highlights.length === 0) return html;
 
@@ -481,7 +482,7 @@ export function applyHighlights(html: any, highlights: any, bookId: any) {
 
       // Check if any highlight in this segment belongs to current user using server flag OR is newly created
       const hasUserHighlight = segment.highlightIDs.some((id: any) => {
-        const highlight = highlights.find((h: any) => (h.hyperlight_id || h.highlightID) === id);
+        const highlight = highlights.find((h: any) => h.highlightID === id);
         const isNewlyCreated = isNewlyCreatedHighlight(id);
         return highlight ? highlight.is_user_highlight : isNewlyCreated;
       });
@@ -501,7 +502,7 @@ export function applyHighlights(html: any, highlights: any, bookId: any) {
 
       // Check for AI review verdict highlights and add color class
       const aiReviewHighlight = segment.highlightIDs
-        .map((id: any) => highlights.find((h: any) => (h.hyperlight_id || h.highlightID) === id))
+        .map((id: any) => highlights.find((h: any) => h.highlightID === id))
         .find((h: any) => h?.creator?.startsWith('AIreview:'));
 
       if (aiReviewHighlight && aiReviewHighlight.annotation) {
@@ -560,7 +561,7 @@ function createHighlightSegments(highlights: any) {
       segments.push({
         charStart: segmentStart,
         charEnd: segmentEnd,
-        highlightIDs: coveringHighlights.map((h: any) => h.hyperlight_id || h.highlightID)
+        highlightIDs: coveringHighlights.map((h: any) => h.highlightID)
       });
     }
   }

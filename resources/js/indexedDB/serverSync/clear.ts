@@ -7,6 +7,7 @@
  */
 import { verbose } from '../../utilities/logger';
 import type { ServerHyperlightRow, ServerHyperciteRow } from './types';
+import type { NodeHyperlightView } from '../types';
 
 /**
  * Clear only annotations (hyperlights/hypercites) from IndexedDB for a specific book.
@@ -75,15 +76,19 @@ export async function updateEmbeddedAnnotationsInNodes(
         // Get the char data specific to this node
         const nodeCharData: { charStart?: number; charEnd?: number } = charData[nodeId] || {};
 
-        // Create node-specific highlight entry (format expected by applyHighlights)
-        const nodeHighlight = {
-          hyperlight_id: hl.hyperlight_id,
+        // Create node-specific highlight entry in the canonical embedded shape
+        // (NodeHyperlightView). The id field is `highlightID` (camelCase) to match
+        // rebuild.ts:buildHyperlightsForNode and the type — NOT the store/PG key
+        // `hyperlight_id`. Typed so a future divergence fails to compile. Note:
+        // `highlightedText` is intentionally dropped — it's not in NodeHyperlightView
+        // and the renderer never reads it (it reads the standalone record for that).
+        const nodeHighlight: NodeHyperlightView = {
+          highlightID: hl.hyperlight_id,
           charStart: nodeCharData.charStart ?? 0,
           charEnd: nodeCharData.charEnd ?? 0,
           is_user_highlight: hl.is_user_highlight || false,
           annotation: hl.annotation,
           creator: hl.creator,
-          highlightedText: hl.highlightedText,
         };
 
         if (!hyperlightsByNodeId.has(nodeId)) {

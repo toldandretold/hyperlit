@@ -11,6 +11,7 @@ import {
   clearCurrentUser,
   broadcastAuthChange,
   refreshAuth,
+  ensureCsrfToken,
 } from '../../utilities/auth/index';
 import { flushAllPendingEdits } from '../../indexedDB/serverSync/index';
 
@@ -45,12 +46,22 @@ export async function handleLogin(self: any) {
     return;
   }
 
+  // Guard against a double-submit (a second click while the first request is
+  // still in flight would fire a redundant login).
+  if (self._authRequestInFlight) {
+    return;
+  }
+  self._authRequestInFlight = true;
+
   const email = (document.getElementById("loginEmail") as any).value;
   const password = (document.getElementById("loginPassword") as any).value;
 
   try {
-    await fetch("/sanctum/csrf-cookie", { credentials: "include" });
-    const csrfToken = self.getCsrfTokenFromCookie();
+    const csrfToken = await ensureCsrfToken();
+    if (!csrfToken) {
+      self.showLoginError("Couldn't start a secure session — please try again");
+      return;
+    }
 
     const response = await fetch("/api/login", {
       method: "POST",
@@ -95,6 +106,8 @@ export async function handleLogin(self: any) {
   } catch (error) {
     console.error("❌ Login error:", error);
     self.showLoginError("Network error occurred");
+  } finally {
+    self._authRequestInFlight = false;
   }
 }
 
@@ -105,13 +118,22 @@ export async function handleRegister(self: any) {
     return;
   }
 
+  // Guard against a double-submit while the first request is in flight.
+  if (self._authRequestInFlight) {
+    return;
+  }
+  self._authRequestInFlight = true;
+
   const name = (document.getElementById("registerName") as any).value;
   const email = (document.getElementById("registerEmail") as any).value;
   const password = (document.getElementById("registerPassword") as any).value;
 
   try {
-    await fetch("/sanctum/csrf-cookie", { credentials: "include" });
-    const csrfToken = self.getCsrfTokenFromCookie();
+    const csrfToken = await ensureCsrfToken();
+    if (!csrfToken) {
+      self.showRegisterError("Couldn't start a secure session — please try again");
+      return;
+    }
 
     const response = await fetch("/api/register", {
       method: "POST",
@@ -154,6 +176,8 @@ export async function handleRegister(self: any) {
   } catch (error) {
     console.error("Register error:", error);
     self.showRegisterError("Network error occurred");
+  } finally {
+    self._authRequestInFlight = false;
   }
 }
 
@@ -169,8 +193,13 @@ export async function handleLogout(self: any) {
   }
 
   try {
-    await fetch("/sanctum/csrf-cookie", { credentials: "include" });
-    const csrfToken = self.getCsrfTokenFromCookie();
+    const csrfToken = await ensureCsrfToken();
+    if (!csrfToken) {
+      // Can't make the authenticated POST without a token — log out locally.
+      console.error("Logout: no CSRF token available, cleaning up locally");
+      self.performLogoutCleanup();
+      return;
+    }
 
     const response = await fetch("/logout", {
       method: "POST",

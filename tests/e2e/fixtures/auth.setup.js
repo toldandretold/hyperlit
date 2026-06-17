@@ -34,27 +34,41 @@ setup('authenticate', async ({ page }) => {
   await page.fill('input[name="email"], input[type="email"]', process.env.E2E_USER_EMAIL || 'test@example.com');
   await page.fill('input[name="password"], input[type="password"]', process.env.E2E_USER_PASSWORD || 'password');
 
-  // Submit the form. Dispatch the click via page.evaluate so this works in
-  // --headed mode where the actual OS window may be shorter than the form,
-  // pushing the submit button below the viewport. Playwright's locator.click
-  // refuses to click elements outside the viewport even after scrolling
-  // (it auto-fails when scroll-into-view doesn't move them into the visible
-  // area, which happens when the form lives in a fixed-height non-scrolling
-  // panel). A JS click bypasses that actionability check.
-  await page.evaluate(() => {
-    const btn = document.querySelector('#loginSubmit')
-      || document.querySelector('button[type="submit"]');
-    if (btn) btn.click();
-  });
+  // Submit the form, retrying until login actually takes.
+  //
+  // handleLogin() does `await fetch('/sanctum/csrf-cookie')` then reads the
+  // XSRF cookie before POSTing /api/login. That cookie fetch races with the
+  // home page's still-in-flight boot (the "Connecting to database…" feed
+  // load); when the server is slow the fetch is aborted, and on a fresh
+  // browser with no prior XSRF cookie the /api/login POST then goes out
+  // CSRF-less and fails silently — leaving the form up. A single dropped
+  // submit would otherwise time out the whole suite, so retry the
+  // submit+success-check together until it sticks.
+  //
+  // We dispatch the click via page.evaluate (not locator.click) so this works
+  // in --headed mode where the OS window may be shorter than the form, pushing
+  // the submit button below the viewport — Playwright refuses to click
+  // elements outside the viewport even after scrolling (the form lives in a
+  // fixed-height non-scrolling panel). A JS click bypasses that check.
+  await expect(async () => {
+    // Re-fill in case a prior failed attempt re-rendered/cleared the form.
+    await page.fill('input[name="email"], input[type="email"]', process.env.E2E_USER_EMAIL || 'test@example.com');
+    await page.fill('input[name="password"], input[type="password"]', process.env.E2E_USER_PASSWORD || 'password');
+    await page.evaluate(() => {
+      const btn = document.querySelector('#loginSubmit')
+        || document.querySelector('button[type="submit"]');
+      if (btn) btn.click();
+    });
 
-  // Wait for successful login — user container should change state
-  await page.waitForFunction(() => {
-    // After login the user button area typically updates
-    return document.querySelector('.user-logged-in') ||
-           document.querySelector('[data-authenticated]') ||
-           // Fallback: wait for the login form to disappear
-           !document.querySelector('input[name="password"]');
-  }, { timeout: 15000 });
+    // Wait for successful login — user container should change state.
+    await page.waitForFunction(() => {
+      // After login the user button area typically updates
+      return document.querySelector('.user-logged-in') ||
+             document.querySelector('[data-authenticated]') ||
+             // Fallback: wait for the login form to disappear
+             !document.querySelector('input[name="password"]');
+    }, { timeout: 5000 });
+  }).toPass({ timeout: 20000 });
 
   // Give the app time to settle after login
   await page.waitForTimeout(1000);

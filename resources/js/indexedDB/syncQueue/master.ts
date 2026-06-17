@@ -124,17 +124,33 @@ async function getFailedBatchesForBook(bookId: BookId): Promise<HistoryLogEntry[
  * @param {Object} payload - Sync payload with updates and deletions
  * @returns {Promise<Object>} API response
  */
+/** The exact JSON body POSTed to /api/db/unified-sync — the IDB→PG wire contract. */
+interface UnifiedSyncPayload {
+  book: BookId;
+  /** Node UPDATES are PublicChunk (the wire shape); node DELETIONS carry `_action` and
+   *  stay SyncRecordData. The union keeps the update path typed without forcing deletions. */
+  nodes: Array<PublicChunk | SyncRecordData>;
+  hypercites: SyncRecordData[];
+  hyperlights: SyncRecordData[];
+  hyperlightDeletions: SyncRecordData[];
+  footnotes: SyncRecordData[];
+  footnoteDeletions: SyncRecordData[];
+  bibliography: SyncRecordData[];
+  bibliographyDeletions: SyncRecordData[];
+  library: SyncRecordData | null;
+}
+
 export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Record<string, unknown>> {
   const bookId = payload.book;
 
-  // Prepare node chunks (combine updates and deletions)
-  const allNodeChunks: SyncRecordData[] = [
+  // Prepare node chunks: updates → PublicChunk (wire shape), deletions stay as-is.
+  const allNodeChunks: Array<PublicChunk | SyncRecordData> = [
     ...payload.updates.nodes.map(toPublicChunk).filter((c): c is PublicChunk => Boolean(c)),
     ...payload.deletions.nodes,
   ];
 
-  // Prepare the unified sync request payload
-  const unifiedPayload = {
+  // Prepare the unified sync request payload (typed to the wire contract).
+  const unifiedPayload: UnifiedSyncPayload = {
     book: bookId,
     nodes: allNodeChunks,
     hypercites: payload.updates.hypercites || [],

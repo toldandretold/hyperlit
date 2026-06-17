@@ -2,7 +2,7 @@
 // screen, the change-email form + submit, and resend-verification. Takes the
 // UserContainerManager as `self`.
 import { getVerifyEmailHTML, getChangeEmailHTML } from './forms';
-import { setCurrentUser } from '../../utilities/auth/index';
+import { setCurrentUser, ensureCsrfToken } from '../../utilities/auth/index';
 
 export function showVerifyEmailScreen(self: any) {
   const container = document.querySelector(".custom-alert") || self.container;
@@ -27,8 +27,11 @@ export async function handleResendVerification(self: any) {
   if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
 
   try {
-    await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
-    const csrfToken = self.getCsrfTokenFromCookie();
+    const csrfToken = await ensureCsrfToken();
+    if (!csrfToken) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Resend Email'; }
+      return;
+    }
 
     const response = await fetch('/api/email/resend', {
       method: 'POST',
@@ -72,8 +75,12 @@ export async function handleChangeEmail(self: any) {
   if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
 
   try {
-    await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
-    const csrfToken = self.getCsrfTokenFromCookie();
+    const csrfToken = await ensureCsrfToken();
+    if (!csrfToken) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Update & Resend'; }
+      if (errorEl) { errorEl.textContent = 'Network error. Please try again.'; errorEl.style.display = 'block'; }
+      return;
+    }
 
     const response = await fetch('/api/email/change', {
       method: 'POST',

@@ -10,7 +10,7 @@
 import { ContainerManager } from "../utilities/containerManager";
 import { navigateByStructure } from '../../SPA/navigation/navigationRegistry';
 import { book } from "../../app";
-import { getCurrentUser } from "../../utilities/auth/index";
+import { getCurrentUser, getCsrfTokenFromCookie } from "../../utilities/auth/index";
 import { syncBookDataFromDatabase } from "../../indexedDB/serverSync/index";
 import { getErrorHTML } from "./forms";
 import { showLoginForm, showRegisterForm, handleLogin, handleRegister, handleLogout, performLogoutCleanup, showLoginError, showRegisterError } from "./auth";
@@ -149,12 +149,7 @@ export class UserContainerManager extends (ContainerManager as any) {
   }
 
   getCsrfTokenFromCookie() {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; XSRF-TOKEN=`);
-    if (parts.length === 2) {
-      return decodeURIComponent(parts.pop()!.split(";").shift()!);
-    }
-    return null;
+    return getCsrfTokenFromCookie();
   }
 
   toggleContainer() {

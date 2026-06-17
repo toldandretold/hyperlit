@@ -19,6 +19,7 @@ import {
   loadFootnotesToIndexedDB,
   clearBookDataFromIndexedDB,
 } from '../../../resources/js/indexedDB/serverSync/index';
+import { updateEmbeddedAnnotationsInNodes } from '../../../resources/js/indexedDB/serverSync/clear';
 
 const BOOK = 'book_serversync_test';
 const OTHER = 'book_other';
@@ -87,5 +88,41 @@ describe('clearBookDataFromIndexedDB', () => {
     expect(nodes.map((n) => n.book)).toEqual([OTHER]);
     expect(await readOne('library', BOOK)).toBeUndefined();
     expect(await readOne('library', OTHER)).toMatchObject({ book: OTHER });
+  });
+});
+
+describe('updateEmbeddedAnnotationsInNodes — embedded hyperlight shape', () => {
+  // Regression guard for the unification: the embedded node-hyperlight uses the
+  // canonical `highlightID` (NodeHyperlightView), NOT the store/PG key `hyperlight_id`.
+  // This path (the annotations-only sync) was the one rogue builder that emitted
+  // `hyperlight_id`; if it regresses, the renderer (which now reads only highlightID)
+  // would silently drop the id. tsc guards the builder; this guards the runtime.
+  it('embeds hyperlights keyed by highlightID, not hyperlight_id', async () => {
+    await seedStore('nodes', [
+      { book: BOOK, startLine: 100, chunk_id: 0, node_id: 'n1', content: '<p>x</p>', hyperlights: [], hypercites: [] },
+    ]);
+    const db = await openDatabase();
+
+    await updateEmbeddedAnnotationsInNodes(
+      db,
+      BOOK,
+      [{
+        hyperlight_id: 'HL_1',            // standalone/PG key (snake_case) — the INPUT
+        book: BOOK,
+        node_id: ['n1'],
+        charData: { n1: { charStart: 0, charEnd: 5 } },
+        is_user_highlight: true,
+        annotation: 'note',
+        creator: null,
+      }],
+      [],
+    );
+
+    const node = await readOne('nodes', [BOOK, 100]);
+    expect(node.hyperlights).toHaveLength(1);
+    // Embedded view uses camelCase highlightID (mapped from the input's hyperlight_id)…
+    expect(node.hyperlights[0]).toMatchObject({ highlightID: 'HL_1', charStart: 0, charEnd: 5 });
+    // …and the rogue snake_case field is gone.
+    expect(node.hyperlights[0]).not.toHaveProperty('hyperlight_id');
   });
 });

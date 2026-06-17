@@ -11,6 +11,7 @@ import {
   getLocalStorageKey,
   getHyperciteFromIndexedDB
 } from "../indexedDB/index.js";
+import type { NodeRecord } from '../indexedDB/types';
 import {
   setChunkLoadingInProgress,
   clearChunkLoadingInProgress,
@@ -98,7 +99,10 @@ export function createLazyLoader(config: any) {
   }
 
   // Create the instance to track lazy-loader state.
-  const instance: any = {
+  // Type just the `nodes` bag as NodeRecord[] (the data lineage) while leaving the
+  // rest of the orchestrator instance loose — so the type flows getNodeChunks() →
+  // instance.nodes → filter → createChunkElement without a full instance interface.
+  const instance: { nodes: NodeRecord[]; [key: string]: any } = {
     nodes, // Array of chunk objects
     // Injected render hooks (DI — keeps lazyLoader a leaf; see import note at top of file)
     attachMarkListeners: attachMarkers,
