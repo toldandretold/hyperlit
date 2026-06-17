@@ -72,7 +72,12 @@ export async function fetchLibraryFromServer(bookId: string): Promise<any | null
 
     return null;
   } catch (error) {
-    console.error('Failed to fetch library record from server:', error);
+    // Fallback fetch only — callers handle a null return (the container builds
+    // from cached metadata instead), so a failure here never breaks the UI. A
+    // bare fetch() also rejects with "TypeError: Failed to fetch" when SPA
+    // navigation cancels it mid-flight (e.g. rapid back/forward history replay),
+    // which is benign. Warn, don't error.
+    console.warn('Could not fetch library record from server (using cached data):', error);
     return null;
   }
 }

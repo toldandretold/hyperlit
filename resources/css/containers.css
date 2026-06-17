@@ -1790,15 +1790,23 @@ body.hyperlit-container-open .reader-content-wrapper {
   }
 }
 
-/* Content width slider — hide on phones; full-width toggle is the only width control */
-@media (max-width: 500px) {
+/* Content width slider — hide on small phones; full-width toggle is the only
+   width control there. Narrower (400px) than the 500px font-size "mobile"
+   breakpoint so phones in the 401–500px band keep the width slider. Keep in
+   sync with WIDTH_HIDE_BP in textControls.ts and the --content-width override
+   in variables.css. */
+@media (max-width: 400px) {
   .settings-width-row {
     display: none;
   }
 }
 
-/* Full-width toggle — hide on wider screens; content width slider handles width there */
-@media (min-width: 769px) {
+/* Full-width toggle — the width control for small phones only; it's the exact
+   complement of the content-width slider, handing off at the same 400px line
+   (slider hidden ≤400 → toggle shown ≤400; slider shown ≥401 → toggle hidden).
+   Keep the 401px here in sync with the slider's 400px hide rule above and
+   WIDTH_HIDE_BP in textControls.ts. */
+@media (min-width: 401px) {
   #fullWidthToggle {
     display: none;
   }

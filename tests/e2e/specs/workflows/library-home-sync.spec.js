@@ -33,7 +33,7 @@ test.describe.serial('Library ↔ user-page home-book sync', () => {
     /* ── 1. CREATE via the home + → Create flow ───────────────────────── */
     await page.goto('/');
     await page.waitForLoadState('networkidle');
-    await page.evaluate(() => document.getElementById('newBook')?.click());
+    await page.evaluate(() => document.getElementById('newBookButton')?.click());
     await page.waitForFunction(() => {
       const c = document.getElementById('newbook-container');
       return c && window.getComputedStyle(c).opacity === '1' && c.getBoundingClientRect().width > 0;

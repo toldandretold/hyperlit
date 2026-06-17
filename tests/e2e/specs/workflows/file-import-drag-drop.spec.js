@@ -35,7 +35,7 @@ test.describe('File import via drag-and-drop (SPA flow)', () => {
     expect(await spa.getStructure(page)).toBe('home');
 
     let registry = await spa.getRegistryStatus(page);
-    expect(registry?.activeComponents).toContain('homepageDropTarget');
+    expect(registry?.activeComponents).toContain('fileDropTarget');
 
     // Overlay element exists but is hidden by default
     const overlayInitiallyHidden = await page.evaluate(() => {
@@ -140,12 +140,18 @@ test.describe('File import via drag-and-drop (SPA flow)', () => {
     // ──────────────────────────────────────────────────────────
     // Phase 5: Navigate home → drop target re-initialises
     // ──────────────────────────────────────────────────────────
+    // The post-import conversion-feedback toast is a full-width top bar (z-index
+    // 99999) that overlaps #logoContainer and only dismisses on a user click.
+    // navigateToHome opens the logo nav menu by clicking #logoContainer, so the
+    // toast would intercept that click and hang the test — dismiss it first, as a
+    // real user would via the toast's × button.
+    await page.evaluate(() => document.getElementById('conversion-feedback-toast')?.remove());
     await spa.navigateToHome(page);
     await spa.waitForTransition(page);
     expect(await spa.getStructure(page)).toBe('home');
 
     registry = await spa.getRegistryStatus(page);
-    expect(registry?.activeComponents).toContain('homepageDropTarget');
+    expect(registry?.activeComponents).toContain('fileDropTarget');
 
     // Overlay element is fresh (not the leftover from before navigation) and hidden
     const freshOverlayHidden = await page.evaluate(() => {
@@ -226,9 +232,9 @@ test.describe('File import via drag-and-drop (SPA flow)', () => {
     await page.waitForLoadState('networkidle');
     expect(await spa.getStructure(page)).toBe('reader');
 
-    // Registry filter prevents homepageDropTarget from being active
+    // Registry filter prevents fileDropTarget from being active
     const registry = await spa.getRegistryStatus(page);
-    expect(registry?.activeComponents || []).not.toContain('homepageDropTarget');
+    expect(registry?.activeComponents || []).not.toContain('fileDropTarget');
 
     // No overlay element exists in the DOM
     const overlayPresent = await page.evaluate(() => !!document.getElementById('page-drop-overlay'));

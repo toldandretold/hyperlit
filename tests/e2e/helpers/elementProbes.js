@@ -327,7 +327,7 @@ async function closeAnyContainer(page) {
 /* ── 3. window drag-drop listener balance ─────────────────────────────────── */
 /**
  * Read the listener-monitor counts for the window-level drop handlers and the
- * #page-drop-overlay element. Unlike the other two elements, homepageDropTarget
+ * #page-drop-overlay element. Unlike the other two elements, fileDropTarget
  * binds directly to `window` (not delegation), so an unbalanced destroy/init
  * across navs shows up as either a missing listener (drop dead) or a leaked
  * overlay (double-init).

@@ -10,7 +10,7 @@ import { switchTheme, getCurrentTheme, THEMES } from "./themeSwitcher";
 import { openSearchToolbar } from "../../search/inTextSearch/searchToolbar";
 import { handleVibeClick, _openVibeGallery, _openVibeUI } from "./vibe";
 import { _openGatePanel } from "./gate";
-import { toggleFullWidth, applyTextAdjustments, syncSliderUI, handleSliderInput, _debounceResize } from "./textControls";
+import { toggleFullWidth, applyTextAdjustments, syncSliderUI, handleSliderInput, _debounceResize, reconcileViewportWidth } from "./textControls";
 
 /**
  * SettingsContainerManager - Extends ContainerManager with event delegation
@@ -23,7 +23,9 @@ export class SettingsContainerManager extends (ContainerManager as any) {
     this.boundClickHandler = this.handleDocumentClick.bind(this);
     this.boundThemeChangeHandler = this.updateButtonStates.bind(this);
     this.boundInputHandler = this.handleSliderInput.bind(this);
+    this.boundViewportResizeHandler = this._reconcileWidthDebounced.bind(this);
     this._resizeDebounce = null;
+    this._widthReconcileDebounce = null;
 
     this.setupSettingsListeners();
 
@@ -40,7 +42,17 @@ export class SettingsContainerManager extends (ContainerManager as any) {
     document.addEventListener("click", this.boundClickHandler);
     document.addEventListener("input", this.boundInputHandler);
     window.addEventListener('themechange', this.boundThemeChangeHandler);
+    // Reconcile the content-width inline artifacts when the viewport crosses the
+    // width-control breakpoint (live resize / rotate) — keeps a saved wide-screen
+    // width from lingering as a too-narrow column below WIDTH_HIDE_BP.
+    window.addEventListener('resize', this.boundViewportResizeHandler);
     verbose.init('Settings event listeners attached', '/components/settingsContainer/index.ts');
+  }
+
+  /** Debounced viewport-width reconcile (strips/reapplies inline content-width). */
+  _reconcileWidthDebounced() {
+    if (this._widthReconcileDebounce) clearTimeout(this._widthReconcileDebounce);
+    this._widthReconcileDebounce = setTimeout(() => reconcileViewportWidth(this), 150);
   }
 
   /**
@@ -198,7 +210,9 @@ export class SettingsContainerManager extends (ContainerManager as any) {
     document.removeEventListener("click", this.boundClickHandler);
     document.removeEventListener("input", this.boundInputHandler);
     window.removeEventListener('themechange', this.boundThemeChangeHandler);
+    window.removeEventListener('resize', this.boundViewportResizeHandler);
     if (this._resizeDebounce) clearTimeout(this._resizeDebounce);
+    if (this._widthReconcileDebounce) clearTimeout(this._widthReconcileDebounce);
     super.destroy();
     verbose.init('Settings event listeners removed', '/components/settingsContainer/index.ts');
   }

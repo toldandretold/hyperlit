@@ -50,7 +50,7 @@ test.describe('Reader page: new-book button in logo nav menu', () => {
       expect(popupExists).toBe(1);
 
       const buttonParentHasMenu = await page.evaluate(() => {
-        const btn = document.getElementById('newBook');
+        const btn = document.getElementById('newBookButton');
         return !!btn?.closest('#logoNavMenu');
       });
       expect(buttonParentHasMenu).toBe(true);

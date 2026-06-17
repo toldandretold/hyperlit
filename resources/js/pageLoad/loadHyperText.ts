@@ -600,7 +600,12 @@ async function getLibraryRecordFromServer(bookId: string): Promise<any> {
 
     return data.success ? data.library : null;
   } catch (err) {
-    console.error("❌ Error fetching library record from server:", err);
+    // Best-effort freshness check only — the caller handles a null return by
+    // skipping the timestamp comparison and using cached IndexedDB data, so a
+    // failure here never breaks loading. A bare fetch() also rejects with
+    // "TypeError: Failed to fetch" when SPA navigation cancels it mid-flight
+    // (e.g. rapid back/forward), which is benign. Warn, don't error.
+    console.warn("⚠️ Could not fetch library record from server (using cached data):", err);
     return null;
   }
 }

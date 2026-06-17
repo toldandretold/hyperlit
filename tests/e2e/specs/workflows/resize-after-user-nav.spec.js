@@ -38,9 +38,27 @@ test('resize edge works after user → reader SPA nav (real mouse only)', async 
   const trigger = page.locator('sup.footnote-ref, sup[fn-count-id], u.couple[id^="hypercite_"], a.open-icon[id^="hypercite_"]').first();
   test.skip(!(await trigger.count()), 'book has no footnote/hypercite to open a container');
   await trigger.click();
+  // Wait until the container has slid fully in — the panel is right-docked and
+  // animates via transform: translateX(100%)→translateX(0), so for the first few
+  // hundred ms the resize edge sits partly OFF the right of the viewport and a
+  // hit-test at its centre returns null (not "covered" — simply off-screen).
+  // Wait for the edge centre to be in-viewport AND the topmost element there
+  // before measuring, so we test a settled panel, not a mid-transition one.
   await page.waitForFunction(() => {
     const c = document.querySelector('#hyperlit-container.open, .hyperlit-container-stacked.open');
-    return !!(c && c.querySelector('.resize-edge, .resize-handle'));
+    const edge = c && c.querySelector('.resize-edge, .resize-handle');
+    if (!edge) return false;
+    // The slide-in transform must have reached REST (translateX(0)) first — `.open`
+    // is set at animation START, so the edge is hit-testable mid-slide on a moving
+    // target. Mirror helpers/elementProbes.js probeResizeHandle's settle guard.
+    const t = getComputedStyle(c).transform;
+    const tx = t && t !== 'none' ? new DOMMatrixReadOnly(t).m41 : 0;
+    if (Math.abs(tx) > 1) return false;
+    const r = edge.getBoundingClientRect();
+    const x = r.x + r.width / 2, y = r.y + r.height / 2;
+    if (x < 0 || y < 0 || x >= window.innerWidth || y >= window.innerHeight) return false;
+    const top = document.elementFromPoint(x, y);
+    return !!(top && top.closest('.resize-edge, .resize-handle'));
   }, null, { timeout: 8000 });
 
   // Geometry + hit-test of the edge centre (what's actually on top there?).

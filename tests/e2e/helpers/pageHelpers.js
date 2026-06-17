@@ -74,7 +74,7 @@ export async function getPageStructure(page) {
     // Fallback heuristics
     if (window.isUserPage) return 'user';
     if (document.querySelector('.home-grid') || document.querySelector('.homepageShelf')) return 'home';
-    if (document.querySelector('#book-content')) return 'reader';
+    if (document.querySelector('main.main-content')) return 'reader';
     return 'unknown';
   });
 }
@@ -212,11 +212,24 @@ export async function clickFirstBookLink(page) {
  * On reader/user pages, nav buttons are inside #logoNavMenu which is toggled by #logoContainer.
  */
 async function ensureLogoNavOpen(page) {
-  const menuVisible = await page.locator('#logoNavMenu:not(.hidden)').isVisible().catch(() => false);
-  if (!menuVisible) {
+  const isOpen = () => page.locator('#logoNavMenu:not(.hidden)').isVisible().catch(() => false);
+  if (await isOpen()) return;
+  // The logo-nav toggle handler re-binds on every reader/user entry. Under the
+  // back/forward stress loop a click can land in the brief window before the
+  // listener is (re)attached — the button goes `[active]` but the menu never
+  // opens. A single click + 3s wait then times out. Retry the toggle a few times,
+  // only re-clicking while the menu is still hidden, so we never toggle it shut.
+  for (let attempt = 0; attempt < 3; attempt++) {
     await page.click('#logoContainer');
-    await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 3000 });
+    try {
+      await page.waitForSelector('#logoNavMenu:not(.hidden)', { state: 'visible', timeout: 3000 });
+      return;
+    } catch {
+      if (await isOpen()) return; // opened just after the wait elapsed
+    }
   }
+  // Final attempt — surface the real timeout if it genuinely never opens.
+  await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 3000 });
 }
 
 /**

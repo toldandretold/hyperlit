@@ -25,7 +25,7 @@ import {
 /**
  * Dispatch a synthetic file drop on the window. Mirrors what an OS file drag
  * triggers — the same dataTransfer.types/files surface that our window listeners
- * read in homepageDropTarget.js.
+ * read in fileDropTarget.js.
  */
 export async function dropFileOnWindow(page, { name, type, content }) {
   await page.evaluate(({ name, type, content }) => {
@@ -220,7 +220,7 @@ export async function verifyReaderPage(page, spa) {
 
   // Drop target must NOT be active on reader (registry exclusion)
   const registry = await spa.getRegistryStatus(page);
-  expect(registry?.activeComponents || []).not.toContain('homepageDropTarget');
+  expect(registry?.activeComponents || []).not.toContain('fileDropTarget');
   // No overlay element either
   expect(await page.evaluate(() => !!document.getElementById('page-drop-overlay'))).toBe(false);
 
@@ -247,7 +247,7 @@ export async function verifyReaderPage(page, spa) {
   // taps the logo. Open the menu, verify the + is visible, then close it
   // via a second tap on the logo.
   expect(await page.locator('#newBookButton').count()).toBe(1);
-  expect(await page.evaluate(() => !!document.getElementById('newBook')?.closest('#logoNavMenu'))).toBe(true);
+  expect(await page.evaluate(() => !!document.getElementById('newBookButton')?.closest('#logoNavMenu'))).toBe(true);
   await expect(page.locator('#newBookButton')).toBeHidden();
   await page.click('#logoContainer');
   await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 3000 });

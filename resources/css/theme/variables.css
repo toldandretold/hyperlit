@@ -159,3 +159,15 @@
     --font-size-sup: 0.7em;
   }
 }
+
+/* Width control is hidden below this width (see containers.css + textControls),
+   so the column must not be tied to `ch` — 40ch shrinks with the text size and
+   yields a super-narrow column once text is shrunk, with no slider to widen it.
+   Fill the screen and let .main-content padding set the margins. Kept on a
+   SEPARATE, narrower breakpoint than the font-size overrides above so phones in
+   the 401–500px band still get the width slider. */
+@media only screen and (max-width: 400px) {
+  :root {
+    --content-width: 100%;
+  }
+}

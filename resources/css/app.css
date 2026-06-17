@@ -308,7 +308,7 @@ blockquote {
   }
 
    body {
-    font-size: 18px; /* Reduced from 25px */
+    font-size: var(--font-size-base); /* defaults to --font-size-mobile (18px) via variables.css; slider overrides via inline --font-size-base on <html> */
     overflow-x: hidden; /* Prevent horizontal scroll */
   }
   

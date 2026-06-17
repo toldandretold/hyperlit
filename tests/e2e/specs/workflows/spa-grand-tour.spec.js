@@ -225,8 +225,16 @@ test.describe.serial('SPA Grand Tour', () => {
     // Open the source panel; wait for its left edge to settle on-screen.
     await page.click('#cloudRef');
     await page.waitForFunction(() => {
-      const e = document.querySelector('#source-container.open .resize-edge.resize-left');
+      const c = document.querySelector('#source-container.open');
+      const e = c && c.querySelector('.resize-edge.resize-left');
       if (!e) return false;
+      // Slide-in transform must rest at translateX(0) before we drag — `.open` is
+      // set at animation START, so hit-testing alone passes mid-slide and the real
+      // mousedown then lands on a moving target → no resize. Mirror the settle guard
+      // in helpers/elementProbes.js probeResizeHandle.
+      const t = getComputedStyle(c).transform;
+      const tx = t && t !== 'none' ? new DOMMatrixReadOnly(t).m41 : 0;
+      if (Math.abs(tx) > 1) return false;
       const r = e.getBoundingClientRect();
       const x = r.x + r.width / 2, y = r.y + r.height / 2;
       if (x < 0 || y < 0 || x >= window.innerWidth || y >= window.innerHeight) return false;
@@ -311,7 +319,7 @@ test.describe.serial('SPA Grand Tour', () => {
     expect(await spa.getStructure(page)).toBe('home');
 
     // Create a book
-    await page.evaluate(() => document.getElementById('newBook')?.click());
+    await page.evaluate(() => document.getElementById('newBookButton')?.click());
     await page.waitForFunction(() => {
       const c = document.getElementById('newbook-container');
       return c && window.getComputedStyle(c).opacity !== '0' && window.getComputedStyle(c).width !== '0px';

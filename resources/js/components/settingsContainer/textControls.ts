@@ -9,6 +9,12 @@ import { savePreference, clearPreference } from '../../utilities/preferences';
 
 const STORAGE_KEYS = { TEXT_SIZE: 'hyperlit_text_size', CONTENT_WIDTH: 'hyperlit_content_width', FULL_WIDTH: 'hyperlit_full_width' };
 const DEFAULTS = { TEXT_SIZE: 28, TEXT_SIZE_MOBILE: 18, CONTENT_WIDTH: 40 };
+// Two distinct breakpoints (kept in sync with the CSS):
+//  - FONT_MOBILE_BP: below this the text-size default flips 28→18px (variables.css + app.css @500).
+//  - WIDTH_HIDE_BP: below this the width slider is hidden and --content-width is forced to 100%
+//    (containers.css + variables.css @400), so a saved ch-width must NOT be re-applied there.
+const FONT_MOBILE_BP = 500;
+const WIDTH_HIDE_BP = 400;
 
 /**
  * Toggle full-width mode — reduces main-content padding to near-edge-to-edge.
@@ -47,28 +53,55 @@ export function toggleFullWidth(self: any) {
 }
 
 /**
+ * Reconcile the content-width inline artifacts with the current viewport.
+ *
+ * Below WIDTH_HIDE_BP the width slider is hidden and the column must be the
+ * full-width CSS default (--content-width:100% @400). Since the saved width is
+ * applied as INLINE style (on <html> + the wrapper) and inline beats the
+ * stylesheet — even the @media rule — a value set while the viewport was wider
+ * would otherwise linger as a too-narrow column after shrinking past the
+ * breakpoint without a reload (live resize / rotate / devtools).
+ *
+ * So we STRIP the inline artifacts when below the breakpoint, and (re)apply the
+ * saved width when above it. Crucially this never touches localStorage or the
+ * backend preference — only the ephemeral inline styles — so the user's saved
+ * width returns intact when they're back on a wide screen / desktop.
+ */
+export function reconcileViewportWidth(_self?: any) {
+  const wrapper = document.querySelector('.reader-content-wrapper') as any;
+  const widthControlHidden = window.innerWidth <= WIDTH_HIDE_BP;
+  const savedWidth = widthControlHidden ? null : localStorage.getItem(STORAGE_KEYS.CONTENT_WIDTH);
+
+  if (savedWidth) {
+    document.documentElement.style.setProperty('--content-width', `${savedWidth}ch`);
+    // Inline max-width on wrapper to override global * { max-width: 100% }
+    if (wrapper) wrapper.style.maxWidth = `${savedWidth}ch`;
+  } else {
+    // Below the breakpoint, or no saved width: clear inline artifacts so the
+    // stylesheet (--content-width) governs. The saved preference is untouched.
+    document.documentElement.style.removeProperty('--content-width');
+    if (wrapper) wrapper.style.removeProperty('max-width');
+  }
+}
+
+/**
  * Apply saved text size and content width from localStorage.
  * Only sets inline CSS variables if user has explicitly changed from defaults.
  */
 export function applyTextAdjustments(self: any) {
   const savedSize = localStorage.getItem(STORAGE_KEYS.TEXT_SIZE);
-  const savedWidth = localStorage.getItem(STORAGE_KEYS.CONTENT_WIDTH);
 
   if (savedSize) {
     // Set on <html> so the value survives SPA nav (main-content gets replaced, html doesn't)
     document.documentElement.style.setProperty('--font-size-base', `${savedSize}px`);
   }
-  const isMobile = window.innerWidth <= 500;
-  if (savedWidth && !isMobile) {
-    document.documentElement.style.setProperty('--content-width', `${savedWidth}ch`);
-    // Also set inline max-width on wrapper to override global * { max-width: 100% }
-    const wrapper = document.querySelector('.reader-content-wrapper') as any;
-    if (wrapper) wrapper.style.maxWidth = `${savedWidth}ch`;
-  }
+  // Apply/strip the inline content-width to match the current viewport.
+  reconcileViewportWidth(self);
 
-  // Restore full-width mode (only on narrower screens where the toggle exists)
+  // Restore full-width mode only where the toggle exists to turn it back off —
+  // i.e. exactly where the width slider is hidden (≤ WIDTH_HIDE_BP).
   const isFullWidth = localStorage.getItem(STORAGE_KEYS.FULL_WIDTH) === 'true';
-  const isNarrow = window.innerWidth <= 768;
+  const isNarrow = window.innerWidth <= WIDTH_HIDE_BP;
   if (isFullWidth && isNarrow) {
     const allMainContent = document.querySelectorAll('.main-content');
     allMainContent.forEach(el => el.classList.add('full-width-mode'));
@@ -87,7 +120,7 @@ export function applyTextAdjustments(self: any) {
  * Called when settings panel opens (sliders may have been destroyed by innerHTML replacement).
  */
 export function syncSliderUI(self: any) {
-  const isMobile = window.innerWidth <= 500;
+  const isMobile = window.innerWidth <= FONT_MOBILE_BP;
   const defaultSize = isMobile ? DEFAULTS.TEXT_SIZE_MOBILE : DEFAULTS.TEXT_SIZE;
 
   const savedSize = localStorage.getItem(STORAGE_KEYS.TEXT_SIZE);
@@ -123,7 +156,7 @@ export function syncSliderUI(self: any) {
 export function handleSliderInput(self: any, e: any) {
   if (e.target.id === 'textSizeSlider') {
     const val = parseInt(e.target.value, 10);
-    const isMobile = window.innerWidth <= 500;
+    const isMobile = window.innerWidth <= FONT_MOBILE_BP;
     const defaultSize = isMobile ? DEFAULTS.TEXT_SIZE_MOBILE : DEFAULTS.TEXT_SIZE;
 
     // Capture scroll anchor before font-size change

@@ -161,7 +161,7 @@ export async function setupTourAnchor(page, spa) {
   await page.waitForLoadState('networkidle');
   expect(await spa.getStructure(page)).toBe('home');
 
-  await page.evaluate(() => document.getElementById('newBook')?.click());
+  await page.evaluate(() => document.getElementById('newBookButton')?.click());
   await page.waitForFunction(() => {
     const c = document.getElementById('newbook-container');
     if (!c) return false;
