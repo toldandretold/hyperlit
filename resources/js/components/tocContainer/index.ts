@@ -6,7 +6,7 @@
 // bookmark UI is in ./bookmark. Registry init/destroy live in
 // ../tocToggleButton/tocToggleButton.
 import { getNodeChunksFromIndexedDB } from "../../indexedDB/index";
-import { book } from "../../app.js";
+import { book } from "../../app";
 import { ContainerManager } from "../utilities/containerManager";
 import { getTocManager } from "./managerRef";
 import { updateOrInsertBookmark, setInitialBookmarkPosition } from "./bookmark";

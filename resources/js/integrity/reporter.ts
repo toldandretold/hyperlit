@@ -19,6 +19,32 @@ import {
   buildReadme,
 } from './emergencyBackup';
 import { isLoggedIn } from '../utilities/auth/index';
+// Type-only import — verifier imports reporter dynamically, so this back-reference
+// is erased at runtime and introduces no static cycle.
+import type { NodeMismatch, MissingNode, DuplicateId } from './verifier';
+
+/** A block element with no node id that integrity healing tried to adopt. */
+export interface OrphanNode {
+  tag: string;
+  textSnippet?: string;
+  assignedId?: string;
+  healFailed?: boolean;
+  error?: string;
+}
+
+/** The payload reportIntegrityFailure accepts (all collections optional). */
+export interface IntegrityFailureReport {
+  bookId: string;
+  mismatches?: NodeMismatch[];
+  // verifier emits rich MissingNode objects; batch.ts reports its invalid-id case
+  // as a bare id string — reporter handles both (see the map below).
+  missingFromIDB?: Array<MissingNode | string>;
+  duplicateIds?: DuplicateId[];
+  orphanedNodes?: OrphanNode[];
+  trigger?: string;
+  selfHealed?: boolean;
+  selfHealedNodeIds?: Array<string | number>;
+}
 
 const _sessionStartTs = Date.now();
 let _lastPopupTs = 0;
@@ -34,13 +60,13 @@ let _modalEl: any = null;
  * @param {string[]} opts.missingFromIDB - Node IDs present in DOM but absent from IDB
  * @param {string}   opts.trigger      - What triggered the check ("save" | "paste" | "manual")
  */
-export async function reportIntegrityFailure({ bookId, mismatches = [], missingFromIDB = [], duplicateIds = [], orphanedNodes = [], trigger = 'unknown', selfHealed = false, selfHealedNodeIds = [] }: any) : Promise<any> {
+export async function reportIntegrityFailure({ bookId, mismatches = [], missingFromIDB = [], duplicateIds = [], orphanedNodes = [], trigger = 'unknown', selfHealed = false, selfHealedNodeIds = [] }: IntegrityFailureReport) : Promise<void> {
   // Always log
   console.warn('[integrity] MISMATCH DETECTED', { bookId, mismatches, missingFromIDB, duplicateIds, orphanedNodes, trigger });
 
   if (orphanedNodes.length > 0) {
     console.warn(`[integrity] Orphaned nodes (${orphanedNodes.length}):`);
-    orphanedNodes.forEach((o: any) => {
+    orphanedNodes.forEach((o) => {
       if (o.healFailed) {
         console.warn(`  <${o.tag}> HEAL FAILED: ${o.error || 'unknown'} — "${o.textSnippet?.substring(0, 80)}"`);
       } else {
@@ -51,7 +77,7 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
 
   if (mismatches.length > 0) {
     console.group('[integrity] Mismatch details');
-    mismatches.forEach((m: any, i: any) => {
+    mismatches.forEach((m) => {
       console.warn(`Node ${m.startLine || m.nodeId}:`, {
         domText: m.domText,
         idbText: m.idbText,
@@ -112,7 +138,7 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
       idbText: m.idbText || '',
       diff: m.diff || null,
     })),
-    missingFromIDB: missingFromIDB.map((m: any) =>
+    missingFromIDB: missingFromIDB.map((m) =>
       typeof m === 'object' ? { startLine: m.startLine || m.nodeId, nodeId: m.nodeId || null, tag: m.tag, domText: (m.domText || '').substring(0, 300) } : { startLine: m }
     ),
     duplicateIds: duplicateIds.map((d: any) => {

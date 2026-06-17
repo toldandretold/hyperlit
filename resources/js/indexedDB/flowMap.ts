@@ -120,6 +120,7 @@ export const FLOW_STAGES: FlowStage[] = [
       { path: 'serverSync/push', plain: 'Push IndexedDB state up to the server after new-book creation (library first, then nodes/annotations/footnotes); has the missing-chunk-0 abort guard.' },
       { path: 'serverSync/flush', plain: 'Drain the whole edit pipeline (footnote debounces → input debounce → SaveQueue → masterSync) before a destructive clear+redownload.' },
       { path: 'serverSync/index', plain: 'Barrel re-exporting the public server-sync surface.' },
+      { path: 'serverSync/types', plain: 'The Postgres↔IndexedDB seam, characterized: server row shapes the loaders receive, the pull response envelopes, and the pull/push result types.' },
     ],
   },
   {

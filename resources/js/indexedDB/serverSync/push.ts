@@ -7,8 +7,22 @@
 import { DB_VERSION } from '../core/connection';
 import { verbose } from '../../utilities/logger';
 
-async function syncBookDataToServer(bookName: string, objectStoreName: string, method = 'upsert'): Promise<any> {
-    const storeConfig: Record<string, any> = {
+/** Per-store push configuration (endpoint + the IDB key range to read). */
+interface StoreConfig {
+  endpoint: string;
+  keyRange: IDBKeyRange;
+  useCompositeKey: boolean;
+}
+
+/** A stored record viewed through only the fields the push path reads. */
+interface PushRecordView {
+  book?: string;
+  chunk_id?: number;
+  startLine?: number;
+}
+
+async function syncBookDataToServer(bookName: string, objectStoreName: string, method = 'upsert'): Promise<unknown> {
+    const storeConfig: Record<string, StoreConfig> = {
         nodes: {
             endpoint: `/api/db/node-chunks/${method}`,
             keyRange: IDBKeyRange.bound([bookName, 0], [bookName, Number.MAX_VALUE]),
@@ -36,6 +50,11 @@ async function syncBookDataToServer(bookName: string, objectStoreName: string, m
         }
     };
 
+    const config = storeConfig[objectStoreName];
+    if (!config) {
+        throw new Error(`syncBookDataToServer: unknown object store "${objectStoreName}"`);
+    }
+
     verbose.content(`Sync attempt for ${objectStoreName} from window/tab ${window.name || 'unnamed'}`, 'serverSync/push');
 
     try {
@@ -49,7 +68,7 @@ async function syncBookDataToServer(bookName: string, objectStoreName: string, m
         const store = tx.objectStore(objectStoreName);
 
         // Get all data first
-        const allData = await new Promise<any[]>((resolve) => {
+        const allData = await new Promise<PushRecordView[]>((resolve) => {
             const request = store.getAll();
             request.onsuccess = () => resolve(request.result);
         });
@@ -61,9 +80,9 @@ async function syncBookDataToServer(bookName: string, objectStoreName: string, m
         const bookNameWithSlash = bookName.startsWith('/') ? bookName : `/${bookName}`;
 
         // Filter for this book (checking both formats)
-        let bookData: any;
+        let bookData: PushRecordView | PushRecordView[] | undefined;
         if (objectStoreName === 'library' || objectStoreName === 'footnotes') {
-            bookData = await new Promise<any>((resolve) => {
+            bookData = await new Promise<PushRecordView | undefined>((resolve) => {
                 const request = store.get(bookNameWithoutSlash);
                 request.onsuccess = () => {
                     if (request.result) {
@@ -75,7 +94,7 @@ async function syncBookDataToServer(bookName: string, objectStoreName: string, m
                 };
             });
         } else {
-            bookData = allData.filter((item: any) =>
+            bookData = allData.filter((item) =>
                 item.book === bookNameWithoutSlash ||
                 item.book === bookNameWithSlash
             );
@@ -95,10 +114,12 @@ async function syncBookDataToServer(bookName: string, objectStoreName: string, m
         // ⚠️ CRITICAL SAFETY CHECK for nodes: Abort if IndexedDB appears incomplete
         // This prevents mass deletion when IndexedDB was cleared mid-session
         if (objectStoreName === 'nodes' && Array.isArray(bookData)) {
-            const chunkIds = [...new Set(bookData.map((n: any) => n.chunk_id))].sort((a: any, b: any) => a - b);
+            const isNum = (v: number | undefined): v is number => v != null;
+            const chunkIds = [...new Set(bookData.map((n) => n.chunk_id).filter(isNum))].sort((a, b) => a - b);
             const hasChunk0 = chunkIds.includes(0);
-            const minStartLine = Math.min(...bookData.map((n: any) => n.startLine));
-            const maxStartLine = Math.max(...bookData.map((n: any) => n.startLine));
+            const startLines = bookData.map((n) => n.startLine).filter(isNum);
+            const minStartLine = Math.min(...startLines);
+            const maxStartLine = Math.max(...startLines);
 
             console.warn(`⚠️ FULL BOOK SYNC (syncBookDataToServer) DIAGNOSTIC:`, {
                 nodeCount: bookData.length,
@@ -139,7 +160,7 @@ async function syncBookDataToServer(bookName: string, objectStoreName: string, m
         verbose.content(`Sending ${objectStoreName} data to server`, 'serverSync/push');
 
         // Send to server - credentials: 'include' ensures cookies are sent
-        const response = await fetch(storeConfig[objectStoreName].endpoint, {
+        const response = await fetch(config.endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -155,7 +176,7 @@ async function syncBookDataToServer(bookName: string, objectStoreName: string, m
             throw new Error(errorText);
         }
 
-        const result = await response.json();
+        const result: unknown = await response.json();
         verbose.content(`Success syncing ${objectStoreName}`, 'serverSync/push');
         return result;
 
@@ -166,7 +187,7 @@ async function syncBookDataToServer(bookName: string, objectStoreName: string, m
 }
 
 // get data from indexedDB, and send to backend for update
-export async function syncIndexedDBtoPostgreSQL(bookName: string): Promise<any> {
+export async function syncIndexedDBtoPostgreSQL(bookName: string): Promise<unknown> {
   try {
     const results = await syncAllBookData(bookName); // Fixed parameter
     console.log("Sync succeeded:", results);
@@ -177,7 +198,7 @@ export async function syncIndexedDBtoPostgreSQL(bookName: string): Promise<any> 
   }
 }
 
-async function syncAllBookData(bookName: string): Promise<any> {
+async function syncAllBookData(bookName: string): Promise<unknown> {
   verbose.content(`Starting sync for ${bookName}`, 'serverSync/push');
 
   // 1) Upsert the library row first

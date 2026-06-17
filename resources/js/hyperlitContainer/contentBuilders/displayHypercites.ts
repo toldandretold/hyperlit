@@ -4,7 +4,7 @@
  * Includes citation management functions (health checks, deletion)
  */
 
-import { book } from '../../app.js';
+import { book } from '../../app';
 import { openDatabase } from '../../indexedDB/index';
 import { formatBibtexToCitation } from "../../utilities/bibtexProcessor";
 import { canUserEditBook } from "../../utilities/auth/index";

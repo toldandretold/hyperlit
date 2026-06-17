@@ -16,7 +16,7 @@
  * document integrity during editing operations.
  */
 
-import { book } from '../app.js';
+import { book } from '../app';
 import { isNumericalId, setElementIds } from "../utilities/idHelpers";
 import { verbose } from '../utilities/logger';
 import { isPasteOperationActive } from '../paste/pasteState';

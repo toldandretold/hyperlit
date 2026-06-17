@@ -293,7 +293,10 @@ export async function handleNovelVacuum(url: any, targetBookId: any, isSubBook: 
     const insertionChunkId = insertionPoint.chunkId;
     const allChunks = Array.from<any>(loader.container.querySelectorAll('[data-chunk-id]'));
     allChunks.forEach((chunkEl: any) => {
-      const cid = parseInt(chunkEl.dataset.chunkId);
+      // parseFloat, NOT parseInt: currentlyLoadedChunks holds decimal chunk_ids
+      // (loadNextChunk adds parseFloat'd ids), so a truncating delete would miss a
+      // fractional entry and leave it falsely marked as loaded.
+      const cid = parseFloat(chunkEl.dataset.chunkId);
       chunkEl.remove();
       loader.currentlyLoadedChunks.delete(cid);
     });

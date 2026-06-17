@@ -11,7 +11,7 @@ import { waitForNavigationTarget, waitForElementReady, waitForElementReadyWithPr
 import { cleanupReaderView } from '../../viewManager';
 import { resetEditModeState, enforceEditableState } from '../../../components/editButton/index';
 import { destroyUserContainer } from '../../../components/userButton/userButton';
-import { setCurrentBook, setCurrentBookSlug, bookSlug as _bookSlug } from '../../../app.js';
+import { setCurrentBook, setCurrentBookSlug, bookSlug as _bookSlug } from '../../../app';
 import { updateDatabaseBookId } from '../../../indexedDB/index';
 import { setSkipScrollRestoration } from '../../../utilities/operationState';
 import { universalPageInitializer } from '../../viewManager';

@@ -7,16 +7,25 @@
  */
 import { parseNodeId, prepareLibraryForIndexedDB } from '../index';
 import { verbose } from '../../utilities/logger';
+import type { NodeRecord, NodeHyperlightView } from '../types';
+import type {
+  ServerNodeRow,
+  ServerHyperlightRow,
+  ServerHyperciteRow,
+  ServerFootnotesPayload,
+  ServerBibliographyPayload,
+  ServerLibraryRow,
+} from './types';
 
 /**
  * Write items to an IndexedDB store in batches, yielding between each batch
  * to prevent blocking user interactions with long-held readwrite locks.
  */
-async function batchedWrite(
+async function batchedWrite<T>(
   db: IDBDatabase,
   storeName: string,
-  items: any[],
-  processItem: ((item: any) => any) | null = null,
+  items: T[],
+  processItem: ((item: T) => unknown) | null = null,
   batchSize = 100,
 ): Promise<void> {
   for (let i = 0; i < items.length; i += batchSize) {
@@ -44,7 +53,7 @@ async function batchedWrite(
 /**
  * Load node chunks into IndexedDB
  */
-export async function loadNodeChunksToIndexedDB(db: IDBDatabase, nodes: any[]): Promise<void> {
+export async function loadNodeChunksToIndexedDB(db: IDBDatabase, nodes: ServerNodeRow[] | undefined): Promise<void> {
   if (!nodes || nodes.length === 0) {
     verbose.content('No nodes to load', 'serverSync/loaders');
     return;
@@ -55,8 +64,8 @@ export async function loadNodeChunksToIndexedDB(db: IDBDatabase, nodes: any[]): 
   let chunksWithHighlights = 0;
   let userHighlightCount = 0;
 
-  function processNode(chunk: any) {
-    let parsedHyperlights: any = null;
+  function processNode(chunk: ServerNodeRow): NodeRecord {
+    let parsedHyperlights: unknown[] | null = null;
     if (chunk.hyperlights) {
       try {
         parsedHyperlights = typeof chunk.hyperlights === 'string' ?
@@ -64,7 +73,7 @@ export async function loadNodeChunksToIndexedDB(db: IDBDatabase, nodes: any[]): 
 
         if (parsedHyperlights && parsedHyperlights.length > 0) {
           chunksWithHighlights++;
-          userHighlightCount += parsedHyperlights.filter((h: any) => h.is_user_highlight).length;
+          userHighlightCount += parsedHyperlights.filter((h) => (h as { is_user_highlight?: boolean }).is_user_highlight).length;
         }
       } catch (parseError) {
         console.error('❌ Error parsing hyperlights:', parseError);
@@ -72,14 +81,19 @@ export async function loadNodeChunksToIndexedDB(db: IDBDatabase, nodes: any[]): 
       }
     }
 
+    // Normalize the annotation arrays to [] (never null): NodeRecord declares them
+    // as arrays, and every reader already guards null/[] identically — so honoring
+    // the array contract here is safe and makes processNode genuinely produce a
+    // NodeRecord. The `as NodeHyperlightView[]` is the wire→storage boundary
+    // assertion (the server embeds hyperlights in the rendered-view shape).
     return {
       ...chunk,
       startLine: parseNodeId(chunk.startLine),
-      footnotes: typeof chunk.footnotes === 'string' ?
-        (chunk.footnotes ? JSON.parse(chunk.footnotes) : null) : chunk.footnotes,
-      hypercites: typeof chunk.hypercites === 'string' ?
-        (chunk.hypercites ? JSON.parse(chunk.hypercites) : null) : chunk.hypercites,
-      hyperlights: parsedHyperlights,
+      footnotes: (typeof chunk.footnotes === 'string' ?
+        (chunk.footnotes ? JSON.parse(chunk.footnotes) : null) : chunk.footnotes) ?? [],
+      hypercites: (typeof chunk.hypercites === 'string' ?
+        (chunk.hypercites ? JSON.parse(chunk.hypercites) : null) : chunk.hypercites) ?? [],
+      hyperlights: (parsedHyperlights ?? []) as NodeHyperlightView[],
       raw_json: typeof chunk.raw_json === 'string' ?
         (chunk.raw_json ? JSON.parse(chunk.raw_json) : null) : chunk.raw_json
     };
@@ -93,7 +107,7 @@ export async function loadNodeChunksToIndexedDB(db: IDBDatabase, nodes: any[]): 
 /**
  * Load footnotes into IndexedDB
  */
-export async function loadFootnotesToIndexedDB(db: IDBDatabase, footnotes: any): Promise<void> {
+export async function loadFootnotesToIndexedDB(db: IDBDatabase, footnotes: ServerFootnotesPayload | null | undefined): Promise<void> {
   if (!footnotes || !footnotes.data) {
     verbose.content('No footnotes to load', 'serverSync/loaders');
     return;
@@ -106,7 +120,9 @@ export async function loadFootnotesToIndexedDB(db: IDBDatabase, footnotes: any):
   const footnotesData = footnotes.data;
   const promises: Promise<void>[] = [];
 
-  for (const [footnoteId, footnoteData] of Object.entries(footnotesData) as [string, any][]) {
+  for (const [footnoteId, footnoteData] of Object.entries(footnotesData)) {
+    // Inline the type guard (not a boolean var) so TS narrows footnoteData to the
+    // object form inside the true branch and to string in the false branch.
     const isNewFormat = typeof footnoteData === 'object' && footnoteData !== null;
     const record = {
       book:          footnotes.book,
@@ -130,7 +146,7 @@ export async function loadFootnotesToIndexedDB(db: IDBDatabase, footnotes: any):
 /**
  * Load bibliography/references into IndexedDB
  */
-export async function loadBibliographyToIndexedDB(db: IDBDatabase, bibliography: any): Promise<void> {
+export async function loadBibliographyToIndexedDB(db: IDBDatabase, bibliography: ServerBibliographyPayload | null | undefined): Promise<void> {
   if (!bibliography || !bibliography.data) {
     verbose.content('No bibliography to load', 'serverSync/loaders');
     return;
@@ -143,7 +159,7 @@ export async function loadBibliographyToIndexedDB(db: IDBDatabase, bibliography:
   const bibliographyData = bibliography.data;
   const promises: Promise<void>[] = [];
 
-  for (const [referenceId, refData] of Object.entries(bibliographyData) as [string, any][]) {
+  for (const [referenceId, refData] of Object.entries(bibliographyData)) {
     // Handle both formats:
     // - New format: { content: '...', source_id: '...' }
     // - Legacy format: just the content string (from old EPUB imports)
@@ -173,7 +189,7 @@ export async function loadBibliographyToIndexedDB(db: IDBDatabase, bibliography:
 /**
  * Load hyperlights into IndexedDB
  */
-export async function loadHyperlightsToIndexedDB(db: IDBDatabase, hyperlights: any[]): Promise<void> {
+export async function loadHyperlightsToIndexedDB(db: IDBDatabase, hyperlights: ServerHyperlightRow[] | undefined): Promise<void> {
   if (!hyperlights || hyperlights.length === 0) {
     verbose.content('No hyperlights to load', 'serverSync/loaders');
     return;
@@ -183,7 +199,7 @@ export async function loadHyperlightsToIndexedDB(db: IDBDatabase, hyperlights: a
 
   let userHighlightCount = 0;
   let anonHighlightCount = 0;
-  hyperlights.forEach((highlight: any) => {
+  hyperlights.forEach((highlight) => {
     if (highlight.is_user_highlight) {
       userHighlightCount++;
     } else {
@@ -199,7 +215,7 @@ export async function loadHyperlightsToIndexedDB(db: IDBDatabase, hyperlights: a
 /**
  * Load hypercites into IndexedDB
  */
-export async function loadHypercitesToIndexedDB(db: IDBDatabase, hypercites: any[]): Promise<void> {
+export async function loadHypercitesToIndexedDB(db: IDBDatabase, hypercites: ServerHyperciteRow[] | undefined): Promise<void> {
   if (!hypercites || hypercites.length === 0) {
     verbose.content('No hypercites to load', 'serverSync/loaders');
     return;
@@ -207,7 +223,7 @@ export async function loadHypercitesToIndexedDB(db: IDBDatabase, hypercites: any
 
   verbose.content(`Loading ${hypercites.length} hypercites`, 'serverSync/loaders');
 
-  function processHypercite(hypercite: any) {
+  function processHypercite(hypercite: ServerHyperciteRow) {
     return {
       ...hypercite,
       citedIN: typeof hypercite.citedIN === 'string' ? JSON.parse(hypercite.citedIN) : hypercite.citedIN,
@@ -223,7 +239,7 @@ export async function loadHypercitesToIndexedDB(db: IDBDatabase, hypercites: any
 /**
  * Load library data into IndexedDB
  */
-export async function loadLibraryToIndexedDB(db: IDBDatabase, library: any): Promise<void> {
+export async function loadLibraryToIndexedDB(db: IDBDatabase, library: ServerLibraryRow | null | undefined): Promise<void> {
   if (!library) {
     verbose.content('No library data to load', 'serverSync/loaders');
     return;

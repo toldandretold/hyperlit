@@ -8,7 +8,7 @@ import { BookToBookTransition } from './pathways/BookToBookTransition.js';
 import { getPageStructure, areStructuresCompatible, getSubdomain, getBookIdFromUrl } from './utils/structureDetection.js';
 import { log, verbose } from '../../utilities/logger';
 import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } from '../../scrolling/index';
-import { book, bookSlug as _bookSlug } from '../../app.js';
+import { book, bookSlug as _bookSlug } from '../../app';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 // hypercites is a reader-only lazy chunk; wrap the nav fns as lazy importers so this (boot-loaded,
 // all-pages) handler doesn't statically pull hypercites into the eager bundle. Called on link clicks

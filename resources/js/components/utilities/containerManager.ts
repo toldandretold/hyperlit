@@ -3,7 +3,7 @@
 // the only currentLazyLoader reference is `(window as any).currentLazyLoader`. They put this base class,
 // which 5+ components `extends`, into an import cycle that TDZ-crashed the bundle at init.)
 import { isProcessing, isComplete } from '../cloudRef/editIndicator'
-import { book } from '../../app.js';
+import { book } from '../../app';
 
 export class ContainerManager {
   [key: string]: any;

@@ -6,7 +6,7 @@
 // without a static import cycle.
 import { openDatabase } from '../../indexedDB/index';
 import { formatBibtexToCitation } from '../../utilities/bibtexProcessor';
-import { book } from '../../app.js';
+import { book } from '../../app';
 import { canUserEditBook, getAuthContextSync } from '../../utilities/auth/index';
 import { getRecord, isSyntheticBook, PUBLIC_SVG, PRIVATE_SVG } from './helpers';
 

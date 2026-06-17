@@ -3,7 +3,7 @@
 // raw bundle. Standalone functions wired to the #download-* buttons by
 // sourceContainer/index.ts. Lazy-loads the heavy converters (Turndown, JSZip,
 // docx, html-to-text) from the CDN on first use.
-import { book } from '../../app.js';
+import { book } from '../../app';
 import { openDatabase, getNodeChunksFromIndexedDB } from '../../indexedDB/index';
 import { formatBibtexToCitation } from '../../utilities/bibtexProcessor';
 import { getRecord, getBookDownloadName } from './helpers';

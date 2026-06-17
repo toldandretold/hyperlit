@@ -71,12 +71,15 @@ export function getInsertionPoint(chunkElement: any, book: any) {
   const currentChunkNodeCount = chunkNodeCounts[chunkId] || 0;
 
   const result = {
-    chunkId: parseInt(chunkId), // Parse to number (not string)
+    // parseFloat, NOT parseInt: the cursor's chunk can be a decimal (a chunk inserted
+    // between two others). Truncating mis-grouped pasted nodes and miscounted the
+    // insertion chunk's nodes. The lazyLoader navigates chunk_ids decimal-aware, so a
+    // fractional chunk_id here is safe (and self-heals on the next renumber anyway).
+    chunkId: parseFloat(chunkId),
     currentNodeId: currentNodeId,
     beforeNodeId: beforeNodeId,
     afterNodeId: afterNodeId,
     currentChunkNodeCount: currentChunkNodeCount,
-    insertionStartLine: parseInt(currentNodeId), // startLine = node ID
     book: book
   };
 

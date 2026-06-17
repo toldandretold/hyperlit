@@ -6,7 +6,7 @@ import { sanitizeHtml } from '../utilities/sanitizeConfig';
 import { parseHyperciteHref, attachUnderlineClickListeners } from "../hypercites/index";
 import { extractQuotedText } from '../utilities/textExtraction';
 import { updateCitationForExistingHypercite } from '../indexedDB/index';
-import { book } from '../app.js';
+import { book } from '../app';
 import { broadcastToOpenTabs } from "../utilities/BroadcastListener";
 import { saveHighlightAnnotation } from './annotations';
 import { getCurrentContainer } from "../hyperlitContainer/stack";

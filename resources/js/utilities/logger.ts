@@ -50,7 +50,7 @@ const colors = {
  * @param {*} details - Optional additional details (objects, errors, etc.)
  * @param {boolean} forceShow - Force show even in non-verbose mode
  */
-function logMessage(level: any, message: any, filePath: any, details = null, forceShow = false) {
+function logMessage(level: any, message: any, filePath: any, details: unknown = null, forceShow = false) {
   // In production, only show errors
   if (isProductionMode() && level !== 'ERROR') {
     return;
@@ -121,7 +121,7 @@ export const log = {
   /**
    * Error logging (ALWAYS shown, even in production)
    */
-  error: (message: any, filePath: any, error = null) => {
+  error: (message: any, filePath: any, error: unknown = null) => {
     logMessage('ERROR', message, filePath, error, true);
 
     // Also log full error stack if provided

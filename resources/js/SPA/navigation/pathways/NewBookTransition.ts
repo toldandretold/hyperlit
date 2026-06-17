@@ -17,7 +17,7 @@ import { destroyNewBookContainer } from '../../../components/newBookButton/newBo
 import { destroyHomepageDisplayUnit } from '../../../components/homepage/homepageDisplayUnit';
 import { cleanupReaderView } from '../../viewManager';
 import { enforceEditableState, enableEditMode } from '../../../components/editButton/index';
-import { setCurrentBook } from '../../../app.js';
+import { setCurrentBook } from '../../../app';
 import { universalPageInitializer } from '../../viewManager';
 import { reinitializeContainerManagers } from '../utils/initHelpers.js';
 import { initializeLogoNav } from '../../../components/logoNav/logoNav';

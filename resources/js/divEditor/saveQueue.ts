@@ -18,12 +18,9 @@ import { debounce } from '../utilities/debounce';
 import { invalidateSearchIndex } from '../search/inTextSearch/searchToolbar';
 import { reportIDBFailure, reportIDBSuccess, isIDBBroken } from '../indexedDB/core/healthMonitor';
 import { TAB_ID, markBookEditedLocally } from '../utilities/BroadcastListener';
-import { book as currentBook } from '../app.js';
+import { book as currentBook } from '../app';
 import { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } from '../integrity/verifier';
-import { reportIntegrityFailure as _reportIntegrityFailure } from '../integrity/reporter';
-// reporter.js is JS; its inferred param type is narrower than the (varied) shapes
-// we pass — widen to accept the optional selfHealed/duplicateIds/orphanedNodes fields.
-const reportIntegrityFailure: (arg: any) => void = _reportIntegrityFailure as any;
+import { reportIntegrityFailure, type OrphanNode } from '../integrity/reporter';
 import { hidePasteUndoToast } from '../paste/ui/pasteUndoToast';
 import { clearPasteSnapshot } from '../paste/pasteSnapshot';
 import { INLINE_SKIP_TAGS } from '../utilities/blockElements';
@@ -44,6 +41,9 @@ const DEBOUNCE_DELAYS = {
   BULK_SAVE: 2000,    // Wait 2s for bulk operations (was 1000ms)
   TITLE_SYNC: 500,
 };
+
+/** A debounced void function as produced by utilities/debounce (callable + cancel/flush). */
+type DebouncedVoidFn = (() => void) & { cancel: () => void; flush: () => void };
 
 interface PendingNode { id: string; action: string; bookId: string | null; }
 interface DeletionData { dataNodeId: string | null; bookId: string; }
@@ -68,8 +68,8 @@ export class SaveQueue {
   _forceBypassPasteGuard: boolean;
   _pasteGuardDeferrals: number;
   _lastInputTimestamp: number;
-  debouncedSaveNode: any;
-  debouncedBatchDelete: any;
+  debouncedSaveNode: DebouncedVoidFn;
+  debouncedBatchDelete: DebouncedVoidFn;
   monitor: ReturnType<typeof setInterval> | null;
 
   constructor(bookId: string | null = null) {
@@ -258,7 +258,9 @@ export class SaveQueue {
           }
 
           for (const [bookId, records] of recordsByBookId) {
-            await batchUpdateIndexedDBRecords(records as any, bookId ? { bookId } : {});
+            // PendingNode[] satisfies BatchRecord[] (it carries the required `id`);
+            // the extra action/bookId fields are ignored by the writer. No cast needed.
+            await batchUpdateIndexedDBRecords(records, bookId ? { bookId } : {});
           }
 
           verbose.content('saveNodeToDatabase: IndexedDB save complete', 'divEditor/saveQueue.js');
@@ -361,8 +363,8 @@ export class SaveQueue {
     });
 
     // ✅ FIX: Create deletionMap for each book group (containing only data-node-ids)
-    const buildDeletionMapForBook = (nodeIds: string[], bookId: string) => {
-      const map = new Map<string, string | null>();
+    const buildDeletionMapForBook = (nodeIds: string[], bookId: string): Map<string, string | null | undefined> => {
+      const map = new Map<string, string | null | undefined>();
       nodeIds.forEach(nodeId => {
         const data = deletionDataMap.get(nodeId);
         map.set(nodeId, data?.dataNodeId || null);
@@ -384,7 +386,7 @@ export class SaveQueue {
       // ✅ FIX: Process deletions grouped by bookId
       for (const [bookId, nodeIds] of nodesByBookId) {
         const bookDeletionMap = buildDeletionMapForBook(nodeIds, bookId);
-        await batchDeleteIndexedDBRecords(nodeIds as any, bookDeletionMap as any, bookId);
+        await batchDeleteIndexedDBRecords(nodeIds, bookDeletionMap, bookId);
         verbose.content(`Batch deleted ${nodeIds.length} nodes from book ${bookId}`, 'divEditor/saveQueue.js');
       }
 
@@ -457,8 +459,8 @@ export class SaveQueue {
       if (this.pendingSaves.nodes.size > 0) return;
 
       const schedule = typeof requestIdleCallback === 'function'
-        ? (fn: any) => requestIdleCallback(fn, { timeout: 3000 })
-        : (fn: any) => setTimeout(fn, 100);
+        ? (fn: () => void) => requestIdleCallback(fn, { timeout: 3000 })
+        : (fn: () => void) => setTimeout(fn, 100);
 
       schedule(async () => {
       try {
@@ -486,8 +488,8 @@ export class SaveQueue {
           }
 
           const failedIds = [
-            ...result.missingFromIDB.map((m: any) => typeof m === 'object' ? (m.startLine || m.nodeId) : m),
-            ...result.mismatches.map((m: any) => m.startLine || m.nodeId),
+            ...result.missingFromIDB.map(m => m.startLine),
+            ...result.mismatches.map(m => m.startLine),
           ];
 
           if (failedIds.length > 0 && !this._selfHealingInProgress) {
@@ -496,8 +498,8 @@ export class SaveQueue {
             this._selfHealingInProgress = true;
             try {
               // Don't overwrite IDB with empty DOM — that's data destruction
-              const safeToHeal = failedIds.filter((id: any) => {
-                const m = result.mismatches.find((m: any) => (m.startLine || m.nodeId) === id);
+              const safeToHeal = failedIds.filter((id) => {
+                const m = result.mismatches.find(m => m.startLine === id);
                 if (m && !m.domText.trim() && m.idbText.trim()) {
                   console.warn(`[integrity] Skipping self-heal for node ${id}: DOM empty but IDB has "${m.idbText.substring(0, 50)}"`);
                   return false;
@@ -605,8 +607,8 @@ export class SaveQueue {
     this._fullVerifyTimer = setTimeout(() => {
       this._fullVerifyTimer = null;
       const schedule = typeof requestIdleCallback === 'function'
-        ? (fn: any) => requestIdleCallback(fn, { timeout: 5000 })
-        : (fn: any) => setTimeout(fn, 200);
+        ? (fn: () => void) => requestIdleCallback(fn, { timeout: 5000 })
+        : (fn: () => void) => setTimeout(fn, 200);
 
       schedule(async () => {
         // Guard: bail if new saves were queued — next save will reschedule
@@ -642,8 +644,8 @@ export class SaveQueue {
           }
 
           const failedIds = [
-            ...result.missingFromIDB.map((m: any) => typeof m === 'object' ? (m.startLine || m.nodeId) : m),
-            ...result.mismatches.map((m: any) => m.startLine || m.nodeId),
+            ...result.missingFromIDB.map(m => m.startLine),
+            ...result.mismatches.map(m => m.startLine),
           ];
 
           if (failedIds.length > 0 && !this._selfHealingInProgress) {
@@ -651,8 +653,8 @@ export class SaveQueue {
             this._selfHealingInProgress = true;
             try {
               // Don't overwrite IDB with empty DOM — that's data destruction
-              const safeToHeal = failedIds.filter((id: any) => {
-                const m = result.mismatches.find((m: any) => (m.startLine || m.nodeId) === id);
+              const safeToHeal = failedIds.filter((id) => {
+                const m = result.mismatches.find(m => m.startLine === id);
                 if (m && !m.domText.trim() && m.idbText.trim()) {
                   console.warn(`[integrity] Skipping self-heal for node ${id}: DOM empty but IDB has "${m.idbText.substring(0, 50)}"`);
                   return false;
@@ -733,7 +735,7 @@ export class SaveQueue {
             console.warn(`[integrity] Full-scan orphan check: found ${orphans.length} orphaned node(s)`);
             const { setElementIds, findPreviousElementId, findNextElementId } = await import('../utilities/IDfunctions');
 
-            const orphanedNodes: any[] = [];
+            const orphanedNodes: OrphanNode[] = [];
             for (const orphan of orphans) {
               try {
                 const beforeId = findPreviousElementId(orphan.element);
@@ -746,13 +748,13 @@ export class SaveQueue {
                   textSnippet: orphan.textSnippet,
                   assignedId: orphan.element.id,
                 });
-              } catch (err: any) {
+              } catch (err) {
                 console.error(`[integrity] Failed to heal orphaned <${orphan.tag}>:`, err);
                 orphanedNodes.push({
                   tag: orphan.tag,
                   textSnippet: orphan.textSnippet,
                   healFailed: true,
-                  error: err.message,
+                  error: (err as Error).message,
                 });
               }
             }

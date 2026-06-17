@@ -3,7 +3,7 @@
 // listeners (the ButtonRegistry entry), the login/sync custom alert, URL auto-edit,
 // and the module-load visibility side-effect. Pure caret helpers live in ./cursor;
 // the lock/permission UI in ./lock (re-exported here so importers have one entry).
-import { book } from "../../app.js";
+import { book } from "../../app";
 import { log } from "../../utilities/logger";
 import { getCurrentUser, canUserEditBook } from "../../utilities/auth/index";
 import userManager from "../userButton/userButton";

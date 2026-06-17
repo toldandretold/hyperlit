@@ -6,7 +6,7 @@
  */
 
 import { getActiveBook } from '../hyperlitContainer/utilities/activeContext';
-import { book as globalBookId } from '../app.js';
+import { book as globalBookId } from '../app';
 import { navigateToInternalId, showNavigationLoading } from '../scrolling/index';
 import { waitForElementReady } from '../SPA/domReadiness';
 import { getLocalStorageKey, openDatabase } from '../indexedDB/index';

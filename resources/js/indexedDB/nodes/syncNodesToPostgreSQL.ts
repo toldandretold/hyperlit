@@ -5,10 +5,18 @@
 
 import type { BookId, PublicChunk } from '../types';
 
+/**
+ * Response shape of POST /api/db/node-chunks/targeted-upsert.
+ * Matches DbNodeChunkController::targetedUpsert exactly:
+ *   200 { success: true,  message: 'Node chunks updated successfully (targeted)' }
+ *   422 { success: false, message: 'Invalid data format' }
+ *   500 { success: false, message: 'Failed to sync data (targeted)', error: <string> }
+ */
 interface NodeSyncResult {
   success: boolean;
   message?: string;
-  [key: string]: unknown;
+  /** Only present on a server-side (500) failure. */
+  error?: string;
 }
 
 /**
@@ -47,7 +55,9 @@ export async function syncNodeChunksToPostgreSQL(bookId: BookId, nodes: PublicCh
     return { success: false, message: txt };
   }
 
-  const out = await res.json();
+  // res.json() is typed `any` — pin it to the characterized response shape so the
+  // any doesn't silently flow out as the (declared) NodeSyncResult return.
+  const out = await res.json() as NodeSyncResult;
   console.log("✅ Nodes synced from nodes object store in IndexedDB to node_chunks table in PostgreSQL:", out);
   return out;
 }

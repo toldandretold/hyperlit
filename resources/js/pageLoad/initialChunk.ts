@@ -8,7 +8,7 @@ import {
     clearBookDataFromIndexedDB,
 } from '../indexedDB/serverSync/index';
 import { log, verbose } from '../utilities/logger';
-import { OpenHyperlightID, OpenFootnoteID } from '../app.js';
+import { OpenHyperlightID, OpenFootnoteID } from '../app';
 import { gateQueryParam } from '../components/utilities/gateFilter';
 
 /**

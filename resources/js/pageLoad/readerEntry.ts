@@ -3,7 +3,7 @@
 // =================================================================
 // THE KEY FIX: Import app.js first to set up initial state.
 // This line ensures the 'book' variable is defined before anything else runs.
-import { book } from "../app.js";
+import { book } from "../app";
 // =================================================================
 
 import { log } from "../utilities/logger";
@@ -14,6 +14,7 @@ import { initializeHomepage } from "../components/homepage/homepage";
 // ✅ REMOVED: initializeFootnoteCitationListeners now managed by ButtonRegistry
 import { setInitialBookSyncPromise, withPending, getInitialBookSyncPromise } from "../utilities/operationState";
 import { generateTableOfContents } from "../components/tocContainer/index";
+import { hasVibeReviewMarker } from "../conversion/vibeReviewMarker";
 // ✅ REMOVED: TogglePerimeterButtons now managed exclusively by ButtonRegistry
 // import TogglePerimeterButtons from "./components/togglePerimeterButtons.js";
 import { showNavigationLoading, hideNavigationLoading } from "../scrolling/index";
@@ -127,12 +128,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   const { NavigationManager } = await import('../SPA/navigation/NavigationManager.js');
   await NavigationManager.navigate('fresh-page-load');
 
-  // If a vibe-convert job auto-applied a fix to this book, surface the Keep/Revert toast (driven by the
-  // persisted vibe_review.json, so it shows even if the original toast was lost to navigation).
-  // Skip the synthetic homepage ranking books — they can never have a vibe_review.json, and the
-  // review endpoint 401s for logged-out users, leaving a red request on every home-page load.
+  // If a vibe-convert YOU ran auto-applied a fix to this book, surface the Keep/Revert toast after the
+  // success path's forced reload. Gated on a per-book intent marker (set when a review is requested,
+  // cleared when resolved) so we DON'T ping the review endpoint on every page load — that endpoint is
+  // auth:sanctum, so for anonymous-session authors an unconditional poll 401s on every single load.
   const SYNTHETIC_BOOKS = ['most-recent', 'most-connected', 'most-lit'];
-  if (book && pageType !== 'timemachine' && !SYNTHETIC_BOOKS.includes(book)) {
+  if (book && pageType !== 'timemachine' && !SYNTHETIC_BOOKS.includes(book) && hasVibeReviewMarker(book)) {
     import('../conversion/feedbackToast.js')
       .then(m => m.checkPendingVibeReview(book))
       .catch(() => {});

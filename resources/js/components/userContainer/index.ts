@@ -9,7 +9,7 @@
 // live in ../userButton/userButton.
 import { ContainerManager } from "../utilities/containerManager";
 import { navigateByStructure } from '../../SPA/navigation/navigationRegistry';
-import { book } from "../../app.js";
+import { book } from "../../app";
 import { getCurrentUser } from "../../utilities/auth/index";
 import { syncBookDataFromDatabase } from "../../indexedDB/serverSync/index";
 import { getErrorHTML } from "./forms";

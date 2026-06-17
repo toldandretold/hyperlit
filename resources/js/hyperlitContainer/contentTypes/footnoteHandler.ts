@@ -7,7 +7,7 @@ import type { ContentTypeHandler, BuildCtx, PostOpenCtx, PermissionCtx } from '.
 import { buildFootnoteContent } from '../contentBuilders/displayFootnotes';
 import { getCurrentContainer } from '../stack';
 import { containerState } from '../containerState';
-import { book } from '../../app.js';
+import { book } from '../../app';
 import { buildSubBookId } from '../../utilities/subBookIdHelper';
 import { openDatabase } from '../../indexedDB/index';
 import { canUserEditBook } from '../../utilities/auth/index';

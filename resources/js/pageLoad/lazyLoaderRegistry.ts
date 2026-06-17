@@ -1,4 +1,4 @@
-import { book } from '../app.js';
+import { book } from '../app';
 import { verbose } from '../utilities/logger';
 import { navigateToInternalId } from '../scrolling/index';
 

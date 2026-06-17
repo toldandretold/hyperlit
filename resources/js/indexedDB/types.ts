@@ -97,6 +97,10 @@ export interface NodeRecord {
   hypercites: NodeHyperciteView[];
   footnotes: FootnoteRef[];
   citations?: CitationRef[];
+  /** @deprecated Denormalized JSON copy of the node, slated for removal from the
+   *  DB. Opaque here — node readers forward it, they don't dig into its fields.
+   *  Typed so the phase-out can follow the type; do not add new readers. */
+  raw_json?: unknown;
 }
 
 // ── hyperlights / hypercites stores (normalized source of truth) ────

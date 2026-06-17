@@ -9,7 +9,7 @@
  */
 
 import { chunkOverflowInProgress } from "../../utilities/operationState";
-import { book } from '../../app.js';
+import { book } from '../../app';
 import { generateIdBetween, setElementIds, ensureNodeHasValidId, findPreviousElementId, findNextElementId } from "../../utilities/idHelpers";
 import { queueNodeForSave } from '../editorState';
 import { verbose } from '../../utilities/logger';

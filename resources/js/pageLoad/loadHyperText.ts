@@ -1,4 +1,4 @@
-import { book, OpenHyperlightID, OpenFootnoteID } from '../app.js';
+import { book, OpenHyperlightID, OpenFootnoteID } from '../app';
 import { log, verbose } from '../utilities/logger';
 import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier.js';
 

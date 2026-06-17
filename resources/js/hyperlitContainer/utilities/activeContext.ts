@@ -13,7 +13,7 @@
  * setActiveBook() / clearActiveBook() at the right moments.
  */
 
-import { book } from '../../app.js';
+import { book } from '../../app';
 
 let activeBookId: any = null;
 

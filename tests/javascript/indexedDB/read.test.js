@@ -52,4 +52,22 @@ describe('nodes/read.js (characterization)', () => {
     // bookB's 150 must not leak into bookA's range
     expect(after.every(c => c.book === 'bookA')).toBe(true);
   });
+
+  // The head/tail split that paste relies on MUST be decimal-safe — a node inserted
+  // between 100 and 200 gets a fractional startLine (150.5), and truncating the anchor
+  // (parseInt) would corrupt the split and therefore paste insertion order. This pins
+  // that getNodeChunksAfter compares on the real (parseFloat) value.
+  it('getNodeChunksAfter is decimal-safe: fractional anchor + fractional tail nodes', async () => {
+    await seedStore('nodes', [node('bookA', 150.5, 0)]); // bookA now: 100, 150.5, 200, 300
+
+    // Anchor AT the decimal node: it is excluded, and is NOT truncated to 150
+    // (which would wrongly re-include 150.5 in its own tail).
+    const afterDecimal = await getNodeChunksAfter('bookA', '150.5');
+    expect(afterDecimal.map(c => c.startLine)).toEqual([200, 300]);
+
+    // Anchor at the integer below: the fractional 150.5 must survive in the tail,
+    // in correct order (a truncating compare could drop or misplace it).
+    const after150 = await getNodeChunksAfter('bookA', 150);
+    expect(after150.map(c => c.startLine)).toEqual([150.5, 200, 300]);
+  });
 });

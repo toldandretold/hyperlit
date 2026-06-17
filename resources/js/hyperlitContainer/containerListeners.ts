@@ -9,7 +9,7 @@
 
 import { containerState, activeListeners, registerListener } from './containerState';
 import { clearActiveBook } from './utilities/activeContext';
-import { book } from '../app.js';
+import { book } from '../app';
 
 /**
  * Clean up all registered listeners

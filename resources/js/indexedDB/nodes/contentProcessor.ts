@@ -41,7 +41,11 @@ export function determineChunkIdFromDOM(IDnumerical: string): number {
     if (chunkDiv) {
       const chunkIdAttr = chunkDiv.getAttribute('data-chunk-id');
       if (chunkIdAttr) {
-        return parseInt(chunkIdAttr);
+        // parseFloat, NOT parseInt: chunk_id can be a decimal (a chunk inserted
+        // between two others via fractional indexing). Truncating here would
+        // corrupt the stored chunk_id on save — chunkManager writes it with
+        // parseFloat, so this must match. (Backend re-emits it as an integer.)
+        return parseFloat(chunkIdAttr);
       }
     }
   }

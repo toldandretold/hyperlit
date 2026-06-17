@@ -7,7 +7,7 @@
 // index → submodules → leaves (acyclic). The default export is the singleton
 // `sourceManager`; the #cloudRef trigger lives in ../cloudRef/cloudRefButton.
 import { ContainerManager } from "../utilities/containerManager";
-import { book } from "../../app.js";
+import { book } from "../../app";
 import { buildSourceHtml } from "./buildSourceHtml";
 import { exportBookAsMarkdown, exportBookAsDocxStyled, exportBookAsEpub, downloadAllForBook } from "./downloads";
 import {

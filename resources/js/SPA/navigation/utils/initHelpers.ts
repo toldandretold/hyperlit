@@ -3,7 +3,7 @@
  * Extracted from DifferentTemplateTransition and SameTemplateTransition for reusability
  */
 import { log } from '../../../utilities/logger';
-import { setCurrentBook } from '../../../app.js';
+import { setCurrentBook } from '../../../app';
 import { updateDatabaseBookId } from '../../../indexedDB/index';
 import { universalPageInitializer } from '../../viewManager';
 import { initializeLogoNav } from '../../../components/logoNav/logoNav';

@@ -5,7 +5,7 @@
 // entry root — referencing it folds nothing). IDfunctions.ts re-exports everything here.
 import { verbose } from './logger';
 import { ID_SKIP_TAGS } from './blockElements';
-import { book } from '../app.js';
+import { book } from '../app';
 
 // 🚀 PERFORMANCE: Cache regex pattern (compiled once, used everywhere)
 export const NUMERICAL_ID_PATTERN = /^\d+(\.\d+)?$/;

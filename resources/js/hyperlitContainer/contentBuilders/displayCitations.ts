@@ -3,7 +3,7 @@
  * Constructs HTML content for displaying citations and hypercite citations in the hyperlit container
  */
 
-import { book } from '../../app.js';
+import { book } from '../../app';
 import { openDatabase } from '../../indexedDB/index';
 import { resolveBibliographyTarget } from '../../indexedDB/bibliography/index';
 import { formatBibtexToCitation } from "../../utilities/bibtexProcessor";

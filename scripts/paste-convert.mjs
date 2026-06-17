@@ -49,7 +49,12 @@ async function main() {
     'HTMLElement', 'Text', 'Comment', 'DocumentFragment', 'navigator',
     'getComputedStyle', 'XMLSerializer',
   ]) {
-    if (window[name] !== undefined) globalThis[name] = window[name];
+    if (window[name] === undefined) continue;
+    // Use defineProperty, not plain assignment: Node ≥21 ships some of these as
+    // read-only global getters (notably `navigator`), so `globalThis.navigator =`
+    // throws "Cannot set property navigator … which has only a getter". Redefining
+    // overrides the built-in with happy-dom's version on every Node version.
+    Object.defineProperty(globalThis, name, { value: window[name], configurable: true, writable: true });
   }
 
   // Dynamic import AFTER globals exist (DOMPurify binds to window on load).

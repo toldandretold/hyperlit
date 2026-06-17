@@ -3,7 +3,7 @@
  * Exports all hyperlight functionality in an organized manner
  */
 
-import { book } from '../app.js';
+import { book } from '../app';
 import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from "../lazyLoader/index";
 
 // Import for internal use

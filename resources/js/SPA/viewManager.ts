@@ -1,7 +1,7 @@
 
 import { log, verbose } from '../utilities/logger';
 import { attachGlobalLinkClickHandler, removeGlobalHandlers } from './navigation/navigationRegistry';
-import { book, setCurrentBook } from "../app.js";
+import { book, setCurrentBook } from "../app";
 import { getCurrentUser, getAnonymousToken, initializeAuthBroadcastListener, initializeAuthStateListener } from "../utilities/auth/index";
 import { checkEditPermissionsAndUpdateUI } from "../components/editButton/index";
 

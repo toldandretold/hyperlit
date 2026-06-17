@@ -2,7 +2,7 @@
  * Database module - Handles IndexedDB operations for hyperlights
  */
 
-import { book } from '../app.js';
+import { book } from '../app';
 import { openDatabase, parseNodeId, createNodeChunksKey } from '../indexedDB/index';
 import { getAuthContextSync, getAuthContext } from '../utilities/auth/index';
 import type { BookId } from '../indexedDB/types';

@@ -1,4 +1,4 @@
-import { book } from '../app.js';
+import { book } from '../app';
 import { openDatabase } from '../indexedDB/index';
 import {
   clearBookDataFromIndexedDB,

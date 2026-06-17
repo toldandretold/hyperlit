@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1485 functions in 304 modules · 8 object stores · 6 PG tables · 2787 edges
+**MarkdownDB** schema v27 · 1487 functions in 305 modules · 8 object stores · 6 PG tables · 2789 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1057,6 +1057,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getLoadingChunkId` | `lazyLoader/utilities/chunkLoadingState` | — | — | — | — |
 | `isChunkLoadingInProgress` | `lazyLoader/utilities/chunkLoadingState` | — | — | — | — |
 | `setChunkLoadingInProgress` | `lazyLoader/utilities/chunkLoadingState` | — | — | — | — |
+| `selectNextChunkId` | `lazyLoader/utilities/chunkSelection` | — | — | — | — |
+| `selectPrevChunkId` | `lazyLoader/utilities/chunkSelection` | — | — | — | — |
 | `handleDeletedBookAccess` | `pageLoad/accessGuards` | — | — | read/write | — |
 | `handlePrivateBookAccessDenied` | `pageLoad/accessGuards` | — | — | read/write | — |
 | `backgroundDownloadRemainingChunks` | `pageLoad/backgroundDownload` | — | — | — | — |

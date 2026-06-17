@@ -1,6 +1,6 @@
 // BroadcastListener.js
 
-import { book } from "../app.js"; // current book identifier
+import { book } from "../app"; // current book identifier
 import { applyHypercites, applyHighlights } from "../lazyLoader/chunkRender";
 // attachUnderlineClickListeners loaded lazily at its one call site (cross-tab re-render) so this EAGER
 // utility doesn't statically pull the reader-only hypercites chunk into the eager bundle.

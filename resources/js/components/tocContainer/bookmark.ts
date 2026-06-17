@@ -2,7 +2,7 @@
 // reads the current scroll position, builds a dynamically-sized rotated SVG, and
 // inserts/positions it. Was the bookmark half of toc.js. openContainer (in ./index)
 // calls updateOrInsertBookmark + setInitialBookmarkPosition.
-import { book } from "../../app.js";
+import { book } from "../../app";
 import { getLocalStorageKey } from "../../indexedDB/index";
 
 /** Get current scroll position from localStorage (session, then local). */
@@ -19,8 +19,12 @@ function getCurrentScrollPosition(): number | null {
 
     if (savedPosition && savedPosition !== "0") {
       const parsed = JSON.parse(savedPosition);
-      if (parsed && parsed.elementId && /^\d+$/.test(parsed.elementId)) {
-        return parseInt(parsed.elementId);
+      // Allow decimals: node ids (and thus saved elementIds) can be fractional
+      // (150.5). The writer in lazyLoader stores them with /^\d+(\.\d+)?$/ — an
+      // integer-only regex here silently rejected them, so the whole bookmark
+      // failed to render whenever the reading position was on a decimal-id node.
+      if (parsed && parsed.elementId && /^\d+(\.\d+)?$/.test(parsed.elementId)) {
+        return parseFloat(parsed.elementId);
       }
     }
   } catch (e) {
@@ -120,14 +124,14 @@ export function updateOrInsertBookmark(container: any, tocData: any) {
     for (let i = 0; i < tocData.length; i++) {
       const item = tocData[i];
       const nextItem = tocData[i + 1];
-      const itemId = parseInt(item.id);
-      const nextItemId = nextItem ? parseInt(nextItem.id) : Infinity;
+      const itemId = parseFloat(item.id);
+      const nextItemId = nextItem ? parseFloat(nextItem.id) : Infinity;
       if (currentScrollPosition >= itemId && currentScrollPosition < nextItemId) {
         sectionItem = item;
         break;
       }
     }
-    if (currentScrollPosition >= parseInt(tocData[tocData.length - 1].id)) {
+    if (currentScrollPosition >= parseFloat(tocData[tocData.length - 1].id)) {
       sectionItem = tocData[tocData.length - 1];
     }
     currentSectionHeadingType = sectionItem.type;
@@ -154,7 +158,7 @@ export function updateOrInsertBookmark(container: any, tocData: any) {
     if (child.tagName === 'A') {
       const href = child.getAttribute('href');
       if (href) {
-        const id = parseInt(href.substring(1), 10);
+        const id = parseFloat(href.substring(1));
         if (!isNaN(id) && currentScrollPosition < id) {
           insertionRefNode = child;
           break;

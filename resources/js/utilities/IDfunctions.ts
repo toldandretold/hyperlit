@@ -2,7 +2,7 @@ import { updateIndexedDBRecordForNormalization } from "../indexedDB/index.js";
 import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB, clearPendingSyncsForBook, pendingSyncs, openDatabase } from "../indexedDB/index.js";
 import { executeSyncPayload, updateHistoryLog, debouncedMasterSync } from "../indexedDB/syncQueue/master.js";
 import { currentLazyLoader } from "../pageLoad/index";
-import { book } from "../app.js";
+import { book } from "../app";
 import { glowCloudGreen, glowCloudRed, glowCloudLocalSave } from "../components/cloudRef/editIndicator";
 import { ProgressOverlayConductor } from "../SPA/navigation/ProgressOverlayConductor.js";
 import { verbose } from './logger';

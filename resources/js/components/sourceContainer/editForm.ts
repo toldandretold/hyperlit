@@ -6,7 +6,7 @@
 // is the single dispatch hub, so peer calls go through `self.*`.
 import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from '../../indexedDB/index';
 import { generateBibtexFromForm } from '../../utilities/bibtexProcessor';
-import { book } from '../../app.js';
+import { book } from '../../app';
 import { canUserEditBook } from '../../utilities/auth/index';
 import { getRecord } from './helpers';
 import { buildSourceHtml } from './buildSourceHtml';

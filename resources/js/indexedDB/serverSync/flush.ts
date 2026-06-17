@@ -28,24 +28,24 @@ export async function flushAllPendingEdits(): Promise<void> {
   try {
     const { flushPendingFootnoteSaves } = await import('../../footnotes/footnoteAnnotations');
     flushPendingFootnoteSaves();
-  } catch (e: any) {
-    verbose.content(`Footnote flush skipped: ${e.message}`, 'serverSync/flush');
+  } catch (e) {
+    verbose.content(`Footnote flush skipped: ${(e as Error).message}`, 'serverSync/flush');
   }
 
   // 2. Flush input debounce (200ms timer)
   try {
     const { flushInputDebounce } = await import('../../divEditor/index');
     flushInputDebounce();
-  } catch (e: any) {
-    verbose.content(`Input debounce flush skipped: ${e.message}`, 'serverSync/flush');
+  } catch (e) {
+    verbose.content(`Input debounce flush skipped: ${(e as Error).message}`, 'serverSync/flush');
   }
 
   // 3. Flush SaveQueue → IndexedDB (1.5s timer)
   try {
     const { flushAllPendingSaves } = await import('../../divEditor/index');
     await flushAllPendingSaves();
-  } catch (e: any) {
-    verbose.content(`SaveQueue flush skipped: ${e.message}`, 'serverSync/flush');
+  } catch (e) {
+    verbose.content(`SaveQueue flush skipped: ${(e as Error).message}`, 'serverSync/flush');
   }
 
   // 4. Flush masterSync → server (3s timer) with 5s timeout
@@ -55,8 +55,8 @@ export async function flushAllPendingEdits(): Promise<void> {
       debouncedMasterSync.flush(),
       new Promise<void>((resolve) => setTimeout(resolve, 5000)),
     ]);
-  } catch (e: any) {
-    verbose.content(`masterSync flush skipped: ${e.message}`, 'serverSync/flush');
+  } catch (e) {
+    verbose.content(`masterSync flush skipped: ${(e as Error).message}`, 'serverSync/flush');
   }
 
   verbose.content('Pending edits flushed', 'serverSync/flush');

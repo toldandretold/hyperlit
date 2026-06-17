@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1485,
-    "moduleCount": 304,
+    "fnCount": 1487,
+    "moduleCount": 305,
     "storeCount": 8,
     "tableCount": 6,
-    "edgeCount": 2787,
+    "edgeCount": 2789,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -8529,6 +8529,22 @@
       "leaf": true
     },
     {
+      "id": "lazyLoader/utilities/chunkSelection:selectNextChunkId",
+      "label": "selectNextChunkId",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/utilities/chunkSelection",
+      "leaf": true
+    },
+    {
+      "id": "lazyLoader/utilities/chunkSelection:selectPrevChunkId",
+      "label": "selectPrevChunkId",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/utilities/chunkSelection",
+      "leaf": true
+    },
+    {
       "id": "pageLoad/accessGuards:handleDeletedBookAccess",
       "label": "handleDeletedBookAccess",
       "kind": "fn",
@@ -14845,6 +14861,16 @@
         "lazyLoader/utilities/chunkLoadingState:getLoadingChunkId",
         "lazyLoader/utilities/chunkLoadingState:isChunkLoadingInProgress",
         "lazyLoader/utilities/chunkLoadingState:setChunkLoadingInProgress"
+      ]
+    },
+    {
+      "id": "lazyLoader/utilities/chunkSelection",
+      "label": "lazyLoader/utilities/chunkSelection",
+      "stage": "lazyLoader",
+      "band": "store",
+      "fnIds": [
+        "lazyLoader/utilities/chunkSelection:selectNextChunkId",
+        "lazyLoader/utilities/chunkSelection:selectPrevChunkId"
       ]
     },
     {
@@ -29062,6 +29088,12 @@
       "rel": "call"
     },
     {
+      "id": "lazyLoader/index:loadNextChunkFixed__call__lazyLoader/utilities/chunkSelection:selectNextChunkId",
+      "source": "lazyLoader/index:loadNextChunkFixed",
+      "target": "lazyLoader/utilities/chunkSelection:selectNextChunkId",
+      "rel": "call"
+    },
+    {
       "id": "lazyLoader/index:loadNextChunkFixed__domwrite__dom",
       "source": "lazyLoader/index:loadNextChunkFixed",
       "target": "dom",
@@ -29116,6 +29148,12 @@
       "id": "lazyLoader/index:loadPreviousChunkFixed__call__lazyLoader/utilities/chunkLoadingState:setChunkLoadingInProgress",
       "source": "lazyLoader/index:loadPreviousChunkFixed",
       "target": "lazyLoader/utilities/chunkLoadingState:setChunkLoadingInProgress",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:loadPreviousChunkFixed__call__lazyLoader/utilities/chunkSelection:selectPrevChunkId",
+      "source": "lazyLoader/index:loadPreviousChunkFixed",
+      "target": "lazyLoader/utilities/chunkSelection:selectPrevChunkId",
       "rel": "call"
     },
     {
@@ -36845,6 +36883,11 @@
     {
       "source": "lazyLoader/index",
       "target": "lazyLoader/utilities/chunkLoadingState",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/index",
+      "target": "lazyLoader/utilities/chunkSelection",
       "kind": "static"
     },
     {

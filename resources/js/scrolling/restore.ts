@@ -7,7 +7,7 @@
  * which imports scrolling back) to keep this folder's static graph acyclic.
  */
 import { verbose } from '../utilities/logger';
-import { book, OpenHyperlightID, OpenFootnoteID } from '../app.js';
+import { book, OpenHyperlightID, OpenFootnoteID } from '../app';
 import { getNodeChunksFromIndexedDB, getLocalStorageKey } from '../indexedDB/index.js';
 import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
 import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from '../utilities/operationState';

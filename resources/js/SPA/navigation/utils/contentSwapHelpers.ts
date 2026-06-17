@@ -7,7 +7,7 @@ import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { showNavigationLoading, hideNavigationLoading, navigateToInternalId } from '../../../scrolling/index';
 import { destroyHomepageDisplayUnit, initializeHomepageButtons, fixHeaderSpacing } from '../../../components/homepage/homepageDisplayUnit';
 import { destroyUserProfileEditor, initializeUserProfileEditor } from '../../../components/userProfile/userProfileEditor';
-import { setCurrentBook, setCurrentBookSlug } from '../../../app.js';
+import { setCurrentBook, setCurrentBookSlug } from '../../../app';
 import { updateDatabaseBookId } from '../../../indexedDB/index';
 import { resetCurrentLazyLoader, currentLazyLoader } from '../../../pageLoad/index';
 // ✅ REMOVED: togglePerimeterButtons now managed by ButtonRegistry

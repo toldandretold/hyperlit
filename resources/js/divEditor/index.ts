@@ -1,4 +1,4 @@
-import { book } from "../app.js";
+import { book } from "../app";
 import { getCurrentUserId } from "../utilities/auth/index";
 import { registerPendingEditFlush } from "../utilities/pendingEditsRegistry";
 import {

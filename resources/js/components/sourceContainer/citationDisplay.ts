@@ -3,7 +3,7 @@
 // #privacy-toggle button (public ⇄ private), persisting the change to
 // IndexedDB and the backend. Takes the SourceContainerManager as `self`.
 import { openDatabase } from '../../indexedDB/index';
-import { book } from '../../app.js';
+import { book } from '../../app';
 import { clearEditPermissionCache } from '../../utilities/auth/index';
 import { getRecord, PUBLIC_SVG, PRIVATE_SVG } from './helpers';
 

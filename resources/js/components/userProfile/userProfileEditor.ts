@@ -1,6 +1,6 @@
 import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from '../../indexedDB/index';
 import { canUserEditBook } from "../../utilities/auth/index";
-import { book } from '../../app.js';
+import { book } from '../../app';
 import { fixHeaderSpacing } from '../homepage/homepageDisplayUnit';
 
 let titleDebounceTimer: any = null;

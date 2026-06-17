@@ -78,7 +78,7 @@ export {
 // LOCAL IMPORTS
 // ============================================================================
 
-import { book } from '../app.js';
+import { book } from '../app';
 import { resetSubBookState, restoreSubBookState, saveSubBookState } from './subBookActions';
 import { clearActiveBook } from './utilities/activeContext';
 import { openDatabase } from '../indexedDB/index';

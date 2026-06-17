@@ -1,5 +1,5 @@
 // import { processFootnotes} from './footnotes.js';
-import { book } from '../app.js';
+import { book } from '../app';
 
 /**
  * Converts the raw markdown into pre-rendered HTML,

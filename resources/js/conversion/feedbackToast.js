@@ -15,6 +15,7 @@
  */
 
 import { getRecentLogs } from '../integrity/logCapture';
+import { setVibeReviewMarker, clearVibeReviewMarker } from './vibeReviewMarker';
 
 const TOAST_ID = 'conversion-feedback-toast';
 
@@ -418,6 +419,9 @@ async function startVibeConvert(toast, { bookId, note, issueTypes }) {
     },
     onEmailMe: () => {
       stopped = true;
+      // The job keeps running server-side and writes vibe_review.json when done; mark intent so the
+      // on-load check surfaces the Keep/Revert toast when the user returns to this book later.
+      setVibeReviewMarker(book);
       post(`/api/vibe-convert/notify/${encodeURIComponent(book)}`);
       renderVibeEnd(toast, "Got it — we'll email you when it's done. You can close this.");
     },
@@ -486,6 +490,9 @@ async function startVibeConvert(toast, { bookId, note, issueTypes }) {
       renderVibeEnd(toast, 'A vibe fix was found but could not be applied to your book.');
       return;
     }
+    // Mark intent BEFORE reloading: the reload destroys this toast, so the on-load check
+    // (gated on this marker) is what re-surfaces the Keep/Revert toast post-reload.
+    setVibeReviewMarker(book);
     renderVibeEnd(toast, 'Applied — reloading to show you the new conversion…');
     setTimeout(() => location.reload(), 600);
   } else {
@@ -521,7 +528,8 @@ export async function checkPendingVibeReview(bookId) {
     if (!r.ok) return;
     data = await r.json();
   } catch { return; }
-  if (!data || data.status === 'none') return;
+  // Resolved (or the marker was stale and the file is already gone) → stop asking on future loads.
+  if (!data || data.status === 'none') { clearVibeReviewMarker(bookId); return; }
 
   hideConversionFeedbackToast();
   const toast = document.createElement('div');
@@ -574,6 +582,7 @@ function renderVibeReviewToast(toast, { bookId, tier, before, after, caveat }) {
         method: 'POST', credentials: 'include', headers: { 'X-CSRF-TOKEN': csrfToken() },
       });
     } catch {}
+    clearVibeReviewMarker(bookId);
     hideConversionFeedbackToast();
   });
 
@@ -588,6 +597,7 @@ function renderVibeReviewToast(toast, { bookId, tier, before, after, caveat }) {
         method: 'POST', credentials: 'include', headers: { 'X-CSRF-TOKEN': csrfToken() },
       });
       if (r.ok) {
+        clearVibeReviewMarker(bookId);
         renderVibeEnd(toast, 'Reverted to the original — reloading…');
         setTimeout(() => location.reload(), 800);
       } else {

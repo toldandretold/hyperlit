@@ -118,7 +118,7 @@ export default defineConfig({
                 // legacy entries, which forced each into its own entry chunk and made rollup IGNORE
                 // manualChunks for them — defeating lazy-splitting. They're reached via imports now,
                 // so rollup chunks + code-splits them properly. Keep this list = the blade entries.
-                'resources/js/app.js',                                       // layouts/{app,guest}.blade
+                'resources/js/app.ts',                                       // layouts/{app,guest}.blade
                 'resources/js/components/utilities/containerCustomization.ts',// reader.blade
                 'resources/js/pageLoad/readerEntry.ts',                      // reader/home/user.blade
 

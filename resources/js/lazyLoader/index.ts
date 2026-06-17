@@ -21,6 +21,7 @@ import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScroll
 import { scrollElementIntoMainContent } from "../scrolling/index";
 import { handleContentLinkClick } from '../utilities/linkClickRegistry';
 import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState';
+import { selectNextChunkId, selectPrevChunkId } from './utilities/chunkSelection';
 import { restoreScrollAnchor } from '../utilities/scrollAnchor';
 import {
   createChunkElement,
@@ -326,7 +327,9 @@ export function createLazyLoader(config: any) {
 
           // Save to server (debounced) for cross-device resume
           const chunkEl = topVisible.closest('[data-chunk-id]');
-          const chunkId = chunkEl ? parseInt(chunkEl.getAttribute('data-chunk-id')!, 10) : 0;
+          // parseFloat, NOT parseInt: chunk_id can be a decimal, and this value
+          // decides which chunk to load on resume — truncating lands on the wrong chunk.
+          const chunkId = chunkEl ? parseFloat(chunkEl.getAttribute('data-chunk-id')!) : 0;
           import('../scrolling/readingPosition').then(({ debouncedServerSave }) => {
             debouncedServerSave(instance.bookId, detectedId, chunkId);
           }).catch(() => {}); // Best-effort
@@ -367,7 +370,9 @@ export function createLazyLoader(config: any) {
           // Find chunk_id from DOM
           const el = document.getElementById(scrollData.elementId);
           const chunkEl = el?.closest('[data-chunk-id]');
-          const chunkId = chunkEl ? parseInt(chunkEl.getAttribute('data-chunk-id')!, 10) : 0;
+          // parseFloat, NOT parseInt: chunk_id can be a decimal, and this value
+          // decides which chunk to load on resume — truncating lands on the wrong chunk.
+          const chunkId = chunkEl ? parseFloat(chunkEl.getAttribute('data-chunk-id')!) : 0;
           import('../scrolling/readingPosition').then(({ sendBeaconSave }) => {
             sendBeaconSave(instance.bookId, scrollData.elementId, chunkId);
           }).catch(() => {});
@@ -922,23 +927,10 @@ export async function loadNextChunkFixed(currentLastChunkId: any, instance: any)
   const currentId = parseFloat(currentLastChunkId);
   verbose.debug(`loadNextChunkFixed called with currentLastChunkId: ${currentId}`, 'lazyLoaderFactory.js');
 
-  let nextChunkId = null;
+  // Decimal-aware: next = next manifest entry, or smallest chunk_id > current.
+  // See lazyLoader/utilities/chunkSelection (pinned by chunkSelection.test.js).
   let nextNodes = [];
-
-  // Use chunk manifest for discovery when available (chunked lazy loading)
-  if (instance.chunkManifest) {
-    const idx = instance.chunkManifest.findIndex((m: any) => m.chunk_id === currentId);
-    nextChunkId = (idx >= 0 && idx < instance.chunkManifest.length - 1)
-      ? instance.chunkManifest[idx + 1].chunk_id : null;
-  } else {
-    // Fallback: scan all nodes (when fully loaded)
-    for (const node of instance.nodes) {
-      const nodeChunkId = parseFloat(node.chunk_id);
-      if (nodeChunkId > currentId && (nextChunkId === null || nodeChunkId < nextChunkId)) {
-        nextChunkId = nodeChunkId;
-      }
-    }
-  }
+  const nextChunkId = selectNextChunkId(instance.chunkManifest, instance.nodes, currentId);
 
   verbose.debug(`Found next chunk ID: ${nextChunkId} (searched ${instance.nodes.length} nodes)`, 'lazyLoaderFactory.js');
 
@@ -1012,23 +1004,10 @@ export async function loadPreviousChunkFixed(currentFirstChunkId: any, instance:
 
   const currentId = parseFloat(currentFirstChunkId);
 
-  let prevChunkId = null;
+  // Decimal-aware: prev = previous manifest entry, or largest chunk_id < current.
+  // See lazyLoader/utilities/chunkSelection (pinned by chunkSelection.test.js).
   let prevNodes = [];
-
-  // Use chunk manifest for discovery when available (chunked lazy loading)
-  if (instance.chunkManifest) {
-    const idx = instance.chunkManifest.findIndex((m: any) => m.chunk_id === currentId);
-    prevChunkId = (idx >= 0 && idx > 0)
-      ? instance.chunkManifest[idx - 1].chunk_id : null;
-  } else {
-    // Fallback: scan all nodes (when fully loaded)
-    for (const node of instance.nodes) {
-      const nodeChunkId = parseFloat(node.chunk_id);
-      if (nodeChunkId < currentId && (prevChunkId === null || nodeChunkId > prevChunkId)) {
-        prevChunkId = nodeChunkId;
-      }
-    }
-  }
+  const prevChunkId = selectPrevChunkId(instance.chunkManifest, instance.nodes, currentId);
 
   if (prevChunkId !== null) {
     if (instance.container.querySelector(`[data-chunk-id="${prevChunkId}"]`)) {

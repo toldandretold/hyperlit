@@ -6,7 +6,7 @@
  * pushes a new layer on top instead of replacing it.
  */
 
-import { book } from '../app.js';
+import { book } from '../app';
 import { destroySubBook, restoreSubBookState } from './subBookActions';
 import { flushPendingEdits } from '../utilities/pendingEditsRegistry';
 

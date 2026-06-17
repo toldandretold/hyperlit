@@ -3,7 +3,7 @@
 // background job; _awaitReconvert polls progress, shows the footnote-audit
 // modal if needed, clears stale IDB content, and reloads. Shared by the
 // re-upload path (which also calls self._awaitReconvert). Takes `self`.
-import { book } from '../../../app.js';
+import { book } from '../../../app';
 import { pollImportProgress, showFootnoteAuditModal } from '../../../SPA/navigation/navigationRegistry';
 
 export async function loadReconvertInfo(self: any) {

@@ -22,11 +22,12 @@ import {
   loadHypercitesToIndexedDB,
   loadLibraryToIndexedDB,
 } from './loaders';
+import type { BookDataResponse, AnnotationsResponse, PullResult } from './types';
 
 /**
  * Sync complete book data from Laravel API to IndexedDB
  */
-export async function syncBookDataFromDatabase(bookId: string): Promise<any> {
+export async function syncBookDataFromDatabase(bookId: string): Promise<PullResult> {
   verbose.content(`Starting database sync for: ${bookId}`, 'serverSync/pull');
 
   try {
@@ -47,7 +48,7 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<any> {
 
       // 🗑️ Handle deleted book
       if (response.status === 410) {
-        const errorData = await response.json();
+        const errorData = await response.json() as BookDataResponse;
         verbose.content(`Book "${bookId}" has been deleted`, 'serverSync/pull');
 
         if (errorData.error === 'book_deleted') {
@@ -59,7 +60,7 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<any> {
 
       // 🔒 Handle private book access denied
       if (response.status === 403) {
-        const errorData = await response.json();
+        const errorData = await response.json() as BookDataResponse;
         verbose.content(`Access denied to book "${bookId}"`, 'serverSync/pull');
 
         if (errorData.error === 'access_denied') {
@@ -79,7 +80,7 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<any> {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as BookDataResponse;
     verbose.content(`Data received: ${data.nodes?.length || 0} nodes, ${data.hyperlights?.length || 0} highlights`, 'serverSync/pull');
 
     // 2. Open IndexedDB
@@ -132,15 +133,16 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<any> {
       }
     };
 
-  } catch (error: any) {
+  } catch (error) {
+    const err = error as Error;
     console.error("❌ Database sync failed:", {
       bookId,
-      error: error.message,
-      stack: error.stack
+      error: err.message,
+      stack: err.stack
     });
     return {
       success: false,
-      error: error.message,
+      error: err.message,
       reason: 'sync_error'
     };
   }
@@ -150,7 +152,7 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<any> {
  * Sync only annotations (hyperlights/hypercites) from Laravel API to IndexedDB.
  * Used when only annotations have changed, not book content (nodes).
  */
-export async function syncAnnotationsOnly(bookId: string): Promise<any> {
+export async function syncAnnotationsOnly(bookId: string): Promise<PullResult> {
   verbose.content(`Starting annotations-only sync for: ${bookId}`, 'serverSync/pull');
 
   try {
@@ -164,7 +166,7 @@ export async function syncAnnotationsOnly(bookId: string): Promise<any> {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as AnnotationsResponse;
     verbose.content(`Annotations received: ${data.hyperlights?.length || 0} highlights, ${data.hypercites?.length || 0} hypercites`, 'serverSync/pull');
 
     // 2. Open IndexedDB
@@ -205,15 +207,16 @@ export async function syncAnnotationsOnly(bookId: string): Promise<any> {
       }
     };
 
-  } catch (error: any) {
+  } catch (error) {
+    const err = error as Error;
     console.error("❌ Annotations sync failed:", {
       bookId,
-      error: error.message,
-      stack: error.stack
+      error: err.message,
+      stack: err.stack
     });
     return {
       success: false,
-      error: error.message,
+      error: err.message,
       reason: 'sync_error'
     };
   }

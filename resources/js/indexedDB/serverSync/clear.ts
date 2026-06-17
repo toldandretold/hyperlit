@@ -6,6 +6,7 @@
  * resources/js/postgreSQL.js.
  */
 import { verbose } from '../../utilities/logger';
+import type { ServerHyperlightRow, ServerHyperciteRow } from './types';
 
 /**
  * Clear only annotations (hyperlights/hypercites) from IndexedDB for a specific book.
@@ -24,8 +25,8 @@ export async function clearAnnotationsFromIndexedDB(db: IDBDatabase, bookId: str
       const request = index.openCursor(IDBKeyRange.only(bookId));
 
       await new Promise<void>((resolve, reject) => {
-        request.onsuccess = (event: any) => {
-          const cursor = event.target.result;
+        request.onsuccess = () => {
+          const cursor = request.result;
           if (cursor) {
             cursor.delete();
             cursor.continue();
@@ -35,8 +36,8 @@ export async function clearAnnotationsFromIndexedDB(db: IDBDatabase, bookId: str
         };
         request.onerror = () => reject(request.error);
       });
-    } catch (e: any) {
-      verbose.content(`Error clearing ${storeName}: ${e.message}`, 'serverSync/clear');
+    } catch (e) {
+      verbose.content(`Error clearing ${storeName}: ${(e as Error).message}`, 'serverSync/clear');
     }
   }
 }
@@ -54,25 +55,25 @@ export async function clearAnnotationsFromIndexedDB(db: IDBDatabase, bookId: str
 export async function updateEmbeddedAnnotationsInNodes(
   db: IDBDatabase,
   bookId: string,
-  hyperlights: any[],
-  hypercites: any[],
+  hyperlights: ServerHyperlightRow[] | undefined,
+  hypercites: ServerHyperciteRow[] | undefined,
 ): Promise<void> {
   // Build lookup maps: node_id -> array of hyperlights/hypercites for that node
-  const hyperlightsByNodeId = new Map<string, any[]>();
-  const hypercitesByNodeId = new Map<string, any[]>();
+  const hyperlightsByNodeId = new Map<string, unknown[]>();
+  const hypercitesByNodeId = new Map<string, unknown[]>();
 
   // Process hyperlights - each can span multiple nodes
   if (hyperlights && hyperlights.length > 0) {
     for (const hl of hyperlights) {
       // node_id is an array of node IDs this highlight spans
       const nodeIds = Array.isArray(hl.node_id) ? hl.node_id : [hl.node_id];
-      const charData = hl.charData || {};
+      const charData: Record<string, { charStart?: number; charEnd?: number }> = hl.charData || {};
 
       for (const nodeId of nodeIds) {
         if (!nodeId) continue;
 
         // Get the char data specific to this node
-        const nodeCharData = charData[nodeId] || {};
+        const nodeCharData: { charStart?: number; charEnd?: number } = charData[nodeId] || {};
 
         // Create node-specific highlight entry (format expected by applyHighlights)
         const nodeHighlight = {
@@ -98,13 +99,13 @@ export async function updateEmbeddedAnnotationsInNodes(
     for (const hc of hypercites) {
       // node_id is an array of node IDs this hypercite spans
       const nodeIds = Array.isArray(hc.node_id) ? hc.node_id : [hc.node_id];
-      const charData = hc.charData || {};
+      const charData: Record<string, { charStart?: number; charEnd?: number }> = hc.charData || {};
 
       for (const nodeId of nodeIds) {
         if (!nodeId) continue;
 
         // Get the char data specific to this node
-        const nodeCharData = charData[nodeId] || {};
+        const nodeCharData: { charStart?: number; charEnd?: number } = charData[nodeId] || {};
 
         // Create node-specific hypercite entry
         const nodeHypercite = {
@@ -132,7 +133,13 @@ export async function updateEmbeddedAnnotationsInNodes(
   const readStore = readTx.objectStore('nodes');
   const index = readStore.index('book');
 
-  const localNodes = await new Promise<any[]>((resolve, reject) => {
+  // Stored node record, viewed through just the fields this embed-rebuild touches.
+  // (The embedded annotation format here keys on `hyperlight_id`, which differs
+  // from the rendered NodeHyperlightView shape, so a minimal local view is the
+  // honest type rather than NodeRecord.)
+  type EmbedTargetNode = { node_id?: string; hyperlights?: unknown; hypercites?: unknown };
+
+  const localNodes = await new Promise<EmbedTargetNode[]>((resolve, reject) => {
     const request = index.getAll(IDBKeyRange.only(bookId));
     request.onsuccess = () => resolve(request.result || []);
     request.onerror = () => reject(request.error);
@@ -142,9 +149,9 @@ export async function updateEmbeddedAnnotationsInNodes(
 
   // Update nodes with fresh embedded annotations
   // Process in memory first, then write in a single batch
-  const updatedNodes = localNodes.map((localNode: any) => {
-    const nodeHighlights = hyperlightsByNodeId.get(localNode.node_id) || [];
-    const nodeHypercites = hypercitesByNodeId.get(localNode.node_id) || [];
+  const updatedNodes = localNodes.map((localNode) => {
+    const nodeHighlights = hyperlightsByNodeId.get(localNode.node_id || '') || [];
+    const nodeHypercites = hypercitesByNodeId.get(localNode.node_id || '') || [];
 
     // Update embedded annotations (always update, even if empty - clears deleted highlights)
     localNode.hyperlights = nodeHighlights;

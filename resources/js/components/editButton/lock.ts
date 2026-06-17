@@ -3,7 +3,7 @@
 // check that drives both. Was the lock/permission half of editButton.js. The one
 // back-edge — restoreEditButtonFromLock re-wiring the listeners — uses a dynamic
 // import('./index') so there's no static cycle with the controller.
-import { book } from "../../app.js";
+import { book } from "../../app";
 import { log, verbose } from "../../utilities/logger";
 import { getCurrentUser, canUserEditBook } from "../../utilities/auth/index";
 

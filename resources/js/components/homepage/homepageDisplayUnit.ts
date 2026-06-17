@@ -1,4 +1,4 @@
-import { setCurrentBook } from '../../app.js';
+import { setCurrentBook } from '../../app';
 import { showNavigationLoading, hideNavigationLoading } from '../../scrolling/index';
 import { log, verbose } from '../../utilities/logger';
 import { getAllOfflineAvailableBooks } from '../../indexedDB/index';

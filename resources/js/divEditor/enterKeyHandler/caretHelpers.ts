@@ -3,7 +3,7 @@
  * "create a new paragraph after this block" routine. Extracted from
  * enterKeyHandler.js (module-level functions; no `this`).
  */
-import { book } from '../../app.js';
+import { book } from '../../app';
 import { ensureNodeHasValidId, setElementIds } from '../../utilities/idHelpers';
 import { queueNodeForSave } from '../editorState';
 import { verbose } from '../../utilities/logger';

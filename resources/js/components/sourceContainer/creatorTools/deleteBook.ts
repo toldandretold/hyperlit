@@ -1,7 +1,7 @@
 // Delete-book section (#delete-book-btn) inside Creator Tools: double-confirm,
 // refresh CSRF, DELETE on the server first, then remove from IndexedDB and
 // redirect to the owner's home. Takes the SourceContainerManager as `self`.
-import { book } from '../../../app.js';
+import { book } from '../../../app';
 import { canUserEditBook, getAuthContextSync } from '../../../utilities/auth/index';
 
 export async function handleDeleteBook(self: any) {
