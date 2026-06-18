@@ -1633,7 +1633,10 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/buildSourceHtml",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "components/sourceContainer/citationDisplay:handlePrivacyToggle",
@@ -1641,7 +1644,10 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/citationDisplay",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "components/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
@@ -1769,7 +1775,10 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/editForm",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "components/sourceContainer/editForm:hideEditForm",
@@ -1809,7 +1818,10 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/editForm",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "components/sourceContainer/editForm:setupEditFormListeners",
@@ -1841,7 +1853,10 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/editForm",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "components/sourceContainer/editForm:validateUrl",
@@ -3878,12 +3893,16 @@
         "author",
         "bibtex",
         "book",
+        "booktitle",
+        "chapter",
         "creator",
         "custom_license_text",
+        "editor",
         "fileName",
         "fileType",
         "gate_defaults",
         "is_owner",
+        "issue",
         "journal",
         "license",
         "listed",
@@ -3897,6 +3916,7 @@
         "type",
         "url",
         "visibility",
+        "volume",
         "year"
       ]
     },
@@ -4135,12 +4155,16 @@
         "author",
         "bibtex",
         "book",
+        "booktitle",
+        "chapter",
         "creator",
         "custom_license_text",
+        "editor",
         "fileName",
         "fileType",
         "gate_defaults",
         "is_owner",
+        "issue",
         "journal",
         "license",
         "listed",
@@ -4154,6 +4178,7 @@
         "type",
         "url",
         "visibility",
+        "volume",
         "year"
       ]
     },
@@ -4401,6 +4426,7 @@
         "library"
       ],
       "shape": [
+        "annotations_updated_at",
         "author",
         "bibtex",
         "book",
@@ -4409,11 +4435,14 @@
         "created_at",
         "creator",
         "creator_token",
+        "custom_license_text",
         "editor",
         "fileName",
         "fileType",
+        "gate_defaults",
         "issue",
         "journal",
+        "license",
         "note",
         "pages",
         "publisher",
@@ -8673,7 +8702,10 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/core/library",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "indexedDB/core/library:getAllOfflineAvailableBooks",
@@ -8681,7 +8713,10 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/core/library",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "indexedDB/core/library:getLibraryObjectFromIndexedDB",
@@ -8689,7 +8724,10 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/core/library",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "indexedDB/core/library:getLibraryRecordFromServer",
@@ -8697,7 +8735,10 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/core/library",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "indexedDB/core/library:initLibraryDependencies",
@@ -8713,7 +8754,11 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/core/library",
-      "leaf": true
+      "leaf": true,
+      "types": [
+        "LibraryRecord",
+        "ServerLibraryRow"
+      ]
     },
     {
       "id": "indexedDB/core/library:syncFirstNodeToTitle",
@@ -8721,7 +8766,10 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/core/library",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "indexedDB/core/library:updateAnnotationsTimestamp",
@@ -8729,7 +8777,10 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/core/library",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "indexedDB/core/library:updateBookTimestamp",
@@ -8737,7 +8788,10 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/core/library",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "indexedDB/core/library:updateLocalAnnotationsTimestamp",
@@ -8745,7 +8799,10 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/core/library",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "indexedDB/core/recoveryToast:hideIDBRecoveryToast",
@@ -9283,7 +9340,10 @@
       "kind": "fn",
       "stage": "serverSync",
       "module": "indexedDB/serverSync/loaders",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "ServerLibraryRow"
+      ]
     },
     {
       "id": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
@@ -11148,7 +11208,11 @@
     {
       "id": "pg:library",
       "label": "library",
-      "kind": "table"
+      "kind": "table",
+      "types": [
+        "LibraryRecord",
+        "ServerLibraryRow"
+      ]
     },
     {
       "id": "pg:nodes",

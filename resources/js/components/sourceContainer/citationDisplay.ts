@@ -3,6 +3,7 @@
 // #privacy-toggle button (public ⇄ private), persisting the change to
 // IndexedDB and the backend. Takes the SourceContainerManager as `self`.
 import { openDatabase } from '../../indexedDB/index';
+import type { LibraryRecord } from '../../indexedDB/types';
 import { book } from '../../app';
 import { clearEditPermissionCache } from '../../utilities/auth/index';
 import { getRecord, PUBLIC_SVG, PRIVATE_SVG } from './helpers';
@@ -22,7 +23,7 @@ export async function handlePrivacyToggle(self: any) {
   try {
     // Get library record
     const db = await openDatabase();
-    const record = await getRecord(db, "library", book);
+    const record: LibraryRecord | null = await getRecord(db, "library", book);
 
     if (!record) {
       alert("Library record not found.");
@@ -33,9 +34,11 @@ export async function handlePrivacyToggle(self: any) {
     const newVisibility = isCurrentlyPrivate ? 'public' : 'private';
     record.visibility = newVisibility;
 
-    // Keep raw_json in sync with top-level visibility
+    // Keep raw_json in sync with top-level visibility. TODO(raw_json phase-out): raw_json is the
+    // @deprecated denormalized copy slated for removal — DELETE this whole block once it's gone (no
+    // new readers). Cast for now rather than typing raw_json's fields.
     if (record.raw_json && typeof record.raw_json === 'object') {
-      record.raw_json.visibility = newVisibility;
+      (record.raw_json as { visibility?: string }).visibility = newVisibility;
     }
 
     // Save to IndexedDB - properly wait for the transaction to complete

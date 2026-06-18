@@ -166,14 +166,62 @@ export interface BibliographyRecord {
   [key: string]: unknown;
 }
 
-/** A row in the `library` store. Key: book. TODO: tighten. */
+/**
+ * The book creator's default annotation-gate flags, stored on `library.gate_defaults`
+ * (jsonb). Mirrors the `custom` object of the gate filter (applyGateFilters /
+ * getGatePreferences in DatabaseToIndexedDBController) — the per-book defaults a
+ * reader inherits unless they override them.
+ */
+export interface GateDefaults {
+  hideAI?: boolean;
+  hideAnonymous?: boolean;
+  hideNoAnnotation?: boolean;
+}
+
+/**
+ * A row in the `library` store. Key: book. One book's bibliographic + display
+ * metadata — loaded from DatabaseToIndexedDBController::getLibrary (→ ServerLibraryRow)
+ * and saved back via DbLibraryController::upsert / bulkCreate.
+ *
+ * Pinned alongside serverSync's ServerLibraryRow; the two MUST agree on the wire
+ * fields. Traced by the `library` type lens (visualisation TABLE_TYPES.library).
+ */
 export interface LibraryRecord {
   book: BookId;
+  title?: string | null;
+  author?: string | null;
+  bibtex?: string | null;
+  fileName?: string | null;
+  fileType?: string | null;
+  journal?: string | null;
+  note?: string | null;
+  pages?: string | null;
+  publisher?: string | null;
+  school?: string | null;
+  type?: string | null;
+  url?: string | null;
+  year?: string | null;
+  creator?: string | null;
+  /** ms epoch — publication/edit time. Never null in store: set to now() on load if missing. */
   timestamp?: number;
-  title?: string;
-  description?: string;
-  tags?: string[];
-  [key: string]: unknown;
+  /** ms epoch of the last hyperlight/hypercite change (drives annotation-only sync). */
+  annotations_updated_at?: number;
+  visibility?: 'public' | 'private' | 'deleted';
+  listed?: boolean;
+  license?: string | null;
+  custom_license_text?: string | null;
+  gate_defaults?: GateDefaults | null;
+  /** Server-computed ownership flag — present on LOAD, never sent on save. */
+  is_owner?: boolean;
+  /** Bibliographic sub-fields — round-trip both ways (getLibrary returns them, upsert writes them). */
+  volume?: string | null;
+  issue?: string | null;
+  booktitle?: string | null;
+  chapter?: string | null;
+  editor?: string | null;
+  /** @deprecated Denormalized JSON copy (mirrors the top-level fields). Slated for
+   *  removal; readers forward it, they don't dig in. Do not add new readers. */
+  raw_json?: unknown;
 }
 
 // ── sync queue / history log ────────────────────────────────────────

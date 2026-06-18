@@ -41,7 +41,7 @@ export interface SyncPayloadInput {
     hyperlights?: SyncRecordData[];
     footnotes?: SyncRecordData[];
     bibliography?: SyncRecordData[];
-    library?: SyncRecordData | null;
+    library?: LibraryRecord | null;
   };
   deletions: {
     nodes: SyncRecordData[];
@@ -137,7 +137,7 @@ interface UnifiedSyncPayload {
   footnoteDeletions: SyncRecordData[];
   bibliography: SyncRecordData[];
   bibliographyDeletions: SyncRecordData[];
-  library: SyncRecordData | null;
+  library: LibraryRecord | null;
 }
 
 export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Record<string, unknown>> {
@@ -360,7 +360,7 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
       book: BookId;
       updates: {
         nodes: NodeRecord[]; hypercites: SyncRecordData[]; hyperlights: SyncRecordData[];
-        footnotes: SyncRecordData[]; bibliography: SyncRecordData[]; library: SyncRecordData | null;
+        footnotes: SyncRecordData[]; bibliography: SyncRecordData[]; library: LibraryRecord | null;
       };
       deletions: {
         nodes: Array<SyncRecordData & { _action?: 'delete' | 'hide' }>;

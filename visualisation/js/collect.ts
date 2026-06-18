@@ -134,6 +134,8 @@ const ENDPOINT_TABLES: Record<string, EndpointMap> = {
  */
 const TABLE_TYPES: Record<string, string[]> = {
   nodes: ['NodeRecord', 'ServerNodeRow', 'PublicChunk', 'NodeHyperlightView', 'NodeHyperciteView'],
+  // library: wire-in (ServerLibraryRow, from getLibrary) → IDB store + save (LibraryRecord).
+  library: ['ServerLibraryRow', 'LibraryRecord'],
 };
 const NODE_DATA_TYPE_SET = new Set<string>(Object.values(TABLE_TYPES).flat());
 

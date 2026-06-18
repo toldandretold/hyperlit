@@ -52,6 +52,46 @@ test('POST /api/db/library/bulk-create requires an author', function () {
     $this->assertApiError($this->postJson('/api/db/library/bulk-create', ['data' => ['data' => []]]), 401);
 });
 
+test('POST /api/db/library/bulk-create persists license/custom_license_text/gate_defaults/annotations_updated_at when sent', function () {
+    // Symmetric-with-upsert fix: bulkCreate used to silently drop these four; the created record
+    // returned by the controller must now carry the client-sent values (matters for import flows).
+    $this->loginUser();
+    $book = 'apitest_' . \Illuminate\Support\Str::random(10);
+
+    $this->postJson('/api/db/library/bulk-create', ['data' => [
+        'book' => $book,
+        'title' => 'BulkCreate License Test',
+        'license' => 'MIT',
+        'custom_license_text' => 'my custom terms',
+        'gate_defaults' => ['hideAI' => true],
+        'annotations_updated_at' => 4242,
+    ]])
+        ->assertStatus(200)
+        ->assertJson(['success' => true, 'library' => [
+            'license' => 'MIT',
+            'custom_license_text' => 'my custom terms',
+            'gate_defaults' => ['hideAI' => true],
+            'annotations_updated_at' => 4242,
+        ]]);
+});
+
+test('POST /api/db/library/bulk-create falls back to DB defaults when those fields are omitted', function () {
+    $this->loginUser();
+    $book = 'apitest_' . \Illuminate\Support\Str::random(10);
+
+    $this->postJson('/api/db/library/bulk-create', ['data' => [
+        'book' => $book,
+        'title' => 'BulkCreate Defaults Test',
+    ]])
+        ->assertStatus(200)
+        ->assertJson(['success' => true, 'library' => [
+            'license' => 'CC-BY-SA-4.0-NO-AI',
+            'custom_license_text' => null,
+            'gate_defaults' => null,
+            'annotations_updated_at' => 0,
+        ]]);
+});
+
 test('POST /api/library/{book}/update-stats requires an author', function () {
     $this->assertApiError($this->postJson('/api/library/apitest_x/update-stats'), 401);
 });

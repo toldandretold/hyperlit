@@ -123,15 +123,21 @@ role = code acting out of place (a refactor candidate), visible at a glance.
 double-click a module box drills into its functions; expand/collapse all + fit; focus dropdown.
 
 **Type trace (click a Postgres table):** clicking a table that has a known TS type lineage
-(today: `nodes`) doesn't do the generic edge-trace — it lights the **functions that actually handle
-that data type**, read from the TypeScript annotations (`collect.ts` tags each function with the
-node-data types — `NodeRecord` / `ServerNodeRow` / `PublicChunk` / `NodeHyperlightView` /
-`NodeHyperciteView` — that appear in its signature or body), plus the `store:<table>` object store
+(today: `nodes` + `library`) doesn't do the generic edge-trace — it lights the **functions that
+actually handle that data type**, read from the TypeScript annotations (`collect.ts` tags each
+function with the welded type names that appear in its signature or body — `nodes`: `NodeRecord` /
+`ServerNodeRow` / `PublicChunk` / `NodeHyperlightView` / `NodeHyperciteView`; `library`:
+`ServerLibraryRow` (wire-in) / `LibraryRecord` (store + save)), plus the `store:<table>` object store
 and the DOM as waypoints. So you see the data's whole **PG↔IndexedDB↔DOM lineage** at once, laid out
 top→bottom by the grid's rows. It deliberately **overrides the `trace:` direction toggle** — a type
 trace is the entire journey of that data, not a one-directional walk. (Mechanism: `TABLE_TYPES` +
 `collectTypeReferences()` in `collect.ts`; the `types` field on `fn`/`table` nodes; `paintTypeTrace`
-in the embedded page. Scope today is `nodes`; extend `TABLE_TYPES` for the other stores.)
+in the embedded page. Add a table by welding its wire/store types + listing them in `TABLE_TYPES`.)
+> *Note:* `library` is the ownership/auth table, so its trace also lights the many backend controllers
+> that read it for permission checks — that's a **feature**: it surfaces every ownership/`PgLibrary::where`
+> gate across the backend at a glance. The frontend lineage stays crisp; telling an auth-read apart from
+> a data read/write *per table* (so the backend side could be filtered) is the deferred per-table
+> read/write fidelity item.
 
 With the backend tier built, the `nodes` type-trace now threads the **whole** seam:
 `pg:nodes ← controller (getBookData / targetedUpsert / …) ← route ← fn → store:nodes → dom`. The

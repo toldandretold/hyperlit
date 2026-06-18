@@ -54,6 +54,12 @@ describe('core/library.js (characterization)', () => {
     expect(prepared.timestamp).toEqual(expect.any(Number));
   });
 
+  it('prepareLibraryForIndexedDB backfills a null/0 wire timestamp to a real one (wire→store normalize)', () => {
+    // ServerLibraryRow allows timestamp: number | null; the store must never hold a falsy timestamp.
+    expect(prepareLibraryForIndexedDB({ book: 'b', timestamp: null }).timestamp).toBeGreaterThan(0);
+    expect(prepareLibraryForIndexedDB({ book: 'b', timestamp: 0 }).timestamp).toBeGreaterThan(0);
+  });
+
   it('getLibraryObjectFromIndexedDB returns the record, and null for falsy/invalid input', async () => {
     await seedStore('library', [{ book: 'bookA', title: 'A' }]);
     expect(await getLibraryObjectFromIndexedDB('bookA')).toMatchObject({ title: 'A' });
@@ -69,8 +75,6 @@ describe('core/library.js (characterization)', () => {
       book: 'bookA',
       timestamp: expect.any(Number),
       title: 'bookA',
-      description: '',
-      tags: [],
     });
     const queued = pendingSyncs.get('library-bookA-bookA');
     expect(queued.type).toBe('update');

@@ -9,6 +9,7 @@ import { formatBibtexToCitation } from '../../utilities/bibtexProcessor';
 import { book } from '../../app';
 import { canUserEditBook, getAuthContextSync } from '../../utilities/auth/index';
 import { getRecord, isSyntheticBook, PUBLIC_SVG, PRIVATE_SVG } from './helpers';
+import type { LibraryRecord } from '../../indexedDB/types';
 
 /**
  * Build the inner-HTML for the source container:
@@ -18,7 +19,7 @@ import { getRecord, isSyntheticBook, PUBLIC_SVG, PRIVATE_SVG } from './helpers';
  */
 export async function buildSourceHtml(currentBookId: any): Promise<string> {
   const db = await openDatabase();
-  let record = await getRecord(db, "library", book);
+  let record: LibraryRecord | null = await getRecord(db, "library", book);
 
   // If not in IndexedDB, try fetching from server (skip synthetic books that have no real row)
   let accessDenied = false;
@@ -51,7 +52,7 @@ export async function buildSourceHtml(currentBookId: any): Promise<string> {
 
   // If no bibtex exists, generate one from available record data
   if (!bibtex && record) {
-    const year = new Date(record.timestamp).getFullYear();
+    const year = new Date(record.timestamp ?? Date.now()).getFullYear();
     const urlField = record.url ? `  url = {${record.url}},\n` : '';
     const publisherField = record.publisher ? `  publisher = {${record.publisher}},\n` : '';
     const journalField = record.journal ? `  journal = {${record.journal}},\n` : '';

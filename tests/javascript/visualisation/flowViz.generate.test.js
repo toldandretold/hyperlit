@@ -92,6 +92,22 @@ describe('IndexedDB flow viz', () => {
     }
   });
 
+  it('type-trace capture: library table + its handler fns carry the welded library types', () => {
+    const viz = collect();
+    const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
+
+    // The `library` PG table advertises its TS lineage (wire-in ServerLibraryRow → store/save LibraryRecord).
+    const libraryTable = byId['pg:library'];
+    expect(libraryTable.types).toEqual(['LibraryRecord', 'ServerLibraryRow']);  // sorted
+
+    const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
+    expect(fnByLabel('loadLibraryToIndexedDB').types).toContain('ServerLibraryRow');           // wire in (PG → IDB)
+    expect(fnByLabel('prepareLibraryForIndexedDB').types).toEqual(expect.arrayContaining(['ServerLibraryRow', 'LibraryRecord'])); // the weld
+    expect(fnByLabel('getLibraryObjectFromIndexedDB').types).toContain('LibraryRecord');       // IDB read
+    expect(fnByLabel('buildSourceHtml').types).toContain('LibraryRecord');                     // IDB → DOM render
+    expect(fnByLabel('syncLibraryRecordToBackend').types).toContain('LibraryRecord');          // save (IDB → PG)
+  });
+
   it('API route tier: endpoints carry precise per-endpoint tables (no coarse fan-out)', () => {
     const viz = collect();
     const routes = viz.nodes.filter(n => n.kind === 'route');

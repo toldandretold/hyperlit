@@ -168,6 +168,21 @@ class DbLibraryController extends Controller
 
     // In app/Http/Controllers/DbLibraryController.php
 
+/**
+ * SAVE path for the `library` store — owner edits to an existing book's metadata.
+ *
+ * The client sends `data` as a TS `LibraryRecord` (resources/js/indexedDB/types.ts). The owner-only
+ * `$updateData` written below is the accepted write shape:
+ *   array{ title:?string, author:?string, type:?string, timestamp:?int, bibtex:?string, url:?string,
+ *     year:?string, journal:?string, pages:?string, publisher:?string, school:?string, note:?string,
+ *     volume:?string, issue:?string, booktitle:?string, chapter:?string, editor:?string, license:?string,
+ *     custom_license_text:?string, visibility:string, listed:bool, annotations_updated_at:int,
+ *     gate_defaults:?array, raw_json:string }
+ *
+ * `creator`/`creator_token` are set once on create (bulkCreate), never here. Non-owners may only bump
+ * `annotations_updated_at`. (getLibrary returns the same bibliographic columns this accepts — the
+ * load/write round-trip is symmetric.)
+ */
 public function upsert(Request $request)
 {
     // F5/F6/F7: validate inline (NOT a Form Request — also called by
@@ -326,6 +341,22 @@ public function upsert(Request $request)
 }
 
     // In app/Http/Controllers/DbLibraryController.php
+/**
+ * CREATE path for the `library` store — first insert of a book's metadata.
+ *
+ * The client sends `data` as a TS `LibraryRecord`. The inserted `$record` shape:
+ *   array{ book:?string, title:?string, author:?string, creator:?string, creator_token:?string,
+ *     type:?string, timestamp:?int, bibtex:?string, year:?string, publisher:?string, journal:?string,
+ *     pages:?string, url:?string, note:?string, school:?string, volume:?string, issue:?string,
+ *     booktitle:?string, chapter:?string, editor:?string, fileName:?string, fileType:?string,
+ *     visibility:string, license:string, custom_license_text:?string, annotations_updated_at:int,
+ *     gate_defaults:?array, recent:?int, total_views:int, total_highlights:int, total_citations:int,
+ *     raw_json:string, created_at:mixed, updated_at:mixed }
+ *
+ * NOTE: `creator`/`creator_token` are server-determined here (getCreatorInfo), not taken from the
+ * client. license/custom_license_text/gate_defaults/annotations_updated_at are written symmetrically
+ * with upsert — honoured if the client sends them, else DB defaults.
+ */
 public function bulkCreate(Request $request)
 {
     // Use database transaction to ensure atomicity
@@ -380,6 +411,12 @@ public function bulkCreate(Request $request)
                     'fileName' => $item['fileName'] ?? null,
                     'fileType' => $item['fileType'] ?? null,
                     'visibility' => $item['visibility'] ?? 'private', // Default to private
+                    // Symmetric with upsert: honour these if the client sends them at create time
+                    // (e.g. an import with a known license / gate defaults), else fall back to DB defaults.
+                    'license' => $item['license'] ?? 'CC-BY-SA-4.0-NO-AI',
+                    'custom_license_text' => $item['custom_license_text'] ?? null,
+                    'annotations_updated_at' => $item['annotations_updated_at'] ?? 0,
+                    'gate_defaults' => array_key_exists('gate_defaults', $item) ? $item['gate_defaults'] : null,
                     'recent' => $item['recent'] ?? null,
                     'total_views' => $item['total_views'] ?? 0,
                     'total_highlights' => $item['total_highlights'] ?? 0,

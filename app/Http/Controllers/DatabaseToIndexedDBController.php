@@ -866,7 +866,22 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Get library data for a book
+     * Get library data for a book — the LOAD wire shape for the `library` store.
+     *
+     * This array IS the contract. It MUST stay in sync with the TypeScript wire type
+     * `ServerLibraryRow` in resources/js/indexedDB/serverSync/types.ts (→ `LibraryRecord` after
+     * prepareLibraryForIndexedDB). `is_owner` is computed server-side (not a column); `creator_token`
+     * is intentionally never sent and is stripped from `raw_json`. The load returns the same
+     * bibliographic columns the write (DbLibraryController::upsert) accepts — symmetric round-trip.
+     *
+     * @return array{
+     *   book: string, author: ?string, bibtex: ?string, fileName: ?string, fileType: ?string,
+     *   journal: ?string, note: ?string, pages: ?string, publisher: ?string, school: ?string,
+     *   volume: ?string, issue: ?string, booktitle: ?string, chapter: ?string, editor: ?string,
+     *   timestamp: ?int, annotations_updated_at: int, title: ?string, type: ?string, url: ?string,
+     *   year: ?string, creator: ?string, is_owner: bool, visibility: 'public'|'private'|'deleted',
+     *   listed: bool, license: ?string, custom_license_text: ?string, gate_defaults: ?array, raw_json: array
+     * }|null
      */
    private function getLibrary(string $bookId, bool $bypassRls = false): ?array
     {
@@ -925,6 +940,14 @@ class DatabaseToIndexedDBController extends Controller
             'pages' => $library->pages,
             'publisher' => $library->publisher,
             'school' => $library->school,
+            // Bibliographic sub-fields — MUST be returned so the load round-trips with the write
+            // (DbLibraryController::upsert writes these columns). Without them the edit form re-opens
+            // blank and a re-save regenerates bibtex without them → silent data loss.
+            'volume' => $library->volume,
+            'issue' => $library->issue,
+            'booktitle' => $library->booktitle,
+            'chapter' => $library->chapter,
+            'editor' => $library->editor,
             'timestamp' => $library->timestamp,
             'annotations_updated_at' => $library->annotations_updated_at ?? 0,
             'title' => $library->title,

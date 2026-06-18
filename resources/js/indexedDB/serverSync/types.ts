@@ -10,7 +10,7 @@
  * Source of truth for the envelopes: DatabaseToIndexedDBController::getBookData
  * (the `/api/database-to-indexeddb/books/{id}/data` + `/annotations` responses).
  */
-import type { BookId } from '../types';
+import type { BookId, GateDefaults } from '../types';
 
 /** A JSON column that arrives either stringified (raw endpoints) or decoded. */
 type JsonColumn<T> = string | T | null;
@@ -81,11 +81,46 @@ export interface ServerBibliographyPayload {
   data: Record<string, ServerBibliographyValue>;
 }
 
-/** A `library` row from the API. Cleaned by prepareLibraryForIndexedDB before storage. */
+/**
+ * A `library` row from the API (DatabaseToIndexedDBController::getLibrary), cleaned by
+ * prepareLibraryForIndexedDB into a LibraryRecord before storage. The wire fields here
+ * MUST match that controller's returned array (its `@return array{...}` PHPDoc).
+ *
+ * `creator_token` is intentionally never sent; `is_owner` is server-computed; `gate_defaults`
+ * arrives already decoded.
+ */
 export interface ServerLibraryRow {
-  book?: BookId;
-  gate_defaults?: unknown;
-  [key: string]: unknown;
+  book: BookId;
+  title?: string | null;
+  author?: string | null;
+  bibtex?: string | null;
+  fileName?: string | null;
+  fileType?: string | null;
+  journal?: string | null;
+  note?: string | null;
+  pages?: string | null;
+  publisher?: string | null;
+  school?: string | null;
+  // bibliographic sub-fields — returned by getLibrary (symmetric with the upsert write).
+  volume?: string | null;
+  issue?: string | null;
+  booktitle?: string | null;
+  chapter?: string | null;
+  editor?: string | null;
+  type?: string | null;
+  url?: string | null;
+  year?: string | null;
+  creator?: string | null;
+  timestamp?: number | null;
+  annotations_updated_at?: number;
+  visibility?: 'public' | 'private' | 'deleted';
+  listed?: boolean;
+  license?: string | null;
+  custom_license_text?: string | null;
+  gate_defaults?: GateDefaults | null;
+  is_owner?: boolean;
+  /** @deprecated Denormalized copy slated for removal from the DB — do not add new readers. */
+  raw_json?: JsonColumn<object>;
 }
 
 // ── pull response envelopes ─────────────────────────────────────────────

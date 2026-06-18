@@ -69,6 +69,24 @@ test('GET …/books/{book}/library 404s for a book with no library record', func
         ->assertStatus(404);
 });
 
+test('GET …/books/{book}/library round-trips volume/issue/booktitle/chapter/editor (no silent loss)', function () {
+    // These bibliographic sub-fields are written by upsert and editable in the form. The LOAD must
+    // return them — otherwise a reload leaves the edit-form inputs blank and the next save regenerates
+    // bibtex WITHOUT them (silent data loss). This pins the symmetric load↔write round-trip.
+    $owner = $this->loginUser();
+    $book = $this->makeBook($owner, [
+        'volume' => 'V12', 'issue' => 'I3', 'booktitle' => 'The Big Book',
+        'chapter' => 'Ch4', 'editor' => 'Ada Lovelace',
+    ]);
+
+    $this->getJson("/api/database-to-indexeddb/books/{$book}/library")
+        ->assertStatus(200)
+        ->assertJson(['success' => true, 'library' => [
+            'volume' => 'V12', 'issue' => 'I3', 'booktitle' => 'The Big Book',
+            'chapter' => 'Ch4', 'editor' => 'Ada Lovelace',
+        ]]);
+});
+
 test('the sub-book read variants 404 for an unknown parent/sub', function (string $suffix) {
     // {parentBook}/{subId} reconstructs "parent/sub" and delegates to the parent
     // method, so an unknown sub-book surfaces the same not-found envelope.

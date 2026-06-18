@@ -5,6 +5,7 @@
 // SourceContainerManager instance as `self`; the class delegates to these and
 // is the single dispatch hub, so peer calls go through `self.*`.
 import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from '../../indexedDB/index';
+import type { LibraryRecord } from '../../indexedDB/types';
 import { generateBibtexFromForm } from '../../utilities/bibtexProcessor';
 import { book } from '../../app';
 import { canUserEditBook } from '../../utilities/auth/index';
@@ -515,7 +516,7 @@ export async function saveEditForm(self: any) {
     const formData = self.collectFormData();
     formData.book = self.editingRecord.book;
     const finalBibtex = await generateBibtexFromForm(formData);
-    const updatedRecord = {
+    const updatedRecord: LibraryRecord = {
       ...self.editingRecord,
       ...formData,
       bibtex: finalBibtex,
@@ -586,7 +587,7 @@ export async function handleFormSubmit(self: any, originalRecord: any) {
 
 
     // Update the record with new data AND regenerated BibTeX
-    const updatedRecord = {
+    const updatedRecord: LibraryRecord = {
       ...originalRecord,
       ...formData,
       bibtex: finalBibtex,
@@ -632,7 +633,7 @@ export async function handleFormSubmit(self: any, originalRecord: any) {
   }
 }
 
-export async function syncLibraryRecordToBackend(self: any, libraryRecord: any) {
+export async function syncLibraryRecordToBackend(self: any, libraryRecord: LibraryRecord) {
   const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
 
   // 🧹 Clean the library record and prepare raw_json for PostgreSQL

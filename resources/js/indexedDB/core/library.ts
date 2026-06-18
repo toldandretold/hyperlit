@@ -9,6 +9,7 @@ import { parseSubBookId } from '../../utilities/subBookIdHelper';
 
 import { queueForSync } from '../syncQueue/queue';
 import type { BookId, LibraryRecord } from '../types';
+import type { ServerLibraryRow } from '../serverSync/types';
 
 // Dependencies that change per-book
 let book: BookId | null | undefined;
@@ -46,18 +47,20 @@ export function cleanLibraryItemForStorage<T>(item: T): T {
  * Prepare library record for IndexedDB storage
  * Cleans the record and ensures raw_json is properly set
  */
-export function prepareLibraryForIndexedDB<T extends Partial<LibraryRecord>>(libraryRecord: T): T {
+export function prepareLibraryForIndexedDB(
+  libraryRecord: ServerLibraryRow | Partial<LibraryRecord>,
+): LibraryRecord {
   if (!libraryRecord || typeof libraryRecord !== 'object') {
-    return libraryRecord;
+    return libraryRecord as LibraryRecord;
   }
 
-  // Clean the record
-  const cleaned = cleanLibraryItemForStorage(libraryRecord) as T & { raw_json?: unknown; timestamp?: number };
+  // Clean the record (wire row → store record)
+  const cleaned = cleanLibraryItemForStorage(libraryRecord) as LibraryRecord & { raw_json?: unknown; timestamp?: number };
 
   // Set raw_json to the cleaned version (as object, not string - IndexedDB stores it parsed)
   cleaned.raw_json = { ...cleaned };
 
-  // Ensure timestamp is never null — assign now if missing
+  // Ensure timestamp is never null — assign now if missing (the wire ServerLibraryRow allows null/0)
   if (!cleaned.timestamp) {
     cleaned.timestamp = Date.now();
   }
@@ -124,7 +127,7 @@ export async function updateBookTimestamp(bookId: BookId = book || "latest"): Pr
           recordToSave = getRequest.result;
           recordToSave.timestamp = now;
         } else {
-          recordToSave = { book: bookId, timestamp: now, title: bookId, description: "", tags: [] };
+          recordToSave = { book: bookId, timestamp: now, title: bookId };
         }
 
         const putRequest = store.put(recordToSave);
@@ -240,13 +243,11 @@ export async function syncFirstNodeToTitle(bookId: BookId, nodeContent: string):
         libraryRecord.title = textContent;
         libraryRecord.timestamp = Date.now();
 
-        // Set author if not already set (use creator username or "anon" for anonymous users)
-        if (!libraryRecord.author) {
-          if (libraryRecord.creator) {
-            libraryRecord.author = libraryRecord.creator; // Use username
-          } else if (libraryRecord.creator_token) {
-            libraryRecord.author = "anon"; // Anonymous user
-          }
+        // Set author from the creator username if not already set. (Anonymous books already get
+        // author="anon" at creation in SPA/createNewBook.ts; the server never sends creator_token to
+        // the client, so there's no anonymous signal to key off here.)
+        if (!libraryRecord.author && libraryRecord.creator) {
+          libraryRecord.author = libraryRecord.creator;
           console.log(`✅ Auto-set author to: "${libraryRecord.author}"`);
         }
 
