@@ -6,6 +6,7 @@
 
 import { book } from '../../app';
 import { openDatabase } from '../../indexedDB/index';
+import type { HyperciteRecord } from '../../indexedDB/types';
 import { formatBibtexToCitation } from "../../utilities/bibtexProcessor";
 import { canUserEditBook } from "../../utilities/auth/index";
 import DOMPurify from 'dompurify';
@@ -125,7 +126,7 @@ export async function buildHyperciteContent(contentType: any, db: any = null) {
 
       for (const id of idsToProcess) {
         const getRequest = index.get(id);
-        const hyperciteData: any = await new Promise((resolve: any, reject: any) => {
+        const hyperciteData: HyperciteRecord | undefined = await new Promise((resolve: any, reject: any) => {
           getRequest.onsuccess = () => resolve(getRequest.result);
           getRequest.onerror = () => reject(getRequest.error);
         });

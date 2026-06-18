@@ -10,7 +10,7 @@
  * Source of truth for the envelopes: DatabaseToIndexedDBController::getBookData
  * (the `/api/database-to-indexeddb/books/{id}/data` + `/annotations` responses).
  */
-import type { BookId, GateDefaults } from '../types';
+import type { BookId, GateDefaults, RelationshipStatus, CharRange } from '../types';
 
 /** A JSON column that arrives either stringified (raw endpoints) or decoded. */
 type JsonColumn<T> = string | T | null;
@@ -38,28 +38,47 @@ export interface ServerNodeRow {
   raw_json?: JsonColumn<object>;
 }
 
-/** A standalone `hyperlights` row from the API (written to the store as-is). */
+/**
+ * A standalone `hyperlights` row from the API (getHyperlights). Normalized by processHyperlight before
+ * storage. MUST stay in sync with the store type `HyperlightRecord`. `creator_token` is intentionally
+ * never sent (only `is_user_highlight` is exposed); `node_id` may arrive stringified.
+ */
 export interface ServerHyperlightRow {
   hyperlight_id: string;
   book?: BookId;
   node_id: string[] | string;
-  charData?: Record<string, { charStart?: number; charEnd?: number }>;
+  charData?: Record<string, CharRange>;
   is_user_highlight?: boolean;
   annotation?: string;
   creator?: string | null;
   highlightedText?: string;
+  highlightedHTML?: string;
+  hidden?: boolean;
+  preview_nodes?: unknown[] | null;
+  time_since?: number;
+  startLine?: number | string | null;
+  /** @deprecated Denormalized copy slated for removal — do not add new readers. */
+  raw_json?: JsonColumn<object>;
 }
 
-/** A standalone `hypercites` row from the API (citedIN/raw_json may be stringified). */
+/**
+ * A standalone `hypercites` row from the API (getHypercites). `node_id`/`citedIN`/`raw_json` may
+ * arrive stringified (raw endpoints); `creator_token` is intentionally never sent. MUST stay in sync
+ * with the store type `HyperciteRecord` (resources/js/indexedDB/types.ts).
+ */
 export interface ServerHyperciteRow {
   hyperciteId: string;
   book?: BookId;
   node_id: string[] | string;
-  charData?: Record<string, { charStart?: number; charEnd?: number }>;
+  charData?: Record<string, CharRange>;
   hypercitedText?: string;
   hypercitedHTML?: string;
-  relationshipStatus?: string;
-  citedIN?: JsonColumn<unknown[]>;
+  relationshipStatus?: RelationshipStatus;
+  citedIN?: JsonColumn<string[]>;
+  creator?: string | null;
+  is_user_hypercite?: boolean;
+  time_since?: number;
+  /** @deprecated Denormalized copy slated for removal — do not add new readers. */
   raw_json?: JsonColumn<object>;
 }
 

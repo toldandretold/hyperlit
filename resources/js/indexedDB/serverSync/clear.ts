@@ -7,7 +7,7 @@
  */
 import { verbose } from '../../utilities/logger';
 import type { ServerHyperlightRow, ServerHyperciteRow } from './types';
-import type { NodeHyperlightView } from '../types';
+import type { NodeHyperlightView, NodeHyperciteView } from '../types';
 
 /**
  * Clear only annotations (hyperlights/hypercites) from IndexedDB for a specific book.
@@ -61,7 +61,7 @@ export async function updateEmbeddedAnnotationsInNodes(
 ): Promise<void> {
   // Build lookup maps: node_id -> array of hyperlights/hypercites for that node
   const hyperlightsByNodeId = new Map<string, unknown[]>();
-  const hypercitesByNodeId = new Map<string, unknown[]>();
+  const hypercitesByNodeId = new Map<string, NodeHyperciteView[]>();
 
   // Process hyperlights - each can span multiple nodes
   if (hyperlights && hyperlights.length > 0) {
@@ -112,15 +112,15 @@ export async function updateEmbeddedAnnotationsInNodes(
         // Get the char data specific to this node
         const nodeCharData: { charStart?: number; charEnd?: number } = charData[nodeId] || {};
 
-        // Create node-specific hypercite entry
-        const nodeHypercite = {
+        // Create node-specific hypercite entry — the canonical NodeHyperciteView (same shape the
+        // rebuild produces; the renderer applyHypercites only reads id/charStart/charEnd/status).
+        const nodeHypercite: NodeHyperciteView = {
           hyperciteId: hc.hyperciteId,
           charStart: nodeCharData.charStart ?? 0,
           charEnd: nodeCharData.charEnd ?? 0,
-          hypercitedText: hc.hypercitedText,
-          hypercitedHTML: hc.hypercitedHTML,
-          relationshipStatus: hc.relationshipStatus,
-          citedIN: hc.citedIN,
+          relationshipStatus: hc.relationshipStatus ?? 'single',
+          citedIN: Array.isArray(hc.citedIN) ? hc.citedIN : [],
+          time_since: hc.time_since,
         };
 
         if (!hypercitesByNodeId.has(nodeId)) {

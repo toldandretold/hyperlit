@@ -134,6 +134,39 @@ describe('IndexedDB flow viz', () => {
     expect(fnByLabel('resolveBibliographyTarget').types).toContain('BibliographyRecord');      // click-time resolve
   });
 
+  it('type-trace capture: hypercites table — standalone record AND the shared embedded node view', () => {
+    const viz = collect();
+    const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
+
+    // dual representation: standalone (HyperciteRecord/ServerHyperciteRow) + embedded (NodeHyperciteView)
+    expect(byId['pg:hypercites'].types).toEqual(['HyperciteRecord', 'NodeHyperciteView', 'ServerHyperciteRow']); // sorted
+
+    const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
+    expect(fnByLabel('loadHypercitesToIndexedDB').types).toEqual(expect.arrayContaining(['ServerHyperciteRow', 'HyperciteRecord'])); // wire in
+    expect(fnByLabel('syncHyperciteToPostgreSQL').types).toContain('HyperciteRecord');          // push (IDB → PG)
+    expect(fnByLabel('buildHyperciteContent').types).toContain('HyperciteRecord');              // IDB → DOM card
+    // the embedded-view seam — carries NodeHyperciteView, so it ALSO lights for the `nodes` trace
+    expect(fnByLabel('updateEmbeddedAnnotationsInNodes').types).toContain('NodeHyperciteView');
+    expect(fnByLabel('applyHypercites').types).toContain('NodeHyperciteView');                  // DOM render of the embedded view
+  });
+
+  it('type-trace capture: hyperlights table — standalone record AND the shared embedded node view', () => {
+    const viz = collect();
+    const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
+
+    // dual representation: standalone (HyperlightRecord/ServerHyperlightRow) + embedded (NodeHyperlightView)
+    expect(byId['pg:hyperlights'].types).toEqual(['HyperlightRecord', 'NodeHyperlightView', 'ServerHyperlightRow']); // sorted
+
+    const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
+    expect(fnByLabel('loadHyperlightsToIndexedDB').types).toEqual(expect.arrayContaining(['ServerHyperlightRow', 'HyperlightRecord'])); // wire in
+    expect(fnByLabel('syncHyperlightToPostgreSQL').types).toContain('HyperlightRecord');         // push (IDB → PG)
+    expect(fnByLabel('addToHighlightsTable').types).toContain('HyperlightRecord');               // create/save (DOM → IDB)
+    expect(fnByLabel('saveAnnotationToIndexedDB').types).toContain('HyperlightRecord');          // annotation edit → IDB
+    // the embedded-view seam — carries NodeHyperlightView, so it ALSO lights for the `nodes` trace
+    expect(fnByLabel('updateEmbeddedAnnotationsInNodes').types).toContain('NodeHyperlightView');
+    expect(fnByLabel('applyHighlights').types).toContain('NodeHyperlightView');                  // DOM render of the embedded view
+  });
+
   it('API route tier: endpoints carry precise per-endpoint tables (no coarse fan-out)', () => {
     const viz = collect();
     const routes = viz.nodes.filter(n => n.kind === 'route');

@@ -7,7 +7,7 @@
  */
 import { parseNodeId, prepareLibraryForIndexedDB } from '../index';
 import { verbose } from '../../utilities/logger';
-import type { NodeRecord, NodeHyperlightView, FootnoteRecord, BibliographyRecord } from '../types';
+import type { NodeRecord, NodeHyperlightView, FootnoteRecord, BibliographyRecord, HyperciteRecord, HyperlightRecord } from '../types';
 import type {
   ServerNodeRow,
   ServerHyperlightRow,
@@ -207,7 +207,22 @@ export async function loadHyperlightsToIndexedDB(db: IDBDatabase, hyperlights: S
     }
   });
 
-  await batchedWrite(db, 'hyperlights', hyperlights, null, 100);
+  // Normalize the wire row into a store record (mirror processHypercite): node_id may arrive
+  // stringified — parse it to a string[] (the store/rebuild assume an array); guarantee book/charData.
+  function processHyperlight(hl: ServerHyperlightRow): HyperlightRecord {
+    return {
+      ...hl,
+      book: hl.book!,
+      node_id: Array.isArray(hl.node_id) ? hl.node_id : JSON.parse((hl.node_id as string) || '[]'),
+      charData: hl.charData ?? {},
+      highlightedText: hl.highlightedText ?? '',
+      highlightedHTML: hl.highlightedHTML ?? '',
+      annotation: hl.annotation ?? '',
+      raw_json: typeof hl.raw_json === 'string' ? JSON.parse(hl.raw_json) : hl.raw_json,
+    };
+  }
+
+  await batchedWrite(db, 'hyperlights', hyperlights, processHyperlight, 100);
 
   verbose.content(`Loaded ${hyperlights.length} standalone hyperlights (${userHighlightCount} user, ${anonHighlightCount} anonymous)`, 'serverSync/loaders');
 }
@@ -223,11 +238,17 @@ export async function loadHypercitesToIndexedDB(db: IDBDatabase, hypercites: Ser
 
   verbose.content(`Loading ${hypercites.length} hypercites`, 'serverSync/loaders');
 
-  function processHypercite(hypercite: ServerHyperciteRow) {
+  function processHypercite(hypercite: ServerHyperciteRow): HyperciteRecord {
+    const citedIN = typeof hypercite.citedIN === 'string' ? JSON.parse(hypercite.citedIN) : hypercite.citedIN;
     return {
       ...hypercite,
-      citedIN: typeof hypercite.citedIN === 'string' ? JSON.parse(hypercite.citedIN) : hypercite.citedIN,
-      raw_json: typeof hypercite.raw_json === 'string' ? JSON.parse(hypercite.raw_json) : hypercite.raw_json
+      book: hypercite.book!,
+      // node_id may arrive stringified — normalize to a string[] (the store/rebuild assume an array).
+      node_id: Array.isArray(hypercite.node_id) ? hypercite.node_id : JSON.parse((hypercite.node_id as string) || '[]'),
+      charData: hypercite.charData ?? {},
+      citedIN: citedIN ?? [],
+      relationshipStatus: hypercite.relationshipStatus ?? 'single',
+      raw_json: typeof hypercite.raw_json === 'string' ? JSON.parse(hypercite.raw_json) : hypercite.raw_json,
     };
   }
 

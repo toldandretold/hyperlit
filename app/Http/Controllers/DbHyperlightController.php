@@ -119,11 +119,19 @@ class DbHyperlightController extends Controller
         }
     }
 
+    /**
+     * SAVE path for the `hyperlights` store (create). The client sends a TS `HyperlightRecord` list;
+     * `creator`/`creator_token` are backend-set from auth (never trusted from the client), and a
+     * `sub_book_id` annotation sub-book is seeded via SubBookRegistrar when present. Per-row write shape:
+     *   array{book: string, hyperlight_id: string, node_id: string[], charData: array<string, array{charStart:int,charEnd:int}>,
+     *     annotation?: ?string, highlightedText?: ?string, highlightedHTML?: ?string, preview_nodes?: ?array,
+     *     startLine?: ?string, time_since?: int, hidden?: bool}
+     */
     public function bulkCreate(Request $request)
     {
         try {
             $data = $request->all();
-            
+
             Log::info('DbHyperlightController::bulkCreate - Received data', [
                 'data_count' => is_array($data['data'] ?? null) ? count($data['data']) : 0,
                 'request_size' => strlen(json_encode($data))
@@ -213,6 +221,12 @@ class DbHyperlightController extends Controller
         }
     }
 
+    /**
+     * SAVE path for the `hyperlights` store (update-or-create on book+hyperlight_id). Same per-row write
+     * shape as bulkCreate (a TS `HyperlightRecord`). On an existing row the ORIGINAL creator/creator_token
+     * are preserved (no privilege escalation); a new row uses backend-generated auth. Also called by
+     * UnifiedSyncController with a plain Request, so validation is inline (`data: present|array`).
+     */
     public function upsert(Request $request)
     {
         // F5/F6/F7: validate inline (NOT a Form Request — also called by
@@ -378,11 +392,16 @@ class DbHyperlightController extends Controller
         }
     }
 
+    /**
+     * DELETE path for the `hyperlights` store. Per-row key shape array{book: string, hyperlight_id: string};
+     * each row's creator/creator_token is checked against the caller (only the highlight's owner may
+     * delete it). Returns the affected book/sub-book ids so the caller can refresh embedded views.
+     */
     public function delete(Request $request)
     {
         try {
             $data = $request->all();
-            
+
             Log::info('DbHyperlightController::delete - Received data', [
                 'data_count' => is_array($data['data'] ?? null) ? count($data['data']) : 0
             ]);
@@ -487,11 +506,16 @@ class DbHyperlightController extends Controller
         }
     }
 
+    /**
+     * HIDE path for the `hyperlights` store — sets `hidden = true` so the highlight stops being served by
+     * getHyperlights(). Per-row key shape array{book: string, hyperlight_id: string}. SECURITY: book-owner
+     * only (NOT the highlight's creator) — the book owner moderates annotations on their book.
+     */
     public function hide(Request $request)
     {
         try {
             $data = $request->all();
-            
+
             Log::info('DbHyperlightController::hide - Received data', [
                 'data_count' => is_array($data['data'] ?? null) ? count($data['data']) : 0
             ]);

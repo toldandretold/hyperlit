@@ -69,7 +69,7 @@ export interface NodeHyperlightView extends CharRange {
   highlightID: string;
   annotation?: string;
   creator?: string | null;
-  preview_nodes?: unknown; // TODO: characterize when hyperlights module is converted
+  preview_nodes?: unknown[] | null; // sub-book preview snippets, forwarded opaquely
   is_user_highlight?: boolean;
   hidden?: boolean;
   time_since?: number;
@@ -120,32 +120,45 @@ interface AnnotationRecordBase {
 /** A row in the `hyperlights` store. Key: [book, hyperlight_id]. */
 export interface HyperlightRecord extends AnnotationRecordBase {
   hyperlight_id: string;
-  // Legacy positional schema (kept for backward compat, still written):
-  startChar: number;
-  endChar: number;
-  startLine: number;
+  // A real synced DB column (varchar). Stored/forwarded only — never read for logic — so its runtime
+  // type is mixed: written as a number on create, loaded as the varchar string from getHyperlights.
+  // (Per-node character ranges live in `charData`; there is no top-level start/end char.)
+  startLine?: number | string | null;
   highlightedText: string;
   highlightedHTML: string;
   annotation: string;
-  // Written as `... || null` for anon users (see hyperlights/database.ts), so
-  // null is a real runtime value — not just absent.
+  // Written as `... || null` for anon users (see hyperlights/database.ts), so null is a real value.
   creator?: string | null;
-  preview_nodes?: unknown;
+  /** Client-LOCAL: the anon owner token, set on create so the save can prove ownership. The server
+   *  strips it on read (getHyperlights), so a server-loaded record never carries it. */
+  creator_token?: string | null;
+  /** Sub-book preview snippets (annotation sub-book) — opaque array forwarded to the renderer. */
+  preview_nodes?: unknown[] | null;
   is_user_highlight?: boolean;
   hidden?: boolean;
   time_since?: number;
+  /** @deprecated Denormalized JSON copy — phase-out (no new readers). */
+  raw_json?: unknown;
 }
 
-/** A row in the `hypercites` store. Key: [book, hyperciteId]. */
+/**
+ * A row in the `hypercites` store. Key: [book, hyperciteId]. The normalized source of truth for a
+ * citation (its embedded per-node render is `NodeHyperciteView` on `NodeRecord.hypercites[]`). Loaded
+ * from DatabaseToIndexedDBController::getHypercites (→ ServerHyperciteRow) and saved via
+ * DbHyperciteController. Per-node char ranges live in `charData` (AnnotationRecordBase).
+ */
 export interface HyperciteRecord extends AnnotationRecordBase {
   hyperciteId: string;
-  startChar: number;
-  endChar: number;
-  hypercitedText: string;
-  hypercitedHTML: string;
+  hypercitedText?: string;
+  hypercitedHTML?: string;
   citedIN: string[];
   relationshipStatus: RelationshipStatus;
-  time_since: number;
+  time_since?: number;
+  /** Server-computed (getHypercites): creator username (null for anon) + whether it's the viewer's own. */
+  creator?: string | null;
+  is_user_hypercite?: boolean;
+  /** @deprecated Denormalized JSON copy — phase-out (no new readers). */
+  raw_json?: unknown;
 }
 
 // ── footnotes / bibliography / library stores ───────────────────────

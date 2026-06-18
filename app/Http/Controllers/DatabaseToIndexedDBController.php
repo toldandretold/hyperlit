@@ -271,6 +271,18 @@ class DatabaseToIndexedDBController extends Controller
      * Fetch ALL hyperlights for a book in one query
      * Returns array indexed by node_id for O(1) lookup
      */
+    /**
+     * Fetch hyperlights for a book in one query, indexed by node_id for O(1) lookup.
+     * Each entry is the EMBEDDED per-node hyperlight view (TS `NodeHyperlightView` on NodeRecord.hyperlights),
+     * keyed by `highlightID`.
+     *
+     * @param  string[]                          $visibleIds  gate/visibility-filtered hyperlight ids to include
+     * @param  array<string, array{is_user_highlight: bool}> $lookup  per-id ownership decided upstream
+     * @return array<string, array<int, array{
+     *   highlightID: string, charStart: int, charEnd: int, annotation: ?string, creator: ?string,
+     *   preview_nodes: ?array, time_since: ?int, hidden: bool, is_user_highlight: bool
+     * }>>
+     */
     private function getAllHyperlightsByNode(string $bookId, array $visibleIds, array $lookup): array
     {
         if (empty($visibleIds)) {
@@ -320,8 +332,13 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Fetch ALL hypercites for a book in one query
-     * Returns array indexed by node_id for O(1) lookup
+     * Fetch ALL hypercites for a book in one query, indexed by node_id for O(1) lookup.
+     * Each entry is the EMBEDDED per-node hypercite view (TS `NodeHyperciteView` on NodeRecord.hypercites).
+     *
+     * @return array<string, array<int, array{
+     *   hyperciteId: string, charStart: int, charEnd: int,
+     *   relationshipStatus: string, citedIN: string[], time_since: ?int
+     * }>>
      */
     private function getAllHypercitesByNode(string $bookId): array
     {
@@ -362,8 +379,15 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Build per-node hyperlight lookup from pre-fetched processed hyperlights.
-     * Avoids redundant queries by deriving the per-node structure from getHyperlights() result.
+     * Build per-node hyperlight lookup from pre-fetched processed hyperlights (the getHyperlights() result).
+     * Avoids redundant queries by deriving the per-node structure in-process. Each entry is the EMBEDDED
+     * per-node view (TS `NodeHyperlightView`), keyed by `highlightID`.
+     *
+     * @param  array<int, array<string, mixed>> $hyperlights  output of getHyperlights()
+     * @return array<string, array<int, array{
+     *   highlightID: string, charStart: int, charEnd: int, annotation: ?string, creator: ?string,
+     *   preview_nodes: ?array, time_since: ?int, hidden: bool, is_user_highlight: bool
+     * }>>
      */
     private function buildHyperlightsByNodeFromProcessed(array $hyperlights): array
     {
@@ -399,8 +423,15 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Build per-node hypercite lookup from pre-fetched processed hypercites.
-     * Avoids redundant queries by deriving the per-node structure from getHypercites() result.
+     * Build per-node hypercite lookup from pre-fetched processed hypercites (the getHypercites() result).
+     * Each entry is the EMBEDDED per-node view (TS `NodeHyperciteView`), here carrying the extra
+     * creator/is_user_hypercite the processed path has on hand.
+     *
+     * @param  array<int, array<string, mixed>> $hypercites  output of getHypercites()
+     * @return array<string, array<int, array{
+     *   hyperciteId: string, charStart: int, charEnd: int, relationshipStatus: string,
+     *   citedIN: string[], time_since: ?int, creator: ?string, is_user_hypercite: bool
+     * }>>
      */
     private function buildHypercitesByNodeFromProcessed(array $hypercites): array
     {
@@ -692,7 +723,19 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Get hyperlights for a book
+     * Get hyperlights for a book — the standalone LOAD wire shape for the `hyperlights` store.
+     *
+     * MUST stay in sync with the TS wire type `ServerHyperlightRow` (→ `HyperlightRecord`). Gate-filtered
+     * server-side, and rows whose sub-book (annotation) is private and not the caller's are dropped;
+     * `creator_token` is intentionally never sent (only `is_user_highlight` is exposed, and it is unset
+     * from `raw_json` too). `node_id`/`charData`/`preview_nodes`/`raw_json` are JSON-decoded here (the
+     * loader normalizer `processHyperlight` re-parses defensively).
+     *
+     * @return array<int, array{
+     *   book: string, hyperlight_id: string, node_id: string[], charData: array<string, array{charStart: int, charEnd: int}>,
+     *   annotation: ?string, preview_nodes: ?array, highlightedHTML: ?string, highlightedText: ?string,
+     *   startLine: ?string, raw_json: array, time_since: ?int, hidden: bool, is_user_highlight: bool, creator: ?string
+     * }>
      */
     private function getHyperlights(string $bookId): array
     {
@@ -834,7 +877,16 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Get hypercites for a book
+     * Get hypercites for a book — the standalone LOAD wire shape for the `hypercites` store.
+     *
+     * MUST stay in sync with the TS wire type `ServerHyperciteRow` (→ `HyperciteRecord`). Gate-filtered
+     * server-side; `creator_token` is intentionally never sent (only `is_user_hypercite` is exposed).
+     *
+     * @return array<int, array{
+     *   book: string, hyperciteId: string, node_id: string[], charData: array<string, array{charStart: int, charEnd: int}>,
+     *   citedIN: string[], hypercitedHTML: ?string, hypercitedText: ?string, relationshipStatus: ?string,
+     *   time_since: ?int, raw_json: array, creator: ?string, is_user_hypercite: bool
+     * }>
      */
     private function getHypercites(string $bookId): array
     {

@@ -525,9 +525,12 @@ export async function batchDeleteIndexedDBRecords(
                     if (cursor) {
                       const highlight = cursor.value as HyperlightRecord;
 
-                      // ✅ OPTIMIZATION: O(1) Set lookup instead of iterating through each deleted node
+                      // ✅ OPTIMIZATION: O(1) Set lookup instead of iterating through each deleted node.
+                      // startLine is a mixed-type legacy field (number on create, varchar string on
+                      // server-load) — coerce to a number for this OLD-schema Set<number> check.
+                      const startLineNum = highlight.startLine != null ? Number(highlight.startLine) : NaN;
                       const affectsDeletedNode =
-                        deletedIDnumericals.has(highlight.startLine) || // OLD schema check
+                        deletedIDnumericals.has(startLineNum) || // OLD schema check
                         (highlight.node_id && Array.isArray(highlight.node_id) &&
                          highlight.node_id.some(dataNodeID => deletedDataNodeIDs.has(dataNodeID))); // NEW schema check
 
@@ -551,13 +554,13 @@ export async function batchDeleteIndexedDBRecords(
                           cursor.update(highlight);
                         } else {
                           // Single-node highlight - OLD SYSTEM behavior (delete from OLD schema stores)
-                          if (deletedIDnumericals.has(highlight.startLine)) {
+                          if (deletedIDnumericals.has(startLineNum)) {
                             deletedData.hyperlights.push(cursor.value); // Record for undo
                             cursor.delete();
                           } else {
                             // Single-node in NEW schema - mark as orphaned
                             highlight._orphaned_at = Date.now();
-                            highlight._orphaned_from_node = affectedDataNodeID || highlight.startLine.toString();
+                            highlight._orphaned_from_node = affectedDataNodeID || String(highlight.startLine ?? '');
 
                             // Track deleted node for cleanup
                             if (!highlight._deleted_nodes) {

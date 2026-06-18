@@ -90,9 +90,7 @@ export function updateHyperlightRecords(
           console.log(`✅ Cleanup complete for highlight ${hyperlight.highlightID}`);
         }
 
-        // Update existing record with new positions (OLD schema - backward compat)
-        existingRecord.startChar = hyperlight.charStart;
-        existingRecord.endChar = hyperlight.charEnd;
+        // Update existing record (per-node ranges go to charData below; startLine is a synced column)
         existingRecord.startLine = numericNodeId;
         existingRecord.highlightedText = highlightedText;
         existingRecord.highlightedHTML = highlightedHTML;
@@ -142,8 +140,6 @@ export function updateHyperlightRecords(
           const newRecord: HyperlightRecord = {
             book: bookId,
             hyperlight_id: hyperlight.highlightID,
-            startChar: hyperlight.charStart,
-            endChar: hyperlight.charEnd,
             startLine: numericNodeId,
             highlightedText: highlightedText,
             highlightedHTML: highlightedHTML,
@@ -231,9 +227,7 @@ export function updateHyperciteRecords(
           console.log(`✅ Cleanup complete for hypercite ${hypercite.hyperciteId}`);
         }
 
-        // Update existing record with new positions (OLD schema - backward compat)
-        existingRecord.startChar = hypercite.charStart;
-        existingRecord.endChar = hypercite.charEnd;
+        // Update existing record (per-node ranges go to charData below)
         existingRecord.hypercitedText = hypercitedText;
         existingRecord.hypercitedHTML = hypercitedHTML;
 
@@ -271,8 +265,6 @@ export function updateHyperciteRecords(
         const newRecord: HyperciteRecord = {
           book: bookId,
           hyperciteId: hypercite.hyperciteId,
-          startChar: hypercite.charStart,
-          endChar: hypercite.charEnd,
           hypercitedText: hypercitedText,
           hypercitedHTML: hypercitedHTML,
           citedIN: [],

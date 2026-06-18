@@ -4,6 +4,7 @@
 
 import { withPending } from "../utilities/operationState";
 import { openDatabase, queueForSync, updateAnnotationsTimestamp } from "../indexedDB/index";
+import type { HyperlightRecord } from "../indexedDB/types";
 import { getCurrentContainer } from "../hyperlitContainer/containerActions";
 
 /**
@@ -25,7 +26,7 @@ export const saveAnnotationToIndexedDB = (highlightId: string, annotationHTML: s
     const tx = db.transaction("hyperlights", "readwrite");
     const store = tx.objectStore("hyperlights");
     const idx = store.index("hyperlight_id");
-    const record: any = await new Promise((res, rej) => {
+    const record: HyperlightRecord | undefined = await new Promise((res, rej) => {
       const req = idx.get(highlightId);
       req.onsuccess = () => res(req.result);
       req.onerror = () => rej(req.error);
@@ -77,7 +78,7 @@ export function attachAnnotationListener(highlightId: string): void {
         const tx = db.transaction("hyperlights", "readwrite");
         const store = tx.objectStore("hyperlights");
         const idx = store.index("hyperlight_id");
-        const rec: any = await new Promise((res, rej) => {
+        const rec: HyperlightRecord | undefined = await new Promise((res, rej) => {
           const r = idx.get(highlightId);
           r.onsuccess = () => res(r.result);
           r.onerror = () => rej(r.error);
@@ -120,7 +121,7 @@ export const saveHighlightAnnotation = (highlightId: string, annotationHTML: str
     const store = tx.objectStore("hyperlights");
     const index = store.index("hyperlight_id");
 
-    const highlightData: any = await new Promise((res, rej) => {
+    const highlightData: HyperlightRecord | undefined = await new Promise((res, rej) => {
       const req = index.get(highlightId);
       req.onsuccess = () => res(req.result);
       req.onerror = () => rej(req.error);

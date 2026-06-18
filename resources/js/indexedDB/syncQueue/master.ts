@@ -20,6 +20,8 @@ import type {
   LibraryRecord,
   FootnoteRecord,
   BibliographyRecord,
+  HyperciteRecord,
+  HyperlightRecord,
   NodeRecord,
   PublicChunk,
   SyncQueueItem,
@@ -39,8 +41,8 @@ export interface SyncPayloadInput {
   book: BookId;
   updates: {
     nodes: Array<NodeRecord | PublicChunk>;
-    hypercites?: SyncRecordData[];
-    hyperlights?: SyncRecordData[];
+    hypercites?: HyperciteRecord[];
+    hyperlights?: HyperlightRecord[];
     footnotes?: FootnoteRecord[];
     bibliography?: BibliographyRecord[];
     library?: LibraryRecord | null;
@@ -132,8 +134,8 @@ interface UnifiedSyncPayload {
   /** Node UPDATES are PublicChunk (the wire shape); node DELETIONS carry `_action` and
    *  stay SyncRecordData. The union keeps the update path typed without forcing deletions. */
   nodes: Array<PublicChunk | SyncRecordData>;
-  hypercites: SyncRecordData[];
-  hyperlights: SyncRecordData[];
+  hypercites: HyperciteRecord[];
+  hyperlights: HyperlightRecord[];
   hyperlightDeletions: SyncRecordData[];
   footnotes: FootnoteRecord[];
   footnoteDeletions: SyncRecordData[];
@@ -361,7 +363,7 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
     const syncPayload: {
       book: BookId;
       updates: {
-        nodes: NodeRecord[]; hypercites: SyncRecordData[]; hyperlights: SyncRecordData[];
+        nodes: NodeRecord[]; hypercites: HyperciteRecord[]; hyperlights: HyperlightRecord[];
         footnotes: FootnoteRecord[]; bibliography: BibliographyRecord[]; library: LibraryRecord | null;
       };
       deletions: {

@@ -129,6 +129,12 @@ class DbHyperciteController extends Controller
         }
     }
 
+    /**
+     * SAVE path for the `hypercites` store (create). The client sends a TS `HyperciteRecord` list;
+     * `creator`/`creator_token` are backend-set from auth (never client). Per-row write shape:
+     *   array{book: string, hyperciteId: string, node_id: string[], charData: array<string, array{charStart:int,charEnd:int}>,
+     *     hypercitedText: ?string, hypercitedHTML: ?string, relationshipStatus: ?string, citedIN: string[], time_since?: int}
+     */
     public function bulkCreate(Request $request)
 {
     try {
@@ -223,6 +229,11 @@ class DbHyperciteController extends Controller
 }
 
     // Add this new upsert method
+    /**
+     * SAVE path for the `hypercites` store (update-or-create on book+hyperciteId). Same per-row write
+     * shape as bulkCreate (a TS `HyperciteRecord`). On an existing row the ORIGINAL creator/creator_token
+     * are preserved (no privilege escalation); a new row uses backend-generated auth.
+     */
     public function upsert(Request $request)
     {
         // F5/F6/F7: validate inline (NOT a Form Request — this method is also called
@@ -355,8 +366,11 @@ class DbHyperciteController extends Controller
     }
 
     /**
-     * Finds a single hypercite.
-     * SECURITY: Checks book visibility before returning data.
+     * Finds a single hypercite + ALL node chunks for its book — the citation-card resolution endpoint
+     * (frontend caller: resources/js/indexedDB/hypercites/helpers.ts:resolveHypercite). Returns the raw
+     * PgHypercite (→ TS `HyperciteRecord`) + the book's PgNodeChunk rows (→ `NodeRecord[]`):
+     *   { hypercite: array{...HyperciteRecord...}, nodes: array<int, array{...node chunk...}> } | { error: string }
+     * SECURITY: enforces book visibility/ownership before returning data.
      *
      * @param Request $request
      * @param string $bookId

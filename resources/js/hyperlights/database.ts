@@ -5,7 +5,7 @@
 import { book } from '../app';
 import { openDatabase, parseNodeId, createNodeChunksKey } from '../indexedDB/index';
 import { getAuthContextSync, getAuthContext } from '../utilities/auth/index';
-import type { BookId } from '../indexedDB/types';
+import type { BookId, HyperlightRecord } from '../indexedDB/types';
 
 interface AuthUser { name?: string; username?: string; email?: string }
 interface AuthContext { user: AuthUser | null; userId: string | null }
@@ -20,21 +20,9 @@ export interface HighlightInput {
   startLine: number;
 }
 
-/** The row written to the `hyperlights` store. */
-export interface HighlightEntry {
-  book: BookId;
-  hyperlight_id: string;
-  node_id: string[];
-  charData: Record<string, CharRange>;
-  highlightedText: string;
-  highlightedHTML: string;
-  annotation: string;
-  startLine: number;
-  creator: string | null;
-  creator_token: string | null;
-  time_since: number;
-  is_user_highlight: boolean;
-}
+/** The row written to the `hyperlights` store — the welded store type (createHighlight always fills
+ *  creator/creator_token/time_since/is_user_highlight, which are optional on the shared record). */
+export type HighlightEntry = HyperlightRecord;
 
 /** Hyperlight as embedded on a node record. */
 interface NodeHyperlightEmbed { highlightID: string; charStart: number; charEnd: number; is_user_highlight: boolean }
@@ -42,10 +30,10 @@ interface NodeHyperlightEmbed { highlightID: string; charStart: number; charEnd:
 /**
  * Add a new highlight to the hyperlights table
  */
-export async function addToHighlightsTable(bookId: BookId, highlightData: HighlightInput): Promise<HighlightEntry> {
+export async function addToHighlightsTable(bookId: BookId, highlightData: HighlightInput): Promise<HyperlightRecord> {
   const db = await openDatabase();
 
-  return new Promise<HighlightEntry>(async (resolve, reject) => {
+  return new Promise<HyperlightRecord>(async (resolve, reject) => {
     const tx = db.transaction("hyperlights", "readwrite");
     const store = tx.objectStore("hyperlights");
 
@@ -82,7 +70,7 @@ export async function addToHighlightsTable(bookId: BookId, highlightData: Highli
 
     const highlightedHTML = tempDiv.innerHTML;
 
-    const highlightEntry: HighlightEntry = {
+    const highlightEntry: HyperlightRecord = {
       book: bookId,
       hyperlight_id: highlightData.highlightId,
       node_id: Object.keys(highlightData.charData || {}),

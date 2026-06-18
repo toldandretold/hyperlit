@@ -101,13 +101,12 @@ describe('batchUpdateIndexedDBRecords (characterization)', () => {
 
     await batchUpdateIndexedDBRecords([{ id: '300' }]);
 
-    // Normalized hyperlight record (old positional schema + new node_id/charData schema)
+    // Normalized hyperlight record: per-node char ranges live in charData (the vestigial top-level
+    // startChar/endChar were removed — never a DB column, never synced, never read). startLine stays.
     const hl = await readOne('hyperlights', ['bookA', 'HL_1']);
     expect(hl).toEqual({
       book: 'bookA',
       hyperlight_id: 'HL_1',
-      startChar: 6,
-      endChar: 10,
       startLine: 300,
       highlightedText: 'beta',
       highlightedHTML: '<mark id="HL_1" class="HL_1">beta</mark>',
@@ -120,8 +119,6 @@ describe('batchUpdateIndexedDBRecords (characterization)', () => {
     expect(hc).toEqual({
       book: 'bookA',
       hyperciteId: 'hypercite_x1',
-      startChar: 17,
-      endChar: 22,
       hypercitedText: 'delta',
       hypercitedHTML: '<u id="hypercite_x1">delta</u>',
       citedIN: [],
@@ -242,7 +239,7 @@ describe('batchUpdateIndexedDBRecords (characterization)', () => {
     // (new) node — the save must heal it: drop the orphan flags, purge the
     // dead node from node_id + charData, and register the current node.
     await seedStore('hyperlights', [{
-      book: 'bookA', hyperlight_id: 'HL_back', startChar: 0, endChar: 4, startLine: 999,
+      book: 'bookA', hyperlight_id: 'HL_back', startLine: 999,
       highlightedText: 'old', highlightedHTML: '<mark>old</mark>', annotation: 'kept',
       node_id: ['n-gone'],
       charData: { 'n-gone': { charStart: 0, charEnd: 4 } },

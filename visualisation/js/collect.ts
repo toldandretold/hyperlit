@@ -140,6 +140,13 @@ const TABLE_TYPES: Record<string, string[]> = {
   footnotes: ['ServerFootnotesPayload', 'FootnoteRecord'],
   // bibliography: wire payload-map (ServerBibliographyPayload) → expanded per-row store/save (BibliographyRecord).
   bibliography: ['ServerBibliographyPayload', 'BibliographyRecord'],
+  // hypercites: dual representation — standalone store/wire (HyperciteRecord/ServerHyperciteRow) +
+  // the embedded per-node view (NodeHyperciteView, SHARED with nodes — the rebuild/clear builders are
+  // the seam, so they light for both pg:hypercites and pg:nodes).
+  hypercites: ['ServerHyperciteRow', 'HyperciteRecord', 'NodeHyperciteView'],
+  // hyperlights: same dual shape — standalone (HyperlightRecord/ServerHyperlightRow) + the embedded
+  // NodeHyperlightView (shared with nodes).
+  hyperlights: ['ServerHyperlightRow', 'HyperlightRecord', 'NodeHyperlightView'],
 };
 const NODE_DATA_TYPE_SET = new Set<string>(Object.values(TABLE_TYPES).flat());
 

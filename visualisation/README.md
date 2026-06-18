@@ -123,13 +123,18 @@ role = code acting out of place (a refactor candidate), visible at a glance.
 double-click a module box drills into its functions; expand/collapse all + fit; focus dropdown.
 
 **Type trace (click a Postgres table):** clicking a table that has a known TS type lineage
-(today: `nodes`, `library`, `footnotes`, `bibliography`) doesn't do the generic edge-trace — it lights
-the **functions that actually handle that data type**, read from the TypeScript annotations
-(`collect.ts` tags each function with the welded type names that appear in its signature or body —
-`nodes`: `NodeRecord`/`ServerNodeRow`/`PublicChunk`/`NodeHyperlightView`/`NodeHyperciteView`;
+(today: `nodes`, `library`, `footnotes`, `bibliography`, `hypercites`, `hyperlights` — all six
+data tables) doesn't do the generic
+edge-trace — it lights the **functions that actually handle that data type**, read from the TypeScript
+annotations (`collect.ts` tags each function with the welded type names that appear in its signature or
+body — `nodes`: `NodeRecord`/`ServerNodeRow`/`PublicChunk`/`NodeHyperlightView`/`NodeHyperciteView`;
 `library`: `ServerLibraryRow`→`LibraryRecord`; `footnotes`: `ServerFootnotesPayload`→`FootnoteRecord`;
-`bibliography`: `ServerBibliographyPayload`→`BibliographyRecord` — the last two are payload-maps the
-loader expands per-row), plus the `store:<table>` object store
+`bibliography`: `ServerBibliographyPayload`→`BibliographyRecord` (the last two are payload-maps the
+loader expands per-row); `hypercites`: `ServerHyperciteRow`→`HyperciteRecord` for the standalone record
+PLUS `NodeHyperciteView` for the embedded-on-nodes view — the latter is shared with the `nodes` trace,
+so the rebuild/embed builders light for both; `hyperlights`: the same dual shape —
+`ServerHyperlightRow`→`HyperlightRecord` standalone PLUS `NodeHyperlightView` shared with `nodes`),
+plus the `store:<table>` object store
 and the DOM as waypoints. So you see the data's whole **PG↔IndexedDB↔DOM lineage** at once, laid out
 top→bottom by the grid's rows. It deliberately **overrides the `trace:` direction toggle** — a type
 trace is the entire journey of that data, not a one-directional walk. (Mechanism: `TABLE_TYPES` +
