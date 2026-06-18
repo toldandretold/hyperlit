@@ -7,14 +7,15 @@ self-contained and works over `file://`.
 The goal is a single, honest picture of the data spine:
 
 ```
-reader.blade.php → JS (DOM modules) → JS (IndexedDB) → [HTTP endpoint] → PHP route → Controller → Eloquent model → Postgres table
-└──────────────── built today (visualisation/js) ───────────────┘   └──────────── planned next (visualisation/php) ────────────┘
+reader.blade.php → JS (DOM modules) → JS (IndexedDB) → [HTTP route] → Laravel controller → Postgres table
+└──────────────── visualisation/js/collect.ts ────────────────┘   └──── visualisation/php/collect.php ────┘
 ```
 
-**Today** it covers the front end end-to-end: the page, the DOM-manipulation modules
-(`hyperlights` / `hypercites` / `divEditor`), the IndexedDB layer, and the API seam (the
-Postgres tables each endpoint hits). **Next** is the PHP tier — routes + controllers +
-Eloquent — joined onto the JS side at the shared endpoint URL (see `php/` and `merge.ts`).
+**Today** it covers the stack end-to-end: the page, the DOM-manipulation modules
+(`hyperlights` / `hypercites` / `divEditor`), the IndexedDB layer, the API route seam, **and the
+Laravel controllers** that actually read/write each Postgres table — stitched together at the
+shared endpoint URL. The remaining gap is the deeper backend (Eloquent **model** nodes as their own
+tier, and controller→service call graphs); see "The PHP/backend tier" below.
 
 > Scope discipline: this is a **data-flow** map, not "every file." Keep it to the spine —
 > code that moves data across a boundary — or it stops being legible.
@@ -32,10 +33,14 @@ imports by hand:
 - **`generated/flowViz.generated.json`** — the raw `{nodes, modules, edges}` graph; filter
   it to answer "what writes store X?", "what's coupled to file Y?", "what does folder Z depend on?".
 
-Caveats: covers only the data layer (indexedDB + the 7 DOM/feature folders + the API seam), and
-it's *function-level data flow*, not business logic. It's only trustworthy because CI byte-checks it — regenerate
-with `npm run viz:idb` and commit after changing scanned code. (See `Hyperlit/CLAUDE.md` for
-the standing review gate.)
+- **`generated/backend.generated.json`** — the Laravel controller tier (one node per
+  `Controller@method` on a data route, with the Postgres tables it touches + the row-shape it
+  builds), emitted by `php/collect.php`. `js/collect.ts` reads it and stitches it onto the route nodes.
+
+Caveats: covers the data layer (indexedDB + the 7 DOM/feature folders + the API seam) plus the
+backend controllers on those routes, and it's *function-level data flow*, not business logic. It's
+only trustworthy because CI byte-checks it — regenerate with `npm run viz:idb` and commit after
+changing scanned code (incl. the controllers). (See `Hyperlit/CLAUDE.md` for the standing review gate.)
 
 ---
 
@@ -44,13 +49,15 @@ the standing review gate.)
 ```
 visualisation/
 ├── js/
-│   └── collect.ts          the generator (TypeScript-AST analysis of the front end)
-├── php/                    PLANNED: a PHP collector (routes + controllers → endpoint/model/table)
-├── merge.ts                PLANNED: join the JS + PHP graphs on endpoint URL, emit one graph
+│   └── collect.ts          the front-end generator (TS-AST) + the backend-tier merge (mergeBackendTier)
+├── php/
+│   └── collect.php         the backend generator (php-parser AST of routes/api.php + Db* controllers)
+├── merge.ts                the BackendGraph contract (the join shape collect.php emits to)
 ├── generated/                  ALL output (self-contained — open the .html directly)
 │   ├── full-stack-data-map.html  the interactive cytoscape diagram
 │   ├── vendor/cytoscape.min.js   vendored (referenced relatively so file:// stays offline)
-│   ├── flowViz.generated.json    the raw {nodes, modules, edges} graph
+│   ├── flowViz.generated.json    the raw {nodes, modules, edges} graph (incl. the merged controller tier)
+│   ├── backend.generated.json    the raw backend graph (controllers → tables), from php/collect.php
 │   └── FLOWMAP.generated.md       per-function reads/writes/DOM/Postgres table
 └── README.md               this file
 ```
@@ -78,8 +85,14 @@ regenerating and `tests/javascript/visualisation/flowViz.generate.test.js` fails
 A 2-D grid — **both axes mean something**:
 
 - **Vertical (row) = role** (inferred from a module's data edges, not its folder). Top→bottom:
-  PostgreSQL tables ▸ code that bridges IndexedDB↔server ▸ IndexedDB stores ▸ code that
-  bridges page↔IndexedDB ▸ `reader.blade.php`.
+  PostgreSQL tables ▸ **Laravel controllers** ▸ API routes (load/save) ▸ code that bridges
+  IndexedDB↔server ▸ IndexedDB stores ▸ code that bridges page↔IndexedDB ▸ `reader.blade.php`.
+  The **Laravel controllers** sit between the PG tables and the routes — the PHP methods that
+  actually run the SQL, so the map reads truly end-to-end: `DOM ↔ TS ↔ IndexedDB ↔ route ↔
+  controller ↔ table`. They follow the **same folder→file model as the TS side**: a dark-red box is
+  a **controller class** (one PHP file, e.g. `DbHyperlightController`); **double-click to expand** it
+  into its route-handler **methods** (`upsert` / `delete` / `hide`), exactly like drilling a TS module
+  into its functions. Collapsed, a class box folds all its methods' table/route edges onto itself.
 - **Horizontal (column) = source folder** under `resources/js/` (`indexedDB`, `hyperlights`,
   `hypercites`, `divEditor`) — labelled across the top and reinforced by colour.
 
@@ -120,18 +133,24 @@ trace is the entire journey of that data, not a one-directional walk. (Mechanism
 `collectTypeReferences()` in `collect.ts`; the `types` field on `fn`/`table` nodes; `paintTypeTrace`
 in the embedded page. Scope today is `nodes`; extend `TABLE_TYPES` for the other stores.)
 
-> **Known limitation — the backend/pull side is approximate.** The Postgres-table boxes are an
-> *abstraction*, not the real seam, and the edges to them are guesses, two ways. (1) **Table
-> attribution is hand-coded:** `ENDPOINT_TABLES` maps each endpoint to a fixed list of tables and
-> draws one `push`/`pull` edge per table — so a "from `nodes`" arrow only means "`nodes` is in that
-> endpoint's hand-written list", *not* that the function received node data (a library-only fetch
-> still shows an edge from `pg:nodes`). (2) **Endpoint detection sees only the URL head:** a template
-> URL like `` `/api/…/books/${id}/data` `` is captured only up to the first `${}`, so `…/data` and
-> `…/annotations` collapse to the same `…/books/` endpoint — the map can't even separate
-> book-content loads from annotation loads. The planned fix is an **API/route tier** that keys each
-> endpoint to its TS receiver and the response type it's annotated with (`BookDataResponse` /
-> `AnnotationsResponse` / `UnifiedSyncPayload`), so each endpoint shows the *specific* data it
-> carries and where TS receives it — see "Next" below.
+With the backend tier built, the `nodes` type-trace now threads the **whole** seam:
+`pg:nodes ← controller (getBookData / targetedUpsert / …) ← route ← fn → store:nodes → dom`. The
+controllers light up because their node is tagged with the `nodes` types and the trace BFS walks the
+push/pull edges through them (without bleeding into the sibling tables a multi-table controller also
+touches — see `carryingForTable` in the embedded page).
+
+> **What the backend tier resolved (and what's still approximate).** The Postgres-table boxes used
+> to be an abstraction wired to TS by a hand-coded `ENDPOINT_TABLES` guess. That's now largely
+> replaced: each route carries a **Laravel controller** node whose tables are **derived** from the
+> code — each `Pg*` model's `$table` plus raw `DB::table('…')` / `INSERT INTO …` literals, read by
+> `php/collect.php`. So a "from `nodes`" arrow now means a real controller method actually queries
+> `nodes`. **Remaining coarseness:** (1) a controller's edges are drawn by its route's HTTP verb
+> (GET → read, POST → write), so a write endpoint that *reads* a table for an auth check (e.g. the
+> node upsert reads `library`) shows that as a write edge; (2) **cross-controller delegation** isn't
+> followed across classes — `unified-sync` delegates to the per-store upserts, so its own tables are
+> back-filled from the route's declared list rather than traced into the delegate methods; (3) only
+> controllers sitting on a **front-end-detected route** are shown (other real methods exist but
+> aren't on the traced data path). See "The PHP/backend tier" below for what's next.
 
 ---
 
@@ -171,25 +190,28 @@ the front-end layer's own metadata (`flowMap.ts`, `core/connection.ts` `STORE_CO
 
 ---
 
-## Next: the PHP tier (`php/` + `merge.ts`)
+## The PHP/backend tier (`php/collect.php`)
 
-Planned, not built. **Step 0 (the immediate next build) is an API/route tier** that replaces the
-coarse `ENDPOINT_TABLES` guess (see the limitation note above): each real endpoint becomes a node
-keyed to its TS receiver and the **response type it's annotated with** — `…/books/{id}/data` →
-`BookDataResponse` (the author's content: nodes/footnotes/bibliography/library + the embedded
-annotations), `…/books/{id}/annotations` → `AnnotationsResponse` (just hyperlights/hypercites, the
-"load others' metadata separately" path), the upserts → `UnifiedSyncPayload`/per-store records. That
-makes each endpoint show the *specific* data it carries, distinguishes book-content from annotation
-loads, and is the seam the PHP tiers below join onto. Then, above it:
+**Built.** `php/collect.php` parses `routes/api.php` (tracking `Route::prefix()->group()` nesting +
+the `/api` mount, resolving `[Controller::class, 'method']` handlers) and the `Db*` +
+`DatabaseToIndexedDB` controllers via [`nikic/php-parser`](https://github.com/nikic/PHP-Parser) —
+the PHP-AST analogue of how `js/collect.ts` uses the TS compiler API. Pure static analysis (no
+Laravel boot, no DB), so the output byte-checks. For each controller method on a data route it reads:
+the **tables** it touches (each `Pg*` model's `$table` + raw `DB::table('…')` / `INSERT INTO …`
+literals, following same-class private helpers like `getBookData → getNodeChunks*`), the **direction**
+(GET → pull, write verb → push), and the **row-shape** keys it builds. It emits
+`generated/backend.generated.json`; `js/collect.ts:mergeBackendTier()` stitches each controller
+between its route node and the PG tables. Gated by `tests/Unit/Visualisation/BackendFlowmapTest.php`
+(byte-compare, mirrors the JS gate) + the controller pins in `flowViz.generate.test.js`.
 
-1. **`php/collect`** — parse `routes/api.php` (+ `web.php`) for `method + URI → Controller@method`,
-   then read each controller method for the Eloquent model / `DB::table('…')` it touches.
-   Parser options: [`nikic/php-parser`](https://github.com/nikic/PHP-Parser), or a small
-   `artisan` command using `Route::getRoutes()` + reflection. Emit nodes `route`/`controller`/`model`
-   and edges into the existing `table` nodes.
-2. **`merge.ts`** — the JS graph already records each endpoint URL on its `push`/`pull` edges;
-   the PHP graph keys routes by the same normalized URL. Join on it: the HTTP endpoint becomes
-   a real node with JS on one side and PHP on the other. Bonus — `ENDPOINT_TABLES` (today a
-   hand-maintained map) becomes **derived** from the controllers, so table names can't drift.
-3. Keep the same renderer; add a PHP tier above the Postgres tables and a `controller`/`route`
-   folder colour.
+**Still to do, deeper into the backend:**
+
+1. **Eloquent `model` nodes** as their own sub-tier between controller and table (the `$table` map is
+   already collected) — shows which model mediates each write, and makes `PgNodeChunk` etc. first-class.
+2. **Cross-controller + controller→service call graphs** — follow `unified-sync` into the per-store
+   upserts and controllers into services (`BookDeletionService`, `SubBookRegistrar`) so delegated
+   table touches are traced rather than back-filled from the route's declared list (see limitation #2).
+3. **Per-table read/write fidelity** — distinguish a write endpoint's data writes from its incidental
+   auth reads (limitation #1), instead of colouring all edges by the route verb.
+4. **`Route::getRoutes()` cross-check** — an optional `artisan` pass to confirm the statically-parsed
+   route map matches Laravel's live route table (catches routes registered outside `routes/api.php`).

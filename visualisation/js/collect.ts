@@ -91,21 +91,34 @@ const DOM_WRITE_PROPS = new Set(['innerHTML', 'textContent', 'innerText', 'outer
  * references/upsert endpoint writes DB::table('bibliography')), and
  * `canonical_source` is singular.
  */
-interface EndpointMap { dir: 'push' | 'pull'; tables: string[]; }
+/**
+ * The real API endpoints and the EXACT data each moves — keyed by the full URL PATTERN
+ * (`{}` = an interpolated segment), so sub-paths stay distinct (`…/data` ≠ `…/annotations`).
+ * `group` is the data domain so the API tier can separate the author's **book content**
+ * (nodes/footnotes/bibliography/library) from **annotations** (hyperlights/hypercites — others'
+ * metadata, loaded/saved on their own paths). `sync` = the bundled save that ships everything.
+ * Each becomes a `route` node between the TS function and the Postgres tables it carries.
+ */
+interface EndpointMap { dir: 'push' | 'pull'; tables: string[]; group: 'content' | 'annotations' | 'sync'; }
 const CORE_TABLES = ['nodes', 'hypercites', 'hyperlights', 'footnotes', 'bibliography', 'library'];
 const ENDPOINT_TABLES: Record<string, EndpointMap> = {
-  '/api/db/unified-sync': { dir: 'push', tables: CORE_TABLES },
-  '/api/db/sync/beacon': { dir: 'push', tables: CORE_TABLES },
-  '/api/db/node-chunks/targeted-upsert': { dir: 'push', tables: ['nodes'] },
-  '/api/db/hypercites/upsert': { dir: 'push', tables: ['hypercites'] },
-  '/api/db/hypercites/find': { dir: 'pull', tables: ['hypercites'] },
-  '/api/db/hyperlights/upsert': { dir: 'push', tables: ['hyperlights'] },
-  '/api/db/hyperlights/delete': { dir: 'push', tables: ['hyperlights'] },
-  '/api/db/hyperlights/hide': { dir: 'push', tables: ['hyperlights'] },
-  '/api/db/footnotes/upsert': { dir: 'push', tables: ['footnotes'] },
-  '/api/db/references/upsert': { dir: 'push', tables: ['bibliography'] },
-  '/api/database-to-indexeddb/books': { dir: 'pull', tables: CORE_TABLES },
-  '/api/canonical': { dir: 'push', tables: ['canonical_source'] },
+  // ── book LOAD (pull) — the author's content vs the separate annotations path ──
+  '/api/database-to-indexeddb/books/{}/data':        { dir: 'pull', tables: CORE_TABLES, group: 'content' },        // full book (incl. embedded annotations)
+  '/api/database-to-indexeddb/books/{}/annotations': { dir: 'pull', tables: ['hyperlights', 'hypercites'], group: 'annotations' }, // metadata only, loaded separately
+  '/api/database-to-indexeddb/books/{}/headings':    { dir: 'pull', tables: ['nodes'], group: 'content' },          // TOC, derived from nodes
+  '/api/database-to-indexeddb/books/{}/library':     { dir: 'pull', tables: ['library'], group: 'content' },
+  // ── book SAVE (push) ──
+  '/api/db/unified-sync':                 { dir: 'push', tables: CORE_TABLES, group: 'sync' },   // the bundled save (everything)
+  '/api/db/sync/beacon':                  { dir: 'push', tables: CORE_TABLES, group: 'sync' },
+  '/api/db/node-chunks/targeted-upsert':  { dir: 'push', tables: ['nodes'], group: 'content' },
+  '/api/db/footnotes/upsert':             { dir: 'push', tables: ['footnotes'], group: 'content' },
+  '/api/db/references/upsert':            { dir: 'push', tables: ['bibliography'], group: 'content' },
+  '/api/db/hyperlights/upsert':           { dir: 'push', tables: ['hyperlights'], group: 'annotations' },
+  '/api/db/hyperlights/delete':           { dir: 'push', tables: ['hyperlights'], group: 'annotations' },
+  '/api/db/hyperlights/hide':             { dir: 'push', tables: ['hyperlights'], group: 'annotations' },
+  '/api/db/hypercites/upsert':            { dir: 'push', tables: ['hypercites'], group: 'annotations' },
+  '/api/db/hypercites/find':              { dir: 'pull', tables: ['hypercites'], group: 'annotations' },
+  '/api/canonical':                       { dir: 'push', tables: ['canonical_source'], group: 'content' },
 };
 
 /**
@@ -129,7 +142,17 @@ const NODE_DATA_TYPE_SET = new Set<string>(Object.values(TABLE_TYPES).flat());
 export interface GraphNode {
   id: string;
   label: string;
-  kind: 'fn' | 'store' | 'table' | 'dom';
+  kind: 'fn' | 'store' | 'table' | 'dom' | 'route' | 'controller';
+  /** route + controller nodes: data domain — 'content' (author) | 'annotations' (others' metadata) | 'sync'. */
+  group?: 'content' | 'annotations' | 'sync';
+  /** route + controller nodes: 'pull' (data FROM backend / load) | 'push' (data TO backend / save). */
+  dir?: 'push' | 'pull';
+  /** controller nodes only: the Postgres tables it touches + the row-shape keys it builds (from the PHP collector). */
+  tables?: string[];
+  shape?: string[];
+  /** controller nodes only: the owning controller class (the collapsible "folder") + the bare method name. */
+  cls?: string;
+  method?: string;
   /** flow-map stage for fn nodes (clusters the layout); undefined for data nodes. */
   stage?: string;
   /** owning module (file) key for fn nodes — drives collapse-to-module grouping. */
@@ -249,10 +272,22 @@ function isExported(node: ts.Node): boolean {
 function stringLiteralValue(node: ts.Node | undefined): string | null {
   if (!node) return null;
   if (ts.isStringLiteralLike(node)) return node.text;
-  // A template literal with interpolation (`/api/books/${id}/data`) → its literal HEAD
-  // ("/api/books/"), which is enough to match an ENDPOINT_TABLES prefix. Without this the
-  // entire pull/load side (it builds URLs as templates) produced zero endpoints/edges.
-  if (ts.isTemplateExpression(node)) return node.head.text;
+  return null;
+}
+
+/**
+ * Reconstruct a URL string/pattern from a fetch/sendBeacon argument — including template
+ * literals, where each `${…}` becomes a `{}` placeholder so the segments AFTER the
+ * interpolation survive. `/api/…/books/${id}/data` → "/api/…/books/{}/data" (distinct from
+ * "…/annotations"); a plain string returns verbatim. Used only for endpoint detection.
+ */
+function urlPatternOf(node: ts.Node): string | null {
+  if (ts.isStringLiteralLike(node)) return node.text;
+  if (ts.isTemplateExpression(node)) {
+    let s = node.head.text;
+    for (const span of node.templateSpans) s += '{}' + span.literal.text;
+    return s;
+  }
   return null;
 }
 
@@ -340,7 +375,7 @@ function analyzeFunctionBody(body: ts.Node): Omit<FnRaw, 'id' | 'name' | 'module
       // a helper like appendGateParam(`/api/…`) — the shape the entire load/pull side uses, which
       // previously yielded NO endpoints (hence zero pull edges; tables looked like pure sinks).
       if (fnName === 'fetch' || fnName === 'sendBeacon') {
-        walk(body, b => { const s = stringLiteralValue(b); if (s && s.startsWith('/api/')) endpoints.add(normalizeEndpoint(s)); });
+        walk(body, b => { const s = urlPatternOf(b); if (s && s.startsWith('/api/')) endpoints.add(normalizeEndpoint(s)); });
       }
     }
     if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isPropertyAccessExpression(n.left)) {
@@ -510,6 +545,112 @@ function parseModule(abs: string, known: Set<string>): ModuleParse {
   return { functions, importMap, reexports: buildReexports(sf, abs, known), staticDeps, dynDeps };
 }
 
+// ── backend (Laravel/PHP) tier ──────────────────────────────────────
+//
+// The PHP collector (visualisation/php/collect.php) statically parses routes/api.php + the Db*/
+// DatabaseToIndexedDB controllers and emits backend.generated.json: one `controller` node per
+// Controller@method on a data route, with the Postgres tables it touches (DERIVED from each Pg*
+// model's $table + raw DB::table/SQL literals — not hand-coded). We stitch each controller BETWEEN
+// its route node and the PG tables, so the map reads end-to-end DOM↔TS↔route↔controller↔table.
+
+interface BackendControllerNode {
+  id: string; label: string; kind: 'controller';
+  dir: 'push' | 'pull'; controller: string; method: string;
+  tables: string[]; shape: string[]; endpoints: string[];
+}
+interface BackendGraphFile {
+  nodes: BackendControllerNode[];
+  edges: { source: string; target: string; rel: string }[];
+  endpointToController: Record<string, string>;
+  modelTable: Record<string, string>;
+}
+
+const BACKEND_ARTIFACT = path.join(VIS_ROOT, 'generated', 'backend.generated.json');
+
+function loadBackendGraph(): BackendGraphFile | null {
+  if (!fs.existsSync(BACKEND_ARTIFACT)) return null;       // PHP step hasn't run (e.g. Node-only CI) → skip the tier
+  try { return JSON.parse(fs.readFileSync(BACKEND_ARTIFACT, 'utf8')) as BackendGraphFile; }
+  catch { return null; }
+}
+
+function backendGroup(tables: string[], url: string): 'content' | 'annotations' | 'sync' {
+  if (/unified-sync|beacon/.test(url)) return 'sync';
+  const ann = new Set(['hyperlights', 'hypercites']);
+  return tables.length && tables.every(t => ann.has(t)) ? 'annotations' : 'content';
+}
+
+/**
+ * Mutates the front-end graph in place: attach the backend controller tier at the route seam.
+ * Only controllers sitting on a route the front end actually calls are shown, so every controller
+ * completes a real path. The frontend's route↔table edges for those routes are rerouted through the
+ * controller (controller tables = its own static set UNIONed with the route's declared tables, so
+ * cross-controller delegation like unified-sync never loses coverage).
+ */
+function mergeBackendTier(
+  nodes: GraphNode[], edges: GraphEdge[], edgeKey: Set<string>,
+  routesSeen: Map<string, EndpointMap>, tablesSeen: Set<string>,
+): void {
+  const backend = loadBackendGraph();
+  if (!backend) return;
+
+  const nodeIds = new Set(nodes.map(n => n.id));
+  const routeKeys = new Set(routesSeen.keys());            // endpoint URLs the front end's data layer fetches
+  // Show EVERY data-spine controller (the allowlist already scopes them) — they're part of the full
+  // stack whether or not the reader's data layer happens to hit that endpoint. Those on a detected
+  // route get the full fn→route→controller→table chain; the rest still show controller→table.
+  const kept = backend.nodes;
+
+  // routes that gain a controller — their direct route↔table edges get rerouted through it
+  const controllerRoutes = new Set<string>();
+  for (const c of kept) for (const u of c.endpoints) if (routeKeys.has(u)) controllerRoutes.add(u);
+
+  for (let i = edges.length - 1; i >= 0; i--) {
+    const e = edges[i]!;
+    const rt = e.source.startsWith('route:') ? e.source : e.target.startsWith('route:') ? e.target : null;
+    const pg = e.source.startsWith('pg:') ? e.source : e.target.startsWith('pg:') ? e.target : null;
+    if (rt && pg && controllerRoutes.has(rt.slice('route:'.length))) { edgeKey.delete(e.id); edges.splice(i, 1); }
+  }
+
+  const addEdge = (source: string, target: string, rel: string) => {
+    const id = `${source}__${rel}__${target}`;
+    if (edgeKey.has(id)) return;
+    edgeKey.add(id);
+    edges.push({ id, source, target, rel });
+  };
+
+  for (const c of kept) {
+    const myRoutes = c.endpoints.filter(u => routeKeys.has(u));
+    // never lose the route's declared tables (covers cross-controller delegation, e.g. unified-sync)
+    const tables = [...new Set([...c.tables, ...myRoutes.flatMap(u => routesSeen.get(u)!.tables)])].sort();
+
+    const cls = c.label.split('@')[0] ?? c.controller;   // display class, the collapsible "folder"
+    nodes.push({
+      id: c.id, label: c.method, kind: 'controller', dir: c.dir, cls, method: c.method,
+      group: backendGroup(tables, myRoutes[0] ?? ''),
+      ...(tables.length ? { tables } : {}),
+      ...(c.shape.length ? { shape: c.shape } : {}),
+      ...(tables.includes('nodes') ? { types: [...(TABLE_TYPES.nodes ?? [])].sort() } : {}),  // light up in the `nodes` type-trace
+    });
+    nodeIds.add(c.id);
+
+    for (const u of myRoutes) {
+      const routeId = `route:${u}`;
+      // pull: pg → controller → route → fn ; push: fn → route → controller → pg (one consistent flow direction)
+      if (c.dir === 'pull') addEdge(c.id, routeId, 'pull');
+      else addEdge(routeId, c.id, 'push');
+    }
+    for (const t of tables) {
+      const pg = `pg:${t}`;
+      if (!nodeIds.has(pg)) {                               // backend-only table (e.g. user_reading_positions) → add its box
+        nodes.push({ id: pg, label: t, kind: 'table', ...(TABLE_TYPES[t] ? { types: [...TABLE_TYPES[t]].sort() } : {}) });
+        nodeIds.add(pg); tablesSeen.add(t);
+      }
+      if (c.dir === 'pull') addEdge(pg, c.id, 'pull');
+      else addEdge(c.id, pg, 'push');
+    }
+  }
+}
+
 // ── the collector ───────────────────────────────────────────────────
 
 export function collect(): FlowViz {
@@ -624,6 +765,7 @@ export function collect(): FlowViz {
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
   const tablesSeen = new Set<string>();
+  const routesSeen = new Map<string, EndpointMap>();   // matched endpoint key → its map (for route nodes)
   const edgeKey = new Set<string>();
   const pushEdge = (source: string, target: string, rel: string, label?: string, dataPath?: boolean) => {
     const id = `${source}__${rel}__${target}`;
@@ -665,11 +807,17 @@ export function collect(): FlowViz {
     for (const ep of folded.endpoints) {
       const key = Object.keys(ENDPOINT_TABLES).filter(k => ep === k || ep.startsWith(k)).sort((a, b) => b.length - a.length)[0];
       const m = key ? ENDPOINT_TABLES[key] : undefined;
-      if (!m) continue;
+      if (!key || !m) continue;
+      // Route the data THROUGH the API endpoint node: fn ↔ route ↔ table. So the graph shows the
+      // real seam (which endpoint carries which data), not a fn wired straight to a guessed table.
+      const routeId = `route:${key}`;
+      routesSeen.set(key, m);
+      if (m.dir === 'push') pushEdge(fn.id, routeId, 'push', ep);
+      else pushEdge(routeId, fn.id, 'pull', ep);
       for (const t of m.tables) {
         tablesSeen.add(t);
-        if (m.dir === 'push') pushEdge(fn.id, `pg:${t}`, 'push', ep);
-        else pushEdge(`pg:${t}`, fn.id, 'pull', ep);
+        if (m.dir === 'push') pushEdge(routeId, `pg:${t}`, 'push', ep);
+        else pushEdge(`pg:${t}`, routeId, 'pull', ep);
       }
     }
     for (const c of folded.exportedCalls) pushEdge(fn.id, c, 'call', undefined, reachesSink(c));
@@ -681,7 +829,20 @@ export function collect(): FlowViz {
   for (const s of STORE_NAMES) nodes.push({ id: `store:${s}`, label: s, kind: 'store' });
   const tables = [...tablesSeen].sort();
   for (const t of tables) nodes.push({ id: `pg:${t}`, label: t, kind: 'table', ...(TABLE_TYPES[t] ? { types: [...TABLE_TYPES[t]].sort() } : {}) });
+  // API endpoint tier: one node per matched route, between the TS functions and the PG tables,
+  // tagged with its data-domain group. Label = the path minus /api/, `{}` → :id.
+  for (const key of [...routesSeen.keys()].sort()) {
+    const m = routesSeen.get(key)!;
+    // concise label = the last two meaningful path segments (drop `api`, `{}` placeholders),
+    // e.g. `…/books/{}/data` → "books/data", `/api/db/unified-sync` → "db/unified-sync".
+    const label = key.split('/').filter(s => s && s !== 'api' && s !== '{}').slice(-2).join('/');
+    nodes.push({ id: `route:${key}`, label, kind: 'route', group: m.group, dir: m.dir });
+  }
   nodes.push({ id: 'dom', label: 'reader.blade.php', kind: 'dom' });
+
+  // Backend tier: stitch the Laravel controllers onto the route nodes (no-op if the PHP step
+  // hasn't produced backend.generated.json — the committed artifacts still carry the merged tier).
+  mergeBackendTier(nodes, edges, edgeKey, routesSeen, tablesSeen);
 
   // Per-module data-movement role, aggregated from its functions' (folded) edges.
   const agg = new Map<string, { pg: boolean; dom: boolean; store: boolean }>();
@@ -893,6 +1054,11 @@ export function renderMarkdown(viz: FlowViz): string {
 // NB: the embedded <script> avoids backticks and ${} so this outer template
 // literal only interpolates ${data}.
 
+// Database glyph (Bootstrap Icons "database", bake in a light fill so it shows on the dark nodes)
+// embedded as a base64 data-URI so the generated HTML stays self-contained / offline.
+const DB_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#e9eefb" viewBox="0 0 16 16"><path d="M4.318 2.687C5.234 2.271 6.536 2 8 2s2.766.27 3.682.687C12.644 3.125 13 3.627 13 4c0 .374-.356.875-1.318 1.313C10.766 5.729 9.464 6 8 6s-2.766-.27-3.682-.687C3.356 4.875 3 4.373 3 4c0-.374.356-.875 1.318-1.313M13 5.698V7c0 .374-.356.875-1.318 1.313C10.766 8.729 9.464 9 8 9s-2.766-.27-3.682-.687C3.356 7.875 3 7.373 3 7V5.698c.271.202.58.378.904.525C4.978 6.711 6.427 7 8 7s3.022-.289 4.096-.777A5 5 0 0 0 13 5.698M14 4c0-1.007-.875-1.755-1.904-2.223C11.022 1.289 9.573 1 8 1s-3.022.289-4.096.777C2.875 2.245 2 2.993 2 4v9c0 1.007.875 1.755 1.904 2.223C4.978 15.71 6.427 16 8 16s3.022-.289 4.096-.777C13.125 14.755 14 14.007 14 13zm-1 4.698V10c0 .374-.356.875-1.318 1.313C10.766 11.729 9.464 12 8 12s-2.766-.27-3.682-.687C3.356 10.875 3 10.373 3 10V8.698c.271.202.58.378.904.525C4.978 9.71 6.427 10 8 10s3.022-.289 4.096-.777A5 5 0 0 0 13 8.698m0 3V13c0 .374-.356.875-1.318 1.313C10.766 14.729 9.464 15 8 15s-2.766-.27-3.682-.687C3.356 13.875 3 13.373 3 13v-1.302c.271.202.58.378.904.525C4.978 12.71 6.427 13 8 13s3.022-.289 4.096-.777c.324-.147.633-.323.904-.525"/></svg>';
+const DB_ICON_URI = 'data:image/svg+xml;base64,' + Buffer.from(DB_ICON_SVG, 'utf8').toString('base64');
+
 export function renderHtml(viz: FlowViz): string {
   const data = JSON.stringify(viz);
   return `<!doctype html>
@@ -946,9 +1112,13 @@ export function renderHtml(viz: FlowViz): string {
 </div>
 <script>
 var VIZ = ${data};
+var DB_ICON = ${JSON.stringify(DB_ICON_URI)};   // database glyph for the PG-table + IDB-store nodes
 var REL_COLOR = {read:"#5eb0ef",write:"#54c98a",push:"#e0a44b",pull:"#b07ad6",domread:"#3fb6b6",domwrite:"#e06a9a",call:"#4a5169",handoff:"#5fb3a3"};
 var nodeById = {}; VIZ.nodes.forEach(function(n){ nodeById[n.id]=n; });
 var fnModule = {}; VIZ.nodes.forEach(function(n){ if(n.kind==="fn") fnModule[n.id]=n.module; });
+// controller method → its class ("folder"). A controller class collapses/expands exactly like a TS
+// module box: collapsed → one "cclass:<Class>" box; expanded → its method nodes shown inside it.
+var ctrlClass = {}; VIZ.nodes.forEach(function(n){ if(n.kind==="controller") ctrlClass[n.id]=n.cls; });
 var dataIds = {}; VIZ.nodes.forEach(function(n){ if(n.kind!=="fn") dataIds[n.id]=true; });
 var expanded = {};
 // Two lenses over the SAME boxes. "flow" = data movement (read/write/push/pull/dom);
@@ -969,7 +1139,11 @@ function applyMode(){
   if(!imports && !couple) cy.edges('[rel = "call"][?dataPath]').style("display","element");
 }
 
-function rep(id){ if(dataIds[id]) return id; var mod=fnModule[id]; if(mod==null) return id; return expanded[mod]?id:("mod:"+mod); }
+function rep(id){
+  if(ctrlClass[id]!=null){ var box="cclass:"+ctrlClass[id]; return expanded[box]?id:box; }  // controller method → its class box when collapsed
+  if(dataIds[id]) return id;
+  var mod=fnModule[id]; if(mod==null) return id; return expanded[mod]?id:("mod:"+mod);
+}
 
 function rebuild(){
   // TWO axes, both meaningful:
@@ -1040,7 +1214,34 @@ function rebuild(){
   }
   function compStyle(){ return "components"; }
 
-  var SYNC_TOP=TABLEY+GAP+24;
+  // Laravel controller tier — collapsible CLASS boxes between the PG tables and the routes, on TWO
+  // rows: the whole-book AGGREGATORS up top (DatabaseToIndexedDB = the load aggregator, centred; the
+  // save-side UnifiedSync/Beacon flank it), and the PER-DOMAIN write controllers below, ordered
+  // left→right by domain (annotations | core content | bibliography) so they line up under the
+  // matching PG tables. Row heights are dynamic (grow when a class is expanded), computed up front.
+  var ctrlByClass={}; VIZ.nodes.forEach(function(n){ if(n.kind==="controller"){ (ctrlByClass[n.cls]=ctrlByClass[n.cls]||[]).push(n); } });
+  // The two whole-book AGGREGATORS are the central spine, stacked dead-centre: the LOAD aggregator
+  // (DatabaseToIndexedDB, PG→IDB) above the SAVE aggregator (UnifiedSync, IDB→PG — the reverse), with
+  // Beacon (UnifiedSync's page-unload twin) beside it. Below them, the PER-DOMAIN writers, ordered
+  // L→R by domain (annotations | core content | bibliography) to line up under the matching tables.
+  var SPINE_LOAD="DatabaseToIndexedDBController", SPINE_SAVE="UnifiedSyncController", AGG_BEACON="BeaconSyncController";
+  var CTRL_DOM_ORDER=["DbHyperlightController","DbHyperciteController","DbNodeChunkController","DbLibraryController","DbFootnoteController","DbReferencesController"]; // L: annotations · C: nodes+library · R: bibliography
+  function domainArrange(keys, coreOrder){
+    var core=coreOrder.filter(function(k){return keys.indexOf(k)>=0;});
+    var extras=keys.filter(function(k){return coreOrder.indexOf(k)<0;}).sort();
+    var L=[],R=[]; extras.forEach(function(e,i){ (i%2?R:L).push(e); });   // split extras to the edges so the core stays centred
+    return L.concat(core).concat(R);
+  }
+  var aggAll=[SPINE_LOAD, SPINE_SAVE, AGG_BEACON];
+  var domClasses=domainArrange(Object.keys(ctrlByClass).filter(function(c){return aggAll.indexOf(c)<0;}), CTRL_DOM_ORDER);
+  function ctrlRowH(classes){ var anyExp=false,mx=1; classes.forEach(function(c){ if(ctrlByClass[c]&&expanded["cclass:"+c]){anyExp=true; if(ctrlByClass[c].length>mx)mx=ctrlByClass[c].length;} }); return anyExp?(22+mx*ROWH):MODH; }
+  var AGG1_TOP=TABLEY+56, AGG1_H=ctrlRowH([SPINE_LOAD]);                 // load aggregator (centre)
+  var AGG2_TOP=AGG1_TOP+AGG1_H+30, AGG2_H=ctrlRowH([SPINE_SAVE,AGG_BEACON]); // save aggregators (centre)
+  var DOM_TOP=AGG2_TOP+AGG2_H+30, DOM_H=ctrlRowH(domClasses);            // per-domain writers
+  var CTRL_BOTTOM=DOM_TOP+DOM_H;
+  var ROUTE_PULL_Y=CTRL_BOTTOM+46;   // upper route row: data FROM backend (load) — arrows point DOWN
+  var ROUTE_PUSH_Y=ROUTE_PULL_Y+58;  // lower route row: data TO backend (save) — arrows point UP
+  var SYNC_TOP=ROUTE_PUSH_Y+GAP+10;  // sync code starts below the controller + API-route rows
   var syncBottom=layoutBand(byBand.sync, SYNC_TOP, dataCols, folders, dataFolderOf, dataFolderOf, dataOff);
   var STORECODE_TOP=syncBottom+GAP;
   var storeBottom=layoutBand(byBand.store, STORECODE_TOP, dataCols, folders, dataFolderOf, dataFolderOf, dataOff);
@@ -1064,8 +1265,46 @@ function rebuild(){
   }
   var stores=centreNodes(VIZ.nodes.filter(function(n){return n.kind==="store";}));
   stores.forEach(function(n,i){ els.push({data:{id:n.id,label:n.label,kind:"store"},position:{x:spread(stores.length,i),y:STOREY}}); });
-  var tables=centreNodes(VIZ.nodes.filter(function(n){return n.kind==="table";}));
+  // PG tables ordered by domain so they line up under the controllers that write them:
+  // L: hyperlights/hypercites (annotations) · C: nodes/library (core) · R: footnotes/bibliography.
+  var TABLE_DOM_ORDER=["hyperlights","hypercites","nodes","library","footnotes","bibliography"];
+  var tableNodes=VIZ.nodes.filter(function(n){return n.kind==="table";});
+  var tableOrder=domainArrange(tableNodes.map(function(n){return n.label;}), TABLE_DOM_ORDER);
+  var tables=tableOrder.map(function(lbl){ return tableNodes.filter(function(n){return n.label===lbl;})[0]; }).filter(Boolean);
   tables.forEach(function(n,i){ els.push({data:{id:n.id,label:n.label,kind:"table"},position:{x:spread(tables.length,i),y:TABLEY}}); });
+  // API endpoint tier — TWO rows by data-flow direction: PULL (from backend / load) on top pointing
+  // DOWN, PUSH (to backend / save) below pointing UP. Within each row, ordered by domain
+  // (content | sync | annotations) and centred (not spread full-width) so they cluster in the middle.
+  var GROUP_ORDER={content:0,sync:1,annotations:2};
+  var routeSort=function(a,b){ var ga=GROUP_ORDER[a.group]||0, gb=GROUP_ORDER[b.group]||0; return ga-gb||(a.label<b.label?-1:1); };
+  var midW=fullW*0.5, midX0=STARTX+(fullW-midW)/2;
+  function spreadMid(n,i){ return n<=1?STARTX+fullW/2:midX0+(i*midW)/(n-1); }
+  var pullRoutes=VIZ.nodes.filter(function(n){return n.kind==="route"&&n.dir==="pull";}).slice().sort(routeSort);
+  var pushRoutes=VIZ.nodes.filter(function(n){return n.kind==="route"&&n.dir==="push";}).slice().sort(routeSort);
+  pullRoutes.forEach(function(n,i){ els.push({data:{id:n.id,label:n.label,kind:"route",group:n.group,dir:"pull"},position:{x:spreadMid(pullRoutes.length,i),y:ROUTE_PULL_Y}}); });
+  pushRoutes.forEach(function(n,i){ els.push({data:{id:n.id,label:n.label,kind:"route",group:n.group,dir:"push"},position:{x:spreadMid(pushRoutes.length,i),y:ROUTE_PUSH_Y}}); });
+  // Laravel controller tier — one collapsible box per controller CLASS (the "folder"). Collapsed:
+  // a box "ControllerName (N)" whose method edges fold onto it (via rep). Expanded (double-click): a
+  // compound box holding its method nodes — exactly like a TS module box drilling into its functions.
+  // Two rows: aggregators (centred) above the per-domain writers (domain-ordered across the width).
+  var ctrlW=fullW*0.96, ctrlX0=STARTX+(fullW-ctrlW)/2, cxCentre=STARTX+fullW/2;
+  function spreadWide(n,i){ return n<=1?cxCentre:ctrlX0+(i*ctrlW)/(n-1); }
+  function placeClassBox(c, cx, topY){
+    if(!ctrlByClass[c]) return;
+    var meths=ctrlByClass[c].slice().sort(routeSort), box="cclass:"+c, dir=meths[0].dir, grp=meths[0].group;
+    if(expanded[box]){
+      els.push({data:{id:box,label:c,kind:"cmodule",expanded:1,dir:dir,group:grp}});
+      meths.forEach(function(m,j){ els.push({data:{id:m.id,label:m.label,kind:"controller",parent:box,dir:m.dir,group:m.group},position:{x:cx,y:topY+22+j*ROWH}}); });
+    } else {
+      els.push({data:{id:box,label:c+"  ("+meths.length+")",kind:"cmodule",expanded:0,dir:dir,group:grp},position:{x:cx,y:topY}});
+    }
+  }
+  // central spine: load aggregator above save aggregator, both dead-centre; Beacon beside Save.
+  placeClassBox(SPINE_LOAD, cxCentre, AGG1_TOP);
+  placeClassBox(SPINE_SAVE, cxCentre, AGG2_TOP);
+  placeClassBox(AGG_BEACON, cxCentre+COLW, AGG2_TOP);
+  // per-domain writers — domain-ordered across the width
+  domClasses.forEach(function(c,i){ placeClassBox(c, spreadWide(domClasses.length,i), DOM_TOP); });
   els.push({data:{id:"dom",label:"reader.blade.php",kind:"dom"},position:{x:fullW/2,y:DOMY}});
 
   // folder column headers across the top (the HORIZONTAL legend)
@@ -1082,6 +1321,9 @@ function rebuild(){
   // left-margin labels: 3 big DATA levels + 2 role labels for the code GAPS
   var labelX = STARTX - 195;
   els.push({data:{id:"tier:postgres",label:"POSTGRESQL",kind:"tier"},position:{x:labelX,y:TABLEY}});
+  els.push({data:{id:"tier:controllers",label:"LARAVEL\\n(controllers)",kind:"tier"},position:{x:labelX,y:AGG2_TOP}});
+  els.push({data:{id:"tier:apipull",label:"API ▾ load\\n(from backend)",kind:"codeband"},position:{x:labelX,y:ROUTE_PULL_Y}});
+  els.push({data:{id:"tier:apipush",label:"API ▴ save\\n(to backend)",kind:"codeband"},position:{x:labelX,y:ROUTE_PUSH_Y}});
   els.push({data:{id:"band:sync",label:"code:\\nIndexedDB ↔ server",kind:"codeband"},position:{x:labelX,y:(SYNC_TOP+syncBottom)/2}});
   els.push({data:{id:"tier:idb",label:"INDEXEDDB\\n(object stores)",kind:"tier"},position:{x:labelX,y:(STORECODE_TOP+STOREY)/2}});
   els.push({data:{id:"band:capture",label:"code:\\npage ↔ IndexedDB",kind:"codeband"},position:{x:labelX,y:(CAPTURE_TOP+capBottom)/2}});
@@ -1126,7 +1368,31 @@ var cy = cytoscape({
     {selector:"node[kind = 'fn']",style:{"background-color":"#222b3a","border-color":"#3a4660"}},
     {selector:"node[kind = 'fn'][?leaf]",style:{"opacity":0.6}},
     {selector:"node[kind = 'store']",style:{"background-color":"#1f4a3c","border-color":"#54c98a","shape":"barrel","padding":"10px","font-weight":"bold"}},
-    {selector:"node[kind = 'table']",style:{"background-color":"#3d2350","border-color":"#b07ad6","shape":"cutrectangle","padding":"10px","font-weight":"bold"}},
+    {selector:"node[kind = 'table']",style:{"background-color":"#3d2350","border-color":"#b07ad6","shape":"round-rectangle","padding":"11px","font-weight":"bold"}},
+    // database glyph + name, CENTRED AS A GROUP with even side margins. The label is nudged right by
+    // half the icon's footprint (text-margin-x) and the icon placed just to its left; with
+    // posX = padding - margin the left margin (=posX) and right margin (=padding - margin) are equal,
+    // so [icon · gap · name] sits centred. padding raised to 24 so the side margins (=15) match the
+    // generous top/bottom feel. (icon 12, gap 6 → margin 9, posX = 24-9 = 15.)
+    {selector:"node[kind = 'table'], node[kind = 'store']",style:{"background-image":DB_ICON,"background-fit":"none","background-width":"12px","background-height":"12px","background-position-x":"15px","background-position-y":"50%","background-clip":"none","padding":"24px","text-margin-x":"9px"}},
+    {selector:"node[kind = 'route']",style:{"background-color":"#161d2b","border-color":"#5a6c8a","shape":"round-rectangle","padding":"9px","font-size":"10px","font-weight":"bold"}},
+    // square-ish body so the label stays readable, with a triangular point on one edge marking direction:
+    // pull = body on top, point DOWN (data coming FROM backend); push = point UP, body below (data going TO backend).
+    {selector:"node[kind = 'route'][dir = 'pull']",style:{"shape":"polygon","shape-polygon-points":"-1 -1  1 -1  1 0.45  0 1  -1 0.45","padding":"11px","text-margin-y":"-3px"}},
+    {selector:"node[kind = 'route'][dir = 'push']",style:{"shape":"polygon","shape-polygon-points":"0 -1  1 -0.45  1 1  -1 1  -1 -0.45","padding":"11px","text-margin-y":"3px"}},
+    {selector:"node[kind = 'route'][group = 'content']",style:{"border-color":"#54c98a","color":"#cfeae0"}},
+    {selector:"node[kind = 'route'][group = 'annotations']",style:{"border-color":"#b07ad6","color":"#e8d6f5"}},
+    {selector:"node[kind = 'route'][group = 'sync']",style:{"border-color":"#e0a44b","color":"#f0e2c2"}},
+    // Laravel controller CLASS box (the collapsible "folder") + its method tags inside.
+    {selector:"node[kind = 'cmodule']",style:{"background-color":"#2a1620","border-color":"#c45d6d","color":"#f0d6dd","shape":"round-rectangle","padding":"9px","font-size":"11px","font-weight":"bold","text-wrap":"wrap","text-max-width":"150px"}},
+    {selector:"node[kind = 'cmodule'][?expanded]",style:{"background-opacity":0.12,"border-style":"dashed","text-valign":"top","text-margin-y":-2}},
+    {selector:"node[kind = 'cmodule'][group = 'annotations']",style:{"border-color":"#b07ad6"}},
+    {selector:"node[kind = 'cmodule'][group = 'sync']",style:{"border-color":"#e0a44b"}},
+    // Laravel controllers — a distinct dark-red tag (PHP tier), domain coloured on the border like routes.
+    {selector:"node[kind = 'controller']",style:{"background-color":"#2a1620","border-color":"#c45d6d","color":"#f0d6dd","shape":"tag","padding":"7px","font-size":"9px","font-weight":"bold"}},
+    {selector:"node[kind = 'controller'][group = 'content']",style:{"border-color":"#54c98a"}},
+    {selector:"node[kind = 'controller'][group = 'annotations']",style:{"border-color":"#b07ad6"}},
+    {selector:"node[kind = 'controller'][group = 'sync']",style:{"border-color":"#e0a44b"}},
     {selector:"node[kind = 'dom']",style:{"background-color":"#2a3a5c","border-color":"#6f8bd6","shape":"ellipse","padding":"14px","font-weight":"bold"}},
     {selector:"node[folder = 'hyperlights']",style:{"background-color":"#143a40","border-color":"#3fb6b6","color":"#cfeaea"}},
     {selector:"node[folder = 'hypercites']",style:{"background-color":"#3a3320","border-color":"#caa14b","color":"#f0e2c2"}},
@@ -1161,7 +1427,7 @@ var cy = cytoscape({
   layout:{name:"preset"}
 });
 
-function relabel(id){ return id.replace(/^store:|^pg:|^mod:/,""); }
+function relabel(id){ return id.replace(/^store:|^pg:|^mod:|^route:|^controller:/,""); }
 function clearHL(){ cy.elements().removeClass("faded hl cycle ring"); }
 
 // Edges that belong to the active lens: data-flow edges in "flow", fn-call edges in "coupling".
@@ -1252,9 +1518,24 @@ function carryingForTable(tableId){
   var want={}; tn.types.forEach(function(t){want[t]=1;});
   var carry={}; carry[tableId]=1;
   VIZ.nodes.forEach(function(n){ if(n.kind==="fn"&&n.types){ for(var i=0;i<n.types.length;i++){ if(want[n.types[i]]){ carry[n.id]=1; break; } } } });
-  // + functions that push to OR pull from this table directly: they move its data by definition
-  // (the loader that pulls it may not name a node type in its own signature, but it IS the load entry).
-  VIZ.edges.forEach(function(e){ if(e.rel==="push"&&e.target===tableId) carry[e.source]=1; if(e.rel==="pull"&&e.source===tableId) carry[e.target]=1; });
+  // + walk the push/pull SEAM out from this table to the load/save functions, through the API
+  // route AND Laravel controller hops (PG ← controller ← route ← fn). A bounded BFS over push/pull
+  // edges lights every node on the way, but never crosses INTO a sibling table — so a multi-table
+  // controller (e.g. the node upsert also touches library for its auth check) lights as a carrier
+  // without dragging the unrelated tables into the trace.
+  var seam={}; seam[tableId]=1; var queue=[tableId];
+  while(queue.length){
+    var cur=queue.shift();
+    VIZ.edges.forEach(function(e){
+      if(e.rel!=="push"&&e.rel!=="pull") return;
+      var nb = e.source===cur?e.target : (e.target===cur?e.source:null);
+      if(!nb||seam[nb]) return;
+      var nn=nodeById[nb];
+      if(nn&&nn.kind==="table"&&nb!==tableId) return;   // don't bleed into sibling tables
+      seam[nb]=1; queue.push(nb);
+    });
+  }
+  Object.keys(seam).forEach(function(id){ carry[id]=1; });
   return carry;
 }
 function paintTypeTrace(tableId){
@@ -1315,6 +1596,7 @@ function showDetail(n){
   }
   var ids, title, sub;
   if(kind==="module"){ var mid=id.slice(4); var mod=VIZ.modules.filter(function(m){return m.id===mid;})[0]; ids=mod?mod.fnIds:[]; title=mid; sub=(mod?mod.stage:"")+" · "+ids.length+" functions"; }
+  else if(kind==="cmodule"){ var ccls=id.slice(7); var meths=VIZ.nodes.filter(function(m){return m.kind==="controller"&&m.cls===ccls;}); ids=meths.map(function(m){return m.id;}); title=ccls; sub="app/Http/Controllers/"+ccls+".php · "+ids.length+" route method(s) — double-click to "+(n.data("expanded")?"collapse":"expand"); }
   else { ids=[id]; title=n.data("label"); sub=(n.data("stage")||"")+" · "+id.split(":")[0]; }
   var g=groupsFor(ids);
   d.innerHTML="<div class='name'>"+title+"</div><div class='sub'>"+sub+"</div>"+
@@ -1322,7 +1604,7 @@ function showDetail(n){
     "<h3>writes (fn → store)</h3>"+ul(g.write)+
     "<h3>DOM</h3>"+ul(g.dom)+
     "<h3>postgres (via PHP)</h3>"+ul(g.push.concat(g.pull))+
-    (kind==="module"?"":"<h3>calls</h3>"+ul(g.call));
+    ((kind==="module"||kind==="cmodule")?"":"<h3>calls</h3>"+ul(g.call));
 }
 
 // ONE consistent rule: single click = trace data flow + detail (anything, modules too).
@@ -1332,10 +1614,12 @@ cy.on("tap","node",function(ev){
   var n=ev.target, id=n.id(), kind=n.data("kind");
   if(kind==="tier" || kind==="codeband" || kind==="colheader") return;
   var now=Date.now(), isDouble=(lastTap.id===id && now-lastTap.t<350); lastTap={id:id,t:now};
-  if(isDouble && kind==="module"){
-    var mid=id.slice(4); if(expanded[mid]) delete expanded[mid]; else expanded[mid]=true;
+  if(isDouble && (kind==="module" || kind==="cmodule")){
+    // module box keyed by its path ("mod:<path>" → <path>); controller-class box keyed by its full id.
+    var key = kind==="module" ? id.slice(4) : id;
+    if(expanded[key]) delete expanded[key]; else expanded[key]=true;
     selId=null; rebuild(); clearHL();
-    var mod=cy.getElementById("mod:"+mid); if(mod&&mod.length) showDetail(mod);
+    var box=cy.getElementById(id); if(box&&box.length) showDetail(box);
     return;
   }
   // highlight() → applyTrace(), which routes a typed table to the type trace (the data-type
@@ -1347,9 +1631,9 @@ cy.on("tap",function(ev){ if(ev.target===cy || (ev.target.isEdge && ev.target.is
 document.getElementById("meta").textContent=VIZ.meta.dbName+" v"+VIZ.meta.dbVersion+" · "+VIZ.meta.fnCount+" fns / "+VIZ.meta.moduleCount+" modules · "+VIZ.meta.storeCount+" stores · "+VIZ.meta.tableCount+" tables";
 var leg=document.getElementById("legend"); VIZ.legend.forEach(function(l){ var row=document.createElement("div"); row.innerHTML="<span class='sw' style='border-top-color:"+REL_COLOR[l.rel]+"'></span><b>"+l.rel+"</b> &nbsp;"+l.from+"→"+l.to; leg.appendChild(row); });
 var sel=document.getElementById("focus"); var o0=document.createElement("option"); o0.value=""; o0.textContent="(all)"; sel.appendChild(o0);
-VIZ.nodes.filter(function(n){return n.kind!=="fn";}).forEach(function(n){ var o=document.createElement("option"); o.value=n.id; o.textContent=n.kind+": "+n.label; sel.appendChild(o); });
+VIZ.nodes.filter(function(n){return n.kind!=="fn"&&n.kind!=="controller";}).forEach(function(n){ var o=document.createElement("option"); o.value=n.id; o.textContent=n.kind+": "+n.label; sel.appendChild(o); });
 sel.onchange=function(){ clearHL(); if(!sel.value) return; var n=cy.getElementById(sel.value); if(!n||!n.length) return; cy.elements().addClass("faded"); n.closedNeighborhood().removeClass("faded").addClass("hl"); cy.animate({fit:{eles:n.closedNeighborhood(),padding:60}},{duration:300}); };
-document.getElementById("expandAll").onclick=function(){ VIZ.modules.forEach(function(m){expanded[m.id]=true;}); rebuild(); clearHL(); };
+document.getElementById("expandAll").onclick=function(){ VIZ.modules.forEach(function(m){expanded[m.id]=true;}); VIZ.nodes.forEach(function(n){ if(n.kind==="controller") expanded["cclass:"+n.cls]=true; }); rebuild(); clearHL(); };
 document.getElementById("collapseAll").onclick=function(){ expanded={}; rebuild(); clearHL(); };
 document.getElementById("toggleCalls").onclick=function(){
   mode = mode==="coupling" ? "flow" : "coupling";

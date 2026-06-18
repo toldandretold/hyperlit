@@ -43,8 +43,11 @@ describe('IndexedDB flow viz', () => {
     for (const e of viz.edges) {
       if (e.rel === 'write') { expect(byId[e.source].kind).toBe('fn'); expect(byId[e.target].kind).toBe('store'); }
       if (e.rel === 'read') { expect(byId[e.source].kind).toBe('store'); expect(byId[e.target].kind).toBe('fn'); }
-      if (e.rel === 'push') { expect(byId[e.source].kind).toBe('fn'); expect(byId[e.target].kind).toBe('table'); }
-      if (e.rel === 'pull') { expect(byId[e.source].kind).toBe('table'); expect(byId[e.target].kind).toBe('fn'); }
+      // push/pull route through the API endpoint AND the Laravel controller tier:
+      // push: fn → route → controller → table ; pull: table → controller → route → fn.
+      // So both ends are drawn from {fn, route, controller, table} per direction.
+      if (e.rel === 'push') { expect(['fn', 'route', 'controller']).toContain(byId[e.source].kind); expect(['route', 'controller', 'table']).toContain(byId[e.target].kind); }
+      if (e.rel === 'pull') { expect(['table', 'controller', 'route']).toContain(byId[e.source].kind); expect(['route', 'controller', 'fn']).toContain(byId[e.target].kind); }
     }
 
     // ground truth: a read-only reader reads `nodes`; the sync pushes to the `nodes` table
@@ -87,6 +90,82 @@ describe('IndexedDB flow viz', () => {
       expect(n.types, `${n.id} types sorted`).toEqual([...n.types].sort());
       expect(new Set(n.types).size, `${n.id} types deduped`).toBe(n.types.length);
     }
+  });
+
+  it('API route tier: endpoints carry precise per-endpoint tables (no coarse fan-out)', () => {
+    const viz = collect();
+    const routes = viz.nodes.filter(n => n.kind === 'route');
+    expect(routes.length).toBeGreaterThan(0);
+    // tables an endpoint touches, NOW via the controller hop: route → controller → pg:<table>
+    // (with a fallback to any direct route↔table edge for routes that have no backend controller).
+    const adj = id => viz.edges
+      .filter(e => (e.source === id || e.target === id) && (e.rel === 'push' || e.rel === 'pull'))
+      .map(e => (e.source === id ? e.target : e.source));
+    const tablesOf = routeId => {
+      const out = new Set();
+      for (const n of adj(routeId)) {
+        if (n.startsWith('pg:')) out.add(n.slice(3));
+        else if (n.startsWith('controller:')) for (const m of adj(n)) if (m.startsWith('pg:')) out.add(m.slice(3));
+      }
+      return out;
+    };
+    const route = suffix => viz.nodes.find(n => n.kind === 'route' && n.id.endsWith(suffix));
+
+    // annotations endpoint carries the annotation tables and NOT the author's content
+    // (nodes/footnotes/bibliography) — the content-vs-annotations split still holds through
+    // the controller. (It also reads `library` for the visibility/ownership check — incidental.)
+    const ann = route('/annotations');
+    expect(ann.group).toBe('annotations');
+    const annTables = tablesOf(ann.id);
+    expect(annTables.has('hyperlights')).toBe(true);
+    expect(annTables.has('hypercites')).toBe(true);
+    for (const content of ['nodes', 'footnotes', 'bibliography']) expect(annTables.has(content)).toBe(false);
+    // the library fetch carries library, never the author's nodes
+    expect(tablesOf(route('/library').id).has('library')).toBe(true);
+    expect(tablesOf(route('/library').id).has('nodes')).toBe(false);
+    // the full-book load is content + carries nodes
+    const data = route('/data');
+    expect(data.group).toBe('content');
+    expect(tablesOf(data.id).has('nodes')).toBe(true);
+  });
+
+  it('backend tier: Laravel controllers bridge the routes to the PG tables (nodes read + write)', () => {
+    const viz = collect();
+    const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
+    const controllers = viz.nodes.filter(n => n.kind === 'controller');
+    expect(controllers.length).toBeGreaterThan(0);
+
+    // every controller connects to ≥1 pg:<table> (push/pull only). A route edge is present only for
+    // controllers on a data-layer-detected route (others are real backend endpoints the reader page
+    // doesn't fetch — e.g. DbLibraryController, called from the book-create / edit-form flows).
+    for (const c of controllers) {
+      const touches = viz.edges.filter(e => e.source === c.id || e.target === c.id);
+      expect(touches.length, `${c.id} is wired`).toBeGreaterThan(0);
+      expect(touches.every(e => e.rel === 'push' || e.rel === 'pull'), `${c.id} only push/pull`).toBe(true);
+      expect(touches.some(e => (e.source.startsWith('pg:') || e.target.startsWith('pg:'))), `${c.id} has a table`).toBe(true);
+    }
+
+    const tablesOf = id => viz.edges
+      .filter(e => (e.source === id || e.target === id) && (e.rel === 'push' || e.rel === 'pull'))
+      .map(e => (e.source === id ? e.target : e.source))
+      .filter(x => x.startsWith('pg:')).map(x => x.slice(3));
+
+    // READ side: getBookData pulls the `nodes` table (the author's content load).
+    const read = byId['controller:DatabaseToIndexedDBController@getBookData'];
+    expect(read).toBeTruthy();
+    expect(read.dir).toBe('pull');
+    expect(tablesOf(read.id)).toContain('nodes');
+
+    // WRITE side: the node save the front end actually calls is the targeted upsert (push → nodes).
+    const write = byId['controller:DbNodeChunkController@targetedUpsert'];
+    expect(write).toBeTruthy();
+    expect(write.dir).toBe('push');
+    expect(tablesOf(write.id)).toContain('nodes');
+
+    // the node read controller carries the welded node-row shape (so its data is legible).
+    expect(read.shape).toEqual(expect.arrayContaining(['content', 'startLine', 'chunk_id', 'node_id']));
+    // and it lights up the `nodes` type-trace (carries the row's TS lineage types).
+    expect(read.types).toContain('NodeRecord');
   });
 
   it('import graph: NO real static-import cycles, every import edge classified', () => {

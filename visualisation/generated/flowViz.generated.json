@@ -6,7 +6,7 @@
     "moduleCount": 305,
     "storeCount": 8,
     "tableCount": 7,
-    "edgeCount": 2857,
+    "edgeCount": 2902,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -3682,6 +3682,1049 @@
       "stage": "components",
       "module": "components/utilities/registerComponents",
       "leaf": true
+    },
+    {
+      "id": "controller:BeaconSyncController@handleSync",
+      "label": "handleSync",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "BeaconSyncController",
+      "method": "handleSync",
+      "group": "sync",
+      "tables": [
+        "bibliography",
+        "footnotes",
+        "hypercites",
+        "hyperlights",
+        "library",
+        "nodes"
+      ],
+      "shape": [
+        "book",
+        "startLine"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getAvailableBooks",
+      "label": "getAvailableBooks",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getAvailableBooks",
+      "group": "content",
+      "tables": [
+        "library",
+        "nodes"
+      ],
+      "shape": [
+        "books",
+        "total_books"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getBookAnnotations",
+      "label": "getBookAnnotations",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getBookAnnotations",
+      "group": "content",
+      "tables": [
+        "hypercites",
+        "hyperlights",
+        "library"
+      ],
+      "shape": [
+        "annotation",
+        "book",
+        "charData",
+        "creator",
+        "hidden",
+        "highlightedHTML",
+        "highlightedText",
+        "hyperlight_id",
+        "is_user_highlight",
+        "node_id",
+        "preview_nodes",
+        "raw_json",
+        "startLine",
+        "time_since"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getBookData",
+      "label": "getBookData",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getBookData",
+      "group": "content",
+      "tables": [
+        "bibliography",
+        "footnotes",
+        "hypercites",
+        "hyperlights",
+        "library",
+        "nodes"
+      ],
+      "shape": [
+        "book",
+        "chunk_id",
+        "content",
+        "footnotes",
+        "hypercites",
+        "hyperlights",
+        "node_id",
+        "plainText",
+        "raw_json",
+        "startLine",
+        "type"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getBookDataBatch",
+      "label": "getBookDataBatch",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getBookDataBatch",
+      "group": "content",
+      "tables": [
+        "hypercites",
+        "hyperlights",
+        "library",
+        "nodes"
+      ],
+      "shape": [
+        "book",
+        "chunk_id",
+        "content",
+        "footnotes",
+        "hypercites",
+        "hyperlights",
+        "node_id",
+        "plainText",
+        "raw_json",
+        "startLine",
+        "type"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getBookHeadings",
+      "label": "getBookHeadings",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getBookHeadings",
+      "group": "content",
+      "tables": [
+        "nodes"
+      ],
+      "shape": [
+        "book_id",
+        "error",
+        "is_deleted",
+        "message"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getBookLibrary",
+      "label": "getBookLibrary",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getBookLibrary",
+      "group": "content",
+      "tables": [
+        "library"
+      ],
+      "shape": [
+        "annotations_updated_at",
+        "author",
+        "bibtex",
+        "book",
+        "creator",
+        "custom_license_text",
+        "fileName",
+        "fileType",
+        "gate_defaults",
+        "is_owner",
+        "journal",
+        "license",
+        "listed",
+        "note",
+        "pages",
+        "publisher",
+        "raw_json",
+        "school",
+        "timestamp",
+        "title",
+        "type",
+        "url",
+        "visibility",
+        "year"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getBookMetadata",
+      "label": "getBookMetadata",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getBookMetadata",
+      "group": "content",
+      "tables": [
+        "nodes"
+      ],
+      "shape": [
+        "book_id",
+        "chunk_count",
+        "exists",
+        "last_modified"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getInitialChunk",
+      "label": "getInitialChunk",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getInitialChunk",
+      "group": "content",
+      "tables": [
+        "bibliography",
+        "footnotes",
+        "hypercites",
+        "hyperlights",
+        "library",
+        "nodes",
+        "user_reading_positions"
+      ],
+      "shape": [
+        "book",
+        "chunk_id",
+        "content",
+        "footnotes",
+        "hypercites",
+        "hyperlights",
+        "node_id",
+        "plainText",
+        "raw_json",
+        "startLine",
+        "type"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getReadingPosition",
+      "label": "getReadingPosition",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getReadingPosition",
+      "group": "content",
+      "tables": [
+        "user_reading_positions"
+      ],
+      "shape": [
+        "chunk_id",
+        "element_id"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getSingleChunk",
+      "label": "getSingleChunk",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getSingleChunk",
+      "group": "content",
+      "tables": [
+        "hypercites",
+        "hyperlights",
+        "library",
+        "nodes"
+      ],
+      "shape": [
+        "book",
+        "chunk_id",
+        "content",
+        "footnotes",
+        "hypercites",
+        "hyperlights",
+        "node_id",
+        "plainText",
+        "raw_json",
+        "startLine",
+        "type"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+      "label": "getSubBookAnnotations",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getSubBookAnnotations",
+      "group": "content",
+      "tables": [
+        "hypercites",
+        "hyperlights",
+        "library"
+      ],
+      "shape": [
+        "annotation",
+        "book",
+        "charData",
+        "creator",
+        "hidden",
+        "highlightedHTML",
+        "highlightedText",
+        "hyperlight_id",
+        "is_user_highlight",
+        "node_id",
+        "preview_nodes",
+        "raw_json",
+        "startLine",
+        "time_since"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getSubBookData",
+      "label": "getSubBookData",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getSubBookData",
+      "group": "content",
+      "tables": [
+        "bibliography",
+        "footnotes",
+        "hypercites",
+        "hyperlights",
+        "library",
+        "nodes"
+      ],
+      "shape": [
+        "book",
+        "chunk_id",
+        "content",
+        "footnotes",
+        "hypercites",
+        "hyperlights",
+        "node_id",
+        "plainText",
+        "raw_json",
+        "startLine",
+        "type"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "label": "getSubBookInitialChunk",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getSubBookInitialChunk",
+      "group": "content",
+      "tables": [
+        "bibliography",
+        "footnotes",
+        "hypercites",
+        "hyperlights",
+        "library",
+        "nodes",
+        "user_reading_positions"
+      ],
+      "shape": [
+        "book",
+        "chunk_id",
+        "content",
+        "footnotes",
+        "hypercites",
+        "hyperlights",
+        "node_id",
+        "plainText",
+        "raw_json",
+        "startLine",
+        "type"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
+      "label": "getSubBookLibrary",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getSubBookLibrary",
+      "group": "content",
+      "tables": [
+        "library"
+      ],
+      "shape": [
+        "annotations_updated_at",
+        "author",
+        "bibtex",
+        "book",
+        "creator",
+        "custom_license_text",
+        "fileName",
+        "fileType",
+        "gate_defaults",
+        "is_owner",
+        "journal",
+        "license",
+        "listed",
+        "note",
+        "pages",
+        "publisher",
+        "raw_json",
+        "school",
+        "timestamp",
+        "title",
+        "type",
+        "url",
+        "visibility",
+        "year"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getSubBookMetadata",
+      "label": "getSubBookMetadata",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getSubBookMetadata",
+      "group": "content",
+      "tables": [
+        "nodes"
+      ],
+      "shape": [
+        "book_id",
+        "chunk_count",
+        "exists",
+        "last_modified"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@saveReadingPosition",
+      "label": "saveReadingPosition",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "saveReadingPosition",
+      "group": "content",
+      "tables": [
+        "user_reading_positions"
+      ],
+      "shape": [
+        "anon_token",
+        "chunk_id",
+        "element_id",
+        "updated_at"
+      ]
+    },
+    {
+      "id": "controller:DbFootnoteController@upsert",
+      "label": "upsert",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbFootnoteController",
+      "method": "upsert",
+      "group": "content",
+      "tables": [
+        "footnotes"
+      ],
+      "shape": [
+        "book",
+        "content",
+        "footnoteId",
+        "preview_nodes",
+        "sub_book_id"
+      ]
+    },
+    {
+      "id": "controller:DbHyperciteController@bulkCreate",
+      "label": "bulkCreate",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbHyperciteController",
+      "method": "bulkCreate",
+      "group": "content",
+      "tables": [
+        "hypercites",
+        "library"
+      ],
+      "shape": [
+        "book",
+        "charData",
+        "citedIN",
+        "created_at",
+        "creator",
+        "creator_token",
+        "hyperciteId",
+        "hypercitedHTML",
+        "hypercitedText",
+        "node_id",
+        "raw_json",
+        "relationshipStatus",
+        "time_since",
+        "updated_at"
+      ]
+    },
+    {
+      "id": "controller:DbHyperciteController@find",
+      "label": "find",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DbHyperciteController",
+      "method": "find",
+      "group": "content",
+      "tables": [
+        "hypercites",
+        "library",
+        "nodes"
+      ],
+      "shape": [
+        "book",
+        "hypercite",
+        "user"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DbHyperciteController@upsert",
+      "label": "upsert",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbHyperciteController",
+      "method": "upsert",
+      "group": "content",
+      "tables": [
+        "hypercites",
+        "library"
+      ],
+      "shape": [
+        "book",
+        "existing_creator",
+        "existing_creator_token",
+        "hyperciteId"
+      ]
+    },
+    {
+      "id": "controller:DbHyperlightController@bulkCreate",
+      "label": "bulkCreate",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbHyperlightController",
+      "method": "bulkCreate",
+      "group": "content",
+      "tables": [
+        "hyperlights",
+        "library"
+      ],
+      "shape": [
+        "annotation",
+        "book",
+        "charData",
+        "created_at",
+        "creator",
+        "creator_token",
+        "highlightedHTML",
+        "highlightedText",
+        "hyperlight_id",
+        "node_id",
+        "raw_json",
+        "startLine",
+        "sub_book_id",
+        "time_since",
+        "updated_at"
+      ]
+    },
+    {
+      "id": "controller:DbHyperlightController@delete",
+      "label": "delete",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbHyperlightController",
+      "method": "delete",
+      "group": "content",
+      "tables": [
+        "hyperlights",
+        "library"
+      ],
+      "shape": [
+        "book",
+        "creator",
+        "creator_token",
+        "hyperlight_id"
+      ]
+    },
+    {
+      "id": "controller:DbHyperlightController@hide",
+      "label": "hide",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbHyperlightController",
+      "method": "hide",
+      "group": "content",
+      "tables": [
+        "hyperlights",
+        "library"
+      ],
+      "shape": [
+        "book",
+        "has_anon_token",
+        "hyperlight_id",
+        "user"
+      ]
+    },
+    {
+      "id": "controller:DbHyperlightController@upsert",
+      "label": "upsert",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbHyperlightController",
+      "method": "upsert",
+      "group": "content",
+      "tables": [
+        "hyperlights",
+        "library"
+      ],
+      "shape": [
+        "annotation",
+        "charData",
+        "creator",
+        "creator_token",
+        "highlightedHTML",
+        "highlightedText",
+        "node_id",
+        "preview_nodes",
+        "raw_json",
+        "startLine",
+        "sub_book_id",
+        "time_since",
+        "updated_at"
+      ]
+    },
+    {
+      "id": "controller:DbLibraryController@bulkCreate",
+      "label": "bulkCreate",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbLibraryController",
+      "method": "bulkCreate",
+      "group": "content",
+      "tables": [
+        "library"
+      ],
+      "shape": [
+        "author",
+        "bibtex",
+        "book",
+        "booktitle",
+        "chapter",
+        "created_at",
+        "creator",
+        "creator_token",
+        "editor",
+        "fileName",
+        "fileType",
+        "issue",
+        "journal",
+        "note",
+        "pages",
+        "publisher",
+        "raw_json",
+        "recent",
+        "school",
+        "timestamp",
+        "title",
+        "total_citations",
+        "total_highlights",
+        "total_views",
+        "type",
+        "updated_at",
+        "url",
+        "visibility",
+        "volume",
+        "year"
+      ]
+    },
+    {
+      "id": "controller:DbLibraryController@destroy",
+      "label": "destroy",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbLibraryController",
+      "method": "destroy",
+      "group": "content",
+      "tables": [
+        "library"
+      ],
+      "shape": [
+        "message",
+        "success"
+      ]
+    },
+    {
+      "id": "controller:DbLibraryController@setSlug",
+      "label": "setSlug",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbLibraryController",
+      "method": "setSlug",
+      "group": "content",
+      "tables": [
+        "library"
+      ],
+      "shape": [
+        "book",
+        "message",
+        "slug",
+        "success"
+      ]
+    },
+    {
+      "id": "controller:DbLibraryController@updateAllLibraryStats",
+      "label": "updateAllLibraryStats",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbLibraryController",
+      "method": "updateAllLibraryStats",
+      "group": "content",
+      "tables": [
+        "hypercites",
+        "hyperlights",
+        "library"
+      ],
+      "shape": [
+        "details",
+        "message",
+        "success"
+      ]
+    },
+    {
+      "id": "controller:DbLibraryController@updateBookStats",
+      "label": "updateBookStats",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbLibraryController",
+      "method": "updateBookStats",
+      "group": "content",
+      "tables": [
+        "hypercites",
+        "hyperlights",
+        "library"
+      ],
+      "shape": [
+        "book",
+        "message",
+        "success",
+        "total_citations",
+        "total_highlights"
+      ]
+    },
+    {
+      "id": "controller:DbLibraryController@updateTimestamp",
+      "label": "updateTimestamp",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbLibraryController",
+      "method": "updateTimestamp",
+      "group": "content",
+      "tables": [
+        "library"
+      ],
+      "shape": [
+        "book",
+        "message",
+        "success",
+        "timestamp"
+      ]
+    },
+    {
+      "id": "controller:DbLibraryController@upsert",
+      "label": "upsert",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbLibraryController",
+      "method": "upsert",
+      "group": "content",
+      "tables": [
+        "library"
+      ],
+      "shape": [
+        "annotations_updated_at",
+        "author",
+        "bibtex",
+        "booktitle",
+        "chapter",
+        "custom_license_text",
+        "editor",
+        "gate_defaults",
+        "issue",
+        "journal",
+        "license",
+        "listed",
+        "note",
+        "pages",
+        "publisher",
+        "raw_json",
+        "school",
+        "timestamp",
+        "title",
+        "type",
+        "url",
+        "visibility",
+        "volume",
+        "year"
+      ]
+    },
+    {
+      "id": "controller:DbLibraryController@validateBookId",
+      "label": "validateBookId",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbLibraryController",
+      "method": "validateBookId",
+      "group": "content",
+      "tables": [
+        "library"
+      ],
+      "shape": [
+        "book_author",
+        "book_title",
+        "book_url",
+        "exists",
+        "message",
+        "success"
+      ]
+    },
+    {
+      "id": "controller:DbNodeChunkController@bulkCreate",
+      "label": "bulkCreate",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbNodeChunkController",
+      "method": "bulkCreate",
+      "group": "content",
+      "tables": [
+        "hyperlights",
+        "library",
+        "nodes"
+      ],
+      "shape": [
+        "book",
+        "chunk_id",
+        "content",
+        "created_at",
+        "footnotes",
+        "node_id",
+        "plainText",
+        "raw_json",
+        "startLine",
+        "type",
+        "updated_at"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DbNodeChunkController@targetedUpsert",
+      "label": "targetedUpsert",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbNodeChunkController",
+      "method": "targetedUpsert",
+      "group": "content",
+      "tables": [
+        "hyperlights",
+        "library",
+        "nodes"
+      ],
+      "shape": [
+        "book",
+        "chunk_id",
+        "content",
+        "node_id",
+        "startLine"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DbNodeChunkController@upsert",
+      "label": "upsert",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbNodeChunkController",
+      "method": "upsert",
+      "group": "content",
+      "tables": [
+        "hyperlights",
+        "library",
+        "nodes"
+      ],
+      "shape": [
+        "book",
+        "chunk_id",
+        "content",
+        "footnotes",
+        "node_id",
+        "plainText",
+        "raw_json",
+        "startLine",
+        "type"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
+    },
+    {
+      "id": "controller:DbReferencesController@upsertReferences",
+      "label": "upsertReferences",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbReferencesController",
+      "method": "upsertReferences",
+      "group": "content",
+      "tables": [
+        "bibliography"
+      ],
+      "shape": [
+        "book",
+        "canonical_source_id",
+        "content",
+        "created_at",
+        "referenceId",
+        "source_id",
+        "updated_at"
+      ]
+    },
+    {
+      "id": "controller:UnifiedSyncController@sync",
+      "label": "sync",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "UnifiedSyncController",
+      "method": "sync",
+      "group": "sync",
+      "tables": [
+        "bibliography",
+        "footnotes",
+        "hypercites",
+        "hyperlights",
+        "library",
+        "nodes"
+      ],
+      "shape": [
+        "node_id",
+        "startLine"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
     },
     {
       "id": "divEditor/chunkManager:handleChunkOverflow",
@@ -10118,6 +11161,116 @@
         "PublicChunk",
         "ServerNodeRow"
       ]
+    },
+    {
+      "id": "pg:user_reading_positions",
+      "label": "user_reading_positions",
+      "kind": "table"
+    },
+    {
+      "id": "route:/api/canonical",
+      "label": "canonical",
+      "kind": "route",
+      "group": "content",
+      "dir": "push"
+    },
+    {
+      "id": "route:/api/database-to-indexeddb/books/{}/annotations",
+      "label": "books/annotations",
+      "kind": "route",
+      "group": "annotations",
+      "dir": "pull"
+    },
+    {
+      "id": "route:/api/database-to-indexeddb/books/{}/data",
+      "label": "books/data",
+      "kind": "route",
+      "group": "content",
+      "dir": "pull"
+    },
+    {
+      "id": "route:/api/database-to-indexeddb/books/{}/headings",
+      "label": "books/headings",
+      "kind": "route",
+      "group": "content",
+      "dir": "pull"
+    },
+    {
+      "id": "route:/api/database-to-indexeddb/books/{}/library",
+      "label": "books/library",
+      "kind": "route",
+      "group": "content",
+      "dir": "pull"
+    },
+    {
+      "id": "route:/api/db/footnotes/upsert",
+      "label": "footnotes/upsert",
+      "kind": "route",
+      "group": "content",
+      "dir": "push"
+    },
+    {
+      "id": "route:/api/db/hypercites/find",
+      "label": "hypercites/find",
+      "kind": "route",
+      "group": "annotations",
+      "dir": "pull"
+    },
+    {
+      "id": "route:/api/db/hypercites/upsert",
+      "label": "hypercites/upsert",
+      "kind": "route",
+      "group": "annotations",
+      "dir": "push"
+    },
+    {
+      "id": "route:/api/db/hyperlights/delete",
+      "label": "hyperlights/delete",
+      "kind": "route",
+      "group": "annotations",
+      "dir": "push"
+    },
+    {
+      "id": "route:/api/db/hyperlights/hide",
+      "label": "hyperlights/hide",
+      "kind": "route",
+      "group": "annotations",
+      "dir": "push"
+    },
+    {
+      "id": "route:/api/db/hyperlights/upsert",
+      "label": "hyperlights/upsert",
+      "kind": "route",
+      "group": "annotations",
+      "dir": "push"
+    },
+    {
+      "id": "route:/api/db/node-chunks/targeted-upsert",
+      "label": "node-chunks/targeted-upsert",
+      "kind": "route",
+      "group": "content",
+      "dir": "push"
+    },
+    {
+      "id": "route:/api/db/references/upsert",
+      "label": "references/upsert",
+      "kind": "route",
+      "group": "content",
+      "dir": "push"
+    },
+    {
+      "id": "route:/api/db/sync/beacon",
+      "label": "sync/beacon",
+      "kind": "route",
+      "group": "sync",
+      "dir": "push"
+    },
+    {
+      "id": "route:/api/db/unified-sync",
+      "label": "db/unified-sync",
+      "kind": "route",
+      "group": "sync",
+      "dir": "push"
     },
     {
       "id": "scrolling/index:clearNavigatedHashes",
@@ -19284,6 +20437,318 @@
       "rel": "call"
     },
     {
+      "id": "controller:BeaconSyncController@handleSync__push__pg:bibliography",
+      "source": "controller:BeaconSyncController@handleSync",
+      "target": "pg:bibliography",
+      "rel": "push"
+    },
+    {
+      "id": "controller:BeaconSyncController@handleSync__push__pg:footnotes",
+      "source": "controller:BeaconSyncController@handleSync",
+      "target": "pg:footnotes",
+      "rel": "push"
+    },
+    {
+      "id": "controller:BeaconSyncController@handleSync__push__pg:hypercites",
+      "source": "controller:BeaconSyncController@handleSync",
+      "target": "pg:hypercites",
+      "rel": "push"
+    },
+    {
+      "id": "controller:BeaconSyncController@handleSync__push__pg:hyperlights",
+      "source": "controller:BeaconSyncController@handleSync",
+      "target": "pg:hyperlights",
+      "rel": "push"
+    },
+    {
+      "id": "controller:BeaconSyncController@handleSync__push__pg:library",
+      "source": "controller:BeaconSyncController@handleSync",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:BeaconSyncController@handleSync__push__pg:nodes",
+      "source": "controller:BeaconSyncController@handleSync",
+      "target": "pg:nodes",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getBookAnnotations__pull__route:/api/database-to-indexeddb/books/{}/annotations",
+      "source": "controller:DatabaseToIndexedDBController@getBookAnnotations",
+      "target": "route:/api/database-to-indexeddb/books/{}/annotations",
+      "rel": "pull"
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getBookData__pull__route:/api/database-to-indexeddb/books/{}/data",
+      "source": "controller:DatabaseToIndexedDBController@getBookData",
+      "target": "route:/api/database-to-indexeddb/books/{}/data",
+      "rel": "pull"
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getBookHeadings__pull__route:/api/database-to-indexeddb/books/{}/headings",
+      "source": "controller:DatabaseToIndexedDBController@getBookHeadings",
+      "target": "route:/api/database-to-indexeddb/books/{}/headings",
+      "rel": "pull"
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getBookLibrary__pull__route:/api/database-to-indexeddb/books/{}/library",
+      "source": "controller:DatabaseToIndexedDBController@getBookLibrary",
+      "target": "route:/api/database-to-indexeddb/books/{}/library",
+      "rel": "pull"
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@saveReadingPosition__push__pg:user_reading_positions",
+      "source": "controller:DatabaseToIndexedDBController@saveReadingPosition",
+      "target": "pg:user_reading_positions",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbFootnoteController@upsert__push__pg:footnotes",
+      "source": "controller:DbFootnoteController@upsert",
+      "target": "pg:footnotes",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbHyperciteController@bulkCreate__push__pg:hypercites",
+      "source": "controller:DbHyperciteController@bulkCreate",
+      "target": "pg:hypercites",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbHyperciteController@bulkCreate__push__pg:library",
+      "source": "controller:DbHyperciteController@bulkCreate",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbHyperciteController@upsert__push__pg:hypercites",
+      "source": "controller:DbHyperciteController@upsert",
+      "target": "pg:hypercites",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbHyperciteController@upsert__push__pg:library",
+      "source": "controller:DbHyperciteController@upsert",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbHyperlightController@bulkCreate__push__pg:hyperlights",
+      "source": "controller:DbHyperlightController@bulkCreate",
+      "target": "pg:hyperlights",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbHyperlightController@bulkCreate__push__pg:library",
+      "source": "controller:DbHyperlightController@bulkCreate",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbHyperlightController@delete__push__pg:hyperlights",
+      "source": "controller:DbHyperlightController@delete",
+      "target": "pg:hyperlights",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbHyperlightController@delete__push__pg:library",
+      "source": "controller:DbHyperlightController@delete",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbHyperlightController@hide__push__pg:hyperlights",
+      "source": "controller:DbHyperlightController@hide",
+      "target": "pg:hyperlights",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbHyperlightController@hide__push__pg:library",
+      "source": "controller:DbHyperlightController@hide",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbHyperlightController@upsert__push__pg:hyperlights",
+      "source": "controller:DbHyperlightController@upsert",
+      "target": "pg:hyperlights",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbHyperlightController@upsert__push__pg:library",
+      "source": "controller:DbHyperlightController@upsert",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@bulkCreate__push__pg:library",
+      "source": "controller:DbLibraryController@bulkCreate",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@destroy__push__pg:library",
+      "source": "controller:DbLibraryController@destroy",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@setSlug__push__pg:library",
+      "source": "controller:DbLibraryController@setSlug",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@updateAllLibraryStats__push__pg:hypercites",
+      "source": "controller:DbLibraryController@updateAllLibraryStats",
+      "target": "pg:hypercites",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@updateAllLibraryStats__push__pg:hyperlights",
+      "source": "controller:DbLibraryController@updateAllLibraryStats",
+      "target": "pg:hyperlights",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@updateAllLibraryStats__push__pg:library",
+      "source": "controller:DbLibraryController@updateAllLibraryStats",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@updateBookStats__push__pg:hypercites",
+      "source": "controller:DbLibraryController@updateBookStats",
+      "target": "pg:hypercites",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@updateBookStats__push__pg:hyperlights",
+      "source": "controller:DbLibraryController@updateBookStats",
+      "target": "pg:hyperlights",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@updateBookStats__push__pg:library",
+      "source": "controller:DbLibraryController@updateBookStats",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@updateTimestamp__push__pg:library",
+      "source": "controller:DbLibraryController@updateTimestamp",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@upsert__push__pg:library",
+      "source": "controller:DbLibraryController@upsert",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@validateBookId__push__pg:library",
+      "source": "controller:DbLibraryController@validateBookId",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbNodeChunkController@bulkCreate__push__pg:hyperlights",
+      "source": "controller:DbNodeChunkController@bulkCreate",
+      "target": "pg:hyperlights",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbNodeChunkController@bulkCreate__push__pg:library",
+      "source": "controller:DbNodeChunkController@bulkCreate",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbNodeChunkController@bulkCreate__push__pg:nodes",
+      "source": "controller:DbNodeChunkController@bulkCreate",
+      "target": "pg:nodes",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbNodeChunkController@targetedUpsert__push__pg:hyperlights",
+      "source": "controller:DbNodeChunkController@targetedUpsert",
+      "target": "pg:hyperlights",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbNodeChunkController@targetedUpsert__push__pg:library",
+      "source": "controller:DbNodeChunkController@targetedUpsert",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbNodeChunkController@targetedUpsert__push__pg:nodes",
+      "source": "controller:DbNodeChunkController@targetedUpsert",
+      "target": "pg:nodes",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbNodeChunkController@upsert__push__pg:hyperlights",
+      "source": "controller:DbNodeChunkController@upsert",
+      "target": "pg:hyperlights",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbNodeChunkController@upsert__push__pg:library",
+      "source": "controller:DbNodeChunkController@upsert",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbNodeChunkController@upsert__push__pg:nodes",
+      "source": "controller:DbNodeChunkController@upsert",
+      "target": "pg:nodes",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbReferencesController@upsertReferences__push__pg:bibliography",
+      "source": "controller:DbReferencesController@upsertReferences",
+      "target": "pg:bibliography",
+      "rel": "push"
+    },
+    {
+      "id": "controller:UnifiedSyncController@sync__push__pg:bibliography",
+      "source": "controller:UnifiedSyncController@sync",
+      "target": "pg:bibliography",
+      "rel": "push"
+    },
+    {
+      "id": "controller:UnifiedSyncController@sync__push__pg:footnotes",
+      "source": "controller:UnifiedSyncController@sync",
+      "target": "pg:footnotes",
+      "rel": "push"
+    },
+    {
+      "id": "controller:UnifiedSyncController@sync__push__pg:hypercites",
+      "source": "controller:UnifiedSyncController@sync",
+      "target": "pg:hypercites",
+      "rel": "push"
+    },
+    {
+      "id": "controller:UnifiedSyncController@sync__push__pg:hyperlights",
+      "source": "controller:UnifiedSyncController@sync",
+      "target": "pg:hyperlights",
+      "rel": "push"
+    },
+    {
+      "id": "controller:UnifiedSyncController@sync__push__pg:library",
+      "source": "controller:UnifiedSyncController@sync",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:UnifiedSyncController@sync__push__pg:nodes",
+      "source": "controller:UnifiedSyncController@sync",
+      "target": "pg:nodes",
+      "rel": "push"
+    },
+    {
       "id": "divEditor/chunkManager:handleChunkOverflow__call__divEditor/chunkManager:trackChunkNodeCount",
       "source": "divEditor/chunkManager:handleChunkOverflow",
       "target": "divEditor/chunkManager:trackChunkNodeCount",
@@ -27316,11 +28781,11 @@
       "rel": "domwrite"
     },
     {
-      "id": "indexedDB/bibliography/index:resolveBibliographyTarget__push__pg:canonical_source",
+      "id": "indexedDB/bibliography/index:resolveBibliographyTarget__push__route:/api/canonical",
       "source": "indexedDB/bibliography/index:resolveBibliographyTarget",
-      "target": "pg:canonical_source",
+      "target": "route:/api/canonical",
       "rel": "push",
-      "label": "/api/canonical"
+      "label": "/api/canonical/{}/best-version"
     },
     {
       "id": "indexedDB/bibliography/index:saveAllReferencesToIndexedDB__call__indexedDB/bibliography/syncReferencesToPostgreSQL:syncReferencesToPostgreSQL",
@@ -27343,9 +28808,9 @@
       "rel": "write"
     },
     {
-      "id": "indexedDB/bibliography/syncReferencesToPostgreSQL:syncReferencesToPostgreSQL__push__pg:bibliography",
+      "id": "indexedDB/bibliography/syncReferencesToPostgreSQL:syncReferencesToPostgreSQL__push__route:/api/db/references/upsert",
       "source": "indexedDB/bibliography/syncReferencesToPostgreSQL:syncReferencesToPostgreSQL",
-      "target": "pg:bibliography",
+      "target": "route:/api/db/references/upsert",
       "rel": "push",
       "label": "/api/db/references/upsert"
     },
@@ -27616,23 +29081,30 @@
       "rel": "write"
     },
     {
-      "id": "indexedDB/footnotes/syncFootnotesToPostgreSQL:syncFootnotesToPostgreSQL__push__pg:footnotes",
+      "id": "indexedDB/footnotes/syncFootnotesToPostgreSQL:syncFootnotesToPostgreSQL__push__route:/api/db/footnotes/upsert",
       "source": "indexedDB/footnotes/syncFootnotesToPostgreSQL:syncFootnotesToPostgreSQL",
-      "target": "pg:footnotes",
+      "target": "route:/api/db/footnotes/upsert",
       "rel": "push",
       "label": "/api/db/footnotes/upsert"
     },
     {
-      "id": "indexedDB/highlights/syncHighlightsToPostgreSQL:syncHyperlightDeletionsToPostgreSQL__push__pg:hyperlights",
+      "id": "indexedDB/highlights/syncHighlightsToPostgreSQL:syncHyperlightDeletionsToPostgreSQL__push__route:/api/db/hyperlights/delete",
       "source": "indexedDB/highlights/syncHighlightsToPostgreSQL:syncHyperlightDeletionsToPostgreSQL",
-      "target": "pg:hyperlights",
+      "target": "route:/api/db/hyperlights/delete",
       "rel": "push",
       "label": "/api/db/hyperlights/delete"
     },
     {
-      "id": "indexedDB/highlights/syncHighlightsToPostgreSQL:syncHyperlightToPostgreSQL__push__pg:hyperlights",
+      "id": "indexedDB/highlights/syncHighlightsToPostgreSQL:syncHyperlightDeletionsToPostgreSQL__push__route:/api/db/hyperlights/hide",
+      "source": "indexedDB/highlights/syncHighlightsToPostgreSQL:syncHyperlightDeletionsToPostgreSQL",
+      "target": "route:/api/db/hyperlights/hide",
+      "rel": "push",
+      "label": "/api/db/hyperlights/hide"
+    },
+    {
+      "id": "indexedDB/highlights/syncHighlightsToPostgreSQL:syncHyperlightToPostgreSQL__push__route:/api/db/hyperlights/upsert",
       "source": "indexedDB/highlights/syncHighlightsToPostgreSQL:syncHyperlightToPostgreSQL",
-      "target": "pg:hyperlights",
+      "target": "route:/api/db/hyperlights/upsert",
       "rel": "push",
       "label": "/api/db/hyperlights/upsert"
     },
@@ -27770,58 +29242,23 @@
       "rel": "write"
     },
     {
-      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteToPostgreSQL__push__pg:hypercites",
+      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteToPostgreSQL__push__route:/api/db/hypercites/upsert",
       "source": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteToPostgreSQL",
-      "target": "pg:hypercites",
+      "target": "route:/api/db/hypercites/upsert",
       "rel": "push",
       "label": "/api/db/hypercites/upsert"
     },
     {
-      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteUpdateImmediately__push__pg:hypercites",
+      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteUpdateImmediately__push__route:/api/db/hypercites/upsert",
       "source": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteUpdateImmediately",
-      "target": "pg:hypercites",
+      "target": "route:/api/db/hypercites/upsert",
       "rel": "push",
       "label": "/api/db/hypercites/upsert"
     },
     {
-      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately__push__pg:bibliography",
+      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately__push__route:/api/db/unified-sync",
       "source": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
-      "target": "pg:bibliography",
-      "rel": "push",
-      "label": "/api/db/unified-sync"
-    },
-    {
-      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately__push__pg:footnotes",
-      "source": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
-      "target": "pg:footnotes",
-      "rel": "push",
-      "label": "/api/db/unified-sync"
-    },
-    {
-      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately__push__pg:hypercites",
-      "source": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
-      "target": "pg:hypercites",
-      "rel": "push",
-      "label": "/api/db/unified-sync"
-    },
-    {
-      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately__push__pg:hyperlights",
-      "source": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
-      "target": "pg:hyperlights",
-      "rel": "push",
-      "label": "/api/db/unified-sync"
-    },
-    {
-      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately__push__pg:library",
-      "source": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
-      "target": "pg:library",
-      "rel": "push",
-      "label": "/api/db/unified-sync"
-    },
-    {
-      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately__push__pg:nodes",
-      "source": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
-      "target": "pg:nodes",
+      "target": "route:/api/db/unified-sync",
       "rel": "push",
       "label": "/api/db/unified-sync"
     },
@@ -28240,9 +29677,9 @@
       "dataPath": true
     },
     {
-      "id": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL__push__pg:nodes",
+      "id": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL__push__route:/api/db/node-chunks/targeted-upsert",
       "source": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL",
-      "target": "pg:nodes",
+      "target": "route:/api/db/node-chunks/targeted-upsert",
       "rel": "push",
       "label": "/api/db/node-chunks/targeted-upsert"
     },
@@ -28603,44 +30040,9 @@
       "rel": "write"
     },
     {
-      "id": "indexedDB/syncQueue/master:executeSyncPayload__push__pg:bibliography",
+      "id": "indexedDB/syncQueue/master:executeSyncPayload__push__route:/api/db/unified-sync",
       "source": "indexedDB/syncQueue/master:executeSyncPayload",
-      "target": "pg:bibliography",
-      "rel": "push",
-      "label": "/api/db/unified-sync"
-    },
-    {
-      "id": "indexedDB/syncQueue/master:executeSyncPayload__push__pg:footnotes",
-      "source": "indexedDB/syncQueue/master:executeSyncPayload",
-      "target": "pg:footnotes",
-      "rel": "push",
-      "label": "/api/db/unified-sync"
-    },
-    {
-      "id": "indexedDB/syncQueue/master:executeSyncPayload__push__pg:hypercites",
-      "source": "indexedDB/syncQueue/master:executeSyncPayload",
-      "target": "pg:hypercites",
-      "rel": "push",
-      "label": "/api/db/unified-sync"
-    },
-    {
-      "id": "indexedDB/syncQueue/master:executeSyncPayload__push__pg:hyperlights",
-      "source": "indexedDB/syncQueue/master:executeSyncPayload",
-      "target": "pg:hyperlights",
-      "rel": "push",
-      "label": "/api/db/unified-sync"
-    },
-    {
-      "id": "indexedDB/syncQueue/master:executeSyncPayload__push__pg:library",
-      "source": "indexedDB/syncQueue/master:executeSyncPayload",
-      "target": "pg:library",
-      "rel": "push",
-      "label": "/api/db/unified-sync"
-    },
-    {
-      "id": "indexedDB/syncQueue/master:executeSyncPayload__push__pg:nodes",
-      "source": "indexedDB/syncQueue/master:executeSyncPayload",
-      "target": "pg:nodes",
+      "target": "route:/api/db/unified-sync",
       "rel": "push",
       "label": "/api/db/unified-sync"
     },
@@ -28672,44 +30074,9 @@
       "rel": "write"
     },
     {
-      "id": "indexedDB/syncQueue/unload:setupUnloadSync__push__pg:bibliography",
+      "id": "indexedDB/syncQueue/unload:setupUnloadSync__push__route:/api/db/sync/beacon",
       "source": "indexedDB/syncQueue/unload:setupUnloadSync",
-      "target": "pg:bibliography",
-      "rel": "push",
-      "label": "/api/db/sync/beacon"
-    },
-    {
-      "id": "indexedDB/syncQueue/unload:setupUnloadSync__push__pg:footnotes",
-      "source": "indexedDB/syncQueue/unload:setupUnloadSync",
-      "target": "pg:footnotes",
-      "rel": "push",
-      "label": "/api/db/sync/beacon"
-    },
-    {
-      "id": "indexedDB/syncQueue/unload:setupUnloadSync__push__pg:hypercites",
-      "source": "indexedDB/syncQueue/unload:setupUnloadSync",
-      "target": "pg:hypercites",
-      "rel": "push",
-      "label": "/api/db/sync/beacon"
-    },
-    {
-      "id": "indexedDB/syncQueue/unload:setupUnloadSync__push__pg:hyperlights",
-      "source": "indexedDB/syncQueue/unload:setupUnloadSync",
-      "target": "pg:hyperlights",
-      "rel": "push",
-      "label": "/api/db/sync/beacon"
-    },
-    {
-      "id": "indexedDB/syncQueue/unload:setupUnloadSync__push__pg:library",
-      "source": "indexedDB/syncQueue/unload:setupUnloadSync",
-      "target": "pg:library",
-      "rel": "push",
-      "label": "/api/db/sync/beacon"
-    },
-    {
-      "id": "indexedDB/syncQueue/unload:setupUnloadSync__push__pg:nodes",
-      "source": "indexedDB/syncQueue/unload:setupUnloadSync",
-      "target": "pg:nodes",
+      "target": "route:/api/db/sync/beacon",
       "rel": "push",
       "label": "/api/db/sync/beacon"
     },
@@ -29793,18 +31160,18 @@
       "dataPath": true
     },
     {
-      "id": "paste/fallback-processor:processContentForFootnotesAndReferences__push__pg:bibliography",
+      "id": "paste/fallback-processor:processContentForFootnotesAndReferences__push__route:/api/db/footnotes/upsert",
       "source": "paste/fallback-processor:processContentForFootnotesAndReferences",
-      "target": "pg:bibliography",
-      "rel": "push",
-      "label": "/api/db/references/upsert"
-    },
-    {
-      "id": "paste/fallback-processor:processContentForFootnotesAndReferences__push__pg:footnotes",
-      "source": "paste/fallback-processor:processContentForFootnotesAndReferences",
-      "target": "pg:footnotes",
+      "target": "route:/api/db/footnotes/upsert",
       "rel": "push",
       "label": "/api/db/footnotes/upsert"
+    },
+    {
+      "id": "paste/fallback-processor:processContentForFootnotesAndReferences__push__route:/api/db/references/upsert",
+      "source": "paste/fallback-processor:processContentForFootnotesAndReferences",
+      "target": "route:/api/db/references/upsert",
+      "rel": "push",
+      "label": "/api/db/references/upsert"
     },
     {
       "id": "paste/fallback-processor:saveFootnotesToIndexedDB__call__indexedDB/core/connection:openDatabase",
@@ -30652,9 +32019,9 @@
       "rel": "domwrite"
     },
     {
-      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__push__pg:hypercites",
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__push__route:/api/db/hypercites/upsert",
       "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
-      "target": "pg:hypercites",
+      "target": "route:/api/db/hypercites/upsert",
       "rel": "push",
       "label": "/api/db/hypercites/upsert"
     },
@@ -31152,473 +32519,462 @@
       "rel": "domwrite"
     },
     {
-      "id": "pg:bibliography__pull__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "id": "pg:bibliography__pull__controller:DatabaseToIndexedDBController@getBookData",
       "source": "pg:bibliography",
-      "target": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "target": "controller:DatabaseToIndexedDBController@getBookData",
+      "rel": "pull"
     },
     {
-      "id": "pg:bibliography__pull__components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "id": "pg:bibliography__pull__controller:DatabaseToIndexedDBController@getInitialChunk",
       "source": "pg:bibliography",
-      "target": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+      "rel": "pull"
     },
     {
-      "id": "pg:bibliography__pull__components/tocContainer/index:generateTableOfContents",
+      "id": "pg:bibliography__pull__controller:DatabaseToIndexedDBController@getSubBookData",
       "source": "pg:bibliography",
-      "target": "components/tocContainer/index:generateTableOfContents",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "target": "controller:DatabaseToIndexedDBController@getSubBookData",
+      "rel": "pull"
     },
     {
-      "id": "pg:bibliography__pull__hypercites/database:fetchLibraryFromServer",
+      "id": "pg:bibliography__pull__controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
       "source": "pg:bibliography",
-      "target": "hypercites/database:fetchLibraryFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "rel": "pull"
     },
     {
-      "id": "pg:bibliography__pull__hyperlitContainer/utils:fetchLibraryFromServer",
-      "source": "pg:bibliography",
-      "target": "hyperlitContainer/utils:fetchLibraryFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "id": "pg:footnotes__pull__controller:DatabaseToIndexedDBController@getBookData",
+      "source": "pg:footnotes",
+      "target": "controller:DatabaseToIndexedDBController@getBookData",
+      "rel": "pull"
     },
     {
-      "id": "pg:bibliography__pull__indexedDB/core/library:fetchLibraryRecordWithStatus",
-      "source": "pg:bibliography",
-      "target": "indexedDB/core/library:fetchLibraryRecordWithStatus",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "id": "pg:footnotes__pull__controller:DatabaseToIndexedDBController@getInitialChunk",
+      "source": "pg:footnotes",
+      "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+      "rel": "pull"
     },
     {
-      "id": "pg:bibliography__pull__indexedDB/core/library:getLibraryRecordFromServer",
-      "source": "pg:bibliography",
-      "target": "indexedDB/core/library:getLibraryRecordFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "id": "pg:footnotes__pull__controller:DatabaseToIndexedDBController@getSubBookData",
+      "source": "pg:footnotes",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookData",
+      "rel": "pull"
     },
     {
-      "id": "pg:bibliography__pull__indexedDB/serverSync/pull:syncAnnotationsOnly",
-      "source": "pg:bibliography",
+      "id": "pg:footnotes__pull__controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "source": "pg:footnotes",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hypercites__pull__controller:DatabaseToIndexedDBController@getBookAnnotations",
+      "source": "pg:hypercites",
+      "target": "controller:DatabaseToIndexedDBController@getBookAnnotations",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hypercites__pull__controller:DatabaseToIndexedDBController@getBookData",
+      "source": "pg:hypercites",
+      "target": "controller:DatabaseToIndexedDBController@getBookData",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hypercites__pull__controller:DatabaseToIndexedDBController@getBookDataBatch",
+      "source": "pg:hypercites",
+      "target": "controller:DatabaseToIndexedDBController@getBookDataBatch",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hypercites__pull__controller:DatabaseToIndexedDBController@getInitialChunk",
+      "source": "pg:hypercites",
+      "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hypercites__pull__controller:DatabaseToIndexedDBController@getSingleChunk",
+      "source": "pg:hypercites",
+      "target": "controller:DatabaseToIndexedDBController@getSingleChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hypercites__pull__controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+      "source": "pg:hypercites",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hypercites__pull__controller:DatabaseToIndexedDBController@getSubBookData",
+      "source": "pg:hypercites",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookData",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hypercites__pull__controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "source": "pg:hypercites",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hypercites__pull__controller:DbHyperciteController@find",
+      "source": "pg:hypercites",
+      "target": "controller:DbHyperciteController@find",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hypercites__pull__route:/api/db/hypercites/find",
+      "source": "pg:hypercites",
+      "target": "route:/api/db/hypercites/find",
+      "rel": "pull",
+      "label": "/api/db/hypercites/find/{}/{}"
+    },
+    {
+      "id": "pg:hyperlights__pull__controller:DatabaseToIndexedDBController@getBookAnnotations",
+      "source": "pg:hyperlights",
+      "target": "controller:DatabaseToIndexedDBController@getBookAnnotations",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hyperlights__pull__controller:DatabaseToIndexedDBController@getBookData",
+      "source": "pg:hyperlights",
+      "target": "controller:DatabaseToIndexedDBController@getBookData",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hyperlights__pull__controller:DatabaseToIndexedDBController@getBookDataBatch",
+      "source": "pg:hyperlights",
+      "target": "controller:DatabaseToIndexedDBController@getBookDataBatch",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hyperlights__pull__controller:DatabaseToIndexedDBController@getInitialChunk",
+      "source": "pg:hyperlights",
+      "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hyperlights__pull__controller:DatabaseToIndexedDBController@getSingleChunk",
+      "source": "pg:hyperlights",
+      "target": "controller:DatabaseToIndexedDBController@getSingleChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hyperlights__pull__controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+      "source": "pg:hyperlights",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hyperlights__pull__controller:DatabaseToIndexedDBController@getSubBookData",
+      "source": "pg:hyperlights",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookData",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:hyperlights__pull__controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "source": "pg:hyperlights",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getAvailableBooks",
+      "source": "pg:library",
+      "target": "controller:DatabaseToIndexedDBController@getAvailableBooks",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getBookAnnotations",
+      "source": "pg:library",
+      "target": "controller:DatabaseToIndexedDBController@getBookAnnotations",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getBookData",
+      "source": "pg:library",
+      "target": "controller:DatabaseToIndexedDBController@getBookData",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getBookDataBatch",
+      "source": "pg:library",
+      "target": "controller:DatabaseToIndexedDBController@getBookDataBatch",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getBookLibrary",
+      "source": "pg:library",
+      "target": "controller:DatabaseToIndexedDBController@getBookLibrary",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getInitialChunk",
+      "source": "pg:library",
+      "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getSingleChunk",
+      "source": "pg:library",
+      "target": "controller:DatabaseToIndexedDBController@getSingleChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+      "source": "pg:library",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getSubBookData",
+      "source": "pg:library",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookData",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "source": "pg:library",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getSubBookLibrary",
+      "source": "pg:library",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DbHyperciteController@find",
+      "source": "pg:library",
+      "target": "controller:DbHyperciteController@find",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getAvailableBooks",
+      "source": "pg:nodes",
+      "target": "controller:DatabaseToIndexedDBController@getAvailableBooks",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getBookData",
+      "source": "pg:nodes",
+      "target": "controller:DatabaseToIndexedDBController@getBookData",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getBookDataBatch",
+      "source": "pg:nodes",
+      "target": "controller:DatabaseToIndexedDBController@getBookDataBatch",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getBookHeadings",
+      "source": "pg:nodes",
+      "target": "controller:DatabaseToIndexedDBController@getBookHeadings",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getBookMetadata",
+      "source": "pg:nodes",
+      "target": "controller:DatabaseToIndexedDBController@getBookMetadata",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getInitialChunk",
+      "source": "pg:nodes",
+      "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getSingleChunk",
+      "source": "pg:nodes",
+      "target": "controller:DatabaseToIndexedDBController@getSingleChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getSubBookData",
+      "source": "pg:nodes",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookData",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "source": "pg:nodes",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getSubBookMetadata",
+      "source": "pg:nodes",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookMetadata",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:nodes__pull__controller:DbHyperciteController@find",
+      "source": "pg:nodes",
+      "target": "controller:DbHyperciteController@find",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:user_reading_positions__pull__controller:DatabaseToIndexedDBController@getInitialChunk",
+      "source": "pg:user_reading_positions",
+      "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:user_reading_positions__pull__controller:DatabaseToIndexedDBController@getReadingPosition",
+      "source": "pg:user_reading_positions",
+      "target": "controller:DatabaseToIndexedDBController@getReadingPosition",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:user_reading_positions__pull__controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "source": "pg:user_reading_positions",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "route:/api/canonical__push__pg:canonical_source",
+      "source": "route:/api/canonical",
+      "target": "pg:canonical_source",
+      "rel": "push",
+      "label": "/api/canonical/{}/best-version"
+    },
+    {
+      "id": "route:/api/database-to-indexeddb/books/{}/annotations__pull__indexedDB/serverSync/pull:syncAnnotationsOnly",
+      "source": "route:/api/database-to-indexeddb/books/{}/annotations",
       "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
       "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "label": "/api/database-to-indexeddb/books/{}/annotations"
     },
     {
-      "id": "pg:bibliography__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
-      "source": "pg:bibliography",
+      "id": "route:/api/database-to-indexeddb/books/{}/data__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "source": "route:/api/database-to-indexeddb/books/{}/data",
       "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
       "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "label": "/api/database-to-indexeddb/books/{}/data"
     },
     {
-      "id": "pg:bibliography__pull__pageLoad/loadHyperText:loadHyperText",
-      "source": "pg:bibliography",
-      "target": "pageLoad/loadHyperText:loadHyperText",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:bibliography__pull__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
-      "source": "pg:bibliography",
-      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:footnotes__pull__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
-      "source": "pg:footnotes",
-      "target": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:footnotes__pull__components/sourceContainer/buildSourceHtml:buildSourceHtml",
-      "source": "pg:footnotes",
-      "target": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:footnotes__pull__components/tocContainer/index:generateTableOfContents",
-      "source": "pg:footnotes",
+      "id": "route:/api/database-to-indexeddb/books/{}/headings__pull__components/tocContainer/index:generateTableOfContents",
+      "source": "route:/api/database-to-indexeddb/books/{}/headings",
       "target": "components/tocContainer/index:generateTableOfContents",
       "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "label": "/api/database-to-indexeddb/books/{}/headings"
     },
     {
-      "id": "pg:footnotes__pull__hypercites/database:fetchLibraryFromServer",
-      "source": "pg:footnotes",
-      "target": "hypercites/database:fetchLibraryFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:footnotes__pull__hyperlitContainer/utils:fetchLibraryFromServer",
-      "source": "pg:footnotes",
-      "target": "hyperlitContainer/utils:fetchLibraryFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:footnotes__pull__indexedDB/core/library:fetchLibraryRecordWithStatus",
-      "source": "pg:footnotes",
-      "target": "indexedDB/core/library:fetchLibraryRecordWithStatus",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:footnotes__pull__indexedDB/core/library:getLibraryRecordFromServer",
-      "source": "pg:footnotes",
-      "target": "indexedDB/core/library:getLibraryRecordFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:footnotes__pull__indexedDB/serverSync/pull:syncAnnotationsOnly",
-      "source": "pg:footnotes",
-      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:footnotes__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
-      "source": "pg:footnotes",
-      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:footnotes__pull__pageLoad/loadHyperText:loadHyperText",
-      "source": "pg:footnotes",
-      "target": "pageLoad/loadHyperText:loadHyperText",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:footnotes__pull__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
-      "source": "pg:footnotes",
-      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:hypercites__pull__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
-      "source": "pg:hypercites",
+      "id": "route:/api/database-to-indexeddb/books/{}/library__pull__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "source": "route:/api/database-to-indexeddb/books/{}/library",
       "target": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
       "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "label": "/api/database-to-indexeddb/books/{}/library"
     },
     {
-      "id": "pg:hypercites__pull__components/sourceContainer/buildSourceHtml:buildSourceHtml",
-      "source": "pg:hypercites",
+      "id": "route:/api/database-to-indexeddb/books/{}/library__pull__components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "source": "route:/api/database-to-indexeddb/books/{}/library",
       "target": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
       "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "label": "/api/database-to-indexeddb/books/{}/library"
     },
     {
-      "id": "pg:hypercites__pull__components/tocContainer/index:generateTableOfContents",
-      "source": "pg:hypercites",
-      "target": "components/tocContainer/index:generateTableOfContents",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:hypercites__pull__hypercites/database:fetchLibraryFromServer",
-      "source": "pg:hypercites",
+      "id": "route:/api/database-to-indexeddb/books/{}/library__pull__hypercites/database:fetchLibraryFromServer",
+      "source": "route:/api/database-to-indexeddb/books/{}/library",
       "target": "hypercites/database:fetchLibraryFromServer",
       "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "label": "/api/database-to-indexeddb/books/{}/library"
     },
     {
-      "id": "pg:hypercites__pull__hyperlitContainer/utils:fetchLibraryFromServer",
-      "source": "pg:hypercites",
+      "id": "route:/api/database-to-indexeddb/books/{}/library__pull__hyperlitContainer/utils:fetchLibraryFromServer",
+      "source": "route:/api/database-to-indexeddb/books/{}/library",
       "target": "hyperlitContainer/utils:fetchLibraryFromServer",
       "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "label": "/api/database-to-indexeddb/books/{}/library"
     },
     {
-      "id": "pg:hypercites__pull__indexedDB/core/library:fetchLibraryRecordWithStatus",
-      "source": "pg:hypercites",
+      "id": "route:/api/database-to-indexeddb/books/{}/library__pull__indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "source": "route:/api/database-to-indexeddb/books/{}/library",
       "target": "indexedDB/core/library:fetchLibraryRecordWithStatus",
       "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "label": "/api/database-to-indexeddb/books/{}/library"
     },
     {
-      "id": "pg:hypercites__pull__indexedDB/core/library:getLibraryRecordFromServer",
-      "source": "pg:hypercites",
+      "id": "route:/api/database-to-indexeddb/books/{}/library__pull__indexedDB/core/library:getLibraryRecordFromServer",
+      "source": "route:/api/database-to-indexeddb/books/{}/library",
       "target": "indexedDB/core/library:getLibraryRecordFromServer",
       "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "label": "/api/database-to-indexeddb/books/{}/library"
     },
     {
-      "id": "pg:hypercites__pull__indexedDB/hypercites/helpers:resolveHypercite",
-      "source": "pg:hypercites",
+      "id": "route:/api/database-to-indexeddb/books/{}/library__pull__pageLoad/loadHyperText:loadHyperText",
+      "source": "route:/api/database-to-indexeddb/books/{}/library",
+      "target": "pageLoad/loadHyperText:loadHyperText",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books/{}/library"
+    },
+    {
+      "id": "route:/api/database-to-indexeddb/books/{}/library__pull__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "source": "route:/api/database-to-indexeddb/books/{}/library",
+      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books/{}/library"
+    },
+    {
+      "id": "route:/api/db/footnotes/upsert__push__controller:DbFootnoteController@upsert",
+      "source": "route:/api/db/footnotes/upsert",
+      "target": "controller:DbFootnoteController@upsert",
+      "rel": "push"
+    },
+    {
+      "id": "route:/api/db/hypercites/find__pull__indexedDB/hypercites/helpers:resolveHypercite",
+      "source": "route:/api/db/hypercites/find",
       "target": "indexedDB/hypercites/helpers:resolveHypercite",
       "rel": "pull",
-      "label": "/api/db/hypercites/find"
+      "label": "/api/db/hypercites/find/{}/{}"
     },
     {
-      "id": "pg:hypercites__pull__indexedDB/serverSync/pull:syncAnnotationsOnly",
-      "source": "pg:hypercites",
-      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "id": "route:/api/db/hypercites/upsert__push__controller:DbHyperciteController@upsert",
+      "source": "route:/api/db/hypercites/upsert",
+      "target": "controller:DbHyperciteController@upsert",
+      "rel": "push"
     },
     {
-      "id": "pg:hypercites__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
-      "source": "pg:hypercites",
-      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "id": "route:/api/db/hyperlights/delete__push__controller:DbHyperlightController@delete",
+      "source": "route:/api/db/hyperlights/delete",
+      "target": "controller:DbHyperlightController@delete",
+      "rel": "push"
     },
     {
-      "id": "pg:hypercites__pull__pageLoad/loadHyperText:loadHyperText",
-      "source": "pg:hypercites",
-      "target": "pageLoad/loadHyperText:loadHyperText",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "id": "route:/api/db/hyperlights/hide__push__controller:DbHyperlightController@hide",
+      "source": "route:/api/db/hyperlights/hide",
+      "target": "controller:DbHyperlightController@hide",
+      "rel": "push"
     },
     {
-      "id": "pg:hypercites__pull__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
-      "source": "pg:hypercites",
-      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "id": "route:/api/db/hyperlights/upsert__push__controller:DbHyperlightController@upsert",
+      "source": "route:/api/db/hyperlights/upsert",
+      "target": "controller:DbHyperlightController@upsert",
+      "rel": "push"
     },
     {
-      "id": "pg:hyperlights__pull__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
-      "source": "pg:hyperlights",
-      "target": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "id": "route:/api/db/node-chunks/targeted-upsert__push__controller:DbNodeChunkController@targetedUpsert",
+      "source": "route:/api/db/node-chunks/targeted-upsert",
+      "target": "controller:DbNodeChunkController@targetedUpsert",
+      "rel": "push"
     },
     {
-      "id": "pg:hyperlights__pull__components/sourceContainer/buildSourceHtml:buildSourceHtml",
-      "source": "pg:hyperlights",
-      "target": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "id": "route:/api/db/references/upsert__push__controller:DbReferencesController@upsertReferences",
+      "source": "route:/api/db/references/upsert",
+      "target": "controller:DbReferencesController@upsertReferences",
+      "rel": "push"
     },
     {
-      "id": "pg:hyperlights__pull__components/tocContainer/index:generateTableOfContents",
-      "source": "pg:hyperlights",
-      "target": "components/tocContainer/index:generateTableOfContents",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "id": "route:/api/db/sync/beacon__push__controller:BeaconSyncController@handleSync",
+      "source": "route:/api/db/sync/beacon",
+      "target": "controller:BeaconSyncController@handleSync",
+      "rel": "push"
     },
     {
-      "id": "pg:hyperlights__pull__hypercites/database:fetchLibraryFromServer",
-      "source": "pg:hyperlights",
-      "target": "hypercites/database:fetchLibraryFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:hyperlights__pull__hyperlitContainer/utils:fetchLibraryFromServer",
-      "source": "pg:hyperlights",
-      "target": "hyperlitContainer/utils:fetchLibraryFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:hyperlights__pull__indexedDB/core/library:fetchLibraryRecordWithStatus",
-      "source": "pg:hyperlights",
-      "target": "indexedDB/core/library:fetchLibraryRecordWithStatus",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:hyperlights__pull__indexedDB/core/library:getLibraryRecordFromServer",
-      "source": "pg:hyperlights",
-      "target": "indexedDB/core/library:getLibraryRecordFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:hyperlights__pull__indexedDB/serverSync/pull:syncAnnotationsOnly",
-      "source": "pg:hyperlights",
-      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:hyperlights__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
-      "source": "pg:hyperlights",
-      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:hyperlights__pull__pageLoad/loadHyperText:loadHyperText",
-      "source": "pg:hyperlights",
-      "target": "pageLoad/loadHyperText:loadHyperText",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:hyperlights__pull__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
-      "source": "pg:hyperlights",
-      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:library__pull__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
-      "source": "pg:library",
-      "target": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:library__pull__components/sourceContainer/buildSourceHtml:buildSourceHtml",
-      "source": "pg:library",
-      "target": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:library__pull__components/tocContainer/index:generateTableOfContents",
-      "source": "pg:library",
-      "target": "components/tocContainer/index:generateTableOfContents",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:library__pull__hypercites/database:fetchLibraryFromServer",
-      "source": "pg:library",
-      "target": "hypercites/database:fetchLibraryFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:library__pull__hyperlitContainer/utils:fetchLibraryFromServer",
-      "source": "pg:library",
-      "target": "hyperlitContainer/utils:fetchLibraryFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:library__pull__indexedDB/core/library:fetchLibraryRecordWithStatus",
-      "source": "pg:library",
-      "target": "indexedDB/core/library:fetchLibraryRecordWithStatus",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:library__pull__indexedDB/core/library:getLibraryRecordFromServer",
-      "source": "pg:library",
-      "target": "indexedDB/core/library:getLibraryRecordFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:library__pull__indexedDB/serverSync/pull:syncAnnotationsOnly",
-      "source": "pg:library",
-      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:library__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
-      "source": "pg:library",
-      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:library__pull__pageLoad/loadHyperText:loadHyperText",
-      "source": "pg:library",
-      "target": "pageLoad/loadHyperText:loadHyperText",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:library__pull__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
-      "source": "pg:library",
-      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:nodes__pull__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
-      "source": "pg:nodes",
-      "target": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:nodes__pull__components/sourceContainer/buildSourceHtml:buildSourceHtml",
-      "source": "pg:nodes",
-      "target": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:nodes__pull__components/tocContainer/index:generateTableOfContents",
-      "source": "pg:nodes",
-      "target": "components/tocContainer/index:generateTableOfContents",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:nodes__pull__hypercites/database:fetchLibraryFromServer",
-      "source": "pg:nodes",
-      "target": "hypercites/database:fetchLibraryFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:nodes__pull__hyperlitContainer/utils:fetchLibraryFromServer",
-      "source": "pg:nodes",
-      "target": "hyperlitContainer/utils:fetchLibraryFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:nodes__pull__indexedDB/core/library:fetchLibraryRecordWithStatus",
-      "source": "pg:nodes",
-      "target": "indexedDB/core/library:fetchLibraryRecordWithStatus",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:nodes__pull__indexedDB/core/library:getLibraryRecordFromServer",
-      "source": "pg:nodes",
-      "target": "indexedDB/core/library:getLibraryRecordFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:nodes__pull__indexedDB/serverSync/pull:syncAnnotationsOnly",
-      "source": "pg:nodes",
-      "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:nodes__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
-      "source": "pg:nodes",
-      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:nodes__pull__pageLoad/loadHyperText:loadHyperText",
-      "source": "pg:nodes",
-      "target": "pageLoad/loadHyperText:loadHyperText",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
-    },
-    {
-      "id": "pg:nodes__pull__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
-      "source": "pg:nodes",
-      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books"
+      "id": "route:/api/db/unified-sync__push__controller:UnifiedSyncController@sync",
+      "source": "route:/api/db/unified-sync",
+      "target": "controller:UnifiedSyncController@sync",
+      "rel": "push"
     },
     {
       "id": "scrolling/internalNav:fallbackScrollPosition__call__indexedDB/core/utilities:getLocalStorageKey",

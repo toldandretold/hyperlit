@@ -1,0 +1,1521 @@
+{
+    "generatedBy": "visualisation/php/collect.php",
+    "note": "Static php-parser analysis of routes/api.php + Db* + DatabaseToIndexedDB controllers. Table attribution derived from Pg* $table + DB::table/raw-SQL literals. Do not edit by hand \u2014 run `php visualisation/php/collect.php` (chained by `npm run viz:idb`).",
+    "modelTable": {
+        "PgFootnote": "footnotes",
+        "PgHypercite": "hypercites",
+        "PgHyperlight": "hyperlights",
+        "PgLibrary": "library",
+        "PgNodeChunk": "nodes",
+        "PgReference": "bibliography"
+    },
+    "nodes": [
+        {
+            "id": "controller:BeaconSyncController@handleSync",
+            "label": "BeaconSyncController@handleSync",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "BeaconSyncController",
+            "method": "handleSync",
+            "tables": [
+                "hypercites",
+                "hyperlights",
+                "library",
+                "nodes"
+            ],
+            "shape": [
+                "book",
+                "startLine"
+            ],
+            "endpoints": [
+                "/api/db/sync/beacon"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getAvailableBooks",
+            "label": "DatabaseToIndexedDBController@getAvailableBooks",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getAvailableBooks",
+            "tables": [
+                "library",
+                "nodes"
+            ],
+            "shape": [
+                "books",
+                "total_books"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getBookAnnotations",
+            "label": "DatabaseToIndexedDBController@getBookAnnotations",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getBookAnnotations",
+            "tables": [
+                "hypercites",
+                "hyperlights",
+                "library"
+            ],
+            "shape": [
+                "annotation",
+                "book",
+                "charData",
+                "creator",
+                "hidden",
+                "highlightedHTML",
+                "highlightedText",
+                "hyperlight_id",
+                "is_user_highlight",
+                "node_id",
+                "preview_nodes",
+                "raw_json",
+                "startLine",
+                "time_since"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/annotations"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getBookData",
+            "label": "DatabaseToIndexedDBController@getBookData",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getBookData",
+            "tables": [
+                "bibliography",
+                "footnotes",
+                "hypercites",
+                "hyperlights",
+                "library",
+                "nodes"
+            ],
+            "shape": [
+                "book",
+                "chunk_id",
+                "content",
+                "footnotes",
+                "hypercites",
+                "hyperlights",
+                "node_id",
+                "plainText",
+                "raw_json",
+                "startLine",
+                "type"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/data"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getBookDataBatch",
+            "label": "DatabaseToIndexedDBController@getBookDataBatch",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getBookDataBatch",
+            "tables": [
+                "hypercites",
+                "hyperlights",
+                "library",
+                "nodes"
+            ],
+            "shape": [
+                "book",
+                "chunk_id",
+                "content",
+                "footnotes",
+                "hypercites",
+                "hyperlights",
+                "node_id",
+                "plainText",
+                "raw_json",
+                "startLine",
+                "type"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/data/batch"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getBookHeadings",
+            "label": "DatabaseToIndexedDBController@getBookHeadings",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getBookHeadings",
+            "tables": [
+                "nodes"
+            ],
+            "shape": [
+                "book_id",
+                "error",
+                "is_deleted",
+                "message"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/headings"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getBookLibrary",
+            "label": "DatabaseToIndexedDBController@getBookLibrary",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getBookLibrary",
+            "tables": [
+                "library"
+            ],
+            "shape": [
+                "annotations_updated_at",
+                "author",
+                "bibtex",
+                "book",
+                "creator",
+                "custom_license_text",
+                "fileName",
+                "fileType",
+                "gate_defaults",
+                "is_owner",
+                "journal",
+                "license",
+                "listed",
+                "note",
+                "pages",
+                "publisher",
+                "raw_json",
+                "school",
+                "timestamp",
+                "title",
+                "type",
+                "url",
+                "visibility",
+                "year"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/library"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getBookMetadata",
+            "label": "DatabaseToIndexedDBController@getBookMetadata",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getBookMetadata",
+            "tables": [
+                "nodes"
+            ],
+            "shape": [
+                "book_id",
+                "chunk_count",
+                "exists",
+                "last_modified"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/metadata"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getInitialChunk",
+            "label": "DatabaseToIndexedDBController@getInitialChunk",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getInitialChunk",
+            "tables": [
+                "bibliography",
+                "footnotes",
+                "hypercites",
+                "hyperlights",
+                "library",
+                "nodes",
+                "user_reading_positions"
+            ],
+            "shape": [
+                "book",
+                "chunk_id",
+                "content",
+                "footnotes",
+                "hypercites",
+                "hyperlights",
+                "node_id",
+                "plainText",
+                "raw_json",
+                "startLine",
+                "type"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/initial"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getReadingPosition",
+            "label": "DatabaseToIndexedDBController@getReadingPosition",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getReadingPosition",
+            "tables": [
+                "user_reading_positions"
+            ],
+            "shape": [
+                "chunk_id",
+                "element_id"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/reading-position"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getSingleChunk",
+            "label": "DatabaseToIndexedDBController@getSingleChunk",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getSingleChunk",
+            "tables": [
+                "hypercites",
+                "hyperlights",
+                "library",
+                "nodes"
+            ],
+            "shape": [
+                "book",
+                "chunk_id",
+                "content",
+                "footnotes",
+                "hypercites",
+                "hyperlights",
+                "node_id",
+                "plainText",
+                "raw_json",
+                "startLine",
+                "type"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/chunk/{}"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+            "label": "DatabaseToIndexedDBController@getSubBookAnnotations",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getSubBookAnnotations",
+            "tables": [
+                "hypercites",
+                "hyperlights",
+                "library"
+            ],
+            "shape": [
+                "annotation",
+                "book",
+                "charData",
+                "creator",
+                "hidden",
+                "highlightedHTML",
+                "highlightedText",
+                "hyperlight_id",
+                "is_user_highlight",
+                "node_id",
+                "preview_nodes",
+                "raw_json",
+                "startLine",
+                "time_since"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/{}/annotations"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getSubBookData",
+            "label": "DatabaseToIndexedDBController@getSubBookData",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getSubBookData",
+            "tables": [
+                "bibliography",
+                "footnotes",
+                "hypercites",
+                "hyperlights",
+                "library",
+                "nodes"
+            ],
+            "shape": [
+                "book",
+                "chunk_id",
+                "content",
+                "footnotes",
+                "hypercites",
+                "hyperlights",
+                "node_id",
+                "plainText",
+                "raw_json",
+                "startLine",
+                "type"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/{}/data"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+            "label": "DatabaseToIndexedDBController@getSubBookInitialChunk",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getSubBookInitialChunk",
+            "tables": [
+                "bibliography",
+                "footnotes",
+                "hypercites",
+                "hyperlights",
+                "library",
+                "nodes",
+                "user_reading_positions"
+            ],
+            "shape": [
+                "book",
+                "chunk_id",
+                "content",
+                "footnotes",
+                "hypercites",
+                "hyperlights",
+                "node_id",
+                "plainText",
+                "raw_json",
+                "startLine",
+                "type"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/{}/initial"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
+            "label": "DatabaseToIndexedDBController@getSubBookLibrary",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getSubBookLibrary",
+            "tables": [
+                "library"
+            ],
+            "shape": [
+                "annotations_updated_at",
+                "author",
+                "bibtex",
+                "book",
+                "creator",
+                "custom_license_text",
+                "fileName",
+                "fileType",
+                "gate_defaults",
+                "is_owner",
+                "journal",
+                "license",
+                "listed",
+                "note",
+                "pages",
+                "publisher",
+                "raw_json",
+                "school",
+                "timestamp",
+                "title",
+                "type",
+                "url",
+                "visibility",
+                "year"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/{}/library"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@getSubBookMetadata",
+            "label": "DatabaseToIndexedDBController@getSubBookMetadata",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getSubBookMetadata",
+            "tables": [
+                "nodes"
+            ],
+            "shape": [
+                "book_id",
+                "chunk_count",
+                "exists",
+                "last_modified"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/{}/metadata"
+            ]
+        },
+        {
+            "id": "controller:DatabaseToIndexedDBController@saveReadingPosition",
+            "label": "DatabaseToIndexedDBController@saveReadingPosition",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "saveReadingPosition",
+            "tables": [
+                "user_reading_positions"
+            ],
+            "shape": [
+                "anon_token",
+                "chunk_id",
+                "element_id",
+                "updated_at"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/reading-position"
+            ]
+        },
+        {
+            "id": "controller:DbFootnoteController@upsert",
+            "label": "DbFootnoteController@upsert",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbFootnoteController",
+            "method": "upsert",
+            "tables": [
+                "footnotes"
+            ],
+            "shape": [
+                "book",
+                "content",
+                "footnoteId",
+                "preview_nodes",
+                "sub_book_id"
+            ],
+            "endpoints": [
+                "/api/db/footnotes/upsert"
+            ]
+        },
+        {
+            "id": "controller:DbHyperciteController@bulkCreate",
+            "label": "DbHyperciteController@bulkCreate",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbHyperciteController",
+            "method": "bulkCreate",
+            "tables": [
+                "hypercites",
+                "library"
+            ],
+            "shape": [
+                "book",
+                "charData",
+                "citedIN",
+                "created_at",
+                "creator",
+                "creator_token",
+                "hyperciteId",
+                "hypercitedHTML",
+                "hypercitedText",
+                "node_id",
+                "raw_json",
+                "relationshipStatus",
+                "time_since",
+                "updated_at"
+            ],
+            "endpoints": [
+                "/api/db/hypercites/bulk-create"
+            ]
+        },
+        {
+            "id": "controller:DbHyperciteController@find",
+            "label": "DbHyperciteController@find",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DbHyperciteController",
+            "method": "find",
+            "tables": [
+                "hypercites",
+                "library",
+                "nodes"
+            ],
+            "shape": [
+                "book",
+                "hypercite",
+                "user"
+            ],
+            "endpoints": [
+                "/api/db/hypercites/find/{}/{}"
+            ]
+        },
+        {
+            "id": "controller:DbHyperciteController@upsert",
+            "label": "DbHyperciteController@upsert",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbHyperciteController",
+            "method": "upsert",
+            "tables": [
+                "hypercites",
+                "library"
+            ],
+            "shape": [
+                "book",
+                "existing_creator",
+                "existing_creator_token",
+                "hyperciteId"
+            ],
+            "endpoints": [
+                "/api/db/hypercites/upsert"
+            ]
+        },
+        {
+            "id": "controller:DbHyperlightController@bulkCreate",
+            "label": "DbHyperlightController@bulkCreate",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbHyperlightController",
+            "method": "bulkCreate",
+            "tables": [
+                "hyperlights",
+                "library"
+            ],
+            "shape": [
+                "annotation",
+                "book",
+                "charData",
+                "created_at",
+                "creator",
+                "creator_token",
+                "highlightedHTML",
+                "highlightedText",
+                "hyperlight_id",
+                "node_id",
+                "raw_json",
+                "startLine",
+                "sub_book_id",
+                "time_since",
+                "updated_at"
+            ],
+            "endpoints": [
+                "/api/db/hyperlights/bulk-create"
+            ]
+        },
+        {
+            "id": "controller:DbHyperlightController@delete",
+            "label": "DbHyperlightController@delete",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbHyperlightController",
+            "method": "delete",
+            "tables": [
+                "hyperlights",
+                "library"
+            ],
+            "shape": [
+                "book",
+                "creator",
+                "creator_token",
+                "hyperlight_id"
+            ],
+            "endpoints": [
+                "/api/db/hyperlights/delete"
+            ]
+        },
+        {
+            "id": "controller:DbHyperlightController@hide",
+            "label": "DbHyperlightController@hide",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbHyperlightController",
+            "method": "hide",
+            "tables": [
+                "hyperlights",
+                "library"
+            ],
+            "shape": [
+                "book",
+                "has_anon_token",
+                "hyperlight_id",
+                "user"
+            ],
+            "endpoints": [
+                "/api/db/hyperlights/hide"
+            ]
+        },
+        {
+            "id": "controller:DbHyperlightController@upsert",
+            "label": "DbHyperlightController@upsert",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbHyperlightController",
+            "method": "upsert",
+            "tables": [
+                "hyperlights",
+                "library"
+            ],
+            "shape": [
+                "annotation",
+                "charData",
+                "creator",
+                "creator_token",
+                "highlightedHTML",
+                "highlightedText",
+                "node_id",
+                "preview_nodes",
+                "raw_json",
+                "startLine",
+                "sub_book_id",
+                "time_since",
+                "updated_at"
+            ],
+            "endpoints": [
+                "/api/db/hyperlights/upsert"
+            ]
+        },
+        {
+            "id": "controller:DbLibraryController@bulkCreate",
+            "label": "DbLibraryController@bulkCreate",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbLibraryController",
+            "method": "bulkCreate",
+            "tables": [
+                "library"
+            ],
+            "shape": [
+                "author",
+                "bibtex",
+                "book",
+                "booktitle",
+                "chapter",
+                "created_at",
+                "creator",
+                "creator_token",
+                "editor",
+                "fileName",
+                "fileType",
+                "issue",
+                "journal",
+                "note",
+                "pages",
+                "publisher",
+                "raw_json",
+                "recent",
+                "school",
+                "timestamp",
+                "title",
+                "total_citations",
+                "total_highlights",
+                "total_views",
+                "type",
+                "updated_at",
+                "url",
+                "visibility",
+                "volume",
+                "year"
+            ],
+            "endpoints": [
+                "/api/db/library/bulk-create"
+            ]
+        },
+        {
+            "id": "controller:DbLibraryController@destroy",
+            "label": "DbLibraryController@destroy",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbLibraryController",
+            "method": "destroy",
+            "tables": [
+                "library"
+            ],
+            "shape": [
+                "message",
+                "success"
+            ],
+            "endpoints": [
+                "/api/books/{}"
+            ]
+        },
+        {
+            "id": "controller:DbLibraryController@setSlug",
+            "label": "DbLibraryController@setSlug",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbLibraryController",
+            "method": "setSlug",
+            "tables": [
+                "library"
+            ],
+            "shape": [
+                "book",
+                "message",
+                "slug",
+                "success"
+            ],
+            "endpoints": [
+                "/api/db/library/set-slug"
+            ]
+        },
+        {
+            "id": "controller:DbLibraryController@updateAllLibraryStats",
+            "label": "DbLibraryController@updateAllLibraryStats",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbLibraryController",
+            "method": "updateAllLibraryStats",
+            "tables": [
+                "hypercites",
+                "hyperlights",
+                "library"
+            ],
+            "shape": [
+                "details",
+                "message",
+                "success"
+            ],
+            "endpoints": [
+                "/api/library/update-all-stats"
+            ]
+        },
+        {
+            "id": "controller:DbLibraryController@updateBookStats",
+            "label": "DbLibraryController@updateBookStats",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbLibraryController",
+            "method": "updateBookStats",
+            "tables": [
+                "hypercites",
+                "hyperlights",
+                "library"
+            ],
+            "shape": [
+                "book",
+                "message",
+                "success",
+                "total_citations",
+                "total_highlights"
+            ],
+            "endpoints": [
+                "/api/library/{}/update-stats"
+            ]
+        },
+        {
+            "id": "controller:DbLibraryController@updateTimestamp",
+            "label": "DbLibraryController@updateTimestamp",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbLibraryController",
+            "method": "updateTimestamp",
+            "tables": [
+                "library"
+            ],
+            "shape": [
+                "book",
+                "message",
+                "success",
+                "timestamp"
+            ],
+            "endpoints": [
+                "/api/db/library/update-timestamp"
+            ]
+        },
+        {
+            "id": "controller:DbLibraryController@upsert",
+            "label": "DbLibraryController@upsert",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbLibraryController",
+            "method": "upsert",
+            "tables": [
+                "library"
+            ],
+            "shape": [
+                "annotations_updated_at",
+                "author",
+                "bibtex",
+                "booktitle",
+                "chapter",
+                "custom_license_text",
+                "editor",
+                "gate_defaults",
+                "issue",
+                "journal",
+                "license",
+                "listed",
+                "note",
+                "pages",
+                "publisher",
+                "raw_json",
+                "school",
+                "timestamp",
+                "title",
+                "type",
+                "url",
+                "visibility",
+                "volume",
+                "year"
+            ],
+            "endpoints": [
+                "/api/db/library/upsert"
+            ]
+        },
+        {
+            "id": "controller:DbLibraryController@validateBookId",
+            "label": "DbLibraryController@validateBookId",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbLibraryController",
+            "method": "validateBookId",
+            "tables": [
+                "library"
+            ],
+            "shape": [
+                "book_author",
+                "book_title",
+                "book_url",
+                "exists",
+                "message",
+                "success"
+            ],
+            "endpoints": [
+                "/api/validate-book-id"
+            ]
+        },
+        {
+            "id": "controller:DbNodeChunkController@bulkCreate",
+            "label": "DbNodeChunkController@bulkCreate",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbNodeChunkController",
+            "method": "bulkCreate",
+            "tables": [
+                "hyperlights",
+                "library",
+                "nodes"
+            ],
+            "shape": [
+                "book",
+                "chunk_id",
+                "content",
+                "created_at",
+                "footnotes",
+                "node_id",
+                "plainText",
+                "raw_json",
+                "startLine",
+                "type",
+                "updated_at"
+            ],
+            "endpoints": [
+                "/api/db/node-chunks/bulk-create"
+            ]
+        },
+        {
+            "id": "controller:DbNodeChunkController@targetedUpsert",
+            "label": "DbNodeChunkController@targetedUpsert",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbNodeChunkController",
+            "method": "targetedUpsert",
+            "tables": [
+                "hyperlights",
+                "library",
+                "nodes"
+            ],
+            "shape": [
+                "book",
+                "chunk_id",
+                "content",
+                "node_id",
+                "startLine"
+            ],
+            "endpoints": [
+                "/api/db/node-chunks/targeted-upsert"
+            ]
+        },
+        {
+            "id": "controller:DbNodeChunkController@upsert",
+            "label": "DbNodeChunkController@upsert",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbNodeChunkController",
+            "method": "upsert",
+            "tables": [
+                "hyperlights",
+                "library",
+                "nodes"
+            ],
+            "shape": [
+                "book",
+                "chunk_id",
+                "content",
+                "footnotes",
+                "node_id",
+                "plainText",
+                "raw_json",
+                "startLine",
+                "type"
+            ],
+            "endpoints": [
+                "/api/db/node-chunks/upsert"
+            ]
+        },
+        {
+            "id": "controller:DbReferencesController@upsertReferences",
+            "label": "DbReferencesController@upsertReferences",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbReferencesController",
+            "method": "upsertReferences",
+            "tables": [
+                "bibliography"
+            ],
+            "shape": [
+                "book",
+                "canonical_source_id",
+                "content",
+                "created_at",
+                "referenceId",
+                "source_id",
+                "updated_at"
+            ],
+            "endpoints": [
+                "/api/db/references/upsert"
+            ]
+        },
+        {
+            "id": "controller:UnifiedSyncController@sync",
+            "label": "UnifiedSyncController@sync",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "UnifiedSyncController",
+            "method": "sync",
+            "tables": [
+                "bibliography",
+                "library"
+            ],
+            "shape": [
+                "node_id",
+                "startLine"
+            ],
+            "endpoints": [
+                "/api/db/unified-sync"
+            ]
+        }
+    ],
+    "edges": [
+        {
+            "source": "controller:BeaconSyncController@handleSync",
+            "target": "pg:hypercites",
+            "rel": "write"
+        },
+        {
+            "source": "controller:BeaconSyncController@handleSync",
+            "target": "pg:hyperlights",
+            "rel": "write"
+        },
+        {
+            "source": "controller:BeaconSyncController@handleSync",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:BeaconSyncController@handleSync",
+            "target": "pg:nodes",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DatabaseToIndexedDBController@saveReadingPosition",
+            "target": "pg:user_reading_positions",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbFootnoteController@upsert",
+            "target": "pg:footnotes",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbHyperciteController@bulkCreate",
+            "target": "pg:hypercites",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbHyperciteController@bulkCreate",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbHyperciteController@upsert",
+            "target": "pg:hypercites",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbHyperciteController@upsert",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbHyperlightController@bulkCreate",
+            "target": "pg:hyperlights",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbHyperlightController@bulkCreate",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbHyperlightController@delete",
+            "target": "pg:hyperlights",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbHyperlightController@delete",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbHyperlightController@hide",
+            "target": "pg:hyperlights",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbHyperlightController@hide",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbHyperlightController@upsert",
+            "target": "pg:hyperlights",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbHyperlightController@upsert",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@bulkCreate",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@destroy",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@setSlug",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@updateAllLibraryStats",
+            "target": "pg:hypercites",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@updateAllLibraryStats",
+            "target": "pg:hyperlights",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@updateAllLibraryStats",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@updateBookStats",
+            "target": "pg:hypercites",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@updateBookStats",
+            "target": "pg:hyperlights",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@updateBookStats",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@updateTimestamp",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@upsert",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@validateBookId",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbNodeChunkController@bulkCreate",
+            "target": "pg:hyperlights",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbNodeChunkController@bulkCreate",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbNodeChunkController@bulkCreate",
+            "target": "pg:nodes",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbNodeChunkController@targetedUpsert",
+            "target": "pg:hyperlights",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbNodeChunkController@targetedUpsert",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbNodeChunkController@targetedUpsert",
+            "target": "pg:nodes",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbNodeChunkController@upsert",
+            "target": "pg:hyperlights",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbNodeChunkController@upsert",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbNodeChunkController@upsert",
+            "target": "pg:nodes",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbReferencesController@upsertReferences",
+            "target": "pg:bibliography",
+            "rel": "write"
+        },
+        {
+            "source": "controller:UnifiedSyncController@sync",
+            "target": "pg:bibliography",
+            "rel": "write"
+        },
+        {
+            "source": "controller:UnifiedSyncController@sync",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "pg:bibliography",
+            "target": "controller:DatabaseToIndexedDBController@getBookData",
+            "rel": "read"
+        },
+        {
+            "source": "pg:bibliography",
+            "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:bibliography",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookData",
+            "rel": "read"
+        },
+        {
+            "source": "pg:bibliography",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:footnotes",
+            "target": "controller:DatabaseToIndexedDBController@getBookData",
+            "rel": "read"
+        },
+        {
+            "source": "pg:footnotes",
+            "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:footnotes",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookData",
+            "rel": "read"
+        },
+        {
+            "source": "pg:footnotes",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hypercites",
+            "target": "controller:DatabaseToIndexedDBController@getBookAnnotations",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hypercites",
+            "target": "controller:DatabaseToIndexedDBController@getBookDataBatch",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hypercites",
+            "target": "controller:DatabaseToIndexedDBController@getBookData",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hypercites",
+            "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hypercites",
+            "target": "controller:DatabaseToIndexedDBController@getSingleChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hypercites",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hypercites",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookData",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hypercites",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hypercites",
+            "target": "controller:DbHyperciteController@find",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hyperlights",
+            "target": "controller:DatabaseToIndexedDBController@getBookAnnotations",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hyperlights",
+            "target": "controller:DatabaseToIndexedDBController@getBookDataBatch",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hyperlights",
+            "target": "controller:DatabaseToIndexedDBController@getBookData",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hyperlights",
+            "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hyperlights",
+            "target": "controller:DatabaseToIndexedDBController@getSingleChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hyperlights",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hyperlights",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookData",
+            "rel": "read"
+        },
+        {
+            "source": "pg:hyperlights",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:library",
+            "target": "controller:DatabaseToIndexedDBController@getAvailableBooks",
+            "rel": "read"
+        },
+        {
+            "source": "pg:library",
+            "target": "controller:DatabaseToIndexedDBController@getBookAnnotations",
+            "rel": "read"
+        },
+        {
+            "source": "pg:library",
+            "target": "controller:DatabaseToIndexedDBController@getBookDataBatch",
+            "rel": "read"
+        },
+        {
+            "source": "pg:library",
+            "target": "controller:DatabaseToIndexedDBController@getBookData",
+            "rel": "read"
+        },
+        {
+            "source": "pg:library",
+            "target": "controller:DatabaseToIndexedDBController@getBookLibrary",
+            "rel": "read"
+        },
+        {
+            "source": "pg:library",
+            "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:library",
+            "target": "controller:DatabaseToIndexedDBController@getSingleChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:library",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+            "rel": "read"
+        },
+        {
+            "source": "pg:library",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookData",
+            "rel": "read"
+        },
+        {
+            "source": "pg:library",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:library",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
+            "rel": "read"
+        },
+        {
+            "source": "pg:library",
+            "target": "controller:DbHyperciteController@find",
+            "rel": "read"
+        },
+        {
+            "source": "pg:nodes",
+            "target": "controller:DatabaseToIndexedDBController@getAvailableBooks",
+            "rel": "read"
+        },
+        {
+            "source": "pg:nodes",
+            "target": "controller:DatabaseToIndexedDBController@getBookDataBatch",
+            "rel": "read"
+        },
+        {
+            "source": "pg:nodes",
+            "target": "controller:DatabaseToIndexedDBController@getBookData",
+            "rel": "read"
+        },
+        {
+            "source": "pg:nodes",
+            "target": "controller:DatabaseToIndexedDBController@getBookHeadings",
+            "rel": "read"
+        },
+        {
+            "source": "pg:nodes",
+            "target": "controller:DatabaseToIndexedDBController@getBookMetadata",
+            "rel": "read"
+        },
+        {
+            "source": "pg:nodes",
+            "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:nodes",
+            "target": "controller:DatabaseToIndexedDBController@getSingleChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:nodes",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookData",
+            "rel": "read"
+        },
+        {
+            "source": "pg:nodes",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:nodes",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookMetadata",
+            "rel": "read"
+        },
+        {
+            "source": "pg:nodes",
+            "target": "controller:DbHyperciteController@find",
+            "rel": "read"
+        },
+        {
+            "source": "pg:user_reading_positions",
+            "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:user_reading_positions",
+            "target": "controller:DatabaseToIndexedDBController@getReadingPosition",
+            "rel": "read"
+        },
+        {
+            "source": "pg:user_reading_positions",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+            "rel": "read"
+        }
+    ],
+    "endpointToController": {
+        "/api/books/{}": "controller:DbLibraryController@destroy",
+        "/api/database-to-indexeddb/books": "controller:DatabaseToIndexedDBController@getAvailableBooks",
+        "/api/database-to-indexeddb/books/{}/annotations": "controller:DatabaseToIndexedDBController@getBookAnnotations",
+        "/api/database-to-indexeddb/books/{}/chunk/{}": "controller:DatabaseToIndexedDBController@getSingleChunk",
+        "/api/database-to-indexeddb/books/{}/data": "controller:DatabaseToIndexedDBController@getBookData",
+        "/api/database-to-indexeddb/books/{}/data/batch": "controller:DatabaseToIndexedDBController@getBookDataBatch",
+        "/api/database-to-indexeddb/books/{}/headings": "controller:DatabaseToIndexedDBController@getBookHeadings",
+        "/api/database-to-indexeddb/books/{}/initial": "controller:DatabaseToIndexedDBController@getInitialChunk",
+        "/api/database-to-indexeddb/books/{}/library": "controller:DatabaseToIndexedDBController@getBookLibrary",
+        "/api/database-to-indexeddb/books/{}/metadata": "controller:DatabaseToIndexedDBController@getBookMetadata",
+        "/api/database-to-indexeddb/books/{}/reading-position": "controller:DatabaseToIndexedDBController@saveReadingPosition",
+        "/api/database-to-indexeddb/books/{}/{}/annotations": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+        "/api/database-to-indexeddb/books/{}/{}/data": "controller:DatabaseToIndexedDBController@getSubBookData",
+        "/api/database-to-indexeddb/books/{}/{}/initial": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+        "/api/database-to-indexeddb/books/{}/{}/library": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
+        "/api/database-to-indexeddb/books/{}/{}/metadata": "controller:DatabaseToIndexedDBController@getSubBookMetadata",
+        "/api/db/footnotes/upsert": "controller:DbFootnoteController@upsert",
+        "/api/db/hypercites/bulk-create": "controller:DbHyperciteController@bulkCreate",
+        "/api/db/hypercites/find/{}/{}": "controller:DbHyperciteController@find",
+        "/api/db/hypercites/upsert": "controller:DbHyperciteController@upsert",
+        "/api/db/hyperlights/bulk-create": "controller:DbHyperlightController@bulkCreate",
+        "/api/db/hyperlights/delete": "controller:DbHyperlightController@delete",
+        "/api/db/hyperlights/hide": "controller:DbHyperlightController@hide",
+        "/api/db/hyperlights/upsert": "controller:DbHyperlightController@upsert",
+        "/api/db/library/bulk-create": "controller:DbLibraryController@bulkCreate",
+        "/api/db/library/set-slug": "controller:DbLibraryController@setSlug",
+        "/api/db/library/update-timestamp": "controller:DbLibraryController@updateTimestamp",
+        "/api/db/library/upsert": "controller:DbLibraryController@upsert",
+        "/api/db/node-chunks/bulk-create": "controller:DbNodeChunkController@bulkCreate",
+        "/api/db/node-chunks/targeted-upsert": "controller:DbNodeChunkController@targetedUpsert",
+        "/api/db/node-chunks/upsert": "controller:DbNodeChunkController@upsert",
+        "/api/db/references/upsert": "controller:DbReferencesController@upsertReferences",
+        "/api/db/sync/beacon": "controller:BeaconSyncController@handleSync",
+        "/api/db/unified-sync": "controller:UnifiedSyncController@sync",
+        "/api/library/update-all-stats": "controller:DbLibraryController@updateAllLibraryStats",
+        "/api/library/{}/update-stats": "controller:DbLibraryController@updateBookStats",
+        "/api/validate-book-id": "controller:DbLibraryController@validateBookId"
+    }
+}

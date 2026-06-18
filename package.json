@@ -17,7 +17,7 @@
     "measure:bundle": "vite build && node scripts/measure-eager-bundle.mjs",
     "gate:bundle": "BUNDLE_GATE=1 vite build && node scripts/check-lazy-chunks.mjs",
     "typecheck": "tsc --noEmit",
-    "viz:idb": "WRITE_FLOWVIZ=1 vitest run tests/javascript/visualisation/flowViz.generate.test.js",
+    "viz:idb": "php visualisation/php/collect.php && WRITE_FLOWVIZ=1 vitest run tests/javascript/visualisation/flowViz.generate.test.js",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
