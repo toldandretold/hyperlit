@@ -94,7 +94,7 @@ A 2-D grid — **both axes mean something**:
   into its route-handler **methods** (`upsert` / `delete` / `hide`), exactly like drilling a TS module
   into its functions. Collapsed, a class box folds all its methods' table/route edges onto itself.
 - **Horizontal (column) = source folder** under `resources/js/` (`indexedDB`, `hyperlights`,
-  `hypercites`, `divEditor`) — labelled across the top and reinforced by colour.
+  `hypercites`, `divEditor`) — distinguished by colour.
 
 So a box sits at **folder × role**. A box in a row that doesn't match its folder's natural
 role = code acting out of place (a refactor candidate), visible at a glance.
@@ -119,8 +119,13 @@ role = code acting out of place (a refactor candidate), visible at a glance.
   three so the button is an honest TDZ detector. Counts (cycles / breakers / lazy) show in the header
   bar and in `FLOWMAP.generated.md` (`## Import cycles & dynamic imports`).
 
-**Interactions:** single-click traces a node's connections (rest dims but stays legible);
-double-click a module box drills into its functions; expand/collapse all + fit; focus dropdown.
+**Interactions:** single-click traces a node's connections (rest dims but stays legible).
+**Detail level** (`detail` dropdown) sets how deep the map is unfolded — `min` = one box per
+top-level folder, `default` = one box per module, `max` = every function. **Double-click** a
+folder box to drill into its modules, a module box into its functions (and again to collapse;
+re-collapse a whole folder via the `min` level). Changing the level **keeps the current
+selection lit**. The `trace data type` dropdown picks a Postgres table and runs its type trace
+(same as clicking the table). `fit` reframes.
 
 **Type trace (click a Postgres table):** clicking a table that has a known TS type lineage
 (today: ALL TEN tables that reach the client — the six **book-content** tables `nodes`, `library`,
@@ -137,8 +142,10 @@ so the rebuild/embed builders light for both; `hyperlights`: the same dual shape
 `ServerHyperlightRow`→`HyperlightRecord` standalone PLUS `NodeHyperlightView` shared with `nodes`),
 plus the `store:<table>` object store
 and the DOM as waypoints. So you see the data's whole **PG↔IndexedDB↔DOM lineage** at once, laid out
-top→bottom by the grid's rows. It deliberately **overrides the `trace:` direction toggle** — a type
-trace is the entire journey of that data, not a one-directional walk.
+top→bottom by the grid's rows. With the `trace:` toggle on **both** (the default) you get the full
+lineage; **where it goes** narrows it to the load half (table → … → DOM) and **where it comes from**
+to the save half (DOM → … → table). You can also pick the table from the `trace data type` dropdown
+instead of finding and clicking it on the map.
 >
 > **The four non-content tables are different — a `fetch → DOM` trace, NOT PG↔IDB↔DOM.** They have no
 > IndexedDB store, so each welds a single **API-contract type** instead of a wire/store pair:

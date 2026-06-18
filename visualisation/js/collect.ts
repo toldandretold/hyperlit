@@ -1148,10 +1148,17 @@ export function renderHtml(viz: FlowViz): string {
   .legend div{display:flex;align-items:center;gap:8px;margin:3px 0;font-size:12px;}
   .legend .sw{width:22px;border-top-width:3px;border-top-style:solid;}
   #hint{color:var(--dim);font-size:12px;margin-top:10px;}
-  #detail{margin-top:16px;} #detail .name{font-family:ui-monospace,monospace;color:#5eb0ef;font-size:14px;word-break:break-all;}
+  #detail{margin-bottom:14px;} #detail .name{font-family:ui-monospace,monospace;color:#5eb0ef;font-size:14px;word-break:break-all;}
   #detail .sub{color:var(--dim);font-size:11px;font-family:ui-monospace,monospace;margin-bottom:8px;}
+  #detail .dirbadge{display:inline-block;font-size:10px;color:#cfe0ff;background:#1e2a40;border:1px solid #34507a;border-radius:5px;padding:2px 7px;margin:0 0 8px;}
   #detail h3{font-size:10px;text-transform:uppercase;color:var(--dim);letter-spacing:.05em;margin:12px 0 3px;}
   #detail ul{margin:2px 0;padding-left:16px;} #detail li{font-family:ui-monospace,monospace;font-size:11px;} #detail .none{color:var(--dim);font-style:italic;}
+  #detail .empty{color:var(--dim);font-style:italic;font-size:12px;}
+  #helpBlock{margin-top:14px;border-top:1px solid var(--line);padding-top:10px;}
+  #helpBlock>summary{cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);list-style:none;outline:none;}
+  #helpBlock>summary::-webkit-details-marker{display:none;}
+  #helpBlock>summary:before{content:"\\25B8  ";} #helpBlock[open]>summary:before{content:"\\25BE  ";}
+  #helpBlock h2{margin-top:12px;}
 </style>
 </head>
 <body>
@@ -1159,9 +1166,8 @@ export function renderHtml(viz: FlowViz): string {
   <h1>Full-stack data map</h1>
   <span class="meta" id="meta"></span>
   <span class="spacer"></span>
-  <label class="meta">focus <select id="focus"></select></label>
-  <button id="expandAll">expand all</button>
-  <button id="collapseAll">collapse all</button>
+  <label class="meta" title="follow a Postgres table's data TYPE through the real code (PG↔IndexedDB↔DOM) — the same trace you get by clicking the table on the map">trace data type <select id="focus"></select></label>
+  <label class="meta" title="how deep the map is unfolded — min: one box per top-level folder · default: one box per module · max: every function. Double-click any box to drill further.">detail <select id="zoomLevel"><option value="min">min</option><option value="default" selected>default</option><option value="max">max</option></select></label>
   <button id="toggleCalls" title="show which functions call which — the code's internal wiring (coupling/modularity), a different lens from data flow">show code coupling</button>
   <button id="findCycles" title="IMPORT graph: red = real static-import cycles (TDZ risk to break); orange dashed = intentional dynamic cycle-breakers (debt); teal dashed = lazy-loads (fine)">find circular deps</button>
   <button id="lazyBtn" title="highlight the lazy-loads — dynamic imports with NO cycle = genuine code-split points (deferred chunks), the JS-loading-optimisation surface">lazy-loads</button>
@@ -1171,10 +1177,13 @@ export function renderHtml(viz: FlowViz): string {
 <div id="cy"></div>
 <div id="side">
   <p id="modehint" style="margin:0 0 12px;padding:7px 9px;background:#1e2230;border:1px solid var(--line);border-radius:6px;font-weight:600;">DATA FLOW — lines = data moving: store reads/writes, server push/pull, DOM, + <span style="color:#5fb3a3">teal call-hops</span> that carry data toward a store/server.</p>
+  <div id="detail"></div>
+  <details id="helpBlock">
+  <summary>legend &amp; how to read this</summary>
   <h2>Legend</h2>
   <div class="legend" id="legend"></div>
-  <p id="hint"><b>Vertical position = what the code actually does</b> (read from its data edges, not its folder). Bottom→top: the page (<b>reader.blade.php</b>) ▸ code that bridges page↔IndexedDB ▸ the <b>IndexedDB</b> object stores ▸ code that bridges IndexedDB↔server ▸ <b>PostgreSQL</b> tables.<br><br><b>Horizontal column = source folder</b> (labelled across the top, and by colour): <b style="color:#9aa6bd">indexedDB</b>, <b style="color:#3fb6b6">hyperlights</b>, <b style="color:#caa14b">hypercites</b>, <b style="color:#5e8fd6">divEditor</b>. So each box's <i>column</i> is its folder and its <i>row</i> is what it does. A box sitting in a row that doesn't match its folder's natural role (e.g. a <i>hyperlights</i> file up in the IndexedDB-store row) = code acting out of role — a candidate to move when restructuring.<br><br><b>Single-click</b> to trace — and what it traces depends on the lens. In the <b>data-flow</b> lens it follows the data from there, stopping when it lands in a store/table/the page. The <b>trace:</b> button flips direction — <i>where it goes</i> (downstream) / <i>where it comes from</i> (upstream) / <i>both</i> — and re-applies live. With <b>nothing selected</b>, that button lights the whole pipeline: <i>where it goes</i> = the save flow (DOM→IndexedDB→Postgres), <i>where it comes from</i> = the load flow (Postgres→IndexedDB→DOM). Selecting a store/table/DOM itself expands from it (what reads/writes it). In the <b>coupling</b> lens it follows the <b>full dependency reach</b> (every module this one transitively touches), and <b style="color:#ff4d4f">red edges</b> mark a <b>feedback loop</b> — the path returns to where it started (a circular dependency). The rest dims but stays visible. <b>Double-click a module box</b> to drill into its files (and again to collapse). <b>Navigate:</b> scroll to zoom, drag the canvas to pan (nodes don't drag), <i>fit</i> to reset. Click a line or empty space to clear a trace.<br><br>The <b>show code coupling</b> button flips the whole map to a second lens: lines become <i>which function calls which</i> (the code's internal wiring); orange = a call crossing folders (modules reaching into each other).<br><br>The <b>find circular deps</b> button flips to the <b>IMPORT</b> lens (module→module dependencies) and tells the truth about cycles: <b style="color:#ff4d4f">red</b> = a <b>real static-import ring</b> (the only kind that risks a TDZ "Cannot access X before initialization" crash — break these); <b style="color:#e0a44b">orange dashed</b> = a <b>dynamic-import cycle-breaker</b> — a back-edge that <i>would</i> form a static ring, deferred to runtime with <code>await import()</code> (safe, but structural debt: a bidirectional import that ideally becomes one-way via events/DI); <b style="color:#5fb3a3">teal dashed</b> = a <b>lazy-load</b> — a dynamic import with no cycle (genuine code-splitting, fine). The <b>lazy-loads</b> button isolates just those teal edges — your JS-loading-optimisation surface (what's deferred into separate chunks).</p>
-  <div id="detail"></div>
+  <p id="hint"><b>Vertical position = what the code actually does</b> (read from its data edges, not its folder). Bottom→top: the page (<b>reader.blade.php</b>) ▸ code that bridges page↔IndexedDB ▸ the <b>IndexedDB</b> object stores ▸ code that bridges IndexedDB↔server ▸ <b>PostgreSQL</b> tables.<br><br><b>Horizontal column = source folder</b> (distinguished by colour): <b style="color:#9aa6bd">indexedDB</b>, <b style="color:#3fb6b6">hyperlights</b>, <b style="color:#caa14b">hypercites</b>, <b style="color:#5e8fd6">divEditor</b>. So each box's <i>column</i> is its folder and its <i>row</i> is what it does. A box sitting in a row that doesn't match its folder's natural role (e.g. a <i>hyperlights</i> file up in the IndexedDB-store row) = code acting out of role — a candidate to move when restructuring.<br><br><b>Detail level</b> (top-bar dropdown): <i>min</i> shows one box per top-level folder, <i>default</i> one box per module, <i>max</i> every function. <b>Double-click</b> a folder box to drill into its modules, a module box into its functions (and again to collapse). Changing the level keeps your current selection lit.<br><br><b>Single-click</b> to trace — and what it traces depends on the lens. In the <b>data-flow</b> lens it follows the data from there, stopping when it lands in a store/table/the page. The <b>trace:</b> button flips direction — <i>where it goes</i> (downstream) / <i>where it comes from</i> (upstream) / <i>both</i> — and re-applies live. With <b>nothing selected</b>, that button lights the whole pipeline: <i>where it goes</i> = the save flow (DOM→IndexedDB→Postgres), <i>where it comes from</i> = the load flow (Postgres→IndexedDB→DOM). Selecting a store/table/DOM itself expands from it (what reads/writes it). In the <b>coupling</b> lens it follows the <b>full dependency reach</b> (every module this one transitively touches), and <b style="color:#ff4d4f">red edges</b> mark a <b>feedback loop</b> — the path returns to where it started (a circular dependency). The rest dims but stays visible. <b>Double-click a module box</b> to drill into its files (and again to collapse). <b>Navigate:</b> scroll to zoom, drag the canvas to pan (nodes don't drag), <i>fit</i> to reset. Click a line or empty space to clear a trace.<br><br>The <b>show code coupling</b> button flips the whole map to a second lens: lines become <i>which function calls which</i> (the code's internal wiring); orange = a call crossing folders (modules reaching into each other).<br><br>The <b>find circular deps</b> button flips to the <b>IMPORT</b> lens (module→module dependencies) and tells the truth about cycles: <b style="color:#ff4d4f">red</b> = a <b>real static-import ring</b> (the only kind that risks a TDZ "Cannot access X before initialization" crash — break these); <b style="color:#e0a44b">orange dashed</b> = a <b>dynamic-import cycle-breaker</b> — a back-edge that <i>would</i> form a static ring, deferred to runtime with <code>await import()</code> (safe, but structural debt: a bidirectional import that ideally becomes one-way via events/DI); <b style="color:#5fb3a3">teal dashed</b> = a <b>lazy-load</b> — a dynamic import with no cycle (genuine code-splitting, fine). The <b>lazy-loads</b> button isolates just those teal edges — your JS-loading-optimisation surface (what's deferred into separate chunks).</p>
+  </details>
 </div>
 <script>
 var VIZ = ${data};
@@ -1186,7 +1195,10 @@ var fnModule = {}; VIZ.nodes.forEach(function(n){ if(n.kind==="fn") fnModule[n.i
 // module box: collapsed → one "cclass:<Class>" box; expanded → its method nodes shown inside it.
 var ctrlClass = {}; VIZ.nodes.forEach(function(n){ if(n.kind==="controller") ctrlClass[n.id]=n.cls; });
 var dataIds = {}; VIZ.nodes.forEach(function(n){ if(n.kind!=="fn") dataIds[n.id]=true; });
-var expanded = {};
+// total exported-fn count per top-level folder — for the collapsed folder-box labels.
+var folderFnCount = {}; VIZ.modules.forEach(function(m){ var f=m.id.split("/")[0]; folderFnCount[f]=(folderFnCount[f]||0)+m.fnIds.length; });
+var expanded = {};        // moduleId / "cclass:<Class>" → its functions/methods are shown
+var folderExpanded = {};  // top-level folder name → its module boxes are shown (else the whole folder is one box)
 // Two lenses over the SAME boxes. "flow" = data movement (read/write/push/pull/dom);
 // "coupling" = which function calls which (the code's internal wiring / modularity).
 // The toggle swaps which edge set is live AND what a click follows, so the two
@@ -1208,7 +1220,10 @@ function applyMode(){
 function rep(id){
   if(ctrlClass[id]!=null){ var box="cclass:"+ctrlClass[id]; return expanded[box]?id:box; }  // controller method → its class box when collapsed
   if(dataIds[id]) return id;
-  var mod=fnModule[id]; if(mod==null) return id; return expanded[mod]?id:("mod:"+mod);
+  var mod=fnModule[id]; if(mod==null) return id;
+  var fld=mod.split("/")[0];
+  if(!folderExpanded[fld]) return "fold:"+fld;          // whole folder collapsed → its one folder box
+  return expanded[mod]?id:("mod:"+mod);
 }
 
 function rebuild(){
@@ -1240,20 +1255,39 @@ function rebuild(){
   compFolders.sort(function(a,b){return a<b?-1:(a>b?1:0);});
 
   // a folder gets >1 sub-column only when one band would otherwise stack too tall
-  function buildCols(folderList, bands, colKeyOf){
+  // baseKeyOf maps a column-folder to the top-level folder whose expand state governs it (identity for
+  // the data grid; always "components" for the components band). A COLLAPSED folder shows as a single
+  // box, so it only needs ONE column — that's what keeps the "min" view from staying grid-wide.
+  function buildCols(folderList, bands, colKeyOf, baseKeyOf){
     var subCols={}, startCol={}, total=0;
     folderList.forEach(function(f){
       var maxIn=1;
       bands.forEach(function(b){ var c=byBand[b].filter(function(m){return colKeyOf(m)===f;}).length; if(c>maxIn)maxIn=c; });
-      subCols[f]=Math.max(1,Math.ceil(maxIn/TARGET_ROWS)); startCol[f]=total; total+=subCols[f];
+      var base=baseKeyOf?baseKeyOf(f):f;
+      subCols[f]= folderExpanded[base] ? Math.max(1,Math.ceil(maxIn/TARGET_ROWS)) : 1;
+      startCol[f]=total; total+=subCols[f];
     });
     return {subCols:subCols,startCol:startCol,ncols:Math.max(1,total)};
   }
-  var dataCols=buildCols(folders,["sync","store","capture"],dataFolderOf);
-  var compCols=buildCols(compFolders,["components"],compFolderOf);
+  var dataCols=buildCols(folders,["sync","store","capture"],dataFolderOf,function(f){return f;});
+  // the components band's sub-folders all share the one "components" base — so when it's collapsed the
+  // whole band is a SINGLE box and must claim a single column (else its many sub-folders keep inflating
+  // the grid width and the "min" view never actually narrows).
+  var compCols=folderExpanded["components"]
+    ? buildCols(compFolders,["components"],compFolderOf,function(){return "components";})
+    : {subCols:{},startCol:{},ncols:1};
   var NCOLS=Math.max(dataCols.ncols,compCols.ncols);
   // centre each band within the widest band's footprint (half the leftover columns)
   var dataOff=(NCOLS-dataCols.ncols)/2, compOff=(NCOLS-compCols.ncols)/2;
+
+  // PURE-MIN = nothing drilled in: the whole code body is just one box per folder. Rather than spread
+  // those ~15 boxes across the full grid (wide + short → tiny when fit), pack them into a narrow,
+  // tall grid and squeeze the data-node rows to match — so fit zooms in and the labels read large.
+  var pureMin = !Object.keys(folderExpanded).some(function(k){return folderExpanded[k];});
+  var GCOLS=4, GPITCHX=300, GPITCHY=92;
+  var minGridFolders = folders.slice(); if(compFolders.length) minGridFolders.push("components");
+  // span [STARTX .. STARTX+fullW]: the grid's column span in pure-min, the full column grid otherwise.
+  var fullW = pureMin ? (Math.min(GCOLS,minGridFolders.length)-1)*GPITCHX : STARTX+(NCOLS-1)*COLW;
 
   // place each band's modules into their folder's sub-column(s); cumulative Y per column.
   // colKeyOf → which column a module lands in; styleFolderOf → the folder used for colour;
@@ -1264,6 +1298,7 @@ function rebuild(){
     folderList.forEach(function(f){
       var list=(byFolder[f]||[]).sort(function(a,c){return a.id<c.id?-1:(a.id>c.id?1:0);});
       list.forEach(function(m,i){
+        if(!folderExpanded[m.id.split("/")[0]]) return;   // folder collapsed → its modules fold into one folder box (placed separately)
         var c=cols.startCol[f]+(i%cols.subCols[f]), colX=STARTX+(c+xOff)*COLW, sf=styleFolderOf(m);
         if(expanded[m.id]){
           els.push({data:{id:"mod:"+m.id,label:m.label,kind:"module",expanded:1,band:m.band,folder:sf}});
@@ -1308,17 +1343,45 @@ function rebuild(){
   var ROUTE_PULL_Y=CTRL_BOTTOM+46;   // upper route row: data FROM backend (load) — arrows point DOWN
   var ROUTE_PUSH_Y=ROUTE_PULL_Y+58;  // lower route row: data TO backend (save) — arrows point UP
   var SYNC_TOP=ROUTE_PUSH_Y+GAP+10;  // sync code starts below the controller + API-route rows
-  var syncBottom=layoutBand(byBand.sync, SYNC_TOP, dataCols, folders, dataFolderOf, dataFolderOf, dataOff);
-  var STORECODE_TOP=syncBottom+GAP;
-  var storeBottom=layoutBand(byBand.store, STORECODE_TOP, dataCols, folders, dataFolderOf, dataFolderOf, dataOff);
-  var STOREY=storeBottom+GAP;                 // object-store barrels row (the IndexedDB level)
-  var CAPTURE_TOP=STOREY+GAP;
-  var capBottom=layoutBand(byBand.capture, CAPTURE_TOP, dataCols, folders, dataFolderOf, dataFolderOf, dataOff);
-  var COMPONENTS_TOP=capBottom+GAP;           // components band sits directly above the DOM
-  var compBottom=layoutBand(byBand.components, COMPONENTS_TOP, compCols, compFolders, compFolderOf, compStyle, compOff);
-  var DOMY=compBottom+GAP;
+  var STORECODE_TOP, STOREY, CAPTURE_TOP, capBottom, COMPONENTS_TOP, compBottom, DOMY, foldGrid=null;
+  if(pureMin){
+    // one tight grid of folder boxes stands in for ALL the code; stores/dom follow below it.
+    var cxC=STARTX+fullW/2, gTop=SYNC_TOP+10;
+    foldGrid={};
+    minGridFolders.forEach(function(f,i){
+      var row=Math.floor(i/GCOLS), inRow=Math.min(GCOLS, minGridFolders.length-row*GCOLS), j=i%GCOLS;
+      foldGrid[f]={x:cxC+(j-(inRow-1)/2)*GPITCHX, y:gTop+row*GPITCHY};
+    });
+    var gRows=Math.ceil(minGridFolders.length/GCOLS);
+    STORECODE_TOP=capBottom=COMPONENTS_TOP=compBottom=gTop+(gRows-1)*GPITCHY;
+    STOREY=compBottom+GAP+30;
+    DOMY=STOREY+GAP+40;
+  } else {
+    var syncBottom=layoutBand(byBand.sync, SYNC_TOP, dataCols, folders, dataFolderOf, dataFolderOf, dataOff);
+    STORECODE_TOP=syncBottom+GAP;
+    var storeBottom=layoutBand(byBand.store, STORECODE_TOP, dataCols, folders, dataFolderOf, dataFolderOf, dataOff);
+    STOREY=storeBottom+GAP;                 // object-store barrels row (the IndexedDB level)
+    CAPTURE_TOP=STOREY+GAP;
+    capBottom=layoutBand(byBand.capture, CAPTURE_TOP, dataCols, folders, dataFolderOf, dataFolderOf, dataOff);
+    COMPONENTS_TOP=capBottom+GAP;           // components band sits directly above the DOM
+    compBottom=layoutBand(byBand.components, COMPONENTS_TOP, compCols, compFolders, compFolderOf, compStyle, compOff);
+    DOMY=compBottom+GAP;
+  }
 
-  var fullW=STARTX+(NCOLS-1)*COLW;
+  // Collapsed-folder boxes: one node standing in for an ENTIRE top-level folder. In pure-min they sit
+  // in the compact grid above; in a mixed state (some folders drilled in) a collapsed folder keeps its
+  // own column at the vertical middle of the data grid, so the grid — and a tracked selection — stays put.
+  var foldMidY=(SYNC_TOP+capBottom)/2;
+  folders.forEach(function(f){
+    if(folderExpanded[f]) return;
+    var pos = foldGrid ? foldGrid[f] : {x:STARTX+(dataOff+dataCols.startCol[f]+(dataCols.subCols[f]-1)/2)*COLW, y:foldMidY};
+    els.push({data:{id:"fold:"+f,label:f+"  ("+(folderFnCount[f]||0)+")",kind:"folder",folder:f,hcolor:FCOLOR[f]||"#9aa6bd"},position:pos});
+  });
+  if(!folderExpanded["components"] && compFolders.length){
+    var cpos = foldGrid ? foldGrid["components"] : {x:STARTX+(compOff+(compCols.ncols-1)/2)*COLW, y:(COMPONENTS_TOP+compBottom)/2};
+    els.push({data:{id:"fold:components",label:"components  ("+(folderFnCount.components||0)+")",kind:"folder",folder:"components",hcolor:FCOLOR.components},position:cpos});
+  }
+
   function spread(n,i){ return STARTX+(n<=1?fullW/2:(i*fullW)/(n-1)); }
   // pull the heaviest data node ("nodes") to the centre of its row so the map reads
   // symmetrically (matching the centred indexedDB folder column); the rest split
@@ -1373,16 +1436,8 @@ function rebuild(){
   domClasses.forEach(function(c,i){ placeClassBox(c, spreadWide(domClasses.length,i), DOM_TOP); });
   els.push({data:{id:"dom",label:"reader.blade.php",kind:"dom"},position:{x:fullW/2,y:DOMY}});
 
-  // folder column headers across the top (the HORIZONTAL legend)
-  folders.forEach(function(f){
-    var cx=STARTX+(dataOff+dataCols.startCol[f]+(dataCols.subCols[f]-1)/2)*COLW;
-    els.push({data:{id:"colh:"+f,label:f,kind:"colheader",hcolor:FCOLOR[f]||"#9aa6bd"},position:{x:cx,y:TABLEY-60}});
-  });
-  // components sub-folder headers, sitting just above the components band
-  compFolders.forEach(function(f){
-    var cx=STARTX+(compOff+compCols.startCol[f]+(compCols.subCols[f]-1)/2)*COLW;
-    els.push({data:{id:"colh:comp:"+f,label:f,kind:"colheader",hcolor:FCOLOR.components},position:{x:cx,y:COMPONENTS_TOP-44}});
-  });
+  // (folder column headers removed — folder identity is carried by node colour; the top-row labels
+  // sat by the Postgres tables while the folders they named scattered far below, so they misled.)
 
   // left-margin labels: 3 big DATA levels + 2 role labels for the code GAPS
   var labelX = STARTX - 195;
@@ -1390,14 +1445,20 @@ function rebuild(){
   els.push({data:{id:"tier:controllers",label:"LARAVEL\\n(controllers)",kind:"tier"},position:{x:labelX,y:AGG2_TOP}});
   els.push({data:{id:"tier:apipull",label:"API ▾ load\\n(from backend)",kind:"codeband"},position:{x:labelX,y:ROUTE_PULL_Y}});
   els.push({data:{id:"tier:apipush",label:"API ▴ save\\n(to backend)",kind:"codeband"},position:{x:labelX,y:ROUTE_PUSH_Y}});
-  els.push({data:{id:"band:sync",label:"code:\\nIndexedDB ↔ server",kind:"codeband"},position:{x:labelX,y:(SYNC_TOP+syncBottom)/2}});
-  els.push({data:{id:"tier:idb",label:"INDEXEDDB\\n(object stores)",kind:"tier"},position:{x:labelX,y:(STORECODE_TOP+STOREY)/2}});
-  els.push({data:{id:"band:capture",label:"code:\\npage ↔ IndexedDB",kind:"codeband"},position:{x:labelX,y:(CAPTURE_TOP+capBottom)/2}});
-  els.push({data:{id:"band:components",label:"code:\\nDOM components",kind:"codeband"},position:{x:labelX,y:(COMPONENTS_TOP+compBottom)/2}});
+  els.push({data:{id:"tier:idb",label:"INDEXEDDB\\n(object stores)",kind:"tier"},position:{x:labelX,y:STOREY}});
   els.push({data:{id:"tier:dom",label:"DOM\\n(reader.blade.php)",kind:"tier"},position:{x:labelX,y:DOMY}});
+  if(pureMin){
+    // no code bands in pure-min — the whole code body is the one folder grid
+    els.push({data:{id:"band:grid",label:"code\\n(one box per folder)",kind:"codeband"},position:{x:labelX,y:(SYNC_TOP+STORECODE_TOP)/2}});
+  } else {
+    // role labels for the code GAPS between the data levels
+    els.push({data:{id:"band:sync",label:"code:\\nIndexedDB ↔ server",kind:"codeband"},position:{x:labelX,y:(SYNC_TOP+syncBottom)/2}});
+    els.push({data:{id:"band:capture",label:"code:\\npage ↔ IndexedDB",kind:"codeband"},position:{x:labelX,y:(CAPTURE_TOP+capBottom)/2}});
+    els.push({data:{id:"band:components",label:"code:\\nDOM components",kind:"codeband"},position:{x:labelX,y:(COMPONENTS_TOP+compBottom)/2}});
+  }
 
   // folder of an endpoint id ("mod:hyperlights/x" / "hyperlights/x:fn" → "hyperlights")
-  function folderOf(id){ if(id.indexOf("mod:")===0) id=id.slice(4); return id.split("/")[0]; }
+  function folderOf(id){ id=id.replace(/^mod:|^fold:/,""); return id.split("/")[0]; }
   var seen={};
   VIZ.edges.forEach(function(e){
     var s=rep(e.source), t=rep(e.target);
@@ -1408,9 +1469,11 @@ function rebuild(){
     var cross=(e.rel==="call" && folderOf(s)!==folderOf(t))?1:0;
     els.push({data:{id:k,source:s,target:t,rel:e.rel,cross:cross,dataPath:e.dataPath?1:0,label:e.label||""}});
   });
-  // module→module IMPORT edges (the cycle/TDZ lens) — independent of expand state, between module boxes.
+  // module→module IMPORT edges (the cycle/TDZ lens) — between module boxes, but a module whose folder
+  // is collapsed shows as its folder box, so fold the endpoint onto "fold:<folder>" to keep both ends real.
+  function repMod(modId){ var fld=modId.split("/")[0]; return folderExpanded[fld]?("mod:"+modId):("fold:"+fld); }
   (VIZ.importEdges||[]).forEach(function(e){
-    var s="mod:"+e.source, t="mod:"+e.target;
+    var s=repMod(e.source), t=repMod(e.target);
     if(s===t) return;
     var k=s+"|"+t+"|import";
     if(seen[k]) return; seen[k]=true;
@@ -1470,6 +1533,8 @@ var cy = cytoscape({
     {selector:"node[kind = 'tier']",style:{"label":"data(label)","color":"#5a6788","font-size":"28px","font-weight":"bold","background-opacity":0,"border-width":0,"text-halign":"center","text-valign":"center","text-wrap":"wrap","width":"label","height":"label","events":"no"}},
     {selector:"node[kind = 'codeband']",style:{"label":"data(label)","color":"#566688","font-size":"13px","font-weight":"bold","background-opacity":0,"border-width":0,"text-halign":"center","text-valign":"center","text-wrap":"wrap","width":"label","height":"label","events":"no"}},
     {selector:"node[kind = 'colheader']",style:{"label":"data(label)","color":"data(hcolor)","font-size":"20px","font-weight":"bold","background-opacity":0,"border-width":0,"text-halign":"center","text-valign":"center","width":"label","height":"label","events":"no"}},
+    // collapsed whole-folder box — bigger/bolder than a module box, outlined in its folder colour
+    {selector:"node[kind = 'folder']",style:{"background-color":"#283246","border-color":"data(hcolor)","color":"data(hcolor)","border-width":3,"font-weight":"bold","font-size":"18px","shape":"roundrectangle","padding":"20px"}},
     {selector:"edge",style:{"width":1.4,"curve-style":"bezier","target-arrow-shape":"triangle","arrow-scale":0.8,"line-color":"#4a5169","target-arrow-color":"#4a5169","opacity":0.75}},
     {selector:"edge[rel = 'read']",style:{"line-color":REL_COLOR.read,"target-arrow-color":REL_COLOR.read}},
     {selector:"edge[rel = 'write']",style:{"line-color":REL_COLOR.write,"target-arrow-color":REL_COLOR.write}},
@@ -1546,26 +1611,32 @@ function paintTrace(r){
 // COUPLING lens always shows full transitive reach + red feedback-loop cycles.
 function applyTrace(){
   if(mode==="imports") return;   // imports lens isn't a data/coupling trace — click just shows detail
-  // A typed Postgres table → trace its data TYPE through the real code (the full PG↔IDB↔DOM
-  // lineage). This OVERRIDES the flow direction toggle — a type trace isn't directional, it's the
-  // whole journey of that data — so the button can't revert it to the general flow pipeline.
+  // A typed Postgres table → trace its data TYPE through the real code. With the direction toggle on
+  // "both" (the default) this is the whole PG↔IDB↔DOM lineage; "goes"/"comesFrom" narrow it to the
+  // load (table → … → DOM) or save (DOM → … → table) half, following the actual flow edges.
   var sel = selId ? nodeById[selId] : null;
-  if(sel && sel.kind==="table" && sel.types && sel.types.length){ paintTypeTrace(selId); return; }
+  if(sel && sel.kind==="table" && sel.types && sel.types.length){
+    if(traceDir==="both") paintTypeTrace(selId);
+    else paintTypeTraceDir(selId, traceDir);
+    return;
+  }
+  // a collapsed function shows as its module/folder box — trace from whatever box represents it.
+  var start = selId ? rep(selId) : null;
   cy.elements().addClass("faded").removeClass("hl cycle");
   if(mode==="coupling"){
-    if(!selId){ clearHL(); return; }
+    if(!start){ clearHL(); return; }
     var adj=buildAdj();
-    var down=reachSet(selId, adj.out), up=reachSet(selId, adj.inc);
-    var inTrace={}; inTrace[selId]=1;
+    var down=reachSet(start, adj.out), up=reachSet(start, adj.inc);
+    var inTrace={}; inTrace[start]=1;
     Object.keys(down).forEach(function(k){inTrace[k]=1;}); Object.keys(up).forEach(function(k){inTrace[k]=1;});
-    var cyc={}; cyc[selId]=1; Object.keys(down).forEach(function(k){ if(up[k]) cyc[k]=1; });
+    var cyc={}; cyc[start]=1; Object.keys(down).forEach(function(k){ if(up[k]) cyc[k]=1; });
     Object.keys(inTrace).forEach(function(k){ var el=cy.getElementById(k); if(el&&el.length) el.removeClass("faded").addClass("hl"); });
     cy.edges(lensEdgeSel()).forEach(function(e){ var s=e.source().id(), t=e.target().id(); if(inTrace[s]&&inTrace[t]){ e.removeClass("faded").addClass("hl"); if(cyc[s]&&cyc[t]) e.addClass("cycle"); } });
     return;
   }
   var useOut = traceDir!=="comesFrom", useIn = traceDir!=="goes";
-  if(selId){
-    paintTrace(flowReach([selId], useOut, useIn, true));         // node: stop where data lands
+  if(start){
+    paintTrace(flowReach([start], useOut, useIn, true));         // node: stop where data lands
   } else {
     // nothing selected → the macro pipeline(s), full chain (no stop)
     var dom=["dom"], pg=cy.nodes('[kind = "table"]').map(function(x){return x.id();});
@@ -1576,6 +1647,21 @@ function applyTrace(){
   }
 }
 function highlight(n){ selId=n.id(); applyTrace(); }
+// After a relayout (level change / drill), keep whatever was selected lit + described. The selected
+// id may now be hidden inside a collapsed box, so re-light via the trace (which traces from its
+// representative box) and re-describe the displayed box.
+function reselect(){
+  if(!selId){ clearHL(); applyMode(); return; }
+  applyTrace();
+  var disp=cy.getElementById(rep(selId)); if(disp&&disp.length) showDetail(disp);
+}
+// Reframe after a level change / drill: zoom to the lit trace if something's selected (keeps the
+// tracked node framed at the new, tighter zoom), otherwise to the whole — narrower min layout → fits
+// bigger, which is the point of folder-collapsing.
+function fitView(){
+  var lit=cy.elements(".hl");
+  cy.animate({fit:{eles:(selId&&lit.length)?lit:cy.elements(),padding:50}},{duration:300});
+}
 
 // TYPE TRACE: clicking a Postgres table that carries a type lineage lights the functions whose
 // signature/body actually REFERENCE those types (the real data handlers, from the TS annotations
@@ -1607,21 +1693,16 @@ function carryingForTable(tableId){
   Object.keys(seam).forEach(function(id){ carry[id]=1; });
   return carry;
 }
-function paintTypeTrace(tableId){
-  var carry=carryingForTable(tableId); if(!carry) return false;
-  // map carriers to displayed ids (a collapsed fn shows as its module box)
+// The DISPLAYED type-carrier set: the carriers (collapsed fns mapped to their box) + the data
+// WAYPOINTS the data physically passes through (its IndexedDB store + the DOM), so the trace shows
+// the record landing in the store and reaching the page, not just the functions. For non-content
+// tables (no store of their own) it also adds the web-storage a BASE carrier writes (the typed data's
+// real home) — never the seam-expanded set, which can poke unrelated web-storage for UI state.
+function typeTraceDisp(tableId){
+  var carry=carryingForTable(tableId); if(!carry) return null;
   var disp={}; Object.keys(carry).forEach(function(id){ disp[rep(id)]=1; });
-  // Add the DATA WAYPOINTS this table's data physically passes through: the matching
-  // IndexedDB store + the DOM. Without them the trace stops at functions — it never shows
-  // the data landing in the object store (PG→IDB) or reaching the page (IDB→DOM). With them,
-  // the read/write/domwrite edges to those nodes light up, completing PG→store→fns→DOM.
   var name=tableId.indexOf("pg:")===0?tableId.slice(3):tableId;
   ["store:"+name, "dom"].forEach(function(w){ if(nodeById[w]) disp[w]=1; });
-  // ONLY for the non-content tables (no IndexedDB store of their own): light the web-storage that a
-  // BASE TYPE-CARRIER *writes* — i.e. where the TYPED data itself is persisted (reading-positions →
-  // sessionStorage, written by loadHyperText). We require a base carrier (a fn whose own signature/body
-  // carries the table's type), NOT the seam-expanded carry set: a fn pulled in via the table's route may
-  // also poke localStorage for UNRELATED UI state (shelf tabs, filters, scroll), which is not this data.
   var tabTypes=(nodeById[tableId]&&nodeById[tableId].types)||[];
   if(!nodeById["store:"+name] && tabTypes.length){
     var tset={}; tabTypes.forEach(function(t){ tset[t]=1; });
@@ -1633,10 +1714,36 @@ function paintTypeTrace(tableId){
       if(fn && fn.types && fn.types.some(function(t){ return tset[t]; })) disp[rep(st)]=1;
     });
   }
+  return disp;
+}
+// "both" — the full lineage: light the whole carrier set + every edge between two members.
+function paintTypeTrace(tableId){
+  var disp=typeTraceDisp(tableId); if(!disp) return false;
   cy.elements().addClass("faded").removeClass("hl cycle ring latentring");
   Object.keys(disp).forEach(function(k){ var el=cy.getElementById(k); if(el&&el.length) el.removeClass("faded").addClass("hl"); });
-  // light every existing edge between two trace members (any rel), forcing display past the lens
   cy.edges().forEach(function(e){ var s=e.source().id(), t=e.target().id(); if(disp[s]&&disp[t]){ e.style("display","element"); e.removeClass("faded").addClass("hl"); } });
+  return true;
+}
+// "goes"/"comesFrom" — the SAME typed carrier set, but only the edges that MOVE that direction. A
+// directional BFS is useless here: the IndexedDB store is a hub with both in- and out-edges, so a walk
+// reaches everything either way and "goes" == "comesFrom" == "both". So light by edge CLASS instead:
+//   goes (load, PG→page):    pull (PG→fn) · read (store→fn) · domwrite (fn→DOM)
+//   comesFrom (save, page→PG): push (fn→PG) · domread (DOM→fn) · write (fn→store)
+// (read↔write split the shared store between the two halves so each direction lights a distinct seam.)
+function paintTypeTraceDir(tableId, dir){
+  var disp=typeTraceDisp(tableId); if(!disp) return false;
+  var LOAD={pull:1,read:1,domwrite:1}, SAVE={push:1,domread:1,write:1};
+  var want = dir==="goes" ? LOAD : SAVE;
+  cy.elements().addClass("faded").removeClass("hl cycle ring latentring");
+  var lit={}; lit[tableId]=1;
+  cy.edges().forEach(function(e){
+    if(!want[e.data("rel")]) return;
+    var s=e.source().id(), t=e.target().id();
+    if(!disp[s]||!disp[t]) return;
+    e.style("display","element"); e.removeClass("faded").addClass("hl");
+    lit[s]=1; lit[t]=1;
+  });
+  Object.keys(lit).forEach(function(k){ var el=cy.getElementById(k); if(el&&el.length) el.removeClass("faded").addClass("hl"); });
   return true;
 }
 
@@ -1660,8 +1767,10 @@ function groupsFor(ids){
 }
 function ul(a){ if(!a.length) return "<p class='none'>none</p>"; var u=a.filter(function(v,i,s){return s.indexOf(v)===i;}).sort(); return "<ul>"+u.map(function(x){return "<li>"+x+"</li>";}).join("")+"</ul>"; }
 
+var DIRTXT={goes:"where it goes \\u25B8",comesFrom:"\\u25C2 where it comes from",both:"both ways"};
 function showDetail(n){
   var d=document.getElementById("detail"); var id=n.id(); var kind=n.data("kind");
+  var dirBadge = mode==="flow" ? "<div class='dirbadge'>tracing: "+DIRTXT[traceDir]+"</div>" : "";
   if(kind==="store"||kind==="table"||kind==="dom"){
     var movers=[]; VIZ.edges.forEach(function(e){ if(e.source===id) movers.push(relabel(e.target)+"  ("+e.rel+")"); if(e.target===id) movers.push(relabel(e.source)+"  ("+e.rel+")"); });
     var schemaHtml="";
@@ -1671,41 +1780,47 @@ function showDetail(n){
     var typeHtml="";
     if(kind==="table" && nodeById[id] && nodeById[id].types && nodeById[id].types.length){
       var tt=nodeById[id].types, carry=carryingForTable(id);
-      var fnList=VIZ.nodes.filter(function(x){return x.kind==="fn"&&carry[x.id];}).map(function(x){return x.label+"  ("+x.types.join(", ")+")";}).sort();
+      var fnList=VIZ.nodes.filter(function(x){return x.kind==="fn"&&carry[x.id]&&x.types&&x.types.length;}).map(function(x){return x.label+"  ("+x.types.join(", ")+")";}).sort();
       typeHtml="<h3>data types (TS lineage)</h3>"+ul(tt)+
-        "<p class='none' style='font-style:normal'>The full PG↔IDB↔DOM journey of this data, from the TS types — both ways at once (the <b>trace: direction</b> toggle is a flow-lens tool and doesn't apply here).</p>"+
+        "<p class='none' style='font-style:normal'>The PG↔IDB↔DOM journey of this data, from its TS types. The <b>trace:</b> button narrows it — <i>where it goes</i> = load (table→DOM), <i>where it comes from</i> = save (DOM→table), <i>both</i> = the full lineage.</p>"+
         "<h3>flows through "+fnList.length+" fns — lit on the map (rows = PG→DOM)</h3>"+ul(fnList);
     }
     var storeSub=n.data("label")==="localStorage"?"Browser localStorage — persistent key→value (NOT IndexedDB)":n.data("label")==="sessionStorage"?"Browser sessionStorage — per-tab key→value (NOT IndexedDB)":"IndexedDB object store";
-    d.innerHTML="<div class='name'>"+n.data("label")+"</div><div class='sub'>"+(kind==="store"?storeSub:kind==="table"?"PostgreSQL table":"the reader page — every DOM-manipulation module reads/writes it")+"</div>"+schemaHtml+typeHtml+"<h3>connected functions</h3>"+ul(movers);
+    d.innerHTML="<div class='name'>"+n.data("label")+"</div><div class='sub'>"+(kind==="store"?storeSub:kind==="table"?"PostgreSQL table":"the reader page — every DOM-manipulation module reads/writes it")+"</div>"+dirBadge+schemaHtml+typeHtml+"<h3>connected functions</h3>"+ul(movers);
     return;
   }
   var ids, title, sub;
-  if(kind==="module"){ var mid=id.slice(4); var mod=VIZ.modules.filter(function(m){return m.id===mid;})[0]; ids=mod?mod.fnIds:[]; title=mid; sub=(mod?mod.stage:"")+" · "+ids.length+" functions"; }
+  if(kind==="folder"){ var fld=n.data("folder"); ids=VIZ.nodes.filter(function(x){return x.kind==="fn"&&x.module&&x.module.split("/")[0]===fld;}).map(function(x){return x.id;}); title=fld; sub=ids.length+" functions across the "+fld+" folder — double-click to drill in"; }
+  else if(kind==="module"){ var mid=id.slice(4); var mod=VIZ.modules.filter(function(m){return m.id===mid;})[0]; ids=mod?mod.fnIds:[]; title=mid; sub=(mod?mod.stage:"")+" · "+ids.length+" functions"; }
   else if(kind==="cmodule"){ var ccls=id.slice(7); var meths=VIZ.nodes.filter(function(m){return m.kind==="controller"&&m.cls===ccls;}); ids=meths.map(function(m){return m.id;}); title=ccls; sub="app/Http/Controllers/"+ccls+".php · "+ids.length+" route method(s) — double-click to "+(n.data("expanded")?"collapse":"expand"); }
   else { ids=[id]; title=n.data("label"); sub=(n.data("stage")||"")+" · "+id.split(":")[0]; }
   var g=groupsFor(ids);
-  d.innerHTML="<div class='name'>"+title+"</div><div class='sub'>"+sub+"</div>"+
+  d.innerHTML="<div class='name'>"+title+"</div><div class='sub'>"+sub+"</div>"+dirBadge+
     "<h3>reads (store → fn)</h3>"+ul(g.read)+
     "<h3>writes (fn → store)</h3>"+ul(g.write)+
     "<h3>DOM</h3>"+ul(g.dom)+
     "<h3>postgres (via PHP)</h3>"+ul(g.push.concat(g.pull))+
-    ((kind==="module"||kind==="cmodule")?"":"<h3>calls</h3>"+ul(g.call));
+    ((kind==="module"||kind==="cmodule"||kind==="folder")?"":"<h3>calls</h3>"+ul(g.call));
 }
 
 // ONE consistent rule: single click = trace data flow + detail (anything, modules too).
-// Double click a MODULE = drill into / collapse its files (the only thing that re-lays-out).
+// Double click a FOLDER box = drill into its modules; a MODULE box = drill into its files; a
+// controller CLASS = its methods (the only things that re-lay-out). Re-collapse a whole folder
+// via the detail dropdown (min). The current selection stays lit across the relayout.
 var lastTap={id:null,t:0};
 cy.on("tap","node",function(ev){
   var n=ev.target, id=n.id(), kind=n.data("kind");
   if(kind==="tier" || kind==="codeband" || kind==="colheader") return;
   var now=Date.now(), isDouble=(lastTap.id===id && now-lastTap.t<350); lastTap={id:id,t:now};
-  if(isDouble && (kind==="module" || kind==="cmodule")){
-    // module box keyed by its path ("mod:<path>" → <path>); controller-class box keyed by its full id.
-    var key = kind==="module" ? id.slice(4) : id;
-    if(expanded[key]) delete expanded[key]; else expanded[key]=true;
-    selId=null; rebuild(); clearHL();
-    var box=cy.getElementById(id); if(box&&box.length) showDetail(box);
+  if(isDouble && (kind==="folder" || kind==="module" || kind==="cmodule")){
+    if(kind==="folder"){ var fld=n.data("folder"); if(folderExpanded[fld]) delete folderExpanded[fld]; else folderExpanded[fld]=true; }
+    else {
+      // module box keyed by its path ("mod:<path>" → <path>); controller-class box keyed by its full id.
+      var key = kind==="module" ? id.slice(4) : id;
+      if(expanded[key]) delete expanded[key]; else expanded[key]=true;
+    }
+    rebuild(); reselect();
+    if(!selId){ var box=cy.getElementById(id); if(box&&box.length) showDetail(box); }
     return;
   }
   // highlight() → applyTrace(), which routes a typed table to the type trace (the data-type
@@ -1716,11 +1831,26 @@ cy.on("tap",function(ev){ if(ev.target===cy || (ev.target.isEdge && ev.target.is
 
 document.getElementById("meta").textContent=VIZ.meta.dbName+" v"+VIZ.meta.dbVersion+" · "+VIZ.meta.fnCount+" fns / "+VIZ.meta.moduleCount+" modules · "+VIZ.meta.storeCount+" stores · "+VIZ.meta.tableCount+" tables";
 var leg=document.getElementById("legend"); VIZ.legend.forEach(function(l){ var row=document.createElement("div"); row.innerHTML="<span class='sw' style='border-top-color:"+REL_COLOR[l.rel]+"'></span><b>"+l.rel+"</b> &nbsp;"+l.from+"→"+l.to; leg.appendChild(row); });
-var sel=document.getElementById("focus"); var o0=document.createElement("option"); o0.value=""; o0.textContent="(all)"; sel.appendChild(o0);
-VIZ.nodes.filter(function(n){return n.kind!=="fn"&&n.kind!=="controller";}).forEach(function(n){ var o=document.createElement("option"); o.value=n.id; o.textContent=n.kind+": "+n.label; sel.appendChild(o); });
-sel.onchange=function(){ clearHL(); if(!sel.value) return; var n=cy.getElementById(sel.value); if(!n||!n.length) return; cy.elements().addClass("faded"); n.closedNeighborhood().removeClass("faded").addClass("hl"); cy.animate({fit:{eles:n.closedNeighborhood(),padding:60}},{duration:300}); };
-document.getElementById("expandAll").onclick=function(){ VIZ.modules.forEach(function(m){expanded[m.id]=true;}); VIZ.nodes.forEach(function(n){ if(n.kind==="controller") expanded["cclass:"+n.cls]=true; }); rebuild(); clearHL(); };
-document.getElementById("collapseAll").onclick=function(){ expanded={}; rebuild(); clearHL(); };
+// "trace data type" picker — lists the typed Postgres tables and runs the SAME type trace a click on
+// that table runs (for anyone who doesn't realise the tables are clickable, or doesn't want to hunt
+// for one on the map). Driving selId + applyTrace reuses the exact click path.
+var sel=document.getElementById("focus"); var o0=document.createElement("option"); o0.value=""; o0.textContent="(pick a table)"; sel.appendChild(o0);
+VIZ.nodes.filter(function(n){return n.kind==="table"&&n.types&&n.types.length;}).forEach(function(n){ var o=document.createElement("option"); o.value=n.id; o.textContent=n.label; sel.appendChild(o); });
+sel.onchange=function(){
+  if(!sel.value){ selId=null; clearHL(); applyMode(); return; }
+  var n=cy.getElementById(sel.value); if(!n||!n.length) return;
+  selId=sel.value; applyTrace(); showDetail(n);
+  var lit=cy.elements(".hl"); cy.animate({fit:{eles:lit.length?lit:n,padding:60}},{duration:300});
+};
+// detail-level dropdown — min: one box per top-level folder · default: one box per module · max:
+// every function. Keeps the current selection lit across the relayout (reselect, not clearHL).
+document.getElementById("zoomLevel").onchange=function(){
+  var v=this.value;
+  if(v==="max"){ folderExpanded={}; expanded={}; VIZ.modules.forEach(function(m){ folderExpanded[m.id.split("/")[0]]=true; expanded[m.id]=true; }); VIZ.nodes.forEach(function(n){ if(n.kind==="controller") expanded["cclass:"+n.cls]=true; }); }
+  else if(v==="default"){ expanded={}; folderExpanded={}; VIZ.modules.forEach(function(m){ folderExpanded[m.id.split("/")[0]]=true; }); }
+  else { folderExpanded={}; expanded={}; }   // min
+  rebuild(); reselect(); fitView();
+};
 document.getElementById("toggleCalls").onclick=function(){
   mode = mode==="coupling" ? "flow" : "coupling";
   selId=null; applyMode(); clearHL();
@@ -1789,6 +1919,8 @@ document.getElementById("lazyBtn").onclick=function(){
     "This is your JS-loading-optimisation surface: what's pulled in on demand vs eagerly bundled.";
 };
 
+// initial view = the "default" detail level (one box per module): every folder drilled in, no module expanded.
+VIZ.modules.forEach(function(m){ folderExpanded[m.id.split("/")[0]]=true; });
 rebuild();
 cy.fit(undefined,40);
 document.getElementById("fit").onclick=function(){ cy.animate({fit:{padding:40}},{duration:300}); };
