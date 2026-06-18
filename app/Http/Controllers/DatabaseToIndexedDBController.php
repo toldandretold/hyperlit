@@ -1779,7 +1779,13 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Get bookmark data for the current user/session.
+     * Get bookmark data for the current user/session — the `user_reading_positions` row.
+     *
+     * The LOAD shape for the TS `ReadingPosition` contract (also embedded as `bookmark` in
+     * `getInitialChunk`'s response). Identity is `user_name` when logged in, else the `anon_token`
+     * cookie; no identity ⇒ null. `chunk_id` is cast to int here (the column is integer).
+     *
+     * @return array{chunk_id: int, element_id: ?string}|null
      */
     private function getBookmarkData(Request $request, string $bookId): ?array
     {
@@ -1810,7 +1816,12 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Save reading position (bookmark).
+     * Save reading position (bookmark) — the SAVE path for the TS `ReadingPosition` contract.
+     *
+     * Upserts the `user_reading_positions` row keyed by (book, user_name) when logged in, else
+     * (book, anon_token); no identity ⇒ 401. Request body: array{chunk_id: int, element_id: ?string}.
+     *
+     * @return JsonResponse array{success: true} | array{error: string}
      */
     public function saveReadingPosition(Request $request, string $bookId): JsonResponse
     {
@@ -1861,7 +1872,11 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Get reading position (bookmark).
+     * Get reading position (bookmark) — the standalone LOAD endpoint for the TS `ReadingPosition`.
+     *
+     * Thin wrapper over getBookmarkData(); the same bookmark is also delivered inline by getInitialChunk.
+     *
+     * @return JsonResponse array{bookmark: array{chunk_id: int, element_id: ?string}|null}
      */
     public function getReadingPosition(Request $request, string $bookId): JsonResponse
     {

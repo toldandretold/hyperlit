@@ -7,10 +7,21 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * The `vibes` gallery API (CSS-override presets). All responses must stay in sync with the TS
+ * contract `Vibe` / `VibeInput` (`components/settingsContainer/vibeCSS/api.ts`). `css_overrides` is
+ * the jsonb map; `creator_token` is hidden on the model and never sent; `creator`/`pull_count` only
+ * ship on the PUBLIC payload.
+ */
 class VibesController extends Controller
 {
     /**
-     * List the authenticated user's saved vibes.
+     * List the authenticated user's saved vibes (the `mine` LOAD shape → TS `Vibe[]`).
+     *
+     * @return \Illuminate\Http\JsonResponse array{vibes: array<int, array{
+     *   id: string, name: string, prompt: ?string, css_overrides: array<string,string>,
+     *   visibility: string, source_creator: ?string, created_at: string
+     * }>}
      */
     public function mine(Request $request)
     {
@@ -27,7 +38,14 @@ class VibesController extends Controller
     }
 
     /**
-     * Save a new vibe (limit: 5 per user).
+     * Save a new vibe (limit: 5 per user) — the SAVE path for TS `VibeInput`; backend sets
+     * creator (= user name), `creator_token` = null, id/created_at. A `source_vibe_id` bumps that
+     * public vibe's `pull_count`.
+     *
+     * @return \Illuminate\Http\JsonResponse array{vibe: array{
+     *   id: string, name: string, prompt: ?string, css_overrides: array<string,string>,
+     *   visibility: string, created_at: string
+     * }} | array{message: string}
      */
     public function store(Request $request)
     {
@@ -76,7 +94,10 @@ class VibesController extends Controller
     }
 
     /**
-     * Update name or visibility of an owned vibe.
+     * Update name or visibility of an owned vibe (owner-only; only those two fields are mutable).
+     * Response is the same `vibe` shape as store().
+     *
+     * @return \Illuminate\Http\JsonResponse array{vibe: array{id,name,prompt,css_overrides,visibility,created_at}} | array{message: string}
      */
     public function update(Request $request, string $id)
     {
@@ -103,7 +124,9 @@ class VibesController extends Controller
     }
 
     /**
-     * Delete an owned vibe.
+     * Delete an owned vibe (owner-only).
+     *
+     * @return \Illuminate\Http\JsonResponse array{success: true} | array{message: string}
      */
     public function destroy(Request $request, string $id)
     {
@@ -123,7 +146,13 @@ class VibesController extends Controller
     }
 
     /**
-     * Browse public vibes (no auth required).
+     * Browse public vibes (no auth) — the PUBLIC gallery → TS `Vibe[]` (carries `creator`/`pull_count`,
+     * omits `source_creator`/`visibility`). Page size 50; `sort` = 'top' (pull_count) | 'new'.
+     *
+     * @return \Illuminate\Http\JsonResponse array{vibes: array<int, array{
+     *   id: string, name: string, prompt: ?string, css_overrides: array<string,string>,
+     *   creator: ?string, pull_count: int, created_at: string
+     * }>, has_more: bool}
      */
     public function publicIndex(Request $request)
     {

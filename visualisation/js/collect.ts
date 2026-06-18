@@ -53,7 +53,7 @@ const IDB_ROOT = path.join(RES_ROOT, 'indexedDB');         // the front-end data
  * the heaviest DOM writer, mutation-observer-driven). They form the JS tier
  * between the reader page and the object stores.
  */
-const EXTRA_ROOTS = [path.join(RES_ROOT, 'paste'), path.join(RES_ROOT, 'search'), path.join(RES_ROOT, 'hyperlights'), path.join(RES_ROOT, 'hypercites'), path.join(RES_ROOT, 'divEditor'), path.join(RES_ROOT, 'editToolbar'), path.join(RES_ROOT, 'footnotes'), path.join(RES_ROOT, 'citations'), path.join(RES_ROOT, 'hyperlitContainer'), path.join(RES_ROOT, 'lazyLoader'), path.join(RES_ROOT, 'scrolling'), path.join(RES_ROOT, 'pageLoad'), path.join(RES_ROOT, 'SPA'), path.join(RES_ROOT, 'components', 'cloudRef'), path.join(RES_ROOT, 'components', 'sourceContainer'), path.join(RES_ROOT, 'components', 'userButton'), path.join(RES_ROOT, 'components', 'userContainer'), path.join(RES_ROOT, 'components', 'newBookButton'), path.join(RES_ROOT, 'components', 'newbookContainer'), path.join(RES_ROOT, 'components', 'settingsButton'), path.join(RES_ROOT, 'components', 'settingsContainer'), path.join(RES_ROOT, 'components', 'editButton'), path.join(RES_ROOT, 'components', 'tocToggleButton'), path.join(RES_ROOT, 'components', 'tocContainer'), path.join(RES_ROOT, 'components', 'utilities'), path.join(RES_ROOT, 'components', 'logoNav'), path.join(RES_ROOT, 'components', 'homepage'), path.join(RES_ROOT, 'components', 'userProfile'), path.join(RES_ROOT, 'components', 'fileDropTarget'), path.join(RES_ROOT, 'components', 'floatingActionMenu'), path.join(RES_ROOT, 'components', 'saveErrorToast'), path.join(RES_ROOT, 'components', 'togglePerimeterButtons'), path.join(RES_ROOT, 'components', 'containerDragger'), path.join(RES_ROOT, 'components', 'selectionHandler'), path.join(RES_ROOT, 'components', 'toast')];
+const EXTRA_ROOTS = [path.join(RES_ROOT, 'paste'), path.join(RES_ROOT, 'search'), path.join(RES_ROOT, 'hyperlights'), path.join(RES_ROOT, 'hypercites'), path.join(RES_ROOT, 'divEditor'), path.join(RES_ROOT, 'editToolbar'), path.join(RES_ROOT, 'footnotes'), path.join(RES_ROOT, 'citations'), path.join(RES_ROOT, 'hyperlitContainer'), path.join(RES_ROOT, 'lazyLoader'), path.join(RES_ROOT, 'scrolling'), path.join(RES_ROOT, 'pageLoad'), path.join(RES_ROOT, 'SPA'), path.join(RES_ROOT, 'components', 'cloudRef'), path.join(RES_ROOT, 'components', 'sourceContainer'), path.join(RES_ROOT, 'components', 'userButton'), path.join(RES_ROOT, 'components', 'userContainer'), path.join(RES_ROOT, 'components', 'newBookButton'), path.join(RES_ROOT, 'components', 'newbookContainer'), path.join(RES_ROOT, 'components', 'settingsButton'), path.join(RES_ROOT, 'components', 'settingsContainer'), path.join(RES_ROOT, 'components', 'editButton'), path.join(RES_ROOT, 'components', 'tocToggleButton'), path.join(RES_ROOT, 'components', 'tocContainer'), path.join(RES_ROOT, 'components', 'utilities'), path.join(RES_ROOT, 'components', 'logoNav'), path.join(RES_ROOT, 'components', 'homepage'), path.join(RES_ROOT, 'components', 'userProfile'), path.join(RES_ROOT, 'components', 'fileDropTarget'), path.join(RES_ROOT, 'components', 'floatingActionMenu'), path.join(RES_ROOT, 'components', 'saveErrorToast'), path.join(RES_ROOT, 'components', 'togglePerimeterButtons'), path.join(RES_ROOT, 'components', 'containerDragger'), path.join(RES_ROOT, 'components', 'selectionHandler'), path.join(RES_ROOT, 'components', 'toast'), path.join(RES_ROOT, 'components', 'shelves')];
 
 /** Per-store key + index names — what each object store holds — straight from the schema. */
 const STORE_SCHEMA: Record<string, { keyPath: string; indices: string[] }> = Object.fromEntries(
@@ -65,6 +65,15 @@ const STORE_SCHEMA: Record<string, { keyPath: string; indices: string[] }> = Obj
 );
 
 const STORE_SET = new Set<string>(STORE_NAMES);
+
+/**
+ * Browser web-storage backends — modelled as store nodes ON THE SAME ROW as the IndexedDB object
+ * stores (distinct colour), so the data tables that persist client-side WITHOUT IndexedDB
+ * (`user_reading_positions`/`vibes`/`shelves`) have a real "store" waypoint instead of dead-ending.
+ * Detected from `localStorage`/`sessionStorage` `.getItem`/`.setItem`/… calls (see analyzeFunctionBody).
+ */
+const WEB_STORAGE = ['localStorage', 'sessionStorage'];
+const WEB_STORAGE_SET = new Set<string>(WEB_STORAGE);
 
 const WRITE_OPS = new Set(['put', 'add', 'delete', 'clear']);
 const READ_OPS = new Set(['get', 'getAll', 'getAllKeys', 'getKey', 'count', 'openCursor', 'openKeyCursor', 'index']);
@@ -104,6 +113,7 @@ const CORE_TABLES = ['nodes', 'hypercites', 'hyperlights', 'footnotes', 'bibliog
 const ENDPOINT_TABLES: Record<string, EndpointMap> = {
   // ── book LOAD (pull) — the author's content vs the separate annotations path ──
   '/api/database-to-indexeddb/books/{}/data':        { dir: 'pull', tables: CORE_TABLES, group: 'content' },        // full book (incl. embedded annotations)
+  '/api/database-to-indexeddb/books/{}/initial':     { dir: 'pull', tables: [...CORE_TABLES, 'user_reading_positions'], group: 'content' }, // fast first chunk — ALSO embeds the reading-position bookmark
   '/api/database-to-indexeddb/books/{}/annotations': { dir: 'pull', tables: ['hyperlights', 'hypercites'], group: 'annotations' }, // metadata only, loaded separately
   '/api/database-to-indexeddb/books/{}/headings':    { dir: 'pull', tables: ['nodes'], group: 'content' },          // TOC, derived from nodes
   '/api/database-to-indexeddb/books/{}/library':     { dir: 'pull', tables: ['library'], group: 'content' },
@@ -119,6 +129,10 @@ const ENDPOINT_TABLES: Record<string, EndpointMap> = {
   '/api/db/hypercites/upsert':            { dir: 'push', tables: ['hypercites'], group: 'annotations' },
   '/api/db/hypercites/find':              { dir: 'pull', tables: ['hypercites'], group: 'annotations' },
   '/api/canonical':                       { dir: 'push', tables: ['canonical_source'], group: 'content' },
+  // ── non-content tables that still ship data to the client (no IndexedDB transit) ──
+  '/api/database-to-indexeddb/books/{}/reading-position': { dir: 'push', tables: ['user_reading_positions'], group: 'content' }, // scroll bookmark save
+  '/api/vibes':                           { dir: 'pull', tables: ['vibes'], group: 'content' },   // css-override presets (mine/public/save)
+  '/api/shelves':                         { dir: 'pull', tables: ['shelves'], group: 'content' }, // user book-collections (list/render/items/search)
 };
 
 /**
@@ -147,6 +161,17 @@ const TABLE_TYPES: Record<string, string[]> = {
   // hyperlights: same dual shape — standalone (HyperlightRecord/ServerHyperlightRow) + the embedded
   // NodeHyperlightView (shared with nodes).
   hyperlights: ['ServerHyperlightRow', 'HyperlightRecord', 'NodeHyperlightView'],
+  // ── non-content tables (fetch → DOM; no IndexedDB store) — a single API-contract type each ──
+  // user_reading_positions: the scroll bookmark (ReadingPosition), saved by scrolling/ + read on load.
+  user_reading_positions: ['ReadingPosition'],
+  // canonical_source: the click-time best-version response (CanonicalBestVersion) resolved by the
+  // bibliography resolver — citation identity, no IDB store of its own.
+  canonical_source: ['CanonicalBestVersion'],
+  // vibes: css-override presets — the gallery contract (Vibe) + the save body (VibeInput).
+  vibes: ['Vibe', 'VibeInput'],
+  // shelves: user book-collections — the list/membership contract (Shelf). (ShelfItem exists in
+  // types.ts for the junction but isn't a FE-consumed entity, so it's not traced.)
+  shelves: ['Shelf'],
 };
 const NODE_DATA_TYPE_SET = new Set<string>(Object.values(TABLE_TYPES).flat());
 
@@ -349,13 +374,14 @@ function normalizeEndpoint(url: string): string {
   return url.replace(/\$\{[^}]*\}.*$/, '').replace(/[?].*$/, '').replace(/\/+$/, '');
 }
 
-function analyzeFunctionBody(body: ts.Node): Omit<FnRaw, 'id' | 'name' | 'module' | 'exported' | 'types'> {
+function analyzeFunctionBody(body: ts.Node, moduleBodies?: Map<string, ts.Node>): Omit<FnRaw, 'id' | 'name' | 'module' | 'exported' | 'types'> {
   const reads = new Set<string>();
   const writes = new Set<string>();
   const endpoints = new Set<string>();
   const calls = new Set<string>();
   let domRead = false;
   let domWrite = false;
+  let sawFetch = false;
 
   let hasReadWrite = false;
   walk(body, n => {
@@ -378,6 +404,12 @@ function analyzeFunctionBody(body: ts.Node): Omit<FnRaw, 'id' | 'name' | 'module
       if ((m === 'add' || m === 'remove' || m === 'toggle')
         && ts.isPropertyAccessExpression(n.expression.expression)
         && n.expression.expression.name.text === 'classList') domWrite = true;
+      // localStorage/sessionStorage.<op>(…) → a web-storage read/write (modelled as a store node).
+      if (ts.isIdentifier(n.expression.expression) && WEB_STORAGE_SET.has(n.expression.expression.text)) {
+        const ws = n.expression.expression.text;
+        if (m === 'getItem' || m === 'key') reads.add(ws);
+        else if (m === 'setItem' || m === 'removeItem' || m === 'clear') writes.add(ws);
+      }
     }
     if (ts.isCallExpression(n)) {
       const callee = n.expression;
@@ -388,6 +420,7 @@ function analyzeFunctionBody(body: ts.Node): Omit<FnRaw, 'id' | 'name' | 'module
       // a helper like appendGateParam(`/api/…`) — the shape the entire load/pull side uses, which
       // previously yielded NO endpoints (hence zero pull edges; tables looked like pure sinks).
       if (fnName === 'fetch' || fnName === 'sendBeacon') {
+        sawFetch = true;
         walk(body, b => { const s = urlPatternOf(b); if (s && s.startsWith('/api/')) endpoints.add(normalizeEndpoint(s)); });
       }
     }
@@ -403,6 +436,16 @@ function analyzeFunctionBody(body: ts.Node): Omit<FnRaw, 'id' | 'name' | 'module
       if (names.length === n.elements.length && names.every(s => STORE_SET.has(s))) for (const s of names) writes.add(s);
     }
   });
+
+  // A fn that fetches but builds its `/api/…` URL in a same-module helper (e.g. buildPositionUrl,
+  // buildApiUrl) has no inline literal — follow each called helper ONE level and adopt its endpoint,
+  // so the fn gets its route edge (and thus connects to the PG table) instead of floating.
+  if (sawFetch && moduleBodies) {
+    for (const c of calls) {
+      const hb = moduleBodies.get(c);
+      if (hb && hb !== body) walk(hb, b => { const s = urlPatternOf(b); if (s && s.startsWith('/api/')) endpoints.add(normalizeEndpoint(s)); });
+    }
+  }
 
   return { reads, writes, endpoints, domRead, domWrite, calls };
 }
@@ -522,8 +565,12 @@ function parseModule(abs: string, known: Set<string>): ModuleParse {
   const functions: FnRaw[] = [];
   // declNode = the whole declaration (params/return + body), so collectTypeReferences
   // sees signature AND body type annotations; body is what analyzeFunctionBody walks.
+  // Two-pass: collect every fn (incl. non-exported URL-builder helpers like buildPositionUrl/
+  // buildApiUrl), THEN analyze with a name→body map so a fetch/sendBeacon fn can pick up the
+  // `/api/…` URL even when it's built in a helper it calls (else the fn has no route edge).
+  const decls: { name: string; exported: boolean; body: ts.Node; declNode: ts.Node }[] = [];
   const record = (name: string, exported: boolean, body: ts.Node, declNode: ts.Node) => {
-    functions.push({ id: `${moduleKey}:${name}`, name, module: moduleKey, exported, ...analyzeFunctionBody(body), types: collectTypeReferences(declNode, NODE_DATA_TYPE_SET) });
+    decls.push({ name, exported, body, declNode });
   };
   for (const stmt of sf.statements) {
     if (ts.isFunctionDeclaration(stmt) && stmt.name && stmt.body) {
@@ -553,6 +600,11 @@ function parseModule(abs: string, known: Set<string>): ModuleParse {
         }
       }
     }
+  }
+  const moduleBodies = new Map<string, ts.Node>();
+  for (const d of decls) moduleBodies.set(d.name, d.body);
+  for (const d of decls) {
+    functions.push({ id: `${moduleKey}:${d.name}`, name: d.name, module: moduleKey, exported: d.exported, ...analyzeFunctionBody(d.body, moduleBodies), types: collectTypeReferences(d.declNode, NODE_DATA_TYPE_SET) });
   }
   const { staticDeps, dynDeps } = extractModuleDeps(sf, abs, known);
   return { functions, importMap, reexports: buildReexports(sf, abs, known), staticDeps, dynDeps };
@@ -840,6 +892,7 @@ export function collect(): FlowViz {
     nodes.push({ id: fn.id, label: fn.name, kind: 'fn', stage: stageIdOf(fn.module), module: fn.module, leaf: !hasData, ...(fn.types.length ? { types: fn.types } : {}) });
   }
   for (const s of STORE_NAMES) nodes.push({ id: `store:${s}`, label: s, kind: 'store' });
+  for (const s of WEB_STORAGE) nodes.push({ id: `store:${s}`, label: s, kind: 'store' }); // localStorage/sessionStorage (same row, diff colour)
   const tables = [...tablesSeen].sort();
   for (const t of tables) nodes.push({ id: `pg:${t}`, label: t, kind: 'table', ...(TABLE_TYPES[t] ? { types: [...TABLE_TYPES[t]].sort() } : {}) });
   // API endpoint tier: one node per matched route, between the TS functions and the PG tables,
@@ -964,7 +1017,7 @@ export function collect(): FlowViz {
   return {
     meta: {
       dbName: DB_NAME, dbVersion: DB_VERSION,
-      fnCount: fnViews.length, moduleCount: modules.length, storeCount: STORE_NAMES.length, tableCount: tables.length,
+      fnCount: fnViews.length, moduleCount: modules.length, storeCount: STORE_NAMES.length + WEB_STORAGE.length, tableCount: tables.length,
       edgeCount: edges.length,
       sources: ['exported functions (TS AST)', 'indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)', 'core/connection STORE_CONFIGS', 'real fetch/sendBeacon → PG tables (Eloquent $table names)', 'flowMap.ts (stage clustering)'],
       note: 'GENERATED by visualisation/js/collect.ts — do not edit. Run `npm run viz:idb`.',
@@ -1388,6 +1441,9 @@ var cy = cytoscape({
     // so [icon · gap · name] sits centred. padding raised to 24 so the side margins (=15) match the
     // generous top/bottom feel. (icon 12, gap 6 → margin 9, posX = 24-9 = 15.)
     {selector:"node[kind = 'table'], node[kind = 'store']",style:{"background-image":DB_ICON,"background-fit":"none","background-width":"12px","background-height":"12px","background-position-x":"15px","background-position-y":"50%","background-clip":"none","padding":"24px","text-margin-x":"9px"}},
+    // web-storage barrels — same DB glyph + store row, distinct amber/orange (vs green IndexedDB)
+    {selector:"node[id = 'store:localStorage']",style:{"background-color":"#4a3a1f","border-color":"#e0a44b"}},
+    {selector:"node[id = 'store:sessionStorage']",style:{"background-color":"#4a2c1f","border-color":"#e0795b"}},
     {selector:"node[kind = 'route']",style:{"background-color":"#161d2b","border-color":"#5a6c8a","shape":"round-rectangle","padding":"9px","font-size":"10px","font-weight":"bold"}},
     // square-ish body so the label stays readable, with a triangular point on one edge marking direction:
     // pull = body on top, point DOWN (data coming FROM backend); push = point UP, body below (data going TO backend).
@@ -1561,6 +1617,22 @@ function paintTypeTrace(tableId){
   // the read/write/domwrite edges to those nodes light up, completing PG→store→fns→DOM.
   var name=tableId.indexOf("pg:")===0?tableId.slice(3):tableId;
   ["store:"+name, "dom"].forEach(function(w){ if(nodeById[w]) disp[w]=1; });
+  // ONLY for the non-content tables (no IndexedDB store of their own): light the web-storage that a
+  // BASE TYPE-CARRIER *writes* — i.e. where the TYPED data itself is persisted (reading-positions →
+  // sessionStorage, written by loadHyperText). We require a base carrier (a fn whose own signature/body
+  // carries the table's type), NOT the seam-expanded carry set: a fn pulled in via the table's route may
+  // also poke localStorage for UNRELATED UI state (shelf tabs, filters, scroll), which is not this data.
+  var tabTypes=(nodeById[tableId]&&nodeById[tableId].types)||[];
+  if(!nodeById["store:"+name] && tabTypes.length){
+    var tset={}; tabTypes.forEach(function(t){ tset[t]=1; });
+    VIZ.edges.forEach(function(e){
+      if(e.rel!=="write") return;
+      var st=e.target;
+      if(st!=="store:localStorage" && st!=="store:sessionStorage") return;
+      var fn=nodeById[e.source];
+      if(fn && fn.types && fn.types.some(function(t){ return tset[t]; })) disp[rep(st)]=1;
+    });
+  }
   cy.elements().addClass("faded").removeClass("hl cycle ring latentring");
   Object.keys(disp).forEach(function(k){ var el=cy.getElementById(k); if(el&&el.length) el.removeClass("faded").addClass("hl"); });
   // light every existing edge between two trace members (any rel), forcing display past the lens
@@ -1604,7 +1676,8 @@ function showDetail(n){
         "<p class='none' style='font-style:normal'>The full PG↔IDB↔DOM journey of this data, from the TS types — both ways at once (the <b>trace: direction</b> toggle is a flow-lens tool and doesn't apply here).</p>"+
         "<h3>flows through "+fnList.length+" fns — lit on the map (rows = PG→DOM)</h3>"+ul(fnList);
     }
-    d.innerHTML="<div class='name'>"+n.data("label")+"</div><div class='sub'>"+(kind==="store"?"IndexedDB object store":kind==="table"?"PostgreSQL table":"the reader page — every DOM-manipulation module reads/writes it")+"</div>"+schemaHtml+typeHtml+"<h3>connected functions</h3>"+ul(movers);
+    var storeSub=n.data("label")==="localStorage"?"Browser localStorage — persistent key→value (NOT IndexedDB)":n.data("label")==="sessionStorage"?"Browser sessionStorage — per-tab key→value (NOT IndexedDB)":"IndexedDB object store";
+    d.innerHTML="<div class='name'>"+n.data("label")+"</div><div class='sub'>"+(kind==="store"?storeSub:kind==="table"?"PostgreSQL table":"the reader page — every DOM-manipulation module reads/writes it")+"</div>"+schemaHtml+typeHtml+"<h3>connected functions</h3>"+ul(movers);
     return;
   }
   var ids, title, sub;

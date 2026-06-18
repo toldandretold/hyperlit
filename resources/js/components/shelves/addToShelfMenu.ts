@@ -4,13 +4,14 @@
  */
 
 import { isLoggedIn } from '../../utilities/auth/index';
+import type { Shelf, ShelfListResponse } from './types';
 
 async function getFloatingMenu() {
     return await import('../floatingActionMenu/floatingActionMenu');
 }
 
 async function doInvalidateShelfCache() {
-    const mod = await import('./shelfTabs.js');
+    const mod = await import('./shelfTabs');
     mod.invalidateShelfCache();
 }
 
@@ -19,7 +20,7 @@ async function doInvalidateShelfCache() {
  * and wire up dismiss handlers. Returns the empty menu and a close() function
  * the caller uses to tear everything down (including the backdrop).
  */
-function buildMenuShell(anchorEl) {
+function buildMenuShell(anchorEl: any) {
     const isMobile = window.innerWidth < 768;
 
     const backdrop = document.createElement('div');
@@ -47,8 +48,8 @@ function buildMenuShell(anchorEl) {
 
     backdrop.addEventListener('click', (e) => { e.stopPropagation(); close(); });
 
-    const dismiss = (e) => {
-        if (!menu.contains(e.target)) close();
+    const dismiss = (e: Event) => {
+        if (!menu.contains(e.target as Node | null)) close();
     };
     setTimeout(() => document.addEventListener('click', dismiss), 0);
 
@@ -60,7 +61,7 @@ function buildMenuShell(anchorEl) {
  * @param {HTMLElement} anchorEl - Position anchor
  * @param {string} bookId - The book to add/remove
  */
-export async function showAddToShelfMenu(anchorEl, bookId) {
+export async function showAddToShelfMenu(anchorEl: any, bookId: any) {
     const { hideFloatingMenu } = await getFloatingMenu();
     hideFloatingMenu();
 
@@ -101,7 +102,7 @@ export async function showAddToShelfMenu(anchorEl, bookId) {
         return;
     }
 
-    const shelves = await fetchShelvesWithMembership(bookId);
+    const shelves: Array<Shelf & { isMember: boolean }> = await fetchShelvesWithMembership(bookId);
 
     const { menu, close } = buildMenuShell(anchorEl);
 
@@ -141,15 +142,15 @@ export async function showAddToShelfMenu(anchorEl, bookId) {
 /**
  * Fetch shelves with membership status for a book.
  */
-async function fetchShelvesWithMembership(bookId) {
+async function fetchShelvesWithMembership(bookId: any) {
     try {
         const xsrf = decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '');
         const resp = await fetch(`/api/shelves?book=${encodeURIComponent(bookId)}`, {
             headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': xsrf },
             credentials: 'include',
         });
-        const data = await resp.json();
-        const shelves = data.shelves || [];
+        const data: ShelfListResponse = await resp.json();
+        const shelves: Shelf[] = data.shelves || [];
         return shelves.map(s => ({ ...s, isMember: !!s.is_member }));
     } catch (err) {
         console.error('Failed to fetch shelves for add-to-shelf:', err);
@@ -160,7 +161,7 @@ async function fetchShelvesWithMembership(bookId) {
 /**
  * Toggle a book's membership in a shelf.
  */
-async function toggleShelfMembership(shelfId, bookId, shouldAdd) {
+async function toggleShelfMembership(shelfId: any, bookId: any, shouldAdd: any) {
     const xsrf = decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '');
     try {
         if (shouldAdd) {
@@ -186,7 +187,7 @@ async function toggleShelfMembership(shelfId, bookId, shouldAdd) {
 /**
  * Create a new shelf and immediately add the book to it.
  */
-async function createShelfAndAdd(anchorEl, bookId) {
+async function createShelfAndAdd(anchorEl: any, bookId: any) {
     const name = prompt('Shelf name:');
     if (!name || !name.trim()) return;
 
@@ -217,7 +218,7 @@ async function createShelfAndAdd(anchorEl, bookId) {
 /**
  * Position menu near anchor.
  */
-function positionMenu(menu, anchor) {
+function positionMenu(menu: any, anchor: any) {
     const rect = anchor.getBoundingClientRect();
     const offset = 8;
     let top = rect.bottom + window.scrollY + offset;

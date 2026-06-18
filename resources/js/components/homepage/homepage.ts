@@ -36,11 +36,11 @@ export function initializeHomepageBookActions() {
     showFloatingMenu(target, menuItems, async (action: any) => {
       switch (action) {
         case 'preview':
-          const { showShelfPreview } = await import('../shelves/shelfPreview.js');
+          const { showShelfPreview } = await import('../shelves/shelfPreview');
           showShelfPreview(bookId);
           break;
         case 'add-to-shelf':
-          const { showAddToShelfMenu } = await import('../shelves/addToShelfMenu.js');
+          const { showAddToShelfMenu } = await import('../shelves/addToShelfMenu');
           showAddToShelfMenu(target, bookId);
           break;
       }

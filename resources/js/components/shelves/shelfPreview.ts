@@ -5,22 +5,22 @@
 
 import { fetchSingleChunkFromServer } from '../../lazyLoader/chunkFetcher';
 
-let previewOverlay = null;
-let previewContainer = null;
+let previewOverlay: any = null;
+let previewContainer: any = null;
 
 /**
  * Show a read-only preview of a book.
  * Fetches chunk 0 and renders it in an overlay.
  * @param {string} bookId - The book to preview
  */
-export async function showShelfPreview(bookId) {
+export async function showShelfPreview(bookId: any) {
     hideShelfPreview();
 
     // Create backdrop overlay
     previewOverlay = document.createElement('div');
     previewOverlay.id = 'shelf-preview-overlay';
     previewOverlay.className = 'shelf-preview-overlay';
-    previewOverlay.addEventListener('click', (e) => {
+    previewOverlay.addEventListener('click', (e: Event) => {
         if (e.target === previewOverlay) hideShelfPreview();
     });
 
@@ -76,13 +76,13 @@ export async function showShelfPreview(bookId) {
         shelfBtn.className = 'shelf-preview-action-btn';
         shelfBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Add to shelf';
         shelfBtn.addEventListener('click', async () => {
-            const { showAddToShelfMenu } = await import('./addToShelfMenu.js');
+            const { showAddToShelfMenu } = await import('./addToShelfMenu');
             showAddToShelfMenu(shelfBtn, bookId);
         });
         actionBar.appendChild(shelfBtn);
 
         // Delete button — only for owners on their own page
-        if (window.isOwner) {
+        if ((window as any).isOwner) {
             const deleteBtn = document.createElement('button');
             deleteBtn.type = 'button';
             deleteBtn.className = 'shelf-preview-action-btn';
@@ -105,7 +105,7 @@ export async function showShelfPreview(bookId) {
                 try {
                     const { refreshAuth } = await import('../../utilities/auth/index');
                     await refreshAuth();
-                    const csrfToken = window.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content;
+                    const csrfToken = (window as any).csrfToken || (document.querySelector('meta[name="csrf-token"]') as any)?.content;
                     const resp = await fetch(`/api/books/${encodeURIComponent(bookId)}`, {
                         method: 'DELETE',
                         headers: {
@@ -134,7 +134,7 @@ export async function showShelfPreview(bookId) {
     }
 
     // ESC to close
-    const escHandler = (e) => {
+    const escHandler = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
             hideShelfPreview();
             document.removeEventListener('keydown', escHandler);

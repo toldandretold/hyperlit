@@ -10,6 +10,7 @@ import {
 import { log, verbose } from '../utilities/logger';
 import { OpenHyperlightID, OpenFootnoteID } from '../app';
 import { gateQueryParam } from '../components/utilities/gateFilter';
+import type { ReadingPosition } from '../scrolling/readingPosition';
 
 /**
  * Fetch the initial chunk from the server for fast first-render loading.
@@ -63,7 +64,7 @@ export async function fetchInitialChunk(bookId: string): Promise<any> {
             targetResolved: data.target_resolved !== false, // default true for backward compat
             targetReason: data.target_reason || null,
             targetFallbackUsed: data.target_fallback_used || null,
-            bookmark: data.bookmark,
+            bookmark: (data.bookmark ?? null) as ReadingPosition | null,
             library: data.library,
             footnotes: data.footnotes,
             metadata: data.metadata,

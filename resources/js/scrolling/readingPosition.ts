@@ -11,6 +11,17 @@ const DEBOUNCE_MS = 5000;
 type ChunkId = string | number | null | undefined;
 
 /**
+ * The `user_reading_positions` wire contract — the per-book scroll bookmark.
+ * Sent on save (POST body) and returned on load (embedded as `bookmark` in
+ * `getInitialChunk`). `chunk_id` is `integer` in Postgres but the FE `ChunkId`
+ * union admits a string, so keep the type honest.
+ */
+export interface ReadingPosition {
+  chunk_id: ChunkId;
+  element_id: string | null;
+}
+
+/**
  * Debounced save of reading position to server.
  * Called from lazyLoaderFactory.js forceSavePosition().
  */
@@ -36,10 +47,11 @@ export function sendBeaconSave(bookId: string, elementId: string, chunkId: Chunk
     if (bookId.includes('/')) return; // Skip sub-books — see debouncedServerSave
 
     const url = buildPositionUrl(bookId);
-    const data = JSON.stringify({
+    const body: ReadingPosition = {
         element_id: elementId,
         chunk_id: chunkId,
-    });
+    };
+    const data = JSON.stringify(body);
     const blob = new Blob([data], { type: 'application/json' });
 
     try {
@@ -56,6 +68,10 @@ async function saveToServer(bookId: string, elementId: string, chunkId: ChunkId)
     try {
         const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
         const url = buildPositionUrl(bookId);
+        const body: ReadingPosition = {
+            element_id: elementId,
+            chunk_id: chunkId,
+        };
 
         await fetch(url, {
             method: 'POST',
@@ -64,10 +80,7 @@ async function saveToServer(bookId: string, elementId: string, chunkId: ChunkId)
                 ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
             },
             credentials: 'include',
-            body: JSON.stringify({
-                element_id: elementId,
-                chunk_id: chunkId,
-            }),
+            body: JSON.stringify(body),
         });
     } catch (error: any) {
         // Silently fail — position saving is best-effort

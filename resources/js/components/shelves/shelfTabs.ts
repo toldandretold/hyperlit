@@ -3,6 +3,8 @@
  * Tabs behave like browser tabs: scrollable, closable, and persisted.
  */
 
+import type { Shelf, ShelfListResponse } from './types';
+
 // Dynamic import to avoid blocking module loading
 async function getTransitionFn() {
     const mod = await import('../homepage/homepageDisplayUnit');
@@ -11,12 +13,12 @@ async function getTransitionFn() {
 
 const STORAGE_KEY = 'homepage_open_shelves';
 const ACTIVE_SHELF_KEY = 'homepage_active_shelf_id';
-let shelvesCache = null;
+let shelvesCache: Shelf[] | null = null;
 let pickerVisible = false;
 
 // Mirror the active shelf into history.state so back/forward restores
 // the correct tab per history entry.
-function persistActiveShelfToHistory(shelfId, content) {
+function persistActiveShelfToHistory(shelfId: any, content: any) {
     try {
         const currentState = history.state || {};
         history.replaceState(
@@ -89,7 +91,7 @@ export function initializeShelfTabs() {
 /**
  * Open a shelf — creates or activates a tab and loads its content.
  */
-export async function openShelf(shelfId, shelfName, sort = 'recent') {
+export async function openShelf(shelfId: any, shelfName: any, sort = 'recent') {
     // Check if a tab for this shelf already exists
     const existing = document.querySelector(`.shelf-tab[data-shelf-id="${shelfId}"]`);
     if (existing) {
@@ -107,7 +109,7 @@ export async function openShelf(shelfId, shelfName, sort = 'recent') {
 /**
  * Create a dynamic shelf tab button and insert it before the shelf-picker-trigger.
  */
-function createTabButton(shelfId, shelfName, sort, persist) {
+function createTabButton(shelfId: any, shelfName: any, sort: any, persist: any) {
     const picker = document.getElementById('shelf-picker-trigger');
     if (!picker) return null;
 
@@ -137,7 +139,7 @@ function createTabButton(shelfId, shelfName, sort, persist) {
         activateTab(btn);
     });
 
-    picker.parentNode.insertBefore(btn, picker);
+    picker.parentNode!.insertBefore(btn, picker);
 
     if (persist) {
         persistOpenTabs();
@@ -149,7 +151,7 @@ function createTabButton(shelfId, shelfName, sort, persist) {
 /**
  * Activate a shelf tab — load its content and mark it active.
  */
-async function activateTab(btn) {
+async function activateTab(btn: any) {
     const shelfId = btn.dataset.shelfId;
     const sort = btn.dataset.sort || 'recent';
 
@@ -166,8 +168,8 @@ async function activateTab(btn) {
         await transitionToBookContent(btn.dataset.content, true);
 
         // Show shelf header for custom shelf
-        const { showShelfHeader } = await import('./shelfHeader.js');
-        const shelf = window.userShelves?.find(s => s.id == shelfId);
+        const { showShelfHeader } = await import('./shelfHeader');
+        const shelf = (window as any).userShelves?.find((s: any) => s.id == shelfId);
         showShelfHeader({
             shelfId,
             shelfName: btn.querySelector('.shelf-tab-name')?.textContent || '',
@@ -175,7 +177,7 @@ async function activateTab(btn) {
             currentSort: sort,
             isSystemShelf: false,
             isOwner: true,
-            username: window.username,
+            username: (window as any).username,
             slug: shelf?.slug || null,
         });
         return;
@@ -204,8 +206,8 @@ async function activateTab(btn) {
         await transitionToBookContent(data.bookId, true);
 
         // Show shelf header for custom shelf
-        const { showShelfHeader } = await import('./shelfHeader.js');
-        const shelf = window.userShelves?.find(s => s.id == shelfId);
+        const { showShelfHeader } = await import('./shelfHeader');
+        const shelf = (window as any).userShelves?.find((s: any) => s.id == shelfId);
         showShelfHeader({
             shelfId,
             shelfName: btn.querySelector('.shelf-tab-name')?.textContent || '',
@@ -213,7 +215,7 @@ async function activateTab(btn) {
             currentSort: sort,
             isSystemShelf: false,
             isOwner: true,
-            username: window.username,
+            username: (window as any).username,
             slug: shelf?.slug || null,
         });
     } catch (err) {
@@ -224,7 +226,7 @@ async function activateTab(btn) {
 /**
  * Close a shelf tab. If it was active, activate the previous tab or Public.
  */
-export function closeTab(btn) {
+export function closeTab(btn: any) {
     const wasActive = btn.classList.contains('active');
     const allTabs = Array.from(document.querySelectorAll('.shelf-tab'));
     const idx = allTabs.indexOf(btn);
@@ -242,7 +244,7 @@ export function closeTab(btn) {
             // No shelf tabs left — activate Public
             localStorage.removeItem(ACTIVE_SHELF_KEY);
             clearActiveTabFromHistory();
-            const publicBtn = document.querySelector('.arranger-button[data-filter="public"]');
+            const publicBtn = document.querySelector('.arranger-button[data-filter="public"]') as HTMLElement | null;
             if (publicBtn) {
                 publicBtn.click();
             }
@@ -255,9 +257,9 @@ export function closeTab(btn) {
  */
 function persistOpenTabs() {
     const tabs = Array.from(document.querySelectorAll('.shelf-tab')).map(btn => ({
-        shelfId: btn.dataset.shelfId,
+        shelfId: (btn as HTMLElement).dataset.shelfId,
         shelfName: btn.querySelector('.shelf-tab-name')?.textContent || '',
-        sort: btn.dataset.sort || 'recent',
+        sort: (btn as HTMLElement).dataset.sort || 'recent',
     }));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tabs));
 }
@@ -265,7 +267,7 @@ function persistOpenTabs() {
 /**
  * Toggle the shelf picker dropdown.
  */
-async function toggleShelfPicker(e) {
+async function toggleShelfPicker(e: any) {
     e.stopPropagation();
     const trigger = e.currentTarget; // capture before await
     const existing = document.getElementById('shelf-picker-dropdown');
@@ -283,7 +285,7 @@ async function toggleShelfPicker(e) {
 /**
  * Fetch user's shelves from API (with simple cache).
  */
-async function fetchShelves(forceRefresh = false) {
+export async function fetchShelves(forceRefresh = false): Promise<Shelf[]> {
     if (shelvesCache && !forceRefresh) return shelvesCache;
 
     try {
@@ -292,7 +294,7 @@ async function fetchShelves(forceRefresh = false) {
             headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': xsrf },
             credentials: 'include',
         });
-        const data = await resp.json();
+        const data: ShelfListResponse = await resp.json();
         shelvesCache = data.shelves || [];
         return shelvesCache;
     } catch (err) {
@@ -304,7 +306,7 @@ async function fetchShelves(forceRefresh = false) {
 /**
  * Render the shelf picker dropdown below the trigger button.
  */
-function renderShelfPicker(shelves, trigger) {
+function renderShelfPicker(shelves: any, trigger: any) {
     const dropdown = document.createElement('div');
     dropdown.id = 'shelf-picker-dropdown';
     dropdown.className = 'shelf-picker-dropdown';
@@ -344,8 +346,8 @@ function renderShelfPicker(shelves, trigger) {
     dropdown.style.left = Math.min(rect.left, maxLeft) + 'px';
 
     // Dismiss on outside click
-    const dismiss = (e) => {
-        if (!dropdown.contains(e.target) && e.target !== trigger) {
+    const dismiss = (e: Event) => {
+        if (!dropdown.contains(e.target as Node | null) && e.target !== trigger) {
             dropdown.remove();
             pickerVisible = false;
             document.removeEventListener('click', dismiss);
@@ -357,7 +359,7 @@ function renderShelfPicker(shelves, trigger) {
 /**
  * Show inline form for creating a new shelf.
  */
-function showNewShelfForm(dropdown) {
+function showNewShelfForm(dropdown: any) {
     // Clear dropdown contents and show form
     dropdown.innerHTML = '';
     dropdown.classList.add('shelf-picker-form');

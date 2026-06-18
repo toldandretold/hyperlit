@@ -29,7 +29,12 @@ describe('IndexedDB flow viz', () => {
     const kinds = viz.nodes.reduce((a, n) => ((a[n.kind] = (a[n.kind] || 0) + 1), a), {});
 
     expect(kinds.fn).toBeGreaterThan(0);
-    expect(kinds.store).toBe(8);   // pinned schema store count
+    expect(kinds.store).toBe(10);  // 8 IndexedDB object stores + localStorage + sessionStorage
+    // web-storage modelled as store nodes (same row, distinct colour) so non-IDB tables have a real waypoint
+    expect(byId['store:localStorage'], 'localStorage store node').toBeTruthy();
+    expect(byId['store:sessionStorage'], 'sessionStorage store node').toBeTruthy();
+    expect(viz.edges.some(e => e.rel === 'write' && e.target === 'store:localStorage')).toBe(true);
+    expect(viz.edges.some(e => e.rel === 'read' && e.source === 'store:sessionStorage')).toBe(true);
     expect(kinds.dom).toBe(1);
     expect(kinds.table).toBeGreaterThan(0);
     expect(viz.edges.length).toBeGreaterThan(0);
@@ -165,6 +170,55 @@ describe('IndexedDB flow viz', () => {
     // the embedded-view seam — carries NodeHyperlightView, so it ALSO lights for the `nodes` trace
     expect(fnByLabel('updateEmbeddedAnnotationsInNodes').types).toContain('NodeHyperlightView');
     expect(fnByLabel('applyHighlights').types).toContain('NodeHyperlightView');                  // DOM render of the embedded view
+  });
+
+  // ── the four non-content tables: a single API-contract type each (fetch → DOM, no IDB store) ──
+
+  it('type-trace capture: user_reading_positions — the scroll bookmark contract', () => {
+    const viz = collect();
+    const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
+    const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
+
+    expect(byId['pg:user_reading_positions'].types).toEqual(['ReadingPosition']);
+    expect(fnByLabel('sendBeaconSave').types).toContain('ReadingPosition');     // save (DOM → server)
+    expect(fnByLabel('fetchInitialChunk').types).toContain('ReadingPosition');  // load-back (bookmark in initial chunk)
+    // the read-back arm lands the bookmark in sessionStorage (its real client-side persistence —
+    // no IndexedDB store), so the trace reaches a store waypoint instead of dead-ending at the DOM.
+    expect(fnByLabel('loadHyperText').types).toContain('ReadingPosition');
+    expect(viz.edges.some(e => e.rel === 'write'
+      && e.source === 'pageLoad/loadHyperText:loadHyperText'
+      && e.target === 'store:sessionStorage')).toBe(true);
+  });
+
+  it('type-trace capture: canonical_source — the click-time best-version response', () => {
+    const viz = collect();
+    const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
+    const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
+
+    expect(byId['pg:canonical_source'].types).toEqual(['CanonicalBestVersion']);
+    // the bibliography resolver is the sole consumer — fetches /api/canonical/{id}/best-version
+    expect(fnByLabel('resolveBibliographyTarget').types).toContain('CanonicalBestVersion');
+  });
+
+  it('type-trace capture: vibes — the css-override preset gallery', () => {
+    const viz = collect();
+    const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
+    const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
+
+    expect(byId['pg:vibes'].types).toEqual(['Vibe', 'VibeInput']); // sorted
+    expect(fnByLabel('fetchMyVibes').types).toContain('Vibe');       // load (mine)
+    expect(fnByLabel('fetchPublicVibes').types).toContain('Vibe');   // load (public gallery)
+    expect(fnByLabel('saveVibe').types).toEqual(expect.arrayContaining(['Vibe', 'VibeInput'])); // save body + result
+  });
+
+  it('type-trace capture: shelves — user book-collections (JS→TS migrated folder)', () => {
+    const viz = collect();
+    const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
+    const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
+
+    expect(byId['pg:shelves'].types).toEqual(['Shelf']);
+    expect(fnByLabel('fetchShelves').types).toContain('Shelf');         // the canonical shelf-list accessor
+    expect(fnByLabel('showAddToShelfMenu').types).toContain('Shelf');   // add-to-shelf submenu consumer
   });
 
   it('API route tier: endpoints carry precise per-endpoint tables (no coarse fan-out)', () => {

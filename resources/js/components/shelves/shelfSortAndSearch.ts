@@ -4,17 +4,17 @@
 
 // Dynamic imports to avoid blocking module loading
 async function getOpenShelf() {
-    const mod = await import('./shelfTabs.js');
+    const mod = await import('./shelfTabs');
     return mod.openShelf;
 }
 
-let currentSortBar = null;
+let currentSortBar: any = null;
 
 /**
  * Show the sort/search bar above .main-content.
  * @param {Object} options - { shelfId, shelfName, currentSort, isSystemShelf }
  */
-export function showSortBar(options = {}) {
+export function showSortBar(options: any = {}) {
     removeSortBar();
 
     const { shelfId, shelfName, currentSort = 'recent', isSystemShelf = false } = options;
@@ -101,7 +101,7 @@ export function removeSortBar() {
  * Handle sort change.
  * For small shelves (<=100 cards), reorder DOM. For large, re-render from server.
  */
-async function handleSortChange(newSort, shelfId, shelfName, isSystemShelf) {
+async function handleSortChange(newSort: any, shelfId: any, shelfName: any, isSystemShelf: any) {
     const cards = document.querySelectorAll('.libraryCard');
 
     if (!isSystemShelf && shelfId && cards.length > 100) {
@@ -121,13 +121,13 @@ async function handleSortChange(newSort, shelfId, shelfName, isSystemShelf) {
 /**
  * Sort library cards in the DOM without server call.
  */
-function sortCardsInDOM(sortType, cards) {
+function sortCardsInDOM(sortType: any, cards: any) {
     const parent = cards[0]?.parentElement;
     if (!parent) return;
 
     const cardArray = Array.from(cards);
 
-    cardArray.sort((a, b) => {
+    cardArray.sort((a: any, b: any) => {
         switch (sortType) {
             case 'views':
                 // Use data attribute if available, otherwise fall back to DOM order
@@ -148,16 +148,16 @@ function sortCardsInDOM(sortType, cards) {
 /**
  * Client-side filter of library cards by text content.
  */
-function handleSearch(query) {
+function handleSearch(query: any) {
     const cards = document.querySelectorAll('.libraryCard');
     const lower = query.toLowerCase().trim();
 
     for (const card of cards) {
         if (!lower) {
-            card.style.display = '';
+            (card as HTMLElement).style.display = '';
         } else {
-            const text = card.textContent.toLowerCase();
-            card.style.display = text.includes(lower) ? '' : 'none';
+            const text = card.textContent!.toLowerCase();
+            (card as HTMLElement).style.display = text.includes(lower) ? '' : 'none';
         }
     }
 }

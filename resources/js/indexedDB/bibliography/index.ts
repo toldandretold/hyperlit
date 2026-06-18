@@ -66,13 +66,35 @@ export {
   syncReferencesToPostgreSQL,
 } from './syncReferencesToPostgreSQL';
 
+/**
+ * The `/api/canonical/{id}/best-version` response — the only `canonical_source` data
+ * that reaches the client. Mirrors `CanonicalSourceController::bestVersion`: `book` is the
+ * best VISIBLE library version (or null = citation-only), plus enough metadata for the card.
+ */
+export interface CanonicalMetadata {
+  title?: string | null;
+  author?: string | null;
+  year?: number | null;
+  journal?: string | null;
+  publisher?: string | null;
+  doi?: string | null;
+  abstract?: string | null;
+  oa_url?: string | null;
+  pdf_url?: string | null;
+}
+export interface CanonicalBestVersion {
+  book: BookId | null;
+  has_version: boolean;
+  metadata: CanonicalMetadata;
+}
+
 /** Click-time resolution result for a bibliography record. */
 export interface BibliographyTarget {
   type: 'library' | 'citation-card';
   book?: BookId;
   canonical_source_id?: string;
   has_nodes?: boolean;
-  metadata?: Record<string, unknown>;
+  metadata?: CanonicalMetadata;
 }
 
 /**
@@ -114,7 +136,7 @@ export async function resolveBibliographyTarget(
         }
       );
       if (resp.ok) {
-        const data = await resp.json();
+        const data: CanonicalBestVersion = await resp.json();
         if (data.book) {
           return {
             type: 'library',

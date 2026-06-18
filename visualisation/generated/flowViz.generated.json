@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1487,
-    "moduleCount": 305,
-    "storeCount": 8,
-    "tableCount": 7,
-    "edgeCount": 2902,
+    "fnCount": 1501,
+    "moduleCount": 310,
+    "storeCount": 10,
+    "tableCount": 10,
+    "edgeCount": 3060,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -377,7 +377,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/editButton/cursor",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/editButton/cursor:placeCursorAtEndOfElement",
@@ -793,7 +793,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/newbookContainer/citeForm/persistence",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/newbookContainer/citeForm/persistence:saveFormData",
@@ -801,7 +801,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/newbookContainer/citeForm/persistence",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/newbookContainer/citeForm/persistence:setupClearButton",
@@ -897,7 +897,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/newbookContainer/debugLog",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/newbookContainer/debugLog:updateDebugPanel",
@@ -921,7 +921,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/newbookContainer/index",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/newbookContainer/index:NewBookContainerManager.closeContainer",
@@ -1425,7 +1425,10 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/vibeCSS/api",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "Vibe"
+      ]
     },
     {
       "id": "components/settingsContainer/vibeCSS/api:fetchPublicVibes",
@@ -1433,7 +1436,10 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/vibeCSS/api",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "Vibe"
+      ]
     },
     {
       "id": "components/settingsContainer/vibeCSS/api:saveVibe",
@@ -1441,7 +1447,11 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/vibeCSS/api",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "Vibe",
+        "VibeInput"
+      ]
     },
     {
       "id": "components/settingsContainer/vibeCSS/api:submitVibeRequest",
@@ -1457,7 +1467,10 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/vibeCSS/api",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "Vibe"
+      ]
     },
     {
       "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
@@ -1497,7 +1510,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/vibeCSS/storage",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/settingsContainer/vibeCSS/storage:getVibeCSS",
@@ -1505,7 +1518,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/vibeCSS/storage",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/settingsContainer/vibeCSS/storage:getVibePrompt",
@@ -1513,7 +1526,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/vibeCSS/storage",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/settingsContainer/vibeCSS/storage:hasVibeCSS",
@@ -1529,6 +1542,124 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/vibeCSS/storage",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "label": "showAddToShelfMenu",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/addToShelfMenu",
+      "leaf": false,
+      "types": [
+        "Shelf"
+      ]
+    },
+    {
+      "id": "components/shelves/shelfHeader:removeShelfHeader",
+      "label": "removeShelfHeader",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfHeader",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader",
+      "label": "showShelfHeader",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfHeader",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/shelfPreview:hideShelfPreview",
+      "label": "hideShelfPreview",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfPreview",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/shelfPreview:showShelfPreview",
+      "label": "showShelfPreview",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfPreview",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/shelfSortAndSearch:removeSortBar",
+      "label": "removeSortBar",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfSortAndSearch",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/shelfSortAndSearch:showSortBar",
+      "label": "showSortBar",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfSortAndSearch",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/shelfTabs:clearActiveShelf",
+      "label": "clearActiveShelf",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfTabs",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/shelfTabs:closeTab",
+      "label": "closeTab",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfTabs",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/shelfTabs:destroyShelfTabs",
+      "label": "destroyShelfTabs",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfTabs",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/shelfTabs:fetchShelves",
+      "label": "fetchShelves",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfTabs",
+      "leaf": false,
+      "types": [
+        "Shelf"
+      ]
+    },
+    {
+      "id": "components/shelves/shelfTabs:initializeShelfTabs",
+      "label": "initializeShelfTabs",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfTabs",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/shelfTabs:invalidateShelfCache",
+      "label": "invalidateShelfCache",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfTabs",
+      "leaf": true
+    },
+    {
+      "id": "components/shelves/shelfTabs:openShelf",
+      "label": "openShelf",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfTabs",
       "leaf": false
     },
     {
@@ -2544,7 +2675,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/userContainer/anonymousTransfer",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer",
@@ -2664,7 +2795,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/userContainer/cache",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/userContainer/cache:clearAndRefreshDatabase",
@@ -3320,7 +3451,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/utilities/containerCustomization",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/utilities/containerCustomization:ContainerCustomizer.init",
@@ -3360,7 +3491,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/utilities/containerCustomization",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/utilities/containerCustomization:ContainerCustomizer.updateContainer",
@@ -3528,7 +3659,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/utilities/gateFilter",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/utilities/gateFilter:getBookGateDefaults",
@@ -3544,7 +3675,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/utilities/gateFilter",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/utilities/gateFilter:reapplyAnnotationsWithGate",
@@ -8629,7 +8760,8 @@
       "module": "indexedDB/bibliography/index",
       "leaf": false,
       "types": [
-        "BibliographyRecord"
+        "BibliographyRecord",
+        "CanonicalBestVersion"
       ]
     },
     {
@@ -9610,7 +9742,7 @@
       "kind": "fn",
       "stage": "lazyLoader",
       "module": "lazyLoader/chunkFetcher",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
@@ -9830,7 +9962,7 @@
       "kind": "fn",
       "stage": "pageLoad",
       "module": "pageLoad/backgroundDownload",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "pageLoad/backgroundDownload:waitForBackgroundDownload",
@@ -9894,7 +10026,10 @@
       "kind": "fn",
       "stage": "pageLoad",
       "module": "pageLoad/initialChunk",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "ReadingPosition"
+      ]
     },
     {
       "id": "pageLoad/initialChunk:resolveBootstrapTarget",
@@ -9950,7 +10085,10 @@
       "kind": "fn",
       "stage": "pageLoad",
       "module": "pageLoad/loadHyperText",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "ReadingPosition"
+      ]
     },
     {
       "id": "pageLoad/nodeGen:generateNodeChunksFromMarkdown",
@@ -11276,7 +11414,10 @@
     {
       "id": "pg:canonical_source",
       "label": "canonical_source",
-      "kind": "table"
+      "kind": "table",
+      "types": [
+        "CanonicalBestVersion"
+      ]
     },
     {
       "id": "pg:footnotes",
@@ -11329,9 +11470,29 @@
       ]
     },
     {
+      "id": "pg:shelves",
+      "label": "shelves",
+      "kind": "table",
+      "types": [
+        "Shelf"
+      ]
+    },
+    {
       "id": "pg:user_reading_positions",
       "label": "user_reading_positions",
-      "kind": "table"
+      "kind": "table",
+      "types": [
+        "ReadingPosition"
+      ]
+    },
+    {
+      "id": "pg:vibes",
+      "label": "vibes",
+      "kind": "table",
+      "types": [
+        "Vibe",
+        "VibeInput"
+      ]
     },
     {
       "id": "route:/api/canonical",
@@ -11362,11 +11523,25 @@
       "dir": "pull"
     },
     {
+      "id": "route:/api/database-to-indexeddb/books/{}/initial",
+      "label": "books/initial",
+      "kind": "route",
+      "group": "content",
+      "dir": "pull"
+    },
+    {
       "id": "route:/api/database-to-indexeddb/books/{}/library",
       "label": "books/library",
       "kind": "route",
       "group": "content",
       "dir": "pull"
+    },
+    {
+      "id": "route:/api/database-to-indexeddb/books/{}/reading-position",
+      "label": "books/reading-position",
+      "kind": "route",
+      "group": "content",
+      "dir": "push"
     },
     {
       "id": "route:/api/db/footnotes/upsert",
@@ -11439,6 +11614,20 @@
       "dir": "push"
     },
     {
+      "id": "route:/api/shelves",
+      "label": "shelves",
+      "kind": "route",
+      "group": "content",
+      "dir": "pull"
+    },
+    {
+      "id": "route:/api/vibes",
+      "label": "vibes",
+      "kind": "route",
+      "group": "content",
+      "dir": "pull"
+    },
+    {
       "id": "scrolling/index:clearNavigatedHashes",
       "label": "clearNavigatedHashes",
       "kind": "fn",
@@ -11484,7 +11673,7 @@
       "kind": "fn",
       "stage": "scrolling",
       "module": "scrolling/navOverlay",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "scrolling/navOverlay:showNavigationLoading",
@@ -11508,7 +11697,10 @@
       "kind": "fn",
       "stage": "scrolling",
       "module": "scrolling/readingPosition",
-      "leaf": true
+      "leaf": false,
+      "types": [
+        "ReadingPosition"
+      ]
     },
     {
       "id": "scrolling/restore:restoreScrollPosition",
@@ -11700,7 +11892,7 @@
       "kind": "fn",
       "stage": "infra",
       "module": "search/inTextSearch/searchToolbar",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "search/inTextSearch/searchToolbar:closeSearchToolbar",
@@ -11844,7 +12036,7 @@
       "kind": "fn",
       "stage": "infra",
       "module": "search/inTextSearch/searchToolbar",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleClickOutside",
@@ -12220,7 +12412,7 @@
       "kind": "fn",
       "stage": "SPA",
       "module": "SPA/navigation/LinkNavigationHandler",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.areStructuresCompatible",
@@ -12892,7 +13084,7 @@
       "kind": "fn",
       "stage": "SPA",
       "module": "SPA/navigation/pathways/FreshPageLoader",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.setupFreshPageLoadHandling",
@@ -12916,7 +13108,7 @@
       "kind": "fn",
       "stage": "SPA",
       "module": "SPA/navigation/pathways/ImportBookTransition",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.createImportProgressUI",
@@ -12996,7 +13188,7 @@
       "kind": "fn",
       "stage": "SPA",
       "module": "SPA/navigation/pathways/ImportBookTransition",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.showFootnoteAuditModal",
@@ -13180,7 +13372,7 @@
       "kind": "fn",
       "stage": "SPA",
       "module": "SPA/navigation/ProgressOverlayConductor",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "SPA/navigation/ProgressOverlayConductor:ProgressOverlayConductor.showSPATransition",
@@ -13517,6 +13709,11 @@
       "kind": "store"
     },
     {
+      "id": "store:localStorage",
+      "label": "localStorage",
+      "kind": "store"
+    },
+    {
       "id": "store:markdownStore",
       "label": "markdownStore",
       "kind": "store"
@@ -13524,6 +13721,11 @@
     {
       "id": "store:nodes",
       "label": "nodes",
+      "kind": "store"
+    },
+    {
+      "id": "store:sessionStorage",
+      "label": "sessionStorage",
       "kind": "store"
     }
   ],
@@ -14051,6 +14253,60 @@
         "components/settingsContainer/vibeCSS/storage:getVibePrompt",
         "components/settingsContainer/vibeCSS/storage:hasVibeCSS",
         "components/settingsContainer/vibeCSS/storage:removeVibeCSS"
+      ]
+    },
+    {
+      "id": "components/shelves/addToShelfMenu",
+      "label": "components/shelves/addToShelfMenu",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/shelves/addToShelfMenu:showAddToShelfMenu"
+      ]
+    },
+    {
+      "id": "components/shelves/shelfHeader",
+      "label": "components/shelves/shelfHeader",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/shelves/shelfHeader:removeShelfHeader",
+        "components/shelves/shelfHeader:showShelfHeader"
+      ]
+    },
+    {
+      "id": "components/shelves/shelfPreview",
+      "label": "components/shelves/shelfPreview",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/shelves/shelfPreview:hideShelfPreview",
+        "components/shelves/shelfPreview:showShelfPreview"
+      ]
+    },
+    {
+      "id": "components/shelves/shelfSortAndSearch",
+      "label": "components/shelves/shelfSortAndSearch",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/shelves/shelfSortAndSearch:removeSortBar",
+        "components/shelves/shelfSortAndSearch:showSortBar"
+      ]
+    },
+    {
+      "id": "components/shelves/shelfTabs",
+      "label": "components/shelves/shelfTabs",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/shelves/shelfTabs:clearActiveShelf",
+        "components/shelves/shelfTabs:closeTab",
+        "components/shelves/shelfTabs:destroyShelfTabs",
+        "components/shelves/shelfTabs:fetchShelves",
+        "components/shelves/shelfTabs:initializeShelfTabs",
+        "components/shelves/shelfTabs:invalidateShelfCache",
+        "components/shelves/shelfTabs:openShelf"
       ]
     },
     {
@@ -15555,7 +15811,7 @@
       "id": "hyperlitContainer/contentBuilders/displayHypercites",
       "label": "hyperlitContainer/contentBuilders/displayHypercites",
       "stage": "hyperlitContainer",
-      "band": "capture",
+      "band": "sync",
       "fnIds": [
         "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent",
         "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
@@ -16197,7 +16453,7 @@
       "id": "lazyLoader/chunkFetcher",
       "label": "lazyLoader/chunkFetcher",
       "stage": "lazyLoader",
-      "band": "store",
+      "band": "sync",
       "fnIds": [
         "lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
         "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB"
@@ -16295,7 +16551,7 @@
       "id": "pageLoad/backgroundDownload",
       "label": "pageLoad/backgroundDownload",
       "stage": "pageLoad",
-      "band": "store",
+      "band": "sync",
       "fnIds": [
         "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
         "pageLoad/backgroundDownload:waitForBackgroundDownload"
@@ -16335,7 +16591,7 @@
       "id": "pageLoad/initialChunk",
       "label": "pageLoad/initialChunk",
       "stage": "pageLoad",
-      "band": "store",
+      "band": "sync",
       "fnIds": [
         "pageLoad/initialChunk:fetchInitialChunk",
         "pageLoad/initialChunk:resolveBootstrapTarget"
@@ -16938,7 +17194,7 @@
       "id": "scrolling/readingPosition",
       "label": "scrolling/readingPosition",
       "stage": "scrolling",
-      "band": "capture",
+      "band": "sync",
       "fnIds": [
         "scrolling/readingPosition:debouncedServerSave",
         "scrolling/readingPosition:sendBeaconSave"
@@ -17613,7 +17869,8 @@
       "id": "components/editButton/index:enableEditMode__call__components/editButton/cursor:getSavedScrollElementId",
       "source": "components/editButton/index:enableEditMode",
       "target": "components/editButton/cursor:getSavedScrollElementId",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/editButton/index:enableEditMode__call__components/editButton/cursor:placeCursorAtEndOfElement",
@@ -17651,7 +17908,8 @@
       "id": "components/editButton/index:enableEditMode__call__divEditor/index:startObserving",
       "source": "components/editButton/index:enableEditMode",
       "target": "divEditor/index:startObserving",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/editButton/index:enableEditMode__call__editToolbar/index:getEditToolbar",
@@ -17795,6 +18053,20 @@
       "rel": "call"
     },
     {
+      "id": "components/homepage/homepage:initializeHomepageBookActions__call__components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "source": "components/homepage/homepage:initializeHomepageBookActions",
+      "target": "components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/homepage/homepage:initializeHomepageBookActions__call__components/shelves/shelfPreview:showShelfPreview",
+      "source": "components/homepage/homepage:initializeHomepageBookActions",
+      "target": "components/shelves/shelfPreview:showShelfPreview",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
       "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
       "target": "components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
@@ -17814,6 +18086,19 @@
       "dataPath": true
     },
     {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__components/shelves/shelfHeader:removeShelfHeader",
+      "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "target": "components/shelves/shelfHeader:removeShelfHeader",
+      "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__components/shelves/shelfHeader:showShelfHeader",
+      "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "target": "components/shelves/shelfHeader:showShelfHeader",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__indexedDB/core/library:getAllOfflineAvailableBooks",
       "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
       "target": "indexedDB/core/library:getAllOfflineAvailableBooks",
@@ -17825,6 +18110,12 @@
       "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__write__store:localStorage",
+      "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "target": "store:localStorage",
+      "rel": "write"
     },
     {
       "id": "components/homepage/homepageDisplayUnit:transitionToBookContent__call__pageLoad/lazyLoaderRegistry:resetCurrentLazyLoader",
@@ -18184,13 +18475,15 @@
       "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/persistence:loadFormData",
       "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
       "target": "components/newbookContainer/citeForm/persistence:loadFormData",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/persistence:setupClearButton",
       "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
       "target": "components/newbookContainer/citeForm/persistence:setupClearButton",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/persistence:setupFormPersistence",
@@ -18300,6 +18593,12 @@
       "rel": "call"
     },
     {
+      "id": "components/newbookContainer/citeForm/persistence:saveFormData__write__store:localStorage",
+      "source": "components/newbookContainer/citeForm/persistence:saveFormData",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
       "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
       "target": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
@@ -18352,6 +18651,12 @@
       "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__write__store:localStorage",
+      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "target": "store:localStorage",
+      "rel": "write"
     },
     {
       "id": "components/newbookContainer/citeForm/persistence:setupFormPersistence__call__components/newbookContainer/citeForm/dom:$",
@@ -18545,7 +18850,8 @@
       "id": "components/newbookContainer/debugLog:createDebugPanel__call__components/newbookContainer/debugLog:updateDebugPanel",
       "source": "components/newbookContainer/debugLog:createDebugPanel",
       "target": "components/newbookContainer/debugLog:updateDebugPanel",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/newbookContainer/debugLog:createDebugPanel__domwrite__dom",
@@ -18554,10 +18860,28 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/newbookContainer/debugLog:createDebugPanel__write__store:localStorage",
+      "source": "components/newbookContainer/debugLog:createDebugPanel",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "components/newbookContainer/debugLog:debugLog__write__store:localStorage",
+      "source": "components/newbookContainer/debugLog:debugLog",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "components/newbookContainer/debugLog:updateDebugPanel__domwrite__dom",
       "source": "components/newbookContainer/debugLog:updateDebugPanel",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.clearSavedFormData__write__store:localStorage",
+      "source": "components/newbookContainer/index:NewBookContainerManager.clearSavedFormData",
+      "target": "store:localStorage",
+      "rel": "write"
     },
     {
       "id": "components/newbookContainer/index:NewBookContainerManager.closeContainer__domwrite__dom",
@@ -18582,6 +18906,12 @@
       "source": "components/newbookContainer/index:NewBookContainerManager.restoreOriginalContent",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.saveFormData__write__store:localStorage",
+      "source": "components/newbookContainer/index:NewBookContainerManager.saveFormData",
+      "target": "store:localStorage",
+      "rel": "write"
     },
     {
       "id": "components/newbookContainer/index:NewBookContainerManager.setupButtonListeners__call__SPA/navigation/navigationRegistry:navigate",
@@ -18635,7 +18965,8 @@
       "id": "components/settingsContainer/gate:_openGatePanel__call__components/utilities/gateFilter:getGateSettings",
       "source": "components/settingsContainer/gate:_openGatePanel",
       "target": "components/utilities/gateFilter:getGateSettings",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/gate:_openGatePanel__call__components/utilities/gateFilter:reapplyAnnotationsWithGate",
@@ -18683,6 +19014,12 @@
       "rel": "write"
     },
     {
+      "id": "components/settingsContainer/gate:_openGatePanel__write__store:localStorage",
+      "source": "components/settingsContainer/gate:_openGatePanel",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "components/settingsContainer/index:SettingsContainerManager._debounceResize__call__components/settingsContainer/textControls:_debounceResize",
       "source": "components/settingsContainer/index:SettingsContainerManager._debounceResize",
       "target": "components/settingsContainer/textControls:_debounceResize",
@@ -18713,19 +19050,22 @@
       "id": "components/settingsContainer/index:SettingsContainerManager._reconcileWidthDebounced__call__components/settingsContainer/textControls:reconcileViewportWidth",
       "source": "components/settingsContainer/index:SettingsContainerManager._reconcileWidthDebounced",
       "target": "components/settingsContainer/textControls:reconcileViewportWidth",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/index:SettingsContainerManager.applyTextAdjustments__call__components/settingsContainer/textControls:applyTextAdjustments",
       "source": "components/settingsContainer/index:SettingsContainerManager.applyTextAdjustments",
       "target": "components/settingsContainer/textControls:applyTextAdjustments",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick__call__components/settingsContainer/themeSwitcher:switchTheme",
       "source": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
       "target": "components/settingsContainer/themeSwitcher:switchTheme",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick__call__search/inTextSearch/searchToolbar:openSearchToolbar",
@@ -18737,25 +19077,29 @@
       "id": "components/settingsContainer/index:SettingsContainerManager.handleSliderInput__call__components/settingsContainer/textControls:handleSliderInput",
       "source": "components/settingsContainer/index:SettingsContainerManager.handleSliderInput",
       "target": "components/settingsContainer/textControls:handleSliderInput",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/index:SettingsContainerManager.handleVibeClick__call__components/settingsContainer/vibe:handleVibeClick",
       "source": "components/settingsContainer/index:SettingsContainerManager.handleVibeClick",
       "target": "components/settingsContainer/vibe:handleVibeClick",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/index:SettingsContainerManager.syncSliderUI__call__components/settingsContainer/textControls:syncSliderUI",
       "source": "components/settingsContainer/index:SettingsContainerManager.syncSliderUI",
       "target": "components/settingsContainer/textControls:syncSliderUI",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/index:SettingsContainerManager.toggleFullWidth__call__components/settingsContainer/textControls:toggleFullWidth",
       "source": "components/settingsContainer/index:SettingsContainerManager.toggleFullWidth",
       "target": "components/settingsContainer/textControls:toggleFullWidth",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates__call__components/settingsContainer/themeSwitcher:getCurrentTheme",
@@ -18767,7 +19111,8 @@
       "id": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates__call__components/utilities/gateFilter:getGateSettings",
       "source": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates",
       "target": "components/utilities/gateFilter:getGateSettings",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates__domwrite__dom",
@@ -18779,7 +19124,8 @@
       "id": "components/settingsContainer/textControls:applyTextAdjustments__call__components/settingsContainer/textControls:reconcileViewportWidth",
       "source": "components/settingsContainer/textControls:applyTextAdjustments",
       "target": "components/settingsContainer/textControls:reconcileViewportWidth",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/textControls:applyTextAdjustments__domwrite__dom",
@@ -18794,6 +19140,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/settingsContainer/textControls:handleSliderInput__write__store:localStorage",
+      "source": "components/settingsContainer/textControls:handleSliderInput",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "components/settingsContainer/textControls:syncSliderUI__domwrite__dom",
       "source": "components/settingsContainer/textControls:syncSliderUI",
       "target": "dom",
@@ -18804,6 +19156,12 @@
       "source": "components/settingsContainer/textControls:toggleFullWidth",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/textControls:toggleFullWidth__write__store:localStorage",
+      "source": "components/settingsContainer/textControls:toggleFullWidth",
+      "target": "store:localStorage",
+      "rel": "write"
     },
     {
       "id": "components/settingsContainer/themeSwitcher:initializeTheme__domwrite__dom",
@@ -18818,10 +19176,17 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/settingsContainer/themeSwitcher:switchTheme__write__store:localStorage",
+      "source": "components/settingsContainer/themeSwitcher:switchTheme",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "components/settingsContainer/vibe:_openVibeGallery__call__components/settingsContainer/themeSwitcher:switchTheme",
       "source": "components/settingsContainer/vibe:_openVibeGallery",
       "target": "components/settingsContainer/themeSwitcher:switchTheme",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibe:_openVibeGallery__call__components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
@@ -18840,7 +19205,8 @@
       "id": "components/settingsContainer/vibe:_openVibeUI__call__components/settingsContainer/themeSwitcher:switchTheme",
       "source": "components/settingsContainer/vibe:_openVibeUI",
       "target": "components/settingsContainer/themeSwitcher:switchTheme",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibe:_openVibeUI__call__components/settingsContainer/vibeCSS/inputUI:showVibeInput",
@@ -18865,13 +19231,15 @@
       "id": "components/settingsContainer/vibe:handleVibeClick__call__components/settingsContainer/themeSwitcher:switchTheme",
       "source": "components/settingsContainer/vibe:handleVibeClick",
       "target": "components/settingsContainer/themeSwitcher:switchTheme",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibe:handleVibeClick__call__components/settingsContainer/vibeCSS/storage:hasVibeCSS",
       "source": "components/settingsContainer/vibe:handleVibeClick",
       "target": "components/settingsContainer/vibeCSS/storage:hasVibeCSS",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibeCanvas:startVibeCanvas__call__components/settingsContainer/vibeCanvas:stopVibeCanvas",
@@ -18930,19 +19298,22 @@
       "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/storage:applyVibeCSS",
       "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
       "target": "components/settingsContainer/vibeCSS/storage:applyVibeCSS",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/storage:getVibeCSS",
       "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
       "target": "components/settingsContainer/vibeCSS/storage:getVibeCSS",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/settingsContainer/vibeCSS/storage:getVibePrompt",
       "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
       "target": "components/settingsContainer/vibeCSS/storage:getVibePrompt",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__call__components/userButton/userButton:initializeUserContainer",
@@ -18955,6 +19326,12 @@
       "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery__write__store:localStorage",
+      "source": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "target": "store:localStorage",
+      "rel": "write"
     },
     {
       "id": "components/settingsContainer/vibeCSS/inputUI:showTopUpUI__domwrite__dom",
@@ -18980,19 +19357,22 @@
       "id": "components/settingsContainer/vibeCSS/inputUI:showVibeInput__call__components/settingsContainer/vibeCSS/storage:applyVibeCSS",
       "source": "components/settingsContainer/vibeCSS/inputUI:showVibeInput",
       "target": "components/settingsContainer/vibeCSS/storage:applyVibeCSS",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibeCSS/inputUI:showVibeInput__call__components/settingsContainer/vibeCSS/storage:clearVibeCSS",
       "source": "components/settingsContainer/vibeCSS/inputUI:showVibeInput",
       "target": "components/settingsContainer/vibeCSS/storage:clearVibeCSS",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibeCSS/inputUI:showVibeInput__call__components/settingsContainer/vibeCSS/storage:hasVibeCSS",
       "source": "components/settingsContainer/vibeCSS/inputUI:showVibeInput",
       "target": "components/settingsContainer/vibeCSS/storage:hasVibeCSS",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibeCSS/inputUI:showVibeInput__domwrite__dom",
@@ -19001,10 +19381,17 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/settingsContainer/vibeCSS/inputUI:showVibeInput__write__store:localStorage",
+      "source": "components/settingsContainer/vibeCSS/inputUI:showVibeInput",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "components/settingsContainer/vibeCSS/storage:applyVibeCSS__call__components/settingsContainer/vibeCSS/storage:getVibeCSS",
       "source": "components/settingsContainer/vibeCSS/storage:applyVibeCSS",
       "target": "components/settingsContainer/vibeCSS/storage:getVibeCSS",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibeCSS/storage:applyVibeCSS__domwrite__dom",
@@ -19019,16 +19406,244 @@
       "rel": "call"
     },
     {
+      "id": "components/settingsContainer/vibeCSS/storage:clearVibeCSS__write__store:localStorage",
+      "source": "components/settingsContainer/vibeCSS/storage:clearVibeCSS",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "components/settingsContainer/vibeCSS/storage:hasVibeCSS__call__components/settingsContainer/vibeCSS/storage:getVibeCSS",
       "source": "components/settingsContainer/vibeCSS/storage:hasVibeCSS",
       "target": "components/settingsContainer/vibeCSS/storage:getVibeCSS",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/settingsContainer/vibeCSS/storage:removeVibeCSS__domwrite__dom",
       "source": "components/settingsContainer/vibeCSS/storage:removeVibeCSS",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/addToShelfMenu:showAddToShelfMenu__call__components/userButton/userButton:initializeUserContainer",
+      "source": "components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "target": "components/userButton/userButton:initializeUserContainer",
+      "rel": "call"
+    },
+    {
+      "id": "components/shelves/addToShelfMenu:showAddToShelfMenu__domwrite__dom",
+      "source": "components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/shelfHeader:removeShelfHeader__domwrite__dom",
+      "source": "components/shelves/shelfHeader:removeShelfHeader",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader__call__components/homepage/homepageDisplayUnit:fixHeaderSpacing",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "components/homepage/homepageDisplayUnit:fixHeaderSpacing",
+      "rel": "call"
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader__call__components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader__call__components/shelves/shelfHeader:removeShelfHeader",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "components/shelves/shelfHeader:removeShelfHeader",
+      "rel": "call"
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader__call__components/shelves/shelfTabs:closeTab",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "components/shelves/shelfTabs:closeTab",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader__call__components/shelves/shelfTabs:invalidateShelfCache",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "components/shelves/shelfTabs:invalidateShelfCache",
+      "rel": "call"
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader__call__components/shelves/shelfTabs:openShelf",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "components/shelves/shelfTabs:openShelf",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader__domwrite__dom",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader__write__store:localStorage",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader__write__store:sessionStorage",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "store:sessionStorage",
+      "rel": "write"
+    },
+    {
+      "id": "components/shelves/shelfPreview:hideShelfPreview__domwrite__dom",
+      "source": "components/shelves/shelfPreview:hideShelfPreview",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/shelfPreview:showShelfPreview__call__components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "source": "components/shelves/shelfPreview:showShelfPreview",
+      "target": "components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfPreview:showShelfPreview__call__components/shelves/shelfPreview:hideShelfPreview",
+      "source": "components/shelves/shelfPreview:showShelfPreview",
+      "target": "components/shelves/shelfPreview:hideShelfPreview",
+      "rel": "call"
+    },
+    {
+      "id": "components/shelves/shelfPreview:showShelfPreview__call__indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
+      "source": "components/shelves/shelfPreview:showShelfPreview",
+      "target": "indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfPreview:showShelfPreview__call__lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
+      "source": "components/shelves/shelfPreview:showShelfPreview",
+      "target": "lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfPreview:showShelfPreview__domwrite__dom",
+      "source": "components/shelves/shelfPreview:showShelfPreview",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/shelfSortAndSearch:removeSortBar__domwrite__dom",
+      "source": "components/shelves/shelfSortAndSearch:removeSortBar",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/shelfSortAndSearch:showSortBar__call__components/shelves/shelfSortAndSearch:removeSortBar",
+      "source": "components/shelves/shelfSortAndSearch:showSortBar",
+      "target": "components/shelves/shelfSortAndSearch:removeSortBar",
+      "rel": "call"
+    },
+    {
+      "id": "components/shelves/shelfSortAndSearch:showSortBar__domwrite__dom",
+      "source": "components/shelves/shelfSortAndSearch:showSortBar",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/shelfTabs:clearActiveShelf__domwrite__dom",
+      "source": "components/shelves/shelfTabs:clearActiveShelf",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/shelfTabs:clearActiveShelf__write__store:localStorage",
+      "source": "components/shelves/shelfTabs:clearActiveShelf",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "components/shelves/shelfTabs:closeTab__call__components/shelves/shelfHeader:showShelfHeader",
+      "source": "components/shelves/shelfTabs:closeTab",
+      "target": "components/shelves/shelfHeader:showShelfHeader",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfTabs:closeTab__domwrite__dom",
+      "source": "components/shelves/shelfTabs:closeTab",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/shelfTabs:closeTab__write__store:localStorage",
+      "source": "components/shelves/shelfTabs:closeTab",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "components/shelves/shelfTabs:destroyShelfTabs__domwrite__dom",
+      "source": "components/shelves/shelfTabs:destroyShelfTabs",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/shelfTabs:initializeShelfTabs__call__components/shelves/shelfHeader:showShelfHeader",
+      "source": "components/shelves/shelfTabs:initializeShelfTabs",
+      "target": "components/shelves/shelfHeader:showShelfHeader",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfTabs:initializeShelfTabs__call__components/shelves/shelfTabs:closeTab",
+      "source": "components/shelves/shelfTabs:initializeShelfTabs",
+      "target": "components/shelves/shelfTabs:closeTab",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfTabs:initializeShelfTabs__domwrite__dom",
+      "source": "components/shelves/shelfTabs:initializeShelfTabs",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/shelfTabs:initializeShelfTabs__write__store:localStorage",
+      "source": "components/shelves/shelfTabs:initializeShelfTabs",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "components/shelves/shelfTabs:openShelf__call__components/shelves/shelfHeader:showShelfHeader",
+      "source": "components/shelves/shelfTabs:openShelf",
+      "target": "components/shelves/shelfHeader:showShelfHeader",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfTabs:openShelf__call__components/shelves/shelfTabs:closeTab",
+      "source": "components/shelves/shelfTabs:openShelf",
+      "target": "components/shelves/shelfTabs:closeTab",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfTabs:openShelf__domwrite__dom",
+      "source": "components/shelves/shelfTabs:openShelf",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/shelfTabs:openShelf__write__store:localStorage",
+      "source": "components/shelves/shelfTabs:openShelf",
+      "target": "store:localStorage",
+      "rel": "write"
     },
     {
       "id": "components/sourceContainer/aiReview/index:ensureAiReviewLivePanel__domwrite__dom",
@@ -19811,7 +20426,8 @@
       "id": "components/tocContainer/index:TocContainerManager.openContainer__call__components/tocContainer/bookmark:updateOrInsertBookmark",
       "source": "components/tocContainer/index:TocContainerManager.openContainer",
       "target": "components/tocContainer/bookmark:updateOrInsertBookmark",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/tocContainer/index:TocContainerManager.openContainer__call__components/tocContainer/index:generateTableOfContents",
@@ -19935,6 +20551,12 @@
       "target": "components/userContainer/anonymousTransfer:transferBooksToUser",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "components/userContainer/anonymousTransfer:handleAnonymousBookTransfer__write__store:localStorage",
+      "source": "components/userContainer/anonymousTransfer:handleAnonymousBookTransfer",
+      "target": "store:localStorage",
+      "rel": "write"
     },
     {
       "id": "components/userContainer/anonymousTransfer:showAnonymousContentTransfer__call__components/userContainer/anonymousTransfer:buildContentSummary",
@@ -20086,6 +20708,18 @@
       "target": "indexedDB/utilities/cleanup:clearDatabase",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "components/userContainer/cache:clearAllCachedData__write__store:localStorage",
+      "source": "components/userContainer/cache:clearAllCachedData",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "components/userContainer/cache:clearAllCachedData__write__store:sessionStorage",
+      "source": "components/userContainer/cache:clearAllCachedData",
+      "target": "store:sessionStorage",
+      "rel": "write"
     },
     {
       "id": "components/userContainer/cache:clearAndRefreshDatabase__call__components/userContainer/cache:clearBrowserCache",
@@ -20458,6 +21092,20 @@
       "rel": "call"
     },
     {
+      "id": "components/userProfile/userProfilePage:initializeUserProfilePage__call__components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "source": "components/userProfile/userProfilePage:initializeUserProfilePage",
+      "target": "components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userProfile/userProfilePage:initializeUserProfilePage__call__components/shelves/shelfPreview:showShelfPreview",
+      "source": "components/userProfile/userProfilePage:initializeUserProfilePage",
+      "target": "components/shelves/shelfPreview:showShelfPreview",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/userProfile/userProfilePage:initializeUserProfilePage__call__indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
       "source": "components/userProfile/userProfilePage:initializeUserProfilePage",
       "target": "indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
@@ -20487,6 +21135,18 @@
       "source": "components/utilities/containerCustomization:ContainerCustomizer.resetAll",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.resetAll__write__store:localStorage",
+      "source": "components/utilities/containerCustomization:ContainerCustomizer.resetAll",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.saveCustomizations__write__store:localStorage",
+      "source": "components/utilities/containerCustomization:ContainerCustomizer.saveCustomizations",
+      "target": "store:localStorage",
+      "rel": "write"
     },
     {
       "id": "components/utilities/containerManager:ContainerManager._applyTopRightVisibility__domwrite__dom",
@@ -20540,13 +21200,15 @@
       "id": "components/utilities/gateFilter:appendGateParam__call__components/utilities/gateFilter:gateQueryParam",
       "source": "components/utilities/gateFilter:appendGateParam",
       "target": "components/utilities/gateFilter:gateQueryParam",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/utilities/gateFilter:applyGateFilter__call__components/utilities/gateFilter:getGateSettings",
       "source": "components/utilities/gateFilter:applyGateFilter",
       "target": "components/utilities/gateFilter:getGateSettings",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/utilities/gateFilter:reapplyAnnotationsWithGate__call__hyperlights/deletion:reprocessHighlightsForNodes",
@@ -20594,7 +21256,8 @@
       "id": "components/utilities/registerComponents:registerAllComponents__call__search/inTextSearch/searchToolbar:checkHighlightParam",
       "source": "components/utilities/registerComponents:registerAllComponents",
       "target": "search/inTextSearch/searchToolbar:checkHighlightParam",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/utilities/registerComponents:registerAllComponents__call__search/inTextSearch/searchToolbar:initializeSearchToolbar",
@@ -20660,6 +21323,18 @@
       "id": "controller:DatabaseToIndexedDBController@getBookLibrary__pull__route:/api/database-to-indexeddb/books/{}/library",
       "source": "controller:DatabaseToIndexedDBController@getBookLibrary",
       "target": "route:/api/database-to-indexeddb/books/{}/library",
+      "rel": "pull"
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getInitialChunk__pull__route:/api/database-to-indexeddb/books/{}/initial",
+      "source": "controller:DatabaseToIndexedDBController@getInitialChunk",
+      "target": "route:/api/database-to-indexeddb/books/{}/initial",
+      "rel": "pull"
+    },
+    {
+      "id": "controller:DatabaseToIndexedDBController@getReadingPosition__pull__route:/api/database-to-indexeddb/books/{}/reading-position",
+      "source": "controller:DatabaseToIndexedDBController@getReadingPosition",
+      "target": "route:/api/database-to-indexeddb/books/{}/reading-position",
       "rel": "pull"
     },
     {
@@ -21345,7 +22020,8 @@
       "id": "divEditor/index:startObserving__call__divEditor/domUtilities:ensureMinimumDocumentStructure",
       "source": "divEditor/index:startObserving",
       "target": "divEditor/domUtilities:ensureMinimumDocumentStructure",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/index:startObserving__call__divEditor/editorState:queueNodeForSave",
@@ -22123,6 +22799,72 @@
       "id": "dom__domread__components/settingsContainer/vibeCSS/storage:removeVibeCSS",
       "source": "dom",
       "target": "components/settingsContainer/vibeCSS/storage:removeVibeCSS",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "source": "dom",
+      "target": "components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/shelves/shelfHeader:removeShelfHeader",
+      "source": "dom",
+      "target": "components/shelves/shelfHeader:removeShelfHeader",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/shelves/shelfHeader:showShelfHeader",
+      "source": "dom",
+      "target": "components/shelves/shelfHeader:showShelfHeader",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/shelves/shelfPreview:showShelfPreview",
+      "source": "dom",
+      "target": "components/shelves/shelfPreview:showShelfPreview",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/shelves/shelfSortAndSearch:removeSortBar",
+      "source": "dom",
+      "target": "components/shelves/shelfSortAndSearch:removeSortBar",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/shelves/shelfSortAndSearch:showSortBar",
+      "source": "dom",
+      "target": "components/shelves/shelfSortAndSearch:showSortBar",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/shelves/shelfTabs:clearActiveShelf",
+      "source": "dom",
+      "target": "components/shelves/shelfTabs:clearActiveShelf",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/shelves/shelfTabs:closeTab",
+      "source": "dom",
+      "target": "components/shelves/shelfTabs:closeTab",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/shelves/shelfTabs:destroyShelfTabs",
+      "source": "dom",
+      "target": "components/shelves/shelfTabs:destroyShelfTabs",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/shelves/shelfTabs:initializeShelfTabs",
+      "source": "dom",
+      "target": "components/shelves/shelfTabs:initializeShelfTabs",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/shelves/shelfTabs:openShelf",
+      "source": "dom",
+      "target": "components/shelves/shelfTabs:openShelf",
       "rel": "domread"
     },
     {
@@ -25278,6 +26020,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "editToolbar/citationMode:CitationMode._handleScopeChange__write__store:localStorage",
+      "source": "editToolbar/citationMode:CitationMode._handleScopeChange",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "editToolbar/citationMode:CitationMode._initScopeChips__domwrite__dom",
       "source": "editToolbar/citationMode:CitationMode._initScopeChips",
       "target": "dom",
@@ -25294,6 +26042,12 @@
       "source": "editToolbar/citationMode:CitationMode._pickShelf",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode:CitationMode._pickShelf__write__store:localStorage",
+      "source": "editToolbar/citationMode:CitationMode._pickShelf",
+      "target": "store:localStorage",
+      "rel": "write"
     },
     {
       "id": "editToolbar/citationMode:CitationMode._renderShelfOptions__domwrite__dom",
@@ -26443,6 +27197,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "hypercites/navigation:navigateToFootnoteTarget__write__store:sessionStorage",
+      "source": "hypercites/navigation:navigateToFootnoteTarget",
+      "target": "store:sessionStorage",
+      "rel": "write"
+    },
+    {
       "id": "hypercites/navigation:navigateToHyperciteLink__call__hypercites/animations:revealGhostIfTombstone",
       "source": "hypercites/navigation:navigateToHyperciteLink",
       "target": "hypercites/animations:revealGhostIfTombstone",
@@ -26531,6 +27291,12 @@
       "source": "hypercites/navigation:navigateToHyperciteTarget",
       "target": "SPA/domReadiness:waitForElementReady",
       "rel": "call"
+    },
+    {
+      "id": "hypercites/navigation:navigateToHyperciteTarget__write__store:sessionStorage",
+      "source": "hypercites/navigation:navigateToHyperciteTarget",
+      "target": "store:sessionStorage",
+      "rel": "write"
     },
     {
       "id": "hyperlights/annotationPaste:addHighlightContainerPasteListener__call__hyperlights/annotationPaste:handleHighlightContainerPaste",
@@ -27070,13 +27836,15 @@
       "id": "hyperlights/deletion:reprocessHighlightsForNodes__call__lazyLoader/chunkRender:applyHighlights",
       "source": "hyperlights/deletion:reprocessHighlightsForNodes",
       "target": "lazyLoader/chunkRender:applyHighlights",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:reprocessHighlightsForNodes__call__lazyLoader/chunkRender:applyHypercites",
       "source": "hyperlights/deletion:reprocessHighlightsForNodes",
       "target": "lazyLoader/chunkRender:applyHypercites",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:reprocessHighlightsForNodes__call__SPA/navigation/cascadeOriginState:getCascadeOriginId",
@@ -27316,6 +28084,12 @@
       "rel": "write"
     },
     {
+      "id": "hyperlitContainer/brainQuery:injectBrainInput__write__store:localStorage",
+      "source": "hyperlitContainer/brainQuery:injectBrainInput",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "hyperlitContainer/brainQuery:injectBrainInput__write__store:nodes",
       "source": "hyperlitContainer/brainQuery:injectBrainInput",
       "target": "store:nodes",
@@ -27375,7 +28149,8 @@
       "id": "hyperlitContainer/containerListeners:cleanupContainerListeners__call__divEditor/index:startObserving",
       "source": "hyperlitContainer/containerListeners:cleanupContainerListeners",
       "target": "divEditor/index:startObserving",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/containerListeners:cleanupContainerListeners__call__divEditor/index:stopObserving",
@@ -27652,7 +28427,8 @@
       "id": "hyperlitContainer/core:closeHyperlitContainer__call__hyperlitContainer/containerListeners:cleanupContainerListeners",
       "source": "hyperlitContainer/core:closeHyperlitContainer",
       "target": "hyperlitContainer/containerListeners:cleanupContainerListeners",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/core:closeHyperlitContainer__call__hyperlitContainer/core:initializeHyperlitManager",
@@ -27830,7 +28606,8 @@
       "id": "hyperlitContainer/editMode:applyCurrentEditModeToLayer__call__divEditor/index:startObserving",
       "source": "hyperlitContainer/editMode:applyCurrentEditModeToLayer",
       "target": "divEditor/index:startObserving",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/editMode:applyCurrentEditModeToLayer__call__editToolbar/index:getEditToolbar",
@@ -27854,7 +28631,8 @@
       "id": "hyperlitContainer/editMode:applyCurrentEditModeToLayer__call__hyperlitContainer/editMode:attachSubBookFocusSwitcher",
       "source": "hyperlitContainer/editMode:applyCurrentEditModeToLayer",
       "target": "hyperlitContainer/editMode:attachSubBookFocusSwitcher",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/editMode:applyCurrentEditModeToLayer__call__hyperlitContainer/editMode:toggleContentEditableInPlace",
@@ -27902,7 +28680,8 @@
       "id": "hyperlitContainer/editMode:attachSubBookFocusSwitcher__call__divEditor/index:startObserving",
       "source": "hyperlitContainer/editMode:attachSubBookFocusSwitcher",
       "target": "divEditor/index:startObserving",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/editMode:attachSubBookFocusSwitcher__call__editToolbar/index:getEditToolbar",
@@ -27962,7 +28741,8 @@
       "id": "hyperlitContainer/editMode:handleEditButtonClick__call__divEditor/index:startObserving",
       "source": "hyperlitContainer/editMode:handleEditButtonClick",
       "target": "divEditor/index:startObserving",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/editMode:handleEditButtonClick__call__divEditor/index:stopObserving",
@@ -27999,7 +28779,8 @@
       "id": "hyperlitContainer/editMode:handleEditButtonClick__call__hyperlitContainer/editMode:attachSubBookFocusSwitcher",
       "source": "hyperlitContainer/editMode:handleEditButtonClick",
       "target": "hyperlitContainer/editMode:attachSubBookFocusSwitcher",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/editMode:handleEditButtonClick__call__hyperlitContainer/editMode:focusTopmostEditableElement",
@@ -28647,7 +29428,8 @@
       "id": "hyperlitContainer/postOpen:handlePostOpenActions__call__hyperlitContainer/editMode:attachSubBookFocusSwitcher",
       "source": "hyperlitContainer/postOpen:handlePostOpenActions",
       "target": "hyperlitContainer/editMode:attachSubBookFocusSwitcher",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/postOpen:handlePostOpenActions__call__hyperlitContainer/editMode:buildEditButtonHtml",
@@ -28714,7 +29496,8 @@
       "id": "hyperlitContainer/stack:popTopLayer__call__hyperlitContainer/containerListeners:cleanupContainerListeners",
       "source": "hyperlitContainer/stack:popTopLayer",
       "target": "hyperlitContainer/containerListeners:cleanupContainerListeners",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/stack:popTopLayer__call__hyperlitContainer/containerState:restoreModuleState",
@@ -28746,7 +29529,8 @@
       "id": "hyperlitContainer/stack:popTopLayer__call__hyperlitContainer/editMode:applyCurrentEditModeToLayer",
       "source": "hyperlitContainer/stack:popTopLayer",
       "target": "hyperlitContainer/editMode:applyCurrentEditModeToLayer",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/stack:popTopLayer__call__hyperlitContainer/noteListener:detachNoteListeners",
@@ -28919,7 +29703,8 @@
       "id": "hyperlitContainer/subBookLoader:loadSubBook__call__lazyLoader/chunkRender:createChunkElement",
       "source": "hyperlitContainer/subBookLoader:loadSubBook",
       "target": "lazyLoader/chunkRender:createChunkElement",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/subBookLoader:loadSubBook__call__lazyLoader/index:createLazyLoader",
@@ -30051,7 +30836,8 @@
       "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__components/utilities/gateFilter:appendGateParam",
       "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
       "target": "components/utilities/gateFilter:appendGateParam",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/core/connection:openDatabase",
@@ -30096,7 +30882,8 @@
       "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__components/utilities/gateFilter:appendGateParam",
       "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
       "target": "components/utilities/gateFilter:appendGateParam",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/core/connection:openDatabase",
@@ -30398,7 +31185,8 @@
       "id": "lazyLoader/chunkFetcher:fetchSingleChunkFromServer__call__components/utilities/gateFilter:appendGateParam",
       "source": "lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
       "target": "components/utilities/gateFilter:appendGateParam",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB__call__indexedDB/core/connection:openDatabase",
@@ -30423,7 +31211,8 @@
       "id": "lazyLoader/chunkRender:applyHighlights__call__components/utilities/gateFilter:applyGateFilter",
       "source": "lazyLoader/chunkRender:applyHighlights",
       "target": "components/utilities/gateFilter:applyGateFilter",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "lazyLoader/chunkRender:applyHighlights__domwrite__dom",
@@ -30435,7 +31224,8 @@
       "id": "lazyLoader/chunkRender:applyHypercites__call__components/utilities/gateFilter:applyGateFilter",
       "source": "lazyLoader/chunkRender:applyHypercites",
       "target": "components/utilities/gateFilter:applyGateFilter",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "lazyLoader/chunkRender:applyHypercites__domwrite__dom",
@@ -30453,13 +31243,15 @@
       "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/chunkRender:applyHighlights",
       "source": "lazyLoader/chunkRender:createChunkElement",
       "target": "lazyLoader/chunkRender:applyHighlights",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/chunkRender:applyHypercites",
       "source": "lazyLoader/chunkRender:createChunkElement",
       "target": "lazyLoader/chunkRender:applyHypercites",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/chunkRender:normalizeHyperciteElements",
@@ -30578,7 +31370,8 @@
       "id": "lazyLoader/index:createLazyLoader__call__lazyLoader/chunkRender:createChunkElement",
       "source": "lazyLoader/index:createLazyLoader",
       "target": "lazyLoader/chunkRender:createChunkElement",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "lazyLoader/index:createLazyLoader__call__lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
@@ -30674,6 +31467,18 @@
       "rel": "domwrite"
     },
     {
+      "id": "lazyLoader/index:createLazyLoader__write__store:localStorage",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__write__store:sessionStorage",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "store:sessionStorage",
+      "rel": "write"
+    },
+    {
       "id": "lazyLoader/index:loadNextChunkFixed__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "source": "lazyLoader/index:loadNextChunkFixed",
       "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
@@ -30684,7 +31489,8 @@
       "id": "lazyLoader/index:loadNextChunkFixed__call__lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
       "source": "lazyLoader/index:loadNextChunkFixed",
       "target": "lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "lazyLoader/index:loadNextChunkFixed__call__lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
@@ -30697,7 +31503,8 @@
       "id": "lazyLoader/index:loadNextChunkFixed__call__lazyLoader/chunkRender:createChunkElement",
       "source": "lazyLoader/index:loadNextChunkFixed",
       "target": "lazyLoader/chunkRender:createChunkElement",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "lazyLoader/index:loadNextChunkFixed__call__lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
@@ -30753,7 +31560,8 @@
       "id": "lazyLoader/index:loadPreviousChunkFixed__call__lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
       "source": "lazyLoader/index:loadPreviousChunkFixed",
       "target": "lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "lazyLoader/index:loadPreviousChunkFixed__call__lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
@@ -30827,7 +31635,8 @@
       "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__components/utilities/gateFilter:appendGateParam",
       "source": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
       "target": "components/utilities/gateFilter:appendGateParam",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__footnotes/FootnoteNumberingService:rebuildAndRenumber",
@@ -30918,7 +31727,8 @@
       "id": "pageLoad/initialChunk:fetchInitialChunk__call__components/utilities/gateFilter:gateQueryParam",
       "source": "pageLoad/initialChunk:fetchInitialChunk",
       "target": "components/utilities/gateFilter:gateQueryParam",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "pageLoad/initialChunk:fetchInitialChunk__call__indexedDB/core/connection:openDatabase",
@@ -31243,6 +32053,12 @@
       "target": "SPA/navigation/resolveTargetChunk:resolveTargetChunkId",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__write__store:sessionStorage",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "store:sessionStorage",
+      "rel": "write"
     },
     {
       "id": "pageLoad/nodeGen:generateNodeChunksFromMarkdown__call__indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
@@ -32980,6 +33796,13 @@
       "rel": "pull"
     },
     {
+      "id": "pg:shelves__pull__route:/api/shelves",
+      "source": "pg:shelves",
+      "target": "route:/api/shelves",
+      "rel": "pull",
+      "label": "/api/shelves/{}/items"
+    },
+    {
       "id": "pg:user_reading_positions__pull__controller:DatabaseToIndexedDBController@getInitialChunk",
       "source": "pg:user_reading_positions",
       "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
@@ -32998,6 +33821,13 @@
       "rel": "pull"
     },
     {
+      "id": "pg:vibes__pull__route:/api/vibes",
+      "source": "pg:vibes",
+      "target": "route:/api/vibes",
+      "rel": "pull",
+      "label": "/api/vibes/{}"
+    },
+    {
       "id": "route:/api/canonical__push__pg:canonical_source",
       "source": "route:/api/canonical",
       "target": "pg:canonical_source",
@@ -33012,6 +33842,13 @@
       "label": "/api/database-to-indexeddb/books/{}/annotations"
     },
     {
+      "id": "route:/api/database-to-indexeddb/books/{}/data__pull__hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "source": "route:/api/database-to-indexeddb/books/{}/data",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books/{}/data"
+    },
+    {
       "id": "route:/api/database-to-indexeddb/books/{}/data__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
       "source": "route:/api/database-to-indexeddb/books/{}/data",
       "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
@@ -33019,11 +33856,25 @@
       "label": "/api/database-to-indexeddb/books/{}/data"
     },
     {
+      "id": "route:/api/database-to-indexeddb/books/{}/data__pull__pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "source": "route:/api/database-to-indexeddb/books/{}/data",
+      "target": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books/{}/data/batch"
+    },
+    {
       "id": "route:/api/database-to-indexeddb/books/{}/headings__pull__components/tocContainer/index:generateTableOfContents",
       "source": "route:/api/database-to-indexeddb/books/{}/headings",
       "target": "components/tocContainer/index:generateTableOfContents",
       "rel": "pull",
       "label": "/api/database-to-indexeddb/books/{}/headings"
+    },
+    {
+      "id": "route:/api/database-to-indexeddb/books/{}/initial__pull__pageLoad/initialChunk:fetchInitialChunk",
+      "source": "route:/api/database-to-indexeddb/books/{}/initial",
+      "target": "pageLoad/initialChunk:fetchInitialChunk",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books/{}/initial"
     },
     {
       "id": "route:/api/database-to-indexeddb/books/{}/library__pull__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
@@ -33080,6 +33931,12 @@
       "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
       "rel": "pull",
       "label": "/api/database-to-indexeddb/books/{}/library"
+    },
+    {
+      "id": "route:/api/database-to-indexeddb/books/{}/reading-position__push__controller:DatabaseToIndexedDBController@saveReadingPosition",
+      "source": "route:/api/database-to-indexeddb/books/{}/reading-position",
+      "target": "controller:DatabaseToIndexedDBController@saveReadingPosition",
+      "rel": "push"
     },
     {
       "id": "route:/api/db/footnotes/upsert__push__controller:DbFootnoteController@upsert",
@@ -33141,6 +33998,97 @@
       "source": "route:/api/db/unified-sync",
       "target": "controller:UnifiedSyncController@sync",
       "rel": "push"
+    },
+    {
+      "id": "route:/api/shelves__pull__components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "source": "route:/api/shelves",
+      "target": "components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "rel": "pull",
+      "label": "/api/shelves/{}/items"
+    },
+    {
+      "id": "route:/api/shelves__pull__components/shelves/shelfHeader:showShelfHeader",
+      "source": "route:/api/shelves",
+      "target": "components/shelves/shelfHeader:showShelfHeader",
+      "rel": "pull",
+      "label": "/api/shelves/{}"
+    },
+    {
+      "id": "route:/api/shelves__pull__components/shelves/shelfTabs:closeTab",
+      "source": "route:/api/shelves",
+      "target": "components/shelves/shelfTabs:closeTab",
+      "rel": "pull",
+      "label": "/api/shelves/{}/render"
+    },
+    {
+      "id": "route:/api/shelves__pull__components/shelves/shelfTabs:fetchShelves",
+      "source": "route:/api/shelves",
+      "target": "components/shelves/shelfTabs:fetchShelves",
+      "rel": "pull",
+      "label": "/api/shelves"
+    },
+    {
+      "id": "route:/api/shelves__pull__components/shelves/shelfTabs:initializeShelfTabs",
+      "source": "route:/api/shelves",
+      "target": "components/shelves/shelfTabs:initializeShelfTabs",
+      "rel": "pull",
+      "label": "/api/shelves/{}/render"
+    },
+    {
+      "id": "route:/api/shelves__pull__components/shelves/shelfTabs:openShelf",
+      "source": "route:/api/shelves",
+      "target": "components/shelves/shelfTabs:openShelf",
+      "rel": "pull",
+      "label": "/api/shelves/{}/render"
+    },
+    {
+      "id": "route:/api/shelves__pull__editToolbar/citationMode:CitationMode._ensureShelvesLoaded",
+      "source": "route:/api/shelves",
+      "target": "editToolbar/citationMode:CitationMode._ensureShelvesLoaded",
+      "rel": "pull",
+      "label": "/api/shelves"
+    },
+    {
+      "id": "route:/api/shelves__pull__hyperlitContainer/brainQuery:injectBrainInput",
+      "source": "route:/api/shelves",
+      "target": "hyperlitContainer/brainQuery:injectBrainInput",
+      "rel": "pull",
+      "label": "/api/shelves"
+    },
+    {
+      "id": "route:/api/vibes__pull__components/settingsContainer/vibeCSS/api:deleteVibe",
+      "source": "route:/api/vibes",
+      "target": "components/settingsContainer/vibeCSS/api:deleteVibe",
+      "rel": "pull",
+      "label": "/api/vibes/{}"
+    },
+    {
+      "id": "route:/api/vibes__pull__components/settingsContainer/vibeCSS/api:fetchMyVibes",
+      "source": "route:/api/vibes",
+      "target": "components/settingsContainer/vibeCSS/api:fetchMyVibes",
+      "rel": "pull",
+      "label": "/api/vibes/mine"
+    },
+    {
+      "id": "route:/api/vibes__pull__components/settingsContainer/vibeCSS/api:fetchPublicVibes",
+      "source": "route:/api/vibes",
+      "target": "components/settingsContainer/vibeCSS/api:fetchPublicVibes",
+      "rel": "pull",
+      "label": "/api/vibes/public"
+    },
+    {
+      "id": "route:/api/vibes__pull__components/settingsContainer/vibeCSS/api:saveVibe",
+      "source": "route:/api/vibes",
+      "target": "components/settingsContainer/vibeCSS/api:saveVibe",
+      "rel": "pull",
+      "label": "/api/vibes"
+    },
+    {
+      "id": "route:/api/vibes__pull__components/settingsContainer/vibeCSS/api:updateVibe",
+      "source": "route:/api/vibes",
+      "target": "components/settingsContainer/vibeCSS/api:updateVibe",
+      "rel": "pull",
+      "label": "/api/vibes/{}"
     },
     {
       "id": "scrolling/internalNav:fallbackScrollPosition__call__indexedDB/core/utilities:getLocalStorageKey",
@@ -33280,6 +34228,32 @@
       "rel": "domwrite"
     },
     {
+      "id": "scrolling/internalNav:navigateToInternalId__write__store:sessionStorage",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "store:sessionStorage",
+      "rel": "write"
+    },
+    {
+      "id": "scrolling/navOverlay:restoreNavigationOverlayIfNeeded__write__store:sessionStorage",
+      "source": "scrolling/navOverlay:restoreNavigationOverlayIfNeeded",
+      "target": "store:sessionStorage",
+      "rel": "write"
+    },
+    {
+      "id": "scrolling/readingPosition:debouncedServerSave__push__route:/api/database-to-indexeddb/books/{}/reading-position",
+      "source": "scrolling/readingPosition:debouncedServerSave",
+      "target": "route:/api/database-to-indexeddb/books/{}/reading-position",
+      "rel": "push",
+      "label": "/api/database-to-indexeddb/books/{}/reading-position"
+    },
+    {
+      "id": "scrolling/readingPosition:sendBeaconSave__push__route:/api/database-to-indexeddb/books/{}/reading-position",
+      "source": "scrolling/readingPosition:sendBeaconSave",
+      "target": "route:/api/database-to-indexeddb/books/{}/reading-position",
+      "rel": "push",
+      "label": "/api/database-to-indexeddb/books/{}/reading-position"
+    },
+    {
       "id": "scrolling/restore:restoreScrollPosition__call__indexedDB/core/utilities:getLocalStorageKey",
       "source": "scrolling/restore:restoreScrollPosition",
       "target": "indexedDB/core/utilities:getLocalStorageKey",
@@ -33412,6 +34386,12 @@
       "source": "search/inTextSearch/searchToolbar:checkHighlightParam",
       "target": "search/inTextSearch/searchToolbar:openSearchToolbarWithQuery",
       "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:checkHighlightParam__write__store:sessionStorage",
+      "source": "search/inTextSearch/searchToolbar:checkHighlightParam",
+      "target": "store:sessionStorage",
+      "rel": "write"
     },
     {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.applyMarksForChunk__call__search/inTextSearch/searchHighlight:applySearchHighlight",
@@ -33548,6 +34528,12 @@
       "id": "SPA/createNewBook:createNewBook__write__store:nodes",
       "source": "SPA/createNewBook:createNewBook",
       "target": "store:nodes",
+      "rel": "write"
+    },
+    {
+      "id": "SPA/createNewBook:createNewBook__write__store:sessionStorage",
+      "source": "SPA/createNewBook:createNewBook",
+      "target": "store:sessionStorage",
       "rel": "write"
     },
     {
@@ -33804,6 +34790,12 @@
       "target": "scrolling/internalNav:navigateToInternalId",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__write__store:sessionStorage",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "target": "store:sessionStorage",
+      "rel": "write"
     },
     {
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.areStructuresCompatible__call__SPA/navigation/utils/structureDetection:areStructuresCompatible",
@@ -34118,6 +35110,12 @@
       "dataPath": true
     },
     {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.clearFormData__write__store:localStorage",
+      "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.clearFormData",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.createImportProgressUI__domwrite__dom",
       "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.createImportProgressUI",
       "target": "dom",
@@ -34204,6 +35202,12 @@
       "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.setupImportedBookSession__write__store:sessionStorage",
+      "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.setupImportedBookSession",
+      "target": "store:sessionStorage",
+      "rel": "write"
     },
     {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.showFootnoteAuditModal__domwrite__dom",
@@ -34863,7 +35867,8 @@
       "id": "SPA/viewManager:universalPageInitializer__call__scrolling/navOverlay:restoreNavigationOverlayIfNeeded",
       "source": "SPA/viewManager:universalPageInitializer",
       "target": "scrolling/navOverlay:restoreNavigationOverlayIfNeeded",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "SPA/viewManager:universalPageInitializer__call__scrolling/restore:restoreScrollPosition",
@@ -35275,6 +36280,204 @@
       "rel": "read"
     },
     {
+      "id": "store:localStorage__read__components/editButton/cursor:getSavedScrollElementId",
+      "source": "store:localStorage",
+      "target": "components/editButton/cursor:getSavedScrollElementId",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "source": "store:localStorage",
+      "target": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/newbookContainer/citeForm/persistence:loadFormData",
+      "source": "store:localStorage",
+      "target": "components/newbookContainer/citeForm/persistence:loadFormData",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/newbookContainer/debugLog:debugLog",
+      "source": "store:localStorage",
+      "target": "components/newbookContainer/debugLog:debugLog",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/newbookContainer/debugLog:updateDebugPanel",
+      "source": "store:localStorage",
+      "target": "components/newbookContainer/debugLog:updateDebugPanel",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/newbookContainer/index:NewBookContainerManager.loadFormData",
+      "source": "store:localStorage",
+      "target": "components/newbookContainer/index:NewBookContainerManager.loadFormData",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/settingsContainer/textControls:applyTextAdjustments",
+      "source": "store:localStorage",
+      "target": "components/settingsContainer/textControls:applyTextAdjustments",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/settingsContainer/textControls:reconcileViewportWidth",
+      "source": "store:localStorage",
+      "target": "components/settingsContainer/textControls:reconcileViewportWidth",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/settingsContainer/textControls:syncSliderUI",
+      "source": "store:localStorage",
+      "target": "components/settingsContainer/textControls:syncSliderUI",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/settingsContainer/themeSwitcher:initializeTheme",
+      "source": "store:localStorage",
+      "target": "components/settingsContainer/themeSwitcher:initializeTheme",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "source": "store:localStorage",
+      "target": "components/settingsContainer/vibeCSS/galleryUI:showVibeGallery",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/settingsContainer/vibeCSS/storage:getVibeCSS",
+      "source": "store:localStorage",
+      "target": "components/settingsContainer/vibeCSS/storage:getVibeCSS",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/settingsContainer/vibeCSS/storage:getVibePrompt",
+      "source": "store:localStorage",
+      "target": "components/settingsContainer/vibeCSS/storage:getVibePrompt",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/shelves/shelfHeader:showShelfHeader",
+      "source": "store:localStorage",
+      "target": "components/shelves/shelfHeader:showShelfHeader",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/shelves/shelfTabs:initializeShelfTabs",
+      "source": "store:localStorage",
+      "target": "components/shelves/shelfTabs:initializeShelfTabs",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "source": "store:localStorage",
+      "target": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/tocContainer/bookmark:updateOrInsertBookmark",
+      "source": "store:localStorage",
+      "target": "components/tocContainer/bookmark:updateOrInsertBookmark",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/userContainer/cache:clearAllCachedData",
+      "source": "store:localStorage",
+      "target": "components/userContainer/cache:clearAllCachedData",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/userContainer/index:UserContainerManager.showOfflineStatus",
+      "source": "store:localStorage",
+      "target": "components/userContainer/index:UserContainerManager.showOfflineStatus",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/utilities/containerCustomization:ContainerCustomizer.getCustomizations",
+      "source": "store:localStorage",
+      "target": "components/utilities/containerCustomization:ContainerCustomizer.getCustomizations",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/utilities/gateFilter:gateQueryParam",
+      "source": "store:localStorage",
+      "target": "components/utilities/gateFilter:gateQueryParam",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/utilities/gateFilter:getGateSettings",
+      "source": "store:localStorage",
+      "target": "components/utilities/gateFilter:getGateSettings",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__editToolbar/citationMode:CitationMode.constructor",
+      "source": "store:localStorage",
+      "target": "editToolbar/citationMode:CitationMode.constructor",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__hyperlitContainer/brainQuery:injectBrainInput",
+      "source": "store:localStorage",
+      "target": "hyperlitContainer/brainQuery:injectBrainInput",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "source": "store:localStorage",
+      "target": "indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__indexedDB/core/library:getLibraryRecordFromServer",
+      "source": "store:localStorage",
+      "target": "indexedDB/core/library:getLibraryRecordFromServer",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__lazyLoader/index:createLazyLoader",
+      "source": "store:localStorage",
+      "target": "lazyLoader/index:createLazyLoader",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__pageLoad/loadHyperText:loadHyperText",
+      "source": "store:localStorage",
+      "target": "pageLoad/loadHyperText:loadHyperText",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__scrolling/internalNav:fallbackScrollPosition",
+      "source": "store:localStorage",
+      "target": "scrolling/internalNav:fallbackScrollPosition",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__scrolling/restore:restoreScrollPosition",
+      "source": "store:localStorage",
+      "target": "scrolling/restore:restoreScrollPosition",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
+      "source": "store:localStorage",
+      "target": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "source": "store:localStorage",
+      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.ensureInitialContentLoaded",
+      "source": "store:localStorage",
+      "target": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.ensureInitialContentLoaded",
+      "rel": "read"
+    },
+    {
       "id": "store:nodes__read__footnotes/FootnoteNumberingService:rebuildAndRenumber",
       "source": "store:nodes",
       "target": "footnotes/FootnoteNumberingService:rebuildAndRenumber",
@@ -35434,6 +36637,102 @@
       "id": "store:nodes__read__SPA/navigation/resolveTargetChunk:resolveTargetChunkId",
       "source": "store:nodes",
       "target": "SPA/navigation/resolveTargetChunk:resolveTargetChunkId",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__components/editButton/cursor:getSavedScrollElementId",
+      "source": "store:sessionStorage",
+      "target": "components/editButton/cursor:getSavedScrollElementId",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__components/tocContainer/bookmark:updateOrInsertBookmark",
+      "source": "store:sessionStorage",
+      "target": "components/tocContainer/bookmark:updateOrInsertBookmark",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__components/userContainer/cache:clearAllCachedData",
+      "source": "store:sessionStorage",
+      "target": "components/userContainer/cache:clearAllCachedData",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__divEditor/domUtilities:ensureMinimumDocumentStructure",
+      "source": "store:sessionStorage",
+      "target": "divEditor/domUtilities:ensureMinimumDocumentStructure",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__lazyLoader/index:createLazyLoader",
+      "source": "store:sessionStorage",
+      "target": "lazyLoader/index:createLazyLoader",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__pageLoad/loadHyperText:loadHyperText",
+      "source": "store:sessionStorage",
+      "target": "pageLoad/loadHyperText:loadHyperText",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__scrolling/internalNav:fallbackScrollPosition",
+      "source": "store:sessionStorage",
+      "target": "scrolling/internalNav:fallbackScrollPosition",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__scrolling/restore:restoreScrollPosition",
+      "source": "store:sessionStorage",
+      "target": "scrolling/restore:restoreScrollPosition",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__search/inTextSearch/searchToolbar:checkHighlightParam",
+      "source": "store:sessionStorage",
+      "target": "search/inTextSearch/searchToolbar:checkHighlightParam",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__search/inTextSearch/searchToolbar:SearchToolbarManager.getCurrentVisibleStartLine",
+      "source": "store:sessionStorage",
+      "target": "search/inTextSearch/searchToolbar:SearchToolbarManager.getCurrentVisibleStartLine",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "source": "store:sessionStorage",
+      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.ensureInitialContentLoaded",
+      "source": "store:sessionStorage",
+      "target": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.ensureInitialContentLoaded",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.isFreshPageLoad",
+      "source": "store:sessionStorage",
+      "target": "SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.isFreshPageLoad",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__SPA/navigation/ProgressOverlayConductor:ProgressOverlayConductor.showInitialPageLoad",
+      "source": "store:sessionStorage",
+      "target": "SPA/navigation/ProgressOverlayConductor:ProgressOverlayConductor.showInitialPageLoad",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__SPA/navigation/resolveTargetChunk:resolveTargetChunkId",
+      "source": "store:sessionStorage",
+      "target": "SPA/navigation/resolveTargetChunk:resolveTargetChunkId",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__SPA/viewManager:universalPageInitializer",
+      "source": "store:sessionStorage",
+      "target": "SPA/viewManager:universalPageInitializer",
       "rel": "read"
     }
   ],
@@ -36225,6 +37524,16 @@
     },
     {
       "source": "components/homepage/homepage",
+      "target": "components/shelves/addToShelfMenu",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/homepage/homepage",
+      "target": "components/shelves/shelfPreview",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/homepage/homepage",
       "target": "components/userButton/userButton",
       "kind": "lazy"
     },
@@ -36237,6 +37546,11 @@
       "source": "components/homepage/homepageDisplayUnit",
       "target": "scrolling/index",
       "kind": "static"
+    },
+    {
+      "source": "components/homepage/homepageDisplayUnit",
+      "target": "components/shelves/shelfHeader",
+      "kind": "breaker"
     },
     {
       "source": "components/newBookButton/newBookButton",
@@ -36609,6 +37923,61 @@
       "kind": "lazy"
     },
     {
+      "source": "components/shelves/addToShelfMenu",
+      "target": "components/floatingActionMenu/floatingActionMenu",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/shelves/addToShelfMenu",
+      "target": "components/shelves/shelfTabs",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/shelves/addToShelfMenu",
+      "target": "components/userButton/userButton",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/shelves/shelfHeader",
+      "target": "components/homepage/homepageDisplayUnit",
+      "kind": "static"
+    },
+    {
+      "source": "components/shelves/shelfHeader",
+      "target": "components/shelves/shelfTabs",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/shelves/shelfPreview",
+      "target": "lazyLoader/chunkFetcher",
+      "kind": "static"
+    },
+    {
+      "source": "components/shelves/shelfPreview",
+      "target": "components/shelves/addToShelfMenu",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/shelves/shelfPreview",
+      "target": "indexedDB/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/shelves/shelfSortAndSearch",
+      "target": "components/shelves/shelfTabs",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/shelves/shelfTabs",
+      "target": "components/homepage/homepageDisplayUnit",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/shelves/shelfTabs",
+      "target": "components/shelves/shelfHeader",
+      "kind": "lazy"
+    },
+    {
       "source": "components/sourceContainer/aiReview/index",
       "target": "components/sourceContainer/helpers",
       "kind": "static"
@@ -36925,6 +38294,16 @@
     },
     {
       "source": "components/userProfile/userProfilePage",
+      "target": "components/shelves/addToShelfMenu",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userProfilePage",
+      "target": "components/shelves/shelfPreview",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userProfilePage",
       "target": "indexedDB/index",
       "kind": "lazy"
     },
@@ -36996,6 +38375,11 @@
     {
       "source": "components/utilities/registerComponents",
       "target": "components/settingsButton/settingsButton",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/shelves/shelfTabs",
       "kind": "static"
     },
     {
@@ -39951,8 +41335,13 @@
   ],
   "cycleSummary": {
     "staticCycles": [],
-    "latentCycles": [],
-    "breakerCount": 0,
-    "lazyCount": 212
+    "latentCycles": [
+      [
+        "components/homepage/homepageDisplayUnit",
+        "components/shelves/shelfHeader"
+      ]
+    ],
+    "breakerCount": 1,
+    "lazyCount": 225
   }
 }

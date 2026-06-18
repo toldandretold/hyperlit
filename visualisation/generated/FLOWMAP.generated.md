@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1487 functions in 305 modules · 8 object stores · 7 PG tables · 2902 edges
+**MarkdownDB** schema v27 · 1501 functions in 310 modules · 10 object stores · 10 PG tables · 3060 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -38,7 +38,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `doesContentExceedViewport` | `components/editButton/cursor` | — | — | read | — |
 | `getFirstElementWithId` | `components/editButton/cursor` | — | — | read | — |
 | `getLastContentElement` | `components/editButton/cursor` | — | — | read | — |
-| `getSavedScrollElementId` | `components/editButton/cursor` | — | — | — | — |
+| `getSavedScrollElementId` | `components/editButton/cursor` | `localStorage` `sessionStorage` | — | — | — |
 | `placeCursorAtEndOfElement` | `components/editButton/cursor` | — | — | read | — |
 | `destroyEditButtonListeners` | `components/editButton/index` | — | — | read | — |
 | `disableEditMode` | `components/editButton/index` | — | — | read/write | — |
@@ -58,7 +58,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `destroyHomepageListeners` | `components/homepage/homepage` | — | — | — | — |
 | `destroyHomepageDisplayUnit` | `components/homepage/homepageDisplayUnit` | — | — | — | — |
 | `fixHeaderSpacing` | `components/homepage/homepageDisplayUnit` | — | — | read | — |
-| `initializeHomepageButtons` | `components/homepage/homepageDisplayUnit` | — | — | read/write | — |
+| `initializeHomepageButtons` | `components/homepage/homepageDisplayUnit` | `localStorage` | `localStorage` | read/write | — |
 | `transitionToBookContent` | `components/homepage/homepageDisplayUnit` | — | — | read/write | — |
 | `initializeHomepage` | `components/homepage/homepage` | — | — | — | — |
 | `initializeHomepageBookActions` | `components/homepage/homepage` | — | — | read | — |
@@ -90,9 +90,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setupFormSubmissionHandler` | `components/newbookContainer/citeForm/index` | — | — | — | — |
 | `setupModeSwitching` | `components/newbookContainer/citeForm/modes` | — | — | — | — |
 | `switchImportMode` | `components/newbookContainer/citeForm/modes` | — | — | write | — |
-| `loadFormData` | `components/newbookContainer/citeForm/persistence` | — | — | — | — |
-| `saveFormData` | `components/newbookContainer/citeForm/persistence` | — | — | — | — |
-| `setupClearButton` | `components/newbookContainer/citeForm/persistence` | — | — | write | — |
+| `loadFormData` | `components/newbookContainer/citeForm/persistence` | `localStorage` | — | — | — |
+| `saveFormData` | `components/newbookContainer/citeForm/persistence` | — | `localStorage` | — | — |
+| `setupClearButton` | `components/newbookContainer/citeForm/persistence` | — | `localStorage` | write | — |
 | `setupFormPersistence` | `components/newbookContainer/citeForm/persistence` | — | — | — | — |
 | `setupImportSearch` | `components/newbookContainer/citeForm/search` | — | — | read/write | — |
 | `setupSourceToggle` | `components/newbookContainer/citeForm/sourceToggle` | — | — | write | — |
@@ -102,21 +102,21 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getCiteFormHTML` | `components/newbookContainer/citeForm/template` | — | — | read | — |
 | `setupUrlImport` | `components/newbookContainer/citeForm/urlImport` | — | — | read/write | — |
 | `setupRealTimeValidation` | `components/newbookContainer/citeForm/validation` | — | — | read/write | — |
-| `createDebugPanel` | `components/newbookContainer/debugLog` | — | — | read/write | — |
-| `debugLog` | `components/newbookContainer/debugLog` | — | — | — | — |
-| `updateDebugPanel` | `components/newbookContainer/debugLog` | — | — | read/write | — |
+| `createDebugPanel` | `components/newbookContainer/debugLog` | — | `localStorage` | read/write | — |
+| `debugLog` | `components/newbookContainer/debugLog` | `localStorage` | `localStorage` | — | — |
+| `updateDebugPanel` | `components/newbookContainer/debugLog` | `localStorage` | — | read/write | — |
 | `NewBookContainerManager.cleanupResizeListener` | `components/newbookContainer/index` | — | — | — | — |
-| `NewBookContainerManager.clearSavedFormData` | `components/newbookContainer/index` | — | — | — | — |
+| `NewBookContainerManager.clearSavedFormData` | `components/newbookContainer/index` | — | `localStorage` | — | — |
 | `NewBookContainerManager.closeContainer` | `components/newbookContainer/index` | — | — | read/write | — |
 | `NewBookContainerManager.constructor` | `components/newbookContainer/index` | — | — | read | — |
 | `NewBookContainerManager.destroy` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.handleFocus` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.handleVisibilityChange` | `components/newbookContainer/index` | — | — | — | — |
-| `NewBookContainerManager.loadFormData` | `components/newbookContainer/index` | — | — | read/write | — |
+| `NewBookContainerManager.loadFormData` | `components/newbookContainer/index` | `localStorage` | — | read/write | — |
 | `NewBookContainerManager.openContainer` | `components/newbookContainer/index` | — | — | read/write | — |
 | `NewBookContainerManager.resetAnimationState` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.restoreOriginalContent` | `components/newbookContainer/index` | — | — | write | — |
-| `NewBookContainerManager.saveFormData` | `components/newbookContainer/index` | — | — | read | — |
+| `NewBookContainerManager.saveFormData` | `components/newbookContainer/index` | — | `localStorage` | read | — |
 | `NewBookContainerManager.setResponsiveFormSize` | `components/newbookContainer/index` | — | — | read | — |
 | `NewBookContainerManager.setupButtonListeners` | `components/newbookContainer/index` | — | — | read | — |
 | `NewBookContainerManager.setupNewBookContainerStyles` | `components/newbookContainer/index` | — | — | — | — |
@@ -135,7 +135,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `toggleSettings` | `components/settingsButton/settingsButton` | — | — | — | — |
 | `clamp` | `components/settingsContainer/canvasEngines/utils` | — | — | — | — |
 | `parseColors` | `components/settingsContainer/canvasEngines/utils` | — | — | — | — |
-| `_openGatePanel` | `components/settingsContainer/gate` | — | `library` | read/write | — |
+| `_openGatePanel` | `components/settingsContainer/gate` | — | `library` `localStorage` | read/write | — |
 | `SettingsContainerManager._debounceResize` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager._openGatePanel` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager._openVibeGallery` | `components/settingsContainer/index` | — | — | — | — |
@@ -154,35 +154,49 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SettingsContainerManager.toggleFullWidth` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.updateButtonStates` | `components/settingsContainer/index` | — | — | read/write | — |
 | `_debounceResize` | `components/settingsContainer/textControls` | — | — | — | — |
-| `applyTextAdjustments` | `components/settingsContainer/textControls` | — | — | read/write | — |
-| `handleSliderInput` | `components/settingsContainer/textControls` | — | — | read/write | — |
-| `reconcileViewportWidth` | `components/settingsContainer/textControls` | — | — | read | — |
-| `syncSliderUI` | `components/settingsContainer/textControls` | — | — | read/write | — |
-| `toggleFullWidth` | `components/settingsContainer/textControls` | — | — | read/write | — |
+| `applyTextAdjustments` | `components/settingsContainer/textControls` | `localStorage` | — | read/write | — |
+| `handleSliderInput` | `components/settingsContainer/textControls` | — | `localStorage` | read/write | — |
+| `reconcileViewportWidth` | `components/settingsContainer/textControls` | `localStorage` | — | read | — |
+| `syncSliderUI` | `components/settingsContainer/textControls` | `localStorage` | — | read/write | — |
+| `toggleFullWidth` | `components/settingsContainer/textControls` | — | `localStorage` | read/write | — |
 | `getCurrentTheme` | `components/settingsContainer/themeSwitcher` | — | — | — | — |
-| `initializeTheme` | `components/settingsContainer/themeSwitcher` | — | — | write | — |
-| `switchTheme` | `components/settingsContainer/themeSwitcher` | — | — | write | — |
+| `initializeTheme` | `components/settingsContainer/themeSwitcher` | `localStorage` | — | write | — |
+| `switchTheme` | `components/settingsContainer/themeSwitcher` | — | `localStorage` | write | — |
 | `_openVibeGallery` | `components/settingsContainer/vibe` | — | — | read/write | — |
 | `_openVibeUI` | `components/settingsContainer/vibe` | — | — | read/write | — |
 | `startVibeCanvas` | `components/settingsContainer/vibeCanvas` | — | — | write | — |
 | `stopVibeCanvas` | `components/settingsContainer/vibeCanvas` | — | — | write | — |
 | `checkBalance` | `components/settingsContainer/vibeCSS/api` | — | — | read | — |
-| `deleteVibe` | `components/settingsContainer/vibeCSS/api` | — | — | read | — |
-| `fetchMyVibes` | `components/settingsContainer/vibeCSS/api` | — | — | read | — |
-| `fetchPublicVibes` | `components/settingsContainer/vibeCSS/api` | — | — | — | — |
-| `saveVibe` | `components/settingsContainer/vibeCSS/api` | — | — | read | — |
+| `deleteVibe` | `components/settingsContainer/vibeCSS/api` | — | — | read | `↓route:/api/vibes` |
+| `fetchMyVibes` | `components/settingsContainer/vibeCSS/api` | — | — | read | `↓route:/api/vibes` |
+| `fetchPublicVibes` | `components/settingsContainer/vibeCSS/api` | — | — | — | `↓route:/api/vibes` |
+| `saveVibe` | `components/settingsContainer/vibeCSS/api` | — | — | read | `↓route:/api/vibes` |
 | `submitVibeRequest` | `components/settingsContainer/vibeCSS/api` | — | — | read | — |
-| `updateVibe` | `components/settingsContainer/vibeCSS/api` | — | — | read | — |
-| `showVibeGallery` | `components/settingsContainer/vibeCSS/galleryUI` | — | — | read/write | — |
+| `updateVibe` | `components/settingsContainer/vibeCSS/api` | — | — | read | `↓route:/api/vibes` |
+| `showVibeGallery` | `components/settingsContainer/vibeCSS/galleryUI` | `localStorage` | `localStorage` | read/write | — |
 | `showTopUpUI` | `components/settingsContainer/vibeCSS/inputUI` | — | — | read/write | — |
-| `showVibeInput` | `components/settingsContainer/vibeCSS/inputUI` | — | — | read/write | — |
+| `showVibeInput` | `components/settingsContainer/vibeCSS/inputUI` | — | `localStorage` | read/write | — |
 | `applyVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | read/write | — |
-| `clearVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | — | — |
-| `getVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | — | — |
-| `getVibePrompt` | `components/settingsContainer/vibeCSS/storage` | — | — | — | — |
+| `clearVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | `localStorage` | — | — |
+| `getVibeCSS` | `components/settingsContainer/vibeCSS/storage` | `localStorage` | — | — | — |
+| `getVibePrompt` | `components/settingsContainer/vibeCSS/storage` | `localStorage` | — | — | — |
 | `hasVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | — | — |
 | `removeVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | read/write | — |
 | `handleVibeClick` | `components/settingsContainer/vibe` | — | — | — | — |
+| `showAddToShelfMenu` | `components/shelves/addToShelfMenu` | — | — | read/write | `↓route:/api/shelves` |
+| `removeShelfHeader` | `components/shelves/shelfHeader` | — | — | read/write | — |
+| `showShelfHeader` | `components/shelves/shelfHeader` | `localStorage` | `localStorage` `sessionStorage` | read/write | `↓route:/api/shelves` |
+| `hideShelfPreview` | `components/shelves/shelfPreview` | — | — | write | — |
+| `showShelfPreview` | `components/shelves/shelfPreview` | — | — | read/write | — |
+| `removeSortBar` | `components/shelves/shelfSortAndSearch` | — | — | read/write | — |
+| `showSortBar` | `components/shelves/shelfSortAndSearch` | — | — | read/write | — |
+| `clearActiveShelf` | `components/shelves/shelfTabs` | — | `localStorage` | read/write | — |
+| `closeTab` | `components/shelves/shelfTabs` | — | `localStorage` | read/write | `↓route:/api/shelves` |
+| `destroyShelfTabs` | `components/shelves/shelfTabs` | — | — | read/write | — |
+| `fetchShelves` | `components/shelves/shelfTabs` | — | — | — | `↓route:/api/shelves` |
+| `initializeShelfTabs` | `components/shelves/shelfTabs` | `localStorage` | `localStorage` | read/write | `↓route:/api/shelves` |
+| `invalidateShelfCache` | `components/shelves/shelfTabs` | — | — | — | — |
+| `openShelf` | `components/shelves/shelfTabs` | — | `localStorage` | read/write | `↓route:/api/shelves` |
 | `ensureAiReviewLivePanel` | `components/sourceContainer/aiReview/index` | — | — | read/write | — |
 | `handleAiReviewGenerate` | `components/sourceContainer/aiReview/index` | — | — | read/write | — |
 | `loadAiReviewStatus` | `components/sourceContainer/aiReview/index` | — | — | read | — |
@@ -191,7 +205,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `fetchPipelineMap` | `components/sourceContainer/aiReview/pipelineViz` | — | — | — | — |
 | `openAiReviewVizOverlay` | `components/sourceContainer/aiReview/pipelineViz` | — | — | read/write | — |
 | `renderPipelineViz` | `components/sourceContainer/aiReview/pipelineViz` | — | — | read/write | — |
-| `syncPipelineHighlights` | `components/sourceContainer/aiReview/pipelineViz` | — | — | read | `↓route:/api/database-to-indexeddb/books/{}/library` |
+| `syncPipelineHighlights` | `components/sourceContainer/aiReview/pipelineViz` | `localStorage` | — | read | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `pollAiReviewStatus` | `components/sourceContainer/aiReview/polling` | — | — | read/write | — |
 | `startAiReviewPolling` | `components/sourceContainer/aiReview/polling` | — | — | — | — |
 | `stopAiReviewPolling` | `components/sourceContainer/aiReview/polling` | — | — | — | — |
@@ -273,7 +287,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.validateUrl` | `components/sourceContainer/index` | — | — | — | — |
 | `showTargetNotFoundToast` | `components/toast/toast` | — | — | read/write | — |
 | `setInitialBookmarkPosition` | `components/tocContainer/bookmark` | — | — | read | — |
-| `updateOrInsertBookmark` | `components/tocContainer/bookmark` | — | — | read/write | — |
+| `updateOrInsertBookmark` | `components/tocContainer/bookmark` | `localStorage` `sessionStorage` | — | read/write | — |
 | `checkAndInvalidateTocCache` | `components/tocContainer/index` | — | — | — | — |
 | `generateTableOfContents` | `components/tocContainer/index` | — | — | read/write | `↓route:/api/database-to-indexeddb/books/{}/headings` |
 | `invalidateTocCache` | `components/tocContainer/index` | — | — | — | — |
@@ -307,7 +321,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `buildContentSummary` | `components/userContainer/anonymousTransfer` | — | — | — | — |
 | `confirmBookTransfer` | `components/userContainer/anonymousTransfer` | — | — | — | — |
 | `getAnonymousBooks` | `components/userContainer/anonymousTransfer` | `library` | `library` | — | — |
-| `handleAnonymousBookTransfer` | `components/userContainer/anonymousTransfer` | — | — | — | — |
+| `handleAnonymousBookTransfer` | `components/userContainer/anonymousTransfer` | — | `localStorage` | — | — |
 | `showAnonymousContentTransfer` | `components/userContainer/anonymousTransfer` | — | — | read/write | — |
 | `showTransferConfirmation` | `components/userContainer/anonymousTransfer` | — | — | read/write | — |
 | `transferAnonymousContent` | `components/userContainer/anonymousTransfer` | — | — | — | — |
@@ -322,7 +336,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `showLoginForm` | `components/userContainer/auth` | — | — | read/write | — |
 | `showRegisterError` | `components/userContainer/auth` | — | — | — | — |
 | `showRegisterForm` | `components/userContainer/auth` | — | — | read/write | — |
-| `clearAllCachedData` | `components/userContainer/cache` | — | — | — | — |
+| `clearAllCachedData` | `components/userContainer/cache` | `localStorage` `sessionStorage` | `localStorage` `sessionStorage` | — | — |
 | `clearAndRefreshDatabase` | `components/userContainer/cache` | — | — | — | — |
 | `clearBrowserCache` | `components/userContainer/cache` | — | — | — | — |
 | `handleChangeEmail` | `components/userContainer/email` | — | — | read/write | — |
@@ -370,7 +384,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `UserContainerManager.showForgotPasswordForm` | `components/userContainer/index` | — | — | — | — |
 | `UserContainerManager.showLoginError` | `components/userContainer/index` | — | — | — | — |
 | `UserContainerManager.showLoginForm` | `components/userContainer/index` | — | — | — | — |
-| `UserContainerManager.showOfflineStatus` | `components/userContainer/index` | — | — | write | — |
+| `UserContainerManager.showOfflineStatus` | `components/userContainer/index` | `localStorage` | — | write | — |
 | `UserContainerManager.showRegisterError` | `components/userContainer/index` | — | — | — | — |
 | `UserContainerManager.showRegisterForm` | `components/userContainer/index` | — | — | — | — |
 | `UserContainerManager.showUserProfile` | `components/userContainer/index` | — | — | — | — |
@@ -404,12 +418,12 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ContainerCustomizer.applyCustomizations` | `components/utilities/containerCustomization` | — | — | write | — |
 | `ContainerCustomizer.constructor` | `components/utilities/containerCustomization` | — | — | — | — |
 | `ContainerCustomizer.createStyleElement` | `components/utilities/containerCustomization` | — | — | read/write | — |
-| `ContainerCustomizer.getCustomizations` | `components/utilities/containerCustomization` | — | — | — | — |
+| `ContainerCustomizer.getCustomizations` | `components/utilities/containerCustomization` | `localStorage` | — | — | — |
 | `ContainerCustomizer.init` | `components/utilities/containerCustomization` | — | — | — | — |
 | `ContainerCustomizer.loadCustomizations` | `components/utilities/containerCustomization` | — | — | — | — |
-| `ContainerCustomizer.resetAll` | `components/utilities/containerCustomization` | — | — | write | — |
+| `ContainerCustomizer.resetAll` | `components/utilities/containerCustomization` | — | `localStorage` | write | — |
 | `ContainerCustomizer.resetContainer` | `components/utilities/containerCustomization` | — | — | — | — |
-| `ContainerCustomizer.saveCustomizations` | `components/utilities/containerCustomization` | — | — | — | — |
+| `ContainerCustomizer.saveCustomizations` | `components/utilities/containerCustomization` | — | `localStorage` | — | — |
 | `ContainerCustomizer.updateContainer` | `components/utilities/containerCustomization` | — | — | — | — |
 | `ContainerManager._applyTopRightVisibility` | `components/utilities/containerManager` | — | — | read/write | — |
 | `ContainerManager.cleanupURL` | `components/utilities/containerManager` | — | — | — | — |
@@ -430,9 +444,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `extractFileMetadata` | `components/utilities/fileMetadataExtractor` | — | — | read | — |
 | `appendGateParam` | `components/utilities/gateFilter` | — | — | — | — |
 | `applyGateFilter` | `components/utilities/gateFilter` | — | — | — | — |
-| `gateQueryParam` | `components/utilities/gateFilter` | — | — | — | — |
+| `gateQueryParam` | `components/utilities/gateFilter` | `localStorage` | — | — | — |
 | `getBookGateDefaults` | `components/utilities/gateFilter` | — | — | — | — |
-| `getGateSettings` | `components/utilities/gateFilter` | — | — | — | — |
+| `getGateSettings` | `components/utilities/gateFilter` | `localStorage` | — | — | — |
 | `reapplyAnnotationsWithGate` | `components/utilities/gateFilter` | — | — | read | — |
 | `setBookGateDefaults` | `components/utilities/gateFilter` | — | — | — | — |
 | `KeyboardManager.adjustHyperlitContainerHeight` | `components/utilities/keyboardManager` | — | — | read | — |
@@ -472,7 +486,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `cleanupAfterImport` | `divEditor/domUtilities` | — | — | — | — |
 | `cleanupAfterPaste` | `divEditor/domUtilities` | — | — | — | — |
 | `cleanupStyledSpans` | `divEditor/domUtilities` | — | — | read/write | — |
-| `ensureMinimumDocumentStructure` | `divEditor/domUtilities` | — | — | read/write | — |
+| `ensureMinimumDocumentStructure` | `divEditor/domUtilities` | `sessionStorage` | — | read/write | — |
 | `findAllNumericalIdNodesInChunks` | `divEditor/domUtilities` | — | — | read | — |
 | `findNextNoDeleteNode` | `divEditor/domUtilities` | — | — | read | — |
 | `getNoDeleteNode` | `divEditor/domUtilities` | — | — | read | — |
@@ -597,18 +611,18 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ButtonStateManager.updateButtonStates` | `editToolbar/buttonStateManager` | — | — | read/write | — |
 | `CitationMode._closeShelfDropdown` | `editToolbar/citationMode` | — | — | write | — |
 | `CitationMode._destroyScopeChips` | `editToolbar/citationMode` | — | — | — | — |
-| `CitationMode._ensureShelvesLoaded` | `editToolbar/citationMode` | — | — | write | — |
-| `CitationMode._handleScopeChange` | `editToolbar/citationMode` | — | — | write | — |
+| `CitationMode._ensureShelvesLoaded` | `editToolbar/citationMode` | — | — | write | `↓route:/api/shelves` |
+| `CitationMode._handleScopeChange` | `editToolbar/citationMode` | — | `localStorage` | write | — |
 | `CitationMode._initScopeChips` | `editToolbar/citationMode` | — | — | read/write | — |
 | `CitationMode._items` | `editToolbar/citationMode` | — | — | read | — |
 | `CitationMode._openShelfDropdown` | `editToolbar/citationMode` | — | — | write | — |
-| `CitationMode._pickShelf` | `editToolbar/citationMode` | — | — | write | — |
+| `CitationMode._pickShelf` | `editToolbar/citationMode` | — | `localStorage` | write | — |
 | `CitationMode._renderShelfOptions` | `editToolbar/citationMode` | — | — | read/write | — |
 | `CitationMode._togglePickerVisibility` | `editToolbar/citationMode` | — | — | — | — |
 | `CitationMode._updateScopeBarVisibility` | `editToolbar/citationMode` | — | — | — | — |
 | `CitationMode.attachEventHandlers` | `editToolbar/citationMode` | — | — | — | — |
 | `CitationMode.close` | `editToolbar/citationMode` | — | — | read/write | — |
-| `CitationMode.constructor` | `editToolbar/citationMode` | — | — | read | — |
+| `CitationMode.constructor` | `editToolbar/citationMode` | `localStorage` | — | read | — |
 | `CitationMode.detachEventHandlers` | `editToolbar/citationMode` | — | — | — | — |
 | `CitationMode.handleCitationSelection` | `editToolbar/citationMode` | — | — | read | — |
 | `CitationMode.handleDocumentClick` | `editToolbar/citationMode` | — | — | read | — |
@@ -760,9 +774,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleOverlappingHyperciteClick` | `hypercites/navigation` | — | — | read | — |
 | `handleOverlappingPoly` | `hypercites/navigation` | — | — | — | — |
 | `handleUnderlineClick` | `hypercites/navigation` | — | — | — | — |
-| `navigateToFootnoteTarget` | `hypercites/navigation` | — | — | read/write | — |
+| `navigateToFootnoteTarget` | `hypercites/navigation` | — | `sessionStorage` | read/write | — |
 | `navigateToHyperciteLink` | `hypercites/navigation` | — | — | — | — |
-| `navigateToHyperciteTarget` | `hypercites/navigation` | — | — | read | — |
+| `navigateToHyperciteTarget` | `hypercites/navigation` | — | `sessionStorage` | read | — |
 | `determineRelationshipStatus` | `hypercites/utils` | — | — | — | — |
 | `extractHyperciteIdFromHref` | `hypercites/utils` | — | — | — | — |
 | `findParentWithNumericalId` | `hypercites/utils` | — | — | read | — |
@@ -816,7 +830,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `generateHighlightID` | `hyperlights/utils` | — | — | — | — |
 | `openHighlightById` | `hyperlights/utils` | — | — | read | — |
 | `cleanupPendingBrainHighlight` | `hyperlitContainer/brainQuery` | — | — | — | — |
-| `injectBrainInput` | `hyperlitContainer/brainQuery` | `hyperlights` | `hypercites` `hyperlights` `library` `nodes` | read/write | — |
+| `injectBrainInput` | `hyperlitContainer/brainQuery` | `hyperlights` `localStorage` | `hypercites` `hyperlights` `library` `localStorage` `nodes` | read/write | `↓route:/api/shelves` |
 | `injectBrainPolling` | `hyperlitContainer/brainQuery` | `hyperlights` | `hyperlights` | read/write | — |
 | `closeHyperlitContainer` | `hyperlitContainer/containerActions` | — | — | — | — |
 | `getCurrentContainer` | `hyperlitContainer/containerActions` | — | — | — | — |
@@ -842,7 +856,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `resolveButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations` | — | — | read/write | — |
 | `buildFootnoteContent` | `hyperlitContainer/contentBuilders/displayFootnotes` | — | — | — | — |
 | `buildHyperciteContent` | `hyperlitContainer/contentBuilders/displayHypercites` | `hypercites` `library` | — | — | — |
-| `checkHyperciteExists` | `hyperlitContainer/contentBuilders/displayHypercites` | `footnotes` `hyperlights` `library` `nodes` | `nodes` | read | — |
+| `checkHyperciteExists` | `hyperlitContainer/contentBuilders/displayHypercites` | `footnotes` `hyperlights` `library` `nodes` | `nodes` | read | `↓route:/api/database-to-indexeddb/books/{}/data` |
 | `handleHyperciteDelete` | `hyperlitContainer/contentBuilders/displayHypercites` | `hypercites` `nodes` | `hypercites` `nodes` | read/write | — |
 | `handleHyperciteHealthCheck` | `hyperlitContainer/contentBuilders/displayHypercites` | — | — | read/write | — |
 | `handleManageCitationsClick` | `hyperlitContainer/contentBuilders/displayHypercites` | — | — | read/write | — |
@@ -944,10 +958,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `reportIDBFailure` | `indexedDB/core/healthMonitor` | — | — | — | — |
 | `reportIDBSuccess` | `indexedDB/core/healthMonitor` | — | — | — | — |
 | `cleanLibraryItemForStorage` | `indexedDB/core/library` | — | — | — | — |
-| `fetchLibraryRecordWithStatus` | `indexedDB/core/library` | — | — | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
+| `fetchLibraryRecordWithStatus` | `indexedDB/core/library` | `localStorage` | — | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `getAllOfflineAvailableBooks` | `indexedDB/core/library` | `library` `nodes` | — | — | — |
 | `getLibraryObjectFromIndexedDB` | `indexedDB/core/library` | `library` | `library` | — | — |
-| `getLibraryRecordFromServer` | `indexedDB/core/library` | — | — | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
+| `getLibraryRecordFromServer` | `indexedDB/core/library` | `localStorage` | — | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `initLibraryDependencies` | `indexedDB/core/library` | — | — | — | — |
 | `prepareLibraryForIndexedDB` | `indexedDB/core/library` | — | — | — | — |
 | `syncFirstNodeToTitle` | `indexedDB/core/library` | `library` | `library` | write | — |
@@ -1046,7 +1060,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `throttle` | `lazyLoader/chunkRender` | — | — | — | — |
 | `applyDynamicFootnoteNumbers` | `lazyLoader/footnoteSelfHeal` | — | — | read/write | — |
 | `handleBrokenImages` | `lazyLoader/imageState` | — | — | read/write | — |
-| `createLazyLoader` | `lazyLoader/index` | `library` | — | read/write | — |
+| `createLazyLoader` | `lazyLoader/index` | `library` `localStorage` `sessionStorage` | `localStorage` `sessionStorage` | read/write | — |
 | `getLastChunkId` | `lazyLoader/index` | — | — | read | — |
 | `loadNextChunkFixed` | `lazyLoader/index` | — | — | read/write | — |
 | `loadPreviousChunkFixed` | `lazyLoader/index` | — | — | read/write | — |
@@ -1061,7 +1075,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `selectPrevChunkId` | `lazyLoader/utilities/chunkSelection` | — | — | — | — |
 | `handleDeletedBookAccess` | `pageLoad/accessGuards` | — | — | read/write | — |
 | `handlePrivateBookAccessDenied` | `pageLoad/accessGuards` | — | — | read/write | — |
-| `backgroundDownloadRemainingChunks` | `pageLoad/backgroundDownload` | — | — | — | — |
+| `backgroundDownloadRemainingChunks` | `pageLoad/backgroundDownload` | — | — | — | `↓route:/api/database-to-indexeddb/books/{}/data` |
 | `waitForBackgroundDownload` | `pageLoad/backgroundDownload` | — | — | — | — |
 | `buildChainFromUrl` | `pageLoad/containerChain` | `footnotes` `hyperlights` | — | — | — |
 | `openContainerChain` | `pageLoad/containerChain` | — | — | read | — |
@@ -1069,14 +1083,14 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getFirstChunkLoadedResolver` | `pageLoad/firstChunkPromise` | — | — | — | — |
 | `resetFirstChunkPromise` | `pageLoad/firstChunkPromise` | — | — | — | — |
 | `resolveFirstChunkPromise` | `pageLoad/firstChunkPromise` | — | — | — | — |
-| `fetchInitialChunk` | `pageLoad/initialChunk` | — | `footnotes` | — | — |
+| `fetchInitialChunk` | `pageLoad/initialChunk` | — | `footnotes` | — | `↓route:/api/database-to-indexeddb/books/{}/initial` |
 | `resolveBootstrapTarget` | `pageLoad/initialChunk` | — | — | — | — |
 | `initializeLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | read | — |
 | `initializeLazyLoaderForContainer` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
 | `initializeMainLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
 | `resetCurrentLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
 | `loadFromJSONFiles` | `pageLoad/loadHyperText` | — | — | — | — |
-| `loadHyperText` | `pageLoad/loadHyperText` | `library` | — | read | `↓route:/api/database-to-indexeddb/books/{}/library` |
+| `loadHyperText` | `pageLoad/loadHyperText` | `library` `localStorage` `sessionStorage` | `sessionStorage` | read | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `generateNodeChunksFromMarkdown` | `pageLoad/nodeGen` | — | — | — | — |
 | `cleanupOnlineSyncListener` | `pageLoad/onlineRetry` | — | — | — | — |
 | `setupOnlineSyncListener` | `pageLoad/onlineRetry` | `historyLog` | — | — | — |
@@ -1242,15 +1256,15 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `detectYouTubeTranscript` | `paste/utils/youtube-transcript` | — | — | — | — |
 | `transformYouTubeTranscript` | `paste/utils/youtube-transcript` | — | — | read | — |
 | `clearNavigatedHashes` | `scrolling/index` | — | — | — | — |
-| `fallbackScrollPosition` | `scrolling/internalNav` | — | — | read/write | — |
+| `fallbackScrollPosition` | `scrolling/internalNav` | `localStorage` `sessionStorage` | — | read/write | — |
 | `loadDefaultContent` | `scrolling/internalNav` | — | — | write | — |
-| `navigateToInternalId` | `scrolling/internalNav` | — | — | read/write | — |
+| `navigateToInternalId` | `scrolling/internalNav` | — | `sessionStorage` | read/write | — |
 | `hideNavigationLoading` | `scrolling/navOverlay` | — | — | — | — |
-| `restoreNavigationOverlayIfNeeded` | `scrolling/navOverlay` | — | — | — | — |
+| `restoreNavigationOverlayIfNeeded` | `scrolling/navOverlay` | — | `sessionStorage` | — | — |
 | `showNavigationLoading` | `scrolling/navOverlay` | — | — | — | — |
-| `debouncedServerSave` | `scrolling/readingPosition` | — | — | read | — |
-| `sendBeaconSave` | `scrolling/readingPosition` | — | — | — | — |
-| `restoreScrollPosition` | `scrolling/restore` | — | — | read/write | — |
+| `debouncedServerSave` | `scrolling/readingPosition` | — | — | read | `↑route:/api/database-to-indexeddb/books/{}/reading-position` |
+| `sendBeaconSave` | `scrolling/readingPosition` | — | — | — | `↑route:/api/database-to-indexeddb/books/{}/reading-position` |
+| `restoreScrollPosition` | `scrolling/restore` | `localStorage` `sessionStorage` | — | read/write | — |
 | `isValidContentElement` | `scrolling/scrollHelpers` | — | — | — | — |
 | `lockScrollToTarget` | `scrolling/scrollHelpers` | — | — | — | — |
 | `scrollElementIntoMainContent` | `scrolling/scrollHelpers` | — | — | read | — |
@@ -1273,7 +1287,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `clearSearchHighlights` | `search/inTextSearch/searchHighlight` | — | — | read/write | — |
 | `setCurrentHighlight` | `search/inTextSearch/searchHighlight` | — | — | read/write | — |
 | `setSearchMode` | `search/inTextSearch/searchHighlight` | — | — | write | — |
-| `checkHighlightParam` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `checkHighlightParam` | `search/inTextSearch/searchToolbar` | `sessionStorage` | `sessionStorage` | — | — |
 | `closeSearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `destroySearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `getSearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
@@ -1291,7 +1305,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SearchToolbarManager.destroy` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.ensureSearchIndex` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.findNearestMatchIndex` | `search/inTextSearch/searchToolbar` | — | — | — | — |
-| `SearchToolbarManager.getCurrentVisibleStartLine` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.getCurrentVisibleStartLine` | `search/inTextSearch/searchToolbar` | `sessionStorage` | — | — | — |
 | `SearchToolbarManager.handleClickOutside` | `search/inTextSearch/searchToolbar` | — | — | read | — |
 | `SearchToolbarManager.handleInput` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.handleKeydown` | `search/inTextSearch/searchToolbar` | — | — | — | — |
@@ -1311,8 +1325,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SearchToolbarManager.updateNavigationButtons` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `toggleSearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `destroyHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | — | — | — | — |
-| `initializeHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | — | — | read | — |
-| `createNewBook` | `SPA/createNewBook` | — | `library` `nodes` | — | — |
+| `initializeHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | `localStorage` | — | read | — |
+| `createNewBook` | `SPA/createNewBook` | — | `library` `nodes` `sessionStorage` | — | — |
 | `fireAndForgetSync` | `SPA/createNewBook` | `library` `nodes` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `markdownStore` `nodes` | read | — |
 | `waitForChunkLoadingComplete` | `SPA/domReadiness` | — | — | read | — |
 | `waitForCompleteReadiness` | `SPA/domReadiness` | — | — | read | — |
@@ -1326,7 +1340,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `clearCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
 | `getCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
 | `setCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
-| `isLocalCacheFresh` | `SPA/navigation/chunkLoadRouter` | `library` | — | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
+| `isLocalCacheFresh` | `SPA/navigation/chunkLoadRouter` | `library` `localStorage` `sessionStorage` | — | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `loadChunkForTarget` | `SPA/navigation/chunkLoadRouter` | — | — | — | — |
 | `checkNavigationHealth` | `SPA/navigation/healthCheck` | — | — | read | — |
 | `compareHealth` | `SPA/navigation/healthCheck` | — | — | — | — |
@@ -1338,7 +1352,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initializeReaderView` | `SPA/navigation/index` | — | — | — | — |
 | `smartNavigate` | `SPA/navigation/index` | — | — | — | — |
 | `transitionToReaderView` | `SPA/navigation/index` | — | — | — | — |
-| `LinkNavigationHandler._handlePopstateInner` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler._handlePopstateInner` | `SPA/navigation/LinkNavigationHandler` | — | `sessionStorage` | — | — |
 | `LinkNavigationHandler.areStructuresCompatible` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
 | `LinkNavigationHandler.attachGlobalLinkClickHandler` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
 | `LinkNavigationHandler.extractBookPathFromHyperlightUrl` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
@@ -1405,7 +1419,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `BookToBookTransition.cleanupNavigationOverlays` | `SPA/navigation/pathways/BookToBookTransition` | — | — | read/write | — |
 | `BookToBookTransition.createBookToBookProgressCallback` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
 | `BookToBookTransition.createDeterministicProgressCallback` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
-| `BookToBookTransition.ensureInitialContentLoaded` | `SPA/navigation/pathways/BookToBookTransition` | — | — | read | — |
+| `BookToBookTransition.ensureInitialContentLoaded` | `SPA/navigation/pathways/BookToBookTransition` | `localStorage` `sessionStorage` | — | read | — |
 | `BookToBookTransition.execute` | `SPA/navigation/pathways/BookToBookTransition` | — | — | read | — |
 | `BookToBookTransition.fetchReaderPageHtml` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
 | `BookToBookTransition.getCurrentBookId` | `SPA/navigation/pathways/BookToBookTransition` | — | — | read | — |
@@ -1422,10 +1436,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `DifferentTemplateTransition.detectTargetStructure` | `SPA/navigation/pathways/DifferentTemplateTransition` | — | — | — | — |
 | `DifferentTemplateTransition.execute` | `SPA/navigation/pathways/DifferentTemplateTransition` | — | — | read | — |
 | `FreshPageLoader.initialize` | `SPA/navigation/pathways/FreshPageLoader` | — | — | — | — |
-| `FreshPageLoader.isFreshPageLoad` | `SPA/navigation/pathways/FreshPageLoader` | — | — | — | — |
+| `FreshPageLoader.isFreshPageLoad` | `SPA/navigation/pathways/FreshPageLoader` | `sessionStorage` | — | — | — |
 | `FreshPageLoader.setupFreshPageLoadHandling` | `SPA/navigation/pathways/FreshPageLoader` | — | — | read | — |
 | `ImportBookTransition.cleanupPreviousState` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
-| `ImportBookTransition.clearFormData` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
+| `ImportBookTransition.clearFormData` | `SPA/navigation/pathways/ImportBookTransition` | — | `localStorage` | — | — |
 | `ImportBookTransition.createImportProgressUI` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read/write | — |
 | `ImportBookTransition.deleteImportedBook` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read | — |
 | `ImportBookTransition.enterEditMode` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
@@ -1435,7 +1449,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ImportBookTransition.initializeImportedReader` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read | — |
 | `ImportBookTransition.pollImportProgress` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
 | `ImportBookTransition.replaceBodyContent` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read/write | — |
-| `ImportBookTransition.setupImportedBookSession` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
+| `ImportBookTransition.setupImportedBookSession` | `SPA/navigation/pathways/ImportBookTransition` | — | `sessionStorage` | — | — |
 | `ImportBookTransition.showFootnoteAuditModal` | `SPA/navigation/pathways/ImportBookTransition` | — | — | write | — |
 | `ImportBookTransition.updateUrl` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
 | `NewBookTransition.cleanupPreviousState` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
@@ -1458,7 +1472,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ProgressOverlayConductor.hide` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
 | `ProgressOverlayConductor.isVisible` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
 | `ProgressOverlayConductor.showBookToBookTransition` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
-| `ProgressOverlayConductor.showInitialPageLoad` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
+| `ProgressOverlayConductor.showInitialPageLoad` | `SPA/navigation/ProgressOverlayConductor` | `sessionStorage` | — | — | — |
 | `ProgressOverlayConductor.showSPATransition` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
 | `ProgressOverlayConductor.updateProgress` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
 | `ProgressOverlayEnactor._bindElements` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read/write | — |
@@ -1472,7 +1486,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ProgressOverlayEnactor.rebind` | `SPA/navigation/ProgressOverlayEnactor` | — | — | — | — |
 | `ProgressOverlayEnactor.show` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read/write | — |
 | `ProgressOverlayEnactor.update` | `SPA/navigation/ProgressOverlayEnactor` | — | — | write | — |
-| `resolveTargetChunkId` | `SPA/navigation/resolveTargetChunk` | `hyperlights` `nodes` | — | — | — |
+| `resolveTargetChunkId` | `SPA/navigation/resolveTargetChunk` | `hyperlights` `nodes` `sessionStorage` | — | — | — |
 | `cleanupFromStructure` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
 | `cleanupHome` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
 | `cleanupLogoNav` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
@@ -1496,13 +1510,20 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getPageStructure` | `SPA/navigation/utils/structureDetection` | — | — | read | — |
 | `getSubdomain` | `SPA/navigation/utils/structureDetection` | — | — | — | — |
 | `cleanupReaderView` | `SPA/viewManager` | — | — | — | — |
-| `universalPageInitializer` | `SPA/viewManager` | — | — | read | — |
+| `universalPageInitializer` | `SPA/viewManager` | `sessionStorage` | — | read | — |
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 0 · dynamic cycle-breakers (debt): 0 · lazy-loads (code-split): 212
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 225
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
+
+### Cycles masked by dynamic imports (coupling debt)
+These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
+- (2 modules) `components/homepage/homepageDisplayUnit`, `components/shelves/shelfHeader`
+
+### Dynamic cycle-breakers (debt — could become one-way via events/DI)
+- `components/homepage/homepageDisplayUnit` → `components/shelves/shelfHeader`
 
 ### Lazy-loads (code-split points)
 - `SPA/domReadiness` → `SPA/navigation/ProgressOverlayEnactor`
@@ -1547,6 +1568,8 @@ Only *static-import* rings can crash with a TDZ "Cannot access X before initiali
 - `components/editButton/index` → `paste/index`
 - `components/homepage/homepage` → `components/floatingActionMenu/floatingActionMenu`
 - `components/homepage/homepage` → `components/newBookButton/newBookButton`
+- `components/homepage/homepage` → `components/shelves/addToShelfMenu`
+- `components/homepage/homepage` → `components/shelves/shelfPreview`
 - `components/homepage/homepage` → `components/userButton/userButton`
 - `components/newbookContainer/citeForm/fileUpload` → `components/utilities/fileMetadataExtractor`
 - `components/newbookContainer/citeForm/submission` → `SPA/navigation/pathways/ImportBookTransition`
@@ -1561,6 +1584,15 @@ Only *static-import* rings can crash with a TDZ "Cannot access X before initiali
 - `components/settingsContainer/vibeCSS/galleryUI` → `components/userButton/userButton`
 - `components/settingsContainer/vibeCSS/storage` → `components/settingsContainer/themeSwitcher`
 - `components/settingsContainer/vibeCSS/storage` → `components/settingsContainer/vibeCanvas`
+- `components/shelves/addToShelfMenu` → `components/floatingActionMenu/floatingActionMenu`
+- `components/shelves/addToShelfMenu` → `components/shelves/shelfTabs`
+- `components/shelves/addToShelfMenu` → `components/userButton/userButton`
+- `components/shelves/shelfHeader` → `components/shelves/shelfTabs`
+- `components/shelves/shelfPreview` → `components/shelves/addToShelfMenu`
+- `components/shelves/shelfPreview` → `indexedDB/index`
+- `components/shelves/shelfSortAndSearch` → `components/shelves/shelfTabs`
+- `components/shelves/shelfTabs` → `components/homepage/homepageDisplayUnit`
+- `components/shelves/shelfTabs` → `components/shelves/shelfHeader`
 - `components/sourceContainer/aiReview/pipelineViz` → `hyperlights/deletion`
 - `components/sourceContainer/aiReview/pipelineViz` → `indexedDB/core/library`
 - `components/sourceContainer/creatorTools/deleteBook` → `indexedDB/index`
@@ -1568,6 +1600,8 @@ Only *static-import* rings can crash with a TDZ "Cannot access X before initiali
 - `components/tocContainer/index` → `pageLoad/currentLazyLoaderState`
 - `components/tocContainer/index` → `scrolling/index`
 - `components/userProfile/userProfilePage` → `components/floatingActionMenu/floatingActionMenu`
+- `components/userProfile/userProfilePage` → `components/shelves/addToShelfMenu`
+- `components/userProfile/userProfilePage` → `components/shelves/shelfPreview`
 - `components/userProfile/userProfilePage` → `indexedDB/index`
 - `components/utilities/containerManager` → `hyperlitContainer/stack`
 - `components/utilities/gateFilter` → `hyperlights/deletion`

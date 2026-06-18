@@ -1,5 +1,6 @@
 import { book, OpenHyperlightID, OpenFootnoteID } from '../app';
 import { log, verbose } from '../utilities/logger';
+import type { ReadingPosition } from '../scrolling/readingPosition';
 import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier.js';
 
 import {
@@ -253,9 +254,13 @@ export async function loadHyperText(bookId: string, progressCallback: any = null
       // On a fresh device/browser there's no localStorage — the server bookmark is
       // the only source of truth for where to resume. Without this, scroll restoration
       // defaults to chunk 0 which may not be in the initial download.
-      if (initialResult.bookmark?.element_id && !openHyperlightID && !openFootnoteID) {
+      // The server bookmark IS the user_reading_positions row (ReadingPosition); seed it into
+      // sessionStorage so restoreScrollPosition resumes there. This is the read-back arm of the
+      // reading-position lineage: PG → fetchInitialChunk → here → sessionStorage → scroll.
+      const bookmark: ReadingPosition | null = initialResult.bookmark ?? null;
+      if (bookmark?.element_id && !openHyperlightID && !openFootnoteID) {
         const storageKey = getLocalStorageKey("scrollPosition", currentBook);
-        const scrollData = JSON.stringify({ elementId: initialResult.bookmark.element_id });
+        const scrollData = JSON.stringify({ elementId: bookmark.element_id });
         sessionStorage.setItem(storageKey, scrollData);
       }
 

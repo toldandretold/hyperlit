@@ -7,15 +7,15 @@
 import { fixHeaderSpacing, transitionToBookContent } from '../homepage/homepageDisplayUnit';
 import DOMPurify from 'dompurify';
 
-let currentHeader = null;
-let titleDebounceTimer = null;
-let searchDebounceTimer = null;
+let currentHeader: any = null;
+let titleDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let isFullTextMode = false;
-let abortController = null;
+let abortController: AbortController | null = null;
 let currentIsOwner = true;
-let currentShelfId = null;
+let currentShelfId: any = null;
 let currentIsSystemShelf = true;
-let currentUsername = null;
+let currentUsername: any = null;
 
 const LOCK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>';
 const GLOBE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>';
@@ -38,7 +38,7 @@ function getXsrf() {
  * @param {string} opts.username
  * @param {string|null} opts.slug - URL slug for the shelf
  */
-export function showShelfHeader(opts) {
+export function showShelfHeader(opts: any) {
     removeShelfHeader();
 
     const { shelfId, shelfName, currentSort, isSystemShelf, isOwner, username, slug } = opts;
@@ -75,9 +75,9 @@ export function showShelfHeader(opts) {
         visibility = currentFilter;
         searchShelfId = currentFilter;
 
-        title.textContent = filterLabels[currentFilter];
+        title.textContent = filterLabels[currentFilter as keyof typeof filterLabels];
         title.classList.add('clickable');
-        title.innerHTML = `${filterLabels[currentFilter]}<span class="filter-indicator">\u25BE</span>`;
+        title.innerHTML = `${filterLabels[currentFilter as keyof typeof filterLabels]}<span class="filter-indicator">\u25BE</span>`;
 
         // Wrap title in a positioned container for the dropdown
         const titleWrapper = document.createElement('span');
@@ -85,7 +85,7 @@ export function showShelfHeader(opts) {
         titleWrapper.style.display = 'inline-block';
 
         let dropdownOpen = false;
-        let dropdown = null;
+        let dropdown: any = null;
 
         function closeDropdown() {
             if (dropdown) {
@@ -103,14 +103,14 @@ export function showShelfHeader(opts) {
 
             ['all', 'public', 'private'].forEach(filterValue => {
                 const btn = document.createElement('button');
-                btn.textContent = filterLabels[filterValue];
+                btn.textContent = filterLabels[filterValue as keyof typeof filterLabels];
                 if (filterValue === currentFilter) btn.classList.add('active');
                 btn.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     currentFilter = filterValue;
 
                     // Update title text
-                    title.innerHTML = `${filterLabels[filterValue]}<span class="filter-indicator">\u25BE</span>`;
+                    title.innerHTML = `${filterLabels[filterValue as keyof typeof filterLabels]}<span class="filter-indicator">\u25BE</span>`;
 
                     // Update visibility and searchShelfId for sort/search
                     visibility = filterValue;
@@ -119,11 +119,11 @@ export function showShelfHeader(opts) {
                     // Determine book to load
                     let bookId;
                     if (filterValue === 'all') {
-                        bookId = window.allBook;
+                        bookId = (window as any).allBook;
                     } else if (filterValue === 'public') {
-                        bookId = window.userPageBook;
+                        bookId = (window as any).userPageBook;
                     } else {
-                        bookId = window.userPageBook + 'Private';
+                        bookId = (window as any).userPageBook + 'Private';
                     }
 
                     // Save preference
@@ -145,7 +145,7 @@ export function showShelfHeader(opts) {
             // Close on outside click
             setTimeout(() => {
                 document.addEventListener('click', function handler(e) {
-                    if (!titleWrapper.contains(e.target)) {
+                    if (!titleWrapper.contains(e.target as Node | null)) {
                         closeDropdown();
                         document.removeEventListener('click', handler);
                     }
@@ -168,7 +168,7 @@ export function showShelfHeader(opts) {
 
         if (canEdit) {
             title.addEventListener('input', () => {
-                clearTimeout(titleDebounceTimer);
+                clearTimeout(titleDebounceTimer as any);
                 // Enforce max length
                 if (title.textContent.length > 100) {
                     title.textContent = title.textContent.slice(0, 100);
@@ -201,8 +201,8 @@ export function showShelfHeader(opts) {
 
     // --- Visibility icon (custom shelves only) ---
     let currentVisibility = visibility;
-    let visIcon = null;
-    let shareBtn = null;
+    let visIcon: any = null;
+    let shareBtn: any = null;
 
     if (!isSystemShelf) {
         visIcon = document.createElement('span');
@@ -274,7 +274,7 @@ export function showShelfHeader(opts) {
                     });
 
                     // Invalidate shelf cache so picker refreshes
-                    const { invalidateShelfCache, closeTab } = await import('./shelfTabs.js');
+                    const { invalidateShelfCache, closeTab } = await import('./shelfTabs');
                     invalidateShelfCache();
 
                     // Close the tab
@@ -346,7 +346,7 @@ export function showShelfHeader(opts) {
 
     // Search input handler
     searchInput.addEventListener('input', () => {
-        clearTimeout(searchDebounceTimer);
+        clearTimeout(searchDebounceTimer as any);
         const query = searchInput.value.trim();
 
         if (isFullTextMode) {
@@ -444,7 +444,7 @@ export function showShelfHeader(opts) {
                 if (data.bookId) {
                     await transitionToBookContent(data.bookId, true);
                     // Update the tab's data attributes
-                    const tab = document.querySelector(`.visitor-shelf-tab[data-shelf-id="${shelfId}"]`);
+                    const tab = document.querySelector(`.visitor-shelf-tab[data-shelf-id="${shelfId}"]`) as HTMLElement | null;
                     if (tab) {
                         tab.dataset.sort = newSort;
                         tab.dataset.content = data.bookId;
@@ -463,9 +463,9 @@ export function showShelfHeader(opts) {
                     body: JSON.stringify({ default_sort: newSort }),
                 });
                 // Re-render the shelf by calling openShelf
-                const { openShelf } = await import('./shelfTabs.js');
+                const { openShelf } = await import('./shelfTabs');
                 // Update the tab's sort data attribute
-                const tab = document.querySelector(`.shelf-tab[data-shelf-id="${shelfId}"]`);
+                const tab = document.querySelector(`.shelf-tab[data-shelf-id="${shelfId}"]`) as HTMLElement | null;
                 if (tab) {
                     tab.dataset.sort = newSort;
                     tab.dataset.content = ''; // Clear to force re-render
@@ -484,7 +484,7 @@ export function showShelfHeader(opts) {
     const fixedHeader = document.querySelector('.fixed-header');
     const mainContent = document.querySelector('.main-content');
     if (fixedHeader && mainContent) {
-        fixedHeader.parentNode.insertBefore(header, mainContent);
+        fixedHeader.parentNode!.insertBefore(header, mainContent);
     } else if (fixedHeader) {
         fixedHeader.insertAdjacentElement('afterend', header);
     }
@@ -496,7 +496,7 @@ export function showShelfHeader(opts) {
 /**
  * Perform full-text search scoped to a shelf via the API.
  */
-async function performShelfSearch(query, searchShelfId) {
+async function performShelfSearch(query: any, searchShelfId: any) {
     if (abortController) abortController.abort();
     abortController = new AbortController();
 
@@ -527,7 +527,7 @@ async function performShelfSearch(query, searchShelfId) {
         }
 
         renderInlineResults(data.results, query);
-    } catch (err) {
+    } catch (err: any) {
         if (err.name === 'AbortError') return;
         console.error('Shelf search error:', err);
         showInlineStatus('Search failed');
@@ -537,13 +537,13 @@ async function performShelfSearch(query, searchShelfId) {
 /**
  * Hide all library cards and show a status message in main-content.
  */
-function showInlineStatus(message) {
+function showInlineStatus(message: any) {
     const mainContent = document.querySelector('.main-content');
     if (!mainContent) return;
 
     // Hide all existing cards
     mainContent.querySelectorAll('[data-node-id]').forEach(card => {
-        card.style.display = 'none';
+        (card as HTMLElement).style.display = 'none';
     });
 
     // Remove existing results container
@@ -560,13 +560,13 @@ function showInlineStatus(message) {
 /**
  * Render full-text search results inline in main-content.
  */
-function renderInlineResults(results, query) {
+function renderInlineResults(results: any, query: any) {
     const mainContent = document.querySelector('.main-content');
     if (!mainContent) return;
 
     // Hide all existing cards
     mainContent.querySelectorAll('[data-node-id]').forEach(card => {
-        card.style.display = 'none';
+        (card as HTMLElement).style.display = 'none';
     });
 
     // Remove existing results container
@@ -577,7 +577,7 @@ function renderInlineResults(results, query) {
     const container = document.createElement('div');
     container.className = 'shelf-fts-results';
 
-    results.forEach(bookResult => {
+    results.forEach((bookResult: any) => {
         const displayTitle = bookResult.title || 'Unreferenced';
         const displayAuthor = bookResult.author || 'Anon.';
 
@@ -588,7 +588,7 @@ function renderInlineResults(results, query) {
         container.appendChild(card);
 
         // Snippet paragraphs (up to 3)
-        bookResult.matches.slice(0, 3).forEach(match => {
+        bookResult.matches.slice(0, 3).forEach((match: any) => {
             const nodeAnchor = match.startLine ? `#${match.startLine}` : '';
             const snippet = document.createElement('p');
             snippet.className = 'shelf-fts-snippet';
@@ -602,10 +602,10 @@ function renderInlineResults(results, query) {
     // Store highlight query in sessionStorage on snippet click
     container.querySelectorAll('[data-highlight-query]').forEach(link => {
         link.addEventListener('click', () => {
-            const q = link.dataset.highlightQuery;
+            const q = (link as HTMLElement).dataset.highlightQuery;
             if (q) {
                 sessionStorage.setItem('pendingHighlightQuery', q);
-                const startLine = link.dataset.startLine;
+                const startLine = (link as HTMLElement).dataset.startLine;
                 if (startLine) {
                     sessionStorage.setItem('pendingHighlightStartLine', startLine);
                 }
@@ -626,14 +626,14 @@ function clearInlineResults() {
 
     // Restore all hidden cards
     mainContent.querySelectorAll('[data-node-id]').forEach(card => {
-        card.style.display = '';
+        (card as HTMLElement).style.display = '';
     });
 }
 
 /**
  * Filter library cards in main-content by matching query against text content.
  */
-function filterLibraryCards(query) {
+function filterLibraryCards(query: any) {
     const mainContent = document.querySelector('.main-content');
     if (!mainContent) return;
 
@@ -642,11 +642,11 @@ function filterLibraryCards(query) {
 
     cards.forEach(card => {
         if (!lowerQuery) {
-            card.style.display = '';
+            (card as HTMLElement).style.display = '';
             return;
         }
-        const text = card.textContent.toLowerCase();
-        card.style.display = text.includes(lowerQuery) ? '' : 'none';
+        const text = card.textContent!.toLowerCase();
+        (card as HTMLElement).style.display = text.includes(lowerQuery) ? '' : 'none';
     });
 }
 
@@ -680,7 +680,7 @@ export function removeShelfHeader() {
  * Show a confirmation dialog before changing shelf visibility.
  * Returns a Promise that resolves to true (confirmed) or false (cancelled).
  */
-function showVisibilityConfirm(shelfName, newVis) {
+function showVisibilityConfirm(shelfName: any, newVis: any) {
     const isGoingPublic = newVis === 'public';
     const message = isGoingPublic
         ? `Make <strong>${escapeHtml(shelfName)}</strong> public? Anyone with the link will be able to see this shelf.`
@@ -707,12 +707,12 @@ function showVisibilityConfirm(shelfName, newVis) {
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
 
-        modal.querySelector('.confirm-cancel').addEventListener('click', () => {
+        modal.querySelector('.confirm-cancel')!.addEventListener('click', () => {
             overlay.remove();
             resolve(false);
         });
 
-        modal.querySelector('.confirm-action').addEventListener('click', () => {
+        modal.querySelector('.confirm-action')!.addEventListener('click', () => {
             overlay.remove();
             resolve(true);
         });
@@ -730,7 +730,7 @@ function showVisibilityConfirm(shelfName, newVis) {
  * Show a confirmation dialog before deleting a shelf.
  * Returns a Promise that resolves to true (confirmed) or false (cancelled).
  */
-function showDeleteConfirm(shelfName) {
+function showDeleteConfirm(shelfName: any) {
     const message = `Delete <strong>${escapeHtml(shelfName)}</strong>? This will remove the shelf and unlink all books from it. The books themselves will not be deleted.`;
 
     return new Promise((resolve) => {
@@ -753,12 +753,12 @@ function showDeleteConfirm(shelfName) {
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
 
-        modal.querySelector('.confirm-cancel').addEventListener('click', () => {
+        modal.querySelector('.confirm-cancel')!.addEventListener('click', () => {
             overlay.remove();
             resolve(false);
         });
 
-        modal.querySelector('.confirm-action').addEventListener('click', () => {
+        modal.querySelector('.confirm-action')!.addEventListener('click', () => {
             overlay.remove();
             resolve(true);
         });
@@ -772,7 +772,7 @@ function showDeleteConfirm(shelfName) {
     });
 }
 
-function escapeHtml(text) {
+function escapeHtml(text: any) {
     if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;

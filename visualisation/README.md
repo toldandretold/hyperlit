@@ -123,8 +123,9 @@ role = code acting out of place (a refactor candidate), visible at a glance.
 double-click a module box drills into its functions; expand/collapse all + fit; focus dropdown.
 
 **Type trace (click a Postgres table):** clicking a table that has a known TS type lineage
-(today: `nodes`, `library`, `footnotes`, `bibliography`, `hypercites`, `hyperlights` — all six
-data tables) doesn't do the generic
+(today: ALL TEN tables that reach the client — the six **book-content** tables `nodes`, `library`,
+`footnotes`, `bibliography`, `hypercites`, `hyperlights`, plus the four **non-content** tables
+`user_reading_positions`, `canonical_source`, `vibes`, `shelves`) doesn't do the generic
 edge-trace — it lights the **functions that actually handle that data type**, read from the TypeScript
 annotations (`collect.ts` tags each function with the welded type names that appear in its signature or
 body — `nodes`: `NodeRecord`/`ServerNodeRow`/`PublicChunk`/`NodeHyperlightView`/`NodeHyperciteView`;
@@ -137,9 +138,29 @@ so the rebuild/embed builders light for both; `hyperlights`: the same dual shape
 plus the `store:<table>` object store
 and the DOM as waypoints. So you see the data's whole **PG↔IndexedDB↔DOM lineage** at once, laid out
 top→bottom by the grid's rows. It deliberately **overrides the `trace:` direction toggle** — a type
-trace is the entire journey of that data, not a one-directional walk. (Mechanism: `TABLE_TYPES` +
+trace is the entire journey of that data, not a one-directional walk.
+>
+> **The four non-content tables are different — a `fetch → DOM` trace, NOT PG↔IDB↔DOM.** They have no
+> IndexedDB store, so each welds a single **API-contract type** instead of a wire/store pair:
+> `user_reading_positions`→`ReadingPosition` (the scroll bookmark, saved by `scrolling/` + read back in
+> the initial chunk); `canonical_source`→`CanonicalBestVersion` (the `/api/canonical/{id}/best-version`
+> response, resolved click-time by the bibliography resolver); `vibes`→`Vibe`/`VibeInput` (the css-override
+> gallery in `settingsContainer/vibeCSS`); `shelves`→`Shelf` (book-collections — the `components/shelves`
+> folder was JS→TS-migrated so its handlers could be typed). These persist client-side in **web storage,
+> not IndexedDB** — so `localStorage` and `sessionStorage` are modelled as store nodes (on the IndexedDB
+> row, distinct amber/orange barrels) and the trace lights whichever a carrying fn actually touches; e.g.
+> the reading-position read-back arm lands in `sessionStorage` via `loadHyperText`, so the data visibly
+> reaches a store waypoint instead of dead-ending at the DOM. Their `pg:` nodes come into existence from the
+> front-end fetch (an `ENDPOINT_TABLES` entry), and they have **no backend-controller tier** because the PHP
+> collector only parses `Db*`/`DatabaseToIndexedDB` controllers + `Pg*` models (these use plain Eloquent
+> models) — a deliberate, documented gap; the FE-type trace is complete without it.
+>
+> (Mechanism: `TABLE_TYPES` +
 `collectTypeReferences()` in `collect.ts`; the `types` field on `fn`/`table` nodes; `paintTypeTrace`
-in the embedded page. Add a table by welding its wire/store types + listing them in `TABLE_TYPES`.)
+in the embedded page. NOTE: `collectTypeReferences` only tags **exported** functions/methods, and only
+sees the literal type NAME as written — a type alias is invisible. Add a table by welding its wire/store
+or API-contract type(s) + listing them in `TABLE_TYPES`; for a non-content table, type the EXPORTED
+fetch/consume handler and add an `ENDPOINT_TABLES` entry so its `pg:` node exists.)
 > *Note:* `library` is the ownership/auth table, so its trace also lights the many backend controllers
 > that read it for permission checks — that's a **feature**: it surfaces every ownership/`PgLibrary::where`
 > gate across the backend at a glance. The frontend lineage stays crisp; telling an auth-read apart from

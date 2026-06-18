@@ -17,6 +17,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
+/**
+ * The `shelves` (+ `shelf_items`) API — user-curated book collections. The list/create responses
+ * must stay in sync with the TS contract `Shelf` (`components/shelves/types.ts`); `creator_token`
+ * is set null server-side and never sent. `render`/`publicRender` build a SYNTHETIC book (nodes)
+ * from the shelf's items, so those return a `bookId` the reader then loads via the normal content path.
+ */
 class ShelfController extends Controller
 {
     /**
@@ -54,8 +60,13 @@ class ShelfController extends Controller
     }
 
     /**
-     * List current user's shelves.
-     * Pass ?book=<id> to also receive an is_member boolean per shelf.
+     * List current user's shelves — the LOAD shape for the TS `Shelf[]` (`GET /api/shelves`).
+     * Pass ?book=<id> to also receive an `is_member` boolean per shelf.
+     *
+     * @return \Illuminate\Http\JsonResponse array{shelves: array<int, array{
+     *   id: string, name: string, slug: string, description: ?string, visibility: string,
+     *   default_sort: string, created_at: string, updated_at: string, item_count: int, is_member?: bool
+     * }>}
      */
     public function index(Request $request)
     {
@@ -95,7 +106,11 @@ class ShelfController extends Controller
     }
 
     /**
-     * Create a new shelf.
+     * Create a new shelf (owner = current user; `creator_token` null; unique name + slug per creator).
+     *
+     * @return \Illuminate\Http\JsonResponse array{success: true, shelf: array{
+     *   id: string, name: string, slug: string, description: ?string, visibility: string, default_sort: string
+     * }} | array{error: string}
      */
     public function store(Request $request)
     {
@@ -149,7 +164,7 @@ class ShelfController extends Controller
     }
 
     /**
-     * Update a shelf (rename, visibility, default_sort).
+     * Update a shelf (rename, visibility, default_sort) — owner-only. @return array{success: true}|array{error: string}
      */
     public function update(Request $request, string $id)
     {
@@ -197,7 +212,7 @@ class ShelfController extends Controller
     }
 
     /**
-     * Delete a shelf.
+     * Delete a shelf (owner-only; flushes its cached synthetic book). @return array{success: true}|array{error: string}
      */
     public function destroy(Request $request, string $id)
     {
@@ -220,7 +235,8 @@ class ShelfController extends Controller
     }
 
     /**
-     * Add a book to a shelf.
+     * Add a book to a shelf — upserts a `shelf_items` row (owner-only). Body: array{book: string}.
+     * @return array{success: true}|array{error: string}
      */
     public function addItem(Request $request, string $id)
     {
@@ -252,7 +268,8 @@ class ShelfController extends Controller
     }
 
     /**
-     * Remove a book from a shelf.
+     * Remove a book from a shelf — deletes the `shelf_items` row (owner-only).
+     * @return array{success: true}|array{error: string}
      */
     public function removeItem(Request $request, string $id, string $book)
     {
@@ -369,6 +386,13 @@ class ShelfController extends Controller
         }
     }
 
+    /**
+     * Render a shelf to a SYNTHETIC book — materializes the shelf's `shelf_items` as a virtual book
+     * (nodes) and returns its id, which the reader then loads via the normal content pipeline.
+     * `publicRender` is the auth-optional twin for public shelves.
+     *
+     * @return \Illuminate\Http\JsonResponse array{bookId: string} | array{error: string}
+     */
     public function render(Request $request, string $id)
     {
         $user = Auth::user();

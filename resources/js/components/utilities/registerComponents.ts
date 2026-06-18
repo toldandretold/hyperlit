@@ -82,7 +82,7 @@ import {
 import {
   initializeShelfTabs,
   destroyShelfTabs
-} from '../shelves/shelfTabs.js';
+} from '../shelves/shelfTabs';
 
 import {
   initializeFootnoteCitationListeners,

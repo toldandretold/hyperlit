@@ -4,8 +4,38 @@
  * components/vibeCSS.js.
  */
 
+/** The `css_overrides` jsonb — a map of CSS custom-property/selector → value. */
+export type CssOverrides = Record<string, string>;
+
+/**
+ * A `vibes` row as the gallery sees it (the SOLE `vibes` contract that reaches the client).
+ * Mirrors `VibeController`'s mine/public/save responses; `creator_token` is hidden server-side.
+ * `creator`/`pull_count` are only present on the PUBLIC gallery payload.
+ */
+export interface Vibe {
+  id: string;
+  name: string;
+  prompt: string | null;
+  css_overrides: CssOverrides;
+  visibility: 'private' | 'public';
+  source_creator?: string | null;
+  pull_count?: number;
+  creator?: string | null;
+  created_at: string;
+}
+
+/** The save (POST /api/vibes) body — backend sets id/creator/created_at. */
+export interface VibeInput {
+  name: string;
+  css_overrides: CssOverrides;
+  prompt?: string | null;
+  visibility?: 'private' | 'public';
+  source_vibe_id?: string;
+  source_creator?: string;
+}
+
 /** POST prompt to backend; returns overrides object on success. */
-export async function submitVibeRequest(prompt: string): Promise<any> {
+export async function submitVibeRequest(prompt: string): Promise<CssOverrides> {
   const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
   if (!csrfToken) throw new Error('No CSRF token found');
 
@@ -60,18 +90,18 @@ function getHeaders() {
   };
 }
 
-export async function fetchMyVibes(): Promise<any[]> {
+export async function fetchMyVibes(): Promise<Vibe[]> {
   const resp = await fetch('/api/vibes/mine', {
     headers: getHeaders(),
     credentials: 'same-origin',
   });
   if (!resp.ok) return [];
   const data = await resp.json();
-  return data.vibes || [];
+  return (data.vibes || []) as Vibe[];
 }
 
-export async function saveVibe({ name, css_overrides, prompt, visibility, source_vibe_id, source_creator }: any): Promise<any> {
-  const body: any = { name, css_overrides, prompt: prompt || null, visibility: visibility || 'private' };
+export async function saveVibe({ name, css_overrides, prompt, visibility, source_vibe_id, source_creator }: VibeInput): Promise<Vibe> {
+  const body: VibeInput = { name, css_overrides, prompt: prompt || null, visibility: visibility || 'private' };
   if (source_vibe_id) body.source_vibe_id = source_vibe_id;
   if (source_creator) body.source_creator = source_creator;
   const resp = await fetch('/api/vibes', {
@@ -86,10 +116,10 @@ export async function saveVibe({ name, css_overrides, prompt, visibility, source
     err.status = resp.status;
     throw err;
   }
-  return data.vibe;
+  return data.vibe as Vibe;
 }
 
-export async function updateVibe(id: any, fields: any): Promise<any> {
+export async function updateVibe(id: string, fields: Partial<Vibe>): Promise<Vibe> {
   const resp = await fetch(`/api/vibes/${id}`, {
     method: 'PATCH',
     headers: getHeaders(),
@@ -98,10 +128,10 @@ export async function updateVibe(id: any, fields: any): Promise<any> {
   });
   const data = await resp.json();
   if (!resp.ok) throw new Error(data.message || 'Failed to update vibe');
-  return data.vibe;
+  return data.vibe as Vibe;
 }
 
-export async function deleteVibe(id: any): Promise<void> {
+export async function deleteVibe(id: string): Promise<void> {
   const resp = await fetch(`/api/vibes/${id}`, {
     method: 'DELETE',
     headers: getHeaders(),
@@ -113,9 +143,9 @@ export async function deleteVibe(id: any): Promise<void> {
   }
 }
 
-export async function fetchPublicVibes(offset: any = 0, sort = 'top'): Promise<any> {
+export async function fetchPublicVibes(offset: number = 0, sort = 'top'): Promise<{ vibes: Vibe[]; hasMore: boolean }> {
   const params = new URLSearchParams();
-  if (offset) params.set('offset', offset);
+  if (offset) params.set('offset', String(offset));
   if (sort) params.set('sort', sort);
   const url = '/api/vibes/public' + (params.toString() ? '?' + params : '');
   const resp = await fetch(url, {
@@ -124,5 +154,5 @@ export async function fetchPublicVibes(offset: any = 0, sort = 'top'): Promise<a
   });
   if (!resp.ok) return { vibes: [], hasMore: false };
   const data = await resp.json();
-  return { vibes: data.vibes || [], hasMore: !!data.has_more };
+  return { vibes: (data.vibes || []) as Vibe[], hasMore: !!data.has_more };
 }

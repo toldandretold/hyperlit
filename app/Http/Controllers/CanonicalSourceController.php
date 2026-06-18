@@ -26,6 +26,15 @@ class CanonicalSourceController extends Controller
      * Returns 200 with { book, has_version, metadata } in all "canonical exists"
      * cases, and 404 only if the canonical itself doesn't exist. A canonical
      * with no resolvable version returns { book: null, has_version: false }.
+     *
+     * The SOLE `canonical_source` payload that reaches the client — must stay in sync with the TS
+     * contract `CanonicalBestVersion` (`indexedDB/bibliography/index.ts`). `creator_token` is hidden
+     * on the model; only the citation-card metadata fields are exposed here.
+     *
+     * @return JsonResponse array{book: ?string, has_version: bool, metadata: array{
+     *   title: ?string, author: ?string, year: ?int, journal: ?string, publisher: ?string,
+     *   doi: ?string, abstract: ?string, oa_url: ?string, pdf_url: ?string
+     * }} | array{error: string}
      */
     public function bestVersion(Request $request, string $id, BestVersionService $bestVersion): JsonResponse
     {
