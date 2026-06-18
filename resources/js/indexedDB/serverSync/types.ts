@@ -64,7 +64,7 @@ export interface ServerHyperciteRow {
 }
 
 /** One footnote value: new format object, or legacy bare content string. */
-type ServerFootnoteValue = { content?: string; preview_nodes?: unknown } | string;
+type ServerFootnoteValue = { content?: string; preview_nodes?: unknown[] | null } | string;
 /** The `footnotes` payload: a book id plus a footnoteId→value map. */
 export interface ServerFootnotesPayload {
   book: BookId;

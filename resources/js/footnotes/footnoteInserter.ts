@@ -4,6 +4,7 @@
  */
 
 import { openDatabase, getNodeChunksFromIndexedDB, queueForSync } from '../indexedDB/index';
+import type { FootnoteRecord } from '../indexedDB/types';
 import { rebuildAndRenumber, getDisplayNumber } from './FootnoteNumberingService';
 import { handleUnifiedContentClick } from '../hyperlitContainer/index';
 
@@ -122,7 +123,7 @@ async function createFootnoteRecord(footnoteId: string, bookId: string): Promise
   const store = tx.objectStore('footnotes');
 
   const now = new Date().toISOString();
-  const footnoteRecord = {
+  const footnoteRecord: FootnoteRecord = {
     book: bookId,
     footnoteId: footnoteId,
     content: '', // Empty - placeholder handled in UI

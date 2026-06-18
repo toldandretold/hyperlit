@@ -7,7 +7,7 @@
  */
 import { parseNodeId, prepareLibraryForIndexedDB } from '../index';
 import { verbose } from '../../utilities/logger';
-import type { NodeRecord, NodeHyperlightView } from '../types';
+import type { NodeRecord, NodeHyperlightView, FootnoteRecord, BibliographyRecord } from '../types';
 import type {
   ServerNodeRow,
   ServerHyperlightRow,
@@ -124,7 +124,7 @@ export async function loadFootnotesToIndexedDB(db: IDBDatabase, footnotes: Serve
     // Inline the type guard (not a boolean var) so TS narrows footnoteData to the
     // object form inside the true branch and to string in the false branch.
     const isNewFormat = typeof footnoteData === 'object' && footnoteData !== null;
-    const record = {
+    const record: FootnoteRecord = {
       book:          footnotes.book,
       footnoteId:    footnoteId,
       content:       isNewFormat ? (footnoteData.content ?? '') : footnoteData,
@@ -165,7 +165,7 @@ export async function loadBibliographyToIndexedDB(db: IDBDatabase, bibliography:
     // - Legacy format: just the content string (from old EPUB imports)
     const isNewFormat = typeof refData === 'object' && refData !== null;
 
-    const record = {
+    const record: BibliographyRecord = {
       book: bibliography.book,
       referenceId: referenceId,
       content: isNewFormat ? refData.content : refData,

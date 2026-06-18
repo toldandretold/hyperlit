@@ -18,6 +18,8 @@ import type {
   BookId,
   HistoryLogEntry,
   LibraryRecord,
+  FootnoteRecord,
+  BibliographyRecord,
   NodeRecord,
   PublicChunk,
   SyncQueueItem,
@@ -39,8 +41,8 @@ export interface SyncPayloadInput {
     nodes: Array<NodeRecord | PublicChunk>;
     hypercites?: SyncRecordData[];
     hyperlights?: SyncRecordData[];
-    footnotes?: SyncRecordData[];
-    bibliography?: SyncRecordData[];
+    footnotes?: FootnoteRecord[];
+    bibliography?: BibliographyRecord[];
     library?: LibraryRecord | null;
   };
   deletions: {
@@ -133,9 +135,9 @@ interface UnifiedSyncPayload {
   hypercites: SyncRecordData[];
   hyperlights: SyncRecordData[];
   hyperlightDeletions: SyncRecordData[];
-  footnotes: SyncRecordData[];
+  footnotes: FootnoteRecord[];
   footnoteDeletions: SyncRecordData[];
-  bibliography: SyncRecordData[];
+  bibliography: BibliographyRecord[];
   bibliographyDeletions: SyncRecordData[];
   library: LibraryRecord | null;
 }
@@ -360,7 +362,7 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
       book: BookId;
       updates: {
         nodes: NodeRecord[]; hypercites: SyncRecordData[]; hyperlights: SyncRecordData[];
-        footnotes: SyncRecordData[]; bibliography: SyncRecordData[]; library: LibraryRecord | null;
+        footnotes: FootnoteRecord[]; bibliography: BibliographyRecord[]; library: LibraryRecord | null;
       };
       deletions: {
         nodes: Array<SyncRecordData & { _action?: 'delete' | 'hide' }>;

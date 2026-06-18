@@ -108,6 +108,32 @@ describe('IndexedDB flow viz', () => {
     expect(fnByLabel('syncLibraryRecordToBackend').types).toContain('LibraryRecord');          // save (IDB → PG)
   });
 
+  it('type-trace capture: footnotes table + its handler fns carry the welded footnote types', () => {
+    const viz = collect();
+    const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
+
+    // wire payload-map (ServerFootnotesPayload) → expanded per-row store/save (FootnoteRecord)
+    expect(byId['pg:footnotes'].types).toEqual(['FootnoteRecord', 'ServerFootnotesPayload']);  // sorted
+
+    const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
+    expect(fnByLabel('loadFootnotesToIndexedDB').types).toEqual(expect.arrayContaining(['ServerFootnotesPayload', 'FootnoteRecord'])); // wire in + expansion
+    expect(fnByLabel('saveFootnoteToIndexedDB').types).toContain('FootnoteRecord');            // save (IDB)
+    expect(fnByLabel('syncFootnotesToPostgreSQL').types).toContain('FootnoteRecord');          // push (IDB → PG)
+  });
+
+  it('type-trace capture: bibliography table + its handler fns carry the welded bibliography types', () => {
+    const viz = collect();
+    const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
+
+    expect(byId['pg:bibliography'].types).toEqual(['BibliographyRecord', 'ServerBibliographyPayload']);  // sorted
+
+    const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
+    expect(fnByLabel('loadBibliographyToIndexedDB').types).toEqual(expect.arrayContaining(['ServerBibliographyPayload', 'BibliographyRecord'])); // wire in + expansion
+    expect(fnByLabel('syncReferencesToPostgreSQL').types).toContain('BibliographyRecord');     // push (IDB → PG)
+    expect(fnByLabel('buildCitationContent').types).toContain('BibliographyRecord');           // IDB → DOM render
+    expect(fnByLabel('resolveBibliographyTarget').types).toContain('BibliographyRecord');      // click-time resolve
+  });
+
   it('API route tier: endpoints carry precise per-endpoint tables (no coarse fan-out)', () => {
     const viz = collect();
     const routes = viz.nodes.filter(n => n.kind === 'route');

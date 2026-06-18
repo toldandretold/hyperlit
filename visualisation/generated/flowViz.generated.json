@@ -6886,7 +6886,10 @@
       "kind": "fn",
       "stage": "footnotes",
       "module": "footnotes/footnoteAnnotations",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "FootnoteRecord"
+      ]
     },
     {
       "id": "footnotes/footnoteCache:buildFootnoteMap",
@@ -7846,7 +7849,10 @@
       "kind": "fn",
       "stage": "hyperlitContainer",
       "module": "hyperlitContainer/contentBuilders/displayCitations",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "BibliographyRecord"
+      ]
     },
     {
       "id": "hyperlitContainer/contentBuilders/displayCitations:buildHyperciteCitationContent",
@@ -8606,7 +8612,10 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/bibliography/index",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "BibliographyRecord"
+      ]
     },
     {
       "id": "indexedDB/bibliography/index:saveAllReferencesToIndexedDB",
@@ -8614,7 +8623,10 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/bibliography/index",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "BibliographyRecord"
+      ]
     },
     {
       "id": "indexedDB/bibliography/syncReferencesToPostgreSQL:syncReferencesToPostgreSQL",
@@ -8622,7 +8634,10 @@
       "kind": "fn",
       "stage": "push",
       "module": "indexedDB/bibliography/syncReferencesToPostgreSQL",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "BibliographyRecord"
+      ]
     },
     {
       "id": "indexedDB/core/connection:closeDatabase",
@@ -8878,7 +8893,10 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/footnotes/index",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "FootnoteRecord"
+      ]
     },
     {
       "id": "indexedDB/footnotes/syncFootnotesToPostgreSQL:syncFootnotesToPostgreSQL",
@@ -8886,7 +8904,10 @@
       "kind": "fn",
       "stage": "push",
       "module": "indexedDB/footnotes/syncFootnotesToPostgreSQL",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "FootnoteRecord"
+      ]
     },
     {
       "id": "indexedDB/highlights/syncHighlightsToPostgreSQL:syncHyperlightDeletionsToPostgreSQL",
@@ -9308,7 +9329,11 @@
       "kind": "fn",
       "stage": "serverSync",
       "module": "indexedDB/serverSync/loaders",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "BibliographyRecord",
+        "ServerBibliographyPayload"
+      ]
     },
     {
       "id": "indexedDB/serverSync/loaders:loadFootnotesToIndexedDB",
@@ -9316,7 +9341,11 @@
       "kind": "fn",
       "stage": "serverSync",
       "module": "indexedDB/serverSync/loaders",
-      "leaf": false
+      "leaf": false,
+      "types": [
+        "FootnoteRecord",
+        "ServerFootnotesPayload"
+      ]
     },
     {
       "id": "indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
@@ -11183,7 +11212,11 @@
     {
       "id": "pg:bibliography",
       "label": "bibliography",
-      "kind": "table"
+      "kind": "table",
+      "types": [
+        "BibliographyRecord",
+        "ServerBibliographyPayload"
+      ]
     },
     {
       "id": "pg:canonical_source",
@@ -11193,7 +11226,11 @@
     {
       "id": "pg:footnotes",
       "label": "footnotes",
-      "kind": "table"
+      "kind": "table",
+      "types": [
+        "FootnoteRecord",
+        "ServerFootnotesPayload"
+      ]
     },
     {
       "id": "pg:hypercites",

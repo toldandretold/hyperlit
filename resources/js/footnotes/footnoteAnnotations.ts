@@ -5,6 +5,7 @@
 
 import { withPending } from "../utilities/operationState";
 import { openDatabase, queueForSync } from "../indexedDB/index.js";
+import type { FootnoteRecord } from "../indexedDB/types";
 import { getCurrentContainer } from "../hyperlitContainer/containerActions";
 import { registerPendingEditFlush } from "../utilities/pendingEditsRegistry";
 
@@ -37,7 +38,7 @@ export const saveFootnoteToIndexedDB = (footnoteId: string, content: string) =>
 
     const bookId = getCurrentBookId();
     const key = [bookId, footnoteId];
-    const record: any = await new Promise((resolve, reject) => {
+    const record: FootnoteRecord = await new Promise((resolve, reject) => {
       const req = store.get(key);
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);

@@ -476,7 +476,14 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Get footnotes for a book
+     * Get footnotes for a book — the LOAD wire shape for the `footnotes` store.
+     *
+     * A book id + a footnoteId→value map; the client loader expands it into one record per footnote.
+     * MUST stay in sync with the TS wire type `ServerFootnotesPayload` in
+     * resources/js/indexedDB/serverSync/types.ts (→ `FootnoteRecord`). The server-managed
+     * citation-matching columns (is_citation/source_id/match_*) + sub_book_id are NOT in this shape.
+     *
+     * @return array{book: string, data: array<string, array{content: string, preview_nodes: ?array}>}|null
      */
     private function getFootnotes(string $bookId): ?array
     {
@@ -505,7 +512,17 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Get bibliography/references for a book
+     * Get bibliography/references for a book — the LOAD wire shape for the `bibliography` store.
+     *
+     * A book id + a referenceId→value map; the client loader expands it into one record per reference.
+     * MUST stay in sync with the TS wire type `ServerBibliographyPayload` in
+     * resources/js/indexedDB/serverSync/types.ts (→ `BibliographyRecord`). `source_has_nodes` is
+     * DERIVED here via the leftJoin to library.has_nodes (read-only, not a bibliography column);
+     * `source_id`/`canonical_source_id` are the links resolved to a canonical source at click time.
+     *
+     * @return array{book: string, data: array<string, array{
+     *   content: string, source_id: ?string, canonical_source_id: ?string, source_has_nodes: ?bool
+     * }>}|null
      */
     private function getBibliography(string $bookId): ?array
     {

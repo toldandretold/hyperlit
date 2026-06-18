@@ -150,20 +150,44 @@ export interface HyperciteRecord extends AnnotationRecordBase {
 
 // ── footnotes / bibliography / library stores ───────────────────────
 
-/** A row in the `footnotes` store. Key: [book, footnoteId]. TODO: tighten. */
+/**
+ * A row in the `footnotes` store. Key: [book, footnoteId]. The footnote's HTML body + its rendered
+ * preview, loaded from DatabaseToIndexedDBController::getFootnotes (→ ServerFootnotesPayload, expanded
+ * per footnoteId) and saved via DbFootnoteController. Traced by the `footnotes` type lens.
+ * (The DB also has server-managed citation-matching columns — is_citation/source_id/match_* and the
+ * server-set sub_book_id — which are NOT part of the client wire/store shape.)
+ */
 export interface FootnoteRecord {
   book: BookId;
   footnoteId: string;
   content?: string;
-  [key: string]: unknown;
+  /** Rendered preview snippets — an opaque array forwarded to the preview renderer. */
+  preview_nodes?: unknown[] | null;
+  /** ISO timestamps set client-side by the inserter / annotation save. */
+  created_at?: string;
+  updated_at?: string;
 }
 
-/** A row in the `bibliography` store. Key: [book, referenceId]. TODO: tighten. */
+/**
+ * A row in the `bibliography` store. Key: [book, referenceId]. A reference/citation: its formatted
+ * content + the IDs that link it to a cited source. Loaded from
+ * DatabaseToIndexedDBController::getBibliography (→ ServerBibliographyPayload, expanded per referenceId)
+ * and saved via DbReferencesController. Traced by the `bibliography` type lens. (Server-managed
+ * citation-matching columns — foundation_source/llm_metadata/match_* — are NOT in this client shape.)
+ */
 export interface BibliographyRecord {
   book: BookId;
   referenceId: string;
+  content?: string;
+  /** library.book of the cited version (legacy + canonical-with-version linking). */
   source_id?: string | number | null;
-  [key: string]: unknown;
+  /** canonical_source.id (uuid) when known (modern linking); resolved at click time. */
+  canonical_source_id?: string | number | null;
+  /** READ-only — derived server-side via leftJoin library.has_nodes (like library's is_owner). */
+  source_has_nodes?: boolean | null;
+  /** ISO timestamps set client-side by the citation inserter. */
+  created_at?: string;
+  updated_at?: string;
 }
 
 /**

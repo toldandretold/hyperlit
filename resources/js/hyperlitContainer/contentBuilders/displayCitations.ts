@@ -6,6 +6,7 @@
 import { book } from '../../app';
 import { openDatabase } from '../../indexedDB/index';
 import { resolveBibliographyTarget } from '../../indexedDB/bibliography/index';
+import type { BibliographyRecord } from '../../indexedDB/types';
 import { formatBibtexToCitation } from "../../utilities/bibtexProcessor";
 import { getHyperciteFromIndexedDB } from '../../indexedDB/hypercites/index';
 
@@ -93,7 +94,7 @@ export async function buildCitationContent(contentType: any, db: any = null) {
 
     for (const refId of ids) {
       const key = [lookupBook, refId];
-      const result: any = await new Promise((resolve: any, reject: any) => {
+      const result: BibliographyRecord | null = await new Promise((resolve: any, reject: any) => {
         const request = bibliographyStore.get(key);
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);

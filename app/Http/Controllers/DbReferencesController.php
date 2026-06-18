@@ -11,7 +11,14 @@ use Illuminate\Support\Facades\Validator;
 class DbReferencesController extends Controller
 {
     /**
-     * Upserts (updates or creates) a batch of references for a given book.
+     * Upserts (updates or creates) a batch of references for a given book — SAVE path for the
+     * `bibliography` store. The client sends a TS `BibliographyRecord` list; the Validator below
+     * declares the accepted request shape:
+     *   array{book: string, data: array<int, array{
+     *     referenceId: string, source_id?: ?string, canonical_source_id?: ?string (uuid), content: string
+     *   }>}
+     * Each row is written to bibliography via updateOrInsert (book/referenceId/source_id/
+     * canonical_source_id/content). `source_has_nodes` is NOT written — it's derived on read (getBibliography).
      */
     public function upsertReferences(Request $request)
     {

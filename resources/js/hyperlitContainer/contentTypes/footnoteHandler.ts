@@ -10,6 +10,7 @@ import { containerState } from '../containerState';
 import { book } from '../../app';
 import { buildSubBookId } from '../../utilities/subBookIdHelper';
 import { openDatabase } from '../../indexedDB/index';
+import type { FootnoteRecord } from '../../indexedDB/types';
 import { canUserEditBook } from '../../utilities/auth/index';
 
 export const footnoteHandler: ContentTypeHandler = {
@@ -39,7 +40,7 @@ export const footnoteHandler: ContentTypeHandler = {
         const scroller = getCurrentContainer()?.querySelector('.scroller');
         if (scroller) {
           // Skip IDB read for brand-new footnotes (record has empty content)
-          let fnRecord: any = null;
+          let fnRecord: FootnoteRecord | null = null;
           if (!ctx.isNewFootnote) {
             const database = ctx.db || await openDatabase();
             const tx = database.transaction('footnotes', 'readonly');

@@ -51,6 +51,15 @@ class DbFootnoteController extends Controller
         );
     }
 
+    /**
+     * SAVE path for the `footnotes` store — per-footnote create/update.
+     *
+     * The client sends a TS `FootnoteRecord` list. Request shape:
+     *   array{book: string, data: array<int, array{footnoteId: string, content: string, preview_nodes?: ?array}>}
+     * Each row is written to the `footnotes` columns book/footnoteId/content/preview_nodes; `sub_book_id`
+     * is server-derived (SubBookIdHelper), not client-sent. After the writes, SubBookRegistrar seeds the
+     * footnote sub-books' library rows (so subsequent node syncs pass the nodes RLS insert policy).
+     */
     public function upsert(Request $request)
     {
         // Validate OUTSIDE the try/catch (was F10: a ValidationException inside the

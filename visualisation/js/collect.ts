@@ -136,6 +136,10 @@ const TABLE_TYPES: Record<string, string[]> = {
   nodes: ['NodeRecord', 'ServerNodeRow', 'PublicChunk', 'NodeHyperlightView', 'NodeHyperciteView'],
   // library: wire-in (ServerLibraryRow, from getLibrary) → IDB store + save (LibraryRecord).
   library: ['ServerLibraryRow', 'LibraryRecord'],
+  // footnotes: wire payload-map (ServerFootnotesPayload) → expanded per-row store/save (FootnoteRecord).
+  footnotes: ['ServerFootnotesPayload', 'FootnoteRecord'],
+  // bibliography: wire payload-map (ServerBibliographyPayload) → expanded per-row store/save (BibliographyRecord).
+  bibliography: ['ServerBibliographyPayload', 'BibliographyRecord'],
 };
 const NODE_DATA_TYPE_SET = new Set<string>(Object.values(TABLE_TYPES).flat());
 

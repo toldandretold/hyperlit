@@ -12,6 +12,7 @@
  */
 
 import { openDatabase, queueForSync } from '../indexedDB/index';
+import type { BibliographyRecord } from '../indexedDB/types';
 import { formatBibtexToCitation } from '../utilities/bibtexProcessor';
 
 /**
@@ -249,7 +250,7 @@ async function createBibliographyRecord(
   const store = tx.objectStore('bibliography');
 
   const now = new Date().toISOString();
-  const bibliographyRecord = {
+  const bibliographyRecord: BibliographyRecord = {
     book: bookId,
     referenceId: referenceId,
     source_id: sourceId,
