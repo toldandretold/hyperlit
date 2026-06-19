@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1506,
-    "moduleCount": 313,
+    "fnCount": 1508,
+    "moduleCount": 314,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3063,
+    "edgeCount": 3084,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -9729,6 +9729,22 @@
       "leaf": false
     },
     {
+      "id": "indexedDB/types:asBookId",
+      "label": "asBookId",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "indexedDB/types",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/types:isBookId",
+      "label": "isBookId",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "indexedDB/types",
+      "leaf": true
+    },
+    {
       "id": "indexedDB/utilities/cleanup:clearBookContentFromIndexedDB",
       "label": "clearBookContentFromIndexedDB",
       "kind": "fn",
@@ -16518,6 +16534,16 @@
       ]
     },
     {
+      "id": "indexedDB/types",
+      "label": "indexedDB/types",
+      "stage": "infra",
+      "band": "store",
+      "fnIds": [
+        "indexedDB/types:asBookId",
+        "indexedDB/types:isBookId"
+      ]
+    },
+    {
       "id": "indexedDB/utilities/cleanup",
       "label": "indexedDB/utilities/cleanup",
       "stage": "infra",
@@ -17834,6 +17860,12 @@
       "id": "citations/citationInserter:insertCitationAtCursor__call__indexedDB/syncQueue/queue:queueForSync",
       "source": "citations/citationInserter:insertCitationAtCursor",
       "target": "indexedDB/syncQueue/queue:queueForSync",
+      "rel": "call"
+    },
+    {
+      "id": "citations/citationInserter:insertCitationAtCursor__call__indexedDB/types:asBookId",
+      "source": "citations/citationInserter:insertCitationAtCursor",
+      "target": "indexedDB/types:asBookId",
       "rel": "call"
     },
     {
@@ -19971,6 +20003,12 @@
       "dataPath": true
     },
     {
+      "id": "components/sourceContainer/downloads:exportBookAsDocxStyled__call__indexedDB/types:asBookId",
+      "source": "components/sourceContainer/downloads:exportBookAsDocxStyled",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/downloads:exportBookAsDocxStyled__call__pageLoad/backgroundDownload:waitForBackgroundDownload",
       "source": "components/sourceContainer/downloads:exportBookAsDocxStyled",
       "target": "pageLoad/backgroundDownload:waitForBackgroundDownload",
@@ -20010,6 +20048,12 @@
       "dataPath": true
     },
     {
+      "id": "components/sourceContainer/downloads:exportBookAsEpub__call__indexedDB/types:asBookId",
+      "source": "components/sourceContainer/downloads:exportBookAsEpub",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/downloads:exportBookAsEpub__call__pageLoad/backgroundDownload:waitForBackgroundDownload",
       "source": "components/sourceContainer/downloads:exportBookAsEpub",
       "target": "pageLoad/backgroundDownload:waitForBackgroundDownload",
@@ -20047,6 +20091,12 @@
       "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/downloads:exportBookAsMarkdown__call__indexedDB/types:asBookId",
+      "source": "components/sourceContainer/downloads:exportBookAsMarkdown",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
     },
     {
       "id": "components/sourceContainer/downloads:exportBookAsMarkdown__call__pageLoad/backgroundDownload:waitForBackgroundDownload",
@@ -26302,6 +26352,12 @@
       "dataPath": true
     },
     {
+      "id": "editToolbar/index:EditToolbar.insertFootnote__call__indexedDB/types:asBookId",
+      "source": "editToolbar/index:EditToolbar.insertFootnote",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
+    },
+    {
       "id": "editToolbar/index:EditToolbar.openCitationSearch__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
       "source": "editToolbar/index:EditToolbar.openCitationSearch",
       "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
@@ -26860,6 +26916,12 @@
       "dataPath": true
     },
     {
+      "id": "hypercites/containers:createOverlappingPolyContainer__call__indexedDB/types:asBookId",
+      "source": "hypercites/containers:createOverlappingPolyContainer",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
+    },
+    {
       "id": "hypercites/containers:PolyClick__call__hypercites/database:fetchLibraryFromServer",
       "source": "hypercites/containers:PolyClick",
       "target": "hypercites/database:fetchLibraryFromServer",
@@ -26878,6 +26940,12 @@
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "hypercites/containers:PolyClick__call__indexedDB/types:asBookId",
+      "source": "hypercites/containers:PolyClick",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
     },
     {
       "id": "hypercites/copy:fallbackCopyText__domwrite__dom",
@@ -26921,6 +26989,12 @@
       "id": "hypercites/copy:wrapSelectedTextInDOM__call__hypercites/utils:selectionSpansMultipleNodes",
       "source": "hypercites/copy:wrapSelectedTextInDOM",
       "target": "hypercites/utils:selectionSpansMultipleNodes",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/copy:wrapSelectedTextInDOM__call__indexedDB/types:asBookId",
+      "source": "hypercites/copy:wrapSelectedTextInDOM",
+      "target": "indexedDB/types:asBookId",
       "rel": "call"
     },
     {
@@ -27454,6 +27528,12 @@
       "dataPath": true
     },
     {
+      "id": "hyperlights/annotationPaste:handleHighlightContainerPaste__call__indexedDB/types:asBookId",
+      "source": "hyperlights/annotationPaste:handleHighlightContainerPaste",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/annotationPaste:handleHighlightContainerPaste__domwrite__dom",
       "source": "hyperlights/annotationPaste:handleHighlightContainerPaste",
       "target": "dom",
@@ -27664,6 +27744,12 @@
       "dataPath": true
     },
     {
+      "id": "hyperlights/createHighlight:openBrainFromSelection__call__indexedDB/types:asBookId",
+      "source": "hyperlights/createHighlight:openBrainFromSelection",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/createHighlight:openBrainFromSelection__write__store:hyperlights",
       "source": "hyperlights/createHighlight:openBrainFromSelection",
       "target": "store:hyperlights",
@@ -27849,6 +27935,12 @@
       "id": "hyperlights/deletion:deleteHighlightById__call__indexedDB/syncQueue/queue:queueForSync",
       "source": "hyperlights/deletion:deleteHighlightById",
       "target": "indexedDB/syncQueue/queue:queueForSync",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/deletion:deleteHighlightById__call__indexedDB/types:asBookId",
+      "source": "hyperlights/deletion:deleteHighlightById",
+      "target": "indexedDB/types:asBookId",
       "rel": "call"
     },
     {
@@ -28075,6 +28167,12 @@
       "id": "hyperlights/selectionToolbar:handleSelection__call__hyperlitContainer/utilities/activeContext:setActiveBook",
       "source": "hyperlights/selectionToolbar:handleSelection",
       "target": "hyperlitContainer/utilities/activeContext:setActiveBook",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/selectionToolbar:handleSelection__call__indexedDB/types:asBookId",
+      "source": "hyperlights/selectionToolbar:handleSelection",
+      "target": "indexedDB/types:asBookId",
       "rel": "call"
     },
     {
@@ -29848,6 +29946,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "indexedDB/bibliography/index:resolveBibliographyTarget__call__indexedDB/types:asBookId",
+      "source": "indexedDB/bibliography/index:resolveBibliographyTarget",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
+    },
+    {
       "id": "indexedDB/bibliography/index:resolveBibliographyTarget__push__route:/api/canonical",
       "source": "indexedDB/bibliography/index:resolveBibliographyTarget",
       "target": "route:/api/canonical",
@@ -30478,6 +30582,12 @@
       "rel": "call"
     },
     {
+      "id": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords__call__indexedDB/types:asBookId",
+      "source": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
+    },
+    {
       "id": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords__write__store:hypercites",
       "source": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
       "target": "store:hypercites",
@@ -30611,6 +30721,12 @@
       "dataPath": true
     },
     {
+      "id": "indexedDB/nodes/bookIdResolver:resolveBookIdForBatch__call__indexedDB/types:asBookId",
+      "source": "indexedDB/nodes/bookIdResolver:resolveBookIdForBatch",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
+    },
+    {
       "id": "indexedDB/nodes/contentProcessor:processNodeContentHighlightsAndCites__call__indexedDB/nodes/positionCollector:collectMarkAndCitePositions",
       "source": "indexedDB/nodes/contentProcessor:processNodeContentHighlightsAndCites",
       "target": "indexedDB/nodes/positionCollector:collectMarkAndCitePositions",
@@ -30639,6 +30755,12 @@
       "id": "indexedDB/nodes/delete:deleteIndexedDBRecord__call__indexedDB/core/utilities:parseNodeId",
       "source": "indexedDB/nodes/delete:deleteIndexedDBRecord",
       "target": "indexedDB/core/utilities:parseNodeId",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/nodes/delete:deleteIndexedDBRecord__call__indexedDB/types:asBookId",
+      "source": "indexedDB/nodes/delete:deleteIndexedDBRecord",
+      "target": "indexedDB/types:asBookId",
       "rel": "call"
     },
     {
@@ -30678,6 +30800,12 @@
       "target": "indexedDB/nodes/read:getNodeChunkFromIndexedDB",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "indexedDB/nodes/normalize:updateIndexedDBRecordForNormalization__call__indexedDB/types:asBookId",
+      "source": "indexedDB/nodes/normalize:updateIndexedDBRecordForNormalization",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
     },
     {
       "id": "indexedDB/nodes/normalize:updateIndexedDBRecordForNormalization__write__store:nodes",
@@ -31141,6 +31269,12 @@
       "source": "indexedDB/syncQueue/master:updateHistoryLog",
       "target": "store:historyLog",
       "rel": "write"
+    },
+    {
+      "id": "indexedDB/syncQueue/unload:setupUnloadSync__call__indexedDB/types:asBookId",
+      "source": "indexedDB/syncQueue/unload:setupUnloadSync",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
     },
     {
       "id": "indexedDB/syncQueue/unload:setupUnloadSync__push__route:/api/db/sync/beacon",
@@ -31791,6 +31925,12 @@
       "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
       "source": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
       "target": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__indexedDB/types:asBookId",
+      "source": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "target": "indexedDB/types:asBookId",
       "rel": "call"
     },
     {
@@ -33170,6 +33310,12 @@
       "target": "indexedDB/nodes/write:writeNodeChunks",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/types:asBookId",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
     },
     {
       "id": "paste/handlers/largePasteHandler:handleLargePaste__call__pageLoad/backgroundDownload:waitForBackgroundDownload",
@@ -34633,6 +34779,12 @@
       "target": "indexedDB/nodes/write:addNewBookToIndexedDB",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/createNewBook:createNewBook__call__indexedDB/types:asBookId",
+      "source": "SPA/createNewBook:createNewBook",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
     },
     {
       "id": "SPA/createNewBook:createNewBook__write__store:library",
@@ -36859,6 +37011,11 @@
       "kind": "static"
     },
     {
+      "source": "SPA/createNewBook",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
       "source": "SPA/domReadiness",
       "target": "SPA/navigation/ProgressOverlayEnactor",
       "kind": "lazy"
@@ -37569,6 +37726,11 @@
       "kind": "static"
     },
     {
+      "source": "citations/citationInserter",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
       "source": "components/cloudRef/cloudRefButton",
       "target": "components/sourceContainer/index",
       "kind": "static"
@@ -38161,6 +38323,11 @@
     {
       "source": "components/sourceContainer/downloads",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/downloads",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {
@@ -39000,6 +39167,11 @@
     },
     {
       "source": "editToolbar/index",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "editToolbar/index",
       "target": "footnotes/footnoteInserter",
       "kind": "lazy"
     },
@@ -39026,6 +39198,11 @@
     {
       "source": "footnotes/FootnoteNumberingService",
       "target": "footnotes/footnoteDom",
+      "kind": "static"
+    },
+    {
+      "source": "footnotes/FootnoteNumberingService",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {
@@ -39074,6 +39251,11 @@
       "kind": "static"
     },
     {
+      "source": "footnotes/footnoteInserter",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
       "source": "hypercites/animations",
       "target": "components/toast/toast",
       "kind": "static"
@@ -39099,6 +39281,11 @@
       "kind": "static"
     },
     {
+      "source": "hypercites/containers",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
       "source": "hypercites/copy",
       "target": "hypercites/database",
       "kind": "static"
@@ -39106,6 +39293,11 @@
     {
       "source": "hypercites/copy",
       "target": "hypercites/utils",
+      "kind": "static"
+    },
+    {
+      "source": "hypercites/copy",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {
@@ -39200,6 +39392,11 @@
     },
     {
       "source": "hypercites/navigation",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "hypercites/navigation",
       "target": "pageLoad/currentLazyLoaderState",
       "kind": "static"
     },
@@ -39226,6 +39423,11 @@
     {
       "source": "hyperlights/annotationPaste",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/annotationPaste",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {
@@ -39279,6 +39481,11 @@
       "kind": "static"
     },
     {
+      "source": "hyperlights/createHighlight",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
       "source": "hyperlights/database",
       "target": "indexedDB/index",
       "kind": "static"
@@ -39300,6 +39507,11 @@
     },
     {
       "source": "hyperlights/deleteHighlight",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/deleteHighlight",
       "target": "divEditor/index",
       "kind": "lazy"
     },
@@ -39316,6 +39528,11 @@
     {
       "source": "hyperlights/deletion",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/deletion",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {
@@ -39436,6 +39653,11 @@
     {
       "source": "hyperlights/selectionToolbar",
       "target": "hyperlitContainer/utilities/activeContext",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/selectionToolbar",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {
@@ -39919,6 +40141,11 @@
       "kind": "static"
     },
     {
+      "source": "hyperlitContainer/noteListener",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
       "source": "hyperlitContainer/permissions",
       "target": "hyperlitContainer/contentTypes/registry",
       "kind": "static"
@@ -40044,6 +40271,11 @@
       "kind": "static"
     },
     {
+      "source": "indexedDB/bibliography/index",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
       "source": "indexedDB/core/healthMonitor",
       "target": "indexedDB/core/connection",
       "kind": "static"
@@ -40061,6 +40293,16 @@
     {
       "source": "indexedDB/core/library",
       "target": "indexedDB/syncQueue/queue",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/core/library",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/core/utilities",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {
@@ -40260,8 +40502,18 @@
     },
     {
       "source": "indexedDB/nodes/batch",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/nodes/batch",
       "target": "footnotes/FootnoteNumberingService",
       "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/nodes/bookIdResolver",
+      "target": "indexedDB/types",
+      "kind": "static"
     },
     {
       "source": "indexedDB/nodes/contentProcessor",
@@ -40284,6 +40536,11 @@
       "kind": "static"
     },
     {
+      "source": "indexedDB/nodes/delete",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
       "source": "indexedDB/nodes/normalize",
       "target": "indexedDB/core/connection",
       "kind": "static"
@@ -40299,6 +40556,11 @@
       "kind": "static"
     },
     {
+      "source": "indexedDB/nodes/normalize",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
       "source": "indexedDB/nodes/read",
       "target": "indexedDB/core/connection",
       "kind": "static"
@@ -40309,6 +40571,11 @@
       "kind": "static"
     },
     {
+      "source": "indexedDB/nodes/read",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
       "source": "indexedDB/nodes/write",
       "target": "indexedDB/core/connection",
       "kind": "static"
@@ -40316,6 +40583,11 @@
     {
       "source": "indexedDB/nodes/write",
       "target": "indexedDB/core/utilities",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/nodes/write",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {
@@ -40405,6 +40677,11 @@
     },
     {
       "source": "indexedDB/syncQueue/master",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/syncQueue/master",
       "target": "indexedDB/hydration/rebuild",
       "kind": "lazy"
     },
@@ -40416,6 +40693,11 @@
     {
       "source": "indexedDB/syncQueue/unload",
       "target": "indexedDB/syncQueue/queue",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/syncQueue/unload",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {
@@ -40554,6 +40836,11 @@
       "kind": "static"
     },
     {
+      "source": "pageLoad/backgroundDownload",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
       "source": "pageLoad/containerChain",
       "target": "indexedDB/index",
       "kind": "static"
@@ -40596,6 +40883,11 @@
     {
       "source": "pageLoad/lazyLoaderRegistry",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/lazyLoaderRegistry",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {
@@ -40670,6 +40962,11 @@
     },
     {
       "source": "pageLoad/loadHyperText",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
       "target": "pageLoad/firstChunkPromise",
       "kind": "static"
     },
@@ -40726,6 +41023,11 @@
     {
       "source": "pageLoad/nodeGen",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/nodeGen",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {
@@ -41096,6 +41398,11 @@
     {
       "source": "paste/handlers/largePasteHandler",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/largePasteHandler",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {

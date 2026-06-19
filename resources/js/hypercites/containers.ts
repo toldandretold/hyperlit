@@ -1,3 +1,4 @@
+import { asBookId } from "../indexedDB/types";
 /**
  * Hypercite Container & UI Generation
  *
@@ -261,7 +262,7 @@ async function formatCitationLink(db: IDBDatabase, citationID: string, includeMa
         );
       } else {
         // Fallback: try to fetch from server
-        fetchLibraryFromServer(bookID!).then(async (serverLibraryData) => {
+        fetchLibraryFromServer(asBookId(bookID!)).then(async (serverLibraryData) => {
           if (serverLibraryData && serverLibraryData.bibtex) {
             const formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
             const citationText = isHyperlightURL
@@ -281,7 +282,7 @@ async function formatCitationLink(db: IDBDatabase, citationID: string, includeMa
     libraryRequest.onerror = () => {
       console.error(`❌ Error fetching library data for book ID: ${bookID}`);
       // Fallback: try to fetch from server
-      fetchLibraryFromServer(bookID!).then(async (serverLibraryData) => {
+      fetchLibraryFromServer(asBookId(bookID!)).then(async (serverLibraryData) => {
         if (serverLibraryData && serverLibraryData.bibtex) {
           const formattedCitation = await formatBibtexToCitation(serverLibraryData.bibtex);
           const citationText = isHyperlightURL

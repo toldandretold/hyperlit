@@ -1,5 +1,6 @@
 import './integrity/logCapture';
 import { log } from './utilities/logger';
+import { asBookId, type BookId } from './indexedDB/types';
 import { seedFromServer } from './utilities/preferences';
 import { initializeTheme } from './components/settingsContainer/themeSwitcher';
 
@@ -55,7 +56,7 @@ if (!isStandaloneMode && pathSegments.length === 2 && secondSegment) {
 const domBook = document.querySelector(".main-content")?.id;
 
 // ✅ CHANGED: Use 'let' instead of 'const' so we can update it during SPA transitions.
-export let book: string = domBook || pathSegments[0] || "most-recent"; // Fallback to most-recent
+export let book: BookId = asBookId(domBook || pathSegments[0] || "most-recent"); // Fallback to most-recent
 
 if (!book) {
   console.error("No book ID found in DOM or URL!");
@@ -64,7 +65,7 @@ if (!book) {
 log.init(`Loading hypertext for: ${book}`, 'app.js');
 
 // This allows our viewManager to update the global book state after an SPA transition.
-export function setCurrentBook(newBookId: string): void {
+export function setCurrentBook(newBookId: BookId): void {
   book = newBookId;
   log.init(`Book updated to: ${book}`, 'app.js');
 }

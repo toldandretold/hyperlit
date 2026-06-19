@@ -11,6 +11,7 @@ import { refreshCsrfToken } from '../../utilities/auth/index';
 // Pure helper extracted so the cross-book filter + fallback can be unit-tested
 // in isolation. Tests: tests/javascript/indexedDB/master.test.js
 import { filterFreshNodesForBook } from './freshNodeFilter';
+import { asBookId } from '../types';
 
 export { filterFreshNodesForBook };
 
@@ -614,7 +615,7 @@ export const debouncedMasterSync = debounce(async () => {
   // Group items by book so each sub-book syncs independently
   const itemsByBook = new Map<BookId, Map<string, SyncQueueItem>>();
   const mainContent = document.querySelector('.main-content');
-  const fallbackBookId = mainContent?.id || book || "latest";
+  const fallbackBookId = asBookId(mainContent?.id || book || "latest");
 
   for (const [key, item] of itemsToSync) {
     const itemBook = item.data?.book || fallbackBookId;

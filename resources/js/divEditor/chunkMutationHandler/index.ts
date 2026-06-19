@@ -10,7 +10,7 @@
  */
 
 import { chunkOverflowInProgress, userDeletionInProgress } from "../../utilities/operationState";
-import { isNumericalId, ensureNodeHasValidId, asLineId, type BookId } from "../../utilities/idHelpers";
+import { isNumericalId, ensureNodeHasValidId, asLineId, asBookId, type BookId } from "../../utilities/idHelpers";
 import type { SaveQueue } from "../saveQueue";
 import { movedNodesByOverflow } from '../editorState';
 import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager';
@@ -297,7 +297,7 @@ export class ChunkMutationHandler {
           // Main book context: search within main-content only
           const mainContent = document.querySelector('.main-content');
           liveChunk = mainContent?.querySelector(`[data-chunk-id="${chunkId}"]`);
-          bookId = mainContent?.id || 'latest';
+          bookId = asBookId(mainContent?.id || "latest");
         }
         
         if (liveChunk) {

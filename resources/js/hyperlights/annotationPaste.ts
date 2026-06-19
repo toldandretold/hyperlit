@@ -1,3 +1,4 @@
+import { asBookId } from "../indexedDB/types";
 /**
  * Paste module - Handles paste operations in annotation areas
  */
@@ -116,7 +117,7 @@ async function processPastedHyperciteInAnnotation(clipboardHtml: string, highlig
   // Update the original hypercite in the database.
   try {
     const updateResult = await updateCitationForExistingHypercite(
-      booka,
+      asBookId(booka),
       hyperciteIDa,
       citationIDb
     );

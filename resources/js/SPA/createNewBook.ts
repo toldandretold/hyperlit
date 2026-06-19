@@ -1,3 +1,4 @@
+import { asBookId } from "../indexedDB/types";
 const API_BASE_URL = window.location.origin;
 
 // createNewBook.js (Corrected and Optimized)
@@ -227,7 +228,7 @@ async function syncNewBookToPostgreSQL(bookId: any, libraryData: any = null) {
 export async function createNewBook() {
   try {
     const db = await openDatabase();
-    const bookId = "book_" + Date.now();
+    const bookId = asBookId("book_" + Date.now());
 
     // Get current user to set author field
     const user = await getCurrentUser();

@@ -15,7 +15,31 @@
  * tighten them as their modules get pinned and converted.
  */
 
-export type BookId = string;
+/**
+ * A book's identity: `"latest"`, `"most-recent"`, a numeric main-book id, or a sub-book id
+ * like `book_<parent>/Fn<id>`. Branded so a bare string / LineId / DataNodeId can't be used
+ * as a BookId — brand a raw string with asBookId() at DOM/URL/JSON boundaries.
+ *
+ * No fixed format to validate, so asBookId is a pure brand (like asDataNodeId).
+ */
+export type BookId = string & { readonly __brand: 'BookId' };
+
+/** Brand a raw string as a BookId (pure — book ids have no validatable format). */
+export function asBookId(s: string): BookId {
+  return s as BookId;
+}
+
+/** Type guard: a non-empty string usable as a BookId. */
+export function isBookId(s: string | null | undefined): s is BookId {
+  return typeof s === 'string' && s.length > 0;
+}
+
+/** The "no specific book yet" fallback sentinel. */
+export const LATEST: BookId = asBookId('latest');
+/** Home-page synthetic book ids. */
+export const MOST_RECENT: BookId = asBookId('most-recent');
+export const MOST_CONNECTED: BookId = asBookId('most-connected');
+export const MOST_LIT: BookId = asBookId('most-lit');
 
 export const DB_NAME = 'MarkdownDB';
 

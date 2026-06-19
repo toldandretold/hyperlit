@@ -3,7 +3,7 @@
  * Helper functions used across database operations
  */
 
-import type { BookId, NodeRecord, PublicChunk } from '../types';
+import { LATEST, type BookId, type NodeRecord, type PublicChunk } from '../types';
 
 /**
  * Parse node ID to appropriate numeric format
@@ -28,7 +28,7 @@ export function createNodeChunksKey(bookId: BookId, startLine: string | number):
 /**
  * Get localStorage key with book context
  */
-export function getLocalStorageKey(baseKey: string, bookId: BookId = "latest"): string {
+export function getLocalStorageKey(baseKey: string, bookId: BookId = LATEST): string {
   return `${baseKey}_${bookId}`;
 }
 

@@ -1,3 +1,4 @@
+import { asBookId } from "../indexedDB/types";
 /**
  * Citation Inserter Module
  * Handles insertion of author-date citations at cursor position.
@@ -251,7 +252,7 @@ async function createBibliographyRecord(
 
   const now = new Date().toISOString();
   const bibliographyRecord: BibliographyRecord = {
-    book: bookId,
+    book: asBookId(bookId),
     referenceId: referenceId,
     source_id: sourceId,
     canonical_source_id: canonicalSourceId,

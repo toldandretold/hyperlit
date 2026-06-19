@@ -1,3 +1,4 @@
+import type { BookId } from "../indexedDB/types";
 /**
  * DOM Utility Functions for divEditor
  *
@@ -24,7 +25,7 @@ import { trackChunkNodeCount } from './chunkManager';
 import { BLOCK_ELEMENT_SELECTOR } from '../utilities/blockElements';
 import { queueNodeForSave } from './editorState';   // its real home (leaf) — not the ./index barrel
 
-type QueueNodeForSaveFn = (id: string, action?: string, bookId?: string | null) => void;
+type QueueNodeForSaveFn = (id: string, action?: string, bookId?: BookId | null) => void;
 
 /**
  * Check if a removed node is a hypercite element and handle delinking

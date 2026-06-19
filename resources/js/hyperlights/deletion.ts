@@ -1,3 +1,4 @@
+import { asBookId, LATEST, type BookId } from "../indexedDB/types";
 /**
  * Deletion module - Handles highlight deletion, hiding, and reprocessing
  */
@@ -133,7 +134,7 @@ export async function deleteHighlightById(highlightId: string): Promise<Highligh
     // Clean up sub-book content from IndexedDB
     try {
       const subBookId = buildSubBookId(bookId, highlightId);
-      await deleteBookFromIndexedDB(subBookId);
+      await deleteBookFromIndexedDB(asBookId(subBookId));
       console.log(`🧹 Cleaned up sub-book: ${subBookId}`);
     } catch (e) {
       console.warn(`Sub-book cleanup failed (non-fatal):`, e);
@@ -275,7 +276,7 @@ export async function hideHighlightById(highlightId: string): Promise<HighlightA
  * Re-process highlights for specific affected nodes after highlight deletion
  * This ensures overlapping highlights are correctly recalculated and displayed
  */
-export async function reprocessHighlightsForNodes(bookId: string, affectedIDnumericals: string[], preloadedNodes: any[] | null = null): Promise<void> {
+export async function reprocessHighlightsForNodes(bookId: BookId, affectedIDnumericals: string[], preloadedNodes: any[] | null = null): Promise<void> {
   console.log(`🔄 Reprocessing highlights for nodes:`, affectedIDnumericals);
 
   try {

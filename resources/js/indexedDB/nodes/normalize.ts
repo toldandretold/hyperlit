@@ -6,7 +6,7 @@
 import { openDatabase } from '../core/connection';
 import { parseNodeId } from '../core/utilities';
 import { getNodeChunkFromIndexedDB } from './read';
-import type { BookId, QueueForSyncFn } from '../types';
+import { asBookId, type BookId, type QueueForSyncFn } from '../types';
 
 interface NormalizeDeps {
   withPending: <T>(fn: () => Promise<T>) => Promise<T>;
@@ -50,7 +50,7 @@ export async function updateIndexedDBRecordForNormalization(
     const mainContent = document.querySelector('.main-content');
     const element = document.getElementById(String(oldId));
     const subBookFromDom = element?.closest('[data-book-id]') as HTMLElement | null | undefined;
-    const bookId = subBookFromDom?.dataset?.bookId || mainContent?.id || book || "latest";
+    const bookId = asBookId(subBookFromDom?.dataset?.bookId || mainContent?.id || book || "latest");
 
     const db = await openDatabase();
     const tx = db.transaction("nodes", "readwrite");

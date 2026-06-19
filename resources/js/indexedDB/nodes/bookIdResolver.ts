@@ -10,7 +10,7 @@
  *
  * Unit tests: tests/javascript/indexedDB/batch.test.js
  */
-import type { BookId } from '../types';
+import { asBookId, LATEST, type BookId } from '../types';
 
 export interface ResolveBookIdArgs {
   optionsBookId?: BookId | null;
@@ -21,9 +21,10 @@ export interface ResolveBookIdArgs {
 
 export function resolveBookIdForBatch({ optionsBookId, firstRecordEl, mainContent, globalBook }: ResolveBookIdArgs): BookId {
   const subBookFromDom = firstRecordEl?.closest?.('[data-book-id]') as HTMLElement | null | undefined;
+  const subBookId = subBookFromDom?.dataset?.bookId;
   return optionsBookId
-    || subBookFromDom?.dataset?.bookId
-    || mainContent?.id
+    || (subBookId ? asBookId(subBookId) : null)
+    || (mainContent?.id ? asBookId(mainContent.id) : null)
     || globalBook
-    || "latest";
+    || LATEST;
 }

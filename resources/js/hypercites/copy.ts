@@ -1,3 +1,4 @@
+import { asBookId, LATEST, type BookId } from "../indexedDB/types";
 /**
  * Hypercite Clipboard Operations
  *
@@ -224,7 +225,7 @@ export function wrapSelectedTextInDOM(hyperciteId: string, book: string): void {
   parent.normalize();
 
   const blocks = collectHyperciteData(hyperciteId, wrapper);
-  NewHyperciteIndexedDB(book, hyperciteId, blocks);
+  NewHyperciteIndexedDB(asBookId(book), hyperciteId, blocks);
 
   setTimeout(() => selection.removeAllRanges(), 50);
 }

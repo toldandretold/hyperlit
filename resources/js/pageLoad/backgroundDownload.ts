@@ -1,3 +1,4 @@
+import { asBookId } from "../indexedDB/types";
 import { openDatabase } from '../indexedDB/index';
 import {
     loadNodeChunksToIndexedDB,
@@ -127,7 +128,7 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
             // update already-rendered DOM sups, AND persist the new numbers to IDB.
             // The persist step is critical: without it, DOM and IDB diverge and the
             // periodic integrity check trips a self-heal on every affected node.
-            await rebuildAndRenumber(bookId, allNodes);
+            await rebuildAndRenumber(asBookId(bookId), allNodes);
         }
 
         verbose.content(
@@ -268,7 +269,7 @@ async function fullDownloadFallback(bookId: string, lazyLoader: any) {
     if (data.nodes?.length) {
         (window as any).nodes = data.nodes;
         // Rebuild + update DOM + persist (see comment in main path above).
-        await rebuildAndRenumber(bookId, data.nodes);
+        await rebuildAndRenumber(asBookId(bookId), data.nodes);
     }
 
     verbose.content(

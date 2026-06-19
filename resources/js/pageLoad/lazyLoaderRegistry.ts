@@ -1,3 +1,4 @@
+import { asBookId, LATEST, type BookId } from "../indexedDB/types";
 import { book } from '../app';
 import { verbose } from '../utilities/logger';
 import { navigateToInternalId } from '../scrolling/index';
@@ -79,7 +80,7 @@ export function initializeMainLazyLoader() {
 
 
 // Function for homepage multi-book support - always creates fresh content
-export async function initializeLazyLoaderForContainer(bookId: string) {
+export async function initializeLazyLoaderForContainer(bookId: BookId) {
   console.log(`🔄 Creating fresh lazy loader for book: ${bookId}`);
 
   // Clean up any existing lazy loader for this book
@@ -140,7 +141,7 @@ export async function initializeLazyLoaderForContainer(bookId: string) {
 
 
 // Your existing helper function - updated to handle both hyperlights and footnotes
-export async function initializeLazyLoader(openHyperlightID: any, bookId: string, openFootnoteID: any = null, initialChunkId: any = null) {
+export async function initializeLazyLoader(openHyperlightID: any, bookId: BookId, openFootnoteID: any = null, initialChunkId: any = null) {
   if (!currentLazyLoader) {
     // Determine which ID to navigate to (hyperlight or footnote)
     const targetId = openHyperlightID || openFootnoteID;

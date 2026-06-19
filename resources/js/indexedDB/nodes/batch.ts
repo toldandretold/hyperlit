@@ -24,7 +24,7 @@ import { getNodeChunksFromIndexedDB } from './read';
 import { rebuildNodeArrays, getNodesByDataNodeIDs } from '../hydration/rebuild';
 import { processNodeContentHighlightsAndCites, determineChunkIdFromDOM } from './contentProcessor';
 import { updateHyperlightRecords, updateHyperciteRecords } from './annotationUpserts';
-import type { BookId, HyperciteRecord, HyperlightRecord, NodeRecord } from '../types';
+import { asBookId, LATEST, type BookId, type HyperciteRecord, type HyperlightRecord, type NodeRecord } from '../types';
 import { asLineId, type LineId } from '../../utilities/idHelpers';
 
 export { resolveBookIdForBatch };
@@ -429,10 +429,7 @@ export async function batchDeleteIndexedDBRecords(
   return withPending(async () => {
     // ✅ FIX: Accept bookId as parameter for sub-book support
     // Fallback to DOM lookup only if not provided (backwards compatibility)
-    const bookId: BookId = bookIdParam
-      || document.querySelector('.main-content')?.id
-      || book
-      || "latest";
+    const bookId: BookId = asBookId(bookIdParam || document.querySelector(".main-content")?.id || book || LATEST);
 
     // ✅ OPTIMIZATION: Remove duplicates using Set
     const uniqueIDnumericals = [...new Set(IDnumericals)];

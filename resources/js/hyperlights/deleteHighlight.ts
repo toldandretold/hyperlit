@@ -1,3 +1,4 @@
+import { asBookId, LATEST, type BookId } from "../indexedDB/types";
 /**
  * Delete-highlight module — removes the hyperlight(s) (and user content links,
  * in edit mode) that overlap the current selection, from the DOM and IndexedDB,
@@ -16,7 +17,7 @@ import { setProgrammaticUpdateInProgress } from '../utilities/operationState';
 /**
  * Delete highlight(s) that overlap with selected text
  */
-export async function deleteHighlightHandler(event: Event, bookId: string): Promise<void> {
+export async function deleteHighlightHandler(event: Event, bookId: BookId): Promise<void> {
   event.preventDefault();
   console.log("Delete button clicked.");
 

@@ -1,3 +1,4 @@
+import { asBookId, LATEST, type BookId } from "../indexedDB/types";
 /**
  * Selection toolbar — the on-select popup controller.
  *
@@ -129,7 +130,7 @@ export function handleSelection(): void {
     ) as HTMLElement | null)?.closest('[data-book-id]');
 
     if (subBookEl) {
-      setActiveBook(subBookEl.getAttribute('data-book-id')!);
+      setActiveBook(asBookId(subBookEl.getAttribute('data-book-id')!));
     } else {
       clearActiveBook();
     }

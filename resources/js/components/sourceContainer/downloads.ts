@@ -1,3 +1,4 @@
+import { asBookId, LATEST, type BookId } from "../../indexedDB/types";
 // Download / export pipeline for the source container: Markdown (+image zip),
 // DOCX (styled, with footnotes/tables/images), EPUB, and the "download all"
 // raw bundle. Standalone functions wired to the #download-* buttons by
@@ -264,7 +265,7 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
   for (const fnId of footnoteRefIds) {
     const subBookId = `${bookId}/${fnId}`;
     try {
-      let fnNodes: any = await getNodeChunksFromIndexedDB(subBookId);
+      let fnNodes: any = await getNodeChunksFromIndexedDB(asBookId(subBookId));
 
       if ((!fnNodes || fnNodes.length === 0) && fnDb) {
         try {
@@ -1002,7 +1003,7 @@ async function buildDocxWithStyles(bookId: any = book || 'latest') {
     const subBookId = `${bookId}/${fnId}`;
     try {
       // Try nodes store first (works if footnote was previously opened)
-      let fnNodes: any = await getNodeChunksFromIndexedDB(subBookId);
+      let fnNodes: any = await getNodeChunksFromIndexedDB(asBookId(subBookId));
 
       // Fallback: check footnotes store for preview_nodes
       if ((!fnNodes || fnNodes.length === 0) && fnDb) {
@@ -1455,7 +1456,7 @@ async function buildEpubBlob(bookId: any = book || 'latest') {
   for (const fnId of footnoteRefIds) {
     const subBookId = `${bookId}/${fnId}`;
     try {
-      let fnNodes: any = await getNodeChunksFromIndexedDB(subBookId);
+      let fnNodes: any = await getNodeChunksFromIndexedDB(asBookId(subBookId));
 
       // Fallback: check footnotes store for preview_nodes
       if ((!fnNodes || fnNodes.length === 0) && fnDb) {

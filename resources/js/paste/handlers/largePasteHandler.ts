@@ -1,3 +1,4 @@
+import { asBookId, LATEST, type BookId } from "../../indexedDB/types";
 /**
  * Large Paste Handler
  *
@@ -281,7 +282,7 @@ export async function handleLargePaste(
 
       for (const fn of extractedFootnotes) {
         const subBookId = buildSubBookId(insertionPoint.book, fn.footnoteId);
-        const nodeId = generateDataNodeId(subBookId);
+        const nodeId = generateDataNodeId(asBookId(subBookId));
         const strippedText = (fn.content || '').replace(/<[^>]+>/g, '');
         const nodeContent = `<p data-node-id="${nodeId}" no-delete-id="please" style="min-height:1.5em;">${strippedText}</p>`;
 

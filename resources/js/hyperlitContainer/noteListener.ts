@@ -1,3 +1,4 @@
+import { asBookId } from "../indexedDB/types";
 /**
  * Note Listener - Unified handler for all contenteditable elements in hyperlit-container
  * Handles input, paste, and placeholder behavior for both annotations and footnotes
@@ -375,7 +376,7 @@ async function processHypercitePaste(clipboardHtml: any, contentId: any) {
   // Update the original hypercite in the database
   try {
     const updateResult: any = await updateCitationForExistingHypercite(
-      booka,
+      asBookId(booka),
       hyperciteIDa,
       citationIDb
     );

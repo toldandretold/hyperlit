@@ -1,3 +1,4 @@
+import { LATEST } from "../indexedDB/types";
 /**
  * Hypercite Navigation & Click Routing
  *
@@ -33,7 +34,7 @@ export async function CoupleClick(uElement: HTMLElement): Promise<void> {
   console.log("Parent element found:", parent);
 
   const startLine = parent.id;
-  const bookId = getActiveBook() || "latest";
+  const bookId = getActiveBook() || LATEST;
 
   try {
     const nodeChunk = await getHyperciteData(bookId, startLine);

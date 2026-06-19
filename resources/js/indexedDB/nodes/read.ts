@@ -6,13 +6,13 @@
 import { openDatabase } from '../core/connection';
 import { parseNodeId } from '../core/utilities';
 import { verbose } from '../../utilities/logger';
-import type { BookId, NodeRecord } from '../types';
+import { LATEST, type BookId, type NodeRecord } from '../types';
 
 /**
  * Get all node chunks for a book, sorted by chunk_id
  * Used for lazy loading
  */
-export async function getNodeChunksFromIndexedDB(bookId: BookId = "latest"): Promise<NodeRecord[]> {
+export async function getNodeChunksFromIndexedDB(bookId: BookId = LATEST): Promise<NodeRecord[]> {
   verbose.content(`Fetching nodes from IndexedDB: ${bookId}`, '/indexedDB/nodes/read.js');
 
   const db = await openDatabase();

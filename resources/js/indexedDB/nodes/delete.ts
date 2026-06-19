@@ -5,7 +5,7 @@
 
 import { openDatabase } from '../core/connection';
 import { parseNodeId } from '../core/utilities';
-import type { BookId, HyperciteRecord, HyperlightRecord, NodeRecord, QueueForSyncFn } from '../types';
+import { asBookId, type BookId, type HyperciteRecord, type HyperlightRecord, type NodeRecord, type QueueForSyncFn } from '../types';
 
 interface DeleteDeps {
   withPending: <T>(fn: () => Promise<T>) => Promise<T>;
@@ -46,7 +46,7 @@ export async function deleteIndexedDBRecord(id: string | number): Promise<boolea
     const mainContent = document.querySelector('.main-content');
     const element = document.getElementById(String(id));
     const subBookFromDom = element?.closest('[data-book-id]') as HTMLElement | null | undefined;
-    const bookId = subBookFromDom?.dataset?.bookId || mainContent?.id || book || "latest";
+    const bookId = asBookId(subBookFromDom?.dataset?.bookId || mainContent?.id || book || "latest");
     const numericId = parseNodeId(id);
 
     const db = await openDatabase();

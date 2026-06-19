@@ -1,3 +1,4 @@
+import type { BookId } from "../../indexedDB/types";
 /**
  * Code Block Paste Handler
  *
@@ -27,7 +28,7 @@ function isCompleteHTML(text: any) {
  * @param {HTMLElement} chunk - Current chunk element
  * @returns {boolean} - True if handled as code block paste
  */
-export function handleCodeBlockPaste(event: any, chunk: any, book = null) {
+export function handleCodeBlockPaste(event: any, chunk: any, book: BookId | null = null) {
   const plainText = event.clipboardData.getData("text/plain");
   const htmlContent = event.clipboardData.getData("text/html");
 

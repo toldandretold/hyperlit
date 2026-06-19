@@ -1,3 +1,4 @@
+import { asBookId, type BookId } from "../indexedDB/types";
 /**
  * Create-highlight module — turns a text selection into persisted hyperlight
  * <mark>s and the normalized IndexedDB record (+ PG sync queue).
@@ -187,7 +188,7 @@ export async function openBrainFromSelection(event: Event): Promise<void> {
   if (hlButtons) hlButtons.style.display = 'none';
 
   // Create a real highlight but skip opening the container
-  const result = await createHighlightHandler(event, bookId, { skipOpen: true });
+  const result = await createHighlightHandler(event, asBookId(bookId), { skipOpen: true });
   if (!result || !result.highlightId) {
     console.warn('🧠 BrainMode: Failed to create highlight');
     return;
@@ -232,7 +233,7 @@ export async function openBrainFromSelection(event: Event): Promise<void> {
 /**
  * Create a new highlight from selected text
  */
-export async function createHighlightHandler(event: Event, bookId: string, options: { skipOpen?: boolean } = {}): Promise<{ highlightId: string; charData: Record<string, { charStart: number; charEnd: number }>; nodeIds: string[]; selectedText: string } | undefined> {
+export async function createHighlightHandler(event: Event, bookId: BookId, options: { skipOpen?: boolean } = {}): Promise<{ highlightId: string; charData: Record<string, { charStart: number; charEnd: number }>; nodeIds: string[]; selectedText: string } | undefined> {
   let selection = window.getSelection()!;
   let range: Range;
   try {

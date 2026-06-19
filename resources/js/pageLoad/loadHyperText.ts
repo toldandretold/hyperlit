@@ -1,4 +1,5 @@
 import { book, OpenHyperlightID, OpenFootnoteID } from '../app';
+import { asBookId, type BookId } from '../indexedDB/types';
 import { log, verbose } from '../utilities/logger';
 import type { ReadingPosition } from '../scrolling/readingPosition';
 import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier.js';
@@ -27,7 +28,7 @@ import { setupOnlineSyncListener } from './onlineRetry';
 import { currentLazyLoader, initializeLazyLoader } from './lazyLoaderRegistry';
 
 // ✅ MODIFIED: This function now loads all three JSON files.
-export async function loadFromJSONFiles(bookId: string) {
+export async function loadFromJSONFiles(bookId: BookId) {
   try {
     // Fetch all three files concurrently for maximum speed
     const [
@@ -78,7 +79,7 @@ export async function loadFromJSONFiles(bookId: string) {
 }
 
 // ✅ MODIFIED: Your main loading function now calls the new loader.
-export async function loadHyperText(bookId: string, progressCallback: any = null) {
+export async function loadHyperText(bookId: BookId, progressCallback: any = null) {
   resetFirstChunkPromise();
   const currentBook = bookId || book;
   log.content(`Book data loaded: ${currentBook}`, 'initializePage.js');
@@ -385,7 +386,7 @@ function navigateToElement(elementId: string) {
   }
 }
 
-async function checkAndUpdateIfNeeded(bookId: string, lazyLoader: any) {
+async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
   // 🎯 CRITICAL: Capture any active navigation target at the START of this check.
   // The check runs async and may complete after navigation flags are cleared.
   // By capturing now, we ensure refresh() can find the target even if the barrier cleans up.
@@ -587,7 +588,7 @@ async function checkAndUpdateIfNeeded(bookId: string, lazyLoader: any) {
 }
 
 // Helper function to get library record from server
-async function getLibraryRecordFromServer(bookId: string): Promise<any> {
+async function getLibraryRecordFromServer(bookId: BookId): Promise<any> {
   try {
     const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/library`, {
       headers: {
@@ -616,7 +617,7 @@ async function getLibraryRecordFromServer(bookId: string): Promise<any> {
 }
 
 // Helper function to get library record from IndexedDB
-async function getLibraryRecordFromIndexedDB(bookId: string): Promise<any> {
+async function getLibraryRecordFromIndexedDB(bookId: BookId): Promise<any> {
   try {
     const db = await openDatabase();
     const tx = db.transaction("library", "readonly");

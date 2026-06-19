@@ -1,3 +1,4 @@
+import { asBookId, LATEST, type BookId } from "../indexedDB/types";
 /**
  * pageLoad/nodeGen — generate node chunks from a book's main-text.md.
  *
@@ -14,7 +15,7 @@ function buildUrl(path: string, forceReload = false) {
   return forceReload ? `${path}?v=${Date.now()}` : path;
 }
 
-async function fetchMainTextMarkdown(bookId: string, forceReload = false) {
+async function fetchMainTextMarkdown(bookId: BookId, forceReload = false) {
   const response = await fetch(buildUrl(`/${bookId}/main-text.md`, forceReload));
   if (!response.ok) {
     throw new Error(`Failed to fetch main-text.md for ${bookId}`);
@@ -22,7 +23,7 @@ async function fetchMainTextMarkdown(bookId: string, forceReload = false) {
   return response.text();
 }
 
-export async function generateNodeChunksFromMarkdown(bookId: string, forceReload = false) {
+export async function generateNodeChunksFromMarkdown(bookId: BookId, forceReload = false) {
   const markdown = await fetchMainTextMarkdown(bookId);
 
   // Parse markdown into nodes

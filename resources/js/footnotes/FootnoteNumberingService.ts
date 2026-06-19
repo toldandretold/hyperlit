@@ -1,3 +1,4 @@
+import { asBookId, LATEST, type BookId } from "../indexedDB/types";
 /**
  * FootnoteNumberingService
  *
@@ -41,7 +42,7 @@ export {
  * Rebuild map and trigger DOM update.
  * Called when footnotes are added/deleted.
  */
-export async function rebuildAndRenumber(bookId: string, nodes: any[]): Promise<void> {
+export async function rebuildAndRenumber(bookId: BookId, nodes: any[]): Promise<void> {
   verbose.content(`Rebuilding footnote map for book ${bookId}`, 'FootnoteNumberingService.js');
 
   // [diagnostic] capture caller + scope to debug integrity-mismatch
@@ -94,7 +95,7 @@ export async function rebuildAndRenumber(bookId: string, nodes: any[]): Promise<
  * Each updated node is queued for server sync so the server eventually
  * converges on the same numbers.
  */
-async function reconcileStoredFootnoteContent(bookId: string, skipStartLines: Set<any> = new Set()): Promise<number> {
+async function reconcileStoredFootnoteContent(bookId: BookId, skipStartLines: Set<any> = new Set()): Promise<number> {
   const { openDatabase } = await import('../indexedDB/core/connection');
   const { queueForSync } = await import('../indexedDB/syncQueue/index');
 
@@ -162,7 +163,7 @@ async function reconcileStoredFootnoteContent(bookId: string, skipStartLines: Se
  * Persist renumbered footnotes to IndexedDB and queue for server sync.
  * Extracts updated HTML from DOM and saves to database.
  */
-async function persistRenumberedNodes(bookId: string, affectedStartLines: Set<string>): Promise<void> {
+async function persistRenumberedNodes(bookId: BookId, affectedStartLines: Set<string>): Promise<void> {
   if (affectedStartLines.size === 0) return;
 
   try {

@@ -24,7 +24,7 @@ import { TAB_ID, markBookEditedLocally } from '../../utilities/BroadcastListener
 import { book as currentBook } from '../../app';
 import { hidePasteUndoToast } from '../../paste/ui/pasteUndoToast';
 import { clearPasteSnapshot } from '../../paste/pasteSnapshot';
-import { asDataNodeId, type LineId, type BookId } from '../../utilities/idHelpers';
+import { asDataNodeId, asBookId, LATEST, type LineId, type BookId } from '../../utilities/idHelpers';
 import {
   DEBOUNCE_DELAYS,
   type DebouncedVoidFn,
@@ -129,13 +129,13 @@ export class SaveQueue implements IntegritySurface {
         // Check element's closest sub-book container
         const subBookEl = element.closest('[data-book-id]') as HTMLElement | null;
         if (subBookEl) {
-          finalBookId = subBookEl.dataset.bookId || null;
+          finalBookId = subBookEl.dataset.bookId ? asBookId(subBookEl.dataset.bookId) : null;
         }
       }
       // Fallback to main content if not found
       if (!finalBookId) {
         const mainContent = document.querySelector('.main-content');
-        finalBookId = mainContent?.id || this.bookId || 'latest';
+        finalBookId = asBookId(mainContent?.id || this.bookId || 'latest');
       }
     }
 
@@ -143,7 +143,7 @@ export class SaveQueue implements IntegritySurface {
     if (!this.pendingSaves.deletionMap) {
       this.pendingSaves.deletionMap = new Map();
     }
-    this.pendingSaves.deletionMap.set(IDnumerical, { dataNodeId: dataNodeID, bookId: finalBookId ?? 'latest' });
+    this.pendingSaves.deletionMap.set(IDnumerical, { dataNodeId: dataNodeID, bookId: finalBookId ?? LATEST });
 
     // Keep deletions Set for backward compatibility
     this.pendingSaves.deletions.add(IDnumerical);
@@ -335,7 +335,7 @@ export class SaveQueue implements IntegritySurface {
     const nodesByBookId = new Map<BookId, LineId[]>();
     nodeIdsToDelete.forEach(nodeId => {
       const deletionData = deletionDataMap.get(nodeId);
-      const bookId = deletionData?.bookId || this.bookId || 'latest';
+      const bookId = deletionData?.bookId || this.bookId || LATEST;
       if (!nodesByBookId.has(bookId)) {
         nodesByBookId.set(bookId, []);
       }

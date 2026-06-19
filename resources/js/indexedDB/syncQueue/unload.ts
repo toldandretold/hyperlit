@@ -6,7 +6,7 @@
 import { pendingSyncs } from './queue';
 import { debouncedMasterSync } from './master';
 import { flushPendingEdits } from '../../utilities/pendingEditsRegistry';
-import type { BookId, SyncQueueItem, SyncRecordData } from '../types';
+import { asBookId, type BookId, type SyncQueueItem, type SyncRecordData } from '../types';
 
 // Dependencies
 let book: BookId | null | undefined;
@@ -53,7 +53,7 @@ function syncOnUnload(): string | undefined {
   // Group items by book so each sub-book syncs under its own book ID
   // (mirrors the grouping logic in debouncedMasterSync)
   const mainContent = document.querySelector('.main-content');
-  const fallbackBookId = mainContent?.id || book || "latest";
+  const fallbackBookId = asBookId(mainContent?.id || book || "latest");
 
   const itemsByBook = new Map<BookId, SyncQueueItem[]>();
   for (const item of pendingSyncs.values()) {

@@ -14,23 +14,22 @@
  */
 
 import { book } from '../../app';
+import type { BookId } from '../../indexedDB/types';
 
-let activeBookId: any = null;
+let activeBookId: BookId | null = null;
 
 /**
  * Get the currently active book ID.
  * Falls back to the global main-book `book` if no sub-book has focus.
- * @returns {string}
  */
-export function getActiveBook() {
+export function getActiveBook(): BookId {
     return activeBookId || book;
 }
 
 /**
  * Set the active book to a sub-book (called when sub-book div gains focus).
- * @param {string} bookId
  */
-export function setActiveBook(bookId: any) {
+export function setActiveBook(bookId: BookId) {
     activeBookId = bookId;
 }
 

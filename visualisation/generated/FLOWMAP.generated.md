@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1506 functions in 313 modules · 10 object stores · 10 PG tables · 3063 edges
+**MarkdownDB** schema v27 · 1508 functions in 314 modules · 10 object stores · 10 PG tables · 3084 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1048,6 +1048,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `queueForSync` | `indexedDB/syncQueue/queue` | — | — | — | — |
 | `initUnloadSyncDependencies` | `indexedDB/syncQueue/unload` | — | — | — | — |
 | `setupUnloadSync` | `indexedDB/syncQueue/unload` | — | — | read | `↑route:/api/db/sync/beacon` |
+| `asBookId` | `indexedDB/types` | — | — | — | — |
+| `isBookId` | `indexedDB/types` | — | — | — | — |
 | `clearBookContentFromIndexedDB` | `indexedDB/utilities/cleanup` | `library` | `bibliography` `footnotes` `library` `nodes` | — | — |
 | `clearDatabase` | `indexedDB/utilities/cleanup` | — | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `markdownStore` `nodes` | — | — |
 | `deleteBookFromIndexedDB` | `indexedDB/utilities/cleanup` | `library` | `bibliography` `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |

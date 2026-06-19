@@ -1,3 +1,4 @@
+import { asBookId } from "../types";
 /**
  * References (Bibliography) Operations Module
  * Handles reference/bibliography operations in IndexedDB
@@ -162,7 +163,7 @@ export async function resolveBibliographyTarget(
   if (bibRecord.source_id) {
     return {
       type: 'library',
-      book: String(bibRecord.source_id),
+      book: asBookId(String(bibRecord.source_id)),
       has_nodes: bibRecord.source_has_nodes !== false,
     };
   }

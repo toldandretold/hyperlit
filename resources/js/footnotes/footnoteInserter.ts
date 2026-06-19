@@ -1,3 +1,4 @@
+import { asBookId, LATEST, type BookId } from "../indexedDB/types";
 /**
  * Footnote Inserter Module
  * Handles insertion of new footnotes at cursor position
@@ -31,7 +32,7 @@ type FootnoteSaveCallback = (id: string, html: string, options?: any) => Promise
  */
 export async function insertFootnoteAtCursor(
   range: any,
-  bookId: string,
+  bookId: BookId,
   saveCallback?: FootnoteSaveCallback,
 ): Promise<{ footnoteId: string; supElement: HTMLElement }> {
   if (!range) {
@@ -117,7 +118,7 @@ export async function insertFootnoteAtCursor(
  * @param {string} footnoteId
  * @param {string} bookId
  */
-async function createFootnoteRecord(footnoteId: string, bookId: string): Promise<void> {
+async function createFootnoteRecord(footnoteId: string, bookId: BookId): Promise<void> {
   const db = await openDatabase();
   const tx = db.transaction('footnotes', 'readwrite');
   const store = tx.objectStore('footnotes');

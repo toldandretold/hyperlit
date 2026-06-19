@@ -1,3 +1,4 @@
+import { asBookId } from "../indexedDB/types";
 // EditToolbar - Main orchestrator for toolbar functionality
 // Delegates to specialized modules for different formatting operations
 
@@ -803,7 +804,7 @@ class EditToolbar {
       // Insert the footnote
       const { footnoteId, supElement } = await insertFootnoteAtCursor(
         range,
-        bookId,
+        asBookId(bookId),
         (id: any, html: any, options: any) => this.saveToIndexedDB(id, html, options)
       );
 

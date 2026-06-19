@@ -5,7 +5,7 @@
 
 import { openDatabase } from '../core/connection';
 import { parseNodeId } from '../core/utilities';
-import type { BookId, NodeRecord, QueueForSyncFn } from '../types';
+import { LATEST, type BookId, type NodeRecord, type QueueForSyncFn } from '../types';
 
 interface WriteDeps {
   withPending: <T>(fn: () => Promise<T>) => Promise<T>;
@@ -125,7 +125,7 @@ export async function addNodeChunkToIndexedDB(
  */
 export async function saveAllNodeChunksToIndexedDB(
   nodes: Array<{ startLine: string | number } & Record<string, unknown>>,
-  bookId: BookId = "latest",
+  bookId: BookId = LATEST,
   onComplete?: () => void,
 ): Promise<void> {
   return withPending(async () => {

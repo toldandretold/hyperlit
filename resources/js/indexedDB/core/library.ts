@@ -8,7 +8,7 @@ import { buildBibtexEntry } from '../../utilities/bibtexProcessor';
 import { parseSubBookId } from '../../utilities/subBookIdHelper';
 
 import { queueForSync } from '../syncQueue/queue';
-import type { BookId, LibraryRecord } from '../types';
+import { LATEST, type BookId, type LibraryRecord } from '../types';
 import type { ServerLibraryRow } from '../serverSync/types';
 
 // Dependencies that change per-book
@@ -108,7 +108,7 @@ export async function getLibraryObjectFromIndexedDB(book: unknown): Promise<Libr
 /**
  * Update the timestamp for a book (for content/node changes)
  */
-export async function updateBookTimestamp(bookId: BookId = book || "latest"): Promise<boolean> {
+export async function updateBookTimestamp(bookId: BookId = book || LATEST): Promise<boolean> {
   try {
     const db = await openDatabase();
     const tx = db.transaction("library", "readwrite");

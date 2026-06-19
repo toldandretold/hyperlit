@@ -40,8 +40,9 @@ export type LineId = string & { readonly __brand: 'LineId' };
  */
 export type DataNodeId = string & { readonly __brand: 'DataNodeId' };
 
-// Re-export BookId so the editor folders import all three id types from one place.
+// Re-export BookId + its helpers so the editor folders import all three id vocabularies from one place.
 export type { BookId } from '../indexedDB/types';
+export { asBookId, isBookId, LATEST, MOST_RECENT, MOST_CONNECTED, MOST_LIT } from '../indexedDB/types';
 
 /** Type guard: is this string a positional node id (decimal-shaped)? */
 export function isLineId(s: string | null | undefined): s is LineId {
