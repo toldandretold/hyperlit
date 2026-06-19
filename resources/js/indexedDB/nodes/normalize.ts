@@ -5,7 +5,7 @@
 
 import { openDatabase } from '../core/connection';
 import { parseNodeId } from '../core/utilities';
-import { getNodeChunkFromIndexedDB } from './read';
+import { getNodeFromIndexedDB } from './read';
 import { asBookId, type BookId, type QueueForSyncFn } from '../types';
 
 interface NormalizeDeps {
@@ -108,7 +108,7 @@ export async function updateIndexedDBRecordForNormalization(
         clearTimeout(timeoutId);
         await updateBookTimestamp(bookId);
         // Queue the deletion of the old and update of the new
-        const newRecord = await getNodeChunkFromIndexedDB(bookId, newId);
+        const newRecord = await getNodeFromIndexedDB(bookId, newId);
         if (newRecord) {
           queueForSync("nodes", newId, "update", newRecord);
         }

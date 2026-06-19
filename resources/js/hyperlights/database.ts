@@ -119,7 +119,7 @@ export async function addToHighlightsTable(bookId: BookId, highlightData: Highli
 /**
  * Remove highlight from nodes table
  */
-export async function removeHighlightFromNodeChunks(bookId: BookId, highlightId: string): Promise<any[]> {
+export async function removeHighlightFromNodes(bookId: BookId, highlightId: string): Promise<any[]> {
   const db = await openDatabase();
 
   return new Promise((resolve, reject) => {
@@ -171,7 +171,7 @@ export async function removeHighlightFromNodeChunks(bookId: BookId, highlightId:
 /**
  * Remove highlight from nodes but add deletion instruction for backend sync
  */
-export async function removeHighlightFromNodeChunksWithDeletion(bookId: BookId, highlightId: string, deletedHighlightData?: unknown): Promise<any[]> {
+export async function removeHighlightFromNodesWithDeletion(bookId: BookId, highlightId: string, deletedHighlightData?: unknown): Promise<any[]> {
   const db = await openDatabase();
 
   return new Promise((resolve, reject) => {

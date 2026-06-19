@@ -17,21 +17,21 @@ interface HypercitesDeps {
   updateBookTimestamp: (bookId: BookId) => Promise<unknown>;
   queueForSync: QueueForSyncFn;
   withPending: <T>(fn: () => Promise<T>) => Promise<T>;
-  getNodeChunksFromIndexedDB: (bookId: BookId) => Promise<NodeRecord[]>;
+  getNodesFromIndexedDB: (bookId: BookId) => Promise<NodeRecord[]>;
 }
 
 // Injected dependencies (crash-if-uninitialized, same as the pre-TS module)
 let updateBookTimestamp: HypercitesDeps['updateBookTimestamp'];
 let queueForSync: HypercitesDeps['queueForSync'];
 let withPending: HypercitesDeps['withPending'];
-let getNodeChunksFromIndexedDB: HypercitesDeps['getNodeChunksFromIndexedDB'];
+let getNodesFromIndexedDB: HypercitesDeps['getNodesFromIndexedDB'];
 
 // Initialization function to inject dependencies
 export function initHypercitesDependencies(deps: HypercitesDeps): void {
   updateBookTimestamp = deps.updateBookTimestamp;
   queueForSync = deps.queueForSync;
   withPending = deps.withPending;
-  getNodeChunksFromIndexedDB = deps.getNodeChunksFromIndexedDB;
+  getNodesFromIndexedDB = deps.getNodesFromIndexedDB;
 }
 
 /**
@@ -116,7 +116,7 @@ export async function addCitationToHypercite(
 ): Promise<{ success: boolean; relationshipStatus?: RelationshipStatus }> {
   const numericStartLine = parseNodeId(startLine);
 
-  console.log(`Adding citation to hypercite in nodeChunk: book=${book}, startLine=${numericStartLine}, hyperciteId=${hyperciteId}, citation=${newCitation}`);
+  console.log(`Adding citation to hypercite in node: book=${book}, startLine=${numericStartLine}, hyperciteId=${hyperciteId}, citation=${newCitation}`);
 
   try {
     const db = await openDatabase();
@@ -139,7 +139,7 @@ export async function addCitationToHypercite(
             return;
           }
 
-          console.log("Existing nodeChunk before update:", JSON.stringify(record));
+          console.log("Existing node before update:", JSON.stringify(record));
 
           // Ensure hypercites array exists and is an array
           if (!Array.isArray(record.hypercites)) {
@@ -150,7 +150,7 @@ export async function addCitationToHypercite(
           const hyperciteIndex = record.hypercites.findIndex(h => h.hyperciteId === hyperciteId);
 
           if (hyperciteIndex === -1) {
-            console.error(`Hypercite ${hyperciteId} not found in nodeChunk [${book}, ${numericStartLine}]`);
+            console.error(`Hypercite ${hyperciteId} not found in node [${book}, ${numericStartLine}]`);
             resolve({ success: false });
             return;
           }
@@ -177,13 +177,13 @@ export async function addCitationToHypercite(
             hyperciteToUpdate.citedIN.length >= 2 ? "poly" : "single";
 
           console.log("Updated hypercite object:", JSON.stringify(hyperciteToUpdate));
-          console.log("NodeChunk after modifying hypercite:", JSON.stringify(record));
+          console.log("Node after modifying hypercite:", JSON.stringify(record));
 
           // Put the *entire* updated record back
           const updateRequest = objectStore.put(record);
 
           updateRequest.onsuccess = async () => {
-            console.log(`✅ Successfully updated nodeChunk [${book}, ${numericStartLine}]`);
+            console.log(`✅ Successfully updated node [${book}, ${numericStartLine}]`);
 
             // IMMEDIATE verification within the same function
             const immediateVerify = objectStore.get(key);
@@ -202,13 +202,13 @@ export async function addCitationToHypercite(
           };
 
           updateRequest.onerror = () => {
-            console.error(`❌ Error updating nodeChunk record:`, updateRequest.error);
+            console.error(`❌ Error updating node record:`, updateRequest.error);
             resolve({ success: false });
           };
         };
 
         getRequest.onerror = () => {
-          console.error(`❌ Error getting nodeChunk record:`, getRequest.error);
+          console.error(`❌ Error getting node record:`, getRequest.error);
           resolve({ success: false });
         };
     });
@@ -298,7 +298,7 @@ export function updateCitationForExistingHypercite(
     // Determine startLine for broadcasting (use first affected node)
     let affectedStartLine: number | null = null;
     if (affectedDataNodeIDs.length > 0) {
-      const nodes = await getNodeChunksFromIndexedDB(booka);
+      const nodes = await getNodesFromIndexedDB(booka);
       const affectedNode = nodes.find(n => n.node_id && affectedDataNodeIDs.includes(n.node_id));
       affectedStartLine = affectedNode?.startLine || null;
     }
@@ -315,5 +315,5 @@ export function updateCitationForExistingHypercite(
 export {
   syncHyperciteToPostgreSQL,
   syncHyperciteUpdateImmediately,
-  syncHyperciteWithNodeChunkImmediately,
+  syncHyperciteWithNodeImmediately,
 } from './syncHypercitesToPostgreSQL';

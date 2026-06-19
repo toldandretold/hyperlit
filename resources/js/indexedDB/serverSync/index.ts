@@ -11,7 +11,7 @@ export { syncIndexedDBtoPostgreSQL } from './push';
 export { flushAllPendingEdits } from './flush';
 export { clearBookDataFromIndexedDB } from './clear';
 export {
-  loadNodeChunksToIndexedDB,
+  loadNodesToIndexedDB,
   loadFootnotesToIndexedDB,
   loadBibliographyToIndexedDB,
   loadHyperlightsToIndexedDB,

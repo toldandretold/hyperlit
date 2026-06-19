@@ -5,7 +5,7 @@ import { asBookId, LATEST, type BookId } from "../../indexedDB/types";
 // sourceContainer/index.ts. Lazy-loads the heavy converters (Turndown, JSZip,
 // docx, html-to-text) from the CDN on first use.
 import { book } from '../../app';
-import { openDatabase, getNodeChunksFromIndexedDB } from '../../indexedDB/index';
+import { openDatabase, getNodesFromIndexedDB } from '../../indexedDB/index';
 import { formatBibtexToCitation } from '../../utilities/bibtexProcessor';
 import { getRecord, getBookDownloadName } from './helpers';
 
@@ -192,7 +192,7 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
     const { waitForBackgroundDownload } = await import('../../pageLoad/index');
     await waitForBackgroundDownload();
   }
-  const chunks: any = await getNodeChunksFromIndexedDB(bookId);
+  const chunks: any = await getNodesFromIndexedDB(bookId);
   chunks.sort((a: any, b: any) => a.chunk_id - b.chunk_id);
 
   const parser = new DOMParser();
@@ -265,7 +265,7 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
   for (const fnId of footnoteRefIds) {
     const subBookId = `${bookId}/${fnId}`;
     try {
-      let fnNodes: any = await getNodeChunksFromIndexedDB(asBookId(subBookId));
+      let fnNodes: any = await getNodesFromIndexedDB(asBookId(subBookId));
 
       if ((!fnNodes || fnNodes.length === 0) && fnDb) {
         try {
@@ -899,7 +899,7 @@ async function buildDocxWithStyles(bookId: any = book || 'latest') {
   }
   const docxLib = await loadDocxLib();
   const { Document, Packer, Paragraph, TextRun, HeadingLevel, ExternalHyperlink, FootnoteReferenceRun, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, LevelFormat, AlignmentType } = docxLib;
-  const chunks: any = await getNodeChunksFromIndexedDB(bookId);
+  const chunks: any = await getNodesFromIndexedDB(bookId);
   chunks.sort((a: any, b: any) => a.chunk_id - b.chunk_id);
 
   const parser = new DOMParser();
@@ -1003,7 +1003,7 @@ async function buildDocxWithStyles(bookId: any = book || 'latest') {
     const subBookId = `${bookId}/${fnId}`;
     try {
       // Try nodes store first (works if footnote was previously opened)
-      let fnNodes: any = await getNodeChunksFromIndexedDB(asBookId(subBookId));
+      let fnNodes: any = await getNodesFromIndexedDB(asBookId(subBookId));
 
       // Fallback: check footnotes store for preview_nodes
       if ((!fnNodes || fnNodes.length === 0) && fnDb) {
@@ -1366,7 +1366,7 @@ async function buildEpubBlob(bookId: any = book || 'latest') {
     await waitForBackgroundDownload();
   }
   const JSZip = await loadJSZip();
-  const chunks: any = await getNodeChunksFromIndexedDB(bookId);
+  const chunks: any = await getNodesFromIndexedDB(bookId);
   chunks.sort((a: any, b: any) => a.chunk_id - b.chunk_id);
 
   // Fetch library metadata
@@ -1456,7 +1456,7 @@ async function buildEpubBlob(bookId: any = book || 'latest') {
   for (const fnId of footnoteRefIds) {
     const subBookId = `${bookId}/${fnId}`;
     try {
-      let fnNodes: any = await getNodeChunksFromIndexedDB(asBookId(subBookId));
+      let fnNodes: any = await getNodesFromIndexedDB(asBookId(subBookId));
 
       // Fallback: check footnotes store for preview_nodes
       if ((!fnNodes || fnNodes.length === 0) && fnDb) {

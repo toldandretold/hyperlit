@@ -4,7 +4,7 @@
  * marked node is deleted (the marker is transferred to the book's first node).
  * Extracted from chunkMutationHandler (sub-book aware via bookId).
  */
-import { getNodeChunksFromIndexedDB } from '../../indexedDB/index';
+import { getNodesFromIndexedDB } from '../../indexedDB/index';
 
 export async function getFirstNodeIdForBook(bookId: any = null): Promise<string | null> {
   try {
@@ -15,7 +15,7 @@ export async function getFirstNodeIdForBook(bookId: any = null): Promise<string 
     }
 
     // Get all nodes for this book from IndexedDB
-    const nodes = await getNodeChunksFromIndexedDB(bookId);
+    const nodes = await getNodesFromIndexedDB(bookId);
 
     if (!nodes || nodes.length === 0) {
       console.warn('⚠️ No nodes found in IndexedDB for book:', bookId);

@@ -305,8 +305,8 @@ export function disableEditMode({ skipPersistence = false }: DisableEditModeOpti
     // edit-mode-exit (case a/b) vs the divergence pre-existing (case c).
     let __preFlushSnapshot: any = null;
     try {
-      const { getNodeChunksFromIndexedDB } = await import('../../indexedDB/index');
-      const preNodes = await getNodeChunksFromIndexedDB(book);
+      const { getNodesFromIndexedDB } = await import('../../indexedDB/index');
+      const preNodes = await getNodesFromIndexedDB(book);
       __preFlushSnapshot = new Map(
         (preNodes || []).map((n: any) => [String(n.startLine), n.content || ''])
       );
@@ -320,8 +320,8 @@ export function disableEditMode({ skipPersistence = false }: DisableEditModeOpti
     // [diagnostic] diff IDB content after flush
     if (__preFlushSnapshot) {
       try {
-        const { getNodeChunksFromIndexedDB } = await import('../../indexedDB/index');
-        const postNodes = await getNodeChunksFromIndexedDB(book);
+        const { getNodesFromIndexedDB } = await import('../../indexedDB/index');
+        const postNodes = await getNodesFromIndexedDB(book);
         const changed = [];
         for (const n of postNodes || []) {
           const key = String(n.startLine);

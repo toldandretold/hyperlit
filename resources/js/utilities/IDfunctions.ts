@@ -1,5 +1,5 @@
 import { updateIndexedDBRecordForNormalization } from "../indexedDB/index.js";
-import { getAllNodeChunksForBook, renumberNodeChunksInIndexedDB, clearPendingSyncsForBook, pendingSyncs, openDatabase } from "../indexedDB/index.js";
+import { getAllNodesForBook, renumberNodesInIndexedDB, clearPendingSyncsForBook, pendingSyncs, openDatabase } from "../indexedDB/index.js";
 import { executeSyncPayload, updateHistoryLog, debouncedMasterSync } from "../indexedDB/syncQueue/master.js";
 import { currentLazyLoader } from "../pageLoad/index";
 import { book } from "../app";
@@ -89,7 +89,7 @@ async function renumberAllNodes() {
     }
 
     // 1. Get all nodes from IndexedDB
-    const indexedDBNodes = await getAllNodeChunksForBook(book);
+    const indexedDBNodes = await getAllNodesForBook(book);
     const indexedDBNodeIds = new Set((indexedDBNodes || []).map(n => n.node_id));
     // Map node_id → old chunk_id so we can detect chunk reassignments later
     const indexedDBNodeMap = new Map((indexedDBNodes || []).map(n => [n.node_id, n.chunk_id]));
@@ -195,7 +195,7 @@ async function renumberAllNodes() {
     console.log(`✅ RENUMBERING: Updated ${domUpdateCount} DOM elements (${missingElements} not in DOM)`);
 
     // 5. Update IndexedDB with new startLines
-    await renumberNodeChunksInIndexedDB(updates, book);
+    await renumberNodesInIndexedDB(updates, book);
     console.log('✅ RENUMBERING: IndexedDB updated');
 
     // 6. Sync to PostgreSQL using SAFE executeSyncPayload (UPDATE by node_id, no DELETE ALL)
@@ -279,7 +279,7 @@ async function renumberAllNodes() {
     console.log('🔄 RENUMBERING: Updating lazy loader cache from IndexedDB');
     if (currentLazyLoader) {
       // Just update the in-memory nodes array - DOM elements already updated in step 4
-      currentLazyLoader.nodes = await getAllNodeChunksForBook(book);
+      currentLazyLoader.nodes = await getAllNodesForBook(book);
       console.log('✅ RENUMBERING: Lazy loader cache updated with fresh data');
     } else {
       console.warn('⚠️ RENUMBERING: Could not update cache - currentLazyLoader not available');

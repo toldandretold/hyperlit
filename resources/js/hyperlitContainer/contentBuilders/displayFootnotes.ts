@@ -29,8 +29,8 @@ export async function buildFootnoteContent(contentType: any, db: any = null, edi
 
     // Ensure footnote map is built for the correct parent book
     if (parentBookId && getCurrentBookId() !== parentBookId) {
-      const { getNodeChunksFromIndexedDB }: any = await import('../../indexedDB/index');
-      const nodes: any = await getNodeChunksFromIndexedDB(parentBookId);
+      const { getNodesFromIndexedDB }: any = await import('../../indexedDB/index');
+      const nodes: any = await getNodesFromIndexedDB(parentBookId);
       buildFootnoteMap(parentBookId, nodes);
     }
 

@@ -8,9 +8,9 @@ import {
   openDatabase,
   updateCitationForExistingHypercite,
   batchUpdateIndexedDBRecords,
-  getNodeChunksAfter,
-  deleteNodeChunksAfter,
-  writeNodeChunks,
+  getNodesAfter,
+  deleteNodesAfter,
+  writeNodes,
   prepareLibraryForIndexedDB
           } from "../indexedDB/index.js";
 import {

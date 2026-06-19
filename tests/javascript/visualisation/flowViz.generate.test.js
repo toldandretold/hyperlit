@@ -58,7 +58,7 @@ describe('IndexedDB flow viz', () => {
     // ground truth: a read-only reader reads `nodes`; the sync pushes to the `nodes` table
     // (the PG table is `nodes`, NOT node_chunks — verified against Eloquent $table).
     const reads = viz.edges.filter(e => e.rel === 'read').map(e => `${e.source}->${e.target}`);
-    expect(reads.some(r => r.startsWith('store:nodes->') && /getNodeChunksFromIndexedDB/.test(r))).toBe(true);
+    expect(reads.some(r => r.startsWith('store:nodes->') && /getNodesFromIndexedDB/.test(r))).toBe(true);
     const pushes = viz.edges.filter(e => e.rel === 'push');
     expect(pushes.some(e => e.target === 'pg:nodes')).toBe(true);
     // and there is no phantom node_chunks table
@@ -85,9 +85,9 @@ describe('IndexedDB flow viz', () => {
     // Key lineage functions are tagged with the node types they handle (read from signatures/bodies).
     const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
     expect(fnByLabel('createChunkElement').types).toContain('NodeRecord');          // IDB → DOM render
-    expect(fnByLabel('getNodeChunksFromIndexedDB').types).toContain('NodeRecord');  // IDB read
+    expect(fnByLabel('getNodesFromIndexedDB').types).toContain('NodeRecord');  // IDB read
     expect(fnByLabel('toPublicNode').types).toEqual(expect.arrayContaining(['NodeRecord', 'PublicNode']));
-    expect(fnByLabel('loadNodeChunksToIndexedDB').types).toContain('ServerNodeRow'); // wire in (+ nested processNode)
+    expect(fnByLabel('loadNodesToIndexedDB').types).toContain('ServerNodeRow'); // wire in (+ nested processNode)
 
     // types arrays are deduped + sorted (determinism — the byte-gate depends on stable order)
     for (const n of viz.nodes) {

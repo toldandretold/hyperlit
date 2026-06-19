@@ -12,7 +12,7 @@ import { verbose } from '../utilities/logger';
 import { queueForSync } from './syncQueue/queue';
 import { debouncedMasterSync } from './syncQueue/master';
 import { updateBookTimestamp } from './core/library';
-import { getNodeChunksFromIndexedDB } from './nodes/read';
+import { getNodesFromIndexedDB } from './nodes/read';
 import { initLibraryDependencies } from './core/library';
 import { initNodeWriteDependencies } from './nodes/write';
 import { initNodeBatchDependencies } from './nodes/batch';
@@ -38,7 +38,7 @@ export {
 // Utility Functions
 export {
   parseNodeId,
-  createNodeChunksKey,
+  createNodeKey,
   getLocalStorageKey,
   toPublicNode,
 } from './core/utilities';
@@ -61,20 +61,20 @@ export {
 
 // Node Read Operations
 export {
-  getNodeChunksFromIndexedDB,
-  getAllNodeChunksForBook,
-  getNodeChunkFromIndexedDB,
-  getNodeChunksAfter,
+  getNodesFromIndexedDB,
+  getAllNodesForBook,
+  getNodeFromIndexedDB,
+  getNodesAfter,
 } from './nodes/read';
 
 // Node Write Operations
 export {
-  addNodeChunkToIndexedDB,
-  saveAllNodeChunksToIndexedDB,
-  deleteNodeChunksAfter,
-  renumberNodeChunksInIndexedDB,
+  addNodeToIndexedDB,
+  saveAllNodesToIndexedDB,
+  deleteNodesAfter,
+  renumberNodesInIndexedDB,
   addNewBookToIndexedDB,
-  writeNodeChunks,
+  writeNodes,
   initNodeWriteDependencies,
 } from './nodes/write';
 
@@ -106,7 +106,7 @@ export {
 
 // Node PostgreSQL Sync
 export {
-  syncNodeChunksToPostgreSQL,
+  syncNodesToPostgreSQL,
 } from './nodes/syncNodesToPostgreSQL';
 
 // ============================================================================
@@ -130,7 +130,7 @@ export {
   initHypercitesDependencies,
   syncHyperciteToPostgreSQL,
   syncHyperciteUpdateImmediately,
-  syncHyperciteWithNodeChunkImmediately,
+  syncHyperciteWithNodeImmediately,
 } from './hypercites/index';
 
 // ============================================================================
@@ -238,7 +238,7 @@ export async function initializeDatabaseModules(dependencies: DatabaseDependenci
   initNodeBatchDependencies({ book });
   initNodeDeleteDependencies({ withPending, book, updateBookTimestamp, queueForSync });
   initNodeNormalizeDependencies({ withPending, book, updateBookTimestamp, queueForSync });
-  initHypercitesDependencies({ updateBookTimestamp, queueForSync, withPending, getNodeChunksFromIndexedDB });
+  initHypercitesDependencies({ updateBookTimestamp, queueForSync, withPending, getNodesFromIndexedDB });
   initFootnotesDependencies({ updateBookTimestamp, withPending });
   initReferencesDependencies({ withPending });
   initSyncQueueDependencies({ debouncedMasterSync });

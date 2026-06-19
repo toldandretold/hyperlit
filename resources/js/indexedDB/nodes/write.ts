@@ -1,6 +1,6 @@
 /**
  * Node Write Operations Module
- * Handles creating, updating, and deleting individual node chunks
+ * Handles creating, updating, and deleting individual nodes
  */
 
 import { openDatabase } from '../core/connection';
@@ -41,11 +41,11 @@ export interface RenumberUpdate {
 }
 
 /**
- * Add a single node chunk to IndexedDB
+ * Add a single node to IndexedDB
  *
  * @param transaction - Optional existing transaction (SHARED mode: caller owns completion)
  */
-export async function addNodeChunkToIndexedDB(
+export async function addNodeToIndexedDB(
   bookId: BookId,
   startLine: string | number,
   content: string,
@@ -80,7 +80,7 @@ export async function addNodeChunkToIndexedDB(
         extractedNodeId = firstElement?.getAttribute('data-node-id');
       }
 
-      const nodeChunkRecord = {
+      const nodeRecord = {
         book: bookId,
         startLine: numericStartLine,
         chunk_id: chunkId,
@@ -90,7 +90,7 @@ export async function addNodeChunkToIndexedDB(
         hypercites: [],
       };
 
-      store.put(nodeChunkRecord);
+      store.put(nodeRecord);
 
       // If we are in STANDALONE mode (we created our own transaction),
       // we are responsible for awaiting its completion.
@@ -100,7 +100,7 @@ export async function addNodeChunkToIndexedDB(
             resolve(true);
           };
           tx.onerror = () => {
-            console.error("❌ Error adding nodeChunk:", tx.error);
+            console.error("❌ Error adding node:", tx.error);
             reject(tx.error);
           };
           tx.onabort = (e) => {
@@ -113,17 +113,17 @@ export async function addNodeChunkToIndexedDB(
         return true; // Resolve immediately.
       }
     } catch (err) {
-      console.error("❌ Failed to add nodeChunk:", err);
+      console.error("❌ Failed to add node:", err);
       throw err;
     }
   });
 }
 
 /**
- * Save all node chunks to IndexedDB (bulk operation).
+ * Save all nodes to IndexedDB (bulk operation).
  * Stamps each record with the book and a numeric startLine before writing.
  */
-export async function saveAllNodeChunksToIndexedDB(
+export async function saveAllNodesToIndexedDB(
   nodes: Array<{ startLine: string | number } & Record<string, unknown>>,
   bookId: BookId = LATEST,
   onComplete?: () => void,
@@ -171,10 +171,10 @@ export async function saveAllNodeChunksToIndexedDB(
 }
 
 /**
- * Delete all node chunks after a specific node ID
+ * Delete all nodes after a specific node ID
  * (exclusive lower bound — the anchor node itself is kept)
  */
-export async function deleteNodeChunksAfter(book: BookId, afterNodeId: string | number): Promise<void> {
+export async function deleteNodesAfter(book: BookId, afterNodeId: string | number): Promise<void> {
   const numericAfter = parseNodeId(afterNodeId);
 
   try {
@@ -209,7 +209,7 @@ export async function deleteNodeChunksAfter(book: BookId, afterNodeId: string | 
 }
 
 /**
- * Add a new book to IndexedDB (wrapper around addNodeChunkToIndexedDB)
+ * Add a new book to IndexedDB (wrapper around addNodeToIndexedDB)
  * This is just a convenience function for creating new books
  */
 export async function addNewBookToIndexedDB(
@@ -219,16 +219,16 @@ export async function addNewBookToIndexedDB(
   chunkId = 0,
   transaction: IDBTransaction | null = null,
 ): Promise<boolean> {
-  // This is just an alias for addNodeChunkToIndexedDB
-  // "Adding a new book" is really just adding node chunks
-  return addNodeChunkToIndexedDB(bookId, startLine, content, chunkId, null, transaction);
+  // This is just an alias for addNodeToIndexedDB
+  // "Adding a new book" is really just adding nodes
+  return addNodeToIndexedDB(bookId, startLine, content, chunkId, null, transaction);
 }
 
 /**
  * Renumber all nodes in IndexedDB by deleting old records and creating new ones
  * Used during system-wide renumbering operations
  */
-export async function renumberNodeChunksInIndexedDB(updates: RenumberUpdate[], bookId: BookId): Promise<void> {
+export async function renumberNodesInIndexedDB(updates: RenumberUpdate[], bookId: BookId): Promise<void> {
   console.log(`🔄 Renumbering ${updates.length} nodes in IndexedDB`);
 
   const db = await openDatabase();
@@ -289,13 +289,13 @@ export async function renumberNodeChunksInIndexedDB(updates: RenumberUpdate[], b
 }
 
 /**
- * Write node chunks directly to IndexedDB (bulk operation)
+ * Write nodes directly to IndexedDB (bulk operation)
  * Simple helper for writing pre-formatted chunks
  *
  * NOTE: This is a PURE IndexedDB operation - does NOT sync to PostgreSQL
  * Original implementation from indexedDB.js - logic preserved exactly
  */
-export async function writeNodeChunks(chunks: NodeRecord[]): Promise<void> {
+export async function writeNodes(chunks: NodeRecord[]): Promise<void> {
   if (!chunks || chunks.length === 0) {
     return;
   }
@@ -316,11 +316,11 @@ export async function writeNodeChunks(chunks: NodeRecord[]): Promise<void> {
         resolve();
       };
       tx.onerror = () => {
-        console.error('❌ Error in writeNodeChunks transaction');
+        console.error('❌ Error in writeNodes transaction');
         resolve();
       };
     });
   } catch {
-    console.error('❌ Error opening database for writeNodeChunks');
+    console.error('❌ Error opening database for writeNodes');
   }
 }

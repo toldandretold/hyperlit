@@ -252,7 +252,7 @@ async function updateDomNode(startLine: any) {
   setProgrammaticUpdateInProgress(true);
 
   try {
-    const record = await getNodeChunkByKey(book, startLine);
+    const record = await getNodeByKey(book, startLine);
     if (!record) {
       console.warn(`⚠️ No record for key [${book}, ${startLine}]`);
       return;
@@ -321,11 +321,11 @@ function sanitizeContent(html: any) {
   return html;
 }
 /**
- * getNodeChunkByKey:
- * Returns a Promise that resolves to the nodeChunk record for the given book
+ * getNodeByKey:
+ * Returns a Promise that resolves to the node record for the given book
  * and startLine from IndexedDB.
  */
-async function getNodeChunkByKey(book: any, startLine: any) {
+async function getNodeByKey(book: any, startLine: any) {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction("nodes", "readonly");

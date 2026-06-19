@@ -30,7 +30,7 @@ export function initNodeDeleteDependencies(deps: DeleteDeps): void {
 
 /**
  * Delete a single IndexedDB record and all its associations
- * Deletes the node chunk plus all associated hyperlights and hypercites
+ * Deletes the node plus all associated hyperlights and hypercites
  *
  * @returns Success status (false for non-numeric ids)
  */

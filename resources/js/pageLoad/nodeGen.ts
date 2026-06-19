@@ -1,12 +1,12 @@
 import { asBookId, LATEST, type BookId } from "../indexedDB/types";
 /**
- * pageLoad/nodeGen — generate node chunks from a book's main-text.md.
+ * pageLoad/nodeGen — generate nodes from a book's main-text.md.
  *
  * Self-contained (fetch + parse + persist); imports only convertMarkdown + the IndexedDB save.
  * Extracted out of loadHyperText so lazyLoaderRegistry can import it STATICALLY (downward) — the
  * old lazyLoaderRegistry↔loadHyperText mutual dependency forced a dynamic-import cycle-breaker.
  */
-import { saveAllNodeChunksToIndexedDB } from '../indexedDB/index.js';
+import { saveAllNodesToIndexedDB } from '../indexedDB/index.js';
 import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
 import { verbose } from '../utilities/logger';
 
@@ -23,7 +23,7 @@ async function fetchMainTextMarkdown(bookId: BookId, forceReload = false) {
   return response.text();
 }
 
-export async function generateNodeChunksFromMarkdown(bookId: BookId, forceReload = false) {
+export async function generateNodesFromMarkdown(bookId: BookId, forceReload = false) {
   const markdown = await fetchMainTextMarkdown(bookId);
 
   // Parse markdown into nodes
@@ -31,6 +31,6 @@ export async function generateNodeChunksFromMarkdown(bookId: BookId, forceReload
   verbose.content(`Generated ${nodes.length} nodes from markdown`, 'pageLoad/nodeGen');
 
   // Pass the callback to the save function
-  await saveAllNodeChunksToIndexedDB(nodes, bookId);
+  await saveAllNodesToIndexedDB(nodes, bookId);
   return nodes;
 }

@@ -1,24 +1,24 @@
 /**
  * Node Operations Module
- * Exports all node chunk operations
+ * Exports all node operations
  */
 
 // Read operations
 export {
-  getNodeChunksFromIndexedDB,
-  getAllNodeChunksForBook,
-  getNodeChunkFromIndexedDB,
-  getNodeChunksAfter,
+  getNodesFromIndexedDB,
+  getAllNodesForBook,
+  getNodeFromIndexedDB,
+  getNodesAfter,
 } from './read';
 
 // Write operations
 export {
-  addNodeChunkToIndexedDB,
-  saveAllNodeChunksToIndexedDB,
-  deleteNodeChunksAfter,
-  renumberNodeChunksInIndexedDB,
+  addNodeToIndexedDB,
+  saveAllNodesToIndexedDB,
+  deleteNodesAfter,
+  renumberNodesInIndexedDB,
   addNewBookToIndexedDB,
-  writeNodeChunks,
+  writeNodes,
   initNodeWriteDependencies,
 } from './write';
 
@@ -44,5 +44,5 @@ export {
 
 // PostgreSQL Sync
 export {
-  syncNodeChunksToPostgreSQL,
+  syncNodesToPostgreSQL,
 } from './syncNodesToPostgreSQL';

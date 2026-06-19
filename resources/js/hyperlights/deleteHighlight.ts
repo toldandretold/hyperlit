@@ -8,7 +8,7 @@ import { asBookId, LATEST, type BookId } from "../indexedDB/types";
  */
 
 import { queueForSync, updateBookTimestamp } from '../indexedDB/index';
-import { removeHighlightFromHyperlights, removeHighlightFromNodeChunksWithDeletion } from './database';
+import { removeHighlightFromHyperlights, removeHighlightFromNodesWithDeletion } from './database';
 import { unwrapMark, unwrapElement, isContentLink } from './deletion';
 import { setProgrammaticUpdateInProgress } from '../utilities/operationState';
 // queueNodeForSave loaded lazily (edit-only, below) so this read-mode highlight module doesn't
@@ -31,7 +31,7 @@ export async function deleteHighlightHandler(event: Event, bookId: BookId): Prom
 
   const marks = document.querySelectorAll("mark");
   let highlightIdsToRemove: string[] = [];
-  const affectedNodeChunks = new Set<string>();
+  const affectedNodes = new Set<string>();
 
   // Check if the selection intersects with existing highlights
   const selectionRange = selection.getRangeAt(0);
@@ -110,7 +110,7 @@ export async function deleteHighlightHandler(event: Event, bookId: BookId): Prom
           "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
         );
         if (container && container.id) {
-          affectedNodeChunks.add(container.id);
+          affectedNodes.add(container.id);
         }
         unwrapMark(mark);
       });
@@ -122,7 +122,7 @@ export async function deleteHighlightHandler(event: Event, bookId: BookId): Prom
         "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
       );
       if (container && container.id) {
-        affectedNodeChunks.add(container.id);
+        affectedNodes.add(container.id);
       }
       unwrapElement(anchor);
     });
@@ -134,13 +134,13 @@ export async function deleteHighlightHandler(event: Event, bookId: BookId): Prom
   // linksToUnwrap is only populated in edit mode (above), so the editor chunk loads lazily here.
   if (linksToUnwrap.length > 0) {
     const { queueNodeForSave } = await import('../divEditor/index');
-    affectedNodeChunks.forEach(nodeId => {
+    affectedNodes.forEach(nodeId => {
       queueNodeForSave(nodeId, 'update');
     });
-    console.log(`✅ Unwrapped ${linksToUnwrap.length} content links, queued ${affectedNodeChunks.size} nodes for save`);
+    console.log(`✅ Unwrapped ${linksToUnwrap.length} content links, queued ${affectedNodes.size} nodes for save`);
   }
 
-  const updatedNodeChunks: any[] = [];
+  const updatedNodes: any[] = [];
   const deletedHyperlights: any[] = [];
 
   for (const highlightId of highlightIdsToRemove) {
@@ -154,13 +154,13 @@ export async function deleteHighlightHandler(event: Event, bookId: BookId): Prom
       }
 
       // Update nodes with explicit deletion instructions
-      const affectedNodes = await removeHighlightFromNodeChunksWithDeletion(
+      const affectedNodes = await removeHighlightFromNodesWithDeletion(
         bookId,
         highlightId,
         deletedHyperlight
       );
       if (affectedNodes && affectedNodes.length > 0) {
-        updatedNodeChunks.push(...affectedNodes);
+        updatedNodes.push(...affectedNodes);
       }
     } catch (error) {
       console.error(
@@ -181,7 +181,7 @@ export async function deleteHighlightHandler(event: Event, bookId: BookId): Prom
 
     // 🔄 OLD SYSTEM: COMMENTED OUT - Don't queue node updates
     /*
-    updatedNodeChunks.forEach((chunk) => {
+    updatedNodes.forEach((chunk) => {
       if (chunk && chunk.startLine) {
         queueForSync("nodes", chunk.startLine, "update", chunk);
       }
@@ -193,10 +193,10 @@ export async function deleteHighlightHandler(event: Event, bookId: BookId): Prom
     );
 
     // 🎨 Reprocess highlights to render remaining highlights correctly
-    if (affectedNodeChunks.size > 0) {
+    if (affectedNodes.size > 0) {
       const { reprocessHighlightsForNodes } = await import('./deletion');
-      await reprocessHighlightsForNodes(bookId, Array.from(affectedNodeChunks));
-      console.log(`✅ Reprocessed highlights for ${affectedNodeChunks.size} nodes after deletion`);
+      await reprocessHighlightsForNodes(bookId, Array.from(affectedNodes));
+      console.log(`✅ Reprocessed highlights for ${affectedNodes.size} nodes after deletion`);
     }
   }
 

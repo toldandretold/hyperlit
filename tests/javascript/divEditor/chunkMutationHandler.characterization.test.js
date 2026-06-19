@@ -42,7 +42,7 @@ vi.mock('../../../resources/js/components/tocContainer/index', () => ({
 vi.mock('../../../resources/js/indexedDB/index', () => ({
   deleteIndexedDBRecordWithRetry: vi.fn(() => Promise.resolve()),
   updateSingleIndexedDBRecord: vi.fn(() => Promise.resolve()),
-  getNodeChunksFromIndexedDB: vi.fn(() => Promise.resolve([])),
+  getNodesFromIndexedDB: vi.fn(() => Promise.resolve([])),
   openDatabase: vi.fn(() => Promise.resolve({})),
 }));
 vi.mock('../../../resources/js/paste', () => ({ isPasteOperationActive: () => false }));

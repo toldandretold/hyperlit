@@ -8,13 +8,13 @@
 import { getActiveBook } from '../../hyperlitContainer/utilities/activeContext';
 import {
   updateCitationForExistingHypercite,
-  getNodeChunksFromIndexedDB,
+  getNodesFromIndexedDB,
   addCitationToHypercite,
   getHyperciteFromIndexedDB,
   updateHyperciteInIndexedDB,
-  getNodeChunkFromIndexedDB,
+  getNodeFromIndexedDB,
   toPublicNode,
-  syncHyperciteWithNodeChunkImmediately
+  syncHyperciteWithNodeImmediately
 } from '../../indexedDB/index';
 import { parseHyperciteHref, attachUnderlineClickListeners, delinkHypercite } from '../../hypercites/index';
 import { getEditToolbar } from '../../editToolbar/index';
@@ -467,11 +467,11 @@ export async function handleHypercitePaste(event: any, targetBookId: any) {
                 if (sourceEl) sourceEl.className = result.newStatus as any;
 
                 const hyperciteToSync = await getHyperciteFromIndexedDB(task.booka, task.hyperciteIDa);
-                const nodeChunkToSync = result.startLine != null
-                  ? await getNodeChunkFromIndexedDB(task.booka, result.startLine)
+                const nodeToSync = result.startLine != null
+                  ? await getNodeFromIndexedDB(task.booka, result.startLine)
                   : null;
-                if (hyperciteToSync && nodeChunkToSync) {
-                  await syncHyperciteWithNodeChunkImmediately(task.booka, hyperciteToSync, nodeChunkToSync);
+                if (hyperciteToSync && nodeToSync) {
+                  await syncHyperciteWithNodeImmediately(task.booka, hyperciteToSync, nodeToSync);
                 }
 
                 // Broadcast to other tabs
@@ -514,16 +514,16 @@ export async function handleHypercitePaste(event: any, targetBookId: any) {
           if (updateResult && updateResult.success) {
             console.log(`✅ Successfully linked: ${citationIDa} cited in ${citationIDb}`);
 
-            // Sync BOTH hypercite AND nodeChunk immediately in ONE atomic transaction
+            // Sync BOTH hypercite AND node immediately in ONE atomic transaction
             const hyperciteToSync = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
-            const nodeChunkToSync = updateResult.startLine != null
-              ? await getNodeChunkFromIndexedDB(booka, updateResult.startLine)
+            const nodeToSync = updateResult.startLine != null
+              ? await getNodeFromIndexedDB(booka, updateResult.startLine)
               : null;
 
-            if (hyperciteToSync && nodeChunkToSync) {
-              console.log("🚀 Syncing hypercite + nodeChunk in unified transaction...");
-              await syncHyperciteWithNodeChunkImmediately(booka, hyperciteToSync, nodeChunkToSync);
-              console.log("✅ Hypercite + nodeChunk synced to server in one transaction.");
+            if (hyperciteToSync && nodeToSync) {
+              console.log("🚀 Syncing hypercite + node in unified transaction...");
+              await syncHyperciteWithNodeImmediately(booka, hyperciteToSync, nodeToSync);
+              console.log("✅ Hypercite + node synced to server in one transaction.");
             } else if (hyperciteToSync) {
               console.log("⚠️ startLine null — syncing hypercite alone");
               const { queueForSync, debouncedMasterSync } = await import('../../indexedDB/index');
@@ -619,7 +619,7 @@ export async function handleHypercitePaste(event: any, targetBookId: any) {
             // Determine startLine for broadcasting (use first affected node)
             let affectedStartLine: any = null;
             if (finalHyperciteRecord.node_id && finalHyperciteRecord.node_id.length > 0) {
-              const nodes = await getNodeChunksFromIndexedDB(booka);
+              const nodes = await getNodesFromIndexedDB(booka);
               const affectedNode = nodes.find((n: any) => finalHyperciteRecord.node_id.includes(n.node_id));
               affectedStartLine = affectedNode?.startLine || null;
             }

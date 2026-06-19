@@ -148,8 +148,8 @@ interface UnifiedSyncPayload {
 export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Record<string, unknown>> {
   const bookId = payload.book;
 
-  // Prepare node chunks: updates → PublicNode (wire shape), deletions stay as-is.
-  const allNodeChunks: Array<PublicNode | SyncRecordData> = [
+  // Prepare nodes: updates → PublicNode (wire shape), deletions stay as-is.
+  const allNodes: Array<PublicNode | SyncRecordData> = [
     ...payload.updates.nodes.map(toPublicNode).filter((c): c is PublicNode => Boolean(c)),
     ...payload.deletions.nodes,
   ];
@@ -157,7 +157,7 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
   // Prepare the unified sync request payload (typed to the wire contract).
   const unifiedPayload: UnifiedSyncPayload = {
     book: bookId,
-    nodes: allNodeChunks,
+    nodes: allNodes,
     hypercites: payload.updates.hypercites || [],
     hyperlights: payload.updates.hyperlights || [],
     hyperlightDeletions: payload.deletions.hyperlights || [],
@@ -170,7 +170,7 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
 
   // Log what we're syncing
   const syncSummary = [];
-  if (allNodeChunks.length > 0) syncSummary.push(`${allNodeChunks.length} node chunks`);
+  if (allNodes.length > 0) syncSummary.push(`${allNodes.length} nodes`);
   if (unifiedPayload.hypercites.length > 0) syncSummary.push(`${unifiedPayload.hypercites.length} hypercites`);
   if (unifiedPayload.hyperlights.length > 0) syncSummary.push(`${unifiedPayload.hyperlights.length} hyperlights`);
   if (unifiedPayload.hyperlightDeletions.length > 0) syncSummary.push(`${unifiedPayload.hyperlightDeletions.length} hyperlight deletions`);

@@ -4,7 +4,7 @@
  * and error behavior (return-object vs throw — they differ!).
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { syncNodeChunksToPostgreSQL } from '../../../resources/js/indexedDB/nodes/syncNodesToPostgreSQL';
+import { syncNodesToPostgreSQL } from '../../../resources/js/indexedDB/nodes/syncNodesToPostgreSQL';
 import { syncFootnotesToPostgreSQL } from '../../../resources/js/indexedDB/footnotes/syncFootnotesToPostgreSQL';
 import { syncReferencesToPostgreSQL } from '../../../resources/js/indexedDB/bibliography/syncReferencesToPostgreSQL';
 import {
@@ -24,10 +24,10 @@ describe('legacy sync endpoints (characterization)', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('nodes: POSTs {book, data} to targeted-upsert; empty input skips fetch; !ok returns failure object', async () => {
-    expect(await syncNodeChunksToPostgreSQL('bookA', [])).toEqual({ success: true });
+    expect(await syncNodesToPostgreSQL('bookA', [])).toEqual({ success: true });
     expect(fetchMock).not.toHaveBeenCalled();
 
-    await syncNodeChunksToPostgreSQL('bookA', [{ book: 'bookA', startLine: 100 }]);
+    await syncNodesToPostgreSQL('bookA', [{ book: 'bookA', startLine: 100 }]);
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('/api/db/node-chunks/targeted-upsert');
     expect(init.headers['X-CSRF-TOKEN']).toBe('test-csrf');
@@ -36,7 +36,7 @@ describe('legacy sync endpoints (characterization)', () => {
 
     // Unlike the others, node sync reports failure as a value, not a throw
     fetchMock.mockResolvedValue({ ok: false, status: 500, text: async () => 'nope' });
-    expect(await syncNodeChunksToPostgreSQL('bookA', [{ book: 'bookA', startLine: 100 }]))
+    expect(await syncNodesToPostgreSQL('bookA', [{ book: 'bookA', startLine: 100 }]))
       .toEqual({ success: false, message: 'nope' });
   });
 

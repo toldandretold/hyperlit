@@ -1002,7 +1002,7 @@ async function removeSpecificCitations(sourceBook: any, sourceHyperciteIds: any,
   const brokenUrls = brokenCitations.map((c: any) => c.url);
   console.log(`🔧 Removing citations: ${JSON.stringify(brokenUrls)}`);
 
-  const updatedNodeChunks = [];
+  const updatedNodes = [];
 
   for (const sourceHyperciteId of sourceHyperciteIds) {
     // Read hypercite from IndexedDB
@@ -1073,59 +1073,59 @@ async function removeSpecificCitations(sourceBook: any, sourceHyperciteIds: any,
       console.log(`✅ Updated DOM element class to ${hypercite.relationshipStatus}`);
     }
 
-    // 🔥 NEW: Update nodeChunk's hypercites array (like delinkHypercite does)
+    // 🔥 NEW: Update nodeRecord's hypercites array (like delinkHypercite does)
     // This ensures the embedded hypercite data in nodes stays in sync
     const nodesTx = db.transaction(['nodes'], 'readwrite');
     const nodesStore = nodesTx.objectStore('nodes');
     const bookIndex = nodesStore.index('book');
 
     // Get all nodes for this book
-    const allNodeChunks: any = await new Promise((resolve: any, reject: any) => {
+    const allNodes: any = await new Promise((resolve: any, reject: any) => {
       const request = bookIndex.getAll(sourceBook);
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
 
-    console.log(`🔍 Searching ${allNodeChunks.length} nodes for hypercite ${sourceHyperciteId}`);
+    console.log(`🔍 Searching ${allNodes.length} nodes for hypercite ${sourceHyperciteId}`);
 
-    // Find the nodeChunk that contains this hypercite
-    let foundNodeChunk: any = null;
+    // Find the nodeRecord that contains this hypercite
+    let foundNode: any = null;
     let foundHyperciteIndex = -1;
 
-    for (const nodeChunk of allNodeChunks) {
-      if (nodeChunk.hypercites && Array.isArray(nodeChunk.hypercites)) {
-        const index = nodeChunk.hypercites.findIndex((hc: any) => hc.hyperciteId === sourceHyperciteId);
+    for (const nodeRecord of allNodes) {
+      if (nodeRecord.hypercites && Array.isArray(nodeRecord.hypercites)) {
+        const index = nodeRecord.hypercites.findIndex((hc: any) => hc.hyperciteId === sourceHyperciteId);
         if (index !== -1) {
-          foundNodeChunk = nodeChunk;
+          foundNode = nodeRecord;
           foundHyperciteIndex = index;
-          console.log(`✅ Found hypercite in nodeChunk at startLine ${nodeChunk.startLine}, index ${index}`);
+          console.log(`✅ Found hypercite in nodeRecord at startLine ${nodeRecord.startLine}, index ${index}`);
           break;
         }
       }
     }
 
-    if (foundNodeChunk && foundHyperciteIndex !== -1) {
-      // Update the hypercite in the nodeChunk's array
-      foundNodeChunk.hypercites[foundHyperciteIndex] = {
-        ...foundNodeChunk.hypercites[foundHyperciteIndex],
+    if (foundNode && foundHyperciteIndex !== -1) {
+      // Update the hypercite in the nodeRecord's array
+      foundNode.hypercites[foundHyperciteIndex] = {
+        ...foundNode.hypercites[foundHyperciteIndex],
         citedIN: hypercite.citedIN,
         relationshipStatus: hypercite.relationshipStatus
       };
 
-      // Update the nodeChunk in IndexedDB
-      const updateRequest = nodesStore.put(foundNodeChunk);
+      // Update the nodeRecord in IndexedDB
+      const updateRequest = nodesStore.put(foundNode);
       await new Promise((resolve: any, reject: any) => {
         updateRequest.onsuccess = () => resolve();
         updateRequest.onerror = () => reject(updateRequest.error);
       });
 
-      console.log(`✅ Updated nodeChunk hypercites array for startLine ${foundNodeChunk.startLine}`);
+      console.log(`✅ Updated nodeRecord hypercites array for startLine ${foundNode.startLine}`);
 
-      // Queue the nodeChunk for sync to PostgreSQL
-      queueForSync('nodes', foundNodeChunk.startLine, 'update', foundNodeChunk);
-      updatedNodeChunks.push(foundNodeChunk);
+      // Queue the nodeRecord for sync to PostgreSQL
+      queueForSync('nodes', foundNode.startLine, 'update', foundNode);
+      updatedNodes.push(foundNode);
     } else {
-      console.warn(`⚠️ Hypercite ${sourceHyperciteId} not found in any nodeChunk`);
+      console.warn(`⚠️ Hypercite ${sourceHyperciteId} not found in any nodeRecord`);
     }
 
     await new Promise((resolve: any, reject: any) => {
@@ -1144,15 +1144,15 @@ async function removeSpecificCitations(sourceBook: any, sourceHyperciteIds: any,
 
   // Broadcast changes to other tabs
   const { broadcastToOpenTabs }: any = await import('../../utilities/BroadcastListener');
-  updatedNodeChunks.forEach((chunk: any) => {
+  updatedNodes.forEach((chunk: any) => {
     broadcastToOpenTabs(sourceBook, chunk.startLine);
   });
   console.log('📡 Broadcasted citation removal to other tabs');
 
   // Re-render affected nodes so <u> tags reflect updated relationship status
-  if (updatedNodeChunks.length > 0) {
+  if (updatedNodes.length > 0) {
     const { reprocessHighlightsForNodes }: any = await import('../../hyperlights/index');
-    const affectedStartLines = updatedNodeChunks.map((chunk: any) => chunk.startLine);
+    const affectedStartLines = updatedNodes.map((chunk: any) => chunk.startLine);
     await reprocessHighlightsForNodes(sourceBook, affectedStartLines);
   }
 }

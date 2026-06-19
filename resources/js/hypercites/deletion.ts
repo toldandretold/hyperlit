@@ -5,7 +5,7 @@
  * When a hypercite citation is deleted, it updates the source hypercite's citedIN array.
  */
 
-import { openDatabase, updateBookTimestamp, getHyperciteFromIndexedDB, syncHyperciteWithNodeChunkImmediately, getNodesByDataNodeIDs, rebuildNodeArrays, queueForSync, debouncedMasterSync } from '../indexedDB/index';
+import { openDatabase, updateBookTimestamp, getHyperciteFromIndexedDB, syncHyperciteWithNodeImmediately, getNodesByDataNodeIDs, rebuildNodeArrays, queueForSync, debouncedMasterSync } from '../indexedDB/index';
 import { getActiveBook } from '../hyperlitContainer/utilities/activeContext';
 import { extractHyperciteIdFromHref, determineRelationshipStatus, removeCitedINEntry } from './utils';
 import { getHyperciteById } from './database';
@@ -66,55 +66,55 @@ export async function delinkHypercite(hyperciteElementId: string, hrefUrl: strin
     // Step 6: Update the DOM element's class if it exists
     updateDOMElementClass(targetHyperciteId, newRelationshipStatus);
 
-    // Step 7: Update the nodeChunk's hypercites array
+    // Step 7: Update the node's hypercites array
     // Since hypercite records don't store startLine, we need to search all nodes
     const nodesTx = db.transaction(['nodes'], 'readwrite');
     const nodesStore = nodesTx.objectStore('nodes');
     const bookIndex = nodesStore.index('book');
 
     // Get all nodes for this book
-    const allNodeChunks: any[] = await new Promise((resolve, reject) => {
+    const allNodes: any[] = await new Promise((resolve, reject) => {
       const request = bookIndex.getAll(targetHypercite.book);
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
 
-    console.log(`🔍 Searching ${allNodeChunks.length} nodes for hypercite ${targetHyperciteId}`);
+    console.log(`🔍 Searching ${allNodes.length} nodes for hypercite ${targetHyperciteId}`);
 
-    // Find the nodeChunk that contains this hypercite
-    let foundNodeChunk: any = null;
+    // Find the node that contains this hypercite
+    let foundNode: any = null;
     let foundHyperciteIndex = -1;
 
-    for (const nodeChunk of allNodeChunks) {
-      if (nodeChunk.hypercites && Array.isArray(nodeChunk.hypercites)) {
-        const index = nodeChunk.hypercites.findIndex((hc: any) => hc.hyperciteId === targetHyperciteId);
+    for (const node of allNodes) {
+      if (node.hypercites && Array.isArray(node.hypercites)) {
+        const index = node.hypercites.findIndex((hc: any) => hc.hyperciteId === targetHyperciteId);
         if (index !== -1) {
-          foundNodeChunk = nodeChunk;
+          foundNode = node;
           foundHyperciteIndex = index;
-          console.log(`✅ Found hypercite in nodeChunk at startLine ${nodeChunk.startLine}, index ${index}`);
+          console.log(`✅ Found hypercite in node at startLine ${node.startLine}, index ${index}`);
           break;
         }
       }
     }
 
-    if (foundNodeChunk && foundHyperciteIndex !== -1) {
-      // Update the hypercite in the nodeChunk's array
-      foundNodeChunk.hypercites[foundHyperciteIndex] = {
-        ...foundNodeChunk.hypercites[foundHyperciteIndex],
+    if (foundNode && foundHyperciteIndex !== -1) {
+      // Update the hypercite in the node's array
+      foundNode.hypercites[foundHyperciteIndex] = {
+        ...foundNode.hypercites[foundHyperciteIndex],
         citedIN: updatedCitedIN,
         relationshipStatus: newRelationshipStatus
       };
 
-      // Update the nodeChunk in IndexedDB
-      const updateRequest = nodesStore.put(foundNodeChunk);
+      // Update the node in IndexedDB
+      const updateRequest = nodesStore.put(foundNode);
       await new Promise<void>((resolve, reject) => {
         updateRequest.onsuccess = () => resolve();
         updateRequest.onerror = () => reject(updateRequest.error);
       });
 
-      console.log(`✅ Updated nodeChunk hypercites array for startLine ${foundNodeChunk.startLine}`);
+      console.log(`✅ Updated node hypercites array for startLine ${foundNode.startLine}`);
     } else {
-      console.warn(`⚠️ Hypercite ${targetHyperciteId} not found in any nodeChunk`);
+      console.warn(`⚠️ Hypercite ${targetHyperciteId} not found in any node`);
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -122,20 +122,20 @@ export async function delinkHypercite(hyperciteElementId: string, hrefUrl: strin
       nodesTx.onerror = () => reject(nodesTx.error);
     });
 
-    // Step 8: Sync BOTH hypercite AND nodeChunk immediately in ONE atomic transaction
-    if (foundNodeChunk) {
-      console.log("🚀 Syncing hypercite + nodeChunk deletion in unified transaction...");
+    // Step 8: Sync BOTH hypercite AND node immediately in ONE atomic transaction
+    if (foundNode) {
+      console.log("🚀 Syncing hypercite + node deletion in unified transaction...");
 
       // Fetch the updated hypercite from IndexedDB
       const hyperciteToSync = await getHyperciteFromIndexedDB(targetHypercite.book, targetHyperciteId);
 
       if (hyperciteToSync) {
-        await syncHyperciteWithNodeChunkImmediately(
+        await syncHyperciteWithNodeImmediately(
           targetHypercite.book,
           hyperciteToSync,
-          foundNodeChunk
+          foundNode
         );
-        console.log("✅ Hypercite + nodeChunk deletion synced to server in one transaction.");
+        console.log("✅ Hypercite + node deletion synced to server in one transaction.");
       } else {
         console.error("❌ Failed to fetch hypercite from IndexedDB for sync");
       }
@@ -159,10 +159,10 @@ export async function delinkHypercite(hyperciteElementId: string, hrefUrl: strin
     console.log("✅ Delink process completed successfully");
 
     // 🔥 NEW: Broadcast the update to other tabs so they can refresh the hypercite's appearance
-    if (foundNodeChunk) {
+    if (foundNode) {
       const { broadcastToOpenTabs } = await import('../utilities/BroadcastListener');
-      broadcastToOpenTabs(targetHypercite.book, foundNodeChunk.startLine);
-      console.log(`📡 Broadcasted delink update for node ${foundNodeChunk.startLine} to other tabs`);
+      broadcastToOpenTabs(targetHypercite.book, foundNode.startLine);
+      console.log(`📡 Broadcasted delink update for node ${foundNode.startLine} to other tabs`);
     }
   } catch (error) {
     console.error("❌ Error in delinkHypercite:", error);
@@ -272,4 +272,4 @@ function updateDOMElementClass(hyperciteId: string, relationshipStatus: string):
 // NOTE (TS migration 2026-06): removed the dead `syncDelinkWithPostgreSQL` helper.
 // It was never called AND referenced an unimported `getLibraryObjectFromIndexedDB`,
 // so it would have thrown a ReferenceError if it ever had been — delinkHypercite
-// uses syncHyperciteWithNodeChunkImmediately (step 8) instead.
+// uses syncHyperciteWithNodeImmediately (step 8) instead.

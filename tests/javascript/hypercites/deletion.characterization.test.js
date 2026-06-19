@@ -22,11 +22,11 @@ vi.mock('../../../resources/js/indexedDB/index', async () => {
   return {
     openDatabase: conn.openDatabase,
     parseNodeId: util.parseNodeId,
-    createNodeChunksKey: util.createNodeChunksKey,
+    createNodeKey: util.createNodeKey,
     updateBookTimestamp, queueForSync, getNodesByDataNodeIDs, rebuildNodeArrays,
     debouncedMasterSync: { flush },
     getHyperciteFromIndexedDB: vi.fn(),
-    syncHyperciteWithNodeChunkImmediately: vi.fn(),
+    syncHyperciteWithNodeImmediately: vi.fn(),
   };
 });
 

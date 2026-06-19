@@ -23,7 +23,7 @@ export interface ServerNodeRow {
   // Always a JSON number on the wire: the API casts `(float) $chunk->startLine`
   // (decimals like 100.2 are real — nodes inserted between integers). The string
   // form of a node position only exists in the DOM (element.id) and the
-  // parseNodeId/createNodeChunksKey boundary helpers, never here.
+  // parseNodeId/createNodeKey boundary helpers, never here.
   startLine: number;
   // Required: the API's node mapping always emits these (chunk_id as (int),
   // node_id, content) — see DatabaseToIndexedDBController::getBookData.

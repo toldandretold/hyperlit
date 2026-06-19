@@ -289,7 +289,7 @@ export async function handleNovelVacuum(url: any, targetBookId: any, isSubBook: 
       loader = initializeMainLazyLoader();
     }
 
-    loader.nodes = await loader.getNodeChunks();
+    loader.nodes = await loader.getNodes();
 
     const insertionChunkId = insertionPoint.chunkId;
     const allChunks = Array.from<any>(loader.container.querySelectorAll('[data-chunk-id]'));
@@ -330,8 +330,8 @@ export async function handleNovelVacuum(url: any, targetBookId: any, isSubBook: 
     glowCloudOrange();
 
     try {
-      const { getNodeChunksFromIndexedDB } = await import('../../indexedDB/index');
-      const allNodes = await getNodeChunksFromIndexedDB(pasteBook);
+      const { getNodesFromIndexedDB } = await import('../../indexedDB/index');
+      const allNodes = await getNodesFromIndexedDB(pasteBook);
 
       const response = await fetch('/api/db/node-chunks/upsert', {
         method: 'POST',

@@ -3,8 +3,8 @@ import { asBookId, LATEST, type BookId } from "../indexedDB/types";
  * Deletion module - Handles highlight deletion, hiding, and reprocessing
  */
 
-import { openDatabase, updateBookTimestamp, updateAnnotationsTimestamp, queueForSync, getNodeChunksFromIndexedDB } from '../indexedDB/index';
-import { removeHighlightFromHyperlights, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion } from './database';
+import { openDatabase, updateBookTimestamp, updateAnnotationsTimestamp, queueForSync, getNodesFromIndexedDB } from '../indexedDB/index';
+import { removeHighlightFromHyperlights, removeHighlightFromNodes, removeHighlightFromNodesWithDeletion } from './database';
 import { attachMarkListeners } from './listeners';
 import { setProgrammaticUpdateInProgress } from '../utilities/operationState';
 import { getCascadeOriginId } from '../scrolling/index';
@@ -119,7 +119,7 @@ export async function deleteHighlightById(highlightId: string): Promise<Highligh
 
     // Remove from IndexedDB
     const deletedHyperlight = await removeHighlightFromHyperlights(highlightId);
-    const affectedNodes = await removeHighlightFromNodeChunksWithDeletion(bookId, highlightId, deletedHyperlight);
+    const affectedNodes = await removeHighlightFromNodesWithDeletion(bookId, highlightId, deletedHyperlight);
     void affectedNodes;
 
     // Update book timestamp + annotations timestamp
@@ -243,19 +243,19 @@ export async function hideHighlightById(highlightId: string): Promise<HighlightA
     const hiddenHyperlight = await removeHighlightFromHyperlights(highlightId);
 
     // Remove from local IndexedDB nodes (but don't sync this change to PostgreSQL)
-    await removeHighlightFromNodeChunks(bookId, highlightId);
+    await removeHighlightFromNodes(bookId, highlightId);
 
     // Update book timestamp + annotations timestamp locally
     await updateBookTimestamp(bookId);
     await updateAnnotationsTimestamp(bookId);
 
-    // Queue ONLY the hide operation for sync to PostgreSQL - no nodeChunk updates
+    // Queue ONLY the hide operation for sync to PostgreSQL - no node updates
     if (hiddenHyperlight) {
       // Pass the highlight data for the sync to work
       queueForSync("hyperlights", highlightId, "hide", hiddenHyperlight);
     }
 
-    // DON'T queue nodeChunk updates - PostgreSQL nodes should keep the highlight data
+    // DON'T queue node updates - PostgreSQL nodes should keep the highlight data
 
     console.log(`✅ Successfully hidden highlight: ${highlightId}`);
     console.log(`📝 Affected nodes: ${Array.from(affectedIDnumericals).join(', ')}`);
@@ -282,9 +282,9 @@ export async function reprocessHighlightsForNodes(bookId: BookId, affectedIDnume
   try {
     const { applyHighlights } = await import('../lazyLoader/index');
 
-    // Get the updated node chunks which should have the correct hyperlights after deletion
+    // Get the updated nodes which should have the correct hyperlights after deletion
     // Use preloaded nodes when available (e.g. after highlight creation) to avoid full-book scan
-    const nodes = preloadedNodes || await getNodeChunksFromIndexedDB(bookId);
+    const nodes = preloadedNodes || await getNodesFromIndexedDB(bookId);
 
     // Flag programmatic update to suppress false isolation breach warnings from MutationObserver
     setProgrammaticUpdateInProgress(true);

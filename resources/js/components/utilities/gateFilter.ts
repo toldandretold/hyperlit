@@ -190,10 +190,10 @@ export async function reapplyAnnotationsWithGate(bookId?: any) {
   if (visibleNodeIds.length === 0) return;
 
   const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('../../indexedDB/hydration/rebuild');
-  const { getNodeChunksFromIndexedDB } = await import('../../indexedDB/index');
+  const { getNodesFromIndexedDB } = await import('../../indexedDB/index');
 
   // Read freshly-synced nodes from IndexedDB
-  const allNodes = await getNodeChunksFromIndexedDB(bookId);
+  const allNodes = await getNodesFromIndexedDB(bookId);
   const visibleDataNodeIDs = allNodes
     .filter(n => visibleNodeIds.includes(String(n.startLine)))
     .map(n => n.node_id)
@@ -206,7 +206,7 @@ export async function reapplyAnnotationsWithGate(bookId?: any) {
   }
 
   // Re-read nodes after rebuild so reprocessHighlightsForNodes uses the freshest data
-  const freshNodes = await getNodeChunksFromIndexedDB(bookId);
+  const freshNodes = await getNodesFromIndexedDB(bookId);
 
   const { reprocessHighlightsForNodes } = await import('../../hyperlights/deletion');
   await reprocessHighlightsForNodes(bookId, visibleNodeIds, freshNodes);

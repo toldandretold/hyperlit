@@ -19,8 +19,8 @@ export async function resolveHypercite(bookId: BookId, hyperciteId: string): Pro
 
   if (localHypercite) {
     // Also verify nodes are cached for this book
-    const { getNodeChunksFromIndexedDB } = await import('../nodes/read');
-    const localNodes = await getNodeChunksFromIndexedDB(bookId);
+    const { getNodesFromIndexedDB } = await import('../nodes/read');
+    const localNodes = await getNodesFromIndexedDB(bookId);
     if (localNodes.length > 0) {
       console.log("✅ Resolved hypercite from local IndexedDB.");
       return localHypercite;
@@ -53,14 +53,14 @@ export async function resolveHypercite(bookId: BookId, hyperciteId: string): Pro
 
     const data = await response.json();
     const serverHypercite: HyperciteRecord | undefined = data.hypercite;
-    const serverNodeChunks: NodeRecord[] | undefined = data.nodes; // Note the plural
+    const serverNodes: NodeRecord[] | undefined = data.nodes; // Note the plural
 
-    if (!serverHypercite || !serverNodeChunks || serverNodeChunks.length === 0) {
+    if (!serverHypercite || !serverNodes || serverNodes.length === 0) {
       console.error("❌ Server response was missing hypercite or nodes data from PostgreSQL.");
       return localHypercite || null;
     }
 
-    console.log(`✅ Resolved hypercite and ${serverNodeChunks.length} nodes from node_chunks table in PostgreSQL. Caching all to IndexedDB...`);
+    console.log(`✅ Resolved hypercite and ${serverNodes.length} nodes from node_chunks table in PostgreSQL. Caching all to IndexedDB...`);
 
     // ✅ CACHE BOTH THE HYPERCITE AND ALL THE NODES
     const db = await openDatabase();
@@ -72,7 +72,7 @@ export async function resolveHypercite(bookId: BookId, hyperciteId: string): Pro
     hypercitesStore.put(serverHypercite);
 
     // Bulk-write all the nodes to nodes object store
-    for (const chunk of serverNodeChunks) {
+    for (const chunk of serverNodes) {
       nodesStore.put(chunk);
     }
 

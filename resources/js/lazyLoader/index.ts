@@ -6,8 +6,8 @@ import { log, verbose } from '../utilities/logger';
 // that crashed prod with a TDZ.
 import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier.js';
 import {
-  //saveNodeChunksToIndexedDB,
-  getNodeChunksFromIndexedDB,
+  //saveNodesToIndexedDB,
+  getNodesFromIndexedDB,
   getLocalStorageKey,
   getHyperciteFromIndexedDB
 } from "../indexedDB/index.js";
@@ -101,7 +101,7 @@ export function createLazyLoader(config: any) {
 
   // Create the instance to track lazy-loader state.
   // Type just the `nodes` bag as NodeRecord[] (the data lineage) while leaving the
-  // rest of the orchestrator instance loose — so the type flows getNodeChunks() →
+  // rest of the orchestrator instance loose — so the type flows getNodes() →
   // instance.nodes → filter → createChunkElement without a full instance interface.
   const instance: { nodes: NodeRecord[]; [key: string]: any } = {
     nodes, // Array of chunk objects
@@ -275,11 +275,11 @@ export function createLazyLoader(config: any) {
   verbose.init(`Container ID: ${uniqueId}`, 'lazyLoaderFactory.js');
 
   // Wrap caching methods so the instance passes only bookId.
-  //instance.saveNodeChunks = (chunks) => {
-    //return saveNodeChunksToIndexedDB(chunks, instance.bookId);
+  //instance.saveNodes = (chunks) => {
+    //return saveNodesToIndexedDB(chunks, instance.bookId);
   //};
-  instance.getNodeChunks = () => {
-    return getNodeChunksFromIndexedDB(instance.bookId);
+  instance.getNodes = () => {
+    return getNodesFromIndexedDB(instance.bookId);
   };
 
   // --- SCROLL POSITION SAVING LOGIC ---
@@ -417,8 +417,8 @@ export function createLazyLoader(config: any) {
       (scrollElementIntoMainContent as any)(targetElement, instance.container, 50); // Pass instance.container
     } else {
       try {
-        // Get the node chunks from IndexedDB.
-        const nodesData = await instance.getNodeChunks();
+        // Get the nodes from IndexedDB.
+        const nodesData = await instance.getNodes();
         if (!nodesData || nodesData.length === 0) {
           return;
         }
@@ -450,7 +450,7 @@ export function createLazyLoader(config: any) {
           }, 100);
         }
       } catch (error) {
-        console.error("Error retrieving node chunks from IndexedDB:", error);
+        console.error("Error retrieving nodes from IndexedDB:", error);
       }
     }
   };
@@ -464,8 +464,8 @@ export function createLazyLoader(config: any) {
   ) => {
     try {
       // 1. GET THE TRUTH: The data in IndexedDB is now correct.
-      //    Fetch the complete, fresh list of all node chunks.
-      instance.nodes = await instance.getNodeChunks();
+      //    Fetch the complete, fresh list of all nodes.
+      instance.nodes = await instance.getNodes();
       if (!instance.nodes || instance.nodes.length === 0) {
         console.error("❌ Aborting render: Failed to fetch any nodes from nodes object store in IndexedDB.");
         return;
@@ -737,7 +737,7 @@ export function createLazyLoader(config: any) {
       }
 
       // 1. Re-read the fresh nodes from IndexedDB (from your original)
-      instance.nodes = await instance.getNodeChunks();
+      instance.nodes = await instance.getNodes();
 
       // Hydrate with highlights from standalone stores
       const { rebuildNodeArrays }: any = await import('../indexedDB/hydration/rebuild');
@@ -922,7 +922,7 @@ export async function loadNextChunkFixed(currentLastChunkId: any, instance: any)
   // ✅ Refresh cache before searching if dirty
   if (isCacheDirty()) {
     verbose.debug('Cache dirty, refreshing from IndexedDB before searching for next chunk...', 'lazyLoaderFactory.js');
-    const freshNodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    const freshNodes = await getNodesFromIndexedDB(instance.bookId);
     if (freshNodes?.length) {
       instance.nodes = freshNodes;
     }
@@ -1000,7 +1000,7 @@ export async function loadPreviousChunkFixed(currentFirstChunkId: any, instance:
   // ✅ Refresh cache before searching if dirty
   if (isCacheDirty()) {
     verbose.debug('Cache dirty, refreshing from IndexedDB before searching for previous chunk...', 'lazyLoaderFactory.js');
-    const freshNodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    const freshNodes = await getNodesFromIndexedDB(instance.bookId);
     if (freshNodes?.length) {
       instance.nodes = freshNodes;
     }
@@ -1083,7 +1083,7 @@ async function loadChunkInternal(chunkId: any, direction: any, instance: any, at
   // ✅ Check if cache is dirty and refresh if needed
   if (isCacheDirty()) {
     verbose.debug('Cache dirty, refreshing from IndexedDB before loading chunk...', 'lazyLoaderFactory.js');
-    const freshNodes = await getNodeChunksFromIndexedDB(instance.bookId);
+    const freshNodes = await getNodesFromIndexedDB(instance.bookId);
     if (freshNodes?.length) {
       instance.nodes = freshNodes;
     }

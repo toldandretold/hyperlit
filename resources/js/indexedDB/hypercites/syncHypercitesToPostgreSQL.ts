@@ -14,7 +14,7 @@
  *    - Used for: Direct hypercite lookups, citation queries
  *
  * 2. `node_chunks` table - Embedded in JSON `hypercites` array
- *    - Structure: Each nodeChunk has `hypercites: [{hyperciteId, citedIN, relationshipStatus, ...}]`
+ *    - Structure: Each node has `hypercites: [{hyperciteId, citedIN, relationshipStatus, ...}]`
  *    - Used for: Fast lazy loading without JOIN operations
  *
  * This denormalization trades storage for performance during document rendering.
@@ -32,7 +32,7 @@
  *    Problem: If first succeeds but second fails, data becomes inconsistent
  *
  * ✅ CORRECT: Unified Transaction
- *    POST /api/db/unified-sync with BOTH hypercite + nodeChunk
+ *    POST /api/db/unified-sync with BOTH hypercite + node
  *    → UnifiedSyncController wraps in DB::transaction()
  *    → Both tables update or both rollback (atomic)
  *
@@ -54,7 +54,7 @@
  * FUNCTION GUIDE:
  * ───────────────────────────────────────────────────────────────────────────
  *
- * syncHyperciteWithNodeChunkImmediately(book, hypercite, nodeChunk)
+ * syncHyperciteWithNodeImmediately(book, hypercite, node)
  *   → Use for: Paste operations, deletion operations
  *   → Endpoint: POST /api/db/unified-sync
  *   → Transaction: Atomic (both tables or neither)
@@ -69,7 +69,7 @@
  * syncHyperciteUpdateImmediately(book, hyperciteId, updatedFields)
  *   → Use for: DEPRECATED - only updates hypercites table
  *   → Problem: Does not update node_chunks, causes inconsistency
- *   → Migration: Replace with syncHyperciteWithNodeChunkImmediately()
+ *   → Migration: Replace with syncHyperciteWithNodeImmediately()
  *
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -136,7 +136,7 @@ export async function syncHyperciteToPostgreSQL(hypercites: HyperciteRecord[]): 
  * Used for critical updates that need immediate persistence
  *
  * @deprecated only updates the hypercites table — use
- * syncHyperciteWithNodeChunkImmediately() so node_chunks stays consistent.
+ * syncHyperciteWithNodeImmediately() so node_chunks stays consistent.
  */
 export async function syncHyperciteUpdateImmediately(
   book: BookId,
@@ -179,19 +179,19 @@ export async function syncHyperciteUpdateImmediately(
 }
 
 /**
- * Sync hypercite AND its parent nodeChunk in one atomic transaction
+ * Sync hypercite AND its parent node in one atomic transaction
  * Uses the unified sync endpoint to ensure both tables update together.
  *
  * NOTE: this payload is NARROWER than master.js's executeSyncPayload — it has
  * no footnotes/footnoteDeletions/bibliography/bibliographyDeletions keys
  * (pinned in hypercites.test.js).
  */
-export async function syncHyperciteWithNodeChunkImmediately(
+export async function syncHyperciteWithNodeImmediately(
   book: BookId,
   hypercite: HyperciteRecord,
-  nodeChunk: NodeRecord | PublicNode,
+  node: NodeRecord | PublicNode,
 ): Promise<HyperciteSyncResult> {
-  console.log(`🚀 UNIFIED IMMEDIATE sync for hypercite ${hypercite.hyperciteId} with nodeChunk ${nodeChunk.startLine}...`);
+  console.log(`🚀 UNIFIED IMMEDIATE sync for hypercite ${hypercite.hyperciteId} with node ${node.startLine}...`);
 
   // Prepare hypercite payload
   const hypercitePayload = {
@@ -202,7 +202,7 @@ export async function syncHyperciteWithNodeChunkImmediately(
   // Prepare unified sync payload (same format as executeSyncPayload in master.js)
   const unifiedPayload = {
     book,
-    nodes: [nodeChunk],
+    nodes: [node],
     hypercites: [hypercitePayload],
     hyperlights: [],
     hyperlightDeletions: [],
@@ -230,6 +230,6 @@ export async function syncHyperciteWithNodeChunkImmediately(
   }
 
   const out = await res.json();
-  console.log("✅ Unified immediate sync completed (hypercite + nodeChunk in one transaction):", out);
+  console.log("✅ Unified immediate sync completed (hypercite + node in one transaction):", out);
   return out;
 }

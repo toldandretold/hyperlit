@@ -2,7 +2,7 @@ import { book } from '../app';
 import { openDatabase } from '../indexedDB/index';
 import {
   clearBookDataFromIndexedDB,
-  loadNodeChunksToIndexedDB,
+  loadNodesToIndexedDB,
   loadLibraryToIndexedDB,
 } from '../indexedDB/serverSync/index';
 
@@ -57,7 +57,7 @@ export async function initializeTimeMachine() {
     // Store in IndexedDB using the normal pipeline functions
     const db = await openDatabase();
     await clearBookDataFromIndexedDB(db, virtualBookId);
-    await loadNodeChunksToIndexedDB(db, data.nodes);
+    await loadNodesToIndexedDB(db, data.nodes);
     await loadLibraryToIndexedDB(db, data.library);
 
     // Force read-only after rendering

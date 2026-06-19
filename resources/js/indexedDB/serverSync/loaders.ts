@@ -52,9 +52,9 @@ async function batchedWrite<T>(
 }
 
 /**
- * Load node chunks into IndexedDB
+ * Load nodes into IndexedDB
  */
-export async function loadNodeChunksToIndexedDB(db: IDBDatabase, nodes: ServerNodeRow[] | undefined): Promise<void> {
+export async function loadNodesToIndexedDB(db: IDBDatabase, nodes: ServerNodeRow[] | undefined): Promise<void> {
   if (!nodes || nodes.length === 0) {
     verbose.content('No nodes to load', 'serverSync/loaders');
     return;

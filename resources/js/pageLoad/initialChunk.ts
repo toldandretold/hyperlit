@@ -1,6 +1,6 @@
 import { openDatabase } from '../indexedDB/index';
 import {
-    loadNodeChunksToIndexedDB,
+    loadNodesToIndexedDB,
     loadLibraryToIndexedDB,
     loadBibliographyToIndexedDB,
     loadHyperlightsToIndexedDB,
@@ -41,7 +41,7 @@ export async function fetchInitialChunk(bookId: string): Promise<any> {
         // (server may have renumbered startLines since last cache)
         await clearBookDataFromIndexedDB(db, bookId);
         await Promise.allSettled([
-            loadNodeChunksToIndexedDB(db, data.initial_chunk),
+            loadNodesToIndexedDB(db, data.initial_chunk),
             loadFootnotesToIndexedDB(db, data.footnotes),
             loadLibraryToIndexedDB(db, data.library),
             loadBibliographyToIndexedDB(db, data.bibliography),

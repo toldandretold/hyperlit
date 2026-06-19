@@ -82,12 +82,12 @@ async function retryFailedBatches() {
           // Large batch (e.g. renumbering) — chunk to avoid server timeout
           console.log(`📦 Chunking large batch ${log.id}: ${allNodes.length} nodes in chunks of ${CHUNK_SIZE}`);
           for (let i = 0; i < allNodes.length; i += CHUNK_SIZE) {
-            const nodeChunk = allNodes.slice(i, i + CHUNK_SIZE);
+            const nodeBatch = allNodes.slice(i, i + CHUNK_SIZE);
             const isFirstChunk = i === 0;
             const syncPayload = {
               book: historyPayload.book,
               updates: {
-                nodes: nodeChunk,
+                nodes: nodeBatch,
                 // Only include non-node data in the first chunk to avoid duplicates
                 hypercites: isFirstChunk ? (historyPayload.updates.hypercites || []) : [],
                 hyperlights: isFirstChunk ? (historyPayload.updates.hyperlights || []) : [],
@@ -96,7 +96,7 @@ async function retryFailedBatches() {
               },
               deletions: isFirstChunk ? baseDeletions : { nodes: [], hypercites: [], hyperlights: [] },
             };
-            console.log(`  📤 Chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${Math.ceil(allNodes.length / CHUNK_SIZE)}: ${nodeChunk.length} nodes`);
+            console.log(`  📤 Chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${Math.ceil(allNodes.length / CHUNK_SIZE)}: ${nodeBatch.length} nodes`);
             await executeSyncPayload(syncPayload);
           }
           console.log(`✅ All chunks synced for batch ${log.id}`);

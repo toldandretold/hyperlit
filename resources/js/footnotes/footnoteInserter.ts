@@ -4,7 +4,7 @@ import { asBookId, LATEST, type BookId } from "../indexedDB/types";
  * Handles insertion of new footnotes at cursor position
  */
 
-import { openDatabase, getNodeChunksFromIndexedDB, queueForSync } from '../indexedDB/index';
+import { openDatabase, getNodesFromIndexedDB, queueForSync } from '../indexedDB/index';
 import type { FootnoteRecord } from '../indexedDB/types';
 import { rebuildAndRenumber, getDisplayNumber } from './FootnoteNumberingService';
 import { handleUnifiedContentClick } from '../hyperlitContainer/index';
@@ -93,7 +93,7 @@ export async function insertFootnoteAtCursor(
 
   // 7. Rebuild and renumber all footnotes (non-blocking)
   // Do this in the background so the UI stays responsive
-  getNodeChunksFromIndexedDB(bookId).then(allNodes => {
+  getNodesFromIndexedDB(bookId).then(allNodes => {
     rebuildAndRenumber(bookId, allNodes).then(() => {
       // 8. Update the display number in the DOM after renumbering completes
       const displayNumber = getDisplayNumber(footnoteId);

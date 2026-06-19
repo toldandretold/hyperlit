@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { installFreshIndexedDB, readAll, readOne, seedStore } from './idbHarness.js';
 import { openDatabase } from '../../../resources/js/indexedDB/core/connection';
 import {
-  loadNodeChunksToIndexedDB,
+  loadNodesToIndexedDB,
   loadFootnotesToIndexedDB,
   clearBookDataFromIndexedDB,
 } from '../../../resources/js/indexedDB/serverSync/index';
@@ -28,10 +28,10 @@ beforeEach(() => {
   installFreshIndexedDB();
 });
 
-describe('loadNodeChunksToIndexedDB', () => {
+describe('loadNodesToIndexedDB', () => {
   it('parses stringified annotation/footnote fields into arrays and writes the node', async () => {
     const db = await openDatabase();
-    await loadNodeChunksToIndexedDB(db, [
+    await loadNodesToIndexedDB(db, [
       {
         book: BOOK,
         startLine: '5',
@@ -55,7 +55,7 @@ describe('loadNodeChunksToIndexedDB', () => {
 
   it('is a no-op for empty input', async () => {
     const db = await openDatabase();
-    await loadNodeChunksToIndexedDB(db, []);
+    await loadNodesToIndexedDB(db, []);
     expect(await readAll('nodes')).toHaveLength(0);
   });
 });

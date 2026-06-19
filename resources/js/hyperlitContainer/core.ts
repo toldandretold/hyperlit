@@ -380,12 +380,12 @@ export async function savePreviewNodes() {
     // re-export — importing the entangled module mid-cycle can leave the binding in
     // the TDZ ("Cannot access 'subBookLoaders' before initialization").
     const { subBookLoaders }: any = await import('./subBookState.js');
-    const { getNodeChunksFromIndexedDB, openDatabase }: any = await import('../indexedDB/index');
+    const { getNodesFromIndexedDB, openDatabase }: any = await import('../indexedDB/index');
 
     const { parseSubBookId }: any = await import('../utilities/subBookIdHelper');
 
     for (const [subBookId] of subBookLoaders) {
-      const nodes: any = await getNodeChunksFromIndexedDB(subBookId);
+      const nodes: any = await getNodesFromIndexedDB(subBookId);
       if (!nodes?.length) continue;
 
       const previewNodes = nodes.slice(0, 5).map((n: any) => ({

@@ -4,7 +4,7 @@
  *
  * Pins observable behavior BEFORE the .js → .ts migration:
  *   - addToHighlightsTable .............. the hyperlights record shape + auth
- *   - removeHighlightFromNodeChunks ..... cursor removal, only-changed return
+ *   - removeHighlightFromNodes ..... cursor removal, only-changed return
  *   - …WithDeletion ..................... the _deleted tombstone sync copy
  *   - removeHighlightFromHyperlights .... index lookup + delete, null-on-miss
  */
@@ -15,7 +15,7 @@ import { installFreshIndexedDB, seedStore, readOne, readAll } from '../indexedDB
 vi.mock('../../../resources/js/indexedDB/index', async () => {
   const conn = await import('../../../resources/js/indexedDB/core/connection');
   const util = await import('../../../resources/js/indexedDB/core/utilities');
-  return { openDatabase: conn.openDatabase, parseNodeId: util.parseNodeId, createNodeChunksKey: util.createNodeChunksKey };
+  return { openDatabase: conn.openDatabase, parseNodeId: util.parseNodeId, createNodeKey: util.createNodeKey };
 });
 
 // Auth context is swapped per test.
@@ -27,8 +27,8 @@ vi.mock('../../../resources/js/utilities/auth', () => ({
 
 import {
   addToHighlightsTable,
-  removeHighlightFromNodeChunks,
-  removeHighlightFromNodeChunksWithDeletion,
+  removeHighlightFromNodes,
+  removeHighlightFromNodesWithDeletion,
   removeHighlightFromHyperlights,
 } from '../../../resources/js/hyperlights/database.js';
 
@@ -96,7 +96,7 @@ describe('addToHighlightsTable', () => {
   });
 });
 
-describe('removeHighlightFromNodeChunks', () => {
+describe('removeHighlightFromNodes', () => {
   beforeEach(async () => {
     await seedStore('nodes', [
       { book: 'bookA', startLine: 1, chunk_id: 1, content: '', hyperlights: [{ highlightID: 'HL_x' }, { highlightID: 'HL_y' }] },
@@ -106,7 +106,7 @@ describe('removeHighlightFromNodeChunks', () => {
   });
 
   it('removes the highlight only from this book and returns only the changed nodes', async () => {
-    const changed = await removeHighlightFromNodeChunks('bookA', 'HL_x');
+    const changed = await removeHighlightFromNodes('bookA', 'HL_x');
     expect(changed).toHaveLength(1);
     expect(changed[0].startLine).toBe(1);
     expect(changed[0].hyperlights).toEqual([{ highlightID: 'HL_y' }]);
@@ -117,13 +117,13 @@ describe('removeHighlightFromNodeChunks', () => {
   });
 });
 
-describe('removeHighlightFromNodeChunksWithDeletion', () => {
+describe('removeHighlightFromNodesWithDeletion', () => {
   it('stores the node without the highlight, but returns a sync copy with a _deleted tombstone', async () => {
     await seedStore('nodes', [
       { book: 'bookA', startLine: 1, chunk_id: 1, content: '', hyperlights: [{ highlightID: 'HL_x' }, { highlightID: 'HL_y' }] },
     ]);
 
-    const syncCopies = await removeHighlightFromNodeChunksWithDeletion('bookA', 'HL_x', {});
+    const syncCopies = await removeHighlightFromNodesWithDeletion('bookA', 'HL_x', {});
     expect(syncCopies).toHaveLength(1);
     expect(syncCopies[0].hyperlights).toEqual([
       { highlightID: 'HL_y' },

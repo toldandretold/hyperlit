@@ -6,11 +6,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { installFreshIndexedDB, seedStore, readAll, readOne } from './idbHarness.js';
 import {
-  addNodeChunkToIndexedDB,
-  saveAllNodeChunksToIndexedDB,
-  deleteNodeChunksAfter,
-  renumberNodeChunksInIndexedDB,
-  writeNodeChunks,
+  addNodeToIndexedDB,
+  saveAllNodesToIndexedDB,
+  deleteNodesAfter,
+  renumberNodesInIndexedDB,
+  writeNodes,
   initNodeWriteDependencies,
 } from '../../../resources/js/indexedDB/nodes/write';
 
@@ -31,8 +31,8 @@ describe('nodes/write.js (characterization)', () => {
     });
   });
 
-  it('addNodeChunkToIndexedDB extracts node_id from the content when not provided', async () => {
-    const ok = await addNodeChunkToIndexedDB(
+  it('addNodeToIndexedDB extracts node_id from the content when not provided', async () => {
+    const ok = await addNodeToIndexedDB(
       'bookA', '100', '<p id="100" data-node-id="bookA-n100">hello</p>',
     );
 
@@ -48,16 +48,16 @@ describe('nodes/write.js (characterization)', () => {
     });
   });
 
-  it('addNodeChunkToIndexedDB prefers an explicit nodeId argument', async () => {
-    await addNodeChunkToIndexedDB('bookA', 200, '<p data-node-id="ignored">x</p>', 5, 'explicit-id');
+  it('addNodeToIndexedDB prefers an explicit nodeId argument', async () => {
+    await addNodeToIndexedDB('bookA', 200, '<p data-node-id="ignored">x</p>', 5, 'explicit-id');
     expect(await readOne('nodes', ['bookA', 200])).toMatchObject({
       chunk_id: 5,
       node_id: 'explicit-id',
     });
   });
 
-  it('saveAllNodeChunksToIndexedDB stamps book + numeric startLine and updates the timestamp', async () => {
-    await saveAllNodeChunksToIndexedDB([
+  it('saveAllNodesToIndexedDB stamps book + numeric startLine and updates the timestamp', async () => {
+    await saveAllNodesToIndexedDB([
       { startLine: '100', chunk_id: 0, content: '<p>a</p>' },
       { startLine: '200.5', chunk_id: 1, content: '<p>b</p>' },
     ], 'bookB');
@@ -69,7 +69,7 @@ describe('nodes/write.js (characterization)', () => {
     expect(queueForSync).not.toHaveBeenCalled();
   });
 
-  it('deleteNodeChunksAfter deletes strictly after the anchor, within the book', async () => {
+  it('deleteNodesAfter deletes strictly after the anchor, within the book', async () => {
     await seedStore('nodes', [
       { book: 'bookA', startLine: 100, chunk_id: 0, content: 'a' },
       { book: 'bookA', startLine: 200, chunk_id: 0, content: 'b' },
@@ -77,18 +77,18 @@ describe('nodes/write.js (characterization)', () => {
       { book: 'bookZ', startLine: 400, chunk_id: 0, content: 'z' },
     ]);
 
-    await deleteNodeChunksAfter('bookA', 100);
+    await deleteNodesAfter('bookA', 100);
 
     const remaining = await readAll('nodes');
     expect(remaining.map(n => [n.book, n.startLine])).toEqual([['bookA', 100], ['bookZ', 400]]);
   });
 
-  it('renumberNodeChunksInIndexedDB deletes old keys and adds renumbered records', async () => {
+  it('renumberNodesInIndexedDB deletes old keys and adds renumbered records', async () => {
     await seedStore('nodes', [
       { book: 'bookA', startLine: 100.5, chunk_id: 0, node_id: 'n-1', content: '<p>a</p>' },
     ]);
 
-    await renumberNodeChunksInIndexedDB([
+    await renumberNodesInIndexedDB([
       { oldStartLine: 100.5, newStartLine: 200, chunk_id: 3, content: '<p>a</p>', node_id: 'n-1' },
     ], 'bookA');
 
@@ -105,9 +105,9 @@ describe('nodes/write.js (characterization)', () => {
     });
   });
 
-  it('writeNodeChunks bulk-puts pre-formatted chunks via a raw connection', async () => {
+  it('writeNodes bulk-puts pre-formatted chunks via a raw connection', async () => {
     await seedStore('nodes', []); // ensure the DB exists for the raw versionless open
-    await writeNodeChunks([
+    await writeNodes([
       { book: 'bookA', startLine: 100, chunk_id: 0, content: '<p>raw</p>' },
     ]);
     expect(await readOne('nodes', ['bookA', 100])).toMatchObject({ content: '<p>raw</p>' });

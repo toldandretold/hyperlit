@@ -37,20 +37,20 @@ export async function CoupleClick(uElement: HTMLElement): Promise<void> {
   const bookId = getActiveBook() || LATEST;
 
   try {
-    const nodeChunk = await getHyperciteData(bookId, startLine);
-    if (!nodeChunk) {
+    const node = await getHyperciteData(bookId, startLine);
+    if (!node) {
       console.error(
-        `No nodeChunk found for book: ${bookId}, startLine: ${startLine}`
+        `No node found for book: ${bookId}, startLine: ${startLine}`
       );
       return;
     }
-    console.log("Retrieved nodeChunk:", nodeChunk);
+    console.log("Retrieved node:", node);
 
     const clickedHyperciteId = uElement.id;
     let link: string | null = null;
 
-    if (nodeChunk.hypercites && nodeChunk.hypercites.length > 0) {
-      const matchingHypercite = nodeChunk.hypercites.find(
+    if (node.hypercites && node.hypercites.length > 0) {
+      const matchingHypercite = node.hypercites.find(
         (hyper: any) => hyper.hyperciteId === clickedHyperciteId
       );
 
@@ -69,7 +69,7 @@ export async function CoupleClick(uElement: HTMLElement): Promise<void> {
       console.error(
         "No citedIN link found for clicked hyperciteId:",
         clickedHyperciteId,
-        nodeChunk
+        node
       );
     }
   } catch (error) {

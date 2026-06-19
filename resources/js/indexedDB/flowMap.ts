@@ -79,7 +79,7 @@ export const FLOW_STAGES: FlowStage[] = [
       { path: 'nodes/contentProcessor', plain: 'Turns a live editor node into its persisted form: collects annotations/footnotes/citations, then strips marks, styles, navigation classes and render artifacts from a clone.' },
       { path: 'nodes/annotationUpserts', plain: 'Writes measured mark/u positions into the normalized hyperlight/hypercite stores: orphan recovery, _deleted_nodes cleanup, per-node charData.' },
       { path: 'nodes/batch', plain: 'Batch write orchestrator: resolves the book, reads originals, delegates to contentProcessor + annotationUpserts in one transaction, then queues sync, rebuilds arrays and triggers renumbering.' },
-      { path: 'nodes/write', plain: 'Direct node-chunk writes: import/save-all, renumbering, append paths.' },
+      { path: 'nodes/write', plain: 'Direct node writes: import/save-all, renumbering, append paths.' },
       { path: 'nodes/normalize', plain: 'Migrates a node record to a new composite key when its id changes.' },
       { path: 'nodes/delete', plain: 'Single-node delete, including orphan bookkeeping on highlights/hypercites that spanned it.' },
       { path: 'nodes/index', plain: 'Barrel for node operations.' },
@@ -102,7 +102,7 @@ export const FLOW_STAGES: FlowStage[] = [
       { path: 'syncQueue/freshNodeFilter', plain: 'Drops foreign-book rows after the node_id re-read (guards the dual-book node_id gotcha).' },
       { path: 'syncQueue/unload', plain: 'Last-chance flush on tab close/background: sendBeacon + visibilitychange flushes.' },
       { path: 'syncQueue/index', plain: 'Barrel for the sync queue.' },
-      { path: 'nodes/syncNodesToPostgreSQL', plain: 'Legacy targeted node-chunk upsert endpoint (pre-unified-sync).' },
+      { path: 'nodes/syncNodesToPostgreSQL', plain: 'Legacy targeted node upsert endpoint (pre-unified-sync).' },
       { path: 'footnotes/syncFootnotesToPostgreSQL', plain: 'Legacy footnote upsert endpoint.' },
       { path: 'bibliography/syncReferencesToPostgreSQL', plain: 'Legacy reference upsert endpoint.' },
       { path: 'hypercites/syncHypercitesToPostgreSQL', plain: 'Hypercite sync, including the atomic node+cite update through unified sync.' },
@@ -129,7 +129,7 @@ export const FLOW_STAGES: FlowStage[] = [
     plain: 'Stored data flows back out of IndexedDB toward the DOM (read direction).',
     modules: [
       { path: 'hydration/rebuild', plain: 'Rebuilds node hyperlights/hypercites/footnotes arrays from the normalized tables — arrays are computed views, never edited in place.' },
-      { path: 'nodes/read', plain: 'Node-chunk reads: whole book, single key, ranges after a node.' },
+      { path: 'nodes/read', plain: 'Node reads: whole book, single key, ranges after a node.' },
     ],
   },
   {

@@ -1,6 +1,6 @@
 /**
  * Node Read Operations Module
- * Handles reading node chunks from IndexedDB
+ * Handles reading nodes from IndexedDB
  */
 
 import { openDatabase } from '../core/connection';
@@ -9,10 +9,10 @@ import { verbose } from '../../utilities/logger';
 import { LATEST, type BookId, type NodeRecord } from '../types';
 
 /**
- * Get all node chunks for a book, sorted by chunk_id
+ * Get all nodes for a book, sorted by chunk_id
  * Used for lazy loading
  */
-export async function getNodeChunksFromIndexedDB(bookId: BookId = LATEST): Promise<NodeRecord[]> {
+export async function getNodesFromIndexedDB(bookId: BookId = LATEST): Promise<NodeRecord[]> {
   verbose.content(`Fetching nodes from IndexedDB: ${bookId}`, '/indexedDB/nodes/read.js');
 
   const db = await openDatabase();
@@ -41,10 +41,10 @@ export async function getNodeChunksFromIndexedDB(bookId: BookId = LATEST): Promi
 }
 
 /**
- * Get all node chunks for a book, sorted by startLine
+ * Get all nodes for a book, sorted by startLine
  * Used for renumbering operations
  */
-export async function getAllNodeChunksForBook(bookId: BookId): Promise<NodeRecord[]> {
+export async function getAllNodesForBook(bookId: BookId): Promise<NodeRecord[]> {
   console.log("Fetching ALL nodes from nodes object store in IndexedDB for renumbering, book:", bookId);
 
   const db = await openDatabase();
@@ -73,13 +73,13 @@ export async function getAllNodeChunksForBook(bookId: BookId): Promise<NodeRecor
 }
 
 /**
- * Get a single node chunk by book and startLine
+ * Get a single node by book and startLine
  *
  * Uses the shared connection singleton (unified 2026-06 from a raw per-call
  * indexedDB.open — see read.test.js, which pins the observable behavior:
  * missing keys resolve to undefined (IDB get semantics), errors → null).
  */
-export async function getNodeChunkFromIndexedDB(book: BookId, startLine: string | number): Promise<NodeRecord | null | undefined> {
+export async function getNodeFromIndexedDB(book: BookId, startLine: string | number): Promise<NodeRecord | null | undefined> {
   const numericStartLine = parseNodeId(startLine);
   try {
     const db = await openDatabase();
@@ -91,7 +91,7 @@ export async function getNodeChunkFromIndexedDB(book: BookId, startLine: string 
         resolve(getRequest.result);
       };
       getRequest.onerror = () => {
-        console.error('Error getting nodeChunk:', getRequest.error);
+        console.error('Error getting node:', getRequest.error);
         resolve(null);
       };
     });
@@ -102,10 +102,10 @@ export async function getNodeChunkFromIndexedDB(book: BookId, startLine: string 
 }
 
 /**
- * Get all node chunks after a specific node ID
+ * Get all nodes after a specific node ID
  * (exclusive lower bound — the anchor node itself is not returned)
  */
-export async function getNodeChunksAfter(book: BookId, afterNodeId: string | number): Promise<NodeRecord[]> {
+export async function getNodesAfter(book: BookId, afterNodeId: string | number): Promise<NodeRecord[]> {
   const numericAfter = parseNodeId(afterNodeId);
 
   try {

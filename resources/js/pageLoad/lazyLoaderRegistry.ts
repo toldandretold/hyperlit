@@ -11,7 +11,7 @@ import {
 
 import {
   openDatabase,
-  getNodeChunksFromIndexedDB,
+  getNodesFromIndexedDB,
 } from "../indexedDB/index.js";
 
 // hyperlights/hypercites are reader-only lazy chunks. These render callbacks are passed into
@@ -25,7 +25,7 @@ import { syncBookDataFromDatabase } from "../indexedDB/serverSync/index";
 import { getFirstChunkLoadedResolver } from './firstChunkPromise';
 // Static (downward) now that the cycles are broken: nodeGen is a low-import util, and containerChain
 // reads currentLazyLoader from the leaf (not this module) — so neither closes a ring.
-import { generateNodeChunksFromMarkdown } from './nodeGen';
+import { generateNodesFromMarkdown } from './nodeGen';
 import { openContainerChain } from './containerChain';
 
 // Store multiple lazy loaders by bookId
@@ -92,19 +92,19 @@ export async function initializeLazyLoaderForContainer(bookId: BookId) {
   try {
     // Load book data using the same priority as regular books:
     // 1. IndexedDB cache -> 2. Database sync -> 3. Generate from markdown
-    let nodes: any = await getNodeChunksFromIndexedDB(bookId);
+    let nodes: any = await getNodesFromIndexedDB(bookId);
 
     if (!nodes || !nodes.length) {
       console.log(`🔍 Loading ${bookId} from database...`);
       const dbResult = await syncBookDataFromDatabase(bookId);
       if (dbResult && dbResult.success) {
-        nodes = await getNodeChunksFromIndexedDB(bookId);
+        nodes = await getNodesFromIndexedDB(bookId);
       }
     }
 
     if (!nodes || !nodes.length) {
       console.log(`🆕 Generating ${bookId} from markdown`);
-      nodes = await generateNodeChunksFromMarkdown(bookId, true);
+      nodes = await generateNodesFromMarkdown(bookId, true);
     }
 
     if (!nodes || !nodes.length) {

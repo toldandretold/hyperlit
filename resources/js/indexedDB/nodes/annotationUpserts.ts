@@ -19,7 +19,7 @@ const escapeCss = (s: string): string =>
 
 /**
  * Update hyperlight records in IndexedDB
- * Called during node chunk updates (must run inside the batch's open transaction)
+ * Called during node updates (must run inside the batch's open transaction)
  */
 export function updateHyperlightRecords(
   hyperlights: CollectedHyperlight[],
@@ -169,7 +169,7 @@ export function updateHyperlightRecords(
 
 /**
  * Update hypercite records in IndexedDB
- * Called during node chunk updates (must run inside the batch's open transaction)
+ * Called during node updates (must run inside the batch's open transaction)
  */
 export function updateHyperciteRecords(
   hypercites: CollectedHypercite[],

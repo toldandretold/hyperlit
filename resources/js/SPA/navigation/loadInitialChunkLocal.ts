@@ -6,7 +6,7 @@
  * or the device is offline.
  */
 
-import { getNodeChunksFromIndexedDB } from '../../indexedDB/nodes/read';
+import { getNodesFromIndexedDB } from '../../indexedDB/nodes/read';
 import { getLibraryObjectFromIndexedDB } from '../../indexedDB/core/library';
 import { openDatabase } from '../../indexedDB/core/connection';
 import { resolveTargetChunkId } from './resolveTargetChunk.js';
@@ -23,7 +23,7 @@ export async function loadInitialChunkLocal(bookId: any, target: any, opts: any 
 
   try {
     // 1. Get all nodes for this book from IndexedDB (already sorted by chunk_id)
-    const allNodes = await getNodeChunksFromIndexedDB(bookId);
+    const allNodes = await getNodesFromIndexedDB(bookId);
     if (!allNodes || allNodes.length === 0) {
       verbose.content(`No local nodes found for ${bookId}`, 'loadInitialChunkLocal.js');
       return { success: false, reason: 'no_local_data' };

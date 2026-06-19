@@ -21,7 +21,7 @@ export function parseNodeId(id: string | number): number {
 /**
  * Create a composite key for nodes store
  */
-export function createNodeChunksKey(bookId: BookId, startLine: string | number): [BookId, number] {
+export function createNodeKey(bookId: BookId, startLine: string | number): [BookId, number] {
   return [bookId, parseNodeId(startLine)];
 }
 

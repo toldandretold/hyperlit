@@ -5,7 +5,7 @@
 // button folder and these standalone functions share it without a cycle; the
 // bookmark UI is in ./bookmark. Registry init/destroy live in
 // ../tocToggleButton/tocToggleButton.
-import { getNodeChunksFromIndexedDB } from "../../indexedDB/index";
+import { getNodesFromIndexedDB } from "../../indexedDB/index";
 import { book } from "../../app";
 import { ContainerManager } from "../utilities/containerManager";
 import { getTocManager } from "./managerRef";
@@ -118,7 +118,7 @@ async function scanForHeadings() {
 
   let nodes: any[] = [];
   try {
-    nodes = await getNodeChunksFromIndexedDB(book);
+    nodes = await getNodesFromIndexedDB(book);
   } catch (e) {
     console.error("Error retrieving nodes from IndexedDB:", e);
     return [];

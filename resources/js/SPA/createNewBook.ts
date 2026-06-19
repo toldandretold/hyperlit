@@ -6,7 +6,7 @@ import {
   openDatabase,
   updateBookTimestamp,
   addNewBookToIndexedDB,
-  syncNodeChunksToPostgreSQL,
+  syncNodesToPostgreSQL,
 } from "../indexedDB/index.js";
 import { buildBibtexEntry } from "../utilities/bibtexProcessor";
 import { syncIndexedDBtoPostgreSQL } from "../indexedDB/serverSync/index";
@@ -117,8 +117,8 @@ export async function fireAndForgetSync(
         // The critical part is done. We can resolve the promise now.
         resolve();
 
-        // The non-critical part (syncing node chunks) can continue in the background.
-        await syncNodeChunksForNewBook(bookId, payload?.nodes, syncStartTime);
+        // The non-critical part (syncing nodes) can continue in the background.
+        await syncNodesForNewBook(bookId, payload?.nodes, syncStartTime);
       } else {
         // For existing books, the sync is the whole operation.
         await syncIndexedDBtoPostgreSQL(bookId);
@@ -251,7 +251,7 @@ export async function createNewBook() {
     // Generate node_id for the initial H1 element
     const initialNodeId = generateDataNodeId(bookId);
 
-    const initialNodeChunk = {
+    const initialNode = {
       book: bookId,
       startLine: 100,
       chunk_id: 0,
@@ -264,10 +264,10 @@ export async function createNewBook() {
     const tx = db.transaction(["library", "nodes"], "readwrite");
     tx.objectStore("library").put(newLibraryRecord);
     await addNewBookToIndexedDB(
-      initialNodeChunk.book,
-      initialNodeChunk.startLine,
-      initialNodeChunk.content,
-      initialNodeChunk.chunk_id,
+      initialNode.book,
+      initialNode.startLine,
+      initialNode.content,
+      initialNode.chunk_id,
       tx,
     );
 
@@ -281,7 +281,7 @@ export async function createNewBook() {
       bookId: bookId,
       isNewBook: true,
       libraryRecord: newLibraryRecord,
-      nodes: [initialNodeChunk],
+      nodes: [initialNode],
     };
 
     // We still save to sessionStorage as a fallback for page reloads.
@@ -409,11 +409,11 @@ async function retryFailedSyncs() {
 }
 
 /**
- * Retrieve and sync node chunks for a new book
+ * Retrieve and sync nodes for a new book
  * @param {string} bookId
- * @param {Array<object>} [chunksData] - Optional pre-fetched node chunks
+ * @param {Array<object>} [chunksData] - Optional pre-fetched nodes
  */
-async function syncNodeChunksForNewBook(bookId: any, chunksData: any = null, syncStartTime: any = null) {
+async function syncNodesForNewBook(bookId: any, chunksData: any = null, syncStartTime: any = null) {
   try {
     // Check if book content was modified after sync started by checking library timestamp
     if (syncStartTime) {
@@ -433,11 +433,11 @@ async function syncNodeChunksForNewBook(bookId: any, chunksData: any = null, syn
       });
 
       if (libraryRecord && libraryRecord.timestamp > syncStartTime) {
-        console.log("🔄 Book content has been modified after sync started - skipping node chunk sync to preserve local changes", {
+        console.log("🔄 Book content has been modified after sync started - skipping node sync to preserve local changes", {
           syncStartTime,
           libraryTimestamp: libraryRecord.timestamp
         });
-        return { success: true, message: "Node chunks sync skipped - local changes detected" };
+        return { success: true, message: "Nodes sync skipped - local changes detected" };
       }
     }
 
@@ -446,7 +446,7 @@ async function syncNodeChunksForNewBook(bookId: any, chunksData: any = null, syn
     const db = await openDatabase();
     const tx = db.transaction(["nodes"], "readonly");
     const index = tx.objectStore("nodes").index("book");
-    const currentNodeChunks: any = await index.getAll(bookId);
+    const currentNodes: any = await index.getAll(bookId);
 
     // Wait for transaction to complete using proper IndexedDB API
     await new Promise<void>((resolve, reject) => {
@@ -454,17 +454,17 @@ async function syncNodeChunksForNewBook(bookId: any, chunksData: any = null, syn
       tx.onerror = () => reject(tx.error);
     });
 
-    if (currentNodeChunks.length === 0) {
-      console.log("No node chunks to sync for book:", bookId);
-      return { success: true, message: "No node chunks to sync" };
+    if (currentNodes.length === 0) {
+      console.log("No nodes to sync for book:", bookId);
+      return { success: true, message: "No nodes to sync" };
     }
 
     console.log(
-      `📤 Calling syncNodeChunksToPostgreSQL with ${currentNodeChunks.length} current chunks`
+      `📤 Calling syncNodesToPostgreSQL with ${currentNodes.length} current chunks`
     );
-    return await syncNodeChunksToPostgreSQL(bookId, currentNodeChunks);
+    return await syncNodesToPostgreSQL(bookId, currentNodes);
   } catch (error) {
-    console.error("❌ Error in syncNodeChunksForNewBook:", error);
+    console.error("❌ Error in syncNodesForNewBook:", error);
     throw error;
   }
 }

@@ -115,8 +115,8 @@ async function syncPasteToPostgreSQL(bookId: BookId) {
 
   try {
     // Get ALL nodes for the book from IndexedDB
-    const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index');
-    const allNodes = await getNodeChunksFromIndexedDB(bookId);
+    const { getNodesFromIndexedDB } = await import('../indexedDB/index');
+    const allNodes = await getNodesFromIndexedDB(bookId);
     console.log(`📊 Retrieved ${allNodes.length} total nodes from IndexedDB for full book sync`);
 
     // ⚠️ CRITICAL DIAGNOSTIC: Check for incomplete IndexedDB data before destructive sync
@@ -692,7 +692,7 @@ async function handlePaste(event: any) {
     console.log(`🔄 [${pasteOpId}] Refreshing DOM via lazy loader...`);
 
     // 1. Update lazy loader cache from IndexedDB
-    loader.nodes = await loader.getNodeChunks();
+    loader.nodes = await loader.getNodes();
     console.log(`✅ [${pasteOpId}] Lazy loader cache updated: ${loader.nodes.length} nodes`);
 
     // DEBUG: Log first pasted node's chunk assignment

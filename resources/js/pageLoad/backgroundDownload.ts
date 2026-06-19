@@ -1,7 +1,7 @@
 import { asBookId } from "../indexedDB/types";
 import { openDatabase } from '../indexedDB/index';
 import {
-    loadNodeChunksToIndexedDB,
+    loadNodesToIndexedDB,
     loadBibliographyToIndexedDB,
     loadHyperlightsToIndexedDB,
     loadHypercitesToIndexedDB,
@@ -111,7 +111,7 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
 
         // Upsert all nodes to IndexedDB
         const db = await openDatabase();
-        await loadNodeChunksToIndexedDB(db, allNodes);
+        await loadNodesToIndexedDB(db, allNodes);
 
         // Update lazy loader with full dataset
         if (lazyLoader) {
@@ -250,7 +250,7 @@ async function fullDownloadFallback(bookId: string, lazyLoader: any) {
 
     // Upsert all data to IndexedDB
     const db = await openDatabase();
-    await loadNodeChunksToIndexedDB(db, data.nodes);
+    await loadNodesToIndexedDB(db, data.nodes);
 
     await Promise.allSettled([
         loadBibliographyToIndexedDB(db, data.bibliography),

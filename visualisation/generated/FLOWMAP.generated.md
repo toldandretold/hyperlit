@@ -803,8 +803,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `openBrainFromSelection` | `hyperlights/createHighlight` | `hyperlights` | `hyperlights` | read | — |
 | `addToHighlightsTable` | `hyperlights/database` | — | `hyperlights` | read/write | — |
 | `removeHighlightFromHyperlights` | `hyperlights/database` | `hyperlights` | `hyperlights` | — | — |
-| `removeHighlightFromNodeChunks` | `hyperlights/database` | `nodes` | `nodes` | — | — |
-| `removeHighlightFromNodeChunksWithDeletion` | `hyperlights/database` | `nodes` | `nodes` | — | — |
+| `removeHighlightFromNodes` | `hyperlights/database` | `nodes` | `nodes` | — | — |
+| `removeHighlightFromNodesWithDeletion` | `hyperlights/database` | `nodes` | `nodes` | — | — |
 | `deleteHighlightHandler` | `hyperlights/deleteHighlight` | — | — | read/write | — |
 | `deleteHighlightById` | `hyperlights/deletion` | `hyperlights` | — | read/write | — |
 | `hideHighlightById` | `hyperlights/deletion` | `hyperlights` | — | read/write | — |
@@ -974,7 +974,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hideIDBRecoveryToast` | `indexedDB/core/recoveryToast` | — | — | read/write | — |
 | `showIDBRecoveryToast` | `indexedDB/core/recoveryToast` | — | — | read/write | — |
 | `updateIDBRecoveryToast` | `indexedDB/core/recoveryToast` | — | — | read/write | — |
-| `createNodeChunksKey` | `indexedDB/core/utilities` | — | — | — | — |
+| `createNodeKey` | `indexedDB/core/utilities` | — | — | — | — |
 | `getLocalStorageKey` | `indexedDB/core/utilities` | — | — | — | — |
 | `parseNodeId` | `indexedDB/core/utilities` | — | — | — | — |
 | `toPublicNode` | `indexedDB/core/utilities` | — | — | — | — |
@@ -993,7 +993,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getHyperciteFromIndexedDB` | `indexedDB/hypercites/read` | `hypercites` | `hypercites` | — | — |
 | `syncHyperciteToPostgreSQL` | `indexedDB/hypercites/syncHypercitesToPostgreSQL` | — | — | read | `↑route:/api/db/hypercites/upsert` |
 | `syncHyperciteUpdateImmediately` | `indexedDB/hypercites/syncHypercitesToPostgreSQL` | — | — | read | `↑route:/api/db/hypercites/upsert` |
-| `syncHyperciteWithNodeChunkImmediately` | `indexedDB/hypercites/syncHypercitesToPostgreSQL` | — | — | read | `↑route:/api/db/unified-sync` |
+| `syncHyperciteWithNodeImmediately` | `indexedDB/hypercites/syncHypercitesToPostgreSQL` | — | — | read | `↑route:/api/db/unified-sync` |
 | `initializeDatabaseModules` | `indexedDB/index` | — | — | — | — |
 | `updateDatabaseBookId` | `indexedDB/index` | — | — | — | — |
 | `updateHyperciteRecords` | `indexedDB/nodes/annotationUpserts` | — | — | read | — |
@@ -1011,18 +1011,18 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `updateIndexedDBRecordForNormalization` | `indexedDB/nodes/normalize` | `nodes` | `nodes` | read | — |
 | `collectMarkAndCitePositions` | `indexedDB/nodes/positionCollector` | — | — | read | — |
 | `findElementPosition` | `indexedDB/nodes/positionCollector` | — | — | read | — |
-| `getAllNodeChunksForBook` | `indexedDB/nodes/read` | `nodes` | — | — | — |
-| `getNodeChunkFromIndexedDB` | `indexedDB/nodes/read` | `nodes` | `nodes` | — | — |
-| `getNodeChunksAfter` | `indexedDB/nodes/read` | `nodes` | `nodes` | — | — |
-| `getNodeChunksFromIndexedDB` | `indexedDB/nodes/read` | `nodes` | — | — | — |
-| `syncNodeChunksToPostgreSQL` | `indexedDB/nodes/syncNodesToPostgreSQL` | — | — | read | `↑route:/api/db/node-chunks/targeted-upsert` |
+| `getAllNodesForBook` | `indexedDB/nodes/read` | `nodes` | — | — | — |
+| `getNodeFromIndexedDB` | `indexedDB/nodes/read` | `nodes` | `nodes` | — | — |
+| `getNodesAfter` | `indexedDB/nodes/read` | `nodes` | `nodes` | — | — |
+| `getNodesFromIndexedDB` | `indexedDB/nodes/read` | `nodes` | — | — | — |
+| `syncNodesToPostgreSQL` | `indexedDB/nodes/syncNodesToPostgreSQL` | — | — | read | `↑route:/api/db/node-chunks/targeted-upsert` |
 | `addNewBookToIndexedDB` | `indexedDB/nodes/write` | — | — | — | — |
-| `addNodeChunkToIndexedDB` | `indexedDB/nodes/write` | — | `nodes` | read/write | — |
-| `deleteNodeChunksAfter` | `indexedDB/nodes/write` | `nodes` | `nodes` | — | — |
+| `addNodeToIndexedDB` | `indexedDB/nodes/write` | — | `nodes` | read/write | — |
+| `deleteNodesAfter` | `indexedDB/nodes/write` | `nodes` | `nodes` | — | — |
 | `initNodeWriteDependencies` | `indexedDB/nodes/write` | — | — | — | — |
-| `renumberNodeChunksInIndexedDB` | `indexedDB/nodes/write` | — | `nodes` | — | — |
-| `saveAllNodeChunksToIndexedDB` | `indexedDB/nodes/write` | — | `nodes` | — | — |
-| `writeNodeChunks` | `indexedDB/nodes/write` | — | `nodes` | — | — |
+| `renumberNodesInIndexedDB` | `indexedDB/nodes/write` | — | `nodes` | — | — |
+| `saveAllNodesToIndexedDB` | `indexedDB/nodes/write` | — | `nodes` | — | — |
+| `writeNodes` | `indexedDB/nodes/write` | — | `nodes` | — | — |
 | `clearAnnotationsFromIndexedDB` | `indexedDB/serverSync/clear` | — | `hypercites` `hyperlights` | — | — |
 | `clearBookDataFromIndexedDB` | `indexedDB/serverSync/clear` | `library` | `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
 | `updateEmbeddedAnnotationsInNodes` | `indexedDB/serverSync/clear` | `nodes` | `nodes` | — | — |
@@ -1032,7 +1032,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `loadHypercitesToIndexedDB` | `indexedDB/serverSync/loaders` | — | — | — | — |
 | `loadHyperlightsToIndexedDB` | `indexedDB/serverSync/loaders` | — | — | — | — |
 | `loadLibraryToIndexedDB` | `indexedDB/serverSync/loaders` | — | `library` | — | — |
-| `loadNodeChunksToIndexedDB` | `indexedDB/serverSync/loaders` | — | — | — | — |
+| `loadNodesToIndexedDB` | `indexedDB/serverSync/loaders` | — | — | — | — |
 | `syncAnnotationsOnly` | `indexedDB/serverSync/pull` | — | — | — | `↓route:/api/database-to-indexeddb/books/{}/annotations` |
 | `syncBookDataFromDatabase` | `indexedDB/serverSync/pull` | — | `bibliography` `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | `↓route:/api/database-to-indexeddb/books/{}/data` |
 | `syncIndexedDBtoPostgreSQL` | `indexedDB/serverSync/push` | — | — | read | — |
@@ -1099,7 +1099,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `resetCurrentLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
 | `loadFromJSONFiles` | `pageLoad/loadHyperText` | — | — | — | — |
 | `loadHyperText` | `pageLoad/loadHyperText` | `library` `localStorage` `sessionStorage` | `sessionStorage` | read | `↓route:/api/database-to-indexeddb/books/{}/library` |
-| `generateNodeChunksFromMarkdown` | `pageLoad/nodeGen` | — | — | — | — |
+| `generateNodesFromMarkdown` | `pageLoad/nodeGen` | — | — | — | — |
 | `cleanupOnlineSyncListener` | `pageLoad/onlineRetry` | — | — | — | — |
 | `setupOnlineSyncListener` | `pageLoad/onlineRetry` | `historyLog` | — | — | — |
 | `hidePageLoadProgress` | `pageLoad/progress` | — | — | — | — |

@@ -8,7 +8,7 @@
  */
 import { verbose } from '../utilities/logger';
 import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier.js';
-import { getNodeChunksFromIndexedDB, getLocalStorageKey } from '../indexedDB/index.js';
+import { getNodesFromIndexedDB, getLocalStorageKey } from '../indexedDB/index.js';
 import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
 import { waitForNavigationTarget, waitForElementReady } from '../SPA/domReadiness';
 import { navigatedHashes, navTimers } from './navState';
@@ -30,10 +30,10 @@ export async function loadDefaultContent(lazyLoader: any): Promise<void> {
   if (!lazyLoader.nodes || lazyLoader.nodes.length === 0) {
     verbose.nav("No nodes in memory, trying to fetch from IndexedDB...", 'scrolling/internalNav');
     try {
-      let cachedNodeChunks = await getNodeChunksFromIndexedDB(lazyLoader.bookId);
-      if (cachedNodeChunks && cachedNodeChunks.length > 0) {
-        verbose.nav(`Found ${cachedNodeChunks.length} chunks in IndexedDB`, 'scrolling/internalNav');
-        lazyLoader.nodes = cachedNodeChunks;
+      let cachedNodes = await getNodesFromIndexedDB(lazyLoader.bookId);
+      if (cachedNodes && cachedNodes.length > 0) {
+        verbose.nav(`Found ${cachedNodes.length} chunks in IndexedDB`, 'scrolling/internalNav');
+        lazyLoader.nodes = cachedNodes;
       } else {
         // Fallback: fetch markdown and parse
         verbose.nav("No cached chunks found. Fetching main-text.md...", 'scrolling/internalNav');
@@ -354,7 +354,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
       await waitForBackgroundDownload();
 
       // Refresh nodes from IndexedDB now that all chunks are downloaded
-      const freshNodes = await getNodeChunksFromIndexedDB(lazyLoader.bookId);
+      const freshNodes = await getNodesFromIndexedDB(lazyLoader.bookId);
       if (freshNodes && freshNodes.length > 0) {
         lazyLoader.nodes = freshNodes;
         lazyLoader.chunkManifest = null;
@@ -416,7 +416,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
     // If chunk not in lazyLoader.nodes (partial load), try to load it
     if (targetChunkIndex === -1) {
       // Refresh lazyLoader nodes from IndexedDB in case they were updated
-      const freshNodes = await getNodeChunksFromIndexedDB(lazyLoader.bookId);
+      const freshNodes = await getNodesFromIndexedDB(lazyLoader.bookId);
       if (freshNodes && freshNodes.length > 0) {
         lazyLoader.nodes = freshNodes;
         lazyLoader.chunkManifest = null;

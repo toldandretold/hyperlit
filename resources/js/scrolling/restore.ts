@@ -8,7 +8,7 @@
  */
 import { verbose } from '../utilities/logger';
 import { book, OpenHyperlightID, OpenFootnoteID } from '../app';
-import { getNodeChunksFromIndexedDB, getLocalStorageKey } from '../indexedDB/index.js';
+import { getNodesFromIndexedDB, getLocalStorageKey } from '../indexedDB/index.js';
 import { parseChunkId } from '../indexedDB/types';
 import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
 import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from '../utilities/operationState';
@@ -199,10 +199,10 @@ export async function restoreScrollPosition(): Promise<void> {
 
     // Load first chunk when no saved position
     try {
-      let cachedNodeChunks = await getNodeChunksFromIndexedDB(currentLazyLoader.bookId);
-      verbose.nav(`Got cachedNodeChunks from IndexedDB, count = ${cachedNodeChunks?.length || 0}`, 'scrolling/restore');
+      let cachedNodes = await getNodesFromIndexedDB(currentLazyLoader.bookId);
+      verbose.nav(`Got cachedNodes from IndexedDB, count = ${cachedNodes?.length || 0}`, 'scrolling/restore');
 
-      if (cachedNodeChunks?.length > 0) {
+      if (cachedNodes?.length > 0) {
         // 🛡️ FIX: Check if content already exists in DOM (e.g., from bfcache)
         // If so, preserve it and let browser's scroll restoration work
         const existingChunks = currentLazyLoader.container.querySelectorAll('[data-chunk-id]');
@@ -217,7 +217,7 @@ export async function restoreScrollPosition(): Promise<void> {
             const chunkId = parseChunkId(chunk.getAttribute('data-chunk-id'));
             currentLazyLoader.currentlyLoadedChunks.add(chunkId);
           });
-          currentLazyLoader.nodes = cachedNodeChunks;
+          currentLazyLoader.nodes = cachedNodes;
 
           // Save current scroll position for future restores
           if (currentLazyLoader.saveScrollPosition) {
@@ -229,7 +229,7 @@ export async function restoreScrollPosition(): Promise<void> {
 
         // No existing content - safe to clear and load chunk 0
         verbose.nav('No existing content, loading chunk 0', 'scrolling/restore');
-        currentLazyLoader.nodes = cachedNodeChunks;
+        currentLazyLoader.nodes = cachedNodes;
         // ⚠️ DIAGNOSTIC: Log when container is cleared
         const childCount2 = currentLazyLoader.container.children.length;
         if (childCount2 > 0) {

@@ -5,8 +5,8 @@ import type { ReadingPosition } from '../scrolling/readingPosition';
 import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier.js';
 
 import {
-  getNodeChunksFromIndexedDB,
-  saveAllNodeChunksToIndexedDB,
+  getNodesFromIndexedDB,
+  saveAllNodesToIndexedDB,
   saveAllFootnotesToIndexedDB,
   saveAllReferencesToIndexedDB,
   getLocalStorageKey,
@@ -65,7 +65,7 @@ export async function loadFromJSONFiles(bookId: BookId) {
 
     // Save all the fetched data to IndexedDB concurrently
     await Promise.all([
-      saveAllNodeChunksToIndexedDB(nodes, bookId),
+      saveAllNodesToIndexedDB(nodes, bookId),
       saveAllFootnotesToIndexedDB(footnotes, bookId),
       saveAllReferencesToIndexedDB(references, bookId),
     ]);
@@ -118,9 +118,9 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
       registerBookOpen(currentBook);
     }
 
-    // 1. Check for node chunks in IndexedDB (No change)
+    // 1. Check for nodes in IndexedDB (No change)
     updatePageLoadProgress(10, "Checking local cache...");
-    const cached: any = await getNodeChunksFromIndexedDB(currentBook);
+    const cached: any = await getNodesFromIndexedDB(currentBook);
     if (cached && cached.length) {
       updatePageLoadProgress(30, "Loading from cache...");
       verbose.content(`Found ${cached.length} nodes in IndexedDB`, 'initializePage.js');
@@ -135,7 +135,7 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
       if (hasOldFormatFootnotes(cached)) {
         await migrateOldFormatFootnotes(currentBook, cached);
         // Save migrated nodes back to IndexedDB (lazy migration)
-        await saveAllNodeChunksToIndexedDB(cached, currentBook);
+        await saveAllNodesToIndexedDB(cached, currentBook);
       }
 
       // 1. Resolve target chunk BEFORE hydration (lightweight IDB query)
@@ -328,13 +328,13 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
       const dbResult = await syncBookDataFromDatabase(currentBook);
       if (dbResult && dbResult.success) {
         updatePageLoadProgress(50, "Loading from database...");
-        const dbChunks: any = await getNodeChunksFromIndexedDB(currentBook);
+        const dbChunks: any = await getNodesFromIndexedDB(currentBook);
         if (dbChunks && dbChunks.length) {
           verbose.content(`Loaded ${dbChunks.length} nodes from PostgreSQL (full sync fallback)`, 'initializePage.js');
 
           if (hasOldFormatFootnotes(dbChunks)) {
             await migrateOldFormatFootnotes(currentBook, dbChunks);
-            await saveAllNodeChunksToIndexedDB(dbChunks, currentBook);
+            await saveAllNodesToIndexedDB(dbChunks, currentBook);
           }
 
           (window as any).nodes = dbChunks;
@@ -372,7 +372,7 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
 
 // Note: initializeInteractiveFeatures function removed as it duplicates viewManager.js functionality
 
-// generateNodeChunksFromMarkdown (+ its fetch/url helpers) moved to ./nodeGen so lazyLoaderRegistry
+// generateNodesFromMarkdown (+ its fetch/url helpers) moved to ./nodeGen so lazyLoaderRegistry
 // can import it statically without the old lazyLoaderRegistry↔loadHyperText dynamic cycle-breaker.
 
 // Your existing function - unchanged
@@ -554,10 +554,10 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
       if (visibleNodeIds.length > 0) {
         // 3. Rebuild node arrays from the new standalone tables
         const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('../indexedDB/hydration/rebuild');
-        const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index');
+        const { getNodesFromIndexedDB } = await import('../indexedDB/index');
 
-        // Get node chunks to find node_ids for visible startLines
-        const allNodes: any = await getNodeChunksFromIndexedDB(bookId);
+        // Get nodes to find node_ids for visible startLines
+        const allNodes: any = await getNodesFromIndexedDB(bookId);
         const visibleDataNodeIDs = allNodes
           .filter((n: any) => visibleNodeIds.includes(String(n.startLine)))
           .map((n: any) => n.node_id)

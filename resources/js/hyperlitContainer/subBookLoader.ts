@@ -9,7 +9,7 @@ import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, createChu
 // (inside async functions) to break a circular dependency chain:
 //   subBookLoader → hyperlights/index → hyperlitContainer/index → (dynamic) subBookLoader
 // Static imports here would leave subBookLoaders in the TDZ during module evaluation.
-import { getNodeChunksFromIndexedDB, writeNodeChunks } from '../indexedDB/index';
+import { getNodesFromIndexedDB, writeNodes } from '../indexedDB/index';
 import { lazyLoaders } from '../pageLoad/index';
 import { generateDataNodeId } from '../utilities/IDfunctions';
 import { asChunkId } from '../utilities/idHelpers';
@@ -124,7 +124,7 @@ function addReadMoreButton(subBookId: any, container: any, previewNodeIds: any, 
     const loader = subBookState.loader;
     
     // Get fresh full nodes from IndexedDB
-    const freshNodes: any = await getNodeChunksFromIndexedDB(subBookId);
+    const freshNodes: any = await getNodesFromIndexedDB(subBookId);
     if (!freshNodes?.length) {
       console.warn(`⚠️ No nodes found in IndexedDB for "${subBookId}"`);
       return;
@@ -275,7 +275,7 @@ async function enrichSubBookFromDB(subBookId: any, subBookState: any) {
       serverNewer: serverTimestamp > localTimestamp
     });
 
-    const localNodes: any = await getNodeChunksFromIndexedDB(subBookId);
+    const localNodes: any = await getNodesFromIndexedDB(subBookId);
     const previewNodeIds = subBookState.previewNodeIds || [];
 
     // Skip destructive sync whenever local is up-to-date.
@@ -297,7 +297,7 @@ async function enrichSubBookFromDB(subBookId: any, subBookState: any) {
       // AND we have no local nodes, BUT we do have preview content to work with.
       if (!serverRecord && serverReached && !localNodes?.length && subBookState.nodes?.length) {
         console.log(`🔧 Self-healing "${subBookId}": server confirmed no record — writing preview nodes to IDB and creating backend`);
-        await writeNodeChunks(subBookState.nodes);
+        await writeNodes(subBookState.nodes);
         const firstNode = subBookState.nodes[0];
         createSubBookOnBackend(
           subBookId, subBookState.parentBook, subBookState.itemId, subBookState.type,
@@ -322,7 +322,7 @@ async function enrichSubBookFromDB(subBookId: any, subBookState: any) {
 
         // Re-hydrate preview nodes with fresh annotation data
         if (subBookLoaders.has(subBookId)) {
-          const freshNodes: any = await getNodeChunksFromIndexedDB(subBookId);
+          const freshNodes: any = await getNodesFromIndexedDB(subBookId);
           if (freshNodes?.length > 0 && previewNodeIds.length > 0) {
             await hydratePreviewNodes(subBookState, previewNodeIds, freshNodes);
           }
@@ -356,7 +356,7 @@ async function enrichSubBookFromDB(subBookId: any, subBookState: any) {
     // Only process if the sub-book is still mounted (user hasn't closed the container)
     if (result.success && subBookLoaders.has(subBookId)) {
       // Get fresh data from IndexedDB (includes hyperlights/hypercites)
-      const freshNodes: any = await getNodeChunksFromIndexedDB(subBookId);
+      const freshNodes: any = await getNodesFromIndexedDB(subBookId);
       console.log(`📚 Enrichment complete: ${freshNodes.length} total nodes, ${previewNodeIds.length} were previewed`);
 
       // Hydrate preview nodes with fresh hyperlights/hypercites data
@@ -478,7 +478,7 @@ export async function loadSubBook(
   let isNewSubBook = false;
 
   // Single IDB fetch — reused for both branch and [read more] check below.
-  const existingNodesFromIDB: any = await getNodeChunksFromIndexedDB(subBookId);
+  const existingNodesFromIDB: any = await getNodesFromIndexedDB(subBookId);
 
   if (previewNodes?.length) {
     console.log(`📥 subBookLoader: Using preview nodes for "${subBookId}" (lazy loading mode)`);
@@ -503,7 +503,7 @@ export async function loadSubBook(
         book: subBookId, startLine: 1, chunk_id: asChunkId(0), node_id: localNodeId,
         content: initialHtml, hyperlights: [], hypercites: [], footnotes: [],
       };
-      await writeNodeChunks([synthesizedNode]);
+      await writeNodes([synthesizedNode]);
       console.log(`📝 subBookLoader: Wrote initial node (${localNodeId}) to IndexedDB for "${subBookId}"`);
       nodes = [synthesizedNode];
     }

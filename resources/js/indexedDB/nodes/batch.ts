@@ -1,6 +1,6 @@
 /**
  * Node Batch Operations Module
- * Handles bulk updates and deletes of node chunks with highlights and hypercites
+ * Handles bulk updates and deletes of nodes with highlights and hypercites
  */
 
 import { openDatabase } from '../core/connection';
@@ -20,7 +20,7 @@ import { INLINE_SKIP_TAGS } from '../../utilities/blockElements';
 import { resolveBookIdForBatch } from './bookIdResolver';
 // Direct leaf imports (not the indexedDB/index barrel) — read/rebuild don't import batch, so these
 // are one-way and need no dynamic-import cycle-breaker.
-import { getNodeChunksFromIndexedDB } from './read';
+import { getNodesFromIndexedDB } from './read';
 import { rebuildNodeArrays, getNodesByDataNodeIDs } from '../hydration/rebuild';
 import { processNodeContentHighlightsAndCites, determineChunkIdFromDOM } from './contentProcessor';
 import { updateHyperlightRecords, updateHyperciteRecords } from './annotationUpserts';
@@ -117,10 +117,10 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
     const lightsStore = tx.objectStore("hyperlights");
     const citesStore = tx.objectStore("hypercites");
 
-    const allSavedNodeChunks: NodeRecord[] = [];
+    const allSavedNodes: NodeRecord[] = [];
     const allSavedHyperlights: HyperlightRecord[] = [];
     const allSavedHypercites: HyperciteRecord[] = [];
-    const originalNodeChunkStates = new Map<number, NodeRecord>();
+    const originalNodeStates = new Map<number, NodeRecord>();
 
     // This is a critical step: Read all original states BEFORE any writes.
     const readPromises = recordsToProcess.map((record) => {
@@ -152,7 +152,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
         const getReq = chunksStore.get([bookId, numericNodeId]);
         getReq.onsuccess = () => {
           if (getReq.result) {
-            originalNodeChunkStates.set(numericNodeId, { ...getReq.result });
+            originalNodeStates.set(numericNodeId, { ...getReq.result });
           }
           resolve();
         };
@@ -182,7 +182,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
       let node: HTMLElement | null = null;
 
       // Use node_id (data-node-id) for DOM lookup — unique across all books
-      const existingForLookup = originalNodeChunkStates.get(numericNodeId);
+      const existingForLookup = originalNodeStates.get(numericNodeId);
       if (existingForLookup?.node_id) {
         node = document.querySelector(`[data-node-id="${existingForLookup.node_id}"]`) as HTMLElement | null;
       }
@@ -220,7 +220,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
       }
 
       const finalNumericNodeId = parseNodeId(IDnumerical); // Use the final valid ID
-      const existing = originalNodeChunkStates.get(finalNumericNodeId);
+      const existing = originalNodeStates.get(finalNumericNodeId);
       const existingHypercites = existing?.hypercites || [];
       const processedData = node
         ? processNodeContentHighlightsAndCites(node, existingHypercites)
@@ -281,7 +281,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
       // 🔍 DEBUG: Log what's being saved
       verbose.content(`Saving to IndexedDB: startLine=${toSave.startLine}, node_id=${toSave.node_id}, hasContent=${!!toSave.content}`, 'indexedDB/nodes/batch');
       chunksStore.put(toSave);
-      allSavedNodeChunks.push(toSave);
+      allSavedNodes.push(toSave);
 
       if (processedData) {
         updateHyperlightRecords(
@@ -312,8 +312,8 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
         // This prevents spurious syncs that could trigger 409 stale data errors
         if (!options.skipHistory) {
           await updateBookTimestamp(bookId);
-          allSavedNodeChunks.forEach((chunk) => {
-            const originalChunk = originalNodeChunkStates.get(chunk.startLine);
+          allSavedNodes.forEach((chunk) => {
+            const originalChunk = originalNodeStates.get(chunk.startLine);
             queueForSync(
               "nodes",
               chunk.startLine,
@@ -334,14 +334,14 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
         }
 
         // Auto-sync first node to library title (only if node 100 was updated)
-        const firstNodeChunk = allSavedNodeChunks.find(chunk => chunk.startLine === 100);
-        if (firstNodeChunk) {
+        const firstNode = allSavedNodes.find(chunk => chunk.startLine === 100);
+        if (firstNode) {
           console.log('🔄 First node (100) was updated, triggering debounced title sync');
-          debouncedTitleSync(bookId, firstNodeChunk.content);
+          debouncedTitleSync(bookId, firstNode.content);
         }
 
         // ✅ NEW SYSTEM: Rebuild node arrays from normalized tables for all affected nodes
-        const affectedDataNodeIDs = allSavedNodeChunks
+        const affectedDataNodeIDs = allSavedNodes
           .map(chunk => chunk.node_id)
           .filter((id): id is string => Boolean(id));
 
@@ -368,8 +368,8 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
           // Compare before/after to detect both additions AND deletions
           const normalizeFootnoteIds = (arr?: NodeRecord['footnotes']) =>
             (arr || []).map(f => typeof f === 'string' ? f : f?.id).filter(Boolean).sort();
-          const nodesWithFootnoteChanges = allSavedNodeChunks.filter(node => {
-            const originalNode = originalNodeChunkStates.get(node.startLine);
+          const nodesWithFootnoteChanges = allSavedNodes.filter(node => {
+            const originalNode = originalNodeStates.get(node.startLine);
             const oldIds = normalizeFootnoteIds(originalNode?.footnotes);
             const newIds = normalizeFootnoteIds(node.footnotes);
             // Trigger if footnote count changed (added or deleted) — ID-only comparison ignores format differences
@@ -392,7 +392,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
             console.log(`[diag][batch] caller stack:\n${__batchStack}`);
             try {
               const { rebuildAndRenumber } = await import('../../footnotes/FootnoteNumberingService');
-              const allNodes = await getNodeChunksFromIndexedDB(bookId);
+              const allNodes = await getNodesFromIndexedDB(bookId);
               if (allNodes && allNodes.length > 0) {
                 await rebuildAndRenumber(bookId, allNodes);
               }

@@ -16,9 +16,9 @@ import {
 import { resolveHypercite } from '../../../resources/js/indexedDB/hypercites/helpers';
 import {
   syncHyperciteToPostgreSQL,
-  syncHyperciteWithNodeChunkImmediately,
+  syncHyperciteWithNodeImmediately,
 } from '../../../resources/js/indexedDB/hypercites/syncHypercitesToPostgreSQL';
-import { getNodeChunksFromIndexedDB } from '../../../resources/js/indexedDB/nodes/read';
+import { getNodesFromIndexedDB } from '../../../resources/js/indexedDB/nodes/read';
 
 function hc(book, hyperciteId, extra = {}) {
   return {
@@ -43,7 +43,7 @@ describe('hypercites domain (characterization)', () => {
       updateBookTimestamp,
       queueForSync,
       withPending: (fn) => fn(),
-      getNodeChunksFromIndexedDB,
+      getNodesFromIndexedDB,
     });
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
@@ -161,11 +161,11 @@ describe('hypercites domain (characterization)', () => {
     expect(body.data[0].hypercitedHTML).toBe('<u id="hypercite_1" class="couple">cited text</u>');
   });
 
-  it('syncHyperciteWithNodeChunkImmediately POSTs the atomic unified payload (NO footnote/bibliography fields)', async () => {
+  it('syncHyperciteWithNodeImmediately POSTs the atomic unified payload (NO footnote/bibliography fields)', async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true }) });
     const chunk = { book: 'bookA', startLine: 100, chunk_id: 0, content: '<p>x</p>' };
 
-    await syncHyperciteWithNodeChunkImmediately('bookA', hc('bookA', 'hypercite_1'), chunk);
+    await syncHyperciteWithNodeImmediately('bookA', hc('bookA', 'hypercite_1'), chunk);
 
     expect(fetchMock.mock.calls[0][0]).toBe('/api/db/unified-sync');
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);

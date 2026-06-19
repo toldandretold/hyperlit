@@ -101,8 +101,8 @@ export async function buildBrowserDatabaseMd(bookId: any) : Promise<any> {
   try {
     return await Promise.race([
       (async () => {
-        const { getNodeChunksFromIndexedDB } = await import('../indexedDB/nodes/read');
-        const chunks = await getNodeChunksFromIndexedDB(bookId);
+        const { getNodesFromIndexedDB } = await import('../indexedDB/nodes/read');
+        const chunks = await getNodesFromIndexedDB(bookId);
         chunks.sort((a, b) => a.chunk_id - b.chunk_id || a.startLine - b.startLine);
 
         const nodeMap = new Map();

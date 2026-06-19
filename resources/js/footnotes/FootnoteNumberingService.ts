@@ -203,8 +203,8 @@ async function persistRenumberedNodes(bookId: BookId, affectedStartLines: Set<st
 
     // [diagnostic] read back from IDB and report what actually got written
     try {
-      const { getNodeChunksFromIndexedDB } = await import('../indexedDB/index');
-      const after = await getNodeChunksFromIndexedDB(bookId);
+      const { getNodesFromIndexedDB } = await import('../indexedDB/index');
+      const after = await getNodesFromIndexedDB(bookId);
       const byId = new Map((after || []).map(n => [String(n.startLine), n.content || '']));
       for (const startLine of affectedStartLines) {
         const stored = byId.get(String(startLine));

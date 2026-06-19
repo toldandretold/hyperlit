@@ -12,10 +12,10 @@ import { getPasteSnapshot, setPasteSnapshot } from '../pasteSnapshot';
 export { clearPasteSnapshot } from '../pasteSnapshot';
 import { NODE_LIMIT } from '../../utilities/chunkState';
 import {
-  getNodeChunksAfter,
-  deleteNodeChunksAfter,
-  writeNodeChunks,
-  getNodeChunksFromIndexedDB
+  getNodesAfter,
+  deleteNodesAfter,
+  writeNodes,
+  getNodesFromIndexedDB
 } from '../../indexedDB/index';
 import { glowCloudOrange, glowCloudRed } from '../../components/cloudRef/editIndicator';
 import { processContentForFootnotesAndReferences } from '../fallback-processor';
@@ -139,27 +139,27 @@ export async function handleLargePaste(
   // ✅ FIX: Get existing tail nodes FIRST before assigning any IDs
   console.log(`🔍 [PASTE] Getting existing chunks after node ${beforeNodeId}...`);
   const existingTailChunks = afterNodeId != null
-    ? await getNodeChunksAfter(book, beforeNodeId)
+    ? await getNodesAfter(book, beforeNodeId)
     : [];
   console.log(`📊 [PASTE] Retrieved ${existingTailChunks.length} existing tail chunks:`,
     existingTailChunks.map((c: any) => `ID=${c.startLine} node_id=${c.node_id?.slice(-10)}`));
 
   // Snapshot all nodes BEFORE any modifications (for undo support)
-  const allNodesBeforePaste = await getNodeChunksFromIndexedDB(book);
+  const allNodesBeforePaste = await getNodesFromIndexedDB(book);
   setPasteSnapshot({ bookId: book, allNodes: [...allNodesBeforePaste] });
   console.log(`📸 [PASTE] Snapshot saved: ${allNodesBeforePaste.length} nodes for undo`);
 
   // Delete old tail nodes from IndexedDB (they'll be re-inserted with new IDs)
   if (afterNodeId != null && existingTailChunks.length > 0) {
     console.log(`🗑️ [PASTE] Deleting ${existingTailChunks.length} old tail chunks from IndexedDB...`);
-    await deleteNodeChunksAfter(book, beforeNodeId);
+    await deleteNodesAfter(book, beforeNodeId);
     console.log(`✅ [PASTE] Old tail chunks deleted from IndexedDB`);
   }
 
   // Now assign IDs to pasted nodes, knowing what exists
   // IMPORTANT: Don't trust insertionPoint.currentChunkNodeCount - it's from DOM, not IndexedDB
   // We need to count how many nodes are ACTUALLY in this chunk from what we just retrieved
-  const allNodesInBook = await getNodeChunksFromIndexedDB(book);
+  const allNodesInBook = await getNodesFromIndexedDB(book);
   const actualNodesInInsertionChunk = allNodesInBook.filter((n: any) => n.chunk_id === insertionPoint.chunkId).length;
 
   let currentChunkId = insertionPoint.chunkId;
@@ -267,7 +267,7 @@ export async function handleLargePaste(
 
   console.log(`Writing ${toWrite.length} chunks to IndexedDB`);
   ProgressOverlayConductor.updateProgress(40, 'Saving to IndexedDB...');
-  await writeNodeChunks(toWrite);
+  await writeNodes(toWrite);
 
   // Save extracted footnotes and references to IndexedDB
   if (extractedFootnotes.length > 0 || extractedReferences.length > 0) {
@@ -310,7 +310,7 @@ export async function handleLargePaste(
       }
 
       if (subBookNodes.length > 0) {
-        await writeNodeChunks(subBookNodes);
+        await writeNodes(subBookNodes);
       }
 
       console.log(`💾 Saving ${extractedFootnotes.length} footnotes to IndexedDB...`);
@@ -357,11 +357,11 @@ export async function undoLastLargePaste() {
 
   try {
     // 1. Delete all current nodes for this book
-    await deleteNodeChunksAfter(bookId, 0);
+    await deleteNodesAfter(bookId, 0);
 
     // 2. Restore snapshot nodes
     if (allNodes.length > 0) {
-      await writeNodeChunks(allNodes);
+      await writeNodes(allNodes);
     }
 
     ProgressOverlayConductor.updateProgress(60, 'Refreshing view...');
@@ -369,7 +369,7 @@ export async function undoLastLargePaste() {
     // 3. Refresh lazy loader (remove all chunks, reload chunk 0)
     const { initializeMainLazyLoader } = await import('../../pageLoad/index');
     const loader = initializeMainLazyLoader();
-    loader.nodes = await loader.getNodeChunks();
+    loader.nodes = await loader.getNodes();
 
     const allChunks = Array.from<any>(loader.container.querySelectorAll('[data-chunk-id]'));
     allChunks.forEach((chunk: any) => {

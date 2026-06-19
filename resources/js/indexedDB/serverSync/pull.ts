@@ -15,7 +15,7 @@ import {
   updateEmbeddedAnnotationsInNodes,
 } from './clear';
 import {
-  loadNodeChunksToIndexedDB,
+  loadNodesToIndexedDB,
   loadFootnotesToIndexedDB,
   loadBibliographyToIndexedDB,
   loadHyperlightsToIndexedDB,
@@ -97,7 +97,7 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<PullResu
     // 4. Load all data types into IndexedDB
     verbose.content('Loading all data types into IndexedDB', 'serverSync/pull');
     const loadResults = await Promise.allSettled([
-      loadNodeChunksToIndexedDB(db, data.nodes),
+      loadNodesToIndexedDB(db, data.nodes),
       loadFootnotesToIndexedDB(db, data.footnotes),
       loadBibliographyToIndexedDB(db, data.bibliography),
       loadHyperlightsToIndexedDB(db, data.hyperlights),

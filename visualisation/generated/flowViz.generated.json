@@ -7603,16 +7603,16 @@
       "leaf": false
     },
     {
-      "id": "hyperlights/database:removeHighlightFromNodeChunks",
-      "label": "removeHighlightFromNodeChunks",
+      "id": "hyperlights/database:removeHighlightFromNodes",
+      "label": "removeHighlightFromNodes",
       "kind": "fn",
       "stage": "hyperlights",
       "module": "hyperlights/database",
       "leaf": false
     },
     {
-      "id": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
-      "label": "removeHighlightFromNodeChunksWithDeletion",
+      "id": "hyperlights/database:removeHighlightFromNodesWithDeletion",
+      "label": "removeHighlightFromNodesWithDeletion",
       "kind": "fn",
       "stage": "hyperlights",
       "module": "hyperlights/database",
@@ -9015,8 +9015,8 @@
       "leaf": false
     },
     {
-      "id": "indexedDB/core/utilities:createNodeChunksKey",
-      "label": "createNodeChunksKey",
+      "id": "indexedDB/core/utilities:createNodeKey",
+      "label": "createNodeKey",
       "kind": "fn",
       "stage": "infra",
       "module": "indexedDB/core/utilities",
@@ -9205,8 +9205,8 @@
       ]
     },
     {
-      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
-      "label": "syncHyperciteWithNodeChunkImmediately",
+      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeImmediately",
+      "label": "syncHyperciteWithNodeImmediately",
       "kind": "fn",
       "stage": "push",
       "module": "indexedDB/hypercites/syncHypercitesToPostgreSQL",
@@ -9375,8 +9375,8 @@
       "leaf": false
     },
     {
-      "id": "indexedDB/nodes/read:getAllNodeChunksForBook",
-      "label": "getAllNodeChunksForBook",
+      "id": "indexedDB/nodes/read:getAllNodesForBook",
+      "label": "getAllNodesForBook",
       "kind": "fn",
       "stage": "hydrate",
       "module": "indexedDB/nodes/read",
@@ -9386,8 +9386,8 @@
       ]
     },
     {
-      "id": "indexedDB/nodes/read:getNodeChunkFromIndexedDB",
-      "label": "getNodeChunkFromIndexedDB",
+      "id": "indexedDB/nodes/read:getNodeFromIndexedDB",
+      "label": "getNodeFromIndexedDB",
       "kind": "fn",
       "stage": "hydrate",
       "module": "indexedDB/nodes/read",
@@ -9397,8 +9397,8 @@
       ]
     },
     {
-      "id": "indexedDB/nodes/read:getNodeChunksAfter",
-      "label": "getNodeChunksAfter",
+      "id": "indexedDB/nodes/read:getNodesAfter",
+      "label": "getNodesAfter",
       "kind": "fn",
       "stage": "hydrate",
       "module": "indexedDB/nodes/read",
@@ -9408,8 +9408,8 @@
       ]
     },
     {
-      "id": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
-      "label": "getNodeChunksFromIndexedDB",
+      "id": "indexedDB/nodes/read:getNodesFromIndexedDB",
+      "label": "getNodesFromIndexedDB",
       "kind": "fn",
       "stage": "hydrate",
       "module": "indexedDB/nodes/read",
@@ -9419,8 +9419,8 @@
       ]
     },
     {
-      "id": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL",
-      "label": "syncNodeChunksToPostgreSQL",
+      "id": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodesToPostgreSQL",
+      "label": "syncNodesToPostgreSQL",
       "kind": "fn",
       "stage": "push",
       "module": "indexedDB/nodes/syncNodesToPostgreSQL",
@@ -9438,16 +9438,16 @@
       "leaf": true
     },
     {
-      "id": "indexedDB/nodes/write:addNodeChunkToIndexedDB",
-      "label": "addNodeChunkToIndexedDB",
+      "id": "indexedDB/nodes/write:addNodeToIndexedDB",
+      "label": "addNodeToIndexedDB",
       "kind": "fn",
       "stage": "capture",
       "module": "indexedDB/nodes/write",
       "leaf": false
     },
     {
-      "id": "indexedDB/nodes/write:deleteNodeChunksAfter",
-      "label": "deleteNodeChunksAfter",
+      "id": "indexedDB/nodes/write:deleteNodesAfter",
+      "label": "deleteNodesAfter",
       "kind": "fn",
       "stage": "capture",
       "module": "indexedDB/nodes/write",
@@ -9462,24 +9462,24 @@
       "leaf": true
     },
     {
-      "id": "indexedDB/nodes/write:renumberNodeChunksInIndexedDB",
-      "label": "renumberNodeChunksInIndexedDB",
+      "id": "indexedDB/nodes/write:renumberNodesInIndexedDB",
+      "label": "renumberNodesInIndexedDB",
       "kind": "fn",
       "stage": "capture",
       "module": "indexedDB/nodes/write",
       "leaf": false
     },
     {
-      "id": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
-      "label": "saveAllNodeChunksToIndexedDB",
+      "id": "indexedDB/nodes/write:saveAllNodesToIndexedDB",
+      "label": "saveAllNodesToIndexedDB",
       "kind": "fn",
       "stage": "capture",
       "module": "indexedDB/nodes/write",
       "leaf": false
     },
     {
-      "id": "indexedDB/nodes/write:writeNodeChunks",
-      "label": "writeNodeChunks",
+      "id": "indexedDB/nodes/write:writeNodes",
+      "label": "writeNodes",
       "kind": "fn",
       "stage": "capture",
       "module": "indexedDB/nodes/write",
@@ -9586,8 +9586,8 @@
       ]
     },
     {
-      "id": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
-      "label": "loadNodeChunksToIndexedDB",
+      "id": "indexedDB/serverSync/loaders:loadNodesToIndexedDB",
+      "label": "loadNodesToIndexedDB",
       "kind": "fn",
       "stage": "serverSync",
       "module": "indexedDB/serverSync/loaders",
@@ -10155,8 +10155,8 @@
       ]
     },
     {
-      "id": "pageLoad/nodeGen:generateNodeChunksFromMarkdown",
-      "label": "generateNodeChunksFromMarkdown",
+      "id": "pageLoad/nodeGen:generateNodesFromMarkdown",
+      "label": "generateNodesFromMarkdown",
       "kind": "fn",
       "stage": "pageLoad",
       "module": "pageLoad/nodeGen",
@@ -15750,8 +15750,8 @@
       "fnIds": [
         "hyperlights/database:addToHighlightsTable",
         "hyperlights/database:removeHighlightFromHyperlights",
-        "hyperlights/database:removeHighlightFromNodeChunks",
-        "hyperlights/database:removeHighlightFromNodeChunksWithDeletion"
+        "hyperlights/database:removeHighlightFromNodes",
+        "hyperlights/database:removeHighlightFromNodesWithDeletion"
       ]
     },
     {
@@ -16241,7 +16241,7 @@
       "stage": "infra",
       "band": "store",
       "fnIds": [
-        "indexedDB/core/utilities:createNodeChunksKey",
+        "indexedDB/core/utilities:createNodeKey",
         "indexedDB/core/utilities:getLocalStorageKey",
         "indexedDB/core/utilities:parseNodeId",
         "indexedDB/core/utilities:toPublicNode"
@@ -16324,7 +16324,7 @@
       "fnIds": [
         "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteToPostgreSQL",
         "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteUpdateImmediately",
-        "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately"
+        "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeImmediately"
       ]
     },
     {
@@ -16414,10 +16414,10 @@
       "stage": "hydrate",
       "band": "store",
       "fnIds": [
-        "indexedDB/nodes/read:getAllNodeChunksForBook",
-        "indexedDB/nodes/read:getNodeChunkFromIndexedDB",
-        "indexedDB/nodes/read:getNodeChunksAfter",
-        "indexedDB/nodes/read:getNodeChunksFromIndexedDB"
+        "indexedDB/nodes/read:getAllNodesForBook",
+        "indexedDB/nodes/read:getNodeFromIndexedDB",
+        "indexedDB/nodes/read:getNodesAfter",
+        "indexedDB/nodes/read:getNodesFromIndexedDB"
       ]
     },
     {
@@ -16426,7 +16426,7 @@
       "stage": "push",
       "band": "sync",
       "fnIds": [
-        "indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL"
+        "indexedDB/nodes/syncNodesToPostgreSQL:syncNodesToPostgreSQL"
       ]
     },
     {
@@ -16436,12 +16436,12 @@
       "band": "capture",
       "fnIds": [
         "indexedDB/nodes/write:addNewBookToIndexedDB",
-        "indexedDB/nodes/write:addNodeChunkToIndexedDB",
-        "indexedDB/nodes/write:deleteNodeChunksAfter",
+        "indexedDB/nodes/write:addNodeToIndexedDB",
+        "indexedDB/nodes/write:deleteNodesAfter",
         "indexedDB/nodes/write:initNodeWriteDependencies",
-        "indexedDB/nodes/write:renumberNodeChunksInIndexedDB",
-        "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
-        "indexedDB/nodes/write:writeNodeChunks"
+        "indexedDB/nodes/write:renumberNodesInIndexedDB",
+        "indexedDB/nodes/write:saveAllNodesToIndexedDB",
+        "indexedDB/nodes/write:writeNodes"
       ]
     },
     {
@@ -16475,7 +16475,7 @@
         "indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
         "indexedDB/serverSync/loaders:loadHyperlightsToIndexedDB",
         "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
-        "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB"
+        "indexedDB/serverSync/loaders:loadNodesToIndexedDB"
       ]
     },
     {
@@ -16758,7 +16758,7 @@
       "stage": "pageLoad",
       "band": "store",
       "fnIds": [
-        "pageLoad/nodeGen:generateNodeChunksFromMarkdown"
+        "pageLoad/nodeGen:generateNodesFromMarkdown"
       ]
     },
     {
@@ -17974,9 +17974,9 @@
       "rel": "call"
     },
     {
-      "id": "components/editButton/index:disableEditMode__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "components/editButton/index:disableEditMode__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "components/editButton/index:disableEditMode",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -20005,9 +20005,9 @@
       "dataPath": true
     },
     {
-      "id": "components/sourceContainer/downloads:exportBookAsDocxStyled__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "components/sourceContainer/downloads:exportBookAsDocxStyled__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "components/sourceContainer/downloads:exportBookAsDocxStyled",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -20050,9 +20050,9 @@
       "dataPath": true
     },
     {
-      "id": "components/sourceContainer/downloads:exportBookAsEpub__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "components/sourceContainer/downloads:exportBookAsEpub__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "components/sourceContainer/downloads:exportBookAsEpub",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -20095,9 +20095,9 @@
       "dataPath": true
     },
     {
-      "id": "components/sourceContainer/downloads:exportBookAsMarkdown__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "components/sourceContainer/downloads:exportBookAsMarkdown__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "components/sourceContainer/downloads:exportBookAsMarkdown",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -20529,9 +20529,9 @@
       "rel": "call"
     },
     {
-      "id": "components/tocContainer/index:generateTableOfContents__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "components/tocContainer/index:generateTableOfContents__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "components/tocContainer/index:generateTableOfContents",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -21389,9 +21389,9 @@
       "dataPath": true
     },
     {
-      "id": "components/utilities/gateFilter:reapplyAnnotationsWithGate__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "components/utilities/gateFilter:reapplyAnnotationsWithGate__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "components/utilities/gateFilter:reapplyAnnotationsWithGate",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -21766,9 +21766,9 @@
       "rel": "domwrite"
     },
     {
-      "id": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -24837,9 +24837,9 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
+      "id": "dom__domread__indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeImmediately",
       "source": "dom",
-      "target": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
+      "target": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeImmediately",
       "rel": "domread"
     },
     {
@@ -24909,15 +24909,15 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL",
+      "id": "dom__domread__indexedDB/nodes/syncNodesToPostgreSQL:syncNodesToPostgreSQL",
       "source": "dom",
-      "target": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL",
+      "target": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodesToPostgreSQL",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__indexedDB/nodes/write:addNodeChunkToIndexedDB",
+      "id": "dom__domread__indexedDB/nodes/write:addNodeToIndexedDB",
       "source": "dom",
-      "target": "indexedDB/nodes/write:addNodeChunkToIndexedDB",
+      "target": "indexedDB/nodes/write:addNodeToIndexedDB",
       "rel": "domread"
     },
     {
@@ -26768,9 +26768,9 @@
       "dataPath": true
     },
     {
-      "id": "footnotes/footnoteInserter:insertFootnoteAtCursor__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "footnotes/footnoteInserter:insertFootnoteAtCursor__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "footnotes/footnoteInserter:insertFootnoteAtCursor",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -26844,9 +26844,9 @@
       "dataPath": true
     },
     {
-      "id": "footnotes/FootnoteNumberingService:rebuildAndRenumber__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "footnotes/FootnoteNumberingService:rebuildAndRenumber__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "footnotes/FootnoteNumberingService:rebuildAndRenumber",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -27020,9 +27020,9 @@
       "dataPath": true
     },
     {
-      "id": "hypercites/database:getHyperciteData__call__indexedDB/core/utilities:createNodeChunksKey",
+      "id": "hypercites/database:getHyperciteData__call__indexedDB/core/utilities:createNodeKey",
       "source": "hypercites/database:getHyperciteData",
-      "target": "indexedDB/core/utilities:createNodeChunksKey",
+      "target": "indexedDB/core/utilities:createNodeKey",
       "rel": "call"
     },
     {
@@ -27130,9 +27130,9 @@
       "dataPath": true
     },
     {
-      "id": "hypercites/deletion:delinkHypercite__call__indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
+      "id": "hypercites/deletion:delinkHypercite__call__indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeImmediately",
       "source": "hypercites/deletion:delinkHypercite",
-      "target": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
+      "target": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeImmediately",
       "rel": "call",
       "dataPath": true
     },
@@ -27791,28 +27791,28 @@
       "rel": "write"
     },
     {
-      "id": "hyperlights/database:removeHighlightFromNodeChunks__call__indexedDB/core/connection:openDatabase",
-      "source": "hyperlights/database:removeHighlightFromNodeChunks",
+      "id": "hyperlights/database:removeHighlightFromNodes__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/database:removeHighlightFromNodes",
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "hyperlights/database:removeHighlightFromNodeChunks__write__store:nodes",
-      "source": "hyperlights/database:removeHighlightFromNodeChunks",
+      "id": "hyperlights/database:removeHighlightFromNodes__write__store:nodes",
+      "source": "hyperlights/database:removeHighlightFromNodes",
       "target": "store:nodes",
       "rel": "write"
     },
     {
-      "id": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion__call__indexedDB/core/connection:openDatabase",
-      "source": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
+      "id": "hyperlights/database:removeHighlightFromNodesWithDeletion__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/database:removeHighlightFromNodesWithDeletion",
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion__write__store:nodes",
-      "source": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
+      "id": "hyperlights/database:removeHighlightFromNodesWithDeletion__write__store:nodes",
+      "source": "hyperlights/database:removeHighlightFromNodesWithDeletion",
       "target": "store:nodes",
       "rel": "write"
     },
@@ -27824,9 +27824,9 @@
       "dataPath": true
     },
     {
-      "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
+      "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__hyperlights/database:removeHighlightFromNodesWithDeletion",
       "source": "hyperlights/deleteHighlight:deleteHighlightHandler",
-      "target": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
+      "target": "hyperlights/database:removeHighlightFromNodesWithDeletion",
       "rel": "call",
       "dataPath": true
     },
@@ -27876,9 +27876,9 @@
       "dataPath": true
     },
     {
-      "id": "hyperlights/deletion:deleteHighlightById__call__hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
+      "id": "hyperlights/deletion:deleteHighlightById__call__hyperlights/database:removeHighlightFromNodesWithDeletion",
       "source": "hyperlights/deletion:deleteHighlightById",
-      "target": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
+      "target": "hyperlights/database:removeHighlightFromNodesWithDeletion",
       "rel": "call",
       "dataPath": true
     },
@@ -27942,9 +27942,9 @@
       "dataPath": true
     },
     {
-      "id": "hyperlights/deletion:hideHighlightById__call__hyperlights/database:removeHighlightFromNodeChunks",
+      "id": "hyperlights/deletion:hideHighlightById__call__hyperlights/database:removeHighlightFromNodes",
       "source": "hyperlights/deletion:hideHighlightById",
-      "target": "hyperlights/database:removeHighlightFromNodeChunks",
+      "target": "hyperlights/database:removeHighlightFromNodes",
       "rel": "call",
       "dataPath": true
     },
@@ -28012,9 +28012,9 @@
       "rel": "call"
     },
     {
-      "id": "hyperlights/deletion:reprocessHighlightsForNodes__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "hyperlights/deletion:reprocessHighlightsForNodes__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "hyperlights/deletion:reprocessHighlightsForNodes",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -28472,9 +28472,9 @@
       "rel": "call"
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayFootnotes:buildFootnoteContent__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "hyperlitContainer/contentBuilders/displayFootnotes:buildFootnoteContent__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "hyperlitContainer/contentBuilders/displayFootnotes:buildFootnoteContent",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -28732,9 +28732,9 @@
       "dataPath": true
     },
     {
-      "id": "hyperlitContainer/core:savePreviewNodes__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "hyperlitContainer/core:savePreviewNodes__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "hyperlitContainer/core:savePreviewNodes",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -29864,16 +29864,16 @@
       "dataPath": true
     },
     {
-      "id": "hyperlitContainer/subBookLoader:loadSubBook__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "hyperlitContainer/subBookLoader:loadSubBook__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "hyperlitContainer/subBookLoader:loadSubBook",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "hyperlitContainer/subBookLoader:loadSubBook__call__indexedDB/nodes/write:writeNodeChunks",
+      "id": "hyperlitContainer/subBookLoader:loadSubBook__call__indexedDB/nodes/write:writeNodes",
       "source": "hyperlitContainer/subBookLoader:loadSubBook",
-      "target": "indexedDB/nodes/write:writeNodeChunks",
+      "target": "indexedDB/nodes/write:writeNodes",
       "rel": "call",
       "dataPath": true
     },
@@ -30204,8 +30204,8 @@
       "rel": "domwrite"
     },
     {
-      "id": "indexedDB/core/utilities:createNodeChunksKey__call__indexedDB/core/utilities:parseNodeId",
-      "source": "indexedDB/core/utilities:createNodeChunksKey",
+      "id": "indexedDB/core/utilities:createNodeKey__call__indexedDB/core/utilities:parseNodeId",
+      "source": "indexedDB/core/utilities:createNodeKey",
       "target": "indexedDB/core/utilities:parseNodeId",
       "rel": "call"
     },
@@ -30292,9 +30292,9 @@
       "dataPath": true
     },
     {
-      "id": "indexedDB/hypercites/helpers:resolveHypercite__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "indexedDB/hypercites/helpers:resolveHypercite__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "indexedDB/hypercites/helpers:resolveHypercite",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -30405,8 +30405,8 @@
       "label": "/api/db/hypercites/upsert"
     },
     {
-      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately__push__route:/api/db/unified-sync",
-      "source": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
+      "id": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeImmediately__push__route:/api/db/unified-sync",
+      "source": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeImmediately",
       "target": "route:/api/db/unified-sync",
       "rel": "push",
       "label": "/api/db/unified-sync"
@@ -30655,9 +30655,9 @@
       "rel": "call"
     },
     {
-      "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -30785,9 +30785,9 @@
       "rel": "call"
     },
     {
-      "id": "indexedDB/nodes/normalize:updateIndexedDBRecordForNormalization__call__indexedDB/nodes/read:getNodeChunkFromIndexedDB",
+      "id": "indexedDB/nodes/normalize:updateIndexedDBRecordForNormalization__call__indexedDB/nodes/read:getNodeFromIndexedDB",
       "source": "indexedDB/nodes/normalize:updateIndexedDBRecordForNormalization",
-      "target": "indexedDB/nodes/read:getNodeChunkFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodeFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -30810,157 +30810,157 @@
       "rel": "call"
     },
     {
-      "id": "indexedDB/nodes/read:getAllNodeChunksForBook__call__indexedDB/core/connection:openDatabase",
-      "source": "indexedDB/nodes/read:getAllNodeChunksForBook",
+      "id": "indexedDB/nodes/read:getAllNodesForBook__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/nodes/read:getAllNodesForBook",
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "indexedDB/nodes/read:getNodeChunkFromIndexedDB__call__indexedDB/core/connection:openDatabase",
-      "source": "indexedDB/nodes/read:getNodeChunkFromIndexedDB",
+      "id": "indexedDB/nodes/read:getNodeFromIndexedDB__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/nodes/read:getNodeFromIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "indexedDB/nodes/read:getNodeChunkFromIndexedDB__call__indexedDB/core/utilities:parseNodeId",
-      "source": "indexedDB/nodes/read:getNodeChunkFromIndexedDB",
+      "id": "indexedDB/nodes/read:getNodeFromIndexedDB__call__indexedDB/core/utilities:parseNodeId",
+      "source": "indexedDB/nodes/read:getNodeFromIndexedDB",
       "target": "indexedDB/core/utilities:parseNodeId",
       "rel": "call"
     },
     {
-      "id": "indexedDB/nodes/read:getNodeChunkFromIndexedDB__write__store:nodes",
-      "source": "indexedDB/nodes/read:getNodeChunkFromIndexedDB",
+      "id": "indexedDB/nodes/read:getNodeFromIndexedDB__write__store:nodes",
+      "source": "indexedDB/nodes/read:getNodeFromIndexedDB",
       "target": "store:nodes",
       "rel": "write"
     },
     {
-      "id": "indexedDB/nodes/read:getNodeChunksAfter__call__indexedDB/core/connection:openDatabase",
-      "source": "indexedDB/nodes/read:getNodeChunksAfter",
+      "id": "indexedDB/nodes/read:getNodesAfter__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/nodes/read:getNodesAfter",
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "indexedDB/nodes/read:getNodeChunksAfter__call__indexedDB/core/utilities:parseNodeId",
-      "source": "indexedDB/nodes/read:getNodeChunksAfter",
+      "id": "indexedDB/nodes/read:getNodesAfter__call__indexedDB/core/utilities:parseNodeId",
+      "source": "indexedDB/nodes/read:getNodesAfter",
       "target": "indexedDB/core/utilities:parseNodeId",
       "rel": "call"
     },
     {
-      "id": "indexedDB/nodes/read:getNodeChunksAfter__write__store:nodes",
-      "source": "indexedDB/nodes/read:getNodeChunksAfter",
+      "id": "indexedDB/nodes/read:getNodesAfter__write__store:nodes",
+      "source": "indexedDB/nodes/read:getNodesAfter",
       "target": "store:nodes",
       "rel": "write"
     },
     {
-      "id": "indexedDB/nodes/read:getNodeChunksFromIndexedDB__call__indexedDB/core/connection:openDatabase",
-      "source": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "indexedDB/nodes/read:getNodesFromIndexedDB__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL__push__route:/api/db/node-chunks/targeted-upsert",
-      "source": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL",
+      "id": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodesToPostgreSQL__push__route:/api/db/node-chunks/targeted-upsert",
+      "source": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodesToPostgreSQL",
       "target": "route:/api/db/node-chunks/targeted-upsert",
       "rel": "push",
       "label": "/api/db/node-chunks/targeted-upsert"
     },
     {
-      "id": "indexedDB/nodes/write:addNewBookToIndexedDB__call__indexedDB/nodes/write:addNodeChunkToIndexedDB",
+      "id": "indexedDB/nodes/write:addNewBookToIndexedDB__call__indexedDB/nodes/write:addNodeToIndexedDB",
       "source": "indexedDB/nodes/write:addNewBookToIndexedDB",
-      "target": "indexedDB/nodes/write:addNodeChunkToIndexedDB",
+      "target": "indexedDB/nodes/write:addNodeToIndexedDB",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "indexedDB/nodes/write:addNodeChunkToIndexedDB__call__indexedDB/core/connection:openDatabase",
-      "source": "indexedDB/nodes/write:addNodeChunkToIndexedDB",
+      "id": "indexedDB/nodes/write:addNodeToIndexedDB__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/nodes/write:addNodeToIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "indexedDB/nodes/write:addNodeChunkToIndexedDB__call__indexedDB/core/utilities:parseNodeId",
-      "source": "indexedDB/nodes/write:addNodeChunkToIndexedDB",
+      "id": "indexedDB/nodes/write:addNodeToIndexedDB__call__indexedDB/core/utilities:parseNodeId",
+      "source": "indexedDB/nodes/write:addNodeToIndexedDB",
       "target": "indexedDB/core/utilities:parseNodeId",
       "rel": "call"
     },
     {
-      "id": "indexedDB/nodes/write:addNodeChunkToIndexedDB__domwrite__dom",
-      "source": "indexedDB/nodes/write:addNodeChunkToIndexedDB",
+      "id": "indexedDB/nodes/write:addNodeToIndexedDB__domwrite__dom",
+      "source": "indexedDB/nodes/write:addNodeToIndexedDB",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "indexedDB/nodes/write:addNodeChunkToIndexedDB__write__store:nodes",
-      "source": "indexedDB/nodes/write:addNodeChunkToIndexedDB",
+      "id": "indexedDB/nodes/write:addNodeToIndexedDB__write__store:nodes",
+      "source": "indexedDB/nodes/write:addNodeToIndexedDB",
       "target": "store:nodes",
       "rel": "write"
     },
     {
-      "id": "indexedDB/nodes/write:deleteNodeChunksAfter__call__indexedDB/core/connection:openDatabase",
-      "source": "indexedDB/nodes/write:deleteNodeChunksAfter",
+      "id": "indexedDB/nodes/write:deleteNodesAfter__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/nodes/write:deleteNodesAfter",
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "indexedDB/nodes/write:deleteNodeChunksAfter__call__indexedDB/core/utilities:parseNodeId",
-      "source": "indexedDB/nodes/write:deleteNodeChunksAfter",
+      "id": "indexedDB/nodes/write:deleteNodesAfter__call__indexedDB/core/utilities:parseNodeId",
+      "source": "indexedDB/nodes/write:deleteNodesAfter",
       "target": "indexedDB/core/utilities:parseNodeId",
       "rel": "call"
     },
     {
-      "id": "indexedDB/nodes/write:deleteNodeChunksAfter__write__store:nodes",
-      "source": "indexedDB/nodes/write:deleteNodeChunksAfter",
+      "id": "indexedDB/nodes/write:deleteNodesAfter__write__store:nodes",
+      "source": "indexedDB/nodes/write:deleteNodesAfter",
       "target": "store:nodes",
       "rel": "write"
     },
     {
-      "id": "indexedDB/nodes/write:renumberNodeChunksInIndexedDB__call__indexedDB/core/connection:openDatabase",
-      "source": "indexedDB/nodes/write:renumberNodeChunksInIndexedDB",
+      "id": "indexedDB/nodes/write:renumberNodesInIndexedDB__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/nodes/write:renumberNodesInIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "indexedDB/nodes/write:renumberNodeChunksInIndexedDB__write__store:nodes",
-      "source": "indexedDB/nodes/write:renumberNodeChunksInIndexedDB",
+      "id": "indexedDB/nodes/write:renumberNodesInIndexedDB__write__store:nodes",
+      "source": "indexedDB/nodes/write:renumberNodesInIndexedDB",
       "target": "store:nodes",
       "rel": "write"
     },
     {
-      "id": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB__call__indexedDB/core/connection:openDatabase",
-      "source": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
+      "id": "indexedDB/nodes/write:saveAllNodesToIndexedDB__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/nodes/write:saveAllNodesToIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB__call__indexedDB/core/utilities:parseNodeId",
-      "source": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
+      "id": "indexedDB/nodes/write:saveAllNodesToIndexedDB__call__indexedDB/core/utilities:parseNodeId",
+      "source": "indexedDB/nodes/write:saveAllNodesToIndexedDB",
       "target": "indexedDB/core/utilities:parseNodeId",
       "rel": "call"
     },
     {
-      "id": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB__write__store:nodes",
-      "source": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
+      "id": "indexedDB/nodes/write:saveAllNodesToIndexedDB__write__store:nodes",
+      "source": "indexedDB/nodes/write:saveAllNodesToIndexedDB",
       "target": "store:nodes",
       "rel": "write"
     },
     {
-      "id": "indexedDB/nodes/write:writeNodeChunks__call__indexedDB/core/connection:openDatabase",
-      "source": "indexedDB/nodes/write:writeNodeChunks",
+      "id": "indexedDB/nodes/write:writeNodes__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/nodes/write:writeNodes",
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "indexedDB/nodes/write:writeNodeChunks__write__store:nodes",
-      "source": "indexedDB/nodes/write:writeNodeChunks",
+      "id": "indexedDB/nodes/write:writeNodes__write__store:nodes",
+      "source": "indexedDB/nodes/write:writeNodes",
       "target": "store:nodes",
       "rel": "write"
     },
@@ -31061,14 +31061,14 @@
       "rel": "write"
     },
     {
-      "id": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB__call__indexedDB/core/utilities:parseNodeId",
-      "source": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "id": "indexedDB/serverSync/loaders:loadNodesToIndexedDB__call__indexedDB/core/utilities:parseNodeId",
+      "source": "indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "target": "indexedDB/core/utilities:parseNodeId",
       "rel": "call"
     },
     {
-      "id": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB__call__indexedDB/types:asChunkId",
-      "source": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "id": "indexedDB/serverSync/loaders:loadNodesToIndexedDB__call__indexedDB/types:asChunkId",
+      "source": "indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "target": "indexedDB/types:asChunkId",
       "rel": "call"
     },
@@ -31179,9 +31179,9 @@
       "dataPath": true
     },
     {
-      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
-      "target": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "target": "indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "rel": "call"
     },
     {
@@ -31612,9 +31612,9 @@
       "dataPath": true
     },
     {
-      "id": "lazyLoader/index:createLazyLoader__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "lazyLoader/index:createLazyLoader__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "lazyLoader/index:createLazyLoader",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -31749,9 +31749,9 @@
       "rel": "call"
     },
     {
-      "id": "lazyLoader/index:loadNextChunkFixed__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "lazyLoader/index:loadNextChunkFixed__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "lazyLoader/index:loadNextChunkFixed",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -31826,9 +31826,9 @@
       "rel": "domwrite"
     },
     {
-      "id": "lazyLoader/index:loadPreviousChunkFixed__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "lazyLoader/index:loadPreviousChunkFixed__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "lazyLoader/index:loadPreviousChunkFixed",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -31954,9 +31954,9 @@
       "rel": "call"
     },
     {
-      "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "source": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
-      "target": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "target": "indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "rel": "call"
     },
     {
@@ -32059,9 +32059,9 @@
       "dataPath": true
     },
     {
-      "id": "pageLoad/initialChunk:fetchInitialChunk__call__indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "source": "pageLoad/initialChunk:fetchInitialChunk",
-      "target": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "target": "indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "rel": "call"
     },
     {
@@ -32116,9 +32116,9 @@
       "dataPath": true
     },
     {
-      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -32137,9 +32137,9 @@
       "dataPath": true
     },
     {
-      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer__call__pageLoad/nodeGen:generateNodeChunksFromMarkdown",
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer__call__pageLoad/nodeGen:generateNodesFromMarkdown",
       "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer",
-      "target": "pageLoad/nodeGen:generateNodeChunksFromMarkdown",
+      "target": "pageLoad/nodeGen:generateNodesFromMarkdown",
       "rel": "call",
       "dataPath": true
     },
@@ -32177,9 +32177,9 @@
       "dataPath": true
     },
     {
-      "id": "pageLoad/loadHyperText:loadFromJSONFiles__call__indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
+      "id": "pageLoad/loadHyperText:loadFromJSONFiles__call__indexedDB/nodes/write:saveAllNodesToIndexedDB",
       "source": "pageLoad/loadHyperText:loadFromJSONFiles",
-      "target": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
+      "target": "indexedDB/nodes/write:saveAllNodesToIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -32243,16 +32243,16 @@
       "dataPath": true
     },
     {
-      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "pageLoad/loadHyperText:loadHyperText",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
+      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/nodes/write:saveAllNodesToIndexedDB",
       "source": "pageLoad/loadHyperText:loadHyperText",
-      "target": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
+      "target": "indexedDB/nodes/write:saveAllNodesToIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -32349,9 +32349,9 @@
       "rel": "write"
     },
     {
-      "id": "pageLoad/nodeGen:generateNodeChunksFromMarkdown__call__indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
-      "source": "pageLoad/nodeGen:generateNodeChunksFromMarkdown",
-      "target": "indexedDB/nodes/write:saveAllNodeChunksToIndexedDB",
+      "id": "pageLoad/nodeGen:generateNodesFromMarkdown__call__indexedDB/nodes/write:saveAllNodesToIndexedDB",
+      "source": "pageLoad/nodeGen:generateNodesFromMarkdown",
+      "target": "indexedDB/nodes/write:saveAllNodesToIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -32404,9 +32404,9 @@
       "dataPath": true
     },
     {
-      "id": "pageLoad/timeMachine:initializeTimeMachine__call__indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "id": "pageLoad/timeMachine:initializeTimeMachine__call__indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "source": "pageLoad/timeMachine:initializeTimeMachine",
-      "target": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "target": "indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "rel": "call"
     },
     {
@@ -33250,23 +33250,23 @@
       "dataPath": true
     },
     {
-      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeImmediately",
       "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
-      "target": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeChunkImmediately",
+      "target": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeImmediately",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/nodes/read:getNodeChunkFromIndexedDB",
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/nodes/read:getNodeFromIndexedDB",
       "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
-      "target": "indexedDB/nodes/read:getNodeChunkFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodeFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -33316,30 +33316,30 @@
       "dataPath": true
     },
     {
-      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/nodes/read:getNodeChunksAfter",
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/nodes/read:getNodesAfter",
       "source": "paste/handlers/largePasteHandler:handleLargePaste",
-      "target": "indexedDB/nodes/read:getNodeChunksAfter",
+      "target": "indexedDB/nodes/read:getNodesAfter",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "paste/handlers/largePasteHandler:handleLargePaste",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/nodes/write:deleteNodeChunksAfter",
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/nodes/write:deleteNodesAfter",
       "source": "paste/handlers/largePasteHandler:handleLargePaste",
-      "target": "indexedDB/nodes/write:deleteNodeChunksAfter",
+      "target": "indexedDB/nodes/write:deleteNodesAfter",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/nodes/write:writeNodeChunks",
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__indexedDB/nodes/write:writeNodes",
       "source": "paste/handlers/largePasteHandler:handleLargePaste",
-      "target": "indexedDB/nodes/write:writeNodeChunks",
+      "target": "indexedDB/nodes/write:writeNodes",
       "rel": "call",
       "dataPath": true
     },
@@ -33405,16 +33405,16 @@
       "rel": "call"
     },
     {
-      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__indexedDB/nodes/write:deleteNodeChunksAfter",
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__indexedDB/nodes/write:deleteNodesAfter",
       "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
-      "target": "indexedDB/nodes/write:deleteNodeChunksAfter",
+      "target": "indexedDB/nodes/write:deleteNodesAfter",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__indexedDB/nodes/write:writeNodeChunks",
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__indexedDB/nodes/write:writeNodes",
       "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
-      "target": "indexedDB/nodes/write:writeNodeChunks",
+      "target": "indexedDB/nodes/write:writeNodes",
       "rel": "call",
       "dataPath": true
     },
@@ -33468,9 +33468,9 @@
       "rel": "call"
     },
     {
-      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -34440,9 +34440,9 @@
       "rel": "domwrite"
     },
     {
-      "id": "scrolling/internalNav:loadDefaultContent__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "scrolling/internalNav:loadDefaultContent__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "scrolling/internalNav:loadDefaultContent",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -34483,9 +34483,9 @@
       "rel": "call"
     },
     {
-      "id": "scrolling/internalNav:navigateToInternalId__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "scrolling/internalNav:navigateToInternalId__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "scrolling/internalNav:navigateToInternalId",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -34578,9 +34578,9 @@
       "rel": "call"
     },
     {
-      "id": "scrolling/restore:restoreScrollPosition__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "scrolling/restore:restoreScrollPosition__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "scrolling/restore:restoreScrollPosition",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -34742,9 +34742,9 @@
       "rel": "domwrite"
     },
     {
-      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.ensureSearchIndex__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.ensureSearchIndex__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.ensureSearchIndex",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -34881,9 +34881,9 @@
       "dataPath": true
     },
     {
-      "id": "SPA/createNewBook:fireAndForgetSync__call__indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL",
+      "id": "SPA/createNewBook:fireAndForgetSync__call__indexedDB/nodes/syncNodesToPostgreSQL:syncNodesToPostgreSQL",
       "source": "SPA/createNewBook:fireAndForgetSync",
-      "target": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodeChunksToPostgreSQL",
+      "target": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodesToPostgreSQL",
       "rel": "call",
       "dataPath": true
     },
@@ -35218,9 +35218,9 @@
       "dataPath": true
     },
     {
-      "id": "SPA/navigation/loadInitialChunkLocal:loadInitialChunkLocal__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "SPA/navigation/loadInitialChunkLocal:loadInitialChunkLocal__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "SPA/navigation/loadInitialChunkLocal:loadInitialChunkLocal",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -36826,15 +36826,15 @@
       "rel": "read"
     },
     {
-      "id": "store:nodes__read__hyperlights/database:removeHighlightFromNodeChunks",
+      "id": "store:nodes__read__hyperlights/database:removeHighlightFromNodes",
       "source": "store:nodes",
-      "target": "hyperlights/database:removeHighlightFromNodeChunks",
+      "target": "hyperlights/database:removeHighlightFromNodes",
       "rel": "read"
     },
     {
-      "id": "store:nodes__read__hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
+      "id": "store:nodes__read__hyperlights/database:removeHighlightFromNodesWithDeletion",
       "source": "store:nodes",
-      "target": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
+      "target": "hyperlights/database:removeHighlightFromNodesWithDeletion",
       "rel": "read"
     },
     {
@@ -36910,33 +36910,33 @@
       "rel": "read"
     },
     {
-      "id": "store:nodes__read__indexedDB/nodes/read:getAllNodeChunksForBook",
+      "id": "store:nodes__read__indexedDB/nodes/read:getAllNodesForBook",
       "source": "store:nodes",
-      "target": "indexedDB/nodes/read:getAllNodeChunksForBook",
+      "target": "indexedDB/nodes/read:getAllNodesForBook",
       "rel": "read"
     },
     {
-      "id": "store:nodes__read__indexedDB/nodes/read:getNodeChunkFromIndexedDB",
+      "id": "store:nodes__read__indexedDB/nodes/read:getNodeFromIndexedDB",
       "source": "store:nodes",
-      "target": "indexedDB/nodes/read:getNodeChunkFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodeFromIndexedDB",
       "rel": "read"
     },
     {
-      "id": "store:nodes__read__indexedDB/nodes/read:getNodeChunksAfter",
+      "id": "store:nodes__read__indexedDB/nodes/read:getNodesAfter",
       "source": "store:nodes",
-      "target": "indexedDB/nodes/read:getNodeChunksAfter",
+      "target": "indexedDB/nodes/read:getNodesAfter",
       "rel": "read"
     },
     {
-      "id": "store:nodes__read__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "id": "store:nodes__read__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "store:nodes",
-      "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "read"
     },
     {
-      "id": "store:nodes__read__indexedDB/nodes/write:deleteNodeChunksAfter",
+      "id": "store:nodes__read__indexedDB/nodes/write:deleteNodesAfter",
       "source": "store:nodes",
-      "target": "indexedDB/nodes/write:deleteNodeChunksAfter",
+      "target": "indexedDB/nodes/write:deleteNodesAfter",
       "rel": "read"
     },
     {

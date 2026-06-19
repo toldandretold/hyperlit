@@ -6,7 +6,7 @@ import { debounce } from "../../utilities/debounce";
 // whole scrolling graph in — keeps the static import graph acyclic.
 import { navigateToInternalId } from "../../scrolling/internalNav";
 import { cancelPendingNavigationCleanup } from "../../scrolling/userScrollDetection";
-import { getNodeChunksFromIndexedDB } from "../../indexedDB/nodes/read";
+import { getNodesFromIndexedDB } from "../../indexedDB/nodes/read";
 import { getLocalStorageKey } from "../../indexedDB/index";
 import { currentLazyLoader } from "../../pageLoad/currentLazyLoaderState"; // zero-import leaf (not the pageLoad barrel) → no cycle
 import { buildSearchIndex, searchIndex } from "./searchEngine";
@@ -167,7 +167,7 @@ class SearchToolbarManager {
     }
 
     try {
-      const nodes = await getNodeChunksFromIndexedDB(bookId);
+      const nodes = await getNodesFromIndexedDB(bookId);
       this.searchIndexCache = buildSearchIndex(nodes);
       verbose.init(`SearchToolbar: Index built with ${this.searchIndexCache.length} entries`, '/search/inTextSearch/searchToolbar');
     } catch (error) {

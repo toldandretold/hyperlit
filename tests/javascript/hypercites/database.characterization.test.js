@@ -29,7 +29,7 @@ vi.mock('../../../resources/js/indexedDB/index', async () => {
   return {
     openDatabase: conn.openDatabase,
     parseNodeId: util.parseNodeId,
-    createNodeChunksKey: util.createNodeChunksKey,
+    createNodeKey: util.createNodeKey,
     updateBookTimestamp,
     queueForSync,
     debouncedMasterSync: { flush },
