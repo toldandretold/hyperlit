@@ -17,7 +17,7 @@ vi.mock('../../../resources/js/utilities/bibtexProcessor', () => ({
   formatBibtexToCitation: vi.fn(async (b) => b),
 }));
 
-import { CitationMode } from '../../../resources/js/editToolbar/citationMode.js';
+import { CitationMode } from '../../../resources/js/editToolbar/citationMode/index';
 
 function buildMarkup() {
   // Chip bar lives inside #citation-toolbar-results now (the blurred panel).

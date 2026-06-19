@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1504 functions in 311 modules · 10 object stores · 10 PG tables · 3060 edges
+**MarkdownDB** schema v27 · 1506 functions in 313 modules · 10 object stores · 10 PG tables · 3063 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -612,32 +612,34 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ButtonStateManager.getStoredHeadingElement` | `editToolbar/buttonStateManager` | — | — | — | — |
 | `ButtonStateManager.setStoredHeadingElement` | `editToolbar/buttonStateManager` | — | — | — | — |
 | `ButtonStateManager.updateButtonStates` | `editToolbar/buttonStateManager` | — | — | read/write | — |
-| `CitationMode._closeShelfDropdown` | `editToolbar/citationMode` | — | — | write | — |
-| `CitationMode._destroyScopeChips` | `editToolbar/citationMode` | — | — | — | — |
-| `CitationMode._ensureShelvesLoaded` | `editToolbar/citationMode` | — | — | write | `↓route:/api/shelves` |
-| `CitationMode._handleScopeChange` | `editToolbar/citationMode` | — | `localStorage` | write | — |
-| `CitationMode._initScopeChips` | `editToolbar/citationMode` | — | — | read/write | — |
-| `CitationMode._items` | `editToolbar/citationMode` | — | — | read | — |
-| `CitationMode._openShelfDropdown` | `editToolbar/citationMode` | — | — | write | — |
-| `CitationMode._pickShelf` | `editToolbar/citationMode` | — | `localStorage` | write | — |
-| `CitationMode._renderShelfOptions` | `editToolbar/citationMode` | — | — | read/write | — |
-| `CitationMode._togglePickerVisibility` | `editToolbar/citationMode` | — | — | — | — |
-| `CitationMode._updateScopeBarVisibility` | `editToolbar/citationMode` | — | — | — | — |
-| `CitationMode.attachEventHandlers` | `editToolbar/citationMode` | — | — | — | — |
-| `CitationMode.close` | `editToolbar/citationMode` | — | — | read/write | — |
-| `CitationMode.constructor` | `editToolbar/citationMode` | `localStorage` | — | read | — |
-| `CitationMode.detachEventHandlers` | `editToolbar/citationMode` | — | — | — | — |
-| `CitationMode.handleCitationSelection` | `editToolbar/citationMode` | — | — | read | — |
-| `CitationMode.handleDocumentClick` | `editToolbar/citationMode` | — | — | read | — |
-| `CitationMode.handleKeyDown` | `editToolbar/citationMode` | — | — | — | — |
-| `CitationMode.handleResultsScroll` | `editToolbar/citationMode` | — | — | read | — |
-| `CitationMode.handleSearchInput` | `editToolbar/citationMode` | — | — | write | — |
-| `CitationMode.handleTouchEnd` | `editToolbar/citationMode` | — | — | read | — |
-| `CitationMode.handleTouchStart` | `editToolbar/citationMode` | — | — | — | — |
-| `CitationMode.open` | `editToolbar/citationMode` | — | — | read/write | — |
-| `CitationMode.performSearch` | `editToolbar/citationMode` | — | — | read/write | — |
-| `CitationMode.renderResults` | `editToolbar/citationMode` | — | — | read/write | — |
-| `CitationMode.repositionContainer` | `editToolbar/citationMode` | — | — | read | — |
+| `CitationMode._closeShelfDropdown` | `editToolbar/citationMode/index` | — | — | write | — |
+| `CitationMode._destroyScopeChips` | `editToolbar/citationMode/index` | — | — | — | — |
+| `CitationMode._ensureShelvesLoaded` | `editToolbar/citationMode/index` | — | — | write | `↓route:/api/shelves` |
+| `CitationMode._handleScopeChange` | `editToolbar/citationMode/index` | — | `localStorage` | write | — |
+| `CitationMode._initScopeChips` | `editToolbar/citationMode/index` | — | — | read/write | — |
+| `CitationMode._items` | `editToolbar/citationMode/index` | — | — | read | — |
+| `CitationMode._openShelfDropdown` | `editToolbar/citationMode/index` | — | — | write | — |
+| `CitationMode._pickShelf` | `editToolbar/citationMode/index` | — | `localStorage` | write | — |
+| `CitationMode._renderShelfOptions` | `editToolbar/citationMode/index` | — | — | read/write | — |
+| `CitationMode._togglePickerVisibility` | `editToolbar/citationMode/index` | — | — | — | — |
+| `CitationMode._updateScopeBarVisibility` | `editToolbar/citationMode/index` | — | — | — | — |
+| `CitationMode.attachEventHandlers` | `editToolbar/citationMode/index` | — | — | — | — |
+| `CitationMode.close` | `editToolbar/citationMode/index` | — | — | read/write | — |
+| `CitationMode.constructor` | `editToolbar/citationMode/index` | `localStorage` | — | read | — |
+| `CitationMode.detachEventHandlers` | `editToolbar/citationMode/index` | — | — | — | — |
+| `CitationMode.handleCitationSelection` | `editToolbar/citationMode/index` | — | — | read | — |
+| `CitationMode.handleDocumentClick` | `editToolbar/citationMode/index` | — | — | read | — |
+| `CitationMode.handleKeyDown` | `editToolbar/citationMode/index` | — | — | — | — |
+| `CitationMode.handleResultsScroll` | `editToolbar/citationMode/index` | — | — | read | — |
+| `CitationMode.handleSearchInput` | `editToolbar/citationMode/index` | — | — | write | — |
+| `CitationMode.handleTouchEnd` | `editToolbar/citationMode/index` | — | — | read | — |
+| `CitationMode.handleTouchStart` | `editToolbar/citationMode/index` | — | — | — | — |
+| `CitationMode.open` | `editToolbar/citationMode/index` | — | — | read/write | — |
+| `CitationMode.performSearch` | `editToolbar/citationMode/index` | — | — | read/write | — |
+| `CitationMode.renderResults` | `editToolbar/citationMode/index` | — | — | read/write | — |
+| `CitationMode.repositionContainer` | `editToolbar/citationMode/index` | — | — | read | — |
+| `buildResultButton` | `editToolbar/citationMode/resultsRender` | — | — | write | — |
+| `buildCombinedSearchUrl` | `editToolbar/citationMode/searchQuery` | — | — | — | — |
 | `HeadingSubmenu.closeHeadingSubmenu` | `editToolbar/headingSubmenu` | — | — | write | — |
 | `HeadingSubmenu.constructor` | `editToolbar/headingSubmenu` | — | — | — | — |
 | `HeadingSubmenu.convertHeadingToParagraph` | `editToolbar/headingSubmenu` | — | — | read/write | — |
@@ -1618,7 +1620,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `divEditor/selectionDelete` → `hypercites/database`
 - `divEditor/supTagHandler/deleteHandler` → `hypercites/database`
 - `divEditor/supTagHandler/deleteHandler` → `indexedDB/index`
-- `editToolbar/citationMode` → `citations/citationInserter`
+- `editToolbar/citationMode/index` → `citations/citationInserter`
 - `editToolbar/index` → `footnotes/footnoteInserter`
 - `footnotes/FootnoteNumberingService` → `indexedDB/core/connection`
 - `footnotes/FootnoteNumberingService` → `indexedDB/index`

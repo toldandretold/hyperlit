@@ -13,8 +13,9 @@
 //       Full insertion flow, bibliography record shape.
 // See tests/Feature/Citations/README.md for the full suite map.
 
-import { formatBibtexToCitation } from "../utilities/bibtexProcessor";
-import DOMPurify from "dompurify";
+import { buildResultButton } from "./resultsRender";
+import { buildCombinedSearchUrl } from "./searchQuery";
+import type { CitationModeOptions, ShelfUI, ScopeChipsUI, PendingContext, CitationSearchResult } from "./types";
 
 declare global {
   interface Window {
@@ -25,32 +26,6 @@ declare global {
 const SCOPE_STORAGE_KEY = 'hyperlit:citation:scope';
 const SHELF_STORAGE_KEY = 'hyperlit:citation:shelfId';
 const VALID_SCOPES = ['public', 'mine', 'shelf'];
-
-interface CitationModeOptions {
-  toolbar?: HTMLElement | null;
-  citationButton?: HTMLElement | null;
-  citationContainer?: HTMLElement | null;
-  citationInput?: HTMLInputElement | null;
-  citationResults?: HTMLElement | null;
-  closeHeadingSubmenuCallback?: () => void;
-}
-
-/** The custom shelf-dropdown sub-UI (present only if its full markup block exists). */
-interface ShelfUI {
-  picker: HTMLElement;
-  trigger: HTMLElement;
-  current: HTMLElement;
-  options: HTMLElement;
-}
-
-/** Category C refs — the scope-chip bar (+ optional shelf), live ONLY while the mode is open.
- *  Held as one nullable bundle so a single `if (!this.scopeUI) return` narrows them all to
- *  non-null (provable, not asserted). Built in _initScopeChips, cleared in _destroyScopeChips. */
-interface ScopeChipsUI {
-  scopeBar: HTMLElement;
-  scopeButtons: HTMLElement[];
-  shelf: ShelfUI | null;
-}
 
 export class CitationMode {
   // Category A refs — always present while the mode operates. Resolved once in the
@@ -73,7 +48,7 @@ export class CitationMode {
   currentScope: string = 'public';
   currentShelfId: string = '';
   isOpen: boolean = false;
-  pendingContext: any;
+  pendingContext: PendingContext | null = null;
   debounceTimer: ReturnType<typeof setTimeout> | null = null;
   abortController: AbortController | null = null;
   currentQuery: string = '';
@@ -164,7 +139,7 @@ export class CitationMode {
     this.boundCloseButtonHandler = null;
   }
 
-  open(context: any) {
+  open(context: PendingContext) {
     if (this.inert || this.isOpen) return;
 
     // Close heading submenu if it's open (prevents visual overlap)
@@ -688,16 +663,7 @@ export class CitationMode {
     this.abortController = new AbortController();
 
     try {
-      const params = new URLSearchParams({
-        q: query,
-        limit: '15',
-        offset: String(offset),
-        sourceScope: this.currentScope,
-      });
-      if (this.currentScope === 'shelf' && this.currentShelfId) {
-        params.set('shelfId', this.currentShelfId);
-      }
-      const url = `/api/search/combined?${params.toString()}`;
+      const url = buildCombinedSearchUrl(query, this.currentScope, this.currentShelfId, offset);
       const response = await fetch(url, {
         headers: {
           'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content || '',
@@ -739,7 +705,7 @@ export class CitationMode {
     }
   }
 
-  async renderResults(results: any, offset = 0, hasMore = false) {
+  async renderResults(results: CitationSearchResult[], offset = 0, hasMore = false) {
     console.log('🔍 renderResults called with', results.length, 'results, offset:', offset, 'hasMore:', hasMore);
     console.log('🔍 citationResults element:', this.citationResults);
     console.log('🔍 citationResults parent:', this.citationResults?.parentElement);
@@ -763,64 +729,8 @@ export class CitationMode {
     }
 
     console.log('🔍 Creating buttons for results...');
-    // Use Promise.all to await all formatting promises
-    const buttons = await Promise.all(results.map(async (result: any) => {
-      let sanitized;
-
-      if (result.bibtex) {
-        const formattedCitation = await formatBibtexToCitation(result.bibtex);
-        sanitized = DOMPurify.sanitize(formattedCitation, {
-          ALLOWED_TAGS: ['i', 'em', 'b', 'strong', 'a'],
-          ALLOWED_ATTR: ['href', 'target']
-        });
-      } else {
-        // Bibtex absent (shouldn't normally happen post-PR4 since the service
-        // generates a synthetic bibtex from canonical metadata) — fall back to
-        // a simple display so the user still sees the result.
-        const title = result.title || 'Untitled';
-        const meta = [result.author, result.year, result.journal].filter(Boolean).join(', ');
-        const raw = `<em>${title}</em>${meta ? ' — ' + meta : ''}`;
-        sanitized = DOMPurify.sanitize(raw, {
-          ALLOWED_TAGS: ['i', 'em', 'b', 'strong'],
-        });
-      }
-
-      // Optional badge for canonical-only results so the user knows ahead of
-      // clicking that there's no text in the library, just citation metadata.
-      let badge = '';
-      if (result.source === 'canonical-only') {
-        badge = '<span class="citation-result-badge citation-result-badge-citation-only" title="Citation only — text not in library">citation only</span>';
-      }
-
-      // Private-lock badge for any result whose resolved version is one of the
-      // caller's private books. Reuses the same SVG used on libraryCard so the
-      // visual language matches between the library list and the citation modal.
-      let privateIcon = '';
-      if (result.is_private) {
-        privateIcon = '<span class="citation-result-private" title="Private — only visible to you"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg></span>';
-      }
-
-      const button = document.createElement('button');
-      button.className = 'citation-result-item';
-      if (result.source === 'canonical-only') {
-        button.classList.add('citation-result-canonical-only');
-        button.title = 'Citation only — text not in library';
-      } else if (result.source === 'canonical') {
-        button.classList.add('citation-result-canonical');
-      }
-      if (result.is_private) {
-        button.classList.add('citation-result-private-source');
-      }
-      button.innerHTML = sanitized + (badge ? ' ' + badge : '') + privateIcon;
-      button.dataset.bookId = result.book || '';
-      button.dataset.canonicalSourceId = result.canonical_source_id || '';
-      button.dataset.bibtex = result.bibtex || '';
-      button.dataset.hasNodes = result.has_nodes ? '1' : '0';
-      button.dataset.source = result.source || '';
-      button.dataset.isPrivate = result.is_private ? '1' : '0';
-
-      return button;
-    }));
+    // Per-result button construction is pure — extracted to ./resultsRender.
+    const buttons = await Promise.all(results.map((result) => buildResultButton(result)));
 
     console.log('🔍 Appending', buttons.length, 'buttons...');
     buttons.forEach(btn => items.appendChild(btn));
@@ -1000,7 +910,7 @@ export class CitationMode {
 
     try {
       // Dynamic import to avoid circular dependencies
-      const { insertCitationAtCursor } = await import('../citations/citationInserter');
+      const { insertCitationAtCursor } = await import('../../citations/citationInserter');
 
       await insertCitationAtCursor(
         range,

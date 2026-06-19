@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1504,
-    "moduleCount": 311,
+    "fnCount": 1506,
+    "moduleCount": 313,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3060,
+    "edgeCount": 3063,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -6060,212 +6060,228 @@
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._closeShelfDropdown",
+      "id": "editToolbar/citationMode/index:CitationMode._closeShelfDropdown",
       "label": "CitationMode._closeShelfDropdown",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._destroyScopeChips",
+      "id": "editToolbar/citationMode/index:CitationMode._destroyScopeChips",
       "label": "CitationMode._destroyScopeChips",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": true
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._ensureShelvesLoaded",
+      "id": "editToolbar/citationMode/index:CitationMode._ensureShelvesLoaded",
       "label": "CitationMode._ensureShelvesLoaded",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._handleScopeChange",
+      "id": "editToolbar/citationMode/index:CitationMode._handleScopeChange",
       "label": "CitationMode._handleScopeChange",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._initScopeChips",
+      "id": "editToolbar/citationMode/index:CitationMode._initScopeChips",
       "label": "CitationMode._initScopeChips",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._items",
+      "id": "editToolbar/citationMode/index:CitationMode._items",
       "label": "CitationMode._items",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._openShelfDropdown",
+      "id": "editToolbar/citationMode/index:CitationMode._openShelfDropdown",
       "label": "CitationMode._openShelfDropdown",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._pickShelf",
+      "id": "editToolbar/citationMode/index:CitationMode._pickShelf",
       "label": "CitationMode._pickShelf",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._renderShelfOptions",
+      "id": "editToolbar/citationMode/index:CitationMode._renderShelfOptions",
       "label": "CitationMode._renderShelfOptions",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._togglePickerVisibility",
+      "id": "editToolbar/citationMode/index:CitationMode._togglePickerVisibility",
       "label": "CitationMode._togglePickerVisibility",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": true
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._updateScopeBarVisibility",
+      "id": "editToolbar/citationMode/index:CitationMode._updateScopeBarVisibility",
       "label": "CitationMode._updateScopeBarVisibility",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": true
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.attachEventHandlers",
+      "id": "editToolbar/citationMode/index:CitationMode.attachEventHandlers",
       "label": "CitationMode.attachEventHandlers",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": true
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.close",
+      "id": "editToolbar/citationMode/index:CitationMode.close",
       "label": "CitationMode.close",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.constructor",
+      "id": "editToolbar/citationMode/index:CitationMode.constructor",
       "label": "CitationMode.constructor",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.detachEventHandlers",
+      "id": "editToolbar/citationMode/index:CitationMode.detachEventHandlers",
       "label": "CitationMode.detachEventHandlers",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": true
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.handleCitationSelection",
+      "id": "editToolbar/citationMode/index:CitationMode.handleCitationSelection",
       "label": "CitationMode.handleCitationSelection",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.handleDocumentClick",
+      "id": "editToolbar/citationMode/index:CitationMode.handleDocumentClick",
       "label": "CitationMode.handleDocumentClick",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.handleKeyDown",
+      "id": "editToolbar/citationMode/index:CitationMode.handleKeyDown",
       "label": "CitationMode.handleKeyDown",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": true
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.handleResultsScroll",
+      "id": "editToolbar/citationMode/index:CitationMode.handleResultsScroll",
       "label": "CitationMode.handleResultsScroll",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.handleSearchInput",
+      "id": "editToolbar/citationMode/index:CitationMode.handleSearchInput",
       "label": "CitationMode.handleSearchInput",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.handleTouchEnd",
+      "id": "editToolbar/citationMode/index:CitationMode.handleTouchEnd",
       "label": "CitationMode.handleTouchEnd",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.handleTouchStart",
+      "id": "editToolbar/citationMode/index:CitationMode.handleTouchStart",
       "label": "CitationMode.handleTouchStart",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": true
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.open",
+      "id": "editToolbar/citationMode/index:CitationMode.open",
       "label": "CitationMode.open",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.performSearch",
+      "id": "editToolbar/citationMode/index:CitationMode.performSearch",
       "label": "CitationMode.performSearch",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.renderResults",
+      "id": "editToolbar/citationMode/index:CitationMode.renderResults",
       "label": "CitationMode.renderResults",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.repositionContainer",
+      "id": "editToolbar/citationMode/index:CitationMode.repositionContainer",
       "label": "CitationMode.repositionContainer",
       "kind": "fn",
       "stage": "editToolbar",
-      "module": "editToolbar/citationMode",
+      "module": "editToolbar/citationMode/index",
       "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode/resultsRender:buildResultButton",
+      "label": "buildResultButton",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode/resultsRender",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode/searchQuery:buildCombinedSearchUrl",
+      "label": "buildCombinedSearchUrl",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode/searchQuery",
+      "leaf": true
     },
     {
       "id": "editToolbar/headingSubmenu:HeadingSubmenu.closeHeadingSubmenu",
@@ -15290,37 +15306,55 @@
       ]
     },
     {
-      "id": "editToolbar/citationMode",
-      "label": "editToolbar/citationMode",
+      "id": "editToolbar/citationMode/index",
+      "label": "editToolbar/citationMode/index",
       "stage": "editToolbar",
       "band": "sync",
       "fnIds": [
-        "editToolbar/citationMode:CitationMode._closeShelfDropdown",
-        "editToolbar/citationMode:CitationMode._destroyScopeChips",
-        "editToolbar/citationMode:CitationMode._ensureShelvesLoaded",
-        "editToolbar/citationMode:CitationMode._handleScopeChange",
-        "editToolbar/citationMode:CitationMode._initScopeChips",
-        "editToolbar/citationMode:CitationMode._items",
-        "editToolbar/citationMode:CitationMode._openShelfDropdown",
-        "editToolbar/citationMode:CitationMode._pickShelf",
-        "editToolbar/citationMode:CitationMode._renderShelfOptions",
-        "editToolbar/citationMode:CitationMode._togglePickerVisibility",
-        "editToolbar/citationMode:CitationMode._updateScopeBarVisibility",
-        "editToolbar/citationMode:CitationMode.attachEventHandlers",
-        "editToolbar/citationMode:CitationMode.close",
-        "editToolbar/citationMode:CitationMode.constructor",
-        "editToolbar/citationMode:CitationMode.detachEventHandlers",
-        "editToolbar/citationMode:CitationMode.handleCitationSelection",
-        "editToolbar/citationMode:CitationMode.handleDocumentClick",
-        "editToolbar/citationMode:CitationMode.handleKeyDown",
-        "editToolbar/citationMode:CitationMode.handleResultsScroll",
-        "editToolbar/citationMode:CitationMode.handleSearchInput",
-        "editToolbar/citationMode:CitationMode.handleTouchEnd",
-        "editToolbar/citationMode:CitationMode.handleTouchStart",
-        "editToolbar/citationMode:CitationMode.open",
-        "editToolbar/citationMode:CitationMode.performSearch",
-        "editToolbar/citationMode:CitationMode.renderResults",
-        "editToolbar/citationMode:CitationMode.repositionContainer"
+        "editToolbar/citationMode/index:CitationMode._closeShelfDropdown",
+        "editToolbar/citationMode/index:CitationMode._destroyScopeChips",
+        "editToolbar/citationMode/index:CitationMode._ensureShelvesLoaded",
+        "editToolbar/citationMode/index:CitationMode._handleScopeChange",
+        "editToolbar/citationMode/index:CitationMode._initScopeChips",
+        "editToolbar/citationMode/index:CitationMode._items",
+        "editToolbar/citationMode/index:CitationMode._openShelfDropdown",
+        "editToolbar/citationMode/index:CitationMode._pickShelf",
+        "editToolbar/citationMode/index:CitationMode._renderShelfOptions",
+        "editToolbar/citationMode/index:CitationMode._togglePickerVisibility",
+        "editToolbar/citationMode/index:CitationMode._updateScopeBarVisibility",
+        "editToolbar/citationMode/index:CitationMode.attachEventHandlers",
+        "editToolbar/citationMode/index:CitationMode.close",
+        "editToolbar/citationMode/index:CitationMode.constructor",
+        "editToolbar/citationMode/index:CitationMode.detachEventHandlers",
+        "editToolbar/citationMode/index:CitationMode.handleCitationSelection",
+        "editToolbar/citationMode/index:CitationMode.handleDocumentClick",
+        "editToolbar/citationMode/index:CitationMode.handleKeyDown",
+        "editToolbar/citationMode/index:CitationMode.handleResultsScroll",
+        "editToolbar/citationMode/index:CitationMode.handleSearchInput",
+        "editToolbar/citationMode/index:CitationMode.handleTouchEnd",
+        "editToolbar/citationMode/index:CitationMode.handleTouchStart",
+        "editToolbar/citationMode/index:CitationMode.open",
+        "editToolbar/citationMode/index:CitationMode.performSearch",
+        "editToolbar/citationMode/index:CitationMode.renderResults",
+        "editToolbar/citationMode/index:CitationMode.repositionContainer"
+      ]
+    },
+    {
+      "id": "editToolbar/citationMode/resultsRender",
+      "label": "editToolbar/citationMode/resultsRender",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/citationMode/resultsRender:buildResultButton"
+      ]
+    },
+    {
+      "id": "editToolbar/citationMode/searchQuery",
+      "label": "editToolbar/citationMode/searchQuery",
+      "stage": "editToolbar",
+      "band": "store",
+      "fnIds": [
+        "editToolbar/citationMode/searchQuery:buildCombinedSearchUrl"
       ]
     },
     {
@@ -23790,81 +23824,81 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__editToolbar/citationMode:CitationMode._initScopeChips",
+      "id": "dom__domread__editToolbar/citationMode/index:CitationMode._initScopeChips",
       "source": "dom",
-      "target": "editToolbar/citationMode:CitationMode._initScopeChips",
+      "target": "editToolbar/citationMode/index:CitationMode._initScopeChips",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__editToolbar/citationMode:CitationMode._items",
+      "id": "dom__domread__editToolbar/citationMode/index:CitationMode._items",
       "source": "dom",
-      "target": "editToolbar/citationMode:CitationMode._items",
+      "target": "editToolbar/citationMode/index:CitationMode._items",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__editToolbar/citationMode:CitationMode._renderShelfOptions",
+      "id": "dom__domread__editToolbar/citationMode/index:CitationMode._renderShelfOptions",
       "source": "dom",
-      "target": "editToolbar/citationMode:CitationMode._renderShelfOptions",
+      "target": "editToolbar/citationMode/index:CitationMode._renderShelfOptions",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__editToolbar/citationMode:CitationMode.close",
+      "id": "dom__domread__editToolbar/citationMode/index:CitationMode.close",
       "source": "dom",
-      "target": "editToolbar/citationMode:CitationMode.close",
+      "target": "editToolbar/citationMode/index:CitationMode.close",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__editToolbar/citationMode:CitationMode.constructor",
+      "id": "dom__domread__editToolbar/citationMode/index:CitationMode.constructor",
       "source": "dom",
-      "target": "editToolbar/citationMode:CitationMode.constructor",
+      "target": "editToolbar/citationMode/index:CitationMode.constructor",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__editToolbar/citationMode:CitationMode.handleCitationSelection",
+      "id": "dom__domread__editToolbar/citationMode/index:CitationMode.handleCitationSelection",
       "source": "dom",
-      "target": "editToolbar/citationMode:CitationMode.handleCitationSelection",
+      "target": "editToolbar/citationMode/index:CitationMode.handleCitationSelection",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__editToolbar/citationMode:CitationMode.handleDocumentClick",
+      "id": "dom__domread__editToolbar/citationMode/index:CitationMode.handleDocumentClick",
       "source": "dom",
-      "target": "editToolbar/citationMode:CitationMode.handleDocumentClick",
+      "target": "editToolbar/citationMode/index:CitationMode.handleDocumentClick",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__editToolbar/citationMode:CitationMode.handleResultsScroll",
+      "id": "dom__domread__editToolbar/citationMode/index:CitationMode.handleResultsScroll",
       "source": "dom",
-      "target": "editToolbar/citationMode:CitationMode.handleResultsScroll",
+      "target": "editToolbar/citationMode/index:CitationMode.handleResultsScroll",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__editToolbar/citationMode:CitationMode.handleTouchEnd",
+      "id": "dom__domread__editToolbar/citationMode/index:CitationMode.handleTouchEnd",
       "source": "dom",
-      "target": "editToolbar/citationMode:CitationMode.handleTouchEnd",
+      "target": "editToolbar/citationMode/index:CitationMode.handleTouchEnd",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__editToolbar/citationMode:CitationMode.open",
+      "id": "dom__domread__editToolbar/citationMode/index:CitationMode.open",
       "source": "dom",
-      "target": "editToolbar/citationMode:CitationMode.open",
+      "target": "editToolbar/citationMode/index:CitationMode.open",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__editToolbar/citationMode:CitationMode.performSearch",
+      "id": "dom__domread__editToolbar/citationMode/index:CitationMode.performSearch",
       "source": "dom",
-      "target": "editToolbar/citationMode:CitationMode.performSearch",
+      "target": "editToolbar/citationMode/index:CitationMode.performSearch",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__editToolbar/citationMode:CitationMode.renderResults",
+      "id": "dom__domread__editToolbar/citationMode/index:CitationMode.renderResults",
       "source": "dom",
-      "target": "editToolbar/citationMode:CitationMode.renderResults",
+      "target": "editToolbar/citationMode/index:CitationMode.renderResults",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__editToolbar/citationMode:CitationMode.repositionContainer",
+      "id": "dom__domread__editToolbar/citationMode/index:CitationMode.repositionContainer",
       "source": "dom",
-      "target": "editToolbar/citationMode:CitationMode.repositionContainer",
+      "target": "editToolbar/citationMode/index:CitationMode.repositionContainer",
       "rel": "domread"
     },
     {
@@ -26066,93 +26100,111 @@
       "rel": "domwrite"
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._closeShelfDropdown__domwrite__dom",
-      "source": "editToolbar/citationMode:CitationMode._closeShelfDropdown",
+      "id": "editToolbar/citationMode/index:CitationMode._closeShelfDropdown__domwrite__dom",
+      "source": "editToolbar/citationMode/index:CitationMode._closeShelfDropdown",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._ensureShelvesLoaded__domwrite__dom",
-      "source": "editToolbar/citationMode:CitationMode._ensureShelvesLoaded",
+      "id": "editToolbar/citationMode/index:CitationMode._ensureShelvesLoaded__domwrite__dom",
+      "source": "editToolbar/citationMode/index:CitationMode._ensureShelvesLoaded",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._handleScopeChange__domwrite__dom",
-      "source": "editToolbar/citationMode:CitationMode._handleScopeChange",
+      "id": "editToolbar/citationMode/index:CitationMode._handleScopeChange__domwrite__dom",
+      "source": "editToolbar/citationMode/index:CitationMode._handleScopeChange",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._handleScopeChange__write__store:localStorage",
-      "source": "editToolbar/citationMode:CitationMode._handleScopeChange",
+      "id": "editToolbar/citationMode/index:CitationMode._handleScopeChange__write__store:localStorage",
+      "source": "editToolbar/citationMode/index:CitationMode._handleScopeChange",
       "target": "store:localStorage",
       "rel": "write"
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._initScopeChips__domwrite__dom",
-      "source": "editToolbar/citationMode:CitationMode._initScopeChips",
+      "id": "editToolbar/citationMode/index:CitationMode._initScopeChips__domwrite__dom",
+      "source": "editToolbar/citationMode/index:CitationMode._initScopeChips",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._openShelfDropdown__domwrite__dom",
-      "source": "editToolbar/citationMode:CitationMode._openShelfDropdown",
+      "id": "editToolbar/citationMode/index:CitationMode._openShelfDropdown__domwrite__dom",
+      "source": "editToolbar/citationMode/index:CitationMode._openShelfDropdown",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._pickShelf__domwrite__dom",
-      "source": "editToolbar/citationMode:CitationMode._pickShelf",
+      "id": "editToolbar/citationMode/index:CitationMode._pickShelf__domwrite__dom",
+      "source": "editToolbar/citationMode/index:CitationMode._pickShelf",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._pickShelf__write__store:localStorage",
-      "source": "editToolbar/citationMode:CitationMode._pickShelf",
+      "id": "editToolbar/citationMode/index:CitationMode._pickShelf__write__store:localStorage",
+      "source": "editToolbar/citationMode/index:CitationMode._pickShelf",
       "target": "store:localStorage",
       "rel": "write"
     },
     {
-      "id": "editToolbar/citationMode:CitationMode._renderShelfOptions__domwrite__dom",
-      "source": "editToolbar/citationMode:CitationMode._renderShelfOptions",
+      "id": "editToolbar/citationMode/index:CitationMode._renderShelfOptions__domwrite__dom",
+      "source": "editToolbar/citationMode/index:CitationMode._renderShelfOptions",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.close__domwrite__dom",
-      "source": "editToolbar/citationMode:CitationMode.close",
+      "id": "editToolbar/citationMode/index:CitationMode.close__domwrite__dom",
+      "source": "editToolbar/citationMode/index:CitationMode.close",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.handleCitationSelection__call__citations/citationInserter:insertCitationAtCursor",
-      "source": "editToolbar/citationMode:CitationMode.handleCitationSelection",
+      "id": "editToolbar/citationMode/index:CitationMode.handleCitationSelection__call__citations/citationInserter:insertCitationAtCursor",
+      "source": "editToolbar/citationMode/index:CitationMode.handleCitationSelection",
       "target": "citations/citationInserter:insertCitationAtCursor",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.handleSearchInput__domwrite__dom",
-      "source": "editToolbar/citationMode:CitationMode.handleSearchInput",
+      "id": "editToolbar/citationMode/index:CitationMode.handleSearchInput__domwrite__dom",
+      "source": "editToolbar/citationMode/index:CitationMode.handleSearchInput",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.open__domwrite__dom",
-      "source": "editToolbar/citationMode:CitationMode.open",
+      "id": "editToolbar/citationMode/index:CitationMode.open__domwrite__dom",
+      "source": "editToolbar/citationMode/index:CitationMode.open",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.performSearch__domwrite__dom",
-      "source": "editToolbar/citationMode:CitationMode.performSearch",
+      "id": "editToolbar/citationMode/index:CitationMode.performSearch__call__editToolbar/citationMode/searchQuery:buildCombinedSearchUrl",
+      "source": "editToolbar/citationMode/index:CitationMode.performSearch",
+      "target": "editToolbar/citationMode/searchQuery:buildCombinedSearchUrl",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/citationMode/index:CitationMode.performSearch__domwrite__dom",
+      "source": "editToolbar/citationMode/index:CitationMode.performSearch",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "editToolbar/citationMode:CitationMode.renderResults__domwrite__dom",
-      "source": "editToolbar/citationMode:CitationMode.renderResults",
+      "id": "editToolbar/citationMode/index:CitationMode.renderResults__call__editToolbar/citationMode/resultsRender:buildResultButton",
+      "source": "editToolbar/citationMode/index:CitationMode.renderResults",
+      "target": "editToolbar/citationMode/resultsRender:buildResultButton",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/citationMode/index:CitationMode.renderResults__domwrite__dom",
+      "source": "editToolbar/citationMode/index:CitationMode.renderResults",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode/resultsRender:buildResultButton__domwrite__dom",
+      "source": "editToolbar/citationMode/resultsRender:buildResultButton",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -34106,9 +34158,9 @@
       "label": "/api/shelves/{}/render"
     },
     {
-      "id": "route:/api/shelves__pull__editToolbar/citationMode:CitationMode._ensureShelvesLoaded",
+      "id": "route:/api/shelves__pull__editToolbar/citationMode/index:CitationMode._ensureShelvesLoaded",
       "source": "route:/api/shelves",
-      "target": "editToolbar/citationMode:CitationMode._ensureShelvesLoaded",
+      "target": "editToolbar/citationMode/index:CitationMode._ensureShelvesLoaded",
       "rel": "pull",
       "label": "/api/shelves"
     },
@@ -36476,9 +36528,9 @@
       "rel": "read"
     },
     {
-      "id": "store:localStorage__read__editToolbar/citationMode:CitationMode.constructor",
+      "id": "store:localStorage__read__editToolbar/citationMode/index:CitationMode.constructor",
       "source": "store:localStorage",
-      "target": "editToolbar/citationMode:CitationMode.constructor",
+      "target": "editToolbar/citationMode/index:CitationMode.constructor",
       "rel": "read"
     },
     {
@@ -38867,7 +38919,17 @@
       "kind": "static"
     },
     {
-      "source": "editToolbar/citationMode",
+      "source": "editToolbar/citationMode/index",
+      "target": "editToolbar/citationMode/resultsRender",
+      "kind": "static"
+    },
+    {
+      "source": "editToolbar/citationMode/index",
+      "target": "editToolbar/citationMode/searchQuery",
+      "kind": "static"
+    },
+    {
+      "source": "editToolbar/citationMode/index",
       "target": "citations/citationInserter",
       "kind": "lazy"
     },
@@ -38893,7 +38955,7 @@
     },
     {
       "source": "editToolbar/index",
-      "target": "editToolbar/citationMode",
+      "target": "editToolbar/citationMode/index",
       "kind": "static"
     },
     {
