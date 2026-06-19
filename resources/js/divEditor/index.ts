@@ -81,6 +81,7 @@ import { generateIdBetween,
          findPreviousElementId,
          findNextElementId,
          type BookId,
+         type LineId,
           } from "../utilities/idHelpers";
 import {
   broadcastToOpenTabs
@@ -116,11 +117,11 @@ import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../co
 
 // movedNodesByOverflow now lives in the editorState leaf (imported + re-exported above).
 // Tracking sets
-const modifiedNodes = new Set(); // Track element IDs whose content was modified.
-const addedNodes = new Set(); // Track newly-added element nodes.
-const removedNodeIds = new Set(); // Track IDs of removed nodes.
+const modifiedNodes = new Set<string>(); // Track element IDs whose content was modified.
+const addedNodes = new Set<Node>(); // Track newly-added element nodes.
+const removedNodeIds = new Set<string>(); // Track IDs of removed nodes.
 
-let observer: any;
+let observer: MutationObserver | null = null;
 let documentChanged = false;
 let debounceTimer = null;
 
@@ -143,8 +144,8 @@ let observedChunks = new Map();
 let deletionHandler = null;
 
 // 🚀 PERFORMANCE: Input event handler for text changes (replaces characterData observer)
-let inputEventHandler: any = null;
-let debouncedInputHandlerRef: any = null; // Reference to debounced handler for flushing on close
+let inputEventHandler: ((e: Event) => void) | null = null;
+let debouncedInputHandlerRef: ReturnType<typeof debounce> | null = null; // Reference to debounced handler for flushing on close
 let isComposing = false; // Track mobile IME composition state
 
 // 🚀 PERFORMANCE: Cache for input handler parent lookups (50-90% faster)
@@ -152,7 +153,7 @@ const elementToNumericalParent = new WeakMap();
 
 // 🛡️ SAFETY NET: Track last input node ID so flush can save even when selection moves
 // (e.g., user clicks overlay to close within 200ms debounce window)
-let lastInputNodeId: any = null;
+let lastInputNodeId: LineId | null = null;
 
 // 🚀 PERFORMANCE: Helper to clear input handler cache during idle time
 function clearInputHandlerCache() {
@@ -172,22 +173,22 @@ function clearInputHandlerCache() {
 }
 
 // 🔧 FIX 7b: Track video delete handler for cleanup
-let videoDeleteHandler: any = null;
+let videoDeleteHandler: ((e: MouseEvent) => void) | null = null;
 
 // 🎯 SUP TAG HANDLER: Handles typing, deleting, and navigation around sup elements
-let supTagHandler: any = null;
+let supTagHandler: SupTagHandler | null = null;
 
 // 💾 Save Queue instance (replaces old pendingSaves + debounce logic)
-let saveQueue: any = null;
+let saveQueue: SaveQueue | null = null;
 
 // 📌 Store the currently-observed editable div so stopObserving removes listeners from the right element
 let observedEditableDiv: HTMLElement | null = null;
 
 // 🚀 Mutation Processor instance (RAF-based mutation batching)
-let mutationProcessor: any = null;
+let mutationProcessor: MutationProcessor | null = null;
 
 // ✅ EnterKeyHandler instance
-let enterKeyHandler: any = null;
+let enterKeyHandler: EnterKeyHandler | null = null;
 
 // ================================================================
 // PUBLIC API
@@ -497,7 +498,7 @@ export async function startObserving(editableDiv: HTMLElement, bookId: BookId | 
         }
       }
     }
-    debouncedInputHandlerRef(e);
+    debouncedInputHandlerRef?.(e);
   };
   editableDiv.addEventListener('input', inputEventHandler);
 
@@ -511,7 +512,7 @@ export async function startObserving(editableDiv: HTMLElement, bookId: BookId | 
     isComposing = false;
     verbose.content('IME composition ended - resuming input processing', 'divEditor/index.js');
     // Trigger input handler after composition completes
-    debouncedInputHandlerRef(e);
+    debouncedInputHandlerRef?.(e);
   });
 
   // ✅ Only ensure structure if document is truly empty (new/imported books)
@@ -578,7 +579,7 @@ export async function startObserving(editableDiv: HTMLElement, bookId: BookId | 
     
     // 🚀 PERFORMANCE: Queue valid mutations for batch processing via MutationProcessor
     if (validMutations.length > 0) {
-      mutationProcessor.enqueue(validMutations);
+      mutationProcessor?.enqueue(validMutations);
     }
   });
 
@@ -619,7 +620,7 @@ export async function startObserving(editableDiv: HTMLElement, bookId: BookId | 
 }
 
 // Initialize tracking for all chunks currently in the DOM
-function initializeCurrentChunks(editableDiv: any) {
+function initializeCurrentChunks(editableDiv: HTMLElement) {
   const chunks = editableDiv.querySelectorAll('.chunk');
 
   observedChunks.clear(); // Start fresh
@@ -804,7 +805,7 @@ document.addEventListener("selectionchange", () => {
     if (isSentinel) {
       // Move cursor to nearest valid element immediately
       const editableDiv = document.getElementById(book);
-      const validElement: any = editableDiv?.querySelector('[id]:not([id$="-top-sentinel"]):not([id$="-bottom-sentinel"])');
+      const validElement = editableDiv?.querySelector('[id]:not([id$="-top-sentinel"]):not([id$="-bottom-sentinel"])') as HTMLElement | null;
 
       if (validElement) {
         validElement.focus();

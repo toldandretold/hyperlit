@@ -10,7 +10,8 @@
  */
 
 import { chunkOverflowInProgress, userDeletionInProgress } from "../../utilities/operationState";
-import { isNumericalId, ensureNodeHasValidId, asLineId } from "../../utilities/idHelpers";
+import { isNumericalId, ensureNodeHasValidId, asLineId, type BookId } from "../../utilities/idHelpers";
+import type { SaveQueue } from "../saveQueue";
 import { movedNodesByOverflow } from '../editorState';
 import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager';
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../../components/tocContainer/index';
@@ -38,24 +39,38 @@ import { destroySpan } from './spanDestroyer';
  * ChunkMutationHandler class
  * Processes DOM mutations within document chunks
  */
-export class ChunkMutationHandler {
-  observedChunks: any;
-  saveQueue: any;
-  handleHyperciteRemoval: any;
-  ensureMinimumStructure: any;
-  queueNodeForSave: any;
-  removedNodeIds: any;
-  addedNodes: any;
-  modifiedNodes: any;
-  documentChanged: { value: boolean };
-  tocInvalidationQueue: any;
-  tocInvalidationTimer: any;
-  nodeToChunkCache: any;
+interface ChunkEntry { chunk: HTMLElement | null; bookId: BookId | null | undefined; }
 
-  constructor(options: any = {}) {
+interface ChunkMutationHandlerOptions {
+  observedChunks?: Map<string, ChunkEntry>;
+  saveQueue?: SaveQueue | null;
+  handleHyperciteRemoval?: (removedNode: Node, mutationTarget: Node) => unknown;
+  ensureMinimumStructure?: () => void;
+  queueNodeForSave?: (id: string, action?: string, bookId?: BookId | null) => void;
+  removedNodeIds?: Set<string>;
+  addedNodes?: Set<Node>;
+  modifiedNodes?: Set<string>;
+  documentChanged?: { value: boolean };
+}
+
+export class ChunkMutationHandler {
+  observedChunks: Map<string, ChunkEntry>;
+  saveQueue: SaveQueue | null;
+  handleHyperciteRemoval?: (removedNode: Node, mutationTarget: Node) => unknown;
+  ensureMinimumStructure?: () => void;
+  queueNodeForSave?: (id: string, action?: string, bookId?: BookId | null) => void;
+  removedNodeIds: Set<string>;
+  addedNodes: Set<Node>;
+  modifiedNodes: Set<string>;
+  documentChanged: { value: boolean };
+  tocInvalidationQueue: Set<{ nodeId: string; nodeElement: HTMLElement }>;
+  tocInvalidationTimer: ReturnType<typeof setTimeout> | number | null;
+  nodeToChunkCache: WeakMap<Node, HTMLElement>;
+
+  constructor(options: ChunkMutationHandlerOptions = {}) {
     // Dependencies
     this.observedChunks = options.observedChunks || new Map();
-    this.saveQueue = options.saveQueue;
+    this.saveQueue = options.saveQueue ?? null;
     this.handleHyperciteRemoval = options.handleHyperciteRemoval;
     this.ensureMinimumStructure = options.ensureMinimumStructure;
     this.queueNodeForSave = options.queueNodeForSave;
