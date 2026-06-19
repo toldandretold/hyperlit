@@ -152,9 +152,9 @@ class HomePageServerController extends Controller
         $this->createLibraryEntries($adminDb);
 
         // Create entries for each special book
-        $this->createNodeChunksForBook('most-recent', $libraryRecords, $rankings['mostRecent'], $adminDb);
-        $this->createNodeChunksForBook('most-connected', $libraryRecords, $rankings['mostConnected'], $adminDb);
-        $this->createNodeChunksForBook('most-lit', $libraryRecords, $rankings['mostLit'], $adminDb);
+        $this->createNodesForBook('most-recent', $libraryRecords, $rankings['mostRecent'], $adminDb);
+        $this->createNodesForBook('most-connected', $libraryRecords, $rankings['mostConnected'], $adminDb);
+        $this->createNodesForBook('most-lit', $libraryRecords, $rankings['mostLit'], $adminDb);
 
         return response()->json([
             'success' => true,
@@ -195,7 +195,7 @@ class HomePageServerController extends Controller
         $adminDb->table('library')->insert($libraryEntries);
     }
 
-    private function createNodeChunksForBook($bookName, $libraryRecords, $positionData, $adminDb)
+    private function createNodesForBook($bookName, $libraryRecords, $positionData, $adminDb)
     {
         $chunks = [];
         $currentTime = Carbon::now();

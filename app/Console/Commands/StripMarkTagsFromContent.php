@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 
 /**
  * Strip <mark> Tags from nodes Content
@@ -15,7 +15,7 @@ use App\Models\PgNodeChunk;
  * not persisted in the content itself.
  *
  * WHY THIS IS NEEDED:
- * - Highlights are stored separately in the 'hyperlights' array field on each node_chunk
+ * - Highlights are stored separately in the 'hyperlights' array field on each node
  * - On page load, the frontend reads hyperlights data and injects <mark> tags into the DOM
  * - If <mark> tags get saved to the database (e.g., via emergency rescue function or paste operations),
  *   they will be duplicated when the frontend injects them again
@@ -66,7 +66,7 @@ class StripMarkTagsFromContent extends Command
         }
 
         // Build query
-        $query = PgNodeChunk::whereRaw("content LIKE '%<mark%'");
+        $query = PgNode::whereRaw("content LIKE '%<mark%'");
 
         if ($book) {
             $query->where('book', $book);

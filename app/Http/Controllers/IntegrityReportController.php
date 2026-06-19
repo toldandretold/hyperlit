@@ -11,7 +11,7 @@ use App\Mail\IntegrityReportMail;
 use App\Mail\PasteGlitchReportMail;
 use App\Mail\ConversionFeedbackMail;
 use App\Mail\ImportFailureReportMail;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 
 class IntegrityReportController extends Controller
 {
@@ -78,7 +78,7 @@ class IntegrityReportController extends Controller
         $data['userName'] = $user?->name ?? 'anonymous';
 
         // Server-side context
-        $data['pgNodeCount'] = PgNodeChunk::where('book', $data['bookId'])->count();
+        $data['pgNodeCount'] = PgNode::where('book', $data['bookId'])->count();
         $data['laravelLogs'] = $this->grepLaravelLog($data['bookId'], 20);
 
         Log::warning('Integrity mismatch report', $data);

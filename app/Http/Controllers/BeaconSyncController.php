@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use App\Helpers\SubBookIdHelper;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 use App\Models\PgHyperlight;
 use App\Models\PgHypercite;
 use App\Models\PgLibrary;
@@ -71,7 +71,7 @@ class BeaconSyncController extends Controller
                         // ✅ FIX: Add 'raw_json' to the data being saved
                         $chunkData = array_merge($chunk, ['raw_json' => json_encode($chunk)]);
                         
-                        PgNodeChunk::updateOrCreate(
+                        PgNode::updateOrCreate(
                             ['book' => $bookId, 'startLine' => $chunk['startLine']],
                             $chunkData // Use the new array that includes raw_json
                         );
@@ -144,7 +144,7 @@ class BeaconSyncController extends Controller
                 // --- 2. Process Deletions ---
                 if (!empty($deletions['nodes'])) {
                     $startLinesToDelete = array_column($deletions['nodes'], 'startLine');
-                    PgNodeChunk::where('book', $bookId)
+                    PgNode::where('book', $bookId)
                         ->whereIn('startLine', $startLinesToDelete)
                         ->delete();
                 }

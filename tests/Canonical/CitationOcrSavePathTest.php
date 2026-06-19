@@ -48,7 +48,7 @@ test('node save consumes the pipeline nodes.jsonl contract and emits the nodes.j
     );
 
     try {
-        canonvInvoke('saveNodeChunksToDatabase', $dir, $book);
+        canonvInvoke('saveNodesToDatabase', $dir, $book);
 
         expect(canonvDb()->table('nodes')->where('book', $book)->count())->toBe(2);
 
@@ -88,7 +88,7 @@ test('node save is a no-op (no crash) when nodes.jsonl is absent', function () {
     $dir = canonvWorkDir($book);
 
     try {
-        canonvInvoke('saveNodeChunksToDatabase', $dir, $book);
+        canonvInvoke('saveNodesToDatabase', $dir, $book);
         expect(canonvDb()->table('nodes')->where('book', $book)->count())->toBe(0);
     } finally {
         File::deleteDirectory($dir);

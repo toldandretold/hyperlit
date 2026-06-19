@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 
 /**
  * Update Hypercite URLs from Old Domains
@@ -64,7 +64,7 @@ class UpdateHyperciteUrls extends Command
         }
 
         // Build query to find nodes with old domain URLs
-        $query = PgNodeChunk::where(function($q) {
+        $query = PgNode::where(function($q) {
             $q->whereRaw("content LIKE '%https://libzen.io%'")
               ->orWhereRaw("content LIKE '%https://libzen.com%'");
         });

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PgHypercite;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
 use App\Http\Responses\ApiResponse;
@@ -368,7 +368,7 @@ class DbHyperciteController extends Controller
     /**
      * Finds a single hypercite + ALL node chunks for its book — the citation-card resolution endpoint
      * (frontend caller: resources/js/indexedDB/hypercites/helpers.ts:resolveHypercite). Returns the raw
-     * PgHypercite (→ TS `HyperciteRecord`) + the book's PgNodeChunk rows (→ `NodeRecord[]`):
+     * PgHypercite (→ TS `HyperciteRecord`) + the book's PgNode rows (→ `NodeRecord[]`):
      *   { hypercite: array{...HyperciteRecord...}, nodes: array<int, array{...node chunk...}> } | { error: string }
      * SECURITY: enforces book visibility/ownership before returning data.
      *
@@ -410,20 +410,20 @@ class DbHyperciteController extends Controller
             return response()->json(['error' => 'Hypercite not found.'], 404);
         }
 
-        // Fetch ALL nodeChunks for the entire book.
-        $allNodeChunks = PgNodeChunk::where('book', $bookId)->get();
+        // Fetch ALL nodes for the entire book.
+        $allNodes = PgNode::where('book', $bookId)->get();
 
-        if ($allNodeChunks->isEmpty()) {
+        if ($allNodes->isEmpty()) {
             // This is a critical data error if the hypercite exists but the book content doesn't.
-            Log::error("Data inconsistency: Hypercite '{$hyperciteId}' found, but NO nodeChunks exist for book '{$bookId}'.");
+            Log::error("Data inconsistency: Hypercite '{$hyperciteId}' found, but NO nodes exist for book '{$bookId}'.");
             return response()->json(['error' => 'Source document content is missing.'], 404);
         }
 
-        Log::info("Hypercite and all " . $allNodeChunks->count() . " parent nodeChunks found for: {$hyperciteId}");
+        Log::info("Hypercite and all " . $allNodes->count() . " parent nodes found for: {$hyperciteId}");
 
         return response()->json([
             'hypercite' => $hypercite,
-            'nodes' => $allNodeChunks,
+            'nodes' => $allNodes,
         ]);
     }
 

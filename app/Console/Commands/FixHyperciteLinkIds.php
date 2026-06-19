@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 
 /**
  * Fix Hypercite Link IDs
@@ -64,7 +64,7 @@ class FixHyperciteLinkIds extends Command
         }
 
         // Build query for chunks that contain hypercite links
-        $query = PgNodeChunk::whereRaw("content LIKE '%<a href=%#hypercite_%'");
+        $query = PgNode::whereRaw("content LIKE '%<a href=%#hypercite_%'");
 
         if ($book) {
             $query->where('book', $book);

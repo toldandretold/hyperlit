@@ -68,7 +68,7 @@ class DatabaseToIndexedDBController extends Controller
             $visibleHyperlightIds = $this->getVisibleHyperlightIds($bookId);
 
             // Get node chunks for this book, filtering the highlights within them
-            $nodeChunks = $this->getNodeChunks($bookId, $visibleHyperlightIds);
+            $nodeChunks = $this->getNodes($bookId, $visibleHyperlightIds);
             
             if (empty($nodeChunks)) {
                 return response()->json([
@@ -681,12 +681,12 @@ class DatabaseToIndexedDBController extends Controller
     /**
      * Get node chunks for a book - matches your IndexedDB structure
      */
-    private function getNodeChunks(string $bookId, array $visibleHyperlightIds): array
+    private function getNodes(string $bookId, array $visibleHyperlightIds): array
     {
         // ✅ RUN MIGRATION FIRST (before loading chunks)
         $this->migrateNodeIds($bookId);
 
-        Log::info('🔍 getNodeChunks started', [
+        Log::info('🔍 getNodes started', [
             'book_id' => $bookId,
             'visible_highlight_ids_count' => count($visibleHyperlightIds),
             'visible_highlight_ids' => $visibleHyperlightIds
@@ -694,7 +694,7 @@ class DatabaseToIndexedDBController extends Controller
 
         // Get processed highlights with is_user_highlight flag
         $processedHighlights = $this->getHyperlights($bookId);
-        Log::info('🔍 getNodeChunks: processed highlights retrieved', [
+        Log::info('🔍 getNodes: processed highlights retrieved', [
             'processed_highlights_count' => count($processedHighlights),
             'sample_highlight' => count($processedHighlights) > 0 ? $processedHighlights[0] : null
         ]);
@@ -703,7 +703,7 @@ class DatabaseToIndexedDBController extends Controller
         foreach ($processedHighlights as $highlight) {
             $highlightLookup[$highlight['hyperlight_id']] = $highlight;
         }
-        Log::info('🔍 getNodeChunks: highlight lookup created', [
+        Log::info('🔍 getNodes: highlight lookup created', [
             'lookup_keys' => array_keys($highlightLookup)
         ]);
 
@@ -849,7 +849,7 @@ class DatabaseToIndexedDBController extends Controller
             })
             ->toArray();
 
-        Log::info('🔍 getNodeChunks completed', [
+        Log::info('🔍 getNodes completed', [
             'book_id' => $bookId,
             'total_chunks' => count($chunks),
             'chunks_with_highlights' => count(array_filter($chunks, function($c) { return count($c['hyperlights']) > 0; }))

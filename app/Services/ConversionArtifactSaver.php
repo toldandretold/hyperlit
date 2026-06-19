@@ -6,7 +6,7 @@ use App\Helpers\SubBookIdHelper;
 use App\Jobs\QueueBookEmbeddings;
 use App\Models\PgFootnote;
 use App\Models\PgLibrary;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 use App\Services\DocumentImport\FileHelpers;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
  *
  * Used by the vibe-conversion "Use this conversion" accept path: vibe_convert.py has already
  * regenerated the artifacts with the patched pipeline, and we just need to swap them into the
- * DB. Replacing the nodes goes through `PgNodeChunk::delete()` + insert, which fires the
+ * DB. Replacing the nodes goes through `PgNode::delete()` + insert, which fires the
  * `nodes_versioning_trigger` → the prior conversion is archived to `nodes_history`, so the user
  * can revert via the existing version-history UX (NodeHistoryController / sourceButton.js).
  *
@@ -96,7 +96,7 @@ class ConversionArtifactSaver
             $nodesData = json_decode(File::get($nodesPath), true);
 
             // Delete existing chunks — fires nodes_versioning_trigger (archives to nodes_history).
-            PgNodeChunk::where('book', $bookId)->delete();
+            PgNode::where('book', $bookId)->delete();
 
             $insertData = [];
             $now = now();
@@ -131,7 +131,7 @@ class ConversionArtifactSaver
             }
 
             foreach (array_chunk($insertData, 500) as $batch) {
-                PgNodeChunk::insert($batch);
+                PgNode::insert($batch);
             }
 
             QueueBookEmbeddings::dispatch($bookId);
@@ -172,7 +172,7 @@ class ConversionArtifactSaver
             // WHOLE save silently dies — the in-text markers then point at definitions that never reached the DB.
             $likeBook = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $bookId) . '/%';
             PgFootnote::where('book', $bookId)->delete();
-            PgNodeChunk::where('book', 'like', $likeBook)->delete();
+            PgNode::where('book', 'like', $likeBook)->delete();
             PgLibrary::where('book', 'like', $likeBook)->where('type', 'sub_book')->delete();
 
             $enrichedForJson = [];
@@ -217,7 +217,7 @@ class ConversionArtifactSaver
                     ]
                 );
 
-                PgNodeChunk::updateOrCreate(
+                PgNode::updateOrCreate(
                     ['book' => $subBookId, 'startLine' => 1],   // one node per sub-book — match the UNIQUE key,
                     ['chunk_id' => 0, 'node_id' => $uuid,        // not a fresh uuid (which never matched → dup insert)
                      'content' => $nodeHtml, 'plainText' => $plainText, 'raw_json' => json_encode([])]

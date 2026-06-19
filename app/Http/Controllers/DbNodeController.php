@@ -7,13 +7,13 @@ use App\Http\Controllers\Concerns\SubBookPreviewTrait;
 use App\Http\Responses\ApiResponse;
 use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
-class DbNodeChunkController extends Controller
+class DbNodeController extends Controller
 {
     use SubBookPreviewTrait;
 
@@ -216,7 +216,7 @@ class DbNodeChunkController extends Controller
                     ];
                 }
 
-                PgNodeChunk::insert($records);
+                PgNode::insert($records);
 
                 Log::info('Bulk create completed', [
                     'book' => $bookId,
@@ -283,7 +283,7 @@ class DbNodeChunkController extends Controller
 
             if (isset($data['data']) && is_array($data['data'])) {
                 // SYNC AUDIT: This is the NUCLEAR upsert - deletes ALL nodes then re-inserts
-                $deletedCount = PgNodeChunk::where('book', $book)->count();
+                $deletedCount = PgNode::where('book', $book)->count();
                 Log::channel('sync_audit')->warning('NUCLEAR_UPSERT', [
                     'book' => $book,
                     'existing_nodes_being_deleted' => $deletedCount,
@@ -310,7 +310,7 @@ class DbNodeChunkController extends Controller
                 }
 
                 \DB::transaction(function () use ($book, $records, $now) {
-                    PgNodeChunk::where('book', $book)->delete();
+                    PgNode::where('book', $book)->delete();
 
                     foreach (array_chunk($records, 500) as $chunk) {
                         $values = [];
@@ -391,13 +391,13 @@ class DbNodeChunkController extends Controller
         }
     }
 
-    // In app/Http/Controllers/DbNodeChunkController.php
+    // In app/Http/Controllers/DbNodeController.php
 
-    // In app/Http/Controllers/DbNodeChunkController.php
+    // In app/Http/Controllers/DbNodeController.php
 
-    // In app/Http/Controllers/DbNodeChunkController.php
+    // In app/Http/Controllers/DbNodeController.php
 
-    // In app/Http/Controllers/DbNodeChunkController.php
+    // In app/Http/Controllers/DbNodeController.php
 
     public function targetedUpsert(Request $request)
     {
@@ -443,7 +443,7 @@ class DbNodeChunkController extends Controller
 
                     if (isset($item['_action']) && $item['_action'] === 'delete') {
                         if ($hasPermission) {
-                            PgNodeChunk::where('book', $item['book'])->where('startLine', $item['startLine'])->delete();
+                            PgNode::where('book', $item['book'])->where('startLine', $item['startLine'])->delete();
                         }
 
                         continue;
@@ -453,14 +453,14 @@ class DbNodeChunkController extends Controller
                     // If node_id exists, it's the authoritative identifier
                     $existingChunk = null;
                     if (! empty($item['node_id'])) {
-                        $existingChunk = PgNodeChunk::where('book', $item['book'])
+                        $existingChunk = PgNode::where('book', $item['book'])
                             ->where('node_id', $item['node_id'])
                             ->first();
                     }
 
                     // Fall back to startLine lookup (for backwards compatibility)
                     if (! $existingChunk) {
-                        $existingChunk = PgNodeChunk::where('book', $item['book'])
+                        $existingChunk = PgNode::where('book', $item['book'])
                             ->where('startLine', $item['startLine'])
                             ->first();
                     }
@@ -591,7 +591,7 @@ class DbNodeChunkController extends Controller
                         $result = $existingChunk;
                     } else {
                         // Create new record - always include required NOT NULL fields
-                        $result = PgNodeChunk::create(array_merge(
+                        $result = PgNode::create(array_merge(
                             [
                                 'book' => $item['book'],
                                 'startLine' => $item['startLine'],
@@ -771,7 +771,7 @@ class DbNodeChunkController extends Controller
                 }
 
                 // SYNC AUDIT: Snapshot before mutations
-                $beforeCount = PgNodeChunk::where('book', $bookId)->count();
+                $beforeCount = PgNode::where('book', $bookId)->count();
                 Log::channel('sync_audit')->info('SYNC_START', [
                     'book' => $bookId,
                     'existing_nodes' => $beforeCount,
@@ -794,7 +794,7 @@ class DbNodeChunkController extends Controller
                 }
 
                 // SYNC AUDIT: Snapshot after mutations
-                $afterCount = PgNodeChunk::where('book', $bookId)->count();
+                $afterCount = PgNode::where('book', $bookId)->count();
                 $delta = $afterCount - $beforeCount;
                 Log::channel('sync_audit')->info('SYNC_DONE', [
                     'book' => $bookId,

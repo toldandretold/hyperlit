@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class PgNodeChunk extends Model
+class PgNode extends Model
 {
     protected $table = 'nodes';
     
@@ -35,7 +35,7 @@ class PgNodeChunk extends Model
      */
     protected static function booted(): void
     {
-        static::saving(function (PgNodeChunk $node) {
+        static::saving(function (PgNode $node) {
             // Auto-generate plainText from content when content changes or plainText is empty
             if ($node->isDirty('content') || empty($node->plainText)) {
                 if (!empty($node->content)) {
@@ -44,7 +44,7 @@ class PgNodeChunk extends Model
             }
         });
 
-        static::saved(function (PgNodeChunk $node) {
+        static::saved(function (PgNode $node) {
             // Queue embedding generation when plainText changes
             if ($node->wasChanged('plainText') && !empty($node->plainText) && strlen(trim($node->plainText)) >= 20) {
                 \App\Jobs\GenerateNodeEmbedding::dispatch($node->id);

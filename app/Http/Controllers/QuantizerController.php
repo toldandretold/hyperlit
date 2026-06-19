@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Helpers\BookSlugHelper;
 use App\Models\PgLibrary;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 use App\Models\PgHyperlight;
 use App\Models\PgHypercite;
 use App\Models\PgFootnote;
@@ -26,7 +26,7 @@ class QuantizerController extends Controller
             abort(404, 'Book not found.');
         }
 
-        $nodes = PgNodeChunk::where('book', $book)
+        $nodes = PgNode::where('book', $book)
             ->orderBy('startLine')
             ->get(['node_id', 'content', 'startLine', 'type']);
 
@@ -65,7 +65,7 @@ class QuantizerController extends Controller
             return response()->json(['error' => 'Access denied'], 403);
         }
 
-        $nodes = PgNodeChunk::where('book', $bookId)
+        $nodes = PgNode::where('book', $bookId)
             ->orderBy('startLine')
             ->get(['node_id', 'content', 'startLine']);
 

@@ -181,7 +181,7 @@ deletes from the app role under RLS — same pattern the Pest suite uses.)
   2. _Server:_ `App\Services\Security\NodeHtmlSanitizer` (blocklist, gated so clean
      content is byte-identical) scrubs every HTML-bearing field AND its `raw_json`
      copy on write, across all four write controllers:
-     - `DbNodeChunkController` — node `content`
+     - `DbNodeController` — node `content`
      - `DbHyperlightController` — `highlightedHTML`, `annotation`
      - `DbHyperciteController` — `hypercitedHTML`
      - `DbLibraryController` — `title`/`bibtex`/`note`/… metadata (rendered into

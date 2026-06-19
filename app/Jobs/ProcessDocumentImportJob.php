@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Models\PgLibrary;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 use App\Models\PgFootnote;
 use App\Helpers\SubBookIdHelper;
 use App\Services\DocumentImport\FileHelpers;
@@ -164,7 +164,7 @@ class ProcessDocumentImportJob implements ShouldQueue
 
             // Save to database
             $this->writeProgress($path, 'processing', 88, 'db_write', 'Saving nodes to database');
-            $this->saveNodeChunksToDatabase($path, $this->bookId, $helpers);
+            $this->saveNodesToDatabase($path, $this->bookId, $helpers);
 
             $this->writeProgress($path, 'processing', 92, 'db_footnotes', 'Saving footnotes to database');
             $this->saveFootnotesToDatabase($path, $this->bookId);
@@ -406,7 +406,7 @@ class ProcessDocumentImportJob implements ShouldQueue
         }
     }
 
-    private function saveNodeChunksToDatabase(string $path, string $bookId, FileHelpers $helpers): void
+    private function saveNodesToDatabase(string $path, string $bookId, FileHelpers $helpers): void
     {
         $nodesPath = "{$path}/nodes.jsonl";
 

@@ -3,7 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-use App\Http\Controllers\DbNodeChunkController;
+use App\Http\Controllers\DbNodeController;
 use App\Http\Controllers\SubBookController;
 use App\Http\Controllers\DbHyperlightController;
 use App\Http\Controllers\DbHyperciteController;
@@ -224,8 +224,8 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
 
     /* ----------------  Bulk-create  ---------------- */
     Route::post(
-        '/db/node-chunks/bulk-create',
-        [DbNodeChunkController::class, 'bulkCreate']
+        '/db/nodes/bulk-create',
+        [DbNodeController::class, 'bulkCreate']
     );
 
     Route::post(
@@ -246,13 +246,13 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
 
     /* ----------------  Upsert / targeted / delete  ---------------- */
     Route::post(
-        '/db/node-chunks/upsert',
-        [DbNodeChunkController::class, 'upsert']
+        '/db/nodes/upsert',
+        [DbNodeController::class, 'upsert']
     );
 
     Route::post(
-        '/db/node-chunks/targeted-upsert',
-        [DbNodeChunkController::class, 'targetedUpsert']
+        '/db/nodes/targeted-upsert',
+        [DbNodeController::class, 'targetedUpsert']
     );
 
     Route::post(

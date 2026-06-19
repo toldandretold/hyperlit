@@ -28,7 +28,7 @@
  *
  * ❌ WRONG: Separate API Calls
  *    POST /api/db/hypercites/upsert        → Updates hypercites table
- *    POST /api/db/node-chunks/targeted-upsert → Updates node_chunks table
+ *    POST /api/db/nodes/targeted-upsert → Updates node_chunks table
  *    Problem: If first succeeds but second fails, data becomes inconsistent
  *
  * ✅ CORRECT: Unified Transaction

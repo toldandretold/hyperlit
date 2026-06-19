@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 
 class WrapHyperciteArrows extends Command
 {
@@ -19,7 +19,7 @@ class WrapHyperciteArrows extends Command
         }
 
         // Find all nodes containing hypercite anchors
-        $nodes = PgNodeChunk::where('content', 'like', '%#hypercite_%')
+        $nodes = PgNode::where('content', 'like', '%#hypercite_%')
             ->where('content', 'like', '%open-icon%')
             ->get();
 

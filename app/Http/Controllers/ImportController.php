@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use App\Models\PgLibrary;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 use App\Models\PgFootnote;
 use App\Helpers\SubBookIdHelper;
 use App\Http\Controllers\DbLibraryController;
@@ -497,7 +497,7 @@ class ImportController extends Controller
     /**
      * Save node chunks from JSON file to database
      */
-    private function saveNodeChunksToDatabase(string $path, string $bookId): void
+    private function saveNodesToDatabase(string $path, string $bookId): void
     {
         try {
             $nodesPath = "{$path}/nodes.json";
@@ -510,7 +510,7 @@ class ImportController extends Controller
             $nodesData = json_decode(File::get($nodesPath), true);
 
             // Delete existing chunks
-            PgNodeChunk::where('book', $bookId)->delete();
+            PgNode::where('book', $bookId)->delete();
 
             // Prepare data for bulk insert with proper numbering
             $insertData = [];
@@ -551,7 +551,7 @@ class ImportController extends Controller
             $totalInserted = 0;
 
             foreach ($batches as $batch) {
-                PgNodeChunk::insert($batch);
+                PgNode::insert($batch);
                 $totalInserted += count($batch);
             }
 
@@ -566,7 +566,7 @@ class ImportController extends Controller
             File::put($nodesPath, json_encode($renumberedJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         } catch (\Exception $e) {
-            Log::error('Failed to save nodeChunks to database', [
+            Log::error('Failed to save nodes to database', [
                 'book' => $bookId,
                 'error' => substr($e->getMessage(), 0, 500),
                 'chunks_attempted' => count($insertData ?? [])
@@ -791,12 +791,12 @@ class ImportController extends Controller
 
     private function clearBookContent(string $bookId): void
     {
-        PgNodeChunk::where('book', $bookId)->delete();
+        PgNode::where('book', $bookId)->delete();
         PgFootnote::where('book', $bookId)->delete();
         \DB::table('bibliography')->where('book', $bookId)->delete();
 
         // Delete sub-book nodes and library records (footnote sub-books: "{bookId}/Fn...")
-        PgNodeChunk::where('book', 'LIKE', "{$bookId}/%")->delete();
+        PgNode::where('book', 'LIKE', "{$bookId}/%")->delete();
         PgLibrary::where('book', 'LIKE', "{$bookId}/%")
             ->where('type', 'sub_book')
             ->delete();
@@ -891,7 +891,7 @@ class ImportController extends Controller
                 );
 
                 // 3. Upsert initial sub-book node
-                PgNodeChunk::updateOrCreate(
+                PgNode::updateOrCreate(
                     ['book' => $subBookId, 'node_id' => $uuid],
                     [
                         'chunk_id'   => 0,

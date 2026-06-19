@@ -259,7 +259,7 @@ function analyzeController(string $file, $parser, array $modelTable): array
                         $tables[$t] = true;
                     }
 
-                    // Pg model statics: PgNodeChunk::insert(…) etc.
+                    // Pg model statics: PgNode::insert(…) etc.
                     if ($b instanceof Node\Expr\StaticCall) {
                         $cls = shortName($b->class);
                         if ($cls && isset($modelTable[$cls])) {
@@ -377,7 +377,7 @@ function tablesFor(string $method, array $methods, array &$seen = []): array
 
 /**
  * The data row-shape a method produces — the longest marker-bearing array literal it (or a
- * same-class helper it calls) builds. getBookData builds the row inside getNodeChunks*(), so the
+ * same-class helper it calls) builds. getBookData builds the row inside getNodes*(), so the
  * shape only surfaces by following the private-helper calls (as with tables).
  */
 function shapeFor(string $method, array $methods, array &$seen = []): array

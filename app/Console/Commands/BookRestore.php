@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 

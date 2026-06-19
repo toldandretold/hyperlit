@@ -286,7 +286,7 @@ describe('IndexedDB flow viz', () => {
     expect(tablesOf(read.id)).toContain('nodes');
 
     // WRITE side: the node save the front end actually calls is the targeted upsert (push → nodes).
-    const write = byId['controller:DbNodeChunkController@targetedUpsert'];
+    const write = byId['controller:DbNodeController@targetedUpsert'];
     expect(write).toBeTruthy();
     expect(write.dir).toBe('push');
     expect(tablesOf(write.id)).toContain('nodes');

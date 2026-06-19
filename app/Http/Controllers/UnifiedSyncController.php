@@ -38,7 +38,7 @@ class UnifiedSyncController extends Controller
 
             Log::info('Unified sync started', [
                 'book' => $bookId,
-                'nodeChunks_count' => isset($data['nodes']) ? count($data['nodes']) : 0,
+                'nodes_count' => isset($data['nodes']) ? count($data['nodes']) : 0,
                 'hypercites_count' => isset($data['hypercites']) ? count($data['hypercites']) : 0,
                 'hyperlights_count' => isset($data['hyperlights']) ? count($data['hyperlights']) : 0,
                 'hyperlightDeletions_count' => isset($data['hyperlightDeletions']) ? count($data['hyperlightDeletions']) : 0,
@@ -144,17 +144,17 @@ class UnifiedSyncController extends Controller
                         $user ? null : $request->cookie('anon_token')
                     );
 
-                    $nodeChunkController = new DbNodeChunkController;
-                    $nodeChunkRequest = new Request(['book' => $bookId, 'data' => $data['nodes']]);
-                    $nodeChunkRequest->setUserResolver(function () use ($request) {
+                    $nodeController = new DbNodeController;
+                    $nodeRequest = new Request(['book' => $bookId, 'data' => $data['nodes']]);
+                    $nodeRequest->setUserResolver(function () use ($request) {
                         return $request->user();
                     });
                     // Copy cookies
                     foreach ($request->cookies as $key => $value) {
-                        $nodeChunkRequest->cookies->set($key, $value);
+                        $nodeRequest->cookies->set($key, $value);
                     }
 
-                    $response = $nodeChunkController->bulkTargetedUpsert($nodeChunkRequest);
+                    $response = $nodeController->bulkTargetedUpsert($nodeRequest);
                     $results['nodes'] = json_decode($response->getContent(), true);
 
                     if (! ($results['nodes']['success'] ?? false)) {
@@ -324,7 +324,7 @@ class UnifiedSyncController extends Controller
             $result['hyperlightDeletions'] = $this->applyHyperlightDeletions($request, $data);
             $result['footnoteDeletions'] = $this->applyFootnoteDeletions($request, $data);
 
-            // NOTE: preview_nodes updates are now handled by DbNodeChunkController
+            // NOTE: preview_nodes updates are now handled by DbNodeController
             // which is called above for all node operations (bulkTargetedUpsert, etc.)
 
             Log::info('Unified sync completed successfully', [

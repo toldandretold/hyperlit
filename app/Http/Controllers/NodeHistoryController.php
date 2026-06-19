@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 use App\Models\PgLibrary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -472,7 +472,7 @@ class NodeHistoryController extends Controller
             }
 
             // Check if the node still exists
-            $currentNode = PgNodeChunk::where('book', $book)
+            $currentNode = PgNode::where('book', $book)
                 ->where('node_id', $nodeId)
                 ->first();
 
@@ -496,7 +496,7 @@ class NodeHistoryController extends Controller
             } else {
                 // Node was deleted - recreate it
                 // Note: This INSERT will trigger versioning to set sys_period
-                PgNodeChunk::create([
+                PgNode::create([
                     'book' => $historicalNode->book,
                     'node_id' => $historicalNode->node_id,
                     'startLine' => $historicalNode->startLine,

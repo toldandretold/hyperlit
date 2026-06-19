@@ -396,7 +396,7 @@ export async function undoLastLargePaste() {
     const { glowCloudOrange, glowCloudGreen, glowCloudRed } = await import('../../components/cloudRef/editIndicator');
     glowCloudOrange();
 
-    const response = await fetch('/api/db/node-chunks/upsert', {
+    const response = await fetch('/api/db/nodes/upsert', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

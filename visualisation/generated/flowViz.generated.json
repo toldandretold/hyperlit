@@ -6,7 +6,7 @@
     "moduleCount": 314,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3092,
+    "edgeCount": 3090,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -4744,11 +4744,11 @@
       ]
     },
     {
-      "id": "controller:DbNodeChunkController@bulkCreate",
+      "id": "controller:DbNodeController@bulkCreate",
       "label": "bulkCreate",
       "kind": "controller",
       "dir": "push",
-      "cls": "DbNodeChunkController",
+      "cls": "DbNodeController",
       "method": "bulkCreate",
       "group": "content",
       "tables": [
@@ -4778,11 +4778,11 @@
       ]
     },
     {
-      "id": "controller:DbNodeChunkController@targetedUpsert",
+      "id": "controller:DbNodeController@targetedUpsert",
       "label": "targetedUpsert",
       "kind": "controller",
       "dir": "push",
-      "cls": "DbNodeChunkController",
+      "cls": "DbNodeController",
       "method": "targetedUpsert",
       "group": "content",
       "tables": [
@@ -4806,11 +4806,11 @@
       ]
     },
     {
-      "id": "controller:DbNodeChunkController@upsert",
+      "id": "controller:DbNodeController@upsert",
       "label": "upsert",
       "kind": "controller",
       "dir": "push",
-      "cls": "DbNodeChunkController",
+      "cls": "DbNodeController",
       "method": "upsert",
       "group": "content",
       "tables": [
@@ -11647,13 +11647,6 @@
       "label": "hyperlights/upsert",
       "kind": "route",
       "group": "annotations",
-      "dir": "push"
-    },
-    {
-      "id": "route:/api/db/node-chunks/targeted-upsert",
-      "label": "node-chunks/targeted-upsert",
-      "kind": "route",
-      "group": "content",
       "dir": "push"
     },
     {
@@ -21651,56 +21644,56 @@
       "rel": "push"
     },
     {
-      "id": "controller:DbNodeChunkController@bulkCreate__push__pg:hyperlights",
-      "source": "controller:DbNodeChunkController@bulkCreate",
+      "id": "controller:DbNodeController@bulkCreate__push__pg:hyperlights",
+      "source": "controller:DbNodeController@bulkCreate",
       "target": "pg:hyperlights",
       "rel": "push"
     },
     {
-      "id": "controller:DbNodeChunkController@bulkCreate__push__pg:library",
-      "source": "controller:DbNodeChunkController@bulkCreate",
+      "id": "controller:DbNodeController@bulkCreate__push__pg:library",
+      "source": "controller:DbNodeController@bulkCreate",
       "target": "pg:library",
       "rel": "push"
     },
     {
-      "id": "controller:DbNodeChunkController@bulkCreate__push__pg:nodes",
-      "source": "controller:DbNodeChunkController@bulkCreate",
+      "id": "controller:DbNodeController@bulkCreate__push__pg:nodes",
+      "source": "controller:DbNodeController@bulkCreate",
       "target": "pg:nodes",
       "rel": "push"
     },
     {
-      "id": "controller:DbNodeChunkController@targetedUpsert__push__pg:hyperlights",
-      "source": "controller:DbNodeChunkController@targetedUpsert",
+      "id": "controller:DbNodeController@targetedUpsert__push__pg:hyperlights",
+      "source": "controller:DbNodeController@targetedUpsert",
       "target": "pg:hyperlights",
       "rel": "push"
     },
     {
-      "id": "controller:DbNodeChunkController@targetedUpsert__push__pg:library",
-      "source": "controller:DbNodeChunkController@targetedUpsert",
+      "id": "controller:DbNodeController@targetedUpsert__push__pg:library",
+      "source": "controller:DbNodeController@targetedUpsert",
       "target": "pg:library",
       "rel": "push"
     },
     {
-      "id": "controller:DbNodeChunkController@targetedUpsert__push__pg:nodes",
-      "source": "controller:DbNodeChunkController@targetedUpsert",
+      "id": "controller:DbNodeController@targetedUpsert__push__pg:nodes",
+      "source": "controller:DbNodeController@targetedUpsert",
       "target": "pg:nodes",
       "rel": "push"
     },
     {
-      "id": "controller:DbNodeChunkController@upsert__push__pg:hyperlights",
-      "source": "controller:DbNodeChunkController@upsert",
+      "id": "controller:DbNodeController@upsert__push__pg:hyperlights",
+      "source": "controller:DbNodeController@upsert",
       "target": "pg:hyperlights",
       "rel": "push"
     },
     {
-      "id": "controller:DbNodeChunkController@upsert__push__pg:library",
-      "source": "controller:DbNodeChunkController@upsert",
+      "id": "controller:DbNodeController@upsert__push__pg:library",
+      "source": "controller:DbNodeController@upsert",
       "target": "pg:library",
       "rel": "push"
     },
     {
-      "id": "controller:DbNodeChunkController@upsert__push__pg:nodes",
-      "source": "controller:DbNodeChunkController@upsert",
+      "id": "controller:DbNodeController@upsert__push__pg:nodes",
+      "source": "controller:DbNodeController@upsert",
       "target": "pg:nodes",
       "rel": "push"
     },
@@ -30862,13 +30855,6 @@
       "dataPath": true
     },
     {
-      "id": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodesToPostgreSQL__push__route:/api/db/node-chunks/targeted-upsert",
-      "source": "indexedDB/nodes/syncNodesToPostgreSQL:syncNodesToPostgreSQL",
-      "target": "route:/api/db/node-chunks/targeted-upsert",
-      "rel": "push",
-      "label": "/api/db/node-chunks/targeted-upsert"
-    },
-    {
       "id": "indexedDB/nodes/write:addNewBookToIndexedDB__call__indexedDB/nodes/write:addNodeToIndexedDB",
       "source": "indexedDB/nodes/write:addNewBookToIndexedDB",
       "target": "indexedDB/nodes/write:addNodeToIndexedDB",
@@ -34291,12 +34277,6 @@
       "id": "route:/api/db/hyperlights/upsert__push__controller:DbHyperlightController@upsert",
       "source": "route:/api/db/hyperlights/upsert",
       "target": "controller:DbHyperlightController@upsert",
-      "rel": "push"
-    },
-    {
-      "id": "route:/api/db/node-chunks/targeted-upsert__push__controller:DbNodeChunkController@targetedUpsert",
-      "source": "route:/api/db/node-chunks/targeted-upsert",
-      "target": "controller:DbNodeChunkController@targetedUpsert",
       "rel": "push"
     },
     {

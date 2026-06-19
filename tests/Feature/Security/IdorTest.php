@@ -11,7 +11,7 @@ use App\Models\User;
 use App\Models\PgLibrary;
 use App\Models\PgHyperlight;
 use App\Models\PgHypercite;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 
@@ -251,7 +251,7 @@ test('cannot access private book data', function () {
         'listed' => false,
     ]);
 
-    PgNodeChunk::create([
+    PgNode::create([
         'book' => 'private-book-access-test',
         'node_id' => 'secret_node',
         'startLine' => 100,
@@ -266,7 +266,7 @@ test('cannot access private book data', function () {
     $response->assertStatus(403);
 
     // Clean up
-    PgNodeChunk::where('book', 'private-book-access-test')->delete();
+    PgNode::where('book', 'private-book-access-test')->delete();
     PgLibrary::where('book', 'private-book-access-test')->delete();
 });
 

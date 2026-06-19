@@ -244,7 +244,7 @@ the `/api` mount, resolving `[Controller::class, 'method']` handlers) and the `D
 the PHP-AST analogue of how `js/collect.ts` uses the TS compiler API. Pure static analysis (no
 Laravel boot, no DB), so the output byte-checks. For each controller method on a data route it reads:
 the **tables** it touches (each `Pg*` model's `$table` + raw `DB::table('…')` / `INSERT INTO …`
-literals, following same-class private helpers like `getBookData → getNodeChunks*`), the **direction**
+literals, following same-class private helpers like `getBookData → getNodes*`), the **direction**
 (GET → pull, write verb → push), and the **row-shape** keys it builds. It emits
 `generated/backend.generated.json`; `js/collect.ts:mergeBackendTier()` stitches each controller
 between its route node and the PG tables. Gated by `tests/Unit/Visualisation/BackendFlowmapTest.php`
@@ -253,7 +253,7 @@ between its route node and the PG tables. Gated by `tests/Unit/Visualisation/Bac
 **Still to do, deeper into the backend:**
 
 1. **Eloquent `model` nodes** as their own sub-tier between controller and table (the `$table` map is
-   already collected) — shows which model mediates each write, and makes `PgNodeChunk` etc. first-class.
+   already collected) — shows which model mediates each write, and makes `PgNode` etc. first-class.
 2. **Cross-controller + controller→service call graphs** — follow `unified-sync` into the per-store
    upserts and controllers into services (`BookDeletionService`, `SubBookRegistrar`) so delegated
    table touches are traced rather than back-filled from the route's declared list (see limitation #2).

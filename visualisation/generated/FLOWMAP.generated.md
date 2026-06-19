@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1509 functions in 314 modules · 10 object stores · 10 PG tables · 3092 edges
+**MarkdownDB** schema v27 · 1509 functions in 314 modules · 10 object stores · 10 PG tables · 3090 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1015,7 +1015,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getNodeFromIndexedDB` | `indexedDB/nodes/read` | `nodes` | `nodes` | — | — |
 | `getNodesAfter` | `indexedDB/nodes/read` | `nodes` | `nodes` | — | — |
 | `getNodesFromIndexedDB` | `indexedDB/nodes/read` | `nodes` | — | — | — |
-| `syncNodesToPostgreSQL` | `indexedDB/nodes/syncNodesToPostgreSQL` | — | — | read | `↑route:/api/db/node-chunks/targeted-upsert` |
+| `syncNodesToPostgreSQL` | `indexedDB/nodes/syncNodesToPostgreSQL` | — | — | read | — |
 | `addNewBookToIndexedDB` | `indexedDB/nodes/write` | — | — | — | — |
 | `addNodeToIndexedDB` | `indexedDB/nodes/write` | — | `nodes` | read/write | — |
 | `deleteNodesAfter` | `indexedDB/nodes/write` | `nodes` | `nodes` | — | — |

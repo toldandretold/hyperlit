@@ -31,7 +31,7 @@ test('backend map derives the model→table seam + the node read/write controlle
     $map = json_decode(file_get_contents($ARTIFACT), true);
 
     // table attribution is DERIVED from each Pg* model's $table (not hand-coded)
-    expect($map['modelTable']['PgNodeChunk'])->toBe('nodes');
+    expect($map['modelTable']['PgNode'])->toBe('nodes');
     expect($map['modelTable']['PgLibrary'])->toBe('library');
 
     $byId = [];
@@ -47,7 +47,7 @@ test('backend map derives the model→table seam + the node read/write controlle
     expect($read['shape'])->toContain('content')->toContain('startLine')->toContain('chunk_id');
 
     // WRITE side: the node save the front end calls is the targeted upsert (push → nodes).
-    $write = $byId['controller:DbNodeChunkController@targetedUpsert'] ?? null;
+    $write = $byId['controller:DbNodeController@targetedUpsert'] ?? null;
     expect($write)->not->toBeNull();
     expect($write['dir'])->toBe('push');
     expect($write['tables'])->toContain('nodes');

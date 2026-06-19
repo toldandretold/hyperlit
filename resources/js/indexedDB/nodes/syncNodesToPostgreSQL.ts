@@ -6,8 +6,8 @@
 import type { BookId, PublicNode } from '../types';
 
 /**
- * Response shape of POST /api/db/node-chunks/targeted-upsert.
- * Matches DbNodeChunkController::targetedUpsert exactly:
+ * Response shape of POST /api/db/nodes/targeted-upsert.
+ * Matches DbNodeController::targetedUpsert exactly:
  *   200 { success: true,  message: 'Nodes updated successfully (targeted)' }
  *   422 { success: false, message: 'Invalid data format' }
  *   500 { success: false, message: 'Failed to sync data (targeted)', error: <string> }
@@ -36,7 +36,7 @@ export async function syncNodesToPostgreSQL(bookId: BookId, nodes: PublicNode[] 
     data: nodes
   };
 
-  const res = await fetch("/api/db/node-chunks/targeted-upsert", {
+  const res = await fetch("/api/db/nodes/targeted-upsert", {
     method: "POST",
     headers: {
       "Content-Type":    "application/json",

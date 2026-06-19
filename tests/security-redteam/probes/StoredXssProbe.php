@@ -65,7 +65,7 @@ class StoredXssProbe extends Probe
         $nid   = 'rt_n_' . bin2hex(random_bytes(5));   // globally-unique node id
         $write = $this->ctx->writeNode($a, $book, $nodeHtml, $nid);
         if (!$write->ok()) {
-            $findings[] = $this->inconclusive('Node write failed', "Could not write node content (HTTP {$write->status}).", 'POST /api/db/node-chunks/upsert');
+            $findings[] = $this->inconclusive('Node write failed', "Could not write node content (HTTP {$write->status}).", 'POST /api/db/nodes/upsert');
         } else {
             $read = $this->ctx->readBookData($a, $book);
             $findings = array_merge($findings, $this->assess('node content', $payloads, $read, 'GET …/books/{book}/data'));

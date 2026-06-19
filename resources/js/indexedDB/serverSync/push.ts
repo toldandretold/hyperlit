@@ -24,7 +24,7 @@ interface PushRecordView {
 async function syncBookDataToServer(bookName: string, objectStoreName: string, method = 'upsert'): Promise<unknown> {
     const storeConfig: Record<string, StoreConfig> = {
         nodes: {
-            endpoint: `/api/db/node-chunks/${method}`,
+            endpoint: `/api/db/nodes/${method}`,
             keyRange: IDBKeyRange.bound([bookName, 0], [bookName, Number.MAX_VALUE]),
             useCompositeKey: true
         },

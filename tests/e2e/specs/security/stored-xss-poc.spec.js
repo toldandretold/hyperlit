@@ -71,7 +71,7 @@ test('stored XSS: malicious node + highlight fires in a victim browser', async (
   await apage.goto(BASE + '/');
 
   const rand = Math.random().toString(36).slice(2, 8);
-  // node_id has a GLOBAL unique constraint (node_chunks_node_id_unique), so it
+  // node_id has a GLOBAL unique constraint (nodes_node_id_unique), so it
   // must be unique per run — a fixed id collides with leftover rows.
   const nodeId = 'rtn_' + rand;
   const creds = {
@@ -97,7 +97,7 @@ test('stored XSS: malicious node + highlight fires in a victim browser', async (
     { data: { book, title: 'xss poc', visibility: 'public', timestamp: 1700000000 } });
   expect(create.ok(), `public book creation should succeed (got ${create.status()})`).toBeTruthy();
 
-  const node = await postRetry(apage, '/api/db/node-chunks/upsert',
+  const node = await postRetry(apage, '/api/db/nodes/upsert',
     { book, data: [{ book, node_id: nodeId, chunk_id: 1, startLine: 1, type: 'text', content: nodeHtml, plainText: 'begin end' }] });
   expect(node.ok(), `node write should succeed (got ${node.status()})`).toBeTruthy();
 

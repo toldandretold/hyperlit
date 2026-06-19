@@ -10,7 +10,7 @@
 use App\Models\User;
 use App\Models\PgLibrary;
 use App\Models\PgHyperlight;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 
@@ -255,7 +255,7 @@ test('node chunk content field should be sanitized', function (string $payload) 
     );
 
     $response = $this->actingAs($user)
-        ->postJson('/api/db/node-chunks/upsert', [
+        ->postJson('/api/db/nodes/upsert', [
             'book' => 'xss-nodechunk-test',
             'nodes' => [[
                 'node_id' => 'xss-node-' . md5($payload),
@@ -265,9 +265,9 @@ test('node chunk content field should be sanitized', function (string $payload) 
             ]],
         ]);
 
-    // VULNERABILITY: NodeChunkUpsertRequest doesn't validate content with SafeString
+    // VULNERABILITY: NodeUpsertRequest doesn't validate content with SafeString
     if ($response->status() === 200 || $response->status() === 201) {
-        $chunk = PgNodeChunk::where('node_id', 'xss-node-' . md5($payload))->first();
+        $chunk = PgNode::where('node_id', 'xss-node-' . md5($payload))->first();
         if ($chunk) {
             // Documents vulnerability: dangerous content may be stored
             expect($chunk->content)->not->toMatch('/<script|onerror|onload|onclick|javascript:/i');

@@ -222,7 +222,7 @@ The conversion pipeline emits **`nodes.jsonl` / `footnotes.jsonl`** (streamed);
 `ContentFetchService` used to wait for `nodes.json` → every citation OCR run
 "timed out" AFTER a successful conversion (this is why prod likely has ~1 auto
 version). The fix is in `ContentFetchService::processLocalPdf` /
-`saveNodeChunksToDatabase` / `saveFootnotesToDatabase`; regression-guarded by
+`saveNodesToDatabase` / `saveFootnotesToDatabase`; regression-guarded by
 `tests/Canonical/CitationOcrSavePathTest.php`. **Symptom if it regresses:**
 `ocr_failed` with reason "Timed out waiting for nodes.jsonl" while
 `resources/markdown/<book>/` contains a complete conversion.

@@ -156,7 +156,7 @@ async function syncPasteToPostgreSQL(bookId: BookId) {
     }
 
     // Full book sync: deletes all existing nodes for book, then inserts all fresh
-    const response = await fetch('/api/db/node-chunks/upsert', {
+    const response = await fetch('/api/db/nodes/upsert', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

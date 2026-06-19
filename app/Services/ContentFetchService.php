@@ -919,7 +919,7 @@ class ContentFetchService
             }
 
             // 4. Save nodes to DB
-            $this->saveNodeChunksToDatabase($path, $bookId);
+            $this->saveNodesToDatabase($path, $bookId);
 
             // 5. Save footnotes to DB
             $this->saveFootnotesToDatabase($path, $bookId);
@@ -1146,7 +1146,7 @@ class ContentFetchService
         if ($nodeCount === 0) {
             return ['status' => 'failed', 'reason' => 'no content blocks produced'];
         }
-        $this->saveNodeChunksToDatabase($path, $bookId);
+        $this->saveNodesToDatabase($path, $bookId);
 
         if ($footnotes) {
             File::put("{$path}/footnotes.jsonl", implode("\n", array_map('json_encode', $footnotes)));
@@ -1220,7 +1220,7 @@ class ContentFetchService
 
     /**
      * Split linked article HTML into block-level node rows (one JSON object per
-     * line) for saveNodeChunksToDatabase — mirrors how the front-end paste path
+     * line) for saveNodesToDatabase — mirrors how the front-end paste path
      * stores each block as a node, WITHOUT routing through process_document
      * (the engine already linked citations/footnotes; re-linking would clobber).
      */
@@ -1354,11 +1354,11 @@ class ContentFetchService
 
     /**
      * Save node chunks from the pipeline's nodes.jsonl to database.
-     * Replicates ProcessDocumentImportJob::saveNodeChunksToDatabase logic,
+     * Replicates ProcessDocumentImportJob::saveNodesToDatabase logic,
      * including writing the renumbered nodes.json artifact (what the editor
      * saver reads) as a by-product.
      */
-    private function saveNodeChunksToDatabase(string $path, string $bookId): void
+    private function saveNodesToDatabase(string $path, string $bookId): void
     {
         $nodesPath = "{$path}/nodes.jsonl";
         if (!File::exists($nodesPath)) {

@@ -29,7 +29,7 @@ describe('legacy sync endpoints (characterization)', () => {
 
     await syncNodesToPostgreSQL('bookA', [{ book: 'bookA', startLine: 100 }]);
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('/api/db/node-chunks/targeted-upsert');
+    expect(url).toBe('/api/db/nodes/targeted-upsert');
     expect(init.headers['X-CSRF-TOKEN']).toBe('test-csrf');
     expect(init.credentials).toBe('include');
     expect(JSON.parse(init.body)).toEqual({ book: 'bookA', data: [{ book: 'bookA', startLine: 100 }] });

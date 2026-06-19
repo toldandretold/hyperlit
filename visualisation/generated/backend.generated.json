@@ -6,7 +6,7 @@
         "PgHypercite": "hypercites",
         "PgHyperlight": "hyperlights",
         "PgLibrary": "library",
-        "PgNodeChunk": "nodes",
+        "PgNode": "nodes",
         "PgReference": "bibliography"
     },
     "nodes": [
@@ -905,11 +905,11 @@
             ]
         },
         {
-            "id": "controller:DbNodeChunkController@bulkCreate",
-            "label": "DbNodeChunkController@bulkCreate",
+            "id": "controller:DbNodeController@bulkCreate",
+            "label": "DbNodeController@bulkCreate",
             "kind": "controller",
             "dir": "push",
-            "controller": "DbNodeChunkController",
+            "controller": "DbNodeController",
             "method": "bulkCreate",
             "tables": [
                 "hyperlights",
@@ -930,15 +930,15 @@
                 "updated_at"
             ],
             "endpoints": [
-                "/api/db/node-chunks/bulk-create"
+                "/api/db/nodes/bulk-create"
             ]
         },
         {
-            "id": "controller:DbNodeChunkController@targetedUpsert",
-            "label": "DbNodeChunkController@targetedUpsert",
+            "id": "controller:DbNodeController@targetedUpsert",
+            "label": "DbNodeController@targetedUpsert",
             "kind": "controller",
             "dir": "push",
-            "controller": "DbNodeChunkController",
+            "controller": "DbNodeController",
             "method": "targetedUpsert",
             "tables": [
                 "hyperlights",
@@ -953,15 +953,15 @@
                 "startLine"
             ],
             "endpoints": [
-                "/api/db/node-chunks/targeted-upsert"
+                "/api/db/nodes/targeted-upsert"
             ]
         },
         {
-            "id": "controller:DbNodeChunkController@upsert",
-            "label": "DbNodeChunkController@upsert",
+            "id": "controller:DbNodeController@upsert",
+            "label": "DbNodeController@upsert",
             "kind": "controller",
             "dir": "push",
-            "controller": "DbNodeChunkController",
+            "controller": "DbNodeController",
             "method": "upsert",
             "tables": [
                 "hyperlights",
@@ -980,7 +980,7 @@
                 "type"
             ],
             "endpoints": [
-                "/api/db/node-chunks/upsert"
+                "/api/db/nodes/upsert"
             ]
         },
         {
@@ -1178,47 +1178,47 @@
             "rel": "write"
         },
         {
-            "source": "controller:DbNodeChunkController@bulkCreate",
+            "source": "controller:DbNodeController@bulkCreate",
             "target": "pg:hyperlights",
             "rel": "write"
         },
         {
-            "source": "controller:DbNodeChunkController@bulkCreate",
+            "source": "controller:DbNodeController@bulkCreate",
             "target": "pg:library",
             "rel": "write"
         },
         {
-            "source": "controller:DbNodeChunkController@bulkCreate",
+            "source": "controller:DbNodeController@bulkCreate",
             "target": "pg:nodes",
             "rel": "write"
         },
         {
-            "source": "controller:DbNodeChunkController@targetedUpsert",
+            "source": "controller:DbNodeController@targetedUpsert",
             "target": "pg:hyperlights",
             "rel": "write"
         },
         {
-            "source": "controller:DbNodeChunkController@targetedUpsert",
+            "source": "controller:DbNodeController@targetedUpsert",
             "target": "pg:library",
             "rel": "write"
         },
         {
-            "source": "controller:DbNodeChunkController@targetedUpsert",
+            "source": "controller:DbNodeController@targetedUpsert",
             "target": "pg:nodes",
             "rel": "write"
         },
         {
-            "source": "controller:DbNodeChunkController@upsert",
+            "source": "controller:DbNodeController@upsert",
             "target": "pg:hyperlights",
             "rel": "write"
         },
         {
-            "source": "controller:DbNodeChunkController@upsert",
+            "source": "controller:DbNodeController@upsert",
             "target": "pg:library",
             "rel": "write"
         },
         {
-            "source": "controller:DbNodeChunkController@upsert",
+            "source": "controller:DbNodeController@upsert",
             "target": "pg:nodes",
             "rel": "write"
         },
@@ -1522,9 +1522,9 @@
         "/api/db/library/set-slug": "controller:DbLibraryController@setSlug",
         "/api/db/library/update-timestamp": "controller:DbLibraryController@updateTimestamp",
         "/api/db/library/upsert": "controller:DbLibraryController@upsert",
-        "/api/db/node-chunks/bulk-create": "controller:DbNodeChunkController@bulkCreate",
-        "/api/db/node-chunks/targeted-upsert": "controller:DbNodeChunkController@targetedUpsert",
-        "/api/db/node-chunks/upsert": "controller:DbNodeChunkController@upsert",
+        "/api/db/nodes/bulk-create": "controller:DbNodeController@bulkCreate",
+        "/api/db/nodes/targeted-upsert": "controller:DbNodeController@targetedUpsert",
+        "/api/db/nodes/upsert": "controller:DbNodeController@upsert",
         "/api/db/references/upsert": "controller:DbReferencesController@upsertReferences",
         "/api/db/sync/beacon": "controller:BeaconSyncController@handleSync",
         "/api/db/unified-sync": "controller:UnifiedSyncController@sync",

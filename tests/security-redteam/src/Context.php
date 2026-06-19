@@ -140,14 +140,14 @@ class Context
 
     /**
      * Write one node's HTML `content` into a book. Returns the raw Response.
-     * node_id is GLOBALLY unique (node_chunks_node_id_unique), so the default is
+     * node_id is GLOBALLY unique (nodes_node_id_unique), so the default is
      * randomised per call — a fixed id collides with leftover rows across runs.
      * Pass an explicit $nodeId when another write (e.g. a highlight) must target it.
      */
     public function writeNode(HttpClient $client, string $book, string $content, string $nodeId = ''): Response
     {
         $nodeId = $nodeId !== '' ? $nodeId : 'rt_n_' . bin2hex(random_bytes(5));
-        return $client->postJson('/api/db/node-chunks/upsert', [
+        return $client->postJson('/api/db/nodes/upsert', [
             'book' => $book,
             'data' => [[
                 'book'       => $book,

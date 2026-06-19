@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 use App\Models\PgLibrary;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -44,11 +44,11 @@ class BookVersionRestorer
             }
 
             // Delete current nodes (archived via trigger), then recreate the historical state.
-            PgNodeChunk::where('book', $bookId)->delete();
+            PgNode::where('book', $bookId)->delete();
 
             $restored = 0;
             foreach ($historicalNodes as $node) {
-                PgNodeChunk::create([
+                PgNode::create([
                     'book' => $node->book,
                     'node_id' => $node->node_id,
                     'startLine' => $node->startLine,

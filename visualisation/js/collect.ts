@@ -1336,7 +1336,7 @@ function rebuild(){
   // Beacon (UnifiedSync's page-unload twin) beside it. Below them, the PER-DOMAIN writers, ordered
   // L→R by domain (annotations | core content | bibliography) to line up under the matching tables.
   var SPINE_LOAD="DatabaseToIndexedDBController", SPINE_SAVE="UnifiedSyncController", AGG_BEACON="BeaconSyncController";
-  var CTRL_DOM_ORDER=["DbHyperlightController","DbHyperciteController","DbNodeChunkController","DbLibraryController","DbFootnoteController","DbReferencesController"]; // L: annotations · C: nodes+library · R: bibliography
+  var CTRL_DOM_ORDER=["DbHyperlightController","DbHyperciteController","DbNodeController","DbLibraryController","DbFootnoteController","DbReferencesController"]; // L: annotations · C: nodes+library · R: bibliography
   function domainArrange(keys, coreOrder){
     var core=coreOrder.filter(function(k){return keys.indexOf(k)>=0;});
     var extras=keys.filter(function(k){return coreOrder.indexOf(k)<0;}).sort();

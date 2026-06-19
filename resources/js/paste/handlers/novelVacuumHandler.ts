@@ -333,7 +333,7 @@ export async function handleNovelVacuum(url: any, targetBookId: any, isSubBook: 
       const { getNodesFromIndexedDB } = await import('../../indexedDB/index');
       const allNodes = await getNodesFromIndexedDB(pasteBook);
 
-      const response = await fetch('/api/db/node-chunks/upsert', {
+      const response = await fetch('/api/db/nodes/upsert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
         credentials: 'include',

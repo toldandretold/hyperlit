@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Models\PgNodeChunk;
+use App\Models\PgNode;
 
 /**
  * Backfill plainText column for nodes
@@ -64,7 +64,7 @@ class BackfillNodePlainText extends Command
         }
 
         // Build query
-        $query = PgNodeChunk::query()
+        $query = PgNode::query()
             ->whereNotNull('content')
             ->where('content', '!=', '');
 
@@ -133,7 +133,7 @@ class BackfillNodePlainText extends Command
                     $plainText = strip_tags($node->content);
 
                     // Update directly to avoid triggering model events (which would be redundant)
-                    PgNodeChunk::where('id', $node->id)->update([
+                    PgNode::where('id', $node->id)->update([
                         'plainText' => $plainText
                     ]);
 

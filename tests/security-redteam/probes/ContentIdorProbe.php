@@ -89,12 +89,12 @@ class ContentIdorProbe extends Probe
                 'Attacker wrote content into another user\'s book',
                 Finding::CRITICAL,
                 "A node written by the attacker to the victim's book persisted (visible when the victim re-reads).",
-                'POST /api/db/node-chunks/upsert',
+                'POST /api/db/nodes/upsert',
                 "write status: {$write->status}; injected marker found on victim re-read.",
                 'Enforce creator ownership on every node write; reject (404) writes to books the caller does not own.'
             );
         } else {
-            $findings[] = $this->safe('Cross-tenant node write blocked', "Attacker node write returned HTTP {$write->status} and did not appear in the victim's book.", 'POST /api/db/node-chunks/upsert');
+            $findings[] = $this->safe('Cross-tenant node write blocked', "Attacker node write returned HTTP {$write->status} and did not appear in the victim's book.", 'POST /api/db/nodes/upsert');
         }
 
         // Cleanup (victim owns the book).

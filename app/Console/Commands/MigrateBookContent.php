@@ -16,7 +16,7 @@ use App\Services\BookMigrationService;
  * - Renumbers footnotes in document order
  *
  * WHY THIS IS NEEDED:
- * - These migrations were running on every getNodeChunks() call, adding latency
+ * - These migrations were running on every getNodes() call, adding latency
  * - Moving to a one-time command makes page loads faster
  * - Data should already be in correct format after running this once
  *

@@ -129,9 +129,9 @@ class DatabaseToIndexedDBController extends Controller
             $hypercitesByNode = $this->buildHypercitesByNodeFromProcessed($hypercites);
 
             // Get node chunks using pre-fetched annotation lookups
-            $nodeChunks = $this->getNodeChunksWithPreFetched($bookId, $hyperlightsByNode, $hypercitesByNode);
+            $nodes = $this->getNodesWithPreFetched($bookId, $hyperlightsByNode, $hypercitesByNode);
 
-            if (empty($nodeChunks)) {
+            if (empty($nodes)) {
                 return response()->json([
                     'error' => 'No data found for book',
                     'book_id' => $bookId
@@ -144,7 +144,7 @@ class DatabaseToIndexedDBController extends Controller
 
             // Structure data for efficient IndexedDB import
             $response = [
-                'nodes' => $nodeChunks,
+                'nodes' => $nodes,
                 'footnotes' => $footnotes,
                 'bibliography' => $bibliography,
                 'hyperlights' => $hyperlights,
@@ -152,7 +152,7 @@ class DatabaseToIndexedDBController extends Controller
                 'library' => $library,
                 'metadata' => [
                     'book_id' => $bookId,
-                    'total_chunks' => count($nodeChunks),
+                    'total_chunks' => count($nodes),
                     'total_footnotes' => $footnotes ? count($footnotes['data'] ?? []) : 0,
                     'total_bibliography' => $bibliography ? count($bibliography['data'] ?? []) : 0,
                     'total_hyperlights' => count($hyperlights ?? []),
@@ -215,7 +215,7 @@ class DatabaseToIndexedDBController extends Controller
     /**
      * Get node chunks for a book - matches your IndexedDB structure
      */
-    private function getNodeChunks(string $bookId, array $visibleHyperlightIds): array
+    private function getNodes(string $bookId, array $visibleHyperlightIds): array
     {
 
         // Get processed highlights with is_user_highlight flag
@@ -468,7 +468,7 @@ class DatabaseToIndexedDBController extends Controller
     /**
      * Get node chunks using pre-fetched annotation lookups (avoids redundant queries).
      */
-    private function getNodeChunksWithPreFetched(string $bookId, array $hyperlightsByNode, array $hypercitesByNode): array
+    private function getNodesWithPreFetched(string $bookId, array $hyperlightsByNode, array $hypercitesByNode): array
     {
         $chunks = DB::table('nodes')
             ->where('book', $bookId)
@@ -1410,7 +1410,7 @@ class DatabaseToIndexedDBController extends Controller
             $hypercitesByNode = $this->buildHypercitesByNodeFromProcessed($hypercites);
 
             // Get nodes for target chunk using pre-fetched annotations
-            $initialNodes = $this->getNodeChunksForChunk($bookId, $targetChunkId, $hyperlightsByNode, $hypercitesByNode);
+            $initialNodes = $this->getNodesForChunk($bookId, $targetChunkId, $hyperlightsByNode, $hypercitesByNode);
 
             // If the target chunk is too small to fill a viewport, include adjacent chunks
             // so the user has enough content to scroll
@@ -1422,12 +1422,12 @@ class DatabaseToIndexedDBController extends Controller
                 // Try next chunk first, then previous
                 if ($targetPos !== false && $targetPos < count($chunkIds) - 1) {
                     $nextChunkId = $chunkIds[$targetPos + 1];
-                    $nextNodes = $this->getNodeChunksForChunk($bookId, $nextChunkId, $hyperlightsByNode, $hypercitesByNode);
+                    $nextNodes = $this->getNodesForChunk($bookId, $nextChunkId, $hyperlightsByNode, $hypercitesByNode);
                     $initialNodes = array_merge($initialNodes, $nextNodes);
                 }
                 if (count($initialNodes) < $minNodes && $targetPos !== false && $targetPos > 0) {
                     $prevChunkId = $chunkIds[$targetPos - 1];
-                    $prevNodes = $this->getNodeChunksForChunk($bookId, $prevChunkId, $hyperlightsByNode, $hypercitesByNode);
+                    $prevNodes = $this->getNodesForChunk($bookId, $prevChunkId, $hyperlightsByNode, $hypercitesByNode);
                     $initialNodes = array_merge($prevNodes, $initialNodes);
                 }
             }
@@ -1551,7 +1551,7 @@ class DatabaseToIndexedDBController extends Controller
             $hyperlightsByNode = $this->buildHyperlightsByNodeFromProcessed($hyperlights);
             $hypercitesByNode = $this->buildHypercitesByNodeFromProcessed($hypercites);
 
-            $nodes = $this->getNodeChunksForChunk($bookId, $chunkId, $hyperlightsByNode, $hypercitesByNode);
+            $nodes = $this->getNodesForChunk($bookId, $chunkId, $hyperlightsByNode, $hypercitesByNode);
 
             if (empty($nodes)) {
                 return response()->json([
@@ -1743,10 +1743,10 @@ class DatabaseToIndexedDBController extends Controller
 
     /**
      * Get node chunks for a specific chunk_id with embedded annotations.
-     * Variant of getNodeChunks() filtered to a single chunk.
+     * Variant of getNodes() filtered to a single chunk.
      * Accepts pre-fetched annotation lookups to avoid redundant queries.
      */
-    private function getNodeChunksForChunk(string $bookId, int $chunkId, array $hyperlightsByNode, array $hypercitesByNode): array
+    private function getNodesForChunk(string $bookId, int $chunkId, array $hyperlightsByNode, array $hypercitesByNode): array
     {
         $chunks = DB::table('nodes')
             ->where('book', $bookId)
