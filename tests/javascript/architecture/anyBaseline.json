@@ -1,7 +1,7 @@
 {
   "_comment": "Ratchet baseline for `: any` type-annotation counts in the type-tightened folders. The noNewAny gate fails if any group EXCEEDS its number here. When you REDUCE anys, lower the matching number (the test prints the new count to copy in). Never raise a number without a deliberate reason in the PR.",
   "resources/js/divEditor": 182,
-  "resources/js/editToolbar": 187,
+  "resources/js/editToolbar": 169,
   "resources/js/paste": 683,
   "resources/js/components/editButton": 24,
   "resources/js/utilities/idHelpers.ts": 16

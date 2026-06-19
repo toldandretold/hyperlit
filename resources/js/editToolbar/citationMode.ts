@@ -35,6 +35,23 @@ interface CitationModeOptions {
   closeHeadingSubmenuCallback?: () => void;
 }
 
+/** The custom shelf-dropdown sub-UI (present only if its full markup block exists). */
+interface ShelfUI {
+  picker: HTMLElement;
+  trigger: HTMLElement;
+  current: HTMLElement;
+  options: HTMLElement;
+}
+
+/** Category C refs — the scope-chip bar (+ optional shelf), live ONLY while the mode is open.
+ *  Held as one nullable bundle so a single `if (!this.scopeUI) return` narrows them all to
+ *  non-null (provable, not asserted). Built in _initScopeChips, cleared in _destroyScopeChips. */
+interface ScopeChipsUI {
+  scopeBar: HTMLElement;
+  scopeButtons: HTMLElement[];
+  shelf: ShelfUI | null;
+}
+
 export class CitationMode {
   // Category A refs — always present while the mode operates. Resolved once in the
   // constructor; if any is missing the instance is `inert` and open() no-ops (the
@@ -49,10 +66,7 @@ export class CitationMode {
   // Category B — queried at construction, genuinely optional; guarded with `if`.
   closeButton: HTMLElement | null = null;
   closeHeadingSubmenuCallback: (() => void) | undefined;
-  scopeBar: any;
-  scopeButtons: any;
-  shelfPicker: any;
-  shelfSelect: any;
+  private scopeUI: ScopeChipsUI | null = null;
   shelvesLoaded: boolean = false;
   boundScopeClickHandlers: any[] = [];
   boundShelfChangeHandler: ((e: Event) => void) | null = null;
@@ -78,12 +92,15 @@ export class CitationMode {
   lockedScrollPosition: number | null = 0;
   boundScrollLockHandler: ((e: Event) => void) | null = null;
   _shelfInteractionAt: number = 0;
-  resultsItems: any;
-  shelfTrigger: any;
-  shelfCurrent: any;
-  shelfOptions: any;
-  boundShelfTriggerHandlers: any;
+  boundShelfTriggerHandlers: { triggerFocusKeeper: (e: Event) => void; triggerClickHandler: (e: Event) => void } | null = null;
   boundInputTouchHandler: ((e: TouchEvent) => void) | null = null;
+
+  // Back-compat read-only accessors: the scope/shelf refs now live in `scopeUI`, but tests
+  // (and any external reader) still address them as flat properties. Null when closed.
+  get scopeBar(): HTMLElement | null { return this.scopeUI?.scopeBar ?? null; }
+  get shelfTrigger(): HTMLElement | null { return this.scopeUI?.shelf?.trigger ?? null; }
+  get shelfOptions(): HTMLElement | null { return this.scopeUI?.shelf?.options ?? null; }
+  get shelfCurrent(): HTMLElement | null { return this.scopeUI?.shelf?.current ?? null; }
 
   constructor({
     toolbar,
@@ -107,12 +124,8 @@ export class CitationMode {
     this.citationInput = citationInput;
     this.citationResults = citationResults;
 
-    // Scope picker (lives inside citationContainer — query lazily on open()
-    // because the container may not be in the DOM yet at construction time).
-    this.scopeBar = null;
-    this.scopeButtons = null;
-    this.shelfPicker = null;
-    this.shelfSelect = null;
+    // Scope/shelf refs (scopeUI) are queried lazily in _initScopeChips() on open() —
+    // the container may not be in the DOM at construction time. Field initializers cover defaults.
     this.shelvesLoaded = false;
     this.boundScopeClickHandlers = [];
     this.boundShelfChangeHandler = null;
@@ -285,68 +298,62 @@ export class CitationMode {
   // below the viewport on narrow screens. Result items go into a sibling
   // .citation-results-items so innerHTML clears don't wipe the chip bar.
   _initScopeChips() {
-    const root = this.citationResults || this.citationContainer;
-    if (!root) return;
-    this.scopeBar = root.querySelector('.citation-scope-bar');
-    this.resultsItems = root.querySelector('.citation-results-items') || root;
-    if (!this.scopeBar) return;
-    this.scopeButtons = Array.from(this.scopeBar.querySelectorAll('.citation-scope-btn'));
-    this.shelfPicker = this.scopeBar.querySelector('.citation-shelf-picker');
-    // Custom dropdown (button + popup) — replaces the native <select> which on
-    // iOS always dismissed the keyboard when its picker opened (browser-level
-    // behaviour we couldn't intercept). Custom dropdown is just HTML, so
-    // mousedown.preventDefault on the trigger keeps the input focused — same
-    // trick we use on the scope chips.
-    this.shelfTrigger = this.scopeBar.querySelector('.citation-shelf-trigger');
-    this.shelfCurrent = this.scopeBar.querySelector('.citation-shelf-current');
-    this.shelfOptions = this.scopeBar.querySelector('.citation-shelf-options');
-    this.shelfSelect = this.shelfTrigger; // alias used by older test code paths
+    const root = this.citationResults;
+    const scopeBar = root.querySelector<HTMLElement>('.citation-scope-bar');
+    if (!scopeBar) return;
+    const scopeButtons = Array.from(scopeBar.querySelectorAll<HTMLElement>('.citation-scope-btn'));
+
+    // Custom shelf dropdown (button + popup) — replaces the native <select> which on
+    // iOS always dismissed the keyboard when its picker opened. Built as a bundle only
+    // if the whole markup block is present (it's one cohesive block in the template).
+    const trigger = scopeBar.querySelector<HTMLElement>('.citation-shelf-trigger');
+    const picker = scopeBar.querySelector<HTMLElement>('.citation-shelf-picker');
+    const current = scopeBar.querySelector<HTMLElement>('.citation-shelf-current');
+    const options = scopeBar.querySelector<HTMLElement>('.citation-shelf-options');
+    const shelf: ShelfUI | null =
+      (trigger && picker && current && options) ? { picker, trigger, current, options } : null;
+
+    this.scopeUI = { scopeBar, scopeButtons, shelf };
 
     // Reflect saved scope in the chip UI
-    this.scopeButtons.forEach((btn: any) => {
+    scopeButtons.forEach((btn) => {
       const isActive = btn.dataset.scope === this.currentScope;
       btn.classList.toggle('active', isActive);
       btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
 
-    // Show chips by default (state is 'hidden' on open). hide method below
-    // reacts to the results lifecycle.
-    this.scopeBar.style.display = '';
+    // Show chips by default (state is 'hidden' on open).
+    scopeBar.style.display = '';
     this._togglePickerVisibility();
 
-    // Click handlers — tracked for detach
-    this.scopeButtons.forEach((btn: any) => {
+    // Click handlers — tracked for detach. mousedown/pointerdown preventDefault keeps focus
+    // on the search input (otherwise the chip steals focus and the mobile keyboard dismisses);
+    // the click still fires normally.
+    scopeButtons.forEach((btn) => {
       const handler = () => this._handleScopeChange(btn.dataset.scope);
-      // mousedown / pointerdown preventDefault keeps focus on the search input
-      // when the user taps a chip — otherwise the chip steals focus, the input
-      // blurs, and the mobile keyboard dismisses on every scope change. The
-      // click event still fires normally (preventDefault on these only blocks
-      // the focus-transfer side effect, not the click synthesis).
-      const focusKeeper = (e: any) => e.preventDefault();
+      const focusKeeper = (e: Event) => e.preventDefault();
       btn.addEventListener('mousedown', focusKeeper);
       btn.addEventListener('pointerdown', focusKeeper);
       btn.addEventListener('click', handler);
       this.boundScopeClickHandlers.push({ btn, handler, focusKeeper });
     });
 
-    if (this.shelfTrigger) {
-      // Trigger button toggles the popup. mousedown/pointerdown preventDefault
-      // keeps focus on the search input (same trick as scope chips), so the
-      // mobile keyboard stays up while the user picks a shelf.
-      const triggerFocusKeeper = (e: any) => e.preventDefault();
-      const triggerClickHandler = (e: any) => {
+    if (shelf) {
+      // Same focus-keeper trick on the shelf trigger so the keyboard stays up.
+      const triggerFocusKeeper = (e: Event) => e.preventDefault();
+      const triggerClickHandler = (e: Event) => {
         e.preventDefault();
         e.stopPropagation();
-        const expanded = this.shelfTrigger.getAttribute('aria-expanded') === 'true';
+        const expanded = shelf.trigger.getAttribute('aria-expanded') === 'true';
         if (expanded) {
           this._closeShelfDropdown();
         } else {
           this._openShelfDropdown();
         }
       };
-      this.shelfTrigger.addEventListener('mousedown', triggerFocusKeeper);
-      this.shelfTrigger.addEventListener('pointerdown', triggerFocusKeeper);
-      this.shelfTrigger.addEventListener('click', triggerClickHandler);
+      shelf.trigger.addEventListener('mousedown', triggerFocusKeeper);
+      shelf.trigger.addEventListener('pointerdown', triggerFocusKeeper);
+      shelf.trigger.addEventListener('click', triggerClickHandler);
       this.boundShelfTriggerHandlers = { triggerFocusKeeper, triggerClickHandler };
     }
 
@@ -365,54 +372,53 @@ export class CitationMode {
       }
     });
     this.boundScopeClickHandlers = [];
-    if (this.shelfTrigger && this.boundShelfTriggerHandlers) {
+    const shelf = this.scopeUI?.shelf;
+    if (shelf && this.boundShelfTriggerHandlers) {
       const { triggerFocusKeeper, triggerClickHandler } = this.boundShelfTriggerHandlers;
-      this.shelfTrigger.removeEventListener('mousedown', triggerFocusKeeper);
-      this.shelfTrigger.removeEventListener('pointerdown', triggerFocusKeeper);
-      this.shelfTrigger.removeEventListener('click', triggerClickHandler);
+      shelf.trigger.removeEventListener('mousedown', triggerFocusKeeper);
+      shelf.trigger.removeEventListener('pointerdown', triggerFocusKeeper);
+      shelf.trigger.removeEventListener('click', triggerClickHandler);
       this.boundShelfTriggerHandlers = null;
     }
     this._closeShelfDropdown();
     this._shelfInteractionAt = 0;
-    this.scopeBar = null;
-    this.scopeButtons = null;
-    this.shelfPicker = null;
-    this.shelfTrigger = null;
-    this.shelfCurrent = null;
-    this.shelfOptions = null;
-    this.shelfSelect = null;
+    this.scopeUI = null;
   }
 
   _openShelfDropdown() {
-    if (!this.shelfTrigger || !this.shelfOptions) return;
-    this.shelfTrigger.setAttribute('aria-expanded', 'true');
-    this.shelfOptions.hidden = false;
+    const shelf = this.scopeUI?.shelf;
+    if (!shelf) return;
+    shelf.trigger.setAttribute('aria-expanded', 'true');
+    shelf.options.hidden = false;
     // Flag the panel so CSS (and keyboardManager) can grow the blurred area
-    // to fit the popup, which sits above the chip bar. Without this the
-    // dropdown gets clipped when the panel is in chips-only height.
-    this.citationResults?.classList.add('shelf-dropdown-open');
+    // to fit the popup, which sits above the chip bar.
+    this.citationResults.classList.add('shelf-dropdown-open');
     this._shelfInteractionAt = performance.now();
     this._ensureShelvesLoaded();
     this.repositionContainer();
   }
 
   _closeShelfDropdown() {
-    if (this.shelfTrigger) this.shelfTrigger.setAttribute('aria-expanded', 'false');
-    if (this.shelfOptions) this.shelfOptions.hidden = true;
-    this.citationResults?.classList.remove('shelf-dropdown-open');
+    const shelf = this.scopeUI?.shelf;
+    if (shelf) {
+      shelf.trigger.setAttribute('aria-expanded', 'false');
+      shelf.options.hidden = true;
+    }
+    this.citationResults.classList.remove('shelf-dropdown-open');
     this.repositionContainer();
   }
 
-  _pickShelf(id: any, label: any) {
+  _pickShelf(id: string | undefined, label: string | undefined) {
     this.currentShelfId = id || '';
     try { localStorage.setItem(SHELF_STORAGE_KEY, this.currentShelfId); } catch {}
-    if (this.shelfCurrent) {
-      this.shelfCurrent.textContent = id ? label : '— pick a shelf —';
+    const current = this.scopeUI?.shelf?.current;
+    if (current) {
+      current.textContent = id ? (label ?? '') : '— pick a shelf —';
     }
     this._closeShelfDropdown();
     this._shelfInteractionAt = performance.now();
     // Re-fire current search with the new shelf
-    const inputValue = (this.citationInput?.value || '').trim();
+    const inputValue = (this.citationInput.value || '').trim();
     if (inputValue.length >= 2) {
       this.currentQuery = inputValue;
       this.currentOffset = 0;
@@ -420,8 +426,8 @@ export class CitationMode {
     }
   }
 
-  _handleScopeChange(newScope: any) {
-    if (!VALID_SCOPES.includes(newScope) || newScope === this.currentScope) {
+  _handleScopeChange(newScope: string | undefined) {
+    if (!newScope || !VALID_SCOPES.includes(newScope) || newScope === this.currentScope) {
       // Still allow shelf re-click to surface the picker
       if (newScope === 'shelf') this._ensureShelvesLoaded();
       return;
@@ -429,7 +435,7 @@ export class CitationMode {
     this.currentScope = newScope;
     try { localStorage.setItem(SCOPE_STORAGE_KEY, newScope); } catch {}
 
-    this.scopeButtons.forEach((btn: any) => {
+    this.scopeUI?.scopeButtons.forEach((btn) => {
       const isActive = btn.dataset.scope === newScope;
       btn.classList.toggle('active', isActive);
       btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
@@ -460,13 +466,15 @@ export class CitationMode {
   }
 
   _togglePickerVisibility() {
-    if (this.shelfPicker) {
-      this.shelfPicker.style.display = this.currentScope === 'shelf' ? '' : 'none';
+    const picker = this.scopeUI?.shelf?.picker;
+    if (picker) {
+      picker.style.display = this.currentScope === 'shelf' ? '' : 'none';
     }
   }
 
   async _ensureShelvesLoaded() {
-    if (this.shelvesLoaded || !this.shelfOptions) return;
+    const shelf = this.scopeUI?.shelf;
+    if (this.shelvesLoaded || !shelf) return;
     this.shelvesLoaded = true;
     try {
       const resp = await fetch('/api/shelves', {
@@ -476,7 +484,7 @@ export class CitationMode {
       const data = await resp.json();
       const shelves = Array.isArray(data) ? data : (data.shelves || data.data || []);
       if (!shelves.length) {
-        this.shelfOptions.innerHTML = '<li class="citation-shelf-option-empty" role="option" aria-disabled="true">No shelves — create one first</li>';
+        shelf.options.innerHTML = '<li class="citation-shelf-option-empty" role="option" aria-disabled="true">No shelves — create one first</li>';
         return;
       }
       this._renderShelfOptions(shelves);
@@ -484,23 +492,24 @@ export class CitationMode {
       // Restore last-used shelf label if it still exists
       if (this.currentShelfId) {
         const match = shelves.find((s: any) => (s.id || s.shelf_id) === this.currentShelfId);
-        if (match && this.shelfCurrent) {
+        if (match) {
           const count = Number(match.item_count ?? 0);
           const name = match.name || match.title || 'Untitled';
-          this.shelfCurrent.textContent = count > 0 ? `${name} (${count})` : `${name} (empty)`;
+          shelf.current.textContent = count > 0 ? `${name} (${count})` : `${name} (empty)`;
         }
       }
     } catch (e) {
       this.shelvesLoaded = false;
       console.warn('CitationMode: failed to load shelves:', e);
-      this.shelfOptions.innerHTML = '<li class="citation-shelf-option-empty" role="option" aria-disabled="true">Failed to load shelves</li>';
+      shelf.options.innerHTML = '<li class="citation-shelf-option-empty" role="option" aria-disabled="true">Failed to load shelves</li>';
     }
   }
 
   _renderShelfOptions(shelves: any) {
-    if (!this.shelfOptions) return;
+    const options = this.scopeUI?.shelf?.options;
+    if (!options) return;
     const escape = (s: any) => String(s).replace(/[<>&"]/g, (c: string) => (({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'} as Record<string, string>)[c] || c));
-    this.shelfOptions.innerHTML = shelves.map((s: any) => {
+    options.innerHTML = shelves.map((s: any) => {
       const id = s.id || s.shelf_id;
       const count = Number(s.item_count ?? 0);
       const name = escape(s.name || s.title || 'Untitled');
@@ -512,7 +521,7 @@ export class CitationMode {
     // Per-option focus-keeper + pick handler. Same mousedown/pointerdown
     // preventDefault trick the chip buttons use, so tapping an option doesn't
     // shift focus away from the input (keyboard stays up).
-    this.shelfOptions.querySelectorAll('li.citation-shelf-option').forEach((li: any) => {
+    options.querySelectorAll('li.citation-shelf-option').forEach((li: any) => {
       const focusKeeper = (e: any) => e.preventDefault();
       const pickHandler = (e: any) => {
         e.preventDefault();
@@ -536,9 +545,8 @@ export class CitationMode {
   // Returns the inner container that holds result items. Result writes target
   // this so innerHTML clears don't wipe the chip bar that lives at the bottom
   // of #citation-toolbar-results.
-  _items() {
-    return this.resultsItems
-      || this.citationResults?.querySelector?.('.citation-results-items')
+  _items(): HTMLElement {
+    return this.citationResults.querySelector<HTMLElement>('.citation-results-items')
       || this.citationResults;
   }
 
@@ -865,7 +873,8 @@ export class CitationMode {
     // If the custom shelf dropdown is open and the click is OUTSIDE it,
     // close just the dropdown — never the whole modal.
     if (this.shelfOptions && !this.shelfOptions.hidden) {
-      const insidePicker = this.shelfPicker && this.shelfPicker.contains(target);
+      const picker = this.scopeUI?.shelf?.picker;
+      const insidePicker = picker && picker.contains(target);
       if (!insidePicker) {
         this._closeShelfDropdown();
         return; // swallow this click — don't propagate to modal-close logic
