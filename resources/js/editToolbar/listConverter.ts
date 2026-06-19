@@ -15,15 +15,18 @@ import {
   setElementIds,
   findPreviousElementId,
   findNextElementId,
+  asLineId,
+  type BookId,
 } from "../utilities/idHelpers";
+import type { SaveToIndexedDBCallback } from "./types";
 
 /**
  * ListConverter class
  * Handles list item to block element conversions
  */
 export class ListConverter {
-  currentBookId: any;
-  saveToIndexedDBCallback: any;
+  currentBookId: BookId | null;
+  saveToIndexedDBCallback: SaveToIndexedDBCallback | null;
 
   constructor(options: any = {}) {
     this.currentBookId = options.currentBookId || null;
@@ -95,7 +98,7 @@ export class ListConverter {
 
     // Save the new block to IndexedDB
     if (this.saveToIndexedDBCallback) {
-      await this.saveToIndexedDBCallback(newBlock.id, newBlock.outerHTML);
+      await this.saveToIndexedDBCallback(asLineId(newBlock.id), newBlock.outerHTML);
     }
     setCursorAtTextOffset(newBlock, 0);
 

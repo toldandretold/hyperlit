@@ -11,6 +11,7 @@
 
 import { openDatabase } from '../indexedDB/core/connection';
 import { INLINE_SKIP_TAGS, BLOCK_ELEMENT_TAGS } from '../utilities/blockElements';
+import { asLineId, type LineId, type BookId } from '../utilities/idHelpers';
 
 /** First-difference descriptor between DOM text and stored IDB text. */
 export interface TextDiff {
@@ -21,7 +22,7 @@ export interface TextDiff {
 
 /** A node whose DOM text disagrees with its stored IDB content. */
 export interface NodeMismatch {
-  startLine: string;
+  startLine: LineId;
   nodeId: string | null;
   domText: string;
   idbText: string;
@@ -30,7 +31,7 @@ export interface NodeMismatch {
 
 /** A node present in the DOM but absent from IDB. */
 export interface MissingNode {
-  startLine: string;
+  startLine: LineId;
   nodeId: string | null;
   tag: string;
   domText: string;
@@ -38,13 +39,13 @@ export interface MissingNode {
 
 /** A numeric DOM id that appears more than once. */
 export interface DuplicateId {
-  id: string;
+  id: LineId;
   count: number;
 }
 
 /** Result of verifyNodesIntegrity — the per-node DOM↔IDB reconciliation. */
 export interface IntegrityResult {
-  ok: string[];
+  ok: LineId[];
   mismatches: NodeMismatch[];
   missingFromIDB: MissingNode[];
   duplicateIds: DuplicateId[];
@@ -121,7 +122,7 @@ function textFromStoredHTML(html: any) {
  * @param {Array}  nodeIds  - Array of numeric DOM id values to check
  * @returns {Promise<{ok: string[], mismatches: Array, missingFromIDB: string[], duplicateIds: Array}>}
  */
-export function verifyNodesIntegrity(bookId: string, nodeIds: string[]) : Promise<IntegrityResult> {
+export function verifyNodesIntegrity(bookId: BookId, nodeIds: LineId[]) : Promise<IntegrityResult> {
   return new Promise<IntegrityResult>((resolve) => {
     const run = () => {
       _verifySync(bookId, nodeIds).then(resolve);
@@ -138,8 +139,8 @@ export function verifyNodesIntegrity(bookId: string, nodeIds: string[]) : Promis
 /**
  * Internal synchronous (but async-IDB) verification.
  */
-async function _verifySync(bookId: string, nodeIds: string[]): Promise<IntegrityResult> {
-  const ok: string[] = [];
+async function _verifySync(bookId: BookId, nodeIds: LineId[]): Promise<IntegrityResult> {
+  const ok: LineId[] = [];
   const mismatches: NodeMismatch[] = [];
   const missingFromIDB: MissingNode[] = [];
 
@@ -148,7 +149,7 @@ async function _verifySync(bookId: string, nodeIds: string[]): Promise<Integrity
   nodeIds.forEach((id) => { idCounts[id] = (idCounts[id] || 0) + 1; });
   const duplicateIds: DuplicateId[] = Object.entries(idCounts)
     .filter(([, count]) => count > 1)
-    .map(([id, count]) => ({ id, count }));
+    .map(([id, count]) => ({ id: asLineId(id), count }));
 
   let db: IDBDatabase;
   try {
@@ -210,7 +211,7 @@ async function _verifySync(bookId: string, nodeIds: string[]): Promise<Integrity
 
         if (!record) {
           missingFromIDB.push({
-            startLine: String(nodeId),
+            startLine: asLineId(String(nodeId)),
             nodeId: dataNodeId,
             tag: domEl.tagName,
             domText,
@@ -221,10 +222,10 @@ async function _verifySync(bookId: string, nodeIds: string[]): Promise<Integrity
         const idbText = normaliseText(textFromStoredHTML(record.content));
 
         if (domText === idbText) {
-          ok.push(String(nodeId));
+          ok.push(asLineId(String(nodeId)));
         } else {
           mismatches.push({
-            startLine: String(nodeId),
+            startLine: asLineId(String(nodeId)),
             nodeId: dataNodeId,
             domText,
             idbText,

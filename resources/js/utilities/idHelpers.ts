@@ -6,15 +6,74 @@
 import { verbose } from './logger';
 import { ID_SKIP_TAGS } from './blockElements';
 import { book } from '../app';
+// Type-only import (erased at runtime) — keeps idHelpers a zero-runtime-import leaf.
+import type { BookId } from '../indexedDB/types';
 
 // 🚀 PERFORMANCE: Cache regex pattern (compiled once, used everywhere)
 export const NUMERICAL_ID_PATTERN = /^\d+(\.\d+)?$/;
+
+// ================================================================
+// IDENTIFIER VOCABULARY
+// The editor write path (divEditor / editToolbar / paste / editButton) shuffles
+// THREE distinct kinds of identifier. Giving each its own type stops the classic
+// "bookId used where a node id was expected" bug (see mainContent?.id gotcha).
+// ================================================================
+
+/**
+ * A node's POSITIONAL id — the DOM `el.id`, a decimal-shaped string like "100"
+ * or "100.5" (matches NUMERICAL_ID_PATTERN). It encodes reading order and is the
+ * IDB key component (its numeric form is `NodeRecord.startLine: number`).
+ *
+ * Branded so it is NOT interchangeable with BookId / DataNodeId. String-backed on
+ * purpose: a JS number would collapse decimal-depth (1.10 → 1.1) that
+ * compareDecimalStrings / needsRenumbering rely on, and lose precision on deep ids.
+ */
+export type LineId = string & { readonly __brand: 'LineId' };
+
+/**
+ * A node's STABLE id — the DOM `data-node-id` (`node_id` in IDB/Postgres), shaped
+ * `${bookId}_${ts}_${rand}` by generateDataNodeId(). Survives renumbering; globally
+ * unique in Postgres (but NOT in IDB — parent + sub-book can share one).
+ *
+ * Branded so it is NOT interchangeable with LineId / BookId. Unlike LineId there is
+ * no value-format to validate (it's an opaque token), so asDataNodeId is a pure brand.
+ */
+export type DataNodeId = string & { readonly __brand: 'DataNodeId' };
+
+// Re-export BookId so the editor folders import all three id types from one place.
+export type { BookId } from '../indexedDB/types';
+
+/** Type guard: is this string a positional node id (decimal-shaped)? */
+export function isLineId(s: string | null | undefined): s is LineId {
+  return s != null && NUMERICAL_ID_PATTERN.test(s);
+}
+
+/**
+ * Brand a string as a LineId. Dev-warns (like isDuplicateId) when the value is not
+ * a numerical id, making the DOM→LineId boundary explicit without throwing in prod.
+ */
+export function asLineId(s: string): LineId {
+  if (!NUMERICAL_ID_PATTERN.test(s)) {
+    console.warn(`asLineId: "${s}" is not a numerical node id (expected /^\\d+(\\.\\d+)?$/)`);
+  }
+  return s as LineId;
+}
+
+/** Type guard: is this a non-empty DataNodeId (the stable `data-node-id`)? */
+export function isDataNodeId(s: string | null | undefined): s is DataNodeId {
+  return typeof s === 'string' && s.length > 0;
+}
+
+/** Brand a string as a DataNodeId. Pure brand — the token has no fixed format to validate. */
+export function asDataNodeId(s: string): DataNodeId {
+  return s as DataNodeId;
+}
 
 /**
  * Detect if we need to renumber (decimals getting too deep)
  * Only trigger renumbering when decimals exceed MAX_DECIMAL_DEPTH
  */
-function needsRenumbering(beforeId: any, afterId: any) {
+function needsRenumbering(beforeId: string | null | undefined, afterId: string | null | undefined): boolean {
   const MAX_DECIMAL_DEPTH = 3; // Allow up to 3 decimal places (e.g., 1.123)
 
   if (!beforeId || !afterId) return false;
@@ -41,7 +100,7 @@ function needsRenumbering(beforeId: any, afterId: any) {
 
 // Utility: Generate a fallback unique ID if needed (used as a last resort).
 
-export function compareDecimalStrings(a: any, b: any) {
+export function compareDecimalStrings(a: string | null | undefined, b: string | null | undefined): number {
   verbose.content(`Comparing decimal strings: "${a}" vs "${b}"`, 'utilities/IDfunctions');
 
   // Handle null/undefined cases
@@ -54,8 +113,8 @@ export function compareDecimalStrings(a: any, b: any) {
   const bStr = b.toString();
 
   // Split into integer and decimal parts
-  const [aInt, aDec = ""] = aStr.split(".");
-  const [bInt, bDec = ""] = bStr.split(".");
+  const [aInt = "", aDec = ""] = aStr.split(".");
+  const [bInt = "", bDec = ""] = bStr.split(".");
 
   verbose.content(`Split results: a(${aInt}.${aDec}) vs b(${bInt}.${bDec})`, 'utilities/IDfunctions');
 
@@ -110,7 +169,7 @@ export function setElementIds(element: any, beforeId: any, afterId: any, bookId:
 
   // Generate and set the permanent node_id if it doesn't exist
   if (!element.getAttribute('data-node-id')) {
-    element.setAttribute('data-node-id', generateNodeId(bookId));
+    element.setAttribute('data-node-id', generateDataNodeId(bookId));
   }
 
   return element.id;
@@ -352,21 +411,22 @@ export function generateUniqueId() {
   return id;
 }
 
-// Generate a unique node_id for persistent identification across renumbering
-export function generateNodeId(bookId: any) {
+// Generate a DataNodeId (the stable `data-node-id` / PG `node_id`) for persistent
+// identification across renumbering. NOT the positional id — see generateInsertedLineId.
+export function generateDataNodeId(bookId: BookId): DataNodeId {
   const id = `${bookId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  return id;
+  return asDataNodeId(id);
 }
 
 // Utility: Check if an id is duplicate within the document.
-export function isDuplicateId(id: any) {
+export function isDuplicateId(id: string): boolean {
   const elements = document.querySelectorAll(`#${CSS.escape(id)}`);
   const isDuplicate = elements.length > 1;
   if (isDuplicate) {
     console.warn(`🚨 isDuplicateId: Found duplicate ID: ${id} (${elements.length} instances)`);
     // Log the elements with this ID to help debugging
     elements.forEach((el, i) => {
-      console.warn(`  Duplicate #${i+1}: <${el.tagName.toLowerCase()}> with content: "${el.textContent.substring(0, 30)}..."`);
+      console.warn(`  Duplicate #${i+1}: <${el.tagName.toLowerCase()}> with content: "${el.textContent?.substring(0, 30)}..."`);
     });
   }
   return isDuplicate;
@@ -375,25 +435,27 @@ export function isDuplicateId(id: any) {
 // Check if any element in the document already uses this ID (even a single one).
 // Unlike isDuplicateId (which returns true only for 2+ elements), this returns
 // true when 1+ element has the ID — used to prevent *creating* a duplicate.
-export function isIdInUse(id: any) {
+export function isIdInUse(id: string): boolean {
   return document.querySelector(`#${CSS.escape(id)}`) !== null;
 }
 
-// New helper for generating an ID when inserting a new node with decimal logic.
-export function generateInsertedNodeId(referenceNode: any, insertAfter = true) {
-  console.log(`🔄 generateInsertedNodeId: Called with reference node:`, 
+// Generate a positional LineId (the decimal `element.id`) for a newly inserted node,
+// derived from its neighbours. Falls back to a non-numeric generateUniqueId() when no
+// numeric base is available (hence the loose return type). NOT the stable data-node-id.
+export function generateInsertedLineId(referenceNode: any, insertAfter = true) {
+  console.log(`🔄 generateInsertedLineId: Called with reference node:`, 
     referenceNode ? `#${referenceNode.id} <${referenceNode.tagName.toLowerCase()}>` : 'null', 
     `insertAfter: ${insertAfter}`);
   
   if (!referenceNode || !referenceNode.id) {
-    console.warn(`⚠️ generateInsertedNodeId: No valid reference node, falling back to unique ID`);
+    console.warn(`⚠️ generateInsertedLineId: No valid reference node, falling back to unique ID`);
     return generateUniqueId();
   }
   
   // Extract the numeric base from the reference node id.
   const baseMatch = referenceNode.id.match(/^(\d+)/);
   if (!baseMatch) {
-    console.warn(`⚠️ generateInsertedNodeId: Reference node ID "${referenceNode.id}" doesn't match expected pattern, falling back to unique ID`);
+    console.warn(`⚠️ generateInsertedLineId: Reference node ID "${referenceNode.id}" doesn't match expected pattern, falling back to unique ID`);
     return generateUniqueId();
   }
   
@@ -401,18 +463,18 @@ export function generateInsertedNodeId(referenceNode: any, insertAfter = true) {
   let newId: any;
   if (insertAfter) {
     newId = getNextDecimalForBase(baseId);
-    console.log(`✅ generateInsertedNodeId: Inserting AFTER #${referenceNode.id} → new ID: ${newId}`);
+    console.log(`✅ generateInsertedLineId: Inserting AFTER #${referenceNode.id} → new ID: ${newId}`);
   } else {
     // For inserting before, try to derive from the previous sibling.
     const parent = referenceNode.parentElement;
     if (!parent) {
-      console.warn(`⚠️ generateInsertedNodeId: Reference node has no parent, falling back to unique ID`);
+      console.warn(`⚠️ generateInsertedLineId: Reference node has no parent, falling back to unique ID`);
       return generateUniqueId();
     }
     
     const siblings = Array.from(parent.children);
     const pos = siblings.indexOf(referenceNode);
-    console.log(`🔍 generateInsertedNodeId: Reference node position among siblings: ${pos}/${siblings.length}`);
+    console.log(`🔍 generateInsertedLineId: Reference node position among siblings: ${pos}/${siblings.length}`);
     
     if (pos > 0) {
       const prevSibling: any = siblings[pos - 1];
@@ -421,18 +483,18 @@ export function generateInsertedNodeId(referenceNode: any, insertAfter = true) {
         if (prevMatch) {
           const prevBase = prevMatch[1];
           newId = getNextDecimalForBase(prevBase);
-          console.log(`✅ generateInsertedNodeId: Using previous sibling #${prevSibling.id} → new ID: ${newId}`);
+          console.log(`✅ generateInsertedLineId: Using previous sibling #${prevSibling.id} → new ID: ${newId}`);
         } else {
           newId = `${baseId}.1`;
-          console.log(`⚠️ generateInsertedNodeId: Previous sibling has non-standard ID, using ${newId}`);
+          console.log(`⚠️ generateInsertedLineId: Previous sibling has non-standard ID, using ${newId}`);
         }
       } else {
         newId = `${baseId}.1`;
-        console.log(`⚠️ generateInsertedNodeId: Previous sibling has no ID, using ${newId}`);
+        console.log(`⚠️ generateInsertedLineId: Previous sibling has no ID, using ${newId}`);
       }
     } else {
       newId = `${baseId}.1`;
-      console.log(`✅ generateInsertedNodeId: No previous sibling, using ${newId}`);
+      console.log(`✅ generateInsertedLineId: No previous sibling, using ${newId}`);
     }
   }
   
@@ -493,88 +555,11 @@ export function ensureNodeHasValidId(node: any, options: any = {}) {
     console.log(`Skipping ID assignment for ${node.tagName} element`);
     return;
   }
-  
-  // DEAD CODE — `(window as any).__enterKeyInfo` is read here (and reset throughout the
-  // block below) but `grep -rn "__enterKeyInfo"` shows no assignment anywhere
-  // in the codebase. The intent was: on Enter, keydown stashes
-  // { nodeId, cursorPosition, timestamp } here, and ensureNodeHasValidId uses
-  // it to pick a cursor-aware reference instead of falling through to the
-  // generic `findPreviousElementId / findNextElementId` sibling scan below.
-  // Whoever started that path never wired up the writer.
-  //
-  // Would wiring it up have prevented the 2026-05-12 integrity mismatch
-  // (duplicate `6498.1`)? In that specific case yes — getNextDecimalForBase
-  // queries the DOM for existing `${base}.*` ids and increments past them,
-  // so it wouldn't have minted a colliding `6498.1`. But it's scoped to the
-  // first `.chunk` (line 753 — `document.querySelector('.chunk')`) so it
-  // can still miss decimals living in other chunks, and it only protects the
-  // Enter path. The real fix lives in `generateIdBetween` CASE 3 & 4 plus the
-  // post-check in `setElementIds`, which guard every call site.
-  //
-  // OPEN QUESTION: should this block be deleted? Pros: ~60 lines of dead
-  // code gone, no risk of future Enter-key changes accidentally bringing it
-  // back to life with stale logic. Cons: cursor-aware id assignment would
-  // be a genuine ergonomic win if someone wires up the writer side. Leaning
-  // toward delete unless someone commits to finishing the feature.
-  if ((window as any).__enterKeyInfo && Date.now() - (window as any).__enterKeyInfo.timestamp < 500) {
-    const { nodeId: IDnumerical, cursorPosition } = (window as any).__enterKeyInfo;
-    // Scope lookup to the active book container to avoid cross-book ID collisions
-    const activeContainer = node.closest('[data-book-id]') || document.querySelector('.main-content');
-    const referenceNode = activeContainer?.querySelector(`[id="${IDnumerical}"]`) || document.getElementById(IDnumerical);
-    if (referenceNode) {
-      if (cursorPosition === "start") {
-        const parent = referenceNode.parentElement;
-        if (parent) {
-          const siblings = Array.from(parent.children);
-          const refIndex = siblings.indexOf(referenceNode);
-          if (refIndex > 0) {
-            const nodeAbove: any = siblings[refIndex - 1];
-            if (nodeAbove.id) {
-              const baseMatch = nodeAbove.id.match(/^(\d+)/);
-              if (baseMatch) {
-                const baseId = baseMatch[1];
-                node.id = getNextDecimalForBase(baseId);
-                if (!node.getAttribute('data-node-id')) {
-                  node.setAttribute('data-node-id', generateNodeId(book));
-                }
-                console.log(`Cursor at start: New node gets ID ${node.id} based on node above (${nodeAbove.id})`);
-                (window as any).__enterKeyInfo = null;
-                return;
-              }
-            }
-          } else {
-            const baseMatch = referenceNode.id.match(/^(\d+)/);
-            if (baseMatch) {
-              const baseId = parseInt(baseMatch[1], 10);
-              const newBaseId = Math.max(1, baseId - 1).toString();
-              node.id = newBaseId;
-              if (!node.getAttribute('data-node-id')) {
-                node.setAttribute('data-node-id', generateNodeId(book));
-              }
-              console.log(`No node above; new node gets ID ${node.id} (one less than reference ${referenceNode.id})`);
-              (window as any).__enterKeyInfo = null;
-              return;
-            }
-          }
-        }
-      } else {
-        const baseMatch = referenceNode.id.match(/^(\d+)/);
-        if (baseMatch) {
-          const baseId = baseMatch[1];
-          node.id = getNextDecimalForBase(baseId);
-          if (!node.getAttribute('data-node-id')) {
-            node.setAttribute('data-node-id', generateNodeId(book));
-          }
-          console.log(`Cursor at ${cursorPosition}: New node gets ${node.id}, reference node stays ${referenceNode.id}`);
-          (window as any).__enterKeyInfo = null;
-          return;
-        }
-      }
-    }
-    (window as any).__enterKeyInfo = null;
-  }
 
-  
+  // (Removed: a dead `window.__enterKeyInfo` cursor-aware-id block — it was only ever
+  //  read, never written, so it could never fire. The live id assignment is
+  //  generateIdBetween CASE 3 & 4 + the setElementIds post-check, which guard every site.)
+
   // If node already has an id, check for duplicates:
   if (node.id) {
     if (isDuplicateId(node.id)) {
@@ -593,11 +578,11 @@ export function ensureNodeHasValidId(node: any, options: any = {}) {
   } else {
     // NEW: Determine proper numerical ID based on position
     if (referenceNode && typeof insertAfter === "boolean") {
-      node.id = generateInsertedNodeId(referenceNode, insertAfter);
+      node.id = generateInsertedLineId(referenceNode, insertAfter);
 
       // ✅ Also set data-node-id if not present
       if (!node.getAttribute('data-node-id')) {
-        node.setAttribute('data-node-id', generateNodeId(book));
+        node.setAttribute('data-node-id', generateDataNodeId(book));
       }
 
       console.log(`Assigned new id ${node.id} and data-node-id based on reference insertion direction.`);
@@ -624,7 +609,7 @@ export function ensureNodeHasValidId(node: any, options: any = {}) {
 
       // ✅ Also set data-node-id if not present (same as setElementIds does)
       if (!node.getAttribute('data-node-id')) {
-        node.setAttribute('data-node-id', generateNodeId(book));
+        node.setAttribute('data-node-id', generateDataNodeId(book));
       }
 
       console.log(`Assigned positional id ${node.id} and data-node-id to node <${node.tagName.toLowerCase()}> (between ${beforeId} and ${afterId})`);

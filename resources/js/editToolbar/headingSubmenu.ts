@@ -13,20 +13,22 @@ import {
   findClosestBlockParent,
   setCursorAtTextOffset,
 } from "./toolbarDOMUtils";
+import { asLineId, type BookId } from "../utilities/idHelpers";
+import type { SaveToIndexedDBCallback } from "./types";
 
 /**
  * HeadingSubmenu class
  * Handles all heading submenu interactions
  */
 export class HeadingSubmenu {
-  headingSubmenu: any;
-  headingButton: any;
+  headingSubmenu: HTMLElement | null;
+  headingButton: HTMLElement | null;
   selectionManager: any;
   buttonStateManager: any;
-  currentBookId: any;
+  currentBookId: BookId | null;
   undoManager: any;
   formatBlockCallback: any;
-  saveToIndexedDBCallback: any;
+  saveToIndexedDBCallback: SaveToIndexedDBCallback | null;
   onUndoStackChanged: any;
   submenuButtonJustClicked: boolean = false;
 
@@ -164,7 +166,7 @@ export class HeadingSubmenu {
     // Attach handlers for remove button (clone to remove all old listeners)
     if (removeBtn) {
       const newRemoveBtn = removeBtn.cloneNode(true);
-      removeBtn.parentNode.replaceChild(newRemoveBtn, removeBtn);
+      removeBtn.parentNode?.replaceChild(newRemoveBtn, removeBtn);
 
       // Desktop: prevent focus moving to button on mousedown (preserves selection)
       newRemoveBtn.addEventListener("mousedown", (e: any) => { e.preventDefault(); });
@@ -310,7 +312,7 @@ export class HeadingSubmenu {
 
     // Save to IndexedDB
     if (this.currentBookId && newEl.id && this.saveToIndexedDBCallback) {
-      await this.saveToIndexedDBCallback(newEl.id, newEl.outerHTML);
+      await this.saveToIndexedDBCallback(asLineId(newEl.id), newEl.outerHTML);
     }
   }
 

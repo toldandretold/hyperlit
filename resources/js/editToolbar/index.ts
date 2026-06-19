@@ -17,29 +17,62 @@ import { BlockFormatter } from "./blockFormatter";
 import { UndoManager, resolveBookId, findBlockFromTarget } from "./undoManager";
 import { getTextOffsetInElement } from "./toolbarDOMUtils";
 import { initTapAreaExtender } from "./tapAreaExtender";
+import { asLineId, type LineId, type BookId } from "../utilities/idHelpers";
 
 // Private module-level variable to hold the toolbar instance
-let editToolbarInstance: any = null;
+let editToolbarInstance: EditToolbar | null = null;
+
+interface EditToolbarOptions {
+  toolbarId?: string;
+  editableSelector?: string;
+  currentBookId?: BookId | null;
+}
 
 /**
  * EditToolbar class for handling formatting controls in editable content
  * Acts as the main orchestrator, delegating to specialized module managers
  */
 class EditToolbar {
-  // Surgical migration: orchestrator state kept loosely typed (`any`-tighten is a follow-up).
-  toolbarId: any; editableSelector: any; currentBookId: any;
-  isMobile: any; isVisible: any; isDisabled: any;
-  toolbar: any; boldButton: any; italicButton: any; headingButton: any;
-  blockquoteButton: any; codeButton: any; citationButton: any; footnoteButton: any;
-  undoButton: any; redoButton: any; allFormattingButtons: any; dataset: any;
-  headingSubmenu: any; blockquoteSubmenu: any;
-  selectionManager: any; buttonStateManager: any; textFormatter: any;
-  listConverter: any; blockFormatter: any; citationMode: any; undoManager: any;
-  headingSubmenu_handler: any; blockSubmenu_handler: any; tapExtender: any;
-  handleClickOutsideSubmenu: any; handleResize: any;
-  _beforeInputHandler: any; _inputHandler: any; _undoKeydownHandler: any;
+  // Scope-A typing: config/flags/DOM-refs/sub-managers typed; the `!` fields are
+  // assigned in the constructor's happy path (skipped only on the disabled early-return,
+  // where every public method short-circuits on `isDisabled`).
+  toolbarId: string;
+  editableSelector: string;
+  currentBookId: BookId | null;
+  isMobile = false;
+  isVisible = false;
+  isDisabled = false;
+  toolbar: HTMLElement | null;
+  boldButton!: HTMLElement | null;
+  italicButton!: HTMLElement | null;
+  headingButton!: HTMLElement | null;
+  blockquoteButton!: HTMLElement | null;
+  codeButton!: HTMLElement | null;
+  citationButton!: HTMLElement | null;
+  footnoteButton!: HTMLElement | null;
+  undoButton!: HTMLButtonElement | null;
+  redoButton!: HTMLButtonElement | null;
+  allFormattingButtons!: (HTMLElement | null)[];
+  headingSubmenu!: HTMLElement | null;
+  blockquoteSubmenu!: HTMLElement | null;
+  selectionManager!: SelectionManager;
+  buttonStateManager!: ButtonStateManager;
+  textFormatter!: TextFormatter;
+  listConverter!: ListConverter;
+  blockFormatter!: BlockFormatter;
+  citationMode!: CitationMode;
+  undoManager!: UndoManager;
+  headingSubmenu_handler!: HeadingSubmenu;
+  blockSubmenu_handler!: BlockSubmenu;
+  tapExtender!: ReturnType<typeof initTapAreaExtender>;
+  // Vestigial (never assigned; only referenced in destroy's removeEventListener — now guarded).
+  handleClickOutsideSubmenu: (() => void) | null = null;
+  handleResize: (() => void) | null = null;
+  _beforeInputHandler: ((e: Event) => void) | null = null;
+  _inputHandler: ((e: Event) => void) | null = null;
+  _undoKeydownHandler: ((e: Event) => void) | null = null;
 
-  constructor(options: any = {}) {
+  constructor(options: EditToolbarOptions = {}) {
     this.toolbarId = options.toolbarId || "edit-toolbar";
     this.editableSelector =
       options.editableSelector || ".main-content[contenteditable='true']";
@@ -61,8 +94,8 @@ class EditToolbar {
     this.codeButton = document.getElementById("codeButton");
     this.footnoteButton = document.getElementById("footnoteButton");
     this.citationButton = document.getElementById("citationButton");
-    this.undoButton = document.getElementById("undoButton");
-    this.redoButton = document.getElementById("redoButton");
+    this.undoButton = document.getElementById("undoButton") as HTMLButtonElement | null;
+    this.redoButton = document.getElementById("redoButton") as HTMLButtonElement | null;
 
     this.isMobile = window.innerWidth <= 768;
 
@@ -407,7 +440,7 @@ class EditToolbar {
    * Call this when your main application loads a new book.
    * @param {string} bookId The ID of the currently loaded book.
    */
-  setBookId(bookId: any) {
+  setBookId(bookId: BookId | null) {
     if (this.isDisabled) return;
     this.currentBookId = bookId;
     this._updateUndoRedoButtons(bookId); // Refresh button states
@@ -686,7 +719,7 @@ class EditToolbar {
 
     // Resolve bookId from the selection's DOM position (sub-book aware)
     const rangeEl = range?.commonAncestorContainer;
-    const containerEl = rangeEl?.nodeType === Node.TEXT_NODE ? rangeEl.parentElement : rangeEl;
+    const containerEl = (rangeEl?.nodeType === Node.TEXT_NODE ? rangeEl.parentElement : rangeEl) as Element | null;
     const subBookEl = containerEl?.closest('[data-book-id]');
     const bookId = (subBookEl as HTMLElement | null)?.dataset?.bookId
       || this.currentBookId
@@ -732,9 +765,9 @@ class EditToolbar {
     const { selection, range } = this.selectionManager.getWorkingSelection();
 
     // Walk up from selection to find sub-book container, fall back to main-content
-    const anchorEl = selection?.anchorNode?.nodeType === Node.TEXT_NODE
+    const anchorEl = (selection?.anchorNode?.nodeType === Node.TEXT_NODE
       ? selection.anchorNode.parentElement
-      : selection?.anchorNode;
+      : selection?.anchorNode) as Element | null | undefined;
     const subBookEl = anchorEl?.closest('[data-book-id][contenteditable="true"]');
     const bookId = (subBookEl as HTMLElement | null)?.dataset?.bookId
       || document.querySelector('.main-content')?.id
@@ -745,7 +778,7 @@ class EditToolbar {
       return;
     }
 
-    if (!range) {
+    if (!range || !selection) {
       console.warn("EditToolbar: Cannot insert footnote: no cursor position.");
       return;
     }
@@ -817,8 +850,8 @@ class EditToolbar {
    * This now calls updateSingleIndexedDBRecord (in indexedDB.js) which queues for sync.
    * It no longer directly handles history payload or calls addHistoryBatch.
    */
-  async saveToIndexedDB(id: any, html: any, options = {}) {
-    // `id` here is the string ID from the DOM
+  async saveToIndexedDB(id: LineId, html: string, options: Record<string, unknown> = {}) {
+    // `id` here is the positional LineId of the DOM element being saved
     console.log(`EditToolbar: saveToIndexedDB called for ID: ${id}`);
 
     // Derive the correct book from where the element actually lives in the DOM.
@@ -885,6 +918,7 @@ class EditToolbar {
   show() {
     if (this.isDisabled) return;
     if (this.isVisible) return;
+    if (!this.toolbar) return;
 
     console.log("👁️ EditToolbar: Showing toolbar");
 
@@ -910,6 +944,7 @@ class EditToolbar {
   hide() {
     if (this.isDisabled) return;
     if (!this.isVisible) return;
+    if (!this.toolbar) return;
 
     this.toolbar.classList.remove("visible");
     this.isVisible = false;
@@ -928,8 +963,8 @@ class EditToolbar {
    */
   destroy() {
     this.selectionManager.detachListener();
-    window.removeEventListener("resize", this.handleResize);
-    document.removeEventListener("click", this.handleClickOutsideSubmenu);
+    if (this.handleResize) window.removeEventListener("resize", this.handleResize);
+    if (this.handleClickOutsideSubmenu) document.removeEventListener("click", this.handleClickOutsideSubmenu);
     if (this._undoKeydownHandler) {
       document.removeEventListener('keydown', this._undoKeydownHandler, true);
     }

@@ -18,8 +18,8 @@ import {
  * Handles all block format submenu interactions
  */
 export class BlockSubmenu {
-  blockSubmenu: any;
-  blockquoteButton: any;
+  blockSubmenu: HTMLElement | null;
+  blockquoteButton: HTMLElement | null;
   selectionManager: any;
   buttonStateManager: any;
   formatBlockCallback: any;
@@ -137,7 +137,7 @@ export class BlockSubmenu {
     // Attach handlers for remove button (clone to remove all old listeners)
     if (removeBtn) {
       const newRemoveBtn = removeBtn.cloneNode(true);
-      removeBtn.parentNode.replaceChild(newRemoveBtn, removeBtn);
+      removeBtn.parentNode?.replaceChild(newRemoveBtn, removeBtn);
 
       // Desktop: prevent focus moving to button on mousedown (preserves selection)
       newRemoveBtn.addEventListener("mousedown", (e: any) => { e.preventDefault(); });

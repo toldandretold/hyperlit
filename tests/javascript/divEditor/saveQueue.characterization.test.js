@@ -41,7 +41,7 @@ vi.mock('../../../resources/js/paste/handlers/largePasteHandler', () => ({ clear
 vi.mock('../../../resources/js/paste', () => ({ isPasteOperationActive: () => false }));
 vi.mock('../../../resources/js/app.js', () => ({ book: 'currentBook' }));
 
-import { SaveQueue } from '../../../resources/js/divEditor/saveQueue.js';
+import { SaveQueue } from '../../../resources/js/divEditor/saveQueue/index';
 
 beforeEach(() => {
   vi.clearAllMocks();

@@ -14,6 +14,7 @@
  */
 
 import { log, verbose } from '../utilities/logger';
+import { asLineId } from '../utilities/idHelpers';
 import { buildFootnoteMap, getCurrentMap, getMapSize } from './footnoteCache';
 import { updateFootnoteNumbersInDOM, applyFootnoteMapToStoredHTML } from './footnoteDom';
 
@@ -169,7 +170,7 @@ async function persistRenumberedNodes(bookId: string, affectedStartLines: Set<st
 
     // Convert startLines to records format expected by batchUpdateIndexedDBRecords
     const recordsToUpdate = Array.from(affectedStartLines).map(startLine => ({
-      id: startLine
+      id: asLineId(startLine)
     }));
 
     // [diagnostic] dump DOM outerHTML for each affected startLine so we can

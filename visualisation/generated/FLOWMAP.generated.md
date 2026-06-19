@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1501 functions in 310 modules · 10 object stores · 10 PG tables · 3060 edges
+**MarkdownDB** schema v27 · 1504 functions in 311 modules · 10 object stores · 10 PG tables · 3060 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -531,19 +531,22 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `MutationProcessor.enqueue` | `divEditor/mutationProcessor` | — | — | — | — |
 | `MutationProcessor.flush` | `divEditor/mutationProcessor` | — | — | — | — |
 | `MutationProcessor.process` | `divEditor/mutationProcessor` | — | — | — | — |
-| `SaveQueue._collectNodeIds` | `divEditor/saveQueue` | — | — | read | — |
-| `SaveQueue._scheduleFullVerification` | `divEditor/saveQueue` | — | — | read | — |
-| `SaveQueue._verifyAfterSave` | `divEditor/saveQueue` | — | — | — | — |
-| `SaveQueue.constructor` | `divEditor/saveQueue` | — | — | — | — |
-| `SaveQueue.destroy` | `divEditor/saveQueue` | — | — | — | — |
-| `SaveQueue.flush` | `divEditor/saveQueue` | — | — | — | — |
-| `SaveQueue.processBatchDeletions` | `divEditor/saveQueue` | — | — | — | — |
-| `SaveQueue.queueDeletion` | `divEditor/saveQueue` | — | — | read | — |
-| `SaveQueue.queueNode` | `divEditor/saveQueue` | — | — | — | — |
-| `SaveQueue.recordInputEvent` | `divEditor/saveQueue` | — | — | — | — |
-| `SaveQueue.saveNodeToDatabase` | `divEditor/saveQueue` | — | — | read | — |
-| `SaveQueue.startMonitoring` | `divEditor/saveQueue` | — | — | — | — |
-| `SaveQueue.stopMonitoring` | `divEditor/saveQueue` | — | — | — | — |
+| `SaveQueue.constructor` | `divEditor/saveQueue/index` | — | — | — | — |
+| `SaveQueue.destroy` | `divEditor/saveQueue/index` | — | — | — | — |
+| `SaveQueue.flush` | `divEditor/saveQueue/index` | — | — | — | — |
+| `SaveQueue.processBatchDeletions` | `divEditor/saveQueue/index` | — | — | — | — |
+| `SaveQueue.queueDeletion` | `divEditor/saveQueue/index` | — | — | read | — |
+| `SaveQueue.queueNode` | `divEditor/saveQueue/index` | — | — | — | — |
+| `SaveQueue.recordInputEvent` | `divEditor/saveQueue/index` | — | — | — | — |
+| `SaveQueue.saveNodeToDatabase` | `divEditor/saveQueue/index` | — | — | read | — |
+| `SaveQueue.startMonitoring` | `divEditor/saveQueue/index` | — | — | — | — |
+| `SaveQueue.stopMonitoring` | `divEditor/saveQueue/index` | — | — | — | — |
+| `IntegrityMonitor._collectNodeIds` | `divEditor/saveQueue/integrityMonitor` | — | — | read | — |
+| `IntegrityMonitor._scheduleFullVerification` | `divEditor/saveQueue/integrityMonitor` | — | — | read | — |
+| `IntegrityMonitor.cancelFullVerification` | `divEditor/saveQueue/integrityMonitor` | — | — | — | — |
+| `IntegrityMonitor.constructor` | `divEditor/saveQueue/integrityMonitor` | — | — | — | — |
+| `IntegrityMonitor.destroy` | `divEditor/saveQueue/integrityMonitor` | — | — | — | — |
+| `IntegrityMonitor.verifyAfterSave` | `divEditor/saveQueue/integrityMonitor` | — | — | — | — |
 | `SelectionDeletionHandler._handleSpecialElementDeletion` | `divEditor/selectionDelete` | — | — | read/write | — |
 | `SelectionDeletionHandler._rangeIntersectsNode` | `divEditor/selectionDelete` | — | — | read | — |
 | `SelectionDeletionHandler.batchDeleteFromIndexedDB` | `divEditor/selectionDelete` | — | — | — | — |

@@ -18,6 +18,7 @@ import {
 import {
   setProgrammaticUpdateInProgress,
 } from "../utilities/operationState";
+import type { BookId } from "../utilities/idHelpers";
 
 // ⚠️ LEGACY-ENTANGLEMENT FLAG (do not deep-clean here):
 // This file is believed to contain traces of an OLDER undo implementation mixed with
@@ -32,7 +33,7 @@ import {
  * Resolve bookId from a DOM target element.
  * Walks up to find [data-book-id], falls back to .main-content id.
  */
-function resolveBookId(target: any) {
+function resolveBookId(target: any): BookId | null {
   const el = target?.nodeType === Node.TEXT_NODE ? target.parentElement : target;
   if (!el) return null;
   const bookEl = el.closest('[data-book-id]');

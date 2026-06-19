@@ -25,12 +25,13 @@ import { rebuildNodeArrays, getNodesByDataNodeIDs } from '../hydration/rebuild';
 import { processNodeContentHighlightsAndCites, determineChunkIdFromDOM } from './contentProcessor';
 import { updateHyperlightRecords, updateHyperciteRecords } from './annotationUpserts';
 import type { BookId, HyperciteRecord, HyperlightRecord, NodeRecord } from '../types';
+import { asLineId, type LineId } from '../../utilities/idHelpers';
 
 export { resolveBookIdForBatch };
 
-/** A record handed to the batch writer: a DOM node id, optionally with html/chunk overrides. */
+/** A record handed to the batch writer: a positional node id, optionally with html/chunk overrides. */
 export interface BatchRecord {
-  id: string | number;
+  id: LineId;
   html?: string;
   chunk_id?: number;
 }

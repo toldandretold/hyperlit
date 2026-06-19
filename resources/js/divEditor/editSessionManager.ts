@@ -2,11 +2,13 @@
  * Edit Session Manager
  * Central registry for active editing sessions with built-in diagnostics
  */
+import type { BookId } from '../utilities/idHelpers';
 
 interface EditSession {
   containerId: string;
   divElement: HTMLElement;
-  bookId: string;
+  /** Sub-book id, or null for the main-book session. */
+  bookId: BookId | null;
   startTime: number;
   mutations: number;
 }
@@ -45,7 +47,7 @@ function log(action: string, details: any = {}): void {
  * Register a new edit session
  * Automatically preempts any existing session
  */
-export async function registerEditSession(containerId: string, divElement: HTMLElement, bookId: string): Promise<void> {
+export async function registerEditSession(containerId: string, divElement: HTMLElement, bookId: BookId | null): Promise<void> {
   // Check for existing session
   if (activeSession && activeSession.containerId !== containerId) {
     log('PREEMPT', { from: activeSession.containerId, to: containerId });

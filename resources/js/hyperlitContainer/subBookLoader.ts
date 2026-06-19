@@ -11,7 +11,7 @@ import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, createChu
 // Static imports here would leave subBookLoaders in the TDZ during module evaluation.
 import { getNodeChunksFromIndexedDB, writeNodeChunks } from '../indexedDB/index';
 import { lazyLoaders } from '../pageLoad/index';
-import { generateNodeId } from '../utilities/IDfunctions';
+import { generateDataNodeId } from '../utilities/IDfunctions';
 import { setChunkLoadingInProgress, clearChunkLoadingInProgress } from '../lazyLoader/utilities/chunkLoadingState';
 
 import { subBookLoaders, enrichedSubBooks } from './subBookState.js';
@@ -495,7 +495,7 @@ export async function loadSubBook(
       // Nothing exists anywhere — synthesise a local node and register on backend
       console.warn(`⚠️ No preview_nodes or IDB nodes for "${subBookId}" — synthesizing from annotationHtml (${annotationHtml.length} chars)`);
       isNewSubBook = true;
-      const localNodeId = generateNodeId(subBookId);
+      const localNodeId = generateDataNodeId(subBookId);
       const strippedText = annotationHtml.replace(/<[^>]+>/g, '');
       const initialHtml = `<p data-node-id="${localNodeId}" no-delete-id="please" style="min-height:1.5em;">${strippedText}</p>`;
       const synthesizedNode = {

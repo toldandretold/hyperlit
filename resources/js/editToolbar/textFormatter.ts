@@ -17,6 +17,8 @@ import {
   getElementsInSelectionRange,
   replaceBlockUndoable,
 } from "./toolbarDOMUtils";
+import { asLineId } from "../utilities/idHelpers";
+import type { SaveToIndexedDBCallback } from "./types";
 
 /**
  * TextFormatter class
@@ -26,7 +28,7 @@ export class TextFormatter {
   editableSelector: string;
   selectionManager: any;
   buttonStateManager: any;
-  saveToIndexedDBCallback: any;
+  saveToIndexedDBCallback: SaveToIndexedDBCallback | null;
   isFormatting: boolean = false;
 
   constructor(options: any = {}) {
@@ -123,9 +125,9 @@ export class TextFormatter {
         if (modifiedElementId && newElement && this.saveToIndexedDBCallback) {
           const updatedElement = document.getElementById(modifiedElementId);
           if (updatedElement) {
-            await this.saveToIndexedDBCallback(modifiedElementId, updatedElement.outerHTML);
+            await this.saveToIndexedDBCallback(asLineId(modifiedElementId), updatedElement.outerHTML);
           } else {
-            await this.saveToIndexedDBCallback(modifiedElementId, newElement.outerHTML);
+            await this.saveToIndexedDBCallback(asLineId(modifiedElementId), newElement.outerHTML);
           }
         }
       };

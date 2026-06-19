@@ -5,7 +5,7 @@
  * Converts blocks to JSON, writes to IndexedDB, syncs to PostgreSQL immediately.
  */
 
-import { getNextIntegerId, generateNodeId } from '../../utilities/IDfunctions';
+import { getNextIntegerId, generateDataNodeId } from '../../utilities/IDfunctions';
 import { getPasteSnapshot, setPasteSnapshot } from '../pasteSnapshot';
 export { clearPasteSnapshot } from '../pasteSnapshot';
 import { NODE_LIMIT } from '../../utilities/chunkState';
@@ -178,7 +178,7 @@ export async function handleLargePaste(
     const startLine = currentStartLine;
 
     // Generate fresh node_id UUID (never reuse from clipboard)
-    const node_id = generateNodeId(book);
+    const node_id = generateDataNodeId(book);
 
     // Convert text to HTML with IDs
     const trimmed = block.trim();
@@ -274,14 +274,14 @@ export async function handleLargePaste(
     if (extractedFootnotes.length > 0) {
       // Generate preview_nodes + initial sub-book nodes so opening a footnote
       // after paste doesn't hit the synthesize branch (which triggers stuck orange CloudRef).
-      const { generateNodeId } = await import('../../utilities/IDfunctions');
+      const { generateDataNodeId } = await import('../../utilities/IDfunctions');
       const { buildSubBookId } = await import('../../utilities/subBookIdHelper');
 
       const subBookNodes: any[] = [];
 
       for (const fn of extractedFootnotes) {
         const subBookId = buildSubBookId(insertionPoint.book, fn.footnoteId);
-        const nodeId = generateNodeId(subBookId);
+        const nodeId = generateDataNodeId(subBookId);
         const strippedText = (fn.content || '').replace(/<[^>]+>/g, '');
         const nodeContent = `<p data-node-id="${nodeId}" no-delete-id="please" style="min-height:1.5em;">${strippedText}</p>`;
 

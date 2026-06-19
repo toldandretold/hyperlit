@@ -80,6 +80,7 @@ import { generateIdBetween,
          NUMERICAL_ID_PATTERN,
          findPreviousElementId,
          findNextElementId,
+         type BookId,
           } from "../utilities/idHelpers";
 import {
   broadcastToOpenTabs
@@ -180,7 +181,7 @@ let supTagHandler: any = null;
 let saveQueue: any = null;
 
 // 📌 Store the currently-observed editable div so stopObserving removes listeners from the right element
-let observedEditableDiv: any = null;
+let observedEditableDiv: HTMLElement | null = null;
 
 // 🚀 Mutation Processor instance (RAF-based mutation batching)
 let mutationProcessor: any = null;
@@ -252,7 +253,7 @@ export function isEditorObserving() {
   return observer !== null;
 }
 
-export async function startObserving(editableDiv: any, bookId: any = null) {
+export async function startObserving(editableDiv: HTMLElement, bookId: BookId | null = null) {
 
   verbose.content("startObserving function called - multi-chunk mode", 'divEditor/index.js');
 

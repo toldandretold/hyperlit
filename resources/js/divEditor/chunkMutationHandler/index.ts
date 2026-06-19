@@ -10,7 +10,7 @@
  */
 
 import { chunkOverflowInProgress, userDeletionInProgress } from "../../utilities/operationState";
-import { isNumericalId, ensureNodeHasValidId } from "../../utilities/idHelpers";
+import { isNumericalId, ensureNodeHasValidId, asLineId } from "../../utilities/idHelpers";
 import { movedNodesByOverflow } from '../editorState';
 import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager';
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../../components/tocContainer/index';
@@ -489,7 +489,7 @@ export class ChunkMutationHandler {
                     }
 
                     // Always persist the marker to IndexedDB
-                    await updateSingleIndexedDBRecord({ id: firstNodeId });
+                    await updateSingleIndexedDBRecord({ id: asLineId(firstNodeId) });
                   }
 
                   // Now proceed with normal deletion
@@ -529,7 +529,7 @@ export class ChunkMutationHandler {
                         }
 
                         // Always persist the marker to IndexedDB
-                        await updateSingleIndexedDBRecord({ id: firstNodeId });
+                        await updateSingleIndexedDBRecord({ id: asLineId(firstNodeId) });
                       }
 
                       foundNodeInOtherChunk = true;

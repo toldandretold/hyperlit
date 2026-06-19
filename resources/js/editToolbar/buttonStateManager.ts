@@ -16,14 +16,14 @@ import {
  * Handles updating button states based on selection context
  */
 export class ButtonStateManager {
-  boldButton: any;
-  italicButton: any;
-  headingButton: any;
-  blockquoteButton: any;
-  codeButton: any;
-  citationButton: any;
-  footnoteButton: any;
-  headingSubmenu: any;
+  boldButton: HTMLButtonElement | null;
+  italicButton: HTMLButtonElement | null;
+  headingButton: HTMLButtonElement | null;
+  blockquoteButton: HTMLButtonElement | null;
+  codeButton: HTMLButtonElement | null;
+  citationButton: HTMLButtonElement | null;
+  footnoteButton: HTMLButtonElement | null;
+  headingSubmenu: HTMLElement | null;
   selectionManager: any;
   storedHeadingElement: any = null;
 

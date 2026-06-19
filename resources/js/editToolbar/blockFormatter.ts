@@ -25,7 +25,9 @@ import {
   setElementIds,
   findPreviousElementId,
   findNextElementId,
+  asLineId,
 } from "../utilities/idHelpers";
+import type { SaveToIndexedDBCallback } from "./types";
 import {
   batchUpdateIndexedDBRecords,
 } from "../indexedDB/index.js";
@@ -42,7 +44,7 @@ export class BlockFormatter {
   currentBookId: any;
   selectionManager: any;
   buttonStateManager: any;
-  saveToIndexedDBCallback: any;
+  saveToIndexedDBCallback: SaveToIndexedDBCallback | null;
   deleteFromIndexedDBCallback: any;
   convertListItemToBlockCallback: any;
   undoManager: any;
@@ -121,7 +123,7 @@ export class BlockFormatter {
 
           // Save to IndexedDB
           if (result.modifiedElementId && result.newElement && this.saveToIndexedDBCallback) {
-            await this.saveToIndexedDBCallback(result.modifiedElementId, result.newElement.outerHTML);
+            await this.saveToIndexedDBCallback(asLineId(result.modifiedElementId), result.newElement.outerHTML);
           }
           return;
         } else if (this.convertListItemToBlockCallback) {
@@ -194,9 +196,9 @@ export class BlockFormatter {
         if (modifiedElementId && newElement && this.saveToIndexedDBCallback) {
           const updatedElement = document.getElementById(modifiedElementId);
           if (updatedElement) {
-            await this.saveToIndexedDBCallback(modifiedElementId, updatedElement.outerHTML);
+            await this.saveToIndexedDBCallback(asLineId(modifiedElementId), updatedElement.outerHTML);
           } else {
-            await this.saveToIndexedDBCallback(modifiedElementId, newElement.outerHTML);
+            await this.saveToIndexedDBCallback(asLineId(modifiedElementId), newElement.outerHTML);
           }
         }
       };

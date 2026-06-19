@@ -22,6 +22,7 @@
 
 import { sanitizeHtml } from '../utilities/sanitizeConfig';
 import { marked } from 'marked';
+import type { BookId } from '../utilities/idHelpers';
 import { getActiveBook } from '../hyperlitContainer/utilities/activeContext';
 import { getCurrentChunk } from '../utilities/chunkState';
 import { initializeMainLazyLoader, lazyLoaders } from '../pageLoad/index';
@@ -74,7 +75,7 @@ let pasteHandled = false;
 import { isPasteOperationActive, setPasteOperationInProgress } from './pasteState';
 export { isPasteOperationActive } from './pasteState';
 
-export function addPasteListener(editableDiv: any) {
+export function addPasteListener(editableDiv: HTMLElement) {
   console.log("Adding modular paste listener");
   // Use capture phase to intercept before browser's native handling
   editableDiv.addEventListener("paste", handlePaste, { capture: true });
@@ -96,7 +97,7 @@ export { extractQuotedText } from '../utilities/textExtraction';
  * Sync pasted nodes to PostgreSQL in background
  * Fire-and-forget function that handles errors gracefully
  */
-async function syncPasteToPostgreSQL(bookId: any) {
+async function syncPasteToPostgreSQL(bookId: BookId) {
   console.log(`📤 Syncing FULL BOOK to PostgreSQL in background after paste...`);
 
   // Wait for initial book sync to complete first (prevents race condition with new book creation)
@@ -195,7 +196,7 @@ async function syncPasteToPostgreSQL(bookId: any) {
  * Waits 500ms for MutationObserver to re-queue nodes, then flushes all
  * pending saves and verifies DOM nodes made it to IndexedDB.
  */
-function _schedulePasteVerification(bookId: any, pasteOpId: any) {
+function _schedulePasteVerification(bookId: BookId, pasteOpId: string) {
   if (!bookId) return;
 
   setTimeout(async () => {

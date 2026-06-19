@@ -2,8 +2,8 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1501,
-    "moduleCount": 310,
+    "fnCount": 1504,
+    "moduleCount": 311,
     "storeCount": 10,
     "tableCount": 10,
     "edgeCount": 3060,
@@ -5407,107 +5407,131 @@
       "leaf": true
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue._collectNodeIds",
-      "label": "SaveQueue._collectNodeIds",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/saveQueue",
-      "leaf": false
-    },
-    {
-      "id": "divEditor/saveQueue:SaveQueue._scheduleFullVerification",
-      "label": "SaveQueue._scheduleFullVerification",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/saveQueue",
-      "leaf": false
-    },
-    {
-      "id": "divEditor/saveQueue:SaveQueue._verifyAfterSave",
-      "label": "SaveQueue._verifyAfterSave",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/saveQueue",
-      "leaf": true
-    },
-    {
-      "id": "divEditor/saveQueue:SaveQueue.constructor",
+      "id": "divEditor/saveQueue/index:SaveQueue.constructor",
       "label": "SaveQueue.constructor",
       "kind": "fn",
       "stage": "divEditor",
-      "module": "divEditor/saveQueue",
+      "module": "divEditor/saveQueue/index",
       "leaf": true
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.destroy",
+      "id": "divEditor/saveQueue/index:SaveQueue.destroy",
       "label": "SaveQueue.destroy",
       "kind": "fn",
       "stage": "divEditor",
-      "module": "divEditor/saveQueue",
+      "module": "divEditor/saveQueue/index",
       "leaf": true
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.flush",
+      "id": "divEditor/saveQueue/index:SaveQueue.flush",
       "label": "SaveQueue.flush",
       "kind": "fn",
       "stage": "divEditor",
-      "module": "divEditor/saveQueue",
+      "module": "divEditor/saveQueue/index",
       "leaf": true
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+      "id": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions",
       "label": "SaveQueue.processBatchDeletions",
       "kind": "fn",
       "stage": "divEditor",
-      "module": "divEditor/saveQueue",
+      "module": "divEditor/saveQueue/index",
       "leaf": true
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.queueDeletion",
+      "id": "divEditor/saveQueue/index:SaveQueue.queueDeletion",
       "label": "SaveQueue.queueDeletion",
       "kind": "fn",
       "stage": "divEditor",
-      "module": "divEditor/saveQueue",
+      "module": "divEditor/saveQueue/index",
       "leaf": false
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.queueNode",
+      "id": "divEditor/saveQueue/index:SaveQueue.queueNode",
       "label": "SaveQueue.queueNode",
       "kind": "fn",
       "stage": "divEditor",
-      "module": "divEditor/saveQueue",
+      "module": "divEditor/saveQueue/index",
       "leaf": true
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.recordInputEvent",
+      "id": "divEditor/saveQueue/index:SaveQueue.recordInputEvent",
       "label": "SaveQueue.recordInputEvent",
       "kind": "fn",
       "stage": "divEditor",
-      "module": "divEditor/saveQueue",
+      "module": "divEditor/saveQueue/index",
       "leaf": true
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "id": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
       "label": "SaveQueue.saveNodeToDatabase",
       "kind": "fn",
       "stage": "divEditor",
-      "module": "divEditor/saveQueue",
+      "module": "divEditor/saveQueue/index",
       "leaf": false
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.startMonitoring",
+      "id": "divEditor/saveQueue/index:SaveQueue.startMonitoring",
       "label": "SaveQueue.startMonitoring",
       "kind": "fn",
       "stage": "divEditor",
-      "module": "divEditor/saveQueue",
+      "module": "divEditor/saveQueue/index",
       "leaf": true
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.stopMonitoring",
+      "id": "divEditor/saveQueue/index:SaveQueue.stopMonitoring",
       "label": "SaveQueue.stopMonitoring",
       "kind": "fn",
       "stage": "divEditor",
-      "module": "divEditor/saveQueue",
+      "module": "divEditor/saveQueue/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/saveQueue/integrityMonitor:IntegrityMonitor._collectNodeIds",
+      "label": "IntegrityMonitor._collectNodeIds",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue/integrityMonitor",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/saveQueue/integrityMonitor:IntegrityMonitor._scheduleFullVerification",
+      "label": "IntegrityMonitor._scheduleFullVerification",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue/integrityMonitor",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/saveQueue/integrityMonitor:IntegrityMonitor.cancelFullVerification",
+      "label": "IntegrityMonitor.cancelFullVerification",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue/integrityMonitor",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/saveQueue/integrityMonitor:IntegrityMonitor.constructor",
+      "label": "IntegrityMonitor.constructor",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue/integrityMonitor",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/saveQueue/integrityMonitor:IntegrityMonitor.destroy",
+      "label": "IntegrityMonitor.destroy",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue/integrityMonitor",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/saveQueue/integrityMonitor:IntegrityMonitor.verifyAfterSave",
+      "label": "IntegrityMonitor.verifyAfterSave",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue/integrityMonitor",
       "leaf": true
     },
     {
@@ -15081,24 +15105,35 @@
       ]
     },
     {
-      "id": "divEditor/saveQueue",
-      "label": "divEditor/saveQueue",
+      "id": "divEditor/saveQueue/index",
+      "label": "divEditor/saveQueue/index",
       "stage": "divEditor",
       "band": "capture",
       "fnIds": [
-        "divEditor/saveQueue:SaveQueue._collectNodeIds",
-        "divEditor/saveQueue:SaveQueue._scheduleFullVerification",
-        "divEditor/saveQueue:SaveQueue._verifyAfterSave",
-        "divEditor/saveQueue:SaveQueue.constructor",
-        "divEditor/saveQueue:SaveQueue.destroy",
-        "divEditor/saveQueue:SaveQueue.flush",
-        "divEditor/saveQueue:SaveQueue.processBatchDeletions",
-        "divEditor/saveQueue:SaveQueue.queueDeletion",
-        "divEditor/saveQueue:SaveQueue.queueNode",
-        "divEditor/saveQueue:SaveQueue.recordInputEvent",
-        "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
-        "divEditor/saveQueue:SaveQueue.startMonitoring",
-        "divEditor/saveQueue:SaveQueue.stopMonitoring"
+        "divEditor/saveQueue/index:SaveQueue.constructor",
+        "divEditor/saveQueue/index:SaveQueue.destroy",
+        "divEditor/saveQueue/index:SaveQueue.flush",
+        "divEditor/saveQueue/index:SaveQueue.processBatchDeletions",
+        "divEditor/saveQueue/index:SaveQueue.queueDeletion",
+        "divEditor/saveQueue/index:SaveQueue.queueNode",
+        "divEditor/saveQueue/index:SaveQueue.recordInputEvent",
+        "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
+        "divEditor/saveQueue/index:SaveQueue.startMonitoring",
+        "divEditor/saveQueue/index:SaveQueue.stopMonitoring"
+      ]
+    },
+    {
+      "id": "divEditor/saveQueue/integrityMonitor",
+      "label": "divEditor/saveQueue/integrityMonitor",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/saveQueue/integrityMonitor:IntegrityMonitor._collectNodeIds",
+        "divEditor/saveQueue/integrityMonitor:IntegrityMonitor._scheduleFullVerification",
+        "divEditor/saveQueue/integrityMonitor:IntegrityMonitor.cancelFullVerification",
+        "divEditor/saveQueue/integrityMonitor:IntegrityMonitor.constructor",
+        "divEditor/saveQueue/integrityMonitor:IntegrityMonitor.destroy",
+        "divEditor/saveQueue/integrityMonitor:IntegrityMonitor.verifyAfterSave"
       ]
     },
     {
@@ -22131,109 +22166,109 @@
       "rel": "call"
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__indexedDB/core/healthMonitor:isIDBBroken",
-      "source": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+      "id": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions__call__indexedDB/core/healthMonitor:isIDBBroken",
+      "source": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions",
       "target": "indexedDB/core/healthMonitor:isIDBBroken",
       "rel": "call"
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__indexedDB/core/healthMonitor:reportIDBFailure",
-      "source": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+      "id": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions__call__indexedDB/core/healthMonitor:reportIDBFailure",
+      "source": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions",
       "target": "indexedDB/core/healthMonitor:reportIDBFailure",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__indexedDB/core/healthMonitor:reportIDBSuccess",
-      "source": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+      "id": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions__call__indexedDB/core/healthMonitor:reportIDBSuccess",
+      "source": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions",
       "target": "indexedDB/core/healthMonitor:reportIDBSuccess",
       "rel": "call"
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
-      "source": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+      "id": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions__call__indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
+      "source": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions",
       "target": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__lazyLoader/utilities/cacheState:markCacheDirty",
-      "source": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+      "id": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions__call__lazyLoader/utilities/cacheState:markCacheDirty",
+      "source": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions",
       "target": "lazyLoader/utilities/cacheState:markCacheDirty",
       "rel": "call"
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__lazyLoader/utilities/chunkLoadingState:clearChunkLoadingInProgress",
-      "source": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+      "id": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions__call__lazyLoader/utilities/chunkLoadingState:clearChunkLoadingInProgress",
+      "source": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions",
       "target": "lazyLoader/utilities/chunkLoadingState:clearChunkLoadingInProgress",
       "rel": "call"
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.processBatchDeletions__call__search/inTextSearch/searchToolbar:invalidateSearchIndex",
-      "source": "divEditor/saveQueue:SaveQueue.processBatchDeletions",
+      "id": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions__call__search/inTextSearch/searchToolbar:invalidateSearchIndex",
+      "source": "divEditor/saveQueue/index:SaveQueue.processBatchDeletions",
       "target": "search/inTextSearch/searchToolbar:invalidateSearchIndex",
       "rel": "call"
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.queueNode__call__paste/pasteSnapshot:clearPasteSnapshot",
-      "source": "divEditor/saveQueue:SaveQueue.queueNode",
+      "id": "divEditor/saveQueue/index:SaveQueue.queueNode__call__paste/pasteSnapshot:clearPasteSnapshot",
+      "source": "divEditor/saveQueue/index:SaveQueue.queueNode",
       "target": "paste/pasteSnapshot:clearPasteSnapshot",
       "rel": "call"
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.queueNode__call__paste/ui/pasteUndoToast:hidePasteUndoToast",
-      "source": "divEditor/saveQueue:SaveQueue.queueNode",
+      "id": "divEditor/saveQueue/index:SaveQueue.queueNode__call__paste/ui/pasteUndoToast:hidePasteUndoToast",
+      "source": "divEditor/saveQueue/index:SaveQueue.queueNode",
       "target": "paste/ui/pasteUndoToast:hidePasteUndoToast",
       "rel": "call"
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/core/healthMonitor:isIDBBroken",
-      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "id": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase__call__indexedDB/core/healthMonitor:isIDBBroken",
+      "source": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
       "target": "indexedDB/core/healthMonitor:isIDBBroken",
       "rel": "call"
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/core/healthMonitor:reportIDBFailure",
-      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "id": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase__call__indexedDB/core/healthMonitor:reportIDBFailure",
+      "source": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
       "target": "indexedDB/core/healthMonitor:reportIDBFailure",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/core/healthMonitor:reportIDBSuccess",
-      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "id": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase__call__indexedDB/core/healthMonitor:reportIDBSuccess",
+      "source": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
       "target": "indexedDB/core/healthMonitor:reportIDBSuccess",
       "rel": "call"
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
-      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "id": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase__call__indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "source": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
       "target": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
-      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "id": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase__call__indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
+      "source": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
       "target": "indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__lazyLoader/utilities/cacheState:markCacheDirty",
-      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "id": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase__call__lazyLoader/utilities/cacheState:markCacheDirty",
+      "source": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
       "target": "lazyLoader/utilities/cacheState:markCacheDirty",
       "rel": "call"
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__paste/pasteState:isPasteOperationActive",
-      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "id": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase__call__paste/pasteState:isPasteOperationActive",
+      "source": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
       "target": "paste/pasteState:isPasteOperationActive",
       "rel": "call"
     },
     {
-      "id": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase__call__search/inTextSearch/searchToolbar:invalidateSearchIndex",
-      "source": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "id": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase__call__search/inTextSearch/searchToolbar:invalidateSearchIndex",
+      "source": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
       "target": "search/inTextSearch/searchToolbar:invalidateSearchIndex",
       "rel": "call"
     },
@@ -23581,27 +23616,27 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__divEditor/saveQueue:SaveQueue._collectNodeIds",
+      "id": "dom__domread__divEditor/saveQueue/index:SaveQueue.queueDeletion",
       "source": "dom",
-      "target": "divEditor/saveQueue:SaveQueue._collectNodeIds",
+      "target": "divEditor/saveQueue/index:SaveQueue.queueDeletion",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__divEditor/saveQueue:SaveQueue._scheduleFullVerification",
+      "id": "dom__domread__divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
       "source": "dom",
-      "target": "divEditor/saveQueue:SaveQueue._scheduleFullVerification",
+      "target": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__divEditor/saveQueue:SaveQueue.queueDeletion",
+      "id": "dom__domread__divEditor/saveQueue/integrityMonitor:IntegrityMonitor._collectNodeIds",
       "source": "dom",
-      "target": "divEditor/saveQueue:SaveQueue.queueDeletion",
+      "target": "divEditor/saveQueue/integrityMonitor:IntegrityMonitor._collectNodeIds",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "id": "dom__domread__divEditor/saveQueue/integrityMonitor:IntegrityMonitor._scheduleFullVerification",
       "source": "dom",
-      "target": "divEditor/saveQueue:SaveQueue.saveNodeToDatabase",
+      "target": "divEditor/saveQueue/integrityMonitor:IntegrityMonitor._scheduleFullVerification",
       "rel": "domread"
     },
     {
@@ -38628,7 +38663,7 @@
     },
     {
       "source": "divEditor/index",
-      "target": "divEditor/saveQueue",
+      "target": "divEditor/saveQueue/index",
       "kind": "static"
     },
     {
@@ -38672,42 +38707,47 @@
       "kind": "static"
     },
     {
-      "source": "divEditor/saveQueue",
+      "source": "divEditor/saveQueue/index",
+      "target": "divEditor/saveQueue/integrityMonitor",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/saveQueue/index",
       "target": "indexedDB/core/healthMonitor",
       "kind": "static"
     },
     {
-      "source": "divEditor/saveQueue",
+      "source": "divEditor/saveQueue/index",
       "target": "indexedDB/index",
       "kind": "static"
     },
     {
-      "source": "divEditor/saveQueue",
+      "source": "divEditor/saveQueue/index",
       "target": "lazyLoader/utilities/cacheState",
       "kind": "static"
     },
     {
-      "source": "divEditor/saveQueue",
+      "source": "divEditor/saveQueue/index",
       "target": "lazyLoader/utilities/chunkLoadingState",
       "kind": "static"
     },
     {
-      "source": "divEditor/saveQueue",
+      "source": "divEditor/saveQueue/index",
       "target": "paste/pasteSnapshot",
       "kind": "static"
     },
     {
-      "source": "divEditor/saveQueue",
+      "source": "divEditor/saveQueue/index",
       "target": "paste/pasteState",
       "kind": "static"
     },
     {
-      "source": "divEditor/saveQueue",
+      "source": "divEditor/saveQueue/index",
       "target": "paste/ui/pasteUndoToast",
       "kind": "static"
     },
     {
-      "source": "divEditor/saveQueue",
+      "source": "divEditor/saveQueue/index",
       "target": "search/inTextSearch/searchToolbar",
       "kind": "static"
     },

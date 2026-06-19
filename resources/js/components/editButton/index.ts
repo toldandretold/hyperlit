@@ -58,9 +58,12 @@ function handleEditModeCancel() {
   window.history.pushState({}, '', currentUrl.toString());
 }
 
-export async function enableEditMode(targetElementId: any = null, isNewBook = false) {
+// `targetElementId` is a generic DOM element id to place the caret at (the URL
+// `?target=` param, or a saved scroll id) — NOT necessarily a numerical LineId,
+// so it stays a plain string (placeCursorAtEndOfElement takes any element id).
+export async function enableEditMode(targetElementId: string | null = null, isNewBook = false) {
   const editBtn = document.getElementById("editButton");
-  const editableDiv = document.getElementById(book) as any;
+  const editableDiv = document.getElementById(book);
 
   if ((window as any).isEditing || editModeCheckInProgress) {
     return;
@@ -248,11 +251,17 @@ export async function enableEditMode(targetElementId: any = null, isNewBook = fa
   }
 }
 
-export function disableEditMode({ skipPersistence = false }: any = {}) {
+export interface DisableEditModeOptions {
+  /** On logout the local IDB is wiped + content is already on the server, so skip
+   *  the flush + edit-exit integrity sweep (see the block below). */
+  skipPersistence?: boolean;
+}
+
+export function disableEditMode({ skipPersistence = false }: DisableEditModeOptions = {}) {
   (window as any).isEditing = false; // Reset state immediately
 
   const editBtn = document.getElementById("editButton");
-  const editableDiv = document.getElementById(book) as any;
+  const editableDiv = document.getElementById(book);
 
   if (!editableDiv) {
     console.warn("Editable div not found during disableEditMode, but state was reset.");

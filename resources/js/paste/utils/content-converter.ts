@@ -10,7 +10,7 @@
  */
 
 import { NODE_LIMIT } from '../../utilities/chunkState';
-import { getNextIntegerId, generateNodeId } from "../../utilities/IDfunctions";
+import { getNextIntegerId, generateDataNodeId } from "../../utilities/IDfunctions";
 
 /**
  * Convert text blocks to JSON objects for storage
@@ -40,7 +40,7 @@ export function convertToJsonObjects(textBlocks: any, insertionPoint: any) {
     const newNodeId = (beforeNum + 100).toString();
 
     // Generate stable node_id for this pasted node
-    const nodeId = generateNodeId(insertionPoint.book);
+    const nodeId = generateDataNodeId(insertionPoint.book);
 
     const trimmed     = block.trim();
     const htmlContent = convertTextToHtml(trimmed, newNodeId, nodeId);

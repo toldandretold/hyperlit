@@ -12,7 +12,7 @@
  * SaveQueue import is type-only and erased), so both index AND the handlers can
  * import from here without re-forming the cycle.
  */
-import { NUMERICAL_ID_PATTERN } from '../utilities/idHelpers';
+import { NUMERICAL_ID_PATTERN, asLineId, type BookId } from '../utilities/idHelpers';
 import { glowCloudOrange } from '../components/cloudRef/editIndicator';
 import { verbose } from '../utilities/logger';
 import type { SaveQueue } from './saveQueue';
@@ -29,7 +29,7 @@ let saveQueue: SaveQueue | null = null;
 export function setActiveSaveQueue(sq: SaveQueue | null): void { saveQueue = sq; }
 export function getActiveSaveQueue(): SaveQueue | null { return saveQueue; }
 
-export function queueNodeForSave(IDnumerical: string, action: string = 'update', bookId: string | null = null): void {
+export function queueNodeForSave(IDnumerical: string, action: string = 'update', bookId: BookId | null = null): void {
   verbose.content(`queueNodeForSave: ${IDnumerical}, action: ${action}, bookId: ${bookId || '(inherit)'}`, 'divEditor/editorState.ts');
   // Only numeric (or decimal) startLine ids are real content nodes / DB rows.
   // Inline markers — footnote-refs (`Fn…`), hypercites (`hypercite_…`) — live INSIDE
@@ -47,14 +47,15 @@ export function queueNodeForSave(IDnumerical: string, action: string = 'update',
     return;
   }
   glowCloudOrange();
-  saveQueue.queueNode(IDnumerical, action, bookId);
+  // Branded here: this is the validated chokepoint (the guard above guarantees a numerical id).
+  saveQueue.queueNode(asLineId(IDnumerical), action, bookId);
 }
 
-export function queueNodeForDeletion(IDnumerical: string, nodeElement: HTMLElement | null = null, bookId: string | null = null): void {
+export function queueNodeForDeletion(IDnumerical: string, nodeElement: HTMLElement | null = null, bookId: BookId | null = null): void {
   if (!saveQueue) {
     console.warn('⚠️ SaveQueue not initialized, cannot queue deletion', IDnumerical);
     return;
   }
   glowCloudOrange();
-  saveQueue.queueDeletion(IDnumerical, nodeElement, bookId);
+  saveQueue.queueDeletion(asLineId(IDnumerical), nodeElement, bookId);
 }
