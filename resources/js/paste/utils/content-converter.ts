@@ -11,6 +11,7 @@
 
 import { NODE_LIMIT } from '../../utilities/chunkState';
 import { getNextIntegerId, generateDataNodeId } from "../../utilities/IDfunctions";
+import { parseChunkId } from '../../indexedDB/types';
 
 /**
  * Convert text blocks to JSON objects for storage
@@ -50,7 +51,7 @@ export function convertToJsonObjects(textBlocks: any, insertionPoint: any) {
       [key]: {
         content:   htmlContent,
         startLine: parseFloat(newNodeId),
-        chunk_id:  parseFloat(currentChunkId),
+        chunk_id:  parseChunkId(String(currentChunkId)),
         node_id:   nodeId  // Store node_id for tracking through renumbering
       }
     });

@@ -23,6 +23,7 @@
 import { sanitizeHtml } from '../utilities/sanitizeConfig';
 import { marked } from 'marked';
 import type { BookId } from '../utilities/idHelpers';
+import { parseChunkId } from '../utilities/idHelpers';
 import { getActiveBook } from '../hyperlitContainer/utilities/activeContext';
 import { getCurrentChunk } from '../utilities/chunkState';
 import { initializeMainLazyLoader, lazyLoaders } from '../pageLoad/index';
@@ -717,7 +718,9 @@ async function handlePaste(event: any) {
     console.log(`🗑️ [${pasteOpId}] Removing ${allChunks.length} chunks from DOM for clean reload...`);
 
     allChunks.forEach((chunk: any) => {
-      const chunkId = parseInt(chunk.dataset.chunkId);
+      // parseChunkId = parseFloat (NOT parseInt): currentlyLoadedChunks holds decimal
+      // chunk_ids, so a truncating delete would miss a fractional entry.
+      const chunkId = parseChunkId(chunk.dataset.chunkId);
       chunk.remove();
       loader.currentlyLoadedChunks.delete(chunkId);
     });

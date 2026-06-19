@@ -5,7 +5,7 @@
 
 import { openDatabase } from '../core/connection';
 import { parseNodeId } from '../core/utilities';
-import { LATEST, type BookId, type NodeRecord, type QueueForSyncFn } from '../types';
+import { LATEST, type BookId, type ChunkId, type NodeRecord, type QueueForSyncFn } from '../types';
 
 interface WriteDeps {
   withPending: <T>(fn: () => Promise<T>) => Promise<T>;
@@ -32,7 +32,7 @@ export function initNodeWriteDependencies(deps: WriteDeps): void {
 export interface RenumberUpdate {
   oldStartLine: number;
   newStartLine: number;
-  chunk_id: number;
+  chunk_id: ChunkId;
   content: string;
   node_id: string | null;
   hyperlights?: NodeRecord['hyperlights'];

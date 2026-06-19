@@ -41,6 +41,35 @@ export const MOST_RECENT: BookId = asBookId('most-recent');
 export const MOST_CONNECTED: BookId = asBookId('most-connected');
 export const MOST_LIT: BookId = asBookId('most-lit');
 
+/**
+ * A content chunk's id — the `.chunk[data-chunk-id]` group that batches ~100 nodes for
+ * lazy loading. Canonical form is the NUMBER in NodeRecord.chunk_id (decimal-capable via
+ * fractional indexing when a chunk is split — parseFloat, never parseInt). The DOM
+ * `data-chunk-id` attribute is its string serialization.
+ *
+ * Branded so it is NOT interchangeable with startLine or any other number — `number`
+ * alone can't tell a chunk_id from a startLine (the bug the deleted updateNodeHighlight had).
+ * Branded numbers still support arithmetic/comparison (the result is plain number), so
+ * `a.chunk_id - b.chunk_id` sorts keep working; the brand bites at assignments/param-passing.
+ */
+export type ChunkId = number & { readonly __brand: 'ChunkId' };
+
+/** Brand a raw number as a ChunkId (pure). */
+export function asChunkId(n: number): ChunkId {
+  return n as ChunkId;
+}
+
+/** Type guard: a finite number usable as a ChunkId. */
+export function isChunkId(n: unknown): n is ChunkId {
+  return typeof n === 'number' && Number.isFinite(n);
+}
+
+/** Parse a DOM `data-chunk-id` string into a ChunkId — parseFloat (preserves decimals,
+ *  NEVER parseInt: chunk ids can be decimals from fractional indexing). */
+export function parseChunkId(attr: string): ChunkId {
+  return asChunkId(parseFloat(attr));
+}
+
 export const DB_NAME = 'MarkdownDB';
 
 /** Object stores in MarkdownDB (see core/connection.js ALL_STORE_CONFIGS). */
@@ -111,7 +140,7 @@ export interface NodeHyperciteView extends CharRange {
 export interface NodeRecord {
   book: BookId;
   startLine: number;
-  chunk_id: number;
+  chunk_id: ChunkId;
   /** data-node-id from the DOM — globally unique across books in Postgres,
    *  but NOT in IDB (parent + sub-book can share one; see the dual-book
    *  gotcha pinned in rebuild.characterization.test.js). */
@@ -356,7 +385,7 @@ export interface HistoryLogEntry {
 }
 
 interface HistoryLogSide {
-  nodes: PublicChunk[];
+  nodes: PublicNode[];
   hypercites: HyperciteRecord[];
   hyperlights: HyperlightRecord[];
   footnotes: FootnoteRecord[];
@@ -367,10 +396,13 @@ interface HistoryLogSide {
 // ── client → server contract ────────────────────────────────────────
 
 /**
- * Public chunk format produced by toPublicChunk() — what node records look
- * like on the wire (and in historyLog payloads).
+ * The on-the-wire shape of a NODE, produced by toPublicNode() — what a NodeRecord
+ * looks like in the client→server sync payload (and in historyLog payloads). The
+ * `chunk_id` field is the lazy-load chunk it belongs to; this is a NODE, not a chunk.
+ * (Named PublicChunk until 2026-06; the "chunk" was a fossil of the old `nodeChunks`
+ * IndexedDB store, renamed to `nodes` in schema v22.)
  */
-export interface PublicChunk {
+export interface PublicNode {
   book: BookId;
   startLine: number;
   node_id: string | null;
@@ -378,7 +410,7 @@ export interface PublicChunk {
   hyperlights: NodeHyperlightView[];
   hypercites: NodeHyperciteView[];
   footnotes: FootnoteRef[];
-  chunk_id: number;
+  chunk_id: ChunkId;
 }
 
 type Deletion<T> = T & { _action: 'delete' | 'hide' };
@@ -390,7 +422,7 @@ type Deletion<T> = T & { _action: 'delete' | 'hide' };
  */
 export interface UnifiedSyncPayload {
   book: BookId;
-  nodes: Array<PublicChunk | Deletion<PublicChunk>>;
+  nodes: Array<PublicNode | Deletion<PublicNode>>;
   hypercites: HyperciteRecord[];
   hyperlights: HyperlightRecord[];
   hyperlightDeletions: Array<Deletion<Partial<HyperlightRecord>>>;

@@ -9,6 +9,7 @@
 import { verbose } from '../utilities/logger';
 import { book, OpenHyperlightID, OpenFootnoteID } from '../app';
 import { getNodeChunksFromIndexedDB, getLocalStorageKey } from '../indexedDB/index.js';
+import { parseChunkId } from '../indexedDB/types';
 import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
 import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from '../utilities/operationState';
 import { isSearchToolbarOpen } from '../search/inTextSearch/searchToolbar';
@@ -213,7 +214,7 @@ export async function restoreScrollPosition(): Promise<void> {
 
           // Sync lazy loader state with existing DOM
           existingChunks.forEach((chunk: any) => {
-            const chunkId = parseFloat(chunk.getAttribute('data-chunk-id'));
+            const chunkId = parseChunkId(chunk.getAttribute('data-chunk-id'));
             currentLazyLoader.currentlyLoadedChunks.add(chunkId);
           });
           currentLazyLoader.nodes = cachedNodeChunks;

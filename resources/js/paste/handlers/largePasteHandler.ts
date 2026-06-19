@@ -7,6 +7,7 @@ import { asBookId, LATEST, type BookId } from "../../indexedDB/types";
  */
 
 import { getNextIntegerId, generateDataNodeId } from '../../utilities/IDfunctions';
+import { parseChunkId } from '../../indexedDB/types';
 import { getPasteSnapshot, setPasteSnapshot } from '../pasteSnapshot';
 export { clearPasteSnapshot } from '../pasteSnapshot';
 import { NODE_LIMIT } from '../../utilities/chunkState';
@@ -372,7 +373,9 @@ export async function undoLastLargePaste() {
 
     const allChunks = Array.from<any>(loader.container.querySelectorAll('[data-chunk-id]'));
     allChunks.forEach((chunk: any) => {
-      const chunkId = parseInt(chunk.dataset.chunkId);
+      // parseChunkId = parseFloat (NOT parseInt): currentlyLoadedChunks holds decimal
+      // chunk_ids, so a truncating delete would miss a fractional entry.
+      const chunkId = parseChunkId(chunk.dataset.chunkId);
       chunk.remove();
       loader.currentlyLoadedChunks.delete(chunkId);
     });

@@ -1,5 +1,5 @@
 import { updateSingleIndexedDBRecord } from '../indexedDB/index';
-import { generateIdBetween } from '../utilities/idHelpers';
+import { generateIdBetween, asChunkId, parseChunkId } from '../utilities/idHelpers';
 import { movedNodesByOverflow } from './editorState';
 import { setChunkOverflowInProgress } from '../utilities/operationState';
 import { verbose } from '../utilities/logger';
@@ -264,7 +264,7 @@ export async function handleChunkOverflow(currentChunk: HTMLElement, mutations: 
       targetChunk.className = 'chunk';
 
       // Parse the current chunk ID
-      const currentId = parseFloat(currentChunkId);
+      const currentId = parseChunkId(currentChunkId);
 
       // If it's a valid number, increment it appropriately
       if (!isNaN(currentId)) {
@@ -330,7 +330,7 @@ export async function handleChunkOverflow(currentChunk: HTMLElement, mutations: 
         updateSingleIndexedDBRecord({
           id: id,
           html: currentHtml,
-          chunk_id: parseFloat(newChunkId),
+          chunk_id: asChunkId(parseFloat(newChunkId)),
           action: "update" // Change to 'update' to ensure upsert behavior if ID exists
         } as any).catch((error: any) => console.error(`Error updating node ${id}:`, error))
       );

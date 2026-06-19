@@ -8,13 +8,14 @@
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 const DEBOUNCE_MS = 5000;
 
-type ChunkId = string | number | null | undefined;
+// The branded chunk-id vocabulary (a number; `data-chunk-id` is its DOM serialization).
+// Replaces a former loose local `string | number | null | undefined` alias.
+import type { ChunkId } from '../indexedDB/types';
 
 /**
  * The `user_reading_positions` wire contract — the per-book scroll bookmark.
  * Sent on save (POST body) and returned on load (embedded as `bookmark` in
- * `getInitialChunk`). `chunk_id` is `integer` in Postgres but the FE `ChunkId`
- * union admits a string, so keep the type honest.
+ * `getInitialChunk`). `chunk_id` is the branded ChunkId (integer in Postgres).
  */
 export interface ReadingPosition {
   chunk_id: ChunkId;

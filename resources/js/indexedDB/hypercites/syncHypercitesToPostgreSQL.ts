@@ -74,7 +74,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import type { BookId, HyperciteRecord, NodeRecord, PublicChunk } from '../types';
+import type { BookId, HyperciteRecord, NodeRecord, PublicNode } from '../types';
 
 interface HyperciteSyncResult {
   success: boolean;
@@ -189,7 +189,7 @@ export async function syncHyperciteUpdateImmediately(
 export async function syncHyperciteWithNodeChunkImmediately(
   book: BookId,
   hypercite: HyperciteRecord,
-  nodeChunk: NodeRecord | PublicChunk,
+  nodeChunk: NodeRecord | PublicNode,
 ): Promise<HyperciteSyncResult> {
   console.log(`🚀 UNIFIED IMMEDIATE sync for hypercite ${hypercite.hyperciteId} with nodeChunk ${nodeChunk.startLine}...`);
 

@@ -3,7 +3,7 @@
  * Syncs node chunk operations from IndexedDB to PostgreSQL
  */
 
-import type { BookId, PublicChunk } from '../types';
+import type { BookId, PublicNode } from '../types';
 
 /**
  * Response shape of POST /api/db/node-chunks/targeted-upsert.
@@ -24,7 +24,7 @@ interface NodeSyncResult {
  * NOTE: reports failure as a return VALUE ({success: false}), it does not throw
  * — unlike the footnote/reference endpoint modules.
  */
-export async function syncNodeChunksToPostgreSQL(bookId: BookId, nodes: PublicChunk[] = []): Promise<NodeSyncResult> {
+export async function syncNodeChunksToPostgreSQL(bookId: BookId, nodes: PublicNode[] = []): Promise<NodeSyncResult> {
   if (!nodes.length) {
     console.log("ℹ️ Sync nodes from nodes object store in IndexedDB to node_chunks table in PostgreSQL: nothing to sync");
     return { success: true };

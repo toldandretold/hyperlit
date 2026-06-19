@@ -13,7 +13,7 @@ import {
   getHyperciteFromIndexedDB,
   updateHyperciteInIndexedDB,
   getNodeChunkFromIndexedDB,
-  toPublicChunk,
+  toPublicNode,
   syncHyperciteWithNodeChunkImmediately
 } from '../../indexedDB/index';
 import { parseHyperciteHref, attachUnderlineClickListeners, delinkHypercite } from '../../hypercites/index';

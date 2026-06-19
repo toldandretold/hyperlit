@@ -13,6 +13,7 @@
 import { sanitizeHtml } from '../../utilities/sanitizeConfig';
 import { preprocessMarkdownFootnotes, footnoteDefinitionsToHtml, processMarkdownInChunks } from '../utils/markdown-processor';
 import { getInsertionPoint } from '../utils/insertion-point-calculator';
+import { parseChunkId } from '../../indexedDB/types';
 import { handleLargePaste } from './largePasteHandler';
 import { getCurrentChunk } from '../../utilities/chunkState';
 import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../../components/cloudRef/editIndicator';
@@ -293,10 +294,10 @@ export async function handleNovelVacuum(url: any, targetBookId: any, isSubBook: 
     const insertionChunkId = insertionPoint.chunkId;
     const allChunks = Array.from<any>(loader.container.querySelectorAll('[data-chunk-id]'));
     allChunks.forEach((chunkEl: any) => {
-      // parseFloat, NOT parseInt: currentlyLoadedChunks holds decimal chunk_ids
-      // (loadNextChunk adds parseFloat'd ids), so a truncating delete would miss a
-      // fractional entry and leave it falsely marked as loaded.
-      const cid = parseFloat(chunkEl.dataset.chunkId);
+      // parseChunkId = parseFloat (NOT parseInt): currentlyLoadedChunks holds decimal
+      // chunk_ids (loadNextChunk adds parseFloat'd ids), so a truncating delete would
+      // miss a fractional entry and leave it falsely marked as loaded.
+      const cid = parseChunkId(chunkEl.dataset.chunkId);
       chunkEl.remove();
       loader.currentlyLoadedChunks.delete(cid);
     });

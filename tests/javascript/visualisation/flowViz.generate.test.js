@@ -78,7 +78,7 @@ describe('IndexedDB flow viz', () => {
     // The `nodes` PG table advertises its full TS row-data lineage (PG↔IDB↔DOM).
     const nodesTable = byId['pg:nodes'];
     expect(nodesTable.types).toBeTruthy();
-    for (const t of ['NodeRecord', 'ServerNodeRow', 'PublicChunk', 'NodeHyperlightView', 'NodeHyperciteView']) {
+    for (const t of ['NodeRecord', 'ServerNodeRow', 'PublicNode', 'NodeHyperlightView', 'NodeHyperciteView']) {
       expect(nodesTable.types, `pg:nodes should carry ${t}`).toContain(t);
     }
 
@@ -86,7 +86,7 @@ describe('IndexedDB flow viz', () => {
     const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
     expect(fnByLabel('createChunkElement').types).toContain('NodeRecord');          // IDB → DOM render
     expect(fnByLabel('getNodeChunksFromIndexedDB').types).toContain('NodeRecord');  // IDB read
-    expect(fnByLabel('toPublicChunk').types).toEqual(expect.arrayContaining(['NodeRecord', 'PublicChunk']));
+    expect(fnByLabel('toPublicNode').types).toEqual(expect.arrayContaining(['NodeRecord', 'PublicNode']));
     expect(fnByLabel('loadNodeChunksToIndexedDB').types).toContain('ServerNodeRow'); // wire in (+ nested processNode)
 
     // types arrays are deduped + sorted (determinism — the byte-gate depends on stable order)

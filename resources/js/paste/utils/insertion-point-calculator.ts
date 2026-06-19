@@ -10,6 +10,7 @@
  */
 
 import { chunkNodeCounts } from '../../utilities/chunkState';
+import { parseChunkId } from '../../indexedDB/types';
 
 /**
  * Calculate insertion point for paste operation
@@ -71,11 +72,11 @@ export function getInsertionPoint(chunkElement: any, book: any) {
   const currentChunkNodeCount = chunkNodeCounts[chunkId] || 0;
 
   const result = {
-    // parseFloat, NOT parseInt: the cursor's chunk can be a decimal (a chunk inserted
-    // between two others). Truncating mis-grouped pasted nodes and miscounted the
-    // insertion chunk's nodes. The lazyLoader navigates chunk_ids decimal-aware, so a
-    // fractional chunk_id here is safe (and self-heals on the next renumber anyway).
-    chunkId: parseFloat(chunkId),
+    // parseChunkId = parseFloat (NOT parseInt): the cursor's chunk can be a decimal (a
+    // chunk inserted between two others). Truncating mis-grouped pasted nodes and
+    // miscounted the insertion chunk's nodes. The lazyLoader navigates chunk_ids
+    // decimal-aware, so a fractional chunk_id here is safe (self-heals on next renumber).
+    chunkId: parseChunkId(String(chunkId)),
     currentNodeId: currentNodeId,
     beforeNodeId: beforeNodeId,
     afterNodeId: afterNodeId,

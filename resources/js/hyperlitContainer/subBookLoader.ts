@@ -12,6 +12,7 @@ import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, createChu
 import { getNodeChunksFromIndexedDB, writeNodeChunks } from '../indexedDB/index';
 import { lazyLoaders } from '../pageLoad/index';
 import { generateDataNodeId } from '../utilities/IDfunctions';
+import { asChunkId } from '../utilities/idHelpers';
 import { setChunkLoadingInProgress, clearChunkLoadingInProgress } from '../lazyLoader/utilities/chunkLoadingState';
 
 import { subBookLoaders, enrichedSubBooks } from './subBookState.js';
@@ -499,7 +500,7 @@ export async function loadSubBook(
       const strippedText = annotationHtml.replace(/<[^>]+>/g, '');
       const initialHtml = `<p data-node-id="${localNodeId}" no-delete-id="please" style="min-height:1.5em;">${strippedText}</p>`;
       const synthesizedNode = {
-        book: subBookId, startLine: 1, chunk_id: 0, node_id: localNodeId,
+        book: subBookId, startLine: 1, chunk_id: asChunkId(0), node_id: localNodeId,
         content: initialHtml, hyperlights: [], hypercites: [], footnotes: [],
       };
       await writeNodeChunks([synthesizedNode]);

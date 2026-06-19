@@ -40,7 +40,7 @@ export {
   parseNodeId,
   createNodeChunksKey,
   getLocalStorageKey,
-  toPublicChunk,
+  toPublicNode,
 } from './core/utilities';
 
 // Library Management

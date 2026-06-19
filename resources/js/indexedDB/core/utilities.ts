@@ -3,7 +3,7 @@
  * Helper functions used across database operations
  */
 
-import { LATEST, type BookId, type NodeRecord, type PublicChunk } from '../types';
+import { LATEST, type BookId, type NodeRecord, type PublicNode } from '../types';
 
 /**
  * Parse node ID to appropriate numeric format
@@ -33,22 +33,22 @@ export function getLocalStorageKey(baseKey: string, bookId: BookId = LATEST): st
 }
 
 /**
- * Convert internal chunk format to public-facing format — the on-the-wire
- * node shape (see UnifiedSyncPayload in types.ts). Legacy records may lack
- * the array fields / chunk_id, hence the runtime fallbacks.
+ * Convert an internal NodeRecord to its public-facing, on-the-wire NODE shape
+ * (see UnifiedSyncPayload in types.ts). Legacy records may lack the array fields /
+ * chunk_id, hence the runtime fallbacks.
  */
-export function toPublicChunk(chunk: NodeRecord | PublicChunk | null | undefined): PublicChunk | null {
-  if (!chunk) return null;
+export function toPublicNode(node: NodeRecord | PublicNode | null | undefined): PublicNode | null {
+  if (!node) return null;
 
-  const result: PublicChunk = {
-    book: chunk.book,
-    startLine: chunk.startLine,
-    node_id: chunk.node_id ?? null, // ✅ Include node_id for renumbering support
-    content: chunk.content,
-    hyperlights: chunk.hyperlights || [],
-    hypercites: chunk.hypercites || [],
-    footnotes: chunk.footnotes || [],
-    chunk_id: chunk.chunk_id ?? 0  // ✅ Default to 0 when undefined (PostgreSQL NOT NULL constraint)
+  const result: PublicNode = {
+    book: node.book,
+    startLine: node.startLine,
+    node_id: node.node_id ?? null, // ✅ Include node_id for renumbering support
+    content: node.content,
+    hyperlights: node.hyperlights || [],
+    hypercites: node.hypercites || [],
+    footnotes: node.footnotes || [],
+    chunk_id: node.chunk_id ?? 0  // ✅ Default to 0 when undefined (PostgreSQL NOT NULL constraint)
   };
 
   return result;

@@ -10,7 +10,7 @@
  */
 
 import { chunkOverflowInProgress, userDeletionInProgress } from "../../utilities/operationState";
-import { isNumericalId, ensureNodeHasValidId, asLineId, asBookId, type BookId } from "../../utilities/idHelpers";
+import { isNumericalId, ensureNodeHasValidId, asLineId, asBookId, parseChunkId, type BookId } from "../../utilities/idHelpers";
 import type { SaveQueue } from "../saveQueue";
 import { movedNodesByOverflow } from '../editorState';
 import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager';
@@ -167,7 +167,7 @@ export class ChunkMutationHandler {
               // ✅ Block lazy loader from reloading this chunk until deletions complete
               const chunkId = deletedChunk.getAttribute('data-chunk-id');
               if (chunkId) {
-                const numericChunkId = parseFloat(chunkId);
+                const numericChunkId = parseChunkId(chunkId);
                 setChunkLoadingInProgress(numericChunkId);
               }
 

@@ -40,9 +40,16 @@ export type LineId = string & { readonly __brand: 'LineId' };
  */
 export type DataNodeId = string & { readonly __brand: 'DataNodeId' };
 
-// Re-export BookId + its helpers so the editor folders import all three id vocabularies from one place.
+// Re-export BookId + ChunkId + their helpers so the editor folders import all id vocabularies from one place.
 export type { BookId } from '../indexedDB/types';
 export { asBookId, isBookId, LATEST, MOST_RECENT, MOST_CONNECTED, MOST_LIT } from '../indexedDB/types';
+
+/**
+ * A content chunk's id — a branded NUMBER (the `.chunk[data-chunk-id]` group / NodeRecord.chunk_id).
+ * Decimal-capable; parse a DOM `data-chunk-id` string with parseChunkId(). See indexedDB/types.ts.
+ */
+export type { ChunkId } from '../indexedDB/types';
+export { asChunkId, isChunkId, parseChunkId } from '../indexedDB/types';
 
 /** Type guard: is this string a positional node id (decimal-shaped)? */
 export function isLineId(s: string | null | undefined): s is LineId {

@@ -39,7 +39,13 @@ vi.mock('../../../resources/js/utilities/logger', () => ({ verbose: { content: v
 // IDfunctions statically imports ../pageLoad + ../app.js (whole app graph); operationState
 // imports components/editIndicator. Stub the two members chunkManager actually uses so the
 // test stays light and doesn't boot app.js.
-vi.mock('../../../resources/js/utilities/idHelpers', () => ({ generateIdBetween: vi.fn() }));
+// asChunkId/parseChunkId are pure brand helpers chunkManager uses on the chunk-id boundary;
+// stub them faithfully (identity / parseFloat) so handleChunkOverflow's split path runs.
+vi.mock('../../../resources/js/utilities/idHelpers', () => ({
+  generateIdBetween: vi.fn(),
+  asChunkId: (n) => n,
+  parseChunkId: (s) => parseFloat(s),
+}));
 vi.mock('../../../resources/js/utilities/operationState', () => ({ setChunkOverflowInProgress: vi.fn() }));
 
 import {

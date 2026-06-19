@@ -154,7 +154,7 @@ export const FLOW_STAGES: FlowStage[] = [
       { path: 'core/connection', plain: 'Singleton IDB connection + the schema upgrade path (DB_VERSION); self-heals when Safari kills the connection.' },
       { path: 'core/healthMonitor', plain: 'Circuit breaker: consecutive-failure tracking, recovery loop, failed-operation queue.' },
       { path: 'core/recoveryToast', plain: 'Recovery progress toast UI.' },
-      { path: 'core/utilities', plain: 'parseNodeId, composite keys, toPublicChunk (the on-the-wire node shape).' },
+      { path: 'core/utilities', plain: 'parseNodeId, composite keys, toPublicNode (the on-the-wire node shape).' },
       { path: 'utilities/cleanup', plain: 'Clear or delete a book\'s data across all stores.' },
       { path: 'utilities/retry', plain: 'Exponential-backoff retry wrapper for flaky IDB operations.' },
       { path: 'utilities/index', plain: 'Barrel for utilities.' },

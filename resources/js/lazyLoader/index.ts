@@ -11,7 +11,8 @@ import {
   getLocalStorageKey,
   getHyperciteFromIndexedDB
 } from "../indexedDB/index.js";
-import type { NodeRecord } from '../indexedDB/types';
+import type { NodeRecord, ChunkId } from '../indexedDB/types';
+import { asChunkId, parseChunkId } from '../indexedDB/types';
 import {
   setChunkLoadingInProgress,
   clearChunkLoadingInProgress,
@@ -333,7 +334,7 @@ export function createLazyLoader(config: any) {
           const chunkEl = topVisible.closest('[data-chunk-id]');
           // parseFloat, NOT parseInt: chunk_id can be a decimal, and this value
           // decides which chunk to load on resume — truncating lands on the wrong chunk.
-          const chunkId = chunkEl ? parseFloat(chunkEl.getAttribute('data-chunk-id')!) : 0;
+          const chunkId = chunkEl ? parseChunkId(chunkEl.getAttribute('data-chunk-id')!) : asChunkId(0);
           import('../scrolling/readingPosition').then(({ debouncedServerSave }) => {
             debouncedServerSave(instance.bookId, detectedId, chunkId);
           }).catch(() => {}); // Best-effort
@@ -376,7 +377,7 @@ export function createLazyLoader(config: any) {
           const chunkEl = el?.closest('[data-chunk-id]');
           // parseFloat, NOT parseInt: chunk_id can be a decimal, and this value
           // decides which chunk to load on resume — truncating lands on the wrong chunk.
-          const chunkId = chunkEl ? parseFloat(chunkEl.getAttribute('data-chunk-id')!) : 0;
+          const chunkId = chunkEl ? parseChunkId(chunkEl.getAttribute('data-chunk-id')!) : asChunkId(0);
           import('../scrolling/readingPosition').then(({ sendBeaconSave }) => {
             sendBeaconSave(instance.bookId, scrollData.elementId, chunkId);
           }).catch(() => {});
@@ -600,7 +601,7 @@ export function createLazyLoader(config: any) {
         verbose.debug('TOP sentinel intersecting - attempting to load previous chunk', 'lazyLoaderFactory.js');
         const firstChunkEl = container.querySelector("[data-chunk-id]");
         if (firstChunkEl) {
-          const firstChunkId = parseFloat(firstChunkEl.getAttribute("data-chunk-id")!);
+          const firstChunkId = parseChunkId(firstChunkEl.getAttribute("data-chunk-id")!);
           verbose.debug(`First chunk in DOM: ${firstChunkId}, checking if can load previous...`, 'lazyLoaderFactory.js');
           if (firstChunkId > 0 && !instance.currentlyLoadedChunks.has(firstChunkId - 1)) {
             verbose.debug(`Loading previous chunk: ${firstChunkId - 1}`, 'lazyLoaderFactory.js');
@@ -616,7 +617,7 @@ export function createLazyLoader(config: any) {
         verbose.debug('Bottom sentinel intersecting - attempting to load next chunk', 'lazyLoaderFactory.js');
         const lastChunkEl = getLastChunkElement();
         if (lastChunkEl) {
-          const lastChunkId = parseFloat(lastChunkEl.getAttribute("data-chunk-id")!);
+          const lastChunkId = parseChunkId(lastChunkEl.getAttribute("data-chunk-id")!);
           verbose.debug(`Last chunk in DOM: ${lastChunkId}, loading next chunk...`, 'lazyLoaderFactory.js');
           loadNextChunkFixed(lastChunkId, instance);
         } else {
@@ -928,7 +929,7 @@ export async function loadNextChunkFixed(currentLastChunkId: any, instance: any)
     clearCacheDirtyFlag();
   }
 
-  const currentId = parseFloat(currentLastChunkId);
+  const currentId = asChunkId(parseFloat(String(currentLastChunkId)));
   verbose.debug(`loadNextChunkFixed called with currentLastChunkId: ${currentId}`, 'lazyLoaderFactory.js');
 
   // Decimal-aware: next = next manifest entry, or smallest chunk_id > current.
@@ -1006,7 +1007,7 @@ export async function loadPreviousChunkFixed(currentFirstChunkId: any, instance:
     clearCacheDirtyFlag();
   }
 
-  const currentId = parseFloat(currentFirstChunkId);
+  const currentId = asChunkId(parseFloat(String(currentFirstChunkId)));
 
   // Decimal-aware: prev = previous manifest entry, or largest chunk_id < current.
   // See lazyLoader/utilities/chunkSelection (pinned by chunkSelection.test.js).
@@ -1178,8 +1179,8 @@ function repositionFixedSentinelsForBlockInternal(instance: any, attachMarkers: 
   }
   allChunks.sort(
   (a, b) =>
-    parseFloat(a.getAttribute("data-chunk-id")) -
-    parseFloat(b.getAttribute("data-chunk-id"))
+    parseChunkId(a.getAttribute("data-chunk-id")) -
+    parseChunkId(b.getAttribute("data-chunk-id"))
 );
   verbose.debug(`Sorted chunk IDs: ${allChunks.map(c => c.getAttribute('data-chunk-id')).join(', ')}`, 'lazyLoaderFactory.js');
   if (instance.observer) {
@@ -1213,7 +1214,7 @@ function repositionFixedSentinelsForBlockInternal(instance: any, attachMarkers: 
     verbose.content("Sentinels repositioned and observer reattached", 'lazyLoaderFactory.js');
   }
   instance.currentlyLoadedChunks = new Set(
-    allChunks.map((chunk) => parseFloat(chunk.getAttribute("data-chunk-id")))
+    allChunks.map((chunk) => parseChunkId(chunk.getAttribute("data-chunk-id")))
   );
 }
 
@@ -1224,10 +1225,10 @@ function insertChunkInOrderInternal(newChunk: any, instance: any) {
   const container = instance.container;
   const existingChunks = Array.from(container.querySelectorAll("[data-chunk-id]")) as any[];
   let inserted = false;
-  const newChunkId = parseFloat(newChunk.getAttribute("data-chunk-id"));
+  const newChunkId = parseChunkId(newChunk.getAttribute("data-chunk-id"));
 
   for (let i = 0; i < existingChunks.length; i++) {
-    const existingId = parseFloat(existingChunks[i].getAttribute("data-chunk-id"));
+    const existingId = parseChunkId(existingChunks[i].getAttribute("data-chunk-id"));
     if (newChunkId < existingId) {
       container.insertBefore(newChunk, existingChunks[i]);
       inserted = true;
@@ -1240,10 +1241,10 @@ function insertChunkInOrderInternal(newChunk: any, instance: any) {
 /**
  * Utility to retrieve the last loaded chunk's id.
  */
-export function getLastChunkId(instance: any) {
+export function getLastChunkId(instance: any): ChunkId | null {
   const chunks = instance.container.querySelectorAll("[data-chunk-id]");
   if (chunks.length === 0) return null;
-  return parseFloat(chunks[chunks.length - 1].getAttribute("data-chunk-id"));
+  return parseChunkId(chunks[chunks.length - 1].getAttribute("data-chunk-id"));
 }
 
 export { repositionFixedSentinelsForBlockInternal as repositionSentinels };

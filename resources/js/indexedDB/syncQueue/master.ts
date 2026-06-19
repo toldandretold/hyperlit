@@ -5,7 +5,7 @@
 
 import { openDatabase } from '../core/connection';
 import { debounce } from '../../utilities/debounce';
-import { toPublicChunk } from '../core/utilities';
+import { toPublicNode } from '../core/utilities';
 import { pendingSyncs } from './queue';
 import { refreshCsrfToken } from '../../utilities/auth/index';
 // Pure helper extracted so the cross-book filter + fallback can be unit-tested
@@ -24,7 +24,7 @@ import type {
   HyperciteRecord,
   HyperlightRecord,
   NodeRecord,
-  PublicChunk,
+  PublicNode,
   SyncQueueItem,
   SyncRecordData,
 } from '../types';
@@ -41,7 +41,7 @@ interface MasterSyncDeps {
 export interface SyncPayloadInput {
   book: BookId;
   updates: {
-    nodes: Array<NodeRecord | PublicChunk>;
+    nodes: Array<NodeRecord | PublicNode>;
     hypercites?: HyperciteRecord[];
     hyperlights?: HyperlightRecord[];
     footnotes?: FootnoteRecord[];
@@ -132,9 +132,9 @@ async function getFailedBatchesForBook(bookId: BookId): Promise<HistoryLogEntry[
 /** The exact JSON body POSTed to /api/db/unified-sync — the IDB→PG wire contract. */
 interface UnifiedSyncPayload {
   book: BookId;
-  /** Node UPDATES are PublicChunk (the wire shape); node DELETIONS carry `_action` and
+  /** Node UPDATES are PublicNode (the wire shape); node DELETIONS carry `_action` and
    *  stay SyncRecordData. The union keeps the update path typed without forcing deletions. */
-  nodes: Array<PublicChunk | SyncRecordData>;
+  nodes: Array<PublicNode | SyncRecordData>;
   hypercites: HyperciteRecord[];
   hyperlights: HyperlightRecord[];
   hyperlightDeletions: SyncRecordData[];
@@ -148,9 +148,9 @@ interface UnifiedSyncPayload {
 export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Record<string, unknown>> {
   const bookId = payload.book;
 
-  // Prepare node chunks: updates → PublicChunk (wire shape), deletions stay as-is.
-  const allNodeChunks: Array<PublicChunk | SyncRecordData> = [
-    ...payload.updates.nodes.map(toPublicChunk).filter((c): c is PublicChunk => Boolean(c)),
+  // Prepare node chunks: updates → PublicNode (wire shape), deletions stay as-is.
+  const allNodeChunks: Array<PublicNode | SyncRecordData> = [
+    ...payload.updates.nodes.map(toPublicNode).filter((c): c is PublicNode => Boolean(c)),
     ...payload.deletions.nodes,
   ];
 
@@ -283,7 +283,7 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
     if (item.type === "update") {
       // Add the new state to 'updates'
       if (item.store === "nodes") {
-        historyLogPayload.updates.nodes.push(toPublicChunk(item.data)!);
+        historyLogPayload.updates.nodes.push(toPublicNode(item.data)!);
       } else if (item.store === "library") {
         historyLogPayload.updates.library = item.data;
       } else {
@@ -293,7 +293,7 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
       // Add the original state (if it exists) to 'deletions'
       if (item.originalData) {
         if (item.store === "nodes") {
-          historyLogPayload.deletions.nodes.push(toPublicChunk(item.originalData)!);
+          historyLogPayload.deletions.nodes.push(toPublicNode(item.originalData)!);
         } else if (item.store === "library") {
           historyLogPayload.deletions.library = item.originalData;
         } else {
@@ -304,7 +304,7 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
       // Add the deleted record to 'deletions'
       if (item.data) {
         if (item.store === "nodes") {
-          historyLogPayload.deletions.nodes.push(toPublicChunk(item.data)!);
+          historyLogPayload.deletions.nodes.push(toPublicNode(item.data)!);
         } else {
           (historyLogPayload.deletions[item.store] as unknown[]).push(item.data);
         }
@@ -675,7 +675,7 @@ export async function syncIndexedDBtoPostgreSQLBlocking(bookId: BookId): Promise
     const payload = {
       book: bookId,
       updates: {
-        nodes: nodes.map(toPublicChunk).filter((c): c is PublicChunk => Boolean(c)),
+        nodes: nodes.map(toPublicNode).filter((c): c is PublicNode => Boolean(c)),
         hypercites: [],
         hyperlights: [],
         library: null

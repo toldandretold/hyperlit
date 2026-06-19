@@ -18,7 +18,8 @@ import {
 } from './positionCollector';
 import { extractFootnoteIdsFromElement } from '../../paste/utils/extractFootnoteIds';
 import { stripInlineStylePreservingIntensity } from '../../utilities/stripInlineStyle';
-import type { CitationRef, FootnoteRef } from '../types';
+import type { CitationRef, FootnoteRef, ChunkId } from '../types';
+import { asChunkId, parseChunkId } from '../types';
 
 export interface ProcessedNodeContent {
   /** outerHTML of the cleaned clone — what gets persisted as NodeRecord.content */
@@ -33,7 +34,7 @@ export interface ProcessedNodeContent {
  * Helper function to determine chunk_id from the DOM
  * Looks for parent chunk div since data-chunk-id is on the chunk, not individual nodes
  */
-export function determineChunkIdFromDOM(IDnumerical: string): number {
+export function determineChunkIdFromDOM(IDnumerical: string): ChunkId {
   const node = document.getElementById(IDnumerical);
   if (node) {
     // Look for parent chunk div (data-chunk-id is on the chunk, not the node)
@@ -41,15 +42,14 @@ export function determineChunkIdFromDOM(IDnumerical: string): number {
     if (chunkDiv) {
       const chunkIdAttr = chunkDiv.getAttribute('data-chunk-id');
       if (chunkIdAttr) {
-        // parseFloat, NOT parseInt: chunk_id can be a decimal (a chunk inserted
-        // between two others via fractional indexing). Truncating here would
-        // corrupt the stored chunk_id on save — chunkManager writes it with
-        // parseFloat, so this must match. (Backend re-emits it as an integer.)
-        return parseFloat(chunkIdAttr);
+        // parseChunkId = parseFloat, NOT parseInt: chunk_id can be a decimal (a chunk
+        // inserted between two others via fractional indexing). Truncating here would
+        // corrupt the stored chunk_id on save. (Backend re-emits it as an integer.)
+        return parseChunkId(chunkIdAttr);
       }
     }
   }
-  return 0; // Default fallback
+  return asChunkId(0); // Default fallback
 }
 
 /**

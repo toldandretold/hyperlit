@@ -8,6 +8,7 @@
 import { parseNodeId, prepareLibraryForIndexedDB } from '../index';
 import { verbose } from '../../utilities/logger';
 import type { NodeRecord, NodeHyperlightView, FootnoteRecord, BibliographyRecord, HyperciteRecord, HyperlightRecord } from '../types';
+import { asChunkId } from '../types';
 import type {
   ServerNodeRow,
   ServerHyperlightRow,
@@ -89,6 +90,7 @@ export async function loadNodeChunksToIndexedDB(db: IDBDatabase, nodes: ServerNo
     return {
       ...chunk,
       startLine: parseNodeId(chunk.startLine),
+      chunk_id: asChunkId(chunk.chunk_id),
       footnotes: (typeof chunk.footnotes === 'string' ?
         (chunk.footnotes ? JSON.parse(chunk.footnotes) : null) : chunk.footnotes) ?? [],
       hypercites: (typeof chunk.hypercites === 'string' ?

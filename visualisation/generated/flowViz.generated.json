@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1506,
+    "fnCount": 1509,
     "moduleCount": 314,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3078,
+    "edgeCount": 3092,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -3853,7 +3853,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -3877,7 +3877,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -3944,7 +3944,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -3979,7 +3979,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -4004,7 +4004,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -4072,7 +4072,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -4110,7 +4110,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -4161,7 +4161,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -4228,7 +4228,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -4266,7 +4266,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -4334,7 +4334,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -4426,7 +4426,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -4773,7 +4773,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -4801,7 +4801,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -4833,7 +4833,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -4882,7 +4882,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -9039,15 +9039,15 @@
       "leaf": true
     },
     {
-      "id": "indexedDB/core/utilities:toPublicChunk",
-      "label": "toPublicChunk",
+      "id": "indexedDB/core/utilities:toPublicNode",
+      "label": "toPublicNode",
       "kind": "fn",
       "stage": "infra",
       "module": "indexedDB/core/utilities",
       "leaf": true,
       "types": [
         "NodeRecord",
-        "PublicChunk"
+        "PublicNode"
       ]
     },
     {
@@ -9214,7 +9214,7 @@
       "types": [
         "HyperciteRecord",
         "NodeRecord",
-        "PublicChunk"
+        "PublicNode"
       ]
     },
     {
@@ -9426,7 +9426,7 @@
       "module": "indexedDB/nodes/syncNodesToPostgreSQL",
       "leaf": false,
       "types": [
-        "PublicChunk"
+        "PublicNode"
       ]
     },
     {
@@ -9641,7 +9641,7 @@
       "module": "indexedDB/syncQueue/master",
       "leaf": false,
       "types": [
-        "PublicChunk"
+        "PublicNode"
       ]
     },
     {
@@ -9661,7 +9661,7 @@
       "leaf": false,
       "types": [
         "NodeRecord",
-        "PublicChunk"
+        "PublicNode"
       ]
     },
     {
@@ -9721,8 +9721,32 @@
       "leaf": true
     },
     {
+      "id": "indexedDB/types:asChunkId",
+      "label": "asChunkId",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "indexedDB/types",
+      "leaf": true
+    },
+    {
       "id": "indexedDB/types:isBookId",
       "label": "isBookId",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "indexedDB/types",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/types:isChunkId",
+      "label": "isChunkId",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "indexedDB/types",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/types:parseChunkId",
+      "label": "parseChunkId",
       "kind": "fn",
       "stage": "infra",
       "module": "indexedDB/types",
@@ -11505,7 +11529,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -13788,7 +13812,7 @@
         "NodeHyperciteView",
         "NodeHyperlightView",
         "NodeRecord",
-        "PublicChunk",
+        "PublicNode",
         "ServerNodeRow"
       ]
     },
@@ -16220,7 +16244,7 @@
         "indexedDB/core/utilities:createNodeChunksKey",
         "indexedDB/core/utilities:getLocalStorageKey",
         "indexedDB/core/utilities:parseNodeId",
-        "indexedDB/core/utilities:toPublicChunk"
+        "indexedDB/core/utilities:toPublicNode"
       ]
     },
     {
@@ -16522,7 +16546,10 @@
       "band": "store",
       "fnIds": [
         "indexedDB/types:asBookId",
-        "indexedDB/types:isBookId"
+        "indexedDB/types:asChunkId",
+        "indexedDB/types:isBookId",
+        "indexedDB/types:isChunkId",
+        "indexedDB/types:parseChunkId"
       ]
     },
     {
@@ -30678,6 +30705,18 @@
       "rel": "call"
     },
     {
+      "id": "indexedDB/nodes/contentProcessor:determineChunkIdFromDOM__call__indexedDB/types:asChunkId",
+      "source": "indexedDB/nodes/contentProcessor:determineChunkIdFromDOM",
+      "target": "indexedDB/types:asChunkId",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/nodes/contentProcessor:determineChunkIdFromDOM__call__indexedDB/types:parseChunkId",
+      "source": "indexedDB/nodes/contentProcessor:determineChunkIdFromDOM",
+      "target": "indexedDB/types:parseChunkId",
+      "rel": "call"
+    },
+    {
       "id": "indexedDB/nodes/contentProcessor:processNodeContentHighlightsAndCites__call__indexedDB/nodes/positionCollector:collectMarkAndCitePositions",
       "source": "indexedDB/nodes/contentProcessor:processNodeContentHighlightsAndCites",
       "target": "indexedDB/nodes/positionCollector:collectMarkAndCitePositions",
@@ -31028,6 +31067,12 @@
       "rel": "call"
     },
     {
+      "id": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB__call__indexedDB/types:asChunkId",
+      "source": "indexedDB/serverSync/loaders:loadNodeChunksToIndexedDB",
+      "target": "indexedDB/types:asChunkId",
+      "rel": "call"
+    },
+    {
       "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__components/utilities/gateFilter:appendGateParam",
       "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
       "target": "components/utilities/gateFilter:appendGateParam",
@@ -31233,6 +31278,12 @@
       "target": "route:/api/db/sync/beacon",
       "rel": "push",
       "label": "/api/db/sync/beacon"
+    },
+    {
+      "id": "indexedDB/types:parseChunkId__call__indexedDB/types:asChunkId",
+      "source": "indexedDB/types:parseChunkId",
+      "target": "indexedDB/types:asChunkId",
+      "rel": "call"
     },
     {
       "id": "indexedDB/utilities/cleanup:clearBookContentFromIndexedDB__call__indexedDB/core/connection:openDatabase",
@@ -31568,6 +31619,18 @@
       "dataPath": true
     },
     {
+      "id": "lazyLoader/index:createLazyLoader__call__indexedDB/types:asChunkId",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "indexedDB/types:asChunkId",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__indexedDB/types:parseChunkId",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "indexedDB/types:parseChunkId",
+      "rel": "call"
+    },
+    {
       "id": "lazyLoader/index:createLazyLoader__call__lazyLoader/chunkRender:createChunkElement",
       "source": "lazyLoader/index:createLazyLoader",
       "target": "lazyLoader/chunkRender:createChunkElement",
@@ -31680,11 +31743,23 @@
       "rel": "write"
     },
     {
+      "id": "lazyLoader/index:getLastChunkId__call__indexedDB/types:parseChunkId",
+      "source": "lazyLoader/index:getLastChunkId",
+      "target": "indexedDB/types:parseChunkId",
+      "rel": "call"
+    },
+    {
       "id": "lazyLoader/index:loadNextChunkFixed__call__indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "source": "lazyLoader/index:loadNextChunkFixed",
       "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "lazyLoader/index:loadNextChunkFixed__call__indexedDB/types:asChunkId",
+      "source": "lazyLoader/index:loadNextChunkFixed",
+      "target": "indexedDB/types:asChunkId",
+      "rel": "call"
     },
     {
       "id": "lazyLoader/index:loadNextChunkFixed__call__lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
@@ -31756,6 +31831,12 @@
       "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "lazyLoader/index:loadPreviousChunkFixed__call__indexedDB/types:asChunkId",
+      "source": "lazyLoader/index:loadPreviousChunkFixed",
+      "target": "indexedDB/types:asChunkId",
+      "rel": "call"
     },
     {
       "id": "lazyLoader/index:loadPreviousChunkFixed__call__lazyLoader/chunkFetcher:fetchSingleChunkFromServer",
@@ -33338,6 +33419,12 @@
       "dataPath": true
     },
     {
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__indexedDB/types:parseChunkId",
+      "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
+      "target": "indexedDB/types:parseChunkId",
+      "rel": "call"
+    },
+    {
       "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__pageLoad/lazyLoaderRegistry:initializeMainLazyLoader",
       "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
       "target": "pageLoad/lazyLoaderRegistry:initializeMainLazyLoader",
@@ -33386,6 +33473,12 @@
       "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__indexedDB/types:parseChunkId",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "indexedDB/types:parseChunkId",
+      "rel": "call"
     },
     {
       "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__pageLoad/lazyLoaderRegistry:initializeMainLazyLoader",
@@ -33510,6 +33603,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "paste/utils/content-converter:convertToJsonObjects__call__indexedDB/types:parseChunkId",
+      "source": "paste/utils/content-converter:convertToJsonObjects",
+      "target": "indexedDB/types:parseChunkId",
+      "rel": "call"
+    },
+    {
       "id": "paste/utils/content-converter:convertToJsonObjects__call__paste/utils/content-converter:convertTextToHtml",
       "source": "paste/utils/content-converter:convertToJsonObjects",
       "target": "paste/utils/content-converter:convertTextToHtml",
@@ -33628,6 +33727,12 @@
       "source": "paste/utils/html-preprocessor:preprocessHTMLContent",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/insertion-point-calculator:getInsertionPoint__call__indexedDB/types:parseChunkId",
+      "source": "paste/utils/insertion-point-calculator:getInsertionPoint",
+      "target": "indexedDB/types:parseChunkId",
+      "rel": "call"
     },
     {
       "id": "paste/utils/markdown-processor:processMarkdownInChunks__call__paste/utils/normalizer:normalizeListItems",
@@ -34478,6 +34583,12 @@
       "target": "indexedDB/nodes/read:getNodeChunksFromIndexedDB",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "scrolling/restore:restoreScrollPosition__call__indexedDB/types:parseChunkId",
+      "source": "scrolling/restore:restoreScrollPosition",
+      "target": "indexedDB/types:parseChunkId",
+      "rel": "call"
     },
     {
       "id": "scrolling/restore:restoreScrollPosition__call__scrolling/internalNav:navigateToInternalId",
@@ -40467,6 +40578,11 @@
     },
     {
       "source": "indexedDB/nodes/contentProcessor",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/nodes/contentProcessor",
       "target": "paste/utils/extractFootnoteIds",
       "kind": "static"
     },
@@ -40558,6 +40674,11 @@
     {
       "source": "indexedDB/serverSync/loaders",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/serverSync/loaders",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {
@@ -40713,6 +40834,11 @@
     {
       "source": "lazyLoader/index",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/index",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {
@@ -41387,6 +41513,11 @@
     },
     {
       "source": "paste/handlers/novelVacuumHandler",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/novelVacuumHandler",
       "target": "paste/handlers/largePasteHandler",
       "kind": "static"
     },
@@ -41541,6 +41672,16 @@
       "kind": "static"
     },
     {
+      "source": "paste/utils/content-converter",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "paste/utils/insertion-point-calculator",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
       "source": "paste/utils/markdown-processor",
       "target": "paste/utils/normalizer",
       "kind": "static"
@@ -41648,6 +41789,11 @@
     {
       "source": "scrolling/restore",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/restore",
+      "target": "indexedDB/types",
       "kind": "static"
     },
     {

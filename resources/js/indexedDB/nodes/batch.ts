@@ -24,7 +24,7 @@ import { getNodeChunksFromIndexedDB } from './read';
 import { rebuildNodeArrays, getNodesByDataNodeIDs } from '../hydration/rebuild';
 import { processNodeContentHighlightsAndCites, determineChunkIdFromDOM } from './contentProcessor';
 import { updateHyperlightRecords, updateHyperciteRecords } from './annotationUpserts';
-import { asBookId, LATEST, type BookId, type HyperciteRecord, type HyperlightRecord, type NodeRecord } from '../types';
+import { asBookId, LATEST, type BookId, type ChunkId, type HyperciteRecord, type HyperlightRecord, type NodeRecord } from '../types';
 import { asLineId, type LineId } from '../../utilities/idHelpers';
 
 export { resolveBookIdForBatch };
@@ -33,7 +33,7 @@ export { resolveBookIdForBatch };
 export interface BatchRecord {
   id: LineId;
   html?: string;
-  chunk_id?: number;
+  chunk_id?: ChunkId;
 }
 
 export interface BatchUpdateOptions {

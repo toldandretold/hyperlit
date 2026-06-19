@@ -9,22 +9,25 @@
  * pinned by tests rather than assumed.
  */
 
-interface ChunkManifestEntry { chunk_id: number }
-interface NodeLike { chunk_id: number | string }
+// Type-only import (erased at runtime) — keeps this a zero-runtime-import leaf.
+import type { ChunkId } from '../../indexedDB/types';
+
+interface ChunkManifestEntry { chunk_id: ChunkId }
+interface NodeLike { chunk_id: ChunkId | string }
 
 /** The chunk_id immediately after `currentId`, or null if none. */
 export function selectNextChunkId(
   manifest: ChunkManifestEntry[] | null | undefined,
   nodes: NodeLike[],
-  currentId: number,
-): number | null {
+  currentId: ChunkId,
+): ChunkId | null {
   if (manifest) {
     const idx = manifest.findIndex(m => m.chunk_id === currentId);
     return (idx >= 0 && idx < manifest.length - 1) ? manifest[idx + 1]!.chunk_id : null;
   }
-  let next: number | null = null;
+  let next: ChunkId | null = null;
   for (const node of nodes) {
-    const c = parseFloat(String(node.chunk_id));
+    const c = parseFloat(String(node.chunk_id)) as ChunkId;
     if (c > currentId && (next === null || c < next)) next = c;
   }
   return next;
@@ -34,15 +37,15 @@ export function selectNextChunkId(
 export function selectPrevChunkId(
   manifest: ChunkManifestEntry[] | null | undefined,
   nodes: NodeLike[],
-  currentId: number,
-): number | null {
+  currentId: ChunkId,
+): ChunkId | null {
   if (manifest) {
     const idx = manifest.findIndex(m => m.chunk_id === currentId);
     return (idx > 0) ? manifest[idx - 1]!.chunk_id : null;
   }
-  let prev: number | null = null;
+  let prev: ChunkId | null = null;
   for (const node of nodes) {
-    const c = parseFloat(String(node.chunk_id));
+    const c = parseFloat(String(node.chunk_id)) as ChunkId;
     if (c < currentId && (prev === null || c > prev)) prev = c;
   }
   return prev;

@@ -147,7 +147,7 @@ const ENDPOINT_TABLES: Record<string, EndpointMap> = {
  * capture whitelist (NODE_DATA_TYPE_SET) so fn `types` stay small + meaningful.
  */
 const TABLE_TYPES: Record<string, string[]> = {
-  nodes: ['NodeRecord', 'ServerNodeRow', 'PublicChunk', 'NodeHyperlightView', 'NodeHyperciteView'],
+  nodes: ['NodeRecord', 'ServerNodeRow', 'PublicNode', 'NodeHyperlightView', 'NodeHyperciteView'],
   // library: wire-in (ServerLibraryRow, from getLibrary) → IDB store + save (LibraryRecord).
   library: ['ServerLibraryRow', 'LibraryRecord'],
   // footnotes: wire payload-map (ServerFootnotesPayload) → expanded per-row store/save (FootnoteRecord).
