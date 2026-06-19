@@ -129,8 +129,8 @@ class EditToolbar {
       selectionManager: this.selectionManager,
       buttonStateManager: this.buttonStateManager,
       currentBookId: this.currentBookId,
-      formatBlockCallback: (type: any, level: any) => this.formatBlock(type, level),
-      saveToIndexedDBCallback: (id: any, html: any) => this.saveToIndexedDB(id, html),
+      formatBlockCallback: (type: 'heading' | 'blockquote' | 'code' | 'list' | 'remove-list', level: string) => this.formatBlock(type, level),
+      saveToIndexedDBCallback: (id: LineId, html: string) => this.saveToIndexedDB(id, html),
       undoManager: this.undoManager,
       onUndoStackChanged: () => this._updateUndoRedoButtons(this.currentBookId)
     });
@@ -141,7 +141,7 @@ class EditToolbar {
       blockquoteButton: this.blockquoteButton,
       selectionManager: this.selectionManager,
       buttonStateManager: this.buttonStateManager,
-      formatBlockCallback: (type: any, listType: any) => this.formatBlock(type, listType),
+      formatBlockCallback: (type: 'heading' | 'blockquote' | 'code' | 'list' | 'remove-list', listType: string) => this.formatBlock(type, listType),
     });
 
     // Get all buttons except citation button for hiding during citation mode
@@ -161,9 +161,8 @@ class EditToolbar {
       toolbar: this.toolbar,
       citationButton: this.citationButton,
       citationContainer: document.getElementById('citation-mode-container'),
-      citationInput: document.getElementById('citation-search-input'),
+      citationInput: document.getElementById('citation-search-input') as HTMLInputElement | null,
       citationResults: document.getElementById('citation-toolbar-results'),
-      allButtons: this.allFormattingButtons,
       closeHeadingSubmenuCallback: () => this.closeHeadingSubmenu()
     });
 
@@ -172,13 +171,13 @@ class EditToolbar {
       editableSelector: this.editableSelector,
       selectionManager: this.selectionManager,
       buttonStateManager: this.buttonStateManager,
-      saveToIndexedDBCallback: (id: any, html: any) => this.saveToIndexedDB(id, html)
+      saveToIndexedDBCallback: (id: LineId, html: string) => this.saveToIndexedDB(id, html)
     });
 
     // Initialize ListConverter
     this.listConverter = new ListConverter({
       currentBookId: this.currentBookId,
-      saveToIndexedDBCallback: (id: any, html: any) => this.saveToIndexedDB(id, html)
+      saveToIndexedDBCallback: (id: LineId, html: string) => this.saveToIndexedDB(id, html)
     });
 
     // Initialize BlockFormatter
@@ -187,9 +186,9 @@ class EditToolbar {
       currentBookId: this.currentBookId,
       selectionManager: this.selectionManager,
       buttonStateManager: this.buttonStateManager,
-      saveToIndexedDBCallback: (id: any, html: any) => this.saveToIndexedDB(id, html),
-      deleteFromIndexedDBCallback: (id: any) => this.deleteFromIndexedDB(id),
-      convertListItemToBlockCallback: (listItem: any, type: any) => this.convertListItemToBlock(listItem, type),
+      saveToIndexedDBCallback: (id: LineId, html: string) => this.saveToIndexedDB(id, html),
+      deleteFromIndexedDBCallback: (id: LineId) => this.deleteFromIndexedDB(id),
+      convertListItemToBlockCallback: (listItem: HTMLElement, type: 'heading' | 'blockquote' | 'code') => this.convertListItemToBlock(listItem, type),
       undoManager: this.undoManager,
     });
 
@@ -331,13 +330,13 @@ class EditToolbar {
         if (inputType === 'historyUndo') {
           this.undoManager.undo(
             bookId,
-            (id: any, html: any, opts: any) => this.saveToIndexedDB(id, html, opts),
+            (id: LineId, html: string, opts: Record<string, unknown>) => this.saveToIndexedDB(id, html, opts),
             (flag: any) => { this.blockFormatter.isFormatting = flag; }
           );
         } else {
           this.undoManager.redo(
             bookId,
-            (id: any, html: any, opts: any) => this.saveToIndexedDB(id, html, opts),
+            (id: LineId, html: string, opts: Record<string, unknown>) => this.saveToIndexedDB(id, html, opts),
             (flag: any) => { this.blockFormatter.isFormatting = flag; }
           );
         }
@@ -411,7 +410,7 @@ class EditToolbar {
           console.log(`[UndoManager] Cmd+Shift+Z → redo, bookId=${bookId}`);
           this.undoManager.redo(
             bookId,
-            (id: any, html: any, opts: any) => this.saveToIndexedDB(id, html, opts),
+            (id: LineId, html: string, opts: Record<string, unknown>) => this.saveToIndexedDB(id, html, opts),
             (flag: any) => { this.blockFormatter.isFormatting = flag; }
           );
           this._updateUndoRedoButtons(bookId);
@@ -423,7 +422,7 @@ class EditToolbar {
           console.log(`[UndoManager] Cmd+Z → undo, bookId=${bookId}, stackSize=${this.undoManager._getStacks(bookId).undoStack.length}, hasGroup=${!!this.undoManager._currentGroup}`);
           this.undoManager.undo(
             bookId,
-            (id: any, html: any, opts: any) => this.saveToIndexedDB(id, html, opts),
+            (id: LineId, html: string, opts: Record<string, unknown>) => this.saveToIndexedDB(id, html, opts),
             (flag: any) => { this.blockFormatter.isFormatting = flag; }
           );
           this._updateUndoRedoButtons(bookId);
@@ -592,7 +591,7 @@ class EditToolbar {
     if (!bookId) return;
     this.undoManager.undo(
       bookId,
-      (id: any, html: any, opts: any) => this.saveToIndexedDB(id, html, opts),
+      (id: LineId, html: string, opts: Record<string, unknown>) => this.saveToIndexedDB(id, html, opts),
       (flag: any) => { this.blockFormatter.isFormatting = flag; }
     );
     this._updateUndoRedoButtons(bookId);
@@ -606,7 +605,7 @@ class EditToolbar {
     if (!bookId) return;
     this.undoManager.redo(
       bookId,
-      (id: any, html: any, opts: any) => this.saveToIndexedDB(id, html, opts),
+      (id: LineId, html: string, opts: Record<string, unknown>) => this.saveToIndexedDB(id, html, opts),
       (flag: any) => { this.blockFormatter.isFormatting = flag; }
     );
     this._updateUndoRedoButtons(bookId);

@@ -26,8 +26,16 @@ import {
   findPreviousElementId,
   findNextElementId,
   asLineId,
+  type BookId,
 } from "../utilities/idHelpers";
-import type { SaveToIndexedDBCallback } from "./types";
+import type {
+  SaveToIndexedDBCallback,
+  DeleteFromIndexedDBCallback,
+  ConvertListItemToBlockCallback,
+} from "./types";
+import type { SelectionManager } from "./selectionManager";
+import type { ButtonStateManager } from "./buttonStateManager";
+import type { BlockFormatResult } from "./blockFormat/types";
 import {
   batchUpdateIndexedDBRecords,
 } from "../indexedDB/index.js";
@@ -39,22 +47,35 @@ import * as listCmd from "./blockFormat/listFormat";
  * BlockFormatter class
  * Handles all block-level formatting operations
  */
+interface BlockFormatterOptions {
+  editableSelector?: string;
+  currentBookId?: BookId | null;
+  selectionManager?: SelectionManager;
+  buttonStateManager?: ButtonStateManager;
+  saveToIndexedDBCallback?: SaveToIndexedDBCallback | null;
+  deleteFromIndexedDBCallback?: DeleteFromIndexedDBCallback | null;
+  convertListItemToBlockCallback?: ConvertListItemToBlockCallback | null;
+  undoManager?: any;
+}
+
 export class BlockFormatter {
   editableSelector: string;
-  currentBookId: any;
-  selectionManager: any;
-  buttonStateManager: any;
+  currentBookId: BookId | null;
+  selectionManager: SelectionManager;
+  buttonStateManager: ButtonStateManager;
   saveToIndexedDBCallback: SaveToIndexedDBCallback | null;
-  deleteFromIndexedDBCallback: any;
-  convertListItemToBlockCallback: any;
+  deleteFromIndexedDBCallback: DeleteFromIndexedDBCallback | null;
+  convertListItemToBlockCallback: ConvertListItemToBlockCallback | null;
+  // Excluded from de-any (legacy undo entanglement — see undoManager.ts).
   undoManager: any;
   isFormatting: boolean = false;
 
-  constructor(options: any = {}) {
+  constructor(options: BlockFormatterOptions = {}) {
     this.editableSelector = options.editableSelector || ".main-content[contenteditable='true']";
     this.currentBookId = options.currentBookId || null;
-    this.selectionManager = options.selectionManager || null;
-    this.buttonStateManager = options.buttonStateManager || null;
+    // Always supplied by the orchestrator (EditToolbar) — assert non-null.
+    this.selectionManager = options.selectionManager!;
+    this.buttonStateManager = options.buttonStateManager!;
     this.saveToIndexedDBCallback = options.saveToIndexedDBCallback || null;
     this.deleteFromIndexedDBCallback = options.deleteFromIndexedDBCallback || null;
     this.convertListItemToBlockCallback = options.convertListItemToBlockCallback || null;
@@ -68,7 +89,7 @@ export class BlockFormatter {
    * @param {string} type - "heading", "blockquote", or "code"
    * @param {string} headingLevel - "h1" through "h6" (only for heading type)
    */
-  async formatBlock(type: any, headingLevel = "h2") {
+  async formatBlock(type: 'heading' | 'blockquote' | 'code' | 'list' | 'remove-list', headingLevel = "h2") {
     console.log("🔧 Format block called:", {
       type: type,
       headingLevel: headingLevel,
@@ -95,9 +116,9 @@ export class BlockFormatter {
       // Find the nearest contenteditable ancestor of the selection, falling back to the
       // main-content selector for backwards compatibility.
       const anchor = workingRange.commonAncestorContainer;
-      const anchorEl = anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor;
-      const editableContent = anchorEl.closest('[contenteditable="true"]')
-        || document.querySelector(this.editableSelector);
+      const anchorEl = (anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor) as Element | null;
+      const editableContent = (anchorEl?.closest('[contenteditable="true"]')
+        || document.querySelector(this.editableSelector)) as HTMLElement | null;
       if (!editableContent) return;
 
       const isTextSelected = !this.selectionManager.currentSelection.isCollapsed;
@@ -113,7 +134,7 @@ export class BlockFormatter {
         if (type === "blockquote" || type === "code") {
           // List → blockquote/code: convert entire list to a single block
           // with items joined by <br> (blockquote) or newlines (code)
-          const result = await this.handleListToBlock(parentList, listItem, type);
+          const result = await this.handleListToBlock(parentList!, listItem, type);
           this.buttonStateManager.updateButtonStates();
 
           // Re-focus after cursor positioned
@@ -128,7 +149,7 @@ export class BlockFormatter {
           return;
         } else if (this.convertListItemToBlockCallback) {
           // Heading: delegate to list converter (splits list — each item becomes heading)
-          await this.convertListItemToBlockCallback(listItem, type);
+          await this.convertListItemToBlockCallback(listItem as HTMLElement, type);
           this.buttonStateManager.updateButtonStates();
           return;
         }
@@ -141,7 +162,7 @@ export class BlockFormatter {
         case "heading":
           ({ modifiedElementId, newElement } = await this.handleHeadingFormat(
             isTextSelected,
-            parentElement,
+            parentElement!,
             headingLevel
           ));
           break;
@@ -151,20 +172,20 @@ export class BlockFormatter {
           ({ modifiedElementId, newElement } = await this.handleBlockquoteCodeFormat(
             type,
             isTextSelected,
-            parentElement
+            parentElement!
           ));
           break;
 
         case "list":
           ({ modifiedElementId, newElement } = await this.handleListFormat(
-            headingLevel, // repurposed as listType: "ul" or "ol"
-            parentElement,
+            headingLevel as 'ul' | 'ol', // repurposed as listType: "ul" or "ol"
+            parentElement!,
             isTextSelected
           ));
           break;
 
         case "remove-list":
-          ({ modifiedElementId, newElement } = await this.handleRemoveList(parentElement));
+          ({ modifiedElementId, newElement } = await this.handleRemoveList(parentElement!));
           break;
       }
 
@@ -221,7 +242,7 @@ export class BlockFormatter {
    * @param {string} type - "blockquote" or "code"
    * @returns {HTMLElement} The new element that replaced the old one
    */
-  _contentPreservingWrap(element: any, type: any) {
+  _contentPreservingWrap(element: Element, type: 'blockquote' | 'code'): HTMLElement {
     return bqCmd._contentPreservingWrap(this, element, type);
   }
 
@@ -233,35 +254,35 @@ export class BlockFormatter {
    * @param {string} type - "blockquote" or "code"
    * @returns {HTMLElement} The new <p> element that replaced the old one
    */
-  _contentPreservingUnwrap(element: any, type: any) {
+  _contentPreservingUnwrap(element: Element, type: 'blockquote' | 'code'): HTMLElement {
     return bqCmd._contentPreservingUnwrap(this, element, type);
   }
 
   /**
    * Handle heading formatting (both multi-block and cursor-only)
    */
-  async handleHeadingFormat(isTextSelected: any, parentElement: any, headingLevel: any) {
+  async handleHeadingFormat(isTextSelected: boolean, parentElement: Element, headingLevel: string) {
     return headingCmd.handleHeadingFormat(this, isTextSelected, parentElement, headingLevel);
   }
 
   /**
    * Handle blockquote and code block formatting (wrapping/unwrapping)
    */
-  async handleBlockquoteCodeFormat(type: any, isTextSelected: any, parentElement: any) {
+  async handleBlockquoteCodeFormat(type: 'blockquote' | 'code', isTextSelected: boolean, parentElement: Element) {
     return bqCmd.handleBlockquoteCodeFormat(this, type, isTextSelected, parentElement);
   }
 
   /**
    * Unwrap a blockquote or code block back to paragraph(s)
    */
-  async unwrapBlock(blockToUnwrap: any, type: any) {
+  async unwrapBlock(blockToUnwrap: Element, type: 'blockquote' | 'code') {
     return bqCmd.unwrapBlock(this, blockToUnwrap, type);
   }
 
   /**
    * Wrap a paragraph in a blockquote or code block
    */
-  async wrapBlock(blockParentToToggle: any, type: any) {
+  async wrapBlock(blockParentToToggle: Element, type: 'blockquote' | 'code') {
     return bqCmd.wrapBlock(this, blockParentToToggle, type);
   }
 
@@ -278,7 +299,7 @@ export class BlockFormatter {
    * @param {HTMLElement} parentElement - the element containing the cursor
    * @param {boolean} isTextSelected - whether text is selected across blocks
    */
-  async handleListFormat(listType: any, parentElement: any, isTextSelected = false) {
+  async handleListFormat(listType: 'ul' | 'ol', parentElement: Element, isTextSelected = false) {
     return listCmd.handleListFormat(this, listType, parentElement, isTextSelected);
   }
 
@@ -290,7 +311,7 @@ export class BlockFormatter {
    * @param {HTMLElement} listItem - The LI element the cursor is in
    * @param {string} blockType - "blockquote" or "code"
    */
-  async handleListToBlock(listEl: any, listItem: any, blockType: any) {
+  async handleListToBlock(listEl: Element, listItem: Element, blockType: 'blockquote' | 'code') {
     return listCmd.handleListToBlock(this, listEl, listItem, blockType);
   }
 
@@ -300,7 +321,7 @@ export class BlockFormatter {
    * @param {HTMLElement[]} paragraphs - Array of <p> elements to merge
    * @param {string} listType - "ul" or "ol"
    */
-  async _mergeBlocksIntoList(paragraphs: any, listType: any) {
+  async _mergeBlocksIntoList(paragraphs: HTMLElement[], listType: 'ul' | 'ol') {
     return listCmd._mergeBlocksIntoList(this, paragraphs, listType);
   }
 
@@ -309,7 +330,7 @@ export class BlockFormatter {
    * First paragraph's ID/node_id is inherited; extras are deleted.
    * @param {HTMLElement[]} paragraphs - Array of <p> elements to merge
    */
-  async _mergeBlocksIntoBlockquote(paragraphs: any) {
+  async _mergeBlocksIntoBlockquote(paragraphs: HTMLElement[]) {
     return bqCmd._mergeBlocksIntoBlockquote(this, paragraphs);
   }
 
@@ -317,14 +338,14 @@ export class BlockFormatter {
    * Handle removing a list — unwrap list items back to paragraphs
    * @param {HTMLElement} parentElement - the element containing the cursor
    */
-  async handleRemoveList(parentElement: any) {
+  async handleRemoveList(parentElement: Element) {
     return listCmd.handleRemoveList(this, parentElement);
   }
 
   /**
    * Update the currentBookId (called when book changes)
    */
-  setBookId(bookId: any) {
+  setBookId(bookId: BookId | null) {
     this.currentBookId = bookId;
   }
 

@@ -17,13 +17,15 @@ import {
 import {
   batchUpdateIndexedDBRecords,
 } from "../../indexedDB/index";
+import { asLineId } from "../../utilities/idHelpers";
+import type { BlockCommandContext } from "./types";
 
-export async function handleListFormat(self: any, listType: any, parentElement: any, isTextSelected = false) {
+export async function handleListFormat(self: BlockCommandContext, listType: 'ul' | 'ol', parentElement: Element, isTextSelected = false) {
     let modifiedElementId = null;
     let newElement = null;
 
     // Capture cursor offset before any DOM changes
-    const sel = self.selectionManager.currentSelection;
+    const sel = self.selectionManager.currentSelection!;
     const focusNode = sel.focusNode;
     const focusOffset = sel.focusOffset;
 
@@ -31,7 +33,7 @@ export async function handleListFormat(self: any, listType: any, parentElement: 
     if (isTextSelected) {
       const range = sel.getRangeAt(0);
       const affectedBlocks = getBlockElementsInRange(range);
-      const paragraphBlocks = affectedBlocks.filter((block: any) => block.tagName === 'P');
+      const paragraphBlocks = affectedBlocks.filter((block): block is HTMLElement => block.tagName === 'P');
 
       if (paragraphBlocks.length > 1) {
         return await self._mergeBlocksIntoList(paragraphBlocks, listType);
@@ -55,7 +57,7 @@ export async function handleListFormat(self: any, listType: any, parentElement: 
         const newListEl = document.createElement(listType);
         newListEl.id = listEl.id;
         if (listEl.hasAttribute("data-node-id")) {
-          newListEl.setAttribute("data-node-id", listEl.getAttribute("data-node-id"));
+          newListEl.setAttribute("data-node-id", listEl.getAttribute("data-node-id")!);
         }
         while (listEl.firstChild) {
           newListEl.appendChild(listEl.firstChild);
@@ -67,20 +69,20 @@ export async function handleListFormat(self: any, listType: any, parentElement: 
           const newTag = listType;
           self.undoManager.recordFormat(
             listEl.id,
-            (el: any) => {
+            (el: Element) => {
               const r = document.createElement(oldTag);
               r.id = el.id;
-              if (el.hasAttribute("data-node-id")) r.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+              if (el.hasAttribute("data-node-id")) r.setAttribute("data-node-id", el.getAttribute("data-node-id")!);
               while (el.firstChild) r.appendChild(el.firstChild);
-              el.parentNode.replaceChild(r, el);
+              el.parentNode!.replaceChild(r, el);
               return r;
             },
-            (el: any) => {
+            (el: Element) => {
               const r = document.createElement(newTag);
               r.id = el.id;
-              if (el.hasAttribute("data-node-id")) r.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+              if (el.hasAttribute("data-node-id")) r.setAttribute("data-node-id", el.getAttribute("data-node-id")!);
               while (el.firstChild) r.appendChild(el.firstChild);
-              el.parentNode.replaceChild(r, el);
+              el.parentNode!.replaceChild(r, el);
               return r;
             },
             self.currentBookId,
@@ -126,7 +128,7 @@ export async function handleListFormat(self: any, listType: any, parentElement: 
 
       listEl.id = blockParent.id;
       if (blockParent.hasAttribute("data-node-id")) {
-        listEl.setAttribute("data-node-id", blockParent.getAttribute("data-node-id"));
+        listEl.setAttribute("data-node-id", blockParent.getAttribute("data-node-id")!);
       }
 
       // Snapshot blockquote HTML for undo
@@ -137,18 +139,18 @@ export async function handleListFormat(self: any, listType: any, parentElement: 
         self.undoManager.recordFormat(
           blockParent.id,
           // Undo: list → blockquote (restore original)
-          (el: any) => {
+          (el: Element) => {
             const temp = document.createElement("div");
             temp.innerHTML = originalBlockquoteHTML;
             const restored = temp.firstElementChild;
-            el.parentNode.replaceChild(restored, el);
+            el.parentNode!.replaceChild(restored!, el);
             return restored;
           },
           // Redo: blockquote → list (split on <br>)
-          (el: any) => {
+          (el: Element) => {
             let c = el.innerHTML;
             if (c.endsWith("<br>")) c = c.slice(0, -4);
-            const ps = c.split(/<br\s*\/?>/i).filter((p: any) => p.trim() !== "");
+            const ps = c.split(/<br\s*\/?>/i).filter((p: string) => p.trim() !== "");
             const list = document.createElement(listType);
             for (const p of ps) {
               const newLi = document.createElement("li");
@@ -156,8 +158,8 @@ export async function handleListFormat(self: any, listType: any, parentElement: 
               list.appendChild(newLi);
             }
             list.id = el.id;
-            if (el.hasAttribute("data-node-id")) list.setAttribute("data-node-id", el.getAttribute("data-node-id"));
-            el.parentNode.replaceChild(list, el);
+            if (el.hasAttribute("data-node-id")) list.setAttribute("data-node-id", el.getAttribute("data-node-id")!);
+            el.parentNode!.replaceChild(list, el);
             return list;
           },
           self.currentBookId,
@@ -192,7 +194,7 @@ export async function handleListFormat(self: any, listType: any, parentElement: 
     // Transfer identity from the paragraph to the list
     listEl.id = blockParent.id;
     if (blockParent.hasAttribute("data-node-id")) {
-      listEl.setAttribute("data-node-id", blockParent.getAttribute("data-node-id"));
+      listEl.setAttribute("data-node-id", blockParent.getAttribute("data-node-id")!);
     }
 
     // Record for undo/redo
@@ -200,24 +202,24 @@ export async function handleListFormat(self: any, listType: any, parentElement: 
       self.undoManager.recordFormat(
         blockParent.id,
         // Undo: list → paragraph
-        (el: any) => {
+        (el: Element) => {
           const p = document.createElement("p");
           const firstLi = el.querySelector("li");
           p.innerHTML = firstLi ? firstLi.innerHTML : el.innerHTML;
           p.id = el.id;
-          if (el.hasAttribute("data-node-id")) p.setAttribute("data-node-id", el.getAttribute("data-node-id"));
-          el.parentNode.replaceChild(p, el);
+          if (el.hasAttribute("data-node-id")) p.setAttribute("data-node-id", el.getAttribute("data-node-id")!);
+          el.parentNode!.replaceChild(p, el);
           return p;
         },
         // Redo: paragraph → list
-        (el: any) => {
+        (el: Element) => {
           const list = document.createElement(listType);
           const newLi = document.createElement("li");
           newLi.innerHTML = el.innerHTML;
           list.appendChild(newLi);
           list.id = el.id;
-          if (el.hasAttribute("data-node-id")) list.setAttribute("data-node-id", el.getAttribute("data-node-id"));
-          el.parentNode.replaceChild(list, el);
+          if (el.hasAttribute("data-node-id")) list.setAttribute("data-node-id", el.getAttribute("data-node-id")!);
+          el.parentNode!.replaceChild(list, el);
           return list;
         },
         self.currentBookId,
@@ -238,12 +240,12 @@ export async function handleListFormat(self: any, listType: any, parentElement: 
     return { modifiedElementId, newElement };
   }
 
-export async function handleListToBlock(self: any, listEl: any, listItem: any, blockType: any) {
+export async function handleListToBlock(self: BlockCommandContext, listEl: Element, listItem: Element, blockType: 'blockquote' | 'code') {
     let modifiedElementId = null;
     let newElement = null;
 
     // Capture cursor offset before DOM changes
-    const sel = self.selectionManager.currentSelection;
+    const sel = self.selectionManager.currentSelection!;
     let currentOffset = 0;
     if (sel && sel.focusNode) {
       try {
@@ -260,19 +262,19 @@ export async function handleListToBlock(self: any, listEl: any, listItem: any, b
     let newBlock;
     if (blockType === "blockquote") {
       newBlock = document.createElement("blockquote");
-      const content = allItems.map((li: any) => li.innerHTML).join("<br>");
+      const content = allItems.map((li: Element) => li.innerHTML).join("<br>");
       newBlock.innerHTML = content + "<br>";
     } else {
       newBlock = document.createElement("pre");
       const code = document.createElement("code");
-      code.textContent = allItems.map((li: any) => li.textContent.trim()).join("\n");
+      code.textContent = allItems.map((li: Element) => li.textContent.trim()).join("\n");
       newBlock.appendChild(code);
     }
 
     // Transfer identity
     newBlock.id = listEl.id;
     if (listEl.hasAttribute("data-node-id")) {
-      newBlock.setAttribute("data-node-id", listEl.getAttribute("data-node-id"));
+      newBlock.setAttribute("data-node-id", listEl.getAttribute("data-node-id")!);
     }
 
     // Record undo: block ↔ list (single step)
@@ -280,30 +282,30 @@ export async function handleListToBlock(self: any, listEl: any, listItem: any, b
       self.undoManager.recordFormat(
         listEl.id,
         // Undo: blockquote/code → list (restore original)
-        (el: any) => {
+        (el: Element) => {
           const temp = document.createElement("div");
           temp.innerHTML = originalListHTML;
           const restored = temp.firstElementChild;
-          el.parentNode.replaceChild(restored, el);
+          el.parentNode!.replaceChild(restored!, el);
           return restored;
         },
         // Redo: list → blockquote/code
-        (el: any) => {
+        (el: Element) => {
           let block;
           const items = Array.from(el.querySelectorAll(":scope > li"));
           if (blockType === "blockquote") {
             block = document.createElement("blockquote");
-            const c = items.map((li: any) => li.innerHTML).join("<br>");
+            const c = items.map((li: Element) => li.innerHTML).join("<br>");
             block.innerHTML = c + "<br>";
           } else {
             block = document.createElement("pre");
             const code = document.createElement("code");
-            code.textContent = items.map((li: any) => li.textContent.trim()).join("\n");
+            code.textContent = items.map((li: Element) => li.textContent.trim()).join("\n");
             block.appendChild(code);
           }
           block.id = el.id;
-          if (el.hasAttribute("data-node-id")) block.setAttribute("data-node-id", el.getAttribute("data-node-id"));
-          el.parentNode.replaceChild(block, el);
+          if (el.hasAttribute("data-node-id")) block.setAttribute("data-node-id", el.getAttribute("data-node-id")!);
+          el.parentNode!.replaceChild(block, el);
           return block;
         },
         self.currentBookId,
@@ -321,7 +323,7 @@ export async function handleListToBlock(self: any, listEl: any, listItem: any, b
     return { modifiedElementId, newElement };
   }
 
-export async function _mergeBlocksIntoList(self: any, paragraphs: any, listType: any) {
+export async function _mergeBlocksIntoList(self: BlockCommandContext, paragraphs: HTMLElement[], listType: 'ul' | 'ol') {
     const listEl = document.createElement(listType);
 
     for (const p of paragraphs) {
@@ -331,45 +333,45 @@ export async function _mergeBlocksIntoList(self: any, paragraphs: any, listType:
     }
 
     // Inherit identity from first paragraph
-    const firstP = paragraphs[0];
+    const firstP = paragraphs[0]!;
     listEl.id = firstP.id;
     if (firstP.hasAttribute("data-node-id")) {
-      listEl.setAttribute("data-node-id", firstP.getAttribute("data-node-id"));
+      listEl.setAttribute("data-node-id", firstP.getAttribute("data-node-id")!);
     }
 
     // Snapshot for undo
-    const originalParagraphsHTML = paragraphs.map((p: any) => p.outerHTML);
-    const extraIds = paragraphs.slice(1).map((p: any) => p.id);
+    const originalParagraphsHTML = paragraphs.map((p) => p.outerHTML);
+    const extraIds = paragraphs.slice(1).map((p) => p.id);
 
     // Record undo
     if (self.undoManager) {
       self.undoManager.recordFormat(
         firstP.id,
         // Undo: list → paragraphs (restore originals)
-        (el: any) => {
-          const parent = el.parentNode;
+        (el: Element) => {
+          const parent = el.parentNode!;
           // Insert all paragraphs before the list element, then remove it
           for (const html of originalParagraphsHTML) {
             const temp = document.createElement("div");
             temp.innerHTML = html;
-            parent.insertBefore(temp.firstElementChild, el);
+            parent.insertBefore(temp.firstElementChild!, el);
           }
           parent.removeChild(el);
           return document.getElementById(firstP.id);
         },
         // Redo: paragraphs → list
-        (el: any) => {
-          const parent = el.parentNode;
+        (el: Element) => {
+          const parent = el.parentNode!;
           const list = document.createElement(listType);
           // Gather all the paragraphs (first el + extras by ID)
-          const allParas = [el, ...extraIds.map((id: any) => document.getElementById(id)).filter(Boolean)];
+          const allParas = [el, ...extraIds.map((id) => document.getElementById(id)).filter((x): x is HTMLElement => x !== null)];
           for (const p of allParas) {
             const li = document.createElement("li");
             li.innerHTML = p.innerHTML;
             list.appendChild(li);
           }
           list.id = el.id;
-          if (el.hasAttribute("data-node-id")) list.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+          if (el.hasAttribute("data-node-id")) list.setAttribute("data-node-id", el.getAttribute("data-node-id")!);
           // Remove extras
           for (const p of allParas.slice(1)) {
             p.remove();
@@ -383,20 +385,20 @@ export async function _mergeBlocksIntoList(self: any, paragraphs: any, listType:
     }
 
     // Insert list where first paragraph was, remove all paragraphs
-    firstP.parentNode.insertBefore(listEl, firstP);
+    firstP.parentNode!.insertBefore(listEl, firstP);
     for (const p of paragraphs) {
       p.remove();
     }
 
     // Save list to IndexedDB
     if (self.saveToIndexedDBCallback) {
-      await self.saveToIndexedDBCallback(listEl.id, listEl.outerHTML);
+      await self.saveToIndexedDBCallback(asLineId(listEl.id), listEl.outerHTML);
     }
 
     // Delete extra paragraphs from IndexedDB
     if (self.deleteFromIndexedDBCallback) {
       for (const id of extraIds) {
-        await self.deleteFromIndexedDBCallback(id);
+        await self.deleteFromIndexedDBCallback(asLineId(id));
       }
     }
 
@@ -407,12 +409,12 @@ export async function _mergeBlocksIntoList(self: any, paragraphs: any, listType:
     return { modifiedElementId: listEl.id, newElement: listEl };
   }
 
-export async function handleRemoveList(self: any, parentElement: any) {
+export async function handleRemoveList(self: BlockCommandContext, parentElement: Element) {
     let modifiedElementId = null;
     let newElement = null;
 
     // Capture cursor offset before any DOM changes
-    const sel = self.selectionManager.currentSelection;
+    const sel = self.selectionManager.currentSelection!;
     const cursorLi = findClosestListItem(parentElement);
     let cursorOffset = 0;
     if (cursorLi && sel.focusNode) {
@@ -422,7 +424,7 @@ export async function handleRemoveList(self: any, parentElement: any) {
     }
 
     // Walk up to find the containing list element with an ID
-    let listEl = parentElement;
+    let listEl: Element | null = parentElement;
     while (listEl && listEl.tagName !== "UL" && listEl.tagName !== "OL") {
       listEl = listEl.parentElement;
     }
@@ -440,12 +442,12 @@ export async function handleRemoveList(self: any, parentElement: any) {
     let cursorLiIndex = cursorLi ? listItems.indexOf(cursorLi) : 0;
     if (cursorLiIndex < 0) cursorLiIndex = 0;
 
-    const listParent = listEl.parentNode;
+    const listParent = listEl.parentNode!;
     const listTag = listEl.tagName.toLowerCase();
-    const paragraphs = [];
+    const paragraphs: HTMLElement[] = [];
 
     for (let i = 0; i < listItems.length; i++) {
-      const li: any = listItems[i];
+      const li = listItems[i]!;
       const p = document.createElement("p");
       p.innerHTML = li.innerHTML || "\u00A0";
 
@@ -453,7 +455,7 @@ export async function handleRemoveList(self: any, parentElement: any) {
         // First paragraph inherits the list's identity
         p.id = listEl.id;
         if (listEl.hasAttribute("data-node-id")) {
-          p.setAttribute("data-node-id", listEl.getAttribute("data-node-id"));
+          p.setAttribute("data-node-id", listEl.getAttribute("data-node-id")!);
         }
       } else {
         // Subsequent paragraphs get new IDs
@@ -469,12 +471,12 @@ export async function handleRemoveList(self: any, parentElement: any) {
     if (self.undoManager) {
       const oldListHTML = listEl.outerHTML;
       const listId = listEl.id;
-      const extraParagraphIds = paragraphs.slice(1).map((p: any) => p.id);
+      const extraParagraphIds = paragraphs.slice(1).map((p) => p.id);
 
       self.undoManager.recordFormat(
         listId,
         // Undo: paragraphs → list (restore original)
-        (el: any) => {
+        (el: Element) => {
           // el is the first paragraph; remove extra paragraphs and restore list
           for (const extraId of extraParagraphIds) {
             const extra = document.getElementById(extraId);
@@ -483,11 +485,11 @@ export async function handleRemoveList(self: any, parentElement: any) {
           const temp = document.createElement("div");
           temp.innerHTML = oldListHTML;
           const restored = temp.firstElementChild;
-          el.parentNode.replaceChild(restored, el);
+          el.parentNode!.replaceChild(restored!, el);
           return restored;
         },
         // Redo: list → paragraphs
-        (el: any) => {
+        (el: Element) => {
           // el is the list; unwrap again
           const items = Array.from(el.querySelectorAll(":scope > li"));
           const ps = [];
@@ -496,13 +498,13 @@ export async function handleRemoveList(self: any, parentElement: any) {
             newP.innerHTML = (items[i] as any).innerHTML || "\u00A0";
             if (i === 0) {
               newP.id = el.id;
-              if (el.hasAttribute("data-node-id")) newP.setAttribute("data-node-id", el.getAttribute("data-node-id"));
+              if (el.hasAttribute("data-node-id")) newP.setAttribute("data-node-id", el.getAttribute("data-node-id")!);
             } else {
               newP.id = extraParagraphIds[i - 1] || "";
             }
             ps.push(newP);
           }
-          const parent = el.parentNode;
+          const parent = el.parentNode!;
           for (const newP of ps) {
             parent.insertBefore(newP, el);
           }
@@ -521,7 +523,7 @@ export async function handleRemoveList(self: any, parentElement: any) {
     listParent.removeChild(listEl);
 
     // Restore cursor in the paragraph that corresponds to the li the cursor was in
-    const targetParagraph: any = paragraphs[cursorLiIndex] || paragraphs[0];
+    const targetParagraph = (paragraphs[cursorLiIndex] || paragraphs[0])!;
     setCursorAtTextOffset(targetParagraph, cursorOffset);
 
     modifiedElementId = paragraphs[0]!.id;
@@ -533,7 +535,7 @@ export async function handleRemoveList(self: any, parentElement: any) {
     if (self.saveToIndexedDBCallback) {
       for (const p of paragraphs) {
         if (p.id) {
-          await self.saveToIndexedDBCallback(p.id, p.outerHTML);
+          await self.saveToIndexedDBCallback(asLineId(p.id), p.outerHTML);
         }
       }
     }

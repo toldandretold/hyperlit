@@ -17,3 +17,13 @@ export type SaveToIndexedDBCallback = (
   html: string,
   options?: Record<string, unknown>,
 ) => void | Promise<void>;
+
+/** Delete a node from IndexedDB by its positional id (used when list→block merges drop extras). */
+export type DeleteFromIndexedDBCallback = (id: LineId) => void | Promise<void>;
+
+/** Convert a single list item to a block (heading/blockquote/code) during list→block formatting.
+ *  Return value is ignored by callers (fire-and-await), hence the loose result type. */
+export type ConvertListItemToBlockCallback = (
+  listItem: HTMLElement,
+  blockType: 'heading' | 'blockquote' | 'code',
+) => void | Promise<unknown>;

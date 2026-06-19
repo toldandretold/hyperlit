@@ -27,24 +27,27 @@ const SHELF_STORAGE_KEY = 'hyperlit:citation:shelfId';
 const VALID_SCOPES = ['public', 'mine', 'shelf'];
 
 interface CitationModeOptions {
-  toolbar?: any;
-  citationButton?: any;
-  citationContainer?: any;
-  citationInput?: any;
-  citationResults?: any;
-  allButtons?: any;
+  toolbar?: HTMLElement | null;
+  citationButton?: HTMLElement | null;
+  citationContainer?: HTMLElement | null;
+  citationInput?: HTMLInputElement | null;
+  citationResults?: HTMLElement | null;
   closeHeadingSubmenuCallback?: () => void;
 }
 
 export class CitationMode {
-  // DOM refs / handlers kept loosely typed (surgical migration; `any`-tighten is a follow-up).
-  toolbar: any;
-  citationButton: any;
-  citationContainer: any;
-  citationInput: any;
-  citationResults: any;
-  allButtons: any;
-  closeButton: any;
+  // Category A refs — always present while the mode operates. Resolved once in the
+  // constructor; if any is missing the instance is `inert` and open() no-ops (the
+  // editToolbar isDisabled pattern). Method bodies then use them with NO null-checks
+  // (provably non-null), and tests reading them keep working.
+  private inert = false;
+  toolbar!: HTMLElement;
+  citationButton!: HTMLElement;
+  citationContainer!: HTMLElement;
+  citationInput!: HTMLInputElement;
+  citationResults!: HTMLElement;
+  // Category B — queried at construction, genuinely optional; guarded with `if`.
+  closeButton: HTMLElement | null = null;
   closeHeadingSubmenuCallback: (() => void) | undefined;
   scopeBar: any;
   scopeButtons: any;
@@ -52,35 +55,35 @@ export class CitationMode {
   shelfSelect: any;
   shelvesLoaded: boolean = false;
   boundScopeClickHandlers: any[] = [];
-  boundShelfChangeHandler: any;
+  boundShelfChangeHandler: ((e: Event) => void) | null = null;
   currentScope: string = 'public';
   currentShelfId: string = '';
   isOpen: boolean = false;
   pendingContext: any;
-  debounceTimer: any;
+  debounceTimer: ReturnType<typeof setTimeout> | null = null;
   abortController: AbortController | null = null;
   currentQuery: string = '';
   currentOffset: number = 0;
   hasMore: boolean = false;
   touchStartX: number | null = null;
   touchStartY: number | null = null;
-  boundDocumentClickHandler: any;
-  boundDocumentKeyDownHandler: any;
-  boundDocumentTouchStartHandler: any;
-  boundDocumentTouchEndHandler: any;
-  boundInputHandler: any;
-  boundResultsScrollHandler: any;
-  boundCloseButtonHandler: any;
+  boundDocumentClickHandler: ((e: MouseEvent) => void) | null = null;
+  boundDocumentKeyDownHandler: ((e: KeyboardEvent) => void) | null = null;
+  boundDocumentTouchStartHandler: ((e: TouchEvent) => void) | null = null;
+  boundDocumentTouchEndHandler: ((e: TouchEvent) => void) | null = null;
+  boundInputHandler: ((e: Event) => void) | null = null;
+  boundResultsScrollHandler: ((e: Event) => void) | null = null;
+  boundCloseButtonHandler: ((e: Event) => void) | null = null;
   justOpened: boolean = false;
   lockedScrollPosition: number | null = 0;
-  boundScrollLockHandler: any;
+  boundScrollLockHandler: ((e: Event) => void) | null = null;
   _shelfInteractionAt: number = 0;
   resultsItems: any;
   shelfTrigger: any;
   shelfCurrent: any;
   shelfOptions: any;
   boundShelfTriggerHandlers: any;
-  boundInputTouchHandler: any;
+  boundInputTouchHandler: ((e: TouchEvent) => void) | null = null;
 
   constructor({
     toolbar,
@@ -88,17 +91,21 @@ export class CitationMode {
     citationContainer,
     citationInput,
     citationResults,
-    allButtons,
     closeHeadingSubmenuCallback
   }: CitationModeOptions = {}) {
+    this.closeButton = document.getElementById('citation-close-btn');
+    this.closeHeadingSubmenuCallback = closeHeadingSubmenuCallback;
+
+    // If any essential citation element is missing, the mode is inert and open() no-ops.
+    if (!toolbar || !citationButton || !citationContainer || !citationInput || !citationResults) {
+      this.inert = true;
+      return;
+    }
     this.toolbar = toolbar;
     this.citationButton = citationButton;
     this.citationContainer = citationContainer;
     this.citationInput = citationInput;
     this.citationResults = citationResults;
-    this.allButtons = allButtons; // Array of all toolbar buttons except citation
-    this.closeButton = document.getElementById('citation-close-btn');
-    this.closeHeadingSubmenuCallback = closeHeadingSubmenuCallback;
 
     // Scope picker (lives inside citationContainer — query lazily on open()
     // because the container may not be in the DOM yet at construction time).
@@ -145,7 +152,7 @@ export class CitationMode {
   }
 
   open(context: any) {
-    if (this.isOpen) return;
+    if (this.inert || this.isOpen) return;
 
     // Close heading submenu if it's open (prevents visual overlap)
     if (this.closeHeadingSubmenuCallback) {

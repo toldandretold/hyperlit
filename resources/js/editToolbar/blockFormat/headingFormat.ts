@@ -17,14 +17,16 @@ import {
 import {
   batchUpdateIndexedDBRecords,
 } from "../../indexedDB/index";
+import { asLineId } from "../../utilities/idHelpers";
+import type { BlockCommandContext } from "./types";
 
-export async function handleHeadingFormat(self: any, isTextSelected: any, parentElement: any, headingLevel: any) {
+export async function handleHeadingFormat(self: BlockCommandContext, isTextSelected: boolean, parentElement: Element, headingLevel: string) {
     let modifiedElementId = null;
     let newElement = null;
 
     if (isTextSelected) {
       // Multi-block heading formatting — uses replaceChild + undo stack
-      const range = self.selectionManager.currentSelection.getRangeAt(0);
+      const range = self.selectionManager.currentSelection!.getRangeAt(0);
       const affectedBlocks = getBlockElementsInRange(range);
 
       if (affectedBlocks.length > 0) {
@@ -59,7 +61,7 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
 
           // Preserve data-node-id attribute if it exists
           if (block.hasAttribute('data-node-id')) {
-            newBlockElement.setAttribute('data-node-id', block.getAttribute('data-node-id'));
+            newBlockElement.setAttribute('data-node-id', block.getAttribute('data-node-id')!);
           }
 
           // Record content-preserving operation before replaceChild
@@ -68,7 +70,7 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
             const newTag = newBlockElement.tagName.toLowerCase();
             self.undoManager.recordFormat(
               block.id,
-              (el: any) => {
+              (el: Element) => {
                 const r = document.createElement(oldTag);
                 if (oldTag === 'pre') {
                   const c = document.createElement('code');
@@ -78,11 +80,11 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
                   r.innerHTML = el.innerHTML;
                 }
                 r.id = el.id;
-                if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id'));
-                el.parentNode.replaceChild(r, el);
+                if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id')!);
+                el.parentNode!.replaceChild(r, el);
                 return r;
               },
-              (el: any) => {
+              (el: Element) => {
                 const r = document.createElement(newTag);
                 if (el.tagName === 'PRE') {
                   const codeEl = el.querySelector('code');
@@ -91,8 +93,8 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
                   r.innerHTML = el.innerHTML;
                 }
                 r.id = el.id;
-                if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id'));
-                el.parentNode.replaceChild(r, el);
+                if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id')!);
+                el.parentNode!.replaceChild(r, el);
                 return r;
               },
               self.currentBookId,
@@ -106,7 +108,7 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
             element: newBlockElement,
           });
           recordsToUpdate.push({
-            id: newBlockElement.id,
+            id: asLineId(newBlockElement.id),
             html: newBlockElement.outerHTML,
           });
         }
@@ -123,13 +125,13 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
     }
 
     // Cursor-only heading formatting
-    const focusNode = self.selectionManager.currentSelection.focusNode;
-    let blockParent;
+    const focusNode = self.selectionManager.currentSelection!.focusNode!;
+    let blockParent: Element | null;
 
     // If focusNode is already a block element (e.g., empty <p>), use it directly
     // This prevents selecting the parent chunk div when cursor is in an empty paragraph
     if (focusNode.nodeType === Node.ELEMENT_NODE && isBlockElement(focusNode)) {
-      blockParent = focusNode;
+      blockParent = focusNode as Element;
     } else {
       // Otherwise, find closest block parent
       const cursorFocusParent = focusNode.parentElement;
@@ -142,8 +144,8 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
       const currentHeadingLevel = headingElement.tagName.toLowerCase();
       const currentOffset = getTextOffsetInElement(
         headingElement,
-        self.selectionManager.currentSelection.focusNode,
-        self.selectionManager.currentSelection.focusOffset
+        self.selectionManager.currentSelection!.focusNode,
+        self.selectionManager.currentSelection!.focusOffset
       );
 
       // Determine target tag: toggle to <p> if same level, otherwise new heading
@@ -154,7 +156,7 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
       newEl.innerHTML = headingElement.innerHTML;
       newEl.id = headingElement.id;
       if (headingElement.hasAttribute('data-node-id')) {
-        newEl.setAttribute('data-node-id', headingElement.getAttribute('data-node-id'));
+        newEl.setAttribute('data-node-id', headingElement.getAttribute('data-node-id')!);
       }
 
       // Record for undo/redo
@@ -163,20 +165,20 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
         const newTag = targetTag;
         self.undoManager.recordFormat(
           headingElement.id,
-          (el: any) => {
+          (el: Element) => {
             const r = document.createElement(oldTag);
             r.innerHTML = el.innerHTML;
             r.id = el.id;
-            if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id'));
-            el.parentNode.replaceChild(r, el);
+            if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id')!);
+            el.parentNode!.replaceChild(r, el);
             return r;
           },
-          (el: any) => {
+          (el: Element) => {
             const r = document.createElement(newTag);
             r.innerHTML = el.innerHTML;
             r.id = el.id;
-            if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id'));
-            el.parentNode.replaceChild(r, el);
+            if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id')!);
+            el.parentNode!.replaceChild(r, el);
             return r;
           },
           self.currentBookId,
@@ -184,7 +186,7 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
         );
       }
 
-      headingElement.parentNode.replaceChild(newEl, headingElement);
+      headingElement.parentNode!.replaceChild(newEl, headingElement);
       setCursorAtTextOffset(newEl, currentOffset);
       modifiedElementId = newEl.id;
       newElement = newEl;
@@ -195,8 +197,8 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
       const isCodeBlock = blockParent.tagName === 'PRE';
       const currentOffset = getTextOffsetInElement(
         blockParent,
-        self.selectionManager.currentSelection.focusNode,
-        self.selectionManager.currentSelection.focusOffset
+        self.selectionManager.currentSelection!.focusNode,
+        self.selectionManager.currentSelection!.focusOffset
       );
 
       if (isCodeBlock) {
@@ -217,32 +219,32 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
         }
 
         if (blockParent.hasAttribute('data-node-id')) {
-          headingElement.setAttribute('data-node-id', blockParent.getAttribute('data-node-id'));
+          headingElement.setAttribute('data-node-id', blockParent.getAttribute('data-node-id')!);
         }
 
         if (self.undoManager) {
           const targetLevel = headingLevel;
           self.undoManager.recordFormat(
             blockParent.id,
-            (el: any) => {
+            (el: Element) => {
               // Undo: heading → pre (restore code block)
               const pre = document.createElement('pre');
               const code = document.createElement('code');
               code.innerHTML = el.innerHTML;
               pre.appendChild(code);
               pre.id = el.id;
-              if (el.hasAttribute('data-node-id')) pre.setAttribute('data-node-id', el.getAttribute('data-node-id'));
-              el.parentNode.replaceChild(pre, el);
+              if (el.hasAttribute('data-node-id')) pre.setAttribute('data-node-id', el.getAttribute('data-node-id')!);
+              el.parentNode!.replaceChild(pre, el);
               return pre;
             },
-            (el: any) => {
+            (el: Element) => {
               // Redo: pre → heading
               const h = document.createElement(targetLevel);
               const codeEl = el.querySelector('code');
               h.textContent = codeEl ? codeEl.textContent : el.textContent;
               h.id = el.id;
-              if (el.hasAttribute('data-node-id')) h.setAttribute('data-node-id', el.getAttribute('data-node-id'));
-              el.parentNode.replaceChild(h, el);
+              if (el.hasAttribute('data-node-id')) h.setAttribute('data-node-id', el.getAttribute('data-node-id')!);
+              el.parentNode!.replaceChild(h, el);
               return h;
             },
             self.currentBookId,
@@ -260,7 +262,7 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
         newEl.innerHTML = blockParent.innerHTML;
         newEl.id = blockParent.id;
         if (blockParent.hasAttribute('data-node-id')) {
-          newEl.setAttribute('data-node-id', blockParent.getAttribute('data-node-id'));
+          newEl.setAttribute('data-node-id', blockParent.getAttribute('data-node-id')!);
         }
 
         // Record for undo/redo
@@ -269,20 +271,20 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
           const newTag = headingLevel;
           self.undoManager.recordFormat(
             blockParent.id,
-            (el: any) => {
+            (el: Element) => {
               const r = document.createElement(oldTag);
               r.innerHTML = el.innerHTML;
               r.id = el.id;
-              if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id'));
-              el.parentNode.replaceChild(r, el);
+              if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id')!);
+              el.parentNode!.replaceChild(r, el);
               return r;
             },
-            (el: any) => {
+            (el: Element) => {
               const r = document.createElement(newTag);
               r.innerHTML = el.innerHTML;
               r.id = el.id;
-              if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id'));
-              el.parentNode.replaceChild(r, el);
+              if (el.hasAttribute('data-node-id')) r.setAttribute('data-node-id', el.getAttribute('data-node-id')!);
+              el.parentNode!.replaceChild(r, el);
               return r;
             },
             self.currentBookId,
@@ -302,13 +304,13 @@ export async function handleHeadingFormat(self: any, isTextSelected: any, parent
     return { modifiedElementId, newElement };
   }
 
-export async function unwrapSelectedTextFromHeading(self: any) {
-    if (!self.selectionManager.currentSelection || self.selectionManager.currentSelection.isCollapsed) {
+export async function unwrapSelectedTextFromHeading(self: BlockCommandContext) {
+    if (!self.selectionManager.currentSelection || self.selectionManager.currentSelection!.isCollapsed) {
       console.warn("unwrapSelectedTextFromHeading called with no selection.");
       return null;
     }
 
-    const range = self.selectionManager.currentSelection.getRangeAt(0);
+    const range = self.selectionManager.currentSelection!.getRangeAt(0);
     let headingElement = null;
     let currentElement = self.selectionManager.getSelectionParentElement();
 
@@ -326,7 +328,7 @@ export async function unwrapSelectedTextFromHeading(self: any) {
       )
         break;
       if (currentElement === document.body) break;
-      currentElement = currentElement.parentNode;
+      currentElement = currentElement.parentNode as Element | null;
     }
 
     if (!headingElement) {
@@ -348,29 +350,29 @@ export async function unwrapSelectedTextFromHeading(self: any) {
         const origTag = headingElement.tagName.toLowerCase();
         self.undoManager.recordFormat(
           headingElement.id,
-          (el: any) => {
+          (el: Element) => {
             // Undo: p → heading
             const h = document.createElement(origTag);
             h.innerHTML = el.innerHTML;
             h.id = el.id;
-            if (el.hasAttribute('data-node-id')) h.setAttribute('data-node-id', el.getAttribute('data-node-id'));
-            el.parentNode.replaceChild(h, el);
+            if (el.hasAttribute('data-node-id')) h.setAttribute('data-node-id', el.getAttribute('data-node-id')!);
+            el.parentNode!.replaceChild(h, el);
             return h;
           },
-          (el: any) => {
+          (el: Element) => {
             // Redo: heading → p
             const p = document.createElement('p');
             p.innerHTML = el.innerHTML;
             p.id = el.id;
-            if (el.hasAttribute('data-node-id')) p.setAttribute('data-node-id', el.getAttribute('data-node-id'));
-            el.parentNode.replaceChild(p, el);
+            if (el.hasAttribute('data-node-id')) p.setAttribute('data-node-id', el.getAttribute('data-node-id')!);
+            el.parentNode!.replaceChild(p, el);
             return p;
           },
           self.currentBookId,
           0
         );
       }
-      headingElement.parentNode.replaceChild(pElement, headingElement);
+      headingElement.parentNode!.replaceChild(pElement, headingElement);
     } catch (domError) {
       console.error("unwrapSelectedTextFromHeading: DOM replacement failed.", domError);
       return null;
@@ -379,18 +381,18 @@ export async function unwrapSelectedTextFromHeading(self: any) {
     if (self.selectionManager.currentSelection) {
       const newRange = document.createRange();
       newRange.selectNodeContents(pElement);
-      self.selectionManager.currentSelection.removeAllRanges();
-      self.selectionManager.currentSelection.addRange(newRange);
+      self.selectionManager.currentSelection!.removeAllRanges();
+      self.selectionManager.currentSelection!.addRange(newRange);
     }
 
     console.log(`unwrapSelectedTextFromHeading: New paragraph ID "${pElement.id}"`);
 
     if (self.currentBookId) {
       if (self.saveToIndexedDBCallback) {
-        await self.saveToIndexedDBCallback(pElement.id, pElement.outerHTML);
+        await self.saveToIndexedDBCallback(asLineId(pElement.id), pElement.outerHTML);
       }
       if (self.deleteFromIndexedDBCallback) {
-        await self.deleteFromIndexedDBCallback(headingElement.id);
+        await self.deleteFromIndexedDBCallback(asLineId(headingElement.id));
       }
     }
 
