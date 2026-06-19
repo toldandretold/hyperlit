@@ -1,7 +1,7 @@
 /**
  * Pins syncQueue/queue.js behavior ahead of its TS conversion:
  * key format, originalData preservation across re-queues (the undo guarantee),
- * the undo/redo skip, and per-book clearing.
+ * and per-book clearing.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -16,7 +16,6 @@ import {
   clearPendingSyncsForBook,
   initSyncQueueDependencies,
 } from '../../../resources/js/indexedDB/syncQueue/queue';
-import { setUndoRedoInProgress } from '../../../resources/js/utilities/operationState';
 
 describe('queueForSync', () => {
   let masterSync;
@@ -25,7 +24,6 @@ describe('queueForSync', () => {
     pendingSyncs.clear();
     masterSync = vi.fn();
     initSyncQueueDependencies({ debouncedMasterSync: masterSync });
-    setUndoRedoInProgress(false);
   });
 
   it('queues under `${store}-${book}-${id}` and kicks the debounced master sync', () => {
@@ -60,17 +58,6 @@ describe('queueForSync', () => {
     const queued = pendingSyncs.get('nodes-bookA-100');
     expect(queued.data.content).toBe('v2');
     expect(queued.originalData.content).toBe('v0');
-  });
-
-  it('skips queueing entirely during undo/redo', () => {
-    setUndoRedoInProgress(true);
-    try {
-      queueForSync('nodes', 100, 'update', { book: 'bookA', content: 'x' }, null);
-      expect(pendingSyncs.size).toBe(0);
-      expect(masterSync).not.toHaveBeenCalled();
-    } finally {
-      setUndoRedoInProgress(false);
-    }
   });
 
   it('clearPendingSyncsForBook removes only that book and returns the count', () => {

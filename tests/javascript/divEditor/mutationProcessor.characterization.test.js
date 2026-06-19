@@ -10,7 +10,6 @@ vi.mock('../../../resources/js/utilities/operationState', () => ({
   isProgrammaticUpdateInProgress: () => false,
   hypercitePasteInProgress: false,
   keyboardLayoutInProgress: false,
-  isUndoRedoInProgress: () => false,
 }));
 vi.mock('../../../resources/js/lazyLoader/utilities/chunkLoadingState', () => ({
   isChunkLoadingInProgress: () => false, getLoadingChunkId: () => null,

@@ -3,7 +3,6 @@
  * Manages the queue of pending sync operations
  */
 
-import { isUndoRedoInProgress } from '../../utilities/operationState';
 import type { BookId, SyncOperationType, SyncQueueItem, SyncStoreRecordMap, SyncStore } from '../types';
 
 // Global pending syncs map
@@ -40,13 +39,6 @@ export function queueForSync<S extends SyncStore>(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   skipRedoClear = false,
 ): void {
-  // ✅ FIX: Skip queuing entirely during undo/redo to prevent spurious history batches
-  // The IndexedDB transaction has already committed - we just don't want to create a new history entry
-  if (isUndoRedoInProgress()) {
-    console.log(`⏭️ Skipping sync queue during undo/redo for ${store}:${id}`);
-    return;
-  }
-
   const itemBook = data?.book || '';
   const key = `${store}-${itemBook}-${id}`;
 

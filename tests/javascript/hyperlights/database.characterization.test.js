@@ -4,21 +4,12 @@
  *
  * Pins observable behavior BEFORE the .js → .ts migration:
  *   - addToHighlightsTable .............. the hyperlights record shape + auth
- *   - updateNodeHighlight ............... embed/dedupe into nodes (+ a quirk)
  *   - removeHighlightFromNodeChunks ..... cursor removal, only-changed return
  *   - …WithDeletion ..................... the _deleted tombstone sync copy
  *   - removeHighlightFromHyperlights .... index lookup + delete, null-on-miss
- *
- * QUIRK pinned (not endorsed): updateNodeHighlight CREATES a missing node under
- * the imported global `book`, NOT its `bookId` param (database.js:134-152). The
- * test stores the global as 'bookGLOBAL' to make the mismatch visible — if the
- * migration "fixes" this, this test should change in the same commit.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { installFreshIndexedDB, seedStore, readOne, readAll } from '../indexedDB/idbHarness.js';
-
-// app.js exports the `book` global; full-mock so its import side-effects don't run.
-vi.mock('../../../resources/js/app.js', () => ({ book: 'bookGLOBAL' }));
 
 // Use the REAL idb helpers (via leaf modules) without loading the whole barrel.
 vi.mock('../../../resources/js/indexedDB/index', async () => {
@@ -36,7 +27,6 @@ vi.mock('../../../resources/js/utilities/auth', () => ({
 
 import {
   addToHighlightsTable,
-  updateNodeHighlight,
   removeHighlightFromNodeChunks,
   removeHighlightFromNodeChunksWithDeletion,
   removeHighlightFromHyperlights,
@@ -103,41 +93,6 @@ describe('addToHighlightsTable', () => {
     const entry = await addToHighlightsTable('bookA', highlightData());
     expect(entry.creator).toBeNull();
     expect(entry.creator_token).toBe('anon-token');
-  });
-});
-
-describe('updateNodeHighlight', () => {
-  it('appends a hyperlight to an existing node and dedupes by highlightID', async () => {
-    await seedStore('nodes', [{ book: 'bookA', startLine: 5, chunk_id: 5, content: '', hyperlights: [] }]);
-
-    await updateNodeHighlight('bookA', '5', 10, 20, 'HL_x');
-    let node = await readOne('nodes', ['bookA', 5]);
-    expect(node.hyperlights).toEqual([{ highlightID: 'HL_x', charStart: 10, charEnd: 20, is_user_highlight: true }]);
-
-    // re-applying the same id does not duplicate
-    await updateNodeHighlight('bookA', '5', 10, 20, 'HL_x');
-    node = await readOne('nodes', ['bookA', 5]);
-    expect(node.hyperlights).toHaveLength(1);
-  });
-
-  it('QUIRK: a missing node is created under the GLOBAL book, not the bookId param', async () => {
-    const el = document.createElement('div');
-    el.id = '7';
-    el.innerHTML = 'node seven';
-    document.body.appendChild(el);
-
-    const created = await updateNodeHighlight('bookA', '7', 1, 2, 'HL_new');
-    expect(created.book).toBe('bookGLOBAL');   // <-- the param 'bookA' is ignored here
-    expect(created.startLine).toBe(7);
-    expect(created.chunk_id).toBe(7);
-    expect(created.content).toBe('node seven');
-    expect(created.hyperlights).toEqual([{ highlightID: 'HL_new', charStart: 1, charEnd: 2, is_user_highlight: true }]);
-
-    // stored under [global, 7] — NOT [bookA, 7]
-    expect(await readOne('nodes', ['bookGLOBAL', 7])).toBeTruthy();
-    expect(await readOne('nodes', ['bookA', 7])).toBeUndefined();
-
-    el.remove();
   });
 });
 

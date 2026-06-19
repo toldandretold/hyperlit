@@ -20,14 +20,8 @@ import {
 } from "../utilities/operationState";
 import type { BookId } from "../utilities/idHelpers";
 
-// ⚠️ LEGACY-ENTANGLEMENT FLAG (do not deep-clean here):
-// This file is believed to contain traces of an OLDER undo implementation mixed with
-// the one actually in use. This migration is a SURGICAL .js→.ts conversion ONLY — types
-// added, behaviour unchanged, structure untouched. Untangling legacy-vs-live undo paths
-// and any restructuring (e.g. moving to an editor-level history/ module) is a SEPARATE,
-// deferred gate. See the "Deferred gates" note + the `legacy-undo-entanglement` memory.
-// As you read this file, paths a realistic undo/redo flow never reaches are cleanup
-// candidates — flag them inline with `// LEGACY?:` rather than removing them now.
+// This is the sole undo/redo system: lightweight, in-memory, per-book stacks. There is
+// no persistence — the old IndexedDB-backed undo (the `redoLog` store) was removed.
 
 /**
  * Resolve bookId from a DOM target element.
@@ -757,8 +751,8 @@ export class UndoManager {
   }
 
   /**
-   * Check if there are any undo entries across ALL books.
-   * Used by the old keydown handler as a fallback.
+   * Check if there are any undo entries across ALL books (incl. an open typing group).
+   * Used by the toolbar/keydown wiring as a cross-book fallback.
    */
   hasAnyUndo() {
     for (const [, s] of this.stacks) {
@@ -766,13 +760,6 @@ export class UndoManager {
     }
     // Also check if there's an open typing group
     return this._currentGroup !== null;
-  }
-
-  hasAnyRedo() {
-    for (const [, s] of this.stacks) {
-      if (s.redoStack.length > 0) return true;
-    }
-    return false;
   }
 
   clearBook(bookId: any) {

@@ -2,8 +2,7 @@
  * Database module - Handles IndexedDB operations for hyperlights
  */
 
-import { book } from '../app';
-import { openDatabase, parseNodeId, createNodeChunksKey } from '../indexedDB/index';
+import { openDatabase } from '../indexedDB/index';
 import { getAuthContextSync, getAuthContext } from '../utilities/auth/index';
 import type { BookId, HyperlightRecord } from '../indexedDB/types';
 
@@ -114,82 +113,6 @@ export async function addToHighlightsTable(bookId: BookId, highlightData: Highli
       console.error("❌ Transaction error:", (event.target as IDBTransaction).error);
       reject((event.target as IDBTransaction).error);
     };
-  });
-}
-
-/**
- * Update a node with a new highlight in the nodes table
- */
-export async function updateNodeHighlight(
-  bookId: BookId,
-  chunkId: string | number,
-  highlightStartOffset: number,
-  highlightEndOffset: number,
-  highlightId: string
-): Promise<any> {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("nodes", "readwrite");
-    const store = tx.objectStore("nodes");
-
-    // Use the helper to create a consistent key
-    const key = createNodeChunksKey(bookId, chunkId);
-    console.log("Looking up with key:", key);
-
-    const getRequest = store.get(key);
-
-    getRequest.onsuccess = () => {
-      const node = getRequest.result;
-      let updatedNode: any; // 👈 ADD: Variable to track the updated node
-
-      if (!node) {
-        console.warn(`No nodes record for key [${book}, ${chunkId}]`);
-
-        // Create a new node if it doesn't exist
-        updatedNode = {
-          book: book,
-          startLine: parseNodeId(chunkId),  // Store as number
-          chunk_id: parseNodeId(chunkId),
-          content: document.getElementById(String(chunkId))?.innerHTML || "",
-          hyperlights: [{
-            highlightID: highlightId,
-            charStart: highlightStartOffset,
-            charEnd: highlightEndOffset,
-            is_user_highlight: true
-          }]
-        };
-
-        const putReq = store.put(updatedNode);
-        putReq.onsuccess = () => {
-          console.log(`Created new node for [${book}, ${chunkId}]`);
-          resolve(updatedNode); // 👈 RETURN the new node
-        };
-        putReq.onerror = e => reject((e.target as IDBRequest).error);
-        return;
-      }
-
-      node.hyperlights = node.hyperlights || [];
-      // Add your highlight if missing
-      if (!node.hyperlights.find((h: NodeHyperlightEmbed) => h.highlightID === highlightId)) {
-        node.hyperlights.push({
-          highlightID: highlightId,
-          charStart: highlightStartOffset,
-          charEnd: highlightEndOffset,
-          is_user_highlight: true
-        });
-      }
-
-      updatedNode = node; // 👈 SET: The updated node
-
-      const putReq = store.put(updatedNode);
-      putReq.onsuccess = () => {
-        console.log(`Updated node [${book}, ${chunkId}] with highlight`);
-        resolve(updatedNode); // 👈 RETURN the updated node
-      };
-      putReq.onerror = e => reject((e.target as IDBRequest).error);
-    };
-
-    getRequest.onerror = e => reject((e.target as IDBRequest).error);
   });
 }
 

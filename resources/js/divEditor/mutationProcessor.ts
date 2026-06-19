@@ -6,7 +6,7 @@
  * rapid typing or large paste operations.
  */
 
-import { isPasteInProgress, isProgrammaticUpdateInProgress, hypercitePasteInProgress, keyboardLayoutInProgress, isUndoRedoInProgress } from "../utilities/operationState";
+import { isPasteInProgress, isProgrammaticUpdateInProgress, hypercitePasteInProgress, keyboardLayoutInProgress } from "../utilities/operationState";
 import { isChunkLoadingInProgress, getLoadingChunkId } from "../lazyLoader/utilities/chunkLoadingState";
 import { getEditToolbar } from '../editToolbar/index';
 import { verbose } from '../utilities/logger';
@@ -83,11 +83,6 @@ export class MutationProcessor {
 
     if (isChunkLoadingInProgress()) {
       console.log(`Skipping queued mutations during chunk loading for chunk ${getLoadingChunkId()}`);
-      return;
-    }
-
-    if (isUndoRedoInProgress()) {
-      console.log("Skipping queued mutations during undo/redo operation");
       return;
     }
 

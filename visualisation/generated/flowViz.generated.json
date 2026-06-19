@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1508,
+    "fnCount": 1506,
     "moduleCount": 314,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3084,
+    "edgeCount": 3078,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -6940,14 +6940,6 @@
       "leaf": false
     },
     {
-      "id": "editToolbar/undoManager:UndoManager.hasAnyRedo",
-      "label": "UndoManager.hasAnyRedo",
-      "kind": "fn",
-      "stage": "editToolbar",
-      "module": "editToolbar/undoManager",
-      "leaf": true
-    },
-    {
       "id": "editToolbar/undoManager:UndoManager.hasAnyUndo",
       "label": "UndoManager.hasAnyUndo",
       "kind": "fn",
@@ -7621,14 +7613,6 @@
     {
       "id": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
       "label": "removeHighlightFromNodeChunksWithDeletion",
-      "kind": "fn",
-      "stage": "hyperlights",
-      "module": "hyperlights/database",
-      "leaf": false
-    },
-    {
-      "id": "hyperlights/database:updateNodeHighlight",
-      "label": "updateNodeHighlight",
       "kind": "fn",
       "stage": "hyperlights",
       "module": "hyperlights/database",
@@ -15517,7 +15501,6 @@
         "editToolbar/undoManager:UndoManager.constructor",
         "editToolbar/undoManager:UndoManager.finalizeCapture",
         "editToolbar/undoManager:UndoManager.finalizeStructural",
-        "editToolbar/undoManager:UndoManager.hasAnyRedo",
         "editToolbar/undoManager:UndoManager.hasAnyUndo",
         "editToolbar/undoManager:UndoManager.hasRedo",
         "editToolbar/undoManager:UndoManager.hasUndo",
@@ -15744,8 +15727,7 @@
         "hyperlights/database:addToHighlightsTable",
         "hyperlights/database:removeHighlightFromHyperlights",
         "hyperlights/database:removeHighlightFromNodeChunks",
-        "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
-        "hyperlights/database:updateNodeHighlight"
+        "hyperlights/database:removeHighlightFromNodeChunksWithDeletion"
       ]
     },
     {
@@ -24414,12 +24396,6 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__hyperlights/database:updateNodeHighlight",
-      "source": "dom",
-      "target": "hyperlights/database:updateNodeHighlight",
-      "rel": "domread"
-    },
-    {
       "id": "dom__domread__hyperlights/deleteHighlight:deleteHighlightHandler",
       "source": "dom",
       "target": "hyperlights/deleteHighlight:deleteHighlightHandler",
@@ -27810,31 +27786,6 @@
     {
       "id": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion__write__store:nodes",
       "source": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
-      "target": "store:nodes",
-      "rel": "write"
-    },
-    {
-      "id": "hyperlights/database:updateNodeHighlight__call__indexedDB/core/connection:openDatabase",
-      "source": "hyperlights/database:updateNodeHighlight",
-      "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "hyperlights/database:updateNodeHighlight__call__indexedDB/core/utilities:createNodeChunksKey",
-      "source": "hyperlights/database:updateNodeHighlight",
-      "target": "indexedDB/core/utilities:createNodeChunksKey",
-      "rel": "call"
-    },
-    {
-      "id": "hyperlights/database:updateNodeHighlight__call__indexedDB/core/utilities:parseNodeId",
-      "source": "hyperlights/database:updateNodeHighlight",
-      "target": "indexedDB/core/utilities:parseNodeId",
-      "rel": "call"
-    },
-    {
-      "id": "hyperlights/database:updateNodeHighlight__write__store:nodes",
-      "source": "hyperlights/database:updateNodeHighlight",
       "target": "store:nodes",
       "rel": "write"
     },
@@ -36773,12 +36724,6 @@
       "id": "store:nodes__read__hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
       "source": "store:nodes",
       "target": "hyperlights/database:removeHighlightFromNodeChunksWithDeletion",
-      "rel": "read"
-    },
-    {
-      "id": "store:nodes__read__hyperlights/database:updateNodeHighlight",
-      "source": "store:nodes",
-      "target": "hyperlights/database:updateNodeHighlight",
       "rel": "read"
     },
     {

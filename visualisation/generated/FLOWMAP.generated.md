@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1508 functions in 314 modules · 10 object stores · 10 PG tables · 3084 edges
+**MarkdownDB** schema v27 · 1506 functions in 314 modules · 10 object stores · 10 PG tables · 3078 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -722,7 +722,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `UndoManager.constructor` | `editToolbar/undoManager` | — | — | — | — |
 | `UndoManager.finalizeCapture` | `editToolbar/undoManager` | — | — | read | — |
 | `UndoManager.finalizeStructural` | `editToolbar/undoManager` | — | — | read | — |
-| `UndoManager.hasAnyRedo` | `editToolbar/undoManager` | — | — | — | — |
 | `UndoManager.hasAnyUndo` | `editToolbar/undoManager` | — | — | — | — |
 | `UndoManager.hasRedo` | `editToolbar/undoManager` | — | — | — | — |
 | `UndoManager.hasUndo` | `editToolbar/undoManager` | — | — | — | — |
@@ -806,7 +805,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `removeHighlightFromHyperlights` | `hyperlights/database` | `hyperlights` | `hyperlights` | — | — |
 | `removeHighlightFromNodeChunks` | `hyperlights/database` | `nodes` | `nodes` | — | — |
 | `removeHighlightFromNodeChunksWithDeletion` | `hyperlights/database` | `nodes` | `nodes` | — | — |
-| `updateNodeHighlight` | `hyperlights/database` | `nodes` | `nodes` | read | — |
 | `deleteHighlightHandler` | `hyperlights/deleteHighlight` | — | — | read/write | — |
 | `deleteHighlightById` | `hyperlights/deletion` | `hyperlights` | — | read/write | — |
 | `hideHighlightById` | `hyperlights/deletion` | `hyperlights` | — | read/write | — |

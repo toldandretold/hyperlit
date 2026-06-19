@@ -18,7 +18,7 @@ export { attachMarkListeners, handleMarkClick, handleMarkHover, handleMarkHoverO
 export { handleSelection, initializeHighlightingControls, cleanupHighlightingControls } from './selectionToolbar';
 export { createHighlightHandler, openBrainFromSelection } from './createHighlight';
 export { deleteHighlightHandler } from './deleteHighlight';
-export { addToHighlightsTable, updateNodeHighlight, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion, removeHighlightFromHyperlights } from './database';
+export { addToHighlightsTable, removeHighlightFromNodeChunks, removeHighlightFromNodeChunksWithDeletion, removeHighlightFromHyperlights } from './database';
 export { deleteHighlightById, hideHighlightById, reprocessHighlightsForNodes } from './deletion';
 export { generateHighlightID, openHighlightById, attachPlaceholderBehavior } from './utils';
 export { handleHighlightContainerPaste, addHighlightContainerPasteListener } from './annotationPaste';

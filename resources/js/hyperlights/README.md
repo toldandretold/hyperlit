@@ -48,7 +48,6 @@ Offset and positioning calculations:
 ### database.js
 All IndexedDB operations for hyperlights:
 - `addToHighlightsTable()` - Create new highlight
-- `updateNodeHighlight()` - Update node chunk with highlight
 - `removeHighlightFromHyperlights()` - Delete from hyperlights table
 - `removeHighlightFromNodeChunks()` - Remove from node chunks
 - `removeHighlightFromNodeChunksWithDeletion()` - Remove with deletion flag

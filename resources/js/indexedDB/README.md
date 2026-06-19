@@ -250,9 +250,7 @@ initNodeBatchDependencies({
   - keyPath: `["book", "referenceId"]`
 - `library` - Book metadata
   - keyPath: `"book"`
-- `historyLog` - Undo/redo log
-  - keyPath: `"id"` (autoIncrement)
-- `redoLog` - Redo operations
+- `historyLog` - Offline sync-recovery log (pending/synced/failed sync batches)
   - keyPath: `"id"` (autoIncrement)
 
 ## 🔧 Migration Guide
@@ -340,8 +338,8 @@ Run your application and verify:
 - See individual module files for detailed documentation
 
 > ⚠️ Parts of this README predate the JS→TS migration (it references `.js` files, schema
-> v21, `nodeChunks`/`redoLog` stores, and the deleted `indexedDB-compat.js`). For the
-> current, code-derived picture of every module and store, see the generated map above.
+> v21, the removed `nodeChunks`/`redoLog` stores, and the deleted `indexedDB-compat.js`).
+> For the current, code-derived picture of every module and store, see the generated map above.
 
 ## ✅ Refactoring Status
 

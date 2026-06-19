@@ -327,7 +327,6 @@ export async function createHighlightHandler(event: Event, bookId: BookId, optio
 
   const affectedIds = new Set<string>();
   const affectedElements = new Map<string, HTMLElement>();
-  const updatedNodeChunks: any[] = [];
 
   affectedMarks.forEach((markEl, idx) => {
     const mark = markEl as HTMLElement;
@@ -398,21 +397,6 @@ export async function createHighlightHandler(event: Event, bookId: BookId, optio
       charStart: startOffset,
       charEnd: endOffset
     };
-
-    // 🔄 OLD SYSTEM: COMMENTED OUT - Don't update embedded arrays directly
-    /*
-    const updatedNodeChunk = await updateNodeHighlight(
-      bookId,
-      chunkId,
-      startOffset,
-      endOffset,
-      highlightId
-    );
-
-    if (updatedNodeChunk) {
-      updatedNodeChunks.push(updatedNodeChunk);
-    }
-    */
   }
 
   try {
