@@ -119,19 +119,24 @@ role = code acting out of place (a refactor candidate), visible at a glance.
   three so the button is an honest TDZ detector. Counts (cycles / breakers / lazy) show in the header
   bar and in `FLOWMAP.generated.md` (`## Import cycles & dynamic imports`).
 
-**Interactions:** single-click traces a node's connections (rest dims but stays legible).
+**Interactions:** single-click traces a node along the map's vertical axis. The **`trace:`**
+button sets the *absolute* direction (matching the axis): **to DOM ▾** = data heading down to
+the page (load: from Postgres or IndexedDB → DOM) · **to PostgreSQL ▴** = data heading up to the
+DB (save: from the DOM or IndexedDB → Postgres) · **both**. With nothing selected it lights the
+whole pipeline in that direction.
 **Detail level** (`detail` dropdown) sets how deep the map is unfolded — `min` = one box per
 top-level folder, `default` = one box per module, `max` = every function. **Double-click** a
 folder box to drill into its modules, a module box into its functions (and again to collapse;
 re-collapse a whole folder via the `min` level). Changing the level **keeps the current
-selection lit**. The `trace data type` dropdown picks a Postgres table and runs its type trace
-(same as clicking the table). `fit` reframes.
+selection lit**. The `trace data type` dropdown picks a typed Postgres table **or IndexedDB
+store** and runs its type trace (same as clicking it). `fit` reframes.
 
-**Type trace (click a Postgres table):** clicking a table that has a known TS type lineage
-(today: ALL TEN tables that reach the client — the six **book-content** tables `nodes`, `library`,
-`footnotes`, `bibliography`, `hypercites`, `hyperlights`, plus the four **non-content** tables
-`user_reading_positions`, `canonical_source`, `vibes`, `shelves`) doesn't do the generic
-edge-trace — it lights the **functions that actually handle that data type**, read from the TypeScript
+**Type trace (click a Postgres table OR its IndexedDB store):** clicking a data node that has a
+known TS type lineage — ALL TEN tables that reach the client (the six **book-content** tables
+`nodes`, `library`, `footnotes`, `bibliography`, `hypercites`, `hyperlights`, plus the four
+**non-content** tables `user_reading_positions`, `canonical_source`, `vibes`, `shelves`), **and
+the six IndexedDB stores that mirror a content table** (`store:nodes` … `store:library`, which
+share their table's types) — doesn't do the generic edge-trace — it lights the **functions that actually handle that data type**, read from the TypeScript
 annotations (`collect.ts` tags each function with the welded type names that appear in its signature or
 body — `nodes`: `NodeRecord`/`ServerNodeRow`/`PublicChunk`/`NodeHyperlightView`/`NodeHyperciteView`;
 `library`: `ServerLibraryRow`→`LibraryRecord`; `footnotes`: `ServerFootnotesPayload`→`FootnoteRecord`;
@@ -143,9 +148,9 @@ so the rebuild/embed builders light for both; `hyperlights`: the same dual shape
 plus the `store:<table>` object store
 and the DOM as waypoints. So you see the data's whole **PG↔IndexedDB↔DOM lineage** at once, laid out
 top→bottom by the grid's rows. With the `trace:` toggle on **both** (the default) you get the full
-lineage; **where it goes** narrows it to the load half (table → … → DOM) and **where it comes from**
-to the save half (DOM → … → table). You can also pick the table from the `trace data type` dropdown
-instead of finding and clicking it on the map.
+lineage; **to DOM ▾** narrows it to the load half (… → DOM) and **to PostgreSQL ▴** to the save
+half (… → Postgres). Clicking the matching **store** gives the same lineage anchored mid-map. You
+can also pick any of them from the `trace data type` dropdown instead of hunting on the map.
 >
 > **The four non-content tables are different — a `fetch → DOM` trace, NOT PG↔IDB↔DOM.** They have no
 > IndexedDB store, so each welds a single **API-contract type** instead of a wire/store pair:

@@ -13681,12 +13681,20 @@
     {
       "id": "store:bibliography",
       "label": "bibliography",
-      "kind": "store"
+      "kind": "store",
+      "types": [
+        "BibliographyRecord",
+        "ServerBibliographyPayload"
+      ]
     },
     {
       "id": "store:footnotes",
       "label": "footnotes",
-      "kind": "store"
+      "kind": "store",
+      "types": [
+        "FootnoteRecord",
+        "ServerFootnotesPayload"
+      ]
     },
     {
       "id": "store:historyLog",
@@ -13696,17 +13704,31 @@
     {
       "id": "store:hypercites",
       "label": "hypercites",
-      "kind": "store"
+      "kind": "store",
+      "types": [
+        "HyperciteRecord",
+        "NodeHyperciteView",
+        "ServerHyperciteRow"
+      ]
     },
     {
       "id": "store:hyperlights",
       "label": "hyperlights",
-      "kind": "store"
+      "kind": "store",
+      "types": [
+        "HyperlightRecord",
+        "NodeHyperlightView",
+        "ServerHyperlightRow"
+      ]
     },
     {
       "id": "store:library",
       "label": "library",
-      "kind": "store"
+      "kind": "store",
+      "types": [
+        "LibraryRecord",
+        "ServerLibraryRow"
+      ]
     },
     {
       "id": "store:localStorage",
@@ -13721,7 +13743,14 @@
     {
       "id": "store:nodes",
       "label": "nodes",
-      "kind": "store"
+      "kind": "store",
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicChunk",
+        "ServerNodeRow"
+      ]
     },
     {
       "id": "store:sessionStorage",

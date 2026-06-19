@@ -891,7 +891,10 @@ export function collect(): FlowViz {
   for (const { fn, hasData } of fnViews) {
     nodes.push({ id: fn.id, label: fn.name, kind: 'fn', stage: stageIdOf(fn.module), module: fn.module, leaf: !hasData, ...(fn.types.length ? { types: fn.types } : {}) });
   }
-  for (const s of STORE_NAMES) nodes.push({ id: `store:${s}`, label: s, kind: 'store' });
+  // A content store mirrors a Postgres table 1:1 (nodes, library, footnotes, bibliography, hypercites,
+  // hyperlights), so it carries the same TS-type lineage — tag it so clicking the store runs the same
+  // type trace as its table. markdownStore/historyLog (+ web-storage below) have no table → no types.
+  for (const s of STORE_NAMES) nodes.push({ id: `store:${s}`, label: s, kind: 'store', ...(TABLE_TYPES[s] ? { types: [...TABLE_TYPES[s]].sort() } : {}) });
   for (const s of WEB_STORAGE) nodes.push({ id: `store:${s}`, label: s, kind: 'store' }); // localStorage/sessionStorage (same row, diff colour)
   const tables = [...tablesSeen].sort();
   for (const t of tables) nodes.push({ id: `pg:${t}`, label: t, kind: 'table', ...(TABLE_TYPES[t] ? { types: [...TABLE_TYPES[t]].sort() } : {}) });
@@ -1166,12 +1169,12 @@ export function renderHtml(viz: FlowViz): string {
   <h1>Full-stack data map</h1>
   <span class="meta" id="meta"></span>
   <span class="spacer"></span>
-  <label class="meta" title="follow a Postgres table's data TYPE through the real code (PG↔IndexedDB↔DOM) — the same trace you get by clicking the table on the map">trace data type <select id="focus"></select></label>
+  <label class="meta" title="follow a Postgres table's or IndexedDB store's data TYPE through the real code (PG↔IndexedDB↔DOM) — the same trace you get by clicking it on the map">trace data type <select id="focus"></select></label>
   <label class="meta" title="how deep the map is unfolded — min: one box per top-level folder · default: one box per module · max: every function. Double-click any box to drill further.">detail <select id="zoomLevel"><option value="min">min</option><option value="default" selected>default</option><option value="max">max</option></select></label>
   <button id="toggleCalls" title="show which functions call which — the code's internal wiring (coupling/modularity), a different lens from data flow">show code coupling</button>
   <button id="findCycles" title="IMPORT graph: red = real static-import cycles (TDZ risk to break); orange dashed = intentional dynamic cycle-breakers (debt); teal dashed = lazy-loads (fine)">find circular deps</button>
   <button id="lazyBtn" title="highlight the lazy-loads — dynamic imports with NO cycle = genuine code-split points (deferred chunks), the JS-loading-optimisation surface">lazy-loads</button>
-  <button id="traceDirBtn" title="flow lens: which direction a click traces. Nothing selected = the whole save/load pipeline.">trace: where it goes ▸</button>
+  <button id="traceDirBtn" title="flow lens: which way along the map a click traces — ▾ to DOM (data heading down to the page / load) · ▴ to PostgreSQL (data heading up to the DB / save) · both. Nothing selected = the whole pipeline in that direction.">trace: both ways ▴▾</button>
   <button id="fit">fit</button>
 </div>
 <div id="cy"></div>
@@ -1182,7 +1185,7 @@ export function renderHtml(viz: FlowViz): string {
   <summary>legend &amp; how to read this</summary>
   <h2>Legend</h2>
   <div class="legend" id="legend"></div>
-  <p id="hint"><b>Vertical position = what the code actually does</b> (read from its data edges, not its folder). Bottom→top: the page (<b>reader.blade.php</b>) ▸ code that bridges page↔IndexedDB ▸ the <b>IndexedDB</b> object stores ▸ code that bridges IndexedDB↔server ▸ <b>PostgreSQL</b> tables.<br><br><b>Horizontal column = source folder</b> (distinguished by colour): <b style="color:#9aa6bd">indexedDB</b>, <b style="color:#3fb6b6">hyperlights</b>, <b style="color:#caa14b">hypercites</b>, <b style="color:#5e8fd6">divEditor</b>. So each box's <i>column</i> is its folder and its <i>row</i> is what it does. A box sitting in a row that doesn't match its folder's natural role (e.g. a <i>hyperlights</i> file up in the IndexedDB-store row) = code acting out of role — a candidate to move when restructuring.<br><br><b>Detail level</b> (top-bar dropdown): <i>min</i> shows one box per top-level folder, <i>default</i> one box per module, <i>max</i> every function. <b>Double-click</b> a folder box to drill into its modules, a module box into its functions (and again to collapse). Changing the level keeps your current selection lit.<br><br><b>Single-click</b> to trace — and what it traces depends on the lens. In the <b>data-flow</b> lens it follows the data from there, stopping when it lands in a store/table/the page. The <b>trace:</b> button flips direction — <i>where it goes</i> (downstream) / <i>where it comes from</i> (upstream) / <i>both</i> — and re-applies live. With <b>nothing selected</b>, that button lights the whole pipeline: <i>where it goes</i> = the save flow (DOM→IndexedDB→Postgres), <i>where it comes from</i> = the load flow (Postgres→IndexedDB→DOM). Selecting a store/table/DOM itself expands from it (what reads/writes it). In the <b>coupling</b> lens it follows the <b>full dependency reach</b> (every module this one transitively touches), and <b style="color:#ff4d4f">red edges</b> mark a <b>feedback loop</b> — the path returns to where it started (a circular dependency). The rest dims but stays visible. <b>Double-click a module box</b> to drill into its files (and again to collapse). <b>Navigate:</b> scroll to zoom, drag the canvas to pan (nodes don't drag), <i>fit</i> to reset. Click a line or empty space to clear a trace.<br><br>The <b>show code coupling</b> button flips the whole map to a second lens: lines become <i>which function calls which</i> (the code's internal wiring); orange = a call crossing folders (modules reaching into each other).<br><br>The <b>find circular deps</b> button flips to the <b>IMPORT</b> lens (module→module dependencies) and tells the truth about cycles: <b style="color:#ff4d4f">red</b> = a <b>real static-import ring</b> (the only kind that risks a TDZ "Cannot access X before initialization" crash — break these); <b style="color:#e0a44b">orange dashed</b> = a <b>dynamic-import cycle-breaker</b> — a back-edge that <i>would</i> form a static ring, deferred to runtime with <code>await import()</code> (safe, but structural debt: a bidirectional import that ideally becomes one-way via events/DI); <b style="color:#5fb3a3">teal dashed</b> = a <b>lazy-load</b> — a dynamic import with no cycle (genuine code-splitting, fine). The <b>lazy-loads</b> button isolates just those teal edges — your JS-loading-optimisation surface (what's deferred into separate chunks).</p>
+  <p id="hint"><b>Vertical position = what the code actually does</b> (read from its data edges, not its folder). Bottom→top: the page (<b>reader.blade.php</b>) ▸ code that bridges page↔IndexedDB ▸ the <b>IndexedDB</b> object stores ▸ code that bridges IndexedDB↔server ▸ <b>PostgreSQL</b> tables.<br><br><b>Horizontal column = source folder</b> (distinguished by colour): <b style="color:#9aa6bd">indexedDB</b>, <b style="color:#3fb6b6">hyperlights</b>, <b style="color:#caa14b">hypercites</b>, <b style="color:#5e8fd6">divEditor</b>. So each box's <i>column</i> is its folder and its <i>row</i> is what it does. A box sitting in a row that doesn't match its folder's natural role (e.g. a <i>hyperlights</i> file up in the IndexedDB-store row) = code acting out of role — a candidate to move when restructuring.<br><br><b>Detail level</b> (top-bar dropdown): <i>min</i> shows one box per top-level folder, <i>default</i> one box per module, <i>max</i> every function. <b>Double-click</b> a folder box to drill into its modules, a module box into its functions (and again to collapse). Changing the level keeps your current selection lit.<br><br><b>Single-click</b> to trace — and what it traces depends on the lens. In the <b>data-flow</b> lens it follows the data along the map's vertical axis. The <b>trace:</b> button sets the direction — <i>to DOM ▾</i> = data heading down to the page (load: from Postgres or IndexedDB → DOM) / <i>to PostgreSQL ▴</i> = data heading up to the DB (save: from the DOM or IndexedDB → Postgres) / <i>both</i> — and re-applies live. With <b>nothing selected</b>, that button lights the whole pipeline in that direction. A typed <b>Postgres table or IndexedDB store</b> traces its precise <b>TS-type lineage</b> (the functions that actually handle that record), not every connected function; any other node lights its load/save pathway. In the <b>coupling</b> lens it follows the <b>full dependency reach</b> (every module this one transitively touches), and <b style="color:#ff4d4f">red edges</b> mark a <b>feedback loop</b> — the path returns to where it started (a circular dependency). The rest dims but stays visible. <b>Double-click a module box</b> to drill into its files (and again to collapse). <b>Navigate:</b> scroll to zoom, drag the canvas to pan (nodes don't drag), <i>fit</i> to reset. Click a line or empty space to clear a trace.<br><br>The <b>show code coupling</b> button flips the whole map to a second lens: lines become <i>which function calls which</i> (the code's internal wiring); orange = a call crossing folders (modules reaching into each other).<br><br>The <b>find circular deps</b> button flips to the <b>IMPORT</b> lens (module→module dependencies) and tells the truth about cycles: <b style="color:#ff4d4f">red</b> = a <b>real static-import ring</b> (the only kind that risks a TDZ "Cannot access X before initialization" crash — break these); <b style="color:#e0a44b">orange dashed</b> = a <b>dynamic-import cycle-breaker</b> — a back-edge that <i>would</i> form a static ring, deferred to runtime with <code>await import()</code> (safe, but structural debt: a bidirectional import that ideally becomes one-way via events/DI); <b style="color:#5fb3a3">teal dashed</b> = a <b>lazy-load</b> — a dynamic import with no cycle (genuine code-splitting, fine). The <b>lazy-loads</b> button isolates just those teal edges — your JS-loading-optimisation surface (what's deferred into separate chunks).</p>
   </details>
 </div>
 <script>
@@ -1205,7 +1208,14 @@ var folderExpanded = {};  // top-level folder name → its module boxes are show
 // questions never muddy each other.
 var mode = "flow";
 var selId = null;        // currently traced node id (null = nothing selected)
-var traceDir = "goes";   // "goes" (downstream/outputs) | "comesFrom" (upstream/inputs) | "both"
+// ABSOLUTE vertical direction a trace follows, matching the map's axis (Postgres top, DOM bottom):
+//   "toDom" = data heading DOWN to the page (load: pull from PG + read from IDB + domwrite)
+//   "toPg"  = data heading UP to Postgres (save: domread + write to IDB + push to PG)
+//   "both"  = the whole pipeline. Same idea for typed nodes (type lineage) and plain ones (flow path).
+var traceDir = "both";
+// the flow rels that move data each way (calls are connective → kept in either direction).
+function dirRels(dir){ return dir==="toDom" ? {pull:1,read:1,domwrite:1}
+                            : dir==="toPg"  ? {push:1,domread:1,write:1} : null; } // null = both / all flow rels
 function applyMode(){
   var couple = mode==="coupling", imports = mode==="imports";
   // IMPORTS lens = module→module dependency edges (the cycle/TDZ view), nothing else.
@@ -1578,44 +1588,47 @@ function buildAdj(){
 function reachSet(start, adj){ var seen={}; var q=[start]; while(q.length){ var c=q.shift(); (adj[c]||[]).forEach(function(nx){ if(!seen[nx]){ seen[nx]=1; q.push(nx); } }); } return seen; }
 
 function isDataNode(id){ return id==="dom" || id.indexOf("store:")===0 || id.indexOf("pg:")===0; }
-// FLOW trace: follow data DOWNSTREAM (the way the arrows point) from the clicked node, and STOP
-// at any store/table/DOM — data that lands there has arrived; nothing past it is a continuation
-// of this same hand-off. Bounded "where does this code's data end up". (Precise per-OBJECT
-// tracing through shared functions needs the type layer — that's Stage 2.)
-// Directed reach over the flow edges from a set of start nodes. useOut = follow arrows forward
-// (downstream / where data goes); useIn = backward (upstream / where it comes from). When
-// stopAtData, terminate AT a store/table/DOM (data has landed) — but never at the START node,
-// so selecting a store itself still shows what reads/writes it.
-function flowReach(startIds, useOut, useIn, stopAtData){
-  var out={}, inc={};
-  cy.edges('edge[rel != "call"], edge[rel = "call"][?dataPath]').forEach(function(e){
-    var s=e.source().id(), t=e.target().id();
-    (out[s]=out[s]||[]).push({n:t,e:e}); (inc[t]=inc[t]||[]).push({n:s,e:e});
-  });
-  var startSet={}; startIds.forEach(function(s){startSet[s]=1;});
-  var nodes={}, edges={}, q=[];
-  startIds.forEach(function(s){ if(!nodes[s]){nodes[s]=1;q.push(s);} });
-  while(q.length){
-    var cur=q.shift();
-    if(stopAtData && !startSet[cur] && isDataNode(cur)) continue;
-    if(useOut) (out[cur]||[]).forEach(function(x){ edges[x.e.id()]=1; if(!nodes[x.n]){nodes[x.n]=1;q.push(x.n);} });
-    if(useIn) (inc[cur]||[]).forEach(function(x){ edges[x.e.id()]=1; if(!nodes[x.n]){nodes[x.n]=1;q.push(x.n);} });
-  }
-  return {nodes:nodes, edges:edges};
-}
 function paintTrace(r){
   Object.keys(r.nodes).forEach(function(k){ var el=cy.getElementById(k); if(el&&el.length) el.removeClass("faded").addClass("hl"); });
   Object.keys(r.edges).forEach(function(k){ var el=cy.getElementById(k); if(el&&el.length) el.removeClass("faded").addClass("hl"); });
+}
+// "to DOM / to Postgres" reach for a clicked NON-typed node: BFS over only the flow edges that move
+// data the chosen way (dirRels), undirected for connectivity, STOPPING at a store/table/DOM so it
+// shows the node's bounded load/save context (and never broadcasts through the shared store hub).
+function flowReachDir(startId, dir){
+  var rels=dirRels(dir), adj={};
+  cy.edges('edge[rel != "call"], edge[rel = "call"][?dataPath]').forEach(function(e){
+    var rel=e.data("rel");
+    if(rels && rel!=="call" && !rels[rel]) return;     // wrong direction (data-carrying calls kept either way)
+    var s=e.source().id(), t=e.target().id();
+    (adj[s]=adj[s]||[]).push({n:t,e:e}); (adj[t]=adj[t]||[]).push({n:s,e:e});
+  });
+  var nodes={}, edges={}, q=[startId]; nodes[startId]=1;
+  while(q.length){ var cur=q.shift();
+    if(cur!==startId && isDataNode(cur)) continue;      // data has landed — don't expand through it
+    (adj[cur]||[]).forEach(function(x){ edges[x.e.id()]=1; if(!nodes[x.n]){nodes[x.n]=1;q.push(x.n);} });
+  }
+  return {nodes:nodes, edges:edges};
+}
+// Nothing selected → the WHOLE pipeline in the chosen direction: every flow edge of that class.
+function pipelineFor(dir){
+  var rels=dirRels(dir), nodes={}, edges={};
+  cy.edges('edge[rel != "call"], edge[rel = "call"][?dataPath]').forEach(function(e){
+    var rel=e.data("rel");
+    if(rels && rel!=="call" && !rels[rel]) return;
+    edges[e.id()]=1; nodes[e.source().id()]=1; nodes[e.target().id()]=1;
+  });
+  return {nodes:nodes, edges:edges};
 }
 // Re-apply the current selection + direction. FLOW lens honours traceDir (goes/comesFrom/both);
 // COUPLING lens always shows full transitive reach + red feedback-loop cycles.
 function applyTrace(){
   if(mode==="imports") return;   // imports lens isn't a data/coupling trace — click just shows detail
-  // A typed Postgres table → trace its data TYPE through the real code. With the direction toggle on
-  // "both" (the default) this is the whole PG↔IDB↔DOM lineage; "goes"/"comesFrom" narrow it to the
-  // load (table → … → DOM) or save (DOM → … → table) half, following the actual flow edges.
+  // A typed data node (Postgres table OR its matching IndexedDB store) → trace its data TYPE through
+  // the real code. "both" = the whole PG↔IDB↔DOM lineage; "toDom"/"toPg" narrow it to the load half
+  // (… → DOM) or the save half (… → Postgres), by edge class.
   var sel = selId ? nodeById[selId] : null;
-  if(sel && sel.kind==="table" && sel.types && sel.types.length){
+  if(sel && (sel.kind==="table"||sel.kind==="store") && sel.types && sel.types.length){
     if(traceDir==="both") paintTypeTrace(selId);
     else paintTypeTraceDir(selId, traceDir);
     return;
@@ -1634,17 +1647,8 @@ function applyTrace(){
     cy.edges(lensEdgeSel()).forEach(function(e){ var s=e.source().id(), t=e.target().id(); if(inTrace[s]&&inTrace[t]){ e.removeClass("faded").addClass("hl"); if(cyc[s]&&cyc[t]) e.addClass("cycle"); } });
     return;
   }
-  var useOut = traceDir!=="comesFrom", useIn = traceDir!=="goes";
-  if(start){
-    paintTrace(flowReach([start], useOut, useIn, true));         // node: stop where data lands
-  } else {
-    // nothing selected → the macro pipeline(s), full chain (no stop)
-    var dom=["dom"], pg=cy.nodes('[kind = "table"]').map(function(x){return x.id();});
-    if(traceDir==="goes") paintTrace(flowReach(dom, true, false, false));          // SAVE: DOM → … → Postgres
-    else if(traceDir==="comesFrom") paintTrace(flowReach(pg, true, false, false));  // LOAD: Postgres → … → DOM
-    else { var a=flowReach(dom,true,false,false), b=flowReach(pg,true,false,false);
-      paintTrace({nodes:Object.assign({},a.nodes,b.nodes), edges:Object.assign({},a.edges,b.edges)}); }
-  }
+  if(start) paintTrace(flowReachDir(start, traceDir));   // node: its load/save context (stops at data)
+  else paintTrace(pipelineFor(traceDir));                // nothing selected: the whole load/save pipeline
 }
 function highlight(n){ selId=n.id(); applyTrace(); }
 // After a relayout (level change / drill), keep whatever was selected lit + described. The selected
@@ -1663,34 +1667,40 @@ function fitView(){
   cy.animate({fit:{eles:(selId&&lit.length)?lit:cy.elements(),padding:50}},{duration:300});
 }
 
-// TYPE TRACE: clicking a Postgres table that carries a type lineage lights the functions whose
-// signature/body actually REFERENCE those types (the real data handlers, from the TS annotations
-// collect.ts read), plus every real call/data edge between them — forced visible past the lens, so
-// the call hops show too. The grid's rows order it PG(top) -> DOM(bottom): you watch the record
-// move through the actual code. Fixes the old empty table-trace (a sink had no edges to follow).
-function carryingForTable(tableId){
-  var tn=nodeById[tableId]; if(!tn||!tn.types||!tn.types.length) return null;
-  var want={}; tn.types.forEach(function(t){want[t]=1;});
-  var carry={}; carry[tableId]=1;
+// TYPE TRACE: clicking a typed data node — a Postgres table OR its matching IndexedDB store — lights
+// the functions whose signature/body actually REFERENCE those types (the real data handlers, from the
+// TS annotations collect.ts read), plus every real call/data edge between them — forced visible past
+// the lens. The grid's rows order it PG(top) -> DOM(bottom): you watch the record move through the
+// actual code. A store and its table share a type lineage, so either anchors the same set.
+function carryingFor(dataId){
+  var dn=nodeById[dataId]; if(!dn||!dn.types||!dn.types.length) return null;
+  var want={}; dn.types.forEach(function(t){want[t]=1;});
+  var carry={}; carry[dataId]=1;
+  var name=dataId.indexOf("pg:")===0?dataId.slice(3):(dataId.indexOf("store:")===0?dataId.slice(6):dataId);
+  // the matching Postgres table anchors the PG-seam walk (store:X ↔ pg:X; a table is its own anchor)
+  var tableId = nodeById["pg:"+name] ? "pg:"+name : null;
+  if(tableId) carry[tableId]=1;
   VIZ.nodes.forEach(function(n){ if(n.kind==="fn"&&n.types){ for(var i=0;i<n.types.length;i++){ if(want[n.types[i]]){ carry[n.id]=1; break; } } } });
-  // + walk the push/pull SEAM out from this table to the load/save functions, through the API
+  // + walk the push/pull SEAM out from the table to the load/save functions, through the API
   // route AND Laravel controller hops (PG ← controller ← route ← fn). A bounded BFS over push/pull
   // edges lights every node on the way, but never crosses INTO a sibling table — so a multi-table
   // controller (e.g. the node upsert also touches library for its auth check) lights as a carrier
   // without dragging the unrelated tables into the trace.
-  var seam={}; seam[tableId]=1; var queue=[tableId];
-  while(queue.length){
-    var cur=queue.shift();
-    VIZ.edges.forEach(function(e){
-      if(e.rel!=="push"&&e.rel!=="pull") return;
-      var nb = e.source===cur?e.target : (e.target===cur?e.source:null);
-      if(!nb||seam[nb]) return;
-      var nn=nodeById[nb];
-      if(nn&&nn.kind==="table"&&nb!==tableId) return;   // don't bleed into sibling tables
-      seam[nb]=1; queue.push(nb);
-    });
+  if(tableId){
+    var seam={}; seam[tableId]=1; var queue=[tableId];
+    while(queue.length){
+      var cur=queue.shift();
+      VIZ.edges.forEach(function(e){
+        if(e.rel!=="push"&&e.rel!=="pull") return;
+        var nb = e.source===cur?e.target : (e.target===cur?e.source:null);
+        if(!nb||seam[nb]) return;
+        var nn=nodeById[nb];
+        if(nn&&nn.kind==="table"&&nb!==tableId) return;   // don't bleed into sibling tables
+        seam[nb]=1; queue.push(nb);
+      });
+    }
+    Object.keys(seam).forEach(function(id){ carry[id]=1; });
   }
-  Object.keys(seam).forEach(function(id){ carry[id]=1; });
   return carry;
 }
 // The DISPLAYED type-carrier set: the carriers (collapsed fns mapped to their box) + the data
@@ -1698,12 +1708,14 @@ function carryingForTable(tableId){
 // the record landing in the store and reaching the page, not just the functions. For non-content
 // tables (no store of their own) it also adds the web-storage a BASE carrier writes (the typed data's
 // real home) — never the seam-expanded set, which can poke unrelated web-storage for UI state.
-function typeTraceDisp(tableId){
-  var carry=carryingForTable(tableId); if(!carry) return null;
+function typeTraceDisp(dataId){
+  var carry=carryingFor(dataId); if(!carry) return null;
   var disp={}; Object.keys(carry).forEach(function(id){ disp[rep(id)]=1; });
-  var name=tableId.indexOf("pg:")===0?tableId.slice(3):tableId;
-  ["store:"+name, "dom"].forEach(function(w){ if(nodeById[w]) disp[w]=1; });
-  var tabTypes=(nodeById[tableId]&&nodeById[tableId].types)||[];
+  var name=dataId.indexOf("pg:")===0?dataId.slice(3):(dataId.indexOf("store:")===0?dataId.slice(6):dataId);
+  // waypoints both ways — the matching store AND table (+ DOM) — so the lineage is whole whether you
+  // clicked the table (top anchor) or the store (mid anchor).
+  ["store:"+name, "pg:"+name, "dom"].forEach(function(w){ if(nodeById[w]) disp[w]=1; });
+  var tabTypes=(nodeById[dataId]&&nodeById[dataId].types)||[];
   if(!nodeById["store:"+name] && tabTypes.length){
     var tset={}; tabTypes.forEach(function(t){ tset[t]=1; });
     VIZ.edges.forEach(function(e){
@@ -1724,18 +1736,16 @@ function paintTypeTrace(tableId){
   cy.edges().forEach(function(e){ var s=e.source().id(), t=e.target().id(); if(disp[s]&&disp[t]){ e.style("display","element"); e.removeClass("faded").addClass("hl"); } });
   return true;
 }
-// "goes"/"comesFrom" — the SAME typed carrier set, but only the edges that MOVE that direction. A
+// "toDom"/"toPg" — the SAME typed carrier set, but only the edges that MOVE that direction. A
 // directional BFS is useless here: the IndexedDB store is a hub with both in- and out-edges, so a walk
-// reaches everything either way and "goes" == "comesFrom" == "both". So light by edge CLASS instead:
-//   goes (load, PG→page):    pull (PG→fn) · read (store→fn) · domwrite (fn→DOM)
-//   comesFrom (save, page→PG): push (fn→PG) · domread (DOM→fn) · write (fn→store)
-// (read↔write split the shared store between the two halves so each direction lights a distinct seam.)
-function paintTypeTraceDir(tableId, dir){
-  var disp=typeTraceDisp(tableId); if(!disp) return false;
-  var LOAD={pull:1,read:1,domwrite:1}, SAVE={push:1,domread:1,write:1};
-  var want = dir==="goes" ? LOAD : SAVE;
+// reaches everything either way and the two directions collapse to "both". So light by edge CLASS
+// (dirRels) instead — read↔write split the shared store between the two halves so each lights a
+// distinct seam: to DOM = pull/read/domwrite (toward the page), to PG = push/domread/write (toward the DB).
+function paintTypeTraceDir(dataId, dir){
+  var disp=typeTraceDisp(dataId); if(!disp) return false;
+  var want = dirRels(dir) || {};   // {} → nothing matches (only reached for toDom/toPg; "both" goes elsewhere)
   cy.elements().addClass("faded").removeClass("hl cycle ring latentring");
-  var lit={}; lit[tableId]=1;
+  var lit={}; lit[dataId]=1;
   cy.edges().forEach(function(e){
     if(!want[e.data("rel")]) return;
     var s=e.source().id(), t=e.target().id();
@@ -1767,7 +1777,7 @@ function groupsFor(ids){
 }
 function ul(a){ if(!a.length) return "<p class='none'>none</p>"; var u=a.filter(function(v,i,s){return s.indexOf(v)===i;}).sort(); return "<ul>"+u.map(function(x){return "<li>"+x+"</li>";}).join("")+"</ul>"; }
 
-var DIRTXT={goes:"where it goes \\u25B8",comesFrom:"\\u25C2 where it comes from",both:"both ways"};
+var DIRTXT={toDom:"to DOM \\u25BE",toPg:"to PostgreSQL \\u25B4",both:"both ways \\u25B4\\u25BE"};
 function showDetail(n){
   var d=document.getElementById("detail"); var id=n.id(); var kind=n.data("kind");
   var dirBadge = mode==="flow" ? "<div class='dirbadge'>tracing: "+DIRTXT[traceDir]+"</div>" : "";
@@ -1775,14 +1785,14 @@ function showDetail(n){
     var movers=[]; VIZ.edges.forEach(function(e){ if(e.source===id) movers.push(relabel(e.target)+"  ("+e.rel+")"); if(e.target===id) movers.push(relabel(e.source)+"  ("+e.rel+")"); });
     var schemaHtml="";
     if(kind==="store"){ var sc=VIZ.storeSchema[n.data("label")]; if(sc){ schemaHtml="<h3>key</h3><ul><li>"+sc.keyPath+"</li></ul><h3>indexes</h3>"+ul(sc.indices); } }
-    // Table with a TS type lineage: show the types being traced + the functions that handle them
-    // (the lit set), so the panel names what's flowing through the highlighted path on the map.
+    // Typed data node (table OR its matching store): show the types being traced + the functions that
+    // handle them (the lit set), so the panel names what's flowing through the highlighted path.
     var typeHtml="";
-    if(kind==="table" && nodeById[id] && nodeById[id].types && nodeById[id].types.length){
-      var tt=nodeById[id].types, carry=carryingForTable(id);
+    if((kind==="table"||kind==="store") && nodeById[id] && nodeById[id].types && nodeById[id].types.length){
+      var tt=nodeById[id].types, carry=carryingFor(id);
       var fnList=VIZ.nodes.filter(function(x){return x.kind==="fn"&&carry[x.id]&&x.types&&x.types.length;}).map(function(x){return x.label+"  ("+x.types.join(", ")+")";}).sort();
       typeHtml="<h3>data types (TS lineage)</h3>"+ul(tt)+
-        "<p class='none' style='font-style:normal'>The PG↔IDB↔DOM journey of this data, from its TS types. The <b>trace:</b> button narrows it — <i>where it goes</i> = load (table→DOM), <i>where it comes from</i> = save (DOM→table), <i>both</i> = the full lineage.</p>"+
+        "<p class='none' style='font-style:normal'>The PG↔IDB↔DOM journey of this data, from its TS types. The <b>trace:</b> button narrows it — <i>to DOM</i> = the load half (… → page), <i>to PostgreSQL</i> = the save half (… → Postgres), <i>both</i> = the full lineage.</p>"+
         "<h3>flows through "+fnList.length+" fns — lit on the map (rows = PG→DOM)</h3>"+ul(fnList);
     }
     var storeSub=n.data("label")==="localStorage"?"Browser localStorage — persistent key→value (NOT IndexedDB)":n.data("label")==="sessionStorage"?"Browser sessionStorage — per-tab key→value (NOT IndexedDB)":"IndexedDB object store";
@@ -1831,11 +1841,19 @@ cy.on("tap",function(ev){ if(ev.target===cy || (ev.target.isEdge && ev.target.is
 
 document.getElementById("meta").textContent=VIZ.meta.dbName+" v"+VIZ.meta.dbVersion+" · "+VIZ.meta.fnCount+" fns / "+VIZ.meta.moduleCount+" modules · "+VIZ.meta.storeCount+" stores · "+VIZ.meta.tableCount+" tables";
 var leg=document.getElementById("legend"); VIZ.legend.forEach(function(l){ var row=document.createElement("div"); row.innerHTML="<span class='sw' style='border-top-color:"+REL_COLOR[l.rel]+"'></span><b>"+l.rel+"</b> &nbsp;"+l.from+"→"+l.to; leg.appendChild(row); });
-// "trace data type" picker — lists the typed Postgres tables and runs the SAME type trace a click on
-// that table runs (for anyone who doesn't realise the tables are clickable, or doesn't want to hunt
-// for one on the map). Driving selId + applyTrace reuses the exact click path.
-var sel=document.getElementById("focus"); var o0=document.createElement("option"); o0.value=""; o0.textContent="(pick a table)"; sel.appendChild(o0);
-VIZ.nodes.filter(function(n){return n.kind==="table"&&n.types&&n.types.length;}).forEach(function(n){ var o=document.createElement("option"); o.value=n.id; o.textContent=n.label; sel.appendChild(o); });
+// "trace data type" picker — lists the typed Postgres tables AND their matching IndexedDB stores, and
+// runs the SAME type trace a click runs (for anyone who doesn't realise they're clickable, or doesn't
+// want to hunt for one on the map). Driving selId + applyTrace reuses the exact click path.
+var sel=document.getElementById("focus"); var o0=document.createElement("option"); o0.value=""; o0.textContent="(pick a data node)"; sel.appendChild(o0);
+function addTypeOptions(label, kind){
+  var ns=VIZ.nodes.filter(function(n){return n.kind===kind&&n.types&&n.types.length;});
+  if(!ns.length) return;
+  var grp=document.createElement("optgroup"); grp.label=label;
+  ns.forEach(function(n){ var o=document.createElement("option"); o.value=n.id; o.textContent=n.label; grp.appendChild(o); });
+  sel.appendChild(grp);
+}
+addTypeOptions("Postgres tables","table");
+addTypeOptions("IndexedDB stores","store");
 sel.onchange=function(){
   if(!sel.value){ selId=null; clearHL(); applyMode(); return; }
   var n=cy.getElementById(sel.value); if(!n||!n.length) return;
@@ -1864,9 +1882,9 @@ document.getElementById("toggleCalls").textContent="show code coupling";  // def
 
 // Direction toggle (flow lens): cycle goes ▸ comesFrom ▸ both, re-applying to the current selection
 // (or, with nothing selected, the whole save/load pipeline).
-var TRACE_LABEL={goes:"trace: where it goes ▸", comesFrom:"trace: where it comes from ▸", both:"trace: both ways ▸"};
+var TRACE_LABEL={toDom:"trace: to DOM ▾", toPg:"trace: to PostgreSQL ▴", both:"trace: both ways ▴▾"};
 document.getElementById("traceDirBtn").onclick=function(){
-  traceDir = traceDir==="goes" ? "comesFrom" : (traceDir==="comesFrom" ? "both" : "goes");
+  traceDir = traceDir==="toDom" ? "toPg" : (traceDir==="toPg" ? "both" : "toDom");
   this.textContent = TRACE_LABEL[traceDir];
   applyTrace();
 };
