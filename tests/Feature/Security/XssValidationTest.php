@@ -45,7 +45,7 @@ dataset('xss_payloads', [
 // =============================================================================
 
 test('library upsert should reject xss in title field', function (string $payload) {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $response = $this->actingAs($user)
         ->postJson('/api/db/library/upsert', [
@@ -69,7 +69,7 @@ test('library upsert should reject xss in title field', function (string $payloa
 })->with('xss_payloads');
 
 test('library upsert should reject xss in author field', function (string $payload) {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $response = $this->actingAs($user)
         ->postJson('/api/db/library/upsert', [
@@ -90,7 +90,7 @@ test('library upsert should reject xss in author field', function (string $paylo
 })->with('xss_payloads');
 
 test('library upsert should reject xss in journal field', function (string $payload) {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $response = $this->actingAs($user)
         ->postJson('/api/db/library/upsert', [
@@ -111,7 +111,7 @@ test('library upsert should reject xss in journal field', function (string $payl
 })->with('xss_payloads');
 
 test('library upsert should reject xss in publisher field', function (string $payload) {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $response = $this->actingAs($user)
         ->postJson('/api/db/library/upsert', [
@@ -132,7 +132,7 @@ test('library upsert should reject xss in publisher field', function (string $pa
 })->with('xss_payloads');
 
 test('library upsert should reject xss in school field', function (string $payload) {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $response = $this->actingAs($user)
         ->postJson('/api/db/library/upsert', [
@@ -153,7 +153,7 @@ test('library upsert should reject xss in school field', function (string $paylo
 })->with('xss_payloads');
 
 test('library upsert should reject xss in note field', function (string $payload) {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $response = $this->actingAs($user)
         ->postJson('/api/db/library/upsert', [
@@ -178,13 +178,10 @@ test('library upsert should reject xss in note field', function (string $payload
 // =============================================================================
 
 test('hyperlight upsert validates highlighted text with SafeString', function (string $payload) {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     // Create a test book first
-    PgLibrary::firstOrCreate(
-        ['book' => 'xss-highlight-test-book'],
-        ['title' => 'Test Book', 'creator' => $user->name, 'visibility' => 'public']
-    );
+    $this->seedLibrary(['book' => 'xss-highlight-test-book', 'title' => 'Test Book', 'creator' => $user->name, 'visibility' => 'public']);
 
     $response = $this->actingAs($user)
         ->postJson('/api/db/hyperlights/upsert', [
@@ -212,12 +209,9 @@ test('hyperlight upsert validates highlighted text with SafeString', function (s
 })->with('xss_payloads');
 
 test('hyperlight annotation field validates with SafeString', function (string $payload) {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
-    PgLibrary::firstOrCreate(
-        ['book' => 'xss-annotation-test-book'],
-        ['title' => 'Test Book', 'creator' => $user->name, 'visibility' => 'public']
-    );
+    $this->seedLibrary(['book' => 'xss-annotation-test-book', 'title' => 'Test Book', 'creator' => $user->name, 'visibility' => 'public']);
 
     $response = $this->actingAs($user)
         ->postJson('/api/db/hyperlights/upsert', [
@@ -247,12 +241,9 @@ test('hyperlight annotation field validates with SafeString', function (string $
 // =============================================================================
 
 test('node chunk content field should be sanitized', function (string $payload) {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
-    PgLibrary::firstOrCreate(
-        ['book' => 'xss-nodechunk-test'],
-        ['title' => 'Test Book', 'creator' => $user->name, 'visibility' => 'public']
-    );
+    $this->seedLibrary(['book' => 'xss-nodechunk-test', 'title' => 'Test Book', 'creator' => $user->name, 'visibility' => 'public']);
 
     $response = $this->actingAs($user)
         ->postJson('/api/db/nodes/upsert', [
@@ -283,7 +274,7 @@ test('node chunk content field should be sanitized', function (string $payload) 
 // =============================================================================
 
 test('library bulk create should validate all entries for xss', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $response = $this->actingAs($user)
         ->postJson('/api/db/library/bulk-create', [
@@ -312,7 +303,7 @@ test('library bulk create should validate all entries for xss', function () {
 // =============================================================================
 
 test('xss detection handles unicode encoding bypass attempts', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $unicodePayloads = [
         "\u003cscript\u003ealert(1)\u003c/script\u003e",
@@ -343,7 +334,7 @@ test('xss detection handles unicode encoding bypass attempts', function () {
 });
 
 test('xss detection handles case variation bypass attempts', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $casePayloads = [
         '<ScRiPt>alert(1)</sCrIpT>',
@@ -375,7 +366,7 @@ test('xss detection handles case variation bypass attempts', function () {
 });
 
 test('xss detection handles null byte injection', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $nullBytePayloads = [
         "safe\x00<script>alert(1)</script>",

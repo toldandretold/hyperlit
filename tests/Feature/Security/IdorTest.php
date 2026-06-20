@@ -20,11 +20,11 @@ use Illuminate\Support\Facades\DB;
 // =============================================================================
 
 test('cannot modify another users highlight', function () {
-    $userA = User::factory()->create(['name' => 'user_a_idor']);
-    $userB = User::factory()->create(['name' => 'user_b_idor']);
+    $userA = $this->seedUser(['name' => 'user_a_idor']);
+    $userB = $this->seedUser(['name' => 'user_b_idor']);
 
     // Create a public book
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'public-idor-highlight-test',
         'title' => 'Public Book',
         'creator' => $userA->name,
@@ -32,7 +32,7 @@ test('cannot modify another users highlight', function () {
     ]);
 
     // User A creates a highlight
-    PgHyperlight::create([
+    $this->seedHyperlight([
         'book' => 'public-idor-highlight-test',
         'hyperlight_id' => 'idor-hl-test',
         'node_id' => 'n1',
@@ -67,17 +67,17 @@ test('cannot modify another users highlight', function () {
 });
 
 test('cannot delete another users highlight', function () {
-    $owner = User::factory()->create(['name' => 'idor_owner']);
-    $attacker = User::factory()->create(['name' => 'idor_attacker']);
+    $owner = $this->seedUser(['name' => 'idor_owner']);
+    $attacker = $this->seedUser(['name' => 'idor_attacker']);
 
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'idor-delete-test',
         'title' => 'Test Book',
         'creator' => $owner->name,
         'visibility' => 'public',
     ]);
 
-    PgHyperlight::create([
+    $this->seedHyperlight([
         'book' => 'idor-delete-test',
         'hyperlight_id' => 'hl-delete-idor',
         'node_id' => 'n1',
@@ -108,17 +108,17 @@ test('cannot delete another users highlight', function () {
 // =============================================================================
 
 test('cannot modify another users hypercite', function () {
-    $userA = User::factory()->create(['name' => 'cite_owner']);
-    $userB = User::factory()->create(['name' => 'cite_attacker']);
+    $userA = $this->seedUser(['name' => 'cite_owner']);
+    $userB = $this->seedUser(['name' => 'cite_attacker']);
 
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'idor-cite-test',
         'title' => 'Test Book',
         'creator' => $userA->name,
         'visibility' => 'public',
     ]);
 
-    PgHypercite::create([
+    $this->seedHypercite([
         'book' => 'idor-cite-test',
         'hypercite_id' => 'idor-cite-id',
         'node_id' => 'n1',
@@ -152,10 +152,10 @@ test('cannot modify another users hypercite', function () {
 // =============================================================================
 
 test('cannot delete book owned by another user', function () {
-    $owner = User::factory()->create(['name' => 'book_owner']);
-    $attacker = User::factory()->create(['name' => 'book_attacker']);
+    $owner = $this->seedUser(['name' => 'book_owner']);
+    $attacker = $this->seedUser(['name' => 'book_attacker']);
 
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'protected-book-idor',
         'title' => 'Owner\'s Protected Book',
         'creator' => $owner->name,
@@ -176,10 +176,10 @@ test('cannot delete book owned by another user', function () {
 });
 
 test('cannot modify another users book metadata', function () {
-    $owner = User::factory()->create(['name' => 'metadata_owner']);
-    $attacker = User::factory()->create(['name' => 'metadata_attacker']);
+    $owner = $this->seedUser(['name' => 'metadata_owner']);
+    $attacker = $this->seedUser(['name' => 'metadata_attacker']);
 
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'metadata-idor-test',
         'title' => 'Original Title',
         'author' => 'Original Author',
@@ -208,10 +208,10 @@ test('cannot modify another users book metadata', function () {
 });
 
 test('cannot change book visibility if not owner', function () {
-    $owner = User::factory()->create(['name' => 'visibility_owner']);
-    $attacker = User::factory()->create(['name' => 'visibility_attacker']);
+    $owner = $this->seedUser(['name' => 'visibility_owner']);
+    $attacker = $this->seedUser(['name' => 'visibility_attacker']);
 
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'visibility-idor-test',
         'title' => 'Private Book',
         'creator' => $owner->name,
@@ -240,10 +240,10 @@ test('cannot change book visibility if not owner', function () {
 // =============================================================================
 
 test('cannot access private book data', function () {
-    $owner = User::factory()->create();
-    $stranger = User::factory()->create();
+    $owner = $this->seedUser();
+    $stranger = $this->seedUser();
 
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'private-book-access-test',
         'title' => 'Secret Book',
         'creator' => $owner->name,
@@ -251,7 +251,7 @@ test('cannot access private book data', function () {
         'listed' => false,
     ]);
 
-    PgNode::create([
+    $this->seedNode([
         'book' => 'private-book-access-test',
         'node_id' => 'secret_node',
         'startLine' => 100,
@@ -271,9 +271,9 @@ test('cannot access private book data', function () {
 });
 
 test('owner can access their private book', function () {
-    $owner = User::factory()->create();
+    $owner = $this->seedUser();
 
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'owner-private-book-test',
         'title' => 'My Secret Book',
         'creator' => $owner->name,
@@ -291,10 +291,10 @@ test('owner can access their private book', function () {
 });
 
 test('private books not returned in search results for non-owners', function () {
-    $owner = User::factory()->create(['name' => 'search_owner']);
-    $searcher = User::factory()->create(['name' => 'search_stranger']);
+    $owner = $this->seedUser(['name' => 'search_owner']);
+    $searcher = $this->seedUser(['name' => 'search_stranger']);
 
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'searchable-private-idor',
         'title' => 'UniqueSearchablePrivateBook123',
         'creator' => $owner->name,
@@ -321,17 +321,17 @@ test('private books not returned in search results for non-owners', function () 
 // =============================================================================
 
 test('book owner can hide highlights on their book', function () {
-    $bookOwner = User::factory()->create(['name' => 'book_owner_hide']);
-    $highlightCreator = User::factory()->create(['name' => 'highlight_creator_hide']);
+    $bookOwner = $this->seedUser(['name' => 'book_owner_hide']);
+    $highlightCreator = $this->seedUser(['name' => 'highlight_creator_hide']);
 
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'hide-test-book',
         'title' => 'Book for hide test',
         'creator' => $bookOwner->name,
         'visibility' => 'public',
     ]);
 
-    PgHyperlight::create([
+    $this->seedHyperlight([
         'book' => 'hide-test-book',
         'hyperlight_id' => 'hl-hide-test',
         'node_id' => 'n1',
@@ -360,18 +360,18 @@ test('book owner can hide highlights on their book', function () {
 });
 
 test('non-owner cannot hide highlights on others books', function () {
-    $bookOwner = User::factory()->create(['name' => 'real_owner']);
-    $highlightCreator = User::factory()->create(['name' => 'hl_creator']);
-    $randomUser = User::factory()->create(['name' => 'random_user']);
+    $bookOwner = $this->seedUser(['name' => 'real_owner']);
+    $highlightCreator = $this->seedUser(['name' => 'hl_creator']);
+    $randomUser = $this->seedUser(['name' => 'random_user']);
 
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'no-hide-rights-book',
         'title' => 'Someone else book',
         'creator' => $bookOwner->name,
         'visibility' => 'public',
     ]);
 
-    PgHyperlight::create([
+    $this->seedHyperlight([
         'book' => 'no-hide-rights-book',
         'hyperlight_id' => 'hl-no-hide',
         'node_id' => 'n1',
@@ -404,12 +404,12 @@ test('non-owner cannot hide highlights on others books', function () {
 // =============================================================================
 
 test('non-owner cannot update library timestamp', function () {
-    $owner = User::factory()->create(['name' => 'ts_owner']);
-    $attacker = User::factory()->create(['name' => 'ts_attacker']);
+    $owner = $this->seedUser(['name' => 'ts_owner']);
+    $attacker = $this->seedUser(['name' => 'ts_attacker']);
 
     $originalTimestamp = 1000000;
 
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'timestamp-idor-test',
         'title' => 'Timestamp Test',
         'creator' => $owner->name,
@@ -437,7 +437,7 @@ test('non-owner cannot update library timestamp', function () {
 // =============================================================================
 
 test('anonymous user cannot access others private books via token guessing', function () {
-    $owner = User::factory()->create();
+    $owner = $this->seedUser();
     $ownerToken = Str::uuid()->toString();
 
     DB::table('anonymous_sessions')->insert([
@@ -447,7 +447,7 @@ test('anonymous user cannot access others private books via token guessing', fun
         'ip_address' => '192.168.1.1',
     ]);
 
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'anon-private-book',
         'title' => 'Anonymous Private Book',
         'creator_token' => $ownerToken,

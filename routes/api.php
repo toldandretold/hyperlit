@@ -422,7 +422,9 @@ Route::prefix('database-to-indexeddb')->group(function () {
 
     // Chunked lazy loading: fetch a single chunk on demand
     Route::get('books/{bookId}/chunk/{chunkId}', [DatabaseToIndexedDBController::class, 'getSingleChunk'])
-        ->where('chunkId', '[0-9]+')
+        // chunk_id can be a decimal (fractional indexing), e.g. 4.5 — allow an optional
+        // fractional part. Still matches plain integers and still 404s non-numeric ids.
+        ->where('chunkId', '[0-9]+(\.[0-9]+)?')
         ->name('api.database-to-indexeddb.book-chunk');
 
     // Reading position (bookmark) endpoints

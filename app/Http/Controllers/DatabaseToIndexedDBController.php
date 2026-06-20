@@ -243,7 +243,7 @@ class DatabaseToIndexedDBController extends Controller
 
                 return [
                     'book' => $chunk->book,
-                    'chunk_id' => (int) $chunk->chunk_id,
+                    'chunk_id' => (float) $chunk->chunk_id,
                     'startLine' => (float) $chunk->startLine,
                     'node_id' => $chunk->node_id,
                     'content' => $chunk->content,
@@ -482,7 +482,7 @@ class DatabaseToIndexedDBController extends Controller
 
                 return [
                     'book' => $chunk->book,
-                    'chunk_id' => (int) $chunk->chunk_id,
+                    'chunk_id' => (float) $chunk->chunk_id,
                     'startLine' => (float) $chunk->startLine,
                     'node_id' => $chunk->node_id,
                     'content' => $chunk->content,
@@ -1101,8 +1101,10 @@ class DatabaseToIndexedDBController extends Controller
                 return $authError;
             }
 
-            $from = (int) $request->query('from', 0);
-            $to = (int) $request->query('to', PHP_INT_MAX);
+            // parseFloat semantics: chunk_id is a double precision column (decimals from
+            // fractional indexing), so the range bounds must preserve decimals too.
+            $from = (float) $request->query('from', 0);
+            $to = (float) $request->query('to', PHP_FLOAT_MAX);
 
             // Fetch annotations ONCE for the entire request
             $hyperlights = $this->getHyperlights($bookId);
@@ -1122,7 +1124,7 @@ class DatabaseToIndexedDBController extends Controller
 
                     return [
                         'book' => $chunk->book,
-                        'chunk_id' => (int) $chunk->chunk_id,
+                        'chunk_id' => (float) $chunk->chunk_id,
                         'startLine' => (float) $chunk->startLine,
                         'node_id' => $chunk->node_id,
                         'content' => $chunk->content,
@@ -1381,7 +1383,7 @@ class DatabaseToIndexedDBController extends Controller
                 ->get()
                 ->map(function ($row) {
                     return [
-                        'chunk_id' => (int) $row->chunk_id,
+                        'chunk_id' => (float) $row->chunk_id,
                         'first_line' => (float) $row->first_line,
                         'last_line' => (float) $row->last_line,
                         'node_count' => (int) $row->node_count,
@@ -1535,9 +1537,12 @@ class DatabaseToIndexedDBController extends Controller
     /**
      * Get a single chunk of nodes by chunk_id (for on-demand loading).
      */
-    public function getSingleChunk(Request $request, string $bookId, int $chunkId): JsonResponse
+    public function getSingleChunk(Request $request, string $bookId, string $chunkId): JsonResponse
     {
         try {
+            // chunk_id can be a decimal (fractional indexing) — the route allows it, so parse
+            // as float, NEVER (int), or an on-demand fetch of chunk 4.5 would hit chunk 4.
+            $chunkId = (float) $chunkId;
             $bookId = BookSlugHelper::resolve($bookId);
             $authError = $this->checkBookAuthorization($request, $bookId);
             if ($authError) {
@@ -1604,7 +1609,7 @@ class DatabaseToIndexedDBController extends Controller
 
         // Step 1: Direct chunk_id param (for on-demand fetch)
         if ($chunkId !== null) {
-            return ['chunk_id' => (int) $chunkId, 'resolved' => true, 'reason' => 'direct', 'fallbackUsed' => null];
+            return ['chunk_id' => (float) $chunkId, 'resolved' => true, 'reason' => 'direct', 'fallbackUsed' => null];
         }
 
         // Merge element_id into target for unified branch handling
@@ -1632,7 +1637,7 @@ class DatabaseToIndexedDBController extends Controller
             // Step 8: Saved scroll position
             $bookmark = $this->getBookmarkData($request, $bookId);
             if ($bookmark) {
-                return ['chunk_id' => (int) $bookmark['chunk_id'], 'resolved' => false, 'reason' => 'saved_position', 'fallbackUsed' => 'saved_position'];
+                return ['chunk_id' => (float) $bookmark['chunk_id'], 'resolved' => false, 'reason' => 'saved_position', 'fallbackUsed' => 'saved_position'];
             }
 
             // Step 9: Lowest existing chunk_id
@@ -1643,7 +1648,7 @@ class DatabaseToIndexedDBController extends Controller
         if ($resume === 'true') {
             $bookmark = $this->getBookmarkData($request, $bookId);
             if ($bookmark) {
-                return ['chunk_id' => (int) $bookmark['chunk_id'], 'resolved' => true, 'reason' => 'saved_position', 'fallbackUsed' => null];
+                return ['chunk_id' => (float) $bookmark['chunk_id'], 'resolved' => true, 'reason' => 'saved_position', 'fallbackUsed' => null];
             }
         }
 
@@ -1670,7 +1675,7 @@ class DatabaseToIndexedDBController extends Controller
                 if (!empty($nodeIds)) {
                     $node = DB::table('nodes')->where('book', $bookId)->where('node_id', $nodeIds[0])->first();
                     if ($node) {
-                        return ['chunk_id' => (int) $node->chunk_id, 'reason' => 'hypercite'];
+                        return ['chunk_id' => (float) $node->chunk_id, 'reason' => 'hypercite'];
                     }
                 }
             }
@@ -1687,7 +1692,7 @@ class DatabaseToIndexedDBController extends Controller
                 if (!empty($nodeIds)) {
                     $node = DB::table('nodes')->where('book', $bookId)->where('node_id', $nodeIds[0])->first();
                     if ($node) {
-                        return ['chunk_id' => (int) $node->chunk_id, 'reason' => 'hyperlight'];
+                        return ['chunk_id' => (float) $node->chunk_id, 'reason' => 'hyperlight'];
                     }
                 }
             }
@@ -1700,7 +1705,7 @@ class DatabaseToIndexedDBController extends Controller
                 ->whereRaw('footnotes::jsonb @> ?', [json_encode([$target])])
                 ->first();
             if ($node) {
-                return ['chunk_id' => (int) $node->chunk_id, 'reason' => 'footnote'];
+                return ['chunk_id' => (float) $node->chunk_id, 'reason' => 'footnote'];
             }
         }
 
@@ -1711,7 +1716,7 @@ class DatabaseToIndexedDBController extends Controller
                 ->where('startLine', (float) $target)
                 ->first();
             if ($node) {
-                return ['chunk_id' => (int) $node->chunk_id, 'reason' => 'startLine'];
+                return ['chunk_id' => (float) $node->chunk_id, 'reason' => 'startLine'];
             }
         }
 
@@ -1723,7 +1728,7 @@ class DatabaseToIndexedDBController extends Controller
             ->where('content', 'LIKE', $likePattern)
             ->first();
         if ($node) {
-            return ['chunk_id' => (int) $node->chunk_id, 'reason' => 'content_scan'];
+            return ['chunk_id' => (float) $node->chunk_id, 'reason' => 'content_scan'];
         }
 
         return null;
@@ -1738,7 +1743,7 @@ class DatabaseToIndexedDBController extends Controller
         $minChunk = DB::table('nodes')
             ->where('book', $bookId)
             ->min('chunk_id');
-        return $minChunk !== null ? (int) $minChunk : 0;
+        return $minChunk !== null ? (float) $minChunk : 0;
     }
 
     /**
@@ -1746,7 +1751,7 @@ class DatabaseToIndexedDBController extends Controller
      * Variant of getNodes() filtered to a single chunk.
      * Accepts pre-fetched annotation lookups to avoid redundant queries.
      */
-    private function getNodesForChunk(string $bookId, int $chunkId, array $hyperlightsByNode, array $hypercitesByNode): array
+    private function getNodesForChunk(string $bookId, float $chunkId, array $hyperlightsByNode, array $hypercitesByNode): array
     {
         $chunks = DB::table('nodes')
             ->where('book', $bookId)
@@ -1761,7 +1766,7 @@ class DatabaseToIndexedDBController extends Controller
 
                 return [
                     'book' => $chunk->book,
-                    'chunk_id' => (int) $chunk->chunk_id,
+                    'chunk_id' => (float) $chunk->chunk_id,
                     'startLine' => (float) $chunk->startLine,
                     'node_id' => $chunk->node_id,
                     'content' => $chunk->content,
@@ -1810,7 +1815,7 @@ class DatabaseToIndexedDBController extends Controller
         }
 
         return [
-            'chunk_id' => (int) $position->chunk_id,
+            'chunk_id' => (float) $position->chunk_id,
             'element_id' => $position->element_id,
         ];
     }
@@ -1830,7 +1835,9 @@ class DatabaseToIndexedDBController extends Controller
             $user = Auth::user();
             $anonymousToken = $request->cookie('anon_token');
 
-            $chunkId = $request->input('chunk_id', 0);
+            // float, NOT (int): a scroll position can sit in a decimal (fractional) chunk —
+            // the user_reading_positions.chunk_id column is double precision to preserve it.
+            $chunkId = (float) $request->input('chunk_id', 0);
             $elementId = $request->input('element_id');
 
             if ($user) {

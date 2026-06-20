@@ -1261,7 +1261,7 @@ CREATE TABLE public.user_reading_positions (
     book character varying(255) NOT NULL,
     user_name character varying(255),
     anon_token character varying(255),
-    chunk_id integer DEFAULT 0 NOT NULL,
+    chunk_id double precision DEFAULT 0 NOT NULL,
     element_id character varying(255),
     updated_at timestamp(0) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );

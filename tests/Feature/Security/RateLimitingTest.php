@@ -44,7 +44,7 @@ test('registration endpoint should be rate limited', function () {
 });
 
 test('login endpoint is rate limited after failed attempts', function () {
-    $user = User::factory()->create([
+    $user = $this->seedUser([
         'email' => 'ratelimit_login@test.com',
         'password' => bcrypt('correctpassword'),
     ]);
@@ -130,7 +130,7 @@ test('search endpoint is rate limited', function () {
 });
 
 test('api endpoints are rate limited at 120 per minute', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
     $successCount = 0;
     $rateLimitedCount = 0;
 
@@ -177,7 +177,7 @@ test('rate limiting cannot be bypassed with X-Forwarded-For header', function ()
 });
 
 test('password reset is rate limited', function () {
-    $user = User::factory()->create([
+    $user = $this->seedUser([
         'email' => 'reset_ratelimit@test.com',
     ]);
 
@@ -225,7 +225,7 @@ test('concurrent registration attempts from same IP are serialized', function ()
 
 test('email enumeration via registration is rate limited', function () {
     // Create existing user
-    $existingUser = User::factory()->create([
+    $existingUser = $this->seedUser([
         'email' => 'existing@test.com',
     ]);
 

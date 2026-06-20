@@ -121,7 +121,7 @@ test('book id parameter is sanitized against injection', function () {
 // =============================================================================
 
 test('library upsert book id is sanitized', function (string $payload) {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $response = $this->actingAs($user)
         ->postJson('/api/db/library/upsert', [
@@ -137,7 +137,7 @@ test('library upsert book id is sanitized', function (string $payload) {
 })->with('sql_injection_payloads');
 
 test('library title field uses parameterized queries', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $payload = "Test'; DELETE FROM library;--";
 
@@ -164,12 +164,9 @@ test('library title field uses parameterized queries', function () {
 // =============================================================================
 
 test('hyperlight upsert uses parameterized queries', function (string $payload) {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
-    PgLibrary::firstOrCreate(
-        ['book' => 'sql-highlight-test'],
-        ['title' => 'Test', 'creator' => $user->name, 'visibility' => 'public']
-    );
+    $this->seedLibrary(['book' => 'sql-highlight-test', 'title' => 'Test', 'creator' => $user->name, 'visibility' => 'public']);
 
     $response = $this->actingAs($user)
         ->postJson('/api/db/hyperlights/upsert', [
@@ -189,12 +186,9 @@ test('hyperlight upsert uses parameterized queries', function (string $payload) 
 })->with('sql_injection_payloads');
 
 test('hypercite upsert uses parameterized queries', function (string $payload) {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
-    PgLibrary::firstOrCreate(
-        ['book' => 'sql-cite-test'],
-        ['title' => 'Test', 'creator' => $user->name, 'visibility' => 'public']
-    );
+    $this->seedLibrary(['book' => 'sql-cite-test', 'title' => 'Test', 'creator' => $user->name, 'visibility' => 'public']);
 
     $response = $this->actingAs($user)
         ->postJson('/api/db/hypercites/upsert', [
@@ -218,12 +212,12 @@ test('hypercite upsert uses parameterized queries', function (string $payload) {
 // =============================================================================
 
 test('stored data is safe when used in subsequent queries', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     // Store potentially dangerous data
     $maliciousTitle = "Test'; DROP TABLE users;--";
 
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'second-order-test',
         'title' => $maliciousTitle,
         'creator' => $user->name,
@@ -307,7 +301,7 @@ test('database errors do not leak sensitive information', function () {
 });
 
 test('api errors return generic messages', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     // Try to upsert with invalid structure
     $response = $this->actingAs($user)

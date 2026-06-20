@@ -30,7 +30,7 @@ test('cannot associate content from another users anonymous token', function () 
     ]);
 
     // Create victim's content with the anonymous token
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'victim-book-security-test',
         'title' => 'Victim Secret Book',
         'creator_token' => $victimToken,
@@ -39,7 +39,7 @@ test('cannot associate content from another users anonymous token', function () 
     ]);
 
     // Attacker registers and logs in
-    $attacker = User::factory()->create([
+    $attacker = $this->seedUser([
         'name' => 'attacker_user',
         'email' => 'attacker@test.com',
     ]);
@@ -67,7 +67,7 @@ test('cannot associate content from another users anonymous token', function () 
 });
 
 test('authenticated user can only associate their own anonymous session cookie', function () {
-    $user = User::factory()->create([
+    $user = $this->seedUser([
         'name' => 'legitimate_user',
         'email' => 'legit@test.com',
     ]);
@@ -83,7 +83,7 @@ test('authenticated user can only associate their own anonymous session cookie',
     ]);
 
     // Create content with user's own anonymous token
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'my-book-security-test',
         'title' => 'My Book',
         'creator_token' => $userOwnToken,
@@ -120,7 +120,7 @@ test('associate content requires authentication', function () {
 });
 
 test('associate content requires valid uuid format', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $invalidTokens = [
         'not-a-uuid',
@@ -142,8 +142,8 @@ test('associate content requires valid uuid format', function () {
 });
 
 test('cannot claim content already associated with another user', function () {
-    $originalOwner = User::factory()->create(['name' => 'original_owner']);
-    $attacker = User::factory()->create(['name' => 'attacker']);
+    $originalOwner = $this->seedUser(['name' => 'original_owner']);
+    $attacker = $this->seedUser(['name' => 'attacker']);
 
     // Create a token that was used by original owner
     $originalToken = Str::uuid()->toString();
@@ -155,7 +155,7 @@ test('cannot claim content already associated with another user', function () {
     ]);
 
     // Content already has a creator assigned
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'already-owned-book',
         'title' => 'Already Owned',
         'creator_token' => $originalToken,
@@ -188,14 +188,14 @@ test('highlights cannot be stolen via content association', function () {
     ]);
 
     // First create a book for the highlight
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'test-book-for-highlight',
         'title' => 'Test Book',
         'creator_token' => $victimToken,
         'visibility' => 'public',
     ]);
 
-    PgHyperlight::create([
+    $this->seedHyperlight([
         'book' => 'test-book-for-highlight',
         'hyperlight_id' => 'victim-highlight-security',
         'node_id' => 'n1',
@@ -205,7 +205,7 @@ test('highlights cannot be stolen via content association', function () {
         'time_since' => time(),
     ]);
 
-    $attacker = User::factory()->create(['name' => 'highlight_attacker']);
+    $attacker = $this->seedUser(['name' => 'highlight_attacker']);
 
     // Attacker attempts to steal highlight
     $this->actingAs($attacker)
@@ -234,14 +234,14 @@ test('hypercites cannot be stolen via content association', function () {
     ]);
 
     // Create book and hypercite
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'test-book-for-cite',
         'title' => 'Test Book',
         'creator_token' => $victimToken,
         'visibility' => 'public',
     ]);
 
-    PgHypercite::create([
+    $this->seedHypercite([
         'book' => 'test-book-for-cite',
         'hypercite_id' => 'victim-cite-security',
         'node_id' => 'n1',
@@ -251,7 +251,7 @@ test('hypercites cannot be stolen via content association', function () {
         'time_since' => time(),
     ]);
 
-    $attacker = User::factory()->create(['name' => 'cite_attacker']);
+    $attacker = $this->seedUser(['name' => 'cite_attacker']);
 
     $this->actingAs($attacker)
         ->postJson('/api/auth/associate-content', [
@@ -279,7 +279,7 @@ test('expired anonymous tokens cannot be used for association', function () {
         'ip_address' => '192.168.1.180',
     ]);
 
-    PgLibrary::create([
+    $this->seedLibrary([
         'book' => 'expired-token-book',
         'title' => 'Old Book',
         'creator_token' => $expiredToken,
@@ -287,7 +287,7 @@ test('expired anonymous tokens cannot be used for association', function () {
         'visibility' => 'private',
     ]);
 
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $response = $this->actingAs($user)
         ->withCookie('anon_token', $expiredToken)

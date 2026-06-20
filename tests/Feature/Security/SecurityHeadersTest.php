@@ -53,7 +53,7 @@ test('API responses have no-cache headers', function () {
 });
 
 test('authenticated API responses prevent caching', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $response = $this->actingAs($user)
         ->getJson('/api/home');
@@ -273,7 +273,7 @@ test('security headers present on API routes', function () {
 });
 
 test('security headers present on authenticated routes', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $response = $this->actingAs($user)
         ->get('/dashboard');
@@ -287,7 +287,7 @@ test('security headers present on authenticated routes', function () {
 // =============================================================================
 
 test('CSRF token is required for state-changing requests', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     // Try to make POST without CSRF token (outside of API route)
     // API routes use Sanctum instead of CSRF
@@ -303,7 +303,7 @@ test('CSRF token mismatch is rejected', function () {
 // =============================================================================
 
 test('API only accepts application/json content type', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     // Send request with wrong content type
     $response = $this->actingAs($user)

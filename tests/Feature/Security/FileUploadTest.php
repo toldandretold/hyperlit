@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Storage;
 // =============================================================================
 
 test('rejects polyglot jpg with embedded php code', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     // Create fake polyglot file (JPEG header + PHP code)
     $content = "\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01<?php system(\$_GET['cmd']); ?>";
@@ -35,7 +35,7 @@ test('rejects polyglot jpg with embedded php code', function () {
 });
 
 test('rejects file with php extension', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $file = UploadedFile::fake()->create('malicious.php', 100, 'text/plain');
 
@@ -54,7 +54,7 @@ test('rejects file with php extension', function () {
 // =============================================================================
 
 test('rejects svg with embedded javascript', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $svg = <<<'SVG'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -80,7 +80,7 @@ SVG;
 });
 
 test('rejects svg with event handlers', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $svg = <<<'SVG'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -102,7 +102,7 @@ SVG;
 });
 
 test('rejects svg with foreignObject xss', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $svg = <<<'SVG'
 <?xml version="1.0"?>
@@ -132,7 +132,7 @@ SVG;
 // =============================================================================
 
 test('rejects html file with script tags', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $html = '<html><body><script>alert(1)</script></body></html>';
 
@@ -150,7 +150,7 @@ test('rejects html file with script tags', function () {
 });
 
 test('rejects html with javascript protocol', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $html = '<html><body><a href="javascript:alert(1)">Click me</a></body></html>';
 
@@ -167,7 +167,7 @@ test('rejects html with javascript protocol', function () {
 });
 
 test('rejects html with event handlers', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $html = '<html><body><img src="x" onerror="alert(1)"></body></html>';
 
@@ -184,7 +184,7 @@ test('rejects html with event handlers', function () {
 });
 
 test('rejects html with iframe', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $html = '<html><body><iframe src="https://evil.com"></iframe></body></html>';
 
@@ -201,7 +201,7 @@ test('rejects html with iframe', function () {
 });
 
 test('rejects html with meta refresh redirect', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $html = '<html><head><meta http-equiv="refresh" content="0;url=https://evil.com"></head></html>';
 
@@ -222,7 +222,7 @@ test('rejects html with meta refresh redirect', function () {
 // =============================================================================
 
 test('rejects markdown with xss payloads', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $markdown = "# Title\n\n<script>alert(1)</script>\n\nNormal text";
 
@@ -239,7 +239,7 @@ test('rejects markdown with xss payloads', function () {
 });
 
 test('rejects markdown with javascript link', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $markdown = "# Title\n\n[Click me](javascript:alert(1))\n\nNormal text";
 
@@ -260,7 +260,7 @@ test('rejects markdown with javascript link', function () {
 // =============================================================================
 
 test('rejects zip with path traversal filenames', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     // Create a ZIP file with path traversal in filename
     // Note: This would need actual ZIP creation for full test
@@ -273,14 +273,14 @@ test('rejects zip with path traversal filenames', function () {
 });
 
 test('rejects zip with executable files', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     // ZIP containing .exe, .bat, .sh, .php, .js files should be rejected
     // Validator checks for dangerous extensions
 });
 
 test('rejects zip exceeding decompressed size limit', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     // ZIP bomb protection - total decompressed size > 200MB should be rejected
 });
@@ -290,7 +290,7 @@ test('rejects zip exceeding decompressed size limit', function () {
 // =============================================================================
 
 test('validates epub internal structure', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     // Create fake EPUB without proper structure (just ZIP header)
     $zipContent = "\x50\x4B\x03\x04\x14\x00\x00\x00"; // Minimal ZIP header
@@ -313,7 +313,7 @@ test('validates epub internal structure', function () {
 // =============================================================================
 
 test('book id rejects path traversal patterns', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $traversalPatterns = [
         '../../../etc/passwd',
@@ -344,7 +344,7 @@ test('book id rejects path traversal patterns', function () {
 // =============================================================================
 
 test('rejects files exceeding size limit', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     // Create file larger than 50MB limit
     $largeContent = str_repeat('a', 51 * 1024 * 1024);
@@ -366,7 +366,7 @@ test('rejects files exceeding size limit', function () {
 // =============================================================================
 
 test('rejects files with invalid mime type', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     // Binary file disguised as markdown
     $binaryContent = random_bytes(1000);
@@ -385,7 +385,7 @@ test('rejects files with invalid mime type', function () {
 });
 
 test('only accepts whitelisted mime types', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $invalidTypes = [
         'application/x-php',
@@ -414,7 +414,7 @@ test('only accepts whitelisted mime types', function () {
 // =============================================================================
 
 test('uploaded html content is sanitized before storage', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     // Valid HTML structure but with XSS that should be sanitized (not rejected)
     $html = <<<'HTML'
@@ -446,7 +446,7 @@ HTML;
 // =============================================================================
 
 test('validates docx file structure', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     // Fake DOCX is a ZIP with specific internal structure
     // Invalid DOCX should be rejected
