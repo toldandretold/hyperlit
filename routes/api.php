@@ -386,27 +386,14 @@ Route::get('resolve-chain/{book}/{rest}', [\App\Http\Controllers\TextController:
 
 // API routes for transferring data from database to IndexedDB
 Route::prefix('database-to-indexeddb')->group(function () {
-    // Get list of available books
-    Route::get('books', [DatabaseToIndexedDBController::class, 'getAvailableBooks'])
-        ->name('api.database-to-indexeddb.books');
-
     // Sub-book routes ({subId} allows slashes for nested IDs like "2/HL_123/HL_456")
     // Must be defined before the single-segment routes to avoid {bookId} swallowing the slash.
     Route::get('books/{parentBook}/{subId}/data', [DatabaseToIndexedDBController::class, 'getSubBookData'])
         ->where('subId', '.+')
         ->name('api.database-to-indexeddb.sub-book-data');
-    Route::get('books/{parentBook}/{subId}/metadata', [DatabaseToIndexedDBController::class, 'getSubBookMetadata'])
-        ->where('subId', '.+')
-        ->name('api.database-to-indexeddb.sub-book-metadata');
-    Route::get('books/{parentBook}/{subId}/library', [DatabaseToIndexedDBController::class, 'getSubBookLibrary'])
-        ->where('subId', '.+')
-        ->name('api.database-to-indexeddb.sub-book-library');
     Route::get('books/{parentBook}/{subId}/initial', [DatabaseToIndexedDBController::class, 'getSubBookInitialChunk'])
         ->where('subId', '.+')
         ->name('api.database-to-indexeddb.sub-book-initial');
-    Route::get('books/{parentBook}/{subId}/annotations', [DatabaseToIndexedDBController::class, 'getSubBookAnnotations'])
-        ->where('subId', '.+')
-        ->name('api.database-to-indexeddb.sub-book-annotations');
 
     // Headings (lightweight TOC data when not fully loaded)
     Route::get('books/{bookId}/headings', [DatabaseToIndexedDBController::class, 'getBookHeadings'])
@@ -436,10 +423,6 @@ Route::prefix('database-to-indexeddb')->group(function () {
     // Get full book data for IndexedDB import
     Route::get('books/{bookId}/data', [DatabaseToIndexedDBController::class, 'getBookData'])
         ->name('api.database-to-indexeddb.book-data');
-
-    // Get just metadata (for checking if update needed)
-    Route::get('books/{bookId}/metadata', [DatabaseToIndexedDBController::class, 'getBookMetadata'])
-        ->name('api.database-to-indexeddb.book-metadata');
 
     // Get just annotations (hyperlights + hypercites) for a book
     Route::get('books/{bookId}/annotations', [DatabaseToIndexedDBController::class, 'getBookAnnotations'])

@@ -29,6 +29,11 @@ Route::get('/home', [HomeController::class, 'index']);
 // Sitemap
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 
+// Per-book Open Graph card (link-preview image)
+Route::get('/og/{book}.png', [\App\Http\Controllers\OgImageController::class, 'show'])
+     ->where('book', '[A-Za-z0-9_-]+')
+     ->name('og.image');
+
 // Offline fallback page - now served as static /public/offline.html by Service Worker
 
 // Standalone sub-book route: /based/{subBookId} loads sub-book as full-screen

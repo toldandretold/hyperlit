@@ -177,207 +177,6 @@ class DatabaseToIndexedDBController extends Controller
         }
     }
 
-    private function getVisibleHyperlightIds(string $bookId): array
-    {
-        $user = Auth::user();
-        $anonymousToken = request()->cookie('anon_token');
-
-        $query = DB::table('hyperlights')
-            ->where('book', $bookId)
-            ->where(function($q) use ($user, $anonymousToken) {
-                $q->where('hidden', false);
-
-                // Prioritized auth: username first, then token only if no username
-                if ($user) {
-                    // Logged-in user: show highlights with matching username OR highlights with no username but matching token
-                    $q->orWhere(function($subQ) use ($user, $anonymousToken) {
-                        $subQ->where('creator', $user->name);
-                        // Also show highlights that were created anonymously but user took ownership
-                        if ($anonymousToken) {
-                            $subQ->orWhere(function($tokenQ) use ($anonymousToken) {
-                                $tokenQ->whereNull('creator')
-                                       ->where('creator_token', $anonymousToken);
-                            });
-                        }
-                    });
-                } elseif ($anonymousToken) {
-                    // Anonymous user: only show highlights with no username but matching token
-                    $q->orWhere(function($subQ) use ($anonymousToken) {
-                        $subQ->whereNull('creator')
-                             ->where('creator_token', $anonymousToken);
-                    });
-                }
-            });
-
-        return $query->pluck('hyperlight_id')->toArray();
-    }
-
-    /**
-     * Get node chunks for a book - matches your IndexedDB structure
-     */
-    private function getNodes(string $bookId, array $visibleHyperlightIds): array
-    {
-
-        // Get processed highlights with is_user_highlight flag
-        $processedHighlights = $this->getHyperlights($bookId);
-
-        $highlightLookup = [];
-        foreach ($processedHighlights as $highlight) {
-            $highlightLookup[$highlight['hyperlight_id']] = $highlight;
-        }
-
-        // Pre-fetch ALL hyperlights and hypercites for this book (avoid N+1 queries)
-        $hyperlightsByNode = $this->getAllHyperlightsByNode($bookId, $visibleHyperlightIds, $highlightLookup);
-        $hypercitesByNode = $this->getAllHypercitesByNode($bookId);
-
-        $chunks = DB::table('nodes')
-            ->where('book', $bookId)
-            ->orderBy('chunk_id')
-            ->get()
-            ->map(function ($chunk) use ($hyperlightsByNode, $hypercitesByNode) {
-                $nodeUUID = $chunk->node_id;
-
-                // Get pre-fetched annotations for this node (O(1) lookup)
-                $finalHyperlights = $hyperlightsByNode[$nodeUUID] ?? [];
-                $finalHypercites = $hypercitesByNode[$nodeUUID] ?? [];
-
-                return [
-                    'book' => $chunk->book,
-                    'chunk_id' => (float) $chunk->chunk_id,
-                    'startLine' => (float) $chunk->startLine,
-                    'node_id' => $chunk->node_id,
-                    'content' => $chunk->content,
-                    'plainText' => $chunk->plainText,
-                    'type' => $chunk->type,
-                    'footnotes' => json_decode($chunk->footnotes ?? '[]', true),
-                    'hypercites' => $finalHypercites,
-                    'hyperlights' => array_values($finalHyperlights),
-                    'raw_json' => json_decode($chunk->raw_json ?? '{}', true),
-                ];
-            })
-            ->toArray();
-
-        Log::info('Node chunks loaded', [
-            'book' => $bookId,
-            'chunks' => count($chunks),
-            'highlights' => count($hyperlightsByNode),
-            'hypercites' => count($hypercitesByNode)
-        ]);
-
-        return $chunks;
-    }
-
-    /**
-     * Fetch ALL hyperlights for a book in one query
-     * Returns array indexed by node_id for O(1) lookup
-     */
-    /**
-     * Fetch hyperlights for a book in one query, indexed by node_id for O(1) lookup.
-     * Each entry is the EMBEDDED per-node hyperlight view (TS `NodeHyperlightView` on NodeRecord.hyperlights),
-     * keyed by `highlightID`.
-     *
-     * @param  string[]                          $visibleIds  gate/visibility-filtered hyperlight ids to include
-     * @param  array<string, array{is_user_highlight: bool}> $lookup  per-id ownership decided upstream
-     * @return array<string, array<int, array{
-     *   highlightID: string, charStart: int, charEnd: int, annotation: ?string, creator: ?string,
-     *   preview_nodes: ?array, time_since: ?int, hidden: bool, is_user_highlight: bool
-     * }>>
-     */
-    private function getAllHyperlightsByNode(string $bookId, array $visibleIds, array $lookup): array
-    {
-        if (empty($visibleIds)) {
-            return [];
-        }
-
-        // Query all hyperlights for this book
-        $hyperlights = DB::table('hyperlights')
-            ->where('book', $bookId)
-            ->whereIn('hyperlight_id', $visibleIds)
-            ->get();
-
-        // Group by node_id
-        $byNode = [];
-        foreach ($hyperlights as $hl) {
-            $nodeIds = json_decode($hl->node_id ?? '[]', true);
-            $charData = json_decode($hl->charData ?? '{}', true);
-
-            foreach ($nodeIds as $nodeUUID) {
-                $nodeCharData = $charData[$nodeUUID] ?? null;
-
-                if (!$nodeCharData) {
-                    continue;
-                }
-
-                if (!isset($byNode[$nodeUUID])) {
-                    $byNode[$nodeUUID] = [];
-                }
-
-                $byNode[$nodeUUID][] = [
-                    'highlightID' => $hl->hyperlight_id,
-                    'charStart' => $nodeCharData['charStart'],
-                    'charEnd' => $nodeCharData['charEnd'],
-                    'annotation' => $hl->annotation,
-                    'creator' => $hl->creator,
-                    'preview_nodes' => $hl->preview_nodes
-                        ? json_decode($hl->preview_nodes, true)
-                        : null,
-                    'time_since' => $hl->time_since,
-                    'hidden' => $hl->hidden ?? false,
-                    'is_user_highlight' => $lookup[$hl->hyperlight_id]['is_user_highlight'] ?? false
-                ];
-            }
-        }
-
-        return $byNode;
-    }
-
-    /**
-     * Fetch ALL hypercites for a book in one query, indexed by node_id for O(1) lookup.
-     * Each entry is the EMBEDDED per-node hypercite view (TS `NodeHyperciteView` on NodeRecord.hypercites).
-     *
-     * @return array<string, array<int, array{
-     *   hyperciteId: string, charStart: int, charEnd: int,
-     *   relationshipStatus: string, citedIN: string[], time_since: ?int
-     * }>>
-     */
-    private function getAllHypercitesByNode(string $bookId): array
-    {
-        // Query all hypercites for this book
-        $hypercites = DB::table('hypercites')
-            ->where('book', $bookId)
-            ->get();
-
-        // Group by node_id
-        $byNode = [];
-        foreach ($hypercites as $hc) {
-            $nodeIds = json_decode($hc->node_id ?? '[]', true);
-            $charData = json_decode($hc->charData ?? '{}', true);
-
-            foreach ($nodeIds as $nodeUUID) {
-                $nodeCharData = $charData[$nodeUUID] ?? null;
-
-                if (!$nodeCharData) {
-                    continue;
-                }
-
-                if (!isset($byNode[$nodeUUID])) {
-                    $byNode[$nodeUUID] = [];
-                }
-
-                $byNode[$nodeUUID][] = [
-                    'hyperciteId' => $hc->hyperciteId,
-                    'charStart' => $nodeCharData['charStart'],
-                    'charEnd' => $nodeCharData['charEnd'],
-                    'relationshipStatus' => $hc->relationshipStatus,
-                    'citedIN' => json_decode($hc->citedIN ?? '[]', true),
-                    'time_since' => $hc->time_since
-                ];
-            }
-        }
-
-        return $byNode;
-    }
-
     /**
      * Build per-node hyperlight lookup from pre-fetched processed hyperlights (the getHyperlights() result).
      * Avoids redundant queries by deriving the per-node structure in-process. Each entry is the EMBEDDED
@@ -816,14 +615,8 @@ class DatabaseToIndexedDBController extends Controller
                     $isUserHighlight = $anonymousToken && $hyperlight->creator_token === $anonymousToken;
                 }
 
-                Log::info('🔍 Processing hyperlight in getHyperlights', [
-                    'hyperlight_id' => $hyperlight->hyperlight_id,
-                    'creator' => $hyperlight->creator,
-                    'creator_token' => $hyperlight->creator_token ? 'present' : 'null',
-                    'current_user_name' => $user ? $user->name : 'null',
-                    'current_anon_token' => $anonymousToken ? 'present' : 'null',
-                    'is_user_highlight' => $isUserHighlight
-                ]);
+                // (per-hyperlight processing log removed — it fired once per annotation on
+                //  every reader load; the start/complete summary logs below cover the totals.)
 
                 // 🔒 SECURITY: Never expose creator_token in API responses
                 // Only the owner needs to know ownership, which is indicated by is_user_highlight
@@ -1220,53 +1013,6 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
-     * Get just metadata for cache validation
-     */
-    public function getBookMetadata(Request $request, string $bookId): JsonResponse
-    {
-        try {
-            $bookId = BookSlugHelper::resolve($bookId);
-
-            // 🔒 CRITICAL: Check book visibility and access permissions (bypasses RLS)
-            $authError = $this->checkBookAuthorization($request, $bookId);
-            if ($authError) {
-                return $authError;
-            }
-
-            $chunkCount = DB::table('nodes')
-                ->where('book', $bookId)
-                ->count();
-
-            if ($chunkCount === 0) {
-                return response()->json([
-                    'error' => 'Book not found'
-                ], 404);
-            }
-
-            $latestUpdate = DB::table('nodes')
-                ->where('book', $bookId)
-                ->max('updated_at');
-
-            return response()->json([
-                'book_id' => $bookId,
-                'chunk_count' => $chunkCount,
-                'last_modified' => $latestUpdate,
-                'exists' => true,
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Error fetching book metadata', [
-                'book_id' => $bookId,
-                'error' => $e->getMessage()
-            ]);
-
-            return response()->json([
-                'error' => 'Internal server error'
-            ], 500);
-        }
-    }
-
-    /**
      * Get full sub-book data for IndexedDB import.
      * Sub-book IDs are two segments: {parentBook}/{subId} (e.g. TheBible/HL_12345).
      * Delegates to getBookData() with the reconstructed full ID.
@@ -1275,83 +1021,6 @@ class DatabaseToIndexedDBController extends Controller
     {
         $parentBook = BookSlugHelper::resolve($parentBook);
         return $this->getBookData($request, $parentBook . '/' . $subId);
-    }
-
-    /**
-     * Get sub-book metadata for cache validation.
-     */
-    public function getSubBookMetadata(Request $request, string $parentBook, string $subId): JsonResponse
-    {
-        $parentBook = BookSlugHelper::resolve($parentBook);
-        return $this->getBookMetadata($request, $parentBook . '/' . $subId);
-    }
-
-    /**
-     * Get sub-book library record.
-     */
-    public function getSubBookLibrary(Request $request, string $parentBook, string $subId): JsonResponse
-    {
-        $parentBook = BookSlugHelper::resolve($parentBook);
-        return $this->getBookLibrary($request, $parentBook . '/' . $subId);
-    }
-
-    /**
-     * Get list of available books
-     * SECURITY: Only returns public books, or private books owned by the current user
-     */
-    public function getAvailableBooks(Request $request): JsonResponse
-    {
-        try {
-            $user = Auth::user();
-            $anonymousToken = $request->cookie('anon_token');
-
-            // Build query with visibility filtering
-            $query = DB::table('nodes')
-                ->join('library', 'nodes.book', '=', 'library.book')
-                ->select('nodes.book')
-                ->selectRaw('COUNT(*) as chunk_count')
-                ->selectRaw('MAX(nodes.updated_at) as last_modified')
-                ->where(function ($q) use ($user, $anonymousToken) {
-                    // Public books are visible to everyone
-                    $q->where('library.visibility', 'public');
-
-                    // Private books visible only to owner
-                    if ($user) {
-                        $q->orWhere(function ($sub) use ($user) {
-                            $sub->where('library.visibility', 'private')
-                                ->where('library.creator', $user->name);
-                        });
-                    }
-
-                    // Anonymous users can see their own private books via token
-                    if ($anonymousToken) {
-                        $q->orWhere(function ($sub) use ($anonymousToken) {
-                            $sub->where('library.visibility', 'private')
-                                ->where('library.creator_token', $anonymousToken);
-                        });
-                    }
-                })
-                // Exclude deleted books
-                ->where('library.visibility', '!=', 'deleted')
-                ->groupBy('nodes.book')
-                ->orderBy('nodes.book');
-
-            $books = $query->get();
-
-            return response()->json([
-                'books' => $books->toArray(),
-                'total_books' => $books->count(),
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Error fetching available books', [
-                'error' => $e->getMessage()
-            ]);
-
-            return response()->json([
-                'error' => 'Internal server error'
-            ], 500);
-        }
     }
 
     /**
@@ -1404,7 +1073,16 @@ class DatabaseToIndexedDBController extends Controller
                 $targetChunkId = $validChunkIds[0] ?? 0;
             }
 
-            // Pre-fetch all annotations ONCE for the entire request
+            // Pre-fetch all annotations ONCE for the entire request.
+            //
+            // SCALING NOTE: unlike nodes — which are chunked and lazy-loaded a chunk at a time
+            // (initial chunk here, the rest via getSingleChunk / getBookDataBatch) — ALL of the
+            // book's hyperlights and hypercites are loaded up-front in one shot, on the initial
+            // render. This is intentional and fine at today's annotation volumes (annotations are
+            // small relative to node content). If a book ever accumulates a very large number of
+            // annotations, the natural lever is to make these per-chunk / lazy too. The same
+            // full-book annotation fetch also happens in getBookData, getBookDataBatch and
+            // getSingleChunk.
             $hyperlights = $this->getHyperlights($bookId);
             $hypercites = $this->getHypercites($bookId);
 
@@ -1523,15 +1201,6 @@ class DatabaseToIndexedDBController extends Controller
                 'message' => 'Failed to fetch annotations'
             ], 500);
         }
-    }
-
-    /**
-     * Get annotations for a sub-book.
-     */
-    public function getSubBookAnnotations(Request $request, string $parentBook, string $subId): JsonResponse
-    {
-        $parentBook = BookSlugHelper::resolve($parentBook);
-        return $this->getBookAnnotations($request, $parentBook . '/' . $subId);
     }
 
     /**
@@ -1748,7 +1417,7 @@ class DatabaseToIndexedDBController extends Controller
 
     /**
      * Get node chunks for a specific chunk_id with embedded annotations.
-     * Variant of getNodes() filtered to a single chunk.
+     * Variant of getNodesWithPreFetched() filtered to a single chunk_id.
      * Accepts pre-fetched annotation lookups to avoid redundant queries.
      */
     private function getNodesForChunk(string $bookId, float $chunkId, array $hyperlightsByNode, array $hypercitesByNode): array

@@ -137,9 +137,7 @@ Async = the queued job an endpoint dispatches (concurrency-sensitive).
 ### F. Database → IndexedDB (read path the SPA boots from)
 | M | URI | Controller@method | Status | Covered by |
 |---|-----|-------------------|--------|-----------|
-| GET | /api/database-to-indexeddb/books | …@getAvailableBooks | ✅ | DatabaseToIndexedDBApiTest |
 | GET | /api/database-to-indexeddb/books/{book}/data | …@getBookData | ✅ | DatabaseToIndexedDBApiTest (404/403) |
-| GET | /api/database-to-indexeddb/books/{book}/metadata | …@getBookMetadata | ✅ | DatabaseToIndexedDBApiTest (404) |
 | GET | /api/database-to-indexeddb/books/{book}/library | …@getBookLibrary | ✅ | DatabaseToIndexedDBApiTest (404) |
 | GET | /api/database-to-indexeddb/books/{book}/annotations | …@getBookAnnotations | ✅ | DatabaseToIndexedDBApiTest (403) |
 | GET | /api/database-to-indexeddb/books/{book}/headings | …@getBookHeadings | ✅ | DatabaseToIndexedDBApiTest (404) |
@@ -147,7 +145,7 @@ Async = the queued job an endpoint dispatches (concurrency-sensitive).
 | GET | /api/database-to-indexeddb/books/{book}/chunk/{chunkId} | …@getSingleChunk | 🟡 | DatabaseToIndexedDBApiTest (route constraint) |
 | GET | /api/database-to-indexeddb/books/{book}/data/batch | …@getBookDataBatch | ✅ | DatabaseToIndexedDBApiTest (404) |
 | POST/GET | …/{book}/reading-position | …@save/getReadingPosition | 🟡 | DatabaseToIndexedDBApiTest (save 401) |
-| GET | …/{parent}/{subId}/* (data/metadata/library/initial/annotations) | …@getSubBook* | ✅ | DatabaseToIndexedDBApiTest (404) |
+| GET | …/{parent}/{subId}/* (data/initial) | …@getSubBook* | ✅ | DatabaseToIndexedDBApiTest (404) |
 
 ### G. Library, annotations, nodes, sync (author-gated writes)
 | M | URI | Controller@method | Status | Covered by |

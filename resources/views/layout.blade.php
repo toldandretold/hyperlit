@@ -22,11 +22,9 @@
     <meta property="og:type" content="{{ $ogType ?? 'website' }}">
     <meta property="og:url" content="{{ $ogUrl ?? url()->current() }}">
     <meta property="og:image" content="{{ $ogImage ?? asset('images/og-card.png') . '?v=2' }}">
-    @empty($ogImage)
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:type" content="image/png">
-    @endempty
     <meta property="og:site_name" content="Hyperlit">
 
     {{-- Twitter Card --}}

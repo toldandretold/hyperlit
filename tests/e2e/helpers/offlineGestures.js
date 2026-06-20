@@ -123,22 +123,75 @@ export async function createBaselineBook(page, spa, { paraCount = 30 } = {}) {
  * run the app's force-clearing `closeHyperlitContainer`, sweep any lingering stacked
  * overlays/containers, then WAIT until nothing is intercepting before returning.
  */
-async function dismissContainer(page, spa) {
-  await spa.closeHyperlitContainer(page); // JS-click + force-clear fallback for #hyperlit-container/#ref-overlay
-  await page.evaluate(() => {
-    document.querySelectorAll('.hyperlit-container-stacked').forEach((c) => c.classList.remove('open'));
-    document.querySelectorAll('.ref-overlay-stacked').forEach((o) => { o.classList.remove('active'); o.remove?.(); });
+async function overlayIsClear(page) {
+  return page.evaluate(() => {
     const ov = document.getElementById('ref-overlay');
-    if (ov) ov.classList.remove('active');
-    document.body.classList.remove('hyperlit-container-open');
+    const stacked = document.querySelector('.ref-overlay-stacked.active');
+    return (!ov || !ov.classList.contains('active')) && !stacked;
   });
+}
+
+async function dismissContainer(page, spa) {
+  // First WAIT for the open to actually commit (overlay active or a container open), so we
+  // don't clear before it appears and then have it pop back up and stick.
   await page
     .waitForFunction(() => {
       const ov = document.getElementById('ref-overlay');
-      const stacked = document.querySelector('.ref-overlay-stacked.active');
-      return (!ov || !ov.classList.contains('active')) && !stacked;
-    }, null, { timeout: 5000 })
+      const open = document.querySelector('#hyperlit-container.open, .hyperlit-container-stacked.open');
+      return (ov && ov.classList.contains('active')) || !!open;
+    }, null, { timeout: 4000 })
     .catch(() => {});
+  // The open is async and racy — online it renders late, offline its content fetch fails
+  // late — so a one-shot close can run before the overlay even appears (then it pops up
+  // and sticks). Loop: settle → app-close + force-clear → verify it STAYS clear.
+  for (let attempt = 0; attempt < 8; attempt++) {
+    await page.waitForTimeout(600); // let any in-flight open settle/fail first
+    await spa.closeHyperlitContainer(page).catch(() => {});
+    await page.evaluate(() => {
+      document.querySelectorAll('.hyperlit-container-stacked').forEach((c) => c.classList.remove('open'));
+      document.querySelectorAll('.ref-overlay-stacked').forEach((o) => { o.classList.remove('active'); o.remove?.(); });
+      document.querySelectorAll('#hyperlit-container').forEach((c) => { c.classList.remove('open'); c.classList.add('hidden'); });
+      const ov = document.getElementById('ref-overlay');
+      if (ov) ov.classList.remove('active');
+      document.body.classList.remove('hyperlit-container-open');
+    });
+    await page.waitForTimeout(350);
+    if (await overlayIsClear(page)) {
+      await page.waitForTimeout(450); // confirm it stays clear (no late re-open)
+      if (await overlayIsClear(page)) return;
+    }
+  }
+}
+
+/**
+ * Warm up lazy dynamic-import chunks ONLINE so the offline pass doesn't trip over Vite's
+ * dev server (which can't serve a not-yet-fetched chunk when offline — the footnote path
+ * does `import('../footnotes/footnoteInserter')`). A production build preloads these, so
+ * this is purely a dev-server accommodation.
+ *
+ * We warm by IMPORTING the exact module URL the app will use (resolved against the Vite
+ * dev origin discovered from an already-loaded module script) — no footnote gesture, so
+ * no sub-book/overlay side effects. The browser caches the module by URL; offline, the
+ * app's relative import resolves to the same URL → cache hit, no fetch.
+ */
+export async function warmUpLazyModules(page) {
+  const warmed = await page.evaluate(async () => {
+    const scripts = [...document.querySelectorAll('script[type="module"][src]')];
+    const sample = scripts.map((s) => s.src).find((s) => /\/resources\/js\//.test(s));
+    let origin = location.origin;
+    try { if (sample) origin = new URL(sample).origin; } catch { /* keep page origin */ }
+    const specifiers = [
+      '/resources/js/footnotes/footnoteInserter.ts',
+    ];
+    const results = [];
+    for (const spec of specifiers) {
+      const url = origin + spec;
+      try { await import(/* @vite-ignore */ url); results.push(`ok ${spec}`); }
+      catch (e) { results.push(`FAIL ${spec}: ${e && e.message}`); }
+    }
+    return results;
+  });
+  return warmed;
 }
 
 /** Ensure the main content is in edit mode (idempotent) before a toolbar gesture. */
@@ -176,35 +229,19 @@ export async function performOfflineAuthoring(page, spa) {
   };
   page.on('console', onConsole);
 
-  // ── Footnote FIRST, in the clean main-content edit context (mirrors the working
-  //    authoring specs, which insert a footnote right after typing). Opening a sub-book
-  //    and force-dismissing it offline leaves the editing context fragile, so the
-  //    sub-book openers (footnote, highlight) bracket the rest. ──
+  // Order matters offline. Each sub-book opener (highlight, footnote) is followed by a
+  // robust dismiss + a save settle so its node write lands before the next gesture churns
+  // the editing context. The no-sub-book gestures (hypercite, pastes) sit in the middle.
+
+  // ── Highlight: select an early phrase → copy-hyperlight → new <mark> in the node ──
   await ensureMainEditMode(page);
-  await clickIntoFirstBody(page);
-  const supsBefore = await page.evaluate(() => document.querySelectorAll('.main-content sup').length);
-  await page.click('#footnoteButton');
-  const gotSup = await page
-    .waitForFunction((b) => document.querySelectorAll('.main-content sup').length > b, supsBefore, { timeout: 10000 })
-    .then(() => true)
-    .catch(() => false);
-  if (!gotSup) {
-    const diag = await page.evaluate(() => {
-      const sel = window.getSelection();
-      const main = document.querySelector('.main-content');
-      const btn = document.getElementById('footnoteButton');
-      return {
-        isEditing: window.isEditing,
-        mainEditable: main?.getAttribute('contenteditable'),
-        fnBtnDisabled: btn?.classList.contains('disabled') || btn?.disabled || null,
-        selText: sel?.toString(),
-        rangeCount: sel?.rangeCount,
-        anchorInMain: sel?.anchorNode && main ? main.contains(sel.anchorNode) : null,
-      };
-    });
-    throw new Error(`footnote sup not inserted; diag=${JSON.stringify(diag)}; logs=${JSON.stringify(fnLogs.slice(-8))}`);
-  }
-  result.footnoteSubBookId = await activeSubBookId(page);
+  await selectPhraseInEarlyBody(page, 'lorem ipsum');
+  await spa.waitForHyperlightButtons(page);
+  const marksBefore = await page.evaluate(() => document.querySelectorAll('.main-content mark').length);
+  await page.click('#copy-hyperlight');
+  await page.waitForFunction((b) => document.querySelectorAll('.main-content mark').length > b, marksBefore, { timeout: 10000 });
+  result.hyperlightSubBookId = await activeSubBookId(page);
+  await page.waitForTimeout(1200); // let the marked node's save fire before dismiss churns state
   await dismissContainer(page, spa);
 
   // ── Hypercite: select an early phrase → copy (inserts <u> in main content) → paste.
@@ -227,17 +264,36 @@ export async function performOfflineAuthoring(page, spa) {
     await page.waitForTimeout(600);
   }
 
-  // ── Highlight LAST: select an early phrase → copy-hyperlight → new <mark>. Opens a
-  //    sub-book (dismissed after); nothing further needs a clean editing context. ──
+  // ── Footnote LAST: caret in a paragraph → footnoteButton → new <sup> ref in the node.
+  //    Opens a sub-book (dismissed after); nothing further needs a clean editing context. ──
   await ensureMainEditMode(page);
-  await selectPhraseInEarlyBody(page, 'lorem ipsum');
-  await spa.waitForHyperlightButtons(page);
-  const marksBefore = await page.evaluate(() => document.querySelectorAll('.main-content mark').length);
-  await page.click('#copy-hyperlight');
-  await page.waitForFunction((b) => document.querySelectorAll('.main-content mark').length > b, marksBefore, { timeout: 10000 });
-  result.hyperlightSubBookId = await activeSubBookId(page);
+  await clickIntoFirstBody(page);
+  const supsBefore = await page.evaluate(() => document.querySelectorAll('.main-content sup').length);
+  await page.click('#footnoteButton');
+  const gotSup = await page
+    .waitForFunction((b) => document.querySelectorAll('.main-content sup').length > b, supsBefore, { timeout: 10000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!gotSup) {
+    const diag = await page.evaluate(() => {
+      const sel = window.getSelection();
+      const main = document.querySelector('.main-content');
+      const btn = document.getElementById('footnoteButton');
+      return {
+        isEditing: window.isEditing,
+        mainEditable: main?.getAttribute('contenteditable'),
+        fnBtnDisabled: btn?.classList.contains('disabled') || btn?.disabled || null,
+        rangeCount: sel?.rangeCount,
+        anchorInMain: sel?.anchorNode && main ? main.contains(sel.anchorNode) : null,
+      };
+    });
+    throw new Error(`footnote sup not inserted; diag=${JSON.stringify(diag)}; logs=${JSON.stringify(fnLogs.slice(-8))}`);
+  }
+  result.footnoteSubBookId = await activeSubBookId(page);
+  await page.waitForTimeout(1200);
   await dismissContainer(page, spa);
 
+  page.off('console', onConsole);
   // Let the 3 s-debounced master sync write the WAL entries (offline → pending).
   await page.waitForTimeout(4000);
   return result;

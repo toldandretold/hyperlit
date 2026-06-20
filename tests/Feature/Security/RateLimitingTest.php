@@ -8,13 +8,14 @@
  */
 
 use App\Models\User;
-use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
-    // Clear rate limiters before each test
-    RateLimiter::clear('login');
-    RateLimiter::clear('register');
+    // Reset the throttle window. The routes use UNNAMED throttle:N,1 (keyed by route+IP), not the
+    // named limiters 'login'/'register', so RateLimiter::clear('login') cleared the wrong key.
+    // The throttle counter lives in the cache (phpunit sets CACHE_STORE=array) — flush it.
+    Cache::flush();
 });
 
 test('registration endpoint should be rate limited', function () {
@@ -50,7 +51,7 @@ test('login endpoint is rate limited after failed attempts', function () {
     ]);
 
     $rateLimitedCount = 0;
-    $attemptCount = 10;
+    $attemptCount = 25; // /api/login is throttle:20,1 — must exceed 20 to trip 429
 
     // Attempt multiple failed logins
     for ($i = 0; $i < $attemptCount; $i++) {
@@ -134,10 +135,12 @@ test('api endpoints are rate limited at 120 per minute', function () {
     $successCount = 0;
     $rateLimitedCount = 0;
 
-    // Attempt many rapid API calls
+    // Attempt many rapid API calls against a real throttle:120,1 route (the old `/api/home` was a
+    // 404 — an unmatched route carries no throttle middleware, so it could never 429). The throttle
+    // fires in middleware before the controller, so the 121st request is 429 regardless of body.
     for ($i = 0; $i < 130; $i++) {
         $response = $this->actingAs($user)
-            ->getJson('/api/home');
+            ->getJson('/api/import-progress/rate-limit-test-book');
 
         if ($response->status() === 429) {
             $rateLimitedCount++;
@@ -170,11 +173,15 @@ test('rate limiting cannot be bypassed with X-Forwarded-For header', function ()
         }
     }
 
-    // If rate limiting is properly configured with trusted proxies,
-    // X-Forwarded-For spoofing should NOT bypass limits
-    // This test may pass or fail depending on proxy configuration
-    // In production, only trusted proxies should set this header
-});
+    // CORRECT security property: spoofing X-Forwarded-For must NOT create a fresh per-IP bucket, so
+    // the per-IP limit should still trip → rateLimitedCount > 0.
+    expect($rateLimitedCount)->toBeGreaterThan(0);
+})->skip(
+    "REAL FINDING (not a test bug): bootstrap/app.php sets trustProxies(at: '*'), so the app honours a " .
+    "client-supplied X-Forwarded-For — \$request->ip() returns the spoofed value, giving each fake IP its " .
+    "own throttle bucket → per-IP rate limits are bypassable. Restrict trustProxies to the real LB/" .
+    "Cloudflare ranges (or key the limiter on CF-Connecting-IP), then un-skip this."
+);
 
 test('password reset is rate limited', function () {
     $user = $this->seedUser([
@@ -232,8 +239,9 @@ test('email enumeration via registration is rate limited', function () {
     $sameEmailAttempts = 0;
     $rateLimited = false;
 
-    // Attempt to register with same email multiple times
-    for ($i = 0; $i < 10; $i++) {
+    // Attempt to register with same email multiple times. /api/register is throttle:10,1, so the
+    // 11th request is the first 429 — loop past 10.
+    for ($i = 0; $i < 15; $i++) {
         $response = $this->postJson('/api/register', [
             'name' => "enumuser{$i}",
             'email' => 'existing@test.com',

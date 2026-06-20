@@ -6,7 +6,7 @@
     "moduleCount": 314,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3090,
+    "edgeCount": 3082,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -3858,30 +3858,6 @@
       ]
     },
     {
-      "id": "controller:DatabaseToIndexedDBController@getAvailableBooks",
-      "label": "getAvailableBooks",
-      "kind": "controller",
-      "dir": "pull",
-      "cls": "DatabaseToIndexedDBController",
-      "method": "getAvailableBooks",
-      "group": "content",
-      "tables": [
-        "library",
-        "nodes"
-      ],
-      "shape": [
-        "books",
-        "total_books"
-      ],
-      "types": [
-        "NodeHyperciteView",
-        "NodeHyperlightView",
-        "NodeRecord",
-        "PublicNode",
-        "ServerNodeRow"
-      ]
-    },
-    {
       "id": "controller:DatabaseToIndexedDBController@getBookAnnotations",
       "label": "getBookAnnotations",
       "kind": "controller",
@@ -4052,31 +4028,6 @@
       ]
     },
     {
-      "id": "controller:DatabaseToIndexedDBController@getBookMetadata",
-      "label": "getBookMetadata",
-      "kind": "controller",
-      "dir": "pull",
-      "cls": "DatabaseToIndexedDBController",
-      "method": "getBookMetadata",
-      "group": "content",
-      "tables": [
-        "nodes"
-      ],
-      "shape": [
-        "book_id",
-        "chunk_count",
-        "exists",
-        "last_modified"
-      ],
-      "types": [
-        "NodeHyperciteView",
-        "NodeHyperlightView",
-        "NodeRecord",
-        "PublicNode",
-        "ServerNodeRow"
-      ]
-    },
-    {
       "id": "controller:DatabaseToIndexedDBController@getInitialChunk",
       "label": "getInitialChunk",
       "kind": "controller",
@@ -4166,36 +4117,6 @@
       ]
     },
     {
-      "id": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
-      "label": "getSubBookAnnotations",
-      "kind": "controller",
-      "dir": "pull",
-      "cls": "DatabaseToIndexedDBController",
-      "method": "getSubBookAnnotations",
-      "group": "content",
-      "tables": [
-        "hypercites",
-        "hyperlights",
-        "library"
-      ],
-      "shape": [
-        "annotation",
-        "book",
-        "charData",
-        "creator",
-        "hidden",
-        "highlightedHTML",
-        "highlightedText",
-        "hyperlight_id",
-        "is_user_highlight",
-        "node_id",
-        "preview_nodes",
-        "raw_json",
-        "startLine",
-        "time_since"
-      ]
-    },
-    {
       "id": "controller:DatabaseToIndexedDBController@getSubBookData",
       "label": "getSubBookData",
       "kind": "controller",
@@ -4261,74 +4182,6 @@
         "raw_json",
         "startLine",
         "type"
-      ],
-      "types": [
-        "NodeHyperciteView",
-        "NodeHyperlightView",
-        "NodeRecord",
-        "PublicNode",
-        "ServerNodeRow"
-      ]
-    },
-    {
-      "id": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
-      "label": "getSubBookLibrary",
-      "kind": "controller",
-      "dir": "pull",
-      "cls": "DatabaseToIndexedDBController",
-      "method": "getSubBookLibrary",
-      "group": "content",
-      "tables": [
-        "library"
-      ],
-      "shape": [
-        "annotations_updated_at",
-        "author",
-        "bibtex",
-        "book",
-        "booktitle",
-        "chapter",
-        "creator",
-        "custom_license_text",
-        "editor",
-        "fileName",
-        "fileType",
-        "gate_defaults",
-        "is_owner",
-        "issue",
-        "journal",
-        "license",
-        "listed",
-        "note",
-        "pages",
-        "publisher",
-        "raw_json",
-        "school",
-        "timestamp",
-        "title",
-        "type",
-        "url",
-        "visibility",
-        "volume",
-        "year"
-      ]
-    },
-    {
-      "id": "controller:DatabaseToIndexedDBController@getSubBookMetadata",
-      "label": "getSubBookMetadata",
-      "kind": "controller",
-      "dir": "pull",
-      "cls": "DatabaseToIndexedDBController",
-      "method": "getSubBookMetadata",
-      "group": "content",
-      "tables": [
-        "nodes"
-      ],
-      "shape": [
-        "book_id",
-        "chunk_count",
-        "exists",
-        "last_modified"
       ],
       "types": [
         "NodeHyperciteView",
@@ -33883,12 +33736,6 @@
       "rel": "pull"
     },
     {
-      "id": "pg:hypercites__pull__controller:DatabaseToIndexedDBController@getSubBookAnnotations",
-      "source": "pg:hypercites",
-      "target": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
-      "rel": "pull"
-    },
-    {
       "id": "pg:hypercites__pull__controller:DatabaseToIndexedDBController@getSubBookData",
       "source": "pg:hypercites",
       "target": "controller:DatabaseToIndexedDBController@getSubBookData",
@@ -33944,12 +33791,6 @@
       "rel": "pull"
     },
     {
-      "id": "pg:hyperlights__pull__controller:DatabaseToIndexedDBController@getSubBookAnnotations",
-      "source": "pg:hyperlights",
-      "target": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
-      "rel": "pull"
-    },
-    {
       "id": "pg:hyperlights__pull__controller:DatabaseToIndexedDBController@getSubBookData",
       "source": "pg:hyperlights",
       "target": "controller:DatabaseToIndexedDBController@getSubBookData",
@@ -33959,12 +33800,6 @@
       "id": "pg:hyperlights__pull__controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
       "source": "pg:hyperlights",
       "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
-      "rel": "pull"
-    },
-    {
-      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getAvailableBooks",
-      "source": "pg:library",
-      "target": "controller:DatabaseToIndexedDBController@getAvailableBooks",
       "rel": "pull"
     },
     {
@@ -34004,12 +33839,6 @@
       "rel": "pull"
     },
     {
-      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getSubBookAnnotations",
-      "source": "pg:library",
-      "target": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
-      "rel": "pull"
-    },
-    {
       "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getSubBookData",
       "source": "pg:library",
       "target": "controller:DatabaseToIndexedDBController@getSubBookData",
@@ -34022,21 +33851,9 @@
       "rel": "pull"
     },
     {
-      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getSubBookLibrary",
-      "source": "pg:library",
-      "target": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
-      "rel": "pull"
-    },
-    {
       "id": "pg:library__pull__controller:DbHyperciteController@find",
       "source": "pg:library",
       "target": "controller:DbHyperciteController@find",
-      "rel": "pull"
-    },
-    {
-      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getAvailableBooks",
-      "source": "pg:nodes",
-      "target": "controller:DatabaseToIndexedDBController@getAvailableBooks",
       "rel": "pull"
     },
     {
@@ -34055,12 +33872,6 @@
       "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getBookHeadings",
       "source": "pg:nodes",
       "target": "controller:DatabaseToIndexedDBController@getBookHeadings",
-      "rel": "pull"
-    },
-    {
-      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getBookMetadata",
-      "source": "pg:nodes",
-      "target": "controller:DatabaseToIndexedDBController@getBookMetadata",
       "rel": "pull"
     },
     {
@@ -34085,12 +33896,6 @@
       "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
       "source": "pg:nodes",
       "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
-      "rel": "pull"
-    },
-    {
-      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getSubBookMetadata",
-      "source": "pg:nodes",
-      "target": "controller:DatabaseToIndexedDBController@getSubBookMetadata",
       "rel": "pull"
     },
     {

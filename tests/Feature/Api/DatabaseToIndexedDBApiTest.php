@@ -9,12 +9,6 @@
 
 afterEach(fn () => $this->cleanupApiFixtures());
 
-test('GET /api/database-to-indexeddb/books lists available books', function () {
-    $this->getJson('/api/database-to-indexeddb/books')
-        ->assertStatus(200)
-        ->assertJsonStructure(['books', 'total_books']);
-});
-
 test('GET …/books/{book}/data 404s for a book that does not exist', function () {
     $this->getJson('/api/database-to-indexeddb/books/apitest_nope/data')
         ->assertStatus(404)
@@ -44,11 +38,10 @@ test('POST …/books/{book}/reading-position 401s without a user identity', func
 
 /* ─── the other read variants: not-found / access-denied envelopes ── */
 
-test('the metadata/headings/initial/batch reads 404 for a book that does not exist', function (string $suffix) {
+test('the headings/initial/batch reads 404 for a book that does not exist', function (string $suffix) {
     $this->getJson("/api/database-to-indexeddb/books/apitest_nope/{$suffix}")
         ->assertStatus(404);
 })->with([
-    'metadata',
     'headings',
     'initial',
     'data/batch',
@@ -92,4 +85,4 @@ test('the sub-book read variants 404 for an unknown parent/sub', function (strin
     // method, so an unknown sub-book surfaces the same not-found envelope.
     $this->getJson("/api/database-to-indexeddb/books/apitest_nope/Fn1/{$suffix}")
         ->assertStatus(404);
-})->with(['data', 'metadata', 'initial']);
+})->with(['data', 'initial']);

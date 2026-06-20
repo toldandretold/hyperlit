@@ -81,6 +81,40 @@ export async function dumpBookNodes(page, bookId) {
 }
 
 /**
+ * Dump all records for a book from an arbitrary store (e.g. `hyperlights`, `hypercites`,
+ * `footnotes`). Hyperlights/hypercites live in their OWN stores and are rendered as
+ * `<mark>`/marks at display time — they are NOT embedded in `node.content` — so a test
+ * proves they persisted by reading the store, not the node HTML.
+ */
+export async function dumpStore(page, storeName, bookId = null) {
+  return page.evaluate(({ storeName, bookId }) => {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('MarkdownDB');
+      req.onerror = () => reject(new Error('open MarkdownDB failed'));
+      req.onsuccess = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(storeName)) { db.close(); return resolve([]); }
+        const tx = db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        let src = store;
+        try { if (store.indexNames.contains('book')) src = store.index('book'); } catch { /* no book index */ }
+        const useRange = bookId != null && src !== store;
+        const out = [];
+        const cursorReq = src.openCursor(useRange ? IDBKeyRange.only(bookId) : null);
+        cursorReq.onsuccess = (ev) => {
+          const cursor = ev.target.result;
+          if (!cursor) { db.close(); return resolve(out); }
+          const v = cursor.value;
+          if (bookId == null || v.book === bookId) out.push(v);
+          cursor.continue();
+        };
+        cursorReq.onerror = () => reject(new Error(`${storeName} cursor failed`));
+      };
+    });
+  }, { storeName, bookId });
+}
+
+/**
  * Dump the `historyLog` (write-ahead log / sync-recovery) entries for a book.
  *
  * Returns one row per WAL batch: `{ id, bookId, status, timestamp, nodeUpdates,

@@ -13,7 +13,7 @@ import {
 } from '../../helpers/offline.js';
 import { enableFnDiagScript } from '../../helpers/idbInspect.js';
 import {
-  createBaselineBook, performOfflineAuthoring, filterOfflineConsoleErrors,
+  createBaselineBook, performOfflineAuthoring, warmUpLazyModules, filterOfflineConsoleErrors,
 } from '../../helpers/offlineGestures.js';
 import { renumberWatchScript, forceDeepDecimalsAndRenumber } from '../../helpers/renumber.js';
 import { readBookData, readAnnotations } from '../../helpers/backendRead.js';
@@ -27,6 +27,8 @@ test.describe('Offline → online: full sync to Postgres', () => {
     await page.addInitScript(renumberWatchScript);
 
     const { bookId } = await createBaselineBook(page, spa, { paraCount: 30 });
+    const warmed = await warmUpLazyModules(page); // online: cache lazy footnote chunk
+    expect(warmed.every((r) => r.startsWith('ok')), `lazy module warm-up failed: ${JSON.stringify(warmed)}`).toBe(true);
 
     // ── Offline: author everything, then renumber LAST (its flush consolidates the queue) ──
     await goOffline(page);
@@ -51,9 +53,8 @@ test.describe('Offline → online: full sync to Postgres', () => {
     const pgContent = nodes.map((n) => n.content).join('\n');
     expect(pgContent, 'baseline paste text should be in PG').toMatch(/BASE paragraph/);
     expect(pgContent, 'offline pasted text should be in PG').toMatch(/OFF\d paragraph/);
-    expect(pgContent, 'hyperlight <mark> should be in PG node content').toMatch(/<mark/i);
-    expect(pgContent, 'hypercite <u> should be in PG node content').toMatch(/<u[^>]+id="hypercite_/i);
-    expect(pgContent, 'footnote <sup> should be in PG node content').toMatch(/<sup/i);
+    expect(pgContent, 'footnote <sup> should be inline in PG node content').toMatch(/<sup/i);
+    // (hyperlights/hypercites live in their own tables — asserted via the annotation counts below.)
 
     // ── Annotation counts reached PG ──
     expect(data.body.metadata.total_hyperlights, 'PG should have ≥1 hyperlight').toBeGreaterThanOrEqual(1);

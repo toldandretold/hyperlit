@@ -357,6 +357,11 @@ class TextController extends Controller
             'ogType' => $isArticle ? 'article' : 'book',
         ];
 
+        // Per-book Open Graph card (rendered citation). The ?v hash busts the
+        // scraper cache whenever any citation field changes.
+        $seo['ogImage'] = route('og.image', ['book' => $bookId])
+            . '?v=' . \App\Services\OgImage\OgImageRenderer::hash($library);
+
         // Google Scholar citation_* meta tags
         $citationMeta = [];
         $citationMeta['citation_title'] = $title;
