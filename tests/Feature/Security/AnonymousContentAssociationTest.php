@@ -72,17 +72,14 @@ test('authenticated user can only associate their own anonymous session cookie',
         'email' => 'legit@test.com',
     ]);
 
-    // User's own anonymous token (would normally come from cookie)
-    $userOwnToken = Str::uuid()->toString();
+    // Establish a REAL anonymous session the way the SPA does — the endpoint creates the session row
+    // and returns the token. (api/* routes don't encrypt the anon_token cookie, so the body token IS
+    // the cookie value the browser would send back.)
+    $anon = $this->postJson('/api/anonymous-session');
+    $anon->assertStatus(200);
+    $userOwnToken = $anon->json('token');
 
-    DB::table('anonymous_sessions')->insert([
-        'token' => $userOwnToken,
-        'created_at' => now(),
-        'last_used_at' => now(),
-        'ip_address' => '127.0.0.1',
-    ]);
-
-    // Create content with user's own anonymous token
+    // Create content with the user's own anonymous token
     $this->seedLibrary([
         'book' => 'my-book-security-test',
         'title' => 'My Book',
@@ -91,21 +88,39 @@ test('authenticated user can only associate their own anonymous session cookie',
         'visibility' => 'private',
     ]);
 
-    // User authenticates and provides their matching cookie
+    // User authenticates and claims their OWN anonymous content. Send the matching anon_token cookie:
+    // `withCredentials()` is REQUIRED because the test client drops cookies from JSON requests unless
+    // credentials are enabled (prepareCookiesForJsonRequest), and `withUnencryptedCookie` sends the raw
+    // token (these api routes don't run EncryptCookies). The cookie matches the body token → the
+    // anti-theft check (hash_equals) passes.
     $response = $this->actingAs($user)
+        ->withCredentials()
         ->withUnencryptedCookie('anon_token', $userOwnToken)
         ->postJson('/api/auth/associate-content', [
             'anonymous_token' => $userOwnToken,
         ]);
 
     $response->assertOk();
+    expect($response->json('success'))->toBeTrue()
+        ->and($response->json('counts.PgLibrary'))->toBe(1);
 
-    // Content should now be associated with user
-    $library = PgLibrary::on('pgsql_admin')->where('book', 'my-book-security-test')->first();
-    expect($library->creator)->toBe('legitimate_user');
+    // The transfer (a SECURITY DEFINER fn) sets creator = the user's name and clears creator_token. We
+    // verify the row on the request's own `pgsql` connection (the write is uncommitted, so the separate
+    // pgsql_admin connection can't see it). First restore the user's RLS context: the request leaves
+    // app.current_token set to the anon token (its set_config(...,true) is transaction-local, and under
+    // RefreshDatabase the whole test is one transaction), which breaks library_select_policy's users-JOIN.
+    DB::statement("SELECT set_config('app.current_user', ?, true)", [$user->name]);
+    DB::statement("SELECT set_config('app.current_token', ?, true)", [$user->user_token]);
 
-    // Clean up
-    PgLibrary::where('book', 'my-book-security-test')->delete();
+    $library = DB::selectOne(
+        'SELECT creator, creator_token FROM library WHERE book = ?',
+        ['my-book-security-test']
+    );
+    expect($library->creator)->toBe('legitimate_user')
+        ->and($library->creator_token)->toBeNull();
+
+    // Clean up (admin connection — the seed committed there)
+    PgLibrary::on('pgsql_admin')->where('book', 'my-book-security-test')->delete();
 });
 
 test('associate content requires authentication', function () {

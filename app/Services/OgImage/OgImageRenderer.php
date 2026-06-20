@@ -7,18 +7,27 @@ use ImagickDraw;
 use ImagickPixel;
 
 /**
- * Renders a per-book Open Graph card (1200x630) — the Hyperlit wordmark with a
- * formatted citation underneath, on an opaque dark background so it renders
- * identically on WhatsApp / LinkedIn / iMessage / Facebook (no transparency for
- * platforms to flatten differently). The citation mirrors the front-end
- * formatBibtexToCitation() format (book = italic title; article = quoted title).
+ * Renders a per-book Open Graph card (1200x630) — a title-page style layout:
+ * the Hyperlit wordmark top-left, then the book title (heading font), authors
+ * and venue below it. Drawn on an opaque dark background that matches the app's
+ * dark theme (no transparency for platforms to flatten differently, so it looks
+ * identical on WhatsApp / LinkedIn / iMessage / Facebook).
+ *
+ * Fonts + colours mirror the app theme (resources/css/theme/variables.css):
+ * Inter SemiBold (heading) + Inter Regular (body); background #221F20.
  */
 class OgImageRenderer
 {
     private const W = 1200;
     private const H = 630;
-    private const BG = '#111827';
-    private const TEXT = '#cbd5e1';
+
+    // Theme (variables.css): --hyperlit-black bg, --hyperlit-white text + muted tiers.
+    private const BG    = '#221F20';
+    private const TITLE = '#CBCCCC';
+    private const BODY  = '#B2B3B3';
+    private const FAINT = '#8F9090';
+
+    private const LEFT  = 80;   // text + logo left margin (logo squares align to text)
 
     /** Citation-relevant fields, in a stable order, used for both hashing + rendering. */
     private const FIELDS = ['author', 'title', 'year', 'journal', 'publisher', 'volume', 'issue', 'pages', 'booktitle', 'editor'];
@@ -30,8 +39,8 @@ class OgImageRenderer
         foreach (self::FIELDS as $f) {
             $parts[$f] = $library->$f ?? null;
         }
-        // bump 'v1' to force a global re-render after a design change
-        return substr(md5('v1|' . json_encode($parts)), 0, 10);
+        // bump 'v2' to force a global re-render after a design change
+        return substr(md5('v2|' . json_encode($parts)), 0, 10);
     }
 
     public static function isAvailable(): bool
@@ -55,133 +64,103 @@ class OgImageRenderer
         return trim(html_entity_decode($s ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'));
     }
 
-    /**
-     * Build the citation as an array of paragraphs (each rendered on its own
-     * line(s)), so the authors and the title are easy to parse at a glance:
-     *   paragraph 1 -> authors
-     *   paragraph 2 -> title (quoted if article, italic if book) + the rest
-     * Each paragraph is a list of [text, italic] segments.
-     */
-    private function citationParagraphs(object $d): array
+    /** Authors line, venue line — from the library row. */
+    private function citationLines(object $d): array
     {
-        $author    = $this->decode($d->author ?? '') ?: 'Unknown Author';
         $title     = $this->decode($d->title ?? '') ?: 'Untitled';
+        $author    = $this->decode($d->author ?? '');
         $journal   = $this->decode($d->journal ?? '');
         $publisher = $this->decode($d->publisher ?? '');
         $year      = $this->decode($d->year ?? '');
         $volume    = $this->decode($d->volume ?? '');
         $issue     = $this->decode($d->issue ?? '');
-        $isArticle = $journal !== '';
 
-        $titleSeg = $isArticle ? ['“' . $title . '”', false] : [$title, true];
+        // authors: normalise "A; B; C" -> "A, B, C"
+        $authors = $author !== '' ? str_replace('; ', ', ', $author) : '';
 
-        $tail = '';
-        if ($isArticle) {
-            if ($journal) $tail .= ', ' . $journal;
-            if ($volume)  { $tail .= ', ' . $volume; if ($issue) $tail .= '(' . $issue . ')'; }
-            if ($year)    $tail .= ' (' . $year . ')';
-        } else {
-            if ($publisher) { $tail .= ' (' . $publisher; if ($year) $tail .= ', ' . $year; $tail .= ')'; }
-            elseif ($year)  { $tail .= ' (' . $year . ')'; }
+        // venue: journal (+ vol(issue)) for articles, else publisher; then year
+        $bits = [];
+        if ($journal !== '') {
+            $v = $journal;
+            if ($volume !== '') { $v .= ' ' . $volume; if ($issue !== '') $v .= '(' . $issue . ')'; }
+            $bits[] = $v;
+        } elseif ($publisher !== '') {
+            $bits[] = $publisher;
         }
-        $tail .= '.';
+        if ($year !== '') $bits[] = $year;
+        $venue = implode(', ', $bits);
 
-        return [
-            [ [$author, false] ],          // authors on their own line
-            [ $titleSeg, [$tail, false] ], // title + everything else
-        ];
+        return [$title, $authors, $venue];
     }
 
     /** Returns PNG bytes for the given library row. */
     public function render(object $library): string
     {
-        $fontReg  = $this->fontPath('Inter-Regular.ttf');
-        $fontItal = $this->fontPath('Inter-Italic.ttf');
+        $fontTitle = $this->fontPath('Inter-SemiBold.ttf');
+        $fontBody  = $this->fontPath('Inter-Regular.ttf');
 
         $img = new Imagick();
         $img->newImage(self::W, self::H, new ImagickPixel(self::BG));
         $img->setImageFormat('png');
 
-        $leftMargin = 48;
-
-        // --- wordmark (composited, scaled, top-left) ---
+        // --- wordmark top-left; trim its transparent padding so the coloured
+        //     squares are the true left edge, aligned to the text margin ---
         $logo = new Imagick(public_path('images/og-default.png'));
-        $lw = $logo->getImageWidth();
-        $lh = $logo->getImageHeight();
-        $targetW = 740;
-        $scale = $targetW / $lw;
-        $logoH = (int) round($lh * $scale);
+        $logo->trimImage(0);
+        $logo->setImagePage(0, 0, 0, 0);
+        $targetW = 600;
+        $logoH = (int) round($logo->getImageHeight() * ($targetW / $logo->getImageWidth()));
         $logo->resizeImage($targetW, $logoH, Imagick::FILTER_LANCZOS, 1);
-        $logoY = 16;
-        $img->compositeImage($logo, Imagick::COMPOSITE_OVER, $leftMargin, $logoY);
+        $logoY = 104;
+        $img->compositeImage($logo, Imagick::COMPOSITE_OVER, self::LEFT, $logoY);
 
-        // --- citation: authors paragraph, then title (+ rest) paragraph ---
-        $paragraphs = $this->citationParagraphs($library);
-        $citationX = 96;   // citation indented further than the logo
-        $citationRight = 120; // right-side indent so lines wrap before the edge
-        $fontSize = 38;
-        $maxW = self::W - $citationX - $citationRight;
-        $lineH = 54;
-        $paraGap = 0;      // author->title gap == normal line gap
+        [$title, $authors, $venue] = $this->citationLines($library);
+        $maxW = self::W - self::LEFT - 120;
 
-        $measure = function (string $font, string $text) use ($img, $fontSize): float {
+        $measure = function (string $font, float $size, string $text) use ($img): float {
             $d = new ImagickDraw();
             $d->setFont($font);
-            $d->setFontSize($fontSize);
-            $m = $img->queryFontMetrics($d, $text);
-            return $m['textWidth'];
+            $d->setFontSize($size);
+            return $img->queryFontMetrics($d, $text)['textWidth'];
         };
 
-        $titleIndent = 32; // title paragraph indented further than the authors line
-
-        // greedy word-wrap for one paragraph's segments -> array of lines
-        $wrap = function (array $segments, float $maxW) use ($measure, $fontReg, $fontItal): array {
-            $words = [];
-            foreach ($segments as [$txt, $ital]) {
-                foreach (preg_split('/(\s+)/u', $txt, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) as $tok) {
-                    $words[] = [$tok, $ital];
-                }
-            }
+        // draw a left-aligned, word-wrapped block; returns the y after the block
+        $draw = function (string $font, float $size, string $color, string $text, float $y, float $lineH)
+                use ($img, $measure, $maxW): float {
+            if (trim($text) === '') return $y;
+            $words = preg_split('/\s+/u', trim($text));
             $lines = [];
-            $cur = [];
-            $curW = 0;
-            foreach ($words as [$tok, $ital]) {
-                $font = $ital ? $fontItal : $fontReg;
-                $w = $measure($font, $tok === ' ' ? ' ' : $tok);
-                if ($curW + $w > $maxW && $cur) {
+            $cur = '';
+            foreach ($words as $wd) {
+                $try = $cur === '' ? $wd : "$cur $wd";
+                if ($measure($font, $size, $try) > $maxW && $cur !== '') {
                     $lines[] = $cur;
-                    $cur = [];
-                    $curW = 0;
-                    if (trim($tok) === '') continue;
+                    $cur = $wd;
+                } else {
+                    $cur = $try;
                 }
-                $cur[] = [$tok, $ital, $w];
-                $curW += $w;
             }
-            if ($cur) $lines[] = $cur;
-            return $lines;
-        };
+            if ($cur !== '') $lines[] = $cur;
 
-        // draw paragraphs left-aligned, starting just below the wordmark
-        $y = $logoY + $logoH + 32 + $fontSize;
-        foreach ($paragraphs as $pi => $segments) {
-            $xBase = $citationX + ($pi > 0 ? $titleIndent : 0);
-            $paraMaxW = self::W - $xBase - $citationRight;
-            foreach ($wrap($segments, $paraMaxW) as $line) {
-                $x = $xBase;
-                foreach ($line as [$tok, $ital, $w]) {
-                    $d = new ImagickDraw();
-                    $d->setFont($ital ? $fontItal : $fontReg);
-                    $d->setFontSize($fontSize);
-                    $d->setFillColor(new ImagickPixel(self::TEXT));
-                    $img->annotateImage($d, $x, $y, 0, $tok);
-                    $x += $w;
-                }
+            foreach ($lines as $ln) {
+                $d = new ImagickDraw();
+                $d->setFont($font);
+                $d->setFontSize($size);
+                $d->setFillColor(new ImagickPixel($color));
+                $img->annotateImage($d, self::LEFT, $y, 0, $ln);
                 $y += $lineH;
             }
-            $y += $paraGap;
-        }
+            return $y;
+        };
 
-        // Strip alpha entirely -> opaque RGB, so no platform can flatten it oddly.
+        $y = $logoY + $logoH + 86;
+        $y = $draw($fontTitle, 46, self::TITLE, $title,   $y, 58);
+        $y += 14;
+        $y = $draw($fontBody,  28, self::BODY,  $authors, $y, 40);
+        $y += 6;
+        $y = $draw($fontBody,  24, self::FAINT, $venue,   $y, 34);
+
+        // opaque RGB out — no alpha for any platform to mishandle
         $img->setImageBackgroundColor(new ImagickPixel(self::BG));
         $img = $img->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
         $img->setImageAlphaChannel(Imagick::ALPHACHANNEL_OFF);
