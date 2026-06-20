@@ -119,8 +119,9 @@ test('authenticated user can only associate their own anonymous session cookie',
     expect($library->creator)->toBe('legitimate_user')
         ->and($library->creator_token)->toBeNull();
 
-    // Clean up (admin connection — the seed committed there)
-    PgLibrary::on('pgsql_admin')->where('book', 'my-book-security-test')->delete();
+    // No explicit cleanup here: the transfer leaves my-book-security-test locked by this test's open
+    // RefreshDatabase transaction, so an admin-connection DELETE now would deadlock. The afterEach
+    // cleanupRlsFixtures() removes it (lock-timeout-guarded) once the lock clears.
 });
 
 test('associate content requires authentication', function () {

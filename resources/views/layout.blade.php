@@ -21,7 +21,7 @@
     <meta property="og:description" content="{{ $ogDescription ?? $pageDescription ?? 'Read, write and publish hypertext literature' }}">
     <meta property="og:type" content="{{ $ogType ?? 'website' }}">
     <meta property="og:url" content="{{ $ogUrl ?? url()->current() }}">
-    <meta property="og:image" content="{{ $ogImage ?? asset('images/og-card.png') . '?v=2' }}">
+    <meta property="og:image" content="{{ $ogImage ?? asset('images/og-card.png') . '?v=3' }}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:type" content="image/png">
@@ -31,7 +31,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $ogTitle ?? $pageTitle ?? 'Hyperlit' }}">
     <meta name="twitter:description" content="{{ $ogDescription ?? $pageDescription ?? 'Read, write and publish hypertext literature' }}">
-    <meta name="twitter:image" content="{{ $ogImage ?? asset('images/og-card.png') . '?v=2' }}">
+    <meta name="twitter:image" content="{{ $ogImage ?? asset('images/og-card.png') . '?v=3' }}">
 
     {{-- Keywords --}}
     @if(!empty($keywords))

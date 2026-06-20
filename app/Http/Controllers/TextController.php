@@ -357,10 +357,11 @@ class TextController extends Controller
             'ogType' => $isArticle ? 'article' : 'book',
         ];
 
-        // Per-book Open Graph card (rendered citation). The ?v hash busts the
-        // scraper cache whenever any citation field changes.
-        $seo['ogImage'] = route('og.image', ['book' => $bookId])
-            . '?v=' . \App\Services\OgImage\OgImageRenderer::hash($library);
+        // Open Graph card: a single static branded card for every book (see the
+        // blade default, public/images/og-card.png). We previously rendered a
+        // per-book citation card via the /og/{book}.png route + OgImageRenderer
+        // (Imagick) — that machinery is kept but dormant; leaving $ogImage unset
+        // here makes the layout fall back to the static card.
 
         // Google Scholar citation_* meta tags
         $citationMeta = [];

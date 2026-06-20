@@ -152,20 +152,45 @@ trait SeedsRlsFixtures
     {
         $admin = DB::connection('pgsql_admin');
 
+        // A test whose REQUEST mutates a tracked admin-seeded row (e.g. the anonymous-content transfer
+        // UPDATEs `library`) leaves that row LOCKED by the still-open RefreshDatabase `pgsql` transaction
+        // — which is not rolled back until AFTER this afterEach hook runs. An admin DELETE of that row on
+        // the separate `pgsql_admin` connection would then block FOREVER (a cross-connection wait Postgres
+        // can't break, since the test transaction is idle, not deadlocked). A short lock_timeout turns that
+        // hang into a fast skip; the row is harmless (idempotent seeds overwrite it, and the next cleanup
+        // when no request holds the lock removes it). Without this, one such test hangs the whole suite.
+        try {
+            $admin->statement("SET lock_timeout = '2s'");
+        } catch (\Throwable $e) {
+            // ignore — best-effort
+        }
+
         if ($this->rlsSeededBooks) {
             $books = array_values(array_unique($this->rlsSeededBooks));
             foreach (['hyperlights', 'hypercites', 'nodes', 'library'] as $table) {
                 try {
                     $admin->table($table)->whereIn('book', $books)->delete();
                 } catch (\Throwable $e) {
-                    // table absent in this schema state — ignore
+                    // table absent, OR the row is locked by this test's open transaction (lock_timeout
+                    // fired) — either way, skip; it is overwritten/removed by a later seed or cleanup.
                 }
             }
             $this->rlsSeededBooks = [];
         }
         if ($this->rlsSeededUserIds) {
-            $admin->table('users')->whereIn('id', $this->rlsSeededUserIds)->delete();
+            try {
+                $admin->table('users')->whereIn('id', $this->rlsSeededUserIds)->delete();
+            } catch (\Throwable $e) {
+                // locked by this test's open transaction (lock_timeout fired) — skip, removed later.
+            }
             $this->rlsSeededUserIds = [];
+        }
+
+        // Restore the admin connection's default lock behaviour (it is reused across tests).
+        try {
+            $admin->statement('SET lock_timeout = 0');
+        } catch (\Throwable $e) {
+            // ignore — best-effort
         }
 
         // RefreshDatabase rolls back the transaction but does NOT reset Postgres SESSION config
