@@ -26,7 +26,7 @@ test('cannot associate content from another users anonymous token', function () 
         'token' => $victimToken,
         'created_at' => now(),
         'last_used_at' => now(),
-        'ip_address' => '192.168.1.100',
+        'ip_address' => '127.0.0.1',
     ]);
 
     // Create victim's content with the anonymous token
@@ -55,7 +55,7 @@ test('cannot associate content from another users anonymous token', function () 
     // After fix: Should return 403 Forbidden
 
     // Verify content was NOT transferred to attacker
-    $library = PgLibrary::where('book', 'victim-book-security-test')->first();
+    $library = PgLibrary::on('pgsql_admin')->where('book', 'victim-book-security-test')->first();
 
     // If the vulnerability exists, creator will be set to attacker
     // This test will FAIL until the vulnerability is fixed
@@ -79,7 +79,7 @@ test('authenticated user can only associate their own anonymous session cookie',
         'token' => $userOwnToken,
         'created_at' => now(),
         'last_used_at' => now(),
-        'ip_address' => '192.168.1.50',
+        'ip_address' => '127.0.0.1',
     ]);
 
     // Create content with user's own anonymous token
@@ -101,7 +101,7 @@ test('authenticated user can only associate their own anonymous session cookie',
     $response->assertOk();
 
     // Content should now be associated with user
-    $library = PgLibrary::where('book', 'my-book-security-test')->first();
+    $library = PgLibrary::on('pgsql_admin')->where('book', 'my-book-security-test')->first();
     expect($library->creator)->toBe('legitimate_user');
 
     // Clean up
@@ -151,7 +151,7 @@ test('cannot claim content already associated with another user', function () {
         'token' => $originalToken,
         'created_at' => now(),
         'last_used_at' => now(),
-        'ip_address' => '192.168.1.200',
+        'ip_address' => '127.0.0.1',
     ]);
 
     // Content already has a creator assigned
@@ -170,7 +170,7 @@ test('cannot claim content already associated with another user', function () {
         ]);
 
     // Verify original ownership preserved
-    $library = PgLibrary::where('book', 'already-owned-book')->first();
+    $library = PgLibrary::on('pgsql_admin')->where('book', 'already-owned-book')->first();
     expect($library->creator)->toBe('original_owner');
 
     // Clean up
@@ -184,7 +184,7 @@ test('highlights cannot be stolen via content association', function () {
         'token' => $victimToken,
         'created_at' => now(),
         'last_used_at' => now(),
-        'ip_address' => '192.168.1.150',
+        'ip_address' => '127.0.0.1',
     ]);
 
     // First create a book for the highlight
@@ -214,7 +214,7 @@ test('highlights cannot be stolen via content association', function () {
         ]);
 
     // Highlight should NOT be transferred
-    $highlight = PgHyperlight::where('hyperlight_id', 'victim-highlight-security')->first();
+    $highlight = PgHyperlight::on('pgsql_admin')->where('hyperlight_id', 'victim-highlight-security')->first();
 
     // This documents the vulnerability - test will fail until fixed
     expect($highlight->creator)->toBeNull();
@@ -230,7 +230,7 @@ test('hypercites cannot be stolen via content association', function () {
         'token' => $victimToken,
         'created_at' => now(),
         'last_used_at' => now(),
-        'ip_address' => '192.168.1.160',
+        'ip_address' => '127.0.0.1',
     ]);
 
     // Create book and hypercite
@@ -243,7 +243,7 @@ test('hypercites cannot be stolen via content association', function () {
 
     $this->seedHypercite([
         'book' => 'test-book-for-cite',
-        'hypercite_id' => 'victim-cite-security',
+        'hyperciteId' => 'victim-cite-security',
         'node_id' => 'n1',
         'hypercitedText' => 'Important citation',
         'creator_token' => $victimToken,
@@ -258,13 +258,13 @@ test('hypercites cannot be stolen via content association', function () {
             'anonymous_token' => $victimToken,
         ]);
 
-    $cite = PgHypercite::where('hypercite_id', 'victim-cite-security')->first();
+    $cite = PgHypercite::on('pgsql_admin')->where('hyperciteId', 'victim-cite-security')->first();
 
     // Documents vulnerability - test fails until fixed
     expect($cite->creator)->toBeNull();
 
     // Clean up
-    PgHypercite::where('hypercite_id', 'victim-cite-security')->delete();
+    PgHypercite::where('hyperciteId', 'victim-cite-security')->delete();
     PgLibrary::where('book', 'test-book-for-cite')->delete();
 });
 
@@ -276,7 +276,7 @@ test('expired anonymous tokens cannot be used for association', function () {
         'token' => $expiredToken,
         'created_at' => now()->subDays(91),
         'last_used_at' => now()->subDays(91),
-        'ip_address' => '192.168.1.180',
+        'ip_address' => '127.0.0.1',
     ]);
 
     $this->seedLibrary([
@@ -297,7 +297,7 @@ test('expired anonymous tokens cannot be used for association', function () {
 
     // Should ideally reject expired tokens
     // Note: Current implementation may still allow this
-    $library = PgLibrary::where('book', 'expired-token-book')->first();
+    $library = PgLibrary::on('pgsql_admin')->where('book', 'expired-token-book')->first();
 
     // Clean up
     PgLibrary::where('book', 'expired-token-book')->delete();

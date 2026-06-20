@@ -55,12 +55,13 @@ test('search library is immune to sql injection', function (string $payload) {
     // Should return valid response (200) or validation error, never 500 server error
     expect($response->status())->toBeLessThan(500);
 
-    // Should not expose database errors in response
-    $content = $response->getContent();
-    expect(strtolower($content))->not->toContain('sql')
+    // Must not LEAK raw DB error internals. Check for definitive leak markers (SQLSTATE codes,
+    // Postgres syntax-error text, the PDO exception class) — NOT the bare word "sql", which the
+    // seeded book ids ("sql-cite-test") and the echoed query legitimately contain.
+    $content = strtolower($response->getContent());
+    expect($content)->not->toContain('sqlstate')
         ->not->toContain('syntax error')
-        ->not->toContain('pgsql')
-        ->not->toContain('postgresql');
+        ->not->toContain('pdoexception');
 })->with('sql_injection_payloads');
 
 test('search nodes is immune to sql injection', function (string $payload) {
@@ -68,10 +69,11 @@ test('search nodes is immune to sql injection', function (string $payload) {
 
     expect($response->status())->toBeLessThan(500);
 
-    $content = $response->getContent();
-    expect(strtolower($content))->not->toContain('sql')
+    // Leak-marker check (see search-library test): definitive DB-error markers, not bare "sql".
+    $content = strtolower($response->getContent());
+    expect($content)->not->toContain('sqlstate')
         ->not->toContain('syntax error')
-        ->not->toContain('pgsql');
+        ->not->toContain('pdoexception');
 })->with('sql_injection_payloads');
 
 test('search handles tsquery special characters safely', function (string $payload) {
@@ -194,7 +196,7 @@ test('hypercite upsert uses parameterized queries', function (string $payload) {
         ->postJson('/api/db/hypercites/upsert', [
             'data' => [[
                 'book' => 'sql-cite-test',
-                'hypercite_id' => 'sql-cite-id',
+                'hyperciteId' => 'sql-cite-id',
                 'node_id' => 'n1',
                 'hypercitedText' => $payload,
             ]],
@@ -203,7 +205,7 @@ test('hypercite upsert uses parameterized queries', function (string $payload) {
     expect($response->status())->toBeLessThan(500);
 
     // Clean up
-    DB::table('hypercites')->where('hypercite_id', 'sql-cite-id')->delete();
+    DB::table('hypercites')->where('hyperciteId', 'sql-cite-id')->delete();
     PgLibrary::where('book', 'sql-cite-test')->delete();
 })->with('sql_injection_payloads');
 

@@ -2,6 +2,8 @@
 
 namespace Tests\Support;
 
+use App\Models\PgHypercite;
+use App\Models\PgHyperlight;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -52,6 +54,11 @@ trait SeedsRlsFixtures
         ];
         $data = array_merge($defaults, $attrs);
 
+        // Tests that pass a FIXED email/name (e.g. 'attacker@test.com') collide with leftover rows
+        // from a prior run (users_email_unique → 23505). Clear any residue for this email/name first.
+        DB::connection('pgsql_admin')->table('users')
+            ->where('email', $data['email'])->orWhere('name', $data['name'])->delete();
+
         $id = DB::connection('pgsql_admin')->table('users')->insertGetId($data);
         $this->rlsSeededUserIds[] = $id;
 
@@ -74,17 +81,33 @@ trait SeedsRlsFixtures
             'updated_at' => now(),
         ], $attrs);
 
-        DB::connection('pgsql_admin')->table('library')->insertOrIgnore($row);
+        // updateOrInsert (NOT insertOrIgnore): a leftover row for this fixed book id from a prior
+        // run (owned by a DIFFERENT random rls_test_* user) would otherwise be kept, so ownership
+        // wouldn't match the current test → spurious 403s in the cross-tenant suite. Overwrite it.
+        DB::connection('pgsql_admin')->table('library')->updateOrInsert(['book' => $book], $row);
         $this->rlsSeededBooks[] = $book;
 
         return $book;
     }
 
-    /** Seed a `hyperlights` row via the admin connection (same attrs as PgHyperlight::create). */
+    /**
+     * Seed a `hyperlights` row (same attrs as PgHyperlight::create). Goes through the Eloquent
+     * MODEL on the admin connection (not a raw table insert) so the `'array'` casts apply —
+     * `node_id`/`charData`/`preview_nodes` are jsonb columns, and a raw string/array would hit
+     * them as invalid JSON (SQLSTATE 22P02). `::on('pgsql_admin')` keeps it BYPASSRLS.
+     */
     protected function seedHyperlight(array $attrs): void
     {
-        $row = array_merge(['time_since' => time(), 'created_at' => now(), 'updated_at' => now()], $attrs);
-        DB::connection('pgsql_admin')->table('hyperlights')->insertOrIgnore($row);
+        // raw_json is NOT NULL on hyperlights AND is NOT cast on PgHyperlight (custom accessor —
+        // see the model note), so it must be json_encode()'d in write paths.
+        $row = array_merge(['time_since' => time(), 'raw_json' => json_encode($attrs), 'created_at' => now(), 'updated_at' => now()], $attrs);
+        // Drop any leftover row for this key first (prior-run residue would make create() throw a
+        // unique violation), then create through the model so the jsonb casts apply.
+        if (isset($attrs['book'], $attrs['hyperlight_id'])) {
+            DB::connection('pgsql_admin')->table('hyperlights')
+                ->where('book', $attrs['book'])->where('hyperlight_id', $attrs['hyperlight_id'])->delete();
+        }
+        PgHyperlight::on('pgsql_admin')->create($row);
         if (isset($attrs['book'])) {
             $this->rlsSeededBooks[] = $attrs['book'];
         }
@@ -93,18 +116,29 @@ trait SeedsRlsFixtures
     /** Seed a `nodes` row via the admin connection (same attrs as PgNode::create). */
     protected function seedNode(array $attrs): void
     {
-        $row = array_merge(['chunk_id' => 0, 'created_at' => now(), 'updated_at' => now()], $attrs);
-        DB::connection('pgsql_admin')->table('nodes')->insertOrIgnore($row);
+        // raw_json is NOT NULL on nodes; this is a RAW insert (no model casts), so json-encode it.
+        $row = array_merge(['chunk_id' => 0, 'raw_json' => json_encode($attrs), 'created_at' => now(), 'updated_at' => now()], $attrs);
+        // updateOrInsert by the [book, startLine] primary key so leftover residue is overwritten.
+        if (isset($attrs['book'], $attrs['startLine'])) {
+            DB::connection('pgsql_admin')->table('nodes')
+                ->updateOrInsert(['book' => $attrs['book'], 'startLine' => $attrs['startLine']], $row);
+        } else {
+            DB::connection('pgsql_admin')->table('nodes')->insertOrIgnore($row);
+        }
         if (isset($attrs['book'])) {
             $this->rlsSeededBooks[] = $attrs['book'];
         }
     }
 
-    /** Seed a `hypercites` row via the admin connection (same attrs as PgHypercite::create). */
+    /** Seed a `hypercites` row via the admin MODEL (casts apply for jsonb node_id/charData/citedIN). */
     protected function seedHypercite(array $attrs): void
     {
-        $row = array_merge(['time_since' => time(), 'created_at' => now(), 'updated_at' => now()], $attrs);
-        DB::connection('pgsql_admin')->table('hypercites')->insertOrIgnore($row);
+        $row = array_merge(['time_since' => time(), 'raw_json' => $attrs, 'created_at' => now(), 'updated_at' => now()], $attrs);
+        if (isset($attrs['book'], $attrs['hyperciteId'])) {
+            DB::connection('pgsql_admin')->table('hypercites')
+                ->where('book', $attrs['book'])->where('hyperciteId', $attrs['hyperciteId'])->delete();
+        }
+        PgHypercite::on('pgsql_admin')->create($row);
         if (isset($attrs['book'])) {
             $this->rlsSeededBooks[] = $attrs['book'];
         }
@@ -132,6 +166,18 @@ trait SeedsRlsFixtures
         if ($this->rlsSeededUserIds) {
             $admin->table('users')->whereIn('id', $this->rlsSeededUserIds)->delete();
             $this->rlsSeededUserIds = [];
+        }
+
+        // RefreshDatabase rolls back the transaction but does NOT reset Postgres SESSION config
+        // vars. SetDatabaseSessionContext sets app.current_user/token via set_config(..., false)
+        // (session-level) on each request, so the RLS context LEAKS into the next test on the
+        // reused connection. Clear it so cross-tenant tests start from a clean (anonymous) context.
+        foreach (['app.current_user', 'app.current_token', 'app.session_id'] as $var) {
+            try {
+                DB::statement("SELECT set_config(?, '', false)", [$var]);
+            } catch (\Throwable $e) {
+                // ignore — best-effort reset
+            }
         }
     }
 }

@@ -81,6 +81,67 @@ export async function dumpBookNodes(page, bookId) {
 }
 
 /**
+ * Dump the `historyLog` (write-ahead log / sync-recovery) entries for a book.
+ *
+ * Returns one row per WAL batch: `{ id, bookId, status, timestamp, nodeUpdates,
+ * nodeDeletions, hyperlights, hypercites, footnotes }` — the counts come from the
+ * stored `payload` so a test can see what a batch carried without dumping the lot.
+ *
+ * Key facts (resources/js/indexedDB/syncQueue/master.ts):
+ *   - A WAL entry is written ONLY when the batch has node changes (line 318-324) —
+ *     but when written it ALSO carries that window's hyperlights/hypercites/footnotes.
+ *   - Offline: the batch stays `status:"pending"` (line 351-359). Back online,
+ *     `retryFailedBatches` replays pending/failed and flips them to `"synced"`.
+ *
+ * So "all entries synced" == the offline queue drained to Postgres.
+ */
+export async function dumpHistoryLog(page, bookId = null) {
+  return page.evaluate(async (bookId) => {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('MarkdownDB');
+      req.onerror = () => reject(new Error('open MarkdownDB failed'));
+      req.onsuccess = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('historyLog')) {
+          db.close();
+          return resolve([]);
+        }
+        const tx = db.transaction('historyLog', 'readonly');
+        const store = tx.objectStore('historyLog');
+        const out = [];
+        const cursorReq = store.openCursor();
+        cursorReq.onsuccess = (evt) => {
+          const cursor = evt.target.result;
+          if (!cursor) {
+            db.close();
+            return resolve(out);
+          }
+          const v = cursor.value || {};
+          if (!bookId || v.bookId === bookId) {
+            const u = v.payload?.updates || {};
+            const d = v.payload?.deletions || {};
+            const len = (a) => (Array.isArray(a) ? a.length : 0);
+            out.push({
+              id: v.id ?? cursor.primaryKey,
+              bookId: v.bookId ?? null,
+              status: v.status ?? null,
+              timestamp: v.timestamp ?? null,
+              nodeUpdates: len(u.nodes),
+              nodeDeletions: len(d.nodes),
+              hyperlights: len(u.hyperlights),
+              hypercites: len(u.hypercites),
+              footnotes: len(u.footnotes),
+            });
+          }
+          cursor.continue();
+        };
+        cursorReq.onerror = () => reject(new Error('historyLog cursor failed'));
+      };
+    });
+  }, bookId);
+}
+
+/**
  * Parse a node's content HTML and return the sups it contains.
  * Pure function — runs in Node, not in the page.
  *

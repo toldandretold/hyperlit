@@ -27,7 +27,7 @@ class SearchController extends Controller
     public function searchLibrary(Request $request)
     {
         $query = $request->input('q', '');
-        $limit = min($request->input('limit', 20), self::MAX_RESULTS);
+        $limit = max(1, min((int) $request->input('limit', 20), self::MAX_RESULTS));
 
         if (strlen($query) < 2) {
             return response()->json([
@@ -300,7 +300,7 @@ class SearchController extends Controller
     public function searchNodes(Request $request)
     {
         $query = $request->input('q', '');
-        $limit = min($request->input('limit', 20), self::MAX_RESULTS);
+        $limit = max(1, min((int) $request->input('limit', 20), self::MAX_RESULTS));
 
         if (strlen($query) < 2) {
             return response()->json([

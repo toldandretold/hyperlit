@@ -474,6 +474,14 @@ public function bulkCreate(Request $request)
                 'message' => 'Invalid data format'
             ], 400);
             
+        } catch (\Illuminate\Database\QueryException $qe) {
+            // Malformed input tripping a DB constraint/data rule (SQLSTATE class 23/22) is a CLIENT error → 422.
+            $sqlState = (string) $qe->getCode();
+            if (str_starts_with($sqlState, '23') || str_starts_with($sqlState, '22')) {
+                return response()->json(['success' => false, 'message' => 'Invalid library data'], 422);
+            }
+            Log::error('BulkCreate QueryException: ' . $qe->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to sync data', 'error' => $qe->getMessage()], 500);
         } catch (\Exception $e) {
             Log::error('BulkCreate failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return response()->json([

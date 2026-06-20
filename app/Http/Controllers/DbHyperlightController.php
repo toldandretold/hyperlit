@@ -577,9 +577,15 @@ class DbHyperlightController extends Controller
                         continue;
                     }
 
-                    // Set hidden flag to true
-                    $existingRecord->hidden = true;
-                    $existingRecord->save();
+                    // Set hidden flag to true. The book-owner is NOT the highlight's creator, and the
+                    // hyperlights UPDATE RLS policy is creator-only — so $existingRecord->save() on the
+                    // default connection would be SILENTLY blocked (0 rows), and the moderation hide
+                    // would never persist. Book-ownership is already verified above ($isBookOwner), so
+                    // persist this one moderation update via the admin (BYPASSRLS) connection.
+                    DB::connection('pgsql_admin')->table('hyperlights')
+                        ->where('book', $bookId)
+                        ->where('hyperlight_id', $item['hyperlight_id'] ?? null)
+                        ->update(['hidden' => true, 'updated_at' => now()]);
 
                     $hiddenCount++;
                     if ($bookId) {

@@ -120,7 +120,7 @@ test('cannot modify another users hypercite', function () {
 
     $this->seedHypercite([
         'book' => 'idor-cite-test',
-        'hypercite_id' => 'idor-cite-id',
+        'hyperciteId' => 'idor-cite-id',
         'node_id' => 'n1',
         'hypercitedText' => 'Original citation by User A',
         'creator' => $userA->name,
@@ -132,18 +132,18 @@ test('cannot modify another users hypercite', function () {
         ->postJson('/api/db/hypercites/upsert', [
             'data' => [[
                 'book' => 'idor-cite-test',
-                'hypercite_id' => 'idor-cite-id',
+                'hyperciteId' => 'idor-cite-id',
                 'node_id' => 'n1',
                 'hypercitedText' => 'HIJACKED CITATION',
             ]],
         ]);
 
-    $cite = PgHypercite::where('hypercite_id', 'idor-cite-id')->first();
+    $cite = PgHypercite::where('hyperciteId', 'idor-cite-id')->first();
     expect($cite->hypercitedText)->toBe('Original citation by User A')
         ->and($cite->creator)->toBe('cite_owner');
 
     // Clean up
-    PgHypercite::where('hypercite_id', 'idor-cite-id')->delete();
+    PgHypercite::where('hyperciteId', 'idor-cite-id')->delete();
     PgLibrary::where('book', 'idor-cite-test')->delete();
 });
 
@@ -197,8 +197,10 @@ test('cannot modify another users book metadata', function () {
             ],
         ]);
 
-    // Verify original data preserved
-    $library = PgLibrary::where('book', 'metadata-idor-test')->first();
+    // Verify original data preserved — read the TRUE stored state via the admin (BYPASSRLS)
+    // connection; a default-connection read runs under the attacker's RLS context and can
+    // return a filtered/null row, masking what's actually persisted.
+    $library = PgLibrary::on('pgsql_admin')->where('book', 'metadata-idor-test')->first();
     expect($library->title)->toBe('Original Title')
         ->and($library->author)->toBe('Original Author')
         ->and($library->creator)->toBe('metadata_owner');
@@ -227,8 +229,8 @@ test('cannot change book visibility if not owner', function () {
             ],
         ]);
 
-    // Visibility should remain private
-    $library = PgLibrary::where('book', 'visibility-idor-test')->first();
+    // Visibility should remain private — read true stored state via admin (BYPASSRLS).
+    $library = PgLibrary::on('pgsql_admin')->where('book', 'visibility-idor-test')->first();
     expect($library->visibility)->toBe('private');
 
     // Clean up
@@ -350,8 +352,9 @@ test('book owner can hide highlights on their book', function () {
             ]],
         ]);
 
-    // Book owner CAN hide highlights on their book (this is intentional for moderation)
-    $highlight = PgHyperlight::where('hyperlight_id', 'hl-hide-test')->first();
+    // Book owner CAN hide highlights on their book (this is intentional for moderation).
+    // Read true stored state via admin (BYPASSRLS) so RLS context doesn't skew the check.
+    $highlight = PgHyperlight::on('pgsql_admin')->where('hyperlight_id', 'hl-hide-test')->first();
     expect($highlight->hidden)->toBeTrue();
 
     // Clean up
