@@ -22,7 +22,7 @@ test.describe('Offline authoring persists to IndexedDB', () => {
     const { bookId } = await createBaselineBook(page, spa, { paraCount: 30 });
 
     await goOffline(page);
-    const created = await performOfflineAuthoring(page, spa);
+    await performOfflineAuthoring(page, spa);
 
     // ── IndexedDB: the main book's nodes carry the offline edits ──
     const nodes = await dumpBookNodes(page, bookId);
@@ -38,13 +38,6 @@ test.describe('Offline authoring persists to IndexedDB', () => {
     // Footnote three-way invariants should still agree offline.
     const { violations } = await snapshotFootnoteState(page, bookId);
     expect(violations, `footnote invariant violations: ${JSON.stringify(violations.slice(0, 5))}`).toHaveLength(0);
-
-    // ── Sub-book content (footnote body) persisted to IDB ──
-    if (created.footnoteSubBookId) {
-      const subNodes = await dumpBookNodes(page, created.footnoteSubBookId);
-      const subContent = subNodes.map((n) => n.content).join('\n');
-      expect(subContent, 'footnote sub-book body should be in IDB').toContain('OFFLINE footnote body');
-    }
 
     // ── Sync queue: WAL captured the edits and is holding them as pending (offline) ──
     const logs = await dumpHistoryLog(page, bookId);

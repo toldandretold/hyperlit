@@ -93,7 +93,7 @@ test('authenticated user can only associate their own anonymous session cookie',
 
     // User authenticates and provides their matching cookie
     $response = $this->actingAs($user)
-        ->withCookie('anon_token', $userOwnToken)
+        ->withUnencryptedCookie('anon_token', $userOwnToken)
         ->postJson('/api/auth/associate-content', [
             'anonymous_token' => $userOwnToken,
         ]);
@@ -290,7 +290,7 @@ test('expired anonymous tokens cannot be used for association', function () {
     $user = $this->seedUser();
 
     $response = $this->actingAs($user)
-        ->withCookie('anon_token', $expiredToken)
+        ->withUnencryptedCookie('anon_token', $expiredToken)
         ->postJson('/api/auth/associate-content', [
             'anonymous_token' => $expiredToken,
         ]);

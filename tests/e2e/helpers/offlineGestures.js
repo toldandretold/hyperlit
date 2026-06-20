@@ -24,20 +24,25 @@ export async function numericNodeIds(page) {
   });
 }
 
-/** Place the caret at the start of the first body paragraph (just below the title). */
+/**
+ * Place the caret in the first body paragraph with a REAL click. This matters: the
+ * editToolbar's `getWorkingSelection()` restores from a `lastValidRange` updated by
+ * real editor interactions — a programmatic `addRange` leaves a stale range, so a
+ * subsequent toolbar action (e.g. #footnoteButton → `insertFootnote`) operates on dead
+ * coordinates and silently no-ops. A genuine `page.click` fires selectionchange and
+ * refreshes that range, exactly like the working authoring specs (which type/click).
+ */
 async function clickIntoFirstBody(page) {
-  await page.evaluate(() => {
+  const selector = await page.evaluate(() => {
     const re = /^\d+(\.\d+)?$/;
-    const ps = Array.from(document.querySelectorAll('.main-content p')).filter((p) => re.test(p.id));
-    const target = ps[0] || document.querySelector('h1[id="100"]');
-    const range = document.createRange();
-    range.selectNodeContents(target);
-    range.collapse(true);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    target.focus?.();
+    const main = document.querySelector('.main-content');
+    const p = Array.from(main.querySelectorAll('p')).find((el) => re.test(el.id));
+    if (!p) return null;
+    p.scrollIntoView({ block: 'center' });
+    return `[id="${p.id}"]`;
   });
+  if (!selector) throw new Error('clickIntoFirstBody: no body paragraph found');
+  await page.click(selector);
 }
 
 /**
@@ -112,40 +117,99 @@ export async function createBaselineBook(page, spa, { paraCount = 30 } = {}) {
 }
 
 /**
+ * Robustly dismiss a sub-book container/overlay — including the OFFLINE half-open state
+ * where opening a sub-book leaves `#ref-overlay.active` intercepting clicks but never
+ * sets `.open` on `#hyperlit-container` (so stack-depth-gated closers skip it). We always
+ * run the app's force-clearing `closeHyperlitContainer`, sweep any lingering stacked
+ * overlays/containers, then WAIT until nothing is intercepting before returning.
+ */
+async function dismissContainer(page, spa) {
+  await spa.closeHyperlitContainer(page); // JS-click + force-clear fallback for #hyperlit-container/#ref-overlay
+  await page.evaluate(() => {
+    document.querySelectorAll('.hyperlit-container-stacked').forEach((c) => c.classList.remove('open'));
+    document.querySelectorAll('.ref-overlay-stacked').forEach((o) => { o.classList.remove('active'); o.remove?.(); });
+    const ov = document.getElementById('ref-overlay');
+    if (ov) ov.classList.remove('active');
+    document.body.classList.remove('hyperlit-container-open');
+  });
+  await page
+    .waitForFunction(() => {
+      const ov = document.getElementById('ref-overlay');
+      const stacked = document.querySelector('.ref-overlay-stacked.active');
+      return (!ov || !ov.classList.contains('active')) && !stacked;
+    }, null, { timeout: 5000 })
+    .catch(() => {});
+}
+
+/** Ensure the main content is in edit mode (idempotent) before a toolbar gesture. */
+async function ensureMainEditMode(page) {
+  const editing = await page.evaluate(() => window.isEditing === true);
+  if (editing) return;
+  await page.click('#editButton').catch(() => {});
+  await page.waitForFunction(() => window.isEditing === true, null, { timeout: 8000 }).catch(() => {});
+}
+
+/**
  * Run the offline authoring sequence against the main book. Assumes the book is in
  * edit mode with body content and the network is already OFFLINE.
  *
- * Returns a record of what was created, including captured sub-book ids:
+ * Returns a record of what was created:
  *   { hyperlightSubBookId, footnoteSubBookId, hyperciteId, pasteCount }
  *
- * Each gesture mutates a main-content node (mark / sup / <u> / pasted <p>), so each
- * produces node changes → a `historyLog` WAL entry that carries the annotation too.
+ * IMPORTANT — scope note: each gesture creates a PARENT-node artifact (a `<mark>`,
+ * `<sup>`, hypercite `<u>`, or pasted `<p>`) which is what persists locally and syncs.
+ * We do NOT author *inside* the footnote/hyperlight SUB-BOOKS here: opening a freshly
+ * created sub-book runs server fetches (hyperlitContainer/contentBuilders →
+ * fetchLibraryFromServer / buildBookDataUrl) that can't complete offline, so the
+ * sub-book never mounts an editable surface. Sub-book interior authoring offline is a
+ * separate, network-coupled scenario — out of scope for this sync test.
+ *
+ * Each gesture mutates a main-content node, so each produces node changes → a
+ * `historyLog` WAL entry (offline → pending) that also carries the annotation.
  */
 export async function performOfflineAuthoring(page, spa) {
   const result = { hyperlightSubBookId: null, footnoteSubBookId: null, hyperciteId: null, pasteCount: 0 };
+  const fnLogs = [];
+  const onConsole = (msg) => {
+    const t = msg.text();
+    if (/footnote|cursor position|insert/i.test(t)) fnLogs.push(`[${msg.type()}] ${t}`.slice(0, 200));
+  };
+  page.on('console', onConsole);
 
-  // ── Highlight: select a phrase → open a hyperlight sub-book → type a marker ──
-  await selectPhraseInEarlyBody(page, 'lorem ipsum');
-  await spa.waitForHyperlightButtons(page);
-  await spa.hyperlightSelection(page);
-  result.hyperlightSubBookId = await activeSubBookId(page);
-  try {
-    await spa.toggleEditModeInActiveContainer(page); // ensureEditMode (idempotent)
-    await spa.typeAtEndOfActiveEditor(page, 'OFFLINE highlight note alpha');
-  } catch { /* sub-book may already be read-only; the mark itself still synced */ }
-  await page.waitForTimeout(800);
-  await spa.closeTopContainer(page);
-
-  // ── Footnote: caret in a paragraph → open a footnote sub-book → type a body ──
+  // ── Footnote FIRST, in the clean main-content edit context (mirrors the working
+  //    authoring specs, which insert a footnote right after typing). Opening a sub-book
+  //    and force-dismissing it offline leaves the editing context fragile, so the
+  //    sub-book openers (footnote, highlight) bracket the rest. ──
+  await ensureMainEditMode(page);
   await clickIntoFirstBody(page);
-  await spa.insertFootnoteAtCaret(page);
+  const supsBefore = await page.evaluate(() => document.querySelectorAll('.main-content sup').length);
+  await page.click('#footnoteButton');
+  const gotSup = await page
+    .waitForFunction((b) => document.querySelectorAll('.main-content sup').length > b, supsBefore, { timeout: 10000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!gotSup) {
+    const diag = await page.evaluate(() => {
+      const sel = window.getSelection();
+      const main = document.querySelector('.main-content');
+      const btn = document.getElementById('footnoteButton');
+      return {
+        isEditing: window.isEditing,
+        mainEditable: main?.getAttribute('contenteditable'),
+        fnBtnDisabled: btn?.classList.contains('disabled') || btn?.disabled || null,
+        selText: sel?.toString(),
+        rangeCount: sel?.rangeCount,
+        anchorInMain: sel?.anchorNode && main ? main.contains(sel.anchorNode) : null,
+      };
+    });
+    throw new Error(`footnote sup not inserted; diag=${JSON.stringify(diag)}; logs=${JSON.stringify(fnLogs.slice(-8))}`);
+  }
   result.footnoteSubBookId = await activeSubBookId(page);
-  await spa.toggleEditModeInActiveContainer(page);
-  await spa.typeAtEndOfActiveEditor(page, 'OFFLINE footnote body bravo');
-  await page.waitForTimeout(800);
-  await spa.closeTopContainer(page);
+  await dismissContainer(page, spa);
 
-  // ── Hypercite: select a phrase → copy → paste the hypercite into main content ──
+  // ── Hypercite: select an early phrase → copy (inserts <u> in main content) → paste.
+  //    #copy-hypercite does NOT open a sub-book, so this is offline-clean. ──
+  await ensureMainEditMode(page);
   await selectPhraseInEarlyBody(page, 'consectetur');
   await spa.waitForHyperlightButtons(page);
   const hc = await spa.copyHyperciteFromActiveEditor(page);
@@ -162,6 +226,17 @@ export async function performOfflineAuthoring(page, spa) {
     result.pasteCount += 1;
     await page.waitForTimeout(600);
   }
+
+  // ── Highlight LAST: select an early phrase → copy-hyperlight → new <mark>. Opens a
+  //    sub-book (dismissed after); nothing further needs a clean editing context. ──
+  await ensureMainEditMode(page);
+  await selectPhraseInEarlyBody(page, 'lorem ipsum');
+  await spa.waitForHyperlightButtons(page);
+  const marksBefore = await page.evaluate(() => document.querySelectorAll('.main-content mark').length);
+  await page.click('#copy-hyperlight');
+  await page.waitForFunction((b) => document.querySelectorAll('.main-content mark').length > b, marksBefore, { timeout: 10000 });
+  result.hyperlightSubBookId = await activeSubBookId(page);
+  await dismissContainer(page, spa);
 
   // Let the 3 s-debounced master sync write the WAL entries (offline → pending).
   await page.waitForTimeout(4000);

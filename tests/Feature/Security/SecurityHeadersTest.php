@@ -58,9 +58,10 @@ test('authenticated API responses prevent caching', function () {
     $response = $this->actingAs($user)
         ->getJson('/api/auth-check'); // a real authenticated API route (/api/home doesn't exist)
 
-    $cacheControl = $response->headers->get('Cache-Control');
-    expect($cacheControl)->toContain('no-store')
-        ->or->toContain('no-cache');
+    // The middleware sets `Cache-Control: no-store, no-cache, …` on api/* responses. (`->or->` is
+    // not valid Pest expectation chaining — assert the boolean directly.)
+    $cacheControl = (string) $response->headers->get('Cache-Control');
+    expect(str_contains($cacheControl, 'no-store') || str_contains($cacheControl, 'no-cache'))->toBeTrue();
 });
 
 // =============================================================================
