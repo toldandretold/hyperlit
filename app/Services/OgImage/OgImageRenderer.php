@@ -160,10 +160,11 @@ class OgImageRenderer
         $y += 6;
         $y = $draw($fontBody,  24, self::FAINT, $venue,   $y, 34);
 
-        // opaque RGB out — no alpha for any platform to mishandle
+        // opaque RGB out — flattening onto the solid background removes all
+        // transparency (no setImageAlphaChannel: that constant differs across
+        // ImageMagick versions); TRUECOLOR forces an RGB (no-alpha) PNG.
         $img->setImageBackgroundColor(new ImagickPixel(self::BG));
         $img = $img->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
-        $img->setImageAlphaChannel(Imagick::ALPHACHANNEL_OFF);
         $img->setImageType(Imagick::IMGTYPE_TRUECOLOR);
         $img->setImageFormat('png');
 
