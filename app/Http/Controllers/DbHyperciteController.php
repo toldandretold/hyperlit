@@ -178,9 +178,9 @@ class DbHyperciteController extends Controller
                     'hyperciteId' => $item['hyperciteId'] ?? null,
                     'node_id' => $item['node_id'] ?? null,
                     'charData' => $item['charData'] ?? null,
-                    'hypercitedText' => $item['hypercitedText'] ?? null,
+                    'hypercitedText' => NodeHtmlSanitizer::clean($item['hypercitedText'] ?? null),
                     'hypercitedHTML' => NodeHtmlSanitizer::clean($item['hypercitedHTML'] ?? null),
-                    'relationshipStatus' => $item['relationshipStatus'] ?? null,
+                    'relationshipStatus' => NodeHtmlSanitizer::clean($item['relationshipStatus'] ?? null),
                     'citedIN' => $item['citedIN'] ?? [],
                     'creator' => $creator,
                     'creator_token' => $creator_token,
@@ -314,7 +314,7 @@ class DbHyperciteController extends Controller
                     Log::debug('Upserting hypercite', [
                         'book' => $item['book'] ?? null,
                         'hyperciteId' => $item['hyperciteId'] ?? null,
-                        'relationshipStatus' => $item['relationshipStatus'] ?? null,
+                        'relationshipStatus' => NodeHtmlSanitizer::clean($item['relationshipStatus'] ?? null),
                         'citedIN' => $item['citedIN'] ?? []
                     ]);
 
@@ -326,9 +326,9 @@ class DbHyperciteController extends Controller
                         [
                             'node_id' => $item['node_id'] ?? null,
                             'charData' => $item['charData'] ?? null,
-                            'hypercitedText' => $item['hypercitedText'] ?? null,
+                            'hypercitedText' => NodeHtmlSanitizer::clean($item['hypercitedText'] ?? null),
                             'hypercitedHTML' => NodeHtmlSanitizer::clean($item['hypercitedHTML'] ?? null),
-                            'relationshipStatus' => $item['relationshipStatus'] ?? null,
+                            'relationshipStatus' => NodeHtmlSanitizer::clean($item['relationshipStatus'] ?? null),
                             'citedIN' => $item['citedIN'] ?? [],
                             'creator' => $creator,
                             'creator_token' => $creator_token,
@@ -355,6 +355,15 @@ class DbHyperciteController extends Controller
             // as a defensive fallback, in the standard shape (422, not the old 400).
             return ApiResponse::error('Invalid data format', 422);
 
+        } catch (\Illuminate\Database\QueryException $qe) {
+            // Malformed input that trips a DB constraint/data rule (null PK, FK miss, bad type —
+            // SQLSTATE class 23/22) is a CLIENT error: return 422, not a 500.
+            $sqlState = (string) $qe->getCode();
+            if (str_starts_with($sqlState, '23') || str_starts_with($sqlState, '22')) {
+                return ApiResponse::error('Invalid hypercite data', 422, ['error' => config('app.debug') ? $qe->getMessage() : null]);
+            }
+            Log::error('DbHyperciteController::upsert - QueryException', ['error' => $qe->getMessage()]);
+            return ApiResponse::error('Failed to sync data', 500, ['error' => $qe->getMessage()]);
         } catch (\Exception $e) {
             Log::error('DbHyperciteController::upsert - Exception', [
                 'error' => $e->getMessage(),

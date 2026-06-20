@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PgNode;
 use App\Models\PgLibrary;
+use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -481,7 +482,7 @@ class NodeHistoryController extends Controller
                 $currentNode->update([
                     'startLine' => $historicalNode->startLine,
                     'chunk_id' => $historicalNode->chunk_id,
-                    'content' => $historicalNode->content,
+                    'content' => NodeHtmlSanitizer::clean($historicalNode->content), // re-scrub on restore; old history may predate the sanitizer
                     'plainText' => $historicalNode->plainText,
                     'type' => $historicalNode->type,
                     'raw_json' => is_string($historicalNode->raw_json)
@@ -501,7 +502,7 @@ class NodeHistoryController extends Controller
                     'node_id' => $historicalNode->node_id,
                     'startLine' => $historicalNode->startLine,
                     'chunk_id' => $historicalNode->chunk_id,
-                    'content' => $historicalNode->content,
+                    'content' => NodeHtmlSanitizer::clean($historicalNode->content), // re-scrub on restore; old history may predate the sanitizer
                     'plainText' => $historicalNode->plainText,
                     'type' => $historicalNode->type,
                     'raw_json' => is_string($historicalNode->raw_json)

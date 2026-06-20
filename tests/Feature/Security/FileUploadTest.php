@@ -24,7 +24,7 @@ test('rejects polyglot jpg with embedded php code', function () {
     $file = UploadedFile::fake()->createWithContent('polyglot.jpg', $content);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'polyglot-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -40,7 +40,7 @@ test('rejects file with php extension', function () {
     $file = UploadedFile::fake()->create('malicious.php', 100, 'text/plain');
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'php-upload-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -69,7 +69,7 @@ SVG;
     $file = UploadedFile::fake()->createWithContent('malicious.svg', $svg);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'svg-xss-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -92,7 +92,7 @@ SVG;
     $file = UploadedFile::fake()->createWithContent('svg-events.svg', $svg);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'svg-events-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -118,7 +118,7 @@ SVG;
     $file = UploadedFile::fake()->createWithContent('svg-foreign.svg', $svg);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'svg-foreign-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -139,7 +139,7 @@ test('rejects html file with script tags', function () {
     $file = UploadedFile::fake()->createWithContent('malicious.html', $html);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'html-xss-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -157,7 +157,7 @@ test('rejects html with javascript protocol', function () {
     $file = UploadedFile::fake()->createWithContent('js-proto.html', $html);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'js-proto-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -174,7 +174,7 @@ test('rejects html with event handlers', function () {
     $file = UploadedFile::fake()->createWithContent('event-handler.html', $html);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'event-handler-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -191,7 +191,7 @@ test('rejects html with iframe', function () {
     $file = UploadedFile::fake()->createWithContent('iframe.html', $html);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'iframe-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -208,7 +208,7 @@ test('rejects html with meta refresh redirect', function () {
     $file = UploadedFile::fake()->createWithContent('meta-refresh.html', $html);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'meta-refresh-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -229,7 +229,7 @@ test('rejects markdown with xss payloads', function () {
     $file = UploadedFile::fake()->createWithContent('malicious.md', $markdown);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'md-xss-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -246,7 +246,7 @@ test('rejects markdown with javascript link', function () {
     $file = UploadedFile::fake()->createWithContent('js-link.md', $markdown);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'md-js-link-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -275,15 +275,31 @@ test('rejects zip with path traversal filenames', function () {
 test('rejects zip with executable files', function () {
     $user = $this->seedUser();
 
-    // ZIP containing .exe, .bat, .sh, .php, .js files should be rejected
-    // Validator checks for dangerous extensions
+    // A ZIP containing a dangerous extension (.exe) alongside a .md should be rejected
+    // (ValidationService blocks .exe/.bat/.sh/.php/.js/.vbs/.scr members).
+    $zipPath = tempnam(sys_get_temp_dir(), 'ziptest') . '.zip';
+    $zip = new \ZipArchive();
+    $zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+    $zip->addFromString('book.md', "# Title\n\nbody");
+    $zip->addFromString('evil.exe', "MZ\x90\x00binary");
+    $zip->close();
+
+    $file = new \Illuminate\Http\UploadedFile($zipPath, 'malicious.zip', 'application/zip', null, true);
+
+    $response = $this->actingAs($user)
+        ->withHeaders(['Accept' => 'application/json'])
+        ->post('/import-file', ['book' => 'zip-exe-test', 'title' => 'Test', 'markdown_file' => [$file]]);
+
+    expect($response->status())->toBeIn([400, 422]);
+
+    @unlink($zipPath);
 });
 
 test('rejects zip exceeding decompressed size limit', function () {
-    $user = $this->seedUser();
-
-    // ZIP bomb protection - total decompressed size > 200MB should be rejected
-});
+    // ZIP-bomb protection (200MB decompressed cap) exists in ValidationService::validateZipFile,
+    // but constructing a real bomb in a unit test is impractical. Covered by the unit-level
+    // validator test; marked todo here rather than left as a no-assertion (risky) stub.
+})->todo();
 
 // =============================================================================
 // EPUB VALIDATION TESTS
@@ -298,7 +314,7 @@ test('validates epub internal structure', function () {
     $file = UploadedFile::fake()->createWithContent('fake.epub', $zipContent);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'fake-epub-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -328,7 +344,7 @@ test('book id rejects path traversal patterns', function () {
         $file = UploadedFile::fake()->create('test.md', 100, 'text/plain');
 
         $response = $this->actingAs($user)
-            ->post('/import/store', [
+            ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
                 'book' => $pattern,
                 'title' => 'Test',
                 'markdown_file' => [$file],
@@ -352,7 +368,7 @@ test('rejects files exceeding size limit', function () {
     $file = UploadedFile::fake()->createWithContent('large.md', $largeContent);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'large-file-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -374,7 +390,7 @@ test('rejects files with invalid mime type', function () {
     $file = UploadedFile::fake()->createWithContent('fake.md', $binaryContent);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'binary-test',
             'title' => 'Test',
             'markdown_file' => [$file],
@@ -398,7 +414,7 @@ test('only accepts whitelisted mime types', function () {
         $file = UploadedFile::fake()->create('test.txt', 100, $mimeType);
 
         $response = $this->actingAs($user)
-            ->post('/import/store', [
+            ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
                 'book' => 'mime-test-' . md5($mimeType),
                 'title' => 'Test',
                 'markdown_file' => [$file],
@@ -431,14 +447,17 @@ HTML;
     $file = UploadedFile::fake()->createWithContent('valid.html', $html);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'sanitize-test',
             'title' => 'Test',
             'markdown_file' => [$file],
         ]);
 
-    // Valid HTML should be accepted and sanitized
-    // This tests that sanitization happens, not just rejection
+    // Valid, benign HTML passes upload CONTENT-validation (not a 422 rejection) — unlike the
+    // malicious-HTML tests above which are rejected. The actual sanitization runs later in the
+    // (async) conversion pipeline + NodeHtmlSanitizer on write, so it isn't observable here;
+    // what's synchronously verifiable is that clean HTML is accepted, not content-rejected.
+    expect($response->status())->not->toBe(422);
 });
 
 // =============================================================================
@@ -455,7 +474,7 @@ test('validates docx file structure', function () {
     $file = UploadedFile::fake()->createWithContent('fake.docx', $fakeDocx);
 
     $response = $this->actingAs($user)
-        ->post('/import/store', [
+        ->withHeaders(['Accept' => 'application/json'])->post('/import-file', [
             'book' => 'fake-docx-test',
             'title' => 'Test',
             'markdown_file' => [$file],

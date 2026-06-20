@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Responses\ApiResponse;
 use App\Models\PgReference;
+use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -51,7 +52,7 @@ class DbReferencesController extends Controller
                         'referenceId' => $item['referenceId'],
                         'source_id' => $item['source_id'] ?? null,
                         'canonical_source_id' => $item['canonical_source_id'] ?? null,
-                        'content' => $item['content'],
+                        'content' => NodeHtmlSanitizer::clean($item['content']),
                         'updated_at' => now(),
                         'created_at' => now(),
                     ]

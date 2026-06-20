@@ -6,6 +6,7 @@ use App\Helpers\SubBookIdHelper;
 use App\Http\Responses\ApiResponse;
 use App\Models\PgFootnote;
 use App\Services\BookDeletionService;
+use App\Services\Security\NodeHtmlSanitizer;
 use App\Services\SubBookRegistrar;
 use App\Traits\HandlesDatabaseSync;
 use Illuminate\Http\Request;
@@ -101,7 +102,7 @@ class DbFootnoteController extends Controller
 
                 if ($existing) {
                     $updates = [
-                        'content'     => $item['content'] ?? '',
+                        'content'     => NodeHtmlSanitizer::clean($item['content'] ?? '') ?? '',
                         'sub_book_id' => $subBookId,
                     ];
                     if ($previewNodes !== null) {
@@ -115,7 +116,7 @@ class DbFootnoteController extends Controller
                         'book'          => $book,
                         'sub_book_id'   => $subBookId,
                         'footnoteId'    => $item['footnoteId'],
-                        'content'       => $item['content'] ?? '',
+                        'content'       => NodeHtmlSanitizer::clean($item['content'] ?? '') ?? '',
                         'preview_nodes' => $previewNodes,
                     ]);
                 }

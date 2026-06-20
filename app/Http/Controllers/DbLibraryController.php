@@ -826,10 +826,19 @@ public function bulkCreate(Request $request)
      */
     private function sanitizeMetadata(array $data): array
     {
-        foreach (['title', 'author', 'note', 'bibtex', 'publisher', 'journal', 'booktitle', 'editor', 'school', 'chapter', 'pages', 'volume', 'issue', 'year', 'type'] as $f) {
+        foreach (['title', 'author', 'note', 'bibtex', 'publisher', 'journal', 'booktitle', 'editor', 'school', 'chapter', 'pages', 'volume', 'issue', 'year', 'type', 'custom_license_text'] as $f) {
             if (isset($data[$f]) && is_string($data[$f])) {
                 $data[$f] = NodeHtmlSanitizer::clean($data[$f]);
             }
+        }
+        // `url` needs a SCHEME check, not HTML sanitising: NodeHtmlSanitizer passes a
+        // schemeless `javascript:alert(1)` straight through (no `<`), and it ends up in
+        // an href. Allow http/https/mailto/relative; blank dangerous schemes. Strip
+        // whitespace/control chars first so `java\tscript:` can't hide the scheme.
+        if (isset($data['url']) && is_string($data['url'])) {
+            $url = trim($data['url']);
+            $probe = preg_replace('/[\s\x00-\x1F]+/', '', $url);
+            $data['url'] = preg_match('/^(?:javascript|vbscript|data)\s*:/i', $probe) ? null : $url;
         }
         return $data;
     }

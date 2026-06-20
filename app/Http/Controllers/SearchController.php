@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\CitationSearchService;
 use App\Services\SearchService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -57,6 +58,19 @@ class SearchController extends Controller
                 'count' => $results->count()
             ]);
 
+        } catch (QueryException $qe) {
+            // Malformed full-text query (to_tsquery syntax error). The query is
+            // parameterised, so this is NOT injection — return a graceful 422 instead
+            // of leaking a 500.
+            if (in_array($qe->getCode(), ['42601', '22023'], true)) {
+                return response()->json(['success' => false, 'message' => 'Invalid search query'], 422);
+            }
+            Log::error('Search query error: ' . $qe->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Search failed',
+                'error' => config('app.debug') ? $qe->getMessage() : null,
+            ], 500);
         } catch (\Exception $e) {
             Log::error('Library search failed: ' . $e->getMessage());
             return response()->json([
@@ -154,6 +168,19 @@ class SearchController extends Controller
                 'external_ingested' => $payload['external_ingested'],
             ]);
 
+        } catch (QueryException $qe) {
+            // Malformed full-text query (to_tsquery syntax error). The query is
+            // parameterised, so this is NOT injection — return a graceful 422 instead
+            // of leaking a 500.
+            if (in_array($qe->getCode(), ['42601', '22023'], true)) {
+                return response()->json(['success' => false, 'message' => 'Invalid search query'], 422);
+            }
+            Log::error('Search query error: ' . $qe->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Search failed',
+                'error' => config('app.debug') ? $qe->getMessage() : null,
+            ], 500);
         } catch (\Exception $e) {
             Log::error('Combined search failed: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
@@ -344,6 +371,19 @@ class SearchController extends Controller
                 'count' => $payload['count'],
             ]);
 
+        } catch (QueryException $qe) {
+            // Malformed full-text query (to_tsquery syntax error). The query is
+            // parameterised, so this is NOT injection — return a graceful 422 instead
+            // of leaking a 500.
+            if (in_array($qe->getCode(), ['42601', '22023'], true)) {
+                return response()->json(['success' => false, 'message' => 'Invalid search query'], 422);
+            }
+            Log::error('Search query error: ' . $qe->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Search failed',
+                'error' => config('app.debug') ? $qe->getMessage() : null,
+            ], 500);
         } catch (\Exception $e) {
             Log::error('Nodes search failed: ' . $e->getMessage());
             return response()->json([

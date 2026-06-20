@@ -173,7 +173,7 @@ class DbHyperlightController extends Controller
                         'hyperlight_id' => $item['hyperlight_id'] ?? null,
                         'node_id' => $item['node_id'] ?? null,
                         'charData' => $item['charData'] ?? null,
-                        'highlightedText' => $item['highlightedText'] ?? null,
+                        'highlightedText' => NodeHtmlSanitizer::clean($item['highlightedText'] ?? null),
                         'highlightedHTML' => NodeHtmlSanitizer::clean($item['highlightedHTML'] ?? null),
                         'annotation' => NodeHtmlSanitizer::clean($item['annotation'] ?? null),
                         'startLine' => $item['startLine'] ?? null,
@@ -207,12 +207,19 @@ class DbHyperlightController extends Controller
             // F5/F6: standard envelope + 422 (was a bare 400).
             return ApiResponse::error('Invalid data format', 422);
             
+        } catch (\Illuminate\Database\QueryException $qe) {
+            $sqlState = (string) $qe->getCode();
+            if (str_starts_with($sqlState, '23') || str_starts_with($sqlState, '22')) {
+                return response()->json(['success' => false, 'message' => 'Invalid highlight data'], 422);
+            }
+            Log::error('DbHyperlightController::bulkCreate - QueryException', ['error' => $qe->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Failed to sync data', 'error' => $qe->getMessage()], 500);
         } catch (\Exception $e) {
             Log::error('DbHyperlightController::bulkCreate - Exception', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to sync data',
@@ -319,7 +326,7 @@ class DbHyperlightController extends Controller
                                 : null,
                             'node_id' => $item['node_id'] ?? null,
                             'charData' => $item['charData'] ?? [],
-                            'highlightedText' => $item['highlightedText'] ?? null,
+                            'highlightedText' => NodeHtmlSanitizer::clean($item['highlightedText'] ?? null),
                             'highlightedHTML' => NodeHtmlSanitizer::clean($item['highlightedHTML'] ?? null),
                             'annotation' => NodeHtmlSanitizer::clean($item['annotation'] ?? null),
                             'preview_nodes' => $item['preview_nodes']
@@ -382,6 +389,15 @@ class DbHyperlightController extends Controller
             // as a defensive fallback, in the standard shape (422, not the old 400).
             return ApiResponse::error('Invalid data format', 422);
 
+        } catch (\Illuminate\Database\QueryException $qe) {
+            // Malformed input that trips a DB constraint/data rule (SQLSTATE class 23/22) is a
+            // CLIENT error → 422, not a 500.
+            $sqlState = (string) $qe->getCode();
+            if (str_starts_with($sqlState, '23') || str_starts_with($sqlState, '22')) {
+                return ApiResponse::error('Invalid highlight data', 422, ['error' => config('app.debug') ? $qe->getMessage() : null]);
+            }
+            Log::error('DbHyperlightController::upsert - QueryException', ['error' => $qe->getMessage()]);
+            return ApiResponse::error('Failed to sync data', 500, ['error' => $qe->getMessage()]);
         } catch (\Exception $e) {
             Log::error('DbHyperlightController::upsert - Exception', [
                 'error' => $e->getMessage(),

@@ -230,8 +230,11 @@ test('stored data is safe when used in subsequent queries', function () {
     // Should not cause server error
     expect($response->status())->toBeLessThan(500);
 
-    // Verify users table still exists
-    expect(User::count())->toBeGreaterThan(0);
+    // Verify the users table still EXISTS (i.e. the injection didn't DROP it). Read via the
+    // admin (BYPASSRLS) connection: a plain User::count() runs under RLS and returns 0 for this
+    // anonymous request (users SELECT policy = name matches app.current_user) — that's RLS
+    // hiding rows, NOT a dropped table. If the table were actually dropped this would throw.
+    expect(User::on('pgsql_admin')->count())->toBeGreaterThan(0);
 
     // Clean up
     PgLibrary::where('book', 'second-order-test')->delete();

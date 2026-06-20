@@ -140,6 +140,14 @@ class ValidationService
         // SECURITY FIX: Read entire file, not just first 1KB
         $content = file_get_contents($file->getPathname());
 
+        // Markdown is TEXT. Reject binary / non-UTF-8 payloads (a binary blob renamed `.md`):
+        // they pass the suspicious-pattern scan (random bytes match nothing) but crash the
+        // downstream converter with a 500. Reject cleanly here instead.
+        if ($content === false || !mb_check_encoding($content, 'UTF-8')) {
+            Log::warning('Markdown validation failed: content is not valid UTF-8 text');
+            return false;
+        }
+
         $suspiciousPatterns = [
             '/<script/i',
             '/javascript:/i',
