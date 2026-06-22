@@ -280,15 +280,51 @@ map onto fabrication (extreme citation error) and quotation error (content misma
 - **2.5 AI in digital humanities & peer review** (E, F) — the application context and the
   assistive-tool stance.
 
-## 9. Venue recommendation (you asked me to pick)
-Lead with a **research-integrity / scientometrics** venue, where the need is explicit and the
-evaluation paradigm (error rates, peer-review tooling) is native:
-- **Primary:** *Research Integrity and Peer Review* (BMC) — exact topical fit; already publishes the
-  Baethge/Jergas line.
-- **Strong alternatives:** *Quantitative Science Studies* (publishes scite); *Digital Scholarship in
-  the Humanities* or *Digital Humanities Quarterly* if you want the DH-method framing to lead;
-  *Scientometrics* for the metrics angle.
-- **AI venue** (NeSy workshop, or a *neuro-symbolic*-themed track) only if the architecture, not the
-  scholarly-communication problem, is your headline.
-Cross-disciplinary framing that travels: *"a neuro-symbolic, human-in-the-loop tool for citation
-integrity, demonstrated on humanities scholarship."*
+## 9. Target venue — CONFIRMED CALL
+
+**Collection: "Artificial intelligence and research integrity"** — *Research Integrity and Peer
+Review* (Springer Nature, BMC). **Submission deadline: 30 January 2027.** Open access; APC applies,
+but fee support is available (OAfundingpolicy@springernature.com / OA funding & support page) —
+worth pursuing.
+
+Standard peer review. Guest-editor manuscripts handled by the EiC.
+
+### Why this is an exceptional fit
+The collection's spine is the **assistive vs. generative** distinction — LLMs "where they can
+assist… but also where their use transcends into an undesired role, e.g., by generating rather than
+assisting." Our system *is* that distinction made concrete.
+
+**Paper → named topics in the call:**
+| Call topic | How the paper hits it |
+|---|---|
+| Distinguishing assistive and generative AI use | The system is deliberately *constrained to assist*: the verbatim guardrail forbids it from generating/hallucinating; "flag, not verdict" keeps the human deciding. |
+| Detection, disclosure, and management of inappropriate AI use | Arm 2 detects **fabricated citations** — the signature artifact of generative misuse. |
+| Ethical opportunities and risks of AI in peer review | Citation review as reviewer/editor support for the citation-checking burden (Barroga 2014). |
+| AI-assisted literature review and evidence synthesis | Adjacent: verifying that cited evidence supports the claims. |
+
+### Two consequences for the plan
+1. **Empirical basis is mandatory.** The call states a preference for "original articles with an
+   empirical basis… data-based evidence." A system-description paper will not suffice — **the
+   experiment + results IS the paper.** The evaluation harness is now the critical path.
+2. **Reframe: neuro-symbolic = method, research integrity = contribution.** Lead with the integrity
+   problem and the assistive/generative thesis; the neuro-symbolic architecture is *how* the system
+   stays assistive (constrained, non-generative). The DH corpus becomes the evaluation domain, not
+   the headline.
+
+### High-value Arm-2 upgrade (ecological validity + on-theme)
+Source the fabricated-reference arm from **actual LLM output**, not synthetic injection: prompt an
+LLM to produce cited paragraphs (it fabricates at known ~18–55% rates — Walters & Wilder 2023), then
+run the system on it and measure detection. This *instantiates the collection's exact thesis* — a
+constrained, assistive AI detecting a generative AI's integrity failures — with realistic data.
+Report detection rate, false-positive rate on the legitimate controls, and which stage catches each
+case (resolution vs. verification).
+
+### Working title candidates
+- "Assistive, not generative: a neuro-symbolic system for detecting citation-integrity failures,
+  including those introduced by large language models."
+- "Catching what the machine made up: constrained neuro-symbolic citation verification as an
+  assistive tool for research integrity."
+
+### Fallback venues (if rejected / if scope drifts)
+*Quantitative Science Studies* (publishes scite); *Digital Scholarship in the Humanities* /
+*Digital Humanities Quarterly* (DH-method lead); a NeSy workshop (architecture lead).
