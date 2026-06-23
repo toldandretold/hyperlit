@@ -5,6 +5,10 @@
 // re-upload path (which also calls self._awaitReconvert). Takes `self`.
 import { book } from '../../../app';
 import { pollImportProgress, showFootnoteAuditModal } from '../../../SPA/navigation/navigationRegistry';
+import {
+  setReconvertHandoff, setReconvertInProgress,
+  showReconvertOverlay, updateReconvertOverlay, hideReconvertOverlay,
+} from '../../../utilities/reconvertHandoff';
 
 export async function loadReconvertInfo(self: any) {
   try {
@@ -51,6 +55,11 @@ export async function handleReconvert(self: any) {
   const btn = self.container.querySelector("#reconvert-btn");
   if (btn) { btn.disabled = true; btn.textContent = 'Reconverting...'; }
 
+  // Block the reader behind an opaque overlay + pause the background node sync so the user can't
+  // see (or the renderer race against) the half-replaced book while it processes.
+  setReconvertInProgress(true);
+  showReconvertOverlay('Reconverting…');
+
   try {
     const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
     const resp = await fetch(`/api/books/${encodeURIComponent(book)}/reconvert`, {
@@ -70,13 +79,18 @@ export async function handleReconvert(self: any) {
     // percent on the button), then handle the audit + reload on completion.
     await self._awaitReconvert(result, book, {
       update(pct: any, msg: any) {
-        if (btn) btn.textContent = pct != null ? `${msg || 'Reconverting'}… ${Math.round(pct)}%` : (msg || 'Reconverting…');
+        const text = pct != null ? `${msg || 'Reconverting'}… ${Math.round(pct)}%` : (msg || 'Reconverting…');
+        if (btn) btn.textContent = text;
+        updateReconvertOverlay(text);
       },
       showError() {},
       restoreForm() {},
     });
   } catch (error: any) {
     console.error('Reconvert failed:', error);
+    // Failed before the reload — tear the overlay/guard back down so the reader is usable again.
+    setReconvertInProgress(false);
+    hideReconvertOverlay();
     alert('Reconversion failed: ' + error.message);
     if (btn) { btn.disabled = false; btn.textContent = 'Reconvert from source'; }
   }
@@ -114,8 +128,15 @@ export async function _awaitReconvert(self: any, result: any, bookId: any, progr
     }
   }
 
-  // Clear the now-stale IndexedDB content (keeps library record), then reload
+  // Clear the now-stale IndexedDB content (keeps library record), then reload.
   const { clearBookContentFromIndexedDB } = await import('../../../indexedDB/index');
   await clearBookContentFromIndexedDB(bookId);
+
+  // Hand the reload off to readerEntry: with IDB empty, a plain reload would take the racey
+  // fresh-load path (JSON load vs background chunk download) and render nodes out of order until
+  // a second manual refresh. The flag makes readerEntry force-fresh re-populate IDB in order,
+  // behind the blocking overlay, BEFORE the first render. (The overlay + guard survive the
+  // reload via this flag; the window guard is reset by the reload itself.)
+  setReconvertHandoff(bookId);
   window.location.reload();
 }

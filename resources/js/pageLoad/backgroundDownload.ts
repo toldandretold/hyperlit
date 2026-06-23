@@ -9,6 +9,7 @@ import {
 import { log, verbose } from '../utilities/logger';
 import { rebuildAndRenumber } from '../footnotes/FootnoteNumberingService';
 import { appendGateParam } from '../components/utilities/gateFilter';
+import { reconvertSyncActive } from '../utilities/reconvertHandoff';
 
 /**
  * How many chunks to fetch per batch request.
@@ -30,6 +31,14 @@ const CHUNKS_PER_BATCH = 50;
  */
 export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoader: any) {
     if (!bookId || !lazyLoader) return;
+
+    // While a reconvert is mid-flight (polling window) OR this is the gated first load right after
+    // a reconvert reload, stay OUT of the way: readerEntry force-fresh-populates IDB in order, and
+    // this path's upsert + rebuildAndRenumber re-render would race it and scramble node order.
+    if (reconvertSyncActive(bookId)) {
+        verbose.content('Reconvert in progress — skipping background download', 'backgroundDownloader.js');
+        return;
+    }
 
     // Guard against double-download
     if ((window as any)._backgroundDownloadInProgress) {

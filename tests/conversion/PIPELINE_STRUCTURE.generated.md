@@ -2,7 +2,7 @@
 
 > Built by `gen_pipeline_tree.py` from the actual `app/Python/{ingestion,digestion,shared}/`
 > tree + the decision registries in each module. Do NOT hand-edit — re-run the generator. A
-> no-drift test pins it. (52 per-unit `plain` notes feed the LLM report + the viewer.)
+> no-drift test pins it. (53 per-unit `plain` notes feed the LLM report + the viewer.)
 
 ## ingestion/ — read each input format → the common HTML (one folder per format)
 ```

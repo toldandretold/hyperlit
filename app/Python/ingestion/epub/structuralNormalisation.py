@@ -125,6 +125,50 @@ class EmptyElementRemover(EpubTransform):
         return {'removed': removed}
 
 
+# A "word character" (letter or digit, any script). A purely decorative ornament has none.
+_ORNAMENT_HAS_WORD = re.compile(r'\w', re.UNICODE)
+
+
+class AriaHiddenOrnamentRemover(EpubTransform):
+    """
+    Removes DECORATIVE ornament elements the publisher itself marked aria-hidden="true" and whose
+    text is purely ornamental (punctuation / symbols only — no letters or digits).
+
+    Trade EPUBs render a SCENE BREAK as an <hr> PLUS a repeated decorative glyph — e.g. Penguin
+    Random House: <hr class="transition"/> then
+    <div aria-hidden="true" class="x04-Space-Break-Orn">—</div>. The <hr> already carries the break;
+    the aria-hidden ornament (an em-dash, asterisks, ⁂, • • •, …) is visual-only and, left in,
+    becomes a stray "—" node after the <hr>. aria-hidden="true" is the author's OWN "not content"
+    signal, so dropping these — only when they hold NO words and no nested block content — is safe
+    and publisher-agnostic. Runs in Phase 1 before divs are converted/unwrapped into nodes.
+    """
+
+    name = "AriaHiddenOrnamentRemover"
+    description = "Remove decorative aria-hidden ornaments (scene-break glyphs) that aren't real content"
+    plain = ('Scene breaks come through as an <hr> PLUS a decorative aria-hidden glyph (an em-dash / '
+             'asterisks) the publisher repeats for looks. The <hr> is the real break; this drops the '
+             'aria-hidden ornament so it does not leave a stray "—" node behind.')
+
+    _BLOCK_CHILDREN = ['p', 'div', 'section', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'img', 'table', 'li', 'ul', 'ol']
+
+    def detect(self, soup) -> bool:
+        return bool(soup.find(attrs={'aria-hidden': 'true'}))
+
+    def transform(self, soup, log) -> dict:
+        removed = 0
+        body = soup.body if soup.body else soup
+        for el in list(body.find_all(attrs={'aria-hidden': 'true'})):
+            if el.find(self._BLOCK_CHILDREN):
+                continue  # holds real structure — not a leaf ornament
+            if _ORNAMENT_HAS_WORD.search(el.get_text()):
+                continue  # has letters/digits → real content, leave it
+            el.decompose()
+            removed += 1
+        if removed:
+            log(f"  Removed {removed} decorative aria-hidden ornament(s)")
+        return {'removed': removed}
+
+
 class SpanUnwrapper(EpubTransform):
     """
     Unwraps meaningless spans that only add styling classes.

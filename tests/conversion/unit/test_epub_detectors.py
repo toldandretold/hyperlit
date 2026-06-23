@@ -104,6 +104,85 @@ def test_notes_class_no_false_positive(soup):
 
 
 # ---------------------------------------------------------------------------
+# BlindNotesFootnoteDetector — "blind notes": no in-text marker; the back-of-book
+# note carries the only link (a reversed <p class="link_to_text"> back-link to an
+# empty <span id> body anchor). Pairs by the back-link id; injects numbered markers.
+# ---------------------------------------------------------------------------
+def test_blind_notes_detect_and_pair(soup):
+    # Body has an empty, hrefless anchor; the note links BACK to it (reversed).
+    s = soup('<body><p>Claim by <span id="EndnotePhraseInText0"/>some critics.</p>'
+             '<ol class="blindnotes"><li class="x13-BM-Endnotes">'
+             '<p class="x13-BM-Endnotes">the note text</p>'
+             '<p class="link_to_text"><a href="#EndnotePhraseInText0">GO TO NOTE REFERENCE IN TEXT</a></p>'
+             '</li></ol></body>')
+    det = E.BlindNotesFootnoteDetector()
+    assert det.detect(s) is True
+    out = det.transform(s, _logs()[1])
+    # definition keyed by the back-link target id, paired with an in-text marker of the same id
+    assert [f['id'] for f in out['footnotes']] == ['EndnotePhraseInText0']
+    assert out['footnotes'][0]['strategy'] == 'blind_notes'
+    assert [n['target_id'] for n in out['noterefs']] == ['EndnotePhraseInText0']
+    # empty marker → routes the linker's numeric branch (sequential <sup> injection)
+    assert out['noterefs'][0]['original_marker'] == ''
+    # the bare <span> anchor was swapped to an <a> so the shared converter can rewrite it
+    assert out['noterefs'][0]['element'].name == 'a'
+    # the reversed back-link is stripped so "GO TO NOTE…" can't leak into the note content
+    assert s.find('p', class_='link_to_text') is None
+
+
+def test_blind_notes_definition_without_anchor_is_orphan_def(soup):
+    # A note whose back-link target is missing from the body → registered as a definition
+    # only (the linker counts it as orphaned), never a phantom marker.
+    s = soup('<body><p>Prose with no anchor.</p>'
+             '<ol class="blindnotes"><li class="x13-BM-Endnotes">'
+             '<p class="x13-BM-Endnotes">dangling note</p>'
+             '<p class="link_to_text"><a href="#EndnotePhraseInText9">GO TO NOTE REFERENCE IN TEXT</a></p>'
+             '</li></ol></body>')
+    out = E.BlindNotesFootnoteDetector().transform(s, _logs()[1])
+    assert [f['id'] for f in out['footnotes']] == ['EndnotePhraseInText9']
+    assert out['noterefs'] == []
+
+
+def test_blind_notes_marker_relocated_to_sentence_end(soup):
+    # The anchor sits BEFORE its key phrase; the marker must move to the end of the sentence.
+    s = soup('<body><p>The model is contested by <span id="X0"/>several critics who favour '
+             'openness. A later sentence follows.</p>'
+             '<ol class="blindnotes"><li class="x13-BM-Endnotes"><p>the note</p>'
+             '<p class="link_to_text"><a href="#X0">GO TO NOTE REFERENCE IN TEXT</a></p></li></ol></body>')
+    E.BlindNotesFootnoteDetector().transform(s, _logs()[1])
+    a = s.find('a', id='X0')
+    prev = a.previous_sibling
+    assert isinstance(prev, str) and prev.rstrip().endswith('favour openness.')
+
+
+def test_blind_notes_between_blocks_anchor_moves_inline(soup):
+    # Anchor between paragraphs would convert to a stray top-level <sup>; it must move INTO text.
+    s = soup('<body><p>Prior paragraph ends here.</p><span id="X1"/>'
+             '<p>The next sentence carries the note. And more.</p>'
+             '<ol class="blindnotes"><li class="x13-BM-Endnotes"><p>note</p>'
+             '<p class="link_to_text"><a href="#X1">GO TO NOTE REFERENCE IN TEXT</a></p></li></ol></body>')
+    E.BlindNotesFootnoteDetector().transform(s, _logs()[1])
+    a = s.find('a', id='X1')
+    assert a.parent.name == 'p'  # now inline in the following paragraph, not a body-level sibling
+
+
+def test_blind_notes_same_sentence_markers_keep_ascending_order(soup):
+    # Two anchors in one sentence resolve to the same full stop — order must stay ascending.
+    s = soup('<body><p>A claim <span id="X0"/>and another <span id="X1"/>point all here. Next.</p>'
+             '<ol class="blindnotes">'
+             '<li class="x13-BM-Endnotes"><p>n0</p><p class="link_to_text"><a href="#X0">GO</a></p></li>'
+             '<li class="x13-BM-Endnotes"><p>n1</p><p class="link_to_text"><a href="#X1">GO</a></p></li>'
+             '</ol></body>')
+    E.BlindNotesFootnoteDetector().transform(s, _logs()[1])
+    p = s.find('p')
+    assert [a.get('id') for a in p.find_all('a', id=True)] == ['X0', 'X1']
+
+
+def test_blind_notes_no_false_positive(soup):
+    assert E.BlindNotesFootnoteDetector().detect(soup(PLAIN)) is False
+
+
+# ---------------------------------------------------------------------------
 # TableFootnoteDetector — table layouts
 # ---------------------------------------------------------------------------
 def test_table_detect_by_class(soup):
@@ -189,6 +268,7 @@ def test_no_specific_detector_fires_on_plain_prose(soup):
     specific = [
         E.Epub3SemanticFootnoteDetector, E.AriaRoleFootnoteDetector,
         E.ClassPatternFootnoteDetector, E.NotesClassFootnoteDetector,
+        E.BlindNotesFootnoteDetector,
         E.TableFootnoteDetector, E.PandocFootnoteDetector,
         E.EndnoteCharactersFootnoteDetector, E.EnoteFootnoteDetector,
         E.AnchorHeadingFootnoteDetector,
@@ -333,6 +413,37 @@ def test_nav_stripper_removes_machine_nav_keeps_toc(soup):
 def test_nav_stripper_noop_without_machine_nav(soup):
     s = soup('<body><nav epub:type="toc"><a href="#c1">Chapter 1</a></nav><p>x</p></body>')
     assert E.NavStripper().detect(s) is False
+
+
+# ---------------------------------------------------------------------------
+# AriaHiddenOrnamentRemover — drop decorative aria-hidden scene-break glyphs (PRH "—" overhang)
+# ---------------------------------------------------------------------------
+def test_aria_hidden_ornament_removed_keeps_hr_and_text(soup):
+    # PRH scene break: <hr> + decorative aria-hidden em-dash + the next paragraph.
+    s = soup('<body><hr class="transition"/>'
+             '<div aria-hidden="true" class="x04-Space-Break-Orn">—</div>'
+             '<p class="x04-Space-Break-FL">On Musk’s list was a real sentence.</p></body>')
+    det = E.AriaHiddenOrnamentRemover()
+    assert det.detect(s) is True
+    det.transform(s, _logs()[1])
+    assert s.find('hr') is not None                       # the real scene break survives
+    assert s.find(attrs={'aria-hidden': 'true'}) is None  # the decorative ornament is gone
+    assert 'On Musk' in s.get_text()                      # real content untouched
+
+
+def test_aria_hidden_keeps_real_words_and_structure(soup):
+    # aria-hidden on something with actual words, or wrapping block content, must NOT be dropped.
+    s = soup('<body>'
+             '<div aria-hidden="true">Important spoken caption text</div>'
+             '<div aria-hidden="true"><p>nested real paragraph</p></div>'
+             '</body>')
+    E.AriaHiddenOrnamentRemover().transform(s, _logs()[1])
+    assert 'Important spoken caption text' in s.get_text()
+    assert s.find('p') is not None
+
+
+def test_aria_hidden_ornament_no_false_positive(soup):
+    assert E.AriaHiddenOrnamentRemover().detect(soup(PLAIN)) is False
 
 
 def test_document_profile_fingerprints_faked_headings(soup):

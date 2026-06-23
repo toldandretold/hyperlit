@@ -1,0 +1,32 @@
+{
+    "name": "synthetic",
+    "description": "Synthetic non-proprietary EPUB fixture for epub/blind_notes: 'blind notes' endnotes (PRH/InDesign) where the body has NO in-text marker (empty <span id> anchors) and each back-of-book note carries the ONLY link, a reversed <p class=\"link_to_text\"> back-link. The detector pairs by that id and injects numbered markers.",
+    "book_id": "epub_blind_notes",
+    "citation_style": "none",
+    "footnote_strategy": "pre_processed",
+    "pipeline": "epub",
+    "expected": {
+        "references_count": 0,
+        "footnotes_count": 3,
+        "audit_gaps": 0,
+        "max_unmatched_defs": 0,
+        "footnote_strategy": "pre_processed",
+        "detectors_fired": [
+            "BlindNotesFootnoteDetector"
+        ],
+        "footnote_links": [
+            {
+                "marker": "1",
+                "content_contains": "First note concerning ca"
+            },
+            {
+                "marker": "2",
+                "content_contains": "Second note concerning b"
+            },
+            {
+                "marker": "3",
+                "content_contains": "Third note whose in-text"
+            }
+        ]
+    }
+}

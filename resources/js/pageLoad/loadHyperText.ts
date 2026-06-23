@@ -26,19 +26,24 @@ import { buildFootnoteMap, hasOldFormatFootnotes, migrateOldFormatFootnotes } fr
 import { resolveFirstChunkPromise, resetFirstChunkPromise, getFirstChunkLoadedResolver } from './firstChunkPromise';
 import { setupOnlineSyncListener } from './onlineRetry';
 import { currentLazyLoader, initializeLazyLoader } from './lazyLoaderRegistry';
+import { isReconvertHandoff } from '../utilities/reconvertHandoff';
 
 // ✅ MODIFIED: This function now loads all three JSON files.
 export async function loadFromJSONFiles(bookId: BookId) {
   try {
+    // Right after a reconvert, bypass the browser/SW/CDN cache so we can't re-populate IDB from a
+    // STALE copy of these static files (a scripted reload otherwise reuses the cached response —
+    // only a user-initiated refresh revalidates). `cache:'reload'` forces a fresh network fetch.
+    const opts: RequestInit = isReconvertHandoff(bookId as string) ? { cache: 'reload' } : {};
     // Fetch all three files concurrently for maximum speed
     const [
       nodesResponse,
       footnotesResponse,
       referencesResponse,
     ] = await Promise.all([
-      fetch(`/${bookId}/nodes.json`),
-      fetch(`/${bookId}/footnotes.json`),
-      fetch(`/${bookId}/references.json`),
+      fetch(`/${bookId}/nodes.json`, opts),
+      fetch(`/${bookId}/footnotes.json`, opts),
+      fetch(`/${bookId}/references.json`, opts),
     ]);
 
     // Check if all requests were successful

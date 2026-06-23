@@ -269,6 +269,150 @@ class NotesClassFootnoteDetector(EpubTransform):
         return {'footnotes': footnotes, 'noterefs': []}
 
 
+# A sentence terminator: . ! ? (optionally repeated) plus any trailing closing quotes/brackets.
+# Used to drop a blind-notes marker at the END of the sentence its anchor opens (the anchor sits
+# BEFORE a key phrase, sometimes between blocks), instead of mid-phrase or as a stray node.
+_SENTENCE_END = re.compile(r'[.!?]+["\'”’\)\]]*')
+
+
+def _is_sentence_end(text, m):
+    """True iff match `m` in `text` is a real sentence boundary — followed by whitespace/end and
+    not a lone initial ("J. Smith") or abbreviation dot. (Decimals like "3.5" can't match: the
+    char after the dot isn't whitespace.)"""
+    end = m.end()
+    if end < len(text) and not text[end].isspace():
+        return False
+    start = m.start()
+    if text[start] == '.' and start >= 1 and text[start - 1].isupper() and (start < 2 or not text[start - 2].isalpha()):
+        return False  # single-letter initial (e.g. "J." / the "S." in "U.S.")
+    return True
+
+
+def _relocate_anchor_to_sentence_end(anchor, max_chars=3000):
+    """Move the empty marker `anchor` to just AFTER the end of the sentence it opens — the first
+    real sentence terminator at/after it in reading order — so the injected <sup> lands inline in
+    running text (conventional placement) rather than mid-phrase or as a top-level node. When
+    several markers resolve to the SAME sentence end, they are kept in ascending order (processed
+    low-to-high, each inserted after the markers already placed there). Stops at the endnotes
+    section and after `max_chars`. Returns True if it relocated."""
+    seen = 0
+    for node in anchor.next_elements:
+        if not isinstance(node, NavigableString):
+            continue
+        if node.find_parent(attrs={'role': 'doc-endnotes'}) or node.find_parent('ol', class_='blindnotes'):
+            break  # don't hunt for a full stop inside the notes themselves
+        text = str(node)
+        for m in _SENTENCE_END.finditer(text):
+            if _is_sentence_end(text, m):
+                idx = m.end()
+                before, after = text[:idx], text[idx:]
+                anchor.extract()
+                nb = NavigableString(before)
+                node.replace_with(nb)
+                if after:
+                    nb.insert_after(NavigableString(after))
+                # Skip past any markers already placed at this same sentence end so numbers stay
+                # ascending (whitespace between them is also skipped).
+                cursor = nb
+                while cursor.next_sibling is not None:
+                    nxt = cursor.next_sibling
+                    if isinstance(nxt, NavigableString) and not str(nxt).strip():
+                        cursor = nxt
+                    elif getattr(nxt, 'name', None) == 'a' and nxt.has_attr('data-blindnote-mark'):
+                        cursor = nxt
+                    else:
+                        break
+                anchor['data-blindnote-mark'] = '1'  # temp tag; gone once converted to <sup>
+                cursor.insert_after(anchor)
+                return True
+        seen += len(text)
+        if seen > max_chars:
+            break
+    return False
+
+
+class BlindNotesFootnoteDetector(EpubTransform):
+    """
+    Detects "blind notes" endnotes — a print-layout convention (Penguin Random House / InDesign
+    export) where the body has NO visible or forward marker at all. Each in-text reference is an
+    empty, hrefless anchor (e.g. <span id="EndnotePhraseInTextN"/>) sitting before a key phrase;
+    the note lives in a back-of-book endnotes section (<ol class="blindnotes"> /
+    <li class="…-Endnotes">) and carries the ONLY link — a REVERSED back-link
+    <p class="link_to_text"><a href="#EndnotePhraseInTextN">GO TO NOTE REFERENCE IN TEXT</a>.
+
+    Every forward-marker detector keys on a body-side marker (epub:type="noteref", role,
+    <sup>, <a href="#note">), so it sees nothing here and ALL such notes are dropped. We pair
+    each note to its in-text anchor by the back-link's target id, register the note as a
+    definition and the (rewritten) anchor as a noteref with an EMPTY marker — which routes the
+    linker's numeric branch to inject the missing sequential <sup>, giving the book clickable,
+    numbered footnotes it never had.
+
+    The anchor sits BEFORE its key phrase and a minority sit BETWEEN paragraphs (so an in-place
+    <sup> would become a stray top-level node). We therefore RELOCATE each marker to the end of
+    the sentence it opens (first . ! ? in reading order) — conventional placement that also keeps
+    every marker inline in running text.
+    """
+
+    name = "BlindNotesFootnoteDetector"
+    description = "Detect 'blind notes' endnotes linked only by a reversed back-link (no in-text marker)"
+    plain = ('Blind-notes scheme (trade non-fiction): the body has NO clickable marker — only an empty '
+             '<span id> anchor — and the back-of-book note carries the sole link, a reversed "GO TO NOTE '
+             'REFERENCE IN TEXT" back-link. We pair by that back-link\'s id and inject the missing numbered marker.')
+
+    def detect(self, soup) -> bool:
+        # The blindnotes list wrapper, or any reversed-back-link note paragraph (the defining signal).
+        if soup.find('ol', class_='blindnotes'):
+            return True
+        for p in soup.find_all('p', class_='link_to_text'):
+            a = p.find('a', href=True)
+            if a and a.get('href', '').startswith('#'):
+                return True
+        return False
+
+    def transform(self, soup, log) -> dict:
+        footnotes = []
+        noterefs = []
+        seen_targets = set()
+
+        # Each note definition is a block carrying a reversed back-link to its in-text anchor.
+        for link_p in list(soup.find_all('p', class_='link_to_text')):
+            backlink = link_p.find('a', href=True)
+            if not backlink or not backlink.get('href', '').startswith('#'):
+                continue
+            target = backlink['href'][1:]
+            if not target or target in seen_targets:
+                continue
+            seen_targets.add(target)
+
+            # Register the enclosing note item as the definition (whole block extracted + removed).
+            note_el = link_p.find_parent('li') or link_p.parent
+            if note_el is None:
+                continue
+
+            # Drop the reversed back-link so "GO TO NOTE REFERENCE IN TEXT" can't leak into content.
+            link_p.decompose()
+
+            footnotes.append({'id': target, 'element': note_el, 'type': 'endnote', 'strategy': 'blind_notes'})
+
+            # The in-text marker is the empty anchor the back-link pointed at. Swap the bare <span>
+            # for an empty <a> so the shared converter (which only rewrites <a>/<sup>) emits the <sup>.
+            anchor = soup.find(id=target)
+            if anchor is None:
+                # No surviving in-text anchor → definition only (the linker counts it as orphaned).
+                continue
+            if anchor.name != 'a':
+                new_a = soup.new_tag('a', id=target)
+                anchor.replace_with(new_a)
+                anchor = new_a
+            # Drop the marker at the end of the sentence it opens (keeps it inline; avoids a stray
+            # top-level <sup> when the anchor sits between blocks).
+            _relocate_anchor_to_sentence_end(anchor)
+            noterefs.append({'element': anchor, 'target_id': target, 'original_marker': '', 'strategy': 'blind_notes'})
+
+        log(f"    Total: {len(footnotes)} blind-notes definitions ({len(noterefs)} with in-text markers)")
+        return {'footnotes': footnotes, 'noterefs': noterefs}
+
+
 class TableFootnoteDetector(EpubTransform):
     """
     Detects footnotes in table-based layouts.

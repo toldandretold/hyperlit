@@ -22,6 +22,10 @@ import { pendingFirstChunkLoadedPromise } from "./firstChunkPromise";
 import { initializeUserProfileEditor } from "../components/userProfile/userProfileEditor";
 import { initializeUserProfilePage } from "../components/userProfile/userProfilePage";
 import { initializeLogoNav } from "../components/logoNav/logoNav";
+import { asBookId } from "../indexedDB/types";
+import {
+  isReconvertHandoff, clearReconvertHandoff, showReconvertOverlay, hideReconvertOverlay,
+} from "../utilities/reconvertHandoff";
 
 // ═════════════════════════════════════════════════════════════════════
 // PROGRESS BAR CONTROL - DELEGATED TO PROGRESSOVERLAYCONDUCTOR
@@ -85,6 +89,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const pageType = document.body.getAttribute("data-page");
 
+  // Reconvert hand-off: this load is the auto-reload right after a "Reconvert from source". Cover
+  // the reader immediately (before anything renders) so the user never sees the interim state, and
+  // remember it so we force-fresh re-populate IDB in order before the first render (below).
+  const isReconvertReload = !!book && pageType === 'reader' && isReconvertHandoff(book);
+  if (isReconvertReload) showReconvertOverlay('Loading reconverted book…');
+
   // Check if this is a new book creation scenario
   const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
   const isNewBookCreation = !!pendingSyncJSON;
@@ -112,6 +122,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     await initializeTimeMachine();
   }
 
+  // Reconvert hand-off (same trick as Time Machine): IDB was cleared before the reload, so
+  // force-fresh re-populate it from the just-written JSON — IN ORDER — BEFORE NavigationManager
+  // runs loadHyperText. loadHyperText then finds the data in cache and takes its single
+  // deterministic ordered path (no fresh-load-vs-background-download race → no scramble). The
+  // hand-off flag stays set across this so loadFromJSONFiles force-freshes and the background
+  // chunk download stays paused; we clear it once the render completes.
+  if (isReconvertReload) {
+    try {
+      const { loadFromJSONFiles } = await import('./loadHyperText');
+      await loadFromJSONFiles(asBookId(book));
+    } catch (e: any) {
+      log.error('Reconvert re-populate failed; falling back to normal load', 'readerDOMContentLoaded.js', e);
+    }
+  }
+
   // De-cycle: features (newbookContainer/userContainer/viewManager/reconvert) trigger navigation
   // through the zero-import navigationRegistry leaf rather than dynamic-importing these orchestrators
   // (which statically reach back into the feature cluster — a cycle-masking "breaker"). The
@@ -126,7 +151,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ✅ UNIFIED: ALL page types go through NavigationManager for consistent initialization
   // NavigationManager handles ALL initialization including ButtonRegistry (also registers navigate()).
   const { NavigationManager } = await import('../SPA/navigation/NavigationManager.js');
-  await NavigationManager.navigate('fresh-page-load');
+  try {
+    await NavigationManager.navigate('fresh-page-load');
+  } finally {
+    // Reconvert hand-off complete: the ordered render is done, so drop the flag (re-enabling
+    // normal background download on subsequent loads) and lift the overlay. In a `finally` so a
+    // navigate failure can't leave the opaque overlay stuck over the reader. Done AFTER navigate
+    // so the chunk download stays paused for this whole first load.
+    if (isReconvertReload) {
+      clearReconvertHandoff();
+      hideReconvertOverlay();
+    }
+  }
 
   // If a vibe-convert YOU ran auto-applied a fix to this book, surface the Keep/Revert toast after the
   // success path's forced reload. Gated on a per-book intent marker (set when a review is requested,

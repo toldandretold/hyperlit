@@ -34,6 +34,7 @@ Phase 1 - Structural Fixes:
 - CalibreBlockquoteUnwrapper: Fixes Calibre's <blockquote class="calibreN"> abuse
 - CalibreSpanHeadingDetector: Converts <span class="calibre5/8"> font-sized spans to h1/h2
 - EmptyElementRemover: Removes empty <div> and <p> spacers (Calibre uses for layout)
+- AriaHiddenOrnamentRemover: Drops decorative aria-hidden scene-break ornaments (stray "—" nodes)
 - SpanUnwrapper: Unwraps remaining <span class="calibreN"> styling wrappers
 - CalibreClassStripper: Strips all calibreN classes from elements (clean output)
 - DivToSemanticConverter: Converts divs with semantic class names to proper elements
@@ -46,6 +47,7 @@ Phase 2 - Footnote Detection:
 - AriaRoleFootnoteDetector: Uses role="doc-footnote" etc.
 - ClassPatternFootnoteDetector: Matches common CSS class patterns
 - NotesClassFootnoteDetector: Publisher format with <p class="notes"><a id="...">
+- BlindNotesFootnoteDetector: "Blind notes" — reversed back-link only, no in-text marker (PRH/InDesign)
 - TableFootnoteDetector: Table-based footnotes (two-column layout)
 - PandocFootnoteDetector: Handles <section class="footnotes"> structure
 - EndnoteCharactersFootnoteDetector: Word/Calibre <span class="EndnoteCharacters">
@@ -184,6 +186,7 @@ from ingestion.epub.structuralNormalisation import (  # noqa: E402,F401
     NavStripper,
     CalibreBlockquoteUnwrapper,
     EmptyElementRemover,
+    AriaHiddenOrnamentRemover,
     SpanUnwrapper,
     ImageProcessor,
     SectionUnwrapper,
@@ -202,6 +205,7 @@ from ingestion.epub.footnoteMatching import (  # noqa: E402,F401
     AriaRoleFootnoteDetector,
     ClassPatternFootnoteDetector,
     NotesClassFootnoteDetector,
+    BlindNotesFootnoteDetector,
     TableFootnoteDetector,
     PandocFootnoteDetector,
     EndnoteCharactersFootnoteDetector,
@@ -237,6 +241,7 @@ TRANSFORM_PIPELINE = [
     SectionNumberHeadingDetector(),    # Bold section-numbered <blockquote>/<div> (1.1. Title) → headings
     StyledSectionTitleHeadingDetector(),  # Bold section titles (BIBLIOGRAPHY/INDEX/NOTES…) → h1 (unblocks bib extraction)
     EmptyElementRemover(),              # Remove empty <div> and <p> spacers
+    AriaHiddenOrnamentRemover(),        # Drop decorative aria-hidden scene-break ornaments (stray "—")
     SpanUnwrapper(),                    # Unwrap remaining styling-only spans
     CalibreClassStripper(),             # Strip calibreN classes from all elements
     StyleHeadingDetector(),             # FALLBACK: recover headings from the CSS font hierarchy — MUST run
@@ -254,6 +259,7 @@ TRANSFORM_PIPELINE = [
     AriaRoleFootnoteDetector(),
     ClassPatternFootnoteDetector(),
     NotesClassFootnoteDetector(),       # Publisher format: <p class="notes"><a id="...">
+    BlindNotesFootnoteDetector(),        # Blind notes: reversed "GO TO NOTE…" back-link, no in-text marker (PRH)
     TableFootnoteDetector(),            # Table-based footnotes (Pluto Press, etc.)
     PandocFootnoteDetector(),
     EndnoteCharactersFootnoteDetector(),  # Word/Calibre EndnoteCharacters format
@@ -599,6 +605,7 @@ class EpubNormalizer:
     _STRATEGY_DETECTOR = {
         'epub3_semantic': 'Epub3SemanticFootnoteDetector', 'aria_role': 'AriaRoleFootnoteDetector',
         'class_pattern': 'ClassPatternFootnoteDetector', 'notes_class': 'NotesClassFootnoteDetector',
+        'blind_notes': 'BlindNotesFootnoteDetector',
         'table_footnote': 'TableFootnoteDetector', 'pandoc': 'PandocFootnoteDetector',
         'endnote_characters': 'EndnoteCharactersFootnoteDetector', 'enote_class': 'EnoteFootnoteDetector',
         'anchor_heading': 'AnchorHeadingFootnoteDetector', 'reverse_definition': 'FootnoteConverter (reverse-definition)',
@@ -613,6 +620,7 @@ class EpubNormalizer:
         'AriaRoleFootnoteDetector': 'role="doc-footnote"/"doc-noteref" ARIA attributes',
         'ClassPatternFootnoteDetector': 'elements with footnote/endnote/fn CSS class names',
         'NotesClassFootnoteDetector': '<p class="notes"> definitions with a child anchor that has a backlink',
+        'BlindNotesFootnoteDetector': 'a back-of-book note (<ol class="blindnotes">) whose only link is a reversed <p class="link_to_text"><a href="#X"> back-link to an empty <span id="X"/> in-text anchor (no forward marker)',
         'TableFootnoteDetector': 'a table whose class or first-cell anchors mark it as footnotes',
         'PandocFootnoteDetector': '<section class="footnotes"> or <div class="footnotes"> (Pandoc/standard HTML)',
         'EndnoteCharactersFootnoteDetector': '<span class="EndnoteCharacters"> (InDesign export)',
