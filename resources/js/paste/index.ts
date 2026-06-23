@@ -227,16 +227,20 @@ function _schedulePasteVerification(bookId: BookId, pasteOpId: string) {
       const hasIssues = result.mismatches.length > 0 || result.missingFromIDB.length > 0 || result.duplicateIds.length > 0;
 
       if (hasIssues) {
-        // Self-healing: re-queue failed nodes for save and retry once
+        // Self-healing: re-queue failed nodes for save and retry once.
+        // CRITICAL: re-queue by the numeric startLine (the DOM `id`, e.g. "6200"),
+        // NOT the data-node-id (`m.nodeId`, e.g. "book_…_m5n38pktk"). queueNodeForSave
+        // rejects any non-numeric id and drops it silently, so passing nodeId here made
+        // the entire self-heal a no-op — re-verify hit the same record and always escalated.
         const failedIds = [
-          ...result.missingFromIDB.map((m: any) => m.nodeId),
-          ...result.mismatches.map((m: any) => m.nodeId),
+          ...result.missingFromIDB.map((m: any) => m.startLine),
+          ...result.mismatches.map((m: any) => m.startLine),
         ];
 
         if (failedIds.length > 0) {
           // Don't overwrite IDB with empty DOM — that's data destruction
           const safeToHeal = failedIds.filter((id: any) => {
-            const m = result.mismatches.find((m: any) => m.nodeId === id);
+            const m = result.mismatches.find((m: any) => m.startLine === id);
             if (m && !m.domText.trim() && m.idbText.trim()) {
               console.warn(`[integrity] Skipping self-heal for node ${id}: DOM empty but IDB has "${m.idbText.substring(0, 50)}"`);
               return false;

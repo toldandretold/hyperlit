@@ -20,6 +20,22 @@ export interface TextDiff {
   snippetB: string;
 }
 
+/**
+ * Raw (pre-normalisation) character codes on each side of the first diff, for
+ * BOTH the live DOM text and the stored IDB text. normaliseText() strips
+ * zero-width chars (​/⁠) and collapses whitespace before comparison,
+ * so the normalised snippets can't reveal what is actually stored at the seam
+ * (a word joiner? a real space? nothing?). These codes can — they are the only
+ * way to tell those apart post-hoc.
+ */
+export interface DiffCharCodes {
+  /** index into the RAW (un-normalised) DOM text that aligns with the diff region */
+  domCodes: number[];
+  idbCodes: number[];
+  domSlice: string;
+  idbSlice: string;
+}
+
 /** A node whose DOM text disagrees with its stored IDB content. */
 export interface NodeMismatch {
   startLine: LineId;
@@ -27,6 +43,12 @@ export interface NodeMismatch {
   domText: string;
   idbText: string;
   diff?: TextDiff | null;
+  /** outerHTML of the live DOM node (truncated) — Defect-2 diagnostics */
+  rawDomHtml?: string;
+  /** the stored NodeRecord.content HTML (truncated) — Defect-2 diagnostics */
+  rawIdbHtml?: string;
+  /** char codes around the diff seam in the raw DOM/IDB text — Defect-2 diagnostics */
+  codesAroundDiff?: DiffCharCodes | null;
 }
 
 /** A node present in the DOM but absent from IDB. */
@@ -96,6 +118,31 @@ function findFirstDiff(a: any, b: any) {
     aLen: a.length,
     bLen: b.length,
   };
+}
+
+/** Char codes for `2*radius+1` chars centred on `index` (clamped). */
+function charCodesAt(str: string, index: number, radius = 10) {
+  const start = Math.max(0, index - radius);
+  const end = Math.min(str.length, index + radius + 1);
+  const slice = str.slice(start, end);
+  const codes: number[] = [];
+  for (let i = 0; i < slice.length; i++) codes.push(slice.charCodeAt(i));
+  return { slice, codes };
+}
+
+/**
+ * Build the raw (pre-normalisation) char-code diagnostic for a mismatch.
+ * Locates the first divergence in the RAW DOM/IDB text (not the normalised
+ * strings the comparison used) and dumps the code points on each side — the
+ * only way to see a zero-width joiner / collapsed space that normaliseText hid.
+ */
+function buildCodesAroundDiff(rawDom: string, rawIdb: string): DiffCharCodes {
+  const len = Math.min(rawDom.length, rawIdb.length);
+  let i = 0;
+  while (i < len && rawDom[i] === rawIdb[i]) i++;
+  const dom = charCodesAt(rawDom, i);
+  const idb = charCodesAt(rawIdb, i);
+  return { domCodes: dom.codes, idbCodes: idb.codes, domSlice: dom.slice, idbSlice: idb.slice };
 }
 
 /**
@@ -197,7 +244,8 @@ async function _verifySync(bookId: BookId, nodeIds: LineId[]): Promise<Integrity
         return res(); // Not a real node — skip silently
       }
 
-      const domText = normaliseText(textContentCanonical(domEl));
+      const rawDomText = textContentCanonical(domEl);
+      const domText = normaliseText(rawDomText);
 
       const numericId = typeof nodeId === 'number' ? nodeId : parseFloat(nodeId);
       if (isNaN(numericId)) return res();
@@ -219,17 +267,27 @@ async function _verifySync(bookId: BookId, nodeIds: LineId[]): Promise<Integrity
           return res();
         }
 
-        const idbText = normaliseText(textFromStoredHTML(record.content));
+        const rawIdbText = textFromStoredHTML(record.content);
+        const idbText = normaliseText(rawIdbText);
 
         if (domText === idbText) {
           ok.push(asLineId(String(nodeId)));
         } else {
+          const codesAroundDiff = buildCodesAroundDiff(rawDomText, rawIdbText);
+          // Surface the raw seam in the console so it's captured in the report's
+          // "Recent Console Logs" even without server-side payload access.
+          console.warn(
+            `[integrity] Node ${nodeId} raw diff seam — DOM codes ${JSON.stringify(codesAroundDiff.domCodes)} | IDB codes ${JSON.stringify(codesAroundDiff.idbCodes)}`,
+          );
           mismatches.push({
             startLine: asLineId(String(nodeId)),
             nodeId: dataNodeId,
             domText,
             idbText,
             diff: findFirstDiff(domText, idbText),
+            rawDomHtml: (domEl.outerHTML || '').slice(0, 800),
+            rawIdbHtml: (record.content || '').slice(0, 800),
+            codesAroundDiff,
           });
         }
         res();

@@ -137,6 +137,11 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
       domText: m.domText || '',
       idbText: m.idbText || '',
       diff: m.diff || null,
+      // Defect-2 diagnostics: raw seam so a hidden zero-width joiner / collapsed
+      // space is identifiable post-hoc (normalised text/diff above can't show it).
+      rawDomHtml: (m.rawDomHtml || '').substring(0, 800),
+      rawIdbHtml: (m.rawIdbHtml || '').substring(0, 800),
+      codesAroundDiff: m.codesAroundDiff || null,
     })),
     missingFromIDB: missingFromIDB.map((m) =>
       typeof m === 'object' ? { startLine: m.startLine || m.nodeId, nodeId: m.nodeId || null, tag: m.tag, domText: (m.domText || '').substring(0, 300) } : { startLine: m }
