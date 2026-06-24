@@ -1133,6 +1133,19 @@ class DatabaseToIndexedDBController extends Controller
             $targetReason = $resolveResult['reason'];
             $targetFallbackUsed = $resolveResult['fallbackUsed'];
 
+            // 🎯 Deep-link serve trace: how a `?target=` (e.g. a #hypercite_/HL_/Fn link) was mapped
+            // to a chunk, served directly as the initial render (no client lazy-scroll). `reason:index`
+            // = resolved via the cached id→chunk map (no Postgres); `cache:hit` = node content from disk.
+            Log::info('🎯 getInitialChunk resolved', [
+                'book' => $bookId,
+                'target' => $request->query('target') ?? $request->query('element_id'),
+                'resolved_chunk_id' => $targetChunkId,
+                'target_reason' => $targetReason,
+                'target_resolved' => $targetResolved,
+                'target_fallback_used' => $targetFallbackUsed,
+                'cache' => $fresh ? 'hit' : 'live',
+            ]);
+
             // Build chunk manifest — from cache on a HIT, else the aggregate query.
             $chunkManifest = $fresh ? $cache->getManifest($bookId) : null;
             if ($chunkManifest === null) {
@@ -1338,6 +1351,15 @@ class DatabaseToIndexedDBController extends Controller
             if (!$fresh) {
                 $this->warmAsync($bookId);
             }
+
+            // 📦 On-demand (lazy-load / background-download) chunk serve. A burst of these for
+            // sequential chunk_ids = the client scrolling; a single one after a deep-link = a jump.
+            Log::info('📦 getSingleChunk served', [
+                'book' => $bookId,
+                'chunk_id' => $chunkId,
+                'cache' => $fresh ? 'hit' : 'live',
+                'node_count' => count($nodes),
+            ]);
 
             return response()->json([
                 'nodes' => $nodes,
