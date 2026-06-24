@@ -302,6 +302,33 @@ class DatabaseToIndexedDBController extends Controller
     /**
      * Get node chunks using pre-fetched annotation lookups (avoids redundant queries).
      */
+    /**
+     * Map a raw `nodes` row to the user-independent wire node (no annotation arrays).
+     *
+     * Mirrors `BookCache::baseNode` (which `warm()` uses to write the same shape to the cache).
+     * The literal is kept INLINE here — rather than calling `BookCache::baseNode($row)` at the
+     * map call sites — so the data-flow map generator can read the node-row shape off these read
+     * endpoints (`content`/`startLine`/`chunk_id`/`node_id` + the NodeRecord type-trace); it does
+     * not follow the cross-file static call. The `BookCacheTest` live==cache contract guards the
+     * two definitions against drifting.
+     *
+     * @return array<string, mixed>
+     */
+    private function baseNodeRow(object $row): array
+    {
+        return [
+            'book' => $row->book,
+            'chunk_id' => (float) $row->chunk_id,
+            'startLine' => (float) $row->startLine,
+            'node_id' => $row->node_id,
+            'content' => $row->content,
+            'plainText' => $row->plainText,
+            'type' => $row->type,
+            'footnotes' => json_decode($row->footnotes ?? '[]', true),
+            'raw_json' => json_decode($row->raw_json ?? '{}', true),
+        ];
+    }
+
     private function getNodesWithPreFetched(string $bookId, array $hyperlightsByNode, array $hypercitesByNode, bool $cacheFresh = false, ?BookCache $cache = null): array
     {
         $base = null;
@@ -330,7 +357,7 @@ class DatabaseToIndexedDBController extends Controller
                 ->orderBy('chunk_id')
                 ->orderBy('startLine')
                 ->get()
-                ->map(fn ($row) => BookCache::baseNode($row))
+                ->map(fn ($row) => $this->baseNodeRow($row))
                 ->toArray();
         }
 
@@ -980,7 +1007,7 @@ class DatabaseToIndexedDBController extends Controller
                     ->orderBy('chunk_id')
                     ->orderBy('startLine')
                     ->get()
-                    ->map(fn ($row) => BookCache::baseNode($row))
+                    ->map(fn ($row) => $this->baseNodeRow($row))
                     ->toArray();
                 if (!$fresh) {
                     $this->warmAsync($bookId);
@@ -1520,7 +1547,7 @@ class DatabaseToIndexedDBController extends Controller
             ->where('chunk_id', $chunkId)
             ->orderBy('startLine')
             ->get()
-            ->map(fn ($row) => BookCache::baseNode($row))
+            ->map(fn ($row) => $this->baseNodeRow($row))
             ->toArray();
 
         return BookCache::mergeAnnotations($base, $hyperlightsByNode, $hypercitesByNode);

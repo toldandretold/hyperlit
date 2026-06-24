@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1509 functions in 314 modules · 10 object stores · 10 PG tables · 3082 edges
+**MarkdownDB** schema v27 · 1510 functions in 315 modules · 10 object stores · 10 PG tables · 3093 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1056,6 +1056,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `deleteBookFromIndexedDB` | `indexedDB/utilities/cleanup` | `library` | `bibliography` `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
 | `deleteIndexedDBRecordWithRetry` | `indexedDB/utilities/retry` | — | — | — | — |
 | `retryOperation` | `indexedDB/utilities/retry` | — | — | — | — |
+| `adoptPrerenderedChunk` | `lazyLoader/adoptPrerenderedChunk` | — | — | read/write | — |
 | `renderCharts` | `lazyLoader/chartRenderer` | — | — | read/write | — |
 | `fetchSingleChunkFromServer` | `lazyLoader/chunkFetcher` | — | — | — | — |
 | `storeSingleChunkToIndexedDB` | `lazyLoader/chunkFetcher` | — | `nodes` | — | — |
@@ -1522,7 +1523,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 226
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 228
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1688,6 +1689,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `indexedDB/serverSync/pull` → `components/utilities/gateFilter`
 - `indexedDB/serverSync/pull` → `pageLoad/accessGuards`
 - `indexedDB/syncQueue/master` → `indexedDB/hydration/rebuild`
+- `lazyLoader/adoptPrerenderedChunk` → `hyperlights/deletion`
 - `lazyLoader/chunkRender` → `divEditor/domUtilities`
 - `lazyLoader/chunkRender` → `indexedDB/index`
 - `lazyLoader/footnoteSelfHeal` → `indexedDB/nodes/batch`
@@ -1703,6 +1705,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `pageLoad/lazyLoaderRegistry` → `hyperlights/index`
 - `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/history`
 - `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/index`
+- `pageLoad/lazyLoaderRegistry` → `lazyLoader/adoptPrerenderedChunk`
 - `pageLoad/loadHyperText` → `SPA/navigation/resolveTargetChunk`
 - `pageLoad/loadHyperText` → `components/toast/toast`
 - `pageLoad/loadHyperText` → `hyperlights/deletion`

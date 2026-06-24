@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\ConversionController;
 use App\Helpers\BookSlugHelper;
+use App\Services\BookCache;
 use League\CommonMark\CommonMarkConverter;
 
 class TextController extends Controller
@@ -65,9 +66,20 @@ class TextController extends Controller
 
         // Determine data source priority and handle accordingly
         if ($bookExistsInDB) {
-            // PostgreSQL has the data - serve empty HTML, let JS load from DB
+            // PostgreSQL has the data — the SPA loads it via JS, but we ALSO inject the
+            // first chunk's HTML server-side (from the file cache, when fresh) so crawlers
+            // index the real article body and users get an instant first paint. The client
+            // discards this scaffolding (#__seo_prerender) the moment the lazy loader renders.
+            // Path deep-links reach show() as $hl (HL_…) or $fn (…Fn…); resolve either via the index.
+            $prerender = $this->buildFirstChunkPrerender($book, $hl ?? $fn);
+            if ($prerender && $prerender['text'] !== '' && isset($seoData['jsonLd'])) {
+                $seoData['jsonLd']['articleBody'] = \Illuminate\Support\Str::limit($prerender['text'], 5000);
+            }
+
             return view('reader', array_merge([
                 'html' => '',
+                'prerenderHtml' => $prerender['html'] ?? null,
+                'prerenderChunkId' => $prerender['chunkId'] ?? null,
                 'book' => $book,
                 'slug' => $slug,
                 'editMode' => $editMode,
@@ -436,6 +448,66 @@ class TextController extends Controller
         $seo['jsonLd'] = $jsonLd;
 
         return $seo;
+    }
+
+    /**
+     * Build the server-side first-chunk prerender — the REAL chunk DOM the client will adopt
+     * (Phase 2). Determines which chunk the client will load first and returns that chunk's
+     * concatenated node HTML + plain text:
+     *   - a PATH target (`/{book}/{hl}` — a hyperlight/hypercite/footnote/startLine id) → its
+     *     chunk, resolved via the cached `index.json` (the same map the API uses);
+     *   - otherwise the LOWEST chunk (document start — what a crawler at /{book} indexes).
+     *
+     * Only runs on a FRESH cache: a pure file read, never a Postgres query, so the page render
+     * stays cheap. On a cold cache it returns null (the <main> stays empty, today's behaviour)
+     * and the first reader API call warms the cache so the NEXT load prerenders. The node
+     * `content` is already sanitized on write (NodeHtmlSanitizer), safe to emit with {!! !!}.
+     *
+     * @return array{html: string, text: string, chunkId: float}|null
+     */
+    private function buildFirstChunkPrerender(string $book, ?string $target = null): ?array
+    {
+        try {
+            $cache = app(BookCache::class);
+            if (! $cache->isFresh($book, $cache->freshTimestamp($book))) {
+                return null;
+            }
+            $manifest = $cache->getManifest($book);
+            if (empty($manifest)) {
+                return null;
+            }
+            // Path target → its chunk via the index; else document start (lowest).
+            $chunkId = (float) $manifest[0]['chunk_id']; // manifest is sorted ascending by warm()
+            if ($target !== null && $target !== '') {
+                $index = $cache->getIndex($book);
+                if (is_array($index) && isset($index[$target])) {
+                    $chunkId = (float) $index[$target];
+                }
+            }
+            $nodes = $cache->getChunk($book, $chunkId);
+            if (empty($nodes)) {
+                return null;
+            }
+
+            $html = '';
+            $text = '';
+            foreach ($nodes as $node) {
+                $html .= $node['content'] ?? '';
+                $plain = $node['plainText'] ?? '';
+                if ($plain !== '') {
+                    $text .= $plain . ' ';
+                }
+            }
+
+            return ['html' => $html, 'text' => trim($text), 'chunkId' => $chunkId];
+        } catch (\Throwable $e) {
+            // SEO prerender is best-effort — never let it break the page render.
+            Log::warning('First-chunk prerender failed (serving empty <main>)', [
+                'book' => $book,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
     }
 
     private function getHyperlightDescription(string $subBookId, array $urlItems): ?string

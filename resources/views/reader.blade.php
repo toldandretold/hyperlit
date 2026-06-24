@@ -69,6 +69,13 @@
       <div class="reader-content-wrapper">
   <!-- Load the content of the main-text.md file -->
   <main id="{{ $book }}" class="main-content" data-slug="{{ $slug ?? '' }}" contenteditable="{{ $editMode ? 'true' : 'false' }}">
+@if(!empty($prerenderHtml ?? null))
+{{-- Server-rendered first chunk = the REAL chunk element. Crawlers index the article body and
+     users get an instant first paint; the lazy loader ADOPTS this exact DOM as the already-loaded
+     first chunk (registers it, applies live annotations, never re-renders it) — see
+     resources/js/lazyLoader/adoptPrerenderedChunk.ts. --}}
+<div class="chunk" data-chunk-id="{{ $prerenderChunkId }}" data-prerendered="true">{!! $prerenderHtml !!}</div>
+@endif
       </main>
       <div id="keyboard-spacer"></div>
       </div>

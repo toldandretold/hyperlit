@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1509,
-    "moduleCount": 314,
+    "fnCount": 1510,
+    "moduleCount": 315,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3082,
+    "edgeCount": 3093,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -3908,8 +3908,6 @@
         "chunk_id",
         "content",
         "footnotes",
-        "hypercites",
-        "hyperlights",
         "node_id",
         "plainText",
         "raw_json",
@@ -3943,8 +3941,6 @@
         "chunk_id",
         "content",
         "footnotes",
-        "hypercites",
-        "hyperlights",
         "node_id",
         "plainText",
         "raw_json",
@@ -4049,8 +4045,6 @@
         "chunk_id",
         "content",
         "footnotes",
-        "hypercites",
-        "hyperlights",
         "node_id",
         "plainText",
         "raw_json",
@@ -4100,8 +4094,6 @@
         "chunk_id",
         "content",
         "footnotes",
-        "hypercites",
-        "hyperlights",
         "node_id",
         "plainText",
         "raw_json",
@@ -4137,8 +4129,6 @@
         "chunk_id",
         "content",
         "footnotes",
-        "hypercites",
-        "hyperlights",
         "node_id",
         "plainText",
         "raw_json",
@@ -4175,8 +4165,6 @@
         "chunk_id",
         "content",
         "footnotes",
-        "hypercites",
-        "hyperlights",
         "node_id",
         "plainText",
         "raw_json",
@@ -9644,6 +9632,17 @@
       "stage": "infra",
       "module": "indexedDB/utilities/retry",
       "leaf": true
+    },
+    {
+      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "label": "adoptPrerenderedChunk",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/adoptPrerenderedChunk",
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
     },
     {
       "id": "lazyLoader/chartRenderer:renderCharts",
@@ -16417,6 +16416,15 @@
       "fnIds": [
         "indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
         "indexedDB/utilities/retry:retryOperation"
+      ]
+    },
+    {
+      "id": "lazyLoader/adoptPrerenderedChunk",
+      "label": "lazyLoader/adoptPrerenderedChunk",
+      "stage": "lazyLoader",
+      "band": "capture",
+      "fnIds": [
+        "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk"
       ]
     },
     {
@@ -24785,6 +24793,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "source": "dom",
+      "target": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__lazyLoader/chartRenderer:renderCharts",
       "source": "dom",
       "target": "lazyLoader/chartRenderer:renderCharts",
@@ -31267,6 +31281,62 @@
       "rel": "call"
     },
     {
+      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__hyperlights/deletion:reprocessHighlightsForNodes",
+      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "target": "hyperlights/deletion:reprocessHighlightsForNodes",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__indexedDB/types:parseChunkId",
+      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "target": "indexedDB/types:parseChunkId",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__lazyLoader/chartRenderer:renderCharts",
+      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "target": "lazyLoader/chartRenderer:renderCharts",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "target": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__lazyLoader/chunkRender:normalizeHyperciteElements",
+      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "target": "lazyLoader/chunkRender:normalizeHyperciteElements",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__lazyLoader/chunkRender:renderMathElements",
+      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "target": "lazyLoader/chunkRender:renderMathElements",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
+      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "target": "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__lazyLoader/imageState:handleBrokenImages",
+      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "target": "lazyLoader/imageState:handleBrokenImages",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__domwrite__dom",
+      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "lazyLoader/chartRenderer:renderCharts__domwrite__dom",
       "source": "lazyLoader/chartRenderer:renderCharts",
       "target": "dom",
@@ -31920,6 +31990,13 @@
       "source": "pageLoad/initialChunk:fetchInitialChunk",
       "target": "store:footnotes",
       "rel": "write"
+    },
+    {
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoader__call__lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoader",
+      "target": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoader__call__lazyLoader/index:createLazyLoader",
@@ -40562,6 +40639,36 @@
       "kind": "static"
     },
     {
+      "source": "lazyLoader/adoptPrerenderedChunk",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/adoptPrerenderedChunk",
+      "target": "lazyLoader/chartRenderer",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/adoptPrerenderedChunk",
+      "target": "lazyLoader/chunkRender",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/adoptPrerenderedChunk",
+      "target": "lazyLoader/footnoteSelfHeal",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/adoptPrerenderedChunk",
+      "target": "lazyLoader/imageState",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/adoptPrerenderedChunk",
+      "target": "hyperlights/deletion",
+      "kind": "lazy"
+    },
+    {
       "source": "lazyLoader/chunkFetcher",
       "target": "components/utilities/gateFilter",
       "kind": "static"
@@ -40789,6 +40896,11 @@
     {
       "source": "pageLoad/lazyLoaderRegistry",
       "target": "hyperlitContainer/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "pageLoad/lazyLoaderRegistry",
+      "target": "lazyLoader/adoptPrerenderedChunk",
       "kind": "lazy"
     },
     {
@@ -41656,6 +41768,6 @@
       ]
     ],
     "breakerCount": 1,
-    "lazyCount": 226
+    "lazyCount": 228
   }
 }

@@ -159,6 +159,17 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: BookId
       onFirstChunkLoaded: getFirstChunkLoadedResolver()
     }));
 
+    // Phase 2 — ADOPT the server-rendered first chunk if the reader page injected one.
+    // reader.blade.php emits the chunk the server determined we'd load first as the real
+    // `.chunk[data-prerendered]` element; adoption registers it as loaded (applying the live
+    // annotation/footnote/math passes on top) so the loadChunk(...) calls below early-exit for
+    // it and it is NEVER re-rendered. No injection / cold cache → returns null → behaviour is
+    // exactly today's. (Sub-book containers never carry data-prerendered, so they're untouched.)
+    if (currentLazyLoader) {
+      const { adoptPrerenderedChunk } = await import('../lazyLoader/adoptPrerenderedChunk');
+      await adoptPrerenderedChunk(currentLazyLoader, bookId);
+    }
+
     // Eagerly load first chunk for homepage/user page contexts AND reader pages
     // with no target navigation, so the DOM has content before editButton resolves
     const isHomepageContext = document.querySelector('.home-content-wrapper') ||
