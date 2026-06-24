@@ -11,7 +11,7 @@
 
 import { openDatabase } from '../indexedDB/core/connection';
 import { INLINE_SKIP_TAGS, BLOCK_ELEMENT_TAGS } from '../utilities/blockElements';
-import { asLineId, type LineId, type BookId } from '../utilities/idHelpers';
+import { asLineId, isDuplicateId, getNextDecimalForBase, generateDataNodeId, generateUniqueId, type LineId, type BookId } from '../utilities/idHelpers';
 
 /** First-difference descriptor between DOM text and stored IDB text. */
 export interface TextDiff {
@@ -363,6 +363,112 @@ export function healVerbatimDuplicates(bookId: any) : any {
 }
 
 /**
+ * Heal numeric-id duplicates: two+ DOM elements sharing the same positional id
+ * (e.g. a phantom `id="1"` minted when a freshly-pasted node had no numeric
+ * neighbours). Unlike `healVerbatimDuplicates`, the duplicates here may have
+ * DIFFERENT data-node-ids and content, so we cannot blindly delete — that would
+ * risk dropping unsaved content. The strategy is data-safe:
+ *
+ *   - Keeper = the element whose `data-node-id` matches the IDB record stored at
+ *     that startLine (the canonical node); else the first occurrence.
+ *   - A non-keeper is REMOVED only when it is provably redundant: empty, OR its
+ *     content equals the keeper's, OR its `data-node-id` is already persisted in
+ *     IDB (so the content lives elsewhere and the dup is a stray render).
+ *   - Otherwise the non-keeper carries distinct, unsaved content → reassign it a
+ *     fresh non-colliding id and queue a save so it survives the next reload.
+ *
+ * Returns a list of human-readable heal actions (for the report's selfHealed log).
+ *
+ * @param {string} bookId
+ * @returns {Promise<string[]>}
+ */
+export async function healDuplicateIds(bookId: any): Promise<string[]> {
+  const container = document.querySelector(`[data-book-id="${bookId}"]`)
+    || document.getElementById(bookId);
+  if (!container) return [];
+
+  // Group block elements by numeric id; only collisions matter.
+  const byId = new Map<string, HTMLElement[]>();
+  container.querySelectorAll('[id]').forEach((el: any) => {
+    if (!/^\d+(\.\d+)*$/.test(el.id)) return;
+    const arr = byId.get(el.id);
+    if (arr) arr.push(el); else byId.set(el.id, [el]);
+  });
+  const dupGroups = Array.from(byId.entries()).filter(([, els]) => els.length > 1);
+  if (dupGroups.length === 0) return [];
+
+  // Load the book's records once: startLine → canonical node_id, plus the full
+  // set of persisted node_ids (to spot already-saved render-duplicates).
+  let records: any[] = [];
+  try {
+    const { getNodesFromIndexedDB } = await import('../indexedDB/nodes/read');
+    records = await getNodesFromIndexedDB(bookId);
+  } catch (e) {
+    console.warn('[integrity] healDuplicateIds could not read IDB — skipping', e);
+    return [];
+  }
+  const nodeIdAtStartLine = new Map<number, string | null>();
+  const persistedNodeIds = new Set<string>();
+  for (const r of records) {
+    nodeIdAtStartLine.set(parseFloat(r.startLine), r.node_id ?? null);
+    if (r.node_id) persistedNodeIds.add(r.node_id);
+  }
+
+  const healed: string[] = [];
+
+  for (const [id, els] of dupGroups) {
+    const canonicalNodeId = nodeIdAtStartLine.get(parseFloat(id)) ?? null;
+
+    // Keeper = element whose data-node-id matches the stored record; else first.
+    let keeper = els[0]!;
+    if (canonicalNodeId) {
+      const match = els.find((el) => el.getAttribute('data-node-id') === canonicalNodeId);
+      if (match) keeper = match;
+    }
+
+    for (const el of els) {
+      if (el === keeper) continue;
+      const dataNodeId = el.getAttribute('data-node-id');
+      const isEmpty = !el.textContent?.trim() && !el.querySelector('img, sup');
+      const alreadyPersisted = dataNodeId ? persistedNodeIds.has(dataNodeId) : false;
+      const sameAsKeeper = el.innerHTML === keeper.innerHTML;
+
+      if (isEmpty || alreadyPersisted || sameAsKeeper) {
+        el.remove();
+        healed.push(`${id}×removed`);
+        continue;
+      }
+
+      // Distinct, unsaved content — rescue under a fresh non-colliding id.
+      const baseMatch = id.match(/^(\d+)/);
+      let newId = baseMatch ? getNextDecimalForBase(baseMatch[1]!) : generateUniqueId();
+      el.id = newId;
+      // getNextDecimalForBase only scans the first chunk — defend against a
+      // residual collision across chunks before committing.
+      if (isDuplicateId(newId)) {
+        newId = generateUniqueId();
+        el.id = newId;
+      }
+      if (!el.getAttribute('data-node-id')) {
+        el.setAttribute('data-node-id', generateDataNodeId(bookId));
+      }
+      try {
+        const { queueNodeForSave } = await import('../divEditor/index');
+        queueNodeForSave(newId, 'add', bookId);
+      } catch (e) {
+        console.warn('[integrity] healDuplicateIds could not queue save for', newId, e);
+      }
+      healed.push(`${id}→${newId}`);
+    }
+  }
+
+  if (healed.length) {
+    console.log(`[integrity] Healed ${healed.length} duplicate-id node(s):`, healed);
+  }
+  return healed;
+}
+
+/**
  * Scan for block-level elements without numeric IDs ("orphaned nodes").
  *
  * These are elements that were inserted into the DOM (e.g. via paste) but
@@ -433,8 +539,12 @@ export async function runIntegritySweep(bookId: any, containerEl: any, trigger =
     return { ok: true, mismatches: [], missingFromIDB: [], duplicateIds: [], orphans: [], healedIds: [] };
   }
 
-  // 1. Heal verbatim duplicates BEFORE counting (so the verifier sees the cleaned DOM)
+  // 1. Heal duplicates BEFORE counting (so the verifier sees the cleaned DOM):
+  //    verbatim dups (identical data-node-id + innerHTML) first, then numeric-id
+  //    collisions (e.g. a phantom id="1" from a paste race) — data-safe.
   const healedIds = healVerbatimDuplicates(bookId);
+  const healedDupIds = await healDuplicateIds(bookId);
+  if (healedDupIds.length > 0) healedIds.push(...healedDupIds);
 
   // 2. Collect node ids
   const nodeIds: any[] = [];

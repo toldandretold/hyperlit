@@ -21,6 +21,7 @@ vi.mock('../../../resources/js/app', () => ({ book: 'bookA' }));
 import {
   setElementIds,
   generateIdBetween,
+  ensureNodeHasValidId,
   isLineId,
   NUMERICAL_ID_PATTERN,
 } from '../../../resources/js/utilities/idHelpers';
@@ -82,5 +83,56 @@ describe('setElementIds — decimal line id + stable data-node-id between adjace
 
     setElementIds(p, '4', '5', 'bookA'); // second pass: data-node-id already present
     expect(p.getAttribute('data-node-id')).toBe(firstNodeId);
+  });
+});
+
+/**
+ * Regression guard for the phantom-`id="1"` paste bug: the MutationObserver path
+ * (chunkMutationHandler → ensureNodeHasValidId) is a SECOND id-assigner, distinct from
+ * setElementIds. Its no-id branch previously committed `generateIdBetween(null,null)` === "1"
+ * with no duplicate post-check, so a freshly-inserted node with no numeric neighbours collided
+ * with the genuine first node. The fix adds the same guard the has-id branch / setElementIds use.
+ */
+describe('ensureNodeHasValidId — no-id branch never commits a colliding id', () => {
+  it('does NOT mint a second id="1" for a node with no numeric neighbours', () => {
+    // Genuine first node lives in a chunk; the fresh node is isolated (no numeric
+    // sibling in either direction, non-numeric parent) → both lookups return null.
+    document.body.innerHTML = '';
+    const chunk = document.createElement('div');
+    chunk.className = 'chunk';
+    chunk.setAttribute('data-chunk-id', '1');
+    const first = document.createElement('p');
+    first.id = '1';
+    first.textContent = 'genuine first node';
+    chunk.appendChild(first);
+    document.body.appendChild(chunk);
+
+    const iso = document.createElement('div'); // non-numeric wrapper, no numeric siblings
+    const fresh = document.createElement('p');
+    fresh.textContent = 'freshly pasted paragraph';
+    iso.appendChild(fresh);
+    document.body.appendChild(iso);
+
+    ensureNodeHasValidId(fresh);
+
+    expect(fresh.id).not.toBe('1');                          // no longer collides
+    expect(NUMERICAL_ID_PATTERN.test(fresh.id)).toBe(true);  // still a valid positional id
+    expect(fresh.id).toBe('1.1');                            // bumped under the same base
+    expect(document.querySelectorAll('#1').length).toBe(1);  // genuine node 1 untouched
+    expect(fresh.getAttribute('data-node-id')).toBeTruthy();
+  });
+
+  it('control: still assigns a between-value (no spurious bump) when neighbours have ids', () => {
+    const chunk = buildAdjacentNodes(); // <p id="4">, <p id="5">
+    const fresh = document.createElement('p');
+    fresh.textContent = 'inserted between 4 and 5';
+    chunk.insertBefore(fresh, chunk.querySelector('#5'));
+
+    ensureNodeHasValidId(fresh);
+
+    expect(parseFloat(fresh.id)).toBeGreaterThan(4);
+    expect(parseFloat(fresh.id)).toBeLessThan(5);
+    expect(document.querySelectorAll('#4').length).toBe(1);
+    expect(document.querySelectorAll('#5').length).toBe(1);
   });
 });

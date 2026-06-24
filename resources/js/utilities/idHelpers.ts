@@ -622,6 +622,26 @@ export function ensureNodeHasValidId(node: any, options: any = {}) {
 
       console.log(`Assigned positional id ${node.id} and data-node-id to node <${node.tagName.toLowerCase()}> (between ${beforeId} and ${afterId})`);
     }
+
+    // Defense in depth: the assignment above can collide with an existing node
+    // when the new node's neighbours don't yet carry numeric ids (a transient
+    // state during a multi-node paste / chunk overflow) — generateIdBetween(null,
+    // null) returns "1", duplicating the genuine first node. Mirror the has-id
+    // branch's guard so the no-id path can never commit a duplicate. The node is
+    // already in the DOM here, so isDuplicateId (count > 1) is the self-aware check
+    // (isIdInUse would always be true — the node itself owns the id).
+    if (isDuplicateId(node.id)) {
+      const match = node.id.match(/^(\d+)(\.\d+)?$/);
+      if (match) {
+        const newId = getNextDecimalForBase(match[1]);
+        console.log(`ID conflict on insert. Changing node id from ${node.id} to ${newId}`);
+        node.id = newId;
+      } else {
+        const oldId = node.id;
+        node.id = generateUniqueId();
+        console.log(`ID conflict on insert (non-numeric). Changing node id from ${oldId} to ${node.id}`);
+      }
+    }
   }
 
 }

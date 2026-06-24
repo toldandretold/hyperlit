@@ -26,41 +26,60 @@ function cssUnescape(escaped) {
     .replace(/\\(.)/g, '$1');
 }
 
-function tolerantQuerySelector(orig, ctx, selector) {
-  try {
-    return orig.call(ctx, selector);
-  } catch (err) {
-    // Only a single `#id` selector. NB: CSS.escape emits a literal space inside hex escapes
-    // (e.g. "#\\34 \\.1"), so we can't exclude whitespace here — but a real combinator selector
-    // would not have thrown in happy-dom, so reaching this catch means it's the escaped-id case.
-    const m = /^#(.+)$/s.exec(selector);
-    if (!m) throw err;
-    const id = cssUnescape(m[1]);
-    const doc = ctx.getElementById ? ctx : ctx.ownerDocument;
-    const el = doc && doc.getElementById ? doc.getElementById(id) : null;
-    // Element-scoped query must only match descendants of ctx.
-    if (el && ctx !== doc && ctx.contains) return ctx.contains(el) ? el : null;
-    return el;
-  }
+// True when `selector` targets a SINGLE escaped id (e.g. "#\\31 " for id "1", "#\\34 \\.1" for
+// "4.1") — i.e. once unescaped it is `#<id>` with no combinators. happy-dom mishandles these BOTH
+// by throwing (no match) AND by returning wrong results (a match), so we pre-empt rather than rely
+// on a try/catch — and only for this shape, leaving real combinator selectors to the engine.
+function singleEscapedId(selector) {
+  if (typeof selector !== 'string' || selector[0] !== '#') return null;
+  const unescaped = cssUnescape(selector);
+  return /^#[^\s>+~,]+$/.test(unescaped) ? unescaped.slice(1) : null;
 }
 
-// Find the prototype in obj's chain that actually OWNS querySelector and wrap it. happy-dom
-// defines querySelector on its own Document/Element prototypes (not the bare global
-// Document.prototype), so we patch what the live instances really resolve to.
-function patchQuerySelectorOn(obj) {
+function tolerantQuerySelector(orig, ctx, selector) {
+  const id = singleEscapedId(selector);
+  if (id === null) return orig.call(ctx, selector);
+  const doc = ctx.getElementById ? ctx : ctx.ownerDocument;
+  const el = doc && doc.getElementById ? doc.getElementById(id) : null;
+  // Element-scoped query must only match descendants of ctx.
+  if (el && ctx !== doc && ctx.contains) return ctx.contains(el) ? el : null;
+  return el;
+}
+
+// querySelectorAll twin for isDuplicateId(id) = `querySelectorAll('#'+CSS.escape(id)).length > 1`.
+// The escaped-id selector (incl. an INTEGER id like "1" → "#\31 ") trips happy-dom the same way.
+// We can't recover via getElementById here — it returns at most ONE element, so it could never
+// surface a DUPLICATE. Instead scan all elements (the `*` selector never needs escaping) and
+// filter by `.id`, returning EVERY match so the count is correct.
+function tolerantQuerySelectorAll(orig, ctx, selector) {
+  const id = singleEscapedId(selector);
+  if (id === null) return orig.call(ctx, selector);
+  const root = ctx.ownerDocument || (ctx.getElementById ? ctx : document);
+  const all = Array.from(root.querySelectorAll('*')).filter((e) => e.id === id);
+  // Element-scoped query must only match descendants of ctx.
+  return (ctx !== root && ctx.contains) ? all.filter((e) => ctx.contains(e)) : all;
+}
+
+// Find the prototype in obj's chain that actually OWNS the method and wrap it. happy-dom
+// defines these on its own Document/Element prototypes (not the bare global Document.prototype),
+// so we patch what the live instances really resolve to.
+function patchMethodOn(obj, method, tolerant) {
   let proto = obj;
-  while (proto && !Object.prototype.hasOwnProperty.call(proto, 'querySelector')) {
+  while (proto && !Object.prototype.hasOwnProperty.call(proto, method)) {
     proto = Object.getPrototypeOf(proto);
   }
-  if (!proto || proto.__decimalIdShimInstalled) return;
-  const orig = proto.querySelector;
-  proto.querySelector = function (selector) {
-    return tolerantQuerySelector(orig, this, selector);
+  const flag = `__decimalIdShim_${method}`;
+  if (!proto || proto[flag]) return;
+  const orig = proto[method];
+  proto[method] = function (selector) {
+    return tolerant(orig, this, selector);
   };
-  Object.defineProperty(proto, '__decimalIdShimInstalled', { value: true, configurable: true });
+  Object.defineProperty(proto, flag, { value: true, configurable: true });
 }
 
 export function installDecimalIdSelectorShim() {
-  patchQuerySelectorOn(document);                       // document.querySelector (isIdInUse)
-  patchQuerySelectorOn(document.createElement('div'));  // Element#querySelector (overflow move)
+  patchMethodOn(document, 'querySelector', tolerantQuerySelector);                       // isIdInUse
+  patchMethodOn(document.createElement('div'), 'querySelector', tolerantQuerySelector);  // overflow move
+  patchMethodOn(document, 'querySelectorAll', tolerantQuerySelectorAll);                       // isDuplicateId
+  patchMethodOn(document.createElement('div'), 'querySelectorAll', tolerantQuerySelectorAll);  // scoped count
 }
