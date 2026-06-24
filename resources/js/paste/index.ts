@@ -119,6 +119,42 @@ async function syncPasteToPostgreSQL(bookId: BookId) {
     const allNodes = await getNodesFromIndexedDB(bookId);
     console.log(`📊 Retrieved ${allNodes.length} total nodes from IndexedDB for full book sync`);
 
+    // 🔢 Canonical footnote numbering. Paste bakes the SOURCE label into each <sup fn-count-id>,
+    // but the app numbers footnotes by DOCUMENT ORDER. Reconcile here — over the full node set,
+    // before the POST below — so the full-book sync carries canonical numbers, local IDB is
+    // canonical, the rendered sups are corrected immediately, and the first full-book LOAD's
+    // rebuildAndRenumber finds nothing to change (no write-on-read). Idempotent once converged.
+    // Reuse the leaf helpers, NOT rebuildAndRenumber: its per-node queueForSync would double-sync
+    // against this POST. Non-fatal — footnote numbering must never break the paste sync.
+    try {
+      const { buildFootnoteMap, updateFootnoteNumbersInDOM, applyFootnoteMapToStoredHTML } =
+        await import('../footnotes/FootnoteNumberingService');
+      buildFootnoteMap(bookId, allNodes);   // canonical doc-order map (populates the module map)
+      updateFootnoteNumbersInDOM();          // fix the already-rendered (chunk 0) sups now
+      const corrected: typeof allNodes = [];
+      for (const n of allNodes) {
+        if (!n.content) continue;
+        const { changed, newContent } = applyFootnoteMapToStoredHTML(n.content);
+        if (changed) { n.content = newContent; corrected.push(n); }  // mutate the array we POST
+      }
+      if (corrected.length > 0) {
+        // Direct put (keyPath ["book","startLine"]) — records are already hydrated, so do NOT
+        // route through loadNodesToIndexedDB (a wire-format normalizer that would re-parse them).
+        const { openDatabase } = await import('../indexedDB/core/connection');
+        const fnDb = await openDatabase();
+        await new Promise<void>((resolve, reject) => {
+          const tx = fnDb.transaction('nodes', 'readwrite');
+          const store = tx.objectStore('nodes');
+          for (const n of corrected) store.put(n);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        });
+        console.log(`🔢 Canonicalised footnote numbers in ${corrected.length} node(s) at paste — first-load renumber will be a no-op`);
+      }
+    } catch (e) {
+      console.warn('⚠️ Paste footnote canonicalisation skipped (non-fatal):', e);
+    }
+
     // ⚠️ CRITICAL DIAGNOSTIC: Check for incomplete IndexedDB data before destructive sync
     const chunkIds = [...new Set(allNodes.map((n: any) => n.chunk_id))].sort((a, b) => a - b);
     const hasChunk0 = chunkIds.includes(0);

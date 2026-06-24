@@ -41587,6 +41587,16 @@
     },
     {
       "source": "paste/index",
+      "target": "footnotes/FootnoteNumberingService",
+      "kind": "lazy"
+    },
+    {
+      "source": "paste/index",
+      "target": "indexedDB/core/connection",
+      "kind": "lazy"
+    },
+    {
+      "source": "paste/index",
       "target": "indexedDB/index",
       "kind": "lazy"
     },
@@ -41800,6 +41810,6 @@
       ]
     ],
     "breakerCount": 1,
-    "lazyCount": 227
+    "lazyCount": 229
   }
 }

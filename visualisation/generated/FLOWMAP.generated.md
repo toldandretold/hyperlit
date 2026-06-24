@@ -1527,7 +1527,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 227
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 229
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1724,6 +1724,8 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `paste/handlers/novelVacuumHandler` → `SPA/navigation/ProgressOverlayConductor`
 - `paste/handlers/novelVacuumHandler` → `indexedDB/index`
 - `paste/index` → `divEditor/index`
+- `paste/index` → `footnotes/FootnoteNumberingService`
+- `paste/index` → `indexedDB/core/connection`
 - `paste/index` → `indexedDB/index`
 - `scrolling/internalNav` → `SPA/navigation/resolveTargetChunk`
 - `scrolling/internalNav` → `components/toast/toast`
