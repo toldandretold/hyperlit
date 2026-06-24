@@ -1096,7 +1096,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `resolveFirstChunkPromise` | `pageLoad/firstChunkPromise` | — | — | — | — |
 | `fetchInitialChunk` | `pageLoad/initialChunk` | — | `footnotes` | — | `↓route:/api/database-to-indexeddb/books/{}/initial` |
 | `resolveBootstrapTarget` | `pageLoad/initialChunk` | — | — | — | — |
-| `initializeLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | read | — |
+| `initializeLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | read/write | — |
 | `initializeLazyLoaderForContainer` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
 | `initializeMainLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
 | `resetCurrentLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |

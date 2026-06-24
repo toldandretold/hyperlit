@@ -170,6 +170,12 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: BookId
       if (pre) {
         const preChunkId = parseChunkId(pre.getAttribute('data-chunk-id')!);
         await currentLazyLoader.loadChunk(preChunkId, "down");
+        // Safety net: if render-in-place couldn't match this placeholder (its nodes aren't in the
+        // initial fetch — e.g. a stale bookmark chunk that shifted), it's still in the DOM with
+        // data-prerendered. Remove the orphan so it doesn't linger as unannotated dead content.
+        if (pre.isConnected && pre.hasAttribute('data-prerendered')) {
+          pre.remove();
+        }
       }
     }
 

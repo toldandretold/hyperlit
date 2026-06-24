@@ -4071,8 +4071,8 @@
         "user_reading_positions"
       ],
       "shape": [
-        "chunk_id",
-        "element_id"
+        "book_id",
+        "error"
       ]
     },
     {
@@ -4157,8 +4157,7 @@
         "hypercites",
         "hyperlights",
         "library",
-        "nodes",
-        "user_reading_positions"
+        "nodes"
       ],
       "shape": [
         "book",
@@ -32068,6 +32067,12 @@
       "dataPath": true
     },
     {
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoader__domwrite__dom",
+      "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoader",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoaderForContainer",
       "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
@@ -34034,12 +34039,6 @@
       "id": "pg:user_reading_positions__pull__controller:DatabaseToIndexedDBController@getReadingPosition",
       "source": "pg:user_reading_positions",
       "target": "controller:DatabaseToIndexedDBController@getReadingPosition",
-      "rel": "pull"
-    },
-    {
-      "id": "pg:user_reading_positions__pull__controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
-      "source": "pg:user_reading_positions",
-      "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
       "rel": "pull"
     },
     {

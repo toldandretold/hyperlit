@@ -199,8 +199,7 @@
                 "hypercites",
                 "hyperlights",
                 "library",
-                "nodes",
-                "user_reading_positions"
+                "nodes"
             ],
             "shape": [
                 "book",
@@ -224,12 +223,10 @@
             "dir": "pull",
             "controller": "DatabaseToIndexedDBController",
             "method": "getReadingPosition",
-            "tables": [
-                "user_reading_positions"
-            ],
+            "tables": [],
             "shape": [
-                "chunk_id",
-                "element_id"
+                "book_id",
+                "error"
             ],
             "endpoints": [
                 "/api/database-to-indexeddb/books/{}/reading-position"
@@ -306,8 +303,7 @@
                 "hypercites",
                 "hyperlights",
                 "library",
-                "nodes",
-                "user_reading_positions"
+                "nodes"
             ],
             "shape": [
                 "book",
@@ -1287,21 +1283,6 @@
         {
             "source": "pg:nodes",
             "target": "controller:DbHyperciteController@find",
-            "rel": "read"
-        },
-        {
-            "source": "pg:user_reading_positions",
-            "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
-            "rel": "read"
-        },
-        {
-            "source": "pg:user_reading_positions",
-            "target": "controller:DatabaseToIndexedDBController@getReadingPosition",
-            "rel": "read"
-        },
-        {
-            "source": "pg:user_reading_positions",
-            "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
             "rel": "read"
         }
     ],

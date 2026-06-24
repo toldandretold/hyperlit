@@ -74,12 +74,14 @@ class TextController extends Controller
             // ?target= (the client read the URL #hash and forwarded it), else a path deep-link
             // reaches show() as $hl (HL_…) or $fn (…Fn…). buildFirstChunkPrerender maps it to its
             // chunk via the cached index → the FLASH-free correct chunk is prerendered.
-            $prerender = $this->buildFirstChunkPrerender($book, $request->query('target') ?? $hl ?? $fn);
+            // No deep-link target → fall back to the user's saved reading position (resume),
+            // mirroring the API's resume path so the prerendered chunk matches the client's fetch.
+            $prerender = $this->buildFirstChunkPrerender($book, $request->query('target') ?? $hl ?? $fn, $request);
             if ($prerender && $prerender['text'] !== '' && isset($seoData['jsonLd'])) {
                 $seoData['jsonLd']['articleBody'] = \Illuminate\Support\Str::limit($prerender['text'], 5000);
             }
 
-            return view('reader', array_merge([
+            $response = response()->view('reader', array_merge([
                 'html' => '',
                 'prerenderHtml' => $prerender['html'] ?? null,
                 'prerenderChunkId' => $prerender['chunkId'] ?? null,
@@ -89,6 +91,14 @@ class TextController extends Controller
                 'dataSource' => 'database',
                 'pageType' => 'reader'
             ], $seoData));
+
+            // A bookmark-derived prerender is PER-USER for the same /{book} URL — never let a
+            // shared/CDN cache (e.g. Cloudflare) serve one user's reading position to another.
+            if ($prerender['private'] ?? false) {
+                $response->header('Cache-Control', 'private, no-store');
+            }
+
+            return $response;
         }
 
         if ($markdownExists || $htmlExists) {
@@ -466,9 +476,9 @@ class TextController extends Controller
      * and the first reader API call warms the cache so the NEXT load prerenders. The node
      * `content` is already sanitized on write (NodeHtmlSanitizer), safe to emit with {!! !!}.
      *
-     * @return array{html: string, text: string, chunkId: float}|null
+     * @return array{html: string, text: string, chunkId: float, private: bool}|null
      */
-    private function buildFirstChunkPrerender(string $book, ?string $target = null): ?array
+    private function buildFirstChunkPrerender(string $book, ?string $target = null, ?Request $request = null): ?array
     {
         try {
             $cache = app(BookCache::class);
@@ -479,14 +489,31 @@ class TextController extends Controller
             if (empty($manifest)) {
                 return null;
             }
-            // Deep-link target → its chunk; else document start (lowest). Resolve via the cached
-            // index first, then a LIVE lookup — a cite/highlight created after the last warm isn't in
-            // index.json yet, and resolving index-only would prerender the WRONG (lowest) chunk → flash.
+            // Precedence: deep-link target → saved reading position (resume) → document start (lowest).
+            // Resolve a target via the cached index first, then a LIVE lookup — a cite/highlight created
+            // after the last warm isn't in index.json yet, and resolving index-only would prerender the
+            // WRONG (lowest) chunk → flash.
             $chunkId = (float) $manifest[0]['chunk_id']; // manifest is sorted ascending by warm()
+            $private = false;
             if ($target !== null && $target !== '') {
                 $resolved = $this->resolvePrerenderTargetChunk($book, $target, $cache);
                 if ($resolved !== null) {
                     $chunkId = $resolved;
+                }
+            } elseif ($request !== null) {
+                // No deep-link → resume to the user's saved position (the SAME row the client's
+                // resume=true fetch reads), but ONLY if that chunk still exists in the manifest —
+                // content edits can shift chunk ids, and an unmatched prerender would orphan in the DOM.
+                $bookmark = \App\Services\ReadingPosition::lookup($request, $book);
+                if ($bookmark !== null) {
+                    $savedChunkId = (float) $bookmark['chunk_id'];
+                    foreach ($manifest as $entry) {
+                        if ((float) $entry['chunk_id'] === $savedChunkId) {
+                            $chunkId = $savedChunkId;
+                            $private = true; // per-user prerender → not shared-cacheable
+                            break;
+                        }
+                    }
                 }
             }
             $nodes = $cache->getChunk($book, $chunkId);
@@ -504,7 +531,7 @@ class TextController extends Controller
                 }
             }
 
-            return ['html' => $html, 'text' => trim($text), 'chunkId' => $chunkId];
+            return ['html' => $html, 'text' => trim($text), 'chunkId' => $chunkId, 'private' => $private];
         } catch (\Throwable $e) {
             // SEO prerender is best-effort — never let it break the page render.
             Log::warning('First-chunk prerender failed (serving empty <main>)', [

@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
 afterEach(function () {
     $admin = DB::connection('pgsql_admin');
     foreach ($this->prBooks ?? [] as $book) {
-        foreach (['nodes', 'footnotes', 'hyperlights', 'library'] as $table) {
+        foreach (['nodes', 'footnotes', 'hyperlights', 'library', 'user_reading_positions'] as $table) {
             try { $admin->table($table)->where('book', $book)->delete(); } catch (\Throwable $e) {}
         }
         app(BookCache::class)->invalidate($book);
@@ -118,6 +118,55 @@ test('QUERY target (?target=) → SPA fetch path prerenders THAT chunk (flash fi
     expect($html)->toContain('data-prerendered="true"');
     expect($html)->toContain('data-chunk-id="1"');               // the hyperlight's chunk
     expect($html)->not->toContain('<p>Alpha opening line</p>');  // NOT the lowest chunk
+});
+
+test('RESUME: a logged-in user with a saved position prerenders THAT chunk (not the lowest) + Cache-Control private', function () {
+    // No deep-link (bare /{book}) for a known user → prerender the chunk the user last read,
+    // resolved from user_reading_positions exactly like the client resume=true fetch.
+    $book = seedPrerenderBook($this);
+    app(BookCache::class)->warm($book);
+
+    DB::connection('pgsql_admin')->table('user_reading_positions')->insert([
+        'book' => $book, 'user_name' => 'reader1', 'anon_token' => null,
+        'chunk_id' => 1, 'element_id' => '2', 'updated_at' => now(),
+    ]);
+
+    $user = new \App\Models\User();
+    $user->name = 'reader1';
+
+    $res = $this->actingAs($user)->get("/{$book}");
+    $html = $res->assertStatus(200)->getContent();
+
+    expect($html)->toContain('data-chunk-id="1"');                 // the saved chunk, not the lowest
+    expect($html)->toContain('Gamma in chunk one');                // chunk 1's node
+    expect($html)->not->toContain('<p>Alpha opening line</p>');    // NOT chunk 0
+    // Per-user prerender must not be shared-cacheable (Cloudflare etc.). `no-store` is OUR marker
+    // (the framework already adds `no-cache, private` to session responses; no-store is distinctive).
+    expect($res->headers->get('Cache-Control'))->toContain('no-store');
+});
+
+test('RESUME: a saved position whose chunk no longer exists falls back to the lowest chunk (no orphan, not private)', function () {
+    // Content edits can shift chunk ids; a stale bookmark chunk must NOT be prerendered (it would
+    // orphan in the DOM). Fall back to the public lowest chunk — and that fallback is shared-cacheable.
+    $book = seedPrerenderBook($this);
+    app(BookCache::class)->warm($book);
+
+    DB::connection('pgsql_admin')->table('user_reading_positions')->insert([
+        'book' => $book, 'user_name' => 'reader1', 'anon_token' => null,
+        'chunk_id' => 99, 'element_id' => null, 'updated_at' => now(),  // 99 is not in the manifest
+    ]);
+
+    $user = new \App\Models\User();
+    $user->name = 'reader1';
+
+    $res = $this->actingAs($user)->get("/{$book}");
+    $html = $res->assertStatus(200)->getContent();
+
+    expect($html)->toContain('data-chunk-id="0"');             // lowest chunk
+    expect($html)->toContain('<p>Alpha opening line</p>');
+    expect($html)->not->toContain('Gamma in chunk one');
+    // The public lowest-chunk fallback is NOT marked no-store (only bookmark-derived prerenders are).
+    expect($res->headers->get('Cache-Control') ?? '')->not->toContain('no-store');
 });
 
 test('target NOT in the index (created after warm) still prerenders its chunk via LIVE fallback', function () {

@@ -1586,30 +1586,9 @@ class DatabaseToIndexedDBController extends Controller
      */
     private function getBookmarkData(Request $request, string $bookId): ?array
     {
-        $user = Auth::user();
-        $anonymousToken = $request->cookie('anon_token');
-
-        $query = DB::table('user_reading_positions')
-            ->where('book', $bookId);
-
-        if ($user) {
-            $query->where('user_name', $user->name);
-        } elseif ($anonymousToken) {
-            $query->where('anon_token', $anonymousToken);
-        } else {
-            return null;
-        }
-
-        $position = $query->first();
-
-        if (!$position) {
-            return null;
-        }
-
-        return [
-            'chunk_id' => (float) $position->chunk_id,
-            'element_id' => $position->element_id,
-        ];
+        // Single source of truth (shared with TextController's prerender) so the server
+        // prerender and this `resume` read always resolve the SAME chunk.
+        return \App\Services\ReadingPosition::lookup($request, $bookId);
     }
 
     /**
