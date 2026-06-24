@@ -224,6 +224,13 @@ class BookCache
                 $byChunk[$key]['count']++;
 
                 $nodeIdToChunk[$row->node_id] = $chunkId;
+                // Heading anchor id (TOC "#chapter-3" deep-link target) → chunk. Selective: ONLY a
+                // node that IS a heading (<h1-6 id="…">), not every inline id (those bloat the index
+                // and aren't navigated). Same regex as getBookHeadings. Added BEFORE the startLine
+                // entry so a canonical numeric startLine→chunk wins any rare numeric-id collision.
+                if (preg_match('/^<h[1-6][^>]*\sid="([^"]+)"/i', $row->content ?? '', $hm) && $hm[1] !== '') {
+                    $index[$hm[1]] = $chunkId;
+                }
                 // startLine → chunk (numeric deep-link target)
                 $index[$this->numKey($startLine)] = $chunkId;
                 // footnote ids living in this node → chunk
@@ -282,6 +289,79 @@ class BookCache
         if (is_dir($dir)) {
             $this->rrmdir($dir);
         }
+    }
+
+    /**
+     * Best-effort incremental update of the deep-link index for annotations created AFTER the last
+     * warm (warm only rebuilds on a content change, so a new hypercite/hyperlight isn't in the index).
+     * Merges id→chunk into index.json IFF it exists (cache warm); no-op if absent — the next warm
+     * rebuilds it and the live resolver fallback covers the gap meanwhile. Lock-guarded against the
+     * read-modify-write race; a dropped update is harmless (live fallback). Never throws to the caller.
+     *
+     * @param array<string, float|int> $idToChunk  e.g. ['hypercite_x' => 200.0]
+     */
+    public function addToIndex(string $bookId, array $idToChunk): void
+    {
+        if (empty($idToChunk)) {
+            return;
+        }
+        $path = $this->dir($bookId) . '/index.json';
+        if (!is_file($path)) {
+            return; // cache cold → nothing to keep fresh; warm() will build the index
+        }
+        $lock = Cache::lock("bookcache:index:{$bookId}", 5);
+        if (!$lock->get()) {
+            return; // contended → skip; the live fallback covers this id until the next read/warm
+        }
+        try {
+            $index = $this->readJson($path);
+            if (!is_array($index)) {
+                return;
+            }
+            $changed = false;
+            foreach ($idToChunk as $id => $chunkId) {
+                if ($id === '') {
+                    continue;
+                }
+                if (!isset($index[$id]) || (float) $index[$id] !== (float) $chunkId) {
+                    $index[$id] = (float) $chunkId;
+                    $changed = true;
+                }
+            }
+            if ($changed) {
+                $this->writeJson($path, $index);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('BookCache addToIndex failed (live fallback covers it)', [
+                'book' => $bookId, 'error' => $e->getMessage(),
+            ]);
+        } finally {
+            optional($lock)->release();
+        }
+    }
+
+    /**
+     * Resolve `[id => firstNodeId]` to `[id => chunkId]` in ONE query — for `addToIndex` on annotation
+     * create (the annotation's chunk = the chunk of its first node).
+     *
+     * @param array<string, ?string> $idToFirstNodeId
+     * @return array<string, float>
+     */
+    public function chunkIdsForNodes(string $bookId, array $idToFirstNodeId): array
+    {
+        $nodeIds = array_values(array_filter(array_unique($idToFirstNodeId)));
+        if (empty($nodeIds)) {
+            return [];
+        }
+        $nodeChunk = DB::table('nodes')->where('book', $bookId)->whereIn('node_id', $nodeIds)
+            ->pluck('chunk_id', 'node_id'); // node_id => chunk_id
+        $out = [];
+        foreach ($idToFirstNodeId as $id => $nodeId) {
+            if ($nodeId !== null && isset($nodeChunk[$nodeId])) {
+                $out[$id] = (float) $nodeChunk[$nodeId];
+            }
+        }
+        return $out;
     }
 
     // ───────────────────────────── warm helpers ─────────────────────────────

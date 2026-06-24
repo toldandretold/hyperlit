@@ -1117,7 +1117,16 @@ async function loadChunkInternal(chunkId: any, direction: any, instance: any, at
   // createChunkElement is called with its simple, correct signature.
    const chunkElement: any = createChunkElement(nextNodes, instance);
 
-  if (direction === "up") {
+  // If the server prerendered this chunk into the container (the `.chunk[data-chunk-id=N]`
+  // injected by reader.blade.php for SEO + instant paint), render the real, fully-annotated
+  // chunk canonically and swap it IN PLACE — don't inject a duplicate. This is what makes a
+  // prerendered chunk an ordinary chunk: no separate "adoption" path that can drift.
+  const existing = instance.container.querySelector(
+    `:scope > .chunk[data-chunk-id="${String(chunkId)}"]`
+  );
+  if (existing) {
+    existing.replaceWith(chunkElement);
+  } else if (direction === "up") {
     instance.container.insertBefore(chunkElement, instance.container.firstChild);
   } else {
     // Insert before the bottom sentinel so chunks stay above it

@@ -258,3 +258,54 @@ test('MISMATCH then empty PG → stale cache bypassed, live path returns the rea
 
     $this->getJson("/api/database-to-indexeddb/books/{$book}/chunk/0")->assertStatus(404);
 });
+
+test('warm INDEXES heading anchor ids (kills the content-scan), but NOT inline ids', function () {
+    // Heading anchors (#chapter-3 TOC targets) are the real content-scan targets; index them. Inline
+    // ids in non-heading content are deliberately NOT indexed (selectivity — they bloat the map).
+    $book = 'apitest_' . Str::random(12);
+    $this->bcBooks = array_merge($this->bcBooks ?? [], [$book]);
+    $admin = DB::connection('pgsql_admin');
+    $admin->table('library')->insert([
+        'book' => $book, 'title' => 'Headings', 'visibility' => 'public', 'timestamp' => 1000,
+        'raw_json' => json_encode(['book' => $book]), 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $admin->table('nodes')->insert([
+        'book' => $book, 'startLine' => 0, 'chunk_id' => 0, 'node_id' => $book . '_h',
+        'content' => '<h2 id="sec-3" data-node-id="' . $book . '_h">Section 3</h2>',
+        'plainText' => 'Section 3', 'type' => 'h2', 'footnotes' => json_encode([]),
+        'raw_json' => json_encode([]), 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $admin->table('nodes')->insert([
+        'book' => $book, 'startLine' => 1, 'chunk_id' => 0, 'node_id' => $book . '_p',
+        'content' => '<p id="inline-thing">body <span id="x9">w</span></p>',
+        'plainText' => 'body w', 'type' => 'p', 'footnotes' => json_encode([]),
+        'raw_json' => json_encode([]), 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    app(BookCache::class)->warm($book);
+    $index = app(BookCache::class)->getIndex($book);
+
+    expect((float) $index['sec-3'])->toBe(0.0);        // heading anchor → its chunk (no content-scan)
+    expect($index)->not->toHaveKey('inline-thing');    // <p> inline id NOT indexed
+    expect($index)->not->toHaveKey('x9');              // <span> id NOT indexed
+});
+
+test('addToIndex incrementally adds a post-warm annotation; cold cache → no-op', function () {
+    $cache = app(BookCache::class);
+
+    // Cold (un-warmed) book: addToIndex must be a no-op (no index file to update).
+    $cold = seedCachedBook($this);
+    $cache->addToIndex($cold, ['hypercite_x' => 1.0]);
+    expect($cache->getIndex($cold))->toBeNull();
+
+    // Warm book: a cite created AFTER warm isn't in the index → addToIndex puts it there.
+    $book = seedCachedBook($this);          // node $book_n2 lives in chunk 1
+    $cache->warm($book);
+    expect($cache->getIndex($book))->not->toHaveKey('hypercite_new');
+
+    $chunks = $cache->chunkIdsForNodes($book, ['hypercite_new' => $book . '_n2']);
+    expect($chunks)->toEqual(['hypercite_new' => 1.0]); // resolved its first node's chunk
+    $cache->addToIndex($book, $chunks);
+
+    expect((float) $cache->getIndex($book)['hypercite_new'])->toBe(1.0);
+});

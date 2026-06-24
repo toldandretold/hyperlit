@@ -76,7 +76,9 @@ test('COLD cache → reader <main> stays empty (graceful fallback, no prerender)
 
     $html = $this->get("/{$book}")->assertStatus(200)->getContent();
 
-    expect($html)->not->toContain('data-prerendered');
+    // NB: assert on the element attribute (data-prerendered="true"), not the bare string — the
+    // blade's flash-guard CSS rule (.chunk[data-prerendered]) legitimately contains "data-prerendered".
+    expect($html)->not->toContain('data-prerendered="true"');
     expect($html)->not->toContain('<p>Alpha opening line</p>');
 });
 
@@ -87,7 +89,7 @@ test('STALE cache → no prerender (content changed, cache not rebuilt yet)', fu
 
     $html = $this->get("/{$book}")->assertStatus(200)->getContent();
 
-    expect($html)->not->toContain('data-prerendered');
+    expect($html)->not->toContain('data-prerendered="true"');
 });
 
 test('PATH target → server injects THAT chunk (resolved via the index), not the lowest', function () {
@@ -102,4 +104,38 @@ test('PATH target → server injects THAT chunk (resolved via the index), not th
     expect($html)->toContain('data-chunk-id="1"');
     expect($html)->toContain('Gamma in chunk one');     // chunk 1's node
     expect($html)->not->toContain('<p>Alpha opening line</p>'); // chunk 0 not injected
+});
+
+test('QUERY target (?target=) → SPA fetch path prerenders THAT chunk (flash fix)', function () {
+    // The SPA reader-HTML fetch forwards the deep-link as ?target= (the browser strips a URL #hash,
+    // but the JS-built fetch can carry it). show() must prerender the TARGET chunk so the client
+    // adopts it and the deep-link nav scrolls straight to it — no flash of the lowest chunk.
+    $book = seedPrerenderBook($this);
+    app(BookCache::class)->warm($book);
+
+    $html = $this->get("/{$book}?target=HL_1")->assertStatus(200)->getContent();
+
+    expect($html)->toContain('data-prerendered="true"');
+    expect($html)->toContain('data-chunk-id="1"');               // the hyperlight's chunk
+    expect($html)->not->toContain('<p>Alpha opening line</p>');  // NOT the lowest chunk
+});
+
+test('target NOT in the index (created after warm) still prerenders its chunk via LIVE fallback', function () {
+    // The index only rebuilds on a content re-warm, so a hypercite/hyperlight created afterwards is
+    // absent from index.json. The prerender must fall back to a live table lookup (like the API does)
+    // — otherwise it prerenders the lowest chunk and the deep-link flashes. Here HL_2 is added AFTER warm.
+    $book = seedPrerenderBook($this);
+    app(BookCache::class)->warm($book);                       // index built WITHOUT HL_2
+
+    \App\Models\PgHyperlight::on('pgsql_admin')->create([
+        'book' => $book, 'hyperlight_id' => 'HL_2', 'node_id' => [$book . '_n2'], // node in chunk 1
+        'charData' => [$book . '_n2' => ['charStart' => 0, 'charEnd' => 5]],
+        'time_since' => 1, 'hidden' => false, 'raw_json' => json_encode([]),
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $html = $this->get("/{$book}?target=HL_2")->assertStatus(200)->getContent();
+
+    expect($html)->toContain('data-chunk-id="1"');               // resolved via live lookup → chunk 1
+    expect($html)->not->toContain('<p>Alpha opening line</p>');  // NOT the lowest chunk
 });

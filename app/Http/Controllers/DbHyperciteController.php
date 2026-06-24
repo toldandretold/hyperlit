@@ -202,6 +202,16 @@ class DbHyperciteController extends Controller
 
             PgHypercite::insert($records);
 
+            // Keep the deep-link index fresh for these new cites (best-effort; no-op if cache cold).
+            $indexUpdates = [];
+            foreach ($records as $rec) {
+                $nids = is_array($rec['node_id'] ?? null) ? $rec['node_id'] : json_decode($rec['node_id'] ?? '[]', true);
+                if (!empty($rec['book']) && !empty($rec['hyperciteId']) && !empty($nids)) {
+                    $indexUpdates[$rec['book']][$rec['hyperciteId']] = $nids[0];
+                }
+            }
+            $this->refreshAnnotationIndex($indexUpdates);
+
             Log::info('DbHyperciteController::bulkCreate - Success', [
                 'records_inserted' => count($records)
             ]);
@@ -257,6 +267,7 @@ class DbHyperciteController extends Controller
             if (isset($data['data']) && is_array($data['data'])) {
                 $processedCount = 0;
                 $processedBookIds = [];
+                $indexUpdates = [];   // book => [hyperciteId => firstNodeId] for the cached deep-link index
                 $user = Auth::user();
                 $anonymousToken = $user ? null : $request->cookie('anon_token');
 
@@ -341,8 +352,20 @@ class DbHyperciteController extends Controller
                     $processedCount++;
                     if ($bookId) {
                         $processedBookIds[] = $bookId;
+                        // Keep the deep-link index fresh: a cite created after the last cache warm
+                        // isn't in index.json. Record id → its first node (chunk resolved in bulk below).
+                        $nids = is_array($item['node_id'] ?? null)
+                            ? $item['node_id']
+                            : json_decode($item['node_id'] ?? '[]', true);
+                        if (!empty($nids) && !empty($item['hyperciteId'])) {
+                            $indexUpdates[$bookId][$item['hyperciteId']] = $nids[0];
+                        }
                     }
                 }
+
+                // Best-effort: append the new/updated cites to each book's cached index (no-op if cold;
+                // never affects the save — the live resolver fallback covers any gap).
+                $this->refreshAnnotationIndex($indexUpdates);
 
                 Log::info('DbHyperciteController::upsert - Success', [
                     'records_processed' => $processedCount
@@ -371,6 +394,28 @@ class DbHyperciteController extends Controller
             ]);
 
             return ApiResponse::error('Failed to sync data', 500, ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Best-effort: append created/updated annotation id→chunk mappings to each book's cached deep-link
+     * index, so a deep-link to a cite made AFTER the last cache warm uses the fast index path instead of
+     * the live table query. No-op when the cache is cold; never affects the save (live fallback covers it).
+     *
+     * @param array<string, array<string, ?string>> $indexUpdates  book => [id => firstNodeId]
+     */
+    private function refreshAnnotationIndex(array $indexUpdates): void
+    {
+        if (empty($indexUpdates)) {
+            return;
+        }
+        try {
+            $cache = app(\App\Services\BookCache::class);
+            foreach ($indexUpdates as $book => $idToNode) {
+                $cache->addToIndex($book, $cache->chunkIdsForNodes($book, $idToNode));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Annotation index refresh failed (live fallback covers it)', ['error' => $e->getMessage()]);
         }
     }
 

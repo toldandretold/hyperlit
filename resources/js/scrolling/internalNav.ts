@@ -271,24 +271,37 @@ export function navigateToInternalId(targetId: string, lazyLoader: any, showOver
   });
 }
 
-async function _navigateToInternalId(targetId: string, lazyLoader: any, progressIndicator: NavigationProgressIndicator | null = null): Promise<void> {
-  // Check if the target element is already present and fully rendered
-  let existingElement = lazyLoader.container.querySelector(
-    `#${CSS.escape(targetId)}`
-  );
-
-  // For hypercites, also check if it's part of an overlapping segment
-  if (!existingElement && targetId.startsWith('hypercite_')) {
-    const overlappingElements = lazyLoader.container.querySelectorAll('u[data-overlapping]');
-    for (const element of overlappingElements) {
-      const overlappingIds = element.getAttribute('data-overlapping');
-      if (overlappingIds && overlappingIds.split(',').map((id: string) => id.trim()).includes(targetId)) {
-        verbose.nav(`Found hypercite ${targetId} in overlapping element`, 'scrolling/internalNav');
-        existingElement = element;
-        break;
-      }
+/**
+ * Find the deep-link target element if it is ALREADY rendered in `container` — a hypercite `<u id>`
+ * (incl. overlapping `u[data-overlapping]`), a highlight `<mark id|class>`, or any element by id
+ * (footnote sup / node). Returns the element or null.
+ *
+ * This is what makes a deep-link FLASH-free: when the target is already in the DOM (e.g. a server
+ * prerendered + adopted chunk), navigation scrolls straight to it instead of clearing `<main>` and
+ * re-rendering the chunk. Mirrors the post-clear fallback selectors below — keep them in sync.
+ */
+export function findRenderedTarget(container: any, targetId: string): any {
+  if (!container || !targetId) return null;
+  const direct = container.querySelector(`#${CSS.escape(targetId)}`);
+  if (direct) return direct;
+  if (targetId.startsWith('hypercite_')) {
+    for (const u of container.querySelectorAll('u[data-overlapping]')) {
+      const ids = u.getAttribute('data-overlapping');
+      if (ids && ids.split(',').map((id: string) => id.trim()).includes(targetId)) return u;
     }
   }
+  if (targetId.startsWith('HL_')) {
+    const mark = container.querySelector(`mark.${CSS.escape(targetId)}`);
+    if (mark) return mark;
+  }
+  return null;
+}
+
+async function _navigateToInternalId(targetId: string, lazyLoader: any, progressIndicator: NavigationProgressIndicator | null = null): Promise<void> {
+  // Check if the target element is already present and fully rendered (e.g. a server-prerendered +
+  // adopted chunk). If so, the resolver + clear+re-render block below is SKIPPED — we scroll straight
+  // to it (no deep-link flash). Covers hypercite / highlight / footnote / node targets.
+  let existingElement = findRenderedTarget(lazyLoader.container, targetId);
 
   // Update progress - DOM check
   if (progressIndicator) {
@@ -442,48 +455,61 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
       return;
     }
 
-    // Clear the container and load the chunk (plus adjacent chunks).
-    if (progressIndicator) {
-      progressIndicator.updateProgress(50, "Clearing container and preparing to load chunks...");
-    }
-
-    // ⚠️ DIAGNOSTIC: Log when container is cleared during navigation
-    const childCount3 = lazyLoader.container.children.length;
-    if (childCount3 > 0) {
-      console.warn(`⚠️ CONTAINER CLEAR (navigation): ${childCount3} children removed`, {
-        stack: new Error().stack,
-        targetId,
-        timestamp: Date.now()
-      });
-    }
-    lazyLoader.container.innerHTML = "";
-    lazyLoader.currentlyLoadedChunks.clear();
-
-    // targetChunkId already set from resolver — verify against node
-    const targetNode = lazyLoader.nodes[targetChunkIndex];
-
     // Get all unique chunk_ids — use manifest when available (partial load)
     const allChunkIds = lazyLoader.chunkManifest
       ? lazyLoader.chunkManifest.map((m: any) => m.chunk_id)
       : [...new Set(lazyLoader.nodes.map((n: any) => n.chunk_id))].sort((a: any, b: any) => a - b);
     const targetChunkPosition = allChunkIds.indexOf(targetChunkId);
 
-    // Load target chunk plus adjacent chunks
-    const startChunkIndex = Math.max(0, targetChunkPosition - 1);
-    const endChunkIndex = Math.min(allChunkIds.length - 1, targetChunkPosition + 1);
-    const chunksToLoad = allChunkIds.slice(startChunkIndex, endChunkIndex + 1);
+    if (lazyLoader.currentlyLoadedChunks?.has?.(targetChunkId)) {
+      // 🚀 FAST-PATH: the target chunk is ALREADY rendered — server-prerendered + adopted, or already
+      // lazy-loaded. Do NOT clear + re-render: that discards the adopted DOM (the deep-link flash) and
+      // pointlessly rebuilds a chunk already on screen. Just ensure the neighbour chunks are present for
+      // scroll context (loadChunk early-exits for already-loaded ids), then fall through to the
+      // wait-for-element + scroll below — which finds the existing target without a reload.
+      verbose.nav(`Fast-path: chunk ${targetChunkId} already loaded — scrolling without clearing`, 'scrolling/internalNav');
+      if (targetChunkPosition > 0) {
+        lazyLoader.loadChunk(allChunkIds[targetChunkPosition - 1], "up");
+      }
+      if (targetChunkPosition >= 0 && targetChunkPosition < allChunkIds.length - 1) {
+        lazyLoader.loadChunk(allChunkIds[targetChunkPosition + 1], "down");
+      }
+      lazyLoader.repositionSentinels();
+    } else {
+      // Clear the container and load the chunk (plus adjacent chunks).
+      if (progressIndicator) {
+        progressIndicator.updateProgress(50, "Clearing container and preparing to load chunks...");
+      }
 
-    verbose.nav(`Target element "${targetId}" is in chunk_id: ${targetChunkId}`, 'scrolling/internalNav');
-    verbose.nav(`Loading chunks: ${chunksToLoad.join(', ')} (target chunk position: ${targetChunkPosition})`, 'scrolling/internalNav');
+      // ⚠️ DIAGNOSTIC: Log when container is cleared during navigation
+      const childCount3 = lazyLoader.container.children.length;
+      if (childCount3 > 0) {
+        console.warn(`⚠️ CONTAINER CLEAR (navigation): ${childCount3} children removed`, {
+          stack: new Error().stack,
+          targetId,
+          timestamp: Date.now()
+        });
+      }
+      lazyLoader.container.innerHTML = "";
+      lazyLoader.currentlyLoadedChunks.clear();
 
-    if (progressIndicator) {
-      progressIndicator.updateProgress(60, `Loading ${chunksToLoad.length} chunks...`);
+      // Load target chunk plus adjacent chunks
+      const startChunkIndex = Math.max(0, targetChunkPosition - 1);
+      const endChunkIndex = Math.min(allChunkIds.length - 1, targetChunkPosition + 1);
+      const chunksToLoad = allChunkIds.slice(startChunkIndex, endChunkIndex + 1);
+
+      verbose.nav(`Target element "${targetId}" is in chunk_id: ${targetChunkId}`, 'scrolling/internalNav');
+      verbose.nav(`Loading chunks: ${chunksToLoad.join(', ')} (target chunk position: ${targetChunkPosition})`, 'scrolling/internalNav');
+
+      if (progressIndicator) {
+        progressIndicator.updateProgress(60, `Loading ${chunksToLoad.length} chunks...`);
+      }
+
+      // ✅ Just load synchronously, since loadChunk returns immediately
+      chunksToLoad.map((chunkId: any) => lazyLoader.loadChunk(chunkId, "down"));
+
+      lazyLoader.repositionSentinels();
     }
-
-    // ✅ Just load synchronously, since loadChunk returns immediately
-    const loadedChunks = chunksToLoad.map((chunkId: any) => lazyLoader.loadChunk(chunkId, "down"));
-
-    lazyLoader.repositionSentinels();
 
     if (progressIndicator) {
       progressIndicator.updateProgress(70, "Waiting for content to be ready...");

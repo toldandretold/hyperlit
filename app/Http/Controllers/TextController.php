@@ -70,8 +70,11 @@ class TextController extends Controller
             // first chunk's HTML server-side (from the file cache, when fresh) so crawlers
             // index the real article body and users get an instant first paint. The client
             // discards this scaffolding (#__seo_prerender) the moment the lazy loader renders.
-            // Path deep-links reach show() as $hl (HL_…) or $fn (…Fn…); resolve either via the index.
-            $prerender = $this->buildFirstChunkPrerender($book, $hl ?? $fn);
+            // Resolve the prerender target: an SPA reader-HTML fetch passes the deep-link as
+            // ?target= (the client read the URL #hash and forwarded it), else a path deep-link
+            // reaches show() as $hl (HL_…) or $fn (…Fn…). buildFirstChunkPrerender maps it to its
+            // chunk via the cached index → the FLASH-free correct chunk is prerendered.
+            $prerender = $this->buildFirstChunkPrerender($book, $request->query('target') ?? $hl ?? $fn);
             if ($prerender && $prerender['text'] !== '' && isset($seoData['jsonLd'])) {
                 $seoData['jsonLd']['articleBody'] = \Illuminate\Support\Str::limit($prerender['text'], 5000);
             }
@@ -476,12 +479,14 @@ class TextController extends Controller
             if (empty($manifest)) {
                 return null;
             }
-            // Path target → its chunk via the index; else document start (lowest).
+            // Deep-link target → its chunk; else document start (lowest). Resolve via the cached
+            // index first, then a LIVE lookup — a cite/highlight created after the last warm isn't in
+            // index.json yet, and resolving index-only would prerender the WRONG (lowest) chunk → flash.
             $chunkId = (float) $manifest[0]['chunk_id']; // manifest is sorted ascending by warm()
             if ($target !== null && $target !== '') {
-                $index = $cache->getIndex($book);
-                if (is_array($index) && isset($index[$target])) {
-                    $chunkId = (float) $index[$target];
+                $resolved = $this->resolvePrerenderTargetChunk($book, $target, $cache);
+                if ($resolved !== null) {
+                    $chunkId = $resolved;
                 }
             }
             $nodes = $cache->getChunk($book, $chunkId);
@@ -508,6 +513,52 @@ class TextController extends Controller
             ]);
             return null;
         }
+    }
+
+    /**
+     * Resolve a deep-link target (?target= / path $hl/$fn) to its chunk_id for the prerender.
+     * Cached `index.json` first (no DB), else a LIVE lookup so a hypercite/highlight/footnote/node
+     * created AFTER the last cache warm (not yet in the index) still prerenders its REAL chunk.
+     * Mirrors DatabaseToIndexedDBController::resolveTargetToChunkIdWithReason. Returns chunk_id or null.
+     */
+    private function resolvePrerenderTargetChunk(string $book, string $target, BookCache $cache): ?float
+    {
+        $index = $cache->getIndex($book);
+        if (is_array($index) && isset($index[$target])) {
+            return (float) $index[$target];
+        }
+        // Index miss → live fallback (same branch order as the API resolver).
+        if (str_starts_with($target, 'hypercite_')) {
+            return $this->chunkOfAnnotationFirstNode($book, 'hypercites', 'hyperciteId', $target);
+        }
+        if (str_starts_with($target, 'HL_')) {
+            return $this->chunkOfAnnotationFirstNode($book, 'hyperlights', 'hyperlight_id', $target);
+        }
+        if (preg_match('/(^|_)Fn\d/', $target)) {
+            $node = DB::table('nodes')->where('book', $book)
+                ->whereRaw('footnotes::jsonb @> ?', [json_encode([$target])])->first();
+            return $node ? (float) $node->chunk_id : null;
+        }
+        if (preg_match('/^\d+(\.\d+)?$/', $target)) {
+            $node = DB::table('nodes')->where('book', $book)->where('startLine', (float) $target)->first();
+            return $node ? (float) $node->chunk_id : null;
+        }
+        return null;
+    }
+
+    /** Chunk of an annotation's first node_id (hypercite/hyperlight → nodes.chunk_id), or null. */
+    private function chunkOfAnnotationFirstNode(string $book, string $table, string $idCol, string $target): ?float
+    {
+        $row = DB::table($table)->where('book', $book)->where($idCol, $target)->first();
+        if (!$row) {
+            return null;
+        }
+        $nodeIds = json_decode($row->node_id ?? '[]', true);
+        if (empty($nodeIds)) {
+            return null;
+        }
+        $node = DB::table('nodes')->where('book', $book)->where('node_id', $nodeIds[0])->first();
+        return $node ? (float) $node->chunk_id : null;
     }
 
     private function getHyperlightDescription(string $subBookId, array $urlItems): ?string

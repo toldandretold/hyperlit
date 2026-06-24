@@ -1,4 +1,4 @@
-import { asBookId, LATEST, type BookId } from "../indexedDB/types";
+import { asBookId, parseChunkId, LATEST, type BookId } from "../indexedDB/types";
 import { book } from '../app';
 import { verbose } from '../utilities/logger';
 import { navigateToInternalId } from '../scrolling/index';
@@ -159,15 +159,18 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: BookId
       onFirstChunkLoaded: getFirstChunkLoadedResolver()
     }));
 
-    // Phase 2 — ADOPT the server-rendered first chunk if the reader page injected one.
-    // reader.blade.php emits the chunk the server determined we'd load first as the real
-    // `.chunk[data-prerendered]` element; adoption registers it as loaded (applying the live
-    // annotation/footnote/math passes on top) so the loadChunk(...) calls below early-exit for
-    // it and it is NEVER re-rendered. No injection / cold cache → returns null → behaviour is
-    // exactly today's. (Sub-book containers never carry data-prerendered, so they're untouched.)
+    // If the reader page server-rendered a chunk into the container (reader.blade.php emits the
+    // target chunk as `.chunk[data-prerendered]` for SEO + instant paint), render THAT chunk
+    // through the normal load path. loadChunkInternal sees the placeholder already in the DOM and
+    // swaps the canonically-built (fully-annotated) chunk in place — no duplicate, no separate
+    // "adoption" path. No injection / cold cache → no placeholder → behaviour is exactly today's.
+    // (Sub-book containers never carry data-prerendered, so they're untouched.)
     if (currentLazyLoader) {
-      const { adoptPrerenderedChunk } = await import('../lazyLoader/adoptPrerenderedChunk');
-      await adoptPrerenderedChunk(currentLazyLoader, bookId);
+      const pre = currentLazyLoader.container.querySelector(':scope > .chunk[data-prerendered]');
+      if (pre) {
+        const preChunkId = parseChunkId(pre.getAttribute('data-chunk-id')!);
+        await currentLazyLoader.loadChunk(preChunkId, "down");
+      }
     }
 
     // Eagerly load first chunk for homepage/user page contexts AND reader pages

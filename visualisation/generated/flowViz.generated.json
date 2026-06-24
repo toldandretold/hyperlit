@@ -3,10 +3,10 @@
     "dbName": "MarkdownDB",
     "dbVersion": 27,
     "fnCount": 1514,
-    "moduleCount": 316,
+    "moduleCount": 315,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3103,
+    "edgeCount": 3095,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -9642,17 +9642,6 @@
       "leaf": true
     },
     {
-      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
-      "label": "adoptPrerenderedChunk",
-      "kind": "fn",
-      "stage": "lazyLoader",
-      "module": "lazyLoader/adoptPrerenderedChunk",
-      "leaf": false,
-      "types": [
-        "NodeRecord"
-      ]
-    },
-    {
       "id": "lazyLoader/chartRenderer:renderCharts",
       "label": "renderCharts",
       "kind": "fn",
@@ -11571,6 +11560,14 @@
     {
       "id": "scrolling/internalNav:fallbackScrollPosition",
       "label": "fallbackScrollPosition",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/internalNav",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/internalNav:findRenderedTarget",
+      "label": "findRenderedTarget",
       "kind": "fn",
       "stage": "scrolling",
       "module": "scrolling/internalNav",
@@ -16452,15 +16449,6 @@
       ]
     },
     {
-      "id": "lazyLoader/adoptPrerenderedChunk",
-      "label": "lazyLoader/adoptPrerenderedChunk",
-      "stage": "lazyLoader",
-      "band": "capture",
-      "fnIds": [
-        "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk"
-      ]
-    },
-    {
       "id": "lazyLoader/chartRenderer",
       "label": "lazyLoader/chartRenderer",
       "stage": "lazyLoader",
@@ -17205,6 +17193,7 @@
       "band": "capture",
       "fnIds": [
         "scrolling/internalNav:fallbackScrollPosition",
+        "scrolling/internalNav:findRenderedTarget",
         "scrolling/internalNav:loadDefaultContent",
         "scrolling/internalNav:navigateToInternalId"
       ]
@@ -24837,12 +24826,6 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
-      "source": "dom",
-      "target": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
-      "rel": "domread"
-    },
-    {
       "id": "dom__domread__lazyLoader/chartRenderer:renderCharts",
       "source": "dom",
       "target": "lazyLoader/chartRenderer:renderCharts",
@@ -25446,6 +25429,12 @@
       "id": "dom__domread__scrolling/internalNav:fallbackScrollPosition",
       "source": "dom",
       "target": "scrolling/internalNav:fallbackScrollPosition",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/internalNav:findRenderedTarget",
+      "source": "dom",
+      "target": "scrolling/internalNav:findRenderedTarget",
       "rel": "domread"
     },
     {
@@ -31337,62 +31326,6 @@
       "rel": "call"
     },
     {
-      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__hyperlights/deletion:reprocessHighlightsForNodes",
-      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
-      "target": "hyperlights/deletion:reprocessHighlightsForNodes",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__indexedDB/types:parseChunkId",
-      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
-      "target": "indexedDB/types:parseChunkId",
-      "rel": "call"
-    },
-    {
-      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__lazyLoader/chartRenderer:renderCharts",
-      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
-      "target": "lazyLoader/chartRenderer:renderCharts",
-      "rel": "call"
-    },
-    {
-      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
-      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
-      "target": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__lazyLoader/chunkRender:normalizeHyperciteElements",
-      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
-      "target": "lazyLoader/chunkRender:normalizeHyperciteElements",
-      "rel": "call"
-    },
-    {
-      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__lazyLoader/chunkRender:renderMathElements",
-      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
-      "target": "lazyLoader/chunkRender:renderMathElements",
-      "rel": "call"
-    },
-    {
-      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
-      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
-      "target": "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
-      "rel": "call"
-    },
-    {
-      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__call__lazyLoader/imageState:handleBrokenImages",
-      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
-      "target": "lazyLoader/imageState:handleBrokenImages",
-      "rel": "call"
-    },
-    {
-      "id": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk__domwrite__dom",
-      "source": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
       "id": "lazyLoader/chartRenderer:renderCharts__domwrite__dom",
       "source": "lazyLoader/chartRenderer:renderCharts",
       "target": "dom",
@@ -32096,11 +32029,10 @@
       "rel": "write"
     },
     {
-      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoader__call__lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
+      "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoader__call__indexedDB/types:parseChunkId",
       "source": "pageLoad/lazyLoaderRegistry:initializeLazyLoader",
-      "target": "lazyLoader/adoptPrerenderedChunk:adoptPrerenderedChunk",
-      "rel": "call",
-      "dataPath": true
+      "target": "indexedDB/types:parseChunkId",
+      "rel": "call"
     },
     {
       "id": "pageLoad/lazyLoaderRegistry:initializeLazyLoader__call__lazyLoader/index:createLazyLoader",
@@ -34467,6 +34399,12 @@
       "target": "scrolling/internalNav:fallbackScrollPosition",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/internalNav:findRenderedTarget",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "scrolling/internalNav:findRenderedTarget",
+      "rel": "call"
     },
     {
       "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/navOverlay:hideNavigationLoading",
@@ -40743,36 +40681,6 @@
       "kind": "static"
     },
     {
-      "source": "lazyLoader/adoptPrerenderedChunk",
-      "target": "indexedDB/types",
-      "kind": "static"
-    },
-    {
-      "source": "lazyLoader/adoptPrerenderedChunk",
-      "target": "lazyLoader/chartRenderer",
-      "kind": "static"
-    },
-    {
-      "source": "lazyLoader/adoptPrerenderedChunk",
-      "target": "lazyLoader/chunkRender",
-      "kind": "static"
-    },
-    {
-      "source": "lazyLoader/adoptPrerenderedChunk",
-      "target": "lazyLoader/footnoteSelfHeal",
-      "kind": "static"
-    },
-    {
-      "source": "lazyLoader/adoptPrerenderedChunk",
-      "target": "lazyLoader/imageState",
-      "kind": "static"
-    },
-    {
-      "source": "lazyLoader/adoptPrerenderedChunk",
-      "target": "hyperlights/deletion",
-      "kind": "lazy"
-    },
-    {
       "source": "lazyLoader/chunkFetcher",
       "target": "components/utilities/gateFilter",
       "kind": "static"
@@ -41025,11 +40933,6 @@
     {
       "source": "pageLoad/lazyLoaderRegistry",
       "target": "hyperlitContainer/index",
-      "kind": "lazy"
-    },
-    {
-      "source": "pageLoad/lazyLoaderRegistry",
-      "target": "lazyLoader/adoptPrerenderedChunk",
       "kind": "lazy"
     },
     {
@@ -41897,6 +41800,6 @@
       ]
     ],
     "breakerCount": 1,
-    "lazyCount": 229
+    "lazyCount": 227
   }
 }

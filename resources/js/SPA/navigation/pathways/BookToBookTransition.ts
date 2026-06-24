@@ -96,10 +96,18 @@ export class BookToBookTransition {
         await this.cleanupCurrentReader();
 
         progress(20, 'Fetching book content...');
-        
-        // Fetch the target book's HTML
-        const readerHtml = await this.fetchReaderPageHtml(toBook);
-        
+
+        // Compute the nav target BEFORE the fetch so we can forward it as ?target= — that lets the
+        // server prerender the TARGET chunk (not the lowest), which the client then adopts (no flash).
+        // For multi-level cascades the footnote marker is the parent-book node to target.
+        const isMultiLevelCascade = footnoteId && (hyperlightId || hyperciteId);
+        const navigationTarget = isMultiLevelCascade
+          ? footnoteId
+          : (hash?.substring(1) || hyperlightId || hyperciteId || footnoteId || null);
+
+        // Fetch the target book's HTML (with the deep-link target so the prerender is the right chunk)
+        const readerHtml = await this.fetchReaderPageHtml(toBook, navigationTarget);
+
         progress(40, 'Updating content...');
         
         // Replace only the page content (not the entire body)
@@ -116,13 +124,7 @@ export class BookToBookTransition {
 
         progress(60, 'Initializing reader...');
 
-        // For multi-level cascades (footnote + hyperlight/hypercite), the footnote
-        // marker is what lives in the parent book's nodes — target it so the backend
-        // loads the correct chunk. The hyperlight/hypercite live inside the sub-book.
-        const isMultiLevelCascade = footnoteId && (hyperlightId || hyperciteId);
-        const navigationTarget = isMultiLevelCascade
-          ? footnoteId
-          : (hash?.substring(1) || hyperlightId || hyperciteId || footnoteId || null);
+        // (navigationTarget computed above, before the fetch.)
         (window as any)._pendingChunkTarget = navigationTarget;
 
         // When hash (hypercite) takes priority but a hyperlight/footnote also exists,
@@ -253,10 +255,13 @@ export class BookToBookTransition {
   /**
    * Fetch the reader page HTML for target book
    */
-  static async fetchReaderPageHtml(bookId: any) {
-    console.log(`📥 BookToBookTransition: Fetching reader HTML for ${bookId}`);
-    
-    const response = await fetch(`/${bookId}`);
+  static async fetchReaderPageHtml(bookId: any, target: string | null = null) {
+    console.log(`📥 BookToBookTransition: Fetching reader HTML for ${bookId}${target ? ` (target=${target})` : ''}`);
+
+    // Forward the deep-link target as a query param (the browser strips a URL #hash, but a fetch
+    // we build can carry it) so TextController::show prerenders the TARGET chunk, not the lowest.
+    const url = target ? `/${bookId}?target=${encodeURIComponent(target)}` : `/${bookId}`;
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Failed to fetch reader page HTML: ${response.status}`);
     }

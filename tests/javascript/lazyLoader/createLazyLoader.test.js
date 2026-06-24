@@ -141,9 +141,9 @@ describe('createLazyLoader — render + registration', () => {
     expect(createChunkElement).not.toHaveBeenCalled();
   });
 
-  it('ADOPTION SEAM: an already-registered chunk (what adoptPrerenderedChunk does) is never rendered', async () => {
+  it('EARLY-EXIT: an already-loaded chunk is never re-rendered', async () => {
     const { inst, container } = makeLoader();
-    // Simulate adoption: the server DOM is present and the id is pre-registered as loaded.
+    // A chunk already in currentlyLoadedChunks (e.g. rendered earlier) must not be rebuilt.
     const pre = document.createElement('div');
     pre.className = 'chunk';
     pre.setAttribute('data-chunk-id', '0');
@@ -152,7 +152,7 @@ describe('createLazyLoader — render + registration', () => {
 
     await inst.loadChunk(0, 'down');
 
-    expect(createChunkElement).not.toHaveBeenCalled(); // adopted chunk NOT re-rendered
+    expect(createChunkElement).not.toHaveBeenCalled(); // already-loaded chunk NOT re-rendered
   });
 });
 

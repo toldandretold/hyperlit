@@ -197,6 +197,16 @@ class DbHyperlightController extends Controller
                 
                 PgHyperlight::insert($records);
 
+                // Keep the deep-link index fresh for these new highlights (best-effort; no-op if cold).
+                $indexUpdates = [];
+                foreach ($records as $rec) {
+                    $nids = is_array($rec['node_id'] ?? null) ? $rec['node_id'] : json_decode($rec['node_id'] ?? '[]', true);
+                    if (!empty($rec['book']) && !empty($rec['hyperlight_id']) && !empty($nids)) {
+                        $indexUpdates[$rec['book']][$rec['hyperlight_id']] = $nids[0];
+                    }
+                }
+                $this->refreshAnnotationIndex($indexUpdates);
+
                 Log::info('DbHyperlightController::bulkCreate - Success', [
                     'records_inserted' => count($records)
                 ]);
@@ -256,6 +266,7 @@ class DbHyperlightController extends Controller
             if (isset($data['data']) && is_array($data['data'])) {
                 $processedCount = 0;
                 $processedBookIds = [];
+                $indexUpdates = [];   // book => [hyperlight_id => firstNodeId] for the cached deep-link index
                 $user = Auth::user();
                 $anonymousToken = $user ? null : $request->cookie('anon_token');
 
@@ -375,8 +386,18 @@ class DbHyperlightController extends Controller
                     $processedCount++;
                     if ($bookId) {
                         $processedBookIds[] = $bookId;
+                        // Keep the deep-link index fresh (highlight created after the last warm).
+                        $nids = is_array($item['node_id'] ?? null)
+                            ? $item['node_id']
+                            : json_decode($item['node_id'] ?? '[]', true);
+                        if (!empty($nids) && !empty($item['hyperlight_id'])) {
+                            $indexUpdates[$bookId][$item['hyperlight_id']] = $nids[0];
+                        }
                     }
                 }
+
+                // Best-effort: append the new/updated highlights to each book's cached index.
+                $this->refreshAnnotationIndex($indexUpdates);
 
                 Log::info('DbHyperlightController::upsert - Success', [
                     'records_processed' => $processedCount
@@ -405,6 +426,28 @@ class DbHyperlightController extends Controller
             ]);
 
             return ApiResponse::error('Failed to sync data', 500, ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Best-effort: append created/updated highlight id→chunk mappings to each book's cached deep-link
+     * index, so a deep-link to a highlight made AFTER the last cache warm uses the fast index path. No-op
+     * when the cache is cold; never affects the save (the live resolver fallback covers any gap).
+     *
+     * @param array<string, array<string, ?string>> $indexUpdates  book => [id => firstNodeId]
+     */
+    private function refreshAnnotationIndex(array $indexUpdates): void
+    {
+        if (empty($indexUpdates)) {
+            return;
+        }
+        try {
+            $cache = app(\App\Services\BookCache::class);
+            foreach ($indexUpdates as $book => $idToNode) {
+                $cache->addToIndex($book, $cache->chunkIdsForNodes($book, $idToNode));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Annotation index refresh failed (live fallback covers it)', ['error' => $e->getMessage()]);
         }
     }
 

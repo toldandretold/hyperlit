@@ -14,8 +14,18 @@
     @endsection
 @section('content')
 
-
-
+{{-- FULL-LOAD DEEP-LINK flash guard. The browser strips a URL #hash from the request, so the server
+     prerenders the LOWEST chunk into <main> (wrong when deep-linking deep into the book). This runs
+     BEFORE <main> is parsed/painted: if the hash is a content target, hide the prerendered chunk so
+     it never flashes — the client then renders the real target chunk (see internalNav fast-path).
+     Regex MIRRORS resources/js/utilities/deepLinkHash.ts:isDeepLinkHash — keep in sync. (Not used on
+     SPA navigations, which forward ?target= so the prerender is already the correct chunk.) --}}
+<style>html.dl-pending main .chunk[data-prerendered]{display:none}</style>
+<script>
+  (function(){var h=(location.hash||'').replace(/^#/,'');
+    if(h&&(h.indexOf('hypercite_')===0||h.indexOf('HL_')===0||/(^|_)Fn\d/.test(h)||/^\d+(\.\d+)?$/.test(h)))
+      document.documentElement.classList.add('dl-pending');})();
+</script>
 
 
 <div id="app-container">
@@ -70,10 +80,11 @@
   <!-- Load the content of the main-text.md file -->
   <main id="{{ $book }}" class="main-content" data-slug="{{ $slug ?? '' }}" contenteditable="{{ $editMode ? 'true' : 'false' }}">
 @if(!empty($prerenderHtml ?? null))
-{{-- Server-rendered first chunk = the REAL chunk element. Crawlers index the article body and
-     users get an instant first paint; the lazy loader ADOPTS this exact DOM as the already-loaded
-     first chunk (registers it, applies live annotations, never re-renders it) — see
-     resources/js/lazyLoader/adoptPrerenderedChunk.ts. --}}
+{{-- Server-rendered target chunk = a real chunk element. Crawlers index the article body and
+     users get an instant first paint. On init the lazy loader renders this chunk through its
+     NORMAL path (createChunkElement) and swaps the fully-annotated result in place over this
+     placeholder — see the render-in-place branch in resources/js/lazyLoader/index.ts
+     (loadChunkInternal) + the dispatch in resources/js/pageLoad/lazyLoaderRegistry.ts. --}}
 <div class="chunk" data-chunk-id="{{ $prerenderChunkId }}" data-prerendered="true">{!! $prerenderHtml !!}</div>
 @endif
       </main>

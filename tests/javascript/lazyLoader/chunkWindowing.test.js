@@ -60,8 +60,6 @@ vi.mock('../../../resources/js/lazyLoader/chunkRender', () => ({
   applyHypercites: vi.fn(),
   applyHighlights: vi.fn(),
 }));
-// adoptPrerenderedChunk's annotation pass (used by the adopted-chunk test).
-vi.mock('../../../resources/js/hyperlights/deletion', () => ({ reprocessHighlightsForNodes: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('../../../resources/js/lazyLoader/chartRenderer', () => ({ renderCharts: vi.fn() }));
 vi.mock('../../../resources/js/lazyLoader/imageState', () => ({ handleBrokenImages: vi.fn() }));
 vi.mock('../../../resources/js/lazyLoader/footnoteSelfHeal', () => ({ applyDynamicFootnoteNumbers: vi.fn() }));
@@ -78,7 +76,6 @@ vi.mock('../../../resources/js/paste/pasteState', () => ({ isPasteOperationActiv
 vi.mock('../../../resources/js/divEditor/index', () => ({ getPendingSaveNodeIds: vi.fn(() => new Set()) }));
 
 import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from '../../../resources/js/lazyLoader/index';
-import { adoptPrerenderedChunk } from '../../../resources/js/lazyLoader/adoptPrerenderedChunk';
 import { MAX_LOADED_CHUNKS, trimWindow } from '../../../resources/js/lazyLoader/utilities/windowChunks';
 import { setProgrammaticUpdateInProgress } from '../../../resources/js/utilities/operationState';
 import { isSelectionDragActive } from '../../../resources/js/scrolling/selectionAutoScroll';
@@ -232,12 +229,15 @@ describe('chunk DOM invariants — current behaviour', () => {
     expect(assertSingleOrderedBlock(inst)).toEqual([0, 4]);
   });
 
-  it('ADOPTED prerendered chunk sits inside the sentinels and lazy-loads its neighbour', async () => {
-    const { inst } = makeLoader({ prerenderChunkId: 0 }); // server injected chunk 0
-    // createLazyLoader framed it with sentinels; adopt registers it without re-rendering.
-    const adoptedId = await adoptPrerenderedChunk(inst, 'bookA');
-    expect(adoptedId).toBe(0);
-    expect(assertSingleOrderedBlock(inst)).toEqual([0]);   // adopted chunk is the single block
+  it('prerendered chunk is rendered IN PLACE within the sentinels and lazy-loads its neighbour', async () => {
+    const { inst, container } = makeLoader({ prerenderChunkId: 0 }); // server injected chunk 0
+    // createLazyLoader framed it with sentinels; the normal load path sees the placeholder
+    // already in the DOM and swaps the canonical chunk in place — no duplicate, no special path.
+    await inst.loadChunk(0, 'down');
+    expect(container.querySelectorAll('.chunk[data-chunk-id="0"]').length).toBe(1); // replaced, not duplicated
+    expect(container.querySelector('.chunk[data-chunk-id="0"]').hasAttribute('data-prerendered')).toBe(false);
+    expect(inst.currentlyLoadedChunks.has(0)).toBe(true);
+    expect(assertSingleOrderedBlock(inst)).toEqual([0]);   // the single block
 
     await fireBottom(inst); await flush();                 // scroll down → next chunk after it
     expect(assertSingleOrderedBlock(inst)).toEqual([0, 1]);
