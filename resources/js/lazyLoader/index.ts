@@ -24,6 +24,7 @@ import { scrollElementIntoMainContent } from "../scrolling/index";
 import { handleContentLinkClick } from '../utilities/linkClickRegistry';
 import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState';
 import { selectNextChunkId, selectPrevChunkId } from './utilities/chunkSelection';
+import { trimWindow } from './utilities/windowChunks';
 import { restoreScrollAnchor } from '../utilities/scrollAnchor';
 import {
   createChunkElement,
@@ -987,6 +988,10 @@ export async function loadNextChunkFixed(currentLastChunkId: any, instance: any)
         container.appendChild(instance.bottomSentinel);
       }
 
+    // ✂️ WINDOWING: bound the DOM — scrolling down trims the LOWEST chunk IF it's fully off-screen,
+    // not the caret's, has no pending edits, and no paste/selection is active. DOM-only.
+    await trimWindow(instance, 'down');
+
     // 🚨 CLEAR LOADING STATE AFTER DOM CHANGES
     // Use a small delay to ensure all mutations are processed
     setTimeout(() => {
@@ -1071,6 +1076,10 @@ export async function loadPreviousChunkFixed(currentFirstChunkId: any, instance:
 
     instance.attachMarkListeners?.(chunkElement);
     instance.attachUnderlineClickListeners?.(chunkElement);
+
+    // ✂️ WINDOWING: scrolling up trims the HIGHEST chunk under the same safety guards. DOM-only;
+    // removing a below-viewport chunk doesn't shift the visual position.
+    await trimWindow(instance, 'up');
 
     // 🚨 CLEAR LOADING STATE AFTER DOM CHANGES
     setTimeout(() => {

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1510,
-    "moduleCount": 315,
+    "fnCount": 1514,
+    "moduleCount": 316,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3093,
+    "edgeCount": 3103,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -5176,6 +5176,14 @@
       "leaf": true
     },
     {
+      "id": "divEditor/index:getPendingSaveNodeIds",
+      "label": "getPendingSaveNodeIds",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/index",
+      "leaf": true
+    },
+    {
       "id": "divEditor/index:isEditorObserving",
       "label": "isEditorObserving",
       "kind": "fn",
@@ -9857,6 +9865,22 @@
       "leaf": true
     },
     {
+      "id": "lazyLoader/utilities/windowChunks:removeChunk",
+      "label": "removeChunk",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/utilities/windowChunks",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/utilities/windowChunks:trimWindow",
+      "label": "trimWindow",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/utilities/windowChunks",
+      "leaf": false
+    },
+    {
       "id": "pageLoad/accessGuards:handleDeletedBookAccess",
       "label": "handleDeletedBookAccess",
       "kind": "fn",
@@ -11670,6 +11694,14 @@
     {
       "id": "scrolling/selectionAutoScroll:initSelectionAutoScroll",
       "label": "initSelectionAutoScroll",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/selectionAutoScroll",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/selectionAutoScroll:isSelectionDragActive",
+      "label": "isSelectionDragActive",
       "kind": "fn",
       "stage": "scrolling",
       "module": "scrolling/selectionAutoScroll",
@@ -14970,6 +15002,7 @@
       "fnIds": [
         "divEditor/index:flushAllPendingSaves",
         "divEditor/index:flushInputDebounce",
+        "divEditor/index:getPendingSaveNodeIds",
         "divEditor/index:isEditorObserving",
         "divEditor/index:startObserving",
         "divEditor/index:stopObserving"
@@ -16525,6 +16558,16 @@
       ]
     },
     {
+      "id": "lazyLoader/utilities/windowChunks",
+      "label": "lazyLoader/utilities/windowChunks",
+      "stage": "lazyLoader",
+      "band": "capture",
+      "fnIds": [
+        "lazyLoader/utilities/windowChunks:removeChunk",
+        "lazyLoader/utilities/windowChunks:trimWindow"
+      ]
+    },
+    {
       "id": "pageLoad/accessGuards",
       "label": "pageLoad/accessGuards",
       "stage": "pageLoad",
@@ -17216,7 +17259,8 @@
       "band": "store",
       "fnIds": [
         "scrolling/selectionAutoScroll:destroySelectionAutoScroll",
-        "scrolling/selectionAutoScroll:initSelectionAutoScroll"
+        "scrolling/selectionAutoScroll:initSelectionAutoScroll",
+        "scrolling/selectionAutoScroll:isSelectionDragActive"
       ]
     },
     {
@@ -24877,6 +24921,18 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__lazyLoader/utilities/windowChunks:removeChunk",
+      "source": "dom",
+      "target": "lazyLoader/utilities/windowChunks:removeChunk",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/utilities/windowChunks:trimWindow",
+      "source": "dom",
+      "target": "lazyLoader/utilities/windowChunks:trimWindow",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__pageLoad/accessGuards:handleDeletedBookAccess",
       "source": "dom",
       "target": "pageLoad/accessGuards:handleDeletedBookAccess",
@@ -31729,6 +31785,12 @@
       "rel": "call"
     },
     {
+      "id": "lazyLoader/index:loadNextChunkFixed__call__lazyLoader/utilities/windowChunks:trimWindow",
+      "source": "lazyLoader/index:loadNextChunkFixed",
+      "target": "lazyLoader/utilities/windowChunks:trimWindow",
+      "rel": "call"
+    },
+    {
       "id": "lazyLoader/index:loadNextChunkFixed__domwrite__dom",
       "source": "lazyLoader/index:loadNextChunkFixed",
       "target": "dom",
@@ -31799,10 +31861,52 @@
       "rel": "call"
     },
     {
+      "id": "lazyLoader/index:loadPreviousChunkFixed__call__lazyLoader/utilities/windowChunks:trimWindow",
+      "source": "lazyLoader/index:loadPreviousChunkFixed",
+      "target": "lazyLoader/utilities/windowChunks:trimWindow",
+      "rel": "call"
+    },
+    {
       "id": "lazyLoader/index:loadPreviousChunkFixed__domwrite__dom",
       "source": "lazyLoader/index:loadPreviousChunkFixed",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/utilities/windowChunks:removeChunk__domwrite__dom",
+      "source": "lazyLoader/utilities/windowChunks:removeChunk",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/utilities/windowChunks:trimWindow__call__divEditor/index:getPendingSaveNodeIds",
+      "source": "lazyLoader/utilities/windowChunks:trimWindow",
+      "target": "divEditor/index:getPendingSaveNodeIds",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/utilities/windowChunks:trimWindow__call__indexedDB/types:parseChunkId",
+      "source": "lazyLoader/utilities/windowChunks:trimWindow",
+      "target": "indexedDB/types:parseChunkId",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/utilities/windowChunks:trimWindow__call__lazyLoader/utilities/windowChunks:removeChunk",
+      "source": "lazyLoader/utilities/windowChunks:trimWindow",
+      "target": "lazyLoader/utilities/windowChunks:removeChunk",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/utilities/windowChunks:trimWindow__call__paste/pasteState:isPasteOperationActive",
+      "source": "lazyLoader/utilities/windowChunks:trimWindow",
+      "target": "paste/pasteState:isPasteOperationActive",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/utilities/windowChunks:trimWindow__call__scrolling/selectionAutoScroll:isSelectionDragActive",
+      "source": "lazyLoader/utilities/windowChunks:trimWindow",
+      "target": "scrolling/selectionAutoScroll:isSelectionDragActive",
+      "rel": "call"
     },
     {
       "id": "pageLoad/accessGuards:handleDeletedBookAccess__domwrite__dom",
@@ -40755,6 +40859,11 @@
     },
     {
       "source": "lazyLoader/index",
+      "target": "lazyLoader/utilities/windowChunks",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/index",
       "target": "scrolling/index",
       "kind": "static"
     },
@@ -40776,6 +40885,26 @@
     {
       "source": "lazyLoader/index",
       "target": "scrolling/readingPosition",
+      "kind": "lazy"
+    },
+    {
+      "source": "lazyLoader/utilities/windowChunks",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/utilities/windowChunks",
+      "target": "paste/pasteState",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/utilities/windowChunks",
+      "target": "scrolling/selectionAutoScroll",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/utilities/windowChunks",
+      "target": "divEditor/index",
       "kind": "lazy"
     },
     {
@@ -41768,6 +41897,6 @@
       ]
     ],
     "breakerCount": 1,
-    "lazyCount": 228
+    "lazyCount": 229
   }
 }

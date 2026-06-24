@@ -221,6 +221,15 @@ export async function flushAllPendingSaves() {
   }
 }
 
+/**
+ * Read-only view of the node ids (= LineId / startLine strings) with edits queued but not yet
+ * flushed to IndexedDB. Used by chunk windowing to avoid removing a chunk's DOM while it still
+ * holds an unsaved edit (the save path reads the live DOM at flush). Empty when no edit session.
+ */
+export function getPendingSaveNodeIds(): Set<string> {
+  return saveQueue ? new Set(saveQueue.pendingSaves.nodes.keys()) : new Set();
+}
+
 // 🔑 CRITICAL: Flush input debounce to capture recent typing
 // This forces the 200ms debounced input handler to execute immediately
 export function flushInputDebounce() {

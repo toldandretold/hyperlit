@@ -48,6 +48,15 @@ function restore(): void {
   }
 }
 
+/**
+ * Is a text-selection drag currently active inside the reader? True between a primary-button
+ * `pointerdown` in `.reader-content-wrapper` and the matching `pointerup`/cancel. Reused by the
+ * chunk-windowing logic so it never removes a chunk out from under a live cross-chunk selection.
+ */
+export function isSelectionDragActive(): boolean {
+  return overriddenEl !== null;
+}
+
 export function initSelectionAutoScroll(): void {
   // ButtonRegistry re-runs init on every reader entry. The document-level listeners survive
   // SPA navigation, so attach them once and just clear any stale override on re-entry.
