@@ -8,9 +8,34 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\BookSlugHelper;
+use App\Services\BookCache;
+use App\Jobs\WarmBookCacheJob;
 
 class DatabaseToIndexedDBController extends Controller
 {
+    /** Resolve the file-cache service (lazily; not all endpoints touch it). */
+    private function bookCache(): BookCache
+    {
+        return app(BookCache::class);
+    }
+
+    /**
+     * Schedule a background (re)warm of a book's file cache after a MISS, so the current
+     * request stays on the live path. Falls back to an inline warm if queue dispatch fails.
+     */
+    private function warmAsync(string $bookId): void
+    {
+        try {
+            WarmBookCacheJob::dispatch($bookId)->afterResponse();
+        } catch (\Throwable $e) {
+            // Queue unavailable (e.g. sync driver mid-request) — warm inline, best-effort.
+            try {
+                $this->bookCache()->warm($bookId);
+            } catch (\Throwable $inner) {
+                Log::warning('Inline BookCache warm failed', ['book' => $bookId, 'error' => $inner->getMessage()]);
+            }
+        }
+    }
     // NOTE: `library`, `hypercites`, and `hyperlights` tables each have an
     // `access_granted` jsonb column (nullable, defaults to null) for future
     // per-content sharing/permissions checks.
@@ -120,6 +145,12 @@ class DatabaseToIndexedDBController extends Controller
                 return $authError;
             }
 
+            // File-cache freshness (one cheap probe). Node content / footnotes / bibliography
+            // are served from disk on a HIT; annotations + library stay live.
+            $cache = $this->bookCache();
+            $liveTs = $cache->freshTimestamp($bookId);
+            $fresh = $cache->isFresh($bookId, $liveTs);
+
             // Fetch annotations ONCE for the entire request (avoids redundant queries)
             $hyperlights = $this->getHyperlights($bookId);
             $hypercites = $this->getHypercites($bookId);
@@ -128,8 +159,8 @@ class DatabaseToIndexedDBController extends Controller
             $hyperlightsByNode = $this->buildHyperlightsByNodeFromProcessed($hyperlights);
             $hypercitesByNode = $this->buildHypercitesByNodeFromProcessed($hypercites);
 
-            // Get node chunks using pre-fetched annotation lookups
-            $nodes = $this->getNodesWithPreFetched($bookId, $hyperlightsByNode, $hypercitesByNode);
+            // Get node chunks (cache HIT serves base nodes from disk; annotations merged live)
+            $nodes = $this->getNodesWithPreFetched($bookId, $hyperlightsByNode, $hypercitesByNode, $fresh, $cache);
 
             if (empty($nodes)) {
                 return response()->json([
@@ -138,9 +169,13 @@ class DatabaseToIndexedDBController extends Controller
                 ], 404);
             }
 
-            $footnotes = $this->getFootnotes($bookId);
-            $bibliography = $this->getBibliography($bookId);
+            $footnotes = $fresh ? $cache->getFootnotes($bookId) : $this->getFootnotes($bookId);
+            $bibliography = $fresh ? $cache->getBibliography($bookId) : $this->getBibliography($bookId);
             $library = $this->getLibrary($bookId);
+
+            if (!$fresh) {
+                $this->warmAsync($bookId); // rebuild for next time, off the request path
+            }
 
             // Structure data for efficient IndexedDB import
             $response = [
@@ -267,42 +302,49 @@ class DatabaseToIndexedDBController extends Controller
     /**
      * Get node chunks using pre-fetched annotation lookups (avoids redundant queries).
      */
-    private function getNodesWithPreFetched(string $bookId, array $hyperlightsByNode, array $hypercitesByNode): array
+    private function getNodesWithPreFetched(string $bookId, array $hyperlightsByNode, array $hypercitesByNode, bool $cacheFresh = false, ?BookCache $cache = null): array
     {
-        $chunks = DB::table('nodes')
-            ->where('book', $bookId)
-            ->orderBy('chunk_id')
-            ->get()
-            ->map(function ($chunk) use ($hyperlightsByNode, $hypercitesByNode) {
-                $nodeUUID = $chunk->node_id;
+        $base = null;
 
-                $finalHyperlights = $hyperlightsByNode[$nodeUUID] ?? [];
-                $finalHypercites = $hypercitesByNode[$nodeUUID] ?? [];
+        // Cache HIT: stitch base nodes from every cached chunk (manifest order).
+        if ($cacheFresh && $cache) {
+            $manifest = $cache->getManifest($bookId);
+            if ($manifest !== null) {
+                $base = [];
+                foreach ($manifest as $entry) {
+                    $chunkNodes = $cache->getChunk($bookId, (float) $entry['chunk_id']);
+                    if ($chunkNodes === null) { // incomplete cache → abandon, fall back to PG
+                        $base = null;
+                        break;
+                    }
+                    foreach ($chunkNodes as $n) {
+                        $base[] = $n;
+                    }
+                }
+            }
+        }
 
-                return [
-                    'book' => $chunk->book,
-                    'chunk_id' => (float) $chunk->chunk_id,
-                    'startLine' => (float) $chunk->startLine,
-                    'node_id' => $chunk->node_id,
-                    'content' => $chunk->content,
-                    'plainText' => $chunk->plainText,
-                    'type' => $chunk->type,
-                    'footnotes' => json_decode($chunk->footnotes ?? '[]', true),
-                    'hypercites' => $finalHypercites,
-                    'hyperlights' => array_values($finalHyperlights),
-                    'raw_json' => json_decode($chunk->raw_json ?? '{}', true),
-                ];
-            })
-            ->toArray();
+        if ($base === null) {
+            $base = DB::table('nodes')
+                ->where('book', $bookId)
+                ->orderBy('chunk_id')
+                ->orderBy('startLine')
+                ->get()
+                ->map(fn ($row) => BookCache::baseNode($row))
+                ->toArray();
+        }
+
+        $nodes = BookCache::mergeAnnotations($base, $hyperlightsByNode, $hypercitesByNode);
 
         Log::info('Node chunks loaded', [
             'book' => $bookId,
-            'chunks' => count($chunks),
+            'chunks' => count($nodes),
             'highlights' => count($hyperlightsByNode),
-            'hypercites' => count($hypercitesByNode)
+            'hypercites' => count($hypercitesByNode),
+            'cache' => ($cacheFresh && $cache) ? 'hit' : 'live',
         ]);
 
-        return $chunks;
+        return $nodes;
     }
 
     /**
@@ -899,6 +941,9 @@ class DatabaseToIndexedDBController extends Controller
             $from = (float) $request->query('from', 0);
             $to = (float) $request->query('to', PHP_FLOAT_MAX);
 
+            $cache = $this->bookCache();
+            $fresh = $cache->isFresh($bookId, $cache->freshTimestamp($bookId));
+
             // Fetch annotations ONCE for the entire request
             $hyperlights = $this->getHyperlights($bookId);
             $hypercites = $this->getHypercites($bookId);
@@ -906,30 +951,43 @@ class DatabaseToIndexedDBController extends Controller
             $hyperlightsByNode = $this->buildHyperlightsByNodeFromProcessed($hyperlights);
             $hypercitesByNode = $this->buildHypercitesByNodeFromProcessed($hypercites);
 
-            // Get nodes within the chunk_id range
-            $nodes = DB::table('nodes')
-                ->where('book', $bookId)
-                ->whereBetween('chunk_id', [$from, $to])
-                ->orderBy('chunk_id')
-                ->get()
-                ->map(function ($chunk) use ($hyperlightsByNode, $hypercitesByNode) {
-                    $nodeUUID = $chunk->node_id;
+            // Base nodes within the chunk_id range — from cache on a HIT, else Postgres.
+            $base = null;
+            if ($fresh) {
+                $manifest = $cache->getManifest($bookId);
+                if ($manifest !== null) {
+                    $base = [];
+                    foreach ($manifest as $entry) {
+                        $cid = (float) $entry['chunk_id'];
+                        if ($cid < $from || $cid > $to) {
+                            continue;
+                        }
+                        $chunkNodes = $cache->getChunk($bookId, $cid);
+                        if ($chunkNodes === null) { // incomplete cache → fall back to PG
+                            $base = null;
+                            break;
+                        }
+                        foreach ($chunkNodes as $n) {
+                            $base[] = $n;
+                        }
+                    }
+                }
+            }
+            if ($base === null) {
+                $base = DB::table('nodes')
+                    ->where('book', $bookId)
+                    ->whereBetween('chunk_id', [$from, $to])
+                    ->orderBy('chunk_id')
+                    ->orderBy('startLine')
+                    ->get()
+                    ->map(fn ($row) => BookCache::baseNode($row))
+                    ->toArray();
+                if (!$fresh) {
+                    $this->warmAsync($bookId);
+                }
+            }
 
-                    return [
-                        'book' => $chunk->book,
-                        'chunk_id' => (float) $chunk->chunk_id,
-                        'startLine' => (float) $chunk->startLine,
-                        'node_id' => $chunk->node_id,
-                        'content' => $chunk->content,
-                        'plainText' => $chunk->plainText,
-                        'type' => $chunk->type,
-                        'footnotes' => json_decode($chunk->footnotes ?? '[]', true),
-                        'hypercites' => $hypercitesByNode[$nodeUUID] ?? [],
-                        'hyperlights' => array_values($hyperlightsByNode[$nodeUUID] ?? []),
-                        'raw_json' => json_decode($chunk->raw_json ?? '{}', true),
-                    ];
-                })
-                ->toArray();
+            $nodes = BookCache::mergeAnnotations($base, $hyperlightsByNode, $hypercitesByNode);
 
             return response()->json([
                 'nodes' => $nodes,
@@ -1036,29 +1094,37 @@ class DatabaseToIndexedDBController extends Controller
                 return $authError;
             }
 
-            // Determine target chunk via priority chain
-            $resolveResult = $this->resolveTargetChunkId($request, $bookId);
+            // File-cache freshness (one cheap probe). When fresh, the manifest, base nodes,
+            // footnotes and bibliography come from disk; annotations + library stay live.
+            $cache = $this->bookCache();
+            $fresh = $cache->isFresh($bookId, $cache->freshTimestamp($bookId));
+
+            // Determine target chunk via priority chain (uses the cached id→chunk index on a HIT)
+            $resolveResult = $this->resolveTargetChunkId($request, $bookId, $fresh ? $cache->getIndex($bookId) : null);
             $targetChunkId = $resolveResult['chunk_id'];
             $targetResolved = $resolveResult['resolved'];
             $targetReason = $resolveResult['reason'];
             $targetFallbackUsed = $resolveResult['fallbackUsed'];
 
-            // Build chunk manifest
-            $chunkManifest = DB::table('nodes')
-                ->where('book', $bookId)
-                ->selectRaw('chunk_id, MIN("startLine") as first_line, MAX("startLine") as last_line, COUNT(*) as node_count')
-                ->groupBy('chunk_id')
-                ->orderBy('chunk_id')
-                ->get()
-                ->map(function ($row) {
-                    return [
-                        'chunk_id' => (float) $row->chunk_id,
-                        'first_line' => (float) $row->first_line,
-                        'last_line' => (float) $row->last_line,
-                        'node_count' => (int) $row->node_count,
-                    ];
-                })
-                ->toArray();
+            // Build chunk manifest — from cache on a HIT, else the aggregate query.
+            $chunkManifest = $fresh ? $cache->getManifest($bookId) : null;
+            if ($chunkManifest === null) {
+                $chunkManifest = DB::table('nodes')
+                    ->where('book', $bookId)
+                    ->selectRaw('chunk_id, MIN("startLine") as first_line, MAX("startLine") as last_line, COUNT(*) as node_count')
+                    ->groupBy('chunk_id')
+                    ->orderBy('chunk_id')
+                    ->get()
+                    ->map(function ($row) {
+                        return [
+                            'chunk_id' => (float) $row->chunk_id,
+                            'first_line' => (float) $row->first_line,
+                            'last_line' => (float) $row->last_line,
+                            'node_count' => (int) $row->node_count,
+                        ];
+                    })
+                    ->toArray();
+            }
 
             if (empty($chunkManifest)) {
                 return response()->json([
@@ -1090,7 +1156,7 @@ class DatabaseToIndexedDBController extends Controller
             $hypercitesByNode = $this->buildHypercitesByNodeFromProcessed($hypercites);
 
             // Get nodes for target chunk using pre-fetched annotations
-            $initialNodes = $this->getNodesForChunk($bookId, $targetChunkId, $hyperlightsByNode, $hypercitesByNode);
+            $initialNodes = $this->getNodesForChunk($bookId, $targetChunkId, $hyperlightsByNode, $hypercitesByNode, $fresh, $cache);
 
             // If the target chunk is too small to fill a viewport, include adjacent chunks
             // so the user has enough content to scroll
@@ -1102,20 +1168,24 @@ class DatabaseToIndexedDBController extends Controller
                 // Try next chunk first, then previous
                 if ($targetPos !== false && $targetPos < count($chunkIds) - 1) {
                     $nextChunkId = $chunkIds[$targetPos + 1];
-                    $nextNodes = $this->getNodesForChunk($bookId, $nextChunkId, $hyperlightsByNode, $hypercitesByNode);
+                    $nextNodes = $this->getNodesForChunk($bookId, $nextChunkId, $hyperlightsByNode, $hypercitesByNode, $fresh, $cache);
                     $initialNodes = array_merge($initialNodes, $nextNodes);
                 }
                 if (count($initialNodes) < $minNodes && $targetPos !== false && $targetPos > 0) {
                     $prevChunkId = $chunkIds[$targetPos - 1];
-                    $prevNodes = $this->getNodesForChunk($bookId, $prevChunkId, $hyperlightsByNode, $hypercitesByNode);
+                    $prevNodes = $this->getNodesForChunk($bookId, $prevChunkId, $hyperlightsByNode, $hypercitesByNode, $fresh, $cache);
                     $initialNodes = array_merge($prevNodes, $initialNodes);
                 }
             }
 
             // Get footnotes + library (small, needed immediately)
-            $footnotes = $this->getFootnotes($bookId);
+            $footnotes = $fresh ? $cache->getFootnotes($bookId) : $this->getFootnotes($bookId);
             $library = $this->getLibrary($bookId);
-            $bibliography = $this->getBibliography($bookId);
+            $bibliography = $fresh ? $cache->getBibliography($bookId) : $this->getBibliography($bookId);
+
+            if (!$fresh) {
+                $this->warmAsync($bookId); // rebuild for next time, off the request path
+            }
 
             // Get bookmark for restoration
             $bookmark = $this->getBookmarkData($request, $bookId);
@@ -1218,6 +1288,9 @@ class DatabaseToIndexedDBController extends Controller
                 return $authError;
             }
 
+            $cache = $this->bookCache();
+            $fresh = $cache->isFresh($bookId, $cache->freshTimestamp($bookId));
+
             // Pre-fetch annotations once
             $hyperlights = $this->getHyperlights($bookId);
             $hypercites = $this->getHypercites($bookId);
@@ -1225,7 +1298,7 @@ class DatabaseToIndexedDBController extends Controller
             $hyperlightsByNode = $this->buildHyperlightsByNodeFromProcessed($hyperlights);
             $hypercitesByNode = $this->buildHypercitesByNodeFromProcessed($hypercites);
 
-            $nodes = $this->getNodesForChunk($bookId, $chunkId, $hyperlightsByNode, $hypercitesByNode);
+            $nodes = $this->getNodesForChunk($bookId, $chunkId, $hyperlightsByNode, $hypercitesByNode, $fresh, $cache);
 
             if (empty($nodes)) {
                 return response()->json([
@@ -1233,6 +1306,10 @@ class DatabaseToIndexedDBController extends Controller
                     'book_id' => $bookId,
                     'chunk_id' => $chunkId
                 ], 404);
+            }
+
+            if (!$fresh) {
+                $this->warmAsync($bookId);
             }
 
             return response()->json([
@@ -1269,7 +1346,7 @@ class DatabaseToIndexedDBController extends Controller
      *   8. Saved scroll position (bookmark)
      *   9. Lowest existing chunk_id
      */
-    private function resolveTargetChunkId(Request $request, string $bookId): array
+    private function resolveTargetChunkId(Request $request, string $bookId, ?array $index = null): array
     {
         $target = $request->query('target');
         $elementId = $request->query('element_id');
@@ -1289,7 +1366,7 @@ class DatabaseToIndexedDBController extends Controller
 
         // Steps 2-6: Try resolving the primary target
         if ($target) {
-            $result = $this->resolveTargetToChunkIdWithReason($bookId, $target);
+            $result = $this->resolveTargetToChunkIdWithReason($bookId, $target, $index);
             if ($result !== null) {
                 return ['chunk_id' => $result['chunk_id'], 'resolved' => true, 'reason' => $result['reason'], 'fallbackUsed' => null];
             }
@@ -1297,7 +1374,7 @@ class DatabaseToIndexedDBController extends Controller
             // Step 7: Fallback target → retry steps 2-6
             $fallbackTarget = $request->query('fallback_target');
             if ($fallbackTarget) {
-                $fallbackResult = $this->resolveTargetToChunkIdWithReason($bookId, $fallbackTarget);
+                $fallbackResult = $this->resolveTargetToChunkIdWithReason($bookId, $fallbackTarget, $index);
                 if ($fallbackResult !== null) {
                     return ['chunk_id' => $fallbackResult['chunk_id'], 'resolved' => false, 'reason' => 'fallback_target', 'fallbackUsed' => $fallbackResult['reason']];
                 }
@@ -1331,8 +1408,15 @@ class DatabaseToIndexedDBController extends Controller
      *
      * Covers: hypercite_, HL_, footnote, numeric startLine, content scan.
      */
-    private function resolveTargetToChunkIdWithReason(string $bookId, string $target): ?array
+    private function resolveTargetToChunkIdWithReason(string $bookId, string $target, ?array $index = null): ?array
     {
+        // Step 0: Cached deep-link index — a single hash lookup, no Postgres. Covers
+        // hypercite_/HL_/footnote/numeric-startLine targets; a miss falls through to the
+        // per-table queries below (e.g. cold cache, or a content-scan-only target).
+        if ($index !== null && isset($index[$target])) {
+            return ['chunk_id' => (float) $index[$target], 'reason' => 'index'];
+        }
+
         // Step 2: Hypercite
         if (str_starts_with($target, 'hypercite_')) {
             $hypercite = DB::table('hypercites')
@@ -1420,36 +1504,26 @@ class DatabaseToIndexedDBController extends Controller
      * Variant of getNodesWithPreFetched() filtered to a single chunk_id.
      * Accepts pre-fetched annotation lookups to avoid redundant queries.
      */
-    private function getNodesForChunk(string $bookId, float $chunkId, array $hyperlightsByNode, array $hypercitesByNode): array
+    private function getNodesForChunk(string $bookId, float $chunkId, array $hyperlightsByNode, array $hypercitesByNode, bool $cacheFresh = false, ?BookCache $cache = null): array
     {
-        $chunks = DB::table('nodes')
+        // Cache HIT: serve user-independent base nodes from disk, then splice in the
+        // per-requester annotation arrays (which are always fetched live).
+        if ($cacheFresh && $cache) {
+            $base = $cache->getChunk($bookId, $chunkId);
+            if ($base !== null) {
+                return BookCache::mergeAnnotations($base, $hyperlightsByNode, $hypercitesByNode);
+            }
+        }
+
+        $base = DB::table('nodes')
             ->where('book', $bookId)
             ->where('chunk_id', $chunkId)
             ->orderBy('startLine')
             ->get()
-            ->map(function ($chunk) use ($hyperlightsByNode, $hypercitesByNode) {
-                $nodeUUID = $chunk->node_id;
-
-                $finalHyperlights = $hyperlightsByNode[$nodeUUID] ?? [];
-                $finalHypercites = $hypercitesByNode[$nodeUUID] ?? [];
-
-                return [
-                    'book' => $chunk->book,
-                    'chunk_id' => (float) $chunk->chunk_id,
-                    'startLine' => (float) $chunk->startLine,
-                    'node_id' => $chunk->node_id,
-                    'content' => $chunk->content,
-                    'plainText' => $chunk->plainText,
-                    'type' => $chunk->type,
-                    'footnotes' => json_decode($chunk->footnotes ?? '[]', true),
-                    'hypercites' => $finalHypercites,
-                    'hyperlights' => array_values($finalHyperlights),
-                    'raw_json' => json_decode($chunk->raw_json ?? '{}', true),
-                ];
-            })
+            ->map(fn ($row) => BookCache::baseNode($row))
             ->toArray();
 
-        return $chunks;
+        return BookCache::mergeAnnotations($base, $hyperlightsByNode, $hypercitesByNode);
     }
 
     /**

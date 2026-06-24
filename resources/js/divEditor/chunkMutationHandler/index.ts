@@ -466,6 +466,23 @@ export class ChunkMutationHandler {
 
             // Handle numerical ID deletions
             if (node.id && NUMERICAL_ID_PATTERN.test(node.id)) {
+              // 🛡️ Phantom-nested-node guard: a removed element nested INSIDE
+              // another node (e.g. a ghost numeric id backend stamped on a
+              // <p>/<button> inside a <figure>) is NOT its own NodeRecord.
+              // Deleting it would orphan a real node and leave stale content.
+              // Skip the deletion; queue the owning node for update instead.
+              const removalParent = mutation.target;
+              const ownerNode = (removalParent && removalParent.nodeType === Node.ELEMENT_NODE)
+                ? (removalParent as HTMLElement).closest('[data-node-id]') as HTMLElement | null
+                : null;
+              if (ownerNode) {
+                if (ownerNode.id && NUMERICAL_ID_PATTERN.test(ownerNode.id)) {
+                  verbose.content(`Skipping deletion of nested phantom node ${node.id}; updating owner ${ownerNode.id}`, 'divEditor/chunkMutationHandler.js');
+                  parentsToUpdate.add(ownerNode);
+                }
+                continue;
+              }
+
               // Skip spurious deletion from tag replacement (e.g. heading format change)
               if (replacedNodeIds.has(node.id)) {
                 verbose.content(`Skipping deletion for replaced node ${node.id}`, 'divEditor/chunkMutationHandler.js');

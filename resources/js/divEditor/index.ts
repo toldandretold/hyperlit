@@ -32,6 +32,9 @@ import { SaveQueue } from './saveQueue';
 import { debounce } from '../utilities/debounce';
 // Shared editor state + enqueue API — extracted to a leaf to break the index↔handler cycle.
 import { movedNodesByOverflow, queueNodeForSave, queueNodeForDeletion, setActiveSaveQueue } from './editorState';
+// Resolve the TRUE top-level node (not an innermost phantom) + clean stray
+// descendant ids — see utilities/nodeResolve for why broken-image delete needs it.
+import { resolveTopLevelNode, stripPhantomDescendantIds } from '../utilities/nodeResolve';
 export { movedNodesByOverflow, queueNodeForSave, queueNodeForDeletion };
 import { MutationProcessor } from './mutationProcessor';
 import { EnterKeyHandler } from './enterKeyHandler/index';
@@ -77,6 +80,7 @@ import { generateIdBetween,
          setElementIds,
          isNumericalId,
          ensureNodeHasValidId,
+         asLineId,
          NUMERICAL_ID_PATTERN,
          findPreviousElementId,
          findNextElementId,
@@ -292,30 +296,77 @@ export async function startObserving(editableDiv: HTMLElement, bookId: BookId | 
       const wrapper = deleteBtn.closest('.broken-image-wrapper');
       if (!wrapper) return;
 
-      const nodeEl = wrapper.closest('[data-node-id]');
+      // ✅ Resolve the REAL top-level node (e.g. the <figure>), NOT an innermost
+      // phantom node that backend conversion may have stamped inside it. Using
+      // wrapper.closest('[data-node-id]') here climbed to a ghost <p>/<button>
+      // inside the figure, so the figure's stored content was never updated and
+      // the broken image returned on refresh. See utilities/nodeResolve.
+      const nodeEl = resolveTopLevelNode(wrapper, editableDiv);
       console.log(`🗑️ Deleting broken image in node: ${nodeEl?.id}`);
 
-      wrapper.remove();
-
-      if (nodeEl && nodeEl.textContent.trim() === '' && !nodeEl.querySelector('img, iframe, video')) {
-        nodeEl.innerHTML = '<br>';
+      if (!nodeEl) {
+        wrapper.remove();
+        return;
       }
 
-      // Explicit save — don't rely on MutationObserver alone
-      if (nodeEl?.id && saveQueue) {
-        saveQueue.queueNode(nodeEl.id, 'update');
+      const lineId = nodeEl.id ? asLineId(nodeEl.id) : null;
+      // When the <picture>/<img> IS the node, the wrapper we created sits OUTSIDE
+      // the node element (it contains it) — so the node holds nothing but the
+      // image and deleting the image means deleting the whole node.
+      const nodeInsideWrapper = wrapper.contains(nodeEl);
+
+      let deleteWholeNode = nodeInsideWrapper;
+      let focusTarget: Element | null = null;
+
+      if (nodeInsideWrapper) {
+        // Remove the whole node (the wrapper carries it out of the DOM). The
+        // MutationObserver can't see a numeric-id removal when a non-id wrapper
+        // is removed, so we persist the deletion explicitly below.
+        focusTarget = wrapper.nextElementSibling || wrapper.previousElementSibling;
+        wrapper.remove();
+      } else {
+        // The image is one part of a richer node → drop just the image subtree.
+        wrapper.remove();
+        // 🧹 Strip phantom numeric id / data-node-id off descendants so the node
+        // persists as a single clean record (defensive for already-imported
+        // books that have these baked in).
+        stripPhantomDescendantIds(nodeEl);
+
+        const hasMedia = !!nodeEl.querySelector('img, picture, iframe, video');
+        if (nodeEl.textContent.trim() === '' && !hasMedia) {
+          // Nothing meaningful left — delete the whole node rather than leaving
+          // an empty shell (e.g. <figure><br></figure>).
+          deleteWholeNode = true;
+          focusTarget = nodeEl.nextElementSibling || nodeEl.previousElementSibling;
+          nodeEl.remove();
+        } else {
+          focusTarget = nodeEl;
+        }
       }
 
-      if (nodeEl) {
+      if (deleteWholeNode) {
+        // deletionMap is keyed by lineId, so this is idempotent even if the
+        // MutationObserver also catches the figure-shell removal.
+        if (lineId && saveQueue) {
+          saveQueue.queueDeletion(lineId, nodeEl, bookId);
+        }
+        console.log(`✅ Broken image removed (node ${lineId ?? '?'} deleted)`);
+      } else {
+        // Explicit save — don't rely on MutationObserver alone
+        if (lineId && saveQueue) {
+          saveQueue.queueNode(lineId, 'update');
+        }
+        console.log(`✅ Broken image removed`);
+      }
+
+      if (focusTarget && (focusTarget as HTMLElement).isConnected) {
         const range = document.createRange();
         const selection: any = window.getSelection();
-        range.selectNodeContents(nodeEl);
+        range.selectNodeContents(focusTarget);
         range.collapse(false);
         selection.removeAllRanges();
         selection.addRange(range);
       }
-
-      console.log(`✅ Broken image removed`);
     } else {
       // Video embed: the .video-embed IS the node element
       const videoEmbed = deleteBtn.closest('.video-embed');

@@ -172,6 +172,14 @@ class ProcessDocumentImportJob implements ShouldQueue
             $this->writeProgress($path, 'processing', 95, 'db_references', 'Saving references to database');
             $this->saveReferencesToDatabase($path, $this->bookId);
 
+            // Bump the CONTENT timestamp now that nodes/footnotes/references have landed,
+            // so the book-cache (and open clients) invalidate against a value that is
+            // strictly newer than this (re)conversion's writes. Harmless on a brand-new
+            // import (no cache can exist yet); essential when this job rewrites an
+            // existing book (reconvert path).
+            PgLibrary::where('book', $this->bookId)
+                ->update(['timestamp' => round(microtime(true) * 1000)]);
+
             // Extract metadata and update library record for empty fields
             $this->writeProgress($path, 'processing', 96, 'metadata', 'Checking metadata');
             $this->updateLibraryMetadata($path, $metadataExtractor);

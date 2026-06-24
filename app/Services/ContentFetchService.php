@@ -934,6 +934,9 @@ class ContentFetchService
                     'listed'            => false,
                     'pdf_url_status'    => 'imported',
                     'conversion_method' => \App\Services\CanonicalVersions\AutoVersionResolver::CONVERSION_METHOD,
+                    // Bump the CONTENT timestamp so the book-cache (and open clients)
+                    // invalidate after this fetch rewrites the book's nodes.
+                    'timestamp'         => round(microtime(true) * 1000),
                     'updated_at'        => now(),
                 ]);
 
@@ -1172,6 +1175,9 @@ class ContentFetchService
             'listed'            => false,
             'pdf_url_status'    => 'imported',
             'conversion_method' => $conversionMethod,
+            // Bump the CONTENT timestamp so the book-cache (and open clients)
+            // invalidate after this fetch rewrites the book's nodes.
+            'timestamp'         => round(microtime(true) * 1000),
             'updated_at'        => $now,
         ]);
         $this->syncCanonicalVersionPointers($bookId);

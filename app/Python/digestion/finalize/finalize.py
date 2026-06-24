@@ -242,6 +242,22 @@ class GenerateNodeChunks(DocPass):
 
             node['id'] = start_line_counter
 
+            # Only the TOP-LEVEL node owns an id. Strip phantom ids off any
+            # DESCENDANTS: upstream passes (preprocess_html, EPUB heading
+            # numbering, etc.) can stamp sequential numeric ids on <p>/<div>/
+            # <button> nested inside wrappers like <figure>/<a>. Left in place,
+            # the editor bolts a data-node-id onto each at save time, creating a
+            # ghost node that shadows the real one — so e.g. deleting a broken
+            # image targets the ghost and the real node is never updated (the
+            # image returns on refresh). Meaningful ids (FnXXX, bib anchors,
+            # hypercite_…) are non-numeric and survive.
+            for descendant in node.find_all(True):
+                desc_id = descendant.get('id')
+                if desc_id and str(desc_id).isdigit():
+                    del descendant['id']
+                if descendant.has_attr('data-node-id'):
+                    del descendant['data-node-id']
+
 
             # For specific element types, preserve the original ID as an anchor for backwards compatibility
             if original_id and (

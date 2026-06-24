@@ -156,12 +156,17 @@ def create_node_chunks(soup, book_id):
     # the editor contract and collide with real chunk IDs assigned below.
     # Strip only the numeric ones — footnote anchors (FnXXX) and any other
     # meaningful IDs survive.
+    # Only the top-level node owns an id. Strip phantom numeric ids off EVERY
+    # node's descendants — not just <ul>/<ol>/<table>, but also wrappers like
+    # <figure>/<a> whose nested <p>/<button> would otherwise become ghost nodes
+    # in the editor (mirrors the universal strip in digestion GenerateNodeChunks).
     for el in content_elements:
-        if el.name in ('ul', 'ol', 'table'):
-            for descendant in el.find_all(True):
-                desc_id = descendant.attrs.get('id')
-                if desc_id and desc_id.isdigit():
-                    del descendant.attrs['id']
+        for descendant in el.find_all(True):
+            desc_id = descendant.attrs.get('id')
+            if desc_id and desc_id.isdigit():
+                del descendant.attrs['id']
+            if 'data-node-id' in descendant.attrs:
+                del descendant.attrs['data-node-id']
 
     print(f"Found {len(content_elements)} content elements")
     

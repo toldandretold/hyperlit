@@ -45,7 +45,7 @@ export const INLINE_SKIP_TAGS = new Set([
 // ---------------------------------------------------------------------------
 export const ID_SKIP_TAGS = new Set([
   'BR', 'SPAN', 'EM', 'STRONG', 'I', 'B', 'U',
-  'SUP', 'SUB', 'A', 'IMG', 'LI',
+  'SUP', 'SUB', 'A', 'IMG', 'LI', 'BUTTON',
 ]);
 
 // ---------------------------------------------------------------------------

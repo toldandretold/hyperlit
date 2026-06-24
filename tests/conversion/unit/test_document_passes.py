@@ -114,6 +114,33 @@ def test_generate_node_chunks_extracts_refs_and_footnotes(tmp_path):
     assert 'in-text-citation' in nodes[0]['content']
 
 
+def test_generate_node_chunks_strips_phantom_descendant_ids(tmp_path):
+    # A figure-wrapped image (substack shape) where nested <p>/<button> wrongly
+    # carry their own numeric id / data-node-id from an upstream pass. Only the
+    # top-level <figure> may own an id — descendants must be stripped, else the
+    # editor spawns a ghost node and deleting the broken image targets it while
+    # the real figure node is never updated (image returns on refresh).
+    html = ('<body>'
+            '<figure id="9" data-node-id="ghost_fig">'
+            '<a href="http://x/y.jpg">'
+            '<p id="1" data-node-id="ghost_p">'
+            '<button id="201" data-node-id="ghost_btn"></button>'
+            '<img src="http://x/y.jpg">'
+            '</p></a></figure>'
+            '</body>')
+    ctx = _ctx(tmp_path, html, book_id='bk')
+    P.GenerateNodeChunks().apply(ctx)
+    nodes = ctx.node_chunks_data
+    assert len(nodes) == 1                       # the figure is ONE node, not split
+    node = ctx.soup.find('figure')
+    assert node['id'] == 1                        # top-level node owns the numeric id
+    # No descendant keeps a numeric id or any data-node-id
+    for desc in node.find_all(True):
+        did = desc.get('id')
+        assert not (did and str(did).isdigit()), f'{desc.name} kept numeric id {did}'
+        assert not desc.has_attr('data-node-id'), f'{desc.name} kept data-node-id'
+
+
 # ---------------------------------------------------------------------------
 # DOC_PASSES registry order invariants
 # ---------------------------------------------------------------------------
