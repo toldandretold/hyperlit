@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1516,
-    "moduleCount": 316,
+    "fnCount": 1517,
+    "moduleCount": 317,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3099,
+    "edgeCount": 3100,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -11565,6 +11565,14 @@
       "dir": "pull"
     },
     {
+      "id": "scrolling/clearStaleHash:clearInternalNavHashIfScrolledAway",
+      "label": "clearInternalNavHashIfScrolledAway",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/clearStaleHash",
+      "leaf": true
+    },
+    {
       "id": "scrolling/index:clearNavigatedHashes",
       "label": "clearNavigatedHashes",
       "kind": "fn",
@@ -17200,6 +17208,15 @@
       "fnIds": [
         "paste/utils/youtube-transcript:detectYouTubeTranscript",
         "paste/utils/youtube-transcript:transformYouTubeTranscript"
+      ]
+    },
+    {
+      "id": "scrolling/clearStaleHash",
+      "label": "scrolling/clearStaleHash",
+      "stage": "scrolling",
+      "band": "store",
+      "fnIds": [
+        "scrolling/clearStaleHash:clearInternalNavHashIfScrolledAway"
       ]
     },
     {
@@ -31630,6 +31647,12 @@
       "rel": "call"
     },
     {
+      "id": "lazyLoader/index:createLazyLoader__call__scrolling/clearStaleHash:clearInternalNavHashIfScrolledAway",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "scrolling/clearStaleHash:clearInternalNavHashIfScrolledAway",
+      "rel": "call"
+    },
+    {
       "id": "lazyLoader/index:createLazyLoader__call__scrolling/userScrollDetection:isActivelyScrollingForLinkBlock",
       "source": "lazyLoader/index:createLazyLoader",
       "target": "scrolling/userScrollDetection:isActivelyScrollingForLinkBlock",
@@ -40817,6 +40840,11 @@
     {
       "source": "lazyLoader/index",
       "target": "lazyLoader/utilities/windowChunks",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/index",
+      "target": "scrolling/clearStaleHash",
       "kind": "static"
     },
     {

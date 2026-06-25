@@ -138,7 +138,7 @@ export async function restoreScrollPosition(): Promise<void> {
   const isInternalNavigation = hasExplicitTarget && (
     targetId.startsWith('hypercite_') ||
     targetId.startsWith('HL_') ||
-    /^\d+$/.test(targetId)
+    /^\d+(\.\d+)?$/.test(targetId)
   );
 
   if (hasExplicitTarget && !overlayAlreadyVisible && !isInternalNavigation) {

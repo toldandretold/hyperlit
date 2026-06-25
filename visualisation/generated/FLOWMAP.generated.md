@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1516 functions in 316 modules · 10 object stores · 10 PG tables · 3099 edges
+**MarkdownDB** schema v27 · 1517 functions in 317 modules · 10 object stores · 10 PG tables · 3100 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1268,6 +1268,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `transformYouTubeTranscript` | `paste/utils/youtube-helpers` | — | — | read | — |
 | `detectYouTubeTranscript` | `paste/utils/youtube-transcript` | — | — | — | — |
 | `transformYouTubeTranscript` | `paste/utils/youtube-transcript` | — | — | read | — |
+| `clearInternalNavHashIfScrolledAway` | `scrolling/clearStaleHash` | — | — | — | — |
 | `clearNavigatedHashes` | `scrolling/index` | — | — | — | — |
 | `fallbackScrollPosition` | `scrolling/internalNav` | `localStorage` `sessionStorage` | — | read/write | — |
 | `findRenderedTarget` | `scrolling/internalNav` | — | — | read | — |

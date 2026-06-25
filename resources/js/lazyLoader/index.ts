@@ -21,6 +21,7 @@ import {
 } from "./utilities/chunkLoadingState";
 import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock, setNavigatingState, getCascadeOriginId } from '../scrolling/index';
 import { scrollElementIntoMainContent } from "../scrolling/index";
+import { clearInternalNavHashIfScrolledAway } from '../scrolling/clearStaleHash';
 import { handleContentLinkClick } from '../utilities/linkClickRegistry';
 import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState';
 import { selectNextChunkId, selectPrevChunkId } from './utilities/chunkSelection';
@@ -336,6 +337,11 @@ export function createLazyLoader(config: any) {
         if (existingData !== stringifiedData) {
           sessionStorage.setItem(storageKey, stringifiedData);
           localStorage.setItem(storageKey, stringifiedData);
+
+          // The saved position genuinely moved → the user scrolled away from any
+          // navigated-to target. Strip a stale internal-nav hash so a refresh resumes
+          // here instead of jumping back to the hypercite/highlight/paragraph. Self-guarded.
+          clearInternalNavHashIfScrolledAway();
 
           // Save to server (debounced) for cross-device resume
           const chunkEl = topVisible.closest('[data-chunk-id]');
@@ -1160,16 +1166,14 @@ async function loadChunkInternal(chunkId: any, direction: any, instance: any, at
   );
   if (existing) {
     existing.replaceWith(chunkElement);
-  } else if (direction === "up") {
-    instance.container.insertBefore(chunkElement, instance.container.firstChild);
   } else {
-    // Insert before the bottom sentinel so chunks stay above it
-    const bottomSentinel = instance.bottomSentinel;
-    if (bottomSentinel && bottomSentinel.parentNode === instance.container) {
-      instance.container.insertBefore(chunkElement, bottomSentinel);
-    } else {
-      instance.container.appendChild(chunkElement);
-    }
+    // Insert at the chunk's SORTED position among existing chunks (sentinel-safe). The
+    // `direction` hint is advisory only — trusting it strands sentinels: a lower-id chunk
+    // requested "down" (e.g. chunk 0 loaded after an adopted resume chunk 1) would land
+    // below higher-id chunks, and repositionSentinels then wraps the mis-ordered chunks
+    // → the `chunk1, bottom-sentinel, top-sentinel, chunk0` scramble. Sorted insertion makes
+    // the final DOM order correct regardless of how the load was requested.
+    insertChunkInOrderInternal(chunkElement, instance);
   }
 
   instance.currentlyLoadedChunks.add(chunkId);
@@ -1247,6 +1251,14 @@ function repositionFixedSentinelsForBlockInternal(instance: any, attachMarkers: 
   if (instance.bottomSentinel) {
     instance.bottomSentinel.remove();
   }
+  // Reorder the chunk ELEMENTS into ascending DOM order — the sort above only sorts the
+  // array. Without this we'd wrap sentinels around mis-ordered chunks (the stranded-sentinel
+  // scramble). Re-appending each chunk in sorted order MOVES the existing node (no clone, so
+  // listeners/state survive); sentinels are already detached above, so the chunks end up
+  // contiguous and in order, ready to be wrapped below.
+  for (const chunk of allChunks) {
+    container.appendChild(chunk);
+  }
   const uniqueId = container.id || Math.random().toString(36).substr(2, 5);
   const topSentinel = document.createElement("div");
   topSentinel.id = `${uniqueId}-top-sentinel`;
@@ -1290,7 +1302,16 @@ function insertChunkInOrderInternal(newChunk: any, instance: any) {
       break;
     }
   }
-  if (!inserted) container.appendChild(newChunk);
+  if (!inserted) {
+    // Highest-id chunk → keep it ABOVE the bottom sentinel, not as the last child after it
+    // (appending past the sentinel is exactly what stranded sentinels in the scramble bug).
+    const bottomSentinel = instance.bottomSentinel;
+    if (bottomSentinel && bottomSentinel.parentNode === container) {
+      container.insertBefore(newChunk, bottomSentinel);
+    } else {
+      container.appendChild(newChunk);
+    }
+  }
 }
 
 /**

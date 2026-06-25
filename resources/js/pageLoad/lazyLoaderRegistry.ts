@@ -165,6 +165,10 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: BookId
     // swaps the canonically-built (fully-annotated) chunk in place — no duplicate, no separate
     // "adoption" path. No injection / cold cache → no placeholder → behaviour is exactly today's.
     // (Sub-book containers never carry data-prerendered, so they're untouched.)
+    // Tracks whether a server-prerendered resume chunk was actually rendered in place. When it
+    // was, it IS the initial content — so the eager chunk-0 load below must be skipped, else we
+    // load chunk 0 BELOW the (higher-id) resume chunk and strand the sentinels (the scramble bug).
+    let adoptedPrerender = false;
     if (currentLazyLoader) {
       const pre = currentLazyLoader.container.querySelector(':scope > .chunk[data-prerendered]');
       if (pre) {
@@ -175,6 +179,8 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: BookId
         // data-prerendered. Remove the orphan so it doesn't linger as unannotated dead content.
         if (pre.isConnected && pre.hasAttribute('data-prerendered')) {
           pre.remove();
+        } else {
+          adoptedPrerender = true; // prerender was swapped in → it's the resume chunk
         }
       }
     }
@@ -183,7 +189,7 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: BookId
     // with no target navigation, so the DOM has content before editButton resolves
     const isHomepageContext = document.querySelector('.home-content-wrapper') ||
                               document.querySelector('.user-content-wrapper');
-    if (isHomepageContext || !hasNavigationTarget) {
+    if (isHomepageContext || (!hasNavigationTarget && !adoptedPrerender)) {
       const firstChunk = (window as any).nodes.find((chunk: any) => chunk.chunk_id === 0) || (window as any).nodes[0];
       if (firstChunk && currentLazyLoader) {
         verbose.content(`Loading initial chunk #${firstChunk.chunk_id} (eager load)`, 'initializePage.js');

@@ -75,7 +75,7 @@ vi.mock('../../../resources/js/utilities/chunkState', () => ({ getCurrentChunk: 
 vi.mock('../../../resources/js/paste/pasteState', () => ({ isPasteOperationActive: vi.fn(() => false) }));
 vi.mock('../../../resources/js/divEditor/index', () => ({ getPendingSaveNodeIds: vi.fn(() => new Set()) }));
 
-import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from '../../../resources/js/lazyLoader/index';
+import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, repositionSentinels } from '../../../resources/js/lazyLoader/index';
 import { MAX_LOADED_CHUNKS, trimWindow } from '../../../resources/js/lazyLoader/utilities/windowChunks';
 import { fillViewport } from '../../../resources/js/lazyLoader/utilities/fillViewport';
 import { isCacheDirty } from '../../../resources/js/lazyLoader/utilities/cacheState';
@@ -262,6 +262,34 @@ describe('chunk DOM invariants — current behaviour', () => {
     await loadPreviousChunkFixed(2, inst); await flush(); // 1,2
     await loadPreviousChunkFixed(1, inst); await flush(); // 0,1,2
     expect(assertSingleOrderedBlock(inst)).toEqual([0, 1, 2]);
+  });
+
+  // ── Regression: the back-nav scramble (chunk1, bottom-sentinel, top-sentinel, chunk0) ──
+  // Repro: server prerenders the saved-position chunk (1); the client adopts it, then eager-loads
+  // chunk 0 with direction "down". Before the fix, "down" inserted chunk 0 BELOW chunk 1 and
+  // repositionSentinels wrapped the mis-ordered chunks, stranding the sentinels in the middle.
+  it('adopting a higher-id resume chunk, then loadChunk(0,"down"), stays ordered (scramble repro)', async () => {
+    const { inst } = makeLoader({ prerenderChunkId: 1 }); // saved-position chunk prerendered = 1
+    await inst.loadChunk(1, 'down');                      // adopt in place → [top, 1, bottom]
+    expect(assertSingleOrderedBlock(inst)).toEqual([1]);
+
+    await inst.loadChunk(0, 'down');                      // lower-id chunk, requested "down"
+    expect(assertSingleOrderedBlock(inst)).toEqual([0, 1]); // NOT [1,0] with stranded sentinels
+  });
+
+  it('repositionSentinels HEALS a hand-scrambled DOM into ascending order', async () => {
+    const { inst, container } = makeLoader();
+    await inst.loadChunk(0, 'down');
+    await inst.loadChunk(1, 'down');                      // [top, 0, 1, bottom]
+    const c0 = container.querySelector('.chunk[data-chunk-id="0"]');
+    const c1 = container.querySelector('.chunk[data-chunk-id="1"]');
+    // Force the exact reported bug shape: chunk1, bottom-sentinel, top-sentinel, chunk0.
+    container.innerHTML = '';
+    container.append(c1, inst.bottomSentinel, inst.topSentinel, c0);
+
+    repositionSentinels(inst);                            // must reorder the CHUNKS, not just sentinels
+
+    expect(assertSingleOrderedBlock(inst)).toEqual([0, 1]);
   });
 });
 
