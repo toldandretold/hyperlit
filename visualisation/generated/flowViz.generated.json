@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1519,
+    "fnCount": 1520,
     "moduleCount": 317,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3106,
+    "edgeCount": 3109,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -8233,6 +8233,14 @@
       "leaf": true
     },
     {
+      "id": "hyperlitContainer/history:deriveMainAnchorId",
+      "label": "deriveMainAnchorId",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/history",
+      "leaf": true
+    },
+    {
       "id": "hyperlitContainer/history:determineSingleContentHash",
       "label": "determineSingleContentHash",
       "kind": "fn",
@@ -15953,6 +15961,7 @@
       "band": "capture",
       "fnIds": [
         "hyperlitContainer/history:buildContentFromMetadata",
+        "hyperlitContainer/history:deriveMainAnchorId",
         "hyperlitContainer/history:determineSingleContentHash",
         "hyperlitContainer/history:getCurrentContainerState",
         "hyperlitContainer/history:restoreContainerStack",
@@ -29092,9 +29101,21 @@
       "dataPath": true
     },
     {
+      "id": "hyperlitContainer/history:deriveMainAnchorId__call__hyperlitContainer/history:determineSingleContentHash",
+      "source": "hyperlitContainer/history:deriveMainAnchorId",
+      "target": "hyperlitContainer/history:determineSingleContentHash",
+      "rel": "call"
+    },
+    {
       "id": "hyperlitContainer/history:getCurrentContainerState__call__hyperlitContainer/stack:getCurrentContainer",
       "source": "hyperlitContainer/history:getCurrentContainerState",
       "target": "hyperlitContainer/stack:getCurrentContainer",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/history:restoreContainerStack__call__hyperlitContainer/history:deriveMainAnchorId",
+      "source": "hyperlitContainer/history:restoreContainerStack",
+      "target": "hyperlitContainer/history:deriveMainAnchorId",
       "rel": "call"
     },
     {
@@ -29108,6 +29129,13 @@
       "id": "hyperlitContainer/history:restoreContainerStack__call__hyperlitContainer/history:restoreStackedLayer",
       "source": "hyperlitContainer/history:restoreContainerStack",
       "target": "hyperlitContainer/history:restoreStackedLayer",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/history:restoreContainerStack__call__scrolling/internalNav:navigateToInternalId",
+      "source": "hyperlitContainer/history:restoreContainerStack",
+      "target": "scrolling/internalNav:navigateToInternalId",
       "rel": "call",
       "dataPath": true
     },
@@ -40080,6 +40108,16 @@
       "kind": "lazy"
     },
     {
+      "source": "hyperlitContainer/history",
+      "target": "pageLoad/currentLazyLoaderState",
+      "kind": "lazy"
+    },
+    {
+      "source": "hyperlitContainer/history",
+      "target": "scrolling/index",
+      "kind": "lazy"
+    },
+    {
       "source": "hyperlitContainer/index",
       "target": "SPA/navigation/ProgressOverlayConductor",
       "kind": "static"
@@ -41964,6 +42002,6 @@
       ]
     ],
     "breakerCount": 1,
-    "lazyCount": 231
+    "lazyCount": 233
   }
 }

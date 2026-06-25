@@ -66,6 +66,35 @@ export function determineSingleContentHash(contentTypes: any) {
 }
 
 /**
+ * Derive the MAIN-PAGE anchor id a restored container is associated with — the hypercite /
+ * highlight / footnote / citation element in the reader's main text. Used to scroll the reader
+ * to the anchor when a container is restored (back/forward/refresh), since the container opens
+ * OVER the main page and the restore URL usually carries only `?cs=N` (no hash) to drive it.
+ *
+ * Reuses `determineSingleContentHash` (the same mapping the URL uses) for single-content layers,
+ * and falls back to the first contentType's id for multi/overlapping content.
+ * @param {Object} contentMetadata - a stack layer's serialized contentMetadata
+ * @returns {string|null} the anchor element id (e.g. `hypercite_x`, `HL_x`, a footnote id) or null
+ */
+export function deriveMainAnchorId(contentMetadata: any): string | null {
+  const types = contentMetadata?.contentTypes;
+  if (!types?.length) return null;
+
+  const single = determineSingleContentHash(types);
+  if (single?.value) return single.value;
+
+  // Multi/overlapping content has no single canonical hash — anchor on the first type's main id.
+  const ct = types[0] || {};
+  return ct.hyperciteId
+    || (Array.isArray(ct.highlightIds) ? ct.highlightIds[0] : null)
+    || ct.elementId
+    || ct.footnoteId
+    || ct.referenceId
+    || ct.element?.id
+    || null;
+}
+
+/**
  * Build content from serialized containerState metadata.
  * Re-fetches content types from IndexedDB, checks edit permissions,
  * and builds the unified HTML. Shared by all restoration paths.
@@ -359,6 +388,27 @@ export async function restoreContainerStack(stack: any, opts: any = {}) {
   if (!restored) {
     console.log(`📚 [${callsite}] restoreContainerStack FAILED — layer 0 did not restore`);
     return false;
+  }
+
+  // Scroll the MAIN reader to the element this container is anchored to (the hypercite/highlight/
+  // footnote in the main text). The container opens OVER the main page; without this the reader is
+  // left wherever the fresh load landed (usually the TOP) with a container hovering over unrelated
+  // content. The restore URL carries only `?cs=N` (no hash) on most restores, so the old hash-gated
+  // scroll in the popstate handler never fired — derive the anchor from the SAME metadata the
+  // container was built from instead. Fire-and-forget: navigateToInternalId sets
+  // isNavigatingToInternalId, which restoreScrollPosition bails on, so this wins the scroll.
+  try {
+    const anchorId = deriveMainAnchorId(stack[0]?.contentMetadata);
+    if (anchorId) {
+      const { currentLazyLoader }: any = await import('../pageLoad/currentLazyLoaderState');
+      if (currentLazyLoader) {
+        const { navigateToInternalId }: any = await import('../scrolling/index');
+        console.log(`📚 [${callsite}] restoreContainerStack scrolling main to anchor "${anchorId}"`);
+        navigateToInternalId(anchorId, currentLazyLoader, false);
+      }
+    }
+  } catch (e) {
+    console.warn(`📚 [${callsite}] restoreContainerStack: main-anchor scroll failed (non-fatal):`, e);
   }
 
   // Layers 1+: restore via direct stacking
