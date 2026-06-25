@@ -76,7 +76,7 @@ export class BookToBookTransition {
     console.log('📖 BookToBookTransition: Starting book-to-book transition', {
       fromBook, toBook, hash, hyperlightId, hyperciteId, footnoteId
     });
-    
+
     // Create the transition promise for concurrent handling
     this.currentTransitionPromise = (async () => {
       try {
@@ -526,8 +526,10 @@ export class BookToBookTransition {
           showTargetNotFoundToast();
         });
 
-        // Clean the stale hypercite hash from URL
-        history.replaceState(null, '', window.location.pathname);
+        // Do NOT strip the hash from the URL. `_targetResolved` is false even for a target that
+        // simply isn't in the INITIAL chunk (a deep hypercite in a big book) — it can resolve once
+        // its chunk loads. Stripping here corrupts the history entry, so back/forward to it lose the
+        // target and fall back to a stale saved scroll position (the user-reported forward hang).
 
         // If there's a parent hyperlight or footnote, navigate to that instead
         if (hyperlightId) {

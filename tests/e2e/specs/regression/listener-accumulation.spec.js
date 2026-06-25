@@ -1,5 +1,19 @@
 import { test, expect } from '../../fixtures/navigation.fixture.js';
 
+/**
+ * Listener accumulation regression.
+ *
+ * NOTE on scope: the listener monitor counts net addEventListener−removeEventListener per
+ * `target::event`. On RECREATED elements (buttons/containers swapped each SPA nav) it counts the
+ * adds even though the old elements are GC'd with their listeners — so a naive "nothing may grow"
+ * assertion is noisy. These tests therefore check the clearest persistent-target signal that the
+ * old tests were built around: `document::click`. The lazyLoader's own scroll/beforeunload
+ * listener lifecycle (the reading-position-corruption root cause) is precisely guarded by the
+ * unit test `tests/javascript/lazyLoader/scrollSaveLifecycle.test.js` (disconnect removes them +
+ * only the active loader saves). A broader "no listener accumulates anywhere" gate is a separate,
+ * app-wide cleanup (the monitor revealed pervasive recreated-element churn beyond this bug).
+ */
+
 test.describe('Listener accumulation regression', () => {
   test('document click listeners stay stable across home→reader→home cycles', async ({ page, spa }) => {
     // Start on home

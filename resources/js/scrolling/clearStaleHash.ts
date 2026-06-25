@@ -1,18 +1,23 @@
 /**
- * scrolling/clearStaleHash — strip a stale internal-nav hash from the URL once the
- * user has scrolled away from the target.
+ * scrolling/clearStaleHash — remember that the user has scrolled away from an internal-nav
+ * hash target, so a later REFRESH resumes their reading position instead of re-jumping to it.
  *
- * Why: navigating to a hypercite / highlight / paragraph leaves a `#hypercite_…`,
- * `#HL_…` or `#<numeric>` hash in the URL. That hash is never removed, so a page
- * refresh re-reads it as a fresh explicit target (restore.ts:120, 138-142) and jumps
- * back to it instead of resuming at the user's current scroll position — the in-memory
- * `navigatedHashes` guard that suppresses it within a session is wiped on reload.
+ * Why: navigating to a hypercite / highlight / paragraph leaves a `#hypercite_…`, `#HL_…` or
+ * `#<numeric>` hash in the URL. On a page refresh that hash is re-read as a fresh explicit
+ * target (restore.ts) and jumps back to it — the in-memory `navigatedHashes` guard that
+ * suppresses it within a session is wiped on reload.
  *
- * Near-leaf module (only imports the navState leaf), kept light so it can be called
- * cheaply from the throttled scroll-save path (lazyLoader forceSavePosition).
+ * IMPORTANT: we must NOT strip the hash from the URL to fix this — `history.replaceState`
+ * mutates the history ENTRY, so back/forward to it would lose the target (you'd land at the
+ * top instead of the hypercite). Instead we persist a "scrolled away from this hash" marker in
+ * sessionStorage (survives the same-tab refresh); `restoreScrollPosition` consults it and resumes
+ * the saved position on REFRESH while the hash stays in the URL for history navigation.
+ *
+ * Near-leaf module (only imports the navState leaf), kept light so it can be called cheaply from
+ * the throttled scroll-save path (lazyLoader forceSavePosition).
  */
 
-import { navigatedHashes } from './navState';
+import { markHashScrolledAway } from './navState';
 
 /** Matches the internal-navigation target classes used by restore.ts (decimal-aware). */
 function isInternalNavTarget(id: string): boolean {
@@ -20,29 +25,21 @@ function isInternalNavTarget(id: string): boolean {
 }
 
 /**
- * If the URL carries an internal-nav hash and no hyperlit container is open, strip the
- * hash from the URL while preserving `history.state` (so popstate / container-chain
- * rebuild logic is untouched). Call this when a genuine user scroll has moved the saved
- * reading position — i.e. the user has scrolled away from the navigated-to target.
+ * Mark the URL's internal-nav hash as "scrolled away from" (so a refresh resumes the reading
+ * position, not the hash). Call this when a genuine user scroll has moved the saved reading
+ * position. Does NOT mutate the URL — back/forward must keep the hash to navigate to it.
  */
-export function clearInternalNavHashIfScrolledAway(): void {
+export function markInternalNavHashScrolledAway(): void {
   const hashId = window.location.hash.substring(1);
   if (!hashId || !isInternalNavTarget(hashId)) {
     return;
   }
 
-  // While a container is open the hash is part of the container-stack URL contract
-  // (hyperlitContainer/stack.ts syncStackToHistoryState) — removing it would desync
-  // back/forward. Leave it alone until the container closes.
+  // While a container is open the hash is the container-stack's anchor (restored via ?cs=N) —
+  // the user hasn't "scrolled away" from it in the main reader, so don't mark it.
   if (document.body.classList.contains('hyperlit-container-open')) {
     return;
   }
 
-  // Preserve history.state (never null) so popstate handlers keep their container state.
-  const cleanUrl = window.location.pathname + window.location.search;
-  history.replaceState(history.state, '', cleanUrl);
-
-  // Belt-and-suspenders for the current session: even if the hash reappears, treat it
-  // as already navigated so restore.ts falls back to the saved scroll position.
-  navigatedHashes.add(hashId);
+  markHashScrolledAway(hashId);
 }

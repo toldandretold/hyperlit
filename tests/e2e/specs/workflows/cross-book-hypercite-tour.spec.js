@@ -311,8 +311,34 @@ test.describe('Cross-book hypercite stress tour', () => {
       await page.goForward();
       await page.waitForTimeout(500);
       await spa.waitForTransition(page).catch(() => {});
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(700); // let restoration + scroll-to-target settle
       await snap(`L${loop} after-forward`);
+
+      // (b2) FORWARD must land back on the hypercite, NOT the top of the page.
+      // This is the user-reported "can't go forwards" bug. The destination entry's
+      // `#hypercite_` hash must SURVIVE (it must not be stripped from the URL on the
+      // scroll-save after the first landing) so forward re-navigates to the <u>.
+      // Guards the clearStaleHash regression (we now mark scroll-away in sessionStorage
+      // instead of mutating the history entry's URL).
+      const fwdSnap = await page.evaluate((hcId) => {
+        const u = document.querySelector(`u[id="${hcId}"]`);
+        const rect = u ? u.getBoundingClientRect() : null;
+        return {
+          onBookId: document.querySelector('.main-content')?.id || null,
+          url: location.href,
+          hash: location.hash,
+          found: !!u,
+          top: rect?.top,
+          windowH: window.innerHeight,
+          inViewport: !!rect && rect.top >= -50 && rect.top < window.innerHeight - 50,
+        };
+      }, clipboard.hyperciteId);
+      // eslint-disable-next-line no-console
+      console.log(`L${loop} after-forward scrollInfo:`, JSON.stringify(fwdSnap));
+      expect(fwdSnap.onBookId, `L${loop} forward did not land on bookA`).toBe(bookAId);
+      expect(fwdSnap.hash, `L${loop} forward entry LOST its #hypercite hash (url=${fwdSnap.url}) — landed at top`).toContain(clipboard.hyperciteId);
+      expect(fwdSnap.found, `L${loop} <u> not in bookA after forward`).toBe(true);
+      expect(fwdSnap.inViewport, `L${loop} forward landed at TOP, not the hypercite (top=${fwdSnap.top}, windowH=${fwdSnap.windowH})`).toBe(true);
 
       // (c) Rapid back/forward — the "wack" reproducer
       for (let r = 0; r < 3; r++) {

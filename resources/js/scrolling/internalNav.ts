@@ -11,7 +11,7 @@ import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigatio
 import { getNodesFromIndexedDB, getLocalStorageKey } from '../indexedDB/index.js';
 import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
 import { waitForNavigationTarget, waitForElementReady } from '../SPA/domReadiness';
-import { navigatedHashes, navTimers } from './navState';
+import { navigatedHashes, navTimers, unmarkHashScrolledAway } from './navState';
 import { showNavigationLoading, hideNavigationLoading, NavigationProgressIndicator } from './navOverlay';
 import { scrollElementWithConsistentMethod, scrollElementIntoMainContent } from './scrollHelpers';
 import { shouldSkipScrollRestoration } from './userScrollDetection';
@@ -215,6 +215,10 @@ export function navigateToInternalId(targetId: string, lazyLoader: any, showOver
     lazyLoader.isNavigatingToInternalId = true;
     lazyLoader.pendingNavigationTarget = targetId; // Store target for refresh() to use
     verbose.nav(`Set isNavigatingToInternalId = true for ${targetId}`, 'scrolling/internalNav');
+
+    // We're deliberately navigating TO this target now → it's no longer "scrolled away", so a
+    // subsequent refresh should land here again (until the user scrolls off it once more).
+    unmarkHashScrolledAway(targetId);
 
     // 🚦 Start the NavigationCompletionBarrier to coordinate async processes
     // This ensures flags persist until scroll completes. If a timestamp check triggers
@@ -529,7 +533,12 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
         lazyLoader.container,
         targetChunkId, // Now we know the exact chunk ID!
         {
-          maxWaitTime: 5000, // 5 second max wait
+          // The resolver already told us whether the target maps to a real chunk. If it did NOT
+          // (resolution.resolved === false — e.g. a STALE saved scroll position pointing at a node
+          // that was renumbered/deleted, like the cross-contaminated "300"), the element will never
+          // appear — so fail FAST (≈0.6s) instead of spinning 100 attempts / 5s and leaving the
+          // reader stuck. A genuinely-resolved target still gets the full wait.
+          maxWaitTime: resolution.resolved ? 5000 : 600, // 5 second max wait
           requireVisible: false
         }
       );
@@ -568,6 +577,17 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
       } else {
         console.warn(`❌ Could not locate target element: ${targetId}`);
         hideNavigationLoading();
+        // 🩹 Self-heal: a NUMERIC target that can't be located is a stale saved scroll position
+        // (a node that was renumbered/deleted — e.g. a corrupted "300"). Clear it from session +
+        // local storage so it stops resurrecting (and hanging) on every visit to this book.
+        if (/^\d+(\.\d+)?$/.test(targetId)) {
+          try {
+            const scrollKey = getLocalStorageKey("scrollPosition", lazyLoader.bookId);
+            sessionStorage.removeItem(scrollKey);
+            localStorage.removeItem(scrollKey);
+            verbose.nav(`Cleared stale saved scroll position "${targetId}" for ${lazyLoader.bookId}`, 'scrolling/internalNav');
+          } catch { /* best-effort */ }
+        }
         // Complete the barrier so it doesn't leak for 10 seconds
         NavigationCompletionBarrier.completeProcess(NavigationProcess.SCROLL_COMPLETE, false);
         fallbackScrollPosition(lazyLoader);

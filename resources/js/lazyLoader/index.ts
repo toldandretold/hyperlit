@@ -21,7 +21,9 @@ import {
 } from "./utilities/chunkLoadingState";
 import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock, setNavigatingState, getCascadeOriginId } from '../scrolling/index';
 import { scrollElementIntoMainContent } from "../scrolling/index";
-import { clearInternalNavHashIfScrolledAway } from '../scrolling/clearStaleHash';
+import { markInternalNavHashScrolledAway } from '../scrolling/clearStaleHash';
+// Zero-import leaf (no cycle) — used to ensure only the ACTIVE reader loader saves its position.
+import { currentLazyLoader } from '../pageLoad/currentLazyLoaderState';
 import { handleContentLinkClick } from '../utilities/linkClickRegistry';
 import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState';
 import { selectNextChunkId, selectPrevChunkId } from './utilities/chunkSelection';
@@ -294,8 +296,13 @@ export function createLazyLoader(config: any) {
 
   // Core saving logic. Can be called directly when a save is required.
   const forceSavePosition = (bypassLock = false) => {
-    // 🔒 Ultimate guard - check locks unless explicitly bypassed
-    if (!bypassLock && (instance.scrollLocked || instance.refreshInProgress)) {
+    // 🔒 Ultimate guard - check locks unless explicitly bypassed.
+    // `instance !== currentLazyLoader`: only the ACTIVE reader loader may save. A stale loader from
+    // a previously-visited book (whose scroll listener leaked, or whose throttled fire is in flight)
+    // must never write — otherwise it saves the shared DOM's currently-visible node to the OLD
+    // book's key (the reading-position corruption). forceSaveScrollPosition() (bypassLock=true,
+    // used for the deliberate pre-cleanup save) is unaffected.
+    if (!bypassLock && (instance.scrollLocked || instance.refreshInProgress || instance !== currentLazyLoader)) {
       return;
     }
     // More efficient query for valid, trackable elements.
@@ -339,9 +346,10 @@ export function createLazyLoader(config: any) {
           localStorage.setItem(storageKey, stringifiedData);
 
           // The saved position genuinely moved → the user scrolled away from any
-          // navigated-to target. Strip a stale internal-nav hash so a refresh resumes
-          // here instead of jumping back to the hypercite/highlight/paragraph. Self-guarded.
-          clearInternalNavHashIfScrolledAway();
+          // navigated-to target. Remember it (sessionStorage, NOT a URL mutation) so a refresh
+          // resumes here instead of jumping back to the hypercite/highlight/paragraph, while
+          // back/forward keep the hash in the URL and still navigate to it. Self-guarded.
+          markInternalNavHashScrolledAway();
 
           // Save to server (debounced) for cross-device resume
           const chunkEl = topVisible.closest('[data-chunk-id]');
@@ -370,15 +378,16 @@ export function createLazyLoader(config: any) {
   document.dispatchEvent(new Event("pageReady"));
 
   // 🚀 PERFORMANCE: Attach the throttled, guarded listener for regular user scrolling.
-  // Using passive: true for better scroll performance (we never preventDefault)
-  if (instance.scrollableParent === window) {
-    window.addEventListener("scroll", throttle(instance.saveScrollPosition, 250), { passive: true });
-  } else {
-    instance.scrollableParent.addEventListener("scroll", throttle(instance.saveScrollPosition, 250), { passive: true });
-  }
+  // Using passive: true for better scroll performance (we never preventDefault).
+  // Store the handler + its target on the instance so disconnect() can REMOVE it — otherwise
+  // every visited book's listener leaks onto the shared scrollableParent and fires during the
+  // NEXT book's navigation churn, saving the wrong book's position (the reading-position corruption).
+  instance._scrollSaveHandler = throttle(instance.saveScrollPosition, 250);
+  instance._scrollSaveTarget = instance.scrollableParent === window ? window : instance.scrollableParent;
+  instance._scrollSaveTarget.addEventListener("scroll", instance._scrollSaveHandler, { passive: true });
 
   // Save reading position to server on page unload (cross-device resume)
-  window.addEventListener('beforeunload', () => {
+  instance._beforeUnloadHandler = () => {
     const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
     const storedData = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
     if (storedData) {
@@ -397,7 +406,8 @@ export function createLazyLoader(config: any) {
         }
       } catch (e) { /* best-effort */ }
     }
-  });
+  };
+  window.addEventListener('beforeunload', instance._beforeUnloadHandler);
 
   instance.restoreScrollPositionAfterResize = async () => {
     // Check if user is currently scrolling
@@ -652,6 +662,20 @@ export function createLazyLoader(config: any) {
     // 🔗 Remove the centralized link handler
     if (instance.globalLinkHandler) {
       document.removeEventListener('click', instance.globalLinkHandler);
+    }
+
+    // 🧹 Remove the scroll-save + beforeunload listeners — WITHOUT this, this book's listener
+    // survives onto the shared scrollableParent and fires during the NEXT book's navigation,
+    // saving the wrong book's reading position (the cross-book contamination bug). disconnect()
+    // is invoked by resetCurrentLazyLoader() on every reader init, so this caps live scroll
+    // listeners at one — no accumulation across books.
+    if (instance._scrollSaveHandler && instance._scrollSaveTarget) {
+      instance._scrollSaveTarget.removeEventListener("scroll", instance._scrollSaveHandler);
+      instance._scrollSaveHandler = null;
+    }
+    if (instance._beforeUnloadHandler) {
+      window.removeEventListener('beforeunload', instance._beforeUnloadHandler);
+      instance._beforeUnloadHandler = null;
     }
   };
 

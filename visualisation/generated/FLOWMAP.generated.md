@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1520 functions in 317 modules · 10 object stores · 10 PG tables · 3109 edges
+**MarkdownDB** schema v27 · 1523 functions in 318 modules · 10 object stores · 10 PG tables · 3119 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1269,15 +1269,18 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `transformYouTubeTranscript` | `paste/utils/youtube-helpers` | — | — | read | — |
 | `detectYouTubeTranscript` | `paste/utils/youtube-transcript` | — | — | — | — |
 | `transformYouTubeTranscript` | `paste/utils/youtube-transcript` | — | — | read | — |
-| `clearInternalNavHashIfScrolledAway` | `scrolling/clearStaleHash` | — | — | — | — |
+| `markInternalNavHashScrolledAway` | `scrolling/clearStaleHash` | — | — | — | — |
 | `clearNavigatedHashes` | `scrolling/index` | — | — | — | — |
 | `fallbackScrollPosition` | `scrolling/internalNav` | `localStorage` `sessionStorage` | — | read/write | — |
 | `findRenderedTarget` | `scrolling/internalNav` | — | — | read | — |
 | `loadDefaultContent` | `scrolling/internalNav` | — | — | write | — |
-| `navigateToInternalId` | `scrolling/internalNav` | — | `sessionStorage` | read/write | — |
+| `navigateToInternalId` | `scrolling/internalNav` | — | `localStorage` `sessionStorage` | read/write | — |
 | `hideNavigationLoading` | `scrolling/navOverlay` | — | — | — | — |
 | `restoreNavigationOverlayIfNeeded` | `scrolling/navOverlay` | — | `sessionStorage` | — | — |
 | `showNavigationLoading` | `scrolling/navOverlay` | — | — | — | — |
+| `hasScrolledAwayFromHash` | `scrolling/navState` | `sessionStorage` | — | — | — |
+| `markHashScrolledAway` | `scrolling/navState` | `sessionStorage` | `sessionStorage` | — | — |
+| `unmarkHashScrolledAway` | `scrolling/navState` | `sessionStorage` | `sessionStorage` | — | — |
 | `debouncedServerSave` | `scrolling/readingPosition` | — | — | read | `↑route:/api/database-to-indexeddb/books/{}/reading-position` |
 | `sendBeaconSave` | `scrolling/readingPosition` | — | — | — | `↑route:/api/database-to-indexeddb/books/{}/reading-position` |
 | `restoreScrollPosition` | `scrolling/restore` | `localStorage` `sessionStorage` | — | read/write | — |

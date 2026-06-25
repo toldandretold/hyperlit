@@ -13,7 +13,7 @@ import { parseChunkId } from '../indexedDB/types';
 import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
 import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from '../utilities/operationState';
 import { isSearchToolbarOpen } from '../search/inTextSearch/searchToolbar';
-import { navigatedHashes } from './navState';
+import { navigatedHashes, hasScrolledAwayFromHash } from './navState';
 import { shouldSkipScrollRestoration } from './userScrollDetection';
 import { showNavigationLoading } from './navOverlay';
 import { navigateToInternalId } from './internalNav';
@@ -119,10 +119,11 @@ export async function restoreScrollPosition(): Promise<void> {
   // Read target id from URL hash first.
   let targetId = window.location.hash.substring(1);
 
-  // Check if we've already navigated to this hash during THIS page session.
-  // Uses module-level Set (not history.state) so it resets on page reload,
-  // ensuring fresh page loads always navigate to the URL hash target.
-  const alreadyNavigatedToHash = navigatedHashes.has(targetId);
+  // Check if we've already navigated to this hash during THIS page session (module-level Set,
+  // resets on reload) OR the user scrolled away from it earlier (sessionStorage marker, survives
+  // refresh). Either way, don't re-jump to the hash on (re)store — resume the reading position.
+  // The hash stays in the URL so back/forward still navigate to it.
+  const alreadyNavigatedToHash = navigatedHashes.has(targetId) || hasScrolledAwayFromHash(targetId);
   const hasExplicitTarget = !!targetId && !alreadyNavigatedToHash;
 
   verbose.nav(`RESTORE SCROLL: URL hash: "${targetId}", alreadyNavigated: ${alreadyNavigatedToHash}, explicit: ${hasExplicitTarget}`, 'scrolling/restore');

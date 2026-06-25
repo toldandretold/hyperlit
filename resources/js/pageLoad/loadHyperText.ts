@@ -245,9 +245,13 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
       // Store resolution status so BookToBookTransition can check it
       (window as any)._targetResolved = initialResult.targetResolved;
 
-      // Fresh page load: if target wasn't resolved and there's a hash, clean it and notify
+      // If the INITIAL fetch didn't resolve the target, notify — but do NOT strip the hash from
+      // the URL. The target may still exist in a LATER chunk (a deep hypercite in a big book) and
+      // resolve after the background download; navigateToInternalId waits for that and retries.
+      // Stripping the hash here CORRUPTS the history entry — back/forward to it then lose the
+      // target and fall back to a stale saved scroll position (the user-reported "forward goes to
+      // a position that doesn't exist → 5s hang"). Keep the hash; let resolution catch up.
       if (!initialResult.targetResolved && window.location.hash) {
-        history.replaceState(null, '', window.location.pathname);
         import('../components/toast/toast').then(({ showTargetNotFoundToast }) => {
           showTargetNotFoundToast({
             target: bootstrapTarget,

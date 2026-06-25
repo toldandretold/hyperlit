@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1520,
-    "moduleCount": 317,
+    "fnCount": 1523,
+    "moduleCount": 318,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3109,
+    "edgeCount": 3119,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -11573,8 +11573,8 @@
       "dir": "pull"
     },
     {
-      "id": "scrolling/clearStaleHash:clearInternalNavHashIfScrolledAway",
-      "label": "clearInternalNavHashIfScrolledAway",
+      "id": "scrolling/clearStaleHash:markInternalNavHashScrolledAway",
+      "label": "markInternalNavHashScrolledAway",
       "kind": "fn",
       "stage": "scrolling",
       "module": "scrolling/clearStaleHash",
@@ -11643,6 +11643,30 @@
       "stage": "scrolling",
       "module": "scrolling/navOverlay",
       "leaf": true
+    },
+    {
+      "id": "scrolling/navState:hasScrolledAwayFromHash",
+      "label": "hasScrolledAwayFromHash",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/navState",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/navState:markHashScrolledAway",
+      "label": "markHashScrolledAway",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/navState",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/navState:unmarkHashScrolledAway",
+      "label": "unmarkHashScrolledAway",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/navState",
+      "leaf": false
     },
     {
       "id": "scrolling/readingPosition:debouncedServerSave",
@@ -17241,7 +17265,7 @@
       "stage": "scrolling",
       "band": "store",
       "fnIds": [
-        "scrolling/clearStaleHash:clearInternalNavHashIfScrolledAway"
+        "scrolling/clearStaleHash:markInternalNavHashScrolledAway"
       ]
     },
     {
@@ -17274,6 +17298,17 @@
         "scrolling/navOverlay:hideNavigationLoading",
         "scrolling/navOverlay:restoreNavigationOverlayIfNeeded",
         "scrolling/navOverlay:showNavigationLoading"
+      ]
+    },
+    {
+      "id": "scrolling/navState",
+      "label": "scrolling/navState",
+      "stage": "scrolling",
+      "band": "store",
+      "fnIds": [
+        "scrolling/navState:hasScrolledAwayFromHash",
+        "scrolling/navState:markHashScrolledAway",
+        "scrolling/navState:unmarkHashScrolledAway"
       ]
     },
     {
@@ -31699,10 +31734,11 @@
       "rel": "call"
     },
     {
-      "id": "lazyLoader/index:createLazyLoader__call__scrolling/clearStaleHash:clearInternalNavHashIfScrolledAway",
+      "id": "lazyLoader/index:createLazyLoader__call__scrolling/clearStaleHash:markInternalNavHashScrolledAway",
       "source": "lazyLoader/index:createLazyLoader",
-      "target": "scrolling/clearStaleHash:clearInternalNavHashIfScrolledAway",
-      "rel": "call"
+      "target": "scrolling/clearStaleHash:markInternalNavHashScrolledAway",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "lazyLoader/index:createLazyLoader__call__scrolling/userScrollDetection:isActivelyScrollingForLinkBlock",
@@ -34431,6 +34467,13 @@
       "label": "/api/vibes/{}"
     },
     {
+      "id": "scrolling/clearStaleHash:markInternalNavHashScrolledAway__call__scrolling/navState:markHashScrolledAway",
+      "source": "scrolling/clearStaleHash:markInternalNavHashScrolledAway",
+      "target": "scrolling/navState:markHashScrolledAway",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "scrolling/internalNav:fallbackScrollPosition__call__indexedDB/core/utilities:getLocalStorageKey",
       "source": "scrolling/internalNav:fallbackScrollPosition",
       "target": "indexedDB/core/utilities:getLocalStorageKey",
@@ -34543,6 +34586,13 @@
       "rel": "call"
     },
     {
+      "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/navState:unmarkHashScrolledAway",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "scrolling/navState:unmarkHashScrolledAway",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/scrollHelpers:scrollElementWithConsistentMethod",
       "source": "scrolling/internalNav:navigateToInternalId",
       "target": "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
@@ -34574,6 +34624,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "scrolling/internalNav:navigateToInternalId__write__store:localStorage",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "scrolling/internalNav:navigateToInternalId__write__store:sessionStorage",
       "source": "scrolling/internalNav:navigateToInternalId",
       "target": "store:sessionStorage",
@@ -34582,6 +34638,18 @@
     {
       "id": "scrolling/navOverlay:restoreNavigationOverlayIfNeeded__write__store:sessionStorage",
       "source": "scrolling/navOverlay:restoreNavigationOverlayIfNeeded",
+      "target": "store:sessionStorage",
+      "rel": "write"
+    },
+    {
+      "id": "scrolling/navState:markHashScrolledAway__write__store:sessionStorage",
+      "source": "scrolling/navState:markHashScrolledAway",
+      "target": "store:sessionStorage",
+      "rel": "write"
+    },
+    {
+      "id": "scrolling/navState:unmarkHashScrolledAway__write__store:sessionStorage",
+      "source": "scrolling/navState:unmarkHashScrolledAway",
       "target": "store:sessionStorage",
       "rel": "write"
     },
@@ -34630,6 +34698,13 @@
       "source": "scrolling/restore:restoreScrollPosition",
       "target": "scrolling/navOverlay:showNavigationLoading",
       "rel": "call"
+    },
+    {
+      "id": "scrolling/restore:restoreScrollPosition__call__scrolling/navState:hasScrolledAwayFromHash",
+      "source": "scrolling/restore:restoreScrollPosition",
+      "target": "scrolling/navState:hasScrolledAwayFromHash",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "scrolling/restore:restoreScrollPosition__call__scrolling/userScrollDetection:shouldSkipScrollRestoration",
@@ -35082,6 +35157,12 @@
       "target": "hyperlitContainer/core:closeHyperlitContainer",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__hyperlitContainer/history:deriveMainAnchorId",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "target": "hyperlitContainer/history:deriveMainAnchorId",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__hyperlitContainer/history:restoreContainerStack",
@@ -37064,6 +37145,24 @@
       "id": "store:sessionStorage__read__scrolling/internalNav:fallbackScrollPosition",
       "source": "store:sessionStorage",
       "target": "scrolling/internalNav:fallbackScrollPosition",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__scrolling/navState:hasScrolledAwayFromHash",
+      "source": "store:sessionStorage",
+      "target": "scrolling/navState:hasScrolledAwayFromHash",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__scrolling/navState:markHashScrolledAway",
+      "source": "store:sessionStorage",
+      "target": "scrolling/navState:markHashScrolledAway",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__scrolling/navState:unmarkHashScrolledAway",
+      "source": "store:sessionStorage",
+      "target": "scrolling/navState:unmarkHashScrolledAway",
       "rel": "read"
     },
     {
@@ -40944,6 +41043,11 @@
     },
     {
       "source": "lazyLoader/index",
+      "target": "pageLoad/currentLazyLoaderState",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/index",
       "target": "scrolling/clearStaleHash",
       "kind": "static"
     },
@@ -41818,6 +41922,11 @@
       "kind": "static"
     },
     {
+      "source": "scrolling/clearStaleHash",
+      "target": "scrolling/navState",
+      "kind": "static"
+    },
+    {
       "source": "scrolling/index",
       "target": "SPA/navigation/cascadeOriginState",
       "kind": "static"
@@ -41830,6 +41939,11 @@
     {
       "source": "scrolling/index",
       "target": "scrolling/navOverlay",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/index",
+      "target": "scrolling/navState",
       "kind": "static"
     },
     {
@@ -41875,6 +41989,11 @@
     {
       "source": "scrolling/internalNav",
       "target": "scrolling/navOverlay",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/internalNav",
+      "target": "scrolling/navState",
       "kind": "static"
     },
     {
@@ -41944,6 +42063,11 @@
     },
     {
       "source": "scrolling/restore",
+      "target": "scrolling/navState",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/restore",
       "target": "scrolling/userScrollDetection",
       "kind": "static"
     },
@@ -41954,7 +42078,17 @@
     },
     {
       "source": "scrolling/scrollHelpers",
+      "target": "scrolling/navState",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/scrollHelpers",
       "target": "scrolling/userScrollDetection",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/userScrollDetection",
+      "target": "scrolling/navState",
       "kind": "static"
     },
     {

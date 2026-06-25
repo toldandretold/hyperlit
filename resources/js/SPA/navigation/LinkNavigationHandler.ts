@@ -627,10 +627,25 @@ export class LinkNavigationHandler {
         if (savedDepth === currentDepth + 1) {
           const newTopMeta = capturedStack[currentDepth]?.contentMetadata;
           if (newTopMeta?.contentTypes?.length) {
-            const { restoreStackedLayer } = await import('../../hyperlitContainer/history');
+            const { restoreStackedLayer, deriveMainAnchorId } = await import('../../hyperlitContainer/history');
             console.log(`📚 [popstate] Fast-path FORWARD: pushing new top layer (${currentDepth} → ${savedDepth})`);
             const ok = await restoreStackedLayer(newTopMeta);
-            if (ok) return;
+            if (ok) {
+              // Opening the BASE container (0 → 1) over the main page: scroll the reader to the
+              // container's anchor (hypercite/highlight in main), same as restoreContainerStack does
+              // for the full path. Without this the fast-path forward leaves the reader at the top
+              // with a container hovering over unrelated content.
+              if (currentDepth === 0 && currentLazyLoader) {
+                try {
+                  const anchorId = deriveMainAnchorId(newTopMeta);
+                  if (anchorId) {
+                    console.log(`📚 [popstate] Fast-path FORWARD scrolling main to anchor "${anchorId}"`);
+                    navigateToInternalId(anchorId, currentLazyLoader, false);
+                  }
+                } catch (e) { /* non-fatal */ }
+              }
+              return;
+            }
             console.warn('Fast-path FORWARD: restoreStackedLayer returned false, falling back');
           }
         }
