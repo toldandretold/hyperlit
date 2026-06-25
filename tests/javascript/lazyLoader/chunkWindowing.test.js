@@ -77,6 +77,8 @@ vi.mock('../../../resources/js/divEditor/index', () => ({ getPendingSaveNodeIds:
 
 import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from '../../../resources/js/lazyLoader/index';
 import { MAX_LOADED_CHUNKS, trimWindow } from '../../../resources/js/lazyLoader/utilities/windowChunks';
+import { fillViewport } from '../../../resources/js/lazyLoader/utilities/fillViewport';
+import { isCacheDirty } from '../../../resources/js/lazyLoader/utilities/cacheState';
 import { setProgrammaticUpdateInProgress } from '../../../resources/js/utilities/operationState';
 import { isSelectionDragActive } from '../../../resources/js/scrolling/selectionAutoScroll';
 import { captureScrollAnchor, restoreScrollAnchor } from '../../../resources/js/utilities/scrollAnchor';
@@ -390,5 +392,112 @@ describe('DOM windowing — safety guards (Phase 2 hardening A–E)', () => {
     await trimWindow(inst, 'down');
 
     expect(assertSingleOrderedBlock(inst).length).toBe(10);
+  });
+});
+
+describe('fillViewport — resilience to small/short chunks + chunk-edge landings', () => {
+  // fillViewport drives the instance's own loaders (in prod = loadNextChunkFixed / loadPreviousChunkFixed,
+  // injected via createLazyLoader). makeLoader stubs them with vi.fn(), so point them at the real ones.
+  // Then stub the SENTINEL rects (fillViewport only measures sentinels) to simulate "in/out of view".
+  function realLoaders(inst) {
+    inst.loadNextChunk = loadNextChunkFixed;
+    inst.loadPreviousChunk = loadPreviousChunkFixed;
+  }
+  // scrollableParent spans 0..800; a sentinel "in view" sits inside it, "out" sits well below + margin.
+  function sentinels(inst, { top, bottom }) {
+    stubRect(inst.scrollableParent, 0, 800);
+    if (inst.topSentinel) stubRect(inst.topSentinel, top ? 400 : -2000, top ? 400 : -2000);
+    if (inst.bottomSentinel) stubRect(inst.bottomSentinel, bottom ? 400 : 2000, bottom ? 400 : 2000);
+  }
+
+  it('tiny chunks: keeps loading NEXT until the manifest is exhausted, then terminates (no stranding)', async () => {
+    const { inst } = makeLoader();
+    realLoaders(inst);
+    await inst.loadChunk(0, 'down');           // only chunk 0 rendered
+    sentinels(inst, { top: false, bottom: true }); // bottom sentinel stuck in view (short content)
+
+    await fillViewport(inst);
+
+    // Loaded every chunk to the end (0..4) — the bottom sentinel never left view, so it kept filling.
+    expect(assertSingleOrderedBlock(inst)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it('edge landing: fills BOTH directions so there is content above and below the landing', async () => {
+    const { inst } = makeLoader();
+    realLoaders(inst);
+    await inst.loadChunk(2, 'down');           // landed on a middle chunk
+    sentinels(inst, { top: true, bottom: true });
+
+    await fillViewport(inst);
+
+    expect(assertSingleOrderedBlock(inst)).toEqual([0, 1, 2, 3, 4]); // neighbours above (1,0) and below (3,4)
+  });
+
+  it('terminates at the boundaries — no infinite loop when there is no next/prev to load', async () => {
+    const { inst } = makeLoader();
+    realLoaders(inst);
+    await inst.loadChunk(0, 'down');
+    // Top sentinel in view but chunk 0 has no previous; bottom OUT of view so nothing below either.
+    sentinels(inst, { top: true, bottom: false });
+
+    await fillViewport(inst);                   // must return promptly, not hang
+
+    expect(assertSingleOrderedBlock(inst)).toEqual([0]); // no-op: no prev (chunk 0), bottom not in view
+  });
+
+  it('does not over-load: both sentinels out of view → loads nothing', async () => {
+    const { inst } = makeLoader();
+    realLoaders(inst);
+    await inst.loadChunk(2, 'down');
+    sentinels(inst, { top: false, bottom: false }); // viewport already covered
+
+    await fillViewport(inst);
+
+    expect(assertSingleOrderedBlock(inst)).toEqual([2]);
+  });
+
+  it('atomic reservation: two CONCURRENT loads of the same chunk insert it ONCE (the deep-link race)', async () => {
+    // The deep-link nav fires loadChunk(0,1,2) all at once (+ prerender + eager). Each load has an
+    // await between its "already loaded?" check and its DOM insert, so without a synchronous
+    // reservation two loads of the SAME chunk both pass the check and both insert → duplicate.
+    const { inst, container } = makeLoader();
+    isCacheDirty.mockReturnValue(true); // force the await (getNodesFromIndexedDB) between reserve & insert
+    try {
+      await Promise.all([inst.loadChunk(0, 'down'), inst.loadChunk(0, 'down')]);
+      expect(container.querySelectorAll('.chunk[data-chunk-id="0"]').length).toBe(1); // not two
+      expect(inst.currentlyLoadedChunks.has(0)).toBe(true);
+    } finally {
+      isCacheDirty.mockReturnValue(false);
+    }
+  });
+
+  it('re-arms (re-observes) the sentinels after a load — edge→level, the short-chunk / scroll-up jam fix', async () => {
+    // IntersectionObserver is edge-triggered; a short chunk that loads without pushing the sentinel
+    // out of view leaves it silent. After a load settles we re-observe both sentinels, which delivers
+    // a fresh current-state callback (so the observer can fire again). Here: assert the re-observe wiring.
+    const { inst } = makeLoader();
+    await inst.loadChunk(0, 'down');
+    inst.observer.observe.mockClear();
+    inst.observer.unobserve.mockClear();
+
+    await loadNextChunkFixed(0, inst);                 // loads chunk 1, then re-arms in a 100ms timer
+    await new Promise((r) => setTimeout(r, 140));
+
+    expect(inst.observer.unobserve).toHaveBeenCalledWith(inst.bottomSentinel);
+    expect(inst.observer.observe).toHaveBeenCalledWith(inst.bottomSentinel);
+    expect(inst.observer.observe).toHaveBeenCalledWith(inst.topSentinel);   // both re-sampled
+  });
+
+  it('re-entrancy guard: a second concurrent fill is a no-op while one is running', async () => {
+    const { inst } = makeLoader();
+    realLoaders(inst);
+    await inst.loadChunk(0, 'down');
+    sentinels(inst, { top: false, bottom: true });
+
+    const a = fillViewport(inst);
+    const b = fillViewport(inst);   // should early-return (instance._fillingViewport set)
+    await Promise.all([a, b]);
+
+    expect(assertSingleOrderedBlock(inst)).toEqual([0, 1, 2, 3, 4]);
   });
 });

@@ -468,12 +468,16 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
       // scroll context (loadChunk early-exits for already-loaded ids), then fall through to the
       // wait-for-element + scroll below — which finds the existing target without a reload.
       verbose.nav(`Fast-path: chunk ${targetChunkId} already loaded — scrolling without clearing`, 'scrolling/internalNav');
+      const fills: Promise<any>[] = [];
       if (targetChunkPosition > 0) {
-        lazyLoader.loadChunk(allChunkIds[targetChunkPosition - 1], "up");
+        fills.push(lazyLoader.loadChunk(allChunkIds[targetChunkPosition - 1], "up"));
       }
       if (targetChunkPosition >= 0 && targetChunkPosition < allChunkIds.length - 1) {
-        lazyLoader.loadChunk(allChunkIds[targetChunkPosition + 1], "down");
+        fills.push(lazyLoader.loadChunk(allChunkIds[targetChunkPosition + 1], "down"));
       }
+      // AWAIT the neighbour loads before repositioning — else reposition sorts a half-built DOM
+      // (concurrent inserts) and the sentinels end up scrambled.
+      await Promise.all(fills);
       lazyLoader.repositionSentinels();
     } else {
       // Clear the container and load the chunk (plus adjacent chunks).
@@ -505,8 +509,9 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
         progressIndicator.updateProgress(60, `Loading ${chunksToLoad.length} chunks...`);
       }
 
-      // ✅ Just load synchronously, since loadChunk returns immediately
-      chunksToLoad.map((chunkId: any) => lazyLoader.loadChunk(chunkId, "down"));
+      // AWAIT all chunk loads before repositioning — repositionSentinels sorts the live DOM, so it
+      // must run AFTER every insert completes, not while concurrent loads are still mutating it.
+      await Promise.all(chunksToLoad.map((chunkId: any) => lazyLoader.loadChunk(chunkId, "down")));
 
       lazyLoader.repositionSentinels();
     }
@@ -714,6 +719,12 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
       if (!isAlreadyPerfectlyPositioned) {
         NavigationCompletionBarrier.completeProcess(NavigationProcess.SCROLL_CORRECTION, true);
       }
+
+      // 🪟 Ensure there's content to scroll INTO above/below the landing. If the target sat at a
+      // chunk EDGE (or the chunks are short), the observer won't re-fire without a scroll transition
+      // — so the user couldn't scroll on without a scroll-up-then-down. fillViewport loads neighbours
+      // until the sentinels are past the viewport. Fire-and-forget (self-guarded); don't block nav.
+      import('../lazyLoader/utilities/fillViewport').then(({ fillViewport }) => fillViewport(lazyLoader));
 
       // 🎯 Hide loading indicator, then trigger hypercite glow
       await hideNavigationLoading();

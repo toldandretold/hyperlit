@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1514 functions in 315 modules · 10 object stores · 10 PG tables · 3095 edges
+**MarkdownDB** schema v27 · 1516 functions in 316 modules · 10 object stores · 10 PG tables · 3099 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1082,6 +1082,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setChunkLoadingInProgress` | `lazyLoader/utilities/chunkLoadingState` | — | — | — | — |
 | `selectNextChunkId` | `lazyLoader/utilities/chunkSelection` | — | — | — | — |
 | `selectPrevChunkId` | `lazyLoader/utilities/chunkSelection` | — | — | — | — |
+| `fillViewport` | `lazyLoader/utilities/fillViewport` | — | — | read | — |
+| `isWithinViewport` | `lazyLoader/utilities/windowChunks` | — | — | read | — |
 | `removeChunk` | `lazyLoader/utilities/windowChunks` | — | — | read/write | — |
 | `trimWindow` | `lazyLoader/utilities/windowChunks` | — | — | read | — |
 | `handleDeletedBookAccess` | `pageLoad/accessGuards` | — | — | read/write | — |
@@ -1527,7 +1529,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 229
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 230
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1730,6 +1732,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `scrolling/internalNav` → `SPA/navigation/resolveTargetChunk`
 - `scrolling/internalNav` → `components/toast/toast`
 - `scrolling/internalNav` → `hypercites/animations`
+- `scrolling/internalNav` → `lazyLoader/utilities/fillViewport`
 - `scrolling/internalNav` → `pageLoad/backgroundDownload`
 
 ## Legend

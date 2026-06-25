@@ -109,7 +109,13 @@ export function createLazyLoader(config: any) {
     // Injected render hooks (DI — keeps lazyLoader a leaf; see import note at top of file)
     attachMarkListeners: attachMarkers,
     attachUnderlineClickListeners: attachUnderliners,
+    // Neighbour loaders on the instance so fillViewport can drive them without an import cycle.
+    loadNextChunk,
+    loadPreviousChunk,
     currentlyLoadedChunks: new Set(),
+    // Chunk ids with a load IN FLIGHT — reserved synchronously so concurrent loads of the same
+    // chunk (deep-link nav fires loadChunk(0,1,2) at once + prerender + eager) can't double-insert.
+    _loadingChunks: new Set(),
     observer: null,
     topSentinel: null,
     bottomSentinel: null,
@@ -569,12 +575,6 @@ export function createLazyLoader(config: any) {
     threshold: 0
   };
 
-  // Helper: get last chunk element in the container.
-  function getLastChunkElement() {
-    const chunks = container.querySelectorAll("[data-chunk-id]");
-    return chunks.length ? chunks[chunks.length - 1] : null;
-  }
-
   // Create the IntersectionObserver.
   const observer = new IntersectionObserver((entries) => {
     verbose.content(`Observer triggered (${entries.length} entries) for book: ${instance.bookId}`, 'lazyLoaderFactory.js');
@@ -616,7 +616,8 @@ export function createLazyLoader(config: any) {
       }
       if (entry.target.id === instance.bottomSentinel?.id) {
         verbose.debug('Bottom sentinel intersecting - attempting to load next chunk', 'lazyLoaderFactory.js');
-        const lastChunkEl = getLastChunkElement();
+        const chunkEls = container.querySelectorAll("[data-chunk-id]");
+        const lastChunkEl = chunkEls.length ? chunkEls[chunkEls.length - 1] : null;
         if (lastChunkEl) {
           const lastChunkId = parseChunkId(lastChunkEl.getAttribute("data-chunk-id")!);
           verbose.debug(`Last chunk in DOM: ${lastChunkId}, loading next chunk...`, 'lazyLoaderFactory.js');
@@ -918,6 +919,24 @@ export function createLazyLoader(config: any) {
 }
 
 
+/**
+ * Re-arm the sentinels by re-observing them. IntersectionObserver is EDGE-triggered — it fires only
+ * when a sentinel CROSSES into/out of view, not while it sits in view. So a SHORT chunk that loads
+ * without pushing the sentinel back off-screen (or a transition dropped while a load was in progress)
+ * leaves the observer silent and the reader jammed. Calling observe() again delivers a FRESH callback
+ * with the sentinel's CURRENT intersection state (even if unchanged) — a manual "re-sample now". If a
+ * sentinel is still in view, the observer fires again and loading continues until it's pushed out or
+ * the book ends. Reacts to intersection state ONLY (no scroll listener), so unlike the reverted scroll
+ * handler it can't feed back on windowing's own programmatic scrollTop adjustments.
+ */
+function rearmSentinels(instance: any): void {
+  const obs = instance.observer;
+  if (!obs) return;
+  for (const s of [instance.topSentinel, instance.bottomSentinel]) {
+    if (s) { obs.unobserve(s); obs.observe(s); }
+  }
+}
+
 // Update loadNextChunkFixed
 export async function loadNextChunkFixed(currentLastChunkId: any, instance: any) {
   // ✅ Refresh cache before searching if dirty
@@ -996,6 +1015,9 @@ export async function loadNextChunkFixed(currentLastChunkId: any, instance: any)
     // Use a small delay to ensure all mutations are processed
     setTimeout(() => {
       clearChunkLoadingInProgress(nextChunkId);
+      // Re-sample intersection AFTER the loading flag clears (else the observer callback is dropped
+      // by its in-progress guard). A short chunk that left a sentinel in view → re-fires → fills on.
+      rearmSentinels(instance);
     }, 100);
   }
 }
@@ -1084,11 +1106,23 @@ export async function loadPreviousChunkFixed(currentFirstChunkId: any, instance:
     // 🚨 CLEAR LOADING STATE AFTER DOM CHANGES
     setTimeout(() => {
       clearChunkLoadingInProgress(prevChunkId);
+      // Re-sample intersection AFTER the loading flag clears — the scroll-up jam fix: a short top
+      // chunk that left the top sentinel in view re-fires loadPrevious instead of stalling.
+      rearmSentinels(instance);
     }, 100);
   }
 }
 
 async function loadChunkInternal(chunkId: any, direction: any, instance: any, attachMarkers: any) {
+  // 🔒 ATOMIC RESERVATION: claim chunkId SYNCHRONOUSLY (before the first await) so a CONCURRENT load
+  // of the same chunk bails immediately instead of both passing the "already loaded?" checks below and
+  // inserting two copies. This is the deep-link race: navigateToInternalId fires loadChunk(0,1,2) all
+  // at once (not awaited), alongside the prerender-adoption and eager loads — each has an await between
+  // its dedup check and its DOM insert, so without a sync reservation two of them double-insert.
+  const loading: Set<any> = instance._loadingChunks || (instance._loadingChunks = new Set());
+  if (instance.currentlyLoadedChunks.has(chunkId) || loading.has(chunkId)) return;
+  loading.add(chunkId);
+  try {
   // ✅ Check if cache is dirty and refresh if needed
   if (isCacheDirty()) {
     verbose.debug('Cache dirty, refreshing from IndexedDB before loading chunk...', 'lazyLoaderFactory.js');
@@ -1180,6 +1214,9 @@ async function loadChunkInternal(chunkId: any, direction: any, instance: any, at
   }
   verbose.content(`Chunk #${chunkId} loaded into DOM`, 'lazyLoaderFactory.js');
   return chunkElement; // ✅ return DOM element
+  } finally {
+    loading.delete(chunkId);
+  }
 }
 
 

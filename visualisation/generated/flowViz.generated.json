@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1514,
-    "moduleCount": 315,
+    "fnCount": 1516,
+    "moduleCount": 316,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3095,
+    "edgeCount": 3099,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -9853,6 +9853,22 @@
       "leaf": true
     },
     {
+      "id": "lazyLoader/utilities/fillViewport:fillViewport",
+      "label": "fillViewport",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/utilities/fillViewport",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/utilities/windowChunks:isWithinViewport",
+      "label": "isWithinViewport",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/utilities/windowChunks",
+      "leaf": false
+    },
+    {
       "id": "lazyLoader/utilities/windowChunks:removeChunk",
       "label": "removeChunk",
       "kind": "fn",
@@ -16545,11 +16561,21 @@
       ]
     },
     {
+      "id": "lazyLoader/utilities/fillViewport",
+      "label": "lazyLoader/utilities/fillViewport",
+      "stage": "lazyLoader",
+      "band": "capture",
+      "fnIds": [
+        "lazyLoader/utilities/fillViewport:fillViewport"
+      ]
+    },
+    {
       "id": "lazyLoader/utilities/windowChunks",
       "label": "lazyLoader/utilities/windowChunks",
       "stage": "lazyLoader",
       "band": "capture",
       "fnIds": [
+        "lazyLoader/utilities/windowChunks:isWithinViewport",
         "lazyLoader/utilities/windowChunks:removeChunk",
         "lazyLoader/utilities/windowChunks:trimWindow"
       ]
@@ -24903,6 +24929,18 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__lazyLoader/utilities/fillViewport:fillViewport",
+      "source": "dom",
+      "target": "lazyLoader/utilities/fillViewport:fillViewport",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/utilities/windowChunks:isWithinViewport",
+      "source": "dom",
+      "target": "lazyLoader/utilities/windowChunks:isWithinViewport",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__lazyLoader/utilities/windowChunks:removeChunk",
       "source": "dom",
       "target": "lazyLoader/utilities/windowChunks:removeChunk",
@@ -31803,6 +31841,18 @@
       "source": "lazyLoader/index:loadPreviousChunkFixed",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/utilities/fillViewport:fillViewport__call__indexedDB/types:parseChunkId",
+      "source": "lazyLoader/utilities/fillViewport:fillViewport",
+      "target": "indexedDB/types:parseChunkId",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/utilities/fillViewport:fillViewport__call__lazyLoader/utilities/windowChunks:isWithinViewport",
+      "source": "lazyLoader/utilities/fillViewport:fillViewport",
+      "target": "lazyLoader/utilities/windowChunks:isWithinViewport",
+      "rel": "call"
     },
     {
       "id": "lazyLoader/utilities/windowChunks:removeChunk__domwrite__dom",
@@ -40795,6 +40845,16 @@
       "kind": "lazy"
     },
     {
+      "source": "lazyLoader/utilities/fillViewport",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/utilities/fillViewport",
+      "target": "lazyLoader/utilities/windowChunks",
+      "kind": "static"
+    },
+    {
       "source": "lazyLoader/utilities/windowChunks",
       "target": "indexedDB/types",
       "kind": "static"
@@ -41716,6 +41776,11 @@
     },
     {
       "source": "scrolling/internalNav",
+      "target": "lazyLoader/utilities/fillViewport",
+      "kind": "lazy"
+    },
+    {
+      "source": "scrolling/internalNav",
       "target": "pageLoad/backgroundDownload",
       "kind": "lazy"
     },
@@ -41809,6 +41874,6 @@
       ]
     ],
     "breakerCount": 1,
-    "lazyCount": 229
+    "lazyCount": 230
   }
 }

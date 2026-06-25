@@ -74,6 +74,15 @@ function isChunkFullyOffscreen(chunkEl: HTMLElement, scrollableParent: any): boo
   return r.bottom < top - OFFSCREEN_MARGIN || r.top > bottom + OFFSCREEN_MARGIN;
 }
 
+/**
+ * Inverse of `isChunkFullyOffscreen`, for a sentinel: is the element inside the scrollport
+ * (± OFFSCREEN_MARGIN, the same band the IntersectionObserver uses)? `fillViewport` uses this to
+ * decide whether a sentinel is still "in view" and the next/prev chunk should keep loading.
+ */
+export function isWithinViewport(el: HTMLElement, scrollableParent: any): boolean {
+  return !isChunkFullyOffscreen(el, scrollableParent);
+}
+
 /** Child node ids (= startLine/LineId strings) of a chunk element. */
 function chunkChildIds(chunkEl: Element): string[] {
   return Array.from(chunkEl.children)
