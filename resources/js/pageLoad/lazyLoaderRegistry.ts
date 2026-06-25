@@ -225,12 +225,17 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: BookId
     // page (URL `/`, but `book` still book_X, so the equality check
     // wrongly passed). The reader-page main element is the source of truth
     // for "we are actually rendering this book right now":
-    //   - reader.blade.php: <main class="main-content" id="book_X" ...>
-    //   - home.blade.php:   <main class="main-content" id="most-recent" ...>
-    // Slug-vs-id URL routing doesn't affect main.id, which is always the
-    // book's true id (set server-side from $book), so this is URL-agnostic.
+    //   - reader.blade.php: <main class="main-content" id="{{ $book }}" data-slug="…" ...>
+    //   - home.blade.php:   <main class="main-content active-content" id="most-recent"> (no data-slug)
+    //   - user.blade.php:   <main class="main-content active-content" id="…"> (no data-slug)
+    // The reader's main id is the book's true id, which is NOT always `book_<digits>` —
+    // canonical / vanity books have a SLUG id (e.g. `bedjaouinieo`), so an `id^="book_"` guard
+    // wrongly classified them as "not a reader" and SKIPPED their container-stack restore on
+    // back/forward (the user's "slug book lands at the top" bug). Only reader.blade emits
+    // `data-slug`, so `[data-slug]` reliably identifies the reader main for book_ AND slug books
+    // while excluding home/user.
     else if (history.state?.containerStack?.length > 0) {
-      const readerMain = document.querySelector('main.main-content[id^="book_"]');
+      const readerMain = document.querySelector('main.main-content[data-slug]');
       const renderedBookId = readerMain?.id;
       const savedBookId = history.state.containerStackBookId;
       const compatLegacyState = !savedBookId; // older entries didn't stamp the book id

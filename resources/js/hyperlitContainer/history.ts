@@ -362,10 +362,15 @@ export async function restoreContainerStack(stack: any, opts: any = {}) {
   // stale stacks be restored onto home. Use the actually-rendered reader
   // main element as the source of truth — it's set server-side from the
   // canonical $book id (URL-agnostic re slugs vs ids).
-  //   reader.blade.php: <main class="main-content" id="book_X" ...>
-  //   home.blade.php:   <main class="main-content" id="most-recent" ...>
+  //   reader.blade.php: <main class="main-content" id="{{ $book }}" data-slug="…" ...>
+  //   home.blade.php:   <main class="main-content active-content" id="most-recent"> (no data-slug)
+  //   user.blade.php:   <main class="main-content active-content" id="…"> (no data-slug)
+  // The reader's id is NOT always `book_<digits>` — canonical / vanity books have a SLUG id
+  // (e.g. `bedjaouinieo`). An `id^="book_"` guard skipped container-stack restore for those,
+  // landing the user at the top. `[data-slug]` (emitted only by reader.blade) matches book_ AND
+  // slug readers and excludes home/user.
   const readerMain = typeof document !== 'undefined'
-    ? document.querySelector('main.main-content[id^="book_"]')
+    ? document.querySelector('main.main-content[data-slug]')
     : null;
   const renderedBookId = readerMain?.id || null;
   const savedBookId = stack[0]?.contentMetadata?.bookId
@@ -373,7 +378,7 @@ export async function restoreContainerStack(stack: any, opts: any = {}) {
     || null;
 
   if (!renderedBookId) {
-    console.log(`📚 [${callsite}] restoreContainerStack SKIPPED — current page is not a reader (no main.main-content[id^="book_"]). savedBookId=${savedBookId}, layers=${stack.length}`);
+    console.log(`📚 [${callsite}] restoreContainerStack SKIPPED — current page is not a reader (no main.main-content[data-slug]). savedBookId=${savedBookId}, layers=${stack.length}`);
     return false;
   }
   if (savedBookId && savedBookId !== renderedBookId) {

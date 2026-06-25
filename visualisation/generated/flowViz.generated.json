@@ -6,7 +6,7 @@
     "moduleCount": 318,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3119,
+    "edgeCount": 3120,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -35231,6 +35231,13 @@
       "dataPath": true
     },
     {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__scrolling/navState:unmarkHashScrolledAway",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "target": "scrolling/navState:unmarkHashScrolledAway",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__write__store:sessionStorage",
       "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
       "target": "store:sessionStorage",
@@ -37279,6 +37286,11 @@
     {
       "source": "SPA/navigation/LinkNavigationHandler",
       "target": "scrolling/index",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/LinkNavigationHandler",
+      "target": "scrolling/navState",
       "kind": "static"
     },
     {
