@@ -17,14 +17,14 @@ You might want to use it for something else.
 [Read more here](https://hyperlit.io/welcome)
 
 ## Features
-### Free 
+### Free features
 - **hypercites**: automatic, two-way hyperlink citations (Copy text with hypercite button. Paste it. Hypercited!)
 - **hyperlights**: any-user can highlight any word
 - **word .doc** import and export conversion (with dynamic footnotes and citations)
 - **markdown .md** import and export conversion (with dynamic footnotes and citations)
 - **automatic copy-paste conversion** of major academic journals (with dynamic footnotes and citations)
 
-### Costs 
+### Paid features
 *These cost money for tokens, or compute. However, you are free to run this locally and use your own APIs or local LLMs though. Eventually might add feature to add your own API keys, but for now don't have any secure way of doing so.*
 
 - **PDF conversion**: Mistral OCR converts PDF, and the resulting .json is converted to markdwon preserving academic referencing (being ironed out as I read more. Not perfect by any means. But once converted can easily download all raw files including markdown)
@@ -57,13 +57,13 @@ By default, published work comes with a copyleft inspired license that aims to p
 
 I created this website using LLMs. I have gradually gotten better at programming, but I am still largely dependent on LLMs. I'm sure both lovers and haters of vibez will find fucked shit in this code. 
 
-It is for this reason that it is stronlgy advised that the website is **not used for any personal notes**, or anything that you would not want leaked to the internet. This is intended for publishing "copyleft" writing that you want others to read freely.
+It is for this reason that it is stronlgy advised that the website is **not used for any personal notes**, or anything that you would not want leaked to the internet. This is intended for **publishing** text that you want others to read freely.
 
 That said, I am a historian of global political economy who created this website in order to use it. I am using it to write and publish, and hope that -- eventually -- it will become reliable enough for others' trust. Now, though, it is clearly in need of "peer review".
 
 ## Built With
 
-- Vanilla JavaScript (I know... I should update to Typescript)
+- Typescript
 - Laravel
 - IndexedDB
 - PostgreSQL
@@ -190,7 +190,9 @@ php artisan tinker           # Interactive PHP REPL with your app loaded
 
 ### Canonical Sources & Versions
 
-Hyperlit separates the **citation identity of a work** (one row in `canonical_source`) from each **uploaded version** of it (one row in `library`). Multiple uploads of the same work — an author's PDF, a community-OCR'd copy, an OpenAlex stub — can share a single canonical. Verification signals stack on the canonical (`openalex_id`, `open_library_key`, `semantic_scholar_id`, `verified_by_publisher`, `commons_endorsements`), and each version carries its own provenance (`conversion_method`, `human_reviewed_at`, `is_publisher_uploaded`) plus a pair of scores against the canonical — one for identity confidence, one for metadata quality — so sloppy library rows are distinguishable from clean ones even when the DOI matches.
+Hyperlit separates the **citation identity of a work** (one row in `canonical_source`) from each **uploaded version** of it (one row in `library`). This is essential for keeping track of the endless versions that could, in theory, be uploaded by anyone. Allowing anyone to upload any version of an open access text means having some system of verification that a version is faithful. This is especially important for the Citation Review system. It also helps save users costs. If a PDF has already been converted, then users can be -- in theory -- informed of this on upload time.
+
+A version can be verified in different ways. If it was imported automatically via the hyperlit server, in a workflow that pulled the source from an official citation record (say from Open Alex), then it can be verified as a legitimate version. However, the conversion might not be perfect. If a version was imported by the verified athor or publisher of the article, then it carries another form of legitimacy. Or, if it was imported by a trusted user/librarian, then it gets also a form of legitimacy. None of the verification streams are perfect. Thus, in future, hyperlit will roll out improved version ux.
 
 Full breakdown: [`docs/canonical-sources.md`](docs/canonical-sources.md).
 
@@ -203,11 +205,11 @@ When a user navigates to hyperlit.io/book, the nodes for that book are pulled fr
 
 In /app/Http/Controllers/DatabaseToIndexedDBController this content is pulled and sorted. For example, it is authorised according to users' current credentials, and preferred gatekeeping. Then, it is sent to the front end as .json. 
 
-The backend also checks which chunk needs to be loaded first, and sends only that chunk. This ensures text can be read quickly. Other chunks are loaded into indexedDB afterp page load. See: /resources/js/initialChunkLoader.js ... Note: Edit mode will not work until all other chunks have downloaded.
+The backend also checks which chunk needs to be loaded first, and sends only that chunk. This initial chunk is rendered into the DOM (Server-sdie rendering), so that page loads quicker and for better SEO. Other chunks are loaded into indexedDB after page load. These are lazily loaded into the DOM See: /resources/js/lazyLoader
 
 On the frontend:
 
-1. **intializePage.js** uses **syncBookDataFromDatabase(bookId)** from **postgreSQL.js** to pull the json from backend, and store it in the browser's indexedDB.
+1. json is pulled from backend and stored in the browser's indexedDB object stores.
 
 2. The character position data from each hyperlight and hypercite are pulled from their respective object stores in indexedDB and put into an array within the nodes object store. This allows for the mark (highlight) tags and underline (hypercite) tags to be loaded more seamlessly into the DOM.
 
@@ -216,9 +218,9 @@ On the frontend:
 ```<main class="main-content" id="**book**">```
 
 
-4. It is "lazy loaded", in the sense that one "chunk" of 100 nodes is inserted into the DOM at a time. As user scrolls past ```<div class="sentinenel">```, new chunks of nodes are inserted either above or below. 
+4. It is "lazy loaded", in the sense that one "chunk" of around 100 nodes is inserted into the DOM at a time. As user scrolls, two ```<div class="sentinenel">``` divs cross the viewport boundary. This triggers new chunks of nodes to be inserted/removed either above or below (depending on scroll direction).
 
-This ensures that the site is responsive and usable, even when reading a massive academic book filled with footnotes and hypercites 
+This ensures that the DOM is never bloated. IT means the site remains responsive and usable, even when reading a massive academic book filled with footnotes and hypercites 
 
 ### Hyperlight and Hypercite **Data Flow**
 
@@ -252,13 +254,6 @@ so it can't quietly go out of date (CI byte-checks it). Open **`visualisation/ge
 ```bash
 npm run viz:idb     # regenerate the map from the current code
 ```
-
-It currently maps the **front end** end-to-end — the reader page (`reader.blade.php`), the
-DOM-manipulation modules (`hyperlights` / `hypercites` / `divEditor`), the IndexedDB layer, and
-the API seam (which Postgres table each endpoint hits) — laid out as a **folder × role** grid
-with two lenses (data flow, and code coupling). The **PHP tier** (routes → controllers →
-Eloquent → tables) is the planned next extension, joined onto the JS side at the shared
-endpoint URL. Full detail and how to extend it: [`visualisation/README.md`](visualisation/README.md).
 
 ## Tests
 
@@ -346,9 +341,6 @@ GitHub issue, prod/security): [`tests/conversion/README.md`](tests/conversion/RE
 
 1. Hyperlight-ghost system (user can still see their own highlights in text, if original nodes were removed by crreator).
 2. See all hyperlights of one book in a seperate book, with links back to in-text hyperlights.
-3. Pre-inject first chunk for faster load time and SEO.
-4. More security vulnerability testing. 
-
 
 ## Contributing
 
