@@ -8,6 +8,7 @@ import { BookToBookTransition } from './pathways/BookToBookTransition.js';
 import { getPageStructure, areStructuresCompatible, getSubdomain, getBookIdFromUrl } from './utils/structureDetection.js';
 import { log, verbose } from '../../utilities/logger';
 import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } from '../../scrolling/index';
+import { unmarkHashScrolledAway } from '../../scrolling/navState';
 import { book, bookSlug as _bookSlug } from '../../app';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 // hypercites is a reader-only lazy chunk; wrap the nav fns as lazy importers so this (boot-loaded,
@@ -532,7 +533,13 @@ export class LinkNavigationHandler {
 
       // Clear the navigated hashes so back/forward buttons re-navigate to the hash
       clearNavigatedHashes();
-      verbose.nav('POPSTATE: Cleared navigatedHashes for fresh navigation', '/navigation/LinkNavigationHandler.js');
+      // Also clear the "scrolled away" marker for THIS hash. That marker exists ONLY to make a
+      // genuine page refresh resume the reading position instead of re-jumping to the hash. A
+      // refresh fires no popstate — so reaching here means this is a real back/forward navigation,
+      // where the hash MUST win and take us to the hypercite/highlight. (We unmark only this hash,
+      // so other entries' refresh-resume behaviour is untouched.)
+      unmarkHashScrolledAway(window.location.hash.substring(1));
+      verbose.nav('POPSTATE: Cleared navigatedHashes + scrolled-away marker for fresh navigation', '/navigation/LinkNavigationHandler.js');
     }
 
     // Check if we need to navigate between different content using SPA transitions

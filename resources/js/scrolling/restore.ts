@@ -119,10 +119,15 @@ export async function restoreScrollPosition(): Promise<void> {
   // Read target id from URL hash first.
   let targetId = window.location.hash.substring(1);
 
-  // Check if we've already navigated to this hash during THIS page session (module-level Set,
-  // resets on reload) OR the user scrolled away from it earlier (sessionStorage marker, survives
-  // refresh). Either way, don't re-jump to the hash on (re)store — resume the reading position.
-  // The hash stays in the URL so back/forward still navigate to it.
+  // Suppress re-jumping to the hash ONLY when this is effectively a page refresh:
+  //  - navigatedHashes (module-level Set) — we already jumped to this hash this page session;
+  //  - hasScrolledAwayFromHash (sessionStorage marker) — user scrolled away before refreshing.
+  // Both survive a refresh and make us resume the reading position instead of the deep-link hash.
+  // Crucially, a real back/forward is NOT a refresh: the popstate handler
+  // (LinkNavigationHandler._handlePopstateInner) clears BOTH signals for the current hash, so on
+  // back/forward `alreadyNavigatedToHash` is false and the hash wins — taking us to the hypercite.
+  // A genuine reload fires no popstate, so the signals persist and we resume position. The hash
+  // always stays in the URL either way (never stripped via replaceState).
   const alreadyNavigatedToHash = navigatedHashes.has(targetId) || hasScrolledAwayFromHash(targetId);
   const hasExplicitTarget = !!targetId && !alreadyNavigatedToHash;
 

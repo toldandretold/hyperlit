@@ -598,26 +598,27 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
             (bookSlug && seg.startsWith(bookSlug) && seg.length > bookSlug.length)
           );
 
-          // Check for hyperlit-related hash or container-stack query param
-          const hasHyperlitHash = currentUrl.hash && (
-            currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') ||
-            currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_')
-          );
+          // Check for container-stack query param (the hash is intentionally NOT a trigger to
+          // rewrite the URL here — see the hash-preservation note below).
           const hasCsParam = new URLSearchParams(currentUrl.search).has('cs');
 
           // Always clear container state from history
           const currentState = history.state || {};
           const newState = { ...currentState, hyperlitContainer: null };
 
-          if (hasCascadeSegments || hasHyperlitHash || hasCsParam) {
-            // Strip cascade segments from path + remove ?cs param
+          if (hasCascadeSegments || hasCsParam) {
+            // Strip cascade segments from path + remove ?cs param — but PRESERVE the hash.
+            // The hash (#hypercite_/#HL_/…) is the anchor of the element in the MAIN text; it must
+            // stay in this history entry so back/forward returns to it. replaceState rewrites the
+            // entry itself, so dropping the hash here permanently breaks "click hypercite → back →
+            // take me to the hypercite". We only clean the container-stack path + ?cs param.
             const cleanParams = new URLSearchParams(currentUrl.search);
             cleanParams.delete('cs');
             const cleanSearch = cleanParams.toString() ? `?${cleanParams.toString()}` : '';
-            const cleanUrl = hasCascadeSegments
+            const cleanUrl = (hasCascadeSegments
               ? `/${bookSlug}${cleanSearch}`
-              : `${currentUrl.pathname}${cleanSearch}`;
-            console.log('🔗 Cleaning up URL:', currentUrl.pathname + currentUrl.search, '→', cleanUrl);
+              : `${currentUrl.pathname}${cleanSearch}`) + currentUrl.hash;
+            console.log('🔗 Cleaning up URL (hash preserved):', currentUrl.pathname + currentUrl.search, '→', cleanUrl);
             history.replaceState(newState, '', cleanUrl);
           } else {
             // URL already clean — just clear the stale history state
