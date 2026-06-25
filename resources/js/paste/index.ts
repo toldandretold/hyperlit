@@ -414,6 +414,11 @@ async function handlePaste(event: any) {
     let plainText = event.clipboardData.getData("text/plain");
     let rawHtml = event.clipboardData.getData("text/html") || "";
 
+    // Pristine clipboard HTML captured SYNCHRONOUSLY (before the smart-quote/mark/dl
+    // mutations below). handleHypercitePaste runs after an `await`, by which point
+    // Firefox has emptied event.clipboardData — so it must receive this captured copy.
+    const pristineClipboardHtml = rawHtml;
+
     // 🔍 DEBUG: Log clipboard HTML to see iOS structure
     console.log(`🔍 [${pasteOpId}] Clipboard HTML (first 3000 chars):`, rawHtml.substring(0, 3000));
     console.log(`🔍 [${pasteOpId}] Has inline styles:`, rawHtml.includes('style='));
@@ -626,7 +631,7 @@ async function handlePaste(event: any) {
     }
 
     // 4) Perform routing checks for special paste types.
-    if (await handleHypercitePaste(event, targetBookId)) return;
+    if (await handleHypercitePaste(event, targetBookId, pristineClipboardHtml)) return;
     const chunk = getCurrentChunk();
     const chunkElement = chunk
       ? document.querySelector(`[data-chunk-id="${chunk}"],[id="${chunk}"]`)

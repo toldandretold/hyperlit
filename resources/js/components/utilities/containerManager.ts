@@ -367,21 +367,26 @@ export class ContainerManager {
       if (userButtonContainer) userButtonContainer.classList.remove("perimeter-hidden");
     }
 
-    // Handle hyperlit container URL cleanup when closing via overlay/direct close
+    // Clear container state from history when closing — but PRESERVE the hash.
+    // The hash (#hypercite_/#HL_/#footnote_/#citation_) is the anchor of the element in the MAIN
+    // text; it must stay in the history entry so back/forward returns to it. replaceState rewrites
+    // the entry itself, so stripping the hash here permanently broke "click hypercite → back → take
+    // me to the hypercite" — the reader fell back to a flaky saved-scroll resume and OFTEN opened at
+    // the start of the book. (This was a duplicate of the strip already removed in
+    // hyperlitContainer/core.ts; it fired during reader-view cleanup on every SPA book hop.)
+    // Refresh-resume is handled by the scrolled-away marker in scrolling/navState, NOT by URL mutation.
     if (this.container.id === "hyperlit-container") {
       const currentUrl = window.location;
       if (currentUrl.hash && (currentUrl.hash.startsWith('#HL_') || currentUrl.hash.startsWith('#hypercite_') ||
                              currentUrl.hash.startsWith('#footnote_') || currentUrl.hash.startsWith('#citation_'))) {
-        // Remove hyperlit-related hash from URL
-        const cleanUrl = `${currentUrl.pathname}${currentUrl.search}`;
-
-        // Push new clean state to history
+        // Keep pathname + search + HASH — only the container state is cleared.
+        const keepUrl = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
         const currentState = history.state || {};
         const newState = {
           ...currentState,
-          hyperlitContainer: null // Clear container state
+          hyperlitContainer: null // Clear container state, leave the URL (incl. hash) intact
         };
-        history.replaceState(newState, '', cleanUrl);
+        history.replaceState(newState, '', keepUrl);
       }
     }
 

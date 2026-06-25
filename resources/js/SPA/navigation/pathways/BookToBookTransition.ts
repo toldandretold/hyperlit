@@ -31,34 +31,20 @@ export class BookToBookTransition {
    * Execute book-to-book transition
    */
   static async execute(options: any = {}) {
-    // Handle concurrent transitions more gracefully
-    if (this.isTransitioning && this.currentTransitionPromise) {
-      console.log('🔄 BookToBookTransition: Transition in progress, waiting for completion...');
-      try {
-        await Promise.race([
-          this.currentTransitionPromise,
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Previous transition timed out')), 8000)
-          )
-        ]);
-      } catch (error) {
-        console.warn('Previous transition failed or timed out, proceeding with new one:', error);
-      }
-      // Force-clear stale lock state before proceeding
-      this.isTransitioning = false;
-      this.currentTransitionPromise = null;
-      if (this.abortController) {
-        this.abortController.abort();
-        this.abortController = null;
-      }
-    }
-    
-    // Abort any ongoing transition
+    // Concurrency model: a new back/forward SUPERSEDES any in-flight transition immediately. We abort
+    // the previous one's AbortController; the previous transition then BAILS at its next await boundary
+    // (the `myController.signal.aborted` checks in the body). This avoids BOTH (a) the old "wait up to
+    // 8s for the previous transition to finish" stall when a prior nav zombied (never resolved), AND
+    // (b) two transitions running to completion concurrently and racing the shared reader DOM (which
+    // hung the app). Per-transition identity (`myController`) means our finally only releases the lock
+    // if a NEWER transition hasn't already taken over. NEVER reintroduce a blocking
+    // `await currentTransitionPromise` here, and NEVER drop the abort checks below — together they are
+    // what make superseding safe (cancel-and-replace, not run-both).
     if (this.abortController) {
-      this.abortController.abort();
+      try { this.abortController.abort(); } catch (e) { /* ignore */ }
     }
-    
-    this.abortController = new AbortController();
+    const myController = new AbortController();
+    this.abortController = myController;
     this.isTransitioning = true;
     const {
       fromBook,
@@ -79,6 +65,16 @@ export class BookToBookTransition {
 
     // Create the transition promise for concurrent handling
     this.currentTransitionPromise = (async () => {
+      // If a newer back/forward has superseded us (aborted our controller), STOP here. We return
+      // cleanly (never throw — the catch below hard-navigates) so the superseding transition, which
+      // re-renders the reader from scratch, is the only one mutating the DOM from this point on.
+      const supersededBail = (): boolean => {
+        if (myController.signal.aborted) {
+          console.log(`⏭️ BookToBookTransition: superseded by a newer nav — bailing cleanly (toBook=${toBook})`);
+          return true;
+        }
+        return false;
+      };
       try {
         // ALWAYS create and show progress immediately, before any async operations
         const progress = progressCallback || this.createDeterministicProgressCallback(toBook);
@@ -94,6 +90,7 @@ export class BookToBookTransition {
 
         // Clean up current reader state (but preserve navigation)
         await this.cleanupCurrentReader();
+        if (supersededBail()) return;
 
         progress(20, 'Fetching book content...');
 
@@ -105,14 +102,19 @@ export class BookToBookTransition {
           ? footnoteId
           : (hash?.substring(1) || hyperlightId || hyperciteId || footnoteId || null);
 
-        // 🚀 Real-SPA fast path: a plain back/forward nav to a book that's already in IndexedDB and
-        // NOT stale needs NO server page fetch. Content always renders from IndexedDB anyway (the
-        // server HTML only supplied the book-agnostic shell + an instant-paint chunk), so we reuse
-        // the in-DOM shell and render from cache — mirroring what the SW already does offline. Gated
-        // to popstate (browser already restored the URL+slug) + no deep-link target (no target-chunk
-        // prerender / cascade to honour) so this can't desync the URL or a nested-container chain.
+        // 🚀 Real-SPA fast path: a back/forward nav to a book that's already in IndexedDB and NOT
+        // stale needs NO server page fetch. Content always renders from IndexedDB anyway (the server
+        // HTML only supplied the book-agnostic shell + an instant-paint chunk), so we reuse the in-DOM
+        // shell and render from cache — mirroring what the SW already does offline. A hash/hypercite/
+        // hyperlight/footnote target IS supported client-only: reuseShell → render from IDB →
+        // handleHashNavigation → navigateToInternalId loads the target chunk from IDB (no prerender
+        // needed). Without this, pressing back to a hypercite did a full server page fetch
+        // ("📥 Fetching reader HTML") — the slow "nothing happens then it fetches" lag, and serialized
+        // transitions then timed out on rapid presses. Gated to popstate (browser already restored the
+        // URL+slug) and EXCLUDES multi-level cascades (footnote+hypercite nested-container chains),
+        // which still need the server-prerendered target chunk to rebuild the chain deterministically.
         let resolvedBookId: any;
-        const clientOnly = isPopstate && !navigationTarget && await this.isBookFreshInIndexedDB(toBook);
+        const clientOnly = isPopstate && !isMultiLevelCascade && await this.isBookFreshInIndexedDB(toBook);
         if (clientOnly) {
           console.log(`⚡ BookToBookTransition: ${toBook} is fresh in IndexedDB — client-only nav, NO server fetch`);
           progress(40, 'Loading from your device...');
@@ -130,11 +132,13 @@ export class BookToBookTransition {
           // renders <main id="realBookId">, so read the truth from the new DOM.
           resolvedBookId = document.querySelector('.main-content')?.id || toBook;
         }
+        if (supersededBail()) return;
 
         progress(50, 'Waiting for DOM stabilization...');
 
         // Wait for DOM to be ready for content insertion
         await waitForLayoutStabilization();
+        if (supersededBail()) return;
 
         progress(60, 'Initializing reader...');
 
@@ -151,6 +155,7 @@ export class BookToBookTransition {
         // Pass hash navigation flag to prevent scroll position interference
         const hasHashNavigation = !!(hash || hyperlightId || hyperciteId || footnoteId);
         await this.initializeReader(resolvedBookId, progress, hasHashNavigation);
+        if (supersededBail()) return;
 
         progress(75, 'Ensuring content readiness...');
 
@@ -159,6 +164,7 @@ export class BookToBookTransition {
           maxWaitTime: 10000,
           requireLazyLoader: true
         });
+        if (supersededBail()) return;
 
         progress(78, 'Loading initial content...');
 
@@ -180,6 +186,7 @@ export class BookToBookTransition {
 
         // Handle any hash-based navigation (hyperlights, hypercites, footnotes, etc.)
         const hashNavHandled = await this.handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, resolvedBookId, progress, targetUrl);
+        if (supersededBail()) return;
 
         // Wait for any container restoration triggered by initializeLazyLoader
         // (happens on back-nav when the restored entry has a matching containerStack)
@@ -208,10 +215,13 @@ export class BookToBookTransition {
     try {
       return await this.currentTransitionPromise;
     } finally {
-      // Always reset the transitioning flag and cleanup
-      this.isTransitioning = false;
-      this.currentTransitionPromise = null;
-      this.abortController = null;
+      // Only release the lock if a NEWER transition hasn't superseded us — otherwise we'd null out
+      // the in-flight transition's state and let a third nav wrongly think nothing is running.
+      if (this.abortController === myController) {
+        this.isTransitioning = false;
+        this.currentTransitionPromise = null;
+        this.abortController = null;
+      }
     }
   }
 

@@ -107,8 +107,15 @@ export function saveCurrentParagraph() {
  * @param {ClipboardEvent} event - Paste event
  * @returns {Promise<boolean>} true if handled as hypercite, false otherwise
  */
-export async function handleHypercitePaste(event: any, targetBookId: any) {
-  const clipboardHtml = event.clipboardData.getData("text/html");
+export async function handleHypercitePaste(event: any, targetBookId: any, clipboardHtml?: string) {
+  // IMPORTANT: take the clipboard HTML captured SYNCHRONOUSLY at paste start.
+  // The paste pipeline `await`s (format processing) before calling us, and Firefox
+  // empties event.clipboardData once the handler yields — so re-reading it here
+  // returns "" and every hypercite paste silently fell through to plain insertion.
+  // Fall back to a live read only if the caller didn't pass it.
+  if (clipboardHtml === undefined) {
+    clipboardHtml = event.clipboardData.getData("text/html");
+  }
   if (!clipboardHtml) return false;
 
   // Parse clipboard HTML
@@ -247,7 +254,10 @@ export async function handleHypercitePaste(event: any, targetBookId: any) {
 
   // Find all links that are hypercite arrows (new format: a.open-icon, old format: a > sup/span)
   for (const link of links) {
-    const linkText = (link as any).innerText.replace(/[\u200B\s]/g, '');
+    // NOTE: textContent, not innerText \u2014 pasteWrapper is a detached <div>, and
+    // Firefox returns "" for innerText on non-rendered nodes (Chrome/WebKit are
+    // lenient). innerText here silently broke hypercite paste-linking in Firefox.
+    const linkText = (link.textContent || '').replace(/[\u200B\s]/g, '');
     if (linkText === "↗") {
       const isNewFormat = link.classList.contains('open-icon');
       const hasSupOrSpan = link.querySelector('sup, span');
