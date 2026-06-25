@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1517 functions in 317 modules · 10 object stores · 10 PG tables · 3100 edges
+**MarkdownDB** schema v27 · 1519 functions in 317 modules · 10 object stores · 10 PG tables · 3106 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1442,11 +1442,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `BookToBookTransition.handleHashNavigation` | `SPA/navigation/pathways/BookToBookTransition` | — | — | read | — |
 | `BookToBookTransition.handleHyperlightNavigation` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
 | `BookToBookTransition.initializeReader` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
+| `BookToBookTransition.isBookFreshInIndexedDB` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
 | `BookToBookTransition.isHyperlightUrl` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
 | `BookToBookTransition.navigateToHyperciteTarget` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
 | `BookToBookTransition.navigateToInternalId` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
 | `BookToBookTransition.parseHyperlightUrl` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
 | `BookToBookTransition.replacePageContent` | `SPA/navigation/pathways/BookToBookTransition` | — | — | read/write | — |
+| `BookToBookTransition.reuseShellForClientOnly` | `SPA/navigation/pathways/BookToBookTransition` | — | — | read/write | — |
 | `BookToBookTransition.updateUrl` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
 | `BookToBookTransition.updateUrlWithStatePreservation` | `SPA/navigation/pathways/BookToBookTransition` | — | — | — | — |
 | `DifferentTemplateTransition.detectTargetStructure` | `SPA/navigation/pathways/DifferentTemplateTransition` | — | — | — | — |
@@ -1530,7 +1532,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 230
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 231
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1555,6 +1557,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `SPA/navigation/chunkLoadRouter` → `pageLoad/initialChunk`
 - `SPA/navigation/pathways/BookToBookTransition` → `components/toast/toast`
 - `SPA/navigation/pathways/BookToBookTransition` → `hypercites/navigation`
+- `SPA/navigation/pathways/BookToBookTransition` → `indexedDB/core/library`
 - `SPA/navigation/pathways/DifferentTemplateTransition` → `SPA/domReadiness`
 - `SPA/navigation/pathways/FreshPageLoader` → `SPA/viewManager`
 - `SPA/navigation/pathways/FreshPageLoader` → `components/editButton/index`

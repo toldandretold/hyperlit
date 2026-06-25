@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1517,
+    "fnCount": 1519,
     "moduleCount": 317,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3100,
+    "edgeCount": 3106,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -12960,6 +12960,14 @@
       "leaf": true
     },
     {
+      "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.isBookFreshInIndexedDB",
+      "label": "BookToBookTransition.isBookFreshInIndexedDB",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/pathways/BookToBookTransition",
+      "leaf": true
+    },
+    {
       "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.isHyperlightUrl",
       "label": "BookToBookTransition.isHyperlightUrl",
       "kind": "fn",
@@ -12994,6 +13002,14 @@
     {
       "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.replacePageContent",
       "label": "BookToBookTransition.replacePageContent",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/pathways/BookToBookTransition",
+      "leaf": false
+    },
+    {
+      "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.reuseShellForClientOnly",
+      "label": "BookToBookTransition.reuseShellForClientOnly",
       "kind": "fn",
       "stage": "SPA",
       "module": "SPA/navigation/pathways/BookToBookTransition",
@@ -17582,11 +17598,13 @@
         "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.handleHashNavigation",
         "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.handleHyperlightNavigation",
         "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.initializeReader",
+        "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.isBookFreshInIndexedDB",
         "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.isHyperlightUrl",
         "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.navigateToHyperciteTarget",
         "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.navigateToInternalId",
         "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.parseHyperlightUrl",
         "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.replacePageContent",
+        "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.reuseShellForClientOnly",
         "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.updateUrl",
         "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.updateUrlWithStatePreservation"
       ]
@@ -25711,6 +25729,12 @@
       "id": "dom__domread__SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.replacePageContent",
       "source": "dom",
       "target": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.replacePageContent",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.reuseShellForClientOnly",
+      "source": "dom",
+      "target": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.reuseShellForClientOnly",
       "rel": "domread"
     },
     {
@@ -35296,6 +35320,27 @@
       "dataPath": true
     },
     {
+      "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.isBookFreshInIndexedDB__call__indexedDB/core/library:getLibraryObjectFromIndexedDB",
+      "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.isBookFreshInIndexedDB",
+      "target": "indexedDB/core/library:getLibraryObjectFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.isBookFreshInIndexedDB__call__indexedDB/core/library:getLibraryRecordFromServer",
+      "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.isBookFreshInIndexedDB",
+      "target": "indexedDB/core/library:getLibraryRecordFromServer",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.isBookFreshInIndexedDB__call__indexedDB/nodes/read:getNodesFromIndexedDB",
+      "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.isBookFreshInIndexedDB",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.navigateToInternalId__call__scrolling/internalNav:navigateToInternalId",
       "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.navigateToInternalId",
       "target": "scrolling/internalNav:navigateToInternalId",
@@ -35311,6 +35356,18 @@
     {
       "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.replacePageContent__domwrite__dom",
       "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.replacePageContent",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.reuseShellForClientOnly__call__components/editButton/index:enforceEditableState",
+      "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.reuseShellForClientOnly",
+      "target": "components/editButton/index:enforceEditableState",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.reuseShellForClientOnly__domwrite__dom",
+      "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.reuseShellForClientOnly",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -37290,6 +37347,11 @@
     {
       "source": "SPA/navigation/pathways/BookToBookTransition",
       "target": "hypercites/navigation",
+      "kind": "lazy"
+    },
+    {
+      "source": "SPA/navigation/pathways/BookToBookTransition",
+      "target": "indexedDB/core/library",
       "kind": "lazy"
     },
     {
@@ -41902,6 +41964,6 @@
       ]
     ],
     "breakerCount": 1,
-    "lazyCount": 230
+    "lazyCount": 231
   }
 }

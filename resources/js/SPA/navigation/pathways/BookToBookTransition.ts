@@ -105,17 +105,31 @@ export class BookToBookTransition {
           ? footnoteId
           : (hash?.substring(1) || hyperlightId || hyperciteId || footnoteId || null);
 
-        // Fetch the target book's HTML (with the deep-link target so the prerender is the right chunk)
-        const readerHtml = await this.fetchReaderPageHtml(toBook, navigationTarget);
+        // 🚀 Real-SPA fast path: a plain back/forward nav to a book that's already in IndexedDB and
+        // NOT stale needs NO server page fetch. Content always renders from IndexedDB anyway (the
+        // server HTML only supplied the book-agnostic shell + an instant-paint chunk), so we reuse
+        // the in-DOM shell and render from cache — mirroring what the SW already does offline. Gated
+        // to popstate (browser already restored the URL+slug) + no deep-link target (no target-chunk
+        // prerender / cascade to honour) so this can't desync the URL or a nested-container chain.
+        let resolvedBookId: any;
+        const clientOnly = isPopstate && !navigationTarget && await this.isBookFreshInIndexedDB(toBook);
+        if (clientOnly) {
+          console.log(`⚡ BookToBookTransition: ${toBook} is fresh in IndexedDB — client-only nav, NO server fetch`);
+          progress(40, 'Loading from your device...');
+          resolvedBookId = this.reuseShellForClientOnly(toBook);
+        } else {
+          // Fetch the target book's HTML (with the deep-link target so the prerender is the right chunk)
+          const readerHtml = await this.fetchReaderPageHtml(toBook, navigationTarget);
 
-        progress(40, 'Updating content...');
-        
-        // Replace only the page content (not the entire body)
-        await this.replacePageContent(readerHtml, toBook);
+          progress(40, 'Updating content...');
 
-        // Resolve real book ID from DOM — toBook may be a slug but the server
-        // renders <main id="realBookId">, so read the truth from the new DOM.
-        const resolvedBookId = document.querySelector('.main-content')?.id || toBook;
+          // Replace only the page content (not the entire body)
+          await this.replacePageContent(readerHtml, toBook);
+
+          // Resolve real book ID from DOM — toBook may be a slug but the server
+          // renders <main id="realBookId">, so read the truth from the new DOM.
+          resolvedBookId = document.querySelector('.main-content')?.id || toBook;
+        }
 
         progress(50, 'Waiting for DOM stabilization...');
 
@@ -268,8 +282,68 @@ export class BookToBookTransition {
     
     const htmlString = await response.text();
     console.log(`✅ BookToBookTransition: Fetched HTML (${htmlString.length} characters)`);
-    
+
     return htmlString;
+  }
+
+  /**
+   * True only when the book is already in IndexedDB AND not stale vs the server — the gate for the
+   * client-only (no server fetch) nav path. Uses the SAME cheap library-record comparison the
+   * post-init timestamp check makes (loadHyperText), NOT a heavy page fetch: getLibraryRecordFromServer
+   * hits the ~1-2KB `/api/.../library` endpoint. Any uncertainty (not cached, server unreachable,
+   * error) → false, so we fall back to the normal server-fetch path (which the SW also covers offline).
+   */
+  static async isBookFreshInIndexedDB(bookId: any): Promise<boolean> {
+    try {
+      const { getNodesFromIndexedDB } = await import('../../../indexedDB/index');
+      const nodes = await getNodesFromIndexedDB(bookId);
+      if (!nodes || !nodes.length) return false; // not cached → must fetch the shell
+
+      const { getLibraryRecordFromServer, getLibraryObjectFromIndexedDB } =
+        await import('../../../indexedDB/core/library');
+      const [serverRec, localRec] = await Promise.all([
+        getLibraryRecordFromServer(bookId).catch(() => null),
+        getLibraryObjectFromIndexedDB(bookId).catch(() => null),
+      ]);
+      // Can't confirm freshness (offline / server error / no local row) → take the normal path.
+      if (!serverRec || !localRec) return false;
+
+      const fresh =
+        ((serverRec as any).timestamp || 0) <= ((localRec as any).timestamp || 0) &&
+        ((serverRec as any).annotations_updated_at || 0) <= ((localRec as any).annotations_updated_at || 0);
+      return fresh;
+    } catch (e) {
+      console.warn('BookToBookTransition: freshness check failed, using server path:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Client-only nav: reuse the reader shell ALREADY in the DOM instead of fetching+swapping it.
+   * Repoints the existing `<main>` to the new book (mirrors the SW's offline `<main id>` patch),
+   * clears the previous book's chunks, and resets the per-nav globals. Content is then rendered
+   * from IndexedDB by the shared initializeReader → universalPageInitializer path (identical to the
+   * fetch path), and theme/vibe CSS is re-applied by viewManager on SPA nav. Returns the book id.
+   */
+  static reuseShellForClientOnly(bookId: any): string {
+    const main = document.querySelector('.main-content') as HTMLElement | null;
+    if (!main) throw new Error('client-only nav: no existing reader shell to reuse');
+
+    // On popstate the browser already restored the URL, so its first path segment is the slug.
+    const urlSlug = window.location.pathname.split('/').filter(Boolean)[0] || bookId;
+    main.id = bookId;
+    main.setAttribute('data-slug', urlSlug);
+    main.contentEditable = 'false';
+    main.innerHTML = ''; // drop the previous book's chunks + sentinels
+    setCurrentBookSlug(urlSlug);
+
+    // Conservative globals for a plain in-app book nav (no time-machine, no deep-link cascade).
+    (window as any).autoOpenChain = null;
+    (window as any).realBook = null;
+    (window as any).timeMachineTimestamp = null;
+
+    try { enforceEditableState(); } catch (e) { console.warn('enforceEditableState failed:', e); }
+    return bookId;
   }
 
   /**
