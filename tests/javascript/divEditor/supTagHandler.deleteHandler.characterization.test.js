@@ -41,17 +41,27 @@ describe('supDeleteHandler — block merge into a paragraph that starts with a s
 
 describe('supDeleteHandler — footnote deletion confirm', () => {
   it('declining the confirm blocks the delete and keeps the sup', () => {
-    document.body.innerHTML = '<p id="1">aaa<sup fn-count-id="3" id="Fn3">5</sup></p>';
-    const sup = document.querySelector('sup');
-    cursorAt(sup.firstChild, 1);                      // end of the sup content
+    // The decline path schedules a 10ms setTimeout to restore the caret (deleteHandler.ts).
+    // Drive it with fake timers so it runs deterministically WHILE window/document still
+    // exist — on the real clock it fires after the env is torn down and throws
+    // "window is not defined" as an uncaught exception.
+    vi.useFakeTimers();
+    try {
+      document.body.innerHTML = '<p id="1">aaa<sup fn-count-id="3" id="Fn3">5</sup></p>';
+      const sup = document.querySelector('sup');
+      cursorAt(sup.firstChild, 1);                      // end of the sup content
 
-    const confirmSpy = vi.fn().mockReturnValue(false);
-    window.confirm = confirmSpy;                       // happy-dom has no confirm to spy on
-    const e = ev({ inputType: 'deleteContentBackward' });
-    supDeleteHandler(e);
+      const confirmSpy = vi.fn().mockReturnValue(false);
+      window.confirm = confirmSpy;                       // happy-dom has no confirm to spy on
+      const e = ev({ inputType: 'deleteContentBackward' });
+      supDeleteHandler(e);
+      vi.runOnlyPendingTimers();                         // run the caret-restore timer now
 
-    expect(confirmSpy).toHaveBeenCalledWith('Delete footnote 3?');
-    expect(e.preventDefault).toHaveBeenCalled();
-    expect(document.querySelector('sup')).not.toBeNull();         // not deleted
+      expect(confirmSpy).toHaveBeenCalledWith('Delete footnote 3?');
+      expect(e.preventDefault).toHaveBeenCalled();
+      expect(document.querySelector('sup')).not.toBeNull();       // not deleted
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

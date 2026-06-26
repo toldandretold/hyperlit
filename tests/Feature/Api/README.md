@@ -138,7 +138,7 @@ Async = the queued job an endpoint dispatches (concurrency-sensitive).
 | M | URI | Controller@method | Status | Covered by |
 |---|-----|-------------------|--------|-----------|
 | GET | /api/database-to-indexeddb/books/{book}/data | …@getBookData | ✅ | DatabaseToIndexedDBApiTest (404/403) |
-| GET | /api/database-to-indexeddb/books/{book}/library | …@getBookLibrary | ✅ | DatabaseToIndexedDBApiTest (404) |
+| GET | /api/database-to-indexeddb/books/{book}/library | …@getBookLibrary | ✅ | DatabaseToIndexedDBApiTest (200 library:null when missing) |
 | GET | /api/database-to-indexeddb/books/{book}/annotations | …@getBookAnnotations | ✅ | DatabaseToIndexedDBApiTest (403) |
 | GET | /api/database-to-indexeddb/books/{book}/headings | …@getBookHeadings | ✅ | DatabaseToIndexedDBApiTest (404) |
 | GET | /api/database-to-indexeddb/books/{book}/initial | …@getInitialChunk | ✅ | DatabaseToIndexedDBApiTest (404) |

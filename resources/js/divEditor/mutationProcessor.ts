@@ -15,6 +15,11 @@ interface MutationProcessorOptions {
   filterMutations?: (mutations: any[]) => any[];
   processMutations?: (mutations: any[]) => void | Promise<void>;
   shouldSkipMutation?: (mutations: any[]) => boolean;
+  // Called when a paste/programmatic operation causes us to DROP a batch of mutations. The
+  // drop itself is unchanged; this is a hook to schedule a structural safety-net (chunk
+  // overflow sweep), because a programmatic insert can push a chunk past the limit and these
+  // dropped mutations are never redelivered.
+  onTransientSkip?: () => void;
 }
 
 /**
@@ -25,6 +30,7 @@ export class MutationProcessor {
   filterMutations: (mutations: any[]) => any[];
   processMutations: (mutations: any[]) => void | Promise<void>;
   shouldSkipMutation: (mutations: any[]) => boolean;
+  onTransientSkip: () => void;
   queue: any[];
   rafId: number | null;
 
@@ -33,6 +39,7 @@ export class MutationProcessor {
     this.filterMutations = options.filterMutations || ((mutations) => mutations);
     this.processMutations = options.processMutations || (() => {});
     this.shouldSkipMutation = options.shouldSkipMutation || (() => false);
+    this.onTransientSkip = options.onTransientSkip || (() => {});
 
     // State
     this.queue = [];
@@ -68,11 +75,13 @@ export class MutationProcessor {
     // Apply all the same filters as before
     if (isPasteInProgress()) {
       console.log("🚫 Skipping queued mutations: Paste operation is in control.");
+      this.onTransientSkip(); // safety net: a paste may have overflowed a chunk (large paste self-chunks → no-op)
       return;
     }
 
     if (isProgrammaticUpdateInProgress()) {
       console.log("Skipping queued mutations: Programmatic update in progress.");
+      this.onTransientSkip();
       return;
     }
 

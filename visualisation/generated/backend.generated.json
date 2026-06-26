@@ -321,6 +321,51 @@
             ]
         },
         {
+            "id": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
+            "label": "DatabaseToIndexedDBController@getSubBookLibrary",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DatabaseToIndexedDBController",
+            "method": "getSubBookLibrary",
+            "tables": [
+                "library"
+            ],
+            "shape": [
+                "annotations_updated_at",
+                "author",
+                "bibtex",
+                "book",
+                "booktitle",
+                "chapter",
+                "creator",
+                "custom_license_text",
+                "editor",
+                "fileName",
+                "fileType",
+                "gate_defaults",
+                "is_owner",
+                "issue",
+                "journal",
+                "license",
+                "listed",
+                "note",
+                "pages",
+                "publisher",
+                "raw_json",
+                "school",
+                "timestamp",
+                "title",
+                "type",
+                "url",
+                "visibility",
+                "volume",
+                "year"
+            ],
+            "endpoints": [
+                "/api/database-to-indexeddb/books/{}/{}/library"
+            ]
+        },
+        {
             "id": "controller:DatabaseToIndexedDBController@saveReadingPosition",
             "label": "DatabaseToIndexedDBController@saveReadingPosition",
             "kind": "controller",
@@ -1242,6 +1287,11 @@
         },
         {
             "source": "pg:library",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
+            "rel": "read"
+        },
+        {
+            "source": "pg:library",
             "target": "controller:DbHyperciteController@find",
             "rel": "read"
         },
@@ -1298,6 +1348,7 @@
         "/api/database-to-indexeddb/books/{}/reading-position": "controller:DatabaseToIndexedDBController@saveReadingPosition",
         "/api/database-to-indexeddb/books/{}/{}/data": "controller:DatabaseToIndexedDBController@getSubBookData",
         "/api/database-to-indexeddb/books/{}/{}/initial": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+        "/api/database-to-indexeddb/books/{}/{}/library": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
         "/api/db/footnotes/upsert": "controller:DbFootnoteController@upsert",
         "/api/db/hypercites/bulk-create": "controller:DbHyperciteController@bulkCreate",
         "/api/db/hypercites/find/{}/{}": "controller:DbHyperciteController@find",

@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1523 functions in 318 modules · 10 object stores · 10 PG tables · 3120 edges
+**MarkdownDB** schema v27 · 1526 functions in 318 modules · 10 object stores · 10 PG tables · 3126 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -480,7 +480,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ChunkMutationHandler.processByChunk` | `divEditor/chunkMutationHandler/index` | — | — | read | — |
 | `ChunkMutationHandler.processChunkMutations` | `divEditor/chunkMutationHandler/index` | — | — | read/write | — |
 | `ChunkMutationHandler.queueTocInvalidation` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
+| `ChunkMutationHandler.scheduleOverflowSweep` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.shouldSkipMutation` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
+| `ChunkMutationHandler.sweepChunkOverflow` | `divEditor/chunkMutationHandler/index` | — | — | read | — |
 | `destroySpan` | `divEditor/chunkMutationHandler/spanDestroyer` | — | — | read/write | — |
 | `checkForImminentEmptyState` | `divEditor/domUtilities` | — | — | read | — |
 | `cleanupAfterImport` | `divEditor/domUtilities` | — | — | — | — |
@@ -962,6 +964,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `isIDBBroken` | `indexedDB/core/healthMonitor` | — | — | — | — |
 | `reportIDBFailure` | `indexedDB/core/healthMonitor` | — | — | — | — |
 | `reportIDBSuccess` | `indexedDB/core/healthMonitor` | — | — | — | — |
+| `buildLibraryUrl` | `indexedDB/core/library` | — | — | — | — |
 | `cleanLibraryItemForStorage` | `indexedDB/core/library` | — | — | — | — |
 | `fetchLibraryRecordWithStatus` | `indexedDB/core/library` | `localStorage` | — | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `getAllOfflineAvailableBooks` | `indexedDB/core/library` | `library` `nodes` | — | — | — |
@@ -1104,7 +1107,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initializeMainLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
 | `resetCurrentLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
 | `loadFromJSONFiles` | `pageLoad/loadHyperText` | — | — | — | — |
-| `loadHyperText` | `pageLoad/loadHyperText` | `library` `localStorage` `sessionStorage` | `sessionStorage` | read | `↓route:/api/database-to-indexeddb/books/{}/library` |
+| `loadHyperText` | `pageLoad/loadHyperText` | `library` `localStorage` `sessionStorage` | `sessionStorage` | read | — |
 | `generateNodesFromMarkdown` | `pageLoad/nodeGen` | — | — | — | — |
 | `cleanupOnlineSyncListener` | `pageLoad/onlineRetry` | — | — | — | — |
 | `setupOnlineSyncListener` | `pageLoad/onlineRetry` | `historyLog` | — | — | — |

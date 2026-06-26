@@ -1,4 +1,4 @@
-import { book, OpenHyperlightID, OpenFootnoteID } from '../app';
+import { book, bookSlug, OpenHyperlightID, OpenFootnoteID } from '../app';
 import { asBookId, type BookId } from '../indexedDB/types';
 import { log, verbose } from '../utilities/logger';
 import type { ReadingPosition } from '../scrolling/readingPosition';
@@ -18,7 +18,7 @@ import { parseMarkdownIntoChunksInitial } from "../utilities/convertMarkdown";
 import { syncBookDataFromDatabase, syncIndexedDBtoPostgreSQL, syncAnnotationsOnly } from "../indexedDB/serverSync/index";
 import { fetchInitialChunk, resolveBootstrapTarget } from "./initialChunk";
 import { loadChunkForTarget } from "../SPA/navigation/chunkLoadRouter.js";
-import { updateLocalAnnotationsTimestamp } from "../indexedDB/core/library.js";
+import { updateLocalAnnotationsTimestamp, buildLibraryUrl } from "../indexedDB/core/library.js";
 import { registerBookOpen } from "../utilities/BroadcastListener";
 
 import { buildFootnoteMap, hasOldFormatFootnotes, migrateOldFormatFootnotes } from '../footnotes/FootnoteNumberingService';
@@ -399,9 +399,26 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
   // 🎯 CRITICAL: Capture any active navigation target at the START of this check.
   // The check runs async and may complete after navigation flags are cleared.
   // By capturing now, we ensure refresh() can find the target even if the barrier cleans up.
+  //
+  // The URL #hash is only a valid target for THIS book if the URL actually points at it.
+  // During a book-to-book SPA transition the URL still shows the PREVIOUS book (it's
+  // rewritten only AFTER init), so its #hash belongs to that other book. Adopting it makes
+  // refresh() hunt for a foreign element (e.g. another book's hypercite) in this book's DOM,
+  // time out after ~560ms, log an error AND show a "target not found" toast — even though the
+  // nav itself succeeded (the "stale target searched in the wrong book" bug). Gate the hash
+  // fallback on a book-identity match (first path segment, so parent/sub-books of the same
+  // book still match; slug-aware via bookSlug). The explicit per-book sources above are
+  // always trusted.
+  const urlFirstSeg = decodeURIComponent(window.location.pathname).split('/').filter(Boolean)[0] || '';
+  const bookFirstSeg = String(bookId).split('/')[0];
+  const slugFirstSeg = (bookSlug || '').split('/')[0];
+  const urlPointsAtThisBook = urlFirstSeg === bookFirstSeg || (!!slugFirstSeg && urlFirstSeg === slugFirstSeg);
+  const hashTargetForThisBook = (urlPointsAtThisBook && window.location.hash)
+    ? window.location.hash.substring(1)
+    : null;
   const capturedNavigationTarget = lazyLoader?.pendingNavigationTarget ||
                                    NavigationCompletionBarrier.getNavigationTarget() ||
-                                   (window.location.hash ? window.location.hash.substring(1) : null);
+                                   hashTargetForThisBook;
 
   if (capturedNavigationTarget) {
     console.log(`🎯 Timestamp check: captured navigation target at start: ${capturedNavigationTarget}`);
@@ -599,7 +616,7 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
 // Helper function to get library record from server
 async function getLibraryRecordFromServer(bookId: BookId): Promise<any> {
   try {
-    const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/library`, {
+    const response = await fetch(buildLibraryUrl(bookId), {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         'Content-Type': 'application/json'

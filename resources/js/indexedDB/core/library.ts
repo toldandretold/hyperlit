@@ -328,6 +328,25 @@ export async function updateLocalAnnotationsTimestamp(bookId: BookId, timestamp:
 }
 
 /**
+ * Build the GET .../library API URL, splitting a sub-book id ("parentBook/subId", e.g.
+ * "book_123/Fn456" or a deeper "book_123/2/HL_1/Fn_2") into the multi-segment route the
+ * server exposes. A sub-book id in the single `{bookId}` slot NEVER matched a route:
+ * `encodeURIComponent` turns the inner "/" into "%2F" which Symfony rejects, and a raw "/"
+ * overflows the single segment — so every sub-book library fetch 404'd (the e2e "404 storm").
+ * Mirrors initialChunk.ts buildApiUrl. Parent (no-slash) ids are unchanged.
+ */
+export function buildLibraryUrl(bookId: BookId): string {
+  const id = String(bookId);
+  const slash = id.indexOf('/');
+  if (slash !== -1) {
+    const parentBook = id.substring(0, slash);
+    const subId = id.substring(slash + 1);
+    return `/api/database-to-indexeddb/books/${parentBook}/${subId}/library`;
+  }
+  return `/api/database-to-indexeddb/books/${id}/library`;
+}
+
+/**
  * Fetch library record from server, returning both the record and whether the server was reached.
  * Lets callers distinguish "server confirmed no record" from "network failure".
  */
@@ -335,7 +354,7 @@ export async function fetchLibraryRecordWithStatus(
   bookId: BookId,
 ): Promise<{ record: LibraryRecord | null; serverReached: boolean }> {
   try {
-    const response = await fetch(`/api/database-to-indexeddb/books/${encodeURIComponent(bookId)}/library`, {
+    const response = await fetch(buildLibraryUrl(bookId), {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         'Content-Type': 'application/json'
@@ -353,11 +372,12 @@ export async function fetchLibraryRecordWithStatus(
 
 /**
  * Fetch library record from server API.
- * Works for both regular books and sub-books (server has route for both).
+ * Works for both regular books and sub-books — buildLibraryUrl() routes sub-book ids to the
+ * dedicated {parentBook}/{subId}/library route (a raw sub-book id in {bookId} 404s).
  */
 export async function getLibraryRecordFromServer(bookId: BookId): Promise<LibraryRecord | null> {
   try {
-    const response = await fetch(`/api/database-to-indexeddb/books/${bookId}/library`, {
+    const response = await fetch(buildLibraryUrl(bookId), {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         'Content-Type': 'application/json'

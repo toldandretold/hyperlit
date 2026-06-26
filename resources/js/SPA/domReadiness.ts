@@ -441,7 +441,13 @@ export async function waitForNavigationTarget(targetId: string, container: any, 
     return element;
     
   } catch (error) {
-    console.error(`❌ Failed to wait for navigation target ${targetId}:`, error);
+    // WARN, not ERROR: a target not appearing within the timeout is a recoverable/expected
+    // condition (deep chunk not yet loaded, or a stale/superseded target left over from a
+    // rapid cross-book nav), and every caller already handles the throw with its own fallback
+    // (internalNav fallback chunk + toast, BookToBookTransition try/catch). Logging at error
+    // level made these benign timeouts trip the e2e no-console-errors gate. The throw is kept
+    // so callers' fallback logic still runs.
+    console.warn(`⚠️ Navigation target ${targetId} did not become ready before timeout (falling back):`, error);
     throw error;
   }
 }

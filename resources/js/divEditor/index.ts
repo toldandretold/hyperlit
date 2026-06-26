@@ -619,13 +619,24 @@ export async function startObserving(editableDiv: HTMLElement, bookId: BookId | 
   mutationProcessor = new MutationProcessor({
     filterMutations: chunkHandler.filterChunkMutations.bind(chunkHandler),
     processMutations: chunkHandler.processByChunk.bind(chunkHandler),
-    shouldSkipMutation: chunkHandler.shouldSkipMutation.bind(chunkHandler)
+    shouldSkipMutation: chunkHandler.shouldSkipMutation.bind(chunkHandler),
+    // When a paste/programmatic op makes us drop a mutation batch, run a structural overflow
+    // sweep once it finishes — a small paste's direct DOM insertion can push a chunk past the
+    // limit and those dropped mutations are never redelivered. No-op after a large paste.
+    onTransientSkip: () => chunkHandler.scheduleOverflowSweep()
   });
 
   // Create observer for the main-content container
   observer = new MutationObserver((mutations) => {
-    // Skip all mutations during programmatic DOM updates (e.g. highlight reprocessing)
-    if (isProgrammaticUpdateInProgress()) return;
+    // Skip all mutations during programmatic DOM updates (e.g. highlight reprocessing) — the
+    // editor mustn't process its own programmatic changes as user edits. BUT a programmatic
+    // INSERT (e.g. small-paste direct DOM insertion) can push a chunk past NODE_LIMIT, and these
+    // dropped MutationObserver records are never redelivered. So schedule a pure structural
+    // overflow sweep that runs once the programmatic/paste operation finishes (no-op if clean).
+    if (isProgrammaticUpdateInProgress()) {
+      chunkHandler.scheduleOverflowSweep();
+      return;
+    }
 
     // 🛡️ Verify mutations are from the correct container
     const validMutations = mutations.filter((mutation: any) => {

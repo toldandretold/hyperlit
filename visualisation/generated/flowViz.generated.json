@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1523,
+    "fnCount": 1526,
     "moduleCount": 318,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3120,
+    "edgeCount": 3126,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -4179,6 +4179,49 @@
       ]
     },
     {
+      "id": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
+      "label": "getSubBookLibrary",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getSubBookLibrary",
+      "group": "content",
+      "tables": [
+        "library"
+      ],
+      "shape": [
+        "annotations_updated_at",
+        "author",
+        "bibtex",
+        "book",
+        "booktitle",
+        "chapter",
+        "creator",
+        "custom_license_text",
+        "editor",
+        "fileName",
+        "fileType",
+        "gate_defaults",
+        "is_owner",
+        "issue",
+        "journal",
+        "license",
+        "listed",
+        "note",
+        "pages",
+        "publisher",
+        "raw_json",
+        "school",
+        "timestamp",
+        "title",
+        "type",
+        "url",
+        "visibility",
+        "volume",
+        "year"
+      ]
+    },
+    {
       "id": "controller:DatabaseToIndexedDBController@saveReadingPosition",
       "label": "saveReadingPosition",
       "kind": "controller",
@@ -4839,12 +4882,28 @@
       "leaf": true
     },
     {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.scheduleOverflowSweep",
+      "label": "ChunkMutationHandler.scheduleOverflowSweep",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": true
+    },
+    {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.shouldSkipMutation",
       "label": "ChunkMutationHandler.shouldSkipMutation",
       "kind": "fn",
       "stage": "divEditor",
       "module": "divEditor/chunkMutationHandler/index",
       "leaf": true
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.sweepChunkOverflow",
+      "label": "ChunkMutationHandler.sweepChunkOverflow",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": false
     },
     {
       "id": "divEditor/chunkMutationHandler/spanDestroyer:destroySpan",
@@ -8728,6 +8787,14 @@
       "kind": "fn",
       "stage": "infra",
       "module": "indexedDB/core/healthMonitor",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/core/library:buildLibraryUrl",
+      "label": "buildLibraryUrl",
+      "kind": "fn",
+      "stage": "domain",
+      "module": "indexedDB/core/library",
       "leaf": true
     },
     {
@@ -14972,7 +15039,9 @@
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processByChunk",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.queueTocInvalidation",
-        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.shouldSkipMutation"
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.scheduleOverflowSweep",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.shouldSkipMutation",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.sweepChunkOverflow"
       ]
     },
     {
@@ -16158,6 +16227,7 @@
       "stage": "domain",
       "band": "sync",
       "fnIds": [
+        "indexedDB/core/library:buildLibraryUrl",
         "indexedDB/core/library:cleanLibraryItemForStorage",
         "indexedDB/core/library:fetchLibraryRecordWithStatus",
         "indexedDB/core/library:getAllOfflineAvailableBooks",
@@ -16713,7 +16783,7 @@
       "id": "pageLoad/loadHyperText",
       "label": "pageLoad/loadHyperText",
       "stage": "pageLoad",
-      "band": "sync",
+      "band": "capture",
       "fnIds": [
         "pageLoad/loadHyperText:loadFromJSONFiles",
         "pageLoad/loadHyperText:loadHyperText"
@@ -21867,6 +21937,19 @@
       "rel": "call"
     },
     {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.scheduleOverflowSweep__call__paste/pasteState:isPasteOperationActive",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.scheduleOverflowSweep",
+      "target": "paste/pasteState:isPasteOperationActive",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.sweepChunkOverflow__call__divEditor/chunkManager:handleChunkOverflow",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.sweepChunkOverflow",
+      "target": "divEditor/chunkManager:handleChunkOverflow",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "divEditor/chunkMutationHandler/spanDestroyer:destroySpan__domwrite__dom",
       "source": "divEditor/chunkMutationHandler/spanDestroyer:destroySpan",
       "target": "dom",
@@ -23577,6 +23660,12 @@
       "id": "dom__domread__divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
       "source": "dom",
       "target": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/chunkMutationHandler/index:ChunkMutationHandler.sweepChunkOverflow",
+      "source": "dom",
+      "target": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.sweepChunkOverflow",
       "rel": "domread"
     },
     {
@@ -30116,6 +30205,12 @@
       "rel": "call"
     },
     {
+      "id": "indexedDB/core/library:fetchLibraryRecordWithStatus__call__indexedDB/core/library:buildLibraryUrl",
+      "source": "indexedDB/core/library:fetchLibraryRecordWithStatus",
+      "target": "indexedDB/core/library:buildLibraryUrl",
+      "rel": "call"
+    },
+    {
       "id": "indexedDB/core/library:getAllOfflineAvailableBooks__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/core/library:getAllOfflineAvailableBooks",
       "target": "indexedDB/core/connection:openDatabase",
@@ -30134,6 +30229,12 @@
       "source": "indexedDB/core/library:getLibraryObjectFromIndexedDB",
       "target": "store:library",
       "rel": "write"
+    },
+    {
+      "id": "indexedDB/core/library:getLibraryRecordFromServer__call__indexedDB/core/library:buildLibraryUrl",
+      "source": "indexedDB/core/library:getLibraryRecordFromServer",
+      "target": "indexedDB/core/library:buildLibraryUrl",
+      "rel": "call"
     },
     {
       "id": "indexedDB/core/library:prepareLibraryForIndexedDB__call__indexedDB/core/library:cleanLibraryItemForStorage",
@@ -32334,6 +32435,12 @@
       "dataPath": true
     },
     {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/core/library:buildLibraryUrl",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "indexedDB/core/library:buildLibraryUrl",
+      "rel": "call"
+    },
+    {
       "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/core/library:updateLocalAnnotationsTimestamp",
       "source": "pageLoad/loadHyperText:loadHyperText",
       "target": "indexedDB/core/library:updateLocalAnnotationsTimestamp",
@@ -34130,6 +34237,12 @@
       "rel": "pull"
     },
     {
+      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getSubBookLibrary",
+      "source": "pg:library",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
+      "rel": "pull"
+    },
+    {
       "id": "pg:library__pull__controller:DbHyperciteController@find",
       "source": "pg:library",
       "target": "controller:DbHyperciteController@find",
@@ -34297,13 +34410,6 @@
       "id": "route:/api/database-to-indexeddb/books/{}/library__pull__indexedDB/core/library:getLibraryRecordFromServer",
       "source": "route:/api/database-to-indexeddb/books/{}/library",
       "target": "indexedDB/core/library:getLibraryRecordFromServer",
-      "rel": "pull",
-      "label": "/api/database-to-indexeddb/books/{}/library"
-    },
-    {
-      "id": "route:/api/database-to-indexeddb/books/{}/library__pull__pageLoad/loadHyperText:loadHyperText",
-      "source": "route:/api/database-to-indexeddb/books/{}/library",
-      "target": "pageLoad/loadHyperText:loadHyperText",
       "rel": "pull",
       "label": "/api/database-to-indexeddb/books/{}/library"
     },

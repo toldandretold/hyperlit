@@ -55,11 +55,15 @@ test('GET …/books/{book}/annotations 403s for a private book read by a non-own
         ->assertJson(['error' => 'access_denied']);
 });
 
-test('GET …/books/{book}/library 404s for a book with no library record', function () {
-    // Library/bibliography is public even for private books, so the only failure
-    // here is "no record" → 404 (not 403).
+test('GET …/books/{book}/library returns 200 library:null for a book with no library record', function () {
+    // A missing library row is an EXPECTED, benign condition (freshly-authored sub-books
+    // have no server row until they sync, and the per-load freshness check fetches this for
+    // every book). It answers 200 {success:false, library:null} — NOT 404 — so the browser
+    // doesn't log a console error on every such fetch (which trips the e2e no-console-errors
+    // gate). Library/bibliography is public even for private books, so there's no 403 here.
     $this->getJson('/api/database-to-indexeddb/books/apitest_nope/library')
-        ->assertStatus(404);
+        ->assertStatus(200)
+        ->assertJson(['success' => false, 'library' => null]);
 });
 
 test('GET …/books/{book}/library round-trips volume/issue/booktitle/chapter/editor (no silent loss)', function () {
@@ -86,3 +90,18 @@ test('the sub-book read variants 404 for an unknown parent/sub', function (strin
     $this->getJson("/api/database-to-indexeddb/books/apitest_nope/Fn1/{$suffix}")
         ->assertStatus(404);
 })->with(['data', 'initial']);
+
+test('the sub-book /library route exists and answers 200 library:null when missing', function () {
+    // Sub-book ids ("parent/sub") can't ride the single-segment {bookId}/library route — the
+    // "/" overflows the segment (raw) or is rejected (%2F), so EVERY footnote/hyperlight
+    // freshness check 404'd at the router (the e2e "404 storm"). The {parentBook}/{subId}/library
+    // route fixes that; like the parent route a missing row is 200 library:null, NOT 404, so the
+    // browser logs no console error. Deep nests (2/HL_1/Fn_2) must route too.
+    $this->getJson('/api/database-to-indexeddb/books/apitest_nope/Fn1/library')
+        ->assertStatus(200)
+        ->assertJson(['success' => false, 'library' => null]);
+
+    $this->getJson('/api/database-to-indexeddb/books/apitest_nope/2/HL_1/Fn_2/library')
+        ->assertStatus(200)
+        ->assertJson(['success' => false, 'library' => null]);
+});

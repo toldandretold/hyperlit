@@ -394,6 +394,12 @@ Route::prefix('database-to-indexeddb')->group(function () {
     Route::get('books/{parentBook}/{subId}/initial', [DatabaseToIndexedDBController::class, 'getSubBookInitialChunk'])
         ->where('subId', '.+')
         ->name('api.database-to-indexeddb.sub-book-initial');
+    // Sub-book library: a sub-book id ("parentBook/subId") can't go in the single-segment
+    // {bookId}/library route (the "/" 404s), so the per-load freshness check 404'd for every
+    // footnote/hyperlight sub-book. Split form mirrors the data/initial sub-book routes above.
+    Route::get('books/{parentBook}/{subId}/library', [DatabaseToIndexedDBController::class, 'getSubBookLibrary'])
+        ->where('subId', '.+')
+        ->name('api.database-to-indexeddb.sub-book-library');
 
     // Headings (lightweight TOC data when not fully loaded)
     Route::get('books/{bookId}/headings', [DatabaseToIndexedDBController::class, 'getBookHeadings'])

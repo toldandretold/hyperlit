@@ -9,7 +9,7 @@
  * - Chunk overflow management
  */
 
-import { chunkOverflowInProgress, userDeletionInProgress } from "../../utilities/operationState";
+import { chunkOverflowInProgress, userDeletionInProgress, isProgrammaticUpdateInProgress, isPasteInProgress } from "../../utilities/operationState";
 import { isNumericalId, ensureNodeHasValidId, asLineId, asBookId, parseChunkId, type BookId } from "../../utilities/idHelpers";
 import type { SaveQueue } from "../saveQueue";
 import { movedNodesByOverflow } from '../editorState';
@@ -66,6 +66,7 @@ export class ChunkMutationHandler {
   tocInvalidationQueue: Set<{ nodeId: string; nodeElement: HTMLElement }>;
   tocInvalidationTimer: ReturnType<typeof setTimeout> | number | null;
   nodeToChunkCache: WeakMap<Node, HTMLElement>;
+  overflowSweepScheduled: boolean;
 
   constructor(options: ChunkMutationHandlerOptions = {}) {
     // Dependencies
@@ -92,6 +93,75 @@ export class ChunkMutationHandler {
 
     // 🚀 PERFORMANCE: Cache for findContainingChunk (80-95% faster lookups)
     this.nodeToChunkCache = new WeakMap();
+
+    // Defer-and-recheck guard (see scheduleOverflowSweep)
+    this.overflowSweepScheduled = false;
+  }
+
+  /**
+   * Structural-integrity safety net for chunk overflow.
+   *
+   * The main-content MutationObserver DROPS mutations while a programmatic DOM update is in
+   * progress (divEditor/index.ts) so the editor doesn't process its own programmatic changes as
+   * user edits. But a programmatic INSERT (e.g. the small-paste "direct DOM insertion" path) can
+   * push a chunk past NODE_LIMIT, and MutationObserver records are NOT redelivered — so that
+   * overflow's auto-rotation was silently lost and a chunk could sit at >100 nodes (breaks lazy
+   * loading / fractional indexing). This re-checks once the owning operation finishes.
+   *
+   * It is a PURE structural sweep: it only counts chunks and splits ones over the limit via the
+   * existing handleChunkOverflow(). It does NOT reprocess mutations or touch the save queue, so it
+   * cannot double-handle anything. It also waits for paste AND programmatic flags to clear first,
+   * so it never runs mid-operation — and after a LARGE paste (which chunks itself ≤100) it finds
+   * nothing to do and no-ops. Idempotent: at most one sweep is queued at a time.
+   */
+  scheduleOverflowSweep(): void {
+    if (this.overflowSweepScheduled) return;
+    this.overflowSweepScheduled = true;
+
+    const RETRY_MS = 50;
+    const MAX_ATTEMPTS = 100; // ~5s ceiling before giving up
+    const busy = () =>
+      isProgrammaticUpdateInProgress() || isPasteInProgress() ||
+      isPasteOperationActive() || chunkOverflowInProgress;
+
+    const run = (attempt: number) => {
+      if (busy() && attempt < MAX_ATTEMPTS) {
+        setTimeout(() => run(attempt + 1), RETRY_MS);
+        return;
+      }
+      this.overflowSweepScheduled = false;
+      if (busy()) return; // gave up — a later mutation/sweep will catch it
+      this.sweepChunkOverflow();
+    };
+    setTimeout(() => run(0), RETRY_MS);
+  }
+
+  /**
+   * Split any chunk currently over NODE_LIMIT. Pure structural repair; no-op if clean.
+   * Scans the LIVE DOM (not this.observedChunks) because a paste reload can replace a chunk div,
+   * leaving the observedChunks cache pointing at a detached node — the actual overgrown chunk
+   * would be missed. Covers the main book and any open sub-book containers.
+   */
+  async sweepChunkOverflow(): Promise<void> {
+    const chunks = document.querySelectorAll<HTMLElement>('.chunk[data-chunk-id]');
+    for (const chunk of Array.from(chunks)) {
+      const cid = chunk.getAttribute('data-chunk-id');
+      if (!chunk.isConnected) continue;
+      // Count the LIVE DOM directly — chunkNodeCounts is maintained incrementally by PROCESSED
+      // mutations, but the mutations that overflowed this chunk were suppressed (paste/programmatic),
+      // so that counter is stale. The DOM is the source of truth. handleChunkOverflow recounts
+      // internally too, so this gate just decides whether to invoke it.
+      const count = Array.from(chunk.querySelectorAll<HTMLElement>('[id]'))
+        .filter((el) => /^\d+(\.\d+)?$/.test(el.id)).length;
+      if (count > NODE_LIMIT) {
+        console.log(`🧹 Overflow sweep: chunk ${cid} at ${count}/${NODE_LIMIT} — rotating.`);
+        try {
+          await handleChunkOverflow(chunk, null);
+        } catch (e) {
+          console.error('Overflow sweep: handleChunkOverflow failed:', e);
+        }
+      }
+    }
   }
 
   /**

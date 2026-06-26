@@ -395,8 +395,8 @@ export async function closeHyperlitContainer(page) {
  * @param {string} htmlContent - HTML content for text/html
  * @param {string} textContent - Plain text content for text/plain
  */
-export async function pasteHyperciteContent(page, htmlContent, textContent) {
-  await page.evaluate(({ htmlContent, textContent }) => {
+export async function pasteHyperciteContent(page, htmlContent, textContent, opts = {}) {
+  await page.evaluate(({ htmlContent, textContent, caretElementId }) => {
     // Resolve the editor the paste should land in: the deepest OPEN stacked
     // sub-book that is contenteditable, then the base sub-book, then
     // .main-content. Mirrors resolveActiveEditTargetHandle() in
@@ -420,12 +420,18 @@ export async function pasteHyperciteContent(page, htmlContent, textContent) {
     }
     if (!target) throw new Error('pasteHyperciteContent: no editable target found');
 
-    // Place a collapsed caret at the end of the last block (or the target).
+    // Place a collapsed caret. Default: END of the last block (append) — what most callers
+    // want. Opt-in `caretElementId`: collapse to the START of that specific element, so the
+    // paste lands MID-document (used by the chunk-overflow test to wedge a fractional chunk
+    // between existing ones). Either way we set a LIVE range right before dispatch, because the
+    // edit-mode-entry caret is cleared asynchronously and the product paste handler no-ops
+    // (execCommand insertHTML) without one.
+    const midTarget = caretElementId ? document.getElementById(caretElementId) : null;
     const blocks = target.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, blockquote');
-    const caretHost = blocks.length ? blocks[blocks.length - 1] : target;
+    const caretHost = midTarget || (blocks.length ? blocks[blocks.length - 1] : target);
     const range = document.createRange();
     range.selectNodeContents(caretHost);
-    range.collapse(false);
+    range.collapse(!!midTarget); // start for a mid-document target, end otherwise
     const sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(range);
@@ -442,7 +448,7 @@ export async function pasteHyperciteContent(page, htmlContent, textContent) {
     });
 
     target.dispatchEvent(pasteEvent);
-  }, { htmlContent, textContent });
+  }, { htmlContent, textContent, caretElementId: opts.caretElementId || null });
 }
 
 /**

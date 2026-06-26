@@ -1055,20 +1055,30 @@ class DatabaseToIndexedDBController extends Controller
             // The privacy restriction applies to nodes (actual content), not citations.
             $libraryRecord = DB::connection('pgsql_admin')->table('library')->where('book', $bookId)->first();
 
+            // A missing library row is an EXPECTED, benign condition — freshly-authored
+            // sub-books (footnotes/hyperlights) have no server `library` row until they sync,
+            // and the per-load freshness check fetches this for every book/sub-book. Answer
+            // 200 with library:null ("nothing to compare") rather than 404, so the browser
+            // doesn't log a console error on every such fetch (which trips the e2e
+            // no-console-errors gate). The client already maps success:false → null.
             if (!$libraryRecord) {
                 return response()->json([
-                    'error' => 'Library record not found for book',
-                    'book_id' => $bookId
-                ], 404);
+                    'success' => false,
+                    'library' => null,
+                    'book_id' => $bookId,
+                    'reason' => 'not_found'
+                ], 200);
             }
 
             $library = $this->getLibrary($bookId, true);
-            
+
             if (!$library) {
                 return response()->json([
-                    'error' => 'Library record not found for book',
-                    'book_id' => $bookId
-                ], 404);
+                    'success' => false,
+                    'library' => null,
+                    'book_id' => $bookId,
+                    'reason' => 'not_found'
+                ], 200);
             }
 
             Log::info('Returning library data to client', [
@@ -1106,6 +1116,18 @@ class DatabaseToIndexedDBController extends Controller
     {
         $parentBook = BookSlugHelper::resolve($parentBook);
         return $this->getBookData($request, $parentBook . '/' . $subId);
+    }
+
+    /**
+     * Get the library record for a sub-book ({parentBook}/{subId}/library).
+     * Sub-book ids contain a "/" which can't ride in the single-segment {bookId}/library
+     * route, so the freshness check 404'd for every footnote/hyperlight sub-book. Reconstructs
+     * the full id and delegates to getBookLibrary (which answers 200 library:null when absent).
+     */
+    public function getSubBookLibrary(Request $request, string $parentBook, string $subId): JsonResponse
+    {
+        $parentBook = BookSlugHelper::resolve($parentBook);
+        return $this->getBookLibrary($request, $parentBook . '/' . $subId);
     }
 
     /**
