@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1542 functions in 320 modules · 10 object stores · 10 PG tables · 3162 edges
+**MarkdownDB** schema v27 · 1545 functions in 323 modules · 10 object stores · 10 PG tables · 3165 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -865,11 +865,14 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `resolveButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations` | — | — | read/write | — |
 | `resolveCitationButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations` | — | — | read/write | — |
 | `buildFootnoteContent` | `hyperlitContainer/contentBuilders/displayFootnotes` | — | — | — | — |
-| `buildHyperciteContent` | `hyperlitContainer/contentBuilders/displayHypercites` | `hypercites` `library` | — | — | — |
-| `checkHyperciteExists` | `hyperlitContainer/contentBuilders/displayHypercites` | `footnotes` `hyperlights` `library` `nodes` | `nodes` | read | `↓route:/api/database-to-indexeddb/books/{}/data` |
-| `handleHyperciteDelete` | `hyperlitContainer/contentBuilders/displayHypercites` | `hypercites` `nodes` | `hypercites` `nodes` | read/write | — |
-| `handleHyperciteHealthCheck` | `hyperlitContainer/contentBuilders/displayHypercites` | — | — | read/write | — |
-| `handleManageCitationsClick` | `hyperlitContainer/contentBuilders/displayHypercites` | — | — | read/write | — |
+| `handleHyperciteDelete` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement` | `hypercites` `nodes` | `hypercites` `nodes` | read/write | — |
+| `handleHyperciteHealthCheck` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement` | — | — | read/write | — |
+| `handleManageCitationsClick` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement` | — | — | read/write | — |
+| `buildHyperciteContent` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent` | `hypercites` `library` | — | — | — |
+| `checkHyperciteExists` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck` | `footnotes` `hyperlights` `library` `nodes` | `nodes` | read | `↓route:/api/database-to-indexeddb/books/{}/data` |
+| `extractContentIdFromUrl` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks` | — | — | — | — |
+| `parseCitedInLink` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks` | — | — | — | — |
+| `sanitizeUrl` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks` | — | — | — | — |
 | `buildHighlightContent` | `hyperlitContainer/contentBuilders/displayHyperlights` | `hyperlights` `nodes` | — | — | — |
 | `deletedTrashIcon` | `hyperlitContainer/contentBuilders/sourceAccessButton` | — | — | — | — |
 | `enableButtonEl` | `hyperlitContainer/contentBuilders/sourceAccessButton` | — | — | read/write | — |
@@ -1677,9 +1680,9 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/containerListeners` → `editToolbar/index`
 - `hyperlitContainer/contentBuilders/displayCitations` → `hyperlitContainer/utils`
 - `hyperlitContainer/contentBuilders/displayFootnotes` → `indexedDB/index`
-- `hyperlitContainer/contentBuilders/displayHypercites` → `hyperlights/index`
-- `hyperlitContainer/contentBuilders/displayHypercites` → `hyperlitContainer/core`
-- `hyperlitContainer/contentBuilders/displayHypercites` → `hyperlitContainer/utils`
+- `hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement` → `hyperlights/index`
+- `hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement` → `hyperlitContainer/core`
+- `hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent` → `hyperlitContainer/utils`
 - `hyperlitContainer/contentBuilders/displayHyperlights` → `hyperlitContainer/utils`
 - `hyperlitContainer/core` → `footnotes/footnoteAnnotations`
 - `hyperlitContainer/core` → `hyperlitContainer/brainQuery`
@@ -1703,7 +1706,6 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/index` → `divEditor/index`
 - `hyperlitContainer/index` → `hyperlights/markGroup`
 - `hyperlitContainer/index` → `scrolling/index`
-- `hyperlitContainer/postOpen` → `hyperlitContainer/contentBuilders/displayHypercites`
 - `hyperlitContainer/stack` → `SPA/navigation/ProgressOverlayConductor`
 - `hyperlitContainer/stack` → `hyperlitContainer/containerListeners`
 - `hyperlitContainer/stack` → `hyperlitContainer/containerState`

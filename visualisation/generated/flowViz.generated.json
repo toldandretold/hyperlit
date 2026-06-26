@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1542,
-    "moduleCount": 320,
+    "fnCount": 1545,
+    "moduleCount": 323,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3162,
+    "edgeCount": 3165,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -7985,47 +7985,71 @@
       "leaf": true
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
+      "label": "handleHyperciteDelete",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement",
+      "leaf": false
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteHealthCheck",
+      "label": "handleHyperciteHealthCheck",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement",
+      "leaf": false
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleManageCitationsClick",
+      "label": "handleManageCitationsClick",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement",
+      "leaf": false
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
       "label": "buildHyperciteContent",
       "kind": "fn",
       "stage": "hyperlitContainer",
-      "module": "hyperlitContainer/contentBuilders/displayHypercites",
+      "module": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent",
       "leaf": false,
       "types": [
         "HyperciteRecord"
       ]
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
       "label": "checkHyperciteExists",
       "kind": "fn",
       "stage": "hyperlitContainer",
-      "module": "hyperlitContainer/contentBuilders/displayHypercites",
+      "module": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck",
       "leaf": false
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
-      "label": "handleHyperciteDelete",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks:extractContentIdFromUrl",
+      "label": "extractContentIdFromUrl",
       "kind": "fn",
       "stage": "hyperlitContainer",
-      "module": "hyperlitContainer/contentBuilders/displayHypercites",
-      "leaf": false
+      "module": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks",
+      "leaf": true
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteHealthCheck",
-      "label": "handleHyperciteHealthCheck",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks:parseCitedInLink",
+      "label": "parseCitedInLink",
       "kind": "fn",
       "stage": "hyperlitContainer",
-      "module": "hyperlitContainer/contentBuilders/displayHypercites",
-      "leaf": false
+      "module": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks",
+      "leaf": true
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleManageCitationsClick",
-      "label": "handleManageCitationsClick",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks:sanitizeUrl",
+      "label": "sanitizeUrl",
       "kind": "fn",
       "stage": "hyperlitContainer",
-      "module": "hyperlitContainer/contentBuilders/displayHypercites",
-      "leaf": false
+      "module": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks",
+      "leaf": true
     },
     {
       "id": "hyperlitContainer/contentBuilders/displayHyperlights:buildHighlightContent",
@@ -16075,16 +16099,43 @@
       ]
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites",
-      "label": "hyperlitContainer/contentBuilders/displayHypercites",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement",
+      "label": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement",
+      "stage": "hyperlitContainer",
+      "band": "capture",
+      "fnIds": [
+        "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
+        "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteHealthCheck",
+        "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleManageCitationsClick"
+      ]
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent",
+      "label": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent",
+      "stage": "hyperlitContainer",
+      "band": "store",
+      "fnIds": [
+        "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent"
+      ]
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck",
+      "label": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck",
       "stage": "hyperlitContainer",
       "band": "sync",
       "fnIds": [
-        "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent",
-        "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
-        "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
-        "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteHealthCheck",
-        "hyperlitContainer/contentBuilders/displayHypercites:handleManageCitationsClick"
+        "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists"
+      ]
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks",
+      "label": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks",
+      "stage": "hyperlitContainer",
+      "band": "store",
+      "fnIds": [
+        "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks:extractContentIdFromUrl",
+        "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks:parseCitedInLink",
+        "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks:sanitizeUrl"
       ]
     },
     {
@@ -24808,27 +24859,27 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "id": "dom__domread__hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
       "source": "dom",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
+      "id": "dom__domread__hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteHealthCheck",
       "source": "dom",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteHealthCheck",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteHealthCheck",
+      "id": "dom__domread__hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleManageCitationsClick",
       "source": "dom",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteHealthCheck",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleManageCitationsClick",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__hyperlitContainer/contentBuilders/displayHypercites:handleManageCitationsClick",
+      "id": "dom__domread__hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
       "source": "dom",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:handleManageCitationsClick",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
       "rel": "domread"
     },
     {
@@ -28841,121 +28892,139 @@
       "dataPath": true
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent__call__components/toast/toast:showTargetNotFoundToast",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent",
-      "target": "components/toast/toast:showTargetNotFoundToast",
-      "rel": "call"
-    },
-    {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent__call__hyperlitContainer/contentBuilders/sourceAccessButton:privateLockIcon",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent",
-      "target": "hyperlitContainer/contentBuilders/sourceAccessButton:privateLockIcon",
-      "rel": "call"
-    },
-    {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent__call__hyperlitContainer/utils:fetchLibraryFromServer",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent",
-      "target": "hyperlitContainer/utils:fetchLibraryFromServer",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent__call__indexedDB/core/connection:openDatabase",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent",
-      "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists__call__indexedDB/core/connection:openDatabase",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
-      "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists__write__store:nodes",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
-      "target": "store:nodes",
-      "rel": "write"
-    },
-    {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete__call__hyperlights/deletion:reprocessHighlightsForNodes",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete__call__hyperlights/deletion:reprocessHighlightsForNodes",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
       "target": "hyperlights/deletion:reprocessHighlightsForNodes",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete__call__hyperlitContainer/core:closeHyperlitContainer",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete__call__hyperlitContainer/core:closeHyperlitContainer",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
       "target": "hyperlitContainer/core:closeHyperlitContainer",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete__call__indexedDB/core/connection:openDatabase",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete__call__indexedDB/core/library:updateBookTimestamp",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete__call__indexedDB/core/library:updateBookTimestamp",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
       "target": "indexedDB/core/library:updateBookTimestamp",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete__call__indexedDB/syncQueue/queue:queueForSync",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete__call__indexedDB/syncQueue/queue:queueForSync",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
       "target": "indexedDB/syncQueue/queue:queueForSync",
       "rel": "call"
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete__domwrite__dom",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete__domwrite__dom",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete__write__store:hypercites",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete__write__store:hypercites",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
       "target": "store:hypercites",
       "rel": "write"
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete__write__store:nodes",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete__write__store:nodes",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
       "target": "store:nodes",
       "rel": "write"
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteHealthCheck__call__hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteHealthCheck",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteHealthCheck__call__hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteHealthCheck",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteHealthCheck__domwrite__dom",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteHealthCheck",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteHealthCheck__domwrite__dom",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteHealthCheck",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleManageCitationsClick__call__hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteHealthCheck",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:handleManageCitationsClick",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteHealthCheck",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleManageCitationsClick__call__hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteHealthCheck",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleManageCitationsClick",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteHealthCheck",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayHypercites:handleManageCitationsClick__domwrite__dom",
-      "source": "hyperlitContainer/contentBuilders/displayHypercites:handleManageCitationsClick",
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleManageCitationsClick__domwrite__dom",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleManageCitationsClick",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent__call__components/toast/toast:showTargetNotFoundToast",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
+      "target": "components/toast/toast:showTargetNotFoundToast",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent__call__hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks:parseCitedInLink",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks:parseCitedInLink",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent__call__hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks:sanitizeUrl",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks:sanitizeUrl",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent__call__hyperlitContainer/contentBuilders/sourceAccessButton:privateLockIcon",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton:privateLockIcon",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent__call__hyperlitContainer/utils:fetchLibraryFromServer",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
+      "target": "hyperlitContainer/utils:fetchLibraryFromServer",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists__write__store:nodes",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
+      "target": "store:nodes",
+      "rel": "write"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks:parseCitedInLink__call__hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks:extractContentIdFromUrl",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks:parseCitedInLink",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks:extractContentIdFromUrl",
+      "rel": "call"
     },
     {
       "id": "hyperlitContainer/contentBuilders/displayHyperlights:buildHighlightContent__call__hyperlitContainer/utils:formatRelativeTime",
@@ -34627,9 +34696,9 @@
       "label": "/api/database-to-indexeddb/books/{}/annotations"
     },
     {
-      "id": "route:/api/database-to-indexeddb/books/{}/data__pull__hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "id": "route:/api/database-to-indexeddb/books/{}/data__pull__hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
       "source": "route:/api/database-to-indexeddb/books/{}/data",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
       "rel": "pull",
       "label": "/api/database-to-indexeddb/books/{}/data"
     },
@@ -36909,9 +36978,9 @@
       "rel": "read"
     },
     {
-      "id": "store:footnotes__read__hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "id": "store:footnotes__read__hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
       "source": "store:footnotes",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
       "rel": "read"
     },
     {
@@ -36951,15 +37020,15 @@
       "rel": "read"
     },
     {
-      "id": "store:hypercites__read__hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent",
+      "id": "store:hypercites__read__hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
       "source": "store:hypercites",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
       "rel": "read"
     },
     {
-      "id": "store:hypercites__read__hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
+      "id": "store:hypercites__read__hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
       "source": "store:hypercites",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
       "rel": "read"
     },
     {
@@ -37059,9 +37128,9 @@
       "rel": "read"
     },
     {
-      "id": "store:hyperlights__read__hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "id": "store:hyperlights__read__hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
       "source": "store:hyperlights",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
       "rel": "read"
     },
     {
@@ -37155,15 +37224,15 @@
       "rel": "read"
     },
     {
-      "id": "store:library__read__hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent",
+      "id": "store:library__read__hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
       "source": "store:library",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
       "rel": "read"
     },
     {
-      "id": "store:library__read__hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "id": "store:library__read__hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
       "source": "store:library",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
       "rel": "read"
     },
     {
@@ -37479,15 +37548,15 @@
       "rel": "read"
     },
     {
-      "id": "store:nodes__read__hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "id": "store:nodes__read__hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
       "source": "store:nodes",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement:handleHyperciteDelete",
       "rel": "read"
     },
     {
-      "id": "store:nodes__read__hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
+      "id": "store:nodes__read__hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
       "source": "store:nodes",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites:handleHyperciteDelete",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck:checkHyperciteExists",
       "rel": "read"
     },
     {
@@ -40513,34 +40582,54 @@
       "kind": "lazy"
     },
     {
-      "source": "hyperlitContainer/contentBuilders/displayHypercites",
-      "target": "components/toast/toast",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck",
       "kind": "static"
     },
     {
-      "source": "hyperlitContainer/contentBuilders/displayHypercites",
-      "target": "hyperlitContainer/contentBuilders/sourceAccessButton",
-      "kind": "static"
-    },
-    {
-      "source": "hyperlitContainer/contentBuilders/displayHypercites",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement",
       "target": "indexedDB/index",
       "kind": "static"
     },
     {
-      "source": "hyperlitContainer/contentBuilders/displayHypercites",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement",
       "target": "hyperlights/index",
       "kind": "lazy"
     },
     {
-      "source": "hyperlitContainer/contentBuilders/displayHypercites",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement",
       "target": "hyperlitContainer/core",
       "kind": "lazy"
     },
     {
-      "source": "hyperlitContainer/contentBuilders/displayHypercites",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent",
+      "target": "components/toast/toast",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent",
+      "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent",
       "target": "hyperlitContainer/utils",
       "kind": "lazy"
+    },
+    {
+      "source": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck",
+      "target": "indexedDB/index",
+      "kind": "static"
     },
     {
       "source": "hyperlitContainer/contentBuilders/displayHyperlights",
@@ -40784,11 +40873,6 @@
     },
     {
       "source": "hyperlitContainer/index",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites",
-      "kind": "static"
-    },
-    {
-      "source": "hyperlitContainer/index",
       "target": "hyperlitContainer/contentBuilders/displayHyperlights",
       "kind": "static"
     },
@@ -40946,11 +41030,6 @@
       "source": "hyperlitContainer/postOpen",
       "target": "hyperlitContainer/stack",
       "kind": "static"
-    },
-    {
-      "source": "hyperlitContainer/postOpen",
-      "target": "hyperlitContainer/contentBuilders/displayHypercites",
-      "kind": "lazy"
     },
     {
       "source": "hyperlitContainer/stack",

@@ -55,7 +55,7 @@ export {
   handleManageCitationsClick,
   handleHyperciteHealthCheck,
   handleHyperciteDelete
-} from './contentBuilders/displayHypercites.js';
+} from './contentBuilders/displayHypercites/index.js';
 
 // History & navigation
 export {
@@ -90,7 +90,7 @@ import { determineSingleContentHash, pickAnchorId } from './history.js';
 import { buildFootnoteContent } from './contentBuilders/displayFootnotes.js';
 import { buildCitationContent, buildHyperciteCitationContent } from './contentBuilders/displayCitations.js';
 import { buildHighlightContent } from './contentBuilders/displayHyperlights.js';
-import { buildHyperciteContent, handleHyperciteHealthCheck, handleHyperciteDelete } from './contentBuilders/displayHypercites.js';
+import { buildHyperciteContent, handleHyperciteHealthCheck, handleHyperciteDelete } from './contentBuilders/displayHypercites/index.js';
 import { attachNoteListeners, initializePlaceholders } from './noteListener.js';
 import { getCurrentContainer, isStackPopping } from './stack.js';
 import { registerContainerActions } from './containerActions';
