@@ -66,24 +66,71 @@ export function determineSingleContentHash(contentTypes: any) {
 }
 
 /**
+ * Pick the single in-this-book element id a container should scroll the reader back to, from its
+ * content types — precise-element first, so we land on the exact thing the user clicked (which, in
+ * an overlap, is by definition INSIDE the overlapping hypercite/highlight). Runs on the LIVE
+ * content types at open time (so it can read each detected type's `.element`, e.g. the clicked
+ * hypercite-citation arrow's own id) and the result is stored as the layer's `anchorId`.
+ *
+ * Priority:
+ *   1. footnote               — the Fn sup (footnoteId / elementId)
+ *   2. hypercite-citation     — the clicked <a> arrow's OWN id (NOT targetHyperciteId, which is the
+ *                               cross-book DESTINATION and can't resolve in THIS book)
+ *   3. citation               — citation_<referenceId>
+ *   4. hypercite SOURCE       — the <u> (hyperciteId); more likely the linked-from thing than a HL
+ *   5. hyperlight             — highlightIds[0] (HL_…)
+ * All of these resolve in the DOM via `findRenderedTarget` (scrolling/internalNav).
+ *
+ * @param {Array} contentTypes - live content type objects (from detection)
+ * @returns {string|null} the anchor element id or null
+ */
+export function pickAnchorId(contentTypes: any[]): string | null {
+  if (!contentTypes?.length) return null;
+  const byType = (t: string) => contentTypes.find((ct: any) => ct?.type === t);
+
+  const fn = byType('footnote');
+  if (fn) {
+    const id = fn.footnoteId || fn.elementId;
+    if (id) return id;
+  }
+
+  const hcCite = byType('hypercite-citation');
+  if (hcCite?.element?.id) return hcCite.element.id;
+
+  const cite = byType('citation');
+  if (cite?.referenceId) return `citation_${cite.referenceId}`;
+
+  const hc = byType('hypercite');
+  if (hc?.hyperciteId) return hc.hyperciteId;
+
+  const hl = byType('highlight');
+  if (Array.isArray(hl?.highlightIds) && hl.highlightIds[0]) return hl.highlightIds[0];
+
+  return null;
+}
+
+/**
  * Derive the MAIN-PAGE anchor id a restored container is associated with — the hypercite /
  * highlight / footnote / citation element in the reader's main text. Used to scroll the reader
  * to the anchor when a container is restored (back/forward/refresh), since the container opens
  * OVER the main page and the restore URL usually carries only `?cs=N` (no hash) to drive it.
  *
- * Reuses `determineSingleContentHash` (the same mapping the URL uses) for single-content layers,
- * and falls back to the first contentType's id for multi/overlapping content.
+ * Prefers the layer's stored `anchorId` (computed via `pickAnchorId` at open time — the exact
+ * element the user clicked). Falls back to the legacy `determineSingleContentHash` + first-type
+ * mapping for history entries written before `anchorId` was stored.
  * @param {Object} contentMetadata - a stack layer's serialized contentMetadata
  * @returns {string|null} the anchor element id (e.g. `hypercite_x`, `HL_x`, a footnote id) or null
  */
 export function deriveMainAnchorId(contentMetadata: any): string | null {
+  if (contentMetadata?.anchorId) return contentMetadata.anchorId;
+
   const types = contentMetadata?.contentTypes;
   if (!types?.length) return null;
 
   const single = determineSingleContentHash(types);
   if (single?.value) return single.value;
 
-  // Multi/overlapping content has no single canonical hash — anchor on the first type's main id.
+  // Legacy multi/overlapping content (no stored anchorId) — anchor on the first type's main id.
   const ct = types[0] || {};
   return ct.hyperciteId
     || (Array.isArray(ct.highlightIds) ? ct.highlightIds[0] : null)

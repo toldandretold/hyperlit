@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1536,
+    "fnCount": 1537,
     "moduleCount": 319,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3145,
+    "edgeCount": 3146,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -8340,6 +8340,14 @@
       "leaf": true
     },
     {
+      "id": "hyperlitContainer/history:pickAnchorId",
+      "label": "pickAnchorId",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/history",
+      "leaf": true
+    },
+    {
       "id": "hyperlitContainer/history:restoreContainerStack",
       "label": "restoreContainerStack",
       "kind": "fn",
@@ -16140,6 +16148,7 @@
         "hyperlitContainer/history:deriveMainAnchorId",
         "hyperlitContainer/history:determineSingleContentHash",
         "hyperlitContainer/history:getCurrentContainerState",
+        "hyperlitContainer/history:pickAnchorId",
         "hyperlitContainer/history:restoreContainerStack",
         "hyperlitContainer/history:restoreHyperlitContainerFromHistory",
         "hyperlitContainer/history:restoreStackedLayer"
@@ -29663,6 +29672,12 @@
       "id": "hyperlitContainer/index:handleUnifiedContentClick__call__hyperlitContainer/history:determineSingleContentHash",
       "source": "hyperlitContainer/index:handleUnifiedContentClick",
       "target": "hyperlitContainer/history:determineSingleContentHash",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/index:handleUnifiedContentClick__call__hyperlitContainer/history:pickAnchorId",
+      "source": "hyperlitContainer/index:handleUnifiedContentClick",
+      "target": "hyperlitContainer/history:pickAnchorId",
       "rel": "call"
     },
     {

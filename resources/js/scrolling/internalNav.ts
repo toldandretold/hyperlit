@@ -200,11 +200,33 @@ function calculateScrollDelay(element: any, container: any, targetId: string): n
   return delay;
 }
 
+/**
+ * `citation_<refId>` is a URL-hash namespace for the reference panel (history.ts determineSingleContentHash),
+ * NOT a DOM id — the in-text citation marker is `<a id="<refId>">` (bare). Every other content type's hash
+ * prefix matches its element id (`hypercite_…`, `HL_…`); citation is the lone exception. Strip the prefix so
+ * we resolve/scroll to the real anchor instead of spinning 12 attempts on a nonexistent `citation_<refId>`.
+ */
+function toScrollTargetId(id: string): string {
+  return id.startsWith('citation_') ? id.slice('citation_'.length) : id;
+}
+
+/**
+ * A citation reference id (`Ref<digits>_<rand>`, the `<a id="Ref…" class="citation-ref">` in-text
+ * marker). It is a SOFT scroll target: the reference panel is its real destination, and the in-text
+ * marker only exists in the CITING book. A stale citation target replayed onto a DIFFERENT book
+ * (e.g. after "Open source" hops to the source book) will never resolve there — so we bail quietly
+ * rather than loading a fallback chunk, spinning waitForNavigationTarget, and toasting "start of book".
+ */
+function isCitationRefTarget(id: string): boolean {
+  return /^Ref\d/.test(id);
+}
+
 export function navigateToInternalId(targetId: string, lazyLoader: any, showOverlay = true): Promise<any> {
   if (!lazyLoader) {
     console.error("Lazy loader instance not provided!");
     return Promise.reject(new Error("Lazy loader instance not provided"));
   }
+  targetId = toScrollTargetId(targetId);
   verbose.nav(`Initiating navigation to internal ID: ${targetId}`, 'scrolling/internalNav');
 
   // 🚀 Return a Promise that resolves when navigation is truly complete
@@ -369,6 +391,27 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
       `Resolver result for "${targetId}": chunk=${resolution.chunkId}, resolved=${resolution.resolved}, reason=${resolution.reason}`,
       'scrolling/internalNav'
     );
+
+    // 🩹 Soft-target guard: a citation ref that didn't resolve against THIS book's node store is a
+    // stale/foreign target (the in-text marker lives in the citing book, not here). The content-scan
+    // resolver reads the full nodes store, so a real in-text marker in this book WOULD resolve — an
+    // unresolved one means it isn't here. Bail quietly: no background-download wait, no fallback
+    // chunk, no 12-attempt spin, no "showing start of book" toast. The stack names who replayed the
+    // stale target across the book change (it shouldn't have leaked — see the open root-cause note).
+    if (!resolution.resolved && isCitationRefTarget(targetId)) {
+      console.warn(`⚠️ Citation ref "${targetId}" not in book ${lazyLoader.bookId} — skipping main-text scroll (soft target). Replayed by:`, new Error().stack);
+      hideNavigationLoading();
+      NavigationCompletionBarrier.completeProcess(NavigationProcess.SCROLL_COMPLETE, false);
+      lazyLoader.isNavigatingToInternalId = false;
+      lazyLoader.pendingNavigationTarget = null;
+      if (lazyLoader.unlockScroll) lazyLoader.unlockScroll();
+      if (lazyLoader._navigationResolve) {
+        lazyLoader._navigationResolve({ success: false, targetId, fallback: true, soft: true });
+        lazyLoader._navigationResolve = null;
+        lazyLoader._navigationReject = null;
+      }
+      return;
+    }
 
     // If the resolver couldn't find the target and the book isn't fully loaded,
     // wait for the background download to complete and retry with the full dataset.
@@ -773,9 +816,13 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
 
       // Mark this hash as "navigated to" for this page session.
       // Uses module-level Set so it resets on page reload (fresh loads re-navigate).
-      if (window.location.hash.substring(1) === targetId) {
-        navigatedHashes.add(targetId);
-        verbose.nav(`Marked hash ${targetId} as navigated (session-level)`, 'scrolling/internalNav');
+      // The URL hash keeps its `citation_` namespace prefix while `targetId` is the bare
+      // element id (see toScrollTargetId) — normalize the hash the same way so the citation
+      // case still keys navigatedHashes off the actual URL hash.
+      const urlHashId = window.location.hash.substring(1);
+      if (toScrollTargetId(urlHashId) === targetId) {
+        navigatedHashes.add(urlHashId);
+        verbose.nav(`Marked hash ${urlHashId} as navigated (session-level)`, 'scrolling/internalNav');
       }
 
       // 🚀 iOS Safari fix: Resolve navigation Promise so callers know we're truly done

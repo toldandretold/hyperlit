@@ -22,7 +22,7 @@ vi.mock('../../../resources/js/hyperlitContainer/core.js', () => ({
 vi.mock('../../../resources/js/indexedDB/index', () => ({ openDatabase: vi.fn() }));
 vi.mock('../../../resources/js/hyperlitContainer/stack.js', () => ({ getCurrentContainer: vi.fn() }));
 
-import { deriveMainAnchorId } from '../../../resources/js/hyperlitContainer/history';
+import { deriveMainAnchorId, pickAnchorId } from '../../../resources/js/hyperlitContainer/history';
 
 const meta = (...contentTypes) => ({ contentTypes });
 
@@ -64,5 +64,59 @@ describe('deriveMainAnchorId', () => {
     expect(deriveMainAnchorId({})).toBeNull();
     expect(deriveMainAnchorId({ contentTypes: [] })).toBeNull();
     expect(deriveMainAnchorId(meta({ type: 'hypercite' }))).toBeNull(); // no hyperciteId
+  });
+
+  it('prefers the stored anchorId over the legacy contentTypes derivation', () => {
+    // A layer written by the current open path carries anchorId — it wins outright, even when
+    // the legacy fallback would have produced a (wrong) value.
+    expect(deriveMainAnchorId({
+      anchorId: 'hypercite_clicked',
+      contentTypes: [
+        { type: 'hypercite-citation', targetHyperciteId: 'hypercite_other_book' },
+        { type: 'highlight', highlightIds: ['HL_wrap'] },
+      ],
+    })).toBe('hypercite_clicked');
+  });
+});
+
+describe('pickAnchorId', () => {
+  it('the reported bug: hypercite arrow inside a <mark> → the arrow’s OWN id (not the cross-book target)', () => {
+    // [hypercite-citation, highlight]. The citation target lives in another book; we must anchor on
+    // the clicked <a>'s own id so Back scrolls to it, not to a stale/unrelated hash.
+    const id = pickAnchorId([
+      { type: 'hypercite-citation', element: { id: 'hypercite_t3vdcf07' }, targetHyperciteId: 'hypercite_bqiczow' },
+      { type: 'highlight', highlightIds: ['HL_1770118611377'] },
+    ]);
+    expect(id).toBe('hypercite_t3vdcf07');
+  });
+
+  it('precise single elements outrank the container they sit in', () => {
+    // footnote sup inside a highlight → the sup
+    expect(pickAnchorId([
+      { type: 'footnote', footnoteId: 'Fn7' },
+      { type: 'highlight', highlightIds: ['HL_x'] },
+    ])).toBe('Fn7');
+    // citation ref inside a highlight → citation_<id>
+    expect(pickAnchorId([
+      { type: 'citation', referenceId: 'ref5' },
+      { type: 'highlight', highlightIds: ['HL_x'] },
+    ])).toBe('citation_ref5');
+  });
+
+  it('hypercite SOURCE outranks a hyperlight, hyperlight is the last resort', () => {
+    expect(pickAnchorId([
+      { type: 'hypercite', hyperciteId: 'hypercite_src' },
+      { type: 'highlight', highlightIds: ['HL_x'] },
+    ])).toBe('hypercite_src');
+    expect(pickAnchorId([
+      { type: 'highlight', highlightIds: ['HL_only'] },
+    ])).toBe('HL_only');
+  });
+
+  it('null/empty inputs and a hypercite-citation with no resolvable own id', () => {
+    expect(pickAnchorId(null)).toBeNull();
+    expect(pickAnchorId([])).toBeNull();
+    // arrow with no own id and nothing else in-book to anchor on
+    expect(pickAnchorId([{ type: 'hypercite-citation', element: {}, targetHyperciteId: 'hypercite_x' }])).toBeNull();
   });
 });
