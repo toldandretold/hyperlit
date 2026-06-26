@@ -37,6 +37,31 @@ describe('createAndInsertParagraph', () => {
     expect(newP.querySelector('br')).not.toBeNull();  // empty content → <br>
     expect(queueNodeForSave).toHaveBeenCalledWith('1.1', 'add');
   });
+
+  it('MOVES highlight nodes into the new <p> (does not clone) so listeners survive a paragraph split', () => {
+    const chunk = document.createElement('div'); chunk.className = 'chunk';
+    const p1 = document.createElement('p'); p1.id = '1';
+    chunk.appendChild(p1); document.body.appendChild(chunk);
+
+    // A <mark> with a real click listener, as it exists in the live editor.
+    const mark = document.createElement('mark');
+    mark.className = 'HL_123 user-highlight';
+    mark.dataset.listenerAttached = 'true';
+    mark.textContent = 'highlighted';
+    const clicks = [];
+    mark.addEventListener('click', () => clicks.push(1));
+
+    // Content fragment as produced by Range.extractContents() during the split.
+    const content = document.createDocumentFragment();
+    content.appendChild(mark);
+
+    const newP = createAndInsertParagraph(p1, chunk, content, null);
+
+    const movedMark = newP.querySelector('mark');
+    expect(movedMark).toBe(mark);            // same node — moved, not cloned
+    movedMark.dispatchEvent(new Event('click'));
+    expect(clicks).toEqual([1]);             // listener preserved → still clickable
+  });
 });
 
 describe('moveCaretTo', () => {

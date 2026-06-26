@@ -119,13 +119,21 @@ export function createAndInsertParagraph(blockElement: HTMLElement, chunkContain
       ? Array.from(content.childNodes)
       : [content];
 
+    // MOVE the extracted nodes into the new paragraph — do NOT clone them.
+    // cloneNode(true) copies a <mark>/<u> highlight's attributes (including the
+    // data-listener-attached / data-hypercite-listener guard flags) but NOT its
+    // event listeners, leaving a highlight that LOOKS wired up yet is unclickable.
+    // These nodes came from extractContents() and are referenced nowhere else, so
+    // moving them is safe and preserves their real click/hover listeners.
     nodes.forEach((node: any) => {
       if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'P') {
+        // Unwrap a nested <p> (extractContents clones the partially-selected
+        // source paragraph) by moving its children, not the wrapper.
         Array.from(node.childNodes).forEach((child: any) => {
-          newParagraph.appendChild(child.cloneNode(true));
+          newParagraph.appendChild(child);
         });
       } else {
-        newParagraph.appendChild(node.cloneNode(true));
+        newParagraph.appendChild(node);
       }
     });
   } else {

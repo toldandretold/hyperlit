@@ -91,6 +91,26 @@ p[data-original-line="1"] {
   /* other styles here */
 }
 
+
+/* While editing, keep line breaks stable and stop re-hyphenation so text
+   above/left of the caret doesn't reflow on every keystroke. Without this the
+   browser re-decides where each line wraps (and whether to hyphenate the word
+   at a line edge) on every input, making a word hop between the line above and
+   below and shoving surrounding content around. text-wrap/hyphens both inherit,
+   so setting them on the contenteditable container cascades to its p/li/ol/a.
+   Scoped to contenteditable="true" only — the reading view keeps hyphens: auto
+   for tighter justification. text-wrap: stable degrades gracefully (unknown
+   value ignored) on browsers that don't support it. */
+.main-content[contenteditable="true"],
+.sub-book-content[contenteditable="true"],
+.footnote-text[contenteditable="true"],
+.annotation[contenteditable="true"],
+.brain-query-annotation[contenteditable="true"],
+blockquote.highlight-text[contenteditable="true"] {
+    text-wrap: stable;   /* lines before the edit point don't re-wrap */
+    hyphens: none;       /* no per-keystroke hyphenate/unhyphenate at line edges */
+}
+
 /* ============================================================================
    HYPERCITE UNDERLINES
    Opacity is driven by --hypercite-intensity: resting fallbacks live in the theme

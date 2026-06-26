@@ -522,10 +522,18 @@ export class ChunkMutationHandler {
 
         for (const node of mutation.removedNodes) {
           if (node.nodeType === Node.ELEMENT_NODE) {
-            // Skip nodes moved by chunk overflow
-            if (node.id && movedNodesByOverflow.has(node.id)) {
-              console.log(`🗑️ Skipping deletion for node ${node.id} as it's handled by chunk overflow.`);
-              movedNodesByOverflow.delete(node.id);
+            // Skip nodes that were MOVED, not deleted. A chunk-overflow move re-attaches the
+            // SAME node object into another chunk, so the removed node is still .isConnected
+            // when this (async, RAF-batched) observer callback runs. The legacy
+            // movedNodesByOverflow / chunkOverflowInProgress guards are torn down in
+            // handleChunkOverflow's finally on a fixed 100ms timer and can already be gone
+            // before the removal mutation is delivered → a move misread as a user delete →
+            // spurious server delete + integrity self-heal round-trip. DOM presence
+            // (isConnected) is the timing-independent source of truth; a genuinely deleted
+            // node is detached, a moved one is not.
+            if (node.id && (movedNodesByOverflow.has(node.id) || node.isConnected)) {
+              console.log(`🗑️ Skipping deletion for node ${node.id} — moved/still-connected, not deleted.`);
+              if (movedNodesByOverflow.has(node.id)) movedNodesByOverflow.delete(node.id);
               continue;
             }
 

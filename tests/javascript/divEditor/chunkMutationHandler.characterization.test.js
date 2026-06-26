@@ -207,3 +207,36 @@ describe('processChunkMutations — high-traffic paths', () => {
     expect(handler.removedNodeIds.has('5')).toBe(true);
   });
 });
+
+// A chunk-overflow MOVE removes the node from its old chunk and re-attaches the SAME object
+// in another chunk. The MutationObserver delivers that removal asynchronously — possibly
+// after handleChunkOverflow's finally has torn down movedNodesByOverflow / the overflow flag
+// — so a move could be misread as a user delete (spurious server delete → integrity
+// self-heal round-trip). A moved node is still .isConnected; a deleted one is detached.
+describe('processChunkMutations — move vs delete (isConnected guard)', () => {
+  it('does NOT queue a deletion for a removed node that is still connected (moved)', async () => {
+    const chunk = makeChunk('');
+    // Simulate the move: the "removed from old chunk" node is now re-attached elsewhere in
+    // the live DOM, so node.isConnected === true at observer-process time.
+    const movedP = document.createElement('p'); movedP.id = '60000'; movedP.textContent = 'moved';
+    const otherChunk = document.createElement('div');
+    otherChunk.className = 'chunk';
+    otherChunk.setAttribute('data-chunk-id', 'c2');
+    chunk.parentElement.appendChild(otherChunk);
+    otherChunk.appendChild(movedP); // re-attached → connected
+
+    await handler.processChunkMutations(chunk, [childList(chunk, { removed: [movedP] })], 'bookA');
+
+    expect(saveQueue.queueDeletion).not.toHaveBeenCalled();
+    expect(handler.removedNodeIds.has('60000')).toBe(false);
+  });
+
+  it('still queues a deletion for a removed node that is detached (real delete)', async () => {
+    const chunk = makeChunk('');
+    const delP = document.createElement('p'); delP.id = '7'; delP.textContent = 'gone';
+    // never attached anywhere → isConnected === false
+    await handler.processChunkMutations(chunk, [childList(chunk, { removed: [delP] })], 'bookA');
+    expect(saveQueue.queueDeletion).toHaveBeenCalledWith('7', delP, 'bookA');
+    expect(handler.removedNodeIds.has('7')).toBe(true);
+  });
+});

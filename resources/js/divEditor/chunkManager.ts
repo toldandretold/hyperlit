@@ -30,6 +30,23 @@ function countNumericalNodes(container: HTMLElement): number {
 }
 
 /**
+ * Scroll a node into view only if it's actually off-screen, and do it instantly.
+ *
+ * Chunk overflow fires on every Enter while a chunk is full; the previous
+ * scrollIntoView({behavior:'smooth', block:'center'}) re-centred the viewport each time,
+ * which is both the most visible part of the Enter lag and jarring while typing. A node
+ * that's already within the viewport needs no scroll at all.
+ */
+function scrollNodeIntoViewIfNeeded(node: HTMLElement): void {
+  const rect = node.getBoundingClientRect();
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+  const fullyVisible = rect.top >= 0 && rect.bottom <= viewportHeight;
+  if (!fullyVisible) {
+    node.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+  }
+}
+
+/**
  * Per-chunk NODE COUNTING — overflow detection.
  *
  * The edit-mode MutationObserver watches the whole editable CONTAINER (<main class="main-content">, or a
@@ -314,10 +331,16 @@ export async function handleChunkOverflow(currentChunk: HTMLElement, mutations: 
       html: node.outerHTML
     }));
 
-    // Wait a short time to allow the mutation observer to process the removals
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // NOTE: previously this awaited a flat 100ms "to let the mutation observer process the
+    // removals" before re-creating IDB records. The move (extractContents + insert) is
+    // synchronous — the nodes are already in targetChunk here — so the wait bought nothing for
+    // the HTML re-read below. Its real purpose was the move-vs-delete race: it tried to let the
+    // observer drain the removals while chunkOverflowInProgress was still up. That race is now
+    // handled timing-independently by the isConnected guard in chunkMutationHandler (a moved
+    // node is still connected, so it's never queued for deletion), so the 100ms tax on every
+    // Enter in a full chunk is removed.
 
-    // Now re-create the nodes in IndexedDB with the new chunk_id
+    // Re-create the nodes in IndexedDB with the new chunk_id
     const savePromises: Promise<any>[] = [];
 
     overflowNodeData.forEach(({ id, html }) => {
@@ -391,8 +414,10 @@ export async function handleChunkOverflow(currentChunk: HTMLElement, mutations: 
         newSelection.removeAllRanges();
         newSelection.addRange(newRange);
 
-        // Ensure the node is visible
-        movedNextNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Ensure the node is visible. Use an instant, minimal scroll and skip it entirely
+        // when the node is already on-screen — the old smooth/center scroll re-centred the
+        // page on every overflow rotation and was the biggest visible part of the Enter lag.
+        scrollNodeIntoViewIfNeeded(movedNextNode);
       }
     } else if (activeNodeWillMove) {
       // Standard case: active node was moved
@@ -417,8 +442,8 @@ export async function handleChunkOverflow(currentChunk: HTMLElement, mutations: 
         newSelection.removeAllRanges();
         newSelection.addRange(newRange);
 
-        // Ensure the node is visible
-        movedActiveNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Ensure the node is visible (instant + only when off-screen) — see note above.
+        scrollNodeIntoViewIfNeeded(movedActiveNode);
       }
     }
     // NOTE: the observer is rooted at the editable CONTAINER (main-content / sub-book)
