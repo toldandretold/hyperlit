@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1537,
-    "moduleCount": 319,
+    "fnCount": 1542,
+    "moduleCount": 320,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3146,
+    "edgeCount": 3162,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -7969,6 +7969,14 @@
       "leaf": false
     },
     {
+      "id": "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus",
+      "label": "resolveCitationButtonStatus",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/contentBuilders/displayCitations",
+      "leaf": false
+    },
+    {
       "id": "hyperlitContainer/contentBuilders/displayFootnotes:buildFootnoteContent",
       "label": "buildFootnoteContent",
       "kind": "fn",
@@ -8026,6 +8034,38 @@
       "stage": "hyperlitContainer",
       "module": "hyperlitContainer/contentBuilders/displayHyperlights",
       "leaf": false
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/sourceAccessButton:deletedTrashIcon",
+      "label": "deletedTrashIcon",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/contentBuilders/sourceAccessButton",
+      "leaf": true
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/sourceAccessButton:enableButtonEl",
+      "label": "enableButtonEl",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/contentBuilders/sourceAccessButton",
+      "leaf": false
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/sourceAccessButton:lockButtonEl",
+      "label": "lockButtonEl",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/contentBuilders/sourceAccessButton",
+      "leaf": false
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/sourceAccessButton:privateLockIcon",
+      "label": "privateLockIcon",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/contentBuilders/sourceAccessButton",
+      "leaf": true
     },
     {
       "id": "hyperlitContainer/contentTypes/registry:getHandler",
@@ -16021,7 +16061,8 @@
       "fnIds": [
         "hyperlitContainer/contentBuilders/displayCitations:buildCitationContent",
         "hyperlitContainer/contentBuilders/displayCitations:buildHyperciteCitationContent",
-        "hyperlitContainer/contentBuilders/displayCitations:resolveButtonStatus"
+        "hyperlitContainer/contentBuilders/displayCitations:resolveButtonStatus",
+        "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus"
       ]
     },
     {
@@ -16053,6 +16094,18 @@
       "band": "store",
       "fnIds": [
         "hyperlitContainer/contentBuilders/displayHyperlights:buildHighlightContent"
+      ]
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/sourceAccessButton",
+      "label": "hyperlitContainer/contentBuilders/sourceAccessButton",
+      "stage": "hyperlitContainer",
+      "band": "capture",
+      "fnIds": [
+        "hyperlitContainer/contentBuilders/sourceAccessButton:deletedTrashIcon",
+        "hyperlitContainer/contentBuilders/sourceAccessButton:enableButtonEl",
+        "hyperlitContainer/contentBuilders/sourceAccessButton:lockButtonEl",
+        "hyperlitContainer/contentBuilders/sourceAccessButton:privateLockIcon"
       ]
     },
     {
@@ -24749,6 +24802,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus",
+      "source": "dom",
+      "target": "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
       "source": "dom",
       "target": "hyperlitContainer/contentBuilders/displayHypercites:checkHyperciteExists",
@@ -24770,6 +24829,18 @@
       "id": "dom__domread__hyperlitContainer/contentBuilders/displayHypercites:handleManageCitationsClick",
       "source": "dom",
       "target": "hyperlitContainer/contentBuilders/displayHypercites:handleManageCitationsClick",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hyperlitContainer/contentBuilders/sourceAccessButton:enableButtonEl",
+      "source": "dom",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton:enableButtonEl",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hyperlitContainer/contentBuilders/sourceAccessButton:lockButtonEl",
+      "source": "dom",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton:lockButtonEl",
       "rel": "domread"
     },
     {
@@ -28618,6 +28689,12 @@
       "dataPath": true
     },
     {
+      "id": "hyperlitContainer/contentBuilders/displayCitations:buildCitationContent__call__hyperlitContainer/contentBuilders/sourceAccessButton:deletedTrashIcon",
+      "source": "hyperlitContainer/contentBuilders/displayCitations:buildCitationContent",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton:deletedTrashIcon",
+      "rel": "call"
+    },
+    {
       "id": "hyperlitContainer/contentBuilders/displayCitations:buildCitationContent__call__indexedDB/bibliography/index:resolveBibliographyTarget",
       "source": "hyperlitContainer/contentBuilders/displayCitations:buildCitationContent",
       "target": "indexedDB/bibliography/index:resolveBibliographyTarget",
@@ -28642,6 +28719,18 @@
       "source": "hyperlitContainer/contentBuilders/displayCitations:buildCitationContent",
       "target": "store:library",
       "rel": "write"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations:buildHyperciteCitationContent__call__hyperlitContainer/contentBuilders/sourceAccessButton:deletedTrashIcon",
+      "source": "hyperlitContainer/contentBuilders/displayCitations:buildHyperciteCitationContent",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton:deletedTrashIcon",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations:buildHyperciteCitationContent__call__hyperlitContainer/contentBuilders/sourceAccessButton:privateLockIcon",
+      "source": "hyperlitContainer/contentBuilders/displayCitations:buildHyperciteCitationContent",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton:privateLockIcon",
+      "rel": "call"
     },
     {
       "id": "hyperlitContainer/contentBuilders/displayCitations:buildHyperciteCitationContent__call__hyperlitContainer/utils:fetchLibraryFromServer",
@@ -28671,6 +28760,12 @@
       "rel": "write"
     },
     {
+      "id": "hyperlitContainer/contentBuilders/displayCitations:resolveButtonStatus__call__hyperlitContainer/contentBuilders/sourceAccessButton:enableButtonEl",
+      "source": "hyperlitContainer/contentBuilders/displayCitations:resolveButtonStatus",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton:enableButtonEl",
+      "rel": "call"
+    },
+    {
       "id": "hyperlitContainer/contentBuilders/displayCitations:resolveButtonStatus__call__hyperlitContainer/utils:fetchLibraryFromServer",
       "source": "hyperlitContainer/contentBuilders/displayCitations:resolveButtonStatus",
       "target": "hyperlitContainer/utils:fetchLibraryFromServer",
@@ -28680,6 +28775,43 @@
     {
       "id": "hyperlitContainer/contentBuilders/displayCitations:resolveButtonStatus__domwrite__dom",
       "source": "hyperlitContainer/contentBuilders/displayCitations:resolveButtonStatus",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus__call__hyperlitContainer/contentBuilders/sourceAccessButton:deletedTrashIcon",
+      "source": "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton:deletedTrashIcon",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus__call__hyperlitContainer/contentBuilders/sourceAccessButton:enableButtonEl",
+      "source": "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton:enableButtonEl",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus__call__hyperlitContainer/contentBuilders/sourceAccessButton:lockButtonEl",
+      "source": "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton:lockButtonEl",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus__call__hyperlitContainer/contentBuilders/sourceAccessButton:privateLockIcon",
+      "source": "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton:privateLockIcon",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus__call__hyperlitContainer/utils:fetchLibraryFromServer",
+      "source": "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus",
+      "target": "hyperlitContainer/utils:fetchLibraryFromServer",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus__domwrite__dom",
+      "source": "hyperlitContainer/contentBuilders/displayCitations:resolveCitationButtonStatus",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -28712,6 +28844,12 @@
       "id": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent__call__components/toast/toast:showTargetNotFoundToast",
       "source": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent",
       "target": "components/toast/toast:showTargetNotFoundToast",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent__call__hyperlitContainer/contentBuilders/sourceAccessButton:privateLockIcon",
+      "source": "hyperlitContainer/contentBuilders/displayHypercites:buildHyperciteContent",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton:privateLockIcon",
       "rel": "call"
     },
     {
@@ -28831,6 +28969,18 @@
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/sourceAccessButton:enableButtonEl__domwrite__dom",
+      "source": "hyperlitContainer/contentBuilders/sourceAccessButton:enableButtonEl",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/sourceAccessButton:lockButtonEl__domwrite__dom",
+      "source": "hyperlitContainer/contentBuilders/sourceAccessButton:lockButtonEl",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "hyperlitContainer/core:closeHyperlitContainer__call__footnotes/footnoteAnnotations:cleanupFootnoteListeners",
@@ -40329,6 +40479,11 @@
     },
     {
       "source": "hyperlitContainer/contentBuilders/displayCitations",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/contentBuilders/displayCitations",
       "target": "indexedDB/bibliography/index",
       "kind": "static"
     },
@@ -40360,6 +40515,11 @@
     {
       "source": "hyperlitContainer/contentBuilders/displayHypercites",
       "target": "components/toast/toast",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/contentBuilders/displayHypercites",
+      "target": "hyperlitContainer/contentBuilders/sourceAccessButton",
       "kind": "static"
     },
     {

@@ -15,8 +15,9 @@ import { getCurrentContainer } from './stack';
 
 // Per-type post-open runs in this FIXED order (NOT priority order): the shared
 // subBookEditor latch means whichever type attaches the divEditor first wins, and the
-// historical behaviour is highlight-before-footnote. citation/hypercite have no postOpen.
-const POST_OPEN_ORDER = ['highlight', 'footnote', 'hypercite-citation'];
+// historical behaviour is highlight-before-footnote. 'citation' resolves its "Open source"
+// button's locked/enabled state post-open (visibility unknown at build for external books).
+const POST_OPEN_ORDER = ['highlight', 'footnote', 'hypercite-citation', 'citation'];
 
 export async function handlePostOpenActions(contentTypes: any, newHighlightIds: any = [], focusPreserver: any = null, isNewFootnote: any = false, hasAnyEditPermission: any = false, skipAutoFocus: any = false, db: any = null, options: any = {}) {
   const editModeEnabled = getHyperlitEditMode();

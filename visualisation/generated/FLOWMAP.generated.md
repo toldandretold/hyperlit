@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1537 functions in 319 modules · 10 object stores · 10 PG tables · 3146 edges
+**MarkdownDB** schema v27 · 1542 functions in 320 modules · 10 object stores · 10 PG tables · 3162 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -863,6 +863,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `buildCitationContent` | `hyperlitContainer/contentBuilders/displayCitations` | `bibliography` `library` | `bibliography` `library` | — | — |
 | `buildHyperciteCitationContent` | `hyperlitContainer/contentBuilders/displayCitations` | `library` | `library` | — | — |
 | `resolveButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations` | — | — | read/write | — |
+| `resolveCitationButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations` | — | — | read/write | — |
 | `buildFootnoteContent` | `hyperlitContainer/contentBuilders/displayFootnotes` | — | — | — | — |
 | `buildHyperciteContent` | `hyperlitContainer/contentBuilders/displayHypercites` | `hypercites` `library` | — | — | — |
 | `checkHyperciteExists` | `hyperlitContainer/contentBuilders/displayHypercites` | `footnotes` `hyperlights` `library` `nodes` | `nodes` | read | `↓route:/api/database-to-indexeddb/books/{}/data` |
@@ -870,6 +871,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleHyperciteHealthCheck` | `hyperlitContainer/contentBuilders/displayHypercites` | — | — | read/write | — |
 | `handleManageCitationsClick` | `hyperlitContainer/contentBuilders/displayHypercites` | — | — | read/write | — |
 | `buildHighlightContent` | `hyperlitContainer/contentBuilders/displayHyperlights` | `hyperlights` `nodes` | — | — | — |
+| `deletedTrashIcon` | `hyperlitContainer/contentBuilders/sourceAccessButton` | — | — | — | — |
+| `enableButtonEl` | `hyperlitContainer/contentBuilders/sourceAccessButton` | — | — | read/write | — |
+| `lockButtonEl` | `hyperlitContainer/contentBuilders/sourceAccessButton` | — | — | read/write | — |
+| `privateLockIcon` | `hyperlitContainer/contentBuilders/sourceAccessButton` | — | — | — | — |
 | `getHandler` | `hyperlitContainer/contentTypes/registry` | — | — | — | — |
 | `priorityOf` | `hyperlitContainer/contentTypes/registry` | — | — | — | — |
 | `animateHyperlitContainerOpen` | `hyperlitContainer/core` | — | — | read | — |

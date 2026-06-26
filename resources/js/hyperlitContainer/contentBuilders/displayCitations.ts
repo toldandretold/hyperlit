@@ -9,6 +9,7 @@ import { resolveBibliographyTarget } from '../../indexedDB/bibliography/index';
 import type { BibliographyRecord } from '../../indexedDB/types';
 import { formatBibtexToCitation } from "../../utilities/bibtexProcessor";
 import { getHyperciteFromIndexedDB } from '../../indexedDB/hypercites/index';
+import { privateLockIcon, deletedTrashIcon, MUTED_BTN_STYLE, BTN_SPINNER_HTML, lockButtonEl, enableButtonEl } from './sourceAccessButton';
 
 /**
  * Build an ancestor chain for a sub-book ID (innermost parent first).
@@ -128,6 +129,7 @@ export async function buildCitationContent(contentType: any, db: any = null) {
 
         let displayContent = result.content;
         let navigationLink = '';
+        let leadingIcon = ''; // lock/trash shown next to the citation text (like hypercites)
         if (canonicalResolvedBook) {
           // Server's bestVersion endpoint already enforced visibility — straight link.
           const targetUrl = `/${encodeURIComponent(canonicalResolvedBook)}`;
@@ -148,7 +150,11 @@ export async function buildCitationContent(contentType: any, db: any = null) {
             displayContent = linkTitleInCitation(displayContent, citationCardMetadata.title, oaHref);
           }
         } else if (result.source_id && sourceHasNodes) {
-          // Fetch the library entry to check visibility
+          // Read the library entry from LOCAL IDB only — a cited external book's library
+          // row is never synced into this user's IDB, so it's commonly absent. The real
+          // visibility/access decision is deferred to resolveCitationButtonStatus() post-open
+          // so we never await fetch()/canUserEditBook() inside this reused transaction
+          // (awaiting there would commit it and break later refIds' reads).
           const libraryStore = transaction.objectStore('library');
           const libraryRecord: any = await new Promise((resolve: any) => {
             const request = libraryStore.get(result.source_id);
@@ -156,37 +162,40 @@ export async function buildCitationContent(contentType: any, db: any = null) {
             request.onerror = () => resolve(null);
           });
 
-          // Check access for private books
-          let hasAccess = true;
-          const isPrivate = libraryRecord && libraryRecord.visibility === 'private';
           const isDeleted = libraryRecord && libraryRecord.visibility === 'deleted';
-
-          if (isPrivate) {
-            const { canUserEditBook }: any = await import('../../utilities/auth/index');
-            hasAccess = await canUserEditBook(result.source_id);
-          }
-
-          // Configure button based on access
-          let buttonText = 'Open source';
-          let buttonStyle = 'display: inline-flex; align-items: center; gap: 0.5em; padding: 0.5em 1em; background: var(--hyperlit-aqua, #4EACAE); color: var(--hyperlit-black, #221F20); text-decoration: none; border-radius: 4px;';
-          let buttonAttrs = '';
-
-          if (isDeleted) {
-            buttonText = 'Source deleted';
-            buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
-            buttonAttrs = `data-deleted="true"`;
-          } else if (isPrivate && !hasAccess) {
-            buttonText = 'Source private';
-            buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
-            buttonAttrs = `data-private="true" data-access="denied"`;
-          }
+          const isPrivate = libraryRecord && libraryRecord.visibility === 'private';
+          const isUnknown = !libraryRecord; // external book — visibility resolved post-open
 
           const targetUrl = `/${encodeURIComponent(result.source_id)}`;
+          const baseStyle = 'display: inline-flex; align-items: center; gap: 0.5em; padding: 0.5em 1em; background: var(--hyperlit-aqua, #4EACAE); color: var(--hyperlit-black, #221F20); text-decoration: none; border-radius: 4px;';
+
+          let buttonText = 'Open source';
+          let buttonStyle = baseStyle;
+          let buttonAttrs = '';
+          let buttonSuffix = '';
+
+          if (isDeleted) {
+            // Known deleted — render locked immediately (and now actually click-blocked).
+            // Trash icon goes next to the citation text (leadingIcon), not on the button.
+            buttonText = 'Source deleted';
+            buttonStyle += ' opacity: 0.6; cursor: not-allowed; pointer-events: none;';
+            buttonAttrs = `data-deleted="true"`;
+            leadingIcon = deletedTrashIcon();
+          } else if (isPrivate || isUnknown) {
+            // Private (known) or external (unknown visibility) — mute + spinner now;
+            // resolveCitationButtonStatus() enables (public/accessible) or locks (private,
+            // no access — adding the lock next to the citation text) once visibility +
+            // access are resolved post-open.
+            buttonStyle += MUTED_BTN_STYLE;
+            buttonSuffix = BTN_SPINNER_HTML;
+            buttonAttrs = `data-needs-citation-check="true" data-book-id="${result.source_id}"${isPrivate ? ' data-visibility="private"' : ''}`;
+          }
+          // else: known public — enabled aqua button (default).
 
           navigationLink = `
             <div class="citation-navigation" style="margin-top: 1em;">
               <a href="${targetUrl}" class="citation-source-link" ${buttonAttrs} style="${buttonStyle}">
-                ${buttonText}
+                ${buttonText}${buttonSuffix}
                 <span class="open-icon">↗</span>
               </a>
             </div>`;
@@ -196,7 +205,7 @@ export async function buildCitationContent(contentType: any, db: any = null) {
           <div class="citations-section" data-content-id="${refId}" data-reference-id="${refId}">
             <h3 style="margin-bottom: 0.5em;">Reference</h3>
             <blockquote style="margin: 0; padding: 0.5em 0; font-style: normal;">
-              ${displayContent}
+              ${leadingIcon}${displayContent}
             </blockquote>
             ${navigationLink}
             <hr style="margin: 2em 0; opacity: 0.5;">
@@ -290,9 +299,9 @@ export async function buildHyperciteCitationContent(contentType: any, db: any = 
     // Add lock icon if private, trash icon if deleted
     let statusIcon = '';
     if (isDeleted) {
-      statusIcon = '<svg class="deleted-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: text-bottom; margin-right: 4px;"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+      statusIcon = deletedTrashIcon();
     } else if (isPrivate) {
-      statusIcon = '<svg class="private-lock-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: text-bottom; margin-right: 4px; transition: transform 0.2s ease;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
+      statusIcon = privateLockIcon();
     }
 
     // Ghost status is communicated via the button text — no separate section needed
@@ -337,16 +346,16 @@ export async function buildHyperciteCitationContent(contentType: any, db: any = 
     } else if (isGhost && isPrivate) {
       // Ghost in private book — need access check to decide if user can navigate
       buttonText = 'View ghost in source';
-      buttonStyle += ' opacity: 0.5; pointer-events: none;';
+      buttonStyle += MUTED_BTN_STYLE;
       buttonAttrs = `data-private="true" data-ghost="true" data-book-id="${targetBook}" data-needs-access-check="true"`;
-      buttonSuffix = ' <span class="btn-spinner"></span>';
+      buttonSuffix = BTN_SPINNER_HTML;
     } else if (isGhost) {
       buttonText = 'View ghost in source';
     } else if (isPrivate) {
       // Muted state with spinner — resolved post-open by resolveButtonStatus()
-      buttonStyle += ' opacity: 0.5; pointer-events: none;';
+      buttonStyle += MUTED_BTN_STYLE;
       buttonAttrs = `data-private="true" data-book-id="${targetBook}" data-needs-access-check="true"`;
-      buttonSuffix = ' <span class="btn-spinner"></span>';
+      buttonSuffix = BTN_SPINNER_HTML;
     }
 
     // Build dead banner (if applicable)
@@ -418,9 +427,7 @@ export async function resolveButtonStatus(contentType: any, db: any, container: 
 
       if (hasAccess) {
         // Enable button — user can navigate to source
-        accessCheckBtn.style.opacity = '';
-        accessCheckBtn.style.pointerEvents = '';
-        if (spinner) spinner.remove();
+        enableButtonEl(accessCheckBtn);
       } else {
         // Update to private denied state
         accessCheckBtn.style.opacity = '0.6';
@@ -455,5 +462,76 @@ export async function resolveButtonStatus(contentType: any, db: any, container: 
 
   } catch (error) {
     console.warn('resolveButtonStatus error:', error);
+  }
+}
+
+/**
+ * Place the lock/trash icon next to the citation text (mirrors the hypercite statusIcon),
+ * NOT on the button. Idempotent — won't double-insert if the resolver runs twice.
+ */
+function insertCitationLockIcon(btn: any, iconHtml: string) {
+  const section = btn?.closest?.('.citations-section');
+  if (!section || section.querySelector('.private-lock-icon, .deleted-icon')) return;
+  const blockquote = section.querySelector('blockquote');
+  if (blockquote) blockquote.insertAdjacentHTML('afterbegin', iconHtml);
+}
+
+/**
+ * Post-open resolution for plain citation "Open source" buttons.
+ * Called from citationHandler.postOpen after the container is visible.
+ *
+ * Build-time can't know an external cited book's visibility (its library row isn't in
+ * local IDB), so private + unknown sources render muted with a spinner and
+ * `data-needs-citation-check`. Here we resolve the real state off the server:
+ *  - deleted  → lock with trash icon ("Source deleted")
+ *  - private  → canUserEditBook → enable (has access) or lock with red lock ("Source private")
+ *  - public   → enable (openable by anyone)
+ * Operates purely off DOM attributes, so it doesn't depend on the contentType shape.
+ */
+export async function resolveCitationButtonStatus(_contentType: any, _db: any, container: any = null) {
+  try {
+    const root = container
+      || document.querySelector('#hyperlit-container.open, .hyperlit-container-stacked.open');
+    if (!root || !document.body.contains(root)) return;
+
+    const btns = root.querySelectorAll('.citation-source-link[data-needs-citation-check="true"]');
+    if (btns.length === 0) return;
+
+    const { fetchLibraryFromServer }: any = await import('../utils.js');
+    const { canUserEditBook }: any = await import('../../utilities/auth/index');
+
+    for (const btn of btns) {
+      const bookId = btn.getAttribute('data-book-id');
+      btn.removeAttribute('data-needs-citation-check');
+
+      let visibility = btn.getAttribute('data-visibility'); // 'private' hint, or null when unknown
+      if (!visibility && bookId) {
+        try {
+          const record: any = await fetchLibraryFromServer(bookId);
+          visibility = record?.visibility || 'public';
+        } catch (e) {
+          // Couldn't determine visibility — leave the button enabled rather than guess locked.
+          visibility = 'public';
+        }
+      }
+
+      if (visibility === 'deleted') {
+        lockButtonEl(btn, 'Source deleted');
+        insertCitationLockIcon(btn, deletedTrashIcon());
+      } else if (visibility === 'private') {
+        const hasAccess: any = bookId ? await canUserEditBook(bookId) : false;
+        if (hasAccess) {
+          enableButtonEl(btn);
+        } else {
+          lockButtonEl(btn, 'Source private');
+          insertCitationLockIcon(btn, privateLockIcon());
+        }
+      } else {
+        // Public — openable by anyone.
+        enableButtonEl(btn);
+      }
+    }
+  } catch (error) {
+    console.warn('resolveCitationButtonStatus error:', error);
   }
 }

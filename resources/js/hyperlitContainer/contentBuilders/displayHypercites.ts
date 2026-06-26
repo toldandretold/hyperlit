@@ -12,6 +12,7 @@ import { canUserEditBook } from "../../utilities/auth/index";
 import DOMPurify from 'dompurify';
 import { buildSubBookId, parseSubBookId } from '../../utilities/subBookIdHelper';
 import { showTargetNotFoundToast } from '../../components/toast/toast';
+import { privateLockIcon } from './sourceAccessButton';
 
 /**
  * Build the full-data API URL, handling sub-book IDs with slashes.
@@ -320,9 +321,7 @@ export async function buildHyperciteContent(contentType: any, db: any = null) {
 
             // Check if the book is private and add lock icon
             const isPrivate = libraryData.visibility === 'private';
-            const lockIcon = isPrivate
-              ? '<svg class="private-lock-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: text-bottom; margin-left: -20px; margin-right: 4px; transition: transform 0.2s ease;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>'
-              : '';
+            const lockIcon = isPrivate ? privateLockIcon('margin-left: -20px;') : '';
 
             const citationText = (isHyperlightURL && isFootnoteURL)
               ? `${lockIcon}a <span id="citedInHyperlight">Hyperlight</span> within a <span id="citedInFootnote">Footnote</span> within ${formattedCitation}`
