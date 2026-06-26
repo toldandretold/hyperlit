@@ -65,6 +65,18 @@ export class NewBookTransition {
       // Replace the entire body content (home → reader transition)
       await this.replaceBodyContent(readerHtml, bookId);
 
+      // Update the URL to the new book NOW — BEFORE initializeReader() runs.
+      // When this pathway is entered from a reader where a hypercite was open, the
+      // browser URL still carries the PREVIOUS book's `#hypercite_…` hash (hypercite
+      // clicks keep the hash in the URL by design — see scrolling/clearStaleHash.ts).
+      // initializeReader() → universalPageInitializer() calls restoreScrollPosition(),
+      // which reads window.location.hash and chases that stale target into the brand-new
+      // empty book (the doomed NavigationCompletionBarrier on `hypercite_…`). Pushing the
+      // clean new-book URL here clears the hash before scroll-restore can act on it, while
+      // `pushState` (not replaceState) preserves the previous book's entry+hash so Back
+      // still returns to the hypercite. From home/user there is no hash → this is a no-op.
+      this.updateUrl(bookId, shouldEnterEditMode);
+
       // Set orange indicator now that DOM elements exist (moved from before body replacement)
       await this.ensureOrangeIndicator();
       
@@ -92,9 +104,10 @@ export class NewBookTransition {
       if (shouldEnterEditMode) {
         await this.enterEditMode();
       }
-      
-      // Update the URL
-      this.updateUrl(bookId, shouldEnterEditMode);
+
+      // NOTE: URL already updated earlier (before initializeReader) so that the new
+      // book's clean URL — without any inherited reader hash — is in place before
+      // restoreScrollPosition() reads window.location.hash.
 
       progress(100, 'Complete!');
 
