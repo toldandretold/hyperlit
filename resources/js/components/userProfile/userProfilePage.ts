@@ -221,8 +221,24 @@ async function handleDeleteBook(bookId: any, target: any) {
     if (libraryCard) libraryCard.remove();
 
     // Delete from IndexedDB
-    const { deleteBookFromIndexedDB } = await import('../../indexedDB/index');
+    const { deleteBookFromIndexedDB, deleteNodesByNodeIds } = await import('../../indexedDB/index');
     await deleteBookFromIndexedDB(bookId);
+
+    // Also evict the deleted book's library-card node from the local home books. The card lives in
+    // the home book (`<home>_<book>_card`), not in `bookId` itself, so deleteBookFromIndexedDB
+    // doesn't touch it. Without this the user page re-paints the card on the next visit from the
+    // cached home book (an optimistic render that runs before the freshness pull replaces it),
+    // mirroring what BookDeletionService removes server-side. window.allBook = `<sanitized>All`.
+    try {
+      const allHome = (window as any).allBook as string | undefined;
+      if (allHome) {
+        const base = allHome.replace(/All$/, '');
+        const cardNodeIds = [base, base + 'Private', allHome].map(h => `${h}_${bookId}_card`);
+        await deleteNodesByNodeIds(cardNodeIds);
+      }
+    } catch (e) {
+      console.warn('Failed to evict home-book card node from IndexedDB:', e);
+    }
 
     // Send delete request to server
     try {

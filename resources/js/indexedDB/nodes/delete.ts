@@ -29,6 +29,36 @@ export function initNodeDeleteDependencies(deps: DeleteDeps): void {
 }
 
 /**
+ * Delete nodes from the `nodes` store by their `node_id` (the stable PG id), across whatever book
+ * they live in. Lightweight: no association/history/sync handling — used to evict stale, locally
+ * cached nodes whose authoritative deletion already happened on the server (e.g. a home-book
+ * library-card node `<home>_<book>_card` after the book it represents was deleted). Without this
+ * the user page can paint the deleted card again from the cached home book before the freshness
+ * pull replaces it. Returns the number of records deleted.
+ */
+export async function deleteNodesByNodeIds(nodeIds: string[]): Promise<number> {
+  const ids = (nodeIds || []).filter(Boolean);
+  if (!ids.length) return 0;
+
+  const db = await openDatabase();
+  return new Promise<number>((resolve) => {
+    const tx = db.transaction(['nodes'], 'readwrite');
+    const index = tx.objectStore('nodes').index('node_id');
+    let deleted = 0;
+    for (const nid of ids) {
+      const req = index.openCursor(IDBKeyRange.only(nid));
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (cursor) { cursor.delete(); deleted++; cursor.continue(); }
+      };
+    }
+    tx.oncomplete = () => resolve(deleted);
+    tx.onerror = () => resolve(deleted);
+    tx.onabort = () => resolve(deleted);
+  });
+}
+
+/**
  * Delete a single IndexedDB record and all its associations
  * Deletes the node plus all associated hyperlights and hypercites
  *

@@ -160,6 +160,25 @@ class BookDeletionService
 
             $db->commit();
 
+            // Bust the file-based BookCache for the deleted book AND the creator's home books.
+            // /initial + /data/batch serve from BookCache; we just updated the home-book NODES
+            // (removed the deleted book's card) but WITHOUT invalidating the cache those endpoints
+            // kept serving the stale chunk that still contained the card — so the card reappeared
+            // on the user page after navigating away and back. The create/update path busts the
+            // cache implicitly via regeneration; on delete the home timestamp is bumped PAST all
+            // real books so regeneration never runs, hence this explicit invalidation. Best-effort.
+            try {
+                $cache = app(\App\Services\BookCache::class);
+                $cache->invalidate($bookId);
+                if ($bookCreator) {
+                    foreach ([$publicHome, $privateHome, $allHome] as $homeBook) {
+                        $cache->invalidate($homeBook);
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning('BookDeletionService: BookCache invalidate failed', ['book' => $bookId, 'error' => $e->getMessage()]);
+            }
+
             // Bump annotation timestamps for citing books (outside transaction)
             if (!empty($deadResult['citing_books'])) {
                 $now = round(microtime(true) * 1000);

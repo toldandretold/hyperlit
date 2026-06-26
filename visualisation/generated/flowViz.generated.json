@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1526,
+    "fnCount": 1527,
     "moduleCount": 318,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3126,
+    "edgeCount": 3130,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -9258,6 +9258,14 @@
       ]
     },
     {
+      "id": "indexedDB/nodes/delete:deleteNodesByNodeIds",
+      "label": "deleteNodesByNodeIds",
+      "kind": "fn",
+      "stage": "capture",
+      "module": "indexedDB/nodes/delete",
+      "leaf": false
+    },
+    {
       "id": "indexedDB/nodes/delete:initNodeDeleteDependencies",
       "label": "initNodeDeleteDependencies",
       "kind": "fn",
@@ -16402,6 +16410,7 @@
       "band": "capture",
       "fnIds": [
         "indexedDB/nodes/delete:deleteIndexedDBRecord",
+        "indexedDB/nodes/delete:deleteNodesByNodeIds",
         "indexedDB/nodes/delete:initNodeDeleteDependencies"
       ]
     },
@@ -21320,6 +21329,13 @@
       "id": "components/userProfile/userProfilePage:initializeUserProfilePage__call__components/shelves/shelfPreview:showShelfPreview",
       "source": "components/userProfile/userProfilePage:initializeUserProfilePage",
       "target": "components/shelves/shelfPreview:showShelfPreview",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userProfile/userProfilePage:initializeUserProfilePage__call__indexedDB/nodes/delete:deleteNodesByNodeIds",
+      "source": "components/userProfile/userProfilePage:initializeUserProfilePage",
+      "target": "indexedDB/nodes/delete:deleteNodesByNodeIds",
       "rel": "call",
       "dataPath": true
     },
@@ -30919,6 +30935,19 @@
       "rel": "write"
     },
     {
+      "id": "indexedDB/nodes/delete:deleteNodesByNodeIds__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/nodes/delete:deleteNodesByNodeIds",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/nodes/delete:deleteNodesByNodeIds__write__store:nodes",
+      "source": "indexedDB/nodes/delete:deleteNodesByNodeIds",
+      "target": "store:nodes",
+      "rel": "write"
+    },
+    {
       "id": "indexedDB/nodes/normalize:updateIndexedDBRecordForNormalization__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/normalize:updateIndexedDBRecordForNormalization",
       "target": "indexedDB/core/connection:openDatabase",
@@ -37156,6 +37185,12 @@
       "id": "store:nodes__read__indexedDB/nodes/delete:deleteIndexedDBRecord",
       "source": "store:nodes",
       "target": "indexedDB/nodes/delete:deleteIndexedDBRecord",
+      "rel": "read"
+    },
+    {
+      "id": "store:nodes__read__indexedDB/nodes/delete:deleteNodesByNodeIds",
+      "source": "store:nodes",
+      "target": "indexedDB/nodes/delete:deleteNodesByNodeIds",
       "rel": "read"
     },
     {

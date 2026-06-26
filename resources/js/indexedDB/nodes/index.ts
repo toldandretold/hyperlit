@@ -33,6 +33,7 @@ export {
 // Delete operations
 export {
   deleteIndexedDBRecord,
+  deleteNodesByNodeIds,
   initNodeDeleteDependencies,
 } from './delete';
 
