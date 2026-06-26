@@ -29,6 +29,8 @@ import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState';
 import { selectNextChunkId, selectPrevChunkId } from './utilities/chunkSelection';
 import { trimWindow } from './utilities/windowChunks';
 import { restoreScrollAnchor } from '../utilities/scrollAnchor';
+// Zero-import leaf — dormant scroll-write tracer (flag-gated, see scrolling/scrollTrace).
+import { installScrollTrace } from '../scrolling/scrollTrace';
 import {
   createChunkElement,
   ensureNoDeleteMarkerForBook,
@@ -230,20 +232,13 @@ export function createLazyLoader(config: any) {
           // Continue anyway - let the container handle it
         }
 
-        // Check if hypercite link is inside a highlight mark
-        let parentMark = link.closest('mark') || event.target.closest('mark');
-        if (!parentMark && link.previousElementSibling?.tagName === 'MARK') {
-          parentMark = link.previousElementSibling;
-        }
-        let highlightIds: any = null;
-        if (parentMark) {
-          const hlClasses = Array.from(parentMark.classList).filter((cls: any) => cls.startsWith('HL_'));
-          if (hlClasses.length > 0) highlightIds = hlClasses;
-        }
-
-        // Import and call unified container handler
+        // Open the unified container. Pass the clicked link itself — detection
+        // (hyperlitContainer/detection) surfaces exactly what OVERLAPS it: a highlight only when
+        // the link is genuinely INSIDE a <mark> (detectHighlights → element.closest('mark')),
+        // overlapping hypercites via data-overlapping, etc. A link that merely follows a
+        // highlight in the same paragraph must NOT inherit it.
         const { handleUnifiedContentClick }: any = await import('../hyperlitContainer/index');
-        await handleUnifiedContentClick(link, highlightIds);
+        await handleUnifiedContentClick(link);
         return;
       }
     } catch (error) {
@@ -385,6 +380,12 @@ export function createLazyLoader(config: any) {
   instance._scrollSaveHandler = throttle(instance.saveScrollPosition, 250);
   instance._scrollSaveTarget = instance.scrollableParent === window ? window : instance.scrollableParent;
   instance._scrollSaveTarget.addEventListener("scroll", instance._scrollSaveHandler, { passive: true });
+
+  // Dormant diagnostic: when the hyperlit_scroll_trace flag is set, make every programmatic
+  // scroll-write to this reader container attributable (no-op + uninstalled otherwise).
+  if (instance.scrollableParent && instance.scrollableParent !== window) {
+    installScrollTrace(instance.scrollableParent);
+  }
 
   // Save reading position to server on page unload (cross-device resume)
   instance._beforeUnloadHandler = () => {

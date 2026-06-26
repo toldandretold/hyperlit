@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1530 functions in 318 modules · 10 object stores · 10 PG tables · 3130 edges
+**MarkdownDB** schema v27 · 1536 functions in 319 modules · 10 object stores · 10 PG tables · 3145 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1296,6 +1296,12 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `scrollElementIntoMainContent` | `scrolling/scrollHelpers` | — | — | read | — |
 | `scrollElementWithConsistentMethod` | `scrolling/scrollHelpers` | — | — | read | — |
 | `waitForElementAndScroll` | `scrolling/scrollHelpers` | — | — | read | — |
+| `dumpScrollTrace` | `scrolling/scrollTrace` | — | — | — | — |
+| `installScrollTrace` | `scrolling/scrollTrace` | — | — | — | — |
+| `nextScrollReason` | `scrolling/scrollTrace` | — | — | — | — |
+| `recordNavDecision` | `scrolling/scrollTrace` | — | — | — | — |
+| `recordScrollWrite` | `scrolling/scrollTrace` | — | — | — | — |
+| `scrollTraceEnabled` | `scrolling/scrollTrace` | `localStorage` | — | — | — |
 | `destroySelectionAutoScroll` | `scrolling/selectionAutoScroll` | — | — | — | — |
 | `initSelectionAutoScroll` | `scrolling/selectionAutoScroll` | — | — | — | — |
 | `isSelectionDragActive` | `scrolling/selectionAutoScroll` | — | — | — | — |
@@ -1379,7 +1385,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initializeReaderView` | `SPA/navigation/index` | — | — | — | — |
 | `smartNavigate` | `SPA/navigation/index` | — | — | — | — |
 | `transitionToReaderView` | `SPA/navigation/index` | — | — | — | — |
-| `LinkNavigationHandler._handlePopstateInner` | `SPA/navigation/LinkNavigationHandler` | — | `sessionStorage` | — | — |
+| `LinkNavigationHandler._handlePopstateInner` | `SPA/navigation/LinkNavigationHandler` | `sessionStorage` | `sessionStorage` | — | — |
 | `LinkNavigationHandler.areStructuresCompatible` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
 | `LinkNavigationHandler.attachGlobalLinkClickHandler` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
 | `LinkNavigationHandler.extractBookPathFromHyperlightUrl` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |

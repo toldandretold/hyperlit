@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1530,
-    "moduleCount": 318,
+    "fnCount": 1536,
+    "moduleCount": 319,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3130,
+    "edgeCount": 3145,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -11835,6 +11835,54 @@
       "leaf": false
     },
     {
+      "id": "scrolling/scrollTrace:dumpScrollTrace",
+      "label": "dumpScrollTrace",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/scrollTrace",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/scrollTrace:installScrollTrace",
+      "label": "installScrollTrace",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/scrollTrace",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/scrollTrace:nextScrollReason",
+      "label": "nextScrollReason",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/scrollTrace",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/scrollTrace:recordNavDecision",
+      "label": "recordNavDecision",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/scrollTrace",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/scrollTrace:recordScrollWrite",
+      "label": "recordScrollWrite",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/scrollTrace",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/scrollTrace:scrollTraceEnabled",
+      "label": "scrollTraceEnabled",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/scrollTrace",
+      "leaf": false
+    },
+    {
       "id": "scrolling/selectionAutoScroll:destroySelectionAutoScroll",
       "label": "destroySelectionAutoScroll",
       "kind": "fn",
@@ -17447,6 +17495,20 @@
         "scrolling/scrollHelpers:scrollElementIntoMainContent",
         "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
         "scrolling/scrollHelpers:waitForElementAndScroll"
+      ]
+    },
+    {
+      "id": "scrolling/scrollTrace",
+      "label": "scrolling/scrollTrace",
+      "stage": "scrolling",
+      "band": "store",
+      "fnIds": [
+        "scrolling/scrollTrace:dumpScrollTrace",
+        "scrolling/scrollTrace:installScrollTrace",
+        "scrolling/scrollTrace:nextScrollReason",
+        "scrolling/scrollTrace:recordNavDecision",
+        "scrolling/scrollTrace:recordScrollWrite",
+        "scrolling/scrollTrace:scrollTraceEnabled"
       ]
     },
     {
@@ -31898,6 +31960,13 @@
       "dataPath": true
     },
     {
+      "id": "lazyLoader/index:createLazyLoader__call__scrolling/scrollTrace:installScrollTrace",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "scrolling/scrollTrace:installScrollTrace",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "lazyLoader/index:createLazyLoader__call__scrolling/userScrollDetection:isActivelyScrollingForLinkBlock",
       "source": "lazyLoader/index:createLazyLoader",
       "target": "scrolling/userScrollDetection:isActivelyScrollingForLinkBlock",
@@ -34652,7 +34721,15 @@
       "id": "scrolling/internalNav:fallbackScrollPosition__call__scrolling/scrollHelpers:scrollElementIntoMainContent",
       "source": "scrolling/internalNav:fallbackScrollPosition",
       "target": "scrolling/scrollHelpers:scrollElementIntoMainContent",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/internalNav:fallbackScrollPosition__call__scrolling/scrollTrace:nextScrollReason",
+      "source": "scrolling/internalNav:fallbackScrollPosition",
+      "target": "scrolling/scrollTrace:nextScrollReason",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "scrolling/internalNav:fallbackScrollPosition__call__scrolling/userScrollDetection:shouldSkipScrollRestoration",
@@ -34758,7 +34835,29 @@
       "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/scrollHelpers:scrollElementWithConsistentMethod",
       "source": "scrolling/internalNav:navigateToInternalId",
       "target": "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/scrollTrace:nextScrollReason",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "scrolling/scrollTrace:nextScrollReason",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/scrollTrace:recordNavDecision",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "scrolling/scrollTrace:recordNavDecision",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/scrollTrace:recordScrollWrite",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "scrolling/scrollTrace:recordScrollWrite",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "scrolling/internalNav:navigateToInternalId__call__SPA/domReadiness:waitForElementReady",
@@ -34890,13 +34989,22 @@
       "id": "scrolling/scrollHelpers:lockScrollToTarget__call__scrolling/scrollHelpers:scrollElementIntoMainContent",
       "source": "scrolling/scrollHelpers:lockScrollToTarget",
       "target": "scrolling/scrollHelpers:scrollElementIntoMainContent",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "scrolling/scrollHelpers:scrollElementIntoMainContent__call__scrolling/scrollHelpers:scrollElementWithConsistentMethod",
       "source": "scrolling/scrollHelpers:scrollElementIntoMainContent",
       "target": "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/scrollHelpers:scrollElementWithConsistentMethod__call__scrolling/scrollTrace:nextScrollReason",
+      "source": "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
+      "target": "scrolling/scrollTrace:nextScrollReason",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "scrolling/scrollHelpers:scrollElementWithConsistentMethod__call__scrolling/userScrollDetection:shouldSkipScrollRestoration",
@@ -34908,13 +35016,50 @@
       "id": "scrolling/scrollHelpers:waitForElementAndScroll__call__scrolling/scrollHelpers:scrollElementIntoMainContent",
       "source": "scrolling/scrollHelpers:waitForElementAndScroll",
       "target": "scrolling/scrollHelpers:scrollElementIntoMainContent",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "scrolling/scrollHelpers:waitForElementAndScroll__call__scrolling/scrollHelpers:waitForElementAndScroll",
       "source": "scrolling/scrollHelpers:waitForElementAndScroll",
       "target": "scrolling/scrollHelpers:waitForElementAndScroll",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/scrollTrace:installScrollTrace__call__scrolling/scrollTrace:recordScrollWrite",
+      "source": "scrolling/scrollTrace:installScrollTrace",
+      "target": "scrolling/scrollTrace:recordScrollWrite",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/scrollTrace:installScrollTrace__call__scrolling/scrollTrace:scrollTraceEnabled",
+      "source": "scrolling/scrollTrace:installScrollTrace",
+      "target": "scrolling/scrollTrace:scrollTraceEnabled",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/scrollTrace:nextScrollReason__call__scrolling/scrollTrace:scrollTraceEnabled",
+      "source": "scrolling/scrollTrace:nextScrollReason",
+      "target": "scrolling/scrollTrace:scrollTraceEnabled",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/scrollTrace:recordNavDecision__call__scrolling/scrollTrace:scrollTraceEnabled",
+      "source": "scrolling/scrollTrace:recordNavDecision",
+      "target": "scrolling/scrollTrace:scrollTraceEnabled",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "scrolling/scrollTrace:recordScrollWrite__call__scrolling/scrollTrace:scrollTraceEnabled",
+      "source": "scrolling/scrollTrace:recordScrollWrite",
+      "target": "scrolling/scrollTrace:scrollTraceEnabled",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "scrolling/userScrollDetection:shouldSkipScrollRestoration__call__scrolling/userScrollDetection:isUserCurrentlyScrolling",
@@ -35393,9 +35538,23 @@
       "dataPath": true
     },
     {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__scrolling/navState:hasScrolledAwayFromHash",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "target": "scrolling/navState:hasScrolledAwayFromHash",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__scrolling/navState:unmarkHashScrolledAway",
       "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
       "target": "scrolling/navState:unmarkHashScrolledAway",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__scrolling/scrollTrace:recordNavDecision",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "target": "scrolling/scrollTrace:recordNavDecision",
       "rel": "call",
       "dataPath": true
     },
@@ -37101,6 +37260,12 @@
       "rel": "read"
     },
     {
+      "id": "store:localStorage__read__scrolling/scrollTrace:scrollTraceEnabled",
+      "source": "store:localStorage",
+      "target": "scrolling/scrollTrace:scrollTraceEnabled",
+      "rel": "read"
+    },
+    {
       "id": "store:localStorage__read__search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
       "source": "store:localStorage",
       "target": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
@@ -37365,6 +37530,12 @@
       "rel": "read"
     },
     {
+      "id": "store:sessionStorage__read__SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "source": "store:sessionStorage",
+      "target": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "rel": "read"
+    },
+    {
       "id": "store:sessionStorage__read__SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.ensureInitialContentLoaded",
       "source": "store:sessionStorage",
       "target": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.ensureInitialContentLoaded",
@@ -37459,6 +37630,11 @@
     {
       "source": "SPA/navigation/LinkNavigationHandler",
       "target": "scrolling/navState",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/LinkNavigationHandler",
+      "target": "scrolling/scrollTrace",
       "kind": "static"
     },
     {
@@ -41238,6 +41414,11 @@
     },
     {
       "source": "lazyLoader/index",
+      "target": "scrolling/scrollTrace",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/index",
       "target": "hyperlitContainer/index",
       "kind": "lazy"
     },
@@ -42183,6 +42364,11 @@
     },
     {
       "source": "scrolling/internalNav",
+      "target": "scrolling/scrollTrace",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/internalNav",
       "target": "scrolling/userScrollDetection",
       "kind": "static"
     },
@@ -42259,6 +42445,11 @@
     {
       "source": "scrolling/scrollHelpers",
       "target": "scrolling/navState",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/scrollHelpers",
+      "target": "scrolling/scrollTrace",
       "kind": "static"
     },
     {

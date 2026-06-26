@@ -8,7 +8,8 @@ import { BookToBookTransition } from './pathways/BookToBookTransition.js';
 import { getPageStructure, areStructuresCompatible, getSubdomain, getBookIdFromUrl } from './utils/structureDetection.js';
 import { log, verbose } from '../../utilities/logger';
 import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } from '../../scrolling/index';
-import { unmarkHashScrolledAway } from '../../scrolling/navState';
+import { unmarkHashScrolledAway, navigatedHashes, hasScrolledAwayFromHash } from '../../scrolling/navState';
+import { recordNavDecision } from '../../scrolling/scrollTrace';
 import { book, bookSlug as _bookSlug } from '../../app';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 // hypercites is a reader-only lazy chunk; wrap the nav fns as lazy importers so this (boot-loaded,
@@ -522,6 +523,21 @@ export class LinkNavigationHandler {
       hash: window.location.hash
     } as any);
 
+    // 🔍 DIAGNOSTIC (flag-gated): record the decision INPUTS — captured BEFORE the line below
+    // deletes the saved scroll position, so the trace shows the value that was destroyed.
+    const _hash = window.location.hash;
+    recordNavDecision({
+      phase: 'enter',
+      hash: _hash,
+      currentBook: book,
+      urlBookId: this.extractBookSlugFromPath(window.location.pathname),
+      sessionPos: (() => { try { return sessionStorage.getItem(getLocalStorageKey('scrollPosition', book)); } catch { return null; } })(),
+      navigatedHashes: [...navigatedHashes],
+      scrolledAway: _hash ? hasScrolledAwayFromHash(_hash.substring(1)) : false,
+      capturedStackDepth: history.state?.containerStack?.length || 0,
+      historyLength: window.history.length,
+    });
+
     // 🚀 CRITICAL: Clear saved scroll positions when navigating with hash to prevent interference
     if (window.location.hash) {
       verbose.nav(`POPSTATE: Clearing saved scroll positions because hash present: ${window.location.hash}`, '/navigation/LinkNavigationHandler.js');
@@ -588,6 +604,7 @@ export class LinkNavigationHandler {
 
       // Use NEW structure-aware navigation system
       // NavigationManager already imported statically
+      recordNavDecision({ phase: 'branch', branch: 'cross-book', hash: window.location.hash, toBook: urlBookId, willRestoreStack });
       await NavigationManager.navigateByStructure(navOptions);
       return;
     }
@@ -626,6 +643,7 @@ export class LinkNavigationHandler {
         // Back by exactly one
         if (currentDepth > 0 && savedDepth === currentDepth - 1) {
           console.log(`📚 [popstate] Fast-path BACK: popping top layer (${currentDepth} → ${savedDepth})`);
+          recordNavDecision({ phase: 'branch', branch: 'fast-back', hash: window.location.hash, currentDepth, savedDepth });
           await popTopLayer();
           return;
         }
@@ -647,6 +665,7 @@ export class LinkNavigationHandler {
                   const anchorId = deriveMainAnchorId(newTopMeta);
                   if (anchorId) {
                     console.log(`📚 [popstate] Fast-path FORWARD scrolling main to anchor "${anchorId}"`);
+                    recordNavDecision({ phase: 'branch', branch: 'fast-forward', hash: window.location.hash, anchorId });
                     navigateToInternalId(anchorId, currentLazyLoader, false);
                   }
                 } catch (e) { /* non-fatal */ }
@@ -672,6 +691,7 @@ export class LinkNavigationHandler {
         const { restoreContainerStack } = await import('../../hyperlitContainer/history');
         // restoreContainerStack now scrolls the main reader to the container's metadata anchor
         // (works whether or not the URL has a hash — most container URLs carry only ?cs=N).
+        recordNavDecision({ phase: 'branch', branch: 'close+restoreStack', hash: window.location.hash, capturedStackDepth: capturedStack.length });
         await restoreContainerStack(capturedStack, { callsite: 'LinkNavigationHandler.popstate' });
         return;
       } catch (error) {
@@ -693,6 +713,7 @@ export class LinkNavigationHandler {
         if (chain && chain.length > 0) {
           const hyperciteHash = window.location.hash ? window.location.hash.substring(1) : null;
           const finalHash = (hyperciteHash && hyperciteHash.startsWith('hypercite_')) ? hyperciteHash : null;
+          recordNavDecision({ phase: 'branch', branch: 'cascade-openChain', hash: window.location.hash, chainLen: chain.length });
           await openContainerChain(chain, currentLazyLoader, finalHash);
           return;
         }
@@ -705,6 +726,7 @@ export class LinkNavigationHandler {
     if (window.location.hash) {
       const targetId = window.location.hash.substring(1);
       verbose.nav(`Popstate: navigating to hash #${targetId} on main page`, '/navigation/LinkNavigationHandler.js');
+      recordNavDecision({ phase: 'branch', branch: 'hash-internalNav', hash: window.location.hash, targetId });
       try {
         if (currentLazyLoader) {
           navigateToInternalId(targetId, currentLazyLoader, false);
@@ -712,6 +734,10 @@ export class LinkNavigationHandler {
       } catch (error) {
         console.warn('Failed to navigate to hash:', error);
       }
+    } else {
+      // No hash, no container stack, no cascade: nothing scrolls — the closed container
+      // reveals whatever physical scroll position the reader held underneath.
+      recordNavDecision({ phase: 'branch', branch: 'none-physical' });
     }
   }
 

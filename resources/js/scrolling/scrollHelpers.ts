@@ -6,6 +6,7 @@
 import { verbose } from '../utilities/logger';
 import { userScrollState } from './navState';
 import { shouldSkipScrollRestoration } from './userScrollDetection';
+import { nextScrollReason } from './scrollTrace';
 
 // Reusable scroll correction — recalculates offsetTop and snaps if the element drifted
 function correctScrollPosition(targetElement: any, scrollableContainer: any, headerOffset: number): void {
@@ -22,6 +23,7 @@ function correctScrollPosition(targetElement: any, scrollableContainer: any, hea
 
   if (Math.abs(currentElementPosition - headerOffset) > 20) {
     const targetScrollTop = Math.max(0, elementOffset - headerOffset);
+    nextScrollReason('scroll-correction');
     scrollableContainer.scrollTo({ top: targetScrollTop, behavior: "instant" });
   }
 }
@@ -52,6 +54,7 @@ export function scrollElementWithConsistentMethod(targetElement: any, scrollable
   const targetScrollTop = Math.max(0, elementOffset - headerOffset);
 
   // Apply scroll with instant behavior to avoid animation conflicts
+  nextScrollReason('consistent-scroll');
   scrollableContainer.scrollTo({
     top: targetScrollTop,
     behavior: "instant"

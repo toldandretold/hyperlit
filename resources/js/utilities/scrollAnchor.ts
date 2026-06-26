@@ -6,6 +6,7 @@
 //   restoreScrollAnchor(scrollableParent, anchor);
 
 import { setNavigatingState } from '../scrolling/index';
+import { nextScrollReason } from '../scrolling/scrollTrace';
 
 /**
  * Capture a visual anchor: the first element with an id that is partially
@@ -54,6 +55,7 @@ export function restoreScrollAnchor(scrollableParent: any, anchor: any) {
     // Briefly mark as navigating so the scroll adjustment isn't detected
     // as a user scroll (which would save a wrong position)
     setNavigatingState(true);
+    nextScrollReason('anchor-drift');
     scrollableParent.scrollTop += drift;
     // Release after a microtask so the scroll event from the adjustment is swallowed
     requestAnimationFrame(() => {

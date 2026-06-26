@@ -15,6 +15,7 @@ import { navigatedHashes, navTimers, unmarkHashScrolledAway } from './navState';
 import { showNavigationLoading, hideNavigationLoading, NavigationProgressIndicator } from './navOverlay';
 import { scrollElementWithConsistentMethod, scrollElementIntoMainContent } from './scrollHelpers';
 import { shouldSkipScrollRestoration } from './userScrollDetection';
+import { nextScrollReason, recordScrollWrite, recordNavDecision } from './scrollTrace';
 // Static, downward import from a zero-import leaf (no cycle). pendingFirstChunkLoadedPromise is a
 // live binding (reset per load) — read at await time.
 import { pendingFirstChunkLoadedPromise } from '../pageLoad/firstChunkPromise';
@@ -153,12 +154,15 @@ export async function fallbackScrollPosition(lazyLoader: any): Promise<void> {
   if (savedTargetId) {
     const targetElement = lazyLoader.container.querySelector(`#${CSS.escape(savedTargetId)}`);
     if (targetElement) {
+      nextScrollReason('fallback-saved-target');
       scrollElementIntoMainContent(targetElement, 50);
       return;
     }
   }
 
-  // Fallback to top of page
+  // Fallback to top of page (ORIGINAL behaviour — left intact while we diagnose; the trace tag
+  // makes this jump attributable so a real failure shows whether this is the line that fired).
+  nextScrollReason('fallback-TOP');
   lazyLoader.container.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -312,6 +316,9 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
     progressIndicator.updateProgress(20, "Checking if element is in DOM...");
   }
 
+  // 🔍 Make the navigation legible: was the target ALREADY rendered (scroll-straight, no resolver)?
+  recordNavDecision({ phase: 'nav-target', targetId, alreadyRendered: !!existingElement });
+
   let targetElement = existingElement;
   let elementsReady = false;
 
@@ -354,6 +361,10 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
       nodes: lazyLoader.nodes,
     });
 
+    // 🔍 The decisive fact: did THIS book resolve the id to a chunk, and how? `resolved:false` with
+    // reason 'saved_position'/'lowest_chunk' = "couldn't find the id, falling back" — the failure.
+    recordNavDecision({ phase: 'nav-resolve', targetId, resolved: resolution.resolved, reason: resolution.reason, chunkId: resolution.chunkId, fullyLoaded: !!lazyLoader.isFullyLoaded });
+
     verbose.nav(
       `Resolver result for "${targetId}": chunk=${resolution.chunkId}, resolved=${resolution.resolved}, reason=${resolution.reason}`,
       'scrolling/internalNav'
@@ -384,6 +395,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
         nodes: lazyLoader.nodes,
       });
 
+      recordNavDecision({ phase: 'nav-resolve-retry', targetId, resolved: resolution.resolved, reason: resolution.reason, chunkId: resolution.chunkId });
       verbose.nav(
         `Retry resolver result for "${targetId}": chunk=${resolution.chunkId}, resolved=${resolution.resolved}, reason=${resolution.reason}`,
         'scrolling/internalNav'
@@ -660,6 +672,8 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
         scrollElementWithConsistentMethod(targetElement, scrollableParent, 192);
       } else {
         verbose.nav('Using scrollIntoView for window scrolling', 'scrolling/internalNav');
+        nextScrollReason('internalNav-scrollIntoView');
+        recordScrollWrite({ via: 'scrollIntoView', newTop: null });
         targetElement.scrollIntoView({
           behavior: "smooth",
           block: "start",

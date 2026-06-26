@@ -158,6 +158,36 @@ registerContainerActions({
 // ============================================================================
 
 /**
+ * Capture the EXACT local element the user clicked to open a container, so a later Back returns
+ * precisely to it. Two parts:
+ *   - exactId: the clicked element's OWN id in THIS book (e.g. the citation link `hypercite_wy05pkjf`
+ *     or the source marker the user tapped). This is the precise return target — NOT the cited
+ *     book's id (`deriveMainAnchorId` gives that; this book can't resolve it) and NOT the top of the
+ *     host paragraph.
+ *   - hostNodeId: the resolvable host node (paragraph) id — used to LOAD the right chunk so the
+ *     exact element materialises before we scroll to it (a pasted cross-book citation link's id is
+ *     not in this book's hypercite store, so without the host node the chunk can't be resolved).
+ * Stored in the container's history metadata (see callers), so it travels with back/forward.
+ */
+function deriveReturnAnchor(element: any): { exactId: string | null; hostNodeId: string | null } | null {
+  if (!element?.closest) return null;
+  const idEl = element.id ? element : element.closest('[id]');
+  let exactId: string | null = idEl?.id || null;
+  // Citation links carry the local hypercite id in data-content-id rather than on the <a> id.
+  if (!exactId || !/^(hypercite_|HL_|footnote_|Fn|\d)/.test(exactId)) {
+    const cidEl = element.closest('[data-content-id]');
+    const cid = cidEl?.getAttribute('data-content-id');
+    if (cid) exactId = cid;
+  }
+  const hostEl = element.closest('[data-node-id]')
+    || element.closest('p[id],h1[id],h2[id],h3[id],h4[id],h5[id],h6[id],li[id],blockquote[id]');
+  const rawHost = hostEl?.id;
+  const hostNodeId = rawHost && /^\d+(\.\d+)?$/.test(rawHost) ? rawHost : null;
+  if (!exactId && !hostNodeId) return null;
+  return { exactId: exactId || null, hostNodeId };
+}
+
+/**
  * Main function to handle any element click and detect all overlapping content types
  * @param {HTMLElement} element - The clicked element
  * @param {Array} highlightIds - Optional array of highlight IDs if already known

@@ -36,8 +36,6 @@ export function attachMarkListeners(scope: ParentNode = document): void {
  * Handle click events on mark elements
  */
 export async function handleMarkClick(event: Event): Promise<void> {
-  event.preventDefault();
-
   const target = event.target as HTMLElement;
   // Find the closest mark element (handles clicks on nested elements like spans)
   const markElement = target.closest('mark');
@@ -46,12 +44,19 @@ export async function handleMarkClick(event: Event): Promise<void> {
     return;
   }
 
-  // Check if the actual target is a special element that should be handled differently
-  // (like links, buttons, etc. that might need their own click behavior)
+  // A link/button inside the highlight: do NOT claim or preventDefault. Let the click bubble
+  // to the lazyLoader globalLinkHandler — it blocks private/deleted target books AND opens the
+  // unified container (where detection adds this overlapping highlight via closest('mark')).
+  // A hypercite link does NOT navigate away: globalLinkHandler intercepts it. A plain link
+  // navigates normally. (Claiming it here would set defaultPrevented and make globalLinkHandler
+  // bail at its `if (event.defaultPrevented) return;` guard — the in-mark dead-click bug.)
   if (target.tagName === 'A' || target.tagName === 'BUTTON') {
-    console.log(`🎯 Click on ${target.tagName} inside mark - letting it handle its own behavior`);
+    console.log(`🎯 ${target.tagName} inside mark - deferring to link handler`);
     return;
   }
+
+  // Plain highlight-text click: claim the event and open the highlight container.
+  event.preventDefault();
 
   // Grab all classes that look like HL_* from the mark element
   const highlightIds = Array.from(markElement.classList).filter((cls) =>
