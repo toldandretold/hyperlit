@@ -11,7 +11,7 @@
  * Imported EXTENSIONLESS so this file runs against chunkMutationHandler.js now and
  * chunkMutationHandler/index.ts after the conversion — identical test, both sides.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 const { NUMERICAL_ID_PATTERN } = vi.hoisted(() => ({ NUMERICAL_ID_PATTERN: /^\d+(\.\d+)?$/ }));
 
@@ -57,6 +57,8 @@ vi.mock('../../../resources/js/divEditor/domUtilities', () => ({
 
 import { ChunkMutationHandler } from '../../../resources/js/divEditor/chunkMutationHandler/index';
 import { destroySpan } from '../../../resources/js/divEditor/chunkMutationHandler/spanDestroyer';
+// Same mocked objects the handler reads — let tests drive the per-chunk count + assert the split.
+import { handleChunkOverflow as mockHandleChunkOverflow, chunkNodeCounts as mockCounts } from '../../../resources/js/divEditor/chunkManager';
 
 let saveQueue, queueNodeForSave, handleHyperciteRemoval, ensureMinimumStructure, handler;
 beforeEach(() => {
@@ -238,5 +240,62 @@ describe('processChunkMutations — move vs delete (isConnected guard)', () => {
     await handler.processChunkMutations(chunk, [childList(chunk, { removed: [delP] })], 'bookA');
     expect(saveQueue.queueDeletion).toHaveBeenCalledWith('7', delP, 'bookA');
     expect(handler.removedNodeIds.has('7')).toBe(true);
+  });
+});
+
+// Rapid Enter in a FULL chunk used to split on every keystroke (disable contenteditable → move
+// tail node → re-enable). Now a soft over-limit is DEBOUNCED — let the chunk grow while typing,
+// rebalance once on pause — with a hard ceiling backstop and a flush at persist boundaries.
+describe('processChunkMutations — debounced rebalance + hard ceiling', () => {
+  // NODE_LIMIT=100, OVERFLOW_SLACK=25 → ceiling 125 (mirrors the production constants).
+  const overLimitAdd = (chunk, count) => {
+    mockCounts['c1'] = count;                       // trackChunkNodeCount is a no-op mock → count sticks
+    const added = document.createElement('p'); added.id = '999'; added.textContent = 'new';
+    chunk.appendChild(added);
+    return childList(chunk, { added: [added] });
+  };
+
+  afterEach(() => { delete mockCounts['c1']; });
+
+  it('DEFERS the split when softly over the limit (does not call handleChunkOverflow immediately)', async () => {
+    const chunk = makeChunk('');
+    await handler.processChunkMutations(chunk, [overLimitAdd(chunk, 103)], 'bookA');
+    expect(mockHandleChunkOverflow).not.toHaveBeenCalled();   // deferred, not split synchronously
+    expect(handler.rebalanceDebounceTimer).not.toBeNull();    // a debounce was armed
+    expect(queueNodeForSave).toHaveBeenCalledWith('999', 'add'); // the new node is still queued
+    handler.cancelRebalanceDebounce();
+  });
+
+  it('SPLITS immediately at the hard ceiling (NODE_LIMIT + OVERFLOW_SLACK)', async () => {
+    const chunk = makeChunk('');
+    await handler.processChunkMutations(chunk, [overLimitAdd(chunk, 125)], 'bookA');
+    expect(mockHandleChunkOverflow).toHaveBeenCalledTimes(1);
+    expect(handler.rebalanceDebounceTimer).toBeNull();        // no pending debounce
+  });
+
+  it('the debounce hands off to scheduleOverflowSweep after OVERFLOW_DEBOUNCE_MS', async () => {
+    vi.useFakeTimers();
+    try {
+      const sweepSpy = vi.spyOn(handler, 'scheduleOverflowSweep').mockImplementation(() => {});
+      const chunk = makeChunk('');
+      await handler.processChunkMutations(chunk, [overLimitAdd(chunk, 103)], 'bookA');
+      expect(sweepSpy).not.toHaveBeenCalled();                 // not yet — still debouncing
+      vi.advanceTimersByTime(600);
+      expect(sweepSpy).toHaveBeenCalledTimes(1);
+      expect(handler.rebalanceDebounceTimer).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('flushRebalance() splits an over-limit chunk now (persist boundary)', async () => {
+    // Build a chunk with 101 real numeric-id nodes so the real sweepChunkOverflow trips.
+    let html = '';
+    for (let i = 1; i <= 101; i++) html += `<p id="${i}">n${i}</p>`;
+    makeChunk(html);
+    await handler.flushRebalance();
+    expect(mockHandleChunkOverflow).toHaveBeenCalledTimes(1);
+    // sweep drives the no-mutations path
+    expect(mockHandleChunkOverflow).toHaveBeenCalledWith(expect.anything(), null);
   });
 });

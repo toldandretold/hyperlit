@@ -2,7 +2,7 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1527,
+    "fnCount": 1530,
     "moduleCount": 318,
     "storeCount": 10,
     "tableCount": 10,
@@ -4794,6 +4794,14 @@
       "leaf": false
     },
     {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.cancelRebalanceDebounce",
+      "label": "ChunkMutationHandler.cancelRebalanceDebounce",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": true
+    },
+    {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.clearChunkCache",
       "label": "ChunkMutationHandler.clearChunkCache",
       "kind": "fn",
@@ -4832,6 +4840,14 @@
       "stage": "divEditor",
       "module": "divEditor/chunkMutationHandler/index",
       "leaf": false
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.flushRebalance",
+      "label": "ChunkMutationHandler.flushRebalance",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": true
     },
     {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleNewChunk",
@@ -4884,6 +4900,14 @@
     {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.scheduleOverflowSweep",
       "label": "ChunkMutationHandler.scheduleOverflowSweep",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.scheduleRebalance",
+      "label": "ChunkMutationHandler.scheduleRebalance",
       "kind": "fn",
       "stage": "divEditor",
       "module": "divEditor/chunkMutationHandler/index",
@@ -15036,11 +15060,13 @@
       "stage": "divEditor",
       "band": "capture",
       "fnIds": [
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.cancelRebalanceDebounce",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.clearChunkCache",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.constructor",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.filterChunkMutations",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.findContainingChunk",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.findNumericalIdNodesInChunk",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.flushRebalance",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleNewChunk",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.isNodeWithinMainContent",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.isNumericalIdDeletion",
@@ -15048,6 +15074,7 @@
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.queueTocInvalidation",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.scheduleOverflowSweep",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.scheduleRebalance",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.shouldSkipMutation",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.sweepChunkOverflow"
       ]

@@ -35,6 +35,17 @@ import {
 import { getFirstNodeIdForBook } from './firstNode';
 import { destroySpan } from './spanDestroyer';
 
+// Debounced chunk rebalance (see scheduleRebalance). While the user is actively typing into a
+// full chunk, splitting on every Enter (disable contenteditable → move tail node → re-enable)
+// is per-keystroke churn. Instead we let the chunk grow a little and rebalance ONCE when typing
+// pauses. OVERFLOW_DEBOUNCE_MS must stay below the sync debounce so the rebalance + its IDB
+// writes land before the periodic sync re-reads IDB (else a transiently-oversized chunk could
+// be persisted — harmless/self-healing, but we avoid it in the common case). OVERFLOW_SLACK is
+// the hard ceiling: past NODE_LIMIT + SLACK we split immediately, bounding transient growth from
+// a held Enter or paste-then-type.
+const OVERFLOW_DEBOUNCE_MS = 600;
+const OVERFLOW_SLACK = 25;
+
 /**
  * ChunkMutationHandler class
  * Processes DOM mutations within document chunks
@@ -67,6 +78,7 @@ export class ChunkMutationHandler {
   tocInvalidationTimer: ReturnType<typeof setTimeout> | number | null;
   nodeToChunkCache: WeakMap<Node, HTMLElement>;
   overflowSweepScheduled: boolean;
+  rebalanceDebounceTimer: ReturnType<typeof setTimeout> | null;
 
   constructor(options: ChunkMutationHandlerOptions = {}) {
     // Dependencies
@@ -96,6 +108,44 @@ export class ChunkMutationHandler {
 
     // Defer-and-recheck guard (see scheduleOverflowSweep)
     this.overflowSweepScheduled = false;
+
+    // Typing-debounce timer for deferred chunk rebalance (see scheduleRebalance)
+    this.rebalanceDebounceTimer = null;
+  }
+
+  /**
+   * Debounced chunk rebalance — defer the split while the user is actively typing.
+   *
+   * Each call resets the timer, so a burst of Enters keeps the chunk growing instead of
+   * rotating per keystroke; once typing pauses for OVERFLOW_DEBOUNCE_MS we hand off to the
+   * existing scheduleOverflowSweep() (busy-guarded against paste/programmatic/overflow, and
+   * idempotent). The actual move is the batch handleChunkOverflow inside sweepChunkOverflow,
+   * which relocates ALL nodes past NODE_LIMIT in one pass.
+   */
+  scheduleRebalance(): void {
+    if (this.rebalanceDebounceTimer !== null) clearTimeout(this.rebalanceDebounceTimer);
+    this.rebalanceDebounceTimer = setTimeout(() => {
+      this.rebalanceDebounceTimer = null;
+      this.scheduleOverflowSweep();
+    }, OVERFLOW_DEBOUNCE_MS);
+  }
+
+  /** Cancel a pending debounced rebalance (used when we split immediately at the hard ceiling). */
+  cancelRebalanceDebounce(): void {
+    if (this.rebalanceDebounceTimer !== null) {
+      clearTimeout(this.rebalanceDebounceTimer);
+      this.rebalanceDebounceTimer = null;
+    }
+  }
+
+  /**
+   * Force any deferred rebalance to run NOW and await it. Called at persist boundaries
+   * (flushAllPendingSaves → edit-exit / beforeunload / redownload) so an over-limit chunk is
+   * never left as the persisted state. Bypasses the debounce; sweepChunkOverflow no-ops if clean.
+   */
+  async flushRebalance(): Promise<void> {
+    this.cancelRebalanceDebounce();
+    await this.sweepChunkOverflow();
   }
 
   /**
@@ -467,12 +517,22 @@ export class ChunkMutationHandler {
     // Handle chunk overflow
     if (currentNodeCount > NODE_LIMIT &&
         mutations.some(m => m.type === "childList" && m.addedNodes.length > 0)) {
-      console.log(`Chunk ${chunkId} has reached limit (${currentNodeCount}/${NODE_LIMIT}). Managing overflow...`);
-      const didOverflow = await handleChunkOverflow(chunk, mutations);
-      if (didOverflow) {
-        return;
+      if (currentNodeCount >= NODE_LIMIT + OVERFLOW_SLACK) {
+        // Hard ceiling — bound transient growth (held Enter / paste-then-type). Split now.
+        console.log(`Chunk ${chunkId} hit hard ceiling (${currentNodeCount}/${NODE_LIMIT + OVERFLOW_SLACK}). Splitting immediately...`);
+        this.cancelRebalanceDebounce();
+        const didOverflow = await handleChunkOverflow(chunk, mutations);
+        if (didOverflow) {
+          return;
+        }
+        // Spurious overflow — count was inflated; fall through to normal mutation processing
+      } else {
+        // Soft over-limit during active typing — let rapid Enter keep flowing; rebalance once
+        // typing pauses. Do NOT return: the freshly added node must still be processed and
+        // queued for save below (the deferred sweep hasn't moved anything yet).
+        console.log(`Chunk ${chunkId} over limit (${currentNodeCount}/${NODE_LIMIT}) — deferring rebalance until typing pauses.`);
+        this.scheduleRebalance();
       }
-      // Spurious overflow — count was inflated; fall through to normal mutation processing
     }
 
     // Pre-scan: detect tag replacements (same ID in both removedNodes and addedNodes).

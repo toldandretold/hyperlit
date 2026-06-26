@@ -191,6 +191,10 @@ let observedEditableDiv: HTMLElement | null = null;
 // 🚀 Mutation Processor instance (RAF-based mutation batching)
 let mutationProcessor: MutationProcessor | null = null;
 
+// 📌 Active ChunkMutationHandler — kept module-level so flushAllPendingSaves can force any
+// deferred (debounced) chunk rebalance to run before we persist (see flushRebalance).
+let activeChunkHandler: ChunkMutationHandler | null = null;
+
 // ✅ EnterKeyHandler instance
 let enterKeyHandler: EnterKeyHandler | null = null;
 
@@ -214,6 +218,13 @@ let enterKeyHandler: EnterKeyHandler | null = null;
 // Force save all pending changes (useful for page unload)
 export async function flushAllPendingSaves() {
   verbose.content('Flushing all pending saves...', 'divEditor/index.js');
+
+  // Force any deferred (debounced) chunk rebalance to run + persist FIRST, so we never leave an
+  // over-limit chunk as the persisted state at a flush boundary (edit-exit / beforeunload /
+  // redownload). No-op when no chunk is over the limit.
+  if (activeChunkHandler) {
+    await activeChunkHandler.flushRebalance();
+  }
 
   if (saveQueue) {
     await saveQueue.flush();
@@ -614,6 +625,7 @@ export async function startObserving(editableDiv: HTMLElement, bookId: BookId | 
     modifiedNodes,
     documentChanged: { value: documentChanged }
   });
+  activeChunkHandler = chunkHandler;
 
   // 🚀 Initialize MutationProcessor with ChunkMutationHandler methods
   mutationProcessor = new MutationProcessor({
@@ -752,6 +764,9 @@ export async function stopObserving() {
     mutationProcessor = null;
     verbose.content("MutationProcessor flushed and destroyed", 'divEditor/index.js');
   }
+
+  // Drop the module-level rebalance handle (a fresh one is set on the next startObserving).
+  activeChunkHandler = null;
 
   // 🔑 CRITICAL: Flush input debounce BEFORE SaveQueue cleanup
   // This captures typing that hasn't been queued yet (within debounce window)

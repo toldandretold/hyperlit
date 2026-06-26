@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1527 functions in 318 modules · 10 object stores · 10 PG tables · 3130 edges
+**MarkdownDB** schema v27 · 1530 functions in 318 modules · 10 object stores · 10 PG tables · 3130 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -469,11 +469,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleChunkOverflow` | `divEditor/chunkManager` | — | — | read/write | — |
 | `trackChunkNodeCount` | `divEditor/chunkManager` | — | — | read | — |
 | `getFirstNodeIdForBook` | `divEditor/chunkMutationHandler/firstNode` | — | — | read | — |
+| `ChunkMutationHandler.cancelRebalanceDebounce` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.clearChunkCache` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.constructor` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.filterChunkMutations` | `divEditor/chunkMutationHandler/index` | — | — | read | — |
 | `ChunkMutationHandler.findContainingChunk` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.findNumericalIdNodesInChunk` | `divEditor/chunkMutationHandler/index` | — | — | read | — |
+| `ChunkMutationHandler.flushRebalance` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.handleNewChunk` | `divEditor/chunkMutationHandler/index` | — | — | read | — |
 | `ChunkMutationHandler.isNodeWithinMainContent` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.isNumericalIdDeletion` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
@@ -481,6 +483,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ChunkMutationHandler.processChunkMutations` | `divEditor/chunkMutationHandler/index` | — | — | read/write | — |
 | `ChunkMutationHandler.queueTocInvalidation` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.scheduleOverflowSweep` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
+| `ChunkMutationHandler.scheduleRebalance` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.shouldSkipMutation` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.sweepChunkOverflow` | `divEditor/chunkMutationHandler/index` | — | — | read | — |
 | `destroySpan` | `divEditor/chunkMutationHandler/spanDestroyer` | — | — | read/write | — |
