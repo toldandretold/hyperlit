@@ -47,14 +47,11 @@ export {
 
 // Content builders
 export { buildFootnoteContent } from './contentBuilders/displayFootnotes.js';
-export { buildCitationContent, buildHyperciteCitationContent, resolveButtonStatus } from './contentBuilders/displayCitations.js';
+export { buildCitationContent, buildHyperciteCitationContent, resolveButtonStatus } from './contentBuilders/displayCitations/index.js';
 export { buildHighlightContent } from './contentBuilders/displayHyperlights.js';
 export {
   buildHyperciteContent,
-  checkHyperciteExists,
   handleManageCitationsClick,
-  handleHyperciteHealthCheck,
-  handleHyperciteDelete
 } from './contentBuilders/displayHypercites/index.js';
 
 // History & navigation
@@ -88,9 +85,8 @@ import { ProgressOverlayConductor } from '../SPA/navigation/ProgressOverlayCondu
 import { detectContentTypes } from './detection.js';
 import { determineSingleContentHash, pickAnchorId } from './history.js';
 import { buildFootnoteContent } from './contentBuilders/displayFootnotes.js';
-import { buildCitationContent, buildHyperciteCitationContent } from './contentBuilders/displayCitations.js';
+import { buildCitationContent, buildHyperciteCitationContent } from './contentBuilders/displayCitations/index.js';
 import { buildHighlightContent } from './contentBuilders/displayHyperlights.js';
-import { buildHyperciteContent, handleHyperciteHealthCheck, handleHyperciteDelete } from './contentBuilders/displayHypercites/index.js';
 import { attachNoteListeners, initializePlaceholders } from './noteListener.js';
 import { getCurrentContainer, isStackPopping } from './stack.js';
 import { registerContainerActions } from './containerActions';
@@ -141,7 +137,7 @@ export { buildUnifiedContent, handlePostOpenActions, checkIfUserHasAnyEditPermis
 registerContainerActions({
   openHyperlitContainer, closeHyperlitContainer, initializeHyperlitManager,
   getCurrentContainer, isStackPopping,
-  handleUnifiedContentClick, handleHyperciteHealthCheck, handleHyperciteDelete,
+  handleUnifiedContentClick,
 });
 
 

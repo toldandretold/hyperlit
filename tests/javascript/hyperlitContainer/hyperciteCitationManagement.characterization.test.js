@@ -14,10 +14,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { installFreshIndexedDB, seedStore, readOne } from '../indexedDB/idbHarness.js';
 
 vi.mock('../../../resources/js/app', () => ({ book: 'bookA' }));
+// The delete flow now routes through the REAL hypercites/deletion → database.ts, which pulls
+// many named exports from the indexedDB barrel — so spread the real module (its openDatabase is
+// the same core/connection singleton the harness seeds through) and only stub the sync writers.
 vi.mock('../../../resources/js/indexedDB/index', async () => {
-  const conn = await vi.importActual('../../../resources/js/indexedDB/core/connection');
+  const actual = await vi.importActual('../../../resources/js/indexedDB/index');
   return {
-    openDatabase: conn.openDatabase,
+    ...actual,
     queueForSync: vi.fn(),
     debouncedMasterSync: { flush: vi.fn().mockResolvedValue(undefined) },
     updateBookTimestamp: vi.fn().mockResolvedValue(true),

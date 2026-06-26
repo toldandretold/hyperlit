@@ -9,7 +9,9 @@ import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed } from "..
 // Import for internal use
 import { attachMarkListeners as _attachMarkListeners } from './listeners';
 // Injected into createLazyLoader so the render engine stays a leaf (one-way edge: hyperlights → hypercites).
-import { attachUnderlineClickListeners } from '../hypercites/index';
+// Source from the listeners LEAF, not the barrel: the barrel re-exports deletion.ts which
+// dynamically imports hyperlights/index — pulling the barrel here would re-form that ring.
+import { attachUnderlineClickListeners } from '../hypercites/listeners';
 
 // Re-export all modules for backward compatibility
 export { calculateCleanTextOffset, getRelativeOffsetTop, isNumericalId, findContainerWithNumericalId } from './calculations';

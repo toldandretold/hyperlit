@@ -1,15 +1,13 @@
 /**
- * Hypercite content builders — barrel.
+ * Hypercite content builders — barrel (display layer).
  *
- * Preserves the public surface the former `displayHypercites.ts` exported, so every importer of
- * `'.../contentBuilders/displayHypercites'` resolves unchanged. The implementation is split into
- * three concerns: content building, the health-check engine, and the citation-management UI (plus
- * a zero-import link-parsing leaf).
+ * The container only owns DISPLAY: the "Cited By" content builder + the panel button UX handlers
+ * (which dynamically import the relocated logic). The hypercite LOGIC now lives in `hypercites/`
+ * (health-check → `hypercites/healthCheck`, citedIN mutation → `hypercites/deletion`).
  */
 export { buildHyperciteContent } from './hyperciteContent';
-export { checkHyperciteExists } from './hyperciteHealthCheck';
 export {
   handleManageCitationsClick,
   handleHyperciteHealthCheck,
   handleHyperciteDelete,
-} from './hyperciteCitationManagement';
+} from './citationPanelButtons';

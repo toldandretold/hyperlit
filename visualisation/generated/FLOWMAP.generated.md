@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1545 functions in 323 modules · 10 object stores · 10 PG tables · 3165 edges
+**MarkdownDB** schema v27 · 1537 functions in 323 modules · 10 object stores · 10 PG tables · 3133 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -762,8 +762,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `highlightTargetHypercite` | `hypercites/animations` | — | — | read/write | — |
 | `restoreNormalHyperciteDisplay` | `hypercites/animations` | — | — | read/write | — |
 | `revealGhostIfTombstone` | `hypercites/animations` | — | — | read/write | — |
-| `createOverlappingPolyContainer` | `hypercites/containers` | `library` | — | read | — |
-| `PolyClick` | `hypercites/containers` | `hypercites` `library` | — | read | — |
 | `fallbackCopyText` | `hypercites/copy` | — | — | write | — |
 | `handleCopyEvent` | `hypercites/copy` | — | — | read/write | — |
 | `wrapSelectedTextInDOM` | `hypercites/copy` | — | — | read/write | — |
@@ -775,17 +773,14 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `delinkHypercite` | `hypercites/deletion` | `nodes` | `hypercites` `nodes` | read/write | — |
 | `handleHyperciteDeletion` | `hypercites/deletion` | — | — | — | — |
 | `markHyperciteAsGhost` | `hypercites/deletion` | — | `hypercites` | — | — |
+| `removeSpecificCitations` | `hypercites/deletion` | `hypercites` `nodes` | `hypercites` `nodes` | read/write | — |
+| `checkHyperciteExists` | `hypercites/healthCheck/index` | `footnotes` `hyperlights` `library` `nodes` | `nodes` | read | `↓route:/api/database-to-indexeddb/books/{}/data` |
 | `attachUnderlineClickListeners` | `hypercites/listeners` | — | — | read/write | — |
 | `cleanupHypercitingControls` | `hypercites/listeners` | — | — | read | — |
 | `cleanupUnderlineClickListeners` | `hypercites/listeners` | — | — | read/write | — |
 | `initializeHypercitingControls` | `hypercites/listeners` | — | — | read | — |
-| `CoupleClick` | `hypercites/navigation` | — | — | — | — |
-| `handleOverlappingCouple` | `hypercites/navigation` | — | — | — | — |
-| `handleOverlappingHyperciteClick` | `hypercites/navigation` | — | — | read | — |
-| `handleOverlappingPoly` | `hypercites/navigation` | — | — | — | — |
 | `handleUnderlineClick` | `hypercites/navigation` | — | — | — | — |
 | `navigateToFootnoteTarget` | `hypercites/navigation` | — | `sessionStorage` | read/write | — |
-| `navigateToHyperciteLink` | `hypercites/navigation` | — | — | — | — |
 | `navigateToHyperciteTarget` | `hypercites/navigation` | — | `sessionStorage` | read | — |
 | `determineRelationshipStatus` | `hypercites/utils` | — | — | — | — |
 | `extractHyperciteIdFromHref` | `hypercites/utils` | — | — | — | — |
@@ -843,8 +838,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `injectBrainPolling` | `hyperlitContainer/brainQuery` | `hyperlights` | `hyperlights` | read/write | — |
 | `closeHyperlitContainer` | `hyperlitContainer/containerActions` | — | — | — | — |
 | `getCurrentContainer` | `hyperlitContainer/containerActions` | — | — | — | — |
-| `handleHyperciteDelete` | `hyperlitContainer/containerActions` | — | — | — | — |
-| `handleHyperciteHealthCheck` | `hyperlitContainer/containerActions` | — | — | — | — |
 | `handleUnifiedContentClick` | `hyperlitContainer/containerActions` | — | — | — | — |
 | `initializeHyperlitManager` | `hyperlitContainer/containerActions` | — | — | — | — |
 | `isStackPopping` | `hyperlitContainer/containerActions` | — | — | — | — |
@@ -860,16 +853,15 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `restoreModuleState` | `hyperlitContainer/containerState` | — | — | — | — |
 | `saveModuleState` | `hyperlitContainer/containerState` | — | — | — | — |
 | `buildUnifiedContent` | `hyperlitContainer/contentBuild` | — | — | — | — |
-| `buildCitationContent` | `hyperlitContainer/contentBuilders/displayCitations` | `bibliography` `library` | `bibliography` `library` | — | — |
-| `buildHyperciteCitationContent` | `hyperlitContainer/contentBuilders/displayCitations` | `library` | `library` | — | — |
-| `resolveButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations` | — | — | read/write | — |
-| `resolveCitationButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations` | — | — | read/write | — |
+| `buildHyperciteCitationContent` | `hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation` | `library` | `library` | — | — |
+| `resolveButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation` | — | — | read/write | — |
+| `buildCitationContent` | `hyperlitContainer/contentBuilders/displayCitations/plainCitation` | `bibliography` `library` | `bibliography` `library` | — | — |
+| `resolveCitationButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations/plainCitation` | — | — | read/write | — |
 | `buildFootnoteContent` | `hyperlitContainer/contentBuilders/displayFootnotes` | — | — | — | — |
-| `handleHyperciteDelete` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement` | `hypercites` `nodes` | `hypercites` `nodes` | read/write | — |
-| `handleHyperciteHealthCheck` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement` | — | — | read/write | — |
-| `handleManageCitationsClick` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement` | — | — | read/write | — |
+| `handleHyperciteDelete` | `hyperlitContainer/contentBuilders/displayHypercites/citationPanelButtons` | — | — | read | — |
+| `handleHyperciteHealthCheck` | `hyperlitContainer/contentBuilders/displayHypercites/citationPanelButtons` | — | — | read/write | — |
+| `handleManageCitationsClick` | `hyperlitContainer/contentBuilders/displayHypercites/citationPanelButtons` | — | — | read/write | — |
 | `buildHyperciteContent` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent` | `hypercites` `library` | — | — | — |
-| `checkHyperciteExists` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteHealthCheck` | `footnotes` `hyperlights` `library` `nodes` | `nodes` | read | `↓route:/api/database-to-indexeddb/books/{}/data` |
 | `extractContentIdFromUrl` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks` | — | — | — | — |
 | `parseCitedInLink` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks` | — | — | — | — |
 | `sanitizeUrl` | `hyperlitContainer/contentBuilders/displayHypercites/hyperciteLinks` | — | — | — | — |
@@ -1558,7 +1550,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 233
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 235
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1665,7 +1657,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `footnotes/FootnoteNumberingService` → `indexedDB/core/connection`
 - `footnotes/FootnoteNumberingService` → `indexedDB/index`
 - `footnotes/FootnoteNumberingService` → `indexedDB/nodes/batch`
-- `hypercites/navigation` → `pageLoad/containerChain`
+- `hypercites/deletion` → `hyperlights/index`
 - `hyperlights/deleteHighlight` → `divEditor/index`
 - `hyperlights/deletion` → `lazyLoader/index`
 - `hyperlitContainer/brainQuery` → `components/userButton/userButton`
@@ -1678,10 +1670,12 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/containerListeners` → `divEditor/editSessionManager`
 - `hyperlitContainer/containerListeners` → `divEditor/index`
 - `hyperlitContainer/containerListeners` → `editToolbar/index`
-- `hyperlitContainer/contentBuilders/displayCitations` → `hyperlitContainer/utils`
+- `hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation` → `hyperlitContainer/utils`
+- `hyperlitContainer/contentBuilders/displayCitations/plainCitation` → `hyperlitContainer/utils`
 - `hyperlitContainer/contentBuilders/displayFootnotes` → `indexedDB/index`
-- `hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement` → `hyperlights/index`
-- `hyperlitContainer/contentBuilders/displayHypercites/hyperciteCitationManagement` → `hyperlitContainer/core`
+- `hyperlitContainer/contentBuilders/displayHypercites/citationPanelButtons` → `hypercites/deletion`
+- `hyperlitContainer/contentBuilders/displayHypercites/citationPanelButtons` → `hypercites/healthCheck/index`
+- `hyperlitContainer/contentBuilders/displayHypercites/citationPanelButtons` → `hyperlitContainer/core`
 - `hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent` → `hyperlitContainer/utils`
 - `hyperlitContainer/contentBuilders/displayHyperlights` → `hyperlitContainer/utils`
 - `hyperlitContainer/core` → `footnotes/footnoteAnnotations`

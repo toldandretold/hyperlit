@@ -133,4 +133,26 @@ describe('buildHyperciteContent (characterization)', () => {
     expect(html).toContain('ghostbook');
     expect(dom.querySelector('.citation-link')).toBeTruthy();
   });
+
+  // Overlapping hypercites: the unified renderer merges citedIN across all hyperciteIds into one
+  // "Cited By" panel — the behaviour the now-deleted hypercites/containers.ts renderer provided.
+  it('overlapping: multiple hyperciteIds merge their citedIN into one panel', async () => {
+    await seedStore('hypercites', [
+      { book: 'bookA', hyperciteId: 'hypercite_1', hypercitedText: 't', citedIN: ['/bookX#hypercite_a'], relationshipStatus: 'couple', node_id: [] },
+      { book: 'bookA', hyperciteId: 'hypercite_2', hypercitedText: 't', citedIN: ['/bookY#hypercite_b'], relationshipStatus: 'couple', node_id: [] },
+    ]);
+    await seedStore('library', [
+      { book: 'bookX', bibtex: 'BIBTEX_X', visibility: 'public' },
+      { book: 'bookY', bibtex: 'BIBTEX_Y', visibility: 'public' },
+    ]);
+
+    const html = await buildHyperciteContent({
+      hyperciteId: 'hypercite_1', hyperciteIds: ['hypercite_1', 'hypercite_2'], relationshipStatus: 'poly',
+    });
+    const dom = parse(html);
+
+    expect(dom.querySelectorAll('.citation-link').length).toBe(2); // both citations merged
+    expect(html).toContain('BIBTEX_X');
+    expect(html).toContain('BIBTEX_Y');
+  });
 });

@@ -25,7 +25,7 @@ vi.mock('../../../resources/js/utilities/auth/index', () => ({ canUserEditBook: 
 vi.mock('../../../resources/js/components/toast/toast', () => ({ showTargetNotFoundToast: vi.fn() }));
 vi.mock('../../../resources/js/hyperlitContainer/utils', () => ({ fetchLibraryFromServer: vi.fn().mockResolvedValue(null) }));
 
-import { checkHyperciteExists } from '../../../resources/js/hyperlitContainer/contentBuilders/displayHypercites';
+import { checkHyperciteExists } from '../../../resources/js/hypercites/healthCheck';
 
 const ID = 'hypercite_1';
 const tag = (id) => `<a id="${id}">x</a>`;

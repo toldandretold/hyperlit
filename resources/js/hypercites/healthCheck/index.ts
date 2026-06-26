@@ -4,8 +4,8 @@
  * PostgreSQL. Returns `{ exists, chunkKey }`. Stand-alone from the render + management layers.
  */
 
-import { openDatabase } from '../../../indexedDB/index';
-import { parseSubBookId } from '../../../utilities/subBookIdHelper';
+import { openDatabase } from '../../indexedDB/index';
+import { parseSubBookId } from '../../utilities/subBookIdHelper';
 
 /**
  * Build the full-data API URL, handling sub-book IDs with slashes.

@@ -240,6 +240,170 @@ export async function markHyperciteAsGhost(hyperciteId: string): Promise<boolean
   }
 }
 
+/**
+ * Remove specific broken citations from a hypercite's citedIN array.
+ * The "manage citations" panel calls this for the citations a health-check flagged as broken
+ * (batch of URLs). Sibling of delinkHypercite (single entry, immediate sync); this one
+ * queues + flushes and reprocesses the affected nodes' highlight rendering.
+ * @param sourceBook - The book containing the source hypercite
+ * @param sourceHyperciteIds - Array of source hypercite IDs
+ * @param brokenCitations - Citations to remove (`{ url }`)
+ */
+export async function removeSpecificCitations(sourceBook: any, sourceHyperciteIds: any, brokenCitations: any) {
+  const db: any = await openDatabase();
+
+  const brokenUrls = brokenCitations.map((c: any) => c.url);
+  console.log(`🔧 Removing citations: ${JSON.stringify(brokenUrls)}`);
+
+  const updatedNodes = [];
+
+  for (const sourceHyperciteId of sourceHyperciteIds) {
+    // Read hypercite from IndexedDB
+    const readTx = db.transaction('hypercites', 'readonly');
+    const readStore = readTx.objectStore('hypercites');
+    const hyperciteRequest = readStore.get([sourceBook, sourceHyperciteId]);
+
+    const hypercite: any = await new Promise((resolve: any, reject: any) => {
+      hyperciteRequest.onsuccess = () => resolve(hyperciteRequest.result);
+      hyperciteRequest.onerror = () => reject(hyperciteRequest.error);
+    });
+
+    await new Promise((resolve: any, reject: any) => {
+      readTx.oncomplete = () => resolve(undefined);
+      readTx.onerror = () => reject(readTx.error);
+    });
+
+    if (!hypercite) {
+      console.warn(`⚠️ Hypercite ${sourceHyperciteId} not found in IndexedDB`);
+      continue;
+    }
+
+    // Filter out broken citations from citedIN array
+    const originalLength = hypercite.citedIN ? hypercite.citedIN.length : 0;
+    hypercite.citedIN = (hypercite.citedIN || []).filter((url: any) => !brokenUrls.includes(url));
+    const newLength = hypercite.citedIN.length;
+
+    console.log(`📊 Updated citedIN: ${originalLength} → ${newLength} citations`);
+
+    // Update relationship status based on new citedIN length
+    hypercite.relationshipStatus = determineRelationshipStatus(newLength);
+
+    console.log(`🔄 Updated relationship status: ${hypercite.relationshipStatus}`);
+
+    // Save updated hypercite to IndexedDB
+    const writeTx = db.transaction('hypercites', 'readwrite');
+    const writeStore = writeTx.objectStore('hypercites');
+    const putRequest = writeStore.put(hypercite);
+
+    await new Promise((resolve: any, reject: any) => {
+      putRequest.onsuccess = () => {
+        console.log(`✅ Updated hypercite ${sourceHyperciteId} in IndexedDB`);
+        resolve(undefined);
+      };
+      putRequest.onerror = () => reject(putRequest.error);
+    });
+
+    await new Promise((resolve: any, reject: any) => {
+      writeTx.oncomplete = () => resolve(undefined);
+      writeTx.onerror = () => reject(writeTx.error);
+    });
+
+    // Queue for sync to PostgreSQL
+    queueForSync('hypercites', sourceHyperciteId, 'update', hypercite);
+
+    // Update DOM if element exists
+    const uElement = document.getElementById(sourceHyperciteId);
+    if (uElement) {
+      // Update class to reflect new relationship status
+      uElement.classList.remove('single', 'couple', 'poly');
+      uElement.classList.add(hypercite.relationshipStatus);
+      console.log(`✅ Updated DOM element class to ${hypercite.relationshipStatus}`);
+    }
+
+    // Update nodeRecord's hypercites array (like delinkHypercite does) so the embedded
+    // hypercite data in nodes stays in sync.
+    const nodesTx = db.transaction(['nodes'], 'readwrite');
+    const nodesStore = nodesTx.objectStore('nodes');
+    const bookIndex = nodesStore.index('book');
+
+    // Get all nodes for this book
+    const allNodes: any = await new Promise((resolve: any, reject: any) => {
+      const request = bookIndex.getAll(sourceBook);
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+
+    console.log(`🔍 Searching ${allNodes.length} nodes for hypercite ${sourceHyperciteId}`);
+
+    // Find the nodeRecord that contains this hypercite
+    let foundNode: any = null;
+    let foundHyperciteIndex = -1;
+
+    for (const nodeRecord of allNodes) {
+      if (nodeRecord.hypercites && Array.isArray(nodeRecord.hypercites)) {
+        const index = nodeRecord.hypercites.findIndex((hc: any) => hc.hyperciteId === sourceHyperciteId);
+        if (index !== -1) {
+          foundNode = nodeRecord;
+          foundHyperciteIndex = index;
+          console.log(`✅ Found hypercite in nodeRecord at startLine ${nodeRecord.startLine}, index ${index}`);
+          break;
+        }
+      }
+    }
+
+    if (foundNode && foundHyperciteIndex !== -1) {
+      // Update the hypercite in the nodeRecord's array
+      foundNode.hypercites[foundHyperciteIndex] = {
+        ...foundNode.hypercites[foundHyperciteIndex],
+        citedIN: hypercite.citedIN,
+        relationshipStatus: hypercite.relationshipStatus
+      };
+
+      // Update the nodeRecord in IndexedDB
+      const updateRequest = nodesStore.put(foundNode);
+      await new Promise((resolve: any, reject: any) => {
+        updateRequest.onsuccess = () => resolve(undefined);
+        updateRequest.onerror = () => reject(updateRequest.error);
+      });
+
+      console.log(`✅ Updated nodeRecord hypercites array for startLine ${foundNode.startLine}`);
+
+      // Queue the nodeRecord for sync to PostgreSQL
+      queueForSync('nodes', foundNode.startLine, 'update', foundNode);
+      updatedNodes.push(foundNode);
+    } else {
+      console.warn(`⚠️ Hypercite ${sourceHyperciteId} not found in any nodeRecord`);
+    }
+
+    await new Promise((resolve: any, reject: any) => {
+      nodesTx.oncomplete = () => resolve(undefined);
+      nodesTx.onerror = () => reject(nodesTx.error);
+    });
+  }
+
+  // Update book timestamp
+  await updateBookTimestamp(sourceBook);
+
+  // Flush sync immediately
+  console.log('⚡ Flushing sync queue immediately...');
+  await debouncedMasterSync.flush();
+  console.log('✅ Sync queue flushed');
+
+  // Broadcast changes to other tabs
+  const { broadcastToOpenTabs }: any = await import('../utilities/BroadcastListener');
+  updatedNodes.forEach((chunk: any) => {
+    broadcastToOpenTabs(sourceBook, chunk.startLine);
+  });
+  console.log('📡 Broadcasted citation removal to other tabs');
+
+  // Re-render affected nodes so <u> tags reflect updated relationship status
+  if (updatedNodes.length > 0) {
+    const { reprocessHighlightsForNodes }: any = await import('../hyperlights/index');
+    const affectedStartLines = updatedNodes.map((chunk: any) => chunk.startLine);
+    await reprocessHighlightsForNodes(sourceBook, affectedStartLines);
+  }
+}
+
 // ========== Internal Helper Functions (not exported) ==========
 
 /**

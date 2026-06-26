@@ -4,7 +4,11 @@ import { asBookId } from "../indexedDB/types";
  */
 
 import { sanitizeHtml } from '../utilities/sanitizeConfig';
-import { parseHyperciteHref, attachUnderlineClickListeners } from "../hypercites/index";
+// Source from the hypercites LEAVES, not the barrel: the barrel re-exports deletion.ts, which
+// dynamically imports hyperlights/index — importing the barrel here would form a ring
+// (hyperlights → hypercites/index → deletion → hyperlights). utils + listeners don't reach back.
+import { parseHyperciteHref } from "../hypercites/utils";
+import { attachUnderlineClickListeners } from "../hypercites/listeners";
 import { extractQuotedText } from '../utilities/textExtraction';
 import { updateCitationForExistingHypercite } from '../indexedDB/index';
 import { book } from '../app';
