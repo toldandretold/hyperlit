@@ -231,7 +231,8 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
         // when we absolutely have to. (Mirror of the note in BroadcastListener.showStaleTabOverlay.)
         import('../../utilities/BroadcastListener')
           .then(({ showStaleTabOverlay }) => showStaleTabOverlay(
-            "This book was edited elsewhere (another device or window). Refresh to load the latest version — your last change wasn't saved."
+            "You have edited into a stale version. Please refresh to get the latest. Unfortunately, your recent edits will be lost. Apologies comrade.",
+            bookId
           ))
           .catch(() => { /* overlay module unavailable — the thrown error still glows red */ });
         // Throw a specific error so callers can identify stale data issues. classifySyncError

@@ -149,29 +149,30 @@ export function registerBookOpen(bookId: any) {
       // instances and near-simultaneous self-saves) so we never block the editor
       // on its own work.
       if (editedLocallyRecently(incomingRoot)) return;
-      (showStaleTabOverlay as any)();
+      showStaleTabOverlay(undefined, event.data.book || incomingRoot);
     }
   });
 }
 
 /**
  * Show a blocking overlay when the book is out of date (edited elsewhere).
- * Cannot be dismissed — the only action is to reload the page.
+ * Cannot be dismissed — the only action is to hard-refresh the page.
  *
- * Two callers, same "you're stale, reload" situation detected differently:
+ * Two callers, same "you're stale, refresh" situation detected differently:
  *   - same-browser cross-tab edit (BroadcastChannel) — the default message
  *   - cross-device 409 STALE_DATA on sync (UnifiedSyncController) — passes its own message
  *
- * @param {string} [message] Override body copy (the tab vs device wording differs).
+ * The "Refresh" button does a PROPER local refresh via hardRefreshStaleBook():
+ * it wipes the stale book's IndexedDB data + service-worker caches before
+ * reloading, so the reload actually pulls the server's fresh version instead of
+ * re-rendering the same stale cache (which is why a plain reload "did nothing"
+ * and the 409 looped forever). The unsynced local edit is discarded — that's the
+ * blunt-but-safe option; a future version could 3-way merge non-overlapping edits.
  *
- * NOTE (future): this hard-blocks and forces a reload, which DISCARDS the user's
- * unsynced edit. That's the safe-but-blunt option. A nicer future version could
- * 3-way diff the local edit against the server's newer version and auto-merge when
- * the changes don't overlap (only block when they genuinely conflict), so we only
- * throw away work when we absolutely have to. See the 409 path in
- * indexedDB/syncQueue/master.js (executeSyncPayload) for where the conflict is detected.
+ * @param {string} [message]  Override body copy (the tab vs device wording differs).
+ * @param {string} [bookId]   The stale book to cleanse before reloading.
  */
-export function showStaleTabOverlay(message: any) {
+export function showStaleTabOverlay(message: any, bookId?: string | null) {
   if (document.getElementById('stale-tab-overlay')) return;
 
   const overlay = document.createElement('div');
@@ -194,7 +195,7 @@ export function showStaleTabOverlay(message: any) {
         <line x1="12" y1="17" x2="12.01" y2="17"></line>
       </svg>
       <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 600;">Book out of date</h2>
-      <p style="margin: 0 0 24px 0; color: #aaa; line-height: 1.5; font-size: 14px;">${message || 'This book was modified in a different tab. Refresh to load the latest version.'}</p>
+      <p style="margin: 0 0 24px 0; color: #aaa; line-height: 1.5; font-size: 14px;">${message || 'You have edited into a stale version. Please refresh to get the latest. Unfortunately, your recent edits will be lost. Apologies comrade.'}</p>
       <button id="stale-tab-refresh" style="
         background: #EF8D34;
         color: #fff;
@@ -211,7 +212,19 @@ export function showStaleTabOverlay(message: any) {
 
   document.body.appendChild(overlay);
   document.getElementById('stale-tab-refresh')?.addEventListener('click', () => {
-    window.location.reload();
+    const btn = document.getElementById('stale-tab-refresh') as HTMLButtonElement | null;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Refreshing…';
+      btn.style.opacity = '0.6';
+      btn.style.cursor = 'default';
+    }
+    // PROPER refresh: cleanse stale local data + caches, THEN reload (always reloads
+    // in its finally, even if a cleanse step fails). A bare reload would re-render the
+    // same stale cache and loop the 409 forever.
+    import('./staleRecovery')
+      .then(({ hardRefreshStaleBook }) => hardRefreshStaleBook(bookId))
+      .catch(() => window.location.reload());
   });
 }
 
