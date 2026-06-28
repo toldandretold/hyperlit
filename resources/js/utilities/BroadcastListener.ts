@@ -171,9 +171,17 @@ export function registerBookOpen(bookId: any) {
  *
  * @param {string} [message]  Override body copy (the tab vs device wording differs).
  * @param {string} [bookId]   The stale book to cleanse before reloading.
+ * @param {Array}  [lostNodes] The about-to-be-discarded edit ({id, content} HTML).
+ *                 When present, the overlay offers a "Download my unsaved edit (.md)"
+ *                 button so the user can keep the text they wrote before it's gone.
  */
-export function showStaleTabOverlay(message: any, bookId?: string | null) {
+export function showStaleTabOverlay(
+  message: any,
+  bookId?: string | null,
+  lostNodes?: Array<{ id: any; content: string }>,
+) {
   if (document.getElementById('stale-tab-overlay')) return;
+  const hasLostEdit = Array.isArray(lostNodes) && lostNodes.length > 0;
 
   const overlay = document.createElement('div');
   overlay.id = 'stale-tab-overlay';
@@ -195,22 +203,62 @@ export function showStaleTabOverlay(message: any, bookId?: string | null) {
         <line x1="12" y1="17" x2="12.01" y2="17"></line>
       </svg>
       <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 600;">Book out of date</h2>
-      <p style="margin: 0 0 24px 0; color: #aaa; line-height: 1.5; font-size: 14px;">${message || 'You have edited into a stale version. Please refresh to get the latest. Unfortunately, your recent edits will be lost. Apologies comrade.'}</p>
-      <button id="stale-tab-refresh" style="
-        background: #EF8D34;
-        color: #fff;
-        border: none;
-        padding: 12px 32px;
-        border-radius: 6px;
-        font-size: 15px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.2s;
-      ">Refresh</button>
+      <p style="margin: 0 0 24px 0; color: #aaa; line-height: 1.5; font-size: 14px;">${message || 'You edited a stale version of this book. To load the latest, your recent edits must be discarded. Apologies comrade.'}</p>
+      <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        ${hasLostEdit ? `<button id="stale-tab-download" style="
+          background: transparent;
+          color: #EF8D34;
+          border: 1px solid #EF8D34;
+          padding: 12px 24px;
+          border-radius: 6px;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">Download my unsaved edit (.md)</button>` : ''}
+        <button id="stale-tab-refresh" style="
+          background: #EF8D34;
+          color: #fff;
+          border: none;
+          padding: 12px 32px;
+          border-radius: 6px;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">Refresh &amp; load latest</button>
+      </div>
     </div>
   `;
 
   document.body.appendChild(overlay);
+
+  if (hasLostEdit) {
+    document.getElementById('stale-tab-download')?.addEventListener('click', async () => {
+      const btn = document.getElementById('stale-tab-download') as HTMLButtonElement | null;
+      if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
+      try {
+        const { htmlToMarkdown, downloadMarkdown } = await import('../components/sourceContainer/downloads');
+        const parts: string[] = [];
+        for (const n of lostNodes!) {
+          try {
+            parts.push(await htmlToMarkdown(n.content));
+          } catch {
+            // turndown unavailable (offline) — fall back to the raw HTML so nothing is lost.
+            parts.push(n.content);
+          }
+        }
+        const md = parts.join('\n\n');
+        const safeBook = String(bookId || 'book').replace(/[^a-zA-Z0-9_-]/g, '_');
+        downloadMarkdown(`unsaved-edit-${safeBook}-${Date.now()}.md`, md);
+        if (btn) { btn.textContent = 'Downloaded ✓'; }
+      } catch (e) {
+        console.error('Could not export unsaved edit:', e);
+        if (btn) { btn.disabled = false; btn.textContent = 'Download failed — retry'; }
+      }
+    });
+  }
+
   document.getElementById('stale-tab-refresh')?.addEventListener('click', () => {
     const btn = document.getElementById('stale-tab-refresh') as HTMLButtonElement | null;
     if (btn) {

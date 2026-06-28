@@ -369,7 +369,10 @@ export type QueueForSyncFn = <S extends SyncStore>(
   skipRedoClear?: boolean,
 ) => void;
 
-export type HistoryLogStatus = 'pending' | 'synced' | 'failed';
+// 'stale' is TERMINAL: a batch the server rejected as out-of-date (409 STALE_DATA).
+// retryFailedBatches only replays 'pending' | 'failed', so 'stale' parks the batch
+// permanently instead of letting it re-POST → 409 → re-POST on every page load.
+export type HistoryLogStatus = 'pending' | 'synced' | 'failed' | 'stale';
 
 /** A row in the `historyLog` store. Key: id (autoIncrement). */
 export interface HistoryLogEntry {

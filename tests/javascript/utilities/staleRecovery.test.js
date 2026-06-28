@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const clearPendingSyncsForBook = vi.fn();
-const clearBookDataFromIndexedDB = vi.fn().mockResolvedValue(undefined);
+const purgeStaleBookFromIndexedDB = vi.fn().mockResolvedValue(undefined);
 const clearBrowserCache = vi.fn().mockResolvedValue(undefined);
 const openDatabase = vi.fn().mockResolvedValue({ __db: true });
 
@@ -24,7 +24,7 @@ vi.mock('../../../resources/js/indexedDB/core/connection.js', () => ({
   openDatabase,
 }));
 vi.mock('../../../resources/js/indexedDB/serverSync/index', () => ({
-  clearBookDataFromIndexedDB,
+  purgeStaleBookFromIndexedDB,
 }));
 vi.mock('../../../resources/js/components/userContainer/cache', () => ({
   clearBrowserCache,
@@ -45,11 +45,13 @@ describe('hardRefreshStaleBook', () => {
     });
   });
 
-  it('cleanses the offending book then reloads', async () => {
+  it('PURGES the offending book (incl. historyLog) then reloads', async () => {
     await hardRefreshStaleBook('book_123');
 
     expect(clearPendingSyncsForBook).toHaveBeenCalledWith('book_123');
-    expect(clearBookDataFromIndexedDB).toHaveBeenCalledWith({ __db: true }, 'book_123');
+    // Must use the aggressive purge (which clears historyLog) — NOT the plain clear,
+    // or the doomed batch replays the 409 forever.
+    expect(purgeStaleBookFromIndexedDB).toHaveBeenCalledWith({ __db: true }, 'book_123');
     expect(clearBrowserCache).toHaveBeenCalledTimes(1);
     expect(reload).toHaveBeenCalledTimes(1);
   });
@@ -58,17 +60,17 @@ describe('hardRefreshStaleBook', () => {
     await hardRefreshStaleBook(undefined);
 
     expect(clearPendingSyncsForBook).not.toHaveBeenCalled();
-    expect(clearBookDataFromIndexedDB).not.toHaveBeenCalled();
+    expect(purgeStaleBookFromIndexedDB).not.toHaveBeenCalled();
     expect(clearBrowserCache).toHaveBeenCalledTimes(1);
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
-  it('always reloads even if a cleanse step throws', async () => {
-    clearBookDataFromIndexedDB.mockRejectedValueOnce(new Error('idb boom'));
+  it('always reloads even if a purge step throws', async () => {
+    purgeStaleBookFromIndexedDB.mockRejectedValueOnce(new Error('idb boom'));
 
     await hardRefreshStaleBook('book_123');
 
-    // The cleanse failed, but the user must not be left stuck on the stale overlay.
+    // The purge failed, but the user must not be left stuck on the stale overlay.
     expect(reload).toHaveBeenCalledTimes(1);
   });
 });

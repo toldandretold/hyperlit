@@ -9,7 +9,7 @@
 export { syncBookDataFromDatabase, syncAnnotationsOnly } from './pull';
 export { syncIndexedDBtoPostgreSQL } from './push';
 export { flushAllPendingEdits } from './flush';
-export { clearBookDataFromIndexedDB } from './clear';
+export { clearBookDataFromIndexedDB, purgeStaleBookFromIndexedDB } from './clear';
 export {
   loadNodesToIndexedDB,
   loadFootnotesToIndexedDB,

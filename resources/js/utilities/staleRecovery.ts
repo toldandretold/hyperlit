@@ -30,15 +30,18 @@ export async function hardRefreshStaleBook(bookId: string | null | undefined): P
         console.warn('staleRecovery: could not clear pending syncs', e);
       }
 
-      // 2. Wipe the stale book's local IndexedDB data so the reload pulls fresh.
+      // 2. Wipe ALL the stale book's local stores — nodes, annotations, library,
+      //    bibliography AND historyLog — so the reload pulls fresh. historyLog is
+      //    the critical one: leaving it in place replays the doomed batch → 409 on
+      //    every boot (the bug a plain clearBookDataFromIndexedDB did NOT fix).
       try {
         const { openDatabase } = await import('../indexedDB/core/connection.js');
-        const { clearBookDataFromIndexedDB } = await import('../indexedDB/serverSync/index');
+        const { purgeStaleBookFromIndexedDB } = await import('../indexedDB/serverSync/index');
         const db = await openDatabase();
-        await clearBookDataFromIndexedDB(db, bookId);
-        console.log(`🧹 Cleared stale local data for book ${bookId}`);
+        await purgeStaleBookFromIndexedDB(db, bookId);
+        console.log(`🧹 Purged ALL stale local data (incl. historyLog) for book ${bookId}`);
       } catch (e) {
-        console.warn('staleRecovery: could not clear book IndexedDB', e);
+        console.warn('staleRecovery: could not purge book IndexedDB', e);
       }
     }
 

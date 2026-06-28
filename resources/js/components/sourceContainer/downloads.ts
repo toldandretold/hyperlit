@@ -54,6 +54,19 @@ async function loadHtmlToText() {
 }
 
 /**
+ * Convert a chunk of node HTML to markdown using the same turndown (+GFM) stack
+ * the book exporters use. Reused by the stale-recovery overlay to let the user
+ * download the unsynced edit they're about to lose. Online-only (turndown loads
+ * from CDN); callers should fall back to the raw HTML/text if this throws.
+ */
+export async function htmlToMarkdown(html: string): Promise<string> {
+  const [TurndownService, gfm] = await Promise.all([loadTurndown(), loadTurndownGfm()]);
+  const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
+  if (gfm?.gfm) td.use(gfm.gfm);
+  return td.turndown(html || '');
+}
+
+/**
  * Converts citation HTML (from formatBibtexToCitation) to inline markdown.
  * <i>text</i> → *text*, <a href="url">text</a> → [text](url), strips other tags.
  */
@@ -577,7 +590,7 @@ export async function exportBookAsMarkdown(bookId: any = book || 'latest') {
 /**
  * Triggers a download in the browser of the given text as a .md file.
  */
-function downloadMarkdown(filename: string, text: string) {
+export function downloadMarkdown(filename: string, text: string) {
   const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

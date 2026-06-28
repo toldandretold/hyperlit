@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1537 functions in 323 modules · 10 object stores · 10 PG tables · 3133 edges
+**MarkdownDB** schema v27 · 1540 functions in 323 modules · 10 object stores · 10 PG tables · 3143 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -219,9 +219,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleReupload` | `components/sourceContainer/creatorTools/reupload` | — | — | read/write | — |
 | `loadVersionHistory` | `components/sourceContainer/creatorTools/versionHistory` | — | — | read/write | — |
 | `downloadAllForBook` | `components/sourceContainer/downloads` | — | — | write | — |
+| `downloadMarkdown` | `components/sourceContainer/downloads` | — | — | write | — |
 | `exportBookAsDocxStyled` | `components/sourceContainer/downloads` | `bibliography` `footnotes` | — | read/write | — |
 | `exportBookAsEpub` | `components/sourceContainer/downloads` | `bibliography` `footnotes` | — | read/write | — |
 | `exportBookAsMarkdown` | `components/sourceContainer/downloads` | `bibliography` `footnotes` | — | read/write | — |
+| `htmlToMarkdown` | `components/sourceContainer/downloads` | — | — | — | — |
 | `cleanUrl` | `components/sourceContainer/editForm` | — | — | — | — |
 | `collectFormData` | `components/sourceContainer/editForm` | — | — | read | — |
 | `expandForEditForm` | `components/sourceContainer/editForm` | — | — | — | — |
@@ -1035,6 +1037,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `writeNodes` | `indexedDB/nodes/write` | — | `nodes` | — | — |
 | `clearAnnotationsFromIndexedDB` | `indexedDB/serverSync/clear` | — | `hypercites` `hyperlights` | — | — |
 | `clearBookDataFromIndexedDB` | `indexedDB/serverSync/clear` | `library` | `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
+| `purgeStaleBookFromIndexedDB` | `indexedDB/serverSync/clear` | `historyLog` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `nodes` | — | — |
 | `updateEmbeddedAnnotationsInNodes` | `indexedDB/serverSync/clear` | `nodes` | `nodes` | — | — |
 | `flushAllPendingEdits` | `indexedDB/serverSync/flush` | — | — | — | — |
 | `loadBibliographyToIndexedDB` | `indexedDB/serverSync/loaders` | — | `bibliography` | — | — |

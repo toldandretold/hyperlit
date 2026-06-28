@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1537,
+    "fnCount": 1540,
     "moduleCount": 323,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3133,
+    "edgeCount": 3143,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -1845,6 +1845,14 @@
       "leaf": false
     },
     {
+      "id": "components/sourceContainer/downloads:downloadMarkdown",
+      "label": "downloadMarkdown",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/downloads",
+      "leaf": false
+    },
+    {
       "id": "components/sourceContainer/downloads:exportBookAsDocxStyled",
       "label": "exportBookAsDocxStyled",
       "kind": "fn",
@@ -1867,6 +1875,14 @@
       "stage": "components",
       "module": "components/sourceContainer/downloads",
       "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/downloads:htmlToMarkdown",
+      "label": "htmlToMarkdown",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/downloads",
+      "leaf": true
     },
     {
       "id": "components/sourceContainer/editForm:cleanUrl",
@@ -9468,6 +9484,14 @@
       "leaf": false
     },
     {
+      "id": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB",
+      "label": "purgeStaleBookFromIndexedDB",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/clear",
+      "leaf": false
+    },
+    {
       "id": "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
       "label": "updateEmbeddedAnnotationsInNodes",
       "kind": "fn",
@@ -14610,9 +14634,11 @@
       "band": "components",
       "fnIds": [
         "components/sourceContainer/downloads:downloadAllForBook",
+        "components/sourceContainer/downloads:downloadMarkdown",
         "components/sourceContainer/downloads:exportBookAsDocxStyled",
         "components/sourceContainer/downloads:exportBookAsEpub",
-        "components/sourceContainer/downloads:exportBookAsMarkdown"
+        "components/sourceContainer/downloads:exportBookAsMarkdown",
+        "components/sourceContainer/downloads:htmlToMarkdown"
       ]
     },
     {
@@ -16594,6 +16620,7 @@
       "fnIds": [
         "indexedDB/serverSync/clear:clearAnnotationsFromIndexedDB",
         "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+        "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB",
         "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes"
       ]
     },
@@ -20185,6 +20212,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/downloads:downloadMarkdown__domwrite__dom",
+      "source": "components/sourceContainer/downloads:downloadMarkdown",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/sourceContainer/downloads:exportBookAsDocxStyled__call__components/sourceContainer/helpers:getBookDownloadName",
       "source": "components/sourceContainer/downloads:exportBookAsDocxStyled",
       "target": "components/sourceContainer/helpers:getBookDownloadName",
@@ -20273,6 +20306,12 @@
       "source": "components/sourceContainer/downloads:exportBookAsEpub",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/downloads:exportBookAsMarkdown__call__components/sourceContainer/downloads:downloadMarkdown",
+      "source": "components/sourceContainer/downloads:exportBookAsMarkdown",
+      "target": "components/sourceContainer/downloads:downloadMarkdown",
+      "rel": "call"
     },
     {
       "id": "components/sourceContainer/downloads:exportBookAsMarkdown__call__components/sourceContainer/helpers:getBookDownloadName",
@@ -31234,6 +31273,48 @@
       "rel": "write"
     },
     {
+      "id": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB__write__store:bibliography",
+      "source": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB",
+      "target": "store:bibliography",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB__write__store:footnotes",
+      "source": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB",
+      "target": "store:footnotes",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB__write__store:historyLog",
+      "source": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB",
+      "target": "store:historyLog",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB__write__store:hypercites",
+      "source": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB",
+      "target": "store:hypercites",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB__write__store:hyperlights",
+      "source": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB",
+      "target": "store:hyperlights",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB__write__store:library",
+      "source": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB__write__store:nodes",
+      "source": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB",
+      "target": "store:nodes",
+      "rel": "write"
+    },
+    {
       "id": "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes__write__store:nodes",
       "source": "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
       "target": "store:nodes",
@@ -36734,6 +36815,12 @@
       "id": "store:footnotes__read__SPA/navigation/loadInitialChunkLocal:loadInitialChunkLocal",
       "source": "store:footnotes",
       "target": "SPA/navigation/loadInitialChunkLocal:loadInitialChunkLocal",
+      "rel": "read"
+    },
+    {
+      "id": "store:historyLog__read__indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB",
+      "source": "store:historyLog",
+      "target": "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB",
       "rel": "read"
     },
     {

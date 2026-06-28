@@ -230,3 +230,86 @@ export async function clearBookDataFromIndexedDB(db: IDBDatabase, bookId: string
     verbose.content('No existing library record to clear', 'serverSync/clear');
   }
 }
+
+/**
+ * Aggressively purge ALL local state for a book that has become un-syncable
+ * (server is newer than our local copy and our queued edit 409s forever).
+ *
+ * This is the stale-recovery counterpart to `clearBookDataFromIndexedDB` and is
+ * deliberately SEPARATE from it: the normal fresh-pull path (serverSync/pull)
+ * reuses `clearBookDataFromIndexedDB` and must NOT nuke `historyLog`, or it would
+ * drop legitimate offline edits waiting to sync. This purge, by contrast, clears
+ * `historyLog` too — that's the store whose replayed batch causes the 409 loop —
+ * plus `bibliography`, which the base helper skips.
+ *
+ * Stores cleared: nodes, hyperlights, hypercites, footnotes, bibliography (by the
+ * `book` index), library (by key), and historyLog (by the `bookId` index).
+ */
+export async function purgeStaleBookFromIndexedDB(db: IDBDatabase, bookId: string): Promise<void> {
+  verbose.content(`Purging ALL local data for stale book: ${bookId}`, 'serverSync/clear');
+
+  // Stores keyed/indexed by 'book' — same delete-by-index loop as the base helper,
+  // plus 'bibliography'.
+  const bookIndexedStores = ['nodes', 'hyperlights', 'hypercites', 'footnotes', 'bibliography'];
+
+  for (const storeName of bookIndexedStores) {
+    try {
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      const index = store.index('book');
+
+      const keys = await new Promise<IDBValidKey[]>((resolve, reject) => {
+        const request = index.getAllKeys(bookId);
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+      });
+
+      for (const key of keys) {
+        await new Promise<void>((resolve, reject) => {
+          const deleteRequest = store.delete(key);
+          deleteRequest.onsuccess = () => resolve();
+          deleteRequest.onerror = () => reject(deleteRequest.error);
+        });
+      }
+      verbose.content(`Purged ${keys.length} records from ${storeName}`, 'serverSync/clear');
+    } catch (error) {
+      verbose.content(`Could not purge ${storeName} (store/index may be absent)`, 'serverSync/clear');
+    }
+  }
+
+  // library — keyed by 'book'
+  try {
+    const tx = db.transaction('library', 'readwrite');
+    await new Promise<void>((resolve, reject) => {
+      const req = tx.objectStore('library').delete(bookId);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+    verbose.content('Purged library for book', 'serverSync/clear');
+  } catch (error) {
+    verbose.content('No library record to purge', 'serverSync/clear');
+  }
+
+  // historyLog — the replay source. Keyed by autoIncrement 'id', so delete via the
+  // 'bookId' index. THIS is the store that, left in place, replays the 409 forever.
+  try {
+    const tx = db.transaction('historyLog', 'readwrite');
+    const store = tx.objectStore('historyLog');
+    const index = store.index('bookId');
+    const keys = await new Promise<IDBValidKey[]>((resolve, reject) => {
+      const request = index.getAllKeys(bookId);
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+    for (const key of keys) {
+      await new Promise<void>((resolve, reject) => {
+        const deleteRequest = store.delete(key);
+        deleteRequest.onsuccess = () => resolve();
+        deleteRequest.onerror = () => reject(deleteRequest.error);
+      });
+    }
+    verbose.content(`Purged ${keys.length} historyLog batch(es) for book`, 'serverSync/clear');
+  } catch (error) {
+    verbose.content('Could not purge historyLog for book', 'serverSync/clear');
+  }
+}

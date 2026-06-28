@@ -220,29 +220,33 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
         console.error("📵 Stale data detected - your book is out of date");
         // Clear pending syncs so a manual refresh won't re-trigger the same stale sync
         pendingSyncs.clear();
+        // Capture the about-to-be-discarded edit (the update nodes with content) so the
+        // overlay can offer "download my unsaved edit (.md)" — the user sees and keeps
+        // the sentence they wrote before it's thrown away. (The historyLog batch is
+        // parked 'stale' by the caller's catch so it never replays.)
+        const lostNodes = (unifiedPayload.nodes || [])
+          .filter((n): n is PublicNode => Boolean(n && (n as PublicNode).content))
+          .map(n => ({ id: (n as any).startLine ?? (n as any).id, content: (n as PublicNode).content }));
         // Hard-block via the same overlay used for cross-tab edits — this is the same
-        // "you're stale, reload" situation, just detected cross-device (BroadcastChannel
-        // can't see other devices, so the server's 409 is the only signal). Blocking is
-        // warranted because we have an unsynced edit that can't be reconciled automatically.
-        //
-        // NOTE (future): reloading DISCARDS the user's just-rejected edit. A smarter version
-        // could diff the local edit against the server's newer version and auto-merge when
-        // they don't overlap, only blocking on a true conflict — so we only throw work away
-        // when we absolutely have to. (Mirror of the note in BroadcastListener.showStaleTabOverlay.)
+        // "you're stale, refresh" situation, just detected cross-device (BroadcastChannel
+        // can't see other devices, so the server's 409 is the only signal). Blocking +
+        // user-initiated refresh is intentional: the user must SEE why their edit is going.
         import('../../utilities/BroadcastListener')
           .then(({ showStaleTabOverlay }) => showStaleTabOverlay(
-            "You have edited into a stale version. Please refresh to get the latest. Unfortunately, your recent edits will be lost. Apologies comrade.",
-            bookId
+            "You edited a stale version of this book. To load the latest, your recent edits must be discarded. Download them first if you want to keep them. Apologies comrade.",
+            bookId,
+            lostNodes
           ))
           .catch(() => { /* overlay module unavailable — the thrown error still glows red */ });
         // Throw a specific error so callers can identify stale data issues. classifySyncError
         // returns null for STALE_DATA, so glowCloudRed won't also show a toast over the overlay.
         const staleError = new Error(errorData.message || 'Book is out of date') as Error & {
-          code?: string; status?: number; serverTimestamp?: unknown;
+          code?: string; status?: number; serverTimestamp?: unknown; lostNodes?: unknown;
         };
         staleError.code = 'STALE_DATA';
         staleError.status = 409;
         staleError.serverTimestamp = errorData.server_timestamp;
+        staleError.lostNodes = lostNodes;
         throw staleError;
       }
     }
@@ -533,12 +537,16 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
 
     if (glowCloudGreen) glowCloudGreen(); // Glow cloud green on successful server sync
   } catch (error) {
+    // 409 STALE_DATA is terminal, NOT a retryable failure: the server is newer, so
+    // re-POSTing this batch will 409 forever. Mark it 'stale' so retryFailedBatches
+    // skips it on the next boot (instead of 'failed', which it would replay).
+    const isStale = (error as { code?: string }).code === 'STALE_DATA';
     if (logEntry) {
-      logEntry.status = "failed";
+      logEntry.status = isStale ? "stale" : "failed";
       await updateHistoryLog(logEntry);
-      console.error(`❌ Sync failed for batch ${logEntry.id}:`, (error as Error).message);
+      console.error(`❌ Sync ${isStale ? 'rejected as stale' : 'failed'} for batch ${logEntry.id}:`, (error as Error).message);
     } else {
-      console.error(`❌ Non-node sync failed:`, (error as Error).message);
+      console.error(`❌ Non-node sync ${isStale ? 'rejected as stale' : 'failed'}:`, (error as Error).message);
     }
     // Tiered server-error handling. A 5xx means the SERVER failed (our fault), but the edit
     // is saved locally and will retry:

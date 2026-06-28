@@ -106,6 +106,18 @@ async function retryFailedBatches() {
         await updateHistoryLog(log);
         successCount++;
       } catch (error: any) {
+        // 409 STALE_DATA: the server has a newer version, so this batch can NEVER
+        // sync — it was edited against an out-of-date copy. Park it as 'stale'
+        // (terminal) so it stops re-POSTing on every page load, and keep going so
+        // an unrelated stale batch doesn't block the rest of the run. The user's
+        // recovery (purge + fresh pull, with a chance to download the lost edit)
+        // is driven by the 409 overlay shown from executeSyncPayload.
+        if (error?.code === 'STALE_DATA') {
+          log.status = "stale";
+          await updateHistoryLog(log);
+          console.warn(`📵 Batch ${log.id} is stale (server newer) — parked, will not retry.`);
+          continue;
+        }
         verbose.content(`Retry for batch ${log.id} failed`, 'initializePage.js', error);
         break;
       }
