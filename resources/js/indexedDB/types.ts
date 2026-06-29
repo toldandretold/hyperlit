@@ -319,6 +319,45 @@ export interface LibraryRecord {
   /** @deprecated Denormalized JSON copy (mirrors the top-level fields). Slated for
    *  removal; readers forward it, they don't dig in. Do not add new readers. */
   raw_json?: unknown;
+  /**
+   * Canonical / verified-source state (read-only on the client; written server-side by
+   * CanonicalSourceMatcher / SourceVerificationController). Drives the source panel's
+   * [check source] button vs the "✓ Verified" badge. `human_reviewed_at` + a linking
+   * `canonical_match_method` (not 'user_rejected'/'no_match_v1') = a human-confirmed source.
+   */
+  canonical_source_id?: string | null;
+  canonical_match_method?: string | null;
+  canonical_match_score?: number | null;
+  canonical_metadata_score?: number | null;
+  human_reviewed_at?: string | null;
+  /**
+   * Provenance for the source-panel categories + Librarian attribution (read-only).
+   * `conversion_method='pdf_ocr_auto_raw'` / `creator='canonicalizer_v1'` mark an auto-version;
+   * the identifiers build provider links; `canonical` (present when linked) carries the canonical's
+   * `auto_version_book` (→ "Official source text" when it equals `book`) + its identifiers.
+   */
+  conversion_method?: string | null;
+  foundation_source?: string | null;
+  openalex_id?: string | null;
+  doi?: string | null;
+  open_library_key?: string | null;
+  oa_url?: string | null;
+  canonical?: CanonicalRef | null;
+}
+
+/** The linked canonical_source, as returned (read-only) on the library record. */
+export interface CanonicalRef {
+  id: string;
+  auto_version_book?: string | null;
+  foundation_source?: string | null;
+  openalex_id?: string | null;
+  open_library_key?: string | null;
+  doi?: string | null;
+  oa_url?: string | null;
+  source_url?: string | null;
+  title?: string | null;
+  author?: string | null;
+  year?: number | string | null;
 }
 
 // ── sync queue / history log ────────────────────────────────────────

@@ -73,9 +73,10 @@ class CanonicalSourceMatcher
             return $this->result(self::STATUS_LINKED_NEW, $canonical->id ?? null, 'promote_openalex_metadata', 1.0, 'created canonical from library row\'s existing openalex_id');
         }
 
-        // 3. OpenAlex DOI lookup (instant if DOI present)
-        if (!empty($library->doi)) {
-            if ($result = $this->tryOpenAlexDoi($library, $dryRun)) return $result;
+        // 3. OpenAlex DOI lookup (instant if DOI present — incl. a DOI that only lives in url/bibtex)
+        $resolvedDoi = $this->resolveDoi($library);
+        if (!empty($resolvedDoi)) {
+            if ($result = $this->tryOpenAlexDoi($library, $resolvedDoi, $dryRun)) return $result;
         }
 
         // Title-search waves (4 & 5) need BOTH a usable title and an author to be
@@ -97,6 +98,160 @@ class CanonicalSourceMatcher
 
         $this->stampNoMatch($library, $dryRun);
         return $this->result(self::STATUS_NO_MATCH, null, null, null, 'no canonical or external match found');
+    }
+
+    /**
+     * Read-only sibling of match(): runs the same wave order but RETURNS the candidate citation
+     * data (the normalised work) WITHOUT writing anything, so the frontend can show the user
+     * "is this the source?" before committing. match(dryRun:true) is no good for this — it discards
+     * the candidate and returns no id. Used by the [check source] flow (SourceVerificationController).
+     *
+     * @return array{
+     *   status: string,
+     *   method: ?string,
+     *   score: ?float,
+     *   candidate: ?array,        // normalised-work shape (OpenAlexService::normaliseWork)
+     *   alternates: array,        // other ranked title-search hits (for a future "not this one?")
+     *   alreadyLinked: bool,
+     *   current: ?array           // the currently-linked canonical, if any
+     * }
+     */
+    public function preview(PgLibrary $library): array
+    {
+        // Already linked — report the current canonical (a re-check can still be forced by the
+        // caller passing a fresh row, but by default we surface what it's linked to).
+        if (!empty($library->canonical_source_id)) {
+            $current = CanonicalSource::find($library->canonical_source_id);
+            return $this->previewResult(
+                self::STATUS_ALREADY_LINKED,
+                $library->canonical_match_method,
+                $library->canonical_match_score !== null ? (float) $library->canonical_match_score : null,
+                null,
+                [],
+                true,
+                $current ? $this->canonicalToCandidate($current) : null,
+            );
+        }
+
+        // 1. Existing canonical via identifier
+        if ($existing = $this->findExistingCanonical($library)) {
+            return $this->previewResult(
+                self::STATUS_LINKED_EXISTING,
+                $this->identifierMethod($library, $existing),
+                1.0,
+                $this->canonicalToCandidate($existing),
+            );
+        }
+
+        // 2. Library already carries OpenAlex metadata — promote without an API call
+        if (!empty($library->openalex_id)) {
+            return $this->previewResult(
+                self::STATUS_LINKED_NEW,
+                'promote_openalex_metadata',
+                1.0,
+                $this->libraryRowAsCandidate($library),
+            );
+        }
+
+        // 3. OpenAlex DOI lookup (incl. a DOI that only lives in url/bibtex)
+        $resolvedDoi = $this->resolveDoi($library);
+        if (!empty($resolvedDoi)) {
+            try {
+                $normalised = $this->openAlex->fetchByDoi($resolvedDoi);
+                if ($normalised) {
+                    return $this->previewResult(self::STATUS_LINKED_NEW, 'openalex_doi', 1.0, $normalised);
+                }
+            } catch (\Throwable $e) {
+                $this->logFail('openalex_doi', $library, $e);
+            }
+        }
+
+        // 4 & 5. Title search (full, then shortened) — needs both a usable title and an author
+        if ($this->hasUsableTitleAndAuthor($library)) {
+            if ($found = $this->previewTitleSearch($library, $library->title, 'full')) return $found;
+
+            $shortened = $this->shortenTitle($library->title);
+            if ($shortened !== null && $shortened !== $library->title) {
+                if ($found = $this->previewTitleSearch($library, $shortened, 'short')) return $found;
+            }
+        }
+
+        return $this->previewResult(self::STATUS_NO_MATCH, null, null, null);
+    }
+
+    /**
+     * Apply a user-confirmed match: upsert the canonical from the (server-resolved) normalised work,
+     * link the library row to it, AND overwrite the library row's IDENTITY citation fields from the
+     * canonical (the user confirmed this IS the source). Version-specific fields the canonical does
+     * not model (volume/issue/pages/booktitle/chapter/editor/url/note) are left untouched. Stamps the
+     * verified state: method='user_verified' + human_reviewed_at. Library writes use pgsql_admin
+     * (RLS bypass) — the CALLER must have already authorised the edit.
+     */
+    public function verifyAndLink(PgLibrary $library, array $normalised, string $matchedBy): CanonicalSource
+    {
+        $foundation = $this->foundationFromSource($normalised['source'] ?? null);
+        $canonical = $this->upsertCanonicalFromNormalised($normalised, $foundation, false);
+
+        $now = now();
+        $metadataScore = $this->scoreLibraryAgainstCanonical($library, $canonical);
+
+        DB::connection('pgsql_admin')
+            ->table('library')
+            ->where('book', $library->book)
+            ->update([
+                // link + verified state
+                'canonical_source_id'      => $canonical->id,
+                'canonical_match_score'    => 1.0,
+                'canonical_metadata_score' => $metadataScore,
+                'canonical_match_method'   => 'user_verified',
+                'canonical_matched_at'     => $now,
+                'canonical_matched_by'     => $matchedBy,
+                'human_reviewed_at'        => $now,
+                // overwrite identity fields from the canonical
+                'title'               => $canonical->title,
+                'author'              => $canonical->author,
+                'year'                => $canonical->year,
+                'journal'             => $canonical->journal,
+                'publisher'           => $canonical->publisher,
+                'doi'                 => $canonical->doi,
+                'type'                => $canonical->type,
+                'abstract'            => $canonical->abstract,
+                'language'            => $canonical->language,
+                'openalex_id'         => $canonical->openalex_id,
+                'open_library_key'    => $canonical->open_library_key,
+                // (library has no semantic_scholar_id column — it lives only on canonical_source)
+                'is_oa'               => $canonical->is_oa,
+                'oa_status'           => $canonical->oa_status,
+                'oa_url'              => $canonical->oa_url,
+                'pdf_url'             => $canonical->pdf_url,
+                'work_license'        => $canonical->work_license,
+                'cited_by_count'      => $canonical->cited_by_count,
+                // refresh the display bibtex so the source panel's citation reflects the verified work
+                'bibtex'              => $normalised['bibtex'] ?? $library->bibtex,
+                'updated_at'          => $now,
+            ]);
+
+        return $canonical;
+    }
+
+    /**
+     * Record that the user looked the source up and rejected the suggestion (or none was found),
+     * so the UI can show "checked — no match" and not re-prompt. Mirrors stampNoMatch but credits
+     * the human and sets human_reviewed_at.
+     */
+    public function stampUserRejected(PgLibrary $library, string $matchedBy): void
+    {
+        $now = now();
+        DB::connection('pgsql_admin')
+            ->table('library')
+            ->where('book', $library->book)
+            ->update([
+                'canonical_match_method' => 'user_rejected',
+                'canonical_matched_at'   => $now,
+                'canonical_matched_by'   => $matchedBy,
+                'human_reviewed_at'      => $now,
+                'updated_at'             => $now,
+            ]);
     }
 
     /**
@@ -208,10 +363,10 @@ class CanonicalSourceMatcher
     // Wave: external API attempts
     // ──────────────────────────────────────────────────────────────────
 
-    private function tryOpenAlexDoi(PgLibrary $library, bool $dryRun): ?array
+    private function tryOpenAlexDoi(PgLibrary $library, string $doi, bool $dryRun): ?array
     {
         try {
-            $normalised = $this->openAlex->fetchByDoi($library->doi);
+            $normalised = $this->openAlex->fetchByDoi($doi);
         } catch (\Throwable $e) {
             $this->logFail('openalex_doi', $library, $e);
             return null;
@@ -294,8 +449,9 @@ class CanonicalSourceMatcher
         if (!empty($library->openalex_id)) {
             if ($cs = CanonicalSource::where('openalex_id', $library->openalex_id)->first()) return $cs;
         }
-        if (!empty($library->doi)) {
-            if ($cs = CanonicalSource::where('doi', $library->doi)->first()) return $cs;
+        $doi = $this->resolveDoi($library);
+        if (!empty($doi)) {
+            if ($cs = CanonicalSource::where('doi', $doi)->first()) return $cs;
         }
         if (!empty($library->open_library_key)) {
             if ($cs = CanonicalSource::where('open_library_key', $library->open_library_key)->first()) return $cs;
@@ -334,6 +490,22 @@ class CanonicalSourceMatcher
         }
 
         return ($best && $best['score'] >= self::TITLE_SEARCH_MIN_SCORE) ? $best : null;
+    }
+
+    /**
+     * The DOI to match on: the `doi` column if set, otherwise one extracted from the `url` or
+     * `bibtex` (uploads frequently put the DOI in the URL — e.g. https://doi.org/10.x/… — and
+     * never normalise it into the `doi` column, which silently skipped the instant DOI wave).
+     */
+    private function resolveDoi(PgLibrary $library): ?string
+    {
+        if (!empty($library->doi)) return $library->doi;
+        foreach ([(string) ($library->url ?? ''), (string) ($library->bibtex ?? '')] as $text) {
+            if ($text === '') continue;
+            $doi = $this->openAlex->extractDoi($text);
+            if ($doi) return $doi;
+        }
+        return null;
     }
 
     private function shortenTitle(?string $title): ?string
@@ -500,6 +672,150 @@ class CanonicalSourceMatcher
     // ──────────────────────────────────────────────────────────────────
     // Utility
     // ──────────────────────────────────────────────────────────────────
+
+    // ──────────────────────────────────────────────────────────────────
+    // Preview helpers (read-only; no DB writes)
+    // ──────────────────────────────────────────────────────────────────
+
+    private function previewResult(
+        string $status,
+        ?string $method,
+        ?float $score,
+        ?array $candidate,
+        array $alternates = [],
+        bool $alreadyLinked = false,
+        ?array $current = null,
+    ): array {
+        return [
+            'status'        => $status,
+            'method'        => $method,
+            'score'         => $score,
+            'candidate'     => $candidate,
+            'alternates'    => $alternates,
+            'alreadyLinked' => $alreadyLinked,
+            'current'       => $current,
+        ];
+    }
+
+    /**
+     * Title-search preview across OpenAlex → Open Library → Semantic Scholar (same order as
+     * tryTitleSearch). Returns the best candidate (≥ threshold) plus the remaining ranked hits
+     * as alternates — no writes.
+     */
+    private function previewTitleSearch(PgLibrary $library, string $title, string $variant): ?array
+    {
+        $providers = [
+            ['openalex',         "openalex_title_{$variant}",        fn() => $this->openAlex->fetchFromOpenAlex($title, 5)],
+            ['open_library',     "open_library_{$variant}",          fn() => $this->openLibrary->search($title, $library->author ?: null, 5)],
+            ['semantic_scholar', "semantic_scholar_{$variant}",      fn() => $this->semanticScholar->search($title, $library->author ?: null, 5)],
+        ];
+
+        foreach ($providers as [$name, $method, $fetch]) {
+            try {
+                $candidates = $fetch();
+            } catch (\Throwable $e) {
+                $this->logFail("{$name}_title", $library, $e);
+                continue;
+            }
+
+            $ranked = $this->rankCandidates($library, $candidates);
+            if (!empty($ranked) && $ranked[0]['score'] >= self::TITLE_SEARCH_MIN_SCORE) {
+                return $this->previewResult(
+                    self::STATUS_LINKED_NEW,
+                    $method,
+                    $ranked[0]['score'],
+                    $ranked[0]['normalised'],
+                    array_map(fn($r) => $r['normalised'], array_slice($ranked, 1)),
+                );
+            }
+        }
+
+        return null;
+    }
+
+    /** Score every candidate against the library row and return them sorted best-first. */
+    private function rankCandidates(PgLibrary $library, array $candidates): array
+    {
+        if (empty($candidates)) return [];
+
+        $authors = array_filter(array_map('trim', explode(';', (string) $library->author)));
+        $libMeta = [
+            'title'     => $library->title,
+            'authors'   => array_values($authors),
+            'year'      => $library->year,
+            'journal'   => $library->journal,
+            'publisher' => $library->publisher,
+        ];
+
+        $scored = [];
+        foreach ($candidates as $normalised) {
+            $score = (float) ($this->openAlex->metadataScore($libMeta, $normalised)['score'] ?? 0);
+            $scored[] = ['normalised' => $normalised, 'score' => $score];
+        }
+        usort($scored, fn($a, $b) => $b['score'] <=> $a['score']);
+        return $scored;
+    }
+
+    /** Present a stored canonical as a normalised-work-shaped candidate (carries the identifiers). */
+    private function canonicalToCandidate(CanonicalSource $c): array
+    {
+        return [
+            'title'               => $c->title,
+            'author'              => $c->author,
+            'year'                => $c->year,
+            'journal'             => $c->journal,
+            'publisher'           => $c->publisher,
+            'abstract'            => $c->abstract,
+            'type'                => $c->type,
+            'language'            => $c->language,
+            'doi'                 => $c->doi,
+            'openalex_id'         => $c->openalex_id,
+            'open_library_key'    => $c->open_library_key,
+            'semantic_scholar_id' => $c->semantic_scholar_id,
+            'is_oa'               => $c->is_oa,
+            'oa_status'           => $c->oa_status,
+            'oa_url'              => $c->oa_url,
+            'pdf_url'             => $c->pdf_url,
+            'work_license'        => $c->work_license,
+            'cited_by_count'      => $c->cited_by_count,
+            'source'              => 'canonical',
+        ];
+    }
+
+    /** Build a candidate from a library row that already carries OpenAlex metadata (wave 2). */
+    private function libraryRowAsCandidate(PgLibrary $library): array
+    {
+        return [
+            'title'            => $library->title,
+            'author'           => $library->author,
+            'year'             => $library->year,
+            'journal'          => $library->journal,
+            'publisher'        => $library->publisher,
+            'abstract'         => $library->abstract,
+            'type'             => $library->type,
+            'language'         => $library->language,
+            'doi'              => $library->doi,
+            'openalex_id'      => $library->openalex_id,
+            'open_library_key' => $library->open_library_key ?? null,
+            'is_oa'            => $library->is_oa,
+            'oa_status'        => $library->oa_status,
+            'oa_url'           => $library->oa_url ?? null,
+            'pdf_url'          => $library->pdf_url ?? null,
+            'work_license'     => $library->work_license ?? null,
+            'cited_by_count'   => $library->cited_by_count,
+            'source'           => 'openalex',
+        ];
+    }
+
+    /** Map a normalised work's `source` to the canonical foundation_source provenance value. */
+    private function foundationFromSource(?string $source): string
+    {
+        return match ($source) {
+            'open_library'     => 'open_library_ingest',
+            'semantic_scholar' => 'semantic_scholar_ingest',
+            default            => 'openalex_ingest',
+        };
+    }
 
     private function result(string $status, ?string $csId, ?string $method, ?float $score, string $reason): array
     {

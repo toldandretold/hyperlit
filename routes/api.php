@@ -280,6 +280,13 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         [DbLibraryController::class, 'upsert']
     );
 
+    /* ----------------  Source verification ([check source])  ---------------- */
+    // Owner-gated in-controller (mirrors /db/library/upsert). Look a book's citation identity up
+    // against canonicals + external APIs (lookup), then link + overwrite on confirmation (verify).
+    Route::post('/library/{book}/source/lookup', [\App\Http\Controllers\SourceVerificationController::class, 'lookup']);
+    Route::post('/library/{book}/source/verify', [\App\Http\Controllers\SourceVerificationController::class, 'verify']);
+    Route::post('/library/{book}/source/reject', [\App\Http\Controllers\SourceVerificationController::class, 'reject']);
+
 
     Route::post(
         '/db/library/update-timestamp',

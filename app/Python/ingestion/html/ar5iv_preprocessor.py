@@ -419,19 +419,102 @@ def strip_section_cross_refs(soup) -> None:
 
 
 def strip_ar5iv_footer(soup) -> None:
-    """Drop ar5iv's site UI (feedback links, conversion report, generated-by line).
+    """Drop ar5iv's site chrome (prev/next nav, feedback links, generated-by line, logo).
 
-    These are not part of the paper and would otherwise become real nodes in the book.
+    These are not part of the paper. This MUST run before flatten_document_structure():
+    once the body's real blocks are lifted to body level, any surviving chrome would ALSO
+    become body-level nodes — so we remove the whole footer CONTAINERS, not just inner spans.
     """
+    # ar5iv's own chrome wrappers: the ◄/► nav bar (<div class="ar5iv-footer">) and the
+    # Copyright/Privacy footer (<footer class="ltx_page_footer">). Decompose the whole thing.
+    for cls in ("ar5iv-footer", "ltx_page_footer"):
+        for el in soup.find_all(class_=cls):
+            el.decompose()
+    # LaTeXML's generated-by / dates / endpage bits (defensive — usually inside the footer above).
     for cls in ("ltx_page_logo", "ltx_dates", "ltx_role_endpage"):
         for el in soup.find_all(class_=cls):
             el.decompose()
-    # The "◄ Feelinglucky? Conversionreport Reportan issue" navbar isn't classed
-    # uniformly. Best-effort: drop divs whose text starts with the back arrow.
+    # Last resort for older/unclassed markup: a nav div whose text starts with the back arrow.
+    # get_text() must be whitespace-stripped before the substring test — BeautifulSoup's
+    # default separator leaves "Feeling lucky?" (the <br> becomes a space), so a naive
+    # "Feelinglucky" check silently never matched.
     for div in soup.find_all("div"):
-        text = (div.get_text(" ", strip=True) or "")[:80]
+        text = re.sub(r"\s+", "", div.get_text() or "")[:80]
         if text.startswith("◄") and "Feelinglucky" in text:
             div.decompose()
+
+
+def flatten_document_structure(soup) -> None:
+    """Lift the paper's real blocks (headings, paragraphs, lists) to be DIRECT children of
+    <body> by unwrapping ar5iv's structural containers.
+
+    The downstream node-builder (digestion/finalize.py:GenerateNodeChunks) emits ONE node per
+    *direct child of <body>* (``find_all(recursive=False)``). ar5iv nests the whole paper inside:
+
+        <body>
+          <div class="ltx_page_main"><div class="ltx_page_content">
+            <article class="ltx_document">
+              <h1>…</h1> <div class="ltx_abstract">…</div>
+              <section class="ltx_section">…</section> …
+            </article>
+          </div></div>
+        </body>
+
+    so <body> has a SINGLE direct child and the entire article collapses into one giant node
+    (the bug this fixes). Unwrapping the page wrappers + the <article>/<section> grouping promotes
+    each heading/paragraph to body level, so each becomes its own node. The <div class="ltx_abstract">
+    and figure wrappers are intentionally left intact so their grouped content stays one node.
+    """
+    # <article>/<section> are HTML5 grouping tags (LaTeXML's section tree). HTMLPurifier strips
+    # them downstream anyway, but unwrapping here keeps the preprocessor's own output correct
+    # and order-stable. find_all returns parents before children, so nested sections flatten too.
+    for tag_name in ("article", "section"):
+        for el in soup.find_all(tag_name):
+            el.unwrap()
+    # The ltx_page_* wrappers are <div>s, so they SURVIVE sanitization — they're what actually
+    # collapse the body to a single child. Unwrap them by class.
+    for cls in ("ltx_page_main", "ltx_page_content", "ltx_document"):
+        for el in soup.find_all("div", class_=cls):
+            el.unwrap()
+
+    _normalise_body_level_divs(soup)
+
+
+# Block-level tags the node-builder treats as standalone nodes (digestion/finalize.py).
+_BLOCK_TAGS = {"p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li",
+               "table", "blockquote", "figure", "pre", "div"}
+
+
+def _normalise_body_level_divs(soup) -> None:
+    """Get rid of grouping <div>s sitting DIRECTLY under <body> so no node is a bare div
+    *housing* headings/paragraphs — the reader/editor expect each node to be a standard block
+    (h*/p/ul/ol/table/blockquote). After flattening, ar5iv leaves three such body-level divs:
+
+      • <div class="ltx_authors"> — inline content (name / <br> / affiliation / email).
+      • <div class="ltx_abstract"> — an <h6>Abstract</h6> heading + a <p> body.
+      • the lift_figures() wrapper — a <table> (or image <p>) + its <blockquote> caption.
+
+    Rule per body-level div:
+      • holds block children → UNWRAP, so each inner block becomes its own body-level node
+        (abstract → an <h6> node + a <p> node; table wrapper → a <table> node + a caption node).
+      • inline-only (no block child) → RENAME to <p>, so it's a normal paragraph node.
+
+    Looped to a fixpoint because unwrapping can promote a nested div to body level. Only DIRECT
+    children of <body> are touched — divs inside table cells etc. are left alone.
+    """
+    body = soup.body if soup.body else soup
+    for _ in range(10):  # bounded fixpoint; ar5iv div nesting is shallow
+        divs = body.find_all("div", recursive=False)
+        if not divs:
+            break
+        for div in divs:
+            has_block_child = any(
+                getattr(c, "name", None) in _BLOCK_TAGS for c in div.find_all(recursive=False)
+            )
+            if has_block_child:
+                div.unwrap()
+            else:
+                div.name = "p"
 
 
 def main(html_file: str, output_dir: str) -> None:
@@ -452,6 +535,9 @@ def main(html_file: str, output_dir: str) -> None:
     strip_section_cross_refs(soup)
     absolutise_ar5iv_urls(soup)
     strip_ar5iv_footer(soup)
+    # MUST run last: lift the paper's blocks to body level so each becomes its own node.
+    # Runs after strip_ar5iv_footer so the chrome containers are already gone.
+    flatten_document_structure(soup)
 
     with open(html_file, "w", encoding="utf-8") as f:
         f.write(str(soup))

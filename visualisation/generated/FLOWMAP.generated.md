@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1540 functions in 323 modules · 10 object stores · 10 PG tables · 3143 edges
+**MarkdownDB** schema v27 · 1555 functions in 330 modules · 10 object stores · 10 PG tables · 3182 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -66,6 +66,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initializeLogoNav` | `components/logoNav/logoNav` | — | — | read/write | — |
 | `destroyNewBookContainer` | `components/newBookButton/newBookButton` | — | — | — | — |
 | `initializeNewBookContainer` | `components/newBookButton/newBookButton` | — | — | read | — |
+| `armTransition` | `components/newbookContainer/animation` | — | — | — | — |
+| `finishClose` | `components/newbookContainer/animation` | — | — | write | — |
+| `resetAnimationState` | `components/newbookContainer/animation` | — | — | — | — |
+| `restoreOriginalContent` | `components/newbookContainer/buttonView` | — | — | write | — |
+| `setupButtonListeners` | `components/newbookContainer/buttonView` | — | — | read | — |
 | `checkBibtexAndReveal` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
 | `populateFieldsFromBibtex` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
 | `setupBibtexModeAutoReveal` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
@@ -90,7 +95,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setupFormSubmissionHandler` | `components/newbookContainer/citeForm/index` | — | — | — | — |
 | `setupModeSwitching` | `components/newbookContainer/citeForm/modes` | — | — | — | — |
 | `switchImportMode` | `components/newbookContainer/citeForm/modes` | — | — | write | — |
-| `loadFormData` | `components/newbookContainer/citeForm/persistence` | `localStorage` | — | — | — |
+| `loadFormData` | `components/newbookContainer/citeForm/persistence` | `localStorage` | — | write | — |
 | `saveFormData` | `components/newbookContainer/citeForm/persistence` | — | `localStorage` | — | — |
 | `setupClearButton` | `components/newbookContainer/citeForm/persistence` | — | `localStorage` | write | — |
 | `setupFormPersistence` | `components/newbookContainer/citeForm/persistence` | — | — | — | — |
@@ -102,27 +107,29 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getCiteFormHTML` | `components/newbookContainer/citeForm/template` | — | — | read | — |
 | `setupUrlImport` | `components/newbookContainer/citeForm/urlImport` | — | — | read/write | — |
 | `setupRealTimeValidation` | `components/newbookContainer/citeForm/validation` | — | — | read/write | — |
+| `setupContainerStyles` | `components/newbookContainer/containerStyles` | — | — | — | — |
 | `createDebugPanel` | `components/newbookContainer/debugLog` | — | `localStorage` | read/write | — |
 | `debugLog` | `components/newbookContainer/debugLog` | `localStorage` | `localStorage` | — | — |
 | `updateDebugPanel` | `components/newbookContainer/debugLog` | `localStorage` | — | read/write | — |
+| `applyFormGeometry` | `components/newbookContainer/geometry` | — | — | — | — |
+| `computeFormGeometry` | `components/newbookContainer/geometry` | — | — | — | — |
+| `showImportForm` | `components/newbookContainer/importForm` | — | — | read/write | — |
 | `NewBookContainerManager.cleanupResizeListener` | `components/newbookContainer/index` | — | — | — | — |
-| `NewBookContainerManager.clearSavedFormData` | `components/newbookContainer/index` | — | `localStorage` | — | — |
-| `NewBookContainerManager.closeContainer` | `components/newbookContainer/index` | — | — | read/write | — |
+| `NewBookContainerManager.closeContainer` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.constructor` | `components/newbookContainer/index` | — | — | read | — |
 | `NewBookContainerManager.destroy` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.handleFocus` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.handleVisibilityChange` | `components/newbookContainer/index` | — | — | — | — |
-| `NewBookContainerManager.loadFormData` | `components/newbookContainer/index` | `localStorage` | — | read/write | — |
-| `NewBookContainerManager.openContainer` | `components/newbookContainer/index` | — | — | read/write | — |
+| `NewBookContainerManager.openContainer` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.resetAnimationState` | `components/newbookContainer/index` | — | — | — | — |
-| `NewBookContainerManager.restoreOriginalContent` | `components/newbookContainer/index` | — | — | write | — |
-| `NewBookContainerManager.saveFormData` | `components/newbookContainer/index` | — | `localStorage` | read | — |
-| `NewBookContainerManager.setResponsiveFormSize` | `components/newbookContainer/index` | — | — | read | — |
-| `NewBookContainerManager.setupButtonListeners` | `components/newbookContainer/index` | — | — | read | — |
-| `NewBookContainerManager.setupNewBookContainerStyles` | `components/newbookContainer/index` | — | — | — | — |
+| `NewBookContainerManager.restoreOriginalContent` | `components/newbookContainer/index` | — | — | — | — |
+| `NewBookContainerManager.setResponsiveFormSize` | `components/newbookContainer/index` | — | — | — | — |
+| `NewBookContainerManager.setupButtonListeners` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.setupResizeListener` | `components/newbookContainer/index` | — | — | read | — |
-| `NewBookContainerManager.showImportForm` | `components/newbookContainer/index` | — | — | read/write | — |
-| `NewBookContainerManager.toggleOptionalFields` | `components/newbookContainer/index` | — | — | read | — |
+| `NewBookContainerManager.showImportForm` | `components/newbookContainer/index` | — | — | — | — |
+| `closeContainer` | `components/newbookContainer/openClose` | — | — | read/write | — |
+| `openContainer` | `components/newbookContainer/openClose` | — | — | read/write | — |
+| `setResponsiveFormSize` | `components/newbookContainer/openClose` | — | — | read | — |
 | `classifySyncError` | `components/saveErrorToast/saveErrorToast` | — | — | — | — |
 | `hideSaveErrorToast` | `components/saveErrorToast/saveErrorToast` | — | — | read/write | — |
 | `showSaveErrorToast` | `components/saveErrorToast/saveErrorToast` | — | — | read/write | — |
@@ -210,6 +217,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `startAiReviewPolling` | `components/sourceContainer/aiReview/polling` | — | — | — | — |
 | `stopAiReviewPolling` | `components/sourceContainer/aiReview/polling` | — | — | — | — |
 | `buildSourceHtml` | `components/sourceContainer/buildSourceHtml` | — | `library` | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
+| `externalSourceLink` | `components/sourceContainer/checkSource` | — | — | — | — |
+| `handleCheckSource` | `components/sourceContainer/checkSource` | — | — | read/write | — |
+| `isCitationLinked` | `components/sourceContainer/checkSource` | — | — | — | — |
+| `isOfficialSourceText` | `components/sourceContainer/checkSource` | — | — | — | — |
+| `librarianHtml` | `components/sourceContainer/checkSource` | — | — | — | — |
+| `sourceStatusSectionHtml` | `components/sourceContainer/checkSource` | — | — | — | — |
+| `wireSourceStatus` | `components/sourceContainer/checkSource` | — | — | read/write | — |
 | `handlePrivacyToggle` | `components/sourceContainer/citationDisplay` | — | `library` | read/write | — |
 | `handleDeleteBook` | `components/sourceContainer/creatorTools/deleteBook` | — | — | read/write | — |
 | `loadCreatorTools` | `components/sourceContainer/creatorTools/index` | — | — | read/write | — |
@@ -257,6 +271,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.expandForEditForm` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.fetchPipelineMap` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleAiReviewGenerate` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.handleCheckSource` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleDeleteBook` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleEditClick` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleFormSubmit` | `components/sourceContainer/index` | — | — | — | — |
@@ -1611,11 +1626,11 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/homepage/homepage` → `components/shelves/addToShelfMenu`
 - `components/homepage/homepage` → `components/shelves/shelfPreview`
 - `components/homepage/homepage` → `components/userButton/userButton`
+- `components/newbookContainer/buttonView` → `components/newbookContainer/citeForm/index`
 - `components/newbookContainer/citeForm/fileUpload` → `components/utilities/fileMetadataExtractor`
 - `components/newbookContainer/citeForm/submission` → `SPA/navigation/pathways/ImportBookTransition`
 - `components/newbookContainer/citeForm/submission` → `components/userButton/userButton`
 - `components/newbookContainer/citeForm/urlImport` → `components/userButton/userButton`
-- `components/newbookContainer/index` → `components/newbookContainer/citeForm/index`
 - `components/settingsContainer/gate` → `components/utilities/gateFilter`
 - `components/settingsContainer/gate` → `indexedDB/core/library`
 - `components/settingsContainer/gate` → `indexedDB/index`

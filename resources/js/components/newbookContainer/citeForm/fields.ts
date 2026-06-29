@@ -25,6 +25,8 @@ export function showFieldsForType(type: string) {
   } else if (type === 'book') {
     $('publisher').style.display = 'block';
     qs('label[for="publisher"]').style.display = 'block';
+    $('pages').style.display = 'block';
+    qs('label[for="pages"]').style.display = 'block';
   } else if (type === 'incollection') {
     $('booktitle').style.display = 'block';
     qs('label[for="booktitle"]').style.display = 'block';

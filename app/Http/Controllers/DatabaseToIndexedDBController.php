@@ -860,6 +860,31 @@ class DatabaseToIndexedDBController extends Controller
             unset($rawJson['creator_token']);
         }
 
+        // Provenance: when linked, pull the canonical so the source panel can show the
+        // verification categories (Citation Linked / Official source text) + the Librarian
+        // (provider) link. Read via admin — canonical_source is not user-scoped.
+        $canonical = null;
+        if (!empty($library->canonical_source_id)) {
+            $c = DB::connection('pgsql_admin')->table('canonical_source')
+                ->where('id', $library->canonical_source_id)
+                ->first();
+            if ($c) {
+                $canonical = [
+                    'id'                => $c->id,
+                    'auto_version_book' => $c->auto_version_book ?? null,
+                    'foundation_source' => $c->foundation_source ?? null,
+                    'openalex_id'       => $c->openalex_id ?? null,
+                    'open_library_key'  => $c->open_library_key ?? null,
+                    'doi'               => $c->doi ?? null,
+                    'oa_url'            => $c->oa_url ?? null,
+                    'source_url'        => $c->source_url ?? null,
+                    'title'             => $c->title ?? null,
+                    'author'            => $c->author ?? null,
+                    'year'              => $c->year ?? null,
+                ];
+            }
+        }
+
         return [
             'book' => $library->book,
             'author' => $library->author,
@@ -894,6 +919,21 @@ class DatabaseToIndexedDBController extends Controller
             'custom_license_text' => $library->custom_license_text ?? null,
             'gate_defaults' => $library->gate_defaults ? json_decode($library->gate_defaults, true) : null,
             'raw_json' => $rawJson,
+            // Canonical / verified-source state — drives the [check source] button vs verified badge
+            // in the source panel. Read-only here (set by CanonicalSourceMatcher / SourceVerificationController).
+            'canonical_source_id' => $library->canonical_source_id ?? null,
+            'canonical_match_method' => $library->canonical_match_method ?? null,
+            'canonical_match_score' => isset($library->canonical_match_score) ? (float) $library->canonical_match_score : null,
+            'canonical_metadata_score' => isset($library->canonical_metadata_score) ? (float) $library->canonical_metadata_score : null,
+            'human_reviewed_at' => $library->human_reviewed_at ?? null,
+            // Provenance — drives the source panel's category pills + Librarian attribution.
+            'conversion_method' => $library->conversion_method ?? null,
+            'foundation_source' => $library->foundation_source ?? null,
+            'openalex_id' => $library->openalex_id ?? null,
+            'doi' => $library->doi ?? null,
+            'open_library_key' => $library->open_library_key ?? null,
+            'oa_url' => $library->oa_url ?? null,
+            'canonical' => $canonical,
         ];
     }
 

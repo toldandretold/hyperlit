@@ -9,6 +9,7 @@ import { formatBibtexToCitation } from '../../utilities/bibtexProcessor';
 import { book } from '../../app';
 import { canUserEditBook, getAuthContextSync } from '../../utilities/auth/index';
 import { getRecord, isSyntheticBook, PUBLIC_SVG, PRIVATE_SVG } from './helpers';
+import { sourceStatusSectionHtml } from './checkSource';
 import type { LibraryRecord } from '../../indexedDB/types';
 
 /**
@@ -141,6 +142,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     <div class="scroller" id="source-content">
     <p class="citation">${citation}</p>
     ${licenseHtml}
+    ${sourceStatusSectionHtml(record, canEdit, accessDenied)}
 
     <div style="margin-top: 15px; padding-top: 15px;">
       <h3 style="font-size: 13px; color: var(--color-label); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);">Downloads</h3>

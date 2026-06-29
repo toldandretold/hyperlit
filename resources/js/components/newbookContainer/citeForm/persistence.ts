@@ -1,7 +1,8 @@
 // Cite-form draft persistence (localStorage key 'formData') + the Clear button.
 // Was saveFormData / loadFormData / setupFormPersistence / setupClearButton of
-// newBookForm.js. NOTE: the container manager keeps its OWN draft system under
-// key 'newbook-form-data'; both run (pre-existing redundancy, preserved).
+// newBookForm.js. This is now the SINGLE draft system — the NewBookContainerManager's parallel
+// 'newbook-form-data' system was merged away into here (the file-restore note + filename are
+// carried over below; the old stale-`_token` restore was dropped as a latent bug).
 import { $, qs, qsa } from './dom';
 import { showFieldsForType } from './fields';
 import { switchImportMode } from './modes';
@@ -31,6 +32,14 @@ export function saveFormData() {
     type: selectedType ? selectedType.value : '',
     import_mode: qs('input[name="import_mode"]:checked')?.value || 'search'
   };
+
+  // File inputs can't be restored, but remember the filename so the user gets a "please
+  // reselect" note on reload (carried over from the old container draft system).
+  const fileInput = $('markdown_file');
+  if (fileInput && fileInput.files && fileInput.files.length > 0) {
+    (formData as any).selectedFileName = fileInput.files[0].name;
+  }
+
   localStorage.setItem('formData', JSON.stringify(formData));
 }
 
@@ -60,6 +69,24 @@ export function loadFormData() {
       if (radio) {
         radio.checked = true;
         showFieldsForType(formData.type);
+      }
+    }
+
+    // A previously selected file can't be restored — show a note prompting reselection
+    // (carried over from the old container draft system).
+    if (formData.selectedFileName) {
+      const fileInput = $('markdown_file');
+      if (fileInput) {
+        const existingNote = $('file-restore-note');
+        if (existingNote) existingNote.remove();
+
+        const fileNote = document.createElement('div');
+        fileNote.id = 'file-restore-note';
+        fileNote.style.fontSize = '12px';
+        fileNote.style.color = '#EF8D34';
+        fileNote.style.marginTop = '5px';
+        fileNote.textContent = `Previously selected: ${formData.selectedFileName} (please reselect)`;
+        fileInput.parentNode.insertBefore(fileNote, fileInput.nextSibling);
       }
     }
 

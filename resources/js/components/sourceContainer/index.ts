@@ -23,6 +23,7 @@ import { loadReconvertInfo, handleReconvert, _awaitReconvert } from "./creatorTo
 import { handleReupload } from "./creatorTools/reupload";
 import { handleDeleteBook } from "./creatorTools/deleteBook";
 import { loadAiReviewStatus, setAiReviewState, handleAiReviewGenerate, ensureAiReviewLivePanel } from "./aiReview/index";
+import { handleCheckSource, wireSourceStatus } from "./checkSource";
 import { startAiReviewPolling, stopAiReviewPolling, pollAiReviewStatus } from "./aiReview/polling";
 import { openAiReviewVizOverlay, closeAiReviewVizOverlay, fetchPipelineMap, renderPipelineViz, syncPipelineHighlights } from "./aiReview/pipelineViz";
 
@@ -140,6 +141,20 @@ export class SourceContainerManager extends (ContainerManager as any) {
       });
     }
 
+    const checkSourceBtn = this.container.querySelector("#check-source-btn");
+    if (checkSourceBtn) {
+      checkSourceBtn.addEventListener("click", (e: any) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.handleCheckSource();
+      });
+    }
+
+    // Delegated wiring for the verification-category pills (each expands its explanation).
+    // Attached to the section element, which persists across the verify re-render.
+    const sourceStatusSection = this.container.querySelector("#check-source-section");
+    if (sourceStatusSection) wireSourceStatus(sourceStatusSection);
+
     this.loadAiReviewStatus();
   }
 
@@ -251,6 +266,9 @@ export class SourceContainerManager extends (ContainerManager as any) {
 
   // citationDisplay
   handlePrivacyToggle() { return handlePrivacyToggle(this); }
+
+  // checkSource
+  handleCheckSource() { return handleCheckSource(this); }
 
   // creatorTools
   loadCreatorTools() { return loadCreatorTools(this); }

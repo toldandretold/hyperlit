@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1540,
-    "moduleCount": 323,
+    "fnCount": 1555,
+    "moduleCount": 330,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3143,
+    "edgeCount": 3182,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -596,6 +596,46 @@
       "leaf": false
     },
     {
+      "id": "components/newbookContainer/animation:armTransition",
+      "label": "armTransition",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/animation",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/animation:finishClose",
+      "label": "finishClose",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/animation",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/animation:resetAnimationState",
+      "label": "resetAnimationState",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/animation",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/buttonView:restoreOriginalContent",
+      "label": "restoreOriginalContent",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/buttonView",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/buttonView:setupButtonListeners",
+      "label": "setupButtonListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/buttonView",
+      "leaf": false
+    },
+    {
       "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
       "label": "checkBibtexAndReveal",
       "kind": "fn",
@@ -884,6 +924,14 @@
       "leaf": false
     },
     {
+      "id": "components/newbookContainer/containerStyles:setupContainerStyles",
+      "label": "setupContainerStyles",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/containerStyles",
+      "leaf": true
+    },
+    {
       "id": "components/newbookContainer/debugLog:createDebugPanel",
       "label": "createDebugPanel",
       "kind": "fn",
@@ -908,6 +956,30 @@
       "leaf": false
     },
     {
+      "id": "components/newbookContainer/geometry:applyFormGeometry",
+      "label": "applyFormGeometry",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/geometry",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/geometry:computeFormGeometry",
+      "label": "computeFormGeometry",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/geometry",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/importForm:showImportForm",
+      "label": "showImportForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/importForm",
+      "leaf": false
+    },
+    {
       "id": "components/newbookContainer/index:NewBookContainerManager.cleanupResizeListener",
       "label": "NewBookContainerManager.cleanupResizeListener",
       "kind": "fn",
@@ -916,20 +988,12 @@
       "leaf": true
     },
     {
-      "id": "components/newbookContainer/index:NewBookContainerManager.clearSavedFormData",
-      "label": "NewBookContainerManager.clearSavedFormData",
-      "kind": "fn",
-      "stage": "components",
-      "module": "components/newbookContainer/index",
-      "leaf": false
-    },
-    {
       "id": "components/newbookContainer/index:NewBookContainerManager.closeContainer",
       "label": "NewBookContainerManager.closeContainer",
       "kind": "fn",
       "stage": "components",
       "module": "components/newbookContainer/index",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "components/newbookContainer/index:NewBookContainerManager.constructor",
@@ -964,20 +1028,12 @@
       "leaf": true
     },
     {
-      "id": "components/newbookContainer/index:NewBookContainerManager.loadFormData",
-      "label": "NewBookContainerManager.loadFormData",
-      "kind": "fn",
-      "stage": "components",
-      "module": "components/newbookContainer/index",
-      "leaf": false
-    },
-    {
       "id": "components/newbookContainer/index:NewBookContainerManager.openContainer",
       "label": "NewBookContainerManager.openContainer",
       "kind": "fn",
       "stage": "components",
       "module": "components/newbookContainer/index",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "components/newbookContainer/index:NewBookContainerManager.resetAnimationState",
@@ -993,15 +1049,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/newbookContainer/index",
-      "leaf": false
-    },
-    {
-      "id": "components/newbookContainer/index:NewBookContainerManager.saveFormData",
-      "label": "NewBookContainerManager.saveFormData",
-      "kind": "fn",
-      "stage": "components",
-      "module": "components/newbookContainer/index",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "components/newbookContainer/index:NewBookContainerManager.setResponsiveFormSize",
@@ -1009,19 +1057,11 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/newbookContainer/index",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "components/newbookContainer/index:NewBookContainerManager.setupButtonListeners",
       "label": "NewBookContainerManager.setupButtonListeners",
-      "kind": "fn",
-      "stage": "components",
-      "module": "components/newbookContainer/index",
-      "leaf": false
-    },
-    {
-      "id": "components/newbookContainer/index:NewBookContainerManager.setupNewBookContainerStyles",
-      "label": "NewBookContainerManager.setupNewBookContainerStyles",
       "kind": "fn",
       "stage": "components",
       "module": "components/newbookContainer/index",
@@ -1041,14 +1081,30 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/newbookContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/openClose:closeContainer",
+      "label": "closeContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/openClose",
       "leaf": false
     },
     {
-      "id": "components/newbookContainer/index:NewBookContainerManager.toggleOptionalFields",
-      "label": "NewBookContainerManager.toggleOptionalFields",
+      "id": "components/newbookContainer/openClose:openContainer",
+      "label": "openContainer",
       "kind": "fn",
       "stage": "components",
-      "module": "components/newbookContainer/index",
+      "module": "components/newbookContainer/openClose",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/openClose:setResponsiveFormSize",
+      "label": "setResponsiveFormSize",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/openClose",
       "leaf": false
     },
     {
@@ -1770,6 +1826,80 @@
       ]
     },
     {
+      "id": "components/sourceContainer/checkSource:externalSourceLink",
+      "label": "externalSourceLink",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/checkSource",
+      "leaf": true,
+      "types": [
+        "LibraryRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/checkSource:handleCheckSource",
+      "label": "handleCheckSource",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/checkSource",
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/checkSource:isCitationLinked",
+      "label": "isCitationLinked",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/checkSource",
+      "leaf": true,
+      "types": [
+        "LibraryRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/checkSource:isOfficialSourceText",
+      "label": "isOfficialSourceText",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/checkSource",
+      "leaf": true,
+      "types": [
+        "LibraryRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/checkSource:librarianHtml",
+      "label": "librarianHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/checkSource",
+      "leaf": true,
+      "types": [
+        "LibraryRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/checkSource:sourceStatusSectionHtml",
+      "label": "sourceStatusSectionHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/checkSource",
+      "leaf": true,
+      "types": [
+        "LibraryRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/checkSource:wireSourceStatus",
+      "label": "wireSourceStatus",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/checkSource",
+      "leaf": false
+    },
+    {
       "id": "components/sourceContainer/citationDisplay:handlePrivacyToggle",
       "label": "handlePrivacyToggle",
       "kind": "fn",
@@ -2152,6 +2282,14 @@
     {
       "id": "components/sourceContainer/index:SourceContainerManager.handleAiReviewGenerate",
       "label": "SourceContainerManager.handleAiReviewGenerate",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.handleCheckSource",
+      "label": "SourceContainerManager.handleCheckSource",
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/index",
@@ -3913,6 +4051,7 @@
       "group": "content",
       "tables": [
         "bibliography",
+        "canonical_source",
         "footnotes",
         "hypercites",
         "hyperlights",
@@ -4005,6 +4144,7 @@
       "method": "getBookLibrary",
       "group": "content",
       "tables": [
+        "canonical_source",
         "library"
       ],
       "shape": [
@@ -4013,19 +4153,31 @@
         "bibtex",
         "book",
         "booktitle",
+        "canonical",
+        "canonical_match_method",
+        "canonical_match_score",
+        "canonical_metadata_score",
+        "canonical_source_id",
         "chapter",
+        "conversion_method",
         "creator",
         "custom_license_text",
+        "doi",
         "editor",
         "fileName",
         "fileType",
+        "foundation_source",
         "gate_defaults",
+        "human_reviewed_at",
         "is_owner",
         "issue",
         "journal",
         "license",
         "listed",
         "note",
+        "oa_url",
+        "open_library_key",
+        "openalex_id",
         "pages",
         "publisher",
         "raw_json",
@@ -4049,6 +4201,7 @@
       "group": "content",
       "tables": [
         "bibliography",
+        "canonical_source",
         "footnotes",
         "hypercites",
         "hyperlights",
@@ -4134,6 +4287,7 @@
       "group": "content",
       "tables": [
         "bibliography",
+        "canonical_source",
         "footnotes",
         "hypercites",
         "hyperlights",
@@ -4169,6 +4323,7 @@
       "group": "content",
       "tables": [
         "bibliography",
+        "canonical_source",
         "footnotes",
         "hypercites",
         "hyperlights",
@@ -4203,6 +4358,7 @@
       "method": "getSubBookLibrary",
       "group": "content",
       "tables": [
+        "canonical_source",
         "library"
       ],
       "shape": [
@@ -4211,19 +4367,31 @@
         "bibtex",
         "book",
         "booktitle",
+        "canonical",
+        "canonical_match_method",
+        "canonical_match_score",
+        "canonical_metadata_score",
+        "canonical_source_id",
         "chapter",
+        "conversion_method",
         "creator",
         "custom_license_text",
+        "doi",
         "editor",
         "fileName",
         "fileType",
+        "foundation_source",
         "gate_defaults",
+        "human_reviewed_at",
         "is_owner",
         "issue",
         "journal",
         "license",
         "listed",
         "note",
+        "oa_url",
+        "open_library_key",
+        "openalex_id",
         "pages",
         "publisher",
         "raw_json",
@@ -14108,6 +14276,27 @@
       ]
     },
     {
+      "id": "components/newbookContainer/animation",
+      "label": "components/newbookContainer/animation",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/newbookContainer/animation:armTransition",
+        "components/newbookContainer/animation:finishClose",
+        "components/newbookContainer/animation:resetAnimationState"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/buttonView",
+      "label": "components/newbookContainer/buttonView",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/newbookContainer/buttonView:restoreOriginalContent",
+        "components/newbookContainer/buttonView:setupButtonListeners"
+      ]
+    },
+    {
       "id": "components/newbookContainer/citeForm/bibtex",
       "label": "components/newbookContainer/citeForm/bibtex",
       "stage": "components",
@@ -14264,6 +14453,15 @@
       ]
     },
     {
+      "id": "components/newbookContainer/containerStyles",
+      "label": "components/newbookContainer/containerStyles",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/newbookContainer/containerStyles:setupContainerStyles"
+      ]
+    },
+    {
       "id": "components/newbookContainer/debugLog",
       "label": "components/newbookContainer/debugLog",
       "stage": "components",
@@ -14275,29 +14473,54 @@
       ]
     },
     {
+      "id": "components/newbookContainer/geometry",
+      "label": "components/newbookContainer/geometry",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/newbookContainer/geometry:applyFormGeometry",
+        "components/newbookContainer/geometry:computeFormGeometry"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/importForm",
+      "label": "components/newbookContainer/importForm",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/newbookContainer/importForm:showImportForm"
+      ]
+    },
+    {
       "id": "components/newbookContainer/index",
       "label": "components/newbookContainer/index",
       "stage": "components",
       "band": "components",
       "fnIds": [
         "components/newbookContainer/index:NewBookContainerManager.cleanupResizeListener",
-        "components/newbookContainer/index:NewBookContainerManager.clearSavedFormData",
         "components/newbookContainer/index:NewBookContainerManager.closeContainer",
         "components/newbookContainer/index:NewBookContainerManager.constructor",
         "components/newbookContainer/index:NewBookContainerManager.destroy",
         "components/newbookContainer/index:NewBookContainerManager.handleFocus",
         "components/newbookContainer/index:NewBookContainerManager.handleVisibilityChange",
-        "components/newbookContainer/index:NewBookContainerManager.loadFormData",
         "components/newbookContainer/index:NewBookContainerManager.openContainer",
         "components/newbookContainer/index:NewBookContainerManager.resetAnimationState",
         "components/newbookContainer/index:NewBookContainerManager.restoreOriginalContent",
-        "components/newbookContainer/index:NewBookContainerManager.saveFormData",
         "components/newbookContainer/index:NewBookContainerManager.setResponsiveFormSize",
         "components/newbookContainer/index:NewBookContainerManager.setupButtonListeners",
-        "components/newbookContainer/index:NewBookContainerManager.setupNewBookContainerStyles",
         "components/newbookContainer/index:NewBookContainerManager.setupResizeListener",
-        "components/newbookContainer/index:NewBookContainerManager.showImportForm",
-        "components/newbookContainer/index:NewBookContainerManager.toggleOptionalFields"
+        "components/newbookContainer/index:NewBookContainerManager.showImportForm"
+      ]
+    },
+    {
+      "id": "components/newbookContainer/openClose",
+      "label": "components/newbookContainer/openClose",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/newbookContainer/openClose:closeContainer",
+        "components/newbookContainer/openClose:openContainer",
+        "components/newbookContainer/openClose:setResponsiveFormSize"
       ]
     },
     {
@@ -14572,6 +14795,21 @@
       ]
     },
     {
+      "id": "components/sourceContainer/checkSource",
+      "label": "components/sourceContainer/checkSource",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/checkSource:externalSourceLink",
+        "components/sourceContainer/checkSource:handleCheckSource",
+        "components/sourceContainer/checkSource:isCitationLinked",
+        "components/sourceContainer/checkSource:isOfficialSourceText",
+        "components/sourceContainer/checkSource:librarianHtml",
+        "components/sourceContainer/checkSource:sourceStatusSectionHtml",
+        "components/sourceContainer/checkSource:wireSourceStatus"
+      ]
+    },
+    {
       "id": "components/sourceContainer/citationDisplay",
       "label": "components/sourceContainer/citationDisplay",
       "stage": "components",
@@ -14695,6 +14933,7 @@
         "components/sourceContainer/index:SourceContainerManager.expandForEditForm",
         "components/sourceContainer/index:SourceContainerManager.fetchPipelineMap",
         "components/sourceContainer/index:SourceContainerManager.handleAiReviewGenerate",
+        "components/sourceContainer/index:SourceContainerManager.handleCheckSource",
         "components/sourceContainer/index:SourceContainerManager.handleDeleteBook",
         "components/sourceContainer/index:SourceContainerManager.handleEditClick",
         "components/sourceContainer/index:SourceContainerManager.handleFormSubmit",
@@ -18527,6 +18766,36 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/newbookContainer/animation:armTransition__call__components/newbookContainer/animation:resetAnimationState",
+      "source": "components/newbookContainer/animation:armTransition",
+      "target": "components/newbookContainer/animation:resetAnimationState",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/animation:finishClose__call__components/newbookContainer/animation:resetAnimationState",
+      "source": "components/newbookContainer/animation:finishClose",
+      "target": "components/newbookContainer/animation:resetAnimationState",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/animation:finishClose__domwrite__dom",
+      "source": "components/newbookContainer/animation:finishClose",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/buttonView:restoreOriginalContent__domwrite__dom",
+      "source": "components/newbookContainer/buttonView:restoreOriginalContent",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/buttonView:setupButtonListeners__call__SPA/navigation/navigationRegistry:navigate",
+      "source": "components/newbookContainer/buttonView:setupButtonListeners",
+      "target": "SPA/navigation/navigationRegistry:navigate",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal__call__components/newbookContainer/citeForm/bookId:findAvailableBookId",
       "source": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
       "target": "components/newbookContainer/citeForm/bookId:findAvailableBookId",
@@ -18947,6 +19216,12 @@
       "rel": "call"
     },
     {
+      "id": "components/newbookContainer/citeForm/persistence:loadFormData__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/persistence:loadFormData",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/newbookContainer/citeForm/persistence:saveFormData__call__components/newbookContainer/citeForm/dom:$",
       "source": "components/newbookContainer/citeForm/persistence:saveFormData",
       "target": "components/newbookContainer/citeForm/dom:$",
@@ -19244,58 +19519,130 @@
       "rel": "domwrite"
     },
     {
-      "id": "components/newbookContainer/index:NewBookContainerManager.clearSavedFormData__write__store:localStorage",
-      "source": "components/newbookContainer/index:NewBookContainerManager.clearSavedFormData",
-      "target": "store:localStorage",
-      "rel": "write"
-    },
-    {
-      "id": "components/newbookContainer/index:NewBookContainerManager.closeContainer__domwrite__dom",
-      "source": "components/newbookContainer/index:NewBookContainerManager.closeContainer",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
-      "id": "components/newbookContainer/index:NewBookContainerManager.loadFormData__domwrite__dom",
-      "source": "components/newbookContainer/index:NewBookContainerManager.loadFormData",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
-      "id": "components/newbookContainer/index:NewBookContainerManager.openContainer__domwrite__dom",
-      "source": "components/newbookContainer/index:NewBookContainerManager.openContainer",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
-      "id": "components/newbookContainer/index:NewBookContainerManager.restoreOriginalContent__domwrite__dom",
-      "source": "components/newbookContainer/index:NewBookContainerManager.restoreOriginalContent",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
-      "id": "components/newbookContainer/index:NewBookContainerManager.saveFormData__write__store:localStorage",
-      "source": "components/newbookContainer/index:NewBookContainerManager.saveFormData",
-      "target": "store:localStorage",
-      "rel": "write"
-    },
-    {
-      "id": "components/newbookContainer/index:NewBookContainerManager.setupButtonListeners__call__SPA/navigation/navigationRegistry:navigate",
-      "source": "components/newbookContainer/index:NewBookContainerManager.setupButtonListeners",
-      "target": "SPA/navigation/navigationRegistry:navigate",
-      "rel": "call"
-    },
-    {
-      "id": "components/newbookContainer/index:NewBookContainerManager.showImportForm__call__components/newbookContainer/citeForm/template:getCiteFormHTML",
-      "source": "components/newbookContainer/index:NewBookContainerManager.showImportForm",
+      "id": "components/newbookContainer/importForm:showImportForm__call__components/newbookContainer/citeForm/template:getCiteFormHTML",
+      "source": "components/newbookContainer/importForm:showImportForm",
       "target": "components/newbookContainer/citeForm/template:getCiteFormHTML",
       "rel": "call"
     },
     {
-      "id": "components/newbookContainer/index:NewBookContainerManager.showImportForm__domwrite__dom",
-      "source": "components/newbookContainer/index:NewBookContainerManager.showImportForm",
+      "id": "components/newbookContainer/importForm:showImportForm__domwrite__dom",
+      "source": "components/newbookContainer/importForm:showImportForm",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.closeContainer__call__components/newbookContainer/openClose:closeContainer",
+      "source": "components/newbookContainer/index:NewBookContainerManager.closeContainer",
+      "target": "components/newbookContainer/openClose:closeContainer",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.constructor__call__components/newbookContainer/containerStyles:setupContainerStyles",
+      "source": "components/newbookContainer/index:NewBookContainerManager.constructor",
+      "target": "components/newbookContainer/containerStyles:setupContainerStyles",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.openContainer__call__components/newbookContainer/openClose:openContainer",
+      "source": "components/newbookContainer/index:NewBookContainerManager.openContainer",
+      "target": "components/newbookContainer/openClose:openContainer",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.resetAnimationState__call__components/newbookContainer/animation:resetAnimationState",
+      "source": "components/newbookContainer/index:NewBookContainerManager.resetAnimationState",
+      "target": "components/newbookContainer/animation:resetAnimationState",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.restoreOriginalContent__call__components/newbookContainer/buttonView:restoreOriginalContent",
+      "source": "components/newbookContainer/index:NewBookContainerManager.restoreOriginalContent",
+      "target": "components/newbookContainer/buttonView:restoreOriginalContent",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.setResponsiveFormSize__call__components/newbookContainer/openClose:setResponsiveFormSize",
+      "source": "components/newbookContainer/index:NewBookContainerManager.setResponsiveFormSize",
+      "target": "components/newbookContainer/openClose:setResponsiveFormSize",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.setupButtonListeners__call__components/newbookContainer/buttonView:setupButtonListeners",
+      "source": "components/newbookContainer/index:NewBookContainerManager.setupButtonListeners",
+      "target": "components/newbookContainer/buttonView:setupButtonListeners",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.showImportForm__call__components/newbookContainer/importForm:showImportForm",
+      "source": "components/newbookContainer/index:NewBookContainerManager.showImportForm",
+      "target": "components/newbookContainer/importForm:showImportForm",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/openClose:closeContainer__call__components/newbookContainer/animation:armTransition",
+      "source": "components/newbookContainer/openClose:closeContainer",
+      "target": "components/newbookContainer/animation:armTransition",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/openClose:closeContainer__call__components/newbookContainer/animation:finishClose",
+      "source": "components/newbookContainer/openClose:closeContainer",
+      "target": "components/newbookContainer/animation:finishClose",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/openClose:closeContainer__call__components/newbookContainer/animation:resetAnimationState",
+      "source": "components/newbookContainer/openClose:closeContainer",
+      "target": "components/newbookContainer/animation:resetAnimationState",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/openClose:closeContainer__domwrite__dom",
+      "source": "components/newbookContainer/openClose:closeContainer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/openClose:openContainer__call__components/newbookContainer/animation:armTransition",
+      "source": "components/newbookContainer/openClose:openContainer",
+      "target": "components/newbookContainer/animation:armTransition",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/openClose:openContainer__call__components/newbookContainer/animation:resetAnimationState",
+      "source": "components/newbookContainer/openClose:openContainer",
+      "target": "components/newbookContainer/animation:resetAnimationState",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/openClose:openContainer__call__components/newbookContainer/geometry:applyFormGeometry",
+      "source": "components/newbookContainer/openClose:openContainer",
+      "target": "components/newbookContainer/geometry:applyFormGeometry",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/openClose:openContainer__call__components/newbookContainer/geometry:computeFormGeometry",
+      "source": "components/newbookContainer/openClose:openContainer",
+      "target": "components/newbookContainer/geometry:computeFormGeometry",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/openClose:openContainer__domwrite__dom",
+      "source": "components/newbookContainer/openClose:openContainer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/openClose:setResponsiveFormSize__call__components/newbookContainer/geometry:applyFormGeometry",
+      "source": "components/newbookContainer/openClose:setResponsiveFormSize",
+      "target": "components/newbookContainer/geometry:applyFormGeometry",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/openClose:setResponsiveFormSize__call__components/newbookContainer/geometry:computeFormGeometry",
+      "source": "components/newbookContainer/openClose:setResponsiveFormSize",
+      "target": "components/newbookContainer/geometry:computeFormGeometry",
+      "rel": "call"
     },
     {
       "id": "components/saveErrorToast/saveErrorToast:hideSaveErrorToast__domwrite__dom",
@@ -20088,6 +20435,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/checkSource:sourceStatusSectionHtml",
+      "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "components/sourceContainer/checkSource:sourceStatusSectionHtml",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/helpers:getRecord",
       "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
       "target": "components/sourceContainer/helpers:getRecord",
@@ -20111,6 +20464,91 @@
       "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
       "target": "store:library",
       "rel": "write"
+    },
+    {
+      "id": "components/sourceContainer/checkSource:handleCheckSource__call__components/sourceContainer/checkSource:externalSourceLink",
+      "source": "components/sourceContainer/checkSource:handleCheckSource",
+      "target": "components/sourceContainer/checkSource:externalSourceLink",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/checkSource:handleCheckSource__call__components/sourceContainer/checkSource:isCitationLinked",
+      "source": "components/sourceContainer/checkSource:handleCheckSource",
+      "target": "components/sourceContainer/checkSource:isCitationLinked",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/checkSource:handleCheckSource__call__components/sourceContainer/checkSource:isOfficialSourceText",
+      "source": "components/sourceContainer/checkSource:handleCheckSource",
+      "target": "components/sourceContainer/checkSource:isOfficialSourceText",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/checkSource:handleCheckSource__call__components/sourceContainer/checkSource:librarianHtml",
+      "source": "components/sourceContainer/checkSource:handleCheckSource",
+      "target": "components/sourceContainer/checkSource:librarianHtml",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/checkSource:handleCheckSource__call__components/sourceContainer/helpers:getRecord",
+      "source": "components/sourceContainer/checkSource:handleCheckSource",
+      "target": "components/sourceContainer/helpers:getRecord",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/checkSource:handleCheckSource__call__indexedDB/core/connection:openDatabase",
+      "source": "components/sourceContainer/checkSource:handleCheckSource",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/checkSource:handleCheckSource__domwrite__dom",
+      "source": "components/sourceContainer/checkSource:handleCheckSource",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/checkSource:isOfficialSourceText__call__components/sourceContainer/checkSource:isCitationLinked",
+      "source": "components/sourceContainer/checkSource:isOfficialSourceText",
+      "target": "components/sourceContainer/checkSource:isCitationLinked",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/checkSource:librarianHtml__call__components/sourceContainer/checkSource:externalSourceLink",
+      "source": "components/sourceContainer/checkSource:librarianHtml",
+      "target": "components/sourceContainer/checkSource:externalSourceLink",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/checkSource:sourceStatusSectionHtml__call__components/sourceContainer/checkSource:externalSourceLink",
+      "source": "components/sourceContainer/checkSource:sourceStatusSectionHtml",
+      "target": "components/sourceContainer/checkSource:externalSourceLink",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/checkSource:sourceStatusSectionHtml__call__components/sourceContainer/checkSource:isCitationLinked",
+      "source": "components/sourceContainer/checkSource:sourceStatusSectionHtml",
+      "target": "components/sourceContainer/checkSource:isCitationLinked",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/checkSource:sourceStatusSectionHtml__call__components/sourceContainer/checkSource:isOfficialSourceText",
+      "source": "components/sourceContainer/checkSource:sourceStatusSectionHtml",
+      "target": "components/sourceContainer/checkSource:isOfficialSourceText",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/checkSource:sourceStatusSectionHtml__call__components/sourceContainer/checkSource:librarianHtml",
+      "source": "components/sourceContainer/checkSource:sourceStatusSectionHtml",
+      "target": "components/sourceContainer/checkSource:librarianHtml",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/checkSource:wireSourceStatus__domwrite__dom",
+      "source": "components/sourceContainer/checkSource:wireSourceStatus",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "components/sourceContainer/citationDisplay:handlePrivacyToggle__call__components/sourceContainer/helpers:getRecord",
@@ -20461,6 +20899,12 @@
       "dataPath": true
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/sourceContainer/checkSource:wireSourceStatus",
+      "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "target": "components/sourceContainer/checkSource:wireSourceStatus",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/sourceContainer/downloads:downloadAllForBook",
       "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
       "target": "components/sourceContainer/downloads:downloadAllForBook",
@@ -20540,6 +20984,13 @@
       "id": "components/sourceContainer/index:SourceContainerManager.handleAiReviewGenerate__call__components/sourceContainer/aiReview/index:handleAiReviewGenerate",
       "source": "components/sourceContainer/index:SourceContainerManager.handleAiReviewGenerate",
       "target": "components/sourceContainer/aiReview/index:handleAiReviewGenerate",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.handleCheckSource__call__components/sourceContainer/checkSource:handleCheckSource",
+      "source": "components/sourceContainer/index:SourceContainerManager.handleCheckSource",
+      "target": "components/sourceContainer/checkSource:handleCheckSource",
       "rel": "call",
       "dataPath": true
     },
@@ -22918,6 +23369,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/newbookContainer/buttonView:setupButtonListeners",
+      "source": "dom",
+      "target": "components/newbookContainer/buttonView:setupButtonListeners",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/newbookContainer/citeForm/bookId:findAvailableBookId",
       "source": "dom",
       "target": "components/newbookContainer/citeForm/bookId:findAvailableBookId",
@@ -23008,9 +23465,9 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.closeContainer",
+      "id": "dom__domread__components/newbookContainer/importForm:showImportForm",
       "source": "dom",
-      "target": "components/newbookContainer/index:NewBookContainerManager.closeContainer",
+      "target": "components/newbookContainer/importForm:showImportForm",
       "rel": "domread"
     },
     {
@@ -23020,51 +23477,27 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.loadFormData",
-      "source": "dom",
-      "target": "components/newbookContainer/index:NewBookContainerManager.loadFormData",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.openContainer",
-      "source": "dom",
-      "target": "components/newbookContainer/index:NewBookContainerManager.openContainer",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.saveFormData",
-      "source": "dom",
-      "target": "components/newbookContainer/index:NewBookContainerManager.saveFormData",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.setResponsiveFormSize",
-      "source": "dom",
-      "target": "components/newbookContainer/index:NewBookContainerManager.setResponsiveFormSize",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.setupButtonListeners",
-      "source": "dom",
-      "target": "components/newbookContainer/index:NewBookContainerManager.setupButtonListeners",
-      "rel": "domread"
-    },
-    {
       "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.setupResizeListener",
       "source": "dom",
       "target": "components/newbookContainer/index:NewBookContainerManager.setupResizeListener",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.showImportForm",
+      "id": "dom__domread__components/newbookContainer/openClose:closeContainer",
       "source": "dom",
-      "target": "components/newbookContainer/index:NewBookContainerManager.showImportForm",
+      "target": "components/newbookContainer/openClose:closeContainer",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__components/newbookContainer/index:NewBookContainerManager.toggleOptionalFields",
+      "id": "dom__domread__components/newbookContainer/openClose:openContainer",
       "source": "dom",
-      "target": "components/newbookContainer/index:NewBookContainerManager.toggleOptionalFields",
+      "target": "components/newbookContainer/openClose:openContainer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/newbookContainer/openClose:setResponsiveFormSize",
+      "source": "dom",
+      "target": "components/newbookContainer/openClose:setResponsiveFormSize",
       "rel": "domread"
     },
     {
@@ -23335,6 +23768,18 @@
       "id": "dom__domread__components/sourceContainer/aiReview/polling:pollAiReviewStatus",
       "source": "dom",
       "target": "components/sourceContainer/aiReview/polling:pollAiReviewStatus",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/checkSource:handleCheckSource",
+      "source": "dom",
+      "target": "components/sourceContainer/checkSource:handleCheckSource",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/checkSource:wireSourceStatus",
+      "source": "dom",
+      "target": "components/sourceContainer/checkSource:wireSourceStatus",
       "rel": "domread"
     },
     {
@@ -34243,6 +34688,42 @@
       "rel": "pull"
     },
     {
+      "id": "pg:canonical_source__pull__controller:DatabaseToIndexedDBController@getBookData",
+      "source": "pg:canonical_source",
+      "target": "controller:DatabaseToIndexedDBController@getBookData",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:canonical_source__pull__controller:DatabaseToIndexedDBController@getBookLibrary",
+      "source": "pg:canonical_source",
+      "target": "controller:DatabaseToIndexedDBController@getBookLibrary",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:canonical_source__pull__controller:DatabaseToIndexedDBController@getInitialChunk",
+      "source": "pg:canonical_source",
+      "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:canonical_source__pull__controller:DatabaseToIndexedDBController@getSubBookData",
+      "source": "pg:canonical_source",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookData",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:canonical_source__pull__controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "source": "pg:canonical_source",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:canonical_source__pull__controller:DatabaseToIndexedDBController@getSubBookLibrary",
+      "source": "pg:canonical_source",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
+      "rel": "pull"
+    },
+    {
       "id": "pg:footnotes__pull__controller:DatabaseToIndexedDBController@getBookData",
       "source": "pg:footnotes",
       "target": "controller:DatabaseToIndexedDBController@getBookData",
@@ -37148,12 +37629,6 @@
       "rel": "read"
     },
     {
-      "id": "store:localStorage__read__components/newbookContainer/index:NewBookContainerManager.loadFormData",
-      "source": "store:localStorage",
-      "target": "components/newbookContainer/index:NewBookContainerManager.loadFormData",
-      "rel": "read"
-    },
-    {
       "id": "store:localStorage__read__components/settingsContainer/textControls:applyTextAdjustments",
       "source": "store:localStorage",
       "target": "components/settingsContainer/textControls:applyTextAdjustments",
@@ -38451,6 +38926,16 @@
       "kind": "static"
     },
     {
+      "source": "components/newbookContainer/buttonView",
+      "target": "SPA/navigation/navigationRegistry",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/buttonView",
+      "target": "components/newbookContainer/citeForm/index",
+      "kind": "lazy"
+    },
+    {
       "source": "components/newbookContainer/citeForm/bibtex",
       "target": "components/newbookContainer/citeForm/bookId",
       "kind": "static"
@@ -38696,13 +39181,33 @@
       "kind": "static"
     },
     {
-      "source": "components/newbookContainer/index",
-      "target": "SPA/navigation/navigationRegistry",
+      "source": "components/newbookContainer/importForm",
+      "target": "components/newbookContainer/citeForm/template",
       "kind": "static"
     },
     {
       "source": "components/newbookContainer/index",
-      "target": "components/newbookContainer/citeForm/template",
+      "target": "components/newbookContainer/animation",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/index",
+      "target": "components/newbookContainer/buttonView",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/index",
+      "target": "components/newbookContainer/containerStyles",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/index",
+      "target": "components/newbookContainer/importForm",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/index",
+      "target": "components/newbookContainer/openClose",
       "kind": "static"
     },
     {
@@ -38711,9 +39216,14 @@
       "kind": "static"
     },
     {
-      "source": "components/newbookContainer/index",
-      "target": "components/newbookContainer/citeForm/index",
-      "kind": "lazy"
+      "source": "components/newbookContainer/openClose",
+      "target": "components/newbookContainer/animation",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/openClose",
+      "target": "components/newbookContainer/geometry",
+      "kind": "static"
     },
     {
       "source": "components/settingsButton/settingsButton",
@@ -38892,11 +39402,26 @@
     },
     {
       "source": "components/sourceContainer/buildSourceHtml",
+      "target": "components/sourceContainer/checkSource",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/buildSourceHtml",
       "target": "components/sourceContainer/helpers",
       "kind": "static"
     },
     {
       "source": "components/sourceContainer/buildSourceHtml",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/checkSource",
+      "target": "components/sourceContainer/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/checkSource",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -38983,6 +39508,11 @@
     {
       "source": "components/sourceContainer/index",
       "target": "components/sourceContainer/buildSourceHtml",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/index",
+      "target": "components/sourceContainer/checkSource",
       "kind": "static"
     },
     {

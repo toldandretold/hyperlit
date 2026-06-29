@@ -72,6 +72,7 @@
             "method": "getBookData",
             "tables": [
                 "bibliography",
+                "canonical_source",
                 "footnotes",
                 "hypercites",
                 "hyperlights",
@@ -149,6 +150,7 @@
             "controller": "DatabaseToIndexedDBController",
             "method": "getBookLibrary",
             "tables": [
+                "canonical_source",
                 "library"
             ],
             "shape": [
@@ -157,19 +159,31 @@
                 "bibtex",
                 "book",
                 "booktitle",
+                "canonical",
+                "canonical_match_method",
+                "canonical_match_score",
+                "canonical_metadata_score",
+                "canonical_source_id",
                 "chapter",
+                "conversion_method",
                 "creator",
                 "custom_license_text",
+                "doi",
                 "editor",
                 "fileName",
                 "fileType",
+                "foundation_source",
                 "gate_defaults",
+                "human_reviewed_at",
                 "is_owner",
                 "issue",
                 "journal",
                 "license",
                 "listed",
                 "note",
+                "oa_url",
+                "open_library_key",
+                "openalex_id",
                 "pages",
                 "publisher",
                 "raw_json",
@@ -195,6 +209,7 @@
             "method": "getInitialChunk",
             "tables": [
                 "bibliography",
+                "canonical_source",
                 "footnotes",
                 "hypercites",
                 "hyperlights",
@@ -269,6 +284,7 @@
             "method": "getSubBookData",
             "tables": [
                 "bibliography",
+                "canonical_source",
                 "footnotes",
                 "hypercites",
                 "hyperlights",
@@ -299,6 +315,7 @@
             "method": "getSubBookInitialChunk",
             "tables": [
                 "bibliography",
+                "canonical_source",
                 "footnotes",
                 "hypercites",
                 "hyperlights",
@@ -328,6 +345,7 @@
             "controller": "DatabaseToIndexedDBController",
             "method": "getSubBookLibrary",
             "tables": [
+                "canonical_source",
                 "library"
             ],
             "shape": [
@@ -336,19 +354,31 @@
                 "bibtex",
                 "book",
                 "booktitle",
+                "canonical",
+                "canonical_match_method",
+                "canonical_match_score",
+                "canonical_metadata_score",
+                "canonical_source_id",
                 "chapter",
+                "conversion_method",
                 "creator",
                 "custom_license_text",
+                "doi",
                 "editor",
                 "fileName",
                 "fileType",
+                "foundation_source",
                 "gate_defaults",
+                "human_reviewed_at",
                 "is_owner",
                 "issue",
                 "journal",
                 "license",
                 "listed",
                 "note",
+                "oa_url",
+                "open_library_key",
+                "openalex_id",
                 "pages",
                 "publisher",
                 "raw_json",
@@ -1148,6 +1178,36 @@
         {
             "source": "pg:bibliography",
             "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:canonical_source",
+            "target": "controller:DatabaseToIndexedDBController@getBookData",
+            "rel": "read"
+        },
+        {
+            "source": "pg:canonical_source",
+            "target": "controller:DatabaseToIndexedDBController@getBookLibrary",
+            "rel": "read"
+        },
+        {
+            "source": "pg:canonical_source",
+            "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:canonical_source",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookData",
+            "rel": "read"
+        },
+        {
+            "source": "pg:canonical_source",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:canonical_source",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
             "rel": "read"
         },
         {
