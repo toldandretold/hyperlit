@@ -96,13 +96,18 @@ class UnifiedSyncController extends Controller
                         continue;
                     }
 
-                    $frontendTimestamp = $data['library']['timestamp'] ?? null;
+                    // Optimistic-concurrency check against the BASE version the client last
+                    // knew (set on pull + after each successful sync), NOT the library
+                    // `timestamp` — which the client bumps to now() on every local edit, so it
+                    // could never be < the server's and the stale check never fired. Fall back
+                    // to library.timestamp so older clients (no base_timestamp) keep working.
+                    $base = $data['base_timestamp'] ?? ($data['library']['timestamp'] ?? null);
                     $currentLibrary = PgLibrary::where('book', $nodeBook)->first();
 
-                    if ($currentLibrary && $frontendTimestamp && $currentLibrary->timestamp > $frontendTimestamp) {
+                    if ($currentLibrary && $base && $currentLibrary->timestamp > $base) {
                         Log::channel('sync_audit')->warning('STALE_DATA_REJECTED', [
                             'book' => $nodeBook,
-                            'frontend_timestamp' => $frontendTimestamp,
+                            'base_timestamp' => $base,
                             'server_timestamp' => $currentLibrary->timestamp,
                         ]);
 
@@ -334,10 +339,16 @@ class UnifiedSyncController extends Controller
                 }, $result),
             ]);
 
+            // Return the authoritative post-write library timestamp so the client can advance
+            // its optimistic-concurrency base (base_timestamp) to match — otherwise its next
+            // edit would compare against a now-outdated base and spuriously 409.
+            $serverTimestamp = PgLibrary::where('book', $bookId)->value('timestamp');
+
             return response()->json([
                 'success' => true,
                 'message' => 'All data synced successfully',
                 'results' => $result,
+                'server_timestamp' => $serverTimestamp !== null ? (int) $serverTimestamp : null,
             ]);
 
         } catch (\Exception $e) {

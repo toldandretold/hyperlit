@@ -272,6 +272,11 @@ export async function loadLibraryToIndexedDB(db: IDBDatabase, library: ServerLib
   // This prevents corrupted data from propagating into IndexedDB
   const cleanedLibrary = prepareLibraryForIndexedDB(library);
 
+  // Record the server version we just pulled as the optimistic-concurrency base.
+  // The server's 409 stale check compares against THIS — local edits bump `timestamp` but
+  // must never touch `base_timestamp`, so the server can detect "you edited an old version".
+  cleanedLibrary.base_timestamp = (library.timestamp ?? cleanedLibrary.timestamp) as number | undefined;
+
   const tx = db.transaction('library', 'readwrite');
   const store = tx.objectStore('library');
 

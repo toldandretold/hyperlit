@@ -21,6 +21,8 @@ let isSyncingOnUnload = false;
 
 interface BeaconPayload {
   book: BookId;
+  /** Optimistic-concurrency base (the server version this client last knew). */
+  base_timestamp?: number;
   updates: {
     nodes: SyncRecordData[];
     hypercites: SyncRecordData[];
@@ -97,6 +99,8 @@ function syncOnUnload(): string | undefined {
             break;
           case "library":
             payload.updates.library = item.data;
+            // The queued library record carries the (un-bumped) base set on pull/last sync.
+            payload.base_timestamp = (item.data as { base_timestamp?: number })?.base_timestamp;
             break;
         }
       } else if (item.type === "delete") {

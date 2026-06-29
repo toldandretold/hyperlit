@@ -294,6 +294,13 @@ export interface LibraryRecord {
   creator?: string | null;
   /** ms epoch — publication/edit time. Never null in store: set to now() on load if missing. */
   timestamp?: number;
+  /**
+   * CLIENT-ONLY optimistic-concurrency token: the server `timestamp` this client last
+   * knew (set on pull + after each successful sync). UNLIKE `timestamp` it is NOT bumped
+   * by local edits — so the server can tell "you edited a version older than mine" and 409.
+   * Not a server column; it travels in the sync payload as `base_timestamp`.
+   */
+  base_timestamp?: number;
   /** ms epoch of the last hyperlight/hypercite change (drives annotation-only sync). */
   annotations_updated_at?: number;
   visibility?: 'public' | 'private' | 'deleted';
@@ -382,6 +389,8 @@ export interface HistoryLogEntry {
   status: HistoryLogStatus;
   payload: {
     book: BookId;
+    /** Optimistic-concurrency base captured when this batch was queued (see LibraryRecord.base_timestamp). */
+    base_timestamp?: number;
     updates: HistoryLogSide;
     deletions: HistoryLogSide;
   };

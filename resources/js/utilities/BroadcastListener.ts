@@ -175,6 +175,26 @@ export function registerBookOpen(bookId: any) {
  *                 When present, the overlay offers a "Download my unsaved edit (.md)"
  *                 button so the user can keep the text they wrote before it's gone.
  */
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+}
+
+/**
+ * Safe plain-text preview of (possibly hostile) node HTML. DOMParser documents are
+ * inert — no script execution, no `<img onerror>`, no resource loads — unlike a
+ * detached div's innerHTML (the stored-XSS vector noted elsewhere). We only need the
+ * text the user wrote, so collapse whitespace and return it.
+ */
+function lostNodePreviewText(html: string): string {
+  try {
+    const doc = new DOMParser().parseFromString(html || '', 'text/html');
+    return (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+  } catch {
+    return '';
+  }
+}
+
 export function showStaleTabOverlay(
   message: any,
   bookId?: string | null,
@@ -182,6 +202,17 @@ export function showStaleTabOverlay(
 ) {
   if (document.getElementById('stale-tab-overlay')) return;
   const hasLostEdit = Array.isArray(lostNodes) && lostNodes.length > 0;
+
+  // Build a scrollable preview of exactly what's about to be discarded so the user
+  // can read it and decide whether to download before refreshing.
+  const previewHtml = hasLostEdit
+    ? lostNodes!
+        .map((n) => {
+          const text = lostNodePreviewText(n.content) || '(empty block)';
+          return `<div style="padding: 10px 12px; margin: 8px 0; background: #222; border-left: 3px solid #EF8D34; border-radius: 4px; font-size: 13px; line-height: 1.55; color: #ddd; white-space: pre-wrap; overflow-wrap: anywhere;">${escapeHtml(text)}</div>`;
+        })
+        .join('')
+    : '';
 
   const overlay = document.createElement('div');
   overlay.id = 'stale-tab-overlay';
@@ -196,15 +227,23 @@ export function showStaleTabOverlay(
   `;
 
   overlay.innerHTML = `
-    <div style="background: #2a2a2a; padding: 40px; border-radius: 12px; max-width: 460px; text-align: center; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#EF8D34" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 16px;">
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-        <line x1="12" y1="9" x2="12" y2="13"></line>
-        <line x1="12" y1="17" x2="12.01" y2="17"></line>
-      </svg>
-      <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 600;">Book out of date</h2>
-      <p style="margin: 0 0 24px 0; color: #aaa; line-height: 1.5; font-size: 14px;">${message || 'You edited a stale version of this book. To load the latest, your recent edits must be discarded. Apologies comrade.'}</p>
-      <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+    <div style="background: #2a2a2a; border-radius: 12px; max-width: 520px; width: 90vw; max-height: 85vh; display: flex; flex-direction: column; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+      <div style="flex: 0 0 auto; padding: 32px 32px 12px; text-align: center;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#EF8D34" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 16px;">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 600;">Book out of date</h2>
+        <p style="margin: 0; color: #aaa; line-height: 1.5; font-size: 14px;">${message || 'You edited a stale version of this book. To load the latest, your recent edits must be discarded. Apologies comrade.'}</p>
+      </div>
+      ${hasLostEdit ? `
+      <div style="flex: 1 1 auto; min-height: 60px; overflow-y: auto; padding: 0 24px; text-align: left;">
+        <div style="position: sticky; top: 0; background: #2a2a2a; padding: 8px 0 6px; font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; color: #888;">About to be discarded · ${lostNodes!.length} block${lostNodes!.length === 1 ? '' : 's'} — scroll to review</div>
+        ${previewHtml}
+        <div style="height: 8px;"></div>
+      </div>` : ''}
+      <div style="flex: 0 0 auto; padding: 16px 32px 28px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; ${hasLostEdit ? 'border-top: 1px solid #383838;' : ''}">
         ${hasLostEdit ? `<button id="stale-tab-download" style="
           background: transparent;
           color: #EF8D34;
@@ -215,7 +254,7 @@ export function showStaleTabOverlay(
           font-weight: 600;
           cursor: pointer;
           transition: background 0.2s;
-        ">Download my unsaved edit (.md)</button>` : ''}
+        ">Download (.md)</button>` : ''}
         <button id="stale-tab-refresh" style="
           background: #EF8D34;
           color: #fff;

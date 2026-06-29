@@ -68,6 +68,9 @@ async function retryFailedBatches() {
           // Small batch — send in one go (normal edits)
           const syncPayload = {
             book: historyPayload.book,
+            // Carry the optimistic-concurrency base this batch had when it was QUEUED, so a
+            // replay 409s if the server has moved on since (the whole point of parking stale).
+            base_timestamp: historyPayload.base_timestamp,
             updates: {
               nodes: allNodes,
               hypercites: historyPayload.updates.hypercites || [],
@@ -86,6 +89,7 @@ async function retryFailedBatches() {
             const isFirstChunk = i === 0;
             const syncPayload = {
               book: historyPayload.book,
+              base_timestamp: historyPayload.base_timestamp,
               updates: {
                 nodes: nodeBatch,
                 // Only include non-node data in the first chunk to avoid duplicates

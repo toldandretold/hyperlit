@@ -81,6 +81,22 @@ describe('core/library.js (characterization)', () => {
     expect(queued.originalData).toBeNull(); // no prior record
   });
 
+  it('updateBookTimestamp bumps `timestamp` but PRESERVES `base_timestamp` (concurrency base)', async () => {
+    // A book pulled from the server has base_timestamp = the server version it last knew.
+    await seedStore('library', [{ book: 'bookA', title: 'X', timestamp: 1000, base_timestamp: 1000 }]);
+
+    await updateBookTimestamp('bookA');
+
+    const record = await readOne('library', 'bookA');
+    // Local edit advances the display/last-modified timestamp...
+    expect(record.timestamp).toBeGreaterThan(1000);
+    // ...but must NOT touch the concurrency base, or the server could never detect that this
+    // client edited an out-of-date version (the whole bug this guards).
+    expect(record.base_timestamp).toBe(1000);
+    // And the queued library record carries the un-bumped base for the sync payload.
+    expect(pendingSyncs.get('library-bookA-bookA').data.base_timestamp).toBe(1000);
+  });
+
   it('updateBookTimestamp on a SUB-book also touches the parent book', async () => {
     await updateBookTimestamp('book_parent/Fn7');
 

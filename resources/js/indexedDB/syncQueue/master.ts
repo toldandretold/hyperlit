@@ -40,6 +40,9 @@ interface MasterSyncDeps {
 /** The updates/deletions payload executeSyncPayload flattens onto the wire. */
 export interface SyncPayloadInput {
   book: BookId;
+  /** Optimistic-concurrency token — the server version this client last knew. The server
+   *  409s if its current timestamp is newer than this. See LibraryRecord.base_timestamp. */
+  base_timestamp?: number;
   updates: {
     nodes: Array<NodeRecord | PublicNode>;
     hypercites?: HyperciteRecord[];
@@ -143,6 +146,8 @@ interface UnifiedSyncPayload {
   bibliography: BibliographyRecord[];
   bibliographyDeletions: SyncRecordData[];
   library: LibraryRecord | null;
+  /** Optimistic-concurrency token the server checks against (see SyncPayloadInput). */
+  base_timestamp?: number;
 }
 
 export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Record<string, unknown>> {
@@ -166,6 +171,12 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
     bibliography: payload.updates.bibliography || [],
     bibliographyDeletions: payload.deletions.bibliography || [],
     library: payload.updates.library || null,
+    // The concurrency token. Prefer the explicit value the caller computed (live sync re-reads
+    // it fresh from IDB; replay carries the queue-time base); fall back to the library record's
+    // own base_timestamp, then its timestamp (brand-new book never pulled → no base yet).
+    base_timestamp: payload.base_timestamp
+      ?? payload.updates.library?.base_timestamp
+      ?? payload.updates.library?.timestamp,
   };
 
   // Log what we're syncing
@@ -317,6 +328,26 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
     }
   }
 
+  // --- Optimistic-concurrency base ---
+  // The server version this client last knew (set on pull + after each successful sync;
+  // NOT bumped by local edits). The server 409s if its current timestamp is newer than this.
+  // Read from the book's library record so it's correct even when this batch carries no
+  // library update, and stash it on the historyLog payload so a REPLAYED batch keeps the
+  // base it had at queue time.
+  let baseTimestamp: number | undefined;
+  try {
+    const baseDb = await openDatabase();
+    const libRec = await new Promise<LibraryRecord | undefined>((resolve, reject) => {
+      const req = baseDb.transaction("library", "readonly").objectStore("library").get(bookId);
+      req.onsuccess = () => resolve(req.result as LibraryRecord | undefined);
+      req.onerror = () => reject(req.error);
+    });
+    baseTimestamp = libRec?.base_timestamp ?? libRec?.timestamp;
+  } catch (e) {
+    console.warn("Could not read base_timestamp for sync:", e);
+  }
+  historyLogPayload.base_timestamp = baseTimestamp;
+
   // --- Save to Local History Log (ONLY for node changes) ---
   // History log is ONLY for nodes - footnotes, hyperlights, hypercites are separate
   // Footnote content is stored in nodes anyway
@@ -368,6 +399,7 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
   try {
     const syncPayload: {
       book: BookId;
+      base_timestamp?: number;
       updates: {
         nodes: NodeRecord[]; hypercites: HyperciteRecord[]; hyperlights: HyperlightRecord[];
         footnotes: FootnoteRecord[]; bibliography: BibliographyRecord[]; library: LibraryRecord | null;
@@ -381,6 +413,7 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
       };
     } = {
       book: bookId,
+      base_timestamp: baseTimestamp,
       updates: { nodes: [], hypercites: [], hyperlights: [], footnotes: [], bibliography: [], library: null },
       deletions: { nodes: [], hyperlights: [], hypercites: [], footnotes: [], bibliography: [] },
     };
@@ -514,8 +547,43 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
       failedBatches = []; // Reset so we don't incorrectly mark them synced
     }
 
-    await executeSyncPayload(syncPayload);
+    const syncResult = await executeSyncPayload(syncPayload);
     _serverErrorStreak.delete(bookId); // success → reset the 5xx streak for this book
+
+    // Advance the optimistic-concurrency base to the server's authoritative post-write
+    // version, so the NEXT edit compares against the new baseline (and consecutive edits
+    // from THIS client never self-conflict). Prefer the server's returned timestamp; fall
+    // back to the library timestamp we just sent (covers an older server that doesn't
+    // return one yet — the server adopted our value on success).
+    const newBase =
+      (typeof (syncResult as { server_timestamp?: unknown })?.server_timestamp === 'number'
+        ? (syncResult as { server_timestamp: number }).server_timestamp
+        : undefined)
+      ?? syncPayload.updates.library?.timestamp
+      ?? baseTimestamp;
+    if (typeof newBase === 'number' && newBase > 0) {
+      try {
+        const advDb = await openDatabase();
+        const advTx = advDb.transaction("library", "readwrite");
+        const advStore = advTx.objectStore("library");
+        const advRec = await new Promise<LibraryRecord | undefined>((resolve, reject) => {
+          const r = advStore.get(bookId);
+          r.onsuccess = () => resolve(r.result as LibraryRecord | undefined);
+          r.onerror = () => reject(r.error);
+        });
+        if (advRec && advRec.base_timestamp !== newBase) {
+          advRec.base_timestamp = newBase;
+          await new Promise<void>((resolve, reject) => {
+            const r = advStore.put(advRec);
+            r.onsuccess = () => resolve();
+            r.onerror = () => reject(r.error);
+          });
+        }
+      } catch (e) {
+        console.warn("Could not advance base_timestamp after sync:", e);
+      }
+    }
+
     if (logEntry) {
       logEntry.status = "synced";
       await updateHistoryLog(logEntry);

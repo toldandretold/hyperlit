@@ -96,6 +96,62 @@ test('POST /api/db/unified-sync does not register a sub-book under a foreign boo
     expect($admin->table('nodes')->where('book', $subBook)->count())->toBe(0);
 });
 
+/* ─── optimistic-concurrency (base_timestamp) stale guard ─────────── */
+
+test('POST /api/db/unified-sync 409s when base_timestamp is older than the server version', function () {
+    // The client loaded the book at version 1000; another device has since advanced the
+    // server to 2000. The client's local `timestamp` is bumped to now() on every edit, so
+    // the check must key off base_timestamp (the version it loaded), NOT library.timestamp.
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+
+    // Establish the server version at 2000 via a library-only sync (no nodes → stale check skipped).
+    $this->postJson('/api/db/unified-sync', [
+        'book'    => $book,
+        'library' => ['book' => $book, 'timestamp' => 2000],
+    ])->assertStatus(200);
+
+    $nodeId = $book.'_100_aaaa';
+    $this->postJson('/api/db/unified-sync', [
+        'book'           => $book,
+        'base_timestamp' => 1000,                               // loaded at 1000 (stale)
+        'library'        => ['book' => $book, 'timestamp' => 9999], // bumped local ts — must be IGNORED
+        'nodes'          => [[
+            'book' => $book, 'startLine' => 1, 'chunk_id' => 0, 'node_id' => $nodeId,
+            'content' => '<p data-node-id="'.$nodeId.'">stale edit</p>',
+            'hyperlights' => [], 'hypercites' => [], 'footnotes' => [],
+        ]],
+    ])
+        ->assertStatus(409)
+        ->assertJson(['error' => 'STALE_DATA']);
+});
+
+test('POST /api/db/unified-sync succeeds when base_timestamp matches the server version, and returns server_timestamp', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+
+    // Establish the server version at 2000.
+    $this->postJson('/api/db/unified-sync', [
+        'book'    => $book,
+        'library' => ['book' => $book, 'timestamp' => 2000],
+    ])->assertStatus(200);
+
+    $nodeId = $book.'_100_aaaa';
+    $this->postJson('/api/db/unified-sync', [
+        'book'           => $book,
+        'base_timestamp' => 2000,                                  // up to date
+        'library'        => ['book' => $book, 'timestamp' => 2500],
+        'nodes'          => [[
+            'book' => $book, 'startLine' => 1, 'chunk_id' => 0, 'node_id' => $nodeId,
+            'content' => '<p data-node-id="'.$nodeId.'">fresh edit</p>',
+            'hyperlights' => [], 'hypercites' => [], 'footnotes' => [],
+        ]],
+    ])
+        ->assertStatus(200)
+        ->assertJson(['success' => true])
+        ->assertJsonPath('server_timestamp', 2500); // max(existing 2000, sent 2500), returned for the client to re-base
+});
+
 /* ─── footnote upsert ─────────────────────────────────────────────── */
 
 test('POST /api/db/footnotes/upsert registers sub-book library rows (paste import path)', function () {

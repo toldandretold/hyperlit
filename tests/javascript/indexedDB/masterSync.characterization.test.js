@@ -25,7 +25,7 @@ vi.mock('../../../resources/js/integrity/reporter', () => ({
   reportServerError: vi.fn(),
 }));
 
-import { installFreshIndexedDB, seedStore, readAll } from './idbHarness.js';
+import { installFreshIndexedDB, seedStore, readAll, readOne } from './idbHarness.js';
 import {
   debouncedMasterSync,
   initMasterSyncDependencies,
@@ -144,6 +144,28 @@ describe('debouncedMasterSync (characterization)', () => {
 
     expect(pendingSyncs.size).toBe(0);
     expect(glowGreen).toHaveBeenCalled();
+  });
+
+  it('sends base_timestamp (the un-bumped concurrency base) and advances it from the server response', async () => {
+    // Library pulled at server version 1000; a later local edit bumped `timestamp` to 4000
+    // but base stays 1000 (what the server last confirmed).
+    await seedStore('library', [{ book: 'bookA', title: 'X', timestamp: 4000, base_timestamp: 1000 }]);
+    await seedStore('nodes', [makeNode('bookA', 100, 'n-100', '<p>edit</p>')]);
+    queueForSync('nodes', 100, 'update', makeNode('bookA', 100, 'n-100', '<p>edit</p>'), null);
+
+    // Server accepts and reports its authoritative post-write version.
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, server_timestamp: 5000 }) });
+
+    await debouncedMasterSync.flush();
+
+    // The POST carries the BASE (1000), not the bumped display timestamp (4000).
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.base_timestamp).toBe(1000);
+
+    // After success, the local base advances to the server's authoritative version so the
+    // next edit doesn't spuriously 409 against an outdated base.
+    const lib = await readOne('library', 'bookA');
+    expect(lib.base_timestamp).toBe(5000);
   });
 
   it('on a 5xx: marks the historyLog batch failed and glows red with savedLocally', async () => {
