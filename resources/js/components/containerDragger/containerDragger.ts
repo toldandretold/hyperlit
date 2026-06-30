@@ -1,5 +1,11 @@
 // containerDrag.js
 
+// Minimum on-screen gap (px) a saved anchored edge keeps from the viewport edge. Mirrors
+// MIN_EDGE_GAP in containerCustomization.ts — floored here so a bad measurement never gets
+// persisted in the first place (the customizer is the second line of defence).
+const MIN_EDGE_GAP = 8;
+const MIN_CONTAINER_WIDTH = 150;
+
 class ContainerDragger {
   [key: string]: any;
   constructor() {
@@ -278,9 +284,12 @@ class ContainerDragger {
         const base = document.getElementById('hyperlit-container');
         if (base) {
           const baseRect = base.getBoundingClientRect();
-          const rightOffset = viewportWidth - baseRect.right;
+          // Guard: floor the offset so the right edge can't be saved off-screen, and clamp the
+          // width to what fits the viewport (symmetric margin) so the left edge can't either.
+          const rightOffset = Math.max(MIN_EDGE_GAP, viewportWidth - baseRect.right);
+          const width = Math.min(baseRect.width, Math.max(MIN_CONTAINER_WIDTH, viewportWidth - 2 * rightOffset));
           const customizations = {
-            'width': `${baseRect.width}px`,
+            'width': `${width}px`,
             'max-width': 'none',
             'right': `${rightOffset}px`,
             'left': 'auto',
@@ -292,9 +301,10 @@ class ContainerDragger {
       } else if (this.containerType === 'toc-container') {
         // Save left-based positioning for toc
         const rect = this.currentContainer.getBoundingClientRect();
-        const leftOffset = rect.left;
+        const leftOffset = Math.max(MIN_EDGE_GAP, rect.left);
+        const width = Math.min(rect.width, Math.max(MIN_CONTAINER_WIDTH, viewportWidth - 2 * leftOffset));
         const customizations = {
-          'width': `${rect.width}px`,
+          'width': `${width}px`,
           'max-width': 'none',
           'left': `${leftOffset}px`,
           'right': 'auto',
@@ -305,9 +315,10 @@ class ContainerDragger {
       } else if (this.containerType === 'source-container') {
         // Save right-based positioning for source (right-anchored, like hyperlit)
         const rect = this.currentContainer.getBoundingClientRect();
-        const rightOffset = viewportWidth - rect.right;
+        const rightOffset = Math.max(MIN_EDGE_GAP, viewportWidth - rect.right);
+        const width = Math.min(rect.width, Math.max(MIN_CONTAINER_WIDTH, viewportWidth - 2 * rightOffset));
         const customizations = {
-          'width': `${rect.width}px`,
+          'width': `${width}px`,
           'max-width': 'none',
           'right': `${rightOffset}px`,
           'left': 'auto',

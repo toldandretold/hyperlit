@@ -2,7 +2,7 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1554,
+    "fnCount": 1555,
     "moduleCount": 330,
     "storeCount": 10,
     "tableCount": 10,
@@ -3626,6 +3626,14 @@
     {
       "id": "components/utilities/containerCustomization:ContainerCustomizer.resetContainer",
       "label": "ContainerCustomizer.resetContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerCustomization",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/containerCustomization:ContainerCustomizer.sanitizeCustomizations",
+      "label": "ContainerCustomizer.sanitizeCustomizations",
       "kind": "fn",
       "stage": "components",
       "module": "components/utilities/containerCustomization",
@@ -15254,6 +15262,7 @@
         "components/utilities/containerCustomization:ContainerCustomizer.loadCustomizations",
         "components/utilities/containerCustomization:ContainerCustomizer.resetAll",
         "components/utilities/containerCustomization:ContainerCustomizer.resetContainer",
+        "components/utilities/containerCustomization:ContainerCustomizer.sanitizeCustomizations",
         "components/utilities/containerCustomization:ContainerCustomizer.saveCustomizations",
         "components/utilities/containerCustomization:ContainerCustomizer.updateContainer"
       ]

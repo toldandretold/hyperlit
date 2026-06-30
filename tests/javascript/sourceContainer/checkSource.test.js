@@ -85,22 +85,22 @@ describe('librarianHtml', () => {
 });
 
 describe('sourceStatusSectionHtml', () => {
-  it('linked book shows the Citation Linked pill + Librarian (no button)', () => {
+  it('linked book shows the Citation Verified pill + Librarian (no button)', () => {
     const html = sourceStatusSectionHtml(
       { book: 'b', creator: 'alice', canonical_source_id: 'c1', canonical_match_method: 'openalex_doi', doi: '10.1/x' }, true, false,
     );
-    expect(html).toContain('Citation Linked');
+    expect(html).toContain('Citation Verified');
     expect(html).toContain('Librarian');
     expect(html).not.toContain('check-source-btn');
   });
 
-  it('auto-version book also shows Official source text', () => {
+  it('auto-version book shows Source Text Verified', () => {
     const html = sourceStatusSectionHtml({
       book: 'b1', creator: 'canonicalizer_v1', canonical_source_id: 'c1', canonical_match_method: 'auto_version_creation',
       canonical: { id: 'c1', auto_version_book: 'b1', openalex_id: 'W1' },
     }, false, false);
-    expect(html).toContain('Citation Linked');
-    expect(html).toContain('Official source text');
+    // Official-source records render ONLY the official pill (the linked pill is suppressed).
+    expect(html).toContain('Source Text Verified');
   });
 
   it('unlinked + owner shows the check button', () => {
@@ -146,7 +146,7 @@ describe('handleCheckSource', () => {
     return { container: document.getElementById('src'), refreshCitationDisplay: vi.fn() };
   }
 
-  it('lookup → prompt → yes → verify → re-renders to Citation Linked', async () => {
+  it('lookup → prompt → yes → verify → re-renders to Citation Verified', async () => {
     const self = setupPanel();
     lookupSource.mockResolvedValue({
       success: true, status: 'linked_new', method: 'openalex_doi', score: 0.92,
@@ -162,7 +162,7 @@ describe('handleCheckSource', () => {
 
     expect(verifySource).toHaveBeenCalledWith('test-book', expect.objectContaining({ openalex_id: 'W1' }));
     const sectionHtml = self.container.querySelector('#check-source-section').innerHTML;
-    expect(sectionHtml).toContain('Citation Linked');
+    expect(sectionHtml).toContain('Citation Verified');
     expect(self.refreshCitationDisplay).toHaveBeenCalled();
   });
 
