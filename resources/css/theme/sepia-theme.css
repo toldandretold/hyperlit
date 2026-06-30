@@ -24,7 +24,7 @@ body.theme-sepia {
   --color-strong: var(--hyperlit-white);
 
   /* Container backgrounds for sepia mode */
-  --container-glass-bg: rgba(232, 215, 184, 0.80);
+  --container-glass-bg: rgba(232, 215, 184, 0.50);
   --container-solid-bg: #D9C8A8;
 
   /* Editable element background (slightly darker in sepia mode) */

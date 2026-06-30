@@ -10,7 +10,6 @@ black #221F20;
 
 /* Overall form styling */
 #cite-form {
-  background-color: var(--color-background);
   color: var(--color-text);
   padding: 10px 20px 20px 20px; /* Reduced top padding from 20px to 10px */
 }

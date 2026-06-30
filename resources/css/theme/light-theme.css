@@ -24,7 +24,7 @@ body.theme-light {
   --color-strong: var(--hyperlit-white);
 
   /* Container backgrounds for light mode */
-  --container-glass-bg: rgba(244, 236, 216, 0.80);
+  --container-glass-bg: rgba(244, 236, 216, 0.75);
   --container-solid-bg: #EAE0CC;
 
   /* Editable element background (slightly darker in light mode) */

@@ -176,13 +176,33 @@ class ProcessDocumentImportJob implements ShouldQueue
             // so the book-cache (and open clients) invalidate against a value that is
             // strictly newer than this (re)conversion's writes. Harmless on a brand-new
             // import (no cache can exist yet); essential when this job rewrites an
-            // existing book (reconvert path).
-            PgLibrary::where('book', $this->bookId)
-                ->update(['timestamp' => round(microtime(true) * 1000)]);
+            // existing book (reconvert path). Also flag has_nodes — the book now has
+            // content, and the canonical auto-version resolver gates on has_nodes=true
+            // (a system row stuck at false can never become auto_version_book).
+            //
+            // Via pgsql_admin (BYPASSRLS): this runs in a queue worker with no HTTP
+            // session, so the RLS UPDATE policy (keyed on app.current_token) matches
+            // ZERO rows on the default connection — the update would silently no-op.
+            // The content writes above already use pgsql_admin for the same reason.
+            DB::connection('pgsql_admin')->table('library')
+                ->where('book', $this->bookId)
+                ->update([
+                    'timestamp' => round(microtime(true) * 1000),
+                    'has_nodes' => true,
+                ]);
 
             // Extract metadata and update library record for empty fields
             $this->writeProgress($path, 'processing', 96, 'metadata', 'Checking metadata');
             $this->updateLibraryMetadata($path, $metadataExtractor);
+
+            // If this book is a version of a canonical work, let every version
+            // authority re-evaluate its pointer now that content exists. This
+            // wires auto_version_book for SYSTEM rows (e.g. the ar5iv auto-version)
+            // and re-affirms it after a reconvert. Harmless for ordinary user
+            // imports: their conversion_method isn't a SYSTEM_CONVERSION_METHOD,
+            // so the resolver can't pick them. Best-effort — never fail the import.
+            app(\App\Services\CanonicalVersions\CanonicalVersionSync::class)
+                ->syncForBook($this->bookId);
 
             // Bill OCR cost for PDF imports
             if ($this->extension === 'pdf' && $this->userId) {

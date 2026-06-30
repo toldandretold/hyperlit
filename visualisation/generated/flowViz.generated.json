@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1555,
+    "fnCount": 1554,
     "moduleCount": 330,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3182,
+    "edgeCount": 3181,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -418,14 +418,6 @@
       "stage": "components",
       "module": "components/editButton/index",
       "leaf": false
-    },
-    {
-      "id": "components/editButton/index:handleAutoEdit",
-      "label": "handleAutoEdit",
-      "kind": "fn",
-      "stage": "components",
-      "module": "components/editButton/index",
-      "leaf": true
     },
     {
       "id": "components/editButton/index:initializeEditButtonListeners",
@@ -14195,7 +14187,6 @@
         "components/editButton/index:disableEditMode",
         "components/editButton/index:enableEditMode",
         "components/editButton/index:enforceEditableState",
-        "components/editButton/index:handleAutoEdit",
         "components/editButton/index:initializeEditButtonListeners",
         "components/editButton/index:resetEditModeState"
       ]
@@ -18539,13 +18530,6 @@
       "source": "components/editButton/index:enableEditMode",
       "target": "dom",
       "rel": "domwrite"
-    },
-    {
-      "id": "components/editButton/index:handleAutoEdit__call__components/editButton/index:enableEditMode",
-      "source": "components/editButton/index:handleAutoEdit",
-      "target": "components/editButton/index:enableEditMode",
-      "rel": "call",
-      "dataPath": true
     },
     {
       "id": "components/editButton/index:initializeEditButtonListeners__call__components/editButton/index:disableEditMode",

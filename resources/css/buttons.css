@@ -4204,3 +4204,7 @@ mark.search-highlight.current {
 .visitor-shelf-tab {
   padding-right: 12px;
 }
+
+#clearButton {
+  background-color: rgba(34,31,32,0.85) ;
+}

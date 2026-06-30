@@ -73,6 +73,46 @@ test('a JATS full-text version also qualifies as a system auto-version', functio
     expect($this->resolver->resolve(CanonicalSource::find($id)))->toBe($jats);
 });
 
+test('an ar5iv_html version qualifies as a system auto-version', function () {
+    // ar5iv is arXiv's own LaTeXML rendering — identity-confirmed system content,
+    // a genuine auto-version (AutoVersionResolver::SYSTEM_CONVERSION_METHODS).
+    $id = canonvSeedCanonical(['title' => 'CanonV ar5iv Version']);
+    $ar5iv = canonvSeedLibrary([
+        'title'               => 'CanonV ar5iv System Version',
+        'canonical_source_id' => $id,
+        'conversion_method'   => AutoVersionResolver::AR5IV_CONVERSION_METHOD,
+        'foundation_source'   => AutoVersionResolver::AR5IV_FOUNDATION_SOURCE,
+        'creator'             => AutoVersionResolver::CREATOR,
+        'has_nodes'           => true,
+        'listed'              => false,
+    ]);
+
+    expect($this->resolver->resolve(CanonicalSource::find($id)))->toBe($ar5iv);
+});
+
+test('a NULL-conversion user import row never qualifies, even beside a system ar5iv row', function () {
+    // The two-row model: the user's import (conversion_method NULL) is OUT of the
+    // pool; only the system ar5iv row is eligible.
+    $id = canonvSeedCanonical(['title' => 'CanonV Two Row Model']);
+    canonvSeedLibrary([
+        'title'               => 'CanonV User Import (editable)',
+        'canonical_source_id' => $id,
+        'conversion_method'   => null,
+        'has_nodes'           => true,
+        'created_at'          => now()->subDay(), // older — would win if it were eligible
+    ]);
+    $system = canonvSeedLibrary([
+        'title'               => 'CanonV System ar5iv',
+        'canonical_source_id' => $id,
+        'conversion_method'   => AutoVersionResolver::AR5IV_CONVERSION_METHOD,
+        'foundation_source'   => AutoVersionResolver::AR5IV_FOUNDATION_SOURCE,
+        'creator'             => AutoVersionResolver::CREATOR,
+        'has_nodes'           => true,
+    ]);
+
+    expect($this->resolver->resolve(CanonicalSource::find($id)))->toBe($system);
+});
+
 test('ignores deleted auto stubs', function () {
     $id = canonvSeedCanonical(['title' => 'CanonV Deleted Stub']);
     canonvSeedAutoStub($id, ['visibility' => 'deleted']);

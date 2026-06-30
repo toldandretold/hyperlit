@@ -19,7 +19,7 @@ class ImportCompleteMail extends Mailable
 
     public function build()
     {
-        $bookUrl = config('app.url') . "/{$this->bookId}/edit?target=1";
+        $bookUrl = config('app.url') . "/{$this->bookId}/edit";
 
         return $this->to($this->recipientEmail)
             ->subject("Your import is ready: {$this->title}")

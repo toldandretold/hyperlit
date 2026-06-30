@@ -22,6 +22,7 @@ import { initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { openDatabase, updateDatabaseBookId } from '../../../indexedDB/index';
 import { showConversionFeedbackToast } from '../../../conversion/feedbackToast.js';
 import { showImportFailureModal } from '../../../conversion/bugReportModal.js';
+import type { BookId } from '../../../utilities/idHelpers';
 
 export class ImportBookTransition {
   /**
@@ -86,7 +87,7 @@ export class ImportBookTransition {
       }
       
       // Update the URL
-      this.updateUrl(bookId, shouldEnterEditMode);
+      this.updateUrl(bookId);
 
       progress(100, 'Import complete!');
 
@@ -97,7 +98,7 @@ export class ImportBookTransition {
       console.error('❌ ImportBookTransition: Transition failed:', error);
 
       // Fallback to full page navigation
-      const fallbackUrl = `/${bookId}/edit?target=1${shouldEnterEditMode ? '&edit=1' : ''}`;
+      const fallbackUrl = `/${bookId}/edit`;
       console.log('🔄 ImportBookTransition: Falling back to full page navigation:', fallbackUrl);
       window.location.href = fallbackUrl;
 
@@ -132,10 +133,10 @@ export class ImportBookTransition {
   /**
    * Fetch the reader page HTML for imported book
    */
-  static async fetchReaderPageHtml(bookId: any) {
+  static async fetchReaderPageHtml(bookId: BookId) {
     console.log(`📥 ImportBookTransition: Fetching reader HTML for imported book ${bookId}`);
     
-    const response = await fetch(`/${bookId}/edit?target=1`);
+    const response = await fetch(`/${bookId}/edit`);
     if (!response.ok) {
       throw new Error(`Failed to fetch reader page HTML: ${response.status}`);
     }
@@ -149,7 +150,7 @@ export class ImportBookTransition {
   /**
    * Replace body content with reader HTML
    */
-  static async replaceBodyContent(htmlString: any, bookId: any) {
+  static async replaceBodyContent(htmlString: any, bookId: BookId) {
     console.log('🔄 ImportBookTransition: Replacing body content (import form → reader)');
 
     const parser = new DOMParser();
@@ -208,7 +209,7 @@ export class ImportBookTransition {
   /**
    * Set up session storage for imported book handling
    */
-  static setupImportedBookSession(bookId: any) {
+  static setupImportedBookSession(bookId: BookId) {
     // Set the session flag for overlay management
     sessionStorage.setItem('pending_import_book', bookId);
     console.log(`🎯 ImportBookTransition: Set pending_import_book flag: ${bookId}`);
@@ -221,7 +222,7 @@ export class ImportBookTransition {
   /**
    * Initialize the imported reader view
    */
-  static async initializeImportedReader(bookId: any, progressCallback: any) {
+  static async initializeImportedReader(bookId: BookId, progressCallback: any) {
     console.log(`🚀 ImportBookTransition: Initializing imported reader for ${bookId}`);
     
     try {
@@ -284,8 +285,8 @@ export class ImportBookTransition {
   /**
    * Update the browser URL
    */
-  static updateUrl(bookId: any, inEditMode = false) {
-    const newUrl = `/${bookId}/edit?target=1${inEditMode ? '&edit=1' : ''}`;
+  static updateUrl(bookId: any) {
+    const newUrl = `/${bookId}/edit`;
     
     try {
       history.pushState({}, '', newUrl);
@@ -324,7 +325,7 @@ export class ImportBookTransition {
   /**
    * Create progress UI by replacing form content
    */
-  static createImportProgressUI(bookId: any) {
+  static createImportProgressUI(bookId: BookId) {
     const container = document.getElementById('newbook-container') as HTMLElement | null;
     const citeForm = container?.querySelector('#cite-form') as HTMLElement | null;
     const targetEl = (citeForm || container) as HTMLElement | null;
@@ -341,6 +342,23 @@ export class ImportBookTransition {
     const savedScrollerHeight = scroller?.style.height;
     const savedContainerHeight = container?.style.height;
 
+    // Once the scroller flips to position:relative (below), it stops covering the container
+    // edge-to-edge and instead respects the container's 12px padding — which exposes a frame
+    // of the container's glass background AND a second, radius-mismatched glass background on
+    // the scroller, plus the absolutely-positioned .mask-top/.mask-bottom fade strips that were
+    // sized to the full-bleed scroller. The result is a "box inside a box" double-edge. Drop the
+    // padding, make the scroller transparent, and hide the masks so only ONE glass panel paints.
+    const savedContainerPadding = container?.style.padding;
+    const savedScrollerBackground = scroller?.style.background;
+    // #cite-form (== targetEl) paints a SOLID opaque var(--color-background) with SQUARE
+    // corners — vs the container's translucent rounded glass. Shrunk to the progress box it
+    // becomes a sharp-cornered solid rectangle inside the rounded glass = the "cooked edge".
+    const savedTargetBackground = targetEl.style.background;
+    const maskTop = container?.querySelector('.mask-top') as HTMLElement | null;
+    const maskBottom = container?.querySelector('.mask-bottom') as HTMLElement | null;
+    const savedMaskTopDisplay = maskTop?.style.display;
+    const savedMaskBottomDisplay = maskBottom?.style.display;
+
     // Switch scroller from absolute to relative so it contributes to flow height,
     // then let the container shrink-wrap the progress content
     if (scroller) {
@@ -350,17 +368,20 @@ export class ImportBookTransition {
     if (container) {
       container.style.height = 'auto';
       container.style.transition = 'height 0.3s ease-out';
+      container.style.padding = '0';
     }
+    if (maskTop) maskTop.style.display = 'none';
+    if (maskBottom) maskBottom.style.display = 'none';
 
     targetEl.innerHTML = `
       <div style="padding: 40px 20px; text-align: center; max-width: 480px; margin: 0 auto;">
-        <h3 style="margin: 0 0 24px; font-size: 18px; font-weight: 600; color: var(--text-color, #fff);">
+        <h3 style="margin: 0 0 24px; font-size: 18px; font-weight: 600; color: var(--color-text, #fff);">
           Importing document...
         </h3>
-        <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-bottom: 16px;">
+        <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.6); border-radius: 2px; overflow: hidden; margin-bottom: 16px;">
           <div id="import-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #4EACAE, #EF8D34); border-radius: 2px; transition: width 0.4s ease;"></div>
         </div>
-        <p id="import-stage-text" style="margin: 0 0 6px; font-size: 14px; color: var(--text-color, #ccc);">
+        <p id="import-stage-text" style="margin: 0 0 6px; font-size: 14px; color: var(--color-text, #ccc);">
           Waiting to start...
         </p>
         <p id="import-detail-text" style="margin: 0 0 20px; font-size: 12px; color: var(--text-muted, #888);">
@@ -425,10 +446,15 @@ export class ImportBookTransition {
         if (scroller) {
           scroller.style.position = savedScrollerPosition || '';
           scroller.style.height = savedScrollerHeight || '';
+          scroller.style.background = savedScrollerBackground || '';
         }
         if (container) {
           container.style.height = savedContainerHeight || '';
+          container.style.padding = savedContainerPadding || '';
         }
+        if (maskTop) maskTop.style.display = savedMaskTopDisplay || '';
+        if (maskBottom) maskBottom.style.display = savedMaskBottomDisplay || '';
+        targetEl.style.background = savedTargetBackground || '';
       },
     };
   }
@@ -650,6 +676,8 @@ export class ImportBookTransition {
         console.log('Import dispatched to background, starting progress polling');
 
         const progressUI = this.createImportProgressUI(result.bookId);
+
+        await new Promise(() => {});
 
         if (!progressUI) {
           // Fallback: can't show progress UI, just wait

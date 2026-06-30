@@ -179,6 +179,18 @@ class BookDeletionService
                 Log::warning('BookDeletionService: BookCache invalidate failed', ['book' => $bookId, 'error' => $e->getMessage()]);
             }
 
+            // Clear + re-resolve any canonical version pointer that named this book
+            // (or a descendant). assign() is fill-only, so a pointer aimed at a
+            // now-deleted row would otherwise dangle forever; this nulls it and
+            // refills from any remaining eligible (non-deleted) system version.
+            // Best-effort — never let a canonical-layer hiccup fail the deletion.
+            try {
+                app(\App\Services\CanonicalVersions\CanonicalVersionSync::class)
+                    ->clearAndResyncForDeletedBook($bookId, $allDescendantIds);
+            } catch (\Throwable $e) {
+                Log::warning('BookDeletionService: canonical pointer cleanup failed', ['book' => $bookId, 'error' => $e->getMessage()]);
+            }
+
             // Bump annotation timestamps for citing books (outside transaction)
             if (!empty($deadResult['citing_books'])) {
                 $now = round(microtime(true) * 1000);

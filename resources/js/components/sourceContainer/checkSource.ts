@@ -85,12 +85,12 @@ function categoryDefs(record: LibraryRecord): CategoryDef[] {
     ? ` <a href="${escapeHtml(link.url)}" target="_blank" rel="noopener" style="${INLINE_LINK}">view on ${escapeHtml(link.label)} ↗</a>`
     : '';
 
-  if (isCitationLinked(record)) {
+  if (isCitationLinked(record) && !(isOfficialSourceText(record))) {
     defs.push({
       cat: 'linked',
       svg: LINK_SVG,
       label: 'Citation Linked',
-      detail: `The citation details for this source have been verified against an external bibliographic database.${viewLink}`,
+      detail: `The citation details for this source have been verified against an external bibliographic database. The text content has not been verified. ${viewLink}`,
     });
   }
   if (isOfficialSourceText(record)) {
@@ -98,7 +98,7 @@ function categoryDefs(record: LibraryRecord): CategoryDef[] {
       cat: 'official',
       svg: BOOK_SVG,
       label: 'Official source text',
-      detail: `This source text was automatically converted from an official copy held in an external database.${viewLink}`,
+      detail: `This source text was converted from an official version held in an external database.${viewLink}`,
     });
   }
   return defs;

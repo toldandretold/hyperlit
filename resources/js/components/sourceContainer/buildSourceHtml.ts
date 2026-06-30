@@ -54,7 +54,8 @@ export async function buildSourceHtml(currentBookId: any): Promise<string> {
   // If no bibtex exists, generate one from available record data
   if (!bibtex && record) {
     const year = new Date(record.timestamp ?? Date.now()).getFullYear();
-    const urlField = record.url ? `  url = {${record.url}},\n` : '';
+    const url = record.url || record.oa_url || record.pdf_url || record.doi;
+    const urlField = url ? `  url = {${url}},\n` : '';
     const publisherField = record.publisher ? `  publisher = {${record.publisher}},\n` : '';
     const journalField = record.journal ? `  journal = {${record.journal}},\n` : '';
     const pagesField = record.pages ? `  pages = {${record.pages}},\n` : '';

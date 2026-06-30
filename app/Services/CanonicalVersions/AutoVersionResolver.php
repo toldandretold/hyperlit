@@ -26,16 +26,27 @@ class AutoVersionResolver extends BasePointerResolver
     public const CONVERSION_METHOD = 'pdf_ocr_auto_raw';
 
     /**
+     * Provenance constants for the ar5iv system version — arXiv's own LaTeXML
+     * rendering of the work, fetched + converted by `library:create-ar5iv-versions`.
+     */
+    public const AR5IV_FOUNDATION_SOURCE = 'ar5iv_latexml';
+    public const AR5IV_CONVERSION_METHOD = 'ar5iv_html';
+
+    /**
      * conversion_methods that count as a system-generated genuine version —
      * the system fetched the canonical's OWN content untampered:
      *   pdf_ocr_auto_raw  — vacuumed + OCR'd PDF
      *   jats_fulltext     — publisher's structured XML (body+refs schema-guaranteed)
      *   paste_engine_html — journal HTML the gate VERIFIED is the article
      *                       (identity + completeness), converted by the paste engine
+     *   ar5iv_html        — arXiv's own ar5iv/LaTeXML rendering of the exact paper,
+     *                       identity confirmed via arXiv-id → DOI/OpenAlex (score 1.0);
+     *                       same untampered-system-fetched class as jats_fulltext.
      * NOTE: 'html_scrape_unverified' is deliberately absent — HTML that did not
-     * pass the authenticity gate must never become a canonical version.
+     * pass the authenticity gate must never become a canonical version. ar5iv is
+     * NOT that: it is identity-confirmed arXiv-hosted markup, not an open scrape.
      */
-    public const SYSTEM_CONVERSION_METHODS = ['pdf_ocr_auto_raw', 'jats_fulltext', 'paste_engine_html'];
+    public const SYSTEM_CONVERSION_METHODS = ['pdf_ocr_auto_raw', 'jats_fulltext', 'paste_engine_html', 'ar5iv_html'];
 
     public function pointerColumn(): string
     {

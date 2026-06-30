@@ -29,18 +29,6 @@ export function resetEditModeState() {
   editModeCheckInProgress = false;
 }
 
-export function handleAutoEdit() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const isEditQ = urlParams.get("edit") === "1";
-  const isEditP = location.pathname.endsWith("/edit");
-  const shouldAutoEdit = isEditQ || isEditP;
-  const targetElementId = urlParams.get('target');
-
-  if (shouldAutoEdit) {
-    enableEditMode(targetElementId);
-  }
-}
-
 // Handle edit mode cancellation without reload
 function handleEditModeCancel() {
   editModeCheckInProgress = false;

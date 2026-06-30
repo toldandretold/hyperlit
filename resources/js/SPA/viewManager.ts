@@ -37,7 +37,6 @@ import { KeyboardManager } from "../components/utilities/keyboardManager";
 import {
   initializeEditButtonListeners,
   updateEditButtonVisibility,
-  handleAutoEdit,
   enforceEditableState
 } from "../components/editButton/index";
 import { initializeSourceButtonListener } from "../components/cloudRef/cloudRefButton";

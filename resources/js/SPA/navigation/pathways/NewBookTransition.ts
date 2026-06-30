@@ -75,7 +75,7 @@ export class NewBookTransition {
       // clean new-book URL here clears the hash before scroll-restore can act on it, while
       // `pushState` (not replaceState) preserves the previous book's entry+hash so Back
       // still returns to the hypercite. From home/user there is no hash → this is a no-op.
-      this.updateUrl(bookId, shouldEnterEditMode);
+      this.updateUrl(bookId);
 
       // Set orange indicator now that DOM elements exist (moved from before body replacement)
       await this.ensureOrangeIndicator();
@@ -118,7 +118,7 @@ export class NewBookTransition {
       console.error('❌ NewBookTransition: Transition failed:', error);
 
       // Fallback to full page navigation
-      const fallbackUrl = `/${bookId}/edit?target=1${shouldEnterEditMode ? '&edit=1' : ''}`;
+      const fallbackUrl = `/${bookId}/edit`;
       verbose.nav('Falling back to full page navigation', 'NewBookTransition.js');
       window.location.href = fallbackUrl;
 
@@ -287,7 +287,7 @@ export class NewBookTransition {
   static async fetchReaderPageHtml(bookId: any) {
     verbose.nav(`Fetching reader HTML for ${bookId}`, 'NewBookTransition.js');
     
-    const response = await fetch(`/${bookId}/edit?target=1`);
+    const response = await fetch(`/${bookId}/edit`);
     if (!response.ok) {
       throw new Error(`Failed to fetch reader page HTML: ${response.status}`);
     }
@@ -434,8 +434,8 @@ export class NewBookTransition {
   /**
    * Update the browser URL
    */
-  static updateUrl(bookId: any, inEditMode = false) {
-    const newUrl = `/${bookId}/edit?target=1${inEditMode ? '&edit=1' : ''}`;
+  static updateUrl(bookId: any) {
+    const newUrl = `/${bookId}/edit`;
     
     try {
       history.pushState({}, '', newUrl);

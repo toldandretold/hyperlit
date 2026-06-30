@@ -20,8 +20,10 @@
   --color-accent: var(--hyperlit-aqua);
 
   /* Container backgrounds */
-  --container-glass-bg: rgba(34, 31, 32, 0.60);
+  --container-glass-bg: rgba(34, 31, 32, 0.75);
   --container-solid-bg: #2A2A2A;
+  --container-glass-blur: blur(7px);
+  --container-overlay-blur: blur(2px);
 
   /* Editable element background (slightly lighter in dark mode) */
   --editable-bg: rgba(255, 255, 255, 0.08);

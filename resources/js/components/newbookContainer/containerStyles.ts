@@ -19,4 +19,5 @@ export function setupContainerStyles(container: HTMLElement | null): void {
   container.style.padding = '12px';
   container.style.width = '0';
   container.style.height = '0';
+  container.style.boxShadow = '0 0 15px rgba(0, 0, 0, 0.2), 0 0 0 250vmax rgba(0, 0, 0, 0.5)';
 }

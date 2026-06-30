@@ -342,6 +342,7 @@ export interface LibraryRecord {
   doi?: string | null;
   open_library_key?: string | null;
   oa_url?: string | null;
+  pdf_url?: string | null;
   canonical?: CanonicalRef | null;
 }
 

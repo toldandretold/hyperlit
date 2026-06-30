@@ -4,10 +4,9 @@ namespace App\Console\Commands;
 
 use App\Models\CanonicalSource;
 use App\Services\CanonicalVersions\AutoVersionResolver;
+use App\Services\CanonicalVersions\SystemVersionMinter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * For each canonical_source with a pdf_url and no auto_version_book yet: create a stub
@@ -61,6 +60,7 @@ class CreateAutoVersionsCommand extends Command
         $stats = ['created' => 0, 'vacuum_failed' => 0, 'ocr_failed' => 0, 'deferred' => 0, 'skipped' => 0, 'errors' => 0];
         $errorSamples = [];
         $resolver = new AutoVersionResolver();
+        $minter = new SystemVersionMinter();
 
         foreach ($query->cursor() as $canonical) {
             $this->line("→ {$canonical->id} | " . substr($canonical->title ?? '(untitled)', 0, 60));
@@ -82,12 +82,12 @@ class CreateAutoVersionsCommand extends Command
                     continue;
                 }
 
-                $existingStub = $this->findExistingStub($canonical);
+                $existingStub = $minter->findExistingSystemRow($canonical, self::FOUNDATION_SOURCE);
                 if ($existingStub) {
                     $newBookId = $existingStub->book;
                     $this->line("   reusing existing stub: {$newBookId}");
                 } else {
-                    $newBookId = $this->createStubLibraryRow($canonical);
+                    $newBookId = $minter->mintSystemRow($canonical, self::CONVERSION_METHOD, self::FOUNDATION_SOURCE);
                     $this->line("   created stub library row: {$newBookId}");
                 }
 
@@ -147,71 +147,5 @@ class CreateAutoVersionsCommand extends Command
         }
 
         return 0;
-    }
-
-    /**
-     * Find an existing auto-version stub for this canonical, if one was created on a
-     * previous run that didn't finish OCR. Detected by foundation_source + canonical_source_id.
-     */
-    private function findExistingStub(CanonicalSource $canonical): ?object
-    {
-        return DB::connection('pgsql_admin')
-            ->table('library')
-            ->where('canonical_source_id', $canonical->id)
-            ->where('foundation_source', self::FOUNDATION_SOURCE)
-            ->select('book', 'has_nodes', 'pdf_url_status')
-            ->first();
-    }
-
-    /**
-     * Create a library row that points at the canonical and carries the canonical's
-     * pdf_url so citation:vacuum can fetch it. Returns the new book id.
-     */
-    private function createStubLibraryRow(CanonicalSource $canonical): string
-    {
-        $bookId = (string) Str::uuid();
-        $now = now();
-
-        DB::connection('pgsql_admin')->table('library')->insert([
-            'book'                   => $bookId,
-            'title'                  => $canonical->title,
-            'author'                 => $canonical->author,
-            'year'                   => $canonical->year,
-            'journal'                => $canonical->journal,
-            'publisher'              => $canonical->publisher,
-            'abstract'               => $canonical->abstract,
-            'type'                   => $canonical->type,
-            'language'               => $canonical->language,
-            'doi'                    => $canonical->doi,
-            'openalex_id'            => $canonical->openalex_id,
-            'is_oa'                  => $canonical->is_oa,
-            'oa_status'              => $canonical->oa_status,
-            'oa_url'                 => $canonical->oa_url,
-            'pdf_url'                => $canonical->pdf_url,
-            'work_license'           => $canonical->work_license,
-            'cited_by_count'         => $canonical->cited_by_count,
-            'has_nodes'              => false,
-            'visibility'             => 'public',
-            'listed'                 => false,
-            'creator'                => self::CREATOR,
-            'creator_token'          => null,
-            'foundation_source'      => self::FOUNDATION_SOURCE,
-            'conversion_method'      => self::CONVERSION_METHOD,
-            'is_publisher_uploaded'  => false,
-            'canonical_source_id'    => $canonical->id,
-            'canonical_match_score'  => 1.0,
-            'canonical_match_method' => 'auto_version_creation',
-            'canonical_matched_at'   => $now,
-            'canonical_matched_by'   => self::CREATOR,
-            'raw_json'               => json_encode([
-                'auto_version' => true,
-                'source'       => 'canonical_pdf_vacuum',
-                'canonical_id' => $canonical->id,
-            ]),
-            'created_at'             => $now,
-            'updated_at'             => $now,
-        ]);
-
-        return $bookId;
     }
 }

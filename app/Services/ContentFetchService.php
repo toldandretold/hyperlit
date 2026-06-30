@@ -1321,41 +1321,14 @@ class ContentFetchService
 
     /**
      * After content lands on a canonical-linked library row, run every version
-     * authority over the canonical (VersionPointerRegistry::syncAll). This is
-     * the hook that turns "the pipeline vacuumed+OCR'd a citation's PDF" into
-     * "the canonical now has a genuine auto version". Best-effort by design.
+     * authority over the canonical. This is the hook that turns "the pipeline
+     * vacuumed+OCR'd a citation's PDF" into "the canonical now has a genuine auto
+     * version". Delegates to the shared CanonicalVersionSync (the public entrypoint
+     * the document-import job and deletion path also use). Best-effort by design.
      */
     private function syncCanonicalVersionPointers(string $bookId): void
     {
-        try {
-            $canonicalId = DB::connection('pgsql_admin')
-                ->table('library')
-                ->where('book', $bookId)
-                ->value('canonical_source_id');
-
-            if (!$canonicalId) {
-                return;
-            }
-
-            $canonical = \App\Models\CanonicalSource::find($canonicalId);
-            if (!$canonical) {
-                return;
-            }
-
-            $assigned = \App\Services\CanonicalVersions\VersionPointerRegistry::syncAll($canonical);
-            if (!empty($assigned)) {
-                Log::info('Canonical version pointers synced after OCR', [
-                    'book'      => $bookId,
-                    'canonical' => $canonicalId,
-                    'assigned'  => $assigned,
-                ]);
-            }
-        } catch (\Throwable $e) {
-            Log::warning('Canonical pointer sync failed (import unaffected)', [
-                'book'  => $bookId,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        app(\App\Services\CanonicalVersions\CanonicalVersionSync::class)->syncForBook($bookId);
     }
 
     /**

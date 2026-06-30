@@ -31,6 +31,10 @@ black #221F20;
   overflow-wrap: break-word;
 }
 
+#toc-container.open {
+   box-shadow: 0 0 0 250vmax rgba(0, 0, 0, 0.5);
+}
+
 /* When hidden, ensure container stays off-screen */
 #toc-container.hidden {
   display: block; /* Override Tailwind's display: none */
@@ -49,8 +53,8 @@ black #221F20;
   width: 300px; /* Fixed width, narrower than hyperlit */
   font-size: 14px; /* Base size — everything inside scales from this */
   background-color: var(--container-glass-bg); /* Use theme-aware glass background */
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: var(--container-glass-blur);
+  backdrop-filter: var(--container-glass-blur);
   z-index: 1001;
   overflow: hidden;
   padding-left: 1em;
@@ -76,6 +80,10 @@ black #221F20;
 
 #source-container.open {
   transform: translateX(0); /* Slide in */
+  /* 250vmax (not 100vmax): the shadow moves with the panel as it slides, and 100vmax is only
+     one viewport — mid-slide the panel is ~a viewport off-screen, so 100vmax can't reach the
+     far edge and a strip flashes undimmed. 250vmax always covers regardless of slide position. */
+  box-shadow: 0 0 0 250vmax rgba(0, 0, 0, 0.5);
 }
 
 #source-container.hidden {
@@ -274,8 +282,12 @@ black #221F20;
   box-sizing: border-box;
   overflow: auto;
   padding: 0 1em 1em 1em; /* no top padding */
-  border-radius: 1em 1em;
-  background-color: var(--container-glass-bg);
+  /* NO border-radius here on purpose: Firefox bug 1803813 — backdrop-filter fails to render
+     when an ancestor has border-radius (>3px) + overflow!=visible AND a descendant is
+     position:sticky. This scroller is the overflow:auto+sticky-footer ancestor of #clearButton's
+     backdrop-filter, so its rounding broke the Clear button's frosted-glass blur in Firefox.
+     The radius was redundant anyway — #newbook-container's own 0.75em border-radius clips it.
+     https://bugzilla.mozilla.org/show_bug.cgi?id=1803813 */
 }
 
 /* ---------------------------------------------------
@@ -288,11 +300,9 @@ black #221F20;
   width: 100%;
   height: 1em; /* matches scroller's top padding */
   pointer-events: none;
-  background-color: var(--container-glass-bg);
-  backdrop-filter: blur(10px); /* Glass blur effect */
-  -webkit-backdrop-filter: blur(10px); /* Safari support */
+  /* -webkit-backdrop-filter: blur(30px); /* Safari support */ 
   z-index: 10;
-  box-shadow: inset 0px -4px 4px -4px var(--container-glass-bg);
+  /* box-shadow: inset 0px -4px 4px -4px var(--container-glass-bg); */
   border-radius: 1em 1em 0 0;
 }
 
@@ -306,11 +316,10 @@ black #221F20;
   width: 100%;
   height: 1em; /* matches scroller's bottom padding */
   pointer-events: none;
-  background-color: var(--container-glass-bg);
-  backdrop-filter: blur(10px); /* Glass blur effect */
-  -webkit-backdrop-filter: blur(10px); /* Safari support */
+  /* background-color: var(--container-glass-bg); */
+  /* -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 10; /* Corrected: changed en dash to hyphen */
-  box-shadow: inset 0px 4px 4px -4px var(--container-glass-bg);
+  /* box-shadow: inset 0px 4px 4px -4px var(--container-glass-bg); */
   border-radius: 0 0 1em 1em;
 }
 
@@ -435,8 +444,8 @@ body[data-page="user"] #userLibraryContainer {
   width: 60%;
   max-width: 30ch; /* 70ch text plus ~6ch padding (2em left + 1em right) */
   background-color: var(--container-glass-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: var(--container-glass-blur);
+  backdrop-filter: var(--container-glass-blur);
   z-index: 1002; /* Above ref-overlay, below first stacked overlay */
   overflow: hidden; /* Ensure content doesn't overflow the container */
   padding-left: 1em;
@@ -594,6 +603,14 @@ body[data-page="user"] #userLibraryContainer {
   transform: translateX(0); /* Slide in to show the gap on the right */
   /* Ensure container captures all pointer events even with overlay behind it */
   pointer-events: auto;
+  /* Dim the rest of the page via the container's OWN shadow (spotlight) instead of a separate
+     #ref-overlay element. The overlay sat in the container's backdrop-filter, so the blur dragged
+     its darkness up into the glass (muddy sepia/light). Casting the dim from the container means
+     nothing dark is behind it → the blur shows the true page. Only on .open (it's parked off-screen
+     when closed, so a base-rule shadow would dim the page even while hidden).
+     250vmax (not 100vmax): the shadow slides in with the panel, and 100vmax = one viewport, so
+     mid-slide (panel ~a viewport off-screen) the far edge flashes undimmed. 250vmax always covers. */
+  box-shadow: 0 0 0 250vmax rgba(0, 0, 0, 0.5);
 }
 
 #toc-overlay,
@@ -603,7 +620,7 @@ body[data-page="user"] #userLibraryContainer {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.0); 
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.3s ease-in-out;
@@ -616,7 +633,6 @@ body[data-page="user"] #userLibraryContainer {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.3s ease-in-out;
@@ -630,7 +646,10 @@ body[data-page="user"] #userLibraryContainer {
     left: 0;
     width: 100%; /* Covers the entire screen */
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent overlay */
+    background-color: rgba(0, 0, 0, 0.0);
+    /* Dimming moved to #hyperlit-container.open's box-shadow so it's not in the container's
+       blur backdrop. This overlay now only catches clicks/blocks scroll (transparent). */
+    /* -webkit-backdrop-filter: var(--container-overlay-blur); */
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.3s ease-in-out;
@@ -698,15 +717,16 @@ body[data-page="user"] #userLibraryContainer {
 
 
 #user-container {
+  position: fixed;
   background-color: var(--container-glass-bg);
   backdrop-filter: blur(10px); /* Glass blur effect */
   -webkit-backdrop-filter: blur(10px); /* Safari support */
   z-index: 1001;
   border: none;
   border-radius: 0.75em;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
   box-sizing: border-box;
-
+  /* Spotlight dim is set inline in userContainer/index.ts (combined with the edge drop-shadow),
+     because this panel's inline box-shadow would override any CSS rule here anyway. */
 }
 
 #user-container.open {
@@ -949,6 +969,8 @@ body[data-page="user"] #userLibraryContainer {
   #hyperlit-container {
     max-width: 75vw; /* Use most of screen width on phones */
     width: 75vw;
+    /* box-shadow spotlight lives on .open (above) so it applies here too without dimming
+       while the container is parked off-screen. */
   }
 
   .progress-modal-content {
@@ -971,9 +993,12 @@ body[data-page="user"] #userLibraryContainer {
 }
 #newbook-container {
   background-color: var(--container-glass-bg);
+  -webkit-backdrop-filter: var(--container-glass-blur);
+  backdrop-filter: var(--container-glass-blur);
   border: none;
   border-radius: 0.75em; /* Same as other containers */
   box-sizing: border-box;
+  box-shadow: 0 0 0 250vmax rgba(0, 0, 0, 0.5);
 }
 
 #newbook-container .scroller {
@@ -1211,9 +1236,15 @@ body[data-page="user"] #userLibraryContainer {
   gap: 8px;
   margin-top: 1em;
   padding: 0.75em 0;
-  background-color: var(--container-glass-bg);
   z-index: 5;
+
 }
+
+#newbook-container #clearButton {
+  -webkit-backdrop-filter: blur(15px);
+  backdrop-filter: blur(15px);
+}
+
 
 /* Highlights section should take full width */
 #hyperlit-container .highlights-section {
@@ -1601,8 +1632,8 @@ body.hyperlit-container-open .reader-content-wrapper {
   height: auto;
   width: 100%;
   background-color: transparent; /* Fully transparent so page content shows through */
-  backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   z-index: 9999999; /* Above mobile edit-toolbar (999999) */
   padding: 1em 2em;
   border-radius: 1em 1em 0 0;

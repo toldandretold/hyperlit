@@ -78,7 +78,13 @@ export class UserContainerManager extends (ContainerManager as any) {
     container.style.transition =
       "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out";
     container.style.zIndex = "1000";
-    container.style.boxShadow = "0 0 15px rgba(0, 0, 0, 0.2)";
+    // Subtle edge drop-shadow + the page-dimming "spotlight" (250vmax). This is set inline
+    // (not in CSS) because this panel sets ALL its visual state inline, and an inline box-shadow
+    // overrides the stylesheet — so the CSS spotlight on #user-container never won. Combining both
+    // here is the fix. Safe when closed: the panel is opacity:0 / display:none (.hidden), so it
+    // renders no shadow; openContainer animates opacity 0→1, fading the dim in/out with the panel.
+    container.style.boxShadow =
+      "0 0 15px rgba(0, 0, 0, 0.2), 0 0 0 250vmax rgba(0, 0, 0, 0.5)";
     container.style.borderRadius = "0.75em";
     container.style.opacity = "0";
     container.style.padding = "12px";

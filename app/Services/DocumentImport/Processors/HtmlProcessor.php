@@ -52,6 +52,19 @@ class HtmlProcessor implements ProcessorInterface
             $debugHtmlPath = "{$outputPath}/debug_original.html";
             File::put($debugHtmlPath, $originalHtmlContent);
 
+            // Step 1.1: Work on a COPY, never the original. The steps below
+            // (ar5iv preprocessing, sanitization) overwrite their input file in
+            // place, and ar5iv_preprocessor's footnote rewrite is one-way — it
+            // pulls <span class="ltx_note"> definition bodies out into
+            // footnotes.json and deletes them from the HTML. If we mutated
+            // original.html, a later reconvert (which reuses original.html on
+            // disk) would re-run on the already-stripped file and silently lose
+            // every footnote. Keeping original.html pristine makes reconvert
+            // lossless. Mirrors PandocConversionJob, which already processes an
+            // intermediate.html and leaves original.docx untouched.
+            $workPath = "{$outputPath}/intermediate.html";
+            File::put($workPath, $originalHtmlContent);
+
             Log::info('Debug files created', [
                 'book' => $bookId,
                 'debug_duration_ms' => round((microtime(true) - $debugStart) * 1000, 2)
@@ -76,7 +89,7 @@ class HtmlProcessor implements ProcessorInterface
             $ar5ivProcess = new Process([
                 'python3',
                 $ar5ivScriptPath,
-                $inputPath,
+                $workPath,
                 $outputPath,
             ]);
             $ar5ivProcess->setTimeout(300);
@@ -96,7 +109,7 @@ class HtmlProcessor implements ProcessorInterface
 
             // Step 2: Sanitize the HTML file
             $sanitizeStart = microtime(true);
-            $this->sanitizer->sanitizeHtmlFile($inputPath);
+            $this->sanitizer->sanitizeHtmlFile($workPath);
             Log::info('HTML sanitization completed', [
                 'book' => $bookId,
                 'sanitize_duration_ms' => round((microtime(true) - $sanitizeStart) * 1000, 2)
@@ -119,7 +132,7 @@ class HtmlProcessor implements ProcessorInterface
             Log::info("Running shared document processor on HTML...", [
                 'book' => $bookId,
                 'script' => basename($pythonScriptPath),
-                'html_input' => basename($inputPath),
+                'html_input' => basename($workPath),
                 'output_dir' => basename($outputPath),
                 'python_start_time' => $pythonScriptStart
             ]);
@@ -127,7 +140,7 @@ class HtmlProcessor implements ProcessorInterface
             $pythonProcess = new Process([
                 $this->getPythonPath(),
                 $pythonScriptPath,
-                $inputPath,
+                $workPath,
                 $outputPath,
                 $bookId
             ]);
