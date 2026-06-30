@@ -677,8 +677,6 @@ export class ImportBookTransition {
 
         const progressUI = this.createImportProgressUI(result.bookId);
 
-        await new Promise(() => {});
-
         if (!progressUI) {
           // Fallback: can't show progress UI, just wait
           console.warn('Could not create progress UI, falling back');
