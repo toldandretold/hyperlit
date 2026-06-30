@@ -62,6 +62,21 @@ EOF
     fi
 }
 
+# Supervisor's control socket is root-owned on the droplet, so status/restart
+# fail with "Permission denied" as the `marx` user — that's why the install
+# steps use `sudo supervisorctl`. Auto-detect: try plain, fall back to sudo.
+# Result is cached in $SUPERVISORCTL (used UNQUOTED so it word-splits into
+# `sudo supervisorctl`).
+SUPERVISORCTL=""
+resolve_supervisorctl() {
+    need_supervisorctl
+    if supervisorctl pid >/dev/null 2>&1; then
+        SUPERVISORCTL="supervisorctl"
+    else
+        SUPERVISORCTL="sudo supervisorctl"
+    fi
+}
+
 usage() {
     cat <<EOF
 workers.sh — manage the Hyperlit prod queue workers (run on the droplet, or via the 'hw' alias)
@@ -83,18 +98,18 @@ cmd="${1:-}"
 
 case "${cmd}" in
     status|st)
-        need_supervisorctl
+        resolve_supervisorctl
         # supervisorctl groups appear as `hyperlit-worker:hyperlit-worker_00` etc.
-        supervisorctl status 'hyperlit-worker:*' 'hyperlit-citation:*' \
-                             'hyperlit-vibe:*' 'hyperlit-embeddings:*'
+        ${SUPERVISORCTL} status 'hyperlit-worker:*' 'hyperlit-citation:*' \
+                                'hyperlit-vibe:*' 'hyperlit-embeddings:*'
         ;;
 
     restart)
         if [ $# -gt 0 ]; then
-            need_supervisorctl
+            resolve_supervisorctl
             prog="$(program_for "$1")" || { echo "✗ unknown worker '$1' (try: ${SHORT_NAMES})" >&2; exit 1; }
-            echo "→ supervisorctl restart ${prog}:* (hard restart of one program)"
-            supervisorctl restart "${prog}:*"
+            echo "→ ${SUPERVISORCTL} restart ${prog}:* (hard restart of one program)"
+            ${SUPERVISORCTL} restart "${prog}:*"
         else
             # Graceful, all workers: they finish the current job, exit, supervisor
             # autorestarts them on fresh code. The safe post-deploy default.
@@ -105,14 +120,14 @@ case "${cmd}" in
         ;;
 
     force-restart)
-        need_supervisorctl
+        resolve_supervisorctl
         echo "⚠ Hard restart (SIGTERM). If a citation/vibe job is mid-run, Supervisor WAITS"
         echo "  up to stopwaitsecs (≈2 h for citation) before the process actually cycles."
         echo "  Prefer 'restart' (graceful) on deploys. Continue? [y/N]"
         read -r ans
         case "${ans}" in
-            y|Y|yes) supervisorctl restart 'hyperlit-worker:*' 'hyperlit-citation:*' \
-                                          'hyperlit-vibe:*' 'hyperlit-embeddings:*' ;;
+            y|Y|yes) ${SUPERVISORCTL} restart 'hyperlit-worker:*' 'hyperlit-citation:*' \
+                                              'hyperlit-vibe:*' 'hyperlit-embeddings:*' ;;
             *) echo "aborted." ;;
         esac
         ;;

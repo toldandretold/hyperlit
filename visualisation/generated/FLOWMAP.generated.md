@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1555 functions in 330 modules · 10 object stores · 10 PG tables · 3181 edges
+**MarkdownDB** schema v27 · 1556 functions in 331 modules · 10 object stores · 10 PG tables · 3183 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -207,6 +207,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleAiReviewGenerate` | `components/sourceContainer/aiReview/index` | — | — | read/write | — |
 | `loadAiReviewStatus` | `components/sourceContainer/aiReview/index` | — | — | read | — |
 | `setAiReviewState` | `components/sourceContainer/aiReview/index` | — | — | read/write | — |
+| `pipelineNothingToReview` | `components/sourceContainer/aiReview/pipelineState` | — | — | — | — |
 | `closeAiReviewVizOverlay` | `components/sourceContainer/aiReview/pipelineViz` | — | — | read/write | — |
 | `fetchPipelineMap` | `components/sourceContainer/aiReview/pipelineViz` | — | — | — | — |
 | `openAiReviewVizOverlay` | `components/sourceContainer/aiReview/pipelineViz` | — | — | read/write | — |

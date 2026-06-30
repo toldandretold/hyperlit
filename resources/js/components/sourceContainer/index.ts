@@ -282,7 +282,7 @@ export class SourceContainerManager extends (ContainerManager as any) {
   // aiReview
   handleAiReviewGenerate() { return handleAiReviewGenerate(this); }
   loadAiReviewStatus() { return loadAiReviewStatus(this); }
-  setAiReviewState(state: any, currentStep?: any) { return setAiReviewState(this, state, currentStep); }
+  setAiReviewState(state: any, currentStep?: any, opts?: any) { return setAiReviewState(this, state, currentStep, opts); }
   ensureAiReviewLivePanel() { return ensureAiReviewLivePanel(this); }
   startAiReviewPolling(intervalMs?: any) { return startAiReviewPolling(this, intervalMs); }
   stopAiReviewPolling() { return stopAiReviewPolling(this); }

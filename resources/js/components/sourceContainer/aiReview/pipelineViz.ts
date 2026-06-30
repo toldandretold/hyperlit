@@ -3,6 +3,8 @@
 // statuses + details panel), and the post-completion highlight sync into
 // IndexedDB. Peer calls route through `self`.
 
+import { pipelineNothingToReview } from './pipelineState';
+
 export async function openAiReviewVizOverlay(self: any) {
   if (document.getElementById('ai-review-viz-overlay')) return;
 
@@ -154,15 +156,28 @@ export function renderPipelineViz(self: any, pipeline: any) {
   const failedText = pipeline.status === 'failed' && pipeline.error
     ? `<p style="font-size: 13px; color: #e74c3c; margin: 12px 0 0 0;">${pipeline.error}</p>` : '';
 
-  // Terminal DONE state: replace the live ticker with a completion banner
+  // Terminal DONE state: replace the live ticker with a completion banner.
+  // Two flavours — a real review that produced a report, vs. the "nothing to
+  // review" case (0 bibliography entries + 0 citation footnotes) where the
+  // backend skipped everything and never created the /AIreview report or sent
+  // an email. The empty case gets an honest message + a "report this" button
+  // (in case the book really does have references that failed to save).
   const done = pipeline.status === 'completed';
-  const doneBanner = done
-    ? `<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+  const nothingToReview = pipelineNothingToReview(pipeline);
+  let doneBanner = '';
+  if (done && nothingToReview) {
+    doneBanner = `<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+           <span style="font-size: 15px; color: #EF8D34; font-weight: bold;">⚠ Nothing to review</span>
+           <span style="font-size: 14px; color: #c4c4c4;">No bibliography or citation footnotes are saved to the database for this book.</span>
+           <button type="button" id="ai-review-report-empty" style="font-size: 13px; color: #8fd0c6; background: none; border: none; text-decoration: underline; cursor: pointer; padding: 0; font-family: inherit;">If it should have references, something didn't save — report this →</button>
+         </div>`;
+  } else if (done) {
+    doneBanner = `<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
            <span style="font-size: 16px; color: #27ae60; font-weight: bold;">✓ Review complete</span>
            <a href="/${encodeURIComponent(pipeline.book)}/AIreview" style="font-size: 14px; color: #8fd0c6; text-decoration: underline;">View the report →</a>
            <span style="font-size: 13px; color: #888;">A summary has been emailed to you.</span>
-         </div>`
-    : '';
+         </div>`;
+  }
 
   // Details panel: auto-follow the active stage (running/failed) unless the
   // user has pinned one by clicking.
@@ -275,6 +290,32 @@ export function renderPipelineViz(self: any, pipeline: any) {
       self._aiVizStage = self._aiVizStage === id ? null : id; // click again to unpin (auto-follow)
       self.renderPipelineViz(pipeline);
     });
+  });
+
+  // "Nothing to review" empty-state: let the user flag it if the book really
+  // does have references (i.e. they failed to save to Postgres). Reuses the
+  // integrity report sink — lazy-imported so it doesn't bloat the aiReview bundle.
+  viz.querySelector('#ai-review-report-empty')?.addEventListener('click', async (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const btn = e.currentTarget as HTMLButtonElement;
+    btn.disabled = true;
+    btn.style.cursor = 'default';
+    btn.textContent = 'Sending report…';
+    try {
+      const { reportCitationMismatch } = await import('../../../integrity/reporter');
+      await reportCitationMismatch({
+        bookId: pipeline.book,
+        pipelineId: pipeline.id,
+        signals: signalsByStage['bibliography'] || null,
+      });
+      btn.textContent = '✓ Report sent — thank you';
+    } catch (err) {
+      console.warn('Failed to send citation mismatch report:', err);
+      btn.textContent = 'Report failed — click to retry';
+      btn.disabled = false;
+      btn.style.cursor = 'pointer';
+    }
   });
 }
 

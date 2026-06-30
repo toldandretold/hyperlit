@@ -3,6 +3,8 @@
 // new highlights into IndexedDB. Peer calls (setAiReviewState, renderPipelineViz,
 // syncPipelineHighlights) route through `self`.
 
+import { pipelineNothingToReview } from './pipelineState';
+
 export function startAiReviewPolling(self: any, intervalMs = 30000) {
   self.stopAiReviewPolling(); // clear any existing interval
   self._aiReviewPollInterval = setInterval(() => {
@@ -31,12 +33,16 @@ export async function pollAiReviewStatus(self: any) {
 
     if (pipeline.status === 'completed') {
       self.stopAiReviewPolling();
-      self.setAiReviewState('completed');
-      // If the live overlay is open, show the final all-green state
+      // "Nothing to review" (0 bibliography entries + 0 citation footnotes):
+      // no /AIreview report exists, so the button must NOT navigate there.
+      const nothingToReview = pipelineNothingToReview(pipeline);
+      self.setAiReviewState('completed', undefined, { nothingToReview });
+      // If the live overlay is open, show the final state
       self.renderPipelineViz(pipeline);
 
       // Pull pipeline-created highlights into IndexedDB so they render immediately
-      self.syncPipelineHighlights(pipeline.book);
+      // (nothing to sync in the empty case).
+      if (!nothingToReview) self.syncPipelineHighlights(pipeline.book);
     } else if (pipeline.status === 'failed') {
       self.stopAiReviewPolling();
       // Show the failure in the live viz (if open) before resetting the button

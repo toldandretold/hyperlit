@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1555,
-    "moduleCount": 330,
+    "fnCount": 1556,
+    "moduleCount": 331,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3181,
+    "edgeCount": 3183,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -1741,6 +1741,14 @@
       "stage": "components",
       "module": "components/sourceContainer/aiReview/index",
       "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/aiReview/pipelineState:pipelineNothingToReview",
+      "label": "pipelineNothingToReview",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/aiReview/pipelineState",
+      "leaf": true
     },
     {
       "id": "components/sourceContainer/aiReview/pipelineViz:closeAiReviewVizOverlay",
@@ -14761,6 +14769,15 @@
       ]
     },
     {
+      "id": "components/sourceContainer/aiReview/pipelineState",
+      "label": "components/sourceContainer/aiReview/pipelineState",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/aiReview/pipelineState:pipelineNothingToReview"
+      ]
+    },
+    {
       "id": "components/sourceContainer/aiReview/pipelineViz",
       "label": "components/sourceContainer/aiReview/pipelineViz",
       "stage": "components",
@@ -20395,6 +20412,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/aiReview/pipelineViz:renderPipelineViz__call__components/sourceContainer/aiReview/pipelineState:pipelineNothingToReview",
+      "source": "components/sourceContainer/aiReview/pipelineViz:renderPipelineViz",
+      "target": "components/sourceContainer/aiReview/pipelineState:pipelineNothingToReview",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/aiReview/pipelineViz:renderPipelineViz__domwrite__dom",
       "source": "components/sourceContainer/aiReview/pipelineViz:renderPipelineViz",
       "target": "dom",
@@ -20420,6 +20443,12 @@
       "target": "indexedDB/serverSync/pull:syncAnnotationsOnly",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/aiReview/polling:pollAiReviewStatus__call__components/sourceContainer/aiReview/pipelineState:pipelineNothingToReview",
+      "source": "components/sourceContainer/aiReview/polling:pollAiReviewStatus",
+      "target": "components/sourceContainer/aiReview/pipelineState:pipelineNothingToReview",
+      "rel": "call"
     },
     {
       "id": "components/sourceContainer/aiReview/polling:pollAiReviewStatus__domwrite__dom",
@@ -39385,6 +39414,11 @@
     },
     {
       "source": "components/sourceContainer/aiReview/pipelineViz",
+      "target": "components/sourceContainer/aiReview/pipelineState",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/aiReview/pipelineViz",
       "target": "hyperlights/deletion",
       "kind": "lazy"
     },
@@ -39392,6 +39426,11 @@
       "source": "components/sourceContainer/aiReview/pipelineViz",
       "target": "indexedDB/core/library",
       "kind": "lazy"
+    },
+    {
+      "source": "components/sourceContainer/aiReview/polling",
+      "target": "components/sourceContainer/aiReview/pipelineState",
+      "kind": "static"
     },
     {
       "source": "components/sourceContainer/buildSourceHtml",

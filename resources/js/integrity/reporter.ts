@@ -241,6 +241,38 @@ export async function reportServerError({ bookId, status, error }: any) : Promis
   _showModal(bookId, payload, false, false, { status });
 }
 
+/**
+ * AI citation review completed but found nothing to review (0 bibliography
+ * entries + 0 citation footnotes). Fired from the empty-state banner when the
+ * user believes the book DOES have references — i.e. they failed to persist to
+ * Postgres (the copy-paste-import case). Reuses the integrity report sink
+ * (/api/integrity/report) and its retry queue; NO modal (this isn't data loss,
+ * just a heads-up). The pipeline id + bibliography signals ride in `comment`
+ * because the endpoint only persists its whitelisted fields.
+ */
+export async function reportCitationMismatch(
+  { bookId, pipelineId, signals }: { bookId: string; pipelineId?: string; signals?: any }
+): Promise<void> {
+  const payload = {
+    bookId,
+    trigger: 'citation-bibliography-missing',
+    comment: (
+      `AI citation review found nothing to review, but the user reports this book HAS `
+      + `references (likely failed to save to Postgres). `
+      + `pipelineId=${pipelineId ?? 'n/a'}; bibliographySignals=${JSON.stringify(signals ?? null)}`
+    ).slice(0, 2000),
+    url: window.location.href,
+    userAgent: navigator.userAgent,
+    timestamp: new Date().toISOString(),
+    recentLogs: getRecentLogs(),
+    context: {
+      sessionAgeSec: Math.round((Date.now() - _sessionStartTs) / 1000),
+      idbBroken: isIDBBroken(),
+    },
+  };
+  await _sendReport(payload);
+}
+
 // ================================================================
 // RETRY QUEUE — guarantees no report is silently dropped
 // ================================================================

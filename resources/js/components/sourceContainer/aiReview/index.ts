@@ -111,7 +111,7 @@ export async function loadAiReviewStatus(self: any) {
   }
 }
 
-export function setAiReviewState(self: any, state: any, currentStep?: any) {
+export function setAiReviewState(self: any, state: any, currentStep?: any, opts?: any) {
   const aiBtn = self.container.querySelector('#ai-review-btn');
   if (!aiBtn) return;
 
@@ -138,25 +138,40 @@ export function setAiReviewState(self: any, state: any, currentStep?: any) {
     self.ensureAiReviewLivePanel();
   } else if (state === 'completed') {
     self.container.querySelector('#ai-review-live')?.remove();
+    // "Nothing to review" → no /AIreview report was created, so the button must
+    // not navigate there (it would 404). Show an inert "No references found".
+    const nothingToReview = opts?.nothingToReview === true;
     aiBtn.disabled = false;
     aiBtn.style.color = 'var(--hyperlit-aqua)';
     aiBtn.style.borderColor = 'color-mix(in srgb, var(--hyperlit-aqua) 40%, transparent)';
-    aiBtn.style.cursor = 'pointer';
-    aiBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-        See Review`;
     if (infoPanel) infoPanel.style.display = 'none';
 
-    // Replace click handler to navigate to review page
-    const newBtn = aiBtn.cloneNode(true);
-    aiBtn.parentNode.replaceChild(newBtn, aiBtn);
-    newBtn.addEventListener('click', (e: any) => {
-      e.preventDefault();
-      e.stopPropagation();
-      window.location.href = `/${encodeURIComponent(book)}/AIreview`;
-    });
+    let targetBtn: any;
+    if (nothingToReview) {
+      aiBtn.disabled = true;
+      aiBtn.style.cursor = 'default';
+      aiBtn.title = 'No bibliography or citation footnotes are saved to the database for this book.';
+      aiBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          No references found`;
+      targetBtn = aiBtn;
+    } else {
+      aiBtn.style.cursor = 'pointer';
+      aiBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          See Review`;
+      // Replace click handler to navigate to review page
+      const newBtn = aiBtn.cloneNode(true);
+      aiBtn.parentNode.replaceChild(newBtn, aiBtn);
+      newBtn.addEventListener('click', (e: any) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.href = `/${encodeURIComponent(book)}/AIreview`;
+      });
+      targetBtn = newBtn;
+    }
 
-    // Add "Regenerate" link below
+    // Add "Regenerate" link below (both cases — lets the user re-run after a fix)
     const existingRegen = self.container.querySelector('#ai-review-regenerate');
     if (!existingRegen) {
       const regenLink = document.createElement('a');
@@ -188,7 +203,7 @@ export function setAiReviewState(self: any, state: any, currentStep?: any) {
         }
         regenLink.remove();
       });
-      newBtn.parentNode.insertBefore(regenLink, newBtn.nextSibling);
+      targetBtn.parentNode.insertBefore(regenLink, targetBtn.nextSibling);
     }
   }
 }
