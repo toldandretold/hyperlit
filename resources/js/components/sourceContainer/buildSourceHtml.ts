@@ -146,7 +146,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     ${sourceStatusSectionHtml(record, canEdit, accessDenied)}
 
     <div style="margin-top: 15px; padding-top: 15px;">
-      <h3>Downloads</h3>
+      <h3>Download</h3>
 
     <button type="button" id="download-md" class="download-btn">
   <div class="icon-wrapper">
