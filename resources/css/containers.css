@@ -1445,11 +1445,13 @@ body[data-page="user"] #userLibraryContainer {
 }
 
 #source-container h3 {
-  font-size: 16px;
-  color: #4EACAE;
-  margin: 1em 0 0.5em 0;
-  border-bottom: 1px solid #444;
-  padding-bottom: 0.25em;
+  font-size: 13px;
+  color: var(--color-label);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 8px;
 }
 
 /* Form structure and validation styles */

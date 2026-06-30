@@ -12,14 +12,14 @@ export async function loadCreatorTools(self: any) {
   // Build the HTML for version history, reconvert placeholder, reupload, and delete
   const html = `
       <div id="version-history-section" style="margin-top: 10px;">
-        <h3 style="font-size: 13px; color: var(--color-label); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);">Version History</h3>
+        <h3>Version History</h3>
         <div id="version-history-list" style="font-size: 13px; color: var(--color-text-secondary);">Loading...</div>
       </div>
 
       <div id="reconvert-section" style="margin-top: 15px; padding-top: 15px; display: none;"></div>
 
       <div id="reupload-section" style="margin-top: 15px; padding-top: 15px;">
-        <h3 style="font-size: 13px; color: var(--color-label); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);">Re-upload Source</h3>
+        <h3>Re-upload Source</h3>
         <div id="reupload-dropzone" style="border: 2px dashed rgba(136,136,136,0.4); border-radius: 6px; padding: 20px 12px; text-align: center; cursor: pointer; transition: border-color 0.2s;">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-label)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px;">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>

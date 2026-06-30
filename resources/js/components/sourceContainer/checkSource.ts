@@ -22,7 +22,6 @@ const BOOK_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>';
 
 const PILL_BASE = 'font-size: 12px; color: var(--hyperlit-aqua); display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid color-mix(in srgb, var(--hyperlit-aqua) 35%, transparent); border-radius: 999px;';
-const HEADER_STYLE = 'font-size: 13px; color: var(--color-label); margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;';
 const DETAIL_STYLE = 'font-size: 12px; color: var(--color-text-secondary); margin-top: 8px; line-height: 1.5;';
 const INLINE_LINK = 'color: var(--hyperlit-aqua); text-decoration: underline;';
 
@@ -89,7 +88,7 @@ function categoryDefs(record: LibraryRecord): CategoryDef[] {
     defs.push({
       cat: 'linked',
       svg: LINK_SVG,
-      label: 'Citation Linked',
+      label: 'Citation Verified',
       detail: `The citation details for this source have been verified against an external bibliographic database. The text content has not been verified. ${viewLink}`,
     });
   }
@@ -97,7 +96,7 @@ function categoryDefs(record: LibraryRecord): CategoryDef[] {
     defs.push({
       cat: 'official',
       svg: BOOK_SVG,
-      label: 'Official source text',
+      label: 'Source Text Verified',
       detail: `This source text was converted from an official version held in an external database.${viewLink}`,
     });
   }
@@ -181,7 +180,7 @@ export function librarianHtml(record: LibraryRecord): string {
   }
 
   return `
-    <h3 style="${HEADER_STYLE}">Librarian</h3>
+    <h3>Librarian</h3>
     <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0;">${inner}</p>`;
 }
 
@@ -193,7 +192,7 @@ function sourceStatusInnerHtml(record: LibraryRecord, canEdit: boolean): string 
   } else if (canEdit) {
     top = checkButtonHtml();
   }
-  return `${top}<div id="source-librarian" style="margin-top: 12px;">${librarianHtml(record)}</div>`;
+  return `${top}<div id="source-librarian" style="margin-top: 12px; padding-top: 10px">${librarianHtml(record)}</div>`;
 }
 
 /** The #check-source-section block injected by buildSourceHtml. */
@@ -203,7 +202,7 @@ export function sourceStatusSectionHtml(
   accessDenied: boolean,
 ): string {
   if (!record || accessDenied) return '';
-  return `<div id="check-source-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle);">${sourceStatusInnerHtml(record, !!canEdit)}</div>`;
+  return `<div id="check-source-section" style="margin-top: 12px; padding-top: 2px">${sourceStatusInnerHtml(record, !!canEdit)}</div>`;
 }
 
 // ── The verify action (button → lookup → confirm → verify → re-render) ─────────

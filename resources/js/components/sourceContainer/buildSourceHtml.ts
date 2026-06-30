@@ -141,12 +141,12 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
   return `
     <div class="resize-edge resize-left" title="Resize width"></div>
     <div class="scroller" id="source-content">
-    <p class="citation">${citation}</p>
+    <p class="citation" style="padding-bottom: 5px">${citation}</p>
     ${licenseHtml}
     ${sourceStatusSectionHtml(record, canEdit, accessDenied)}
 
     <div style="margin-top: 15px; padding-top: 15px;">
-      <h3 style="font-size: 13px; color: var(--color-label); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);">Downloads</h3>
+      <h3>Downloads</h3>
 
     <button type="button" id="download-md" class="download-btn">
   <div class="icon-wrapper">
@@ -277,7 +277,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       }
 
       return `<div id="ai-review-section" data-lib-timestamp="${record?.timestamp || 0}" style="margin-top: 15px; padding-top: 15px;">
-        <h3 style="font-size: 13px; color: var(--color-label); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);">AI Citation Review</h3>
+        <h3>AI Citation Review</h3>
         ${btnHtml}
       </div>`;
     })() : ''}
