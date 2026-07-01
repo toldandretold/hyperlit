@@ -133,11 +133,12 @@ These citations reference sources that were never found in any database.
 
 ## Journal Articles (1)
 
-> Not found in any academic database — higher priority for manual review.
+> 🚩 Not found in any academic database — **higher priority for manual review.** Journal articles are normally indexed in OpenAlex / Semantic Scholar, so absence here is a stronger signal the reference may be miscited or fabricated (unlike books, which are sometimes legitimately unindexed).
 
 **Claim:** "A missing journal article is cited."
 **Evidence:** None
 **Verdict:** No Evidence
+🚩 **Flag:** Formatted as a journal article but absent from every academic database — treat as a possible fabricated or miscited reference (higher scrutiny than a missing book).
 
 ---
 

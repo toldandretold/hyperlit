@@ -4,6 +4,7 @@ namespace App\Services\CitationReview\Phases;
 
 use App\Services\BackendHighlightService;
 use App\Services\CitationReview\Support\SourceHtmlBuilder;
+use App\Services\CitationReview\Support\SourceTypeClassifier;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -73,10 +74,18 @@ final class VerificationHighlighter
                         'plainText' => $sourceNode['plainText'],
                     ];
                 }
+                if (SourceTypeClassifier::shouldBeIndexed($claim)) {
+                    // A journal article is almost always indexed in OpenAlex /
+                    // Semantic Scholar, so its absence is a stronger red flag than
+                    // a missing book — the reference may be miscited or fabricated.
+                    $explanation = '🚩 This citation is formatted as a journal article, yet it could not be found in any academic database (OpenAlex, Semantic Scholar, Open Library). Peer-reviewed journal articles are almost always indexed there, so its absence is a stronger warning sign — the reference may be miscited or fabricated. Human review strongly recommended.';
+                } else {
+                    $explanation = 'This source could not be found in any academic database (OpenAlex, Semantic Scholar, Open Library). This may be because it is not an academic work, is not professionally published, or uses a non-standard citation format. Human review recommended.';
+                }
                 $snfContent[] = [
                     'type'      => 'p',
-                    'content'   => '<p><strong>Explanation:</strong> This source could not be found in any academic database (OpenAlex, Semantic Scholar, Open Library). This may be because it is not an academic work, is not professionally published, or uses a non-standard citation format. Human review recommended.</p>',
-                    'plainText' => 'Explanation: This source could not be found in any academic database (OpenAlex, Semantic Scholar, Open Library). This may be because it is not an academic work, is not professionally published, or uses a non-standard citation format. Human review recommended.',
+                    'content'   => '<p><strong>Explanation:</strong> ' . e($explanation) . '</p>',
+                    'plainText' => 'Explanation: ' . $explanation,
                 ];
                 $snfContent[] = [
                     'type'      => 'p',

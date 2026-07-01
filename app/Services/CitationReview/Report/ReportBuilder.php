@@ -2,6 +2,7 @@
 
 namespace App\Services\CitationReview\Report;
 
+use App\Services\CitationReview\Support\SourceTypeClassifier;
 use App\Services\CitationReview\Support\SourceUrlResolver;
 use Illuminate\Support\Facades\DB;
 
@@ -186,7 +187,14 @@ final class ReportBuilder
                 $count = count($grouped[$type]);
                 $md .= "## {$label} ({$count})\n\n";
 
-                if (in_array($type, $academicTypes, true)) {
+                if (in_array($type, SourceTypeClassifier::EXPECTED_IN_DATABASES, true)) {
+                    // Journal articles are almost always indexed in the academic
+                    // databases, so absence here is a stronger red flag than a
+                    // missing book (which is sometimes legitimately unindexed).
+                    $md .= "> 🚩 Not found in any academic database — **higher priority for manual review.** "
+                         . "Journal articles are normally indexed in OpenAlex / Semantic Scholar, so absence here is a stronger "
+                         . "signal the reference may be miscited or fabricated (unlike books, which are sometimes legitimately unindexed).\n\n";
+                } elseif (in_array($type, $academicTypes, true)) {
                     $md .= "> Not found in any academic database — higher priority for manual review.\n\n";
                 } else {
                     $md .= "> Not found — non-academic sources are not expected in academic databases.\n\n";

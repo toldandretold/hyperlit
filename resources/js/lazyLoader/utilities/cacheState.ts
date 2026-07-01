@@ -12,7 +12,6 @@ let cacheIsDirty = false;
  */
 export function markCacheDirty() {
   cacheIsDirty = true;
-  console.log('🚩 Lazy loader cache marked as dirty - will refresh before next chunk load');
 }
 
 /**
@@ -28,5 +27,4 @@ export function isCacheDirty() {
  */
 export function clearCacheDirtyFlag() {
   cacheIsDirty = false;
-  console.log('✅ Cache dirty flag cleared - cache is fresh');
 }

@@ -30,6 +30,7 @@ import { installFreshIndexedDB, seedStore, readAll, readOne } from './idbHarness
 import {
   debouncedMasterSync,
   initMasterSyncDependencies,
+  __resetSyncConcurrencyStateForTests,
 } from '../../../resources/js/indexedDB/syncQueue/master';
 import {
   queueForSync,
@@ -59,6 +60,8 @@ describe('debouncedMasterSync (characterization)', () => {
   beforeEach(() => {
     installFreshIndexedDB();
     pendingSyncs.clear();
+    __resetSyncConcurrencyStateForTests();
+    sessionStorage.removeItem('pending_new_book_sync');
     document.head.innerHTML = '<meta name="csrf-token" content="test-csrf-token">';
     document.body.innerHTML = '<div class="main-content" id="bookA"></div>';
 
@@ -270,9 +273,11 @@ describe('debouncedMasterSync (characterization)', () => {
     queueForSync('nodes', 101, 'update', makeNode('bookReal', 101, 'r-101', '<p>e2</p>'), null);
     await debouncedMasterSync.flush();
 
-    // Exactly ONE fetch for sync #2 (no clobbering retry), and the block overlay is shown.
+    // Exactly ONE fetch for sync #2 (no clobbering retry).
     expect(fetchMock.mock.calls.length).toBe(callsBefore + 1);
-    expect(showStaleTabOverlay).toHaveBeenCalled();
+    // The block overlay is shown via an async dynamic import().then() — wait for it (else the
+    // assertion races the microtask, flaking under full-suite timing).
+    await vi.waitFor(() => expect(showStaleTabOverlay).toHaveBeenCalled());
   });
 
   // ── Pending new-book: exempt from the optimistic-concurrency (stale) check ──

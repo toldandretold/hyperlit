@@ -763,16 +763,30 @@ test.describe('AI-review report round-trip', () => {
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.waitForTimeout(300);
 
-      const opened = await openAireviewReportContainer(page);
-      expect(opened, `L${loop}: could not open a citation-review highlight container`).toBeTruthy();
-
-      await page.locator('#hyperlit-container a[href*="/AIreview#ref_"]').first().click();
-      // Wait for the SPA to actually land on the report — a fixed sleep flakes under the
-      // load of a full-suite run; a genuine "click didn't navigate" bug still times out here.
-      await page.waitForFunction((b) => location.pathname === `/${b}/AIreview`, AIREVIEW_BOOK, { timeout: 15000 }).catch(() => {});
-      await spa.waitForTransition(page).catch(() => {});
-      await page.waitForTimeout(300);
-      const onReport = await aireviewReadState(page);
+      // Open the container + click "See within full report", landing on the report. The click can
+      // be dropped when the container is mid-render (esp. late in a long full-tour run), so retry
+      // the open+click a couple of times until the URL actually becomes /AIreview — a genuine
+      // "click never navigates" regression still fails (all attempts time out).
+      let onReport = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const opened = await openAireviewReportContainer(page);
+        expect(opened, `L${loop}: could not open a citation-review highlight container`).toBeTruthy();
+        await page.locator('#hyperlit-container a[href*="/AIreview#ref_"]').first().click();
+        const landed = await page.waitForFunction((b) => location.pathname === `/${b}/AIreview`, AIREVIEW_BOOK, { timeout: 12000 })
+          .then(() => true).catch(() => false);
+        await spa.waitForTransition(page).catch(() => {});
+        await page.waitForTimeout(300);
+        onReport = await aireviewReadState(page);
+        if (landed && aireviewUrlBook(onReport.pathname) === `${AIREVIEW_BOOK}/AIreview`) break;
+        // Not on the report — reset to the parent and retry the open+click.
+        await spa.closeAllContainers(page).catch(() => {});
+        if (aireviewReadState && (await aireviewReadState(page)).renderedBook !== AIREVIEW_BOOK) {
+          await page.goto(`/${AIREVIEW_BOOK}`, { waitUntil: 'domcontentloaded' });
+          await page.waitForSelector(`.main-content[id="${AIREVIEW_BOOK}"]`, { timeout: 15000 });
+        }
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.waitForTimeout(300);
+      }
       expect(aireviewUrlBook(onReport.pathname), `L${loop}: should be on the /AIreview report`).toBe(`${AIREVIEW_BOOK}/AIreview`);
       expect(onReport.renderedBook, `L${loop}: content should be the report`).toBe(`${AIREVIEW_BOOK}/AIreview`);
 

@@ -101,6 +101,8 @@ import {
   destroySelectionAutoScroll
 } from '../../scrolling/selectionAutoScroll';
 
+import { log } from "../../utilities/logger";
+
 /**
  * Register all components
  * This function should be called once during app initialization
@@ -354,5 +356,5 @@ export function registerAllComponents() {
     required: false
   });
 
-  console.log('✅ All components registered with ButtonRegistry');
+  log.init('All components registered with ButtonRegistry', '/components/utilities/registerComponents.ts');
 }

@@ -2,6 +2,7 @@ import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } 
 import { canUserEditBook } from "../../utilities/auth/index";
 import { book } from '../../app';
 import { fixHeaderSpacing } from '../homepage/homepageDisplayUnit';
+import { log } from '../../utilities/logger';
 
 let titleDebounceTimer: any = null;
 let bioDebounceTimer: any = null;
@@ -18,7 +19,6 @@ let currentBioElement: any = null;
  * Makes fields editable if user is authorized
  */
 export async function initializeUserProfileEditor() {
-  console.log('🎨 Initializing user profile editor for book:', book);
 
   const titleEl = document.getElementById('userLibraryTitle');
   const bioEl = document.getElementById('userBio');
@@ -29,18 +29,23 @@ export async function initializeUserProfileEditor() {
   }
 
   try {
-    // Fetch library record from IndexedDB
-    const db = await openDatabase();
-    const tx = db.transaction('library', 'readonly');
-    const store = tx.objectStore('library');
-    const record = await new Promise((resolve, reject) => {
-      const req = store.get(book);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
+    // Read the authoritative library record straight off the server-rendered DOM. The row is
+    // embedded (owner only) as a data attribute on #userLibraryContainer by user.blade.php, so it
+    // arrives with the same HTML as the title/bio — no IndexedDB lookup (which never held a record
+    // keyed by the username on a user page) and no sync race, on both full load and SPA nav.
+    const rawRecord = document.getElementById('userLibraryContainer')?.dataset.libraryRecord;
+    let record: any = null;
+    if (rawRecord) {
+      try {
+        record = JSON.parse(rawRecord);
+      } catch (parseError) {
+        log.error('Failed to parse embedded library record', '/components/userProfile/userProfileEditor.ts', parseError);
+      }
+    }
 
     if (!record) {
-      console.warn('No library record found for book:', book);
+      // No embedded record (visitor, or the owner's row is somehow absent). Title/bio remain
+      // server-rendered; editing is simply not offered. Not an error — no console noise.
       // Only set defaults if not already present (server-rendered)
       if (!titleEl.textContent.trim()) {
         titleEl.textContent = `${book}'s library`;
@@ -72,7 +77,6 @@ export async function initializeUserProfileEditor() {
 
     // Check if user can edit
     const canEdit = await canUserEditBook(book);
-    console.log('🔑 User can edit profile:', canEdit);
 
     if (canEdit) {
       // Make fields editable
@@ -154,7 +158,7 @@ function attachSaveListeners(titleEl: any, bioEl: any, originalRecord: any) {
   };
   bioEl.addEventListener('input', bioInputListener);
 
-  console.log('✅ User profile save listeners attached (old listeners removed first)');
+  log.init('user.blade.php library title and bio editor listeners attached (old listeners removed first)', '/components/userProfile/userProfileEditor.ts');
 }
 
 /**
@@ -162,7 +166,7 @@ function attachSaveListeners(titleEl: any, bioEl: any, originalRecord: any) {
  */
 async function saveLibraryField(fieldName: any, value: any, originalRecord: any) {
   try {
-    console.log(`💾 Saving library field: ${fieldName} = "${value}"`);
+    log.content(`💾 Saving library field: ${fieldName} = "${value}"`, '/components/userProfile/userProfileEditor.ts');
 
     // Update the record
     const updatedRecord = {
@@ -264,5 +268,5 @@ export function destroyUserProfileEditor() {
   titleDebounceTimer = null;
   bioDebounceTimer = null;
 
-  console.log('🧹 User profile editor destroyed (listeners removed, references cleared)');
+  log.init('🧹 User profile editor destroyed (listeners removed, references cleared)', '/components/userProfile/userProfileEditor.ts');
 }

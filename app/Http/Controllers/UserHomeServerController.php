@@ -197,6 +197,10 @@ class UserHomeServerController extends Controller
             'isOwner' => $isOwner,
             'libraryTitle' => $title,
             'libraryBio' => $bio,
+            // Full library row for the inline title/bio editor (owner only — avoids exposing
+            // raw_json to visitors). The editor reads this from a DOM data attribute instead of
+            // IndexedDB, so editing works on both full load and SPA nav without a sync race.
+            'libraryRecord' => $isOwner ? $libraryRecord : null,
             'pageTitle' => $pageTitle,
             'pageDescription' => $pageDescription,
             'ogType' => 'profile',

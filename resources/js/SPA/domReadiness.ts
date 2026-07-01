@@ -1,5 +1,6 @@
 // DOM Readiness Detection Utilities for Hyperlit Navigation
 // Provides reliable element detection for lazy-loaded content
+import { log } from "../utilities/logger";
 
 /**
  * Checks if an element is fully rendered and ready for interaction
@@ -388,12 +389,10 @@ async function waitForFontsReady() {
  */
 export async function waitForLayoutStabilization() {
   return new Promise<void>(resolve => {
-    console.log(`📐 Waiting for layout stabilization...`);
-    
     // Wait for any pending layout operations
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        console.log(`📐 Layout stabilization complete`);
+        log.init('waitForLayoutStabilization complete', '/SPA/domReadiness.ts')
         resolve();
       });
     });

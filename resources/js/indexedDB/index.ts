@@ -246,7 +246,6 @@ export async function initializeDatabaseModules(dependencies: DatabaseDependenci
   initMasterSyncDependencies({ book, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave });
   initUnloadSyncDependencies({ book });
 
-  verbose.init('Database modules initialized', '/indexedDB/index');
 }
 
 /**
@@ -272,5 +271,4 @@ export function updateDatabaseBookId(newBookId: BookId): void {
   initMasterSyncDependencies({ book: newBookId, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave });
   initUnloadSyncDependencies({ book: newBookId });
 
-  console.log('📚 Database modules updated to book:', newBookId);
 }

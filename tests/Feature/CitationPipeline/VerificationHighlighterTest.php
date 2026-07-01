@@ -67,6 +67,44 @@ test('an unresolved source produces a Source Not Found highlight', function () {
     expect($captured[0]['subBookContent'][0]['content'])->toContain('#9b59b6');
 });
 
+test('an unfound journal article gets the stronger "should be indexed" explanation', function () {
+    $captured = [];
+    $svc = new VerificationHighlighter(fakeHighlights($captured), app(\App\Services\CitationReview\Support\SourceHtmlBuilder::class));
+
+    $claims = [[
+        'node_id' => 'n1', 'referenceId' => 'r1', 'truth_claim' => 'Unfound journal claim.',
+        'charStart' => 0, 'charEnd' => 5, 'verified_source' => false,
+        'bib_citation' => '<p>Ghost, A. (2021). A study. Journal of Nowhere, 1(2), 3-4.</p>',
+        'llm_metadata' => ['type' => 'journal-article'],
+    ]];
+    $svc->createVerificationHighlights($claims, 'book1');
+
+    $explanation = collect($captured[0]['subBookContent'])
+        ->first(fn ($n) => str_starts_with($n['plainText'], 'Explanation:'));
+    expect($explanation['plainText'])->toContain('formatted as a journal article');
+    expect($explanation['plainText'])->toContain('stronger warning sign');
+    expect($explanation['content'])->toContain('🚩');
+});
+
+test('an unfound non-journal source keeps the generic explanation', function () {
+    $captured = [];
+    $svc = new VerificationHighlighter(fakeHighlights($captured), app(\App\Services\CitationReview\Support\SourceHtmlBuilder::class));
+
+    $claims = [[
+        'node_id' => 'n1', 'referenceId' => 'r1', 'truth_claim' => 'Unfound book claim.',
+        'charStart' => 0, 'charEnd' => 5, 'verified_source' => false,
+        'bib_citation' => '<p>Ghost, A. (1999). A Book. Publisher.</p>',
+        'llm_metadata' => ['type' => 'book'],
+    ]];
+    $svc->createVerificationHighlights($claims, 'book1');
+
+    $explanation = collect($captured[0]['subBookContent'])
+        ->first(fn ($n) => str_starts_with($n['plainText'], 'Explanation:'));
+    expect($explanation['plainText'])->toContain('may be because it is not an academic work');
+    expect($explanation['plainText'])->not->toContain('journal article');
+    expect($explanation['content'])->not->toContain('🚩');
+});
+
 test('insufficient-evidence claims are skipped', function () {
     $captured = [];
     $svc = new VerificationHighlighter(fakeHighlights($captured), app(\App\Services\CitationReview\Support\SourceHtmlBuilder::class));

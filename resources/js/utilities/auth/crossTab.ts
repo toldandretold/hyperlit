@@ -4,7 +4,7 @@
 // the editButton component / pageLoad bootstrap.
 import { clearDatabase } from '../../indexedDB/index';
 import { ensureAuthInitialized, refreshAuth, resetAuth, clearCurrentUser } from './session';
-
+import { log } from '../logger';
 /**
  * Handles the full logout process.
  * Makes a POST request to the server's logout endpoint, then clears all local data.
@@ -21,7 +21,7 @@ export async function logout() {
     });
     if (!response.ok) console.error('Logout request failed.', response);
   } catch (error) {
-    console.error('Error during logout fetch:', error);
+    log.error('Error during logout fetch:', '/utilities/auth/crossTab.ts', error);
   } finally {
     // Broadcast logout to other tabs BEFORE clearing local state
     broadcastAuthChange('logout');
@@ -40,7 +40,7 @@ async function clearBrowserCache() {
       const keys = await caches.keys();
       await Promise.all(keys.map(key => caches.delete(key)));
     } catch (error) {
-      console.error('Error clearing browser caches:', error);
+      log.error('Error clearing browser caches:', 'utilities/auth/crossTab.ts', error);
     }
   }
 }
@@ -64,18 +64,14 @@ export function initializeAuthStateListener() {
     if (!sameTab) return;
 
     const pageType = document.body.getAttribute('data-page');
-    console.log(`📡 Auth state changed (${type}) on ${pageType} page`);
 
     if (pageType === 'user') {
       // User page: reload to get fresh server-rendered delete buttons
-      console.log('🔄 Reloading user page for fresh server-rendered content...');
       window.location.reload();
 
     } else if (pageType === 'reader') {
       // Reader page: update edit button permissions
       // With RLS, we need to ensure auth state is fully settled before making API calls
-      console.log('🔄 Updating edit button permissions...');
-
       // If user is in edit mode and logging out, exit edit mode first
       if (type === 'logout' && (window as any).isEditing) {
         console.log('🔄 User was in edit mode, disabling edit mode on logout...');
@@ -103,14 +99,12 @@ export function initializeAuthStateListener() {
               credentials: 'include'
             });
             if (response.status === 404 || response.status === 403) {
-              // User no longer has access to this book
-              console.log('🔒 User lost access to private book after logout');
               const { handlePrivateBookAccessDenied } = await import('../../pageLoad/index');
               handlePrivateBookAccessDenied(book);
               return; // Don't continue with edit button updates
             }
           } catch (error) {
-            console.warn('Failed to check book access after logout:', error);
+            log.error('Failed to check book access after logout:', 'utilities/auth/crossTab.ts', error);
           }
         }
       }
@@ -121,26 +115,21 @@ export function initializeAuthStateListener() {
     // Home page doesn't need special handling - no auth-dependent UI
   });
 
-  console.log('📡 Auth state listener initialized');
 }
 
 export function initializeAuthBroadcastListener() {
   if (authBroadcastChannel) {
-    console.log('📡 Auth broadcast listener already initialized');
     return; // Already initialized
   }
 
-  console.log('📡 Initializing auth broadcast listener...');
   authBroadcastChannel = new BroadcastChannel('auth-sync');
 
   authBroadcastChannel.addEventListener('message', async (event: any) => {
     const { type, user, timestamp } = event.data;
 
-    console.log(`📡 RECEIVED auth broadcast: ${type}`, event.data);
-
     if (type === 'login') {
       // Another tab logged in - refresh our auth state
-      console.log('🔄 Another tab logged in, refreshing auth state...');
+      log.content('🔄 Another tab logged in, refreshing auth state...', 'utilities/auth/crossTab.ts');
       await refreshAuth();
 
       // Update UI to reflect logged-in state
@@ -154,21 +143,18 @@ export function initializeAuthBroadcastListener() {
 
     } else if (type === 'logout') {
       // Another tab logged out - clear our state
-      console.log('🔄 Another tab logged out, clearing state...');
+      log.content('🔄 Another tab logged out, clearing state...', 'utilities/auth/crossTab.ts');
       resetAuth();
       await clearDatabase();
 
       const pageType = document.body.getAttribute('data-page');
-      console.log(`📡 Handling cross-tab logout on ${pageType} page`);
 
       if (pageType === 'user') {
         // User page: reload to refresh server-rendered delete buttons
-        console.log('🔄 Reloading user page for fresh server-rendered content...');
         window.location.reload();
 
       } else if (pageType === 'reader') {
         // Reader page: update edit button permissions
-        console.log('🔄 Updating edit button permissions...');
         const { checkEditPermissionsAndUpdateUI } = await import('../../components/editButton/index');
         await checkEditPermissionsAndUpdateUI();
 
@@ -179,7 +165,6 @@ export function initializeAuthBroadcastListener() {
     }
   });
 
-  console.log('📡 Auth broadcast listener initialized successfully');
 }
 
 /**
@@ -191,7 +176,6 @@ export function broadcastAuthChange(type: any, user: any = null) {
   console.log(`📡 Broadcasting auth change: ${type}`, user);
 
   if (!authBroadcastChannel) {
-    console.log('📡 Creating new BroadcastChannel for sending');
     authBroadcastChannel = new BroadcastChannel('auth-sync');
   }
 
@@ -201,5 +185,4 @@ export function broadcastAuthChange(type: any, user: any = null) {
     timestamp: Date.now()
   });
 
-  console.log(`📡 Auth change broadcasted successfully: ${type}`);
 }

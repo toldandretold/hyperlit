@@ -2,8 +2,9 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
+use App\Jobs\QueueBookEmbeddings;
 use App\Models\PgNode;
+use Illuminate\Console\Command;
 
 /**
  * Backfill plainText column for nodes
@@ -36,7 +37,8 @@ class BackfillNodePlainText extends Command
     protected $signature = 'nodes:backfill-plaintext
                             {book? : Optional book ID to target}
                             {--dry-run : Preview without making changes}
-                            {--force : Regenerate plainText even if already set}';
+                            {--force : Regenerate plainText even if already set}
+                            {--no-embed : Skip re-queuing embeddings for affected books}';
 
     /**
      * The console command description.
@@ -58,13 +60,19 @@ class BackfillNodePlainText extends Command
         $book = $this->argument('book');
         $dryRun = $this->option('dry-run');
         $force = $this->option('force');
+        $noEmbed = $this->option('no-embed');
 
         if ($dryRun) {
             $this->info('DRY RUN MODE - No changes will be made');
         }
 
-        // Build query
-        $query = PgNode::query()
+        // Artisan has no user context, so RLS on the default 'pgsql' connection would
+        // hide most rows. Use the BYPASSRLS admin connection so private books are covered
+        // too (same reason embeddings:backfill uses pgsql_admin).
+        \DB::connection('pgsql_admin')->disableQueryLog();
+
+        // Build query (admin connection bypasses RLS)
+        $query = PgNode::on('pgsql_admin')
             ->whereNotNull('content')
             ->where('content', '!=', '');
 
@@ -124,20 +132,23 @@ class BackfillNodePlainText extends Command
 
         $processedCount = 0;
         $errorCount = 0;
+        $affectedBooks = [];
 
         // Process in batches
-        $query->chunkById(self::BATCH_SIZE, function ($nodes) use (&$processedCount, &$errorCount, $bar) {
+        $query->chunkById(self::BATCH_SIZE, function ($nodes) use (&$processedCount, &$errorCount, &$affectedBooks, $bar) {
             foreach ($nodes as $node) {
                 try {
                     // Generate plainText by stripping HTML tags
                     $plainText = strip_tags($node->content);
 
                     // Update directly to avoid triggering model events (which would be redundant)
-                    PgNode::where('id', $node->id)->update([
+                    // Admin connection to bypass RLS (matches the query connection).
+                    PgNode::on('pgsql_admin')->where('id', $node->id)->update([
                         'plainText' => $plainText
                     ]);
 
                     $processedCount++;
+                    $affectedBooks[$node->book] = true;
                 } catch (\Exception $e) {
                     $errorCount++;
                     $this->error("\nError processing node {$node->book}:{$node->startLine} - {$e->getMessage()}");
@@ -154,6 +165,19 @@ class BackfillNodePlainText extends Command
 
         if ($errorCount > 0) {
             $this->warn("{$errorCount} errors occurred");
+        }
+
+        // Re-queue embeddings for affected books. QueueBookEmbeddings only picks up nodes
+        // where embedding IS NULL AND plainText IS NOT NULL AND length >= 20, and it uses
+        // the admin connection so private books are covered.
+        $bookCount = count($affectedBooks);
+        if (! $noEmbed && $bookCount > 0) {
+            foreach (array_keys($affectedBooks) as $affectedBook) {
+                QueueBookEmbeddings::dispatch($affectedBook);
+            }
+            $this->info("Dispatched QueueBookEmbeddings for {$bookCount} book(s). Run the `embeddings` queue worker to generate them.");
+        } elseif ($noEmbed) {
+            $this->warn('--no-embed set — skipped embedding dispatch.');
         }
 
         $this->newLine();

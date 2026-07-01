@@ -99,6 +99,13 @@ function recordAckedServerTs(bookId: BookId, ts: unknown): void {
   }
 }
 
+/** Test-only: reset the module-level per-book concurrency state (ack high-water + sync chain)
+ *  so unit tests don't leak state into one another. No-op cost in production (never called). */
+export function __resetSyncConcurrencyStateForTests(): void {
+  _ackedServerTs.clear();
+  _bookSyncChain.clear();
+}
+
 // Abort a unified-sync POST that never responds, so a hung request can't park the per-book
 // chain above. An abort surfaces as a normal sync failure: the node batch is parked in
 // historyLog ('failed') and re-sent on the next sync attempt (getFailedBatchesForBook), and

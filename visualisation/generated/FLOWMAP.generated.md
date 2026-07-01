@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1565 functions in 337 modules · 10 object stores · 10 PG tables · 3210 edges
+**MarkdownDB** schema v27 · 1566 functions in 337 modules · 10 object stores · 10 PG tables · 3210 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1075,6 +1075,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `syncIndexedDBtoPostgreSQL` | `indexedDB/serverSync/push` | — | — | read | — |
 | `runSerializedPerKey` | `indexedDB/syncQueue/bookSyncChain` | — | — | — | — |
 | `filterFreshNodesForBook` | `indexedDB/syncQueue/freshNodeFilter` | — | — | — | — |
+| `__resetSyncConcurrencyStateForTests` | `indexedDB/syncQueue/master` | — | — | — | — |
 | `executeSyncPayload` | `indexedDB/syncQueue/master` | `sessionStorage` | — | read | `↑route:/api/db/unified-sync` |
 | `initMasterSyncDependencies` | `indexedDB/syncQueue/master` | — | — | — | — |
 | `syncIndexedDBtoPostgreSQLBlocking` | `indexedDB/syncQueue/master` | `nodes` | — | — | — |

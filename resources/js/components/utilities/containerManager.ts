@@ -4,6 +4,7 @@
 // which 5+ components `extends`, into an import cycle that TDZ-crashed the bundle at init.)
 import { isProcessing, isComplete } from '../cloudRef/editIndicator'
 import { book } from '../../app';
+import { log } from '../../utilities/logger'
 
 export class ContainerManager {
   [key: string]: any;
@@ -226,16 +227,12 @@ export class ContainerManager {
       el.style.pointerEvents = "";
       el.style.overflow = "";
       if (el.dataset.scrollPos) {
-        // 🚨 DEBUG: Log container manager scroll restoration
-        console.log(`🔧 CONTAINER MANAGER: Would restore scroll position to ${el.dataset.scrollPos}, but checking for active navigation...`);
         
         // Check if we're currently navigating - if so, don't restore scroll position
         const mainContent = document.getElementById('test555yeah') || document.querySelector('.main-content');
         if (mainContent && (window as any).currentLazyLoader && (window as any).currentLazyLoader.scrollLocked) {
-          console.log(`🔧 CONTAINER MANAGER: SKIPPING scroll restoration - navigation in progress`);
         } else {
-          console.log(`🔧 CONTAINER MANAGER: Applying scroll restoration to ${el.dataset.scrollPos}`);
-          console.trace("Container manager scroll restoration source:");
+          log.content(`🔧 CONTAINER MANAGER: Applying scroll restoration to ${el.dataset.scrollPos}`, 'components/utilities/ContainerManager.ts');
           el.scrollTop = el.dataset.scrollPos;
         }
         delete el.dataset.scrollPos;
@@ -254,7 +251,6 @@ export class ContainerManager {
     if (topRightContainer) this.navElementsState.topRightContainer = !topRightContainer.classList.contains("perimeter-hidden");
     if (userButtonContainer) this.navElementsState.userButtonContainer = !userButtonContainer.classList.contains("perimeter-hidden");
     
-    console.log("Saved nav elements state:", this.navElementsState);
   }
   
   restoreNavElementsState() {
@@ -265,8 +261,6 @@ export class ContainerManager {
     if (navButtons) navButtons.classList.toggle("perimeter-hidden", !this.navElementsState.navButtons);
     if (logoContainer) logoContainer.classList.toggle("perimeter-hidden", !this.navElementsState.logoContainer);
     if (userButtonContainer) userButtonContainer.classList.toggle("perimeter-hidden", !this.navElementsState.userButtonContainer);
-    
-    console.log("Restored nav elements state:", this.navElementsState);
   }
 
   _applyTopRightVisibility() {
@@ -335,7 +329,6 @@ export class ContainerManager {
   }
 
   closeContainer() {
-    console.log(`[ContainerManager] closeContainer() called. container=${this.container?.id}, isOpen=${this.isOpen}`);
     if (this.container) {
       this.container.style.left = '';
       this.container.style.top = '';
@@ -395,7 +388,6 @@ export class ContainerManager {
     this.container.classList.add("hidden");
     this.container.style.visibility = "";
     this.cleanupURL();
-    console.log(`[ContainerManager] closeContainer() done. overlay.active=${this.overlay?.classList.contains('active')}`);
   }
 
   cleanupURL() {

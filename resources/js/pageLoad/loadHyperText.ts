@@ -2,7 +2,7 @@ import { book, bookSlug, OpenHyperlightID, OpenFootnoteID } from '../app';
 import { asBookId, type BookId } from '../indexedDB/types';
 import { log, verbose } from '../utilities/logger';
 import type { ReadingPosition } from '../scrolling/readingPosition';
-import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier.js';
+import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier';
 
 import {
   getNodesFromIndexedDB,
@@ -28,7 +28,6 @@ import { setupOnlineSyncListener } from './onlineRetry';
 import { currentLazyLoader, initializeLazyLoader } from './lazyLoaderRegistry';
 import { isReconvertHandoff } from '../utilities/reconvertHandoff';
 
-// ✅ MODIFIED: This function now loads all three JSON files.
 export async function loadFromJSONFiles(bookId: BookId) {
   try {
     // Right after a reconvert, bypass the browser/SW/CDN cache so we can't re-populate IDB from a
@@ -83,7 +82,6 @@ export async function loadFromJSONFiles(bookId: BookId) {
   }
 }
 
-// ✅ MODIFIED: Your main loading function now calls the new loader.
 export async function loadHyperText(bookId: BookId, progressCallback: any = null) {
   resetFirstChunkPromise();
   const currentBook = bookId || book;
@@ -109,7 +107,6 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
       hidePageLoadProgress = () => {};
     }
   }
-
 
   try {
     // 0. Check if this book is already open in another tab (only on actual book pages)
@@ -333,7 +330,7 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
 
     // 2b. Fall back to full sync if initial chunk failed with a retryable error
     if (initialResult && initialResult.reason === 'sync_error') {
-      verbose.content('Initial chunk failed, trying full sync fallback...', 'initializePage.js');
+      log.content('Initial chunk failed, trying full sync fallback...', 'initializePage.js');
       const dbResult = await syncBookDataFromDatabase(currentBook);
       if (dbResult && dbResult.success) {
         updatePageLoadProgress(50, "Loading from database...");
@@ -365,12 +362,12 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
 
     // 3. Book not found in database - show error
     if (!initialResult || initialResult.reason === 'book_not_found') {
-      log.error(`Book "${currentBook}" not found in database`, 'initializePage.js');
+      log.error(`Book "${currentBook}" not found in database`, '/pageLoad/loadHyperText.ts');
       updatePageLoadProgress(0, "Book not found");
       throw new Error(`Book "${currentBook}" not found. It may not have been imported yet.`);
     }
   } catch (err: any) {
-    log.error('Critical error during content loading', 'initializePage.js', err);
+    log.error('Critical error during content loading', '/pageLoad/loadHyperText.ts', err);
     const firstChunkLoadedResolver = getFirstChunkLoadedResolver();
     if (firstChunkLoadedResolver) {
       firstChunkLoadedResolver();
@@ -388,10 +385,10 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
 function navigateToElement(elementId: string) {
   const element = document.getElementById(elementId);
   if (element) {
-    console.log(`Navigating to element: ${elementId}`);
+    log.content(`Navigating to element: ${elementId}`, '/pageLoad/loadHyperText.ts');
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } else {
-    console.log(`Element not found: ${elementId}, will try loading more content`);
+    log.content(`Element not found: ${elementId}, will try loading more content`, '/pageLoad/loadHyperText.ts');
   }
 }
 
@@ -426,13 +423,13 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
 
   // Skip server timestamp check when offline - use cached data
   if (!navigator.onLine) {
-    console.log(`📡 Offline: skipping server check for ${bookId}`);
+    log.content(`📡 Offline: skipping server check for ${bookId}`, '/pageLoad/loadHyperText.ts');
     return;
   }
 
   // Skip if background download is in progress (it will bring fresh data)
   if ((window as any)._backgroundDownloadInProgress) {
-    console.log(`⏳ Background download in progress, skipping timestamp check for ${bookId}`);
+    log.content(`⏳ Background download in progress, skipping timestamp check for ${bookId}`, '/pageLoad/loadHyperText.ts');
     return;
   }
 
@@ -444,18 +441,13 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
       const pendingSync = JSON.parse(pendingSyncJSON);
       // If the pending sync is for the book we are currently loading...
       if (pendingSync.bookId === bookId) {
-        console.log(
-          `✅ Skipping server timestamp check for new book "${bookId}" that is pending sync.`
-        );
+        log.content(`✅ Skipping server timestamp check for newly created book "${bookId}" that is pending sync to bankend.`, '/pageLoad/loadHyperText.ts');
         // ...then we know it doesn't exist on the server yet.
         // There's nothing to compare, so we exit the function early.
         return;
       }
     } catch (e) {
-      console.error(
-        "Could not parse pending_new_book_sync from sessionStorage",
-        e
-      );
+      log.error('Could not parse pending_new_book_sync from sessionStorage', '/pageLoad/loadHyperText.ts', e);
     }
   }
 
@@ -471,7 +463,7 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
 
   try {
     // The log message is now more accurate, as it only runs for existing books.
-    verbose.content(`Async timestamp check for: ${bookId}`, 'initializePage.js');
+    verbose.content(`Async timestamp check for: ${bookId}`, '/pageLoad/loadHyperText.ts');
 
     // Get both records in parallel
     const [serverRecord, localRecord] = await Promise.all([
@@ -481,12 +473,12 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
 
     // Handle case where server request failed
     if (!serverRecord) {
-      console.log(`⚠️ Could not fetch server data for ${bookId}. Skipping timestamp check.`);
+      log.error(`⚠️ Could not fetch server data for ${bookId}. Skipping timestamp check.`, '/pageLoad/loadHyperText.ts');
       return;
     }
 
     if (!localRecord) {
-      console.log(`⚠️ No local data found for ${bookId}. Skipping timestamp check.`);
+      log.content(`⚠️ No local data found for ${bookId}. Skipping timestamp check.`, '/pageLoad/loadHyperText.ts');
       return;
     }
 
@@ -510,9 +502,7 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
 
     // Check if book content changed (nodes)
     if (serverTimestamp > localTimestamp) {
-      console.log(
-        `🔥 Book content changed for ${bookId}. Surgical refresh for current target...`
-      );
+      log.content(`🔥 Book content changed for ${bookId}. Surgical refresh for current target...`, '/pageLoad/loadHyperText.ts');
 
       // Fetch fresh chunk for the current navigation target (stores all annotations
       // + target chunk to IndexedDB via put semantics — no wipe needed)
@@ -560,8 +550,8 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
 
     // Check if only annotations changed (highlights/hypercites)
     if (serverAnnotationsTs > localAnnotationsTs) {
-      console.log(
-        `📝 Annotations changed for ${bookId}. Syncing annotations only...`
+      log.content(
+      `Annotations changed for ${bookId}. Syncing annotations only...`, '/pageLoad/loadHyperText.ts'
       );
 
       // 1. Download latest annotations from backend to IndexedDB
@@ -575,8 +565,6 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
         .filter(el => /^\d+$/.test(el.id)) // Only numeric IDs (node IDs)
         .map(el => el.id);
 
-      console.log(`🔄 Found ${visibleNodeIds.length} visible nodes to update`);
-
       if (visibleNodeIds.length > 0) {
         // 3. Rebuild node arrays from the new standalone tables
         const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('../indexedDB/hydration/rebuild');
@@ -589,27 +577,21 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
           .map((n: any) => n.node_id)
           .filter(Boolean);
 
-        console.log(`🔄 Rebuilding arrays for ${visibleDataNodeIDs.length} nodes...`);
-
         if (visibleDataNodeIDs.length > 0) {
           const allNodesToRebuild: any = await getNodesByDataNodeIDs(visibleDataNodeIDs);
           // Filter to correct book — getNodesByDataNodeIDs may return a parent book's
           // node when the same node_id exists in both parent and sub-book.
           const nodesToRebuild = allNodesToRebuild.filter((n: any) => n.book === bookId);
           await rebuildNodeArrays(nodesToRebuild);
-          console.log(`✅ Rebuilt node arrays with new annotations`);
         }
 
-        // 4. Reprocess highlights on visible nodes WITHOUT destroying DOM
-        console.log(`🔄 Reprocessing highlights on visible nodes...`);
         const { reprocessHighlightsForNodes } = await import('../hyperlights/deletion');
         await reprocessHighlightsForNodes(bookId, visibleNodeIds);
       }
     } else {
-      verbose.content(`Local content is up-to-date for: ${bookId}`, 'initializePage.js');
     }
   } catch (err) {
-    console.error("❌ Error during background timestamp check:", err);
+    log.error("❌ Error during background timestamp check:", '/pageLoad/loadHyperText.ts', err);
   }
 }
 
@@ -628,7 +610,6 @@ async function getLibraryRecordFromServer(bookId: BookId): Promise<any> {
     }
 
     const data = await response.json();
-    verbose.content(`Server response for ${bookId}`, 'initializePage.js');
 
     return data.success ? data.library : null;
   } catch (err) {
@@ -661,16 +642,13 @@ async function getLibraryRecordFromIndexedDB(bookId: BookId): Promise<any> {
       };
     });
   } catch (err) {
-    console.error("❌ Error accessing library record in IndexedDB:", err);
+    log.error("❌ Error accessing library record in IndexedDB:", '/pageLoad/loadHyperText.ts', err);
     return null;
   }
 }
 
 // Optional: Function to notify UI that content was updated
 function notifyContentUpdated() {
-  // You could dispatch a custom event, show a toast notification, etc.
-  console.log("📢 Content has been updated in the background");
-
   // Example: dispatch custom event
   window.dispatchEvent(new CustomEvent('contentUpdated', {
     detail: { bookId: book }

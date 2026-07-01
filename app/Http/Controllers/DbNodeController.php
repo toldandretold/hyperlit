@@ -1005,14 +1005,17 @@ class DbNodeController extends Controller
         $bindings = [];
 
         foreach ($items as $item) {
+            $content = NodeHtmlSanitizer::clean($item['content'] ?? null);
             $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
             $bindings[] = $bookId;
             $bindings[] = $item['node_id'];
             $bindings[] = $item['startLine'] ?? null;
             $bindings[] = $item['chunk_id'] ?? 0;
-            $bindings[] = NodeHtmlSanitizer::clean($item['content'] ?? null);
+            $bindings[] = $content;
             $bindings[] = json_encode($item['footnotes'] ?? []);
-            $bindings[] = $item['plainText'] ?? null;
+            // Client never sends plainText — derive it from content (mirrors upsert()),
+            // else re-syncs through this path would null it and starve embeddings.
+            $bindings[] = $item['plainText'] ?? ($content ? strip_tags($content) : null);
             $bindings[] = $item['type'] ?? null;
             $bindings[] = json_encode($this->cleanItemForStorage($item));
             $bindings[] = $now;
@@ -1055,14 +1058,17 @@ class DbNodeController extends Controller
         $bindings = [];
 
         foreach ($items as $item) {
+            $content = NodeHtmlSanitizer::clean($item['content'] ?? null);
             $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
             $bindings[] = $bookId;
             $bindings[] = $item['node_id'] ?? null;
             $bindings[] = $item['startLine'] ?? null;
             $bindings[] = $item['chunk_id'] ?? 0;
-            $bindings[] = NodeHtmlSanitizer::clean($item['content'] ?? null);
+            $bindings[] = $content;
             $bindings[] = json_encode($item['footnotes'] ?? []);
-            $bindings[] = $item['plainText'] ?? null;
+            // Client never sends plainText — derive it from content (mirrors upsert()),
+            // else re-syncs through this path would null it and starve embeddings.
+            $bindings[] = $item['plainText'] ?? ($content ? strip_tags($content) : null);
             $bindings[] = $item['type'] ?? null;
             $bindings[] = json_encode($this->cleanItemForStorage($item));
             $bindings[] = $now;

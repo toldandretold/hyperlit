@@ -55,7 +55,16 @@ final class PassageSearcher
             }
 
             $claim['source_passages'] = array_map(function($p) {
-                $text = $p->plainText ?? '';
+                // Mirror the FTS index's COALESCE("plainText", content, ''): the
+                // generated search_vector columns fall back to HTML `content` when
+                // plainText is NULL, so a linked/auto-version book with only HTML
+                // content still MATCHES (count > 0). Read the same fallback here or
+                // the passage text collapses to '' and the LLM gets empty excerpts.
+                $plain = trim($p->plainText ?? '');
+                $text = $plain !== ''
+                    ? $p->plainText
+                    : html_entity_decode(strip_tags($p->content ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $text = $text ?? '';
                 $truncated = mb_strlen($text) > 1500;
                 return [
                     'node_id' => $p->node_id,
@@ -73,7 +82,7 @@ final class PassageSearcher
     private function ftsQuery($db, string $bookId, string $query, string $config, string $vectorCol, string $queryFn): array
     {
         return $db->select(
-            "SELECT node_id, \"plainText\",
+            "SELECT node_id, \"plainText\", content,
                     ts_rank({$vectorCol}, {$queryFn}('{$config}', ?)) AS rank
              FROM nodes
              WHERE book = ? AND {$vectorCol} @@ {$queryFn}('{$config}', ?)

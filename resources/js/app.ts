@@ -19,15 +19,6 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
   });
 }
 
-// Load latency monitor (available in all environments)
-import('./dev/latencyMonitor').then(() => {
-  console.log('⚡ Latency monitor loaded. Use settings button or window.latency.start(true)');
-}).catch(() => {
-  // Silently fail if not available
-});
-
-// Service Worker registration moved to layout.blade.php (root scope /sw.js)
-
 // 1) Grab cleaned path segments
 const pathSegments = window.location.pathname
   .replace(/^\/|\/$/g, "")

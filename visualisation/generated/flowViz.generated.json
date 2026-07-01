@@ -2,7 +2,7 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1565,
+    "fnCount": 1566,
     "moduleCount": 337,
     "storeCount": 10,
     "tableCount": 10,
@@ -9872,6 +9872,14 @@
       ]
     },
     {
+      "id": "indexedDB/syncQueue/master:__resetSyncConcurrencyStateForTests",
+      "label": "__resetSyncConcurrencyStateForTests",
+      "kind": "fn",
+      "stage": "push",
+      "module": "indexedDB/syncQueue/master",
+      "leaf": true
+    },
+    {
       "id": "indexedDB/syncQueue/master:executeSyncPayload",
       "label": "executeSyncPayload",
       "kind": "fn",
@@ -17069,6 +17077,7 @@
       "stage": "push",
       "band": "sync",
       "fnIds": [
+        "indexedDB/syncQueue/master:__resetSyncConcurrencyStateForTests",
         "indexedDB/syncQueue/master:executeSyncPayload",
         "indexedDB/syncQueue/master:initMasterSyncDependencies",
         "indexedDB/syncQueue/master:syncIndexedDBtoPostgreSQLBlocking",

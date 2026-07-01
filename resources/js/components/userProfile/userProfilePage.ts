@@ -1,5 +1,7 @@
 // resources/js/components/userProfile/userProfilePage.ts
 
+import { log } from '../../utilities/logger'
+
 let userProfilePageInitialized = false;
 
 // Stored handler references for cleanup
@@ -35,7 +37,6 @@ export function destroyUserProfilePage() {
 
 export function initializeUserProfilePage() {
     if (userProfilePageInitialized) {
-        console.log("User profile page already initialized, skipping");
         return;
     }
 
@@ -106,7 +107,7 @@ export function initializeUserProfilePage() {
                 if (dropdown) dropdown.classList.add('hidden');
             }
         } catch (err) {
-            console.error('Tier update failed:', err);
+            log.error('Tier update failed:', '/components/userProfile/userProfilePage.ts', err);
         }
     };
     document.addEventListener('click', tierOptionSelectionHandler);
@@ -138,7 +139,7 @@ export function initializeUserProfilePage() {
             const data = await resp.json();
             if (data.checkout_url) window.location.href = data.checkout_url;
         } catch (err) {
-            console.error('Stripe checkout failed:', err);
+            log.error('Stripe checkout failed:', '/components/userProfile/userProfilePage.ts', err);
         }
     };
     document.addEventListener('click', stripeTopUpHandler);
@@ -259,8 +260,8 @@ async function handleDeleteBook(bookId: any, target: any) {
             const txt = await resp.text();
             throw new Error(`${resp.status} ${txt}`);
         }
-        console.log(`Book ${bookId} deletion request sent to server.`);
+        log.content(`Book ${bookId} deletion request sent to server.`, '/components/userProfile/userProfilePage.ts');
     } catch (err) {
-        console.error('Server delete failed:', err);
+        log.error('Server delete failed:', '/components/userProfile/userProfilePage.ts', err);
     }
 }

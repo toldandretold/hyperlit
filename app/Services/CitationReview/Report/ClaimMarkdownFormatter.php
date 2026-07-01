@@ -2,6 +2,7 @@
 
 namespace App\Services\CitationReview\Report;
 
+use App\Services\CitationReview\Support\SourceTypeClassifier;
 use App\Services\CitationReview\Support\SourceUrlResolver;
 use App\Services\CitationReview\Support\TitleSimilarity;
 
@@ -86,6 +87,15 @@ final class ClaimMarkdownFormatter
         }
         if (!empty($verdict['reasoning'])) {
             $md .= "**Reasoning:** {$verdict['reasoning']}\n";
+        }
+
+        // An unfound journal article warrants stronger scrutiny than a missing
+        // book — it should be indexed in OpenAlex / Semantic Scholar. Gate on the
+        // report's own "not found" definition (no source_book_id, matching the
+        // ReportBuilder partition) so it never fires for a matched-but-thin claim.
+        if (empty($claim['source_book_id']) && SourceTypeClassifier::shouldBeIndexed($claim)) {
+            $md .= "🚩 **Flag:** Formatted as a journal article but absent from every academic database — "
+                 . "treat as a possible fabricated or miscited reference (higher scrutiny than a missing book).\n";
         }
 
         // Show cited passages with actual text

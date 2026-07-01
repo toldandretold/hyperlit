@@ -66,7 +66,7 @@
   -->
   <div class="user-content-wrapper">
     <div class="fixed-header">
-      <div id="userLibraryContainer" class="top-content">
+      <div id="userLibraryContainer" class="top-content"@if($isOwner && $libraryRecord) data-library-record='@json($libraryRecord)'@endif>
         <h1 id="userLibraryTitle" contenteditable="false">{{ $libraryTitle }}</h1>
         <div id="userBio" contenteditable="false">{{ $libraryBio }}</div>
       </div>

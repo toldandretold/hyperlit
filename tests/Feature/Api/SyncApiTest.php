@@ -96,6 +96,39 @@ test('POST /api/db/unified-sync does not register a sub-book under a foreign boo
     expect($admin->table('nodes')->where('book', $subBook)->count())->toBe(0);
 });
 
+test('POST /api/db/unified-sync derives plainText from content on the bulk path (embedding source)', function () {
+    // The client never sends plainText (not in the PublicNode wire shape). unified-sync
+    // routes nodes through bulkTargetedUpsert, which must derive plainText = strip_tags(content)
+    // like upsert() does — otherwise plainText lands NULL and QueueBookEmbeddings (which filters
+    // `plainText IS NOT NULL AND length >= 20`) never embeds the node.
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+    $nodeId = $book.'_100_aaaa';
+
+    $this->postJson('/api/db/unified-sync', [
+        'book'  => $book,
+        'nodes' => [[
+            'book'        => $book,
+            'startLine'   => 1,
+            'chunk_id'    => 0,
+            'node_id'     => $nodeId,
+            'content'     => '<h1 data-node-id="'.$nodeId.'">The New International Economic Order</h1>',
+            'hyperlights' => [],
+            'hypercites'  => [],
+            'footnotes'   => [],
+            // NOTE: no plainText sent — mirrors the real client payload.
+        ]],
+    ])->assertStatus(200)->assertJson(['success' => true]);
+
+    // Read on the default connection (inside the RefreshDatabase transaction) — the row
+    // was written there; pgsql_admin is a separate connection and can't see it yet.
+    $node = \Illuminate\Support\Facades\DB::table('nodes')
+        ->where('book', $book)->where('node_id', $nodeId)->first();
+
+    expect($node)->not->toBeNull();
+    expect($node->plainText)->toBe('The New International Economic Order');
+});
+
 /* ─── optimistic-concurrency (base_timestamp) stale guard ─────────── */
 
 test('POST /api/db/unified-sync 409s when base_timestamp is older than the server version', function () {
