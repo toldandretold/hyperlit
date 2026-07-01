@@ -100,6 +100,7 @@ export const FLOW_STAGES: FlowStage[] = [
     modules: [
       { path: 'syncQueue/master', plain: 'Sync orchestrator: groups queued items by book, re-reads fresh from IDB, POSTs /api/db/unified-sync, historyLog bookkeeping, tiered 409/419/5xx handling.' },
       { path: 'syncQueue/freshNodeFilter', plain: 'Drops foreign-book rows after the node_id re-read (guards the dual-book node_id gotcha).' },
+      { path: 'syncQueue/bookSyncChain', plain: 'Per-book async serialization so overlapping debounce drains never race on base_timestamp (the false-409 fix).' },
       { path: 'syncQueue/unload', plain: 'Last-chance flush on tab close/background: sendBeacon + visibilitychange flushes.' },
       { path: 'syncQueue/index', plain: 'Barrel for the sync queue.' },
       { path: 'nodes/syncNodesToPostgreSQL', plain: 'Legacy targeted node upsert endpoint (pre-unified-sync).' },

@@ -235,12 +235,18 @@ export async function createNewBook() {
     const username = user?.username || null;
     const anonToken = username ? null : await getAnonymousToken();
 
+    // A locally-created book is never pulled from the server, so freeze its optimistic-concurrency
+    // base at creation (= its own starting version). Without this, the sync layer falls back to the
+    // CLIMBING `timestamp` as the base, which lets concurrent drains sample different values and
+    // 409 falsely. See LibraryRecord.base_timestamp and syncQueue/master.ts.
+    const createdAt = Date.now();
     const newLibraryRecord: any = {
       book: bookId,
       title: "Untitled",
       author: username || (anonToken ? "anon" : null), // Use username, or "anon" if anonymous
       type: "book",
-      timestamp: Date.now(),
+      timestamp: createdAt,
+      base_timestamp: createdAt,
       creator: username,
       creator_token: anonToken,
       visibility: "private",

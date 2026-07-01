@@ -11,6 +11,8 @@ import { refreshCsrfToken } from '../../utilities/auth/index';
 // Pure helper extracted so the cross-book filter + fallback can be unit-tested
 // in isolation. Tests: tests/javascript/indexedDB/master.test.js
 import { filterFreshNodesForBook } from './freshNodeFilter';
+// Per-book sync serialization, extracted for unit testing (tests/javascript/indexedDB/bookSyncChain.test.js)
+import { runSerializedPerKey } from './bookSyncChain';
 import { asBookId } from '../types';
 
 export { filterFreshNodesForBook };
@@ -72,6 +74,20 @@ let glowCloudLocalSave: MasterSyncDeps['glowCloudLocalSave'];
 // serious blackBox/report modal). Reset on any success or non-5xx outcome.
 const _serverErrorStreak = new Map<BookId, number>();
 const SERVER_ERROR_MODAL_THRESHOLD = 2;
+
+// Serialize unified syncs per book. The debounce does NOT await its async body, so a second
+// drain can run syncItemsForBook for the same book while the first is still awaiting the network.
+// Both would then read base_timestamp before either advances it, and the first to land ratchets
+// the server clock past the other's stale base → a false "Book out of date" 409. Chaining each
+// book's sync onto the previous guarantees a drain reads base_timestamp only AFTER the prior
+// drain wrote it. Keyed by book so different books (and sub-books) still sync in parallel.
+const _bookSyncChain = new Map<BookId, Promise<unknown>>();
+
+// Abort a unified-sync POST that never responds, so a hung request can't park the per-book
+// chain above. An abort surfaces as a normal sync failure: the node batch is parked in
+// historyLog ('failed') and re-sent on the next sync attempt (getFailedBatchesForBook), and
+// retried on next online/boot. Nothing is lost — edits are already in IndexedDB.
+const SYNC_TIMEOUT_MS = 30000;
 
 // Initialization function to inject dependencies
 export function initMasterSyncDependencies(deps: MasterSyncDeps): void {
@@ -193,18 +209,29 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
 
   console.log(`🔄 Unified sync: ${syncSummary.join(', ')}`);
 
-  // Helper: perform the fetch with a fresh CSRF token from the meta tag
-  const doFetch = () => fetch("/api/db/unified-sync", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-      "X-Requested-With": "XMLHttpRequest",
-      "X-CSRF-TOKEN": document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content
-    } as HeadersInit,
-    credentials: "include",
-    body: JSON.stringify(unifiedPayload)
-  });
+  // Helper: perform the fetch with a fresh CSRF token + a per-call abort timeout (so a hung
+  // POST can't stall the per-book chain). The controller/timer are per call because doFetch
+  // may run twice (419 retry).
+  const doFetch = async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+    try {
+      return await fetch("/api/db/unified-sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRF-TOKEN": document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content
+        } as HeadersInit,
+        credentials: "include",
+        body: JSON.stringify(unifiedPayload),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 
   let res = await doFetch();
 
@@ -702,9 +729,10 @@ export const debouncedMasterSync = debounce(async () => {
     itemsByBook.get(itemBook)!.set(key, item);
   }
 
-  // Sync each book's items separately
+  // Sync each book's items separately. Serialize per book so two overlapping drains can't race
+  // on base_timestamp (see _bookSyncChain). Different books still run in parallel.
   for (const [bookId, bookItems] of itemsByBook) {
-    await syncItemsForBook(bookId, bookItems);
+    await runSerializedPerKey(_bookSyncChain, bookId, () => syncItemsForBook(bookId, bookItems));
   }
 
 }, 3000);

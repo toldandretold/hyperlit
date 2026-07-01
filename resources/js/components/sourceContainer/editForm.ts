@@ -661,7 +661,39 @@ export async function syncLibraryRecordToBackend(self: any, libraryRecord: Libra
     throw new Error(`Backend sync failed: ${response.status} - ${errorText}`);
   }
 
-  return await response.json();
+  const result = await response.json();
+
+  // Catch the optimistic-concurrency base up to the server's confirmed post-save version.
+  // A library save bumps the book's server `timestamp`; without also advancing our frozen
+  // `base_timestamp`, the next node edit compares against the stale open-time base and the
+  // server false-positives a "Book out of date" 409. We only adopt the value the server
+  // CONFIRMED (result.library.timestamp — it honours the server's never-downgrade guard),
+  // mirroring the advance the unified node sync already does on success (syncQueue/master.ts).
+  const confirmedTs = Number(result?.library?.timestamp ?? libraryRecord.timestamp);
+  if (Number.isFinite(confirmedTs) && confirmedTs > 0) {
+    try {
+      const db = await openDatabase();
+      const tx = db.transaction("library", "readwrite");
+      const store = tx.objectStore("library");
+      const rec = await new Promise<LibraryRecord | undefined>((resolve, reject) => {
+        const r = store.get(libraryRecord.book);
+        r.onsuccess = () => resolve(r.result as LibraryRecord | undefined);
+        r.onerror = () => reject(r.error);
+      });
+      if (rec && rec.base_timestamp !== confirmedTs) {
+        rec.base_timestamp = confirmedTs;
+        await new Promise<void>((resolve, reject) => {
+          const w = store.put(rec);
+          w.onsuccess = () => resolve();
+          w.onerror = () => reject(w.error);
+        });
+      }
+    } catch (e) {
+      console.warn("Could not advance base_timestamp after library save:", e);
+    }
+  }
+
+  return result;
 }
 
 export function collectFormData(self: any) {

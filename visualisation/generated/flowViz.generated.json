@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1556,
-    "moduleCount": 331,
+    "fnCount": 1557,
+    "moduleCount": 332,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3183,
+    "edgeCount": 3186,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -9786,6 +9786,14 @@
       "leaf": false
     },
     {
+      "id": "indexedDB/syncQueue/bookSyncChain:runSerializedPerKey",
+      "label": "runSerializedPerKey",
+      "kind": "fn",
+      "stage": "push",
+      "module": "indexedDB/syncQueue/bookSyncChain",
+      "leaf": true
+    },
+    {
       "id": "indexedDB/syncQueue/freshNodeFilter:filterFreshNodesForBook",
       "label": "filterFreshNodesForBook",
       "kind": "fn",
@@ -16923,6 +16931,15 @@
       ]
     },
     {
+      "id": "indexedDB/syncQueue/bookSyncChain",
+      "label": "indexedDB/syncQueue/bookSyncChain",
+      "stage": "push",
+      "band": "store",
+      "fnIds": [
+        "indexedDB/syncQueue/bookSyncChain:runSerializedPerKey"
+      ]
+    },
+    {
       "id": "indexedDB/syncQueue/freshNodeFilter",
       "label": "indexedDB/syncQueue/freshNodeFilter",
       "stage": "push",
@@ -20895,10 +20912,23 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/editForm:syncLibraryRecordToBackend__call__indexedDB/core/connection:openDatabase",
+      "source": "components/sourceContainer/editForm:syncLibraryRecordToBackend",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/sourceContainer/editForm:syncLibraryRecordToBackend__call__indexedDB/core/library:cleanLibraryItemForStorage",
       "source": "components/sourceContainer/editForm:syncLibraryRecordToBackend",
       "target": "indexedDB/core/library:cleanLibraryItemForStorage",
       "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/editForm:syncLibraryRecordToBackend__write__store:library",
+      "source": "components/sourceContainer/editForm:syncLibraryRecordToBackend",
+      "target": "store:library",
+      "rel": "write"
     },
     {
       "id": "components/sourceContainer/helpers:getBookDownloadName__call__components/sourceContainer/helpers:getRecord",
@@ -37501,6 +37531,12 @@
       "rel": "read"
     },
     {
+      "id": "store:library__read__components/sourceContainer/editForm:syncLibraryRecordToBackend",
+      "source": "store:library",
+      "target": "components/sourceContainer/editForm:syncLibraryRecordToBackend",
+      "rel": "read"
+    },
+    {
       "id": "store:library__read__components/userContainer/anonymousTransfer:getAnonymousBooks",
       "source": "store:library",
       "target": "components/userContainer/anonymousTransfer:getAnonymousBooks",
@@ -41850,6 +41886,11 @@
     {
       "source": "indexedDB/syncQueue/master",
       "target": "indexedDB/core/utilities",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/syncQueue/master",
+      "target": "indexedDB/syncQueue/bookSyncChain",
       "kind": "static"
     },
     {

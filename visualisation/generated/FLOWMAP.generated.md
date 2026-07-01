@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1556 functions in 331 modules · 10 object stores · 10 PG tables · 3183 edges
+**MarkdownDB** schema v27 · 1557 functions in 332 modules · 10 object stores · 10 PG tables · 3186 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -251,7 +251,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setupEditFormListeners` | `components/sourceContainer/editForm` | — | — | read | — |
 | `showEditForm` | `components/sourceContainer/editForm` | — | — | read/write | — |
 | `showOptionalFieldsForType` | `components/sourceContainer/editForm` | — | — | read | — |
-| `syncLibraryRecordToBackend` | `components/sourceContainer/editForm` | — | — | read | — |
+| `syncLibraryRecordToBackend` | `components/sourceContainer/editForm` | `library` | `library` | read | — |
 | `validateUrl` | `components/sourceContainer/editForm` | — | — | — | — |
 | `formatRelativeTime` | `components/sourceContainer/helpers` | — | — | — | — |
 | `getBookDownloadName` | `components/sourceContainer/helpers` | — | — | — | — |
@@ -1065,6 +1065,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `syncAnnotationsOnly` | `indexedDB/serverSync/pull` | — | — | — | `↓route:/api/database-to-indexeddb/books/{}/annotations` |
 | `syncBookDataFromDatabase` | `indexedDB/serverSync/pull` | — | `bibliography` `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | `↓route:/api/database-to-indexeddb/books/{}/data` |
 | `syncIndexedDBtoPostgreSQL` | `indexedDB/serverSync/push` | — | — | read | — |
+| `runSerializedPerKey` | `indexedDB/syncQueue/bookSyncChain` | — | — | — | — |
 | `filterFreshNodesForBook` | `indexedDB/syncQueue/freshNodeFilter` | — | — | — | — |
 | `executeSyncPayload` | `indexedDB/syncQueue/master` | — | — | read | `↑route:/api/db/unified-sync` |
 | `initMasterSyncDependencies` | `indexedDB/syncQueue/master` | — | — | — | — |
