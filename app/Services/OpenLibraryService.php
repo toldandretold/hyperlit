@@ -45,6 +45,39 @@ class OpenLibraryService
     }
 
     /**
+     * Look a work up by ISBN. Open Library's search endpoint accepts an `isbn` filter and returns
+     * the same doc shape as a title search, so results normalise identically. A correct ISBN is a
+     * strong signal, but we still return it as a (normalised) candidate for the confirm flow to rank.
+     */
+    public function searchByIsbn(string $isbn, int $limit = 5): array
+    {
+        $isbn = preg_replace('/[^\dXx]/', '', $isbn);
+        if ($isbn === '') {
+            return [];
+        }
+
+        try {
+            $response = Http::timeout(15)->get(self::BASE_URL . '/search.json', [
+                'isbn'   => $isbn,
+                'fields' => self::SEARCH_FIELDS,
+                'limit'  => $limit,
+            ]);
+
+            if (!$response->successful()) {
+                Log::warning('Open Library ISBN search returned ' . $response->status() . ' for isbn: ' . $isbn);
+                return [];
+            }
+
+            $docs = $response->json('docs') ?? [];
+
+            return array_map(fn(array $doc) => $this->normaliseDoc($doc), $docs);
+        } catch (\Exception $e) {
+            Log::warning('Open Library ISBN request failed: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
      * Search Open Library for multiple queries concurrently using Http::pool.
      * Processes in chunks of 10 with 1s gap to avoid overwhelming the API.
      *

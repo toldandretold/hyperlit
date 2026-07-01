@@ -57,7 +57,9 @@ class SourceVerificationController extends Controller
         }
 
         try {
-            $preview = $this->matcher->preview($library);
+            // forVerify: don't truncate the shortlist, so a user-picked alternate that has since
+            // slipped below the top-N is still re-resolvable (candidates come from live APIs).
+            $preview = $this->matcher->preview($library, forVerify: true);
         } catch (\Throwable $e) {
             Log::warning('source verify preview failed', ['book' => $book, 'err' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Verification failed'], 500);
@@ -155,6 +157,11 @@ class SourceVerificationController extends Controller
             'journal'                  => $l->journal,
             'publisher'                => $l->publisher,
             'doi'                      => $l->doi,
+            // Identifiers so the client can rebuild the "view on OpenAlex / Open Library" link
+            // after a verify — a DOI-less (e.g. Open Library) work has no other link source.
+            'openalex_id'              => $l->openalex_id,
+            'open_library_key'         => $l->open_library_key,
+            'oa_url'                   => $l->oa_url,
             'type'                     => $l->type,
             'bibtex'                   => $l->bibtex,
             'url'                      => $l->url,

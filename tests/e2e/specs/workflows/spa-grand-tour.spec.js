@@ -38,6 +38,64 @@ import {
 
 const READER_BOOK = process.env.E2E_READER_BOOK;
 
+// ── AI-review round-trip: which book to use ──────────────────────────────────
+// The AI-review round-trip phase (bottom of this file) needs a PRE-EXISTING book
+// that has had an AI citation review generated on it — i.e. a `/{book}/AIreview`
+// sub-book plus `AIreview:` hyperlights. This can't be fixtured cheaply (a review
+// takes ~10-15 min + the DeepSeek API), so we hard-code a reference book.
+//
+// `book_1782863856780` is ONE developer's local AI-reviewed book. If you're another
+// dev (or this book got deleted): run an AI citation review on a book you own, then
+// set E2E_AIREVIEW_BOOK (in tests/e2e/.env.e2e) — or change this default — to that
+// book id. The phase FAILS LOUDLY (not skips) when the referenced book/report is
+// missing, precisely so a deleted book surfaces its cause instead of going quiet.
+const AIREVIEW_BOOK = process.env.E2E_AIREVIEW_BOOK || 'book_1782863856780';
+
+/** Book segment of a reader pathname: `/book_x/AIreview` → `book_x/AIreview`, `/book_x` → `book_x`. */
+function aireviewUrlBook(pathname) {
+  const m = pathname.match(/^\/(book_[^/]+(?:\/AIreview)?)/);
+  return m ? m[1] : null;
+}
+async function aireviewReadState(page) {
+  return page.evaluate(() => ({
+    href: location.href,
+    pathname: location.pathname,
+    renderedBook: document.querySelector('.main-content')?.id || null,
+    containerOpen: !!document.querySelector('#hyperlit-container.open'),
+    stacked: document.querySelectorAll('.hyperlit-container-stacked').length,
+    refOverlayActive: !!document.querySelector('#ref-overlay.active'),
+  }));
+}
+/** Click a citation-review hyperlight so the container opens with a "See within full report"
+ *  link; scrolls to load chunks until a real HL mark appears. Returns {href, hlId} or null. */
+async function openAireviewReportContainer(page) {
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const opened = await page.evaluate(() => {
+      const marks = [...document.querySelectorAll('.main-content mark')]
+        .map((m) => ({ el: m, id: [...m.classList].find((c) => c.startsWith('HL_') && c !== 'HL_overlap') }))
+        .filter((x) => x.id);
+      if (!marks.length) return null;
+      const { el, id } = marks[0];
+      el.scrollIntoView({ block: 'center' });
+      el.click();
+      return id;
+    });
+    if (opened) {
+      try { await page.waitForSelector('#hyperlit-container.open', { timeout: 8000 }); } catch { /* retry */ }
+      const href = await page.evaluate(() => {
+        const a = document.querySelector('#hyperlit-container a[href*="/AIreview#ref_"]');
+        return a ? a.getAttribute('href') : null;
+      });
+      if (href) return { href, hlId: opened };
+      await page.evaluate(() => document.getElementById('ref-overlay')?.click());
+      await page.waitForTimeout(300);
+    }
+    await page.evaluate(() => window.scrollBy(0, window.innerHeight * 4));
+    await page.waitForTimeout(600);
+  }
+  return null;
+}
+
 test.describe.serial('SPA Grand Tour', () => {
 
   /* ── Phase 1: per-page verifiers in isolation ───────────────────── */
@@ -651,4 +709,112 @@ test.describe.serial('SPA Grand Tour', () => {
     }
   });
 
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * AI-review report round-trip (freeze reproducer).
+ *
+ * Deliberately a SEPARATE, non-serial describe (not part of the grand tour above)
+ * so its hard failure on missing data does NOT cascade-skip the tour's phases.
+ *
+ * Open a citation-review hyperlight → click its in-container "See within full
+ * report" link (→ the two-segment /{book}/AIreview sub-book) → browser Back. Back
+ * must return to the PARENT in sync (URL book == rendered .main-content id), NOT
+ * loop into the report. Back/forward + a rapid burst are the accumulation trigger.
+ * Guards the dummy-element `element.closest is not a function` crash (openHighlightById)
+ * and the sub-book URL truncation.
+ *
+ * REQUIRES the AI-reviewed book referenced by AIREVIEW_BOOK (see the big comment at
+ * the top). It FAILS (not skips) if that book / its report is gone — see there for
+ * why and how to point it at your own book.
+ * ──────────────────────────────────────────────────────────────────────────── */
+test.describe('AI-review report round-trip', () => {
+  test('open citation-review highlight → See within full report → Back (no freeze)', async ({ page, spa }) => {
+    test.setTimeout(240_000);
+
+    await page.goto(`/${AIREVIEW_BOOK}`, { waitUntil: 'domcontentloaded' });
+    const ready = await page.waitForSelector(`.main-content[id="${AIREVIEW_BOOK}"]`, { timeout: 20000 })
+      .then(() => true).catch(() => false);
+    expect(
+      ready,
+      `AI-review book "${AIREVIEW_BOOK}" did not load — it was likely DELETED (or never existed on this machine). ` +
+      `Generate an AI citation review on a book you own and set E2E_AIREVIEW_BOOK to its id (see the comment atop this file / .env.e2e).`,
+    ).toBe(true);
+    await page.waitForTimeout(1000);
+
+    const first = await openAireviewReportContainer(page);
+    expect(
+      first,
+      `"${AIREVIEW_BOOK}" loaded but has no "See within full report" link — its /AIreview report / citation-review ` +
+      `hyperlights are missing (the review was deleted or never generated). Re-run the AI citation review, or repoint E2E_AIREVIEW_BOOK.`,
+    ).toBeTruthy();
+    await spa.closeAllContainers(page).catch(() => {});
+    await page.waitForTimeout(400);
+
+    const assertSynced = (st, label) => {
+      // Load-bearing invariant: the URL's book segment and the rendered content are the SAME book.
+      expect(aireviewUrlBook(st.pathname), `${label}: URL↔content desync (url=${st.href} rendered=${st.renderedBook})`).toBe(st.renderedBook);
+      expect(st.stacked, `${label}: stacked containers flooded`).toBeLessThanOrEqual(1);
+      expect(st.refOverlayActive && !st.containerOpen, `${label}: orphan #ref-overlay.active`).toBeFalsy();
+    };
+
+    for (let loop = 1; loop <= 3; loop++) {
+      await spa.closeAllContainers(page).catch(() => {});
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(300);
+
+      const opened = await openAireviewReportContainer(page);
+      expect(opened, `L${loop}: could not open a citation-review highlight container`).toBeTruthy();
+
+      await page.locator('#hyperlit-container a[href*="/AIreview#ref_"]').first().click();
+      // Wait for the SPA to actually land on the report — a fixed sleep flakes under the
+      // load of a full-suite run; a genuine "click didn't navigate" bug still times out here.
+      await page.waitForFunction((b) => location.pathname === `/${b}/AIreview`, AIREVIEW_BOOK, { timeout: 15000 }).catch(() => {});
+      await spa.waitForTransition(page).catch(() => {});
+      await page.waitForTimeout(300);
+      const onReport = await aireviewReadState(page);
+      expect(aireviewUrlBook(onReport.pathname), `L${loop}: should be on the /AIreview report`).toBe(`${AIREVIEW_BOOK}/AIreview`);
+      expect(onReport.renderedBook, `L${loop}: content should be the report`).toBe(`${AIREVIEW_BOOK}/AIreview`);
+
+      for (let s = 0; s < 4; s++) { await page.evaluate(() => window.scrollBy(0, window.innerHeight * 3)); await page.waitForTimeout(300); }
+
+      await page.goBack();
+      // Wait for the URL to settle on the parent (not a fixed sleep). If Back "freezes"
+      // (stays on / loops into the report) this times out and the assertions below fail loudly.
+      await page.waitForFunction((b) => location.pathname === `/${b}`, AIREVIEW_BOOK, { timeout: 15000 }).catch(() => {});
+      await spa.waitForTransition(page).catch(() => {});
+      await page.waitForTimeout(500);
+      const afterBack = await aireviewReadState(page);
+      expect(aireviewUrlBook(afterBack.pathname), `L${loop}: Back must return to PARENT, not loop into the report (url=${afterBack.href} rendered=${afterBack.renderedBook})`).toBe(AIREVIEW_BOOK);
+      expect(afterBack.renderedBook, `L${loop}: content should be the PARENT after Back`).toBe(AIREVIEW_BOOK);
+      assertSynced(afterBack, `L${loop} after Back`);
+
+      await page.goForward();
+      await spa.waitForTransition(page).catch(() => {});
+      await page.waitForTimeout(1000);
+      assertSynced(await aireviewReadState(page), `L${loop} after Forward`);
+
+      for (let r = 0; r < 3; r++) { await page.goBack().catch(() => {}); await page.waitForTimeout(250); await page.goForward().catch(() => {}); await page.waitForTimeout(250); }
+      await spa.waitForTransition(page).catch(() => {});
+      await page.waitForTimeout(1000);
+      assertSynced(await aireviewReadState(page), `L${loop} after rapid b/f`);
+
+      // Return to the parent (via history, preserving accumulation) for the next loop.
+      await spa.closeAllContainers(page).catch(() => {});
+      for (let g = 0; g < 4 && (await aireviewReadState(page)).renderedBook !== AIREVIEW_BOOK; g++) {
+        await page.goBack().catch(() => {}); await spa.waitForTransition(page).catch(() => {}); await page.waitForTimeout(500);
+      }
+      if ((await aireviewReadState(page)).renderedBook !== AIREVIEW_BOOK) {
+        await page.goto(`/${AIREVIEW_BOOK}`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector(`.main-content[id="${AIREVIEW_BOOK}"]`, { timeout: 15000 });
+      }
+      await spa.closeAllContainers(page).catch(() => {});
+      await page.waitForTimeout(400);
+    }
+
+    // Assert on UNCAUGHT JS exceptions (pageErrors) — the meaningful freeze signal (the
+    // `element.closest is not a function` crash was one). Console resource noise (the RUM
+    // beacon, 404 image/asset loads in the report content) is not this test's concern.
+    expect(page.pageErrors || [], `Uncaught page errors: ${JSON.stringify(page.pageErrors)}`).toEqual([]);
+  });
 });

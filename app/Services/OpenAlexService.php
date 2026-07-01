@@ -393,6 +393,26 @@ class OpenAlexService
     }
 
     /**
+     * Extract an ISBN-13 or ISBN-10 from text (typically a BibTeX entry or URL). Accepts the common
+     * hyphen/space groupings and an "isbn:"/"ISBN " prefix; strips separators before validating the
+     * digit count. Returns the normalised digits-only ISBN, or null. ISBN-13 is preferred over -10.
+     */
+    public function extractIsbn(string $text): ?string
+    {
+        // ISBN-13 first (13 digits, optionally grouped by - or space).
+        if (preg_match('/\b(?:isbn[:\s]*)?(97[89][\d\-\s]{10,16}\d)\b/i', $text, $m)) {
+            $digits = preg_replace('/[^\d]/', '', $m[1]);
+            if (strlen($digits) === 13) return $digits;
+        }
+        // ISBN-10 (10 chars, final may be X).
+        if (preg_match('/\b(?:isbn[:\s]*)?(\d[\d\-\s]{8,12}[\dXx])\b/i', $text, $m)) {
+            $compact = preg_replace('/[^\dXx]/', '', $m[1]);
+            if (strlen($compact) === 10) return strtoupper($compact);
+        }
+        return null;
+    }
+
+    /**
      * Extract the title from a raw citation string (may contain HTML).
      * Bibtex formatting wraps book titles in <i> and article titles in quotes.
      * Also handles EPUB text-style spans like <span class="t13">.

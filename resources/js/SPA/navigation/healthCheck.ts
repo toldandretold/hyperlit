@@ -121,6 +121,14 @@ export function checkNavigationHealth() {
   // ========================================
   const ids: any = {};
   document.querySelectorAll('[id]').forEach((el: any) => {
+    // Highlight <mark> fragments intentionally SHARE their highlight id: one highlight
+    // renders as many <mark>s (split across overlaps / <br>s / paragraphs), and every
+    // overlap fragment uses the synthetic "HL_overlap" id. These are benign by-design
+    // duplicates — #HL_ anchor nav resolves to the first via getElementById — so they'd
+    // otherwise swamp this check on highlight-heavy books (e.g. AI-review reports:
+    // "HL_overlap(38), HL_2759255209(3)…"). Real duplicate ids on other elements
+    // (content nodes, containers) are still detected.
+    if (el.tagName === 'MARK') return;
     if (ids[el.id]) {
       ids[el.id]++;
     } else {

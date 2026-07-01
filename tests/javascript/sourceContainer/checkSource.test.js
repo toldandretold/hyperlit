@@ -155,9 +155,9 @@ describe('handleCheckSource', () => {
     verifySource.mockResolvedValue({ success: true, canonical_source_id: 'c1', library: { canonical_match_method: 'user_verified' } });
 
     await handleCheckSource(self);
-    expect(self.container.querySelector('.source-match-yes')).toBeTruthy();
+    expect(self.container.querySelector('.source-match-select')).toBeTruthy();
 
-    self.container.querySelector('.source-match-yes').click();
+    self.container.querySelector('.source-match-select').click();
     await flush();
 
     expect(verifySource).toHaveBeenCalledWith('test-book', expect.objectContaining({ openalex_id: 'W1' }));
@@ -178,10 +178,70 @@ describe('handleCheckSource', () => {
     await handleCheckSource(self);
     expect(self.container.textContent).toContain('Auto Linked Work');
 
-    self.container.querySelector('.source-match-yes').click();
+    self.container.querySelector('.source-match-select').click();
     await flush();
 
     expect(verifySource).toHaveBeenCalledWith('test-book', expect.objectContaining({ openalex_id: 'W1' }));
+  });
+
+  it('renders a shortlist (candidate + alternates) and verifies the CHOSEN one', async () => {
+    const self = setupPanel();
+    lookupSource.mockResolvedValue({
+      success: true, status: 'linked_new', method: 'openalex_full', score: 0.8,
+      candidate: { title: 'Top Hit', openalex_id: 'W1', match_score: 0.8 },
+      alternates: [
+        { title: 'Second Guess', open_library_key: '/works/OL2W', match_score: 0.5 },
+        { title: 'Long Shot', doi: '10.1/ls', match_score: 0.2 },
+      ],
+      alreadyLinked: false, current: null,
+    });
+    verifySource.mockResolvedValue({ success: true, canonical_source_id: 'c2', library: {} });
+
+    await handleCheckSource(self);
+
+    const rows = self.container.querySelectorAll('.source-match-select');
+    expect(rows.length).toBe(3);                                   // candidate + 2 alternates
+    expect(self.container.querySelector('.source-match-none')).toBeTruthy();
+    expect(self.container.textContent).toContain('Is it one of these?');
+    expect(self.container.textContent).toContain('80% match');     // per-row confidence
+    expect(self.container.textContent).toContain('50% match');
+
+    // Pick the SECOND candidate — verify must receive its identifier, not the top one's.
+    rows[1].click();
+    await flush();
+    expect(verifySource).toHaveBeenCalledWith('test-book', expect.objectContaining({ open_library_key: '/works/OL2W' }));
+  });
+
+  it('dedupes candidates that share an identifier across title + ISBN hits', async () => {
+    const self = setupPanel();
+    lookupSource.mockResolvedValue({
+      success: true, status: 'linked_new', method: 'open_library_full', score: 0.7,
+      candidate: { title: 'Dup Work', open_library_key: '/works/OL9W', match_score: 0.7 },
+      alternates: [{ title: 'Dup Work', open_library_key: '/works/OL9W', match_score: 0.7 }],
+      alreadyLinked: false, current: null,
+    });
+
+    await handleCheckSource(self);
+    expect(self.container.querySelectorAll('.source-match-select').length).toBe(1);
+  });
+
+  it('None of these closes the prompt and re-enables the button', async () => {
+    const self = setupPanel();
+    lookupSource.mockResolvedValue({
+      success: true, status: 'linked_new', method: 'openalex_full', score: 0.6,
+      candidate: { title: 'Maybe', openalex_id: 'W1', match_score: 0.6 }, alternates: [],
+      alreadyLinked: false, current: null,
+    });
+
+    await handleCheckSource(self);
+    expect(self.container.querySelector('#check-source-prompt')).toBeTruthy();
+
+    self.container.querySelector('.source-match-none').click();
+    await flush();
+
+    expect(self.container.querySelector('#check-source-prompt')).toBeNull();
+    expect(self.container.querySelector('#check-source-btn').disabled).toBe(false);
+    expect(verifySource).not.toHaveBeenCalled();
   });
 
   it('shows a message when no candidate is found', async () => {

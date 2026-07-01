@@ -24,6 +24,16 @@ class CanonicalSourceMatcher
 
     public const TITLE_SEARCH_MIN_SCORE = 0.5;
 
+    /**
+     * The [check source] confirm flow is a HUMAN-confirmation UI (the user picks from a shortlist),
+     * NOT the autonomous match() path — so it uses its own, looser thresholds. We surface anything
+     * above the garbage floor (so weak-but-plausible titles still show, the user filters by eye) and
+     * cap the shortlist. These deliberately diverge from TITLE_SEARCH_MIN_SCORE, which stays strict
+     * for the autonomous match()/library:canonicalize path. See docs/canonical-sources.md.
+     */
+    public const PREVIEW_MIN_SCORE = 0.15;   // matches metadataScore's title_floor: drops only junk
+    public const PREVIEW_MAX_CANDIDATES = 3;  // top-N shown as "is it one of these?"
+
     /** Sentinel method written to library.canonical_match_method on no_match,
      *  so subsequent --missing-only runs can skip recently-tried rows. */
     public const NO_MATCH_METHOD = 'no_match_v1';
@@ -116,7 +126,14 @@ class CanonicalSourceMatcher
      *   current: ?array           // the currently-linked canonical, if any
      * }
      */
-    public function preview(PgLibrary $library): array
+    /**
+     * Read-only candidate preview for the [check source] confirm flow. Waves 0–3 (identifier/DOI)
+     * return a single confident candidate at score 1.0; waves 4/5 (title + ISBN) return a ranked
+     * SHORTLIST for the user to pick from. When $forVerify is true the shortlist is NOT truncated
+     * to PREVIEW_MAX_CANDIDATES, so verify() can re-resolve any candidate the user was shown even
+     * if the ranking shifted between the lookup and the confirm click.
+     */
+    public function preview(PgLibrary $library, bool $forVerify = false): array
     {
         // Already linked — report the current canonical (a re-check can still be forced by the
         // caller passing a fresh row, but by default we surface what it's linked to).
@@ -166,13 +183,17 @@ class CanonicalSourceMatcher
             }
         }
 
-        // 4 & 5. Title search (full, then shortened) — needs both a usable title and an author
-        if ($this->hasUsableTitleAndAuthor($library)) {
-            if ($found = $this->previewTitleSearch($library, $library->title, 'full')) return $found;
+        // 4 & 5. Broad shortlist search (title + ISBN, full then shortened). Confirm-flow only:
+        // author is NOT required (the human disambiguates), we only gate on a usable title.
+        if ($this->hasUsableTitle($library)) {
+            $limit = $forVerify ? PHP_INT_MAX : self::PREVIEW_MAX_CANDIDATES;
+            $isbnCandidates = $this->previewIsbnCandidates($library);
+
+            if ($found = $this->previewBroadSearch($library, $library->title, 'full', $isbnCandidates, $limit)) return $found;
 
             $shortened = $this->shortenTitle($library->title);
             if ($shortened !== null && $shortened !== $library->title) {
-                if ($found = $this->previewTitleSearch($library, $shortened, 'short')) return $found;
+                if ($found = $this->previewBroadSearch($library, $shortened, 'short', $isbnCandidates, $limit)) return $found;
             }
         }
 
@@ -260,6 +281,24 @@ class CanonicalSourceMatcher
      * very short strings, all-numeric) silently waste API calls and can produce dodgy
      * matches when a candidate happens to score above threshold by coincidence.
      */
+    /**
+     * Confirm-flow title guard: the same junk/length checks as hasUsableTitleAndAuthor but WITHOUT
+     * the author requirement — the [check source] UI shows a shortlist and the human disambiguates,
+     * so a title alone is enough signal. Gate is "is there a real title at all?".
+     */
+    private function hasUsableTitle(PgLibrary $library): bool
+    {
+        $title = trim((string) ($library->title ?? ''));
+
+        if ($title === '') return false;
+        if (strlen($title) < 5) return false;
+        if (preg_match('/^(untitled|new (book|document)|test|sample|draft)$/i', $title)) return false;
+        if (preg_match('/^[\d\s]+$/', $title)) return false;
+        if (preg_match('/^(.)\1+$/', $title)) return false;
+
+        return true;
+    }
+
     private function hasUsableTitleAndAuthor(PgLibrary $library): bool
     {
         $title  = trim((string) ($library->title  ?? ''));
@@ -698,39 +737,99 @@ class CanonicalSourceMatcher
     }
 
     /**
-     * Title-search preview across OpenAlex → Open Library → Semantic Scholar (same order as
-     * tryTitleSearch). Returns the best candidate (≥ threshold) plus the remaining ranked hits
-     * as alternates — no writes.
+     * Broad shortlist search for the confirm flow. Unlike the autonomous tryTitleSearch (first
+     * provider to clear 0.5 wins), this AGGREGATES all providers + any ISBN hits into one pool,
+     * ranks + dedupes them, keeps everything above the loose PREVIEW_MIN_SCORE floor, and returns
+     * the top $limit as candidate + alternates for the user to pick from. No writes.
      */
-    private function previewTitleSearch(PgLibrary $library, string $title, string $variant): ?array
+    private function previewBroadSearch(PgLibrary $library, string $title, string $variant, array $isbnCandidates, int $limit): ?array
     {
-        $providers = [
-            ['openalex',         "openalex_title_{$variant}",        fn() => $this->openAlex->fetchFromOpenAlex($title, 5)],
-            ['open_library',     "open_library_{$variant}",          fn() => $this->openLibrary->search($title, $library->author ?: null, 5)],
-            ['semantic_scholar', "semantic_scholar_{$variant}",      fn() => $this->semanticScholar->search($title, $library->author ?: null, 5)],
-        ];
+        $pool = $isbnCandidates;
 
-        foreach ($providers as [$name, $method, $fetch]) {
+        $providers = [
+            ['openalex',         fn() => $this->openAlex->fetchFromOpenAlex($title, 5)],
+            ['open_library',     fn() => $this->openLibrary->search($title, $library->author ?: null, 5)],
+            ['semantic_scholar', fn() => $this->semanticScholar->search($title, $library->author ?: null, 5)],
+        ];
+        foreach ($providers as [$name, $fetch]) {
             try {
-                $candidates = $fetch();
+                $pool = array_merge($pool, $fetch());
             } catch (\Throwable $e) {
                 $this->logFail("{$name}_title", $library, $e);
-                continue;
-            }
-
-            $ranked = $this->rankCandidates($library, $candidates);
-            if (!empty($ranked) && $ranked[0]['score'] >= self::TITLE_SEARCH_MIN_SCORE) {
-                return $this->previewResult(
-                    self::STATUS_LINKED_NEW,
-                    $method,
-                    $ranked[0]['score'],
-                    $ranked[0]['normalised'],
-                    array_map(fn($r) => $r['normalised'], array_slice($ranked, 1)),
-                );
             }
         }
 
+        if (empty($pool)) return null;
+
+        $ranked = $this->dedupeRanked($this->rankCandidates($library, $pool));
+        $ranked = array_values(array_filter($ranked, fn($r) => $r['score'] >= self::PREVIEW_MIN_SCORE));
+        if (empty($ranked)) return null;
+
+        $top = array_slice($ranked, 0, $limit);
+        $src = (string) ($top[0]['normalised']['source'] ?? 'external');
+
+        // Annotate each candidate with its own score so the confirm UI can show per-row confidence.
+        // match_score is a transient display field — the canonical write-path ignores unknown keys.
+        $annotate = fn($r) => $r['normalised'] + ['match_score' => round((float) $r['score'], 4)];
+
+        return $this->previewResult(
+            self::STATUS_LINKED_NEW,
+            "{$src}_{$variant}",
+            $top[0]['score'],
+            $annotate($top[0]),
+            array_map($annotate, array_slice($top, 1)),
+        );
+    }
+
+    /**
+     * ISBN candidates for the pool: extract an ISBN from bibtex/url (there is no isbn column) and
+     * look it up on Open Library. A correct-ISBN edition scores high via the normal scorer, so it
+     * needs no special-casing — it just enters the ranked pool. Returns [] when there's no ISBN.
+     */
+    private function previewIsbnCandidates(PgLibrary $library): array
+    {
+        $isbn = $this->resolveIsbn($library);
+        if ($isbn === null) return [];
+        try {
+            return $this->openLibrary->searchByIsbn($isbn, 5);
+        } catch (\Throwable $e) {
+            $this->logFail('open_library_isbn', $library, $e);
+            return [];
+        }
+    }
+
+    /** The ISBN to look up: extracted from `bibtex` or `url` (mirrors resolveDoi; no isbn column). */
+    private function resolveIsbn(PgLibrary $library): ?string
+    {
+        foreach ([(string) ($library->bibtex ?? ''), (string) ($library->url ?? '')] as $text) {
+            if ($text === '') continue;
+            $isbn = $this->openAlex->extractIsbn($text);
+            if ($isbn) return $isbn;
+        }
         return null;
+    }
+
+    /**
+     * Collapse candidates that are the same work (same identifier, else same title+year). Input is
+     * already sorted best-first, so the first occurrence of each key is the highest-scoring — keep it.
+     */
+    private function dedupeRanked(array $ranked): array
+    {
+        $seen = [];
+        $out = [];
+        foreach ($ranked as $r) {
+            $n = $r['normalised'];
+            $key = $n['doi'] ?? $n['openalex_id'] ?? $n['open_library_key'] ?? $n['semantic_scholar_id'] ?? null;
+            if (!$key) {
+                $title = strtolower(trim((string) ($n['title'] ?? '')));
+                if ($title === '') { $out[] = $r; continue; }  // no signal to dedupe on — keep it
+                $key = $title . '|' . (string) ($n['year'] ?? '');
+            }
+            if (isset($seen[$key])) continue;
+            $seen[$key] = true;
+            $out[] = $r;
+        }
+        return $out;
     }
 
     /** Score every candidate against the library row and return them sorted best-first. */
@@ -811,9 +910,11 @@ class CanonicalSourceMatcher
     private function foundationFromSource(?string $source): string
     {
         return match ($source) {
-            'open_library'     => 'open_library_ingest',
-            'semantic_scholar' => 'semantic_scholar_ingest',
-            default            => 'openalex_ingest',
+            // OpenLibraryService::normaliseDoc emits 'openlibrary' (no underscore); accept both so
+            // OL-verified works aren't mislabelled openalex_ingest (which mis-attributes the provider).
+            'openlibrary', 'open_library' => 'open_library_ingest',
+            'semantic_scholar'            => 'semantic_scholar_ingest',
+            default                       => 'openalex_ingest',
         };
     }
 

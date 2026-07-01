@@ -15,6 +15,7 @@ export interface SourceCandidate {
   semantic_scholar_id?: string | null;
   type?: string | null;
   source?: string | null;
+  match_score?: number | null;   // per-candidate confidence (0–1), set on shortlist candidates
   [key: string]: unknown;
 }
 

@@ -10,9 +10,10 @@ import { book } from '../../app';
 import { openDatabase } from '../../indexedDB/index';
 import { lookupSource } from '../../sourceVerify/lookup';
 import { verifySource } from '../../sourceVerify/verify';
-import { renderSourceMatchPrompt } from '../../sourceVerify/prompt';
+import { renderSourceMatchList } from '../../sourceVerify/prompt';
 import { getRecord } from './helpers';
 import type { LibraryRecord } from '../../indexedDB/types';
+import type { SourceCandidate } from '../../sourceVerify/types';
 
 const NON_LINKING_METHODS = new Set(['user_rejected', 'no_match_v1']);
 
@@ -246,23 +247,34 @@ export async function handleCheckSource(self: any): Promise<void> {
     return;
   }
 
-  // A fresh match (`candidate`) OR an existing auto-link awaiting confirmation (`current`).
-  const candidate = result.candidate || result.current;
-  if (!candidate) {
+  // Shortlist = the top candidate (or an existing auto-link awaiting confirmation) + alternates,
+  // deduped by identifier. The confirm flow shows up to a few plausible matches to disambiguate.
+  const shortlist = dedupeCandidates(
+    [result.candidate || result.current, ...(result.alternates ?? [])].filter(
+      (c): c is SourceCandidate => !!c,
+    ),
+  );
+  if (!shortlist.length) {
     setMessage(section, 'No matching source found.');
     resetButton(section);
     return;
   }
 
+  // Per-row confidence: prefer each candidate's own match_score, falling back to the top-level
+  // score for the first row (identifier/DOI waves only carry the single top-level score).
+  const scores = shortlist.map((c, i) =>
+    typeof c.match_score === 'number' ? c.match_score : i === 0 ? result.score : null,
+  );
+
   const mount = document.createElement('div');
   mount.id = 'check-source-prompt';
   section.appendChild(mount);
 
-  renderSourceMatchPrompt(
+  renderSourceMatchList(
     mount,
-    candidate,
+    shortlist,
     {
-      onYes: async () => {
+      onSelect: async (candidate) => {
         mount.innerHTML = '<p style="font-size: 12px; color: var(--color-label); margin: 8px 0 0 0;">Linking…</p>';
         const verified = await verifySource(book, candidate);
         if (verified.success) {
@@ -281,11 +293,29 @@ export async function handleCheckSource(self: any): Promise<void> {
           resetButton(section);
         }
       },
-      onNo: () => {
+      onNone: () => {
         mount.remove();
         resetButton(section);
       },
     },
-    result.score,
+    scores,
   );
+}
+
+/** Collapse candidates that share an identifier (title-search + ISBN can surface the same work). */
+function dedupeCandidates(candidates: SourceCandidate[]): SourceCandidate[] {
+  const seen = new Set<string>();
+  const out: SourceCandidate[] = [];
+  for (const c of candidates) {
+    const key =
+      (c.doi && `doi:${c.doi}`) ||
+      (c.openalex_id && `oa:${c.openalex_id}`) ||
+      (c.open_library_key && `ol:${c.open_library_key}`) ||
+      (c.semantic_scholar_id && `ss:${c.semantic_scholar_id}`) ||
+      `t:${String(c.title ?? '').toLowerCase().trim()}|${c.year ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(c);
+  }
+  return out;
 }

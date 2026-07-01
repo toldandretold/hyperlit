@@ -379,6 +379,13 @@ export class SaveQueue implements IntegritySurface {
         }
         for (const bk of editedBooks) {
           if (bk) {
+            // Mark our own edit BEFORE broadcasting (mirrors the save path above) so the
+            // listener ignores this echo instead of firing the "edited in another tab"
+            // overlay on the tab's OWN deletions. Without this, a code-split TAB_ID race
+            // leaves the deletion path with no self-skip — e.g. creating a hyperlight/
+            // hypercite (which deletes+recreates nodes) popped the stale-tab overlay and
+            // blocked the selection toolbar.
+            markBookEditedLocally(bk);
             const bc = new BroadcastChannel('hyperlit-tab-coordination');
             bc.postMessage({ type: 'BOOK_EDITED', book: bk, tabId: TAB_ID });
             bc.close();

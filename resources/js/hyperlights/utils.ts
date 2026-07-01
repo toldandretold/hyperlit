@@ -31,14 +31,10 @@ export async function openHighlightById(
     await handleUnifiedContentClick(element, highlightIds, newHighlightIds);
   } else {
     console.log(`🎯 Mark element not found for ${highlightIds[0]}, using direct highlight ID approach`);
-    // Element doesn't exist yet (async loading), but we still have the highlight IDs
-    // Create a dummy element object that detectHighlights can work with
-    const dummyElement: any = {
-      classList: { filter: () => highlightIds },
-      tagName: 'MARK',
-      _isDummy: true
-    };
-    await handleUnifiedContentClick(dummyElement, highlightIds, newHighlightIds);
+    // The mark isn't in the DOM yet (async chunk load / rapid nav). Use the direct-ID
+    // path in handleUnifiedContentClick (element=null, directHyperciteId) — NOT a fake
+    // element object, which lacks .closest and throws mid-navigation (freezing back/forward).
+    await handleUnifiedContentClick(null, null, newHighlightIds, false, false, highlightIds[0]);
   }
 }
 

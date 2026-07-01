@@ -167,6 +167,16 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
   const logElement = element ? (element.id || element.tagName) : (directHyperciteId || 'No element');
   console.log("🎯 handleUnifiedContentClick called with:", { element: logElement, isBackNavigation, directHyperciteId, isProcessingClick: containerState.isProcessingClick });
 
+  // Defensive: a non-Element "element" (a legacy dummy object from openHighlightById,
+  // or a stale/detached ref during rapid back/forward restore) has NO DOM methods, so
+  // the element.closest(…) calls below throw "element.closest is not a function" —
+  // which aborts the in-flight navigation and freezes cross-book back/forward. Route it
+  // through the direct-ID path (element=null, directHyperciteId) instead of throwing.
+  if (element && typeof element.closest !== 'function') {
+    if (!directHyperciteId && highlightIds && highlightIds.length) directHyperciteId = highlightIds[0];
+    element = null;
+  }
+
   // 🔑 iOS Safari Keyboard Fix: Pre-focus a hidden input IMMEDIATELY (synchronously)
   // This preserves the user gesture chain so the keyboard will open later
   // The hidden input is positioned inside hyperlit-container so focus transfers naturally

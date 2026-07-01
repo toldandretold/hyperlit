@@ -60,30 +60,48 @@ export class SourceContainerManager extends (ContainerManager as any) {
     const editBtn = this.container.querySelector("#edit-source");
     const privacyBtn = this.container.querySelector("#privacy-toggle");
 
-    if (mdBtn) mdBtn.addEventListener("click", (e: any) => {
-      e.preventDefault();
-      e.stopPropagation();
-      exportBookAsMarkdown(book);
-    });
-    if (docxBtn) docxBtn.addEventListener("click", (e: any) => {
-      e.preventDefault();
-      e.stopPropagation();
-      exportBookAsDocxStyled(book);
-    });
+    if (mdBtn && !mdBtn._listenerAttached) {
+      mdBtn._listenerAttached = true;
+      mdBtn.addEventListener("click", (e: any) => {
+        e.preventDefault();
+        e.stopPropagation();
+        exportBookAsMarkdown(book);
+      });
+    }
+    if (docxBtn && !docxBtn._listenerAttached) {
+      docxBtn._listenerAttached = true;
+      docxBtn.addEventListener("click", (e: any) => {
+        e.preventDefault();
+        e.stopPropagation();
+        exportBookAsDocxStyled(book);
+      });
+    }
     const epubBtn = this.container.querySelector("#download-epub");
-    if (epubBtn) epubBtn.addEventListener("click", (e: any) => {
-      e.preventDefault();
-      e.stopPropagation();
-      exportBookAsEpub(book);
-    });
+    if (epubBtn && !epubBtn._listenerAttached) {
+      epubBtn._listenerAttached = true;
+      epubBtn.addEventListener("click", (e: any) => {
+        e.preventDefault();
+        e.stopPropagation();
+        exportBookAsEpub(book);
+      });
+    }
     const downloadAllBtn = this.container.querySelector("#download-all");
-    if (downloadAllBtn) downloadAllBtn.addEventListener("click", async (e: any) => {
-      e.preventDefault();
-      e.stopPropagation();
-      await downloadAllForBook(downloadAllBtn, book);
-    });
-    if (editBtn) editBtn.addEventListener("click", () => this.handleEditClick());
-    if (privacyBtn) privacyBtn.addEventListener("click", () => this.handlePrivacyToggle());
+    if (downloadAllBtn && !downloadAllBtn._listenerAttached) {
+      downloadAllBtn._listenerAttached = true;
+      downloadAllBtn.addEventListener("click", async (e: any) => {
+        e.preventDefault();
+        e.stopPropagation();
+        await downloadAllForBook(downloadAllBtn, book);
+      });
+    }
+    if (editBtn && !editBtn._listenerAttached) {
+      editBtn._listenerAttached = true;
+      editBtn.addEventListener("click", () => this.handleEditClick());
+    }
+    if (privacyBtn && !privacyBtn._listenerAttached) {
+      privacyBtn._listenerAttached = true;
+      privacyBtn.addEventListener("click", () => this.handlePrivacyToggle());
+    }
 
     // Creator tools toggle (lazy-load on first expand)
     // Guard against duplicate listeners from hideEditForm → attachInternalListeners
@@ -111,7 +129,8 @@ export class SourceContainerManager extends (ContainerManager as any) {
     }
 
     const aiReviewBtn = this.container.querySelector("#ai-review-btn");
-    if (aiReviewBtn && !aiReviewBtn.disabled) {
+    if (aiReviewBtn && !aiReviewBtn.disabled && !aiReviewBtn._listenerAttached) {
+      aiReviewBtn._listenerAttached = true;
       aiReviewBtn.addEventListener("click", (e: any) => {
         e.preventDefault();
         e.stopPropagation();
@@ -123,7 +142,8 @@ export class SourceContainerManager extends (ContainerManager as any) {
     }
 
     const aiCostToggle = this.container.querySelector('.ai-review-cost-info-toggle');
-    if (aiCostToggle) {
+    if (aiCostToggle && !aiCostToggle._listenerAttached) {
+      aiCostToggle._listenerAttached = true;
       const detail = this.container.querySelector('.ai-review-cost-info-detail');
       if (detail) {
         const toggle = () => { detail.style.display = detail.style.display === 'none' ? 'inline' : 'none'; };
@@ -133,7 +153,8 @@ export class SourceContainerManager extends (ContainerManager as any) {
     }
 
     const aiReviewGenerate = this.container.querySelector("#ai-review-generate");
-    if (aiReviewGenerate) {
+    if (aiReviewGenerate && !aiReviewGenerate._listenerAttached) {
+      aiReviewGenerate._listenerAttached = true;
       aiReviewGenerate.addEventListener("click", (e: any) => {
         e.preventDefault();
         e.stopPropagation();
@@ -142,7 +163,8 @@ export class SourceContainerManager extends (ContainerManager as any) {
     }
 
     const checkSourceBtn = this.container.querySelector("#check-source-btn");
-    if (checkSourceBtn) {
+    if (checkSourceBtn && !checkSourceBtn._listenerAttached) {
+      checkSourceBtn._listenerAttached = true;
       checkSourceBtn.addEventListener("click", (e: any) => {
         e.preventDefault();
         e.stopPropagation();

@@ -7,6 +7,11 @@ export interface MatchPromptHandlers {
   onNo: () => void;
 }
 
+export interface MatchListHandlers {
+  onSelect: (candidate: SourceCandidate) => void;
+  onNone: () => void;
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -54,5 +59,60 @@ export function renderSourceMatchPrompt(
     e.preventDefault();
     e.stopPropagation();
     handlers.onNo();
+  });
+}
+
+const CONF_STYLE = 'opacity:0.7;';
+
+/**
+ * "Is it one of these?" — a ranked shortlist of candidate sources, each selectable, plus a single
+ * "None of these" escape. Used by the [check source] flow, which now shows up to N plausible matches
+ * (including weak ones) for the user to disambiguate, rather than a single best guess. Scores align
+ * with candidates by index; a missing/non-number score just omits the match %.
+ */
+export function renderSourceMatchList(
+  mount: HTMLElement,
+  candidates: SourceCandidate[],
+  handlers: MatchListHandlers,
+  scores?: Array<number | null | undefined>,
+): void {
+  if (!candidates.length) return;
+
+  const heading = candidates.length === 1 ? 'Is this the source?' : 'Is it one of these?';
+
+  const rows = candidates
+    .map((c, i) => {
+      const score = scores?.[i];
+      const confidence = typeof score === 'number' ? ` <span style="${CONF_STYLE}">(${Math.round(score * 100)}% match)</span>` : '';
+      return `
+      <div class="source-match-row" data-idx="${i}" style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; ${i > 0 ? 'border-top: 1px solid var(--border-subtle);' : ''}">
+        <p class="source-match-citation" style="flex: 1; font-size: 13px; color: var(--color-text-secondary); margin: 0; line-height: 1.4;">${escapeHtml(formatCandidateCitation(c))}${confidence}</p>
+        <button type="button" class="source-match-select" data-idx="${i}" style="flex: 0 0 auto; padding: 5px 10px; font-size: 12px; color: #221F20; background: var(--hyperlit-aqua); border: none; border-radius: 4px; cursor: pointer; font-family: inherit;">This one</button>
+      </div>`;
+    })
+    .join('');
+
+  mount.innerHTML = `
+    <div class="source-match-prompt" style="margin-top: 10px; padding: 10px; border: 1px solid var(--border-subtle); border-radius: 6px;">
+      <p style="font-size: 12px; color: var(--color-label); margin: 0 0 4px 0;">${heading}</p>
+      ${rows}
+      <div style="margin-top: 8px;">
+        <button type="button" class="source-match-none" style="padding: 6px 12px; font-size: 12px; color: var(--color-label); background: transparent; border: 1px solid var(--border-subtle); border-radius: 4px; cursor: pointer; font-family: inherit;">None of these</button>
+      </div>
+    </div>`;
+
+  mount.querySelectorAll('.source-match-select').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = Number((btn as HTMLElement).getAttribute('data-idx'));
+      const chosen = candidates[idx];
+      if (chosen) handlers.onSelect(chosen);
+    });
+  });
+  mount.querySelector('.source-match-none')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handlers.onNone();
   });
 }

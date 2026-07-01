@@ -29,13 +29,15 @@ describe('openHighlightById', () => {
     expect(handleUnifiedContentClick).toHaveBeenCalledWith(mark, ['HL_x'], []);
   });
 
-  it('falls back to a dummy MARK element when the mark is not in the DOM', async () => {
+  it('routes through the direct-ID path (element=null, directId) when the mark is not in the DOM', async () => {
+    // Previously fabricated a fake MARK object with no DOM methods, which threw
+    // "element.closest is not a function" in handleUnifiedContentClick during rapid
+    // nav (froze cross-book back/forward). Now it uses the direct highlight-ID path.
     await openHighlightById('HL_absent', false, ['HL_new']);
-    const [el, ids, newIds] = handleUnifiedContentClick.mock.calls[0];
-    expect(el._isDummy).toBe(true);
-    expect(el.tagName).toBe('MARK');
-    expect(ids).toEqual(['HL_absent']);
+    const [el, ids, newIds, skipUrl, isBack, directId] = handleUnifiedContentClick.mock.calls[0];
+    expect(el).toBeNull();
     expect(newIds).toEqual(['HL_new']);
+    expect(directId).toBe('HL_absent');
   });
 });
 

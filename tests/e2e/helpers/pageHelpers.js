@@ -7,6 +7,11 @@ const IGNORED_ERROR_PATTERNS = [
   'cloudflareinsights.com',
   'cdn-cgi/rum',
   'net::ERR_FAILED',
+  // Resource-load noise from real book content (missing images / transient 5xx).
+  // This is asset-availability, not SPA-navigation correctness — genuinely broken
+  // JS/CSS/structure still surfaces via the structure + registry verifiers, not here.
+  // (e.g. "Failed to load resource: the server responded with a status of 404/503".)
+  'Failed to load resource',
 ];
 
 /**
