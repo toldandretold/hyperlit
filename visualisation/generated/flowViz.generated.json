@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1557,
-    "moduleCount": 332,
+    "fnCount": 1565,
+    "moduleCount": 337,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3186,
+    "edgeCount": 3203,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -5482,6 +5482,30 @@
       "leaf": false
     },
     {
+      "id": "divEditor/inputHandler:createInputHandler",
+      "label": "createInputHandler",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/inputHandler",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/keydownGuards/listItemBackspace:handleListItemBackspace",
+      "label": "handleListItemBackspace",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/keydownGuards/listItemBackspace",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard",
+      "label": "handleNoDeleteGuard",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/keydownGuards/noDeleteGuard",
+      "leaf": false
+    },
+    {
       "id": "divEditor/mutationProcessor:MutationProcessor.cancel",
       "label": "MutationProcessor.cancel",
       "kind": "fn",
@@ -5770,6 +5794,30 @@
       "leaf": true
     },
     {
+      "id": "divEditor/selectionFocusTracker:initSelectionFocusTracker",
+      "label": "initSelectionFocusTracker",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/selectionFocusTracker",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/selectionFocusTracker:rescueCaretFromSentinel",
+      "label": "rescueCaretFromSentinel",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/selectionFocusTracker",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/selectionFocusTracker:updateChunkFocus",
+      "label": "updateChunkFocus",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/selectionFocusTracker",
+      "leaf": true
+    },
+    {
       "id": "divEditor/supTagHandler/arrowHandler:hyperciteArrowHandler",
       "label": "hyperciteArrowHandler",
       "kind": "fn",
@@ -5840,6 +5888,14 @@
       "stage": "divEditor",
       "module": "divEditor/supTagHandler/index",
       "leaf": true
+    },
+    {
+      "id": "divEditor/videoDeleteHandler:createVideoDeleteHandler",
+      "label": "createVideoDeleteHandler",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/videoDeleteHandler",
+      "leaf": false
     },
     {
       "id": "dom",
@@ -9012,6 +9068,17 @@
       "stage": "infra",
       "module": "indexedDB/core/healthMonitor",
       "leaf": true
+    },
+    {
+      "id": "indexedDB/core/library:advanceBaseTimestamp",
+      "label": "advanceBaseTimestamp",
+      "kind": "fn",
+      "stage": "domain",
+      "module": "indexedDB/core/library",
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "indexedDB/core/library:buildLibraryUrl",
@@ -15527,6 +15594,33 @@
       ]
     },
     {
+      "id": "divEditor/inputHandler",
+      "label": "divEditor/inputHandler",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/inputHandler:createInputHandler"
+      ]
+    },
+    {
+      "id": "divEditor/keydownGuards/listItemBackspace",
+      "label": "divEditor/keydownGuards/listItemBackspace",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/keydownGuards/listItemBackspace:handleListItemBackspace"
+      ]
+    },
+    {
+      "id": "divEditor/keydownGuards/noDeleteGuard",
+      "label": "divEditor/keydownGuards/noDeleteGuard",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard"
+      ]
+    },
+    {
       "id": "divEditor/mutationProcessor",
       "label": "divEditor/mutationProcessor",
       "stage": "divEditor",
@@ -15595,6 +15689,17 @@
       ]
     },
     {
+      "id": "divEditor/selectionFocusTracker",
+      "label": "divEditor/selectionFocusTracker",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/selectionFocusTracker:initSelectionFocusTracker",
+        "divEditor/selectionFocusTracker:rescueCaretFromSentinel",
+        "divEditor/selectionFocusTracker:updateChunkFocus"
+      ]
+    },
+    {
       "id": "divEditor/supTagHandler/arrowHandler",
       "label": "divEditor/supTagHandler/arrowHandler",
       "stage": "divEditor",
@@ -15633,6 +15738,15 @@
         "divEditor/supTagHandler/index:SupTagHandler.constructor",
         "divEditor/supTagHandler/index:SupTagHandler.startListening",
         "divEditor/supTagHandler/index:SupTagHandler.stopListening"
+      ]
+    },
+    {
+      "id": "divEditor/videoDeleteHandler",
+      "label": "divEditor/videoDeleteHandler",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/videoDeleteHandler:createVideoDeleteHandler"
       ]
     },
     {
@@ -16641,6 +16755,7 @@
       "stage": "domain",
       "band": "sync",
       "fnIds": [
+        "indexedDB/core/library:advanceBaseTimestamp",
         "indexedDB/core/library:buildLibraryUrl",
         "indexedDB/core/library:cleanLibraryItemForStorage",
         "indexedDB/core/library:fetchLibraryRecordWithStatus",
@@ -20448,6 +20563,13 @@
       "dataPath": true
     },
     {
+      "id": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights__call__indexedDB/core/library:advanceBaseTimestamp",
+      "source": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
+      "target": "indexedDB/core/library:advanceBaseTimestamp",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights__call__indexedDB/core/library:updateLocalAnnotationsTimestamp",
       "source": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
       "target": "indexedDB/core/library:updateLocalAnnotationsTimestamp",
@@ -20912,9 +21034,9 @@
       "rel": "domwrite"
     },
     {
-      "id": "components/sourceContainer/editForm:syncLibraryRecordToBackend__call__indexedDB/core/connection:openDatabase",
+      "id": "components/sourceContainer/editForm:syncLibraryRecordToBackend__call__indexedDB/core/library:advanceBaseTimestamp",
       "source": "components/sourceContainer/editForm:syncLibraryRecordToBackend",
-      "target": "indexedDB/core/connection:openDatabase",
+      "target": "indexedDB/core/library:advanceBaseTimestamp",
       "rel": "call",
       "dataPath": true
     },
@@ -20923,12 +21045,6 @@
       "source": "components/sourceContainer/editForm:syncLibraryRecordToBackend",
       "target": "indexedDB/core/library:cleanLibraryItemForStorage",
       "rel": "call"
-    },
-    {
-      "id": "components/sourceContainer/editForm:syncLibraryRecordToBackend__write__store:library",
-      "source": "components/sourceContainer/editForm:syncLibraryRecordToBackend",
-      "target": "store:library",
-      "rel": "write"
     },
     {
       "id": "components/sourceContainer/helpers:getBookDownloadName__call__components/sourceContainer/helpers:getRecord",
@@ -22924,12 +23040,6 @@
       "rel": "domwrite"
     },
     {
-      "id": "divEditor/index:startObserving__call__components/tocContainer/index:checkAndInvalidateTocCache",
-      "source": "divEditor/index:startObserving",
-      "target": "components/tocContainer/index:checkAndInvalidateTocCache",
-      "rel": "call"
-    },
-    {
       "id": "divEditor/index:startObserving__call__divEditor/chunkManager:trackChunkNodeCount",
       "source": "divEditor/index:startObserving",
       "target": "divEditor/chunkManager:trackChunkNodeCount",
@@ -22941,12 +23051,6 @@
       "target": "divEditor/domUtilities:ensureMinimumDocumentStructure",
       "rel": "call",
       "dataPath": true
-    },
-    {
-      "id": "divEditor/index:startObserving__call__divEditor/editorState:queueNodeForSave",
-      "source": "divEditor/index:startObserving",
-      "target": "divEditor/editorState:queueNodeForSave",
-      "rel": "call"
     },
     {
       "id": "divEditor/index:startObserving__call__divEditor/editorState:setActiveSaveQueue",
@@ -22973,10 +23077,16 @@
       "rel": "call"
     },
     {
-      "id": "divEditor/index:startObserving__domwrite__dom",
+      "id": "divEditor/index:startObserving__call__divEditor/inputHandler:createInputHandler",
       "source": "divEditor/index:startObserving",
-      "target": "dom",
-      "rel": "domwrite"
+      "target": "divEditor/inputHandler:createInputHandler",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/index:startObserving__call__divEditor/videoDeleteHandler:createVideoDeleteHandler",
+      "source": "divEditor/index:startObserving",
+      "target": "divEditor/videoDeleteHandler:createVideoDeleteHandler",
+      "rel": "call"
     },
     {
       "id": "divEditor/index:stopObserving__call__divEditor/editorState:setActiveSaveQueue",
@@ -23001,6 +23111,42 @@
       "source": "divEditor/index:stopObserving",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/inputHandler:createInputHandler__call__components/tocContainer/index:checkAndInvalidateTocCache",
+      "source": "divEditor/inputHandler:createInputHandler",
+      "target": "components/tocContainer/index:checkAndInvalidateTocCache",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/inputHandler:createInputHandler__call__divEditor/editorState:queueNodeForSave",
+      "source": "divEditor/inputHandler:createInputHandler",
+      "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/keydownGuards/listItemBackspace:handleListItemBackspace__call__divEditor/editorState:queueNodeForSave",
+      "source": "divEditor/keydownGuards/listItemBackspace:handleListItemBackspace",
+      "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/keydownGuards/listItemBackspace:handleListItemBackspace__domwrite__dom",
+      "source": "divEditor/keydownGuards/listItemBackspace:handleListItemBackspace",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard__call__divEditor/domUtilities:findNextNoDeleteNode",
+      "source": "divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard",
+      "target": "divEditor/domUtilities:findNextNoDeleteNode",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard__call__divEditor/domUtilities:transferNoDeleteMarker",
+      "source": "divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard",
+      "target": "divEditor/domUtilities:transferNoDeleteMarker",
+      "rel": "call"
     },
     {
       "id": "divEditor/mutationProcessor:MutationProcessor.process__call__editToolbar/index:getEditToolbar",
@@ -23173,6 +23319,24 @@
       "rel": "domwrite"
     },
     {
+      "id": "divEditor/selectionFocusTracker:initSelectionFocusTracker__call__divEditor/editSessionManager:isEventInActiveDiv",
+      "source": "divEditor/selectionFocusTracker:initSelectionFocusTracker",
+      "target": "divEditor/editSessionManager:isEventInActiveDiv",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/selectionFocusTracker:initSelectionFocusTracker__call__divEditor/selectionFocusTracker:rescueCaretFromSentinel",
+      "source": "divEditor/selectionFocusTracker:initSelectionFocusTracker",
+      "target": "divEditor/selectionFocusTracker:rescueCaretFromSentinel",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/selectionFocusTracker:updateChunkFocus__call__editToolbar/index:getEditToolbar",
+      "source": "divEditor/selectionFocusTracker:updateChunkFocus",
+      "target": "editToolbar/index:getEditToolbar",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/supTagHandler/deleteHandler:supDeleteHandler__call__divEditor/editorState:queueNodeForDeletion",
       "source": "divEditor/supTagHandler/deleteHandler:supDeleteHandler",
       "target": "divEditor/editorState:queueNodeForDeletion",
@@ -23213,6 +23377,12 @@
     {
       "id": "divEditor/supTagHandler/escapeHandler:supEscapeHandler__domwrite__dom",
       "source": "divEditor/supTagHandler/escapeHandler:supEscapeHandler",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/videoDeleteHandler:createVideoDeleteHandler__domwrite__dom",
+      "source": "divEditor/videoDeleteHandler:createVideoDeleteHandler",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -24471,6 +24641,24 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__divEditor/inputHandler:createInputHandler",
+      "source": "dom",
+      "target": "divEditor/inputHandler:createInputHandler",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/keydownGuards/listItemBackspace:handleListItemBackspace",
+      "source": "dom",
+      "target": "divEditor/keydownGuards/listItemBackspace:handleListItemBackspace",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard",
+      "source": "dom",
+      "target": "divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__divEditor/saveQueue/index:SaveQueue.queueDeletion",
       "source": "dom",
       "target": "divEditor/saveQueue/index:SaveQueue.queueDeletion",
@@ -24549,6 +24737,18 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__divEditor/selectionFocusTracker:initSelectionFocusTracker",
+      "source": "dom",
+      "target": "divEditor/selectionFocusTracker:initSelectionFocusTracker",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/selectionFocusTracker:rescueCaretFromSentinel",
+      "source": "dom",
+      "target": "divEditor/selectionFocusTracker:rescueCaretFromSentinel",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__divEditor/supTagHandler/arrowHandler:hyperciteArrowHandler",
       "source": "dom",
       "target": "divEditor/supTagHandler/arrowHandler:hyperciteArrowHandler",
@@ -24564,6 +24764,12 @@
       "id": "dom__domread__divEditor/supTagHandler/escapeHandler:supEscapeHandler",
       "source": "dom",
       "target": "divEditor/supTagHandler/escapeHandler:supEscapeHandler",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/videoDeleteHandler:createVideoDeleteHandler",
+      "source": "dom",
+      "target": "divEditor/videoDeleteHandler:createVideoDeleteHandler",
       "rel": "domread"
     },
     {
@@ -30813,6 +31019,19 @@
       "source": "indexedDB/core/healthMonitor:reportIDBFailure",
       "target": "indexedDB/core/recoveryToast:updateIDBRecoveryToast",
       "rel": "call"
+    },
+    {
+      "id": "indexedDB/core/library:advanceBaseTimestamp__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/core/library:advanceBaseTimestamp",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/core/library:advanceBaseTimestamp__write__store:library",
+      "source": "indexedDB/core/library:advanceBaseTimestamp",
+      "target": "store:library",
+      "rel": "write"
     },
     {
       "id": "indexedDB/core/library:fetchLibraryRecordWithStatus__call__indexedDB/core/library:buildLibraryUrl",
@@ -37531,12 +37750,6 @@
       "rel": "read"
     },
     {
-      "id": "store:library__read__components/sourceContainer/editForm:syncLibraryRecordToBackend",
-      "source": "store:library",
-      "target": "components/sourceContainer/editForm:syncLibraryRecordToBackend",
-      "rel": "read"
-    },
-    {
       "id": "store:library__read__components/userContainer/anonymousTransfer:getAnonymousBooks",
       "source": "store:library",
       "target": "components/userContainer/anonymousTransfer:getAnonymousBooks",
@@ -37576,6 +37789,12 @@
       "id": "store:library__read__hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
       "source": "store:library",
       "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
+      "rel": "read"
+    },
+    {
+      "id": "store:library__read__indexedDB/core/library:advanceBaseTimestamp",
+      "source": "store:library",
+      "target": "indexedDB/core/library:advanceBaseTimestamp",
       "rel": "read"
     },
     {
@@ -39550,6 +39769,11 @@
     },
     {
       "source": "components/sourceContainer/editForm",
+      "target": "indexedDB/core/library",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/editForm",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -40055,11 +40279,6 @@
     },
     {
       "source": "divEditor/index",
-      "target": "components/tocContainer/index",
-      "kind": "static"
-    },
-    {
-      "source": "divEditor/index",
       "target": "divEditor/chunkManager",
       "kind": "static"
     },
@@ -40090,6 +40309,11 @@
     },
     {
       "source": "divEditor/index",
+      "target": "divEditor/inputHandler",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/index",
       "target": "divEditor/mutationProcessor",
       "kind": "static"
     },
@@ -40100,7 +40324,7 @@
     },
     {
       "source": "divEditor/index",
-      "target": "divEditor/selectionDelete",
+      "target": "divEditor/selectionFocusTracker",
       "kind": "static"
     },
     {
@@ -40110,7 +40334,7 @@
     },
     {
       "source": "divEditor/index",
-      "target": "editToolbar/index",
+      "target": "divEditor/videoDeleteHandler",
       "kind": "static"
     },
     {
@@ -40126,6 +40350,26 @@
     {
       "source": "divEditor/index",
       "target": "paste/pasteState",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/inputHandler",
+      "target": "components/tocContainer/index",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/inputHandler",
+      "target": "divEditor/editorState",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/keydownGuards/listItemBackspace",
+      "target": "divEditor/editorState",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/keydownGuards/noDeleteGuard",
+      "target": "divEditor/domUtilities",
       "kind": "static"
     },
     {
@@ -40197,6 +40441,21 @@
       "source": "divEditor/selectionDelete",
       "target": "hypercites/database",
       "kind": "lazy"
+    },
+    {
+      "source": "divEditor/selectionFocusTracker",
+      "target": "divEditor/chunkManager",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/selectionFocusTracker",
+      "target": "divEditor/editSessionManager",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/selectionFocusTracker",
+      "target": "editToolbar/index",
+      "kind": "static"
     },
     {
       "source": "divEditor/supTagHandler/deleteHandler",

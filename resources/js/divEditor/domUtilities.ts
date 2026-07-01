@@ -640,13 +640,18 @@ export function transferNoDeleteMarker(fromNode: HTMLElement | null, toNode: HTM
  * Find a suitable node to receive the no-delete-id marker
  * Looks for the first numerical ID node in the chunk (or main-content if no chunk)
  */
-export function findNextNoDeleteNode(chunk: HTMLElement | null = null): HTMLElement | null {
+export function findNextNoDeleteNode(
+  chunk: HTMLElement | null = null,
+  excludeNode: HTMLElement | null = null,
+): HTMLElement | null {
   const searchRoot = chunk || document.querySelector('.main-content');
   if (!searchRoot) return null;
 
-  // Find all nodes with numerical IDs (excluding sentinels)
+  // Find all nodes with numerical IDs (excluding sentinels and the excluded node)
   const allNodes = findAllNumericalIdNodesInChunks(searchRoot as HTMLElement);
-  const nonSentinelNodes = allNodes.filter(node => !node.id.includes('-sentinel'));
+  const nonSentinelNodes = allNodes.filter(
+    node => !node.id.includes('-sentinel') && node !== excludeNode,
+  );
 
   // Return the first one (if any)
   return nonSentinelNodes.length > 0 ? nonSentinelNodes[0]! : null;

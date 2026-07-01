@@ -327,7 +327,7 @@ export function renderPipelineViz(self: any, pipeline: any) {
 export async function syncPipelineHighlights(self: any, bookId: any) {
   try {
     const { syncAnnotationsOnly } = await import('../../../indexedDB/serverSync/index');
-    const { updateLocalAnnotationsTimestamp } = await import('../../../indexedDB/core/library');
+    const { updateLocalAnnotationsTimestamp, advanceBaseTimestamp } = await import('../../../indexedDB/core/library');
 
     // Sync highlights + hypercites from server into IndexedDB
     await syncAnnotationsOnly(bookId);
@@ -341,6 +341,11 @@ export async function syncPipelineHighlights(self: any, bookId: any) {
       const libData = await libResp.json();
       if (libData.success && libData.library?.annotations_updated_at) {
         await updateLocalAnnotationsTimestamp(bookId, libData.library.annotations_updated_at);
+      }
+      // The AI review also bumps the CONTENT `timestamp` server-side (BackendHighlightService), so
+      // catch the optimistic base up to it — otherwise the next node edit false-409s. See advanceBaseTimestamp.
+      if (libData.success && libData.library?.timestamp) {
+        await advanceBaseTimestamp(bookId, libData.library.timestamp);
       }
     }
 

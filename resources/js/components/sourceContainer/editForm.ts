@@ -5,6 +5,7 @@
 // SourceContainerManager instance as `self`; the class delegates to these and
 // is the single dispatch hub, so peer calls go through `self.*`.
 import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from '../../indexedDB/index';
+import { advanceBaseTimestamp } from '../../indexedDB/core/library';
 import type { LibraryRecord } from '../../indexedDB/types';
 import { generateBibtexFromForm } from '../../utilities/bibtexProcessor';
 import { book } from '../../app';
@@ -663,35 +664,10 @@ export async function syncLibraryRecordToBackend(self: any, libraryRecord: Libra
 
   const result = await response.json();
 
-  // Catch the optimistic-concurrency base up to the server's confirmed post-save version.
-  // A library save bumps the book's server `timestamp`; without also advancing our frozen
-  // `base_timestamp`, the next node edit compares against the stale open-time base and the
-  // server false-positives a "Book out of date" 409. We only adopt the value the server
-  // CONFIRMED (result.library.timestamp — it honours the server's never-downgrade guard),
-  // mirroring the advance the unified node sync already does on success (syncQueue/master.ts).
-  const confirmedTs = Number(result?.library?.timestamp ?? libraryRecord.timestamp);
-  if (Number.isFinite(confirmedTs) && confirmedTs > 0) {
-    try {
-      const db = await openDatabase();
-      const tx = db.transaction("library", "readwrite");
-      const store = tx.objectStore("library");
-      const rec = await new Promise<LibraryRecord | undefined>((resolve, reject) => {
-        const r = store.get(libraryRecord.book);
-        r.onsuccess = () => resolve(r.result as LibraryRecord | undefined);
-        r.onerror = () => reject(r.error);
-      });
-      if (rec && rec.base_timestamp !== confirmedTs) {
-        rec.base_timestamp = confirmedTs;
-        await new Promise<void>((resolve, reject) => {
-          const w = store.put(rec);
-          w.onsuccess = () => resolve();
-          w.onerror = () => reject(w.error);
-        });
-      }
-    } catch (e) {
-      console.warn("Could not advance base_timestamp after library save:", e);
-    }
-  }
+  // A library save bumps the book's server `timestamp`; catch our frozen `base_timestamp` up to
+  // the server's CONFIRMED value (result.library.timestamp) so the next node edit doesn't
+  // false-409. Shared with the AI-review path; the unified node sync does its own advance.
+  await advanceBaseTimestamp(libraryRecord.book, result?.library?.timestamp ?? libraryRecord.timestamp);
 
   return result;
 }

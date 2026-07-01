@@ -41,11 +41,15 @@ export function destroySourceButtonListener() {
     // Close container if open and reset animation state
     sourceManager.stopAiReviewPolling();
     if (sourceManager.isOpen && sourceManager.container) {
-      sourceManager.container.classList.add("hidden");
-      sourceManager.container.classList.remove("open");
       sourceManager.isOpen = false;
       sourceManager.isInEditMode = false;
       (window as any).activeContainer = "main-content";
+      // updateState() (isOpen=false) removes .open, clears #source-overlay.active, and
+      // unfreezes frozen elements — the hand-toggling below missed the overlay, so a
+      // stale full-screen #source-overlay.active survived teardown (notably on a bfcache
+      // restore after navigating away via an in-container link) and blocked page scroll.
+      sourceManager.updateState();
+      sourceManager.container.classList.add("hidden");
     }
     sourceManager.isAnimating = false;
 

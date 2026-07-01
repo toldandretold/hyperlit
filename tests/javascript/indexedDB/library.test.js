@@ -25,6 +25,7 @@ import {
   updateAnnotationsTimestamp,
   syncFirstNodeToTitle,
   updateLocalAnnotationsTimestamp,
+  advanceBaseTimestamp,
   getAllOfflineAvailableBooks,
   initLibraryDependencies,
 } from '../../../resources/js/indexedDB/core/library';
@@ -146,6 +147,30 @@ describe('core/library.js (characterization)', () => {
 
     expect((await readOne('library', 'bookA')).annotations_updated_at).toBe(12345);
     expect(pendingSyncs.size).toBe(0);
+  });
+
+  it('advanceBaseTimestamp raises base to the server-confirmed version (catch-up after a library write)', async () => {
+    await seedStore('library', [{ book: 'bookA', title: 'A', timestamp: 5000, base_timestamp: 1000 }]);
+
+    await advanceBaseTimestamp('bookA', 5000);
+
+    // Base caught up to the confirmed server version so the next node edit won't false-409.
+    expect((await readOne('library', 'bookA')).base_timestamp).toBe(5000);
+  });
+
+  it('advanceBaseTimestamp is monotonic — never lowers the base, and no-ops on invalid input', async () => {
+    await seedStore('library', [{ book: 'bookA', title: 'A', timestamp: 5000, base_timestamp: 5000 }]);
+
+    await advanceBaseTimestamp('bookA', 3000);   // older/stale response — must NOT drag base back
+    expect((await readOne('library', 'bookA')).base_timestamp).toBe(5000);
+
+    await advanceBaseTimestamp('bookA', undefined); // non-finite → no-op
+    await advanceBaseTimestamp('bookA', 0);         // <= 0 → no-op
+    expect((await readOne('library', 'bookA')).base_timestamp).toBe(5000);
+  });
+
+  it('advanceBaseTimestamp no-ops (no throw) when the book has no record', async () => {
+    await expect(advanceBaseTimestamp('missing', 9999)).resolves.toBeUndefined();
   });
 
   it('getAllOfflineAvailableBooks requires nodes, drops synthetic books, sorts newest first', async () => {

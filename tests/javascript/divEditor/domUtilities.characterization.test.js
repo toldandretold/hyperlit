@@ -63,6 +63,27 @@ describe('no-delete-id marker system', () => {
     document.body.appendChild(host);
     expect(findNextNoDeleteNode(host).id).toBe('1');
   });
+
+  // Regression: the marker is seeded on the FIRST node (e.g. the <h1> title, id "100").
+  // Without excludeNode, findNextNoDeleteNode returns that same first node, so the keydown
+  // guard's `nextNode !== elementWithId` check fails and it wrongly refuses deletion even
+  // though other nodes exist. excludeNode lets the guard transfer the marker elsewhere.
+  it('findNextNoDeleteNode(host, excludeNode) skips the marked node and returns the next', () => {
+    const host = document.createElement('div'); host.className = 'main-content';
+    host.innerHTML = '<div id="b-top-sentinel"></div><p id="1">a</p><p id="2">b</p>';
+    document.body.appendChild(host);
+    const first = host.querySelector('[id="1"]');
+    expect(findNextNoDeleteNode(host, first).id).toBe('2');
+  });
+
+  it('findNextNoDeleteNode returns null when the excluded node is the only content node', () => {
+    const host = document.createElement('div'); host.className = 'main-content';
+    host.innerHTML = '<div id="b-top-sentinel"></div><p id="1">only</p>';
+    document.body.appendChild(host);
+    const only = host.querySelector('[id="1"]');
+    // Genuinely the last node — the guard must still refuse (document never goes empty).
+    expect(findNextNoDeleteNode(host, only)).toBeNull();
+  });
 });
 
 describe('cleanupStyledSpans', () => {

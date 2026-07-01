@@ -661,9 +661,12 @@ export class ImportBookTransition {
 
       // Save the authoritative library record from server immediately
       if (result.library) {
+        // Server record has no client-only base_timestamp; freeze it at the server version we're
+        // adopting (mirror the pull path) so it isn't dropped → no false 409 on the next node edit.
+        const serverLibrary = { ...result.library, base_timestamp: result.library.timestamp };
         const db = await openDatabase();
         const tx = db.transaction('library', 'readwrite');
-        tx.objectStore('library').put(result.library);
+        tx.objectStore('library').put(serverLibrary);
         await new Promise<void>((resolve, reject) => {
           tx.oncomplete = () => resolve();
           tx.onerror = () => reject(tx.error);
@@ -697,9 +700,10 @@ export class ImportBookTransition {
           // Update IndexedDB library record with server-extracted metadata
           if (completedResult?.updatedLibrary) {
             try {
+              const updatedLibrary = { ...completedResult.updatedLibrary, base_timestamp: completedResult.updatedLibrary.timestamp };
               const db = await openDatabase();
               const tx = db.transaction('library', 'readwrite');
-              tx.objectStore('library').put(completedResult.updatedLibrary);
+              tx.objectStore('library').put(updatedLibrary);
               await new Promise<void>((resolve, reject) => {
                 tx.oncomplete = () => resolve();
                 tx.onerror = () => reject(tx.error);

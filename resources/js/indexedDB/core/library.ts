@@ -328,6 +328,41 @@ export async function updateLocalAnnotationsTimestamp(bookId: BookId, timestamp:
 }
 
 /**
+ * Advance a book's client-only optimistic base (`base_timestamp`) to the server's CONFIRMED library
+ * version, so the NEXT node sync compares against the version we just wrote — not a stale open-time
+ * base — and doesn't false-409. Call this after ANY path that bumps the server's `library.timestamp`
+ * (library upsert, AI-review re-sync, …); the unified node sync already does its own advance inline.
+ *
+ * Monotonic: it never LOWERS the base, so a stale/racy response can't drag it backwards and
+ * re-introduce a false conflict. Best-effort — a failure here only warns, never breaks the caller.
+ */
+export async function advanceBaseTimestamp(bookId: BookId, confirmedTs: unknown): Promise<void> {
+  const ts = Number(confirmedTs);
+  if (!Number.isFinite(ts) || ts <= 0) return;
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction("library", "readwrite");
+    const store = tx.objectStore("library");
+    const record = await new Promise<LibraryRecord | undefined>((resolve, reject) => {
+      const req = store.get(bookId);
+      req.onsuccess = () => resolve(req.result as LibraryRecord | undefined);
+      req.onerror = () => reject(req.error);
+    });
+    if (!record) return;
+    if (ts > (record.base_timestamp ?? 0)) {
+      record.base_timestamp = ts;
+      await new Promise<void>((resolve, reject) => {
+        const put = store.put(record);
+        put.onsuccess = () => resolve();
+        put.onerror = () => reject(put.error);
+      });
+    }
+  } catch (e) {
+    console.warn("Could not advance base_timestamp:", e);
+  }
+}
+
+/**
  * Build the GET .../library API URL, splitting a sub-book id ("parentBook/subId", e.g.
  * "book_123/Fn456" or a deeper "book_123/2/HL_1/Fn_2") into the multi-segment route the
  * server exposes. A sub-book id in the single `{bookId}` slot NEVER matched a route:

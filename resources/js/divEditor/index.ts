@@ -15,8 +15,6 @@ import {
           } from "../indexedDB/index.js";
 import {
   withPending,
-  chunkOverflowInProgress,
-  currentObservedChunk,
   setCurrentObservedChunk,
   hypercitePasteInProgress,
   keyboardLayoutInProgress,
@@ -32,9 +30,6 @@ import { SaveQueue } from './saveQueue';
 import { debounce } from '../utilities/debounce';
 // Shared editor state + enqueue API — extracted to a leaf to break the index↔handler cycle.
 import { movedNodesByOverflow, queueNodeForSave, queueNodeForDeletion, setActiveSaveQueue } from './editorState';
-// Resolve the TRUE top-level node (not an innermost phantom) + clean stray
-// descendant ids — see utilities/nodeResolve for why broken-image delete needs it.
-import { resolveTopLevelNode, stripPhantomDescendantIds } from '../utilities/nodeResolve';
 export { movedNodesByOverflow, queueNodeForSave, queueNodeForDeletion };
 import { MutationProcessor } from './mutationProcessor';
 import { EnterKeyHandler } from './enterKeyHandler/index';
@@ -44,7 +39,6 @@ import {
   registerEditSession,
   unregisterEditSession,
   verifyMutationSource,
-  isEventInActiveDiv,
   getActiveEditSession,
   setPreemptStop
 } from './editSessionManager';
@@ -57,10 +51,9 @@ import {
   cleanupAfterImport,
   cleanupAfterPaste,
   getNoDeleteNode,
-  setNoDeleteMarker,
-  findNextNoDeleteNode,
-  transferNoDeleteMarker
+  setNoDeleteMarker
 } from './domUtilities';
+import { handleNoDeleteGuard, handleListItemBackspace } from './keydownGuards/index';
 
 // Re-export for backward compatibility
 export {
@@ -76,25 +69,14 @@ import { glowCloudOrange, glowCloudGreen, isProcessing } from '../components/clo
 import { verbose } from '../utilities/logger';
 
 import { buildBibtexEntry } from "../utilities/bibtexProcessor";
-import { generateIdBetween,
-         setElementIds,
-         isNumericalId,
-         ensureNodeHasValidId,
-         asLineId,
-         NUMERICAL_ID_PATTERN,
-         findPreviousElementId,
-         findNextElementId,
-         type BookId,
-         type LineId,
-          } from "../utilities/idHelpers";
+import { type BookId } from "../utilities/idHelpers";
+import { createVideoDeleteHandler } from './videoDeleteHandler';
+import { createInputHandler, type InputHandler } from './inputHandler';
 import {
   broadcastToOpenTabs
 } from '../utilities/BroadcastListener';
 
 import { convertMarkdownToHtml, parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
-import { BLOCK_ELEMENT_SELECTOR } from '../utilities/blockElements';
-import { listItemIsEmpty, placeCaretAtEndOfListItem } from '../utilities/listItemCaret';
-import { stripInlineStylePreservingIntensity } from '../utilities/stripInlineStyle';
 
 import {
   trackChunkNodeCount,
@@ -105,10 +87,8 @@ import {
 } from './chunkManager';
 import { isPasteOperationActive } from '../paste/pasteState';
 import { isChunkLoadingInProgress, getLoadingChunkId } from '../lazyLoader/utilities/chunkLoadingState';
-import { SelectionDeletionHandler } from './selectionDelete';
-import { getEditToolbar } from '../editToolbar/index';
 import { delinkHypercite, handleHyperciteDeletion } from "../hypercites/index";
-import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../components/tocContainer/index';
+import { initSelectionFocusTracker } from './selectionFocusTracker';
 
 // ================================================================
 // MODULE STATE
@@ -127,7 +107,6 @@ const removedNodeIds = new Set<string>(); // Track IDs of removed nodes.
 
 let observer: MutationObserver | null = null;
 let documentChanged = false;
-let debounceTimer = null;
 
 // Per-chunk cache — NOT "which chunk is observed" (the
 // observer always watches the whole container, below).
@@ -145,36 +124,10 @@ let debounceTimer = null;
 // just owns the Map (hands it to the handler, clears it on
 // teardown); it never reads it.
 let observedChunks = new Map();
-let deletionHandler = null;
 
-// 🚀 PERFORMANCE: Input event handler for text changes (replaces characterData observer)
-let inputEventHandler: ((e: Event) => void) | null = null;
-let debouncedInputHandlerRef: ReturnType<typeof debounce> | null = null; // Reference to debounced handler for flushing on close
-let isComposing = false; // Track mobile IME composition state
-
-// 🚀 PERFORMANCE: Cache for input handler parent lookups (50-90% faster)
-const elementToNumericalParent = new WeakMap();
-
-// 🛡️ SAFETY NET: Track last input node ID so flush can save even when selection moves
-// (e.g., user clicks overlay to close within 200ms debounce window)
-let lastInputNodeId: LineId | null = null;
-
-// 🚀 PERFORMANCE: Helper to clear input handler cache during idle time
-function clearInputHandlerCache() {
-  // WeakMaps can't be cleared directly, but we can invalidate by creating new one
-  // However, WeakMaps auto-cleanup when keys are GC'd, so this is mostly for large structural changes
-  const logCacheClear = () => {
-    verbose.content('Input handler cache will auto-clear via WeakMap GC', 'divEditor/index.js');
-  };
-
-  // Use requestIdleCallback to avoid blocking main thread
-  if (window.requestIdleCallback) {
-    window.requestIdleCallback(logCacheClear);
-  } else {
-    // Fallback to immediate execution (it's just logging anyway)
-    logCacheClear();
-  }
-}
+// 🚀 PERFORMANCE: Input event pipeline (debounced input + IME composition) — logic and its
+// state (isComposing / lastInputNodeId / parent-lookup cache) live in inputHandler.ts.
+let inputHandler: InputHandler | null = null;
 
 // 🔧 FIX 7b: Track video delete handler for cleanup
 let videoDeleteHandler: ((e: MouseEvent) => void) | null = null;
@@ -245,8 +198,8 @@ export function getPendingSaveNodeIds(): Set<string> {
 // This forces the 200ms debounced input handler to execute immediately
 export function flushInputDebounce() {
   verbose.content('[EditSession] Flushing input debounce...', 'divEditor/index.js');
-  if (debouncedInputHandlerRef) {
-    debouncedInputHandlerRef.flush();
+  if (inputHandler) {
+    inputHandler.flush();
     verbose.content('[EditSession] Input debounce flushed', 'divEditor/index.js');
   } else {
     verbose.content('[EditSession] No input debounce to flush', 'divEditor/index.js');
@@ -302,158 +255,12 @@ export async function startObserving(editableDiv: HTMLElement, bookId: BookId | 
     editableDiv.removeEventListener('click', videoDeleteHandler);
   }
 
-  // Create named function so we can remove it later
-  videoDeleteHandler = (e: any) => {
-    const deleteBtn = e.target.closest('[data-action="delete-video"], [data-action="delete-broken-image"]');
-    if (!deleteBtn) return; // Early exit for performance
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    const isImage = deleteBtn.dataset.action === 'delete-broken-image';
-
-    if (isImage) {
-      const wrapper = deleteBtn.closest('.broken-image-wrapper');
-      if (!wrapper) return;
-
-      // ✅ Resolve the REAL top-level node (e.g. the <figure>), NOT an innermost
-      // phantom node that backend conversion may have stamped inside it. Using
-      // wrapper.closest('[data-node-id]') here climbed to a ghost <p>/<button>
-      // inside the figure, so the figure's stored content was never updated and
-      // the broken image returned on refresh. See utilities/nodeResolve.
-      const nodeEl = resolveTopLevelNode(wrapper, editableDiv);
-      console.log(`🗑️ Deleting broken image in node: ${nodeEl?.id}`);
-
-      if (!nodeEl) {
-        wrapper.remove();
-        return;
-      }
-
-      const lineId = nodeEl.id ? asLineId(nodeEl.id) : null;
-      // When the <picture>/<img> IS the node, the wrapper we created sits OUTSIDE
-      // the node element (it contains it) — so the node holds nothing but the
-      // image and deleting the image means deleting the whole node.
-      const nodeInsideWrapper = wrapper.contains(nodeEl);
-
-      let deleteWholeNode = nodeInsideWrapper;
-      let focusTarget: Element | null = null;
-
-      if (nodeInsideWrapper) {
-        // Remove the whole node (the wrapper carries it out of the DOM). The
-        // MutationObserver can't see a numeric-id removal when a non-id wrapper
-        // is removed, so we persist the deletion explicitly below.
-        focusTarget = wrapper.nextElementSibling || wrapper.previousElementSibling;
-        wrapper.remove();
-      } else {
-        // The image is one part of a richer node → drop just the image subtree.
-        wrapper.remove();
-        // 🧹 Strip phantom numeric id / data-node-id off descendants so the node
-        // persists as a single clean record (defensive for already-imported
-        // books that have these baked in).
-        stripPhantomDescendantIds(nodeEl);
-
-        const hasMedia = !!nodeEl.querySelector('img, picture, iframe, video');
-        if (nodeEl.textContent.trim() === '' && !hasMedia) {
-          // Nothing meaningful left — delete the whole node rather than leaving
-          // an empty shell (e.g. <figure><br></figure>).
-          deleteWholeNode = true;
-          focusTarget = nodeEl.nextElementSibling || nodeEl.previousElementSibling;
-          nodeEl.remove();
-        } else {
-          focusTarget = nodeEl;
-        }
-      }
-
-      if (deleteWholeNode) {
-        // deletionMap is keyed by lineId, so this is idempotent even if the
-        // MutationObserver also catches the figure-shell removal.
-        if (lineId && saveQueue) {
-          saveQueue.queueDeletion(lineId, nodeEl, bookId);
-        }
-        console.log(`✅ Broken image removed (node ${lineId ?? '?'} deleted)`);
-      } else {
-        // Explicit save — don't rely on MutationObserver alone
-        if (lineId && saveQueue) {
-          saveQueue.queueNode(lineId, 'update');
-        }
-        console.log(`✅ Broken image removed`);
-      }
-
-      if (focusTarget && (focusTarget as HTMLElement).isConnected) {
-        const range = document.createRange();
-        const selection: any = window.getSelection();
-        range.selectNodeContents(focusTarget);
-        range.collapse(false);
-        selection.removeAllRanges();
-        selection.addRange(range);
-      }
-    } else {
-      // Video embed: the .video-embed IS the node element
-      const videoEmbed = deleteBtn.closest('.video-embed');
-      if (!videoEmbed || !videoEmbed.id) return;
-
-      console.log(`🗑️ Deleting video embed: ${videoEmbed.id}`);
-
-        // Check for adjacent content to focus cursor
-        let focusTarget = null;
-        let focusAtEnd = false;
-
-        const nextSibling = videoEmbed.nextElementSibling;
-        const prevSibling = videoEmbed.previousElementSibling;
-
-        // Prefer next sibling, fall back to previous
-        if (nextSibling && nextSibling.matches('p, h1, h2, h3, h4, h5, h6, div, blockquote, pre, li')) {
-          focusTarget = nextSibling;
-          focusAtEnd = false; // Place cursor at start
-        } else if (prevSibling && prevSibling.matches('p, h1, h2, h3, h4, h5, h6, div, blockquote, pre, li')) {
-          focusTarget = prevSibling;
-          focusAtEnd = true; // Place cursor at end
-        }
-
-        if (focusTarget) {
-          // Remove video and focus existing adjacent content
-          videoEmbed.remove();
-
-          const range = document.createRange();
-          const selection: any = window.getSelection();
-
-          // Find first text node or use element itself
-          const textNode = focusTarget.firstChild;
-          if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-            range.setStart(textNode, focusAtEnd ? textNode.length : 0);
-          } else {
-            range.selectNodeContents(focusTarget);
-            range.collapse(!focusAtEnd);
-          }
-
-          selection.removeAllRanges();
-          selection.addRange(range);
-
-          console.log(`✅ Video embed removed, cursor ${focusAtEnd ? 'at end of' : 'at start of'} ${focusTarget.tagName.toLowerCase()}`);
-        } else {
-          // No adjacent content - create replacement paragraph
-          const replacementP = document.createElement('p');
-          replacementP.id = videoEmbed.id;
-          if (videoEmbed.hasAttribute('data-node-id')) {
-            replacementP.setAttribute('data-node-id', videoEmbed.getAttribute('data-node-id'));
-          }
-          replacementP.innerHTML = '<br>';
-
-          videoEmbed.parentNode.insertBefore(replacementP, videoEmbed);
-          videoEmbed.remove();
-
-          // Set cursor to new paragraph
-          const range = document.createRange();
-          const selection: any = window.getSelection();
-          range.setStart(replacementP, 0);
-          range.collapse(true);
-          selection.removeAllRanges();
-          selection.addRange(range);
-
-          console.log(`✅ Video embed ${replacementP.id} replaced with paragraph (standalone video)`);
-        }
-      }
-  };
+  // Create named function so we can remove it later (logic lives in videoDeleteHandler.ts)
+  videoDeleteHandler = createVideoDeleteHandler({
+    editableDiv,
+    bookId,
+    getSaveQueue: () => saveQueue,
+  });
 
   // Attach the handler
   editableDiv.addEventListener('click', videoDeleteHandler);
@@ -465,126 +272,10 @@ export async function startObserving(editableDiv: HTMLElement, bookId: BookId | 
   supTagHandler = new SupTagHandler(editableDiv);
   supTagHandler.startListening();
 
-  // 🚀 PERFORMANCE: Handle text input via debounced input event instead of characterData observer
-  // This dramatically reduces mutation events during typing
-  debouncedInputHandlerRef = debounce((e: any) => {
-    verbose.user(`INPUT EVENT: ${e.type} ${e.inputType}, isEditing: ${(window as any).isEditing}, isComposing: ${isComposing}`, 'divEditor/index.js');
-    if (!(window as any).isEditing || isComposing) {
-      verbose.user('INPUT HANDLER: Skipped (not editing or composing)', 'divEditor/index.js');
-      return; // Skip during mobile IME composition
-    }
-
-    // Get the actual element where the cursor is, not e.target (which is always the contenteditable container)
-    const selection: any = window.getSelection();
-    verbose.user(`SELECTION: ${selection ? 'exists' : 'null'}, rangeCount: ${selection?.rangeCount}`, 'divEditor/index.js');
-    if (!selection || !selection.rangeCount) {
-      // 🛡️ Selection gone (e.g., user clicked overlay during debounce) — use cached node ID
-      if (lastInputNodeId) {
-        verbose.user(`FALLBACK: No selection, using lastInputNodeId: ${lastInputNodeId}`, 'divEditor/index.js');
-        queueNodeForSave(lastInputNodeId, 'update');
-      } else {
-        verbose.user('INPUT HANDLER: No selection and no lastInputNodeId', 'divEditor/index.js');
-      }
-      return;
-    }
-
-    let targetElement = selection.getRangeAt(0).startContainer;
-
-    // If it's a text node, get its parent element
-    if (targetElement.nodeType === Node.TEXT_NODE) {
-      targetElement = targetElement.parentElement;
-    }
-
-    if (!targetElement) {
-      verbose.user('INPUT HANDLER: No target element', 'divEditor/index.js');
-      return;
-    }
-    verbose.user(`TARGET ELEMENT: ${targetElement.nodeName}, id: ${targetElement.id}`, 'divEditor/index.js');
-
-    // 🚀 PERFORMANCE: Check cache first (50-90% faster on repeat keystrokes)
-    let parentWithId = elementToNumericalParent.get(targetElement);
-    verbose.user(`CACHE CHECK: ${parentWithId ? `found ${parentWithId.id}` : 'cache miss'}`, 'divEditor/index.js');
-
-    if (!parentWithId) {
-      // Cache miss - do expensive lookup
-      parentWithId = targetElement.closest('[id]');
-      verbose.user(`CLOSEST [id]: ${parentWithId ? parentWithId.id : 'none found'}`, 'divEditor/index.js');
-
-      while (parentWithId && !NUMERICAL_ID_PATTERN.test(parentWithId.id)) {
-        parentWithId = parentWithId.parentElement?.closest('[id]');
-        verbose.user(`PARENT SEARCH: ${parentWithId ? parentWithId.id : 'no match'}`, 'divEditor/index.js');
-      }
-
-      // Cache the result for future lookups
-      if (parentWithId) {
-        elementToNumericalParent.set(targetElement, parentWithId);
-      }
-    }
-
-    if (parentWithId?.id) {
-      lastInputNodeId = parentWithId.id;
-      // Strip browser-injected inline style attributes (e.g. font-family from execCommand)
-      // Keeps the live DOM clean — batch.js already strips on save, this fixes it sooner.
-      // Preserve the *-intensity custom properties (hyperlight/hypercite opacity) so marks
-      // don't go invisible mid-edit — same as batch.js, so DOM and IndexedDB stay in sync.
-      parentWithId.querySelectorAll('[style]').forEach((el: any) => {
-        if (!el.matches(BLOCK_ELEMENT_SELECTOR + ', li')) {
-          stripInlineStylePreservingIntensity(el);
-        }
-      });
-      verbose.content(`Input event: queueing ${parentWithId.id} for update`, 'divEditor/index.js');
-      queueNodeForSave(parentWithId.id, 'update');
-      checkAndInvalidateTocCache(parentWithId.id, parentWithId);
-    } else {
-      // 🛡️ Selection moved away from contenteditable (e.g., to overlay) — use cached node ID
-      if (lastInputNodeId) {
-        verbose.user(`FALLBACK: No numerical parent, using lastInputNodeId: ${lastInputNodeId}`, 'divEditor/index.js');
-        queueNodeForSave(lastInputNodeId, 'update');
-        checkAndInvalidateTocCache(lastInputNodeId, document.getElementById(lastInputNodeId));
-      } else {
-        verbose.user('INPUT HANDLER: No parent with valid ID found', 'divEditor/index.js');
-      }
-    }
-  }, 200); // 🚀 Reduced from 300ms to 200ms for snappier feel
-
-  // 🛡️ Wrap input event to eagerly capture node ID before debounce
-  // Selection may move by the time the 200ms debounce fires (e.g., overlay click)
-  inputEventHandler = (e: any) => {
-    if ((window as any).isEditing && !isComposing) {
-      if (saveQueue) saveQueue.recordInputEvent();
-      const sel: any = window.getSelection();
-      if (sel?.rangeCount) {
-        let el = sel.getRangeAt(0).startContainer;
-        if (el.nodeType === Node.TEXT_NODE) el = el.parentElement;
-        if (el) {
-          let parent = elementToNumericalParent.get(el);
-          if (!parent) {
-            parent = el.closest('[id]');
-            while (parent && !NUMERICAL_ID_PATTERN.test(parent.id)) {
-              parent = parent.parentElement?.closest('[id]');
-            }
-            if (parent) elementToNumericalParent.set(el, parent);
-          }
-          if (parent?.id) lastInputNodeId = parent.id;
-        }
-      }
-    }
-    debouncedInputHandlerRef?.(e);
-  };
-  editableDiv.addEventListener('input', inputEventHandler);
-
-  // 🚀 MOBILE: Handle IME composition events (autocorrect, predictive text)
-  editableDiv.addEventListener('compositionstart', () => {
-    isComposing = true;
-    verbose.content('IME composition started - pausing input processing', 'divEditor/index.js');
-  });
-
-  editableDiv.addEventListener('compositionend', (e: any) => {
-    isComposing = false;
-    verbose.content('IME composition ended - resuming input processing', 'divEditor/index.js');
-    // Trigger input handler after composition completes
-    debouncedInputHandlerRef?.(e);
-  });
+  // 🚀 PERFORMANCE: Text input pipeline (debounced input + eager node-id capture + IME
+  // composition) lives in inputHandler.ts. It owns its own state and listeners; destroy()
+  // removes the real references (fixes the old composition-listener teardown leak).
+  inputHandler = createInputHandler({ editableDiv, getSaveQueue: () => saveQueue });
 
   // ✅ Only ensure structure if document is truly empty (new/imported books)
   // For sub-book editors (bookId set), skip — sub-book content is always pre-populated
@@ -665,16 +356,6 @@ export async function startObserving(editableDiv: HTMLElement, bookId: BookId | 
       mutationProcessor?.enqueue(validMutations);
     }
   });
-
-  
-  // COMMENTED OUT FOR TESTING - SelectionDeletionHandler might be causing incorrect deletions
-  // deletionHandler = new SelectionDeletionHandler(editableDiv, {
-  //   onDeleted: (nodeId) => {
-  //     console.log(`Selection deletion handler queueing: ${nodeId}`);
-  //     pendingSaves.deletions.add(nodeId);
-  //     debouncedBatchDelete();
-  //   }
-  // });
 
   // Observe the main-content/editableDiv container
   observer.observe(editableDiv, {
@@ -769,11 +450,11 @@ export async function stopObserving() {
   activeChunkHandler = null;
 
   // 🔑 CRITICAL: Flush input debounce BEFORE SaveQueue cleanup
-  // This captures typing that hasn't been queued yet (within debounce window)
-  if (debouncedInputHandlerRef) {
+  // This captures typing that hasn't been queued yet (within debounce window).
+  // Listeners are detached later (inputHandler.destroy()); flush only, here.
+  if (inputHandler) {
     verbose.content('[EditSession] Flushing pending input debounce...', 'divEditor/index.js');
-    debouncedInputHandlerRef.flush();
-    debouncedInputHandlerRef = null;
+    inputHandler.flush();
     verbose.content('[EditSession] Input debounce flushed', 'divEditor/index.js');
   }
 
@@ -802,12 +483,12 @@ export async function stopObserving() {
     verbose.content("SupTagHandler destroyed", 'divEditor/index.js');
   }
 
-  // 🚀 PERFORMANCE: Remove input event handlers
-  if (inputEventHandler && editableDiv) {
-    editableDiv.removeEventListener('input', inputEventHandler);
-    editableDiv.removeEventListener('compositionstart', () => {});
-    editableDiv.removeEventListener('compositionend', () => {});
-    inputEventHandler = null;
+  // 🚀 PERFORMANCE: Remove input event handlers (input + compositionstart/end). destroy()
+  // detaches the REAL listener references — the previous inline teardown removed the
+  // composition listeners with fresh empty arrow fns, so they leaked across sessions.
+  if (inputHandler) {
+    inputHandler.destroy();
+    inputHandler = null;
     verbose.content("Input event handlers removed", 'divEditor/index.js');
   }
 
@@ -822,8 +503,7 @@ export async function stopObserving() {
   addedNodes.clear();
   removedNodeIds.clear();
   documentChanged = false;
-  lastInputNodeId = null;
-  
+
   // Reset current observed chunk
   setCurrentObservedChunk(null);
   
@@ -845,235 +525,35 @@ export async function stopObserving() {
 // - keydown: Handle delete operations and empty state prevention
 // ================================================================
 
-// 🚀 PERFORMANCE: Use proper debounce for selectionchange instead of manual setTimeout
-const handleSelectionChange = debounce(() => {
-  // The actual logic only runs after 150ms of no selection changes
-  if (!(window as any).isEditing || chunkOverflowInProgress) return;
-
-  const toolbar = getEditToolbar();
-  if (toolbar && toolbar.isFormatting) {
-    return;
-  }
-
-  const newChunkId = getCurrentChunk(); // Assumes this gets the ID of the current chunk
-  const currentChunkId = currentObservedChunk; // Assumes this is the stored ID string
-
-  // This is the key: we ONLY update the state. We don't restart the observer.
-  if (newChunkId && newChunkId !== currentChunkId) {
-    verbose.content(`Chunk focus changed (debounced): ${currentChunkId} → ${newChunkId}`, 'divEditor/index.js');
-    setCurrentObservedChunk(newChunkId);
-  }
-}, 150); // 150ms is a good delay to feel responsive but avoid storms
-
-document.addEventListener("selectionchange", () => {
-  // Early return for performance - don't process if not editing
-  if (!(window as any).isEditing) return;
-
-  // 🛡️ VERIFY: Check if selection is in the active edit container
-  const selection: any = window.getSelection();
-  if (selection.rangeCount > 0) {
-    const range = selection.getRangeAt(0);
-    let node = range.startContainer;
-    let element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
-    
-    // Check if selection is within the active edit div
-    if (!isEventInActiveDiv(element)) {
-      // Selection is outside active container - ignore this selectionchange
-      // This prevents main-content cursor changes from affecting hyperlit editing
-      verbose.content(`selectionchange ignored - outside active div`, 'divEditor/index.js');
-      return;
-    }
-
-    // Quick check: is cursor directly in a sentinel div?
-    const id = element?.id || '';
-    const isSentinel = id.endsWith('-top-sentinel') || id.endsWith('-bottom-sentinel');
-
-    if (isSentinel) {
-      // Move cursor to nearest valid element immediately
-      const editableDiv = document.getElementById(book);
-      const validElement = editableDiv?.querySelector('[id]:not([id$="-top-sentinel"]):not([id$="-bottom-sentinel"])') as HTMLElement | null;
-
-      if (validElement) {
-        validElement.focus();
-        const newRange = document.createRange();
-        newRange.selectNodeContents(validElement);
-        newRange.collapse(false);
-        selection.removeAllRanges();
-        selection.addRange(newRange);
-      }
-      return; // Don't call debounced handler if we had to fix cursor
-    }
-  }
-
-  handleSelectionChange();
-});
+// 🚀 selectionchange focus tracking + sentinel-caret rescue live in selectionFocusTracker.ts
+// (extracted + unit-tested); attach the single document listener once at module load.
+initSelectionFocusTracker();
 
 document.addEventListener("keydown", function handleTypingActivity(event) {
   if (!(window as any).isEditing) return;
 
-  // 🆕 O(1) CHECK: Use no-delete-id marker instead of expensive DOM queries
+  // 🆕 O(1) CHECK: delete-key guards. Both handlers are extracted to ./keydownGuards
+  // (pure + unit-tested); this listener is just a thin dispatcher over them.
   if (['Backspace', 'Delete'].includes(event.key)) {
-    const selection: any = document.getSelection();
-    if (selection.rangeCount > 0) {
+    const selection = document.getSelection();
+    if (selection && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
 
       // Get the element that would be affected
-      let targetElement = range.startContainer;
-      if (targetElement.nodeType !== Node.ELEMENT_NODE) {
-        targetElement = targetElement.parentElement;
+      let targetNode: Node | null = range.startContainer;
+      if (targetNode.nodeType !== Node.ELEMENT_NODE) {
+        targetNode = targetNode.parentElement;
       }
+      const targetElement = targetNode as Element | null;
 
       // 🆕 LI HANDLING: Backspace at start of LI converts it to paragraph
-      if (event.key === 'Backspace' && range.collapsed) {
-        const liElement = targetElement?.closest('li');
-        if (liElement) {
-          // EMPTY bullet + Backspace: don't outdent to a paragraph. If there's a
-          // previous bullet, just remove this one and drop the caret at the end
-          // of that previous bullet — the caret stays in the list (intuitive
-          // backward-delete). Only an empty FIRST bullet (no previous sibling)
-          // falls through to the outdent-to-paragraph path below.
-          // NOTE: an empty bullet holds a zero-width-space caret anchor (see
-          // listItemCaret.js), so listItemIsEmpty — not a raw offset check — is
-          // what reliably detects "empty" here.
-          if (listItemIsEmpty(liElement)) {
-            const prevLi = liElement.previousElementSibling;
-            if (prevLi && prevLi.tagName === 'LI') {
-              event.preventDefault();
-              const parentList = liElement.closest('ul, ol');
-              if (parentList) {
-                ensureNodeHasValidId(parentList);
-                liElement.remove();
-                placeCaretAtEndOfListItem(prevLi);
-                queueNodeForSave(parentList.id, 'update');
-                return;
-              }
-            }
-          }
+      if (handleListItemBackspace(event, range, selection, targetElement)) return;
 
-          // Check if cursor is at the very start of the LI
-          let isAtStart = false;
-          if (range.startContainer.nodeType === Node.TEXT_NODE) {
-            isAtStart = range.startOffset === 0 &&
-              (range.startContainer === liElement.firstChild ||
-               range.startContainer.parentNode === liElement.firstChild ||
-               !liElement.textContent.substring(0, range.startContainer.textContent.length).trim());
-          } else if (range.startContainer === liElement) {
-            isAtStart = range.startOffset === 0;
-          }
-
-          // An empty FIRST bullet (no previous sibling, so not handled above)
-          // holds a zero-width-space anchor → caret at offset 1, not 0. Treat it
-          // as "at start" so a single Backspace still outdents it to a paragraph.
-          if (listItemIsEmpty(liElement)) {
-            isAtStart = true;
-          }
-
-          if (isAtStart) {
-            event.preventDefault();
-
-            const parentList = liElement.closest('ul, ol');
-            if (!parentList) return;
-
-            // Ensure parent list has ID
-            ensureNodeHasValidId(parentList);
-            if (!parentList.id) {
-              console.error("Could not assign ID to parent list");
-              return;
-            }
-
-            // Get position of this LI
-            const allItems = Array.from(parentList.children);
-            const itemIndex = allItems.indexOf(liElement);
-            const itemsBefore = allItems.slice(0, itemIndex);
-            const itemsAfter = allItems.slice(itemIndex + 1);
-
-            // Create paragraph with LI content. An empty bullet may hold a
-            // zero-width-space caret anchor — normalise that to a <br> so the
-            // new paragraph isn't seeded with a stray ZWSP.
-            const newParagraph = document.createElement('p');
-            newParagraph.innerHTML = listItemIsEmpty(liElement) ? '<br>' : (liElement.innerHTML || '<br>');
-
-            // Remove the LI
-            liElement.remove();
-
-            if (parentList.children.length === 0) {
-              // List is now empty - replace it with the paragraph
-              setElementIds(newParagraph, findPreviousElementId(parentList), findNextElementId(parentList), book);
-              parentList.replaceWith(newParagraph);
-              queueNodeForSave(newParagraph.id, 'add');
-            } else if (itemsBefore.length === 0) {
-              // Was first item - put paragraph before list
-              setElementIds(newParagraph, findPreviousElementId(parentList), parentList.id, book);
-              parentList.before(newParagraph);
-              queueNodeForSave(newParagraph.id, 'add');
-              queueNodeForSave(parentList.id, 'update');
-            } else if (itemsAfter.length === 0) {
-              // Was last item - put paragraph after list
-              setElementIds(newParagraph, parentList.id, findNextElementId(parentList), book);
-              parentList.after(newParagraph);
-              queueNodeForSave(parentList.id, 'update');
-              queueNodeForSave(newParagraph.id, 'add');
-            } else {
-              // Was in the middle - split the list
-              const newList = document.createElement(parentList.tagName);
-              itemsAfter.forEach(item => newList.appendChild(item));
-
-              setElementIds(newParagraph, parentList.id, null, book);
-              parentList.after(newParagraph);
-
-              setElementIds(newList, newParagraph.id, findNextElementId(newParagraph), book);
-              newParagraph.after(newList);
-
-              queueNodeForSave(parentList.id, 'update');
-              queueNodeForSave(newParagraph.id, 'add');
-              queueNodeForSave(newList.id, 'add');
-            }
-
-            // Move cursor to start of new paragraph
-            const target = newParagraph.firstChild?.nodeType === Node.TEXT_NODE
-              ? newParagraph.firstChild
-              : newParagraph;
-            const newRange = document.createRange();
-            newRange.setStart(target, 0);
-            newRange.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-
-            return;
-          }
-        }
-      }
-
-      // Find the closest element with an ID
-      let elementWithId = targetElement?.closest('[id]');
-
-      // 🚀 PERFORMANCE: Simple O(1) attribute check instead of expensive DOM query
-      if (elementWithId && elementWithId.getAttribute('no-delete-id') === 'please') {
-        console.log(`🚨 [NO-DELETE] Attempting to delete protected node ${elementWithId.id}`);
-
-        // Check if this deletion would clear the entire node
-        const textContent = elementWithId.textContent || '';
-        const isSelectingAll = !range.collapsed &&
-          range.toString().trim() === textContent.trim();
-        const isAtStartAndEmpty = range.collapsed &&
-          range.startOffset === 0 &&
-          textContent.trim().length <= 1;
-
-        if (isSelectingAll || isAtStartAndEmpty) {
-          // Try to transfer the marker to another node
-          const nextNode = findNextNoDeleteNode();
-          if (nextNode && nextNode !== elementWithId) {
-            // Transfer marker and allow deletion to proceed
-            console.log(`🔄 [NO-DELETE] Transferring marker from ${elementWithId.id} to ${nextNode.id}`);
-            transferNoDeleteMarker(elementWithId, nextNode);
-            // Don't preventDefault - let deletion proceed
-          } else {
-            // This is the LAST node - refuse deletion
-            console.log(`🛑 [NO-DELETE] Refusing deletion - this is the last node`);
-            event.preventDefault();
-            return;
-          }
-        }
+      // 🛡️ NO-DELETE guard: protect (or transfer the marker off) the last node
+      const elementWithId = targetElement?.closest('[id]');
+      if (elementWithId && handleNoDeleteGuard(range, elementWithId)) {
+        event.preventDefault();
+        return;
       }
     }
   }

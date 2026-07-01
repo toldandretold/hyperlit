@@ -101,6 +101,9 @@ export async function fireAndForgetSync(
               ...syncResult.library,
               creator_token: currentLocal?.creator_token || syncResult.library.creator_token,
               is_owner: syncResult.library.is_owner ?? currentLocal?.is_owner,
+              // The server record carries no client-only base_timestamp; freeze it at the server's
+              // version we're adopting (mirror the pull path) so it isn't dropped → no false 409.
+              base_timestamp: syncResult.library.timestamp,
             };
             console.log("✅ No local changes detected - using server data");
             await store.put(serverData);

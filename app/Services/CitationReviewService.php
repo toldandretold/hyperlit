@@ -1151,7 +1151,7 @@ class CitationReviewService
         $citationParts = [];
         $title = $bookMeta->title ?? $bookTitle;
         $externalUrl = $bookMeta->doi ? 'https://doi.org/' . $bookMeta->doi : ($bookMeta->oa_url ?? $bookMeta->url ?? null);
-        $citationParts[] = $externalUrl ? "[{$title}](" . $this->mdSafeUrl($externalUrl) . ")" : "[{$title}](/" . $this->mdSafeUrl($bookId) . ")";
+        $citationParts[] = "[{$title}](/" . $this->mdSafeUrl($bookId) . ")";
         if (!empty($bookMeta->author)) {
             $citationParts[] = $bookMeta->author;
         }

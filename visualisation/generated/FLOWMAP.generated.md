@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1557 functions in 332 modules · 10 object stores · 10 PG tables · 3186 edges
+**MarkdownDB** schema v27 · 1565 functions in 337 modules · 10 object stores · 10 PG tables · 3203 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -251,7 +251,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setupEditFormListeners` | `components/sourceContainer/editForm` | — | — | read | — |
 | `showEditForm` | `components/sourceContainer/editForm` | — | — | read/write | — |
 | `showOptionalFieldsForType` | `components/sourceContainer/editForm` | — | — | read | — |
-| `syncLibraryRecordToBackend` | `components/sourceContainer/editForm` | `library` | `library` | read | — |
+| `syncLibraryRecordToBackend` | `components/sourceContainer/editForm` | — | — | read | — |
 | `validateUrl` | `components/sourceContainer/editForm` | — | — | — | — |
 | `formatRelativeTime` | `components/sourceContainer/helpers` | — | — | — | — |
 | `getBookDownloadName` | `components/sourceContainer/helpers` | — | — | — | — |
@@ -547,8 +547,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `flushInputDebounce` | `divEditor/index` | — | — | — | — |
 | `getPendingSaveNodeIds` | `divEditor/index` | — | — | — | — |
 | `isEditorObserving` | `divEditor/index` | — | — | — | — |
-| `startObserving` | `divEditor/index` | — | — | read/write | — |
+| `startObserving` | `divEditor/index` | — | — | read | — |
 | `stopObserving` | `divEditor/index` | — | — | read/write | — |
+| `createInputHandler` | `divEditor/inputHandler` | — | — | read | — |
+| `handleListItemBackspace` | `divEditor/keydownGuards/listItemBackspace` | — | — | read/write | — |
+| `handleNoDeleteGuard` | `divEditor/keydownGuards/noDeleteGuard` | — | — | read | — |
 | `MutationProcessor.cancel` | `divEditor/mutationProcessor` | — | — | — | — |
 | `MutationProcessor.constructor` | `divEditor/mutationProcessor` | — | — | — | — |
 | `MutationProcessor.destroy` | `divEditor/mutationProcessor` | — | — | — | — |
@@ -585,6 +588,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SelectionDeletionHandler.handlePostDeletion` | `divEditor/selectionDelete` | — | — | read | — |
 | `SelectionDeletionHandler.isEffectivelyEmpty` | `divEditor/selectionDelete` | — | — | read | — |
 | `SelectionDeletionHandler.setupListeners` | `divEditor/selectionDelete` | — | — | — | — |
+| `initSelectionFocusTracker` | `divEditor/selectionFocusTracker` | — | — | read | — |
+| `rescueCaretFromSentinel` | `divEditor/selectionFocusTracker` | — | — | read | — |
+| `updateChunkFocus` | `divEditor/selectionFocusTracker` | — | — | — | — |
 | `hyperciteArrowHandler` | `divEditor/supTagHandler/arrowHandler` | — | — | read | — |
 | `supDeleteHandler` | `divEditor/supTagHandler/deleteHandler` | — | — | read/write | — |
 | `supEscapeHandler` | `divEditor/supTagHandler/escapeHandler` | — | — | read/write | — |
@@ -594,6 +600,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SupTagHandler.constructor` | `divEditor/supTagHandler/index` | — | — | — | — |
 | `SupTagHandler.startListening` | `divEditor/supTagHandler/index` | — | — | — | — |
 | `SupTagHandler.stopListening` | `divEditor/supTagHandler/index` | — | — | — | — |
+| `createVideoDeleteHandler` | `divEditor/videoDeleteHandler` | — | — | read/write | — |
 | `_contentPreservingUnwrap` | `editToolbar/blockFormat/blockquoteCodeFormat` | — | — | read/write | — |
 | `_contentPreservingWrap` | `editToolbar/blockFormat/blockquoteCodeFormat` | — | — | read/write | — |
 | `_mergeBlocksIntoBlockquote` | `editToolbar/blockFormat/blockquoteCodeFormat` | — | — | read/write | — |
@@ -986,6 +993,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `isIDBBroken` | `indexedDB/core/healthMonitor` | — | — | — | — |
 | `reportIDBFailure` | `indexedDB/core/healthMonitor` | — | — | — | — |
 | `reportIDBSuccess` | `indexedDB/core/healthMonitor` | — | — | — | — |
+| `advanceBaseTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |
 | `buildLibraryUrl` | `indexedDB/core/library` | — | — | — | — |
 | `cleanLibraryItemForStorage` | `indexedDB/core/library` | — | — | — | — |
 | `fetchLibraryRecordWithStatus` | `indexedDB/core/library` | `localStorage` | — | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
