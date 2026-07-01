@@ -36,6 +36,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // LlmService holds mutable per-review usage counters ($usageByModel /
+        // $totalRequests). The citation-review pipeline splits its LLM-calling
+        // phases into separate autowired collaborators; binding LlmService as a
+        // singleton keeps them all sharing ONE instance, so getLlm()->getUsageStats()
+        // (the appendix table + billReview credit charge) sees every request.
+        // Without this, each phase gets its own instance and billing reads $0.
+        $this->app->singleton(\App\Services\LlmService::class);
+
         // Register DocumentImport services as singletons
         $this->app->singleton(ValidationService::class);
         $this->app->singleton(SanitizationService::class);

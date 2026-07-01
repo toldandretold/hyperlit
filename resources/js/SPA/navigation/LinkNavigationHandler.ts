@@ -563,8 +563,14 @@ export class LinkNavigationHandler {
     const urlBookId = this.extractBookSlugFromPath(window.location.pathname);
 
     // If the URL book doesn't match the current loaded book content, use SPA navigation
-    // Also check against slug — URL may show slug while book holds the real ID
-    if (urlBookId !== currentBookVariable && (!_bookSlug || urlBookId !== _bookSlug)) {
+    // Also check against slug — URL may show slug while book holds the real ID.
+    // Safety net: also trust the ACTUALLY-RENDERED book (main.main-content.id). If the URL's
+    // book differs from what's on screen, take the cross-book path regardless of a possibly
+    // stale/truncated `_bookSlug` — otherwise a URL↔content desync leaves Back a permanent
+    // no-op (the slug clause wrongly reports "same book").
+    const renderedBookId = document.querySelector('.main-content')?.id || null;
+    const differsFromRendered = !!renderedBookId && urlBookId !== renderedBookId;
+    if (urlBookId !== currentBookVariable && (differsFromRendered || !_bookSlug || urlBookId !== _bookSlug)) {
       verbose.nav(`Back button: URL shows ${urlBookId} but content is ${currentBookVariable}. Using structure-aware navigation.`, '/navigation/LinkNavigationHandler.js');
 
       // Parse cascade segments from URL path (same logic as handleBookToBookNavigation)
@@ -639,7 +645,18 @@ export class LinkNavigationHandler {
         }
       }
 
-      if (bottomMatches) {
+      // Book guard (mirrors restoreContainerStack, history.ts:419-434): only apply the
+      // fast path when the saved stack belongs to the currently-rendered reader book. A
+      // cross-version hop (book_X → book_X/AIreview) can leave a history entry whose
+      // containerStack still points at the PARENT book's layer (containerStackBookId is
+      // stamped from the lagging `book` global). Pushing/popping that layer over the wrong
+      // book opens the container over unrelated content and then can't find its anchor —
+      // when this fails, fall through to the guarded close+restore path below.
+      const renderedBookId = document.querySelector('main.main-content[data-slug]')?.id || null;
+      const savedStackBookId = history.state?.containerStackBookId || null;
+      const bookMatches = !!renderedBookId && (!savedStackBookId || savedStackBookId === renderedBookId);
+
+      if (bottomMatches && bookMatches) {
         // Back by exactly one
         if (currentDepth > 0 && savedDepth === currentDepth - 1) {
           console.log(`📚 [popstate] Fast-path BACK: popping top layer (${currentDepth} → ${savedDepth})`);

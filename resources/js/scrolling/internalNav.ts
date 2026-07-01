@@ -117,7 +117,9 @@ export async function fallbackScrollPosition(lazyLoader: any): Promise<void> {
       errorDiv.className = "chunk";
       errorDiv.innerHTML = "<p>Unable to load content. Please refresh the page.</p>";
 
-      const bottomSentinel = lazyLoader.container.querySelector(`#${lazyLoader.bookId}-bottom-sentinel`);
+      // Attribute selector, not `#${id}`: a two-segment sub-book id (e.g. `book_X/AIreview`)
+      // contains a `/`, which is an invalid CSS id selector and would throw a SyntaxError.
+      const bottomSentinel = lazyLoader.container.querySelector(`[id="${lazyLoader.bookId}-bottom-sentinel"]`);
       if (bottomSentinel) {
         lazyLoader.container.insertBefore(errorDiv, bottomSentinel);
       } else {

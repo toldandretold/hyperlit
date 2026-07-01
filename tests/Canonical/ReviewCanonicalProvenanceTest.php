@@ -18,12 +18,10 @@ beforeEach(function () {
 
 function canonvEnrich(string $book, array $refIds): array
 {
-    $svc = app(CitationReviewService::class);
-    $ref = new ReflectionMethod($svc, 'enrichCitationMetadata');
-    $ref->setAccessible(true);
-
+    // Phase 2 now lives in its own collaborator — call it directly (public).
     $citationNodes = [['reference_ids' => $refIds]];
-    return $ref->invoke($svc, $citationNodes, $book);
+    return app(\App\Services\CitationReview\Phases\MetadataEnricher::class)
+        ->enrichCitationMetadata($citationNodes, $book);
 }
 
 function canonvSeedReviewBib(string $book, string $refId, array $opts = []): void
@@ -138,9 +136,7 @@ test('a web-verified source gets the web tier and the distinct Web-verified line
     expect($meta['canonical_source_id'])->toBeNull();
 
     // The review renders the distinct, honest Web-verified provenance line.
-    $m = new ReflectionMethod($svc, 'buildProvenanceMd');
-    $m->setAccessible(true);
-    $line = $m->invoke($svc, ['verification_tier' => 'web', 'source_url' => 'https://example.news/story']);
+    $line = app(\App\Services\CitationReview\Report\ClaimMarkdownFormatter::class)->buildProvenanceMd(['verification_tier' => 'web', 'source_url' => 'https://example.news/story']);
     expect($line)->toContain('Web-verified');
     expect($line)->toContain('URL-content match is the available verification');
     expect($line)->not->toContain('Canonical');
@@ -190,10 +186,8 @@ test('a web source that did NOT verify is not web tier (stays local content, not
 
 test('unverified and rejected web sources get honest web-specific provenance lines, not the academic local line', function () {
     $svc = app(App\Services\CitationReviewService::class);
-    $m = new ReflectionMethod($svc, 'buildProvenanceMd');
-    $m->setAccessible(true);
 
-    $unverified = $m->invoke($svc, [
+    $unverified = app(\App\Services\CitationReview\Report\ClaimMarkdownFormatter::class)->buildProvenanceMd([
         'verification_tier' => 'local',
         'web_status'        => 'unverified',
         'source_url'        => 'https://pib.gov.in/newsite/PrintRelease.aspx?relid=136737',
@@ -201,7 +195,7 @@ test('unverified and rejected web sources get honest web-specific provenance lin
     expect($unverified)->toContain('could not be confirmed as the cited article');
     expect($unverified)->not->toContain('no canonical work identity yet');
 
-    $rejected = $m->invoke($svc, [
+    $rejected = app(\App\Services\CitationReview\Report\ClaimMarkdownFormatter::class)->buildProvenanceMd([
         'verification_tier' => 'local',
         'web_status'        => 'rejected',
         'source_url'        => 'https://example.news/wrong-page',
@@ -210,7 +204,7 @@ test('unverified and rejected web sources get honest web-specific provenance lin
     expect($rejected)->toContain('untrusted');
 
     // Non-web local matches keep the academic wording.
-    $local = $m->invoke($svc, ['verification_tier' => 'local', 'web_status' => null]);
+    $local = app(\App\Services\CitationReview\Report\ClaimMarkdownFormatter::class)->buildProvenanceMd(['verification_tier' => 'local', 'web_status' => null]);
     expect($local)->toContain('no canonical work identity yet');
 });
 

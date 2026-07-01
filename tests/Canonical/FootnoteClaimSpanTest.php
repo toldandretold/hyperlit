@@ -58,10 +58,7 @@ test('each footnote in a multi-footnote run gets only the clause BEFORE its mark
     ]);
 
     try {
-        $svc = app(CitationReviewService::class);
-        $m = new ReflectionMethod($svc, 'parseCitationNodes');
-        $m->setAccessible(true);
-        $result = $m->invoke($svc, $book);
+        $result = app(\App\Services\CitationReview\Phases\CitationParser::class)->parseCitationNodes($book);
 
         expect($result)->toHaveCount(1);
         $spans = $result[0]['extracted_sentences'];
@@ -109,10 +106,7 @@ test('inline author-date citations keep the sentence-around-the-marker span', fu
     ]);
 
     try {
-        $svc = app(CitationReviewService::class);
-        $m = new ReflectionMethod($svc, 'parseCitationNodes');
-        $m->setAccessible(true);
-        $result = $m->invoke($svc, $book);
+        $result = app(\App\Services\CitationReview\Phases\CitationParser::class)->parseCitationNodes($book);
 
         $span = $result[0]['extracted_sentences']['chapman2009'];
         // Whole surrounding sentence — including text AFTER the citation

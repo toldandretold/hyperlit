@@ -615,8 +615,12 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
             const cleanParams = new URLSearchParams(currentUrl.search);
             cleanParams.delete('cs');
             const cleanSearch = cleanParams.toString() ? `?${cleanParams.toString()}` : '';
+            // Use the RENDERED book id (URL-agnostic truth) as the base when stripping
+            // cascade segments — NOT pathSegments[0], which drops the 2nd segment of a
+            // two-segment sub-book (e.g. `book_X/AIreview`) and desyncs URL↔content.
+            const renderedBook = document.querySelector('.main-content')?.id || bookSlug;
             const cleanUrl = (hasCascadeSegments
-              ? `/${bookSlug}${cleanSearch}`
+              ? `/${renderedBook}${cleanSearch}`
               : `${currentUrl.pathname}${cleanSearch}`) + currentUrl.hash;
             console.log('🔗 Cleaning up URL (hash preserved):', currentUrl.pathname + currentUrl.search, '→', cleanUrl);
             history.replaceState(newState, '', cleanUrl);

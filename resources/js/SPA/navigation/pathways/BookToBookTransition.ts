@@ -340,7 +340,12 @@ export class BookToBookTransition {
     if (!main) throw new Error('client-only nav: no existing reader shell to reuse');
 
     // On popstate the browser already restored the URL, so its first path segment is the slug.
-    const urlSlug = window.location.pathname.split('/').filter(Boolean)[0] || bookId;
+    // A two-segment sub-book (e.g. `book_X/AIreview`) has NO vanity slug — the server renders
+    // data-slug="" for it — so stamping the first path segment (`book_X`) here would leave a
+    // TRUNCATED slug that later mis-writes URLs and defeats the popstate cross-book guard.
+    const urlSlug = String(bookId).includes('/')
+      ? ''
+      : (window.location.pathname.split('/').filter(Boolean)[0] || bookId);
     main.id = bookId;
     main.setAttribute('data-slug', urlSlug);
     main.contentEditable = 'false';

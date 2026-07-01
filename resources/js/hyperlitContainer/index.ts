@@ -327,27 +327,33 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
         const currentHash = window.location.hash.substring(1);
         const hasHyperciteTarget = currentHash && currentHash.startsWith('hypercite_');
 
+        // Base the URL on the RENDERED book id, not pathname.split('/')[0]. The
+        // first-segment shortcut silently drops the 2nd segment of a two-segment
+        // sub-book (e.g. `book_X/AIreview`), rewriting the address bar to `/book_X`
+        // while the sub-book is still on screen → URL↔content desync that kills Back.
+        // `.main-content`.id is URL-agnostic truth: `book_X` for normal books, the
+        // vanity slug for canonical books, `book_X/AIreview` for the report.
+        const renderedBook = document.querySelector('.main-content')?.id
+          || window.location.pathname.split('/').filter(Boolean)[0] || '';
+
         if (hasHyperciteTarget && contentTypes[0].type === 'highlight') {
           // Preserve the original hypercite hash for in-container scrolling
           console.log(`📊 Preserving hypercite target in URL: #${currentHash}`);
         } else if (urlUpdate.type === 'path') {
           // Path-based URL (for footnotes): /book/footnoteID
-          const pathSegments = window.location.pathname.split('/').filter(Boolean);
-          const bookSlug = pathSegments[0] || '';
-          pendingUrlOverride = `/${bookSlug}/${urlUpdate.value}${window.location.hash || ''}`;
+          pendingUrlOverride = `/${renderedBook}/${urlUpdate.value}${window.location.hash || ''}`;
           console.log(`📊 Computed footnote URL for new entry: ${pendingUrlOverride}`);
         } else {
           // Hash-based URL (for hypercites, highlights, citations)
-          const segments = window.location.pathname.split('/').filter(Boolean);
-          const cleanPath = `/${segments[0] || ''}`;
-          pendingUrlOverride = `${cleanPath}#${urlUpdate.value}`;
+          pendingUrlOverride = `/${renderedBook}#${urlUpdate.value}`;
           console.log(`📊 Computed hash URL for new entry: ${pendingUrlOverride}`);
         }
       } else if (anchorId) {
         // Multi/overlapping content: no single canonical hash, but anchor the new history entry
         // on the exact clicked element so Back doesn't inherit a stale hash from the address bar.
-        const segments = window.location.pathname.split('/').filter(Boolean);
-        pendingUrlOverride = `/${segments[0] || ''}#${anchorId}`;
+        const renderedBook = document.querySelector('.main-content')?.id
+          || window.location.pathname.split('/').filter(Boolean)[0] || '';
+        pendingUrlOverride = `/${renderedBook}#${anchorId}`;
         console.log(`📊 Computed multi-content anchor URL for new entry: ${pendingUrlOverride}`);
       } else {
         console.log(`📊 Multi-content: no URL change needed`);

@@ -40,10 +40,7 @@ test('claims come from body nodes, never from static footnote/bibliography secti
     ]);
 
     try {
-        $svc = app(CitationReviewService::class);
-        $m = new ReflectionMethod($svc, 'parseCitationNodes');
-        $m->setAccessible(true);
-        $result = $m->invoke($svc, $book);
+        $result = app(\App\Services\CitationReview\Phases\CitationParser::class)->parseCitationNodes($book);
 
         $nodeIds = array_column($result, 'node_id');
         expect($nodeIds)->toContain($book . '_body');

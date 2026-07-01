@@ -6,7 +6,7 @@
     "moduleCount": 337,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3203,
+    "edgeCount": 3204,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -26690,6 +26690,12 @@
       "id": "dom__domread__SPA/navigation/healthCheck:findDuplicateIds",
       "source": "dom",
       "target": "SPA/navigation/healthCheck:findDuplicateIds",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "source": "dom",
+      "target": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
       "rel": "domread"
     },
     {
