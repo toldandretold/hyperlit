@@ -15,6 +15,20 @@ import { generateDataNodeId } from "../utilities/IDfunctions";
 
 
 
+/**
+ * Clear the `pending_new_book_sync` marker for `bookId` once its creation has settled on the
+ * server. The SPA create path (NewBookTransition) never runs readerEntry's clear, so without this
+ * the flag leaks for the tab's lifetime — keeping the sync's base-check skip AND the new-book
+ * overlay suppression on forever. Only clears if the flag is for THIS book (a second new book may
+ * have overwritten it).
+ */
+function clearPendingNewBookFlag(bookId: any): void {
+  try {
+    const pending = JSON.parse(sessionStorage.getItem("pending_new_book_sync") || "null");
+    if (pending && pending.bookId === bookId) sessionStorage.removeItem("pending_new_book_sync");
+  } catch { /* malformed flag — leave it for readerEntry's full-load cleanup */ }
+}
+
 // Helper remains the same
 function generateUUID() {
   return (([1e7] as any) + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c: any) =>
@@ -73,7 +87,24 @@ export async function fireAndForgetSync(
           // Don't overwrite changes made after sync started
           if (currentLocal && currentLocal.timestamp > syncStartTime) {
             console.log("🔄 Local changes detected after sync started - preserving all local changes");
-            resolve(); // Skip any server updates
+            // ...but STILL adopt the server's confirmed base_timestamp. base_timestamp is the
+            // optimistic-concurrency token, NOT content — leaving it frozen at createdAt while the
+            // server stored the bumped create-sync timestamp makes the VERY FIRST edit after
+            // creating a book falsely 409 (STALE_DATA) → hard-block. This branch (fast editor,
+            // currentLocal.timestamp > syncStartTime) subsumes the "local newer" branch below, so
+            // without this the base is never adopted. Content untouched (spread); monotonic.
+            const adoptedBase = Math.max(currentLocal.base_timestamp ?? 0, syncResult.library.timestamp ?? 0);
+            if (adoptedBase !== currentLocal.base_timestamp) {
+              await new Promise<void>((res, rej) => {
+                const put = store.put({ ...currentLocal, base_timestamp: adoptedBase });
+                put.onsuccess = () => res();
+                put.onerror = () => rej(put.error);
+              });
+            }
+            // Book's library row is now on the server and the base is adopted → it's settled;
+            // stop skipping the base-check for it (also un-suppresses new-book overlays).
+            clearPendingNewBookFlag(bookId);
+            resolve(); // Skip server CONTENT updates (local content is newer)
             return;
           }
           
@@ -89,7 +120,13 @@ export async function fireAndForgetSync(
               creator: syncResult.library.creator, // Update server ownership fields
               is_owner: syncResult.library.is_owner ?? currentLocal.is_owner, // Preserve local if server doesn't include it
               updated_at: syncResult.library.updated_at,
-              created_at: syncResult.library.created_at
+              created_at: syncResult.library.created_at,
+              // Advance the concurrency base to the server's confirmed version even when local
+              // CONTENT is newer — base_timestamp tracks server acknowledgement, not local edits.
+              // Without this it stays frozen at createdAt while the server moved to its sync-time
+              // timestamp, so the VERY FIRST edit after creating a book falsely 409s (STALE_DATA)
+              // and pops the "you edited a stale version" hard-block. Monotonic — never lowers it.
+              base_timestamp: Math.max(currentLocal.base_timestamp ?? 0, syncResult.library.timestamp ?? 0),
             };
             
             await store.put(mergedRecord);
@@ -122,6 +159,10 @@ export async function fireAndForgetSync(
 
         // The non-critical part (syncing nodes) can continue in the background.
         await syncNodesForNewBook(bookId, payload?.nodes, syncStartTime);
+
+        // New book fully settled on the server (library + nodes) → clear the pending marker so the
+        // base-check skip / overlay suppression don't leak for the rest of the tab's life.
+        clearPendingNewBookFlag(bookId);
       } else {
         // For existing books, the sync is the whole operation.
         await syncIndexedDBtoPostgreSQL(bookId);

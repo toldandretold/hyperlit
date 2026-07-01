@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1565 functions in 337 modules · 10 object stores · 10 PG tables · 3204 edges
+**MarkdownDB** schema v27 · 1565 functions in 337 modules · 10 object stores · 10 PG tables · 3210 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1075,7 +1075,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `syncIndexedDBtoPostgreSQL` | `indexedDB/serverSync/push` | — | — | read | — |
 | `runSerializedPerKey` | `indexedDB/syncQueue/bookSyncChain` | — | — | — | — |
 | `filterFreshNodesForBook` | `indexedDB/syncQueue/freshNodeFilter` | — | — | — | — |
-| `executeSyncPayload` | `indexedDB/syncQueue/master` | — | — | read | `↑route:/api/db/unified-sync` |
+| `executeSyncPayload` | `indexedDB/syncQueue/master` | `sessionStorage` | — | read | `↑route:/api/db/unified-sync` |
 | `initMasterSyncDependencies` | `indexedDB/syncQueue/master` | — | — | — | — |
 | `syncIndexedDBtoPostgreSQLBlocking` | `indexedDB/syncQueue/master` | `nodes` | — | — | — |
 | `updateHistoryLog` | `indexedDB/syncQueue/master` | — | `historyLog` | — | — |
@@ -1389,7 +1389,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `destroyHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | — | — | — | — |
 | `initializeHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | `localStorage` | — | read | — |
 | `createNewBook` | `SPA/createNewBook` | — | `library` `nodes` `sessionStorage` | — | — |
-| `fireAndForgetSync` | `SPA/createNewBook` | `library` `nodes` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `markdownStore` `nodes` | read | — |
+| `fireAndForgetSync` | `SPA/createNewBook` | `library` `nodes` `sessionStorage` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `markdownStore` `nodes` `sessionStorage` | read | — |
 | `waitForChunkLoadingComplete` | `SPA/domReadiness` | — | — | read | — |
 | `waitForCompleteReadiness` | `SPA/domReadiness` | — | — | read | — |
 | `waitForContentReady` | `SPA/domReadiness` | — | — | read | — |

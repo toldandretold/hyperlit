@@ -71,6 +71,9 @@ export function setupButtonListeners(host: ContainerHost): void {
 
       import('./citeForm/index')
         .then((module) => {
+          // The container may have been closed during the dynamic import — re-check
+          // before wiring, or we set up listeners against a torn-down form.
+          if (!host.isOpen || !document.getElementById('cite-form')) return;
           module.initializeCitationFormListeners();
           module.setupFormSubmissionHandler();
         })

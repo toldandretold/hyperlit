@@ -13,6 +13,7 @@ import { refreshCsrfToken } from '../../utilities/auth/index';
 import { filterFreshNodesForBook } from './freshNodeFilter';
 // Per-book sync serialization, extracted for unit testing (tests/javascript/indexedDB/bookSyncChain.test.js)
 import { runSerializedPerKey } from './bookSyncChain';
+import { advanceBaseTimestamp } from '../core/library';
 import { asBookId } from '../types';
 
 export { filterFreshNodesForBook };
@@ -82,6 +83,21 @@ const SERVER_ERROR_MODAL_THRESHOLD = 2;
 // book's sync onto the previous guarantees a drain reads base_timestamp only AFTER the prior
 // drain wrote it. Keyed by book so different books (and sub-books) still sync in parallel.
 const _bookSyncChain = new Map<BookId, Promise<unknown>>();
+
+// Highest server_timestamp this client has been ACKed for, per book (session-scoped).
+// Lets a 409 STALE_DATA distinguish a SELF-conflict — the server's current timestamp is one
+// WE ourselves produced, our sync's base merely lagged behind a rapid prior sync — from a real
+// cross-device conflict (a timestamp we've NEVER seen, > this high-water, could only come from
+// another device). Self-conflicts are recovered silently (fast-forward base + retry once);
+// unknown/higher timestamps still hard-block, so a genuine remote edit is never clobbered.
+const _ackedServerTs = new Map<BookId, number>();
+
+/** Record a server-acknowledged timestamp for a book (monotonic high-water). */
+function recordAckedServerTs(bookId: BookId, ts: unknown): void {
+  if (typeof ts === 'number' && ts > 0) {
+    _ackedServerTs.set(bookId, Math.max(_ackedServerTs.get(bookId) ?? 0, ts));
+  }
+}
 
 // Abort a unified-sync POST that never responds, so a hung request can't park the per-book
 // chain above. An abort surfaces as a normal sync failure: the node batch is parked in
@@ -175,6 +191,24 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
     ...payload.deletions.nodes,
   ];
 
+  // A brand-new book isn't settled on the server yet (marked by `pending_new_book_sync`). Applying
+  // the optimistic-concurrency stale check to it is premature: several sync paths (bulk-create, the
+  // edit-exit full-book sync, the title auto-sync) bump the server's library.timestamp while the
+  // client base lags, so the debounced unified-sync races behind and 409s — hard-blocking a user
+  // editing a book they just made. Send a FALSY base so the server (`&& $base`, UnifiedSyncController
+  // :107) SKIPS the check for the not-yet-settled book. The server reads both `base_timestamp` AND
+  // `library.timestamp` (:104), so we null BOTH on the wire — never mutating the IDB record. Success
+  // still returns `server_timestamp`, which advances the base, so the FIRST post-settle sync has a
+  // correct base; the flag is cleared once creation truly settles (createNewBook.fireAndForgetSync).
+  let isPendingNewBook = false;
+  try {
+    const pending = JSON.parse(sessionStorage.getItem('pending_new_book_sync') || 'null');
+    isPendingNewBook = !!pending && pending.bookId === bookId;
+  } catch { /* malformed flag — treat as not pending */ }
+
+  const wireLibrary: any = payload.updates.library || null;
+  const finalLibrary = (isPendingNewBook && wireLibrary) ? { ...wireLibrary, timestamp: undefined } : wireLibrary;
+
   // Prepare the unified sync request payload (typed to the wire contract).
   const unifiedPayload: UnifiedSyncPayload = {
     book: bookId,
@@ -186,13 +220,16 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
     footnoteDeletions: payload.deletions.footnotes || [],
     bibliography: payload.updates.bibliography || [],
     bibliographyDeletions: payload.deletions.bibliography || [],
-    library: payload.updates.library || null,
+    library: finalLibrary,
     // The concurrency token. Prefer the explicit value the caller computed (live sync re-reads
     // it fresh from IDB; replay carries the queue-time base); fall back to the library record's
-    // own base_timestamp, then its timestamp (brand-new book never pulled → no base yet).
-    base_timestamp: payload.base_timestamp
-      ?? payload.updates.library?.base_timestamp
-      ?? payload.updates.library?.timestamp,
+    // own base_timestamp, then its timestamp (brand-new book never pulled → no base yet). For a
+    // pending (not-yet-settled) new book, force it undefined so the server skips the stale check.
+    base_timestamp: isPendingNewBook
+      ? undefined
+      : (payload.base_timestamp
+        ?? payload.updates.library?.base_timestamp
+        ?? payload.updates.library?.timestamp),
   };
 
   // Log what we're syncing
@@ -234,6 +271,7 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
   };
 
   let res = await doFetch();
+  let staleRetried = false; // guards the one-shot self-conflict retry below
 
   // Handle expired CSRF token (419) — refresh and retry once
   if (res.status === 419) {
@@ -253,8 +291,45 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
   if (!res.ok) {
     // Handle stale data (409 Conflict) specially
     if (res.status === 409) {
-      const errorData = await res.json();
+      let errorData = await res.json();
       if (errorData.error === 'STALE_DATA') {
+        // ── Self-conflict recovery ──────────────────────────────────────────────
+        // If the server's current timestamp is one THIS client has ALREADY been ACKed for,
+        // the "stale" version is our OWN prior sync (a rapid earlier save advanced the server
+        // past this sync's lagging base) — NOT another device. Fast-forward our base to it and
+        // retry once, silently, instead of hard-blocking the user. A server_timestamp we've
+        // NEVER seen (> our high-water, or none recorded) could come from another device — that
+        // still blocks below, so a genuine remote edit is never clobbered.
+        const conflictTs = (errorData as { server_timestamp?: unknown }).server_timestamp;
+        const acked = _ackedServerTs.get(bookId);
+        if (!staleRetried && typeof conflictTs === 'number' && acked != null && conflictTs <= acked) {
+          staleRetried = true;
+          console.warn(`🔁 STALE_DATA self-conflict for ${bookId}: fast-forwarding base ${unifiedPayload.base_timestamp} → ${conflictTs}, retrying once.`);
+          unifiedPayload.base_timestamp = conflictTs;
+          await advanceBaseTimestamp(bookId, conflictTs); // persist so the next drain reads the fixed base
+          res = await doFetch();
+          if (res.ok) {
+            const retryResult = await res.json();
+            console.log("✅ Unified sync completed after self-conflict retry:", retryResult);
+            recordAckedServerTs(bookId, (retryResult as { server_timestamp?: unknown }).server_timestamp);
+            return retryResult;
+          }
+          // Retry still failed — re-read the body and fall through to the right error path.
+          if (res.status === 409) {
+            try { errorData = await res.json(); } catch { errorData = {}; }
+            if (errorData.error !== 'STALE_DATA') {
+              const t = JSON.stringify(errorData);
+              const e = new Error(`Unified sync failed: ${t}`) as Error & { status?: number };
+              e.status = res.status; throw e;
+            }
+            // Still STALE_DATA even after fast-forward → genuinely stuck → hard-block below.
+          } else {
+            const t = await res.text();
+            const e = new Error(`Unified sync failed: ${t}`) as Error & { status?: number };
+            e.status = res.status; throw e;
+          }
+        }
+
         console.error("📵 Stale data detected - your book is out of date");
         // Clear pending syncs so a manual refresh won't re-trigger the same stale sync
         pendingSyncs.clear();
@@ -299,6 +374,7 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
 
   const result = await res.json();
   console.log("✅ Unified sync completed:", result);
+  recordAckedServerTs(bookId, (result as { server_timestamp?: unknown }).server_timestamp);
   return result;
 }
 
@@ -588,28 +664,10 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
         : undefined)
       ?? syncPayload.updates.library?.timestamp
       ?? baseTimestamp;
-    if (typeof newBase === 'number' && newBase > 0) {
-      try {
-        const advDb = await openDatabase();
-        const advTx = advDb.transaction("library", "readwrite");
-        const advStore = advTx.objectStore("library");
-        const advRec = await new Promise<LibraryRecord | undefined>((resolve, reject) => {
-          const r = advStore.get(bookId);
-          r.onsuccess = () => resolve(r.result as LibraryRecord | undefined);
-          r.onerror = () => reject(r.error);
-        });
-        if (advRec && advRec.base_timestamp !== newBase) {
-          advRec.base_timestamp = newBase;
-          await new Promise<void>((resolve, reject) => {
-            const r = advStore.put(advRec);
-            r.onsuccess = () => resolve();
-            r.onerror = () => reject(r.error);
-          });
-        }
-      } catch (e) {
-        console.warn("Could not advance base_timestamp after sync:", e);
-      }
-    }
+    // MONOTONIC advance via the shared helper: it only ever RAISES base_timestamp, so a stale
+    // or echoed newBase can never drag the base backwards and re-introduce a false conflict
+    // (the previous inline `= newBase` write was non-monotonic). Best-effort — only warns.
+    await advanceBaseTimestamp(bookId, newBase);
 
     if (logEntry) {
       logEntry.status = "synced";

@@ -25,6 +25,7 @@ vi.mock('../../../resources/js/integrity/reporter', () => ({
   reportServerError: vi.fn(),
 }));
 
+import { showStaleTabOverlay } from '../../../resources/js/utilities/BroadcastListener';
 import { installFreshIndexedDB, seedStore, readAll, readOne } from './idbHarness.js';
 import {
   debouncedMasterSync,
@@ -210,6 +211,105 @@ describe('debouncedMasterSync (characterization)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(await readAll('historyLog')).toEqual([]);
     expect(pendingSyncs.size).toBe(0);
+  });
+
+  // ── Self-conflict-aware 409 STALE_DATA handling ────────────────────────────
+  // A single client editing its OWN book twice in quick succession can send a
+  // base_timestamp that lags a timestamp the client itself just produced. The server
+  // 409s it. That must NOT hard-block the user (it's not another device) — the client
+  // fast-forwards its base and retries once. A 409 for a timestamp we've never seen
+  // (a real other-device write) still blocks.
+
+  it('SELF-conflict 409 (server_timestamp already acked): fast-forwards base + retries once, no overlay', async () => {
+    showStaleTabOverlay.mockClear();
+    await seedStore('library', [{ book: 'bookSelf', title: 'X', timestamp: 4000, base_timestamp: 1000 }]);
+
+    // Sync #1 succeeds → the client records acked server_timestamp = 5000.
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ success: true, server_timestamp: 5000 }) });
+    await seedStore('nodes', [makeNode('bookSelf', 100, 's-100', '<p>e1</p>')]);
+    queueForSync('nodes', 100, 'update', makeNode('bookSelf', 100, 's-100', '<p>e1</p>'), null);
+    await debouncedMasterSync.flush();
+
+    // Sync #2: server 409s STALE_DATA reporting server_timestamp=5000 — a value WE already
+    // acked → self-conflict. The retry (after fast-forward) succeeds with 6000.
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 409, json: async () => ({ error: 'STALE_DATA', message: 'stale', server_timestamp: 5000 }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ success: true, server_timestamp: 6000 }) });
+    await seedStore('nodes', [makeNode('bookSelf', 101, 's-101', '<p>e2</p>')]);
+    queueForSync('nodes', 101, 'update', makeNode('bookSelf', 101, 's-101', '<p>e2</p>'), null);
+    await debouncedMasterSync.flush();
+
+    // The retried POST carried the fast-forwarded base (5000).
+    const lastBody = JSON.parse(fetchMock.mock.calls.at(-1)[1].body);
+    expect(lastBody.base_timestamp).toBe(5000);
+    // No hard-block overlay for the user's own edit.
+    expect(showStaleTabOverlay).not.toHaveBeenCalled();
+    // Base advanced to the retry's authoritative version.
+    expect((await readOne('library', 'bookSelf')).base_timestamp).toBe(6000);
+    // The 2nd edit's batch is synced, not parked stale.
+    const logs = (await readAll('historyLog')).filter(l => l.bookId === 'bookSelf');
+    expect(logs.length).toBeGreaterThan(0);
+    expect(logs.every(l => l.status === 'synced')).toBe(true);
+  });
+
+  it('REAL 409 (server_timestamp beyond our high-water): blocks with overlay, no clobbering retry', async () => {
+    showStaleTabOverlay.mockClear();
+    await seedStore('library', [{ book: 'bookReal', title: 'X', timestamp: 4000, base_timestamp: 1000 }]);
+
+    // Sync #1 succeeds → acked = 5000.
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ success: true, server_timestamp: 5000 }) });
+    await seedStore('nodes', [makeNode('bookReal', 100, 'r-100', '<p>e1</p>')]);
+    queueForSync('nodes', 100, 'update', makeNode('bookReal', 100, 'r-100', '<p>e1</p>'), null);
+    await debouncedMasterSync.flush();
+
+    // Sync #2: 409 reporting server_timestamp=9000 — a value we've NEVER acked (another
+    // device advanced the book past us). Must block, NOT retry (retrying would clobber it).
+    const callsBefore = fetchMock.mock.calls.length;
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 409, json: async () => ({ error: 'STALE_DATA', message: 'stale', server_timestamp: 9000 }) });
+    await seedStore('nodes', [makeNode('bookReal', 101, 'r-101', '<p>e2</p>')]);
+    queueForSync('nodes', 101, 'update', makeNode('bookReal', 101, 'r-101', '<p>e2</p>'), null);
+    await debouncedMasterSync.flush();
+
+    // Exactly ONE fetch for sync #2 (no clobbering retry), and the block overlay is shown.
+    expect(fetchMock.mock.calls.length).toBe(callsBefore + 1);
+    expect(showStaleTabOverlay).toHaveBeenCalled();
+  });
+
+  // ── Pending new-book: exempt from the optimistic-concurrency (stale) check ──
+  // A brand-new book isn't settled on the server yet (marked by `pending_new_book_sync`).
+  // Applying the base check to it races the multiple paths that bump the server timestamp →
+  // false 409s. While pending, the sync must send a FALSY server base (null base_timestamp AND
+  // null library.timestamp on the wire) so the server skips the check.
+
+  it('pending new book: sends null base_timestamp AND null library.timestamp on the wire', async () => {
+    sessionStorage.setItem('pending_new_book_sync', JSON.stringify({ bookId: 'bookA', isNewBook: true }));
+    try {
+      await seedStore('library', [{ book: 'bookA', title: 'X', timestamp: 4000, base_timestamp: 1000 }]);
+      await seedStore('nodes', [makeNode('bookA', 100, 'n-100', '<p>e</p>')]);
+      // Queue a library update (title sync) too, so we can assert its wire timestamp is nulled.
+      queueForSync('nodes', 100, 'update', makeNode('bookA', 100, 'n-100', '<p>e</p>'), null);
+      queueForSync('library', 'lib', 'update', { book: 'bookA', title: 'X', timestamp: 4000, base_timestamp: 1000 }, null);
+
+      await debouncedMasterSync.flush();
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      // Both levers the server reads (UnifiedSyncController :104) are falsy → stale check skipped.
+      expect(body.base_timestamp ?? null).toBeNull();
+      if (body.library) expect(body.library.timestamp ?? null).toBeNull();
+    } finally {
+      sessionStorage.removeItem('pending_new_book_sync');
+    }
+  });
+
+  it('non-pending book: sends the real base_timestamp (check still applies)', async () => {
+    sessionStorage.removeItem('pending_new_book_sync');
+    await seedStore('library', [{ book: 'bookA', title: 'X', timestamp: 4000, base_timestamp: 1000 }]);
+    await seedStore('nodes', [makeNode('bookA', 100, 'n-100', '<p>e</p>')]);
+    queueForSync('nodes', 100, 'update', makeNode('bookA', 100, 'n-100', '<p>e</p>'), null);
+
+    await debouncedMasterSync.flush();
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).base_timestamp).toBe(1000);
   });
 
   it('groups queued items by book: one POST per book (sub-books sync independently)', async () => {

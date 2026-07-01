@@ -12,26 +12,15 @@ import { escapeHtml } from '../../../paste/utils/normalizer';
 import { showImportFailureModal } from '../../../conversion/bugReportModal.js';
 
 export function setupFormSubmission() {
-  console.log("🔥 DEBUG: setupFormSubmission called");
   const form = $('cite-form');
-  if (!form) {
-    console.error("🔥 DEBUG: setupFormSubmission - form not found");
-    return;
-  }
-
-  console.log("🔥 DEBUG: setupFormSubmission - form found:", form);
+  if (!form) return;
 
   // ✅ FIX: Check for existing handler more robustly
-  if (form._hasSubmitHandler) {
-    console.log("🔥 DEBUG: setupFormSubmission - handler already exists, skipping");
-    return;
-  }
+  if (form._hasSubmitHandler) return;
 
-  console.log("🔥 DEBUG: setupFormSubmission - adding new handler to form");
   form._hasSubmitHandler = true;
 
   const submitHandler = async function(this: any, event: any) {
-    console.log("🔥 DEBUG: FORM SUBMIT TRIGGERED");
     event.preventDefault();
     event.stopPropagation();
 
@@ -188,11 +177,9 @@ export function setupFormSubmission() {
   // Store handler reference for potential cleanup
   form._submitHandler = submitHandler;
 
-  // ✅ DEBUG: Test if the submit button is working + Safari single-tap submit shim
+  // Safari single-tap submit shim
   const submitButton = form.querySelector('button[type="submit"]');
   if (submitButton) {
-    console.log("🔥 DEBUG: Found submit button:", submitButton);
-
     const ensureSubmit = (e: any) => {
       // Mark that shim handled this tap to suppress the next click
       form._shimSubmitted = true;
@@ -234,15 +221,13 @@ export function setupFormSubmission() {
         e.stopPropagation();
         return false;
       }
-      console.log("🔥 DEBUG: Submit button clicked!", e);
     });
   } else {
-    console.error("🔥 DEBUG: Submit button not found!");
+    console.error("Import submit button not found");
   }
 }
 
 async function submitToLaravelAndLoad(formData: any, submitButton: any) {
-  console.log("🔥 DEBUG: submitToLaravelAndLoad STARTED");
   console.log("Submitting to Laravel controller for file processing...");
 
   try {
@@ -257,7 +242,6 @@ async function submitToLaravelAndLoad(formData: any, submitButton: any) {
       setAllowedResubmitBookId(bookInput?.value?.trim() || null);
       return;
     }
-    console.log(`🔥 DEBUG: ImportBookTransition completed for ${result.bookId}`);
 
   } catch (error: any) {
     console.error("❌ Import failed:", error);

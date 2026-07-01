@@ -5,6 +5,8 @@
  * of the former resources/js/postgreSQL.js.
  */
 import { DB_VERSION } from '../core/connection';
+import { advanceBaseTimestamp } from '../core/library';
+import { asBookId } from '../types';
 import { verbose } from '../../utilities/logger';
 
 /** Per-store push configuration (endpoint + the IDB key range to read). */
@@ -203,6 +205,16 @@ async function syncAllBookData(bookName: string): Promise<unknown> {
 
   // 1) Upsert the library row first
   const libResult = await syncBookDataToServer(bookName, 'library');
+
+  // The library upsert BUMPS the server's library.timestamp (it adopts the client-sent value).
+  // Advance the client's optimistic-concurrency base to the server-confirmed timestamp so the next
+  // debounced unified-sync doesn't read a stale base and falsely 409 (STALE_DATA). Without this,
+  // this full-book sync (fired on edit-exit) left the base behind — a real stale-base gap for
+  // every book, and part of the new-book create→first-edit 409. Monotonic (never lowers).
+  const libTs = (libResult as { library?: { timestamp?: unknown } })?.library?.timestamp;
+  if (typeof libTs === 'number' && libTs > 0) {
+    await advanceBaseTimestamp(asBookId(bookName), libTs);
+  }
 
   // 2) Once library exists, fire off the rest
   const [nc, hl, hc, fn] = await Promise.all([

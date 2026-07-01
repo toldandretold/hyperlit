@@ -6,7 +6,7 @@
     "moduleCount": 337,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3204,
+    "edgeCount": 3210,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -32263,6 +32263,26 @@
       "rel": "write"
     },
     {
+      "id": "indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL__call__indexedDB/core/library:advanceBaseTimestamp",
+      "source": "indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL",
+      "target": "indexedDB/core/library:advanceBaseTimestamp",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL__call__indexedDB/types:asBookId",
+      "source": "indexedDB/serverSync/push:syncIndexedDBtoPostgreSQL",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/syncQueue/master:executeSyncPayload__call__indexedDB/core/library:advanceBaseTimestamp",
+      "source": "indexedDB/syncQueue/master:executeSyncPayload",
+      "target": "indexedDB/core/library:advanceBaseTimestamp",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "indexedDB/syncQueue/master:executeSyncPayload__push__route:/api/db/unified-sync",
       "source": "indexedDB/syncQueue/master:executeSyncPayload",
       "target": "route:/api/db/unified-sync",
@@ -36161,6 +36181,12 @@
       "rel": "write"
     },
     {
+      "id": "SPA/createNewBook:fireAndForgetSync__write__store:sessionStorage",
+      "source": "SPA/createNewBook:fireAndForgetSync",
+      "target": "store:sessionStorage",
+      "rel": "write"
+    },
+    {
       "id": "SPA/domReadiness:waitForCompleteReadiness__call__SPA/domReadiness:waitForContentReady",
       "source": "SPA/domReadiness:waitForCompleteReadiness",
       "target": "SPA/domReadiness:waitForContentReady",
@@ -38266,6 +38292,12 @@
       "rel": "read"
     },
     {
+      "id": "store:sessionStorage__read__indexedDB/syncQueue/master:executeSyncPayload",
+      "source": "store:sessionStorage",
+      "target": "indexedDB/syncQueue/master:executeSyncPayload",
+      "rel": "read"
+    },
+    {
       "id": "store:sessionStorage__read__lazyLoader/index:createLazyLoader",
       "source": "store:sessionStorage",
       "target": "lazyLoader/index:createLazyLoader",
@@ -38317,6 +38349,12 @@
       "id": "store:sessionStorage__read__search/inTextSearch/searchToolbar:SearchToolbarManager.getCurrentVisibleStartLine",
       "source": "store:sessionStorage",
       "target": "search/inTextSearch/searchToolbar:SearchToolbarManager.getCurrentVisibleStartLine",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__SPA/createNewBook:fireAndForgetSync",
+      "source": "store:sessionStorage",
+      "target": "SPA/createNewBook:fireAndForgetSync",
       "rel": "read"
     },
     {
@@ -42144,8 +42182,23 @@
       "kind": "static"
     },
     {
+      "source": "indexedDB/serverSync/push",
+      "target": "indexedDB/core/library",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/serverSync/push",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
       "source": "indexedDB/syncQueue/master",
       "target": "indexedDB/core/connection",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/syncQueue/master",
+      "target": "indexedDB/core/library",
       "kind": "static"
     },
     {
