@@ -33,23 +33,74 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // tsvector @@ tsquery (the shape every search query uses)
-        DB::connection('pgsql_admin')->statement(
-            'ALTER FUNCTION pg_catalog.ts_match_vq(tsvector, tsquery) LEAKPROOF'
+        // Idempotent: if a DBA already ran the ALTERs by hand (required when
+        // pgsql_admin is not superuser — pg_catalog functions are owned by
+        // postgres), this records the migration as run without touching anything.
+        if ($this->alreadyLeakproof()) {
+            return;
+        }
+
+        try {
+            // tsvector @@ tsquery (the shape every search query uses)
+            DB::connection('pgsql_admin')->statement(
+                'ALTER FUNCTION pg_catalog.ts_match_vq(tsvector, tsquery) LEAKPROOF'
+            );
+            // tsquery @@ tsvector (symmetric operator, for completeness)
+            DB::connection('pgsql_admin')->statement(
+                'ALTER FUNCTION pg_catalog.ts_match_qv(tsquery, tsvector) LEAKPROOF'
+            );
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->getCode() === '42501') { // insufficient_privilege
+                throw new \RuntimeException(
+                    "pgsql_admin cannot alter pg_catalog functions (not superuser).\n" .
+                    "Run ONCE as the postgres superuser against THIS database, then re-run `php artisan migrate`:\n\n" .
+                    "  sudo -u postgres psql -d <your-db-name> -c \"ALTER FUNCTION pg_catalog.ts_match_vq(tsvector, tsquery) LEAKPROOF; ALTER FUNCTION pg_catalog.ts_match_qv(tsquery, tsvector) LEAKPROOF;\"\n\n" .
+                    "The migration will then detect the functions are already leakproof and record itself as run.",
+                    0,
+                    $e
+                );
+            }
+            throw $e;
+        }
+    }
+
+    private function alreadyLeakproof(): bool
+    {
+        $rows = DB::connection('pgsql_admin')->select(
+            "SELECT proname, proleakproof FROM pg_proc WHERE proname IN ('ts_match_vq', 'ts_match_qv')"
         );
-        // tsquery @@ tsvector (symmetric operator, for completeness)
-        DB::connection('pgsql_admin')->statement(
-            'ALTER FUNCTION pg_catalog.ts_match_qv(tsquery, tsvector) LEAKPROOF'
-        );
+
+        $status = [];
+        foreach ($rows as $row) {
+            $status[$row->proname] = (bool) $row->proleakproof;
+        }
+
+        return ($status['ts_match_vq'] ?? false) && ($status['ts_match_qv'] ?? false);
     }
 
     public function down(): void
     {
-        DB::connection('pgsql_admin')->statement(
-            'ALTER FUNCTION pg_catalog.ts_match_vq(tsvector, tsquery) NOT LEAKPROOF'
-        );
-        DB::connection('pgsql_admin')->statement(
-            'ALTER FUNCTION pg_catalog.ts_match_qv(tsquery, tsvector) NOT LEAKPROOF'
-        );
+        if (!$this->alreadyLeakproof()) {
+            return; // already reverted (or never applied)
+        }
+
+        try {
+            DB::connection('pgsql_admin')->statement(
+                'ALTER FUNCTION pg_catalog.ts_match_vq(tsvector, tsquery) NOT LEAKPROOF'
+            );
+            DB::connection('pgsql_admin')->statement(
+                'ALTER FUNCTION pg_catalog.ts_match_qv(tsquery, tsvector) NOT LEAKPROOF'
+            );
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->getCode() === '42501') {
+                throw new \RuntimeException(
+                    "pgsql_admin cannot alter pg_catalog functions (not superuser). Revert as postgres:\n" .
+                    "  sudo -u postgres psql -d <your-db-name> -c \"ALTER FUNCTION pg_catalog.ts_match_vq(tsvector, tsquery) NOT LEAKPROOF; ALTER FUNCTION pg_catalog.ts_match_qv(tsquery, tsvector) NOT LEAKPROOF;\"",
+                    0,
+                    $e
+                );
+            }
+            throw $e;
+        }
     }
 };
