@@ -1,0 +1,144 @@
+/* ==================================================
+   Experimental /chat homepage
+   Lava-lamp animated background + centered glass hero.
+   The hero IS the normal home .fixed-header (logo + search + arranger
+   buttons) — these rules re-position it as a centered glass card, and
+   .content-active (added by chatHero when an arranger button is pressed)
+   glides it up into the usual header slot while the library cards load.
+   ================================================== */
+
+/* ---------- lava-lamp background ---------- */
+
+/* NOT z-index:-1 — body/html backgrounds paint over negative-z fixed elements.
+   Instead the mount sits at 0 and the app container is lifted to 1. */
+#lava-lamp-mount {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#app-container.chat-page {
+  position: relative;
+  z-index: 1;
+}
+
+#lava-lamp-mount .lava-lamp-bg {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.9s ease;
+}
+
+#lava-lamp-mount .lava-lamp-bg svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* once content is showing, calm the lava down so cards stay readable */
+#app-container.chat-page.content-active ~ #lava-lamp-mount .lava-lamp-bg {
+  opacity: 0.16;
+}
+
+/* ---------- hero: centered glass card ---------- */
+
+body[data-page="home"] #app-container.chat-page .fixed-header {
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(92vw, 480px); /* px, not em: header font-size is 28px so em blows up */
+  background-color: var(--container-glass-bg, rgba(34, 31, 32, 0.35));
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-radius: 1.5em;
+  padding: 40px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  transition:
+    top 0.6s ease-in-out,
+    transform 0.6s ease-in-out,
+    width 0.6s ease-in-out,
+    max-width 0.6s ease-in-out,
+    border-radius 0.6s ease-in-out,
+    padding 0.6s ease-in-out,
+    background-color 0.6s ease-in-out;
+}
+
+/* hero-only child alignment: home's header layout is left-aligned (partly via
+   JS-set inline styles), so these center the logo/search/buttons ONLY while
+   the card is centered; the risen state reverts to normal home alignment */
+#app-container.chat-page:not(.content-active) .fixed-header #imageContainer {
+  width: auto !important;
+  margin: 0 !important;
+  text-align: center !important;
+}
+
+#app-container.chat-page:not(.content-active) .fixed-header #imageContainer svg {
+  width: min(64vw, 280px);
+  height: auto;
+}
+
+#app-container.chat-page:not(.content-active) .fixed-header .arranger-buttons-container {
+  width: 100% !important;
+  justify-content: center !important;
+}
+
+#app-container.chat-page:not(.content-active) .fixed-header .search-container {
+  width: 100% !important;
+  max-width: none !important;
+  box-sizing: border-box;
+}
+
+/* risen state: same card glides into the normal home header position;
+   keeps the glass (cards scrolling beneath blur through it) */
+body[data-page="home"] #app-container.chat-page.content-active .fixed-header {
+  top: 0;
+  transform: translate(-50%, 0);
+  width: 100%;
+  max-width: var(--content-width, 40ch);
+  border-radius: 0 0 1em 1em;
+  padding: 20px 20px 10px 20px;
+  gap: 0.5em;
+}
+
+/* ---------- hidden lava adjuster (Shift+L) ---------- */
+
+.lava-adjuster {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 9999999;
+  width: 220px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(27, 24, 25, 0.85);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #cbcccc;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lava-adjuster label {
+  display: block;
+  color: #9a9a9a;
+}
+
+.lava-adjuster input[type="range"] {
+  width: 100%;
+}
+
+.lava-adjuster button {
+  background: #3a3637;
+  color: #eee;
+  border: 0;
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  margin-right: 6px;
+}

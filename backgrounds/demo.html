@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hyperlit hills — generator playground</title>
+<style>
+  :root {
+    --hyperlit-orange: #EF8D34;
+    --hyperlit-pink: #EE4A95;
+    --hyperlit-aqua: #4EACAE;
+    --hyperlit-black: #221F20;
+    --hyperlit-white: #CBCCCC;
+  }
+  * { margin: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+
+  #controls {
+    width: 300px; flex: 0 0 300px; overflow-y: auto;
+    background: #1b1819; color: #cbcccc; padding: 14px 16px 40px;
+    font-size: 12px; line-height: 1.35;
+  }
+  #controls h2 { font-size: 13px; margin: 18px 0 6px; color: #fff; }
+  #controls h2:first-child { margin-top: 0; }
+  #controls label { display: block; margin: 7px 0 2px; color: #9a9a9a; }
+  #controls label span.val { float: right; color: #ddd; }
+  #controls input[type=range] { width: 100%; }
+  #controls select, #controls input[type=number] {
+    width: 100%; background: #2c2829; color: #eee; border: 1px solid #444;
+    border-radius: 4px; padding: 3px 6px; font-size: 12px;
+  }
+  #controls button {
+    background: #EE4A95; color: #fff; border: 0; border-radius: 5px;
+    padding: 6px 10px; font-size: 12px; cursor: pointer; margin: 3px 4px 3px 0;
+  }
+  #controls button.secondary { background: #4EACAE; }
+  #controls button.ghost { background: #3a3637; }
+  .row { display: flex; gap: 8px; }
+  .row > div { flex: 1; }
+  .hint { color: #777; font-size: 11px; margin-top: 4px; }
+
+  #stage { flex: 1; position: relative; background: #fff; }
+  #stage.dark { background: var(--hyperlit-black); }
+  #stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .handle { cursor: grab; }
+  .handle:active { cursor: grabbing; }
+</style>
+</head>
+<body>
+
+<aside id="controls">
+  <h2>Generate</h2>
+  <button id="reroll">🎲 Re-roll</button>
+  <button id="animate" class="secondary">▶ Lava lamp</button>
+  <button id="toggleBg" class="ghost">Light / dark</button>
+  <label>Seed</label>
+  <input type="number" id="seed" step="1">
+  <label>Lava speed <span class="val" id="animSpeedVal"></span></label>
+  <input type="range" id="animSpeed" min="0.2" max="4" step="0.1">
+  <label>Lava amount (how far hills morph) <span class="val" id="animAmtVal"></span></label>
+  <input type="range" id="animAmt" min="0" max="1" step="0.05">
+
+  <h2>Global character</h2>
+  <label>Wobble (leaf edge irregularity — subtle!) <span class="val" id="wobbleVal"></span></label>
+  <input type="range" id="wobble" min="0" max="0.06" step="0.005">
+  <label>Scatter density (loose free bumps) <span class="val" id="scatterVal"></span></label>
+  <input type="range" id="scatterMul" min="0" max="2.5" step="0.1">
+
+  <h2>Colors</h2>
+  <label>Pink cap size <span class="val" id="pinkVal"></span></label>
+  <input type="range" id="pinkHold" min="0" max="0.35" step="0.01">
+  <label>Orange epicentre <span class="val" id="orangeVal"></span></label>
+  <input type="range" id="orangePos" min="0.20" max="0.70" step="0.01">
+  <label>Aqua epicentre <span class="val" id="aquaVal"></span></label>
+  <input type="range" id="aquaPos" min="0.55" max="0.97" step="0.01">
+  <label>Color phase randomness (per leaf) <span class="val" id="phaseVal"></span></label>
+  <input type="range" id="phase" min="0" max="0.40" step="0.02">
+
+  <h2>Hills <span class="hint">(drag the ✛ on canvas to move / raise)</span></h2>
+  <select id="clusterSel"></select>
+  <div class="row">
+    <div><label>Leaf width <span class="val" id="cwVal"></span></label><input type="range" id="cw" min="60" max="800" step="10"></div>
+    <div><label>Leafs <span class="val" id="cnVal"></span></label><input type="range" id="cn" min="1" max="24" step="1"></div>
+  </div>
+  <label>Step down (size drop per leaf; 0 = even row) <span class="val" id="csdVal"></span></label>
+  <input type="range" id="csd" min="0" max="0.30" step="0.01">
+  <label>Step across (sideways march per leaf) <span class="val" id="csxVal"></span></label>
+  <input type="range" id="csx" min="-90" max="90" step="2">
+  <label>Scatter (random x spread → bumpy horizon) <span class="val" id="cscVal"></span></label>
+  <input type="range" id="csc" min="0" max="220" step="5">
+  <button id="addCluster" class="secondary">+ Add hill</button>
+  <button id="delCluster" class="ghost">Remove hill</button>
+  <div class="hint">Cascade look: step down ~0.06–0.12, step across ±20–50, low scatter.<br>
+  Bumpy horizon: step down 0, scatter 100+, more leafs.</div>
+
+  <h2>Export</h2>
+  <button id="copySvg">Copy SVG (CSS vars)</button>
+  <button id="dlSvg" class="secondary">Download SVG (baked)</button>
+  <button id="copyCfg" class="ghost">Copy settings</button>
+  <div class="hint" id="status">&nbsp;</div>
+</aside>
+
+<main id="stage"></main>
+
+<script>
+'use strict';
+const BASE_Y = 1001, VW = 1600, VH = 1000;
+const PINK = '#EE4A95', ORANGE = '#EF8D34', AQUA = '#4EACAE';
+const BASE_BLUSH = '#F0A9C9'; // light pink at the very base
+
+let cfg = {
+  seed: 5,
+  wobble: 0.015,
+  scatterMul: 1.0,
+  animOn: false,
+  animSpeed: 1.0,
+  animAmt: 0.6,
+  pinkHold: 0.08,
+  orangePos: 0.42,
+  aquaPos: 0.82,
+  phase: 0.16,
+  dark: false,
+  // each hill: x/H = tallest (back) leaf apex; leafs descend by stepDown and march by stepX, scatter = random x spread
+  clusters: [
+    { x: 1040, H: 900, W: 210, n: 10, stepDown: 0.06, stepX: 26,  scatter: 30 },   // centre arch cascade
+    { x: 860,  H: 320, W: 250, n: 7,  stepDown: 0.02, stepX: -10, scatter: 120 },  // mid bumpy row
+    { x: 470,  H: 470, W: 430, n: 9,  stepDown: 0.07, stepX: 30,  scatter: 40 },   // left hill cascade
+    { x: 1390, H: 430, W: 340, n: 6,  stepDown: 0.05, stepX: -25, scatter: 50 },   // right shoulder
+    { x: 1720, H: 690, W: 520, n: 10, stepDown: 0.06, stepX: -40, scatter: 60 },   // right mass cascade
+    { x: 280,  H: 165, W: 480, n: 7,  stepDown: 0.03, stepX: 18,  scatter: 150 },  // front band left (row)
+    { x: 1080, H: 130, W: 440, n: 6,  stepDown: 0.03, stepX: -15, scatter: 160 },  // front band right (row)
+  ],
+};
+let activeCluster = 0;
+
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function domePath(rng, cx, rx, ry, wobble) {
+  const lean = (rng() - 0.5) * 0.20;
+  const terms = [
+    [wobble * (0.6 + rng() * 0.6), 3 + rng() * 4, rng() * 6.283],
+    [wobble * (0.3 + rng() * 0.4), 7 + rng() * 6, rng() * 6.283],
+  ];
+  const pts = [];
+  const N = 40;
+  for (let i = 0; i <= N; i++) {
+    const th = Math.PI * i / N;
+    let nz = 0;
+    for (const [a, k, p] of terms) nz += a * Math.sin(k * th + p);
+    const w = 1 + nz * Math.sqrt(Math.sin(th));
+    const x = cx - rx * Math.cos(th) * w + lean * rx * Math.sin(th);
+    const y = Math.min(BASE_Y, BASE_Y - ry * Math.sin(th) * w);
+    pts.push([x, y]);
+  }
+  // catmull-rom -> bezier
+  let d = `M ${pts[0][0].toFixed(0)} ${pts[0][1].toFixed(0)} `;
+  const ext = [pts[0], ...pts, pts[pts.length - 1]];
+  for (let i = 1; i < ext.length - 2; i++) {
+    const [p0, p1, p2, p3] = [ext[i - 1], ext[i], ext[i + 1], ext[i + 2]];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += `C ${c1[0].toFixed(0)} ${c1[1].toFixed(0)} ${c2[0].toFixed(0)} ${c2[1].toFixed(0)} ${p2[0].toFixed(0)} ${p2[1].toFixed(0)} `;
+  }
+  return d + 'Z';
+}
+
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+function gradStops(rng, damp) {
+  // per-leaf phase shift so overlapping leafs alternate colors
+  const ph = cfg.phase * (damp ? 0.4 : 1);
+  const shift = () => (rng() - 0.5) * 2 * ph;
+  let pink = clamp(cfg.pinkHold + shift() * 0.6, 0.0, 0.45);
+  let orange = clamp(cfg.orangePos + shift(), pink + 0.08, 0.85);
+  let aqua = clamp(cfg.aquaPos + shift() * 0.7, orange + 0.08, 0.985);
+  return { pink, orange, aqua };
+}
+
+/* ---------- lava-lamp time ---------- */
+let simT = 0; // simulated seconds; frozen (and reset) when animation is off
+
+function animCluster(c, ci) {
+  const k = cfg.animAmt;
+  if (simT === 0 || k === 0) return c;
+  // each hill breathes on its own slow cycle: rises tall & narrow, then spreads low & wide
+  const per = 24 + ((ci * 9301 + 49297) % 233) / 233 * 26;         // 24–50 s cycle
+  const ph = ci * 1.7;
+  const e = Math.sin(simT * 2 * Math.PI / per + ph);               // -1..1 energy
+  const sway = Math.sin(simT * 2 * Math.PI / (per * 1.9) + ph * 2.3);
+  return {
+    ...c,
+    H: c.H * (1 + e * 0.55 * k),      // tall at peak...
+    W: c.W * (1 - e * 0.45 * k),      // ...narrow at peak; wide when slumped
+    x: c.x + sway * 90 * k,
+    stepX: c.stepX * (1 + sway * 0.4 * k),
+  };
+}
+
+function buildBlobs() {
+  const blobs = []; // {d, stops}
+  const k = cfg.animAmt;
+  cfg.clusters.forEach((cBase, ci) => {
+    const c = animCluster(cBase, ci);
+    const rng = mulberry32(cfg.seed * 7919 + ci * 1013);
+    // leaf 0 = tallest, painted first (back); each next shrinks by stepDown and marches by stepX
+    for (let i = 0; i < c.n; i++) {
+      const ry = c.H * Math.pow(1 - c.stepDown, i) * (1 + (rng() - 0.5) * 0.10);
+      const rx = c.W * Math.pow(ry / c.H, 0.75) * (1 + (rng() - 0.5) * 0.20);
+      const x = c.x + c.stepX * i + (rng() - 0.5) * 2 * c.scatter;
+      blobs.push({ d: domePath(rng, x, rx, ry, cfg.wobble), stops: gradStops(rng, false) });
+    }
+  });
+  // scatter rows: mid-depth bumps + foreground bumps (gentle bob while animating)
+  const bobX = i => simT ? Math.sin(simT * 0.15 + i * 1.9) * 30 * k : 0;
+  const bobY = i => simT ? 1 + 0.08 * k * Math.sin(simT * 0.21 + i * 2.7) : 1;
+  const sRng = mulberry32(cfg.seed * 104729 + 17);
+  const mid = Math.round(8 * cfg.scatterMul), front = Math.round(12 * cfg.scatterMul), tiny = Math.round(9 * cfg.scatterMul);
+  const mids = [];
+  for (let i = 0; i < mid; i++) {
+    const ry = (140 + sRng() * 180) * bobY(i), rx = ry * (1.3 + sRng() * 1.9);
+    mids.push({ d: domePath(sRng, 560 + sRng() * 390 + bobX(i), rx, ry, cfg.wobble), stops: gradStops(sRng, true) });
+  }
+  // insert mid bumps just after the first (deepest) cluster's leafs
+  const firstN = cfg.clusters[0] ? cfg.clusters[0].n : 0;
+  blobs.splice(firstN, 0, ...mids);
+  for (let i = 0; i < front; i++) {
+    const ry = (70 + sRng() * 130) * bobY(i + 40), rx = ry * (1.3 + sRng() * 1.9);
+    blobs.push({ d: domePath(sRng, -80 + sRng() * 1780 + bobX(i + 40), rx, ry, cfg.wobble), stops: gradStops(sRng, true) });
+  }
+  for (let i = 0; i < tiny; i++) {
+    const ry = (45 + sRng() * 65) * bobY(i + 80), rx = ry * (1.3 + sRng() * 1.9);
+    blobs.push({ d: domePath(sRng, -80 + sRng() * 1780 + bobX(i + 80), rx, ry, cfg.wobble), stops: gradStops(sRng, true) });
+  }
+  return blobs;
+}
+
+function svgMarkup(blobs, { baked = false, handles = false } = {}) {
+  const col = (v, lit) => baked ? lit : v;
+  const pink = col('var(--hyperlit-pink)', PINK);
+  const orange = col('var(--hyperlit-orange)', ORANGE);
+  const aqua = col('var(--hyperlit-aqua)', AQUA);
+  let defs = '', paths = '';
+  blobs.forEach((b, i) => {
+    const { pink: pe, orange: oe, aqua: ae } = b.stops;
+    defs += `<linearGradient id="hg${i}" x1="0" y1="0" x2="0" y2="1">`
+      + `<stop offset="0" stop-color="${pink}"/>`
+      + (pe > 0.01 ? `<stop offset="${pe.toFixed(2)}" stop-color="${pink}"/>` : '')
+      + `<stop offset="${oe.toFixed(2)}" stop-color="${orange}"/>`
+      + `<stop offset="${ae.toFixed(2)}" stop-color="${aqua}"/>`
+      + `<stop offset="1" stop-color="${BASE_BLUSH}"/>`
+      + `</linearGradient>`;
+    paths += `<path d="${b.d}" fill="url(#hg${i})"/>\n`;
+  });
+  let handleMarkup = '';
+  if (handles) {
+    cfg.clusters.forEach((c, ci) => {
+      const y = BASE_Y - c.H;
+      const hot = ci === activeCluster;
+      handleMarkup += `<g class="handle" data-ci="${ci}">`
+        + `<circle cx="${c.x}" cy="${y}" r="26" fill="${hot ? '#221F20' : '#ffffff'}" fill-opacity="0.55" stroke="${hot ? '#fff' : '#221F20'}" stroke-width="2"/>`
+        + `<text x="${c.x}" y="${y + 5}" text-anchor="middle" font-size="20" fill="${hot ? '#fff' : '#221F20'}" style="pointer-events:none">✛</text>`
+        + `</g>`;
+    });
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMax slice"${handles ? ' id="art"' : ''} aria-hidden="true">`
+    + `<defs>${defs}</defs>\n${paths}${handleMarkup}</svg>`;
+}
+
+const stage = document.getElementById('stage');
+let pathEls = [];
+function render() {
+  stage.innerHTML = svgMarkup(buildBlobs(), { handles: !cfg.animOn });
+  pathEls = Array.from(stage.querySelectorAll('svg path'));
+  if (!cfg.animOn) bindHandles();
+  syncClusterInputs();
+}
+
+/* ---------- animation loop: only path d's change per frame ---------- */
+let lastNow = performance.now(), lastFrame = 0;
+function loop(now) {
+  const dt = (now - lastNow) / 1000;
+  lastNow = now;
+  if (cfg.animOn) {
+    simT += dt * cfg.animSpeed;
+    if (now - lastFrame > 33) { // ~30fps is plenty for lava
+      lastFrame = now;
+      const blobs = buildBlobs();
+      if (blobs.length !== pathEls.length) render();
+      else blobs.forEach((b, i) => pathEls[i].setAttribute('d', b.d));
+    }
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------- drag handles ---------- */
+function bindHandles() {
+  const svg = document.getElementById('art');
+  svg.querySelectorAll('.handle').forEach(h => {
+    h.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      const ci = +h.dataset.ci;
+      activeCluster = ci;
+      const pt = svg.createSVGPoint();
+      const move = ev => {
+        pt.x = ev.clientX; pt.y = ev.clientY;
+        const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+        cfg.clusters[ci].x = Math.round(clamp(p.x, -200, VW + 200));
+        cfg.clusters[ci].H = Math.round(clamp(BASE_Y - p.y, 40, 980));
+        requestAnimationFrame(render);
+      };
+      const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    });
+  });
+}
+
+/* ---------- controls ---------- */
+const $ = id => document.getElementById(id);
+const sliders = [
+  ['wobble', 'wobble', 'wobbleVal'],
+  ['scatterMul', 'scatterMul', 'scatterVal'],
+  ['animSpeed', 'animSpeed', 'animSpeedVal'],
+  ['animAmt', 'animAmt', 'animAmtVal'],
+  ['pinkHold', 'pinkHold', 'pinkVal'],
+  ['orangePos', 'orangePos', 'orangeVal'],
+  ['aquaPos', 'aquaPos', 'aquaVal'],
+  ['phase', 'phase', 'phaseVal'],
+];
+sliders.forEach(([id, key, valId]) => {
+  $(id).value = cfg[key];
+  $(valId).textContent = cfg[key];
+  $(id).addEventListener('input', () => {
+    cfg[key] = parseFloat($(id).value);
+    $(valId).textContent = cfg[key];
+    render();
+  });
+});
+
+$('seed').value = cfg.seed;
+$('seed').addEventListener('change', () => { cfg.seed = parseInt($('seed').value) || 0; render(); });
+$('reroll').addEventListener('click', () => {
+  cfg.seed = Math.floor(Math.random() * 100000);
+  $('seed').value = cfg.seed;
+  render();
+});
+$('toggleBg').addEventListener('click', () => {
+  cfg.dark = !cfg.dark;
+  stage.classList.toggle('dark', cfg.dark);
+});
+$('animate').addEventListener('click', () => {
+  cfg.animOn = !cfg.animOn;
+  if (!cfg.animOn) simT = 0; // snap back to the editable base pose
+  $('animate').textContent = cfg.animOn ? '⏸ Pause' : '▶ Lava lamp';
+  render();
+});
+
+function syncClusterSelect() {
+  const sel = $('clusterSel');
+  sel.innerHTML = cfg.clusters.map((c, i) =>
+    `<option value="${i}"${i === activeCluster ? ' selected' : ''}>hill ${i + 1} — x:${c.x} h:${c.H}</option>`).join('');
+}
+function syncClusterInputs() {
+  syncClusterSelect();
+  const c = cfg.clusters[activeCluster];
+  if (!c) return;
+  $('cw').value = c.W; $('cwVal').textContent = c.W;
+  $('cn').value = c.n; $('cnVal').textContent = c.n;
+  $('csd').value = c.stepDown; $('csdVal').textContent = c.stepDown;
+  $('csx').value = c.stepX; $('csxVal').textContent = c.stepX;
+  $('csc').value = c.scatter; $('cscVal').textContent = c.scatter;
+}
+$('clusterSel').addEventListener('change', () => { activeCluster = +$('clusterSel').value; render(); });
+[['cw', 'W', 'cwVal'], ['cn', 'n', 'cnVal'], ['csd', 'stepDown', 'csdVal'], ['csx', 'stepX', 'csxVal'], ['csc', 'scatter', 'cscVal']].forEach(([id, key, valId]) => {
+  $(id).addEventListener('input', () => {
+    const c = cfg.clusters[activeCluster];
+    if (!c) return;
+    c[key] = parseFloat($(id).value);
+    $(valId).textContent = c[key];
+    render();
+  });
+});
+$('addCluster').addEventListener('click', () => {
+  cfg.clusters.push({ x: 800, H: 400, W: 300, n: 7, stepDown: 0.05, stepX: 20, scatter: 60 });
+  activeCluster = cfg.clusters.length - 1;
+  render();
+});
+$('delCluster').addEventListener('click', () => {
+  if (cfg.clusters.length <= 1) return;
+  cfg.clusters.splice(activeCluster, 1);
+  activeCluster = Math.max(0, activeCluster - 1);
+  render();
+});
+
+/* ---------- export ---------- */
+const status = msg => { $('status').textContent = msg; setTimeout(() => $('status').innerHTML = '&nbsp;', 2500); };
+$('copySvg').addEventListener('click', async () => {
+  await navigator.clipboard.writeText(svgMarkup(buildBlobs()));
+  status('SVG (CSS vars) copied — paste into a Blade partial.');
+});
+$('dlSvg').addEventListener('click', () => {
+  const blob = new Blob([svgMarkup(buildBlobs(), { baked: true })], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'hyperlit-hills.svg';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+$('copyCfg').addEventListener('click', async () => {
+  await navigator.clipboard.writeText(JSON.stringify(cfg, null, 2));
+  status('Settings JSON copied — send it back to reproduce this exact art.');
+});
+
+render();
+</script>
+</body>
+</html>
