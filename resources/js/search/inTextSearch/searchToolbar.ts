@@ -1,6 +1,6 @@
 // searchToolbar.js - Manages the search toolbar for in-text search
 
-import { log, verbose } from "../../utilities/logger";
+import { verbose } from "../../utilities/logger";
 import { debounce } from "../../utilities/debounce";
 // Import from source modules (not the scrolling/ barrel) so searchToolbar doesn't pull the
 // whole scrolling graph in — keeps the static import graph acyclic.
@@ -108,7 +108,7 @@ class SearchToolbarManager {
   async open() {
     if (!this.toolbar) return;
 
-    log.init('SearchToolbar: Opening', '/search/inTextSearch/searchToolbar');
+    verbose.init('SearchToolbar: Opening', '/search/inTextSearch/searchToolbar');
 
     // Capture initial scroll position for nearest-match search
     this.initialStartLine = this.getCurrentVisibleStartLine();
@@ -181,7 +181,7 @@ class SearchToolbarManager {
   close() {
     if (!this.toolbar) return;
 
-    log.init('SearchToolbar: Closing', '/search/inTextSearch/searchToolbar');
+    verbose.init('SearchToolbar: Closing', '/search/inTextSearch/searchToolbar');
 
     // Cancel any pending debounced search
     this.debouncedSearch.cancel();
@@ -647,7 +647,7 @@ export function initializeSearchToolbar() {
   if (!searchToolbarManager) {
     // Create new manager instance
     searchToolbarManager = new SearchToolbarManager();
-    log.init('Search Toolbar initialized', '/search/inTextSearch/searchToolbar');
+    verbose.init('Search Toolbar initialized', '/search/inTextSearch/searchToolbar');
   } else {
     // Manager exists, just rebind elements after SPA transition
     searchToolbarManager.rebindElements();
@@ -738,7 +738,7 @@ export async function openSearchToolbarWithQuery(query: any, targetStartLine: an
   // This must come after open() because open() resets initialStartLine to current scroll position
   if (targetStartLine) {
     searchToolbarManager.initialStartLine = Number(targetStartLine);
-    log.init(`SearchToolbar: Override initial position to ${targetStartLine}`, '/search/inTextSearch/searchToolbar');
+    verbose.init(`SearchToolbar: Override initial position to ${targetStartLine}`, '/search/inTextSearch/searchToolbar');
   }
 
   // Set the input value and trigger search
@@ -760,7 +760,7 @@ export function checkHighlightParam() {
   const highlightStartLine = sessionStorage.getItem('pendingHighlightStartLine');
 
   if (highlightQuery) {
-    log.init(`SearchToolbar: Found pending highlight query "${highlightQuery}", startLine: ${highlightStartLine}`, '/search/inTextSearch/searchToolbar');
+    verbose.init(`SearchToolbar: Found pending highlight query "${highlightQuery}", startLine: ${highlightStartLine}`, '/search/inTextSearch/searchToolbar');
 
     // Clear immediately so it doesn't trigger again on refresh
     sessionStorage.removeItem('pendingHighlightQuery');

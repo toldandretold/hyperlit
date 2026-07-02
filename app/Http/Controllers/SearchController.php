@@ -175,6 +175,7 @@ class SearchController extends Controller
                 'offset'            => $offset,
                 'external_ingested' => $payload['external_ingested'], // deprecated: always 0, use external_pending
                 'external_pending'  => $payload['external_pending'],
+                'external_status'   => $payload['external_status'],
             ])->header('Server-Timing', $this->serverTimingHeader($timings));
 
         } catch (QueryException $qe) {

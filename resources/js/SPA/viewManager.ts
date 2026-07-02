@@ -261,7 +261,7 @@ export async function universalPageInitializer(progressCallback = null) {
   // Note: Cache invalidation checking removed for performance
 
   const currentPageType = document.body.getAttribute('data-page');
-  log.init(`Page type: ${currentPageType}`, 'viewManager.js');
+  verbose.init(`Page type: ${currentPageType}`, 'viewManager.js');
 
   resetCurrentLazyLoader();
 
@@ -320,7 +320,7 @@ export async function universalPageInitializer(progressCallback = null) {
   // NOW: ButtonRegistry handles this automatically via initializeAll()
 
   // Initialize components that work on both page types
-  log.init('Universal components initialized', 'viewManager.js');
+  verbose.init('Universal components initialized', 'viewManager.js');
     await initializeUniversalComponents(currentPageType);
 
     // 🔧 CRITICAL: Attach global handlers (popstate/visibility, focus) for ALL page types

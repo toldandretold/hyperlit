@@ -12,7 +12,7 @@
  * NavigationManager is the ONLY place that calls ProgressOverlayEnactor.hide()
  * All pathways just do their work - NavigationManager handles overlay lifecycle
  */
-import { log } from '../../utilities/logger';
+import { log, verbose } from '../../utilities/logger';
 import { registerNavActions } from './navigationRegistry';
 import { ProgressOverlayEnactor } from './ProgressOverlayEnactor.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
@@ -76,7 +76,7 @@ export class NavigationManager {
    * Uses full initialization without SPA transitions
    */
   static async handleFreshPageLoad(options: any = {}) {
-    log.nav('Fresh page load pathway', '/navigation/NavigationManager.js');
+    verbose.nav('Fresh page load pathway', '/navigation/NavigationManager.js');
 
     const { FreshPageLoader } = await import('./pathways/FreshPageLoader.js');
     return await FreshPageLoader.initialize(options);
@@ -87,7 +87,7 @@ export class NavigationManager {
    * Full body replacement, enters edit mode
    */
   static async handleCreateNewBook(options: any = {}) {
-    log.nav('Create new book pathway', '/navigation/NavigationManager.js');
+    verbose.nav('Create new book pathway', '/navigation/NavigationManager.js');
 
     const { NewBookTransition } = await import('./pathways/NewBookTransition.js');
 
@@ -106,7 +106,7 @@ export class NavigationManager {
    * Backend processing with full body replacement
    */
   static async handleImportBook(options: any = {}) {
-    log.nav('Import book pathway', '/navigation/NavigationManager.js');
+    verbose.nav('Import book pathway', '/navigation/NavigationManager.js');
 
     const { ImportBookTransition } = await import('./pathways/ImportBookTransition.js');
     return await ImportBookTransition.execute(options);
@@ -117,7 +117,7 @@ export class NavigationManager {
    * Content replacement only, preserves navigation
    */
   static async handleBookToBookTransition(options: any = {}) {
-    log.nav('Book-to-book transition pathway', '/navigation/NavigationManager.js');
+    verbose.nav('Book-to-book transition pathway', '/navigation/NavigationManager.js');
 
     const { BookToBookTransition } = await import('./pathways/BookToBookTransition.js');
     return await BookToBookTransition.execute(options);
@@ -194,11 +194,11 @@ export class NavigationManager {
 
       if (compatible) {
         // Same structure: content-only transition
-        log.nav(`SameTemplateTransition (${currentStructure}→${targetStructure})`, '/navigation/NavigationManager.js');
+        verbose.nav(`SameTemplateTransition (${currentStructure}→${targetStructure})`, '/navigation/NavigationManager.js');
         await SameTemplateTransition.execute(options);
       } else {
         // Different structures: full body replacement
-        log.nav(`DifferentTemplateTransition (${currentStructure}→${targetStructure})`, '/navigation/NavigationManager.js');
+        verbose.nav(`DifferentTemplateTransition (${currentStructure}→${targetStructure})`, '/navigation/NavigationManager.js');
         await DifferentTemplateTransition.execute({
           ...options,
           fromStructure: currentStructure,

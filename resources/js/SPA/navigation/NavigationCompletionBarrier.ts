@@ -57,11 +57,9 @@ export class NavigationCompletionBarrier {
   static startNavigation(targetId: any, lazyLoader: any) {
     // If navigation already in progress, abort it first
     if (this.state !== 'idle') {
-      console.log('⚠️ NavigationCompletionBarrier: New navigation requested, aborting previous');
       this._forceCleanup();
     }
 
-    console.log(`🚦 NavigationCompletionBarrier: Starting barrier for ${targetId}`);
 
     // Initialize state
     this.state = 'waiting';
@@ -101,7 +99,6 @@ export class NavigationCompletionBarrier {
       registeredAt: Date.now()
     });
 
-    console.log(`📝 NavigationCompletionBarrier: Registered ${processType} (${this.registeredProcesses.size} total)`);
   }
 
   /**
@@ -130,7 +127,6 @@ export class NavigationCompletionBarrier {
     process.completedAt = Date.now();
 
     const pendingCount = this._getPendingCount();
-    console.log(`✅ NavigationCompletionBarrier: ${processType} ${success ? 'completed' : 'failed'} (${pendingCount} remaining)`);
 
     // Check if all processes are done
     if (pendingCount === 0) {
@@ -161,7 +157,6 @@ export class NavigationCompletionBarrier {
   static abort() {
     if (this.state === 'idle') return;
 
-    console.log('🚫 NavigationCompletionBarrier: Aborted by user');
     this.userAborted = true;
     this._forceCleanup();
   }
@@ -231,7 +226,6 @@ export class NavigationCompletionBarrier {
   static _performCleanup() {
     if (this.state === 'cleanup' || this.state === 'idle') return;
 
-    console.log('🧹 NavigationCompletionBarrier: All processes complete, performing cleanup');
     this.state = 'cleanup';
 
     this._clearSafetyTimeout();
@@ -264,7 +258,6 @@ export class NavigationCompletionBarrier {
     // Reset state
     this._reset();
 
-    console.log('✅ NavigationCompletionBarrier: Cleanup complete, state reset to idle');
   }
 
   /**

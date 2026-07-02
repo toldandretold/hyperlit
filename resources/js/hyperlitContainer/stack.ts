@@ -9,6 +9,7 @@
 import { book } from '../app';
 import { destroySubBook, restoreSubBookState } from './subBookActions';
 import { flushPendingEdits } from '../utilities/pendingEditsRegistry';
+import { log, verbose } from '../utilities/logger';
 
 // ============================================================================
 // STACK DATA STRUCTURE
@@ -155,12 +156,12 @@ export function getCurrentScroller() {
 
 export function pushLayer(layerData: any) {
   layers.push(layerData);
-  console.log(`📚 Stack push → depth ${layers.length}`);
+  verbose.nav(`📚 Stack push → depth ${layers.length}`, 'hyperlitContainer/stack.ts');
 }
 
 export function popLayer() {
   const popped = layers.pop();
-  console.log(`📚 Stack pop → depth ${layers.length}`);
+  verbose.nav(`📚 Stack pop → depth ${layers.length}`, 'hyperlitContainer/stack.ts');
   return popped;
 }
 
@@ -178,7 +179,7 @@ export function clear() {
   layers.length = 0;
   cachedBaseWidthPx = null;
   cachedBaseRightPx = null;
-  console.log('📚 Stack cleared');
+  verbose.nav('📚 Stack cleared', 'hyperlitContainer/stack.ts');
 }
 
 // ============================================================================
@@ -214,8 +215,6 @@ export function createStackedContainerDOM(depth: any) {
 
   // Pixel-based cascade: each level is 2% narrower, gap side alternates
   const { widthPx, rightPx, group } = calculateCascadePosition(depth);
-  const { baseWidthPx, baseRightPx } = getBaseContainerMetrics();
-  console.log(`📐 Cascade position for depth ${depth}: width=${widthPx}px, right=${rightPx}px (base: ${baseWidthPx}x${baseRightPx})`);
   container.style.width = `${widthPx}px`;
   container.style.right = `${rightPx}px`;
   // Shadow on the gap side: even groups gap left, odd groups gap right
@@ -372,10 +371,9 @@ export function syncStackToHistoryState({ pushHistoryEntry = false, urlOverride 
 
   if (pushHistoryEntry) {
     history.pushState(newState, '', newUrl);
-    console.log(`📚 Stack PUSHED to new history entry (${depth} layers), URL: ${newUrl}`);
+    verbose.nav(`📚 Stack PUSHED to new history entry (${depth} layers), URL: ${newUrl}`, 'hyperlitContainer/stack.ts');
   } else {
     history.replaceState(newState, '', newUrl);
-    console.log(`📚 Stack synced to history.state (${depth} layers), URL: ${newUrl}`);
   }
 }
 
@@ -392,7 +390,6 @@ export function syncStackToHistoryState({ pushHistoryEntry = false, urlOverride 
  */
 export async function saveAndPopTopLayer() {
   if (isPopPending) {
-    console.warn('saveAndPopTopLayer BLOCKED — already in flight');
     return;
   }
   isPopPending = true;
@@ -424,7 +421,7 @@ export async function saveAndPopTopLayer() {
       // Now pop the layer (saves already flushed — popTopLayer's internal flush is a no-op)
       await popTopLayer();
     } catch (error) {
-      console.error('Error during save-and-pop:', error);
+      log.error('Error during save-and-pop', 'hyperlitContainer/stack.ts', error as any);
       await ProgressOverlayConductor.hide();
       await popTopLayer(); // still try to pop even if save failed
     }
@@ -453,7 +450,7 @@ async function _popTopLayerImpl() {
   const top = getTopLayer();
   if (!top) return;
 
-  console.log(`📚 Popping layer ${top.depth}...`);
+  verbose.nav(`📚 Popping layer ${top.depth}...`, 'hyperlitContainer/stack.ts');
 
   // Set flag FIRST to prevent handleSelection() from firing during flush
   isPopping = true;
@@ -521,7 +518,7 @@ async function _popTopLayerImpl() {
       restoreModuleState(top.savedModuleState);
       restoreSubBookState(top.savedSubBookState);
     } catch (err) {
-      console.warn('Error restoring state during close (non-fatal):', err);
+      log.error('Error restoring state during close (non-fatal)', 'hyperlitContainer/stack.ts', err as any);
     }
 
     // Full close sequence — always reached even if restore above threw
@@ -563,23 +560,18 @@ async function _popTopLayerImpl() {
     await applyCurrentEditModeToLayer();
   }
 
-  console.log(`📚 Layer ${newTop.depth} restored`);
-
   // Restore URL from the now-visible layer's saved state
   // Skip when closeHyperlitContainer is bulk-unwinding — it handles URL cleanup itself
   try {
-    if (closingNow) {
-      console.log('📚 URL restore + state sync skipped — container is closing (bulk unwind)');
-    } else {
+    if (!closingNow) {
       if (newTop.savedUrl) {
-        console.log(`📚 URL restore on pop: ${window.location.pathname} → ${newTop.savedUrl}`);
         history.replaceState(history.state, '', newTop.savedUrl);
       }
       // Sync stack to history.state after pop
       syncStackToHistoryState();
     }
   } catch (err) {
-    console.warn('URL restore on pop failed (non-fatal):', err);
+    log.error('URL restore on pop failed (non-fatal)', 'hyperlitContainer/stack.ts', err as any);
     syncStackToHistoryState(); // fallback: sync anyway if import failed
   }
 

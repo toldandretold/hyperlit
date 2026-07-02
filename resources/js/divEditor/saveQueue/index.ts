@@ -92,7 +92,6 @@ export class SaveQueue implements IntegritySurface {
    * Add node to pending saves queue
    */
   queueNode(IDnumerical: LineId, action: string = 'update', bookId: BookId | null = null): void {
-    verbose.content(`SaveQueue.queueNode: ${IDnumerical}, action: ${action}, bookId: ${bookId || '(inherit)'}, pending: ${this.pendingSaves.nodes.size}`, 'divEditor/saveQueue/index.ts');
     this.pendingSaves.nodes.set(IDnumerical, { id: IDnumerical, action, bookId });
     this.pendingSaves.lastActivity = Date.now();
 
@@ -104,7 +103,6 @@ export class SaveQueue implements IntegritySurface {
     hidePasteUndoToast();
     clearPasteSnapshot();
 
-    verbose.content(`Calling debouncedSaveNode`, 'divEditor/saveQueue/index.ts');
     this.debouncedSaveNode();
   }
 
@@ -158,7 +156,6 @@ export class SaveQueue implements IntegritySurface {
       });
     }
 
-    verbose.content(`Queued node ${IDnumerical} for deletion (data-node-id: ${dataNodeID}${nodeElement ? ' from element' : ' from DOM'})`, 'divEditor/saveQueue/index.ts');
     this.debouncedBatchDelete();
   }
 
@@ -169,7 +166,6 @@ export class SaveQueue implements IntegritySurface {
     if (this._destroyed) return;
     verbose.content(`saveNodeToDatabase called, pending nodes: ${this.pendingSaves.nodes.size}`, 'divEditor/saveQueue/index.ts');
     if (this.pendingSaves.nodes.size === 0) {
-      verbose.content('saveNodeToDatabase: no pending nodes, returning', 'divEditor/saveQueue/index.ts');
       return;
     }
 

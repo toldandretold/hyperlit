@@ -75,9 +75,16 @@ test('public scope with thin results: ingest job dispatched once, local search r
 
     Bus::assertDispatched(IngestExternalCitationCandidatesJob::class, function ($job) {
         return $job->query === 'CiteUnit_unique'
-            && $job->perSource === CitationSearchService::EXTERNAL_PER_SOURCE;
+            && $job->perSource === CitationSearchService::EXTERNAL_PER_SOURCE
+            // Dedicated queue — a user is actively polling for this job; it must
+            // never wait behind imports on `default`. Ships with
+            // deploy/supervisor/hyperlit-search.conf (README invariant #1).
+            && $job->queue === 'search-supplement';
     });
-    expect($r['external_pending'])->toBeTrue();
+    expect($r['external_pending'])->toBeTrue()
+        // Short spam-guard hold set BEFORE dispatch — keystroke spam can't
+        // double-dispatch even before the job has started running.
+        ->and(Cache::has(IngestExternalCitationCandidatesJob::dedupKey('CiteUnit_unique')))->toBeTrue();
 });
 
 test('public scope with full results: no external dispatch', function () {
@@ -130,10 +137,44 @@ test('generation bump (completed background ingest) invalidates the results cach
     $svc = citationServiceWith($search);
 
     $svc->search('gen bump test', 15, 0, 'public');
-    // Simulate the ingest job completing with new canonicals.
-    Cache::increment(IngestExternalCitationCandidatesJob::generationKey('gen bump test'));
+    // Simulate the ingest job completing with new canonicals (put, not
+    // increment — database-store increment no-ops on missing keys, which is
+    // why the job itself uses put; see IngestExternalCitationCandidatesJob).
+    Cache::put(IngestExternalCitationCandidatesJob::generationKey('gen bump test'), 1, 3600);
     // Same query within TTL — but the generation segment rolled the key.
     $svc->search('gen bump test', 15, 0, 'public');
+});
+
+test('external_status reflects the supplement lifecycle: dispatched → pending → outcome', function () {
+    $search = Mockery::mock(SearchService::class);
+    $search->shouldReceive('searchForCitations')->andReturn([]);
+
+    $svc = citationServiceWith($search);
+
+    // 1. First thin public search dispatches.
+    $r = $svc->search('status lifecycle', 15, 0, 'public');
+    expect($r['external_status'])->toBe('dispatched');
+
+    // 2. Dedup key set, job outcome unknown yet (Bus::fake — job never ran).
+    Cache::forget('nothing'); // (results cache key differs per gen; same call again)
+    $r = $svc->search('status lifecycle', 15, 0, 'public');
+    expect($r['external_status'])->toBe('pending');
+
+    // 3. Job wrote its outcome.
+    Cache::put(IngestExternalCitationCandidatesJob::statusKey('status lifecycle'), 'sources_failed', 900);
+    $r = $svc->search('status lifecycle', 15, 0, 'public');
+    expect($r['external_status'])->toBe('sources_failed');
+});
+
+test('external_status is null for non-public scope and full result pages', function () {
+    $fullResults = array_fill(0, 15, (object) ['row_type' => 'canonical']);
+    $search = Mockery::mock(SearchService::class);
+    $search->shouldReceive('searchForCitations')->andReturn([], $fullResults);
+
+    $svc = citationServiceWith($search);
+
+    expect($svc->search('q', 15, 0, 'mine', null, 'alice')['external_status'])->toBeNull()
+        ->and($svc->search('full page', 15, 0, 'public')['external_status'])->toBeNull();
 });
 
 test('search returns a timings breakdown for observability', function () {

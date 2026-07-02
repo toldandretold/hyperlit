@@ -16,6 +16,8 @@
  * defaults below only matter if that invariant is ever broken.
  */
 
+import { log } from '../utilities/logger';
+
 interface ContainerActions {
   openHyperlitContainer: (content: any, isBackNavigation?: boolean) => void;
   closeHyperlitContainer: (silent?: boolean, skipPrepare?: boolean) => Promise<void>;
@@ -35,7 +37,7 @@ export function registerContainerActions(actions: Partial<ContainerActions>): vo
 }
 
 const unregistered = (name: string) => {
-  console.warn(`[containerActions] ${name} called before the hyperlit container registered — no-op`);
+  log.error(`[containerActions] ${name} called before the hyperlit container registered — no-op`, 'hyperlitContainer/containerActions.ts');
 };
 
 // Delegators — same names/signatures as the orchestrator symbols they replace.

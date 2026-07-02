@@ -1,6 +1,22 @@
 # How search stays fast (and why it runs on the admin DB connection)
 
-**Deploy: nothing manual.** `git pull`, `php artisan migrate`, `php artisan config:cache` as usual. This file documents the one non-obvious architectural decision in the search stack so future-you doesn't have to rediscover it.
+This file documents the non-obvious decisions in the search stack so future-you doesn't have to rediscover them, plus the deploy steps.
+
+## Deploy checklist
+
+Routine deploys are the usual `git pull` → `migrate` → `config:cache` → `./deploy/supervisor/workers.sh restart`. **One-time on the deploy that introduces the `search-supplement` queue** (the citation modal's external-ingest worker — without this step nothing listens on the queue and supplements silently never run):
+
+```bash
+cd /var/www/hyperlit && git pull
+sudo cp deploy/supervisor/hyperlit-search.conf /etc/supervisor/conf.d/
+sudo supervisorctl reread && sudo supervisorctl update
+sudo -u www-data php artisan migrate
+sudo -u www-data php artisan config:cache
+./deploy/supervisor/workers.sh restart
+./deploy/supervisor/workers.sh status     # expect all 5 programs RUNNING
+```
+
+(Front-end changed too — run your usual `npm run build` step if you build on the server.) Smoke test: type an obscure author in the citation modal — "searching external databases…" should appear, with results folding in within a few seconds. Full worker topology docs: `deploy/supervisor/README.md`.
 
 ## The problem
 
@@ -40,6 +56,18 @@ HYPERLIT_TEST_URL=https://your-server php artisan test --group=concurrency --fil
 ```
 
 And every `/api/search/*` response carries a `Server-Timing` header (browser devtools → Network) showing per-stage cost in production, permanently.
+
+## How external supplementation behaves (citation modal)
+
+When a public citation search returns fewer than 15 local results, the server queues `IngestExternalCitationCandidatesJob` (OpenAlex + Open Library → `canonical_source`) and responds `external_pending: true`. The modal shows "No local results — searching external databases…" and automatically re-checks up to 3 times at 2.5s intervals, folding new results in as soon as the job lands. The "don't re-ask the APIs for this query" courtesy window (15 min) starts only when the fetch actually completed — a dead worker holds the query for just 2 minutes, not 15.
+
+Operational notes:
+
+- **Local dev needs a queue worker** (`php artisan queue:work`, or whatever `npm run dev:all` wires) — without one the job sits in the `jobs` table and the modal settles on the plain empty state.
+- **Prod:** the job rides its own `search-supplement` queue with a dedicated light worker (`deploy/supervisor/hyperlit-search.conf`, ~50 MB — fits the RAM budget in `deploy/supervisor/README.md`), so it never queues behind a 15-min document import on `default`. First-time install: `sudo cp deploy/supervisor/hyperlit-search.conf /etc/supervisor/conf.d/ && sudo supervisorctl reread && sudo supervisorctl update`.
+- **Provider quirks (seen in testing):** OpenAlex intermittently returns 503 (the job degrades to Open Library alone); Open Library returns nothing for author+title mixtures it can't parse. Zero external results for an obscure query can therefore be the sources' fault, not the pipeline's.
+- **The user is told the truth about emptiness.** The job records a per-query outcome, surfaced as `external_status` on the search response, and the modal words its empty state accordingly: sources errored with nothing ingested → "external databases are currently unreachable, try again in a few minutes"; job still queued/running → "still searching external databases in the background, try again shortly"; sources answered with genuinely nothing → the plain "No results found".
+- **End-to-end proof:** `cd tests/e2e && E2E_EXTERNAL=1 npx playwright test citation-external-supplement` (needs a running worker; hits real APIs). The mocked variants in the same file run without any of that. This spec is what caught the generation-bump cache bug (`Cache::increment` no-ops on missing keys under `CACHE_STORE=database`) that every unit test missed.
 
 ## FAQ
 

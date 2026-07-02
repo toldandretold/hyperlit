@@ -7,6 +7,7 @@
 
 import { openDatabase, updateBookTimestamp, getHyperciteFromIndexedDB, syncHyperciteWithNodeImmediately, getNodesByDataNodeIDs, rebuildNodeArrays, queueForSync, debouncedMasterSync } from '../indexedDB/index';
 import { getActiveBook } from '../hyperlitContainer/utilities/activeContext';
+import { log } from '../utilities/logger';
 import { extractHyperciteIdFromHref, determineRelationshipStatus, removeCitedINEntry } from './utils';
 import { getHyperciteById } from './database';
 
@@ -16,39 +17,29 @@ import { getHyperciteById } from './database';
  */
 export async function delinkHypercite(hyperciteElementId: string, hrefUrl: string): Promise<void> {
   try {
-    console.log("🔗 Starting delink process for:", hyperciteElementId);
-    console.log("📍 Href URL:", hrefUrl);
-
     // Step 1: Extract the target hypercite ID from the href
     const targetHyperciteId = extractHyperciteIdFromHref(hrefUrl);
     if (!targetHyperciteId) {
-      console.error("❌ Could not extract hypercite ID from href:", hrefUrl);
+      log.error('Could not extract hypercite ID from href', '/hypercites/deletion.ts', hrefUrl);
       return;
     }
-
-    console.log("🎯 Target hypercite ID to delink from:", targetHyperciteId);
 
     // Step 2: Look up the target hypercite in IndexedDB
     const db = await openDatabase();
     const targetHypercite = await getHyperciteById(db, targetHyperciteId);
 
     if (!targetHypercite) {
-      console.error("❌ Target hypercite not found in database:", targetHyperciteId);
+      log.error('Target hypercite not found in database', '/hypercites/deletion.ts', targetHyperciteId);
       return;
     }
-
-    console.log("📋 Found target hypercite:", targetHypercite);
 
     // Step 3: Remove the current hypercite from the target's citedIN array
     const originalCitedIN = [...targetHypercite.citedIN];
     const updatedCitedIN = removeCitedINEntry(targetHypercite.citedIN, hyperciteElementId);
 
     if (originalCitedIN.length === updatedCitedIN.length) {
-      console.warn("⚠️ No matching citedIN entry found to remove");
       return;
     }
-
-    console.log("✂️ Removed citedIN entry. New array:", updatedCitedIN);
 
     // Step 4: Update the target hypercite's relationship status
     const newRelationshipStatus = determineRelationshipStatus(updatedCitedIN.length);
@@ -61,7 +52,6 @@ export async function delinkHypercite(hyperciteElementId: string, hrefUrl: strin
     };
 
     await updateHyperciteInIndexedDB(db, updatedHypercite);
-    console.log("💾 Updated hypercite in IndexedDB");
 
     // Step 6: Update the DOM element's class if it exists
     updateDOMElementClass(targetHyperciteId, newRelationshipStatus);
@@ -79,8 +69,6 @@ export async function delinkHypercite(hyperciteElementId: string, hrefUrl: strin
       request.onerror = () => reject(request.error);
     });
 
-    console.log(`🔍 Searching ${allNodes.length} nodes for hypercite ${targetHyperciteId}`);
-
     // Find the node that contains this hypercite
     let foundNode: any = null;
     let foundHyperciteIndex = -1;
@@ -91,7 +79,6 @@ export async function delinkHypercite(hyperciteElementId: string, hrefUrl: strin
         if (index !== -1) {
           foundNode = node;
           foundHyperciteIndex = index;
-          console.log(`✅ Found hypercite in node at startLine ${node.startLine}, index ${index}`);
           break;
         }
       }
@@ -111,10 +98,6 @@ export async function delinkHypercite(hyperciteElementId: string, hrefUrl: strin
         updateRequest.onsuccess = () => resolve();
         updateRequest.onerror = () => reject(updateRequest.error);
       });
-
-      console.log(`✅ Updated node hypercites array for startLine ${foundNode.startLine}`);
-    } else {
-      console.warn(`⚠️ Hypercite ${targetHyperciteId} not found in any node`);
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -124,8 +107,6 @@ export async function delinkHypercite(hyperciteElementId: string, hrefUrl: strin
 
     // Step 8: Sync BOTH hypercite AND node immediately in ONE atomic transaction
     if (foundNode) {
-      console.log("🚀 Syncing hypercite + node deletion in unified transaction...");
-
       // Fetch the updated hypercite from IndexedDB
       const hyperciteToSync = await getHyperciteFromIndexedDB(targetHypercite.book, targetHyperciteId);
 
@@ -135,9 +116,8 @@ export async function delinkHypercite(hyperciteElementId: string, hrefUrl: strin
           hyperciteToSync,
           foundNode
         );
-        console.log("✅ Hypercite + node deletion synced to server in one transaction.");
       } else {
-        console.error("❌ Failed to fetch hypercite from IndexedDB for sync");
+        log.error('Failed to fetch hypercite from IndexedDB for sync', '/hypercites/deletion.ts');
       }
     }
 
@@ -150,22 +130,17 @@ export async function delinkHypercite(hyperciteElementId: string, hrefUrl: strin
       affectedBooks.add(currentBook);
     }
 
-    console.log(`📝 Updating timestamps for affected books:`, Array.from(affectedBooks));
-
     for (const bookId of affectedBooks) {
       await updateBookTimestamp(bookId);
     }
-
-    console.log("✅ Delink process completed successfully");
 
     // 🔥 NEW: Broadcast the update to other tabs so they can refresh the hypercite's appearance
     if (foundNode) {
       const { broadcastToOpenTabs } = await import('../utilities/BroadcastListener');
       broadcastToOpenTabs(targetHypercite.book, foundNode.startLine);
-      console.log(`📡 Broadcasted delink update for node ${foundNode.startLine} to other tabs`);
     }
   } catch (error) {
-    console.error("❌ Error in delinkHypercite:", error);
+    log.error('Error in delinkHypercite', '/hypercites/deletion.ts', error);
   }
 }
 
@@ -175,14 +150,11 @@ export async function delinkHypercite(hyperciteElementId: string, hrefUrl: strin
  */
 export async function handleHyperciteDeletion(hyperciteElement: HTMLAnchorElement | null): Promise<void> {
   if (!hyperciteElement || !hyperciteElement.href || !hyperciteElement.id) {
-    console.warn("⚠️ Invalid hypercite element for deletion");
     return;
   }
 
   const hyperciteElementId = hyperciteElement.id;
   const hrefUrl = hyperciteElement.href;
-
-  console.log("🗑️ Handling deletion of hypercite:", hyperciteElementId);
 
   await delinkHypercite(hyperciteElementId, hrefUrl);
 }
@@ -194,13 +166,11 @@ export async function handleHyperciteDeletion(hyperciteElement: HTMLAnchorElemen
  */
 export async function markHyperciteAsGhost(hyperciteId: string): Promise<boolean> {
   try {
-    console.log("👻 Marking hypercite as ghost:", hyperciteId);
-
     const db = await openDatabase();
     const hypercite = await getHyperciteById(db, hyperciteId);
 
     if (!hypercite) {
-      console.error("❌ Hypercite not found for ghost marking:", hyperciteId);
+      log.error('Hypercite not found for ghost marking', '/hypercites/deletion.ts', hyperciteId);
       return false;
     }
 
@@ -216,15 +186,12 @@ export async function markHyperciteAsGhost(hyperciteId: string): Promise<boolean
       request.onerror = () => reject(new Error("Error updating hypercite to ghost"));
     });
 
-    console.log("💾 Updated hypercite status to ghost in IndexedDB");
-
     // Rebuild affected node arrays so embedded hypercites reflect ghost status
     const affectedDataNodeIDs = hypercite.node_id || [];
     if (affectedDataNodeIDs.length > 0) {
       const allNodes = await getNodesByDataNodeIDs(affectedDataNodeIDs);
       const affectedNodes = allNodes.filter((n: any) => n.book === hypercite.book);
       await rebuildNodeArrays(affectedNodes);
-      console.log(`✅ Rebuilt arrays for ${affectedNodes.length} affected nodes`);
     }
 
     // Queue for sync and flush immediately
@@ -232,10 +199,9 @@ export async function markHyperciteAsGhost(hyperciteId: string): Promise<boolean
     queueForSync("hypercites", hyperciteId, "update", hypercite);
     await debouncedMasterSync.flush();
 
-    console.log("✅ Ghost hypercite synced to server");
     return true;
   } catch (error) {
-    console.error("❌ Error marking hypercite as ghost:", error);
+    log.error('Error marking hypercite as ghost', '/hypercites/deletion.ts', error);
     return false;
   }
 }
@@ -253,7 +219,6 @@ export async function removeSpecificCitations(sourceBook: any, sourceHyperciteId
   const db: any = await openDatabase();
 
   const brokenUrls = brokenCitations.map((c: any) => c.url);
-  console.log(`🔧 Removing citations: ${JSON.stringify(brokenUrls)}`);
 
   const updatedNodes = [];
 
@@ -274,21 +239,15 @@ export async function removeSpecificCitations(sourceBook: any, sourceHyperciteId
     });
 
     if (!hypercite) {
-      console.warn(`⚠️ Hypercite ${sourceHyperciteId} not found in IndexedDB`);
       continue;
     }
 
     // Filter out broken citations from citedIN array
-    const originalLength = hypercite.citedIN ? hypercite.citedIN.length : 0;
     hypercite.citedIN = (hypercite.citedIN || []).filter((url: any) => !brokenUrls.includes(url));
     const newLength = hypercite.citedIN.length;
 
-    console.log(`📊 Updated citedIN: ${originalLength} → ${newLength} citations`);
-
     // Update relationship status based on new citedIN length
     hypercite.relationshipStatus = determineRelationshipStatus(newLength);
-
-    console.log(`🔄 Updated relationship status: ${hypercite.relationshipStatus}`);
 
     // Save updated hypercite to IndexedDB
     const writeTx = db.transaction('hypercites', 'readwrite');
@@ -297,7 +256,6 @@ export async function removeSpecificCitations(sourceBook: any, sourceHyperciteId
 
     await new Promise((resolve: any, reject: any) => {
       putRequest.onsuccess = () => {
-        console.log(`✅ Updated hypercite ${sourceHyperciteId} in IndexedDB`);
         resolve(undefined);
       };
       putRequest.onerror = () => reject(putRequest.error);
@@ -317,7 +275,6 @@ export async function removeSpecificCitations(sourceBook: any, sourceHyperciteId
       // Update class to reflect new relationship status
       uElement.classList.remove('single', 'couple', 'poly');
       uElement.classList.add(hypercite.relationshipStatus);
-      console.log(`✅ Updated DOM element class to ${hypercite.relationshipStatus}`);
     }
 
     // Update nodeRecord's hypercites array (like delinkHypercite does) so the embedded
@@ -333,8 +290,6 @@ export async function removeSpecificCitations(sourceBook: any, sourceHyperciteId
       request.onerror = () => reject(request.error);
     });
 
-    console.log(`🔍 Searching ${allNodes.length} nodes for hypercite ${sourceHyperciteId}`);
-
     // Find the nodeRecord that contains this hypercite
     let foundNode: any = null;
     let foundHyperciteIndex = -1;
@@ -345,7 +300,6 @@ export async function removeSpecificCitations(sourceBook: any, sourceHyperciteId
         if (index !== -1) {
           foundNode = nodeRecord;
           foundHyperciteIndex = index;
-          console.log(`✅ Found hypercite in nodeRecord at startLine ${nodeRecord.startLine}, index ${index}`);
           break;
         }
       }
@@ -366,13 +320,9 @@ export async function removeSpecificCitations(sourceBook: any, sourceHyperciteId
         updateRequest.onerror = () => reject(updateRequest.error);
       });
 
-      console.log(`✅ Updated nodeRecord hypercites array for startLine ${foundNode.startLine}`);
-
       // Queue the nodeRecord for sync to PostgreSQL
       queueForSync('nodes', foundNode.startLine, 'update', foundNode);
       updatedNodes.push(foundNode);
-    } else {
-      console.warn(`⚠️ Hypercite ${sourceHyperciteId} not found in any nodeRecord`);
     }
 
     await new Promise((resolve: any, reject: any) => {
@@ -385,16 +335,13 @@ export async function removeSpecificCitations(sourceBook: any, sourceHyperciteId
   await updateBookTimestamp(sourceBook);
 
   // Flush sync immediately
-  console.log('⚡ Flushing sync queue immediately...');
   await debouncedMasterSync.flush();
-  console.log('✅ Sync queue flushed');
 
   // Broadcast changes to other tabs
   const { broadcastToOpenTabs }: any = await import('../utilities/BroadcastListener');
   updatedNodes.forEach((chunk: any) => {
     broadcastToOpenTabs(sourceBook, chunk.startLine);
   });
-  console.log('📡 Broadcasted citation removal to other tabs');
 
   // Re-render affected nodes so <u> tags reflect updated relationship status
   if (updatedNodes.length > 0) {
@@ -429,7 +376,6 @@ function updateDOMElementClass(hyperciteId: string, relationshipStatus: string):
     element.classList.remove('single', 'couple', 'poly');
     // Add new class
     element.classList.add(relationshipStatus);
-    console.log(`🎨 Updated DOM element ${hyperciteId} class to: ${relationshipStatus}`);
   }
 }
 

@@ -692,11 +692,12 @@ describe('CitationMode — regression: type → clear → switch scope', () => {
   });
 });
 
-describe('CitationMode — one-shot re-query on external_pending', () => {
+describe('CitationMode — external-supplement polling', () => {
   // The server dispatches a background OpenAlex/Open Library ingest when local
-  // results are thin (external_pending=true) — the modal re-fires the SAME
-  // query once ~2.5s later so the new canonicals fold in. Exactly once, and
-  // never after the user typed a new query or closed the modal.
+  // results are thin (external_pending=true). The ingest takes 1-15s, so the
+  // modal polls the SAME query up to 3 times at 2.5s intervals, stopping early
+  // when the result count grows. Poll responses always carry
+  // external_pending=false (server dedup), so polling cannot self-restart.
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -709,7 +710,14 @@ describe('CitationMode — one-shot re-query on external_pending', () => {
     return vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
   }
 
-  it('schedules exactly one retry when external_pending=true on the first page', async () => {
+  const libraryRow = {
+    row_type: 'library', id: 'b1', book: 'b1', canonical_source_id: null,
+    title: 'Found It', author: 'A', year: '2024',
+    bibtex: '@misc{x,author={A},year={2024},title={Found It}}',
+    has_version: true, has_nodes: true, is_private: false, source: 'library',
+  };
+
+  it('polls exactly 3 times when results stay empty, then stops with the normal empty state', async () => {
     const mode = makeMode();
     mode.isOpen = true;
     const fetchMock = fetchReturning({ results: [], has_more: false, external_pending: true });
@@ -719,17 +727,99 @@ describe('CitationMode — one-shot re-query on external_pending', () => {
     await mode.performSearch('obscure book', 0);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    // Retry fires after 2.5s — the retry's own response has external_pending
-    // false (server dedup), so no further retries get scheduled.
+    // Polls return empty + external_pending false (server dedup key set).
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({ results: [], has_more: false, external_pending: false }) });
-    await vi.advanceTimersByTimeAsync(2500);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
 
-    await vi.advanceTimersByTimeAsync(10000);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // poll 1
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(fetchMock).toHaveBeenCalledTimes(3); // poll 2
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(fetchMock).toHaveBeenCalledTimes(4); // poll 3 — attempts exhausted
+
+    await vi.advanceTimersByTimeAsync(20000);
+    expect(fetchMock).toHaveBeenCalledTimes(4); // no further polls
+    expect(mode.externalPoll).toBeNull();
+    // Final state is the plain empty state, not the searching message.
+    expect(mode._items().textContent).toContain('No results found');
   });
 
-  it('does not schedule a retry when external_pending is false or absent', async () => {
+  it('shows the searching-external message while polling with no local results', async () => {
+    const mode = makeMode();
+    mode.isOpen = true;
+    vi.stubGlobal('fetch', fetchReturning({ results: [], has_more: false, external_pending: true }));
+
+    mode.currentQuery = 'obscure book';
+    await mode.performSearch('obscure book', 0);
+
+    expect(mode._items().textContent).toContain('searching external databases');
+    expect(mode.citationResults.dataset.state).toBe('loading');
+  });
+
+  it('stops polling as soon as external results land', async () => {
+    const mode = makeMode();
+    mode.isOpen = true;
+    const fetchMock = fetchReturning({ results: [], has_more: false, external_pending: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    mode.currentQuery = 'obscure book';
+    await mode.performSearch('obscure book', 0);
+
+    // First poll returns an ingested result → polling stops immediately.
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ results: [libraryRow], has_more: false, external_pending: false }) });
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(mode.externalPoll).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(20000);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // no further polls
+    // The ingested result actually rendered.
+    expect(mode._items().querySelector('.citation-result-item')).not.toBeNull();
+  });
+
+  it('polling exhaustion with a still-pending job shows the honest still-searching message', async () => {
+    const mode = makeMode();
+    mode.isOpen = true;
+    const fetchMock = fetchReturning({ results: [], has_more: false, external_pending: true, external_status: 'dispatched' });
+    vi.stubGlobal('fetch', fetchMock);
+
+    mode.currentQuery = 'slow job';
+    await mode.performSearch('slow job', 0);
+
+    // Job never finishes: every poll reports status 'pending'.
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ results: [], has_more: false, external_pending: false, external_status: 'pending' }) });
+    await vi.advanceTimersByTimeAsync(2500 * 3 + 100);
+
+    expect(mode.externalPoll).toBeNull();
+    expect(mode._items().textContent).toContain('still searching external databases');
+  });
+
+  it('sources_failed response shows the databases-unreachable message instead of plain no-results', async () => {
+    const mode = makeMode();
+    mode.isOpen = true;
+    // Retype inside the dedup window after a failed ingest: no dispatch, no
+    // poll — just the recorded outcome.
+    vi.stubGlobal('fetch', fetchReturning({ results: [], has_more: false, external_pending: false, external_status: 'sources_failed' }));
+
+    mode.currentQuery = 'doomed';
+    await mode.performSearch('doomed', 0);
+
+    expect(mode._items().textContent).toContain('external databases are currently unreachable');
+  });
+
+  it('completed status keeps the plain no-results message (trustworthy emptiness)', async () => {
+    const mode = makeMode();
+    mode.isOpen = true;
+    vi.stubGlobal('fetch', fetchReturning({ results: [], has_more: false, external_pending: false, external_status: 'completed' }));
+
+    mode.currentQuery = 'nothing anywhere';
+    await mode.performSearch('nothing anywhere', 0);
+
+    expect(mode._items().textContent).toContain('No results found');
+    expect(mode._items().textContent).not.toContain('external databases');
+  });
+
+  it('does not poll when external_pending is false or absent', async () => {
     const mode = makeMode();
     mode.isOpen = true;
     const fetchMock = fetchReturning({ results: [], has_more: false });
@@ -737,12 +827,13 @@ describe('CitationMode — one-shot re-query on external_pending', () => {
 
     mode.currentQuery = 'anything';
     await mode.performSearch('anything', 0);
-    await vi.advanceTimersByTimeAsync(10000);
+    await vi.advanceTimersByTimeAsync(20000);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(mode.externalPoll).toBeNull();
   });
 
-  it('does not schedule a retry for load-more pages (offset > 0)', async () => {
+  it('does not poll for load-more pages (offset > 0)', async () => {
     const mode = makeMode();
     mode.isOpen = true;
     const fetchMock = fetchReturning({ results: [], has_more: false, external_pending: true });
@@ -750,12 +841,16 @@ describe('CitationMode — one-shot re-query on external_pending', () => {
 
     mode.currentQuery = 'paging';
     await mode.performSearch('paging', 15);
-    await vi.advanceTimersByTimeAsync(10000);
+    await vi.advanceTimersByTimeAsync(20000);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // Count only THIS query's fetches — unrelated stray fetches from earlier
+    // real-timer tests in the file can land inside this stub's lifetime.
+    const pagingCalls = fetchMock.mock.calls.filter(c => String(c[0]).includes('paging'));
+    expect(pagingCalls).toHaveLength(1);
+    expect(mode.externalPoll).toBeNull();
   });
 
-  it('a new keystroke cancels the pending retry', async () => {
+  it('a new keystroke cancels the poll chain', async () => {
     const mode = makeMode();
     mode.isOpen = true;
     const fetchMock = fetchReturning({ results: [], has_more: false, external_pending: true });
@@ -764,18 +859,20 @@ describe('CitationMode — one-shot re-query on external_pending', () => {
     mode.currentQuery = 'first query';
     await mode.performSearch('first query', 0);
     expect(mode.externalRetryTimer).not.toBeNull();
+    expect(mode.externalPoll).not.toBeNull();
 
-    // User types again before the retry fires
+    // User types again before the next poll fires
     mode.handleSearchInput({ target: { value: 'second query' } });
     expect(mode.externalRetryTimer).toBeNull();
+    expect(mode.externalPoll).toBeNull();
 
-    await vi.advanceTimersByTimeAsync(10000);
-    // Only the debounced search for the new query fired — not the stale retry.
+    await vi.advanceTimersByTimeAsync(20000);
+    // Only the debounced search for the new query fired — no stale polls.
     const urls = fetchMock.mock.calls.map(c => c[0]);
     expect(urls.filter(u => u.includes('first'))).toHaveLength(1);
   });
 
-  it('closing the modal cancels the pending retry', async () => {
+  it('closing the modal cancels the poll chain', async () => {
     const mode = makeMode();
     mode.isOpen = true;
     const fetchMock = fetchReturning({ results: [], has_more: false, external_pending: true });
@@ -787,12 +884,13 @@ describe('CitationMode — one-shot re-query on external_pending', () => {
 
     mode.close();
     expect(mode.externalRetryTimer).toBeNull();
+    expect(mode.externalPoll).toBeNull();
 
-    await vi.advanceTimersByTimeAsync(10000);
+    await vi.advanceTimersByTimeAsync(20000);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('retry is skipped if the current query changed by fire time', async () => {
+  it('poll is skipped if the current query changed by fire time', async () => {
     const mode = makeMode();
     mode.isOpen = true;
     const fetchMock = fetchReturning({ results: [], has_more: false, external_pending: true });
@@ -804,13 +902,14 @@ describe('CitationMode — one-shot re-query on external_pending', () => {
 
     // Query state moved on without going through handleSearchInput. Spy on
     // performSearch (not raw fetch — incidental component fetches would make
-    // a call-count assertion flaky) to prove the stale retry never re-fires.
+    // a call-count assertion flaky) to prove no stale poll ever re-fires.
     const performSearchSpy = vi.spyOn(mode, 'performSearch');
     mode.currentQuery = 'different';
-    await vi.advanceTimersByTimeAsync(10000);
+    await vi.advanceTimersByTimeAsync(20000);
 
     expect(performSearchSpy).not.toHaveBeenCalled();
     expect(mode.externalRetryTimer).toBeNull();
+    expect(mode.externalPoll).toBeNull();
   });
 });
 

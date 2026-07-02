@@ -16,6 +16,7 @@
 import { buildResultButton } from "./resultsRender";
 import { buildCombinedSearchUrl } from "./searchQuery";
 import { searchCacheGet, searchCacheSet } from "../../search/searchResultCache";
+import { log } from "../../utilities/logger";
 import type { CitationModeOptions, ShelfUI, ScopeChipsUI, PendingContext, CitationSearchResult } from "./types";
 
 declare global {
@@ -52,6 +53,7 @@ export class CitationMode {
   pendingContext: PendingContext | null = null;
   debounceTimer: ReturnType<typeof setTimeout> | null = null;
   externalRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  externalPoll: { query: string; attemptsLeft: number; baseline: number } | null = null;
   abortController: AbortController | null = null;
   currentQuery: string = '';
   currentOffset: number = 0;
@@ -156,7 +158,6 @@ export class CitationMode {
     // Clear flag after 300ms (prevents synthetic click from closing)
     setTimeout(() => {
       this.justOpened = false;
-      console.log('✅ Citation mode: Ready for close events');
     }, 300);
 
     // Add citation mode class to toolbar (CSS will hide other buttons)
@@ -178,10 +179,8 @@ export class CitationMode {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
       this.lockedScrollPosition = window.scrollY || window.pageYOffset || 0;
-      console.log(`🔒 Locking scroll position at ${this.lockedScrollPosition}px for citation mode`);
       this.boundScrollLockHandler = () => {
         if (window.scrollY !== this.lockedScrollPosition) {
-          console.log(`🔒 Scroll changed to ${window.scrollY}px, forcing back to ${this.lockedScrollPosition}px`);
           window.scrollTo(0, this.lockedScrollPosition ?? 0);
         }
       };
@@ -240,7 +239,6 @@ export class CitationMode {
 
     // MOBILE SCROLL LOCK: Remove scroll lock handler
     if (this.boundScrollLockHandler) {
-      console.log('🔓 Unlocking scroll position');
       window.removeEventListener('scroll', this.boundScrollLockHandler);
       this.boundScrollLockHandler = null;
       this.lockedScrollPosition = null;
@@ -480,7 +478,7 @@ export class CitationMode {
       }
     } catch (e) {
       this.shelvesLoaded = false;
-      console.warn('CitationMode: failed to load shelves:', e);
+      log.error('Failed to load shelves', '/editToolbar/citationMode/index.ts', e);
       shelf.options.innerHTML = '<li class="citation-shelf-option-empty" role="option" aria-disabled="true">Failed to load shelves</li>';
     }
   }
@@ -539,7 +537,6 @@ export class CitationMode {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
       this.boundInputTouchHandler = (e: any) => {
-        console.log('📱 Citation input touch - preventing default and manually focusing');
         e.preventDefault(); // Prevent iOS scroll-to-focus behavior
         e.stopPropagation();
 
@@ -676,9 +673,11 @@ export class CitationMode {
       // Backspacing or retyping an identical query renders instantly. The
       // external-pending retry bypasses so it reaches the server.
       if (!bypassCache) {
-        const cached = searchCacheGet<{ results?: CitationSearchResult[]; has_more?: boolean }>(url);
+        const cached = searchCacheGet<{ results?: CitationSearchResult[]; has_more?: boolean; external_status?: string }>(url);
         if (cached) {
           await this.renderResults(cached.results || [], offset, cached.has_more ?? false);
+          this.updateExternalPolling(false, query, offset, (cached.results || []).length,
+            typeof cached.external_status === 'string' ? cached.external_status : null);
           return;
         }
       }
@@ -693,12 +692,20 @@ export class CitationMode {
       if (!response.ok) throw new Error('Search failed');
 
       const data = await response.json();
-      // Never cache pending-external pages — the one-shot retry must hit the server.
-      if (data.external_pending !== true) {
+      // Never cache pages while an external ingest may still land for this
+      // query — a cached thin page would hide the ingested results on retype.
+      const pollActiveForQuery = this.externalPoll !== null && this.externalPoll.query === query;
+      if (data.external_pending !== true && !pollActiveForQuery) {
         searchCacheSet(url, data);
       }
       await this.renderResults(data.results || [], offset, data.has_more ?? false);
-      this.scheduleExternalRetry(data.external_pending === true, query, offset);
+      this.updateExternalPolling(
+        data.external_pending === true,
+        query,
+        offset,
+        (data.results || []).length,
+        typeof data.external_status === 'string' ? data.external_status : null,
+      );
 
     } catch (error: any) {
       if (error.name !== 'AbortError') {
@@ -710,23 +717,85 @@ export class CitationMode {
   }
 
   /**
-   * One-shot follow-up query. When the server returns external_pending=true it
-   * has dispatched a background OpenAlex/Open Library ingest for this query;
-   * new canonicals land a couple of seconds later, so re-fire the same search
-   * once to fold them in. The retry's own response always has
-   * external_pending=false (the server's dedup key), so this cannot loop.
+   * External-supplement polling. When the server returns external_pending=true
+   * it has dispatched a background OpenAlex/Open Library ingest for this query;
+   * results land whenever that job finishes (1-15s, cold-API dependent). We
+   * re-fire the same query up to 3 times at 2.5s intervals, stopping early as
+   * soon as the result count grows past the pre-ingest baseline. Poll responses
+   * always carry external_pending=false (server dedup key), so polls can never
+   * restart themselves — only a fresh dispatch can.
    */
-  scheduleExternalRetry(pending: boolean, query: string, offset: number) {
-    this.clearExternalRetry();
-    if (!pending || offset !== 0) return;
+  updateExternalPolling(pending: boolean, query: string, offset: number, resultCount: number, status: string | null = null) {
+    if (pending && offset === 0) {
+      // Server just dispatched a background ingest — start polling.
+      this.externalPoll = { query, attemptsLeft: 3, baseline: resultCount };
+      this.showExternalSearchingState(resultCount);
+      this.scheduleNextExternalPoll();
+      return;
+    }
+
+    const poll = this.externalPoll;
+    if (poll && poll.query === query && offset === 0) {
+      if (resultCount > poll.baseline || poll.attemptsLeft <= 0) {
+        // External results landed (renderResults already showed them), or we
+        // gave up — renderResults painted the final state; refine the empty
+        // message with what we know about the external outcome.
+        this.clearExternalRetry();
+        if (resultCount === 0) this.applyExternalEmptyMessage(status);
+        return;
+      }
+      this.showExternalSearchingState(resultCount);
+      this.scheduleNextExternalPoll();
+      return;
+    }
+
+    // No poll in flight (e.g. retyped a query inside its dedup window): the
+    // server still reports the last known external outcome — word the empty
+    // state honestly instead of a bare "No results found".
+    if (offset === 0 && resultCount === 0) {
+      this.applyExternalEmptyMessage(status);
+    }
+  }
+
+  /**
+   * Honest empty-state wording from the external-supplement outcome:
+   *   sources_failed      — the emptiness is NOT trustworthy, sources errored
+   *   pending/dispatched  — job still running; results may appear shortly
+   *   completed/null      — genuine "nothing found", keep the default message
+   */
+  applyExternalEmptyMessage(status: string | null) {
+    if (status === 'sources_failed') {
+      this._items().innerHTML = '<div class="citation-search-empty">No results found — external databases are currently unreachable. Try again in a few minutes.</div>';
+    } else if (status === 'pending' || status === 'dispatched') {
+      this._items().innerHTML = '<div class="citation-search-empty">No results yet — still searching external databases in the background. Try this search again shortly.</div>';
+    }
+    // completed / null → leave renderResults' default "No results found".
+  }
+
+  scheduleNextExternalPoll() {
+    if (this.externalRetryTimer) {
+      clearTimeout(this.externalRetryTimer);
+    }
     this.externalRetryTimer = setTimeout(() => {
       this.externalRetryTimer = null;
+      const poll = this.externalPoll;
       // Only if the modal is still open and the user hasn't typed a new query.
-      // bypassCache: the follow-up must reach the server for the fresh page.
-      if (this.isOpen && this.currentQuery === query) {
-        this.performSearch(query, 0, true);
+      if (!poll || !this.isOpen || this.currentQuery !== poll.query) {
+        this.clearExternalRetry();
+        return;
       }
+      poll.attemptsLeft -= 1;
+      // bypassCache: polls must reach the server for the fresh page.
+      this.performSearch(poll.query, 0, true);
     }, 2500);
+  }
+
+  /** While waiting on the background ingest with nothing local to show. */
+  showExternalSearchingState(resultCount: number) {
+    if (resultCount > 0) return; // local results visible — poll silently
+    this._items().innerHTML = '<div class="citation-search-loading">No local results — searching external databases…</div>';
+    this.citationResults.dataset.state = 'loading';
+    this.repositionContainer();
   }
 
   clearExternalRetry() {
@@ -734,14 +803,12 @@ export class CitationMode {
       clearTimeout(this.externalRetryTimer);
       this.externalRetryTimer = null;
     }
+    this.externalPoll = null;
   }
 
   repositionContainer() {
-    console.log(`🔄 repositionContainer called, state=${this.citationResults?.dataset?.state}, keyboardOpen=${window.activeKeyboardManager?.isKeyboardOpen}`);
-
     // Trigger keyboard manager to reposition container with new height
     if (window.activeKeyboardManager && window.activeKeyboardManager.isKeyboardOpen) {
-      console.log(`✅ Calling moveToolbarAboveKeyboard from repositionContainer`);
       const editToolbar = document.getElementById('edit-toolbar');
       const searchToolbar = document.getElementById('search-toolbar');
       const citationToolbar = document.getElementById('citation-toolbar');
@@ -751,16 +818,10 @@ export class CitationMode {
       window.activeKeyboardManager.moveToolbarAboveKeyboard(
         editToolbar, searchToolbar, citationToolbar, bottomRightButtons, mainContent
       );
-    } else {
-      console.log(`❌ Skipping reposition: activeKeyboardManager=${!!window.activeKeyboardManager}, isKeyboardOpen=${window.activeKeyboardManager?.isKeyboardOpen}`);
     }
   }
 
   async renderResults(results: CitationSearchResult[], offset = 0, hasMore = false) {
-    console.log('🔍 renderResults called with', results.length, 'results, offset:', offset, 'hasMore:', hasMore);
-    console.log('🔍 citationResults element:', this.citationResults);
-    console.log('🔍 citationResults parent:', this.citationResults?.parentElement);
-
     const items = this._items();
 
     // Remove any existing "load more" button before appending
@@ -772,18 +833,15 @@ export class CitationMode {
     }
 
     if (results.length === 0 && offset === 0) {
-      console.log('🔍 No results - showing empty state');
       items.innerHTML = '<div class="citation-search-empty">No results found</div>';
       this.citationResults.dataset.state = 'empty';
       this.repositionContainer();
       return;
     }
 
-    console.log('🔍 Creating buttons for results...');
     // Per-result button construction is pure — extracted to ./resultsRender.
     const buttons = await Promise.all(results.map((result) => buildResultButton(result)));
 
-    console.log('🔍 Appending', buttons.length, 'buttons...');
     buttons.forEach(btn => items.appendChild(btn));
 
     // Show "Load more" button at DOM end of items list (= visual top, due to column-reverse)
@@ -815,7 +873,6 @@ export class CitationMode {
   handleDocumentClick(event: any) {
     // Ignore close attempts immediately after opening (prevents synthetic click from closing)
     if (this.justOpened) {
-      console.log('🚫 Citation mode: Ignoring close attempt (just opened)');
       return;
     }
 
@@ -845,7 +902,6 @@ export class CitationMode {
     // (defensive — the dropdown is now custom HTML, but covers any synthetic
     // events still dispatched around the interaction).
     if (this._shelfInteractionAt && (performance.now() - this._shelfInteractionAt) < 300) {
-      console.log('🚫 Citation mode: Ignoring close — recent shelf-picker interaction');
       return;
     }
 
@@ -862,12 +918,7 @@ export class CitationMode {
     const isPageRoot = !target || target === document.body || target === document.documentElement;
 
     if (!isInsideContainer && !isInsideResults && !isOnCitationButton && !isOnGapBlocker && !isPageRoot) {
-      console.log('👋 Citation mode: Closing from outside click');
       this.close();
-    } else if (isOnGapBlocker) {
-      console.log('🛡️ Citation mode: Ignoring click on gap blocker');
-    } else if (isPageRoot) {
-      console.log('🚫 Citation mode: Ignoring synthetic outside-click on page root');
     }
   }
 
@@ -892,7 +943,6 @@ export class CitationMode {
 
     // Ignore close attempts immediately after opening (prevents synthetic touch from closing)
     if (this.justOpened) {
-      console.log('🚫 Citation mode: Ignoring touchend close attempt (just opened)');
       return;
     }
 
@@ -943,7 +993,7 @@ export class CitationMode {
 
   async handleCitationSelection(button: any) {
     if (!this.pendingContext) {
-      console.warn('No pending context for citation insertion');
+      log.error('No pending context for citation insertion', '/editToolbar/citationMode/index.ts');
       return;
     }
 
@@ -983,7 +1033,6 @@ export class CitationMode {
             cursorBefore: undoSnapshot.cursorBefore || 0,
             cursorAfter: 0,
           });
-          console.log(`[UndoManager] Recorded citation insertion for undo on #${undoSnapshot.elementId}`);
         }
       }
 
@@ -991,7 +1040,7 @@ export class CitationMode {
       this.close();
 
     } catch (error) {
-      console.error('Error inserting citation:', error);
+      log.error('Error inserting citation', '/editToolbar/citationMode/index.ts', error);
     }
   }
 }

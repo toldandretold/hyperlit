@@ -8,7 +8,7 @@
 import { handleCopyEvent } from './copy';
 import { handleUnderlineClick } from './navigation';
 import { initializeHyperlitManager } from '../hyperlitContainer/containerActions';
-import { log, verbose } from '../utilities/logger';
+import { verbose } from '../utilities/logger';
 import { getActiveBook } from '../hyperlitContainer/utilities/activeContext';
 
 interface HyperciteListenerSet {
@@ -105,7 +105,7 @@ function attachHyperciteLinkListeners(): void {
  * Initialize hyperciting controls (copy button)
  */
 export function initializeHypercitingControls(currentBookId: string): void {
-  log.init(`Hyperciting controls initialized for ${currentBookId}`, '/hypercites/listeners.js');
+  verbose.init(`Hyperciting controls initialized for ${currentBookId}`, '/hypercites/listeners.js');
 
   const copyButton = document.getElementById("copy-hypercite");
   if (!copyButton) {

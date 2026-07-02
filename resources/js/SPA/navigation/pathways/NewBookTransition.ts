@@ -10,7 +10,7 @@ import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { glowCloudOrange, glowCloudGreen, glowCloudRed } from '../../../components/cloudRef/editIndicator';
 import { waitForElementReady, waitForContentReady } from '../../domReadiness';
-import { log, verbose } from '../../../utilities/logger';
+import { verbose } from '../../../utilities/logger';
 import { debouncedMasterSync, pendingSyncs, updateDatabaseBookId } from '../../../indexedDB/index';
 import { destroyUserContainer } from '../../../components/userButton/userButton';
 import { destroyNewBookContainer } from '../../../components/newBookButton/newBookButton';
@@ -111,7 +111,7 @@ export class NewBookTransition {
 
       progress(100, 'Complete!');
 
-      log.nav('New book transition complete', 'NewBookTransition.js');
+      verbose.nav('New book transition complete', 'NewBookTransition.js');
       // NOTE: NavigationManager will hide the overlay when this returns
 
     } catch (error) {

@@ -7,6 +7,7 @@
  */
 
 import { openDatabase } from '../core/connection';
+import { log } from '../../utilities/logger';
 import type { BookId, HyperciteRecord } from '../types';
 
 /**
@@ -27,12 +28,12 @@ export async function getHyperciteFromIndexedDB(book: BookId, hyperciteId: strin
         resolve(getRequest.result);
       };
       getRequest.onerror = () => {
-        console.error(`Error getting hypercite record:`, getRequest.error);
+        log.error('Error getting hypercite record', '/indexedDB/hypercites/read.ts', getRequest.error);
         resolve(null);
       };
     });
   } catch (error) {
-    console.error("Transaction error:", error);
+    log.error('Transaction error', '/indexedDB/hypercites/read.ts', error);
     return null;
   }
 }

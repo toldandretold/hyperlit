@@ -18,6 +18,7 @@ import {
 import {
   setProgrammaticUpdateInProgress,
 } from "../utilities/operationState";
+import { log } from "../utilities/logger";
 import type { BookId } from "../utilities/idHelpers";
 
 // This is the sole undo/redo system: lightweight, in-memory, per-book stacks. There is
@@ -108,7 +109,6 @@ export class UndoManager {
 
     const elementId = blockElement.id;
     if (!elementId) {
-      console.warn('[UndoManager] startCapture: block has no id', blockElement.tagName);
       return;
     }
 
@@ -216,7 +216,6 @@ export class UndoManager {
       cursorBefore: g.cursorBefore || 0,
       cursorAfter: g.cursorAfter || 0,
     };
-    console.log(`[UndoManager] sealGroup → pushed input entry for #${g.elementId}, bookId=${g.bookId}, oldLen=${g.oldHTML.length}, newLen=${g.newHTML.length}`);
     this._pushUndo(g.bookId, entry);
   }
 
@@ -430,12 +429,10 @@ export class UndoManager {
 
     const s = this._getStacks(bookId);
     if (s.undoStack.length === 0) {
-      console.log(`[UndoManager] undo: nothing to undo for bookId=${bookId}`);
       return;
     }
 
     const entry = s.undoStack.pop();
-    console.log(`[UndoManager] undo: type=${entry.type}, elementId=${entry.elementId || '(structural)'}, bookId=${bookId}, remaining=${s.undoStack.length}`);
 
     setProgrammaticUpdateInProgress(true);
     setFormattingFlag(true);
@@ -462,7 +459,7 @@ export class UndoManager {
         setFormattingFlag(false);
         if (entry.onUndo) {
           entry.onUndo().catch((err: any) =>
-            console.error('[UndoManager] onUndo callback error:', err)
+            log.error('onUndo callback error', '/editToolbar/undoManager.ts', err)
           );
         }
       }, 0);
@@ -502,7 +499,7 @@ export class UndoManager {
         setFormattingFlag(false);
         if (entry.onRedo) {
           entry.onRedo().catch((err: any) =>
-            console.error('[UndoManager] onRedo callback error:', err)
+            log.error('onRedo callback error', '/editToolbar/undoManager.ts', err)
           );
         }
       }, 0);
@@ -514,11 +511,10 @@ export class UndoManager {
   _undoInput(entry: any, saveCallback: any) {
     const el = document.getElementById(entry.elementId);
     if (!el) {
-      console.warn(`[UndoManager] _undoInput: element #${entry.elementId} not found in DOM`);
+      log.error(`_undoInput: element #${entry.elementId} not found in DOM`, '/editToolbar/undoManager.ts');
       return;
     }
 
-    console.log(`[UndoManager] _undoInput: restoring #${entry.elementId} innerHTML (${entry.oldHTML.length} chars), cursor→${entry.cursorBefore}`);
     el.innerHTML = entry.oldHTML;
 
     // Ensure the contenteditable ancestor is focused before setting cursor

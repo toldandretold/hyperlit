@@ -2,7 +2,7 @@
  * Initialization Helpers - Shared init logic for navigation transitions
  * Extracted from DifferentTemplateTransition and SameTemplateTransition for reusability
  */
-import { log } from '../../../utilities/logger';
+import { verbose } from '../../../utilities/logger';
 import { setCurrentBook } from '../../../app';
 import { updateDatabaseBookId } from '../../../indexedDB/index';
 import { universalPageInitializer } from '../../viewManager';
@@ -16,7 +16,7 @@ import { currentLazyLoader } from '../../../pageLoad/index';
  * Extracted from DifferentTemplateTransition.initializeReader()
  */
 export async function initializeReader(bookId: any, progressCallback: any) {
-  log.nav(`Initializing reader page`, '/navigation/utils/initHelpers.js');
+  verbose.nav(`Initializing reader page`, '/navigation/utils/initHelpers.js');
 
   try {
     // Set current book
@@ -59,7 +59,7 @@ export async function initializeReader(bookId: any, progressCallback: any) {
  * Extracted from DifferentTemplateTransition.initializeHome()
  */
 export async function initializeHome(bookId: any, progressCallback: any) {
-  log.nav('Initializing home page', '/navigation/utils/initHelpers.js');
+  verbose.nav('Initializing home page', '/navigation/utils/initHelpers.js');
 
   try {
     // Set current book
@@ -102,7 +102,7 @@ export async function initializeHome(bookId: any, progressCallback: any) {
  * Extracted from DifferentTemplateTransition.initializeUser()
  */
 export async function initializeUser(bookId: any, progressCallback: any) {
-  log.nav('Initializing user page', '/navigation/utils/initHelpers.js');
+  verbose.nav('Initializing user page', '/navigation/utils/initHelpers.js');
 
   try {
     // Set current book

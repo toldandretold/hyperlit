@@ -2,7 +2,7 @@
 // Was the init/state/csrf/user portion of utilities/auth.js. Shared state lives
 // in ./state; permissions + crossTab build on these.
 import { getLibraryObjectFromIndexedDB, clearDatabase } from '../../indexedDB/index';
-import { log, verbose } from '../logger';
+import { verbose } from '../logger';
 import { authState, editPermissionCache } from './state';
 import { getCsrfTokenFromCookie } from './csrf';
 
@@ -62,7 +62,7 @@ export async function initializeAuth() {
     return;
   }
 
-  log.init("Authenticating user", "/utilities/auth/session.ts");
+  verbose.init("Authenticating user", "/utilities/auth/session.ts");
 
   try {
     // A single GET request to a new, smarter endpoint.

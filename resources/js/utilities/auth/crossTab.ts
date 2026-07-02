@@ -4,7 +4,7 @@
 // the editButton component / pageLoad bootstrap.
 import { clearDatabase } from '../../indexedDB/index';
 import { ensureAuthInitialized, refreshAuth, resetAuth, clearCurrentUser } from './session';
-import { log } from '../logger';
+import { log, verbose } from '../logger';
 /**
  * Handles the full logout process.
  * Makes a POST request to the server's logout endpoint, then clears all local data.
@@ -129,7 +129,7 @@ export function initializeAuthBroadcastListener() {
 
     if (type === 'login') {
       // Another tab logged in - refresh our auth state
-      log.content('🔄 Another tab logged in, refreshing auth state...', 'utilities/auth/crossTab.ts');
+      verbose.content('🔄 Another tab logged in, refreshing auth state...', 'utilities/auth/crossTab.ts');
       await refreshAuth();
 
       // Update UI to reflect logged-in state
@@ -143,7 +143,7 @@ export function initializeAuthBroadcastListener() {
 
     } else if (type === 'logout') {
       // Another tab logged out - clear our state
-      log.content('🔄 Another tab logged out, clearing state...', 'utilities/auth/crossTab.ts');
+      verbose.content('🔄 Another tab logged out, clearing state...', 'utilities/auth/crossTab.ts');
       resetAuth();
       await clearDatabase();
 

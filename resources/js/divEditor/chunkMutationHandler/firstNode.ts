@@ -5,6 +5,7 @@
  * Extracted from chunkMutationHandler (sub-book aware via bookId).
  */
 import { getNodesFromIndexedDB } from '../../indexedDB/index';
+import { log } from '../../utilities/logger';
 
 export async function getFirstNodeIdForBook(bookId: any = null): Promise<string | null> {
   try {
@@ -18,7 +19,6 @@ export async function getFirstNodeIdForBook(bookId: any = null): Promise<string 
     const nodes = await getNodesFromIndexedDB(bookId);
 
     if (!nodes || nodes.length === 0) {
-      console.warn('⚠️ No nodes found in IndexedDB for book:', bookId);
       return null;
     }
 
@@ -31,7 +31,7 @@ export async function getFirstNodeIdForBook(bookId: any = null): Promise<string 
 
     return firstNode.startLine.toString();
   } catch (error) {
-    console.error('❌ Error getting first node ID for book:', error);
+    log.error('Error getting first node ID for book', 'divEditor/chunkMutationHandler/firstNode.js', error);
     return null;
   }
 }

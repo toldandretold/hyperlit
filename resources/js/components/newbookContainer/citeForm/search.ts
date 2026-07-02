@@ -49,9 +49,11 @@ async function performImportSearch(query: string, offset = 0, bypassCache = fals
     // Client-side cache (URL key) — retyped queries render instantly. The
     // external-pending retry bypasses so it reaches the server.
     if (!bypassCache) {
-      const cached = searchCacheGet<{ results?: any[]; has_more?: boolean }>(url);
+      const cached = searchCacheGet<{ results?: any[]; has_more?: boolean; external_status?: string }>(url);
       if (cached) {
         await renderImportSearchResults(cached.results || [], offset, cached.has_more ?? false);
+        updateExternalPolling(false, query, offset, (cached.results || []).length,
+          typeof cached.external_status === 'string' ? cached.external_status : null);
         return;
       }
     }
@@ -62,12 +64,14 @@ async function performImportSearch(query: string, offset = 0, bypassCache = fals
     });
     if (!resp.ok) throw new Error('Search failed');
     const data = await resp.json();
-    // Never cache pending-external pages — the one-shot retry must hit the server.
-    if (data.external_pending !== true) {
+    // Never cache pages while an external ingest may still land for this query.
+    const pollActive = searchState.externalPoll !== null && searchState.externalPoll.query === query;
+    if (data.external_pending !== true && !pollActive) {
       searchCacheSet(url, data);
     }
     await renderImportSearchResults(data.results || [], offset, data.has_more ?? false);
-    scheduleExternalRetry(data.external_pending === true, query, offset);
+    updateExternalPolling(data.external_pending === true, query, offset, (data.results || []).length,
+      typeof data.external_status === 'string' ? data.external_status : null);
   } catch (err: any) {
     if (err.name !== 'AbortError') {
       results.innerHTML = '<div class="import-search-empty">Search failed. Please try again.</div>';
@@ -76,20 +80,69 @@ async function performImportSearch(query: string, offset = 0, bypassCache = fals
 }
 
 /**
- * One-shot follow-up query. external_pending=true means the server dispatched a
- * background OpenAlex/Open Library ingest for this query — re-fire the same
- * search once (~2.5s) so the new canonicals fold in. The retry's own response
- * has external_pending=false (server dedup key), so this cannot loop.
+ * External-supplement polling (mirror of CitationMode.updateExternalPolling).
+ * external_pending=true means the server dispatched a background OpenAlex /
+ * Open Library ingest — re-check up to 3 times at 2.5s intervals, stopping
+ * early when the result count grows past the pre-ingest baseline. Poll
+ * responses carry external_pending=false (server dedup key), so no loops.
  */
-function scheduleExternalRetry(pending: boolean, query: string, offset: number) {
-  clearExternalRetry();
-  if (!pending || offset !== 0) return;
+function updateExternalPolling(pending: boolean, query: string, offset: number, resultCount: number, status: string | null = null) {
+  if (pending && offset === 0) {
+    searchState.externalPoll = { query, attemptsLeft: 3, baseline: resultCount };
+    showExternalSearchingState(resultCount);
+    scheduleNextExternalPoll();
+    return;
+  }
+  const poll = searchState.externalPoll;
+  if (poll && poll.query === query && offset === 0) {
+    if (resultCount > poll.baseline || poll.attemptsLeft <= 0) {
+      clearExternalRetry();
+      if (resultCount === 0) applyExternalEmptyMessage(status);
+      return;
+    }
+    showExternalSearchingState(resultCount);
+    scheduleNextExternalPoll();
+    return;
+  }
+  // No poll in flight (retype within the dedup window): word the empty state
+  // honestly from the last known external outcome.
+  if (offset === 0 && resultCount === 0) {
+    applyExternalEmptyMessage(status);
+  }
+}
+
+/** Mirror of CitationMode.applyExternalEmptyMessage — see that docblock. */
+function applyExternalEmptyMessage(status: string | null) {
+  const results = $('import-search-results');
+  if (!results) return;
+  if (status === 'sources_failed') {
+    results.innerHTML = '<div class="import-search-empty">No results found — external databases are currently unreachable. Try again in a few minutes.</div>';
+  } else if (status === 'pending' || status === 'dispatched') {
+    results.innerHTML = '<div class="import-search-empty">No results yet — still searching external databases in the background. Try this search again shortly.</div>';
+  }
+  // completed / null → leave the default "No results found".
+}
+
+function scheduleNextExternalPoll() {
+  if (searchState.externalRetry) clearTimeout(searchState.externalRetry);
   searchState.externalRetry = setTimeout(() => {
     searchState.externalRetry = null;
-    if (searchState.query === query) {
-      performImportSearch(query, 0, true); // bypassCache: must reach the server
+    const poll = searchState.externalPoll;
+    if (!poll || searchState.query !== poll.query) {
+      clearExternalRetry();
+      return;
     }
+    poll.attemptsLeft -= 1;
+    performImportSearch(poll.query, 0, true); // bypassCache: must reach the server
   }, 2500);
+}
+
+function showExternalSearchingState(resultCount: number) {
+  if (resultCount > 0) return; // local results visible — poll silently
+  const results = $('import-search-results');
+  if (results) {
+    results.innerHTML = '<div class="import-search-loading">No local results — searching external databases…</div>';
+  }
 }
 
 function clearExternalRetry() {
@@ -97,6 +150,7 @@ function clearExternalRetry() {
     clearTimeout(searchState.externalRetry);
     searchState.externalRetry = null;
   }
+  searchState.externalPoll = null;
 }
 
 async function renderImportSearchResults(items: any[], offset: number, hasMore: boolean) {

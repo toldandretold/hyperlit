@@ -40,22 +40,16 @@ export function createInputHandler({ editableDiv, getSaveQueue }: InputHandlerOp
 
   // 🚀 PERFORMANCE: debounced input handler — replaces the characterData observer.
   const debouncedInputHandler = debounce((e: any) => {
-    verbose.user(`INPUT EVENT: ${e.type} ${e.inputType}, isEditing: ${(window as any).isEditing}, isComposing: ${isComposing}`, 'divEditor/index.js');
     if (!(window as any).isEditing || isComposing) {
-      verbose.user('INPUT HANDLER: Skipped (not editing or composing)', 'divEditor/index.js');
       return; // Skip during mobile IME composition
     }
 
     // Get the actual element where the cursor is, not e.target (which is always the contenteditable container)
     const selection: any = window.getSelection();
-    verbose.user(`SELECTION: ${selection ? 'exists' : 'null'}, rangeCount: ${selection?.rangeCount}`, 'divEditor/index.js');
     if (!selection || !selection.rangeCount) {
       // 🛡️ Selection gone (e.g., user clicked overlay during debounce) — use cached node ID
       if (lastInputNodeId) {
-        verbose.user(`FALLBACK: No selection, using lastInputNodeId: ${lastInputNodeId}`, 'divEditor/index.js');
         queueNodeForSave(lastInputNodeId, 'update');
-      } else {
-        verbose.user('INPUT HANDLER: No selection and no lastInputNodeId', 'divEditor/index.js');
       }
       return;
     }
@@ -68,23 +62,18 @@ export function createInputHandler({ editableDiv, getSaveQueue }: InputHandlerOp
     }
 
     if (!targetElement) {
-      verbose.user('INPUT HANDLER: No target element', 'divEditor/index.js');
       return;
     }
-    verbose.user(`TARGET ELEMENT: ${targetElement.nodeName}, id: ${targetElement.id}`, 'divEditor/index.js');
 
     // 🚀 PERFORMANCE: Check cache first (50-90% faster on repeat keystrokes)
     let parentWithId = elementToNumericalParent.get(targetElement);
-    verbose.user(`CACHE CHECK: ${parentWithId ? `found ${parentWithId.id}` : 'cache miss'}`, 'divEditor/index.js');
 
     if (!parentWithId) {
       // Cache miss - do expensive lookup
       parentWithId = targetElement.closest('[id]');
-      verbose.user(`CLOSEST [id]: ${parentWithId ? parentWithId.id : 'none found'}`, 'divEditor/index.js');
 
       while (parentWithId && !NUMERICAL_ID_PATTERN.test(parentWithId.id)) {
         parentWithId = parentWithId.parentElement?.closest('[id]');
-        verbose.user(`PARENT SEARCH: ${parentWithId ? parentWithId.id : 'no match'}`, 'divEditor/index.js');
       }
 
       // Cache the result for future lookups
@@ -104,17 +93,13 @@ export function createInputHandler({ editableDiv, getSaveQueue }: InputHandlerOp
           stripInlineStylePreservingIntensity(el);
         }
       });
-      verbose.content(`Input event: queueing ${parentWithId.id} for update`, 'divEditor/index.js');
       queueNodeForSave(parentWithId.id, 'update');
       checkAndInvalidateTocCache(parentWithId.id, parentWithId);
     } else {
       // 🛡️ Selection moved away from contenteditable (e.g., to overlay) — use cached node ID
       if (lastInputNodeId) {
-        verbose.user(`FALLBACK: No numerical parent, using lastInputNodeId: ${lastInputNodeId}`, 'divEditor/index.js');
         queueNodeForSave(lastInputNodeId, 'update');
         checkAndInvalidateTocCache(lastInputNodeId, document.getElementById(lastInputNodeId));
-      } else {
-        verbose.user('INPUT HANDLER: No parent with valid ID found', 'divEditor/index.js');
       }
     }
   }, 200); // 🚀 Reduced from 300ms to 200ms for snappier feel

@@ -26,6 +26,11 @@ Production `hyperlit.io` runs queue workers under Supervisor (`/etc/supervisor/c
 - Job: `GenerateNodeEmbedding`.
 - High-volume short jobs; used to ride on `hyperlit-worker`'s queue list, halving import capacity during drains.
 
+### `search-supplement` → worker `hyperlit-search`
+
+- Job: `IngestExternalCitationCandidatesJob` (OpenAlex/Open Library fetch when a citation search returns thin local results).
+- Seconds-long and the ONLY queue a user actively waits on in real time — the citation modal polls for ~8s after dispatch. On `default` it queued behind 15-min imports, so the polls always missed. Lightest class in the budget (< embeddings' 50 MB peak); `--sleep=1` for snappy pickup.
+
 ### Topology notes & invariants
 
 > **`default` carries more than imports.** Any `ShouldQueue` job that does *not* call `onQueue(...)` lands on `default` and is served by `hyperlit-worker` alongside imports: `QueueBookEmbeddings` (the fan-out that dispatches the per-node `embeddings` jobs), `PandocConversionJob` (DOCX path), `WarmBookCacheJob`, and the scheduled `DatabaseCleanupJob` / `DailyStatsJob` / `UpdateLibraryStatsJob` / `UpdateHomepageJob`. They're light or scheduled, so they don't warrant their own worker — but they *do* share the import worker's single serial head, which matters when reasoning about blocking.
@@ -41,7 +46,7 @@ Production `hyperlit.io` runs queue workers under Supervisor (`/etc/supervisor/c
 You don't need to remember the four program names. `deploy/supervisor/workers.sh` wraps the chores. Run it **on the droplet** after `cd /var/www/hyperlit`:
 
 ```bash
-./deploy/supervisor/workers.sh status          # are all 4 workers RUNNING?
+./deploy/supervisor/workers.sh status          # are all 5 workers RUNNING?
 ./deploy/supervisor/workers.sh restart         # graceful: finish current job, reload new code
 ./deploy/supervisor/workers.sh restart citation # hard-restart ONE program (worker|citation|vibe|embeddings)
 ./deploy/supervisor/workers.sh logs citation -f # tail a worker's log (-f follows)
@@ -73,8 +78,9 @@ sudo cp deploy/supervisor/hyperlit-worker.conf     /etc/supervisor/conf.d/
 sudo cp deploy/supervisor/hyperlit-citation.conf   /etc/supervisor/conf.d/
 sudo cp deploy/supervisor/hyperlit-vibe.conf       /etc/supervisor/conf.d/
 sudo cp deploy/supervisor/hyperlit-embeddings.conf /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/hyperlit-search.conf     /etc/supervisor/conf.d/
 sudo supervisorctl reread
-sudo supervisorctl update                  # starts hyperlit-citation, reloads worker
+sudo supervisorctl update                  # starts any new programs, reloads changed ones
 sudo supervisorctl status                  # confirm all programs RUNNING
 
 php artisan queue:restart                  # tell running workers to pick up new code
@@ -88,7 +94,7 @@ Check the droplet's `.env` does NOT set `DB_QUEUE_RETRY_AFTER` (it would overrid
 
 ## Local dev
 
-`npm run dev:all` / `dev:network` mirror this topology with a dedicated worker per queue: **IMP1+IMP2** (`queue:import` — two import workers, so concurrent-import testing works locally), **CITE** (`queue:citation`), **VIBE** (`queue:vibe`), **EMBED** (`queue:embeddings`). `php artisan work` remains as a single catch-all for one-off manual shells only — it is serial and reintroduces the blocking.
+`npm run dev:all` / `dev:network` mirror this topology with a dedicated worker per queue: **IMP1+IMP2** (`queue:import` — two import workers, so concurrent-import testing works locally), **CITE** (`queue:citation`), **VIBE** (`queue:vibe`), **EMBED** (`queue:embeddings`), **SRCH** (`queue:search`). `php artisan work` remains as a single catch-all for one-off manual shells only — it is serial and reintroduces the blocking.
 
 ## The RAM budget (measured) — and why more concurrency means more RAM
 
@@ -102,7 +108,8 @@ Peaks measured 2026-06-12 with real jobs (`tests/load/memprobe.sh`; full method 
 | citation pipeline | **200 MB** | PHP doing batched LLM review + claim verify (230 refs) |
 | vibe conversion | **182 MB** | PHP worker + Python sandbox re-conversion + gate |
 | embeddings | **50 MB** | PHP worker, small HTTP calls |
-| **all four truly simultaneous** | **521 MB** observed / **~645 MB** worst-case sum | |
+| search-supplement | **~50 MB** (est. — same profile as embeddings: PHP worker, two HTTP fetches + small upserts; re-measure with memprobe when convenient) | PHP worker, OpenAlex + Open Library fetch |
+| **all five truly simultaneous** | **~570 MB** observed-basis / **~695 MB** worst-case sum | |
 
 (Citation was measured with `--skip-fetch`. A live vacuum phase launches headless chromium per fetch — ~150–300 MB transient on top of the citation worker — so worst case during vacuum trends toward ~900 MB. Check `free -m` during the first real run after installing chromium.)
 
@@ -110,9 +117,9 @@ The arithmetic for this droplet (~1.9 GB physical + 2 GB swap, OOM history):
 
 ```
 baseline (nginx + PHP-FPM + Postgres + idle workers)   ~700–1000 MB  ← read it: ssh marx@… 'free -m'
-max overlap, current topology (numprocs=1 everywhere)   ~645 MB
+max overlap, current topology (numprocs=1 everywhere)   ~695 MB
                                                         ─────────────
-                                                        ~1.35–1.65 GB of 1.9 GB
+                                                        ~1.4–1.7 GB of 1.9 GB
 ```
 
 **Fits — that's why shipping one-worker-per-class is safe on current hardware.**

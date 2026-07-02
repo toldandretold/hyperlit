@@ -11,7 +11,7 @@ import { getPageStructure, getBookIdFromUrl } from '../utils/structureDetection.
 import { cleanupFromStructure } from '../utils/cleanupHelpers.js';
 import { initializeToStructure } from '../utils/initHelpers.js';
 import { fetchHtml, replaceBodyContent, navigateToHash, updateUrl } from '../utils/contentSwapHelpers.js';
-import { log } from '../../../utilities/logger';
+import { verbose } from '../../../utilities/logger';
 
 export class DifferentTemplateTransition {
   /**
@@ -32,7 +32,7 @@ export class DifferentTemplateTransition {
     const fromStructure = providedFromStructure || getPageStructure();
     const toStructure = providedToStructure || await this.detectTargetStructure(targetUrl || toBook);
 
-    log.nav(`Page template transition (${fromStructure}→${toStructure})`, '/navigation/pathways/DifferentTemplateTransition.js');
+    verbose.nav(`Page template transition (${fromStructure}→${toStructure})`, '/navigation/pathways/DifferentTemplateTransition.js');
 
     try {
       const progress = progressCallback || ProgressOverlayConductor.createProgressCallback('spa');

@@ -2,19 +2,20 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # workers.sh — one memorable command for the Hyperlit prod queue workers.
 #
-# There are FOUR Supervisor programs, one per queue, and remembering their names
+# There are FIVE Supervisor programs, one per queue, and remembering their names
 # + the right supervisorctl/artisan incantations is the chore this wraps:
 #
 #   hyperlit-worker      → queue `default`           (imports/reconverts + light jobs)
 #   hyperlit-citation    → queue `citation-pipeline` (CitationPipelineJob etc, up to 2 h)
 #   hyperlit-vibe        → queue `vibe`              (VibeConversionJob, up to ~30 min)
 #   hyperlit-embeddings  → queue `embeddings`        (GenerateNodeEmbedding, high volume)
+#   hyperlit-search      → queue `search-supplement` (citation-modal external ingest, seconds)
 #
 # Run it ON the droplet after `cd /var/www/hyperlit`, or from your laptop via the
 # `hw` alias (see deploy/supervisor/README.md → "Daily ops").
 #
 # Usage:
-#   ./deploy/supervisor/workers.sh status              # are all 4 RUNNING?
+#   ./deploy/supervisor/workers.sh status              # are all 5 RUNNING?
 #   ./deploy/supervisor/workers.sh restart             # graceful: finish job, reload code
 #   ./deploy/supervisor/workers.sh restart citation    # one program only
 #   ./deploy/supervisor/workers.sh force-restart       # hard SIGTERM (can WAIT on in-flight)
@@ -30,13 +31,14 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." >/dev/null 2>&1 && pwd)"
 cd "${REPO_ROOT}"
 
 # Short name → Supervisor program / log file. One place to add a worker.
-SHORT_NAMES="worker citation vibe embeddings"
+SHORT_NAMES="worker citation vibe embeddings search"
 program_for() {
     case "$1" in
         worker|default|import|imports) echo "hyperlit-worker" ;;
         citation|citations|cite)       echo "hyperlit-citation" ;;
         vibe)                          echo "hyperlit-vibe" ;;
         embeddings|embed|embeds)       echo "hyperlit-embeddings" ;;
+        search|supplement)             echo "hyperlit-search" ;;
         *) return 1 ;;
     esac
 }
@@ -46,6 +48,7 @@ logfile_for() {
         hyperlit-citation)   echo "storage/logs/citation-worker.log" ;;
         hyperlit-vibe)       echo "storage/logs/vibe-worker.log" ;;
         hyperlit-embeddings) echo "storage/logs/embeddings-worker.log" ;;
+        hyperlit-search)     echo "storage/logs/search-worker.log" ;;
     esac
 }
 
@@ -81,7 +84,7 @@ usage() {
     cat <<EOF
 workers.sh — manage the Hyperlit prod queue workers (run on the droplet, or via the 'hw' alias)
 
-  status              are all 4 workers RUNNING?
+  status              are all 5 workers RUNNING?
   restart             graceful reload (finish current job, pick up new code) — safe after deploy
   restart <name>      hard-restart ONE program (e.g. restart citation)
   force-restart       hard SIGTERM all (can wait on an in-flight job — prefer 'restart')
@@ -101,7 +104,7 @@ case "${cmd}" in
         resolve_supervisorctl
         # supervisorctl groups appear as `hyperlit-worker:hyperlit-worker_00` etc.
         ${SUPERVISORCTL} status 'hyperlit-worker:*' 'hyperlit-citation:*' \
-                                'hyperlit-vibe:*' 'hyperlit-embeddings:*'
+                                'hyperlit-vibe:*' 'hyperlit-embeddings:*' 'hyperlit-search:*'
         ;;
 
     restart)
@@ -127,7 +130,7 @@ case "${cmd}" in
         read -r ans
         case "${ans}" in
             y|Y|yes) ${SUPERVISORCTL} restart 'hyperlit-worker:*' 'hyperlit-citation:*' \
-                                              'hyperlit-vibe:*' 'hyperlit-embeddings:*' ;;
+                                              'hyperlit-vibe:*' 'hyperlit-embeddings:*' 'hyperlit-search:*' ;;
             *) echo "aborted." ;;
         esac
         ;;

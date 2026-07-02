@@ -1,5 +1,5 @@
 import { cancelForcedVisibility, isProcessing } from '../cloudRef/editIndicator';
-import { log, verbose } from '../../utilities/logger';
+import { verbose } from '../../utilities/logger';
 import { setPerimeterButtonsHidden } from '../../utilities/operationState';
 import { hasFootnoteTapTarget } from '../../hyperlitContainer/footnoteTapExtender';
 
@@ -73,7 +73,7 @@ export default class TogglePerimeterButtons {
     window.addEventListener('keyboardStateChange', this.handleKeyboardChange);
 
     this.isInitialized = true;
-    log.init('Perimeter button controls initialized', '/components/togglePerimeterButtons/togglePerimeterButtons.ts');
+    verbose.init('Perimeter button controls initialized', '/components/togglePerimeterButtons/togglePerimeterButtons.ts');
   }
   
 

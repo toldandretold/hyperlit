@@ -15,7 +15,7 @@
  */
 
 import { openDatabase } from '../core/connection';
-import { verbose } from '../../utilities/logger';
+import { log, verbose } from '../../utilities/logger';
 import type {
   HyperciteRecord,
   HyperlightRecord,
@@ -33,7 +33,7 @@ export async function rebuildNodeArrays(
   { skipWrite = false }: { skipWrite?: boolean } = {},
 ): Promise<void> {
   if (!nodes || nodes.length === 0) {
-    console.warn('⚠️ rebuildNodeArrays: No nodes provided');
+    log.error('rebuildNodeArrays: No nodes provided', '/indexedDB/hydration/rebuild.ts');
     return;
   }
 
@@ -41,7 +41,7 @@ export async function rebuildNodeArrays(
   const dataNodeIDs = nodes.map(n => n.node_id).filter((id): id is string => Boolean(id));
 
   if (dataNodeIDs.length === 0) {
-    console.warn('⚠️ rebuildNodeArrays: No valid data-node-ids found', nodes);
+    log.error('rebuildNodeArrays: No valid data-node-ids found', '/indexedDB/hydration/rebuild.ts', nodes);
     return;
   }
 
@@ -68,18 +68,17 @@ export async function rebuildNodeArrays(
         node.footnotes = [];
       }
       // If extractedFootnotes is empty but node.footnotes exists, keep existing (old format compatibility)
-
-      verbose.content(`NEW SYSTEM: Node ${node.node_id} rebuilt with ${node.hyperlights.length} hyperlights, ${node.hypercites.length} hypercites, ${(node.footnotes || []).length} footnotes`, 'indexedDB/hydration/rebuild');
+      // (no per-node logging here — this loop runs for every node on hydration)
     });
 
     // Update nodes in IndexedDB with new arrays (fire-and-forget cache update)
     if (!skipWrite) {
-      updateNodesInDB(db, nodes).catch(err => console.error('❌ Failed to update nodes cache in IndexedDB:', err));
+      updateNodesInDB(db, nodes).catch(err => log.error('Failed to update nodes cache in IndexedDB', '/indexedDB/hydration/rebuild.ts', err));
     }
 
     verbose.content(`NEW SYSTEM: Successfully rebuilt arrays for ${nodes.length} nodes`, 'indexedDB/hydration/rebuild');
   } catch (error) {
-    console.error('❌ NEW SYSTEM: Error rebuilding node arrays:', error);
+    log.error('Error rebuilding node arrays', '/indexedDB/hydration/rebuild.ts', error);
     throw error;
   }
 }
@@ -93,8 +92,7 @@ async function queryHyperlightsByNodes(db: IDBDatabase, dataNodeIDs: string[]): 
   const store = tx.objectStore('hyperlights');
 
   if (!store.indexNames.contains('node_id')) {
-    console.error('❌ CRITICAL: node_id index does not exist on hyperlights store!');
-    console.error('❌ Database needs to be upgraded to version 24');
+    log.error('CRITICAL: node_id index does not exist on hyperlights store! Database needs to be upgraded to version 24', '/indexedDB/hydration/rebuild.ts');
     return [];
   }
 
@@ -168,7 +166,7 @@ async function queryHypercitesByNodes(db: IDBDatabase, dataNodeIDs: string[]): P
 function buildHyperlightsForNode(node: NodeRecord, allHyperlights: HyperlightRecord[]): NodeHyperlightView[] {
   const nodeId = node.node_id;
   if (!nodeId) {
-    console.warn('⚠️ NEW SYSTEM: Node missing node_id, cannot build hyperlights', node);
+    log.error('Node missing node_id, cannot build hyperlights', '/indexedDB/hydration/rebuild.ts', node);
     return [];
   }
 
@@ -179,7 +177,7 @@ function buildHyperlightsForNode(node: NodeRecord, allHyperlights: HyperlightRec
       const charData = hl.charData?.[nodeId];
 
       if (!charData) {
-        console.warn(`⚠️ NEW SYSTEM: No charData for highlight ${hl.hyperlight_id} on node ${nodeId}`, hl);
+        verbose.content(`No charData for highlight ${hl.hyperlight_id} on node ${nodeId}`, '/indexedDB/hydration/rebuild.ts', hl);
         return null;
       }
 
@@ -208,7 +206,7 @@ function buildHyperlightsForNode(node: NodeRecord, allHyperlights: HyperlightRec
 function buildHypercitesForNode(node: NodeRecord, allHypercites: HyperciteRecord[]): NodeHyperciteView[] {
   const nodeId = node.node_id;
   if (!nodeId) {
-    console.warn('⚠️ NEW SYSTEM: Node missing node_id, cannot build hypercites', node);
+    log.error('Node missing node_id, cannot build hypercites', '/indexedDB/hydration/rebuild.ts', node);
     return [];
   }
 
@@ -219,7 +217,7 @@ function buildHypercitesForNode(node: NodeRecord, allHypercites: HyperciteRecord
       const charData = hc.charData?.[nodeId];
 
       if (!charData) {
-        console.warn(`⚠️ NEW SYSTEM: No charData for hypercite ${hc.hyperciteId} on node ${nodeId}`, hc);
+        verbose.content(`No charData for hypercite ${hc.hyperciteId} on node ${nodeId}`, '/indexedDB/hydration/rebuild.ts', hc);
         return null;
       }
 
@@ -254,7 +252,7 @@ async function updateNodesInDB(db: IDBDatabase, nodes: NodeRecord[]): Promise<vo
       resolve();
     };
     tx.onerror = () => {
-      console.error(`❌ NEW SYSTEM: Failed to update nodes in IndexedDB:`, tx.error);
+      log.error('Failed to update nodes in IndexedDB', '/indexedDB/hydration/rebuild.ts', tx.error);
       reject(tx.error);
     };
   });
@@ -270,7 +268,7 @@ async function updateNodesInDB(db: IDBDatabase, nodes: NodeRecord[]): Promise<vo
  */
 export async function getNodesByDataNodeIDs(dataNodeIDs: string[]): Promise<NodeRecord[]> {
   if (!dataNodeIDs || dataNodeIDs.length === 0) {
-    console.warn('⚠️ NEW SYSTEM: No data-node-ids provided to getNodesByDataNodeIDs');
+    log.error('No data-node-ids provided to getNodesByDataNodeIDs', '/indexedDB/hydration/rebuild.ts');
     return [];
   }
 

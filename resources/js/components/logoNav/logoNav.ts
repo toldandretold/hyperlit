@@ -3,7 +3,7 @@
  * Handles the logo button that rotates and shows/hides navigation menu
  */
 
-import { log, verbose } from '../../utilities/logger';
+import { verbose } from '../../utilities/logger';
 
 let isOpen = false;
 let clickOutsideHandler: any = null;
@@ -28,7 +28,7 @@ export function initializeLogoNav() {
     return;
   }
 
-  log.init('Logo navigation toggle initialized', '/components/logoNav/logoNav.ts');
+  verbose.init('Logo navigation toggle initialized', '/components/logoNav/logoNav.ts');
 
   // Store handler reference for cleanup
   logoClickHandler = (e: any) => {

@@ -4,7 +4,7 @@
 // back-edge — restoreEditButtonFromLock re-wiring the listeners — uses a dynamic
 // import('./index') so there's no static cycle with the controller.
 import { book } from "../../app";
-import { log, verbose } from "../../utilities/logger";
+import { verbose } from "../../utilities/logger";
 import { getCurrentUser, canUserEditBook } from "../../utilities/auth/index";
 
 // Replace the edit button with a lock icon (logged in, but no permission).
@@ -69,7 +69,7 @@ export async function restoreEditButtonFromLock() {
 }
 
 export async function updateEditButtonVisibility(bookId: any) {
-  log.init(`Edit permissions checked for: ${bookId}`, '/components/editButton/lock.ts');
+  verbose.init(`Edit permissions checked for: ${bookId}`, '/components/editButton/lock.ts');
   const editButton = document.getElementById('editButton');
   if (!editButton) {
     verbose.init('Edit button not found in DOM', '/components/editButton/lock.ts');

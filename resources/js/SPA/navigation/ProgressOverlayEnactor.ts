@@ -18,7 +18,7 @@
  * - ProgressOverlayEnactor.forceHide() - Emergency hide (sync, no animation)
  */
 
-import { verbose } from '../../utilities/logger';
+import { log, verbose } from '../../utilities/logger';
 
 export class ProgressOverlayEnactor {
   // DOM element references
@@ -57,7 +57,6 @@ export class ProgressOverlayEnactor {
     this.progressDetails = document.getElementById('page-load-progress-details');
 
     if (!this.overlay) {
-      console.warn('⚠️ ProgressOverlayEnactor: overlay not found in DOM, recreating');
       this.overlay = document.createElement('div');
       this.overlay.id = 'initial-navigation-overlay';
       this.overlay.className = 'navigation-overlay';
@@ -131,7 +130,6 @@ export class ProgressOverlayEnactor {
     this.init();
 
     if (!this.overlay) {
-      console.warn('⚠️ ProgressOverlayEnactor.show: No overlay element available');
       return;
     }
 
@@ -209,7 +207,6 @@ export class ProgressOverlayEnactor {
     this.init();
 
     if (!this.overlay) {
-      console.warn('⚠️ ProgressOverlayEnactor.hide: No overlay element available');
       return Promise.resolve();
     }
 
@@ -268,7 +265,7 @@ export class ProgressOverlayEnactor {
 
     } catch (error) {
       // Log error but don't let it prevent hiding
-      console.error('❌ ProgressOverlayEnactor: Error during hide animation:', error);
+      log.error('ProgressOverlayEnactor: Error during hide animation', 'navigation/ProgressOverlayEnactor.js', error);
 
     } finally {
       // ✅ CRITICAL: This ALWAYS runs, even on error

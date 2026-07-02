@@ -29,7 +29,7 @@ test('candidates from both sources are ingested with provenance-specific foundat
     $openAlex = Mockery::mock(OpenAlexService::class);
     $openAlex->shouldReceive('fetchFromOpenAlex')
         ->once()
-        ->with('unit query', 5, 1, false) // positional: Mockery can't match PHP named args
+        ->with('unit query', 5, 1, false, true) // positional: Mockery can't match PHP named args
         ->andReturn([$openAlexCandidate]);
 
     $openLibraryCandidate = ['open_library_key' => '/works/OL_UT', 'title' => 'UT OL Work', 'author' => 'UT'];
@@ -74,7 +74,10 @@ test('one failing candidate does not sink the others, and the generation still b
     (new IngestExternalCitationCandidatesJob('resilience query', 5))
         ->handle($openAlex, $openLibrary, $matcher);
 
-    expect((int) Cache::get($genKey))->toBe(1);
+    expect((int) Cache::get($genKey))->toBe(1)
+        // Something WAS ingested — the outcome is completed even though one
+        // candidate blew up.
+        ->and(Cache::get(IngestExternalCitationCandidatesJob::statusKey('resilience query')))->toBe('completed');
 });
 
 test('generation counter does NOT bump when nothing was ingested', function () {
@@ -95,6 +98,27 @@ test('generation counter does NOT bump when nothing was ingested', function () {
     expect(Cache::get($genKey))->toBeNull();
 });
 
+test('handle() starts the full courtesy window — even when nothing was ingested', function () {
+    $openAlex = Mockery::mock(OpenAlexService::class);
+    $openAlex->shouldReceive('fetchFromOpenAlex')->andReturn([]);
+
+    $openLibrary = Mockery::mock(OpenLibraryService::class);
+    $openLibrary->shouldReceive('search')->andReturn([]);
+
+    $matcher = Mockery::mock(CanonicalSourceMatcher::class);
+
+    $dedupKey = IngestExternalCitationCandidatesJob::dedupKey('window query');
+    expect(Cache::has($dedupKey))->toBeFalse();
+
+    (new IngestExternalCitationCandidatesJob('window query', 5))
+        ->handle($openAlex, $openLibrary, $matcher);
+
+    // The fetch happened — don't re-ask the APIs for this query for a while.
+    expect(Cache::has($dedupKey))->toBeTrue()
+        // Both sources answered (with nothing) — that emptiness is trustworthy.
+        ->and(Cache::get(IngestExternalCitationCandidatesJob::statusKey('window query')))->toBe('completed');
+});
+
 test('both external sources failing still completes without a generation bump', function () {
     $openAlex = Mockery::mock(OpenAlexService::class);
     $openAlex->shouldReceive('fetchFromOpenAlex')->andThrow(new RuntimeException('429'));
@@ -110,7 +134,30 @@ test('both external sources failing still completes without a generation bump', 
     (new IngestExternalCitationCandidatesJob('doom query', 5))
         ->handle($openAlex, $openLibrary, $matcher);
 
-    expect(Cache::get($genKey))->toBeNull();
+    expect(Cache::get($genKey))->toBeNull()
+        // The attempt still counts as "asked" — courtesy window starts.
+        ->and(Cache::has(IngestExternalCitationCandidatesJob::dedupKey('doom query')))->toBeTrue()
+        // Every source errored + nothing ingested → the modal must warn the
+        // user the emptiness is untrustworthy, not say "no results found".
+        ->and(Cache::get(IngestExternalCitationCandidatesJob::statusKey('doom query')))->toBe('sources_failed');
+});
+
+test('one source failing with nothing ingested is also sources_failed', function () {
+    $openAlex = Mockery::mock(OpenAlexService::class);
+    $openAlex->shouldReceive('fetchFromOpenAlex')->andThrow(new RuntimeException('503'));
+
+    $openLibrary = Mockery::mock(OpenLibraryService::class);
+    $openLibrary->shouldReceive('search')->andReturn([]); // answered, but empty
+
+    $matcher = Mockery::mock(CanonicalSourceMatcher::class);
+    $matcher->shouldNotReceive('ingestExternal');
+
+    (new IngestExternalCitationCandidatesJob('half doom query', 5))
+        ->handle($openAlex, $openLibrary, $matcher);
+
+    // A source we couldn't reach might have had the results — don't present
+    // the empty page as trustworthy.
+    expect(Cache::get(IngestExternalCitationCandidatesJob::statusKey('half doom query')))->toBe('sources_failed');
 });
 
 test('uniqueId normalizes casing and whitespace', function () {

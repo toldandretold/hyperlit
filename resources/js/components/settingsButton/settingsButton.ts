@@ -4,7 +4,7 @@
 // + all settings logic live in ../settingsContainer; this is the thin button-side
 // entry point, registered as the 'settings' component in registerComponents.ts.
 import { SettingsContainerManager } from "../settingsContainer/index";
-import { log, verbose } from "../../utilities/logger";
+import { verbose } from "../../utilities/logger";
 
 // Settings manager instance (singleton)
 let settingsManager: any = null;
@@ -28,7 +28,7 @@ export function initializeSettingsManager() {
       "settingsButton",
       ["main-content"]
     );
-    log.init('Settings Manager initialized', '/components/settingsButton/settingsButton.ts');
+    verbose.init('Settings Manager initialized', '/components/settingsButton/settingsButton.ts');
   } else {
     // Manager exists, just rebind elements after SPA transition
     settingsManager.rebindElements();

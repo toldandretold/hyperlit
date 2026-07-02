@@ -1,6 +1,6 @@
 import { setCurrentBook } from '../../app';
 import { showNavigationLoading, hideNavigationLoading } from '../../scrolling/index';
-import { log, verbose } from '../../utilities/logger';
+import { verbose } from '../../utilities/logger';
 import { getAllOfflineAvailableBooks } from '../../indexedDB/index';
 
 // Storage key for active button persistence
@@ -358,7 +358,7 @@ export async function transitionToBookContent(bookId: any, showLoader = true) {
       showNavigationLoading(`Loading ${bookId}...`);
     }
 
-    log.content(`Homepage content transition: ${bookId}`, '/components/homepage/homepageDisplayUnit.ts');
+    verbose.content(`Homepage content transition: ${bookId}`, '/components/homepage/homepageDisplayUnit.ts');
 
     // Remove existing content containers
     document.querySelectorAll('.main-content').forEach(content => {

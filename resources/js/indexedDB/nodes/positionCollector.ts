@@ -90,7 +90,6 @@ export function collectMarkAndCitePositions(
     // ⚠️ SKIP newly created highlights - they already have correct positions from selection.js
     // Rangy may have created incorrect mark boundaries for overlapping highlights
     if (mark.hasAttribute('data-new-hl')) {
-      console.log(`⏭️ Skipping position recalculation for newly created highlight ${mark.id} (has data-new-hl attribute)`);
       return; // Don't recalculate positions for newly created highlights
     }
 
@@ -101,7 +100,6 @@ export function collectMarkAndCitePositions(
     // lands on an existing mark's edge) — a length-0 element would otherwise be persisted
     // as charStart === charEnd and clobber the real record.
     if (highlightLength === 0) {
-      console.warn(`⏭️ Skipping zero-width hyperlight residue: ${mark.id}`);
       return;
     }
 
@@ -129,13 +127,6 @@ export function collectMarkAndCitePositions(
       charStart: span.charStart,
       charEnd: span.charEnd,
     });
-
-    console.log("Calculated hyperlight positions:", {
-      id: highlightID,
-      startPos: span.charStart,
-      endPos: span.charEnd,
-      totalNodeLength,
-    });
   });
 
   // Process <u> tags for hypercites
@@ -156,7 +147,6 @@ export function collectMarkAndCitePositions(
     // here it would be charStart === charEnd and, written last, would clobber the real cite's
     // range (making it unrenderable & unnavigable). Never persist a zero-length hypercite.
     if (uLength === 0) {
-      console.warn(`⏭️ Skipping zero-width hypercite residue: ${uTag.id}`);
       return;
     }
 
@@ -172,10 +162,8 @@ export function collectMarkAndCitePositions(
         const dupe = hypercites[dupeIndex]!;
         const existingSpan = dupe.charEnd - dupe.charStart;
         if (uLength <= existingSpan) {
-          console.warn(`⏭️ Skipping narrower duplicate of hypercite ${uTag.id} (${uLength} ≤ ${existingSpan})`);
           return;
         }
-        console.warn(`♻️ Replacing narrower duplicate of hypercite ${uTag.id} with wider span (${uLength} > ${existingSpan})`);
         hypercites.splice(dupeIndex, 1);
       }
 
@@ -186,14 +174,6 @@ export function collectMarkAndCitePositions(
         relationshipStatus: existingHypercite?.relationshipStatus || "single",
         citedIN: existingHypercite?.citedIN || [],
         time_since: existingHypercite?.time_since || Math.floor(Date.now() / 1000)
-      });
-
-      console.log("Calculated hypercite positions:", {
-        id: uTag.id,
-        text: uTag.textContent,
-        startPos,
-        endPos: startPos + uLength,
-        totalNodeLength,
       });
     }
   });

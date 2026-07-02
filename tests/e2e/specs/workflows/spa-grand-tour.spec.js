@@ -427,8 +427,15 @@ test.describe.serial('SPA Grand Tour', () => {
     // hit-testable — `.open` is set at animation START, so measuring immediately would
     // catch the edge still partway off the right of the viewport.
     await page.waitForFunction(() => {
-      const e = document.querySelector('#hyperlit-container.open .resize-edge.resize-left');
+      const c = document.querySelector('#hyperlit-container.open');
+      const e = c && c.querySelector('.resize-edge.resize-left');
       if (!e) return false;
+      // Slide-in transform must rest at translateX(0) before we drag — hit-testing
+      // alone passes mid-slide and the real mousedown then lands on a moving
+      // target → no resize. Mirror the settle guard in probeResizeHandle.
+      const t = getComputedStyle(c).transform;
+      const tx = t && t !== 'none' ? new DOMMatrixReadOnly(t).m41 : 0;
+      if (Math.abs(tx) > 1) return false;
       const r = e.getBoundingClientRect();
       const x = r.x + r.width / 2, y = r.y + r.height / 2;
       if (x < 0 || y < 0 || x >= window.innerWidth || y >= window.innerHeight) return false;

@@ -4,7 +4,7 @@
 // - Green: save successful
 // - Red: save error
 
-import { verbose } from '../../utilities/logger';
+import { log, verbose } from '../../utilities/logger';
 import { getPerimeterButtonsHidden } from '../../utilities/operationState';
 import { isIDBBroken } from '../../indexedDB/core/healthMonitor';
 
@@ -94,16 +94,14 @@ export function glowCloudOrange() {
   safetyTimer = setTimeout(() => {
     if (isProcessing && !isComplete) {
       if (isIDBBroken()) {
-        console.warn('CloudRef safety timeout — IDB broken, showing red')
+        log.error('CloudRef safety timeout — IDB broken, showing red', 'editIndicator.js')
         glowCloudRed()
       } else {
-        console.warn('CloudRef safety reset — stuck orange for 30s')
+        log.error('CloudRef safety reset — stuck orange for 30s', 'editIndicator.js')
         resetIndicator()
       }
     }
   }, 30000)
-
-  console.log('CloudRef → orange (saving)')
 }
 
 /** Glow the cloudRef button green to indicate success, then fade back to grey after 1.5s */
@@ -115,12 +113,10 @@ export function glowCloudGreen() {
   if (cloudSvgPath) {
     cloudSvgPath.style.fill = 'var(--status-success)'
   }
-  console.log('CloudRef → green (synced to server)')
 
   // after a short pause, restore to grey AND restore topRight visibility
   setTimeout(() => {
     resetIndicator()
-    console.log('CloudRef → grey (ready)')
   }, 1500)
 }
 
@@ -138,7 +134,6 @@ export function glowCloudRed(errorInfo?: any) {
   if (cloudSvgPath) {
     cloudSvgPath.style.fill = 'var(--status-error)'
   }
-  console.log('CloudRef → red (sync error)')
 
   // Explain WHAT went wrong (severity-tiered toast). Lazy import keeps editIndicator light.
   if (errorInfo) {
@@ -150,7 +145,6 @@ export function glowCloudRed(errorInfo?: any) {
   // after a longer pause, restore to grey AND restore topRight visibility
   setTimeout(() => {
     resetIndicator()
-    console.log('CloudRef → grey (ready after error)')
   }, 3000)
 }
 
@@ -163,18 +157,15 @@ export function glowCloudLocalSave() {
   if (cloudSvgPath) {
     cloudSvgPath.style.fill = 'var(--status-saving)'
   }
-  console.log('CloudRef → orange (saved locally, pending sync)')
 
   // Keep orange longer than green to emphasize pending state
   setTimeout(() => {
     resetIndicator()
-    console.log('CloudRef → grey (ready, will sync when online)')
   }, 2000)
 }
 
 /** Cancel forced visibility (called when user toggles perimeter buttons during save) */
 export function cancelForcedVisibility() {
-  console.log('🔵 Canceling edit indicator forced visibility')
   topRightVisibilityBeforeEdit = null
   // Keep processing state and color - just cancel the restore behavior
 }
@@ -188,11 +179,9 @@ export function glowCloudSyncSuccess() {
   if (cloudSvgPath) {
     cloudSvgPath.style.fill = 'var(--status-success)'
   }
-  console.log('CloudRef → green (background sync successful)')
 
   // Fade back to grey after 2 seconds
   setTimeout(() => {
     if (cloudSvgPath) cloudSvgPath.removeAttribute('style')
-    console.log('CloudRef → grey (ready)')
   }, 2000)
 }

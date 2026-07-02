@@ -9,7 +9,6 @@
 import { isPasteInProgress, isProgrammaticUpdateInProgress, hypercitePasteInProgress, keyboardLayoutInProgress } from "../utilities/operationState";
 import { isChunkLoadingInProgress, getLoadingChunkId } from "../lazyLoader/utilities/chunkLoadingState";
 import { getEditToolbar } from '../editToolbar/index';
-import { verbose } from '../utilities/logger';
 
 interface MutationProcessorOptions {
   filterMutations?: (mutations: any[]) => any[];
@@ -80,34 +79,28 @@ export class MutationProcessor {
     }
 
     if (isProgrammaticUpdateInProgress()) {
-      console.log("Skipping queued mutations: Programmatic update in progress.");
       this.onTransientSkip();
       return;
     }
 
     if (hypercitePasteInProgress) {
-      console.log("Skipping queued mutations during hypercite paste");
       return;
     }
 
     if (isChunkLoadingInProgress()) {
-      console.log(`Skipping queued mutations during chunk loading for chunk ${getLoadingChunkId()}`);
       return;
     }
 
     const toolbar = getEditToolbar() as any;
     if (toolbar && toolbar.isFormatting) {
-      console.log("Skipping queued mutations during formatting");
       return;
     }
 
     if (keyboardLayoutInProgress) {
-      console.log("Skipping queued mutations during keyboard layout adjustment");
       return;
     }
 
     if (this.shouldSkipMutation(mutations)) {
-      console.log("Skipping queued mutations related to status icons");
       return;
     }
 
@@ -115,7 +108,6 @@ export class MutationProcessor {
     const filteredMutations = this.filterMutations(mutations);
 
     if (filteredMutations.length > 0) {
-      verbose.content(`Processing batch of ${filteredMutations.length} mutations`, 'divEditor/mutationProcessor.js');
       await this.processMutations(filteredMutations);
     }
   }
@@ -130,7 +122,6 @@ export class MutationProcessor {
     }
 
     if (this.queue.length > 0) {
-      console.log('🚨 Flushing queued mutations');
       this.process();
     }
   }

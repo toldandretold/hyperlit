@@ -9,7 +9,6 @@ import { userScrollState, navTimers } from './navState';
 function detectUserScrollStart(event?: any): void {
   // Don't treat navigation scrolls as user scrolls
   if (userScrollState.isNavigating) {
-    verbose.content(`NAVIGATION SCROLL - Ignoring as user scroll`, 'scrolling/userScrollDetection');
     return;
   }
 
@@ -34,6 +33,12 @@ function detectUserScrollStart(event?: any): void {
     }
   }
 
+  // Log only the false→true transition — this handler fires on every raw
+  // scroll/wheel/touchmove event, so an unconditional log floods the console.
+  if (!userScrollState.isScrolling) {
+    verbose.content(`USER SCROLL DETECTED - Disabling all scroll restoration for 1 second`, 'scrolling/userScrollDetection');
+  }
+
   userScrollState.isScrolling = true;
   userScrollState.lastUserScrollTime = Date.now();
 
@@ -41,8 +46,6 @@ function detectUserScrollStart(event?: any): void {
   if (userScrollState.scrollTimeout) {
     clearTimeout(userScrollState.scrollTimeout);
   }
-
-  verbose.content(`USER SCROLL DETECTED - Disabling all scroll restoration for 1 second`, 'scrolling/userScrollDetection');
 
   // Reset after 1 second of no scroll events (reduced from 2 seconds)
   userScrollState.scrollTimeout = setTimeout(() => {

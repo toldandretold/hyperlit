@@ -28,6 +28,21 @@ class HomeController extends Controller
     }
 
     /**
+     * Experimental homepage: lava-lamp background + centered glass hero.
+     * pageType stays 'home' so all home-page components self-initialize;
+     * no prerender/jsonLd — content is deferred until an arranger button
+     * is pressed (chat.blade.php ships no .active button and no main ids).
+     */
+    public function chat()
+    {
+        return view('chat', [
+            'pageType' => 'home',
+            'pageTitle' => 'Hyperlit - Read, write and self-publish hypertext literature',
+            'pageDescription' => 'Read, write and publish hypertext literature on an open source docuverse.',
+        ]);
+    }
+
+    /**
      * WebSite + Organization + WebApplication structured data for the brand query.
      * The featureList carries the feature vocabulary machine-readably. No
      * SearchAction — the site has no crawlable ?q= results URL.

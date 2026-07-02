@@ -124,8 +124,6 @@ export class LinkNavigationHandler {
     const link = event.target.closest('a');
     if (!link || !link.href) return;
 
-    console.log('🔗 [LINK CLICK] Link detected:', link.href);
-
     const linkUrl = new URL(link.href, window.location.origin);
     const currentUrl = new URL(window.location.href);
 
@@ -134,12 +132,9 @@ export class LinkNavigationHandler {
     const isExternal = linkUrl.origin !== currentUrl.origin;
     const shouldSkip = this.shouldSkipLinkHandling(link, linkUrl, currentUrl);
 
-    console.log('🔗 [LINK CLICK] Decision:', { isExternal, shouldSkip, inContainer: !!link.closest('#hyperlit-container') });
-
     // If it's not external and not a special link handled elsewhere, it's for us.
     if (!isExternal && !shouldSkip) {
       event.preventDefault();
-      console.log('🔗 [LINK CLICK] Intercepted for SPA routing');
       verbose.nav('Intercepted link for SPA routing', '/navigation/LinkNavigationHandler.js', link.href);
 
       // --- ASYNCHRONOUS PROCESSING ---
@@ -149,25 +144,18 @@ export class LinkNavigationHandler {
         const currentBookPath = `/${book}`;
 
         if (this.isSameBookNavigation(linkUrl, currentUrl, currentBookPath)) {
-          console.log('🔗 [LINK CLICK] Routing to: SAME BOOK navigation');
           await this.handleSameBookNavigation(link, linkUrl);
-          console.log('🔗 [LINK CLICK] Same book navigation completed');
         } else if (this.isDifferentBookNavigation(linkUrl, currentBookPath)) {
-          console.log('🔗 [LINK CLICK] Routing to: BOOK TO BOOK navigation');
           await this.handleBookToBookNavigation(link, linkUrl);
-          console.log('🔗 [LINK CLICK] Book to book navigation completed');
         } else {
           // This case should not be reached if logic is correct, but as a fallback:
-          console.log('🔗 [LINK CLICK] No route matched, falling back to full navigation');
           verbose.nav('Link was not routed, falling back to full navigation', '/navigation/LinkNavigationHandler.js');
           window.location.href = link.href;
         }
       } catch (error) {
-        console.error('❌ [LINK CLICK] SPA navigation failed, falling back to full navigation:', error);
+        log.error('[LINK CLICK] SPA navigation failed, falling back to full navigation', '/navigation/LinkNavigationHandler.js', error);
         window.location.href = link.href;
       }
-    } else {
-      console.log('🔗 [LINK CLICK] Skipping - external or special link');
     }
   }
 
@@ -216,7 +204,7 @@ export class LinkNavigationHandler {
         ProgressOverlayConductor.showBookToBookTransition(5, `Loading ${targetBookId}...`, targetBookId);
       }
     } catch (error) {
-      console.warn('Could not handle hypercite progress:', error);
+      log.error('Could not handle hypercite progress', '/navigation/LinkNavigationHandler.js', error);
     }
   }
 
@@ -364,7 +352,7 @@ export class LinkNavigationHandler {
         }
       }
     } catch (error) {
-      console.error('❌ Same-book navigation failed:', error);
+      log.error('Same-book navigation failed', '/navigation/LinkNavigationHandler.js', error);
     }
   }
 
@@ -460,7 +448,7 @@ export class LinkNavigationHandler {
       });
 
     } catch (error) {
-      console.error('❌ Navigation failed:', error);
+      log.error('Navigation failed', '/navigation/LinkNavigationHandler.js', error);
       // Fallback to full page navigation
       window.location.href = link.href;
     }
@@ -659,7 +647,7 @@ export class LinkNavigationHandler {
       if (bottomMatches && bookMatches) {
         // Back by exactly one
         if (currentDepth > 0 && savedDepth === currentDepth - 1) {
-          console.log(`📚 [popstate] Fast-path BACK: popping top layer (${currentDepth} → ${savedDepth})`);
+          verbose.nav(`📚 [popstate] Fast-path BACK: popping top layer (${currentDepth} → ${savedDepth})`, '/navigation/LinkNavigationHandler.js');
           recordNavDecision({ phase: 'branch', branch: 'fast-back', hash: window.location.hash, currentDepth, savedDepth });
           await popTopLayer();
           return;
@@ -670,7 +658,7 @@ export class LinkNavigationHandler {
           const newTopMeta = capturedStack[currentDepth]?.contentMetadata;
           if (newTopMeta?.contentTypes?.length) {
             const { restoreStackedLayer, deriveMainAnchorId } = await import('../../hyperlitContainer/history');
-            console.log(`📚 [popstate] Fast-path FORWARD: pushing new top layer (${currentDepth} → ${savedDepth})`);
+            verbose.nav(`📚 [popstate] Fast-path FORWARD: pushing new top layer (${currentDepth} → ${savedDepth})`, '/navigation/LinkNavigationHandler.js');
             const ok = await restoreStackedLayer(newTopMeta);
             if (ok) {
               // Opening the BASE container (0 → 1) over the main page: scroll the reader to the
@@ -681,7 +669,7 @@ export class LinkNavigationHandler {
                 try {
                   const anchorId = deriveMainAnchorId(newTopMeta);
                   if (anchorId) {
-                    console.log(`📚 [popstate] Fast-path FORWARD scrolling main to anchor "${anchorId}"`);
+                    verbose.nav(`📚 [popstate] Fast-path FORWARD scrolling main to anchor "${anchorId}"`, '/navigation/LinkNavigationHandler.js');
                     recordNavDecision({ phase: 'branch', branch: 'fast-forward', hash: window.location.hash, anchorId });
                     navigateToInternalId(anchorId, currentLazyLoader, false);
                   }
@@ -689,12 +677,12 @@ export class LinkNavigationHandler {
               }
               return;
             }
-            console.warn('Fast-path FORWARD: restoreStackedLayer returned false, falling back');
+            verbose.nav('Fast-path FORWARD: restoreStackedLayer returned false, falling back', '/navigation/LinkNavigationHandler.js');
           }
         }
       }
     } catch (e) {
-      console.warn('Fast-path one-level transition failed, falling back to full close+restore:', e);
+      verbose.nav('Fast-path one-level transition failed, falling back to full close+restore:', '/navigation/LinkNavigationHandler.js', e as any);
     }
 
     // Close any open container silently — the browser has already restored the URL via popstate
@@ -712,7 +700,7 @@ export class LinkNavigationHandler {
         await restoreContainerStack(capturedStack, { callsite: 'LinkNavigationHandler.popstate' });
         return;
       } catch (error) {
-        console.warn('Failed to restore container stack from history.state:', error);
+        log.error('Failed to restore container stack from history.state', '/navigation/LinkNavigationHandler.js', error);
       }
     }
 
@@ -735,7 +723,7 @@ export class LinkNavigationHandler {
           return;
         }
       } catch (error) {
-        console.warn('Failed to rebuild cascade from URL:', error);
+        log.error('Failed to rebuild cascade from URL', '/navigation/LinkNavigationHandler.js', error);
       }
     }
 
@@ -749,7 +737,7 @@ export class LinkNavigationHandler {
           navigateToInternalId(targetId, currentLazyLoader, false);
         }
       } catch (error) {
-        console.warn('Failed to navigate to hash:', error);
+        log.error('Failed to navigate to hash', '/navigation/LinkNavigationHandler.js', error);
       }
     } else {
       // No hash, no container stack, no cascade: nothing scrolls — the closed container

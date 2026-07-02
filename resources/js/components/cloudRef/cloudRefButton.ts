@@ -4,7 +4,7 @@
 // open/close wiring, registered with ButtonRegistry as the 'sourceButton'
 // component (see components/registerComponents.ts).
 import sourceManager from "../sourceContainer/index";
-import { log } from "../../utilities/logger";
+import { verbose } from "../../utilities/logger";
 
 // Store handler reference for proper cleanup (like logoNav pattern)
 let sourceClickHandler: any = null;
@@ -29,7 +29,7 @@ export function initializeSourceButtonListener() {
 
   sourceManager.button.addEventListener("click", sourceClickHandler);
   sourceManager.button.dataset.sourceListenerAttached = "true";
-  log.init('Source button listener attached', '/components/cloudRef/cloudRefButton.ts');
+  verbose.init('Source button listener attached', '/components/cloudRef/cloudRefButton.ts');
 }
 
 /**

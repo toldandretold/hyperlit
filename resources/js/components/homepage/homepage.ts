@@ -1,6 +1,6 @@
 // resources/js/components/homepage/homepage.ts
 
-import { log, verbose } from '../../utilities/logger';
+import { verbose } from '../../utilities/logger';
 
 let homepageBookActionsHandler: any = null;
 
@@ -50,7 +50,7 @@ export function initializeHomepageBookActions() {
 }
 
 export async function initializeHomepage() {
-  log.init("Homepage components initializing", '/components/homepage/homepage.ts');
+  verbose.init("Homepage components initializing", '/components/homepage/homepage.ts');
 
   // Import progress functions
   let updatePageLoadProgress, hidePageLoadProgress;

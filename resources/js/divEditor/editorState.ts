@@ -14,7 +14,6 @@
  */
 import { NUMERICAL_ID_PATTERN, asLineId, type BookId } from '../utilities/idHelpers';
 import { glowCloudOrange } from '../components/cloudRef/editIndicator';
-import { verbose } from '../utilities/logger';
 import type { SaveQueue } from './saveQueue';
 
 /** Nodes relocated during chunk-overflow handling; consumed by chunkMutationHandler. */
@@ -30,7 +29,6 @@ export function setActiveSaveQueue(sq: SaveQueue | null): void { saveQueue = sq;
 export function getActiveSaveQueue(): SaveQueue | null { return saveQueue; }
 
 export function queueNodeForSave(IDnumerical: string, action: string = 'update', bookId: BookId | null = null): void {
-  verbose.content(`queueNodeForSave: ${IDnumerical}, action: ${action}, bookId: ${bookId || '(inherit)'}`, 'divEditor/editorState.ts');
   // Only numeric (or decimal) startLine ids are real content nodes / DB rows.
   // Inline markers — footnote-refs (`Fn…`), hypercites (`hypercite_…`) — live INSIDE
   // their parent node's HTML and are persisted when that parent is saved; they must
@@ -39,7 +37,6 @@ export function queueNodeForSave(IDnumerical: string, action: string = 'update',
   // node id and escalates it to a scary `batch-invalid-id` integrity report — even
   // though nothing is wrong. Drop it quietly here, at the single enqueue chokepoint.
   if (!NUMERICAL_ID_PATTERN.test(String(IDnumerical))) {
-    verbose.content(`queueNodeForSave: ignoring non-numeric id '${IDnumerical}' (inline marker — saved with its parent)`, 'divEditor/editorState.ts');
     return;
   }
   if (!saveQueue) {

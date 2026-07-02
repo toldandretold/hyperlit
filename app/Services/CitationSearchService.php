@@ -37,8 +37,18 @@ class CitationSearchService
      * Skip external lookup for the same query within this window. Prevents
      * back-to-back searches (typing pauses, scope toggles) from re-hitting
      * OpenAlex/Open Library when we already ingested everything they'd return.
+     * Written by the ingest JOB when the fetch actually completes.
      */
     public const EXTERNAL_LOOKUP_TTL_SECONDS = 900;
+
+    /**
+     * Short hold set at DISPATCH time (before the job has run) — enough to
+     * stop keystroke spam double-dispatching, but short enough that a dead
+     * queue worker doesn't lock the query out of supplementation for the full
+     * courtesy window. The job replaces it with EXTERNAL_LOOKUP_TTL_SECONDS
+     * on completion.
+     */
+    public const EXTERNAL_DISPATCH_TTL_SECONDS = 120;
 
     /**
      * Response cache for the local hybrid SQL (mirrors searchNodes' 60s cache).
@@ -58,8 +68,17 @@ class CitationSearchService
      *   has_more: bool,
      *   external_ingested: int,
      *   external_pending: bool,
+     *   external_status: ?string,
      *   timings: array<string, float>,
      * }
+     *
+     * `external_status` (only set for thin public first pages, else null):
+     *   'dispatched'     — THIS request queued the ingest job
+     *   'pending'        — job queued/running, outcome not yet known
+     *   'completed'      — sources answered (results, or genuinely nothing)
+     *   'sources_failed' — every source errored and nothing was ingested;
+     *                      an empty result page is NOT trustworthy
+     * The modal uses it to word the empty state honestly.
      *
      * `external_ingested` is DEPRECATED (always 0 since ingest went async) —
      * kept for one release so existing consumers don't break; use
@@ -103,14 +122,23 @@ class CitationSearchService
         //     limit from cached canonicals + library, external can't help.
         // The lookup itself runs in a queued job — external HTTP (1s good day,
         // 15s+ bad day) must never block a keystroke-driven search request.
+        $externalStatus = null;
+
         if ($sourceScope === 'public' && $offset === 0 && count($local) < $limit) {
-            $cacheKey = 'citation_search:external:' . sha1(mb_strtolower(trim($query)));
+            $cacheKey = IngestExternalCitationCandidatesJob::dedupKey($query);
             if (!Cache::has($cacheKey)) {
                 $t = hrtime(true);
-                Cache::put($cacheKey, true, self::EXTERNAL_LOOKUP_TTL_SECONDS);
+                // Short spam-guard hold only — the job writes the full
+                // courtesy window when the fetch actually completes.
+                Cache::put($cacheKey, true, self::EXTERNAL_DISPATCH_TTL_SECONDS);
                 IngestExternalCitationCandidatesJob::dispatch($query, self::EXTERNAL_PER_SOURCE);
                 $externalPending = true;
+                $externalStatus = 'dispatched';
                 $timings['dispatch_ms'] = $ms($t);
+            } else {
+                // Ingest already dispatched for this query: outcome known
+                // ('completed' / 'sources_failed'), or still in flight.
+                $externalStatus = Cache::get(IngestExternalCitationCandidatesJob::statusKey($query)) ?? 'pending';
             }
         }
 
@@ -119,6 +147,7 @@ class CitationSearchService
             'has_more'          => count($local) >= $limit,
             'external_ingested' => 0,
             'external_pending'  => $externalPending,
+            'external_status'   => $externalStatus,
             'timings'           => $timings,
         ];
     }

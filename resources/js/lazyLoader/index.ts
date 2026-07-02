@@ -1,4 +1,4 @@
-import { log, verbose } from '../utilities/logger';
+import { log, verbose, isVerboseEnabled } from '../utilities/logger';
 // NOTE: attachMarkListeners / attachUnderlineClickListeners are deliberately NOT imported here.
 // The render engine is a LEAF: both attachers are INJECTED via createLazyLoader's config and held
 // on `instance` (instance.attachMarkListeners / instance.attachUnderlineClickListeners). Importing
@@ -593,54 +593,41 @@ export function createLazyLoader(config: any) {
   };
 
   // Create the IntersectionObserver.
+  // NOTE: this callback fires continuously during scroll — no per-entry
+  // logging here (it flooded the console under verbose mode). Log only when a
+  // chunk actually loads.
   const observer = new IntersectionObserver((entries) => {
-    verbose.content(`Observer triggered (${entries.length} entries) for book: ${instance.bookId}`, 'lazyLoaderFactory.js');
-
     // 🔒 CHECK SCROLL LOCK: Don't trigger lazy loading during navigation or chunk deletion
     if (instance.scrollLocked || instance.isNavigatingToInternalId) {
-      verbose.debug(`Observer blocked: scrollLocked=${instance.scrollLocked}, isNavigating=${instance.isNavigatingToInternalId}`, 'lazyLoaderFactory.js');
       return;
     }
 
     // ✅ Don't load chunks if deletions are in progress
     if (isChunkLoadingInProgress()) {
-      verbose.debug('Skipping lazy load - chunk deletion in progress', 'lazyLoaderFactory.js');
       return;
     }
 
     entries.forEach((entry) => {
-      verbose.debug(`Entry: ${entry.target.id}, isIntersecting: ${entry.isIntersecting}, ratio: ${entry.intersectionRatio}`, 'lazyLoaderFactory.js');
-
       if (!entry.isIntersecting) {
         return;
       }
 
       if (entry.target.id === instance.topSentinel?.id) {
-        verbose.debug('TOP sentinel intersecting - attempting to load previous chunk', 'lazyLoaderFactory.js');
         const firstChunkEl = container.querySelector("[data-chunk-id]");
         if (firstChunkEl) {
           const firstChunkId = parseChunkId(firstChunkEl.getAttribute("data-chunk-id")!);
-          verbose.debug(`First chunk in DOM: ${firstChunkId}, checking if can load previous...`, 'lazyLoaderFactory.js');
           if (firstChunkId > 0 && !instance.currentlyLoadedChunks.has(firstChunkId - 1)) {
             verbose.debug(`Loading previous chunk: ${firstChunkId - 1}`, 'lazyLoaderFactory.js');
             loadPreviousChunkFixed(firstChunkId, instance);
-          } else {
-            verbose.debug(`Cannot load previous: firstChunkId=${firstChunkId}, alreadyLoaded=${instance.currentlyLoadedChunks.has(firstChunkId - 1)}`, 'lazyLoaderFactory.js');
           }
-        } else {
-          verbose.debug('Top sentinel intersecting but no chunks found in DOM', 'lazyLoaderFactory.js');
         }
       }
       if (entry.target.id === instance.bottomSentinel?.id) {
-        verbose.debug('Bottom sentinel intersecting - attempting to load next chunk', 'lazyLoaderFactory.js');
         const chunkEls = container.querySelectorAll("[data-chunk-id]");
         const lastChunkEl = chunkEls.length ? chunkEls[chunkEls.length - 1] : null;
         if (lastChunkEl) {
           const lastChunkId = parseChunkId(lastChunkEl.getAttribute("data-chunk-id")!);
-          verbose.debug(`Last chunk in DOM: ${lastChunkId}, loading next chunk...`, 'lazyLoaderFactory.js');
           loadNextChunkFixed(lastChunkId, instance);
-        } else {
-          verbose.debug('Bottom sentinel intersecting but no chunks found in DOM', 'lazyLoaderFactory.js');
         }
       }
     });
@@ -867,16 +854,20 @@ export function createLazyLoader(config: any) {
         // Fix sentinel positions - chunk gets appended AFTER bottomSentinel, need to reorder
         instance.repositionSentinels();
 
-        // DEBUG: Log DOM structure after chunk load (verbose mode only)
-        const children = Array.from(instance.container.children).map((el: any) => {
-          if (el.classList.contains('sentinel')) return `SENTINEL:${el.id}`;
-          if (el.hasAttribute('data-chunk-id')) return `CHUNK:${el.getAttribute('data-chunk-id')}`;
-          return `OTHER:${el.tagName}`;
-        });
-        verbose.debug(`DOM order after chunk load: ${children.join(', ')}`, 'lazyLoaderFactory.js');
-        verbose.debug(`topSentinel in DOM: ${instance.container.contains(instance.topSentinel)}`, 'lazyLoaderFactory.js');
-        verbose.debug(`bottomSentinel in DOM: ${instance.container.contains(instance.bottomSentinel)}`, 'lazyLoaderFactory.js');
-        verbose.debug(`currentlyLoadedChunks: [${[...instance.currentlyLoadedChunks].join(', ')}]`, 'lazyLoaderFactory.js');
+        // DEBUG: Log DOM structure after chunk load. Guarded — building the
+        // full child/chunk serializations is expensive on big books and the
+        // arguments would be evaluated even when verbose logging is off.
+        if (isVerboseEnabled()) {
+          const children = Array.from(instance.container.children).map((el: any) => {
+            if (el.classList.contains('sentinel')) return `SENTINEL:${el.id}`;
+            if (el.hasAttribute('data-chunk-id')) return `CHUNK:${el.getAttribute('data-chunk-id')}`;
+            return `OTHER:${el.tagName}`;
+          });
+          verbose.debug(`DOM order after chunk load: ${children.join(', ')}`, 'lazyLoaderFactory.js');
+          verbose.debug(`topSentinel in DOM: ${instance.container.contains(instance.topSentinel)}`, 'lazyLoaderFactory.js');
+          verbose.debug(`bottomSentinel in DOM: ${instance.container.contains(instance.bottomSentinel)}`, 'lazyLoaderFactory.js');
+          verbose.debug(`currentlyLoadedChunks: [${[...instance.currentlyLoadedChunks].join(', ')}]`, 'lazyLoaderFactory.js');
+        }
       }
 
       // 8. ✅ NEW: Scroll to and focus the target element after rendering
@@ -1239,7 +1230,7 @@ async function loadChunkInternal(chunkId: any, direction: any, instance: any, at
 
   if (chunkId === 0) {
     const nodeCount = instance.nodes.find((c: any) => c.chunk_id === 0)?.nodes?.length || 50;
-    log.content(`First chunk rendered (${nodeCount} nodes)`, 'lazyLoaderFactory.js');
+    verbose.content(`First chunk rendered (${nodeCount} nodes)`, 'lazyLoaderFactory.js');
   }
   verbose.content(`Chunk #${chunkId} loaded into DOM`, 'lazyLoaderFactory.js');
   return chunkElement; // ✅ return DOM element
@@ -1266,7 +1257,6 @@ function repositionFixedSentinelsForBlockInternal(instance: any, attachMarkers: 
     parseChunkId(a.getAttribute("data-chunk-id")) -
     parseChunkId(b.getAttribute("data-chunk-id"))
 );
-  verbose.debug(`Sorted chunk IDs: ${allChunks.map(c => c.getAttribute('data-chunk-id')).join(', ')}`, 'lazyLoaderFactory.js');
   if (instance.observer) {
     instance.observer.disconnect();
   }

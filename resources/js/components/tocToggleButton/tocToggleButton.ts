@@ -5,7 +5,7 @@
 // registered as the 'toc' component in registerComponents.ts.
 import { TocContainerManager, invalidateTocCache } from "../tocContainer/index";
 import { getTocManager, setTocManager } from "../tocContainer/managerRef";
-import { log } from "../../utilities/logger";
+import { verbose } from "../../utilities/logger";
 
 export function initializeTocManager() {
   if (!document.getElementById("toc-toggle-button")) {
@@ -19,7 +19,7 @@ export function initializeTocManager() {
       "toc-toggle-button",
       ["main-content"]
     ));
-    log.init('TOC Manager initialized', '/components/tocToggleButton/tocToggleButton.ts');
+    verbose.init('TOC Manager initialized', '/components/tocToggleButton/tocToggleButton.ts');
   } else {
     getTocManager().rebindElements();
   }

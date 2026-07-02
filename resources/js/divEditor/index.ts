@@ -298,7 +298,6 @@ export async function startObserving(editableDiv: HTMLElement, bookId: BookId | 
   const newHandler = new EnterKeyHandler();
 
   if (enterKeyHandler) {
-    console.warn('⚠️ EnterKeyHandler already exists! Destroying old one after creating new.');
     enterKeyHandler.destroy();
   }
 
@@ -344,8 +343,7 @@ export async function startObserving(editableDiv: HTMLElement, bookId: BookId | 
     // 🛡️ Verify mutations are from the correct container
     const validMutations = mutations.filter((mutation: any) => {
       if (!verifyMutationSource(mutation)) {
-        // Mutation is from wrong container - log and skip
-        console.warn('[Observer] Skipping leaked mutation:', mutation.type, 'on', mutation.target?.id || mutation.target?.nodeName);
+        // Mutation is from wrong container - skip
         return false;
       }
       return true;
@@ -370,10 +368,6 @@ export async function startObserving(editableDiv: HTMLElement, bookId: BookId | 
     // Removed attributeOldValue and characterDataOldValue for better performance (not used)
   });
 
-  // Log successful connection
-  const targetId = editableDiv.id || editableDiv.getAttribute('data-book-id') || 'unknown';
-  console.log(`[Observer] 🔌 CONNECTED to ${targetId}`);
-
   // Seed the focus tracker with the chunk the caret is currently in (a chunk-id string,
   // or null). The selectionchange handler keeps it updated from here on.
   const currentChunkId = getCurrentChunk();
@@ -395,8 +389,6 @@ function initializeCurrentChunks(editableDiv: HTMLElement) {
       observedChunks.set(chunkId, chunk);
       trackChunkNodeCount(chunk);
       verbose.content(`Initialized tracking for chunk ${chunkId}`, 'divEditor/index.js');
-    } else {
-      console.warn("Found chunk without data-chunk-id:", chunk);
     }
   });
 
@@ -421,9 +413,7 @@ setPreemptStop(stopObserving);
 
 export async function stopObserving() {
   if (observer) {
-    const oldTarget = observedEditableDiv?.id || observedEditableDiv?.getAttribute('data-book-id') || 'unknown';
     observer.disconnect();
-    console.log(`[Observer] 🔌 DISCONNECTED from ${oldTarget}`);
     observer = null;
   }
 

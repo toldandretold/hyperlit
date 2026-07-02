@@ -5,7 +5,7 @@
 
 import { openDatabase } from '../core/connection';
 import { parseNodeId } from '../core/utilities';
-import { verbose } from '../../utilities/logger';
+import { log, verbose } from '../../utilities/logger';
 import { syncFirstNodeToTitle, updateBookTimestamp } from '../core/library';
 // debounce comes from the zero-import leaf, NOT divEditor/saveQueue.js —
 // importing it via saveQueue welded this module into the editor import cycle
@@ -63,7 +63,7 @@ export function initNodeBatchDependencies(deps: { book: BookId | null | undefine
 // Debounced title sync - only runs 500ms after user stops typing
 const debouncedTitleSync = debounce((bookId: BookId, nodeContent: string) => {
   syncFirstNodeToTitle(bookId, nodeContent).catch(error => {
-    console.error('❌ Error in debounced title sync:', error);
+    log.error('Error in debounced title sync', '/indexedDB/nodes/batch.ts', error);
   });
 }, 500);
 
@@ -104,9 +104,6 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
       mainContent,
       globalBook: book,
     });
-    console.log(
-      `🔄 Batch updating ${recordsToProcess.length} IndexedDB records`,
-    );
 
     const db = await openDatabase();
     const tx = db.transaction(
@@ -127,18 +124,13 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
       return new Promise<void>((resolve) => {
         // ✅ FIX 1: Add a check for a valid record and ID before proceeding.
         if (!record || typeof record.id === "undefined" || record.id === null) {
-          console.error(
-            "Skipping invalid record in batch update (record or id is null/undefined):",
-            record,
-          );
+          verbose.content('Skipping invalid record in batch update (record or id is null/undefined)', '/indexedDB/nodes/batch.ts', record);
           return resolve(); // Resolve the promise to not block the batch.
         }
 
         // ✅ FIX 2: The most important check. Ensure the id is a valid numeric node id.
         if (!NUMERIC_NODE_ID.test(String(record.id))) {
-          console.error(
-            `Skipping batch update for invalid node ID: '${record.id}'.`,
-          );
+          verbose.content(`Skipping batch update for invalid node ID: '${record.id}'`, '/indexedDB/nodes/batch.ts');
           reportIntegrityFailure({
             bookId,
             mismatches: [],
@@ -157,10 +149,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
           resolve();
         };
         getReq.onerror = (err) => {
-          console.error(
-            `Error getting record for batch update: ID=${record.id}`,
-            err,
-          );
+          log.error(`Error getting record for batch update: ID=${record.id}`, '/indexedDB/nodes/batch.ts', err);
           resolve(); // Resolve even on error to not block the whole batch.
         };
       });
@@ -203,7 +192,6 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
 
       // Skip inline formatting artifacts (e.g. <font id="1"> from copy-paste)
       if (node && INLINE_SKIP_TAGS.has(node.tagName)) {
-        console.warn(`⚠️ Skipping batch update – inline element <${node.tagName}> for id ${IDnumerical}`);
         return;
       }
 
@@ -213,9 +201,6 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
       }
 
       if (!NUMERIC_NODE_ID.test(IDnumerical)) {
-        console.log(
-          `Skipping batch update – no valid parent for ${record.id}`,
-        );
         return;
       }
 
@@ -232,7 +217,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
       // 🔍 DEBUG: Log node_id extraction
       verbose.content(`node_id extraction: record.id=${record.id}, finalNodeId=${IDnumerical}, node=${node?.tagName}, nodeIdFromDOM=${nodeIdFromDOM}`, 'indexedDB/nodes/batch');
       if (node && !nodeIdFromDOM) {
-        console.warn(`⚠️ Node found but no data-node-id attribute! Element:`, node.outerHTML.substring(0, 200));
+        verbose.content('Node found but no data-node-id attribute', '/indexedDB/nodes/batch.ts', node.outerHTML.substring(0, 200));
       }
 
       let toSave: NodeRecord;
@@ -305,8 +290,6 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
 
     return new Promise<void>((resolve, reject) => {
       tx.oncomplete = async () => {
-        console.log("✅ Batch IndexedDB update complete");
-
         // Skip both timestamp update and queueForSync if skipHistory is true
         // (for automatic operations like marker restoration during page load)
         // This prevents spurious syncs that could trigger 409 stale data errors
@@ -329,14 +312,11 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
           allSavedHypercites.forEach((hc) => {
             queueForSync("hypercites", hc.hyperciteId, "update", hc, null, options.skipRedoClear || false);
           });
-        } else {
-          console.log(`⏭️ Skipping queueForSync - skipHistory option is true`);
         }
 
         // Auto-sync first node to library title (only if node 100 was updated)
         const firstNode = allSavedNodes.find(chunk => chunk.startLine === 100);
         if (firstNode) {
-          console.log('🔄 First node (100) was updated, triggering debounced title sync');
           debouncedTitleSync(bookId, firstNode.content);
         }
 
@@ -354,10 +334,9 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
             const nodes = allNodes.filter(n => n.book === bookId);
             if (nodes.length > 0) {
               await rebuildNodeArrays(nodes);
-              console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${nodes.length} nodes after batch update`);
             }
           } catch (error) {
-            console.error('❌ NEW SYSTEM: Error rebuilding arrays after batch update:', error);
+            log.error('Error rebuilding arrays after batch update', '/indexedDB/nodes/batch.ts', error);
             // Don't fail the whole operation if rebuild fails
           }
         }
@@ -375,21 +354,10 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
             // Trigger if footnote count changed (added or deleted) — ID-only comparison ignores format differences
             const changed = oldIds.length !== newIds.length ||
                    JSON.stringify(oldIds) !== JSON.stringify(newIds);
-            if (changed) {
-              console.log(`📝 Footnote change detected in node ${node.startLine}: ${oldIds.length} → ${newIds.length}`);
-              // [diagnostic] include old/new IDs and bookId so we can see what triggered renumber
-              console.log(`[diag][batch] footnote delta on ${bookId}/${node.startLine}: old=${JSON.stringify(oldIds)} new=${JSON.stringify(newIds)}`);
-            }
             return changed;
           });
 
           if (nodesWithFootnoteChanges.length > 0) {
-            console.log(`📝 Triggering footnote renumbering: ${nodesWithFootnoteChanges.length} nodes with footnote changes`);
-            // [diagnostic] log caller context so we can see if this fires during
-            // post-import hydration (no user edits) or only after explicit edits
-            const __batchStack = new Error('batchUpdateIndexedDBRecords renumber trigger').stack;
-            console.log(`[diag][batch] auto-renumber trigger for bookId=${bookId} affectedCount=${nodesWithFootnoteChanges.length}`);
-            console.log(`[diag][batch] caller stack:\n${__batchStack}`);
             try {
               const { rebuildAndRenumber } = await import('../../footnotes/FootnoteNumberingService');
               const allNodes = await getNodesFromIndexedDB(bookId);
@@ -397,12 +365,10 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
                 await rebuildAndRenumber(bookId, allNodes);
               }
             } catch (error) {
-              console.error('❌ Error triggering footnote renumbering:', error);
+              log.error('Error triggering footnote renumbering', '/indexedDB/nodes/batch.ts', error);
               // Don't fail the whole operation if renumbering fails
             }
           }
-        } else {
-          console.log(`📝 Skipping auto-renumber (caller handles it)`);
         }
 
         resolve();
@@ -433,10 +399,6 @@ export async function batchDeleteIndexedDBRecords(
 
     // ✅ OPTIMIZATION: Remove duplicates using Set
     const uniqueIDnumericals = [...new Set(IDnumericals)];
-    const duplicatesSkipped = IDnumericals.length - uniqueIDnumericals.length;
-
-    const startTime = Date.now();
-    console.log(`🗑️ BATCH DELETE START: ${IDnumericals.length} nodes queued (${uniqueIDnumericals.length} unique${duplicatesSkipped > 0 ? `, ${duplicatesSkipped} duplicates skipped` : ''})`);
 
     try {
       const db = await openDatabase();
@@ -479,7 +441,7 @@ export async function batchDeleteIndexedDBRecords(
       // Process each node ID for deletion
       const deletePromises = uniqueIDnumericals.map(async (IDnumerical, index) => {
         if (!NUMERIC_NODE_ID.test(IDnumerical)) {
-          console.warn(`❌ Skipping deletion – invalid node ID: ${IDnumerical}`);
+          verbose.content(`Skipping deletion – invalid node ID: ${IDnumerical}`, '/indexedDB/nodes/batch.ts');
           errorCount++;
           return;
         }
@@ -505,7 +467,7 @@ export async function batchDeleteIndexedDBRecords(
               };
               deleteReq.onerror = () => {
                 errorCount++;
-                console.error(`❌ Failed to delete ${IDnumerical}:`, deleteReq.error);
+                log.error(`Failed to delete ${IDnumerical}`, '/indexedDB/nodes/batch.ts', deleteReq.error);
                 reject(deleteReq.error);
               };
 
@@ -582,7 +544,7 @@ export async function batchDeleteIndexedDBRecords(
                     }
                   };
                 } catch (lightError) {
-                  console.warn(`⚠️ Error updating hyperlights:`, lightError);
+                  log.error('Error updating hyperlights', '/indexedDB/nodes/batch.ts', lightError);
                 }
 
                 try {
@@ -650,7 +612,7 @@ export async function batchDeleteIndexedDBRecords(
                     }
                   };
                 } catch (citeError) {
-                  console.warn(`⚠️ Error updating hypercites:`, citeError);
+                  log.error('Error updating hypercites', '/indexedDB/nodes/batch.ts', citeError);
                 }
               }
             } else {
@@ -667,14 +629,12 @@ export async function batchDeleteIndexedDBRecords(
 
       return new Promise<void>((resolve, reject) => {
         tx.oncomplete = async () => {
-          const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-          console.log(`🗑️ BATCH DELETE COMPLETE: ${processedCount} deleted, ${errorCount} failed (${duration}s)`);
           await updateBookTimestamp(bookId);
 
           // Queue deleted records for PostgreSQL sync
           // ⚠️ DIAGNOSTIC: Log when many nodes are being queued for deletion
           if (deletedData.nodes.length > 10) {
-            console.warn(`⚠️ MASS DELETION QUEUED: ${deletedData.nodes.length} nodes`, {
+            verbose.content(`MASS DELETION QUEUED: ${deletedData.nodes.length} nodes`, '/indexedDB/nodes/batch.ts', {
               stack: new Error().stack,
               nodeIds: deletedData.nodes.slice(0, 5).map(n => n.startLine),
               timestamp: Date.now()
@@ -694,7 +654,6 @@ export async function batchDeleteIndexedDBRecords(
           try {
             // Collect all remaining data-node-ids from deletionMap that weren't deleted
             const deletedDataNodeIDs = Array.from(deletionMap.values()).filter((v): v is string => Boolean(v));
-            console.log(`🔄 NEW SYSTEM: Deleted data-node-ids:`, deletedDataNodeIDs);
 
             if (deletedDataNodeIDs.length > 0) {
               const db = await openDatabase();
@@ -744,16 +703,12 @@ export async function batchDeleteIndexedDBRecords(
               });
 
               if (affectedDataNodeIDs.size > 0) {
-                console.log(`🔄 NEW SYSTEM: Rebuilding arrays for ${affectedDataNodeIDs.size} affected nodes`);
                 const affectedNodes = await getNodesByDataNodeIDs([...affectedDataNodeIDs]);
                 await rebuildNodeArrays(affectedNodes);
-                console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} nodes after deletion`);
-              } else {
-                console.log(`ℹ️ NEW SYSTEM: No remaining nodes to rebuild (single-node deletions)`);
               }
             }
           } catch (hydrationError) {
-            console.error('❌ NEW SYSTEM: Error rebuilding arrays after deletion:', hydrationError);
+            log.error('Error rebuilding arrays after deletion', '/indexedDB/nodes/batch.ts', hydrationError);
             // Don't fail the whole operation if hydration fails
           }
 
@@ -763,7 +718,7 @@ export async function batchDeleteIndexedDBRecords(
         tx.onabort = () => reject(new Error("Batch deletion transaction aborted"));
       });
     } catch (error) {
-      console.error("❌ Error in batchDeleteIndexedDBRecords:", error);
+      log.error('Error in batchDeleteIndexedDBRecords', '/indexedDB/nodes/batch.ts', error);
       throw error;
     }
   });

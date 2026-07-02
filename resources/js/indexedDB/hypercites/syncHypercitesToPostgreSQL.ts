@@ -74,6 +74,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
+import { log } from '../../utilities/logger';
 import type { BookId, HyperciteRecord, NodeRecord, PublicNode } from '../types';
 
 interface HyperciteSyncResult {
@@ -105,9 +106,6 @@ export async function syncHyperciteToPostgreSQL(hypercites: HyperciteRecord[]): 
     }))
   };
 
-  console.log(`🔄 Syncing ${hypercites.length} hypercites…`);
-  console.log('🔍 Payload being sent:', JSON.stringify(payload, null, 2));
-
   const res = await fetch("/api/db/hypercites/upsert", {
     method: "POST",
     headers: {
@@ -122,12 +120,11 @@ export async function syncHyperciteToPostgreSQL(hypercites: HyperciteRecord[]): 
 
   if (!res.ok) {
     const txt = await res.text();
-    console.error("❌ Hypercite sync error:", txt);
+    log.error('Hypercite sync error', '/indexedDB/hypercites/syncHypercitesToPostgreSQL.ts', txt);
     return { success: false, message: txt };
   }
 
   const out = await res.json();
-  console.log("✅ Hypercite synced:", out);
   return out;
 }
 
@@ -143,8 +140,6 @@ export async function syncHyperciteUpdateImmediately(
   hyperciteId: string,
   updatedFields: Partial<HyperciteRecord>,
 ): Promise<HyperciteSyncResult> {
-  console.log(`🚀 IMMEDIATE sync for hypercite ${hyperciteId}...`);
-
   const payload = {
     book,
     data: [{
@@ -169,12 +164,11 @@ export async function syncHyperciteUpdateImmediately(
 
   if (!res.ok) {
     const txt = await res.text();
-    console.error("❌ Immediate hypercite sync error:", txt);
+    log.error('Immediate hypercite sync error', '/indexedDB/hypercites/syncHypercitesToPostgreSQL.ts', txt);
     return { success: false, message: txt };
   }
 
   const out = await res.json();
-  console.log("✅ Immediate hypercite sync completed:", out);
   return out;
 }
 
@@ -191,8 +185,6 @@ export async function syncHyperciteWithNodeImmediately(
   hypercite: HyperciteRecord,
   node: NodeRecord | PublicNode,
 ): Promise<HyperciteSyncResult> {
-  console.log(`🚀 UNIFIED IMMEDIATE sync for hypercite ${hypercite.hyperciteId} with node ${node.startLine}...`);
-
   // Prepare hypercite payload
   const hypercitePayload = {
     ...hypercite,
@@ -209,8 +201,6 @@ export async function syncHyperciteWithNodeImmediately(
     library: null
   };
 
-  console.log('🔍 Unified payload:', JSON.stringify(unifiedPayload, null, 2));
-
   const res = await fetch("/api/db/unified-sync", {
     method: "POST",
     headers: {
@@ -225,11 +215,10 @@ export async function syncHyperciteWithNodeImmediately(
 
   if (!res.ok) {
     const txt = await res.text();
-    console.error("❌ Unified immediate sync error:", txt);
+    log.error('Unified immediate sync error', '/indexedDB/hypercites/syncHypercitesToPostgreSQL.ts', txt);
     return { success: false, message: txt };
   }
 
   const out = await res.json();
-  console.log("✅ Unified immediate sync completed (hypercite + node in one transaction):", out);
   return out;
 }

@@ -8,6 +8,7 @@ import { buildBibtexEntry } from '../../utilities/bibtexProcessor';
 import { parseSubBookId } from '../../utilities/subBookIdHelper';
 
 import { queueForSync } from '../syncQueue/queue';
+import { log } from '../../utilities/logger';
 import { LATEST, type BookId, type LibraryRecord } from '../types';
 import type { ServerLibraryRow } from '../serverSync/types';
 
@@ -92,7 +93,7 @@ export async function getLibraryObjectFromIndexedDB(book: unknown): Promise<Libr
         resolve(getRequest.result ?? null);
       };
       getRequest.onerror = () => {
-        console.error("❌ IndexedDB get request failed:", getRequest.error);
+        log.error('IndexedDB get request failed', '/indexedDB/core/library.ts', getRequest.error);
         reject(getRequest.error);
       };
     });
@@ -100,7 +101,7 @@ export async function getLibraryObjectFromIndexedDB(book: unknown): Promise<Libr
     return libraryObject;
 
   } catch (error) {
-    console.error("❌ Error getting library object from IndexedDB:", error);
+    log.error('Error getting library object from IndexedDB', '/indexedDB/core/library.ts', error);
     return null;
   }
 }
@@ -154,7 +155,7 @@ export async function updateBookTimestamp(bookId: BookId = book || LATEST): Prom
       };
     });
   } catch (error) {
-    console.error("❌ Failed to update book timestamp:", error);
+    log.error('Failed to update book timestamp', '/indexedDB/core/library.ts', error);
     return false;
   }
 }
@@ -163,7 +164,6 @@ export async function updateBookTimestamp(bookId: BookId = book || LATEST): Prom
  * Update annotations_updated_at for a book (for highlight/hypercite changes)
  */
 export async function updateAnnotationsTimestamp(bookId: BookId): Promise<boolean> {
-  console.log(`📝 updateAnnotationsTimestamp called for: ${bookId}`);
   try {
     const db = await openDatabase();
     const tx = db.transaction("library", "readwrite");
@@ -176,7 +176,7 @@ export async function updateAnnotationsTimestamp(bookId: BookId): Promise<boolea
       getRequest.onsuccess = () => {
         const record = getRequest.result as LibraryRecord | undefined;
         if (!record) {
-          console.warn(`⚠️ No library record found for ${bookId}`);
+          log.error(`No library record found for ${bookId}`, '/indexedDB/core/library.ts');
           resolve(false);
           return;
         }
@@ -187,7 +187,6 @@ export async function updateAnnotationsTimestamp(bookId: BookId): Promise<boolea
         const putRequest = store.put(record);
         putRequest.onerror = () => reject(putRequest.error);
         putRequest.onsuccess = () => {
-          console.log(`📝 Queuing library sync with annotations_updated_at: ${record.annotations_updated_at}`);
           // Library timestamp updates are always side-effects, never clear redo history
           queueForSync("library", bookId, "update", record, originalRecord, true);
           resolve(true);
@@ -195,7 +194,7 @@ export async function updateAnnotationsTimestamp(bookId: BookId): Promise<boolea
       };
     });
   } catch (error) {
-    console.error("❌ Failed to update annotations timestamp:", error);
+    log.error('Failed to update annotations timestamp', '/indexedDB/core/library.ts', error);
     return false;
   }
 }
@@ -213,7 +212,7 @@ export async function syncFirstNodeToTitle(bookId: BookId, nodeContent: string):
 
     return new Promise((resolve, reject) => {
       getRequest.onerror = () => {
-        console.error("❌ Failed to get library record for title sync:", getRequest.error);
+        log.error('Failed to get library record for title sync', '/indexedDB/core/library.ts', getRequest.error);
         reject(getRequest.error);
       };
 
@@ -222,7 +221,6 @@ export async function syncFirstNodeToTitle(bookId: BookId, nodeContent: string):
 
         // Only update if library record exists and title is "Untitled"
         if (!libraryRecord || libraryRecord.title !== "Untitled") {
-          console.log(`ℹ️ Skipping title sync - title is not "Untitled" (current: "${libraryRecord?.title}")`);
           resolve(false);
           return;
         }
@@ -234,7 +232,6 @@ export async function syncFirstNodeToTitle(bookId: BookId, nodeContent: string):
 
         // Don't update if the text is empty or just whitespace
         if (!textContent) {
-          console.log(`ℹ️ Skipping title sync - h1 content is empty`);
           resolve(false);
           return;
         }
@@ -248,7 +245,6 @@ export async function syncFirstNodeToTitle(bookId: BookId, nodeContent: string):
         // the client, so there's no anonymous signal to key off here.)
         if (!libraryRecord.author && libraryRecord.creator) {
           libraryRecord.author = libraryRecord.creator;
-          console.log(`✅ Auto-set author to: "${libraryRecord.author}"`);
         }
 
         // Regenerate bibtex to match new title and author
@@ -258,13 +254,11 @@ export async function syncFirstNodeToTitle(bookId: BookId, nodeContent: string):
         const putRequest = store.put(libraryRecord);
 
         putRequest.onerror = () => {
-          console.error("❌ Failed to update library title:", putRequest.error);
+          log.error('Failed to update library title', '/indexedDB/core/library.ts', putRequest.error);
           reject(putRequest.error);
         };
 
         putRequest.onsuccess = async () => {
-          console.log(`✅ Auto-synced library: title="${textContent}", author="${libraryRecord.author}"`);
-
           // Queue for PostgreSQL sync - library updates never affect redo history
           queueForSync("library", bookId, "update", libraryRecord, null, true);
 
@@ -273,7 +267,7 @@ export async function syncFirstNodeToTitle(bookId: BookId, nodeContent: string):
       };
     });
   } catch (error) {
-    console.error("❌ Failed to sync first node to title:", error);
+    log.error('Failed to sync first node to title', '/indexedDB/core/library.ts', error);
     return false;
   }
 }
@@ -292,7 +286,7 @@ export async function updateLocalAnnotationsTimestamp(bookId: BookId, timestamp:
 
     return new Promise((resolve, reject) => {
       getRequest.onerror = () => {
-        console.error("❌ Failed to get library record for annotations timestamp update:", getRequest.error);
+        log.error('Failed to get library record for annotations timestamp update', '/indexedDB/core/library.ts', getRequest.error);
         reject(getRequest.error);
       };
 
@@ -300,7 +294,7 @@ export async function updateLocalAnnotationsTimestamp(bookId: BookId, timestamp:
         const record = getRequest.result as LibraryRecord | undefined;
 
         if (!record) {
-          console.warn(`⚠️ No library record found for ${bookId} when updating annotations timestamp`);
+          log.error(`No library record found for ${bookId} when updating annotations timestamp`, '/indexedDB/core/library.ts');
           resolve(false);
           return;
         }
@@ -311,18 +305,17 @@ export async function updateLocalAnnotationsTimestamp(bookId: BookId, timestamp:
         const putRequest = store.put(record);
 
         putRequest.onerror = () => {
-          console.error("❌ Failed to update annotations timestamp:", putRequest.error);
+          log.error('Failed to update annotations timestamp', '/indexedDB/core/library.ts', putRequest.error);
           reject(putRequest.error);
         };
 
         putRequest.onsuccess = () => {
-          console.log(`✅ Updated local annotations_updated_at for ${bookId}: ${timestamp}`);
           resolve(true);
         };
       };
     });
   } catch (error) {
-    console.error("❌ Failed to update annotations timestamp:", error);
+    log.error('Failed to update annotations timestamp', '/indexedDB/core/library.ts', error);
     return false;
   }
 }
@@ -358,7 +351,7 @@ export async function advanceBaseTimestamp(bookId: BookId, confirmedTs: unknown)
       });
     }
   } catch (e) {
-    console.warn("Could not advance base_timestamp:", e);
+    log.error('Could not advance base_timestamp', '/indexedDB/core/library.ts', e);
   }
 }
 
@@ -422,7 +415,7 @@ export async function getLibraryRecordFromServer(bookId: BookId): Promise<Librar
     const data = await response.json();
     return data.success ? data.library : null;
   } catch (err) {
-    console.warn(`⚠️ Failed to fetch library record for ${bookId}:`, err);
+    log.error(`Failed to fetch library record for ${bookId}`, '/indexedDB/core/library.ts', err);
     return null;
   }
 }
@@ -441,7 +434,6 @@ export async function getAllOfflineAvailableBooks(): Promise<LibraryRecord[]> {
       const store = tx.objectStore("library");
       const request = store.getAll();
       request.onsuccess = () => {
-        console.log(`📚 Library records found:`, request.result?.length || 0);
         resolve(request.result || []);
       };
       request.onerror = () => reject(request.error);
@@ -450,7 +442,6 @@ export async function getAllOfflineAvailableBooks(): Promise<LibraryRecord[]> {
     // Filter out special homepage books (these are virtual/generated)
     const specialBooks = ['most-recent', 'most-connected', 'most-lit'];
     const userBooks = libraryRecords.filter(r => r && r.book && !specialBooks.includes(r.book));
-    console.log(`📚 User books (excluding special):`, userBooks.map(b => b.book));
 
     // Get all unique book IDs from nodes store
     const booksWithNodes = await new Promise<Set<IDBValidKey>>((resolve, reject) => {
@@ -466,7 +457,6 @@ export async function getAllOfflineAvailableBooks(): Promise<LibraryRecord[]> {
           bookIds.add(cursor.key);
           cursor.continue();
         } else {
-          console.log(`📄 Books with nodes in IndexedDB:`, [...bookIds]);
           resolve(bookIds);
         }
       };
@@ -479,11 +469,10 @@ export async function getAllOfflineAvailableBooks(): Promise<LibraryRecord[]> {
     // Sort by timestamp (most recent first)
     offlineBooks.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-    console.log(`📱 Offline-available books:`, offlineBooks.map(b => b.book));
     return offlineBooks;
 
   } catch (error) {
-    console.error('❌ Error getting offline books:', error);
+    log.error('Error getting offline books', '/indexedDB/core/library.ts', error);
     return [];
   }
 }

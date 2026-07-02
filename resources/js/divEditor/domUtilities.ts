@@ -357,7 +357,6 @@ export function ensureMinimumDocumentStructure(queueNodeForSave: QueueNodeForSav
 
   verbose.content(`Found: ${chunks.length} chunks, ${numericalIdNodes.length} numerical nodes (${nonSentinelNodes.length} non-sentinel)`, 'domUtilities.js');
   verbose.content(`Sentinel status - Top: ${!!hasTopSentinel}, Bottom: ${!!hasBottomSentinel}`, 'domUtilities.js');
-  verbose.content(`Non-sentinel node IDs: ${nonSentinelNodes.map(n => n.id).join(', ')}`, 'domUtilities.js');
 
   // 🆕 COLLECT ORPHANED CONTENT FIRST, before any structure changes
   const orphanedContent: any[] = [];

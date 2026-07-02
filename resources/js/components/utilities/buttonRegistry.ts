@@ -109,7 +109,7 @@ class ButtonRegistry {
     this.isInitializing = true;
     this.currentPage = pageType;
 
-    log.init(`ButtonRegistry: Initializing all components for page type: ${pageType}`, '/components/utilities/buttonRegistry.ts');
+    verbose.init(`ButtonRegistry: Initializing all components for page type: ${pageType}`, '/components/utilities/buttonRegistry.ts');
 
     const stats = { success: 0, failed: 0, skipped: 0 };
 
@@ -127,7 +127,7 @@ class ButtonRegistry {
         stats[result]++;
       }
 
-      log.init(`ButtonRegistry: Initialization complete - ${stats.success} success, ${stats.failed} failed, ${stats.skipped} skipped`, '/components/utilities/buttonRegistry.ts');
+      verbose.init(`ButtonRegistry: Initialization complete - ${stats.success} success, ${stats.failed} failed, ${stats.skipped} skipped`, '/components/utilities/buttonRegistry.ts');
 
     } catch (error) {
       log.error('ButtonRegistry: Critical error during initialization', '/components/utilities/buttonRegistry.ts', error as any);
@@ -180,7 +180,7 @@ class ButtonRegistry {
    * Calls in reverse dependency order (cleanup dependencies last)
    */
   destroyAll() {
-    log.init('ButtonRegistry: Destroying all active components', '/components/utilities/buttonRegistry.ts');
+    verbose.init('ButtonRegistry: Destroying all active components', '/components/utilities/buttonRegistry.ts');
 
     let destroyCount = 0;
     let errorCount = 0;
@@ -210,7 +210,7 @@ class ButtonRegistry {
 
     this.currentPage = null;
 
-    log.init(`ButtonRegistry: Destroyed ${destroyCount} components (${errorCount} errors)`, '/components/utilities/buttonRegistry.ts');
+    verbose.init(`ButtonRegistry: Destroyed ${destroyCount} components (${errorCount} errors)`, '/components/utilities/buttonRegistry.ts');
   }
 
   /**
@@ -221,7 +221,7 @@ class ButtonRegistry {
    * @returns {Promise<Object>} - Initialization stats
    */
   async reinitializeAll(newPageType: any) {
-    log.init(`ButtonRegistry: Reinitializing from "${this.currentPage}" to "${newPageType}"`, '/components/utilities/buttonRegistry.ts');
+    verbose.init(`ButtonRegistry: Reinitializing from "${this.currentPage}" to "${newPageType}"`, '/components/utilities/buttonRegistry.ts');
 
     this.destroyAll();
     return await this.initializeAll(newPageType);

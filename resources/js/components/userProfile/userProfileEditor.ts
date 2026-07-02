@@ -2,7 +2,7 @@ import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } 
 import { canUserEditBook } from "../../utilities/auth/index";
 import { book } from '../../app';
 import { fixHeaderSpacing } from '../homepage/homepageDisplayUnit';
-import { log } from '../../utilities/logger';
+import { log, verbose } from '../../utilities/logger';
 
 let titleDebounceTimer: any = null;
 let bioDebounceTimer: any = null;
@@ -158,7 +158,7 @@ function attachSaveListeners(titleEl: any, bioEl: any, originalRecord: any) {
   };
   bioEl.addEventListener('input', bioInputListener);
 
-  log.init('user.blade.php library title and bio editor listeners attached (old listeners removed first)', '/components/userProfile/userProfileEditor.ts');
+  verbose.init('user.blade.php library title and bio editor listeners attached (old listeners removed first)', '/components/userProfile/userProfileEditor.ts');
 }
 
 /**
@@ -166,7 +166,7 @@ function attachSaveListeners(titleEl: any, bioEl: any, originalRecord: any) {
  */
 async function saveLibraryField(fieldName: any, value: any, originalRecord: any) {
   try {
-    log.content(`💾 Saving library field: ${fieldName} = "${value}"`, '/components/userProfile/userProfileEditor.ts');
+    verbose.content(`💾 Saving library field: ${fieldName} = "${value}"`, '/components/userProfile/userProfileEditor.ts');
 
     // Update the record
     const updatedRecord = {
@@ -268,5 +268,5 @@ export function destroyUserProfileEditor() {
   titleDebounceTimer = null;
   bioDebounceTimer = null;
 
-  log.init('🧹 User profile editor destroyed (listeners removed, references cleared)', '/components/userProfile/userProfileEditor.ts');
+  verbose.init('🧹 User profile editor destroyed (listeners removed, references cleared)', '/components/userProfile/userProfileEditor.ts');
 }

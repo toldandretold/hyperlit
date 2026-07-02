@@ -1,4 +1,5 @@
 import { getCurrentUserId } from "./auth/index";
+import { log, verbose } from "./logger";
 
 /**
  * Converts a BibTeX entry into a formatted academic citation.
@@ -19,7 +20,6 @@ export async function formatBibtexToCitation(bibtex: any, preResolvedUserId = nu
 
   // Pull out all fields
   const fields = parseBibtex(bibtex);
-  console.log("🔍 Parsed BibTeX fields:", fields);
   const rawAuthor = fields.author || "";
   const currentUserId = preResolvedUserId || await getCurrentUserId();
 
@@ -57,13 +57,9 @@ export async function formatBibtexToCitation(bibtex: any, preResolvedUserId = nu
 
   // Title formatting: quotes for articles/chapters, italics for books
   let formattedTitle = (isArticle || isChapter) ? `"${title}"` : `<i>${title}</i>`;
-  console.log("🔗 URL found in BibTeX:", url);
   const safeUrl = url && /^https?:\/\//i.test(url) ? url : null;
   if (safeUrl) {
     formattedTitle = `<a href="${safeUrl}" target="_blank">${formattedTitle}</a>`;
-    console.log("✅ Title formatted with link:", formattedTitle);
-  } else {
-    console.log("❌ No URL found, title will not be linked");
   }
 
   // Build the final citation
@@ -158,7 +154,6 @@ export function generateBibtexFromForm(data: any) {
 
   bibtexLines.push('}');
   const generatedBibtex = bibtexLines.join('\n');
-  console.log("Generated BibTeX:", generatedBibtex);
   return generatedBibtex;
 }
 
@@ -260,7 +255,7 @@ export function copyCitationToClipboard({ html, text }: any) {
     success = document.execCommand('copy');
     document.body.removeChild(tempDiv);
   } catch (err) {
-    console.warn('contentEditable copy failed:', err);
+    verbose.content('contentEditable copy failed, trying fallback', '/utilities/bibtexProcessor.ts', err);
   }
 
   if (!success && navigator.clipboard && window.ClipboardItem) {
@@ -269,10 +264,10 @@ export function copyCitationToClipboard({ html, text }: any) {
         'text/html': new Blob([html], { type: 'text/html' }),
         'text/plain': new Blob([text], { type: 'text/plain' }),
       });
-      navigator.clipboard.write([item]).catch(err => console.warn('Modern clipboard write failed:', err));
+      navigator.clipboard.write([item]).catch(err => log.error('Modern clipboard write failed', '/utilities/bibtexProcessor.ts', err));
       success = true;
     } catch (err) {
-      console.warn('ClipboardItem setup failed:', err);
+      verbose.content('ClipboardItem setup failed, trying fallback', '/utilities/bibtexProcessor.ts', err);
     }
   }
 
@@ -287,7 +282,7 @@ export function copyCitationToClipboard({ html, text }: any) {
       success = document.execCommand('copy');
       document.body.removeChild(ta);
     } catch (err) {
-      console.warn('Plain-text fallback failed:', err);
+      log.error('Plain-text fallback failed', '/utilities/bibtexProcessor.ts', err);
     }
   }
 

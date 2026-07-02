@@ -101,7 +101,17 @@ import {
   destroySelectionAutoScroll
 } from '../../scrolling/selectionAutoScroll';
 
-import { log } from "../../utilities/logger";
+import {
+  initLavaLamp,
+  destroyLavaLamp
+} from '../lavaLamp/index';
+
+import {
+  initChatHero,
+  destroyChatHero
+} from '../chatHero/index';
+
+import { verbose } from "../../utilities/logger";
 
 /**
  * Register all components
@@ -310,6 +320,27 @@ export function registerAllComponents() {
     required: false
   });
 
+  // Experimental /chat homepage: lava-lamp background + centered glass hero.
+  // Both no-op unless their marker DOM exists (#lava-lamp-mount /
+  // #app-container.chat-page), so they are inert on the normal homepage.
+  buttonRegistry.register({
+    name: 'lavaLamp',
+    initFn: initLavaLamp,
+    destroyFn: destroyLavaLamp,
+    pages: ['home'],
+    dependencies: [],
+    required: false
+  });
+
+  buttonRegistry.register({
+    name: 'chatHero',
+    initFn: initChatHero,
+    destroyFn: destroyChatHero,
+    pages: ['home'],
+    dependencies: [],
+    required: false
+  });
+
   // ====================================================================
   // HOME/USER PAGE CONTENT
   // Components that manage homepage display and book actions
@@ -356,5 +387,5 @@ export function registerAllComponents() {
     required: false
   });
 
-  log.init('All components registered with ButtonRegistry', '/components/utilities/registerComponents.ts');
+  verbose.init('All components registered with ButtonRegistry', '/components/utilities/registerComponents.ts');
 }

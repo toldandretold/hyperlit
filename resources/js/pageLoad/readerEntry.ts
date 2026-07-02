@@ -6,7 +6,7 @@
 import { book } from "../app";
 // =================================================================
 
-import { log } from "../utilities/logger";
+import { log, verbose } from "../utilities/logger";
 import { openDatabase, initializeDatabaseModules } from "../indexedDB/index.js";
 import { fireAndForgetSync } from "../SPA/createNewBook";
 import { universalPageInitializer } from "../SPA/viewManager";
@@ -85,7 +85,7 @@ function handlePendingNewBookSync() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  log.init("DOM ready", "readerDOMContentLoaded.js");
+  verbose.init("DOM ready", "readerDOMContentLoaded.js");
 
   const pageType = document.body.getAttribute("data-page");
 
@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   handlePendingNewBookSync();
   await openDatabase();
-  log.init("IndexedDB initialized", "readerDOMContentLoaded.js");
+  verbose.init("IndexedDB initialized", "readerDOMContentLoaded.js");
 
   // Initialize database modules with dependencies
   const { glowCloudGreen, glowCloudRed, glowCloudLocalSave } = await import('../components/cloudRef/editIndicator');
@@ -113,7 +113,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     glowCloudRed,
     glowCloudLocalSave,
   } as any);
-  log.init("Database modules initialized", "readerDOMContentLoaded.js");
+  verbose.init("Database modules initialized", "readerDOMContentLoaded.js");
 
   // Time machine: fetch historical data and store in IndexedDB BEFORE NavigationManager
   // runs loadHyperText, so it finds the data in cache and renders normally.

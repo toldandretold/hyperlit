@@ -52,7 +52,7 @@ export function getHyperlitEditMode() {
  */
 export function setHyperlitEditMode(enabled: any) {
   isHyperlitEditMode = enabled;
-  console.log(`✏️ Hyperlit edit mode ${enabled ? 'ENABLED' : 'DISABLED'}`);
+  verbose.user(`Hyperlit edit mode ${enabled ? 'ENABLED' : 'DISABLED'}`, '/hyperlitContainer/core.ts');
 }
 
 /**
@@ -61,7 +61,7 @@ export function setHyperlitEditMode(enabled: any) {
  */
 export function toggleHyperlitEditMode() {
   isHyperlitEditMode = !isHyperlitEditMode;
-  console.log(`✏️ Hyperlit edit mode toggled to: ${isHyperlitEditMode ? 'ENABLED' : 'DISABLED'}`);
+  verbose.user(`Hyperlit edit mode toggled to: ${isHyperlitEditMode ? 'ENABLED' : 'DISABLED'}`, '/hyperlitContainer/core.ts');
   return isHyperlitEditMode;
 }
 
@@ -123,7 +123,7 @@ function initializeHyperlitManagerInternal() {
     const hasStacked = !!document.querySelector('.hyperlit-container-stacked.open');
     if (hyperlitManager.isOpen || baseOpen || hasStacked) {
       hyperlitManager.rebindElements();
-      log.init('Hyperlit Container Manager rebound (in use — preserved open state)', '/hyperlitContainer/core.js');
+      verbose.init('Hyperlit Container Manager rebound (in use — preserved open state)', '/hyperlitContainer/core.js');
       return;
     }
     // Stack is empty AND base not open — safe to destroy + recreate
@@ -139,7 +139,7 @@ function initializeHyperlitManagerInternal() {
     ["main-content", "nav-buttons"]
   );
 
-  log.init('Hyperlit Container Manager initialized', '/hyperlitContainer/core.js');
+  verbose.init('Hyperlit Container Manager initialized', '/hyperlitContainer/core.js');
 }
 
 /**
@@ -155,7 +155,7 @@ export function openHyperlitContainer(content: any, isBackNavigation: any = fals
   // Get the container (should exist after initialization)
   const container = document.getElementById("hyperlit-container");
   if (!container) {
-    console.error("❌ hyperlit-container not found after initialization!");
+    log.error('hyperlit-container not found after initialization!', '/hyperlitContainer/core.ts');
     return;
   }
 
@@ -170,7 +170,6 @@ export function openHyperlitContainer(content: any, isBackNavigation: any = fals
 
   // Lock body scroll BEFORE opening container to prevent scroll during animation
   document.body.classList.add('hyperlit-container-open');
-  console.log('🔒 Body scroll locked BEFORE container opens');
   // Scoped manual scroll restoration: while a container is open, stop the browser
   // from restoring scroll on the close-back's popstate — it would snap to the URL
   // fragment (e.g. #hypercite_X) or a stale captured pixel, away from where the
@@ -186,8 +185,6 @@ export function openHyperlitContainer(content: any, isBackNavigation: any = fals
   const bottomGap = editToolbar ? editToolbar.offsetHeight : 4;
   const maxHeight = viewportHeight - topMargin - bottomGap;
 
-  console.log(`📐 Setting initial container max-height: ${maxHeight}px (viewport: ${viewportHeight}px, bottomGap: ${bottomGap}px)`);
-  console.log(`📐 KeyboardManager will handle dynamic height adjustments when keyboard opens/closes`);
 
   // Apply max-height as inline style
   container.style.maxHeight = `${maxHeight}px`;
@@ -199,8 +196,6 @@ export function openHyperlitContainer(content: any, isBackNavigation: any = fals
   }
 
   // Open the container using the manager
-  console.log("📂 Opening container with manager...");
-
   // Set the back navigation flag on the manager
   hyperlitManager.isBackNavigation = isBackNavigation;
 
@@ -214,8 +209,6 @@ export function openHyperlitContainer(content: any, isBackNavigation: any = fals
   // Set content immediately (no setTimeout to preserve user gesture chain for Safari input)
   const scroller = container.querySelector('.scroller');
   if (scroller) {
-    console.log(`📝 Setting content in scroller AFTER opening (${content.length} chars)`);
-
     // Clear content again just before setting to ensure no duplicates
     scroller.innerHTML = '';
     scroller.innerHTML = content;
@@ -223,12 +216,10 @@ export function openHyperlitContainer(content: any, isBackNavigation: any = fals
     // Force layout flush before focus - Safari needs this to finalize contenteditable setup
     void (scroller as HTMLElement).offsetHeight;
 
-    console.log(`✅ Content set after opening. Scroller innerHTML length: ${scroller.innerHTML.length}`);
-
     // Attach scroll containment handlers
     attachScrollContainment(scroller);
   } else {
-    console.warn("⚠️ No scroller found in hyperlit-container after opening, setting content directly");
+    log.error('No scroller found in hyperlit-container after opening, setting content directly', '/hyperlitContainer/core.ts');
     // Clear and set content directly
     container.innerHTML = '';
     container.innerHTML = content;
@@ -258,7 +249,7 @@ export function prepareHyperlitContainer(content: any, isBackNavigation: any = f
 
   const container = document.getElementById("hyperlit-container");
   if (!container) {
-    console.error("❌ hyperlit-container not found after initialization!");
+    log.error('hyperlit-container not found after initialization!', '/hyperlitContainer/core.ts');
     return;
   }
 
@@ -270,7 +261,6 @@ export function prepareHyperlitContainer(content: any, isBackNavigation: any = f
 
   // Lock body scroll BEFORE opening container to prevent scroll during animation
   document.body.classList.add('hyperlit-container-open');
-  console.log('🔒 Body scroll locked (prepare phase)');
   // Scoped manual scroll restoration — see openHyperlitContainer for rationale.
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
@@ -281,7 +271,6 @@ export function prepareHyperlitContainer(content: any, isBackNavigation: any = f
   const bottomGap = editToolbar ? editToolbar.offsetHeight : 4;
   const maxHeight = viewportHeight - topMargin - bottomGap;
 
-  console.log(`📐 Setting initial container max-height: ${maxHeight}px (viewport: ${viewportHeight}px, bottomGap: ${bottomGap}px)`);
   container.style.maxHeight = `${maxHeight}px`;
 
   // Reset container to initial structure (ensures .scroller, masks, controls exist)
@@ -297,10 +286,8 @@ export function prepareHyperlitContainer(content: any, isBackNavigation: any = f
   // Set content inside the scroller (guaranteed to exist after initialContent reset)
   const scroller = container.querySelector('.scroller');
   if (scroller) {
-    console.log(`📝 Setting content in scroller (off-screen prepare) (${content.length} chars)`);
     scroller.innerHTML = content;
     void (scroller as HTMLElement).offsetHeight; // Force layout flush
-    console.log(`✅ Content set off-screen. Scroller innerHTML length: ${scroller.innerHTML.length}`);
     attachScrollContainment(scroller);
   }
 
@@ -322,7 +309,6 @@ export function animateHyperlitContainerOpen() {
     || document.querySelector('main');
   const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
 
-  console.log("📂 Animating container open (deferred)...");
   hyperlitManager.openContainer(null, null, { skipContentReset: true });
 
   if (scrollContainer) {
@@ -337,33 +323,26 @@ export function animateHyperlitContainerOpen() {
 export async function prepareContainerClose() {
   // Check if we're in edit mode
   if (!(window as any).isEditing) {
-    console.log('[HyperlitContainer] Reader mode - no save needed');
     return; // Nothing to save in reader mode
   }
-  
-  console.log('[HyperlitContainer] Edit mode - preparing to close...');
-  
+
   // Flush every registered edit buffer (footnote debounces + divEditor input debounce + SaveQueue)
   // via the pendingEdits registry — no upward import into divEditor/footnotes (no cycle-breaker).
   // 🔑 CRITICAL: must run BEFORE stopObserving() below, which sets saveQueue = null.
-  console.log('[HyperlitContainer] Flushing pending edits...');
   await flushPendingEdits();
 
   // 🔑 CRITICAL: Flush debounced master sync so queued items reach the server
   // before the container teardown. Race with a 5s timeout so a slow network
   // doesn't block the close indefinitely.
-  console.log('[HyperlitContainer] Flushing master sync...');
   try {
     const { debouncedMasterSync }: any = await import('../indexedDB/syncQueue/master');
     await Promise.race([
       debouncedMasterSync.flush(),
       new Promise((resolve: any) => setTimeout(resolve, 5000)),
     ]);
-  } catch (e) {
-    console.warn('[HyperlitContainer] Master sync flush failed (non-fatal):', e);
+  } catch {
+    // non-fatal — master sync flush failed
   }
-
-  console.log('[HyperlitContainer] Save complete');
 
   // Save preview_nodes for all active sub-books
   await savePreviewNodes();
@@ -427,10 +406,9 @@ export async function savePreviewNodes() {
           await new Promise((r: any) => { tx.oncomplete = r; });
         }
       }
-      console.log(`💾 Saved preview_nodes for ${subBookId} (${previewNodes.length} nodes)`);
     }
-  } catch (err) {
-    console.warn('⚠️ Failed to save sub-book preview_nodes:', err);
+  } catch {
+    // non-fatal — failed to save sub-book preview_nodes
   }
 }
 
@@ -439,9 +417,8 @@ export async function savePreviewNodes() {
  * @param {boolean} silent - If true, skip URL update (browser has already restored the URL via popstate)
  */
 export async function closeHyperlitContainer(silent: any = false, skipPrepare: any = false) {
-  console.log(`[closeHyperlitContainer] ENTER. silent=${silent}, skipPrepare=${skipPrepare}, isClosingContainer=${isClosingContainer}`);
+  verbose.nav(`[closeHyperlitContainer] ENTER. silent=${silent}, skipPrepare=${skipPrepare}, isClosingContainer=${isClosingContainer}`, '/hyperlitContainer/core.ts');
   if (isClosingContainer) {
-    console.log('[closeHyperlitContainer] BLOCKED — already closing');
     return;
   }
   isClosingContainer = true;
@@ -476,7 +453,7 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
       // zombie hanging on the new page. Remove them defensively.
       const survivors = document.querySelectorAll('.hyperlit-container-stacked, .hyperlit-overlay-stacked');
       if (survivors.length > 0) {
-        console.warn(`[closeHyperlitContainer] safety sweep: removing ${survivors.length} surviving stacked-container DOM node(s) after stack unwind (state-DOM desync)`);
+        log.error(`[closeHyperlitContainer] safety sweep: removing ${survivors.length} surviving stacked-container DOM node(s) after stack unwind (state-DOM desync)`, '/hyperlitContainer/core.ts');
         survivors.forEach((el: any) => el.remove());
       }
 
@@ -507,15 +484,14 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
           history.replaceState(cleanState, '');
         }
       }
-    } catch (err) {
-      console.warn('Stack unwind error (non-fatal):', err);
+    } catch {
+      // non-fatal — stack unwind error
     }
 
     if (!hyperlitManager) {
       try {
         initializeHyperlitManager();
-      } catch (error) {
-        console.warn('Could not initialize hyperlitManager for closing:', error);
+      } catch {
         return; // Exit early if initialization fails
       }
     }
@@ -524,8 +500,8 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
     try {
       const { cleanupPendingBrainHighlight }: any = await import('./brainQuery.js');
       await cleanupPendingBrainHighlight();
-    } catch (e) {
-      console.warn('Brain query cleanup failed:', e);
+    } catch {
+      // non-fatal — brain query cleanup failed
     }
 
     if (hyperlitManager && hyperlitManager.closeContainer) {
@@ -538,10 +514,8 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
 
         // 🔑 CRITICAL: Sequence cleanup
         // STEP 1: Flush any remaining saves
-        console.log('[HyperlitContainer] 💾 Final cleanup...');
         const { cleanupContainerListeners }: any = await import('./containerListeners');
         await cleanupContainerListeners();
-        console.log('[HyperlitContainer] ✅ Cleanup complete');
 
         // STEP 1b: Run an integrity sweep against every sub-book mounted in
         // the container before we tear it down. This is the sub-book
@@ -557,12 +531,11 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
             if (subBookId) await runIntegritySweep(subBookId, el, 'closeHyperlitContainer');
           }
         } catch (e) {
-          console.warn('[integrity] container-close sub-book sweep failed:', e);
+          log.error('[integrity] container-close sub-book sweep failed', '/hyperlitContainer/core.ts', e);
         }
 
         // STEP 2: Now safe to destroy sub-books (after saves complete)
         await destroyAllSubBooks(); // DOM elements destroyed here
-        console.log('[HyperlitContainer] ✅ Sub-books destroyed');
 
         // STEP 3: Other cleanup (order less critical) — lazy import (note-editing machinery)
         const { detachNoteListeners }: any = await import('./noteListener.js');
@@ -622,24 +595,21 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
             const cleanUrl = (hasCascadeSegments
               ? `/${renderedBook}${cleanSearch}`
               : `${currentUrl.pathname}${cleanSearch}`) + currentUrl.hash;
-            console.log('🔗 Cleaning up URL (hash preserved):', currentUrl.pathname + currentUrl.search, '→', cleanUrl);
+            verbose.nav(`Cleaning up URL (hash preserved): ${currentUrl.pathname + currentUrl.search} → ${cleanUrl}`, '/hyperlitContainer/core.ts');
             history.replaceState(newState, '', cleanUrl);
           } else {
             // URL already clean — just clear the stale history state
             history.replaceState(newState, '');
           }
         }
-
-        console.log('[HyperlitContainer] ✅ Container closed successfully');
-      } catch (error) {
-        console.warn('Could not fully clean up hyperlit container:', error);
+      } catch {
+        // non-fatal — could not fully clean up hyperlit container
       }
       // NOTE: closeContainer() moved to outer finally so it runs even if hyperlitManager was null
     }
   } finally {
     isClosingContainer = false;
     // ALWAYS deactivate overlay + unlock scroll, even if cleanup threw or hyperlitManager was null
-    console.log('[closeHyperlitContainer] FINALLY — calling closeContainer()');
     document.body.classList.remove('hyperlit-container-open');
 
     // Remove cascade-origin glow from ALL base mark segments (the glow is
@@ -668,22 +638,16 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
  * Prevents data loss when closing container during active edit mode
  */
 export async function saveAndCloseHyperlitContainer() {
-  console.log(`[saveAndClose] ENTER. isClosing=${isClosing}, isOpen=${hyperlitManager?.isOpen}`);
-  if (isClosing) { console.log('[saveAndClose] BLOCKED by isClosing'); return; }
-  if (!hyperlitManager?.isOpen) { console.log('[saveAndClose] BLOCKED by !isOpen'); return; }
+  if (isClosing) { return; }
+  if (!hyperlitManager?.isOpen) { return; }
   isClosing = true;
 
   try {
-    console.log('[HyperlitContainer] saveAndCloseHyperlitContainer() called');
-
     // Check if we're in edit mode with pending changes
     if (!(window as any).isEditing) {
-      console.log('[HyperlitContainer] Reader mode - closing without save');
       await closeHyperlitContainer(false, true);
       return;
     }
-
-    console.log('[HyperlitContainer] Edit mode - showing save overlay and waiting for save...');
 
     // Show "Saving..." progress overlay with interaction blocking
     // This prevents the user from clicking again while save is in progress
@@ -703,8 +667,6 @@ export async function saveAndCloseHyperlitContainer() {
       // Small delay to show "Save complete" message before hiding
       await new Promise((resolve: any) => setTimeout(resolve, 150));
 
-      console.log('[HyperlitContainer] Save complete, hiding overlay and closing container');
-
       // Hide the progress overlay
       await ProgressOverlayConductor.hide();
 
@@ -712,7 +674,7 @@ export async function saveAndCloseHyperlitContainer() {
       await closeHyperlitContainer(false, true);
 
     } catch (error) {
-      console.error('[HyperlitContainer] Error during save and close:', error);
+      log.error('Error during save and close', '/hyperlitContainer/core.ts', error);
 
       // Hide overlay even if there was an error
       await ProgressOverlayConductor.hide();
@@ -731,7 +693,6 @@ export async function saveAndCloseHyperlitContainer() {
  */
 export function destroyHyperlitManager() {
   if (hyperlitManager) {
-    console.log('🧹 Destroying hyperlit container manager');
     hyperlitManager.destroy();
     hyperlitManager = null;
     return true;
@@ -813,8 +774,6 @@ function attachScrollContainment(scroller: any) {
   scroller.addEventListener('wheel', scroller._scrollHandler, { passive: false });
   scroller.addEventListener('touchstart', scroller._touchHandler, { passive: true });
   scroller.addEventListener('touchmove', scroller._touchHandler, { passive: false });
-
-  console.log('✅ Scroll containment handlers attached');
 }
 
 /**
@@ -829,6 +788,5 @@ function removeScrollContainment(scroller: any) {
     scroller.removeEventListener('touchmove', scroller._touchHandler);
     delete scroller._scrollHandler;
     delete scroller._touchHandler;
-    console.log('✅ Scroll containment handlers removed');
   }
 }

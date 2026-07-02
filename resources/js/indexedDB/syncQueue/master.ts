@@ -14,6 +14,7 @@ import { filterFreshNodesForBook } from './freshNodeFilter';
 // Per-book sync serialization, extracted for unit testing (tests/javascript/indexedDB/bookSyncChain.test.js)
 import { runSerializedPerKey } from './bookSyncChain';
 import { advanceBaseTimestamp } from '../core/library';
+import { log } from '../../utilities/logger';
 import { asBookId } from '../types';
 
 export { filterFreshNodesForBook };
@@ -158,9 +159,9 @@ async function getFailedBatchesForBook(bookId: BookId): Promise<HistoryLogEntry[
       request.onerror = () => reject(request.error);
     });
 
-    return failedLogs.filter(log => log.bookId === bookId);
+    return failedLogs.filter(entry => entry.bookId === bookId);
   } catch (error) {
-    console.error("Error fetching failed batches:", error);
+    log.error('Error fetching failed batches', '/indexedDB/syncQueue/master.ts', error);
     return [];
   }
 }
@@ -239,20 +240,6 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
         ?? payload.updates.library?.timestamp),
   };
 
-  // Log what we're syncing
-  const syncSummary = [];
-  if (allNodes.length > 0) syncSummary.push(`${allNodes.length} nodes`);
-  if (unifiedPayload.hypercites.length > 0) syncSummary.push(`${unifiedPayload.hypercites.length} hypercites`);
-  if (unifiedPayload.hyperlights.length > 0) syncSummary.push(`${unifiedPayload.hyperlights.length} hyperlights`);
-  if (unifiedPayload.hyperlightDeletions.length > 0) syncSummary.push(`${unifiedPayload.hyperlightDeletions.length} hyperlight deletions`);
-  if (unifiedPayload.footnotes.length > 0) syncSummary.push(`${unifiedPayload.footnotes.length} footnotes`);
-  if (unifiedPayload.footnoteDeletions.length > 0) syncSummary.push(`${unifiedPayload.footnoteDeletions.length} footnote deletions`);
-  if (unifiedPayload.bibliography.length > 0) syncSummary.push(`${unifiedPayload.bibliography.length} bibliography entries`);
-  if (unifiedPayload.bibliographyDeletions.length > 0) syncSummary.push(`${unifiedPayload.bibliographyDeletions.length} bibliography deletions`);
-  if (unifiedPayload.library) syncSummary.push('library record');
-
-  console.log(`🔄 Unified sync: ${syncSummary.join(', ')}`);
-
   // Helper: perform the fetch with a fresh CSRF token + a per-call abort timeout (so a hung
   // POST can't stall the per-book chain). The controller/timer are per call because doFetch
   // may run twice (419 retry).
@@ -282,7 +269,6 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
 
   // Handle expired CSRF token (419) — refresh and retry once
   if (res.status === 419) {
-    console.warn("🔄 Got 419 (CSRF token expired), refreshing token and retrying...");
     try {
       const stillAuthenticated = await refreshCsrfToken();
       if (!stillAuthenticated) {
@@ -290,7 +276,7 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
       }
       res = await doFetch();
     } catch (refreshError) {
-      console.error("❌ Failed to refresh CSRF token:", refreshError);
+      log.error('Failed to refresh CSRF token', '/indexedDB/syncQueue/master.ts', refreshError);
       throw refreshError;
     }
   }
@@ -311,13 +297,11 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
         const acked = _ackedServerTs.get(bookId);
         if (!staleRetried && typeof conflictTs === 'number' && acked != null && conflictTs <= acked) {
           staleRetried = true;
-          console.warn(`🔁 STALE_DATA self-conflict for ${bookId}: fast-forwarding base ${unifiedPayload.base_timestamp} → ${conflictTs}, retrying once.`);
           unifiedPayload.base_timestamp = conflictTs;
           await advanceBaseTimestamp(bookId, conflictTs); // persist so the next drain reads the fixed base
           res = await doFetch();
           if (res.ok) {
             const retryResult = await res.json();
-            console.log("✅ Unified sync completed after self-conflict retry:", retryResult);
             recordAckedServerTs(bookId, (retryResult as { server_timestamp?: unknown }).server_timestamp);
             return retryResult;
           }
@@ -337,7 +321,7 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
           }
         }
 
-        console.error("📵 Stale data detected - your book is out of date");
+        log.error('Stale data detected - your book is out of date', '/indexedDB/syncQueue/master.ts');
         // Clear pending syncs so a manual refresh won't re-trigger the same stale sync
         pendingSyncs.clear();
         // Capture the about-to-be-discarded edit (the update nodes with content) so the
@@ -372,7 +356,7 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
     }
 
     const txt = await res.text();
-    console.error("❌ Unified sync error:", txt);
+    log.error('Unified sync error', '/indexedDB/syncQueue/master.ts', txt);
     // Attach the HTTP status so the save-error classifier can tell 5xx/4xx apart.
     const syncError = new Error(`Unified sync failed: ${txt}`) as Error & { status?: number };
     syncError.status = res.status;
@@ -380,7 +364,6 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
   }
 
   const result = await res.json();
-  console.log("✅ Unified sync completed:", result);
   recordAckedServerTs(bookId, (result as { server_timestamp?: unknown }).server_timestamp);
   return result;
 }
@@ -390,8 +373,6 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
  * Handles history logging, failed batch merging, and server sync
  */
 async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueueItem>): Promise<void> {
-  console.log(`DEBOUNCED SYNC: Processing ${bookItems.size} items for book: ${bookId}...`);
-
   const historyLogPayload: HistoryLogEntry['payload'] = {
     book: bookId,
     updates: { nodes: [], hypercites: [], hyperlights: [], footnotes: [], bibliography: [], library: null },
@@ -454,7 +435,7 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
     });
     baseTimestamp = libRec?.base_timestamp ?? libRec?.timestamp;
   } catch (e) {
-    console.warn("Could not read base_timestamp for sync:", e);
+    log.error('Could not read base_timestamp for sync', '/indexedDB/syncQueue/master.ts', e);
   }
   historyLogPayload.base_timestamp = baseTimestamp;
 
@@ -488,18 +469,10 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-    console.log(`📦 Saved batch to historyLog with ID: ${logEntry.id}`);
-  } else {
-    console.log(`📝 Skipping history log - no node changes (library/hyperlights/hypercites only)`);
   }
 
   // --- Handle Offline Mode ---
   if (!navigator.onLine) {
-    if (logEntry) {
-      console.log(`📡 Offline: batch ${logEntry.id} saved locally, will sync when online`);
-    } else {
-      console.log(`📡 Offline: non-node changes not saved (no history entry needed)`);
-    }
     // Keep status as "pending" - will be retried by retryFailedBatches when online
     if (glowCloudLocalSave) glowCloudLocalSave();
     return; // Exit early - data is safe in historyLog (if it was node changes)
@@ -569,10 +542,9 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
         });
         if (freshLibrary) {
           syncPayload.updates.library = freshLibrary;
-          console.log(`🔄 Re-read library record fresh from IndexedDB for sync`);
         }
       } catch (libError) {
-        console.warn("Failed to re-read library from IndexedDB, using queued data:", libError);
+        log.error('Failed to re-read library from IndexedDB, using queued data', '/indexedDB/syncQueue/master.ts', libError);
       }
     }
 
@@ -597,8 +569,6 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
 
       // Add node_ids from failed batches
       if (failedBatches.length > 0) {
-        console.log(`🔄 Found ${failedBatches.length} failed batch(es) to merge into current sync`);
-
         for (const batch of failedBatches) {
           const payload = batch.payload;
           if (!payload) continue;
@@ -635,8 +605,6 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
           syncPayload.updates.nodes,
           bookId,
         );
-        const matchedCount = freshNodes.filter(n => n.book === bookId).length;
-        console.log(`🔄 Re-read ${freshNodes.length} node(s) fresh from IndexedDB for sync (${matchedCount} matched book ${bookId})`);
       }
 
       // Add deletions (verify node still doesn't exist in IndexedDB)
@@ -653,7 +621,7 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
         }
       }
     } catch (mergeError) {
-      console.error("Failed to merge/refresh nodes for sync (proceeding with current sync):", mergeError);
+      log.error('Failed to merge/refresh nodes for sync (proceeding with current sync)', '/indexedDB/syncQueue/master.ts', mergeError);
       failedBatches = []; // Reset so we don't incorrectly mark them synced
     }
 
@@ -679,9 +647,6 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
     if (logEntry) {
       logEntry.status = "synced";
       await updateHistoryLog(logEntry);
-      console.log(`✅ Batch ${logEntry.id} synced successfully.`);
-    } else {
-      console.log(`✅ Non-node sync completed (no history entry).`);
     }
 
     // Mark merged failed batches as synced
@@ -689,9 +654,8 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
       try {
         failedBatch.status = "synced";
         await updateHistoryLog(failedBatch);
-        console.log(`✅ Previously failed batch ${failedBatch.id} now marked as synced`);
       } catch (markError) {
-        console.error(`Failed to mark batch ${failedBatch.id} as synced:`, markError);
+        log.error(`Failed to mark batch ${failedBatch.id} as synced`, '/indexedDB/syncQueue/master.ts', markError);
       }
     }
 
@@ -704,9 +668,9 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
     if (logEntry) {
       logEntry.status = isStale ? "stale" : "failed";
       await updateHistoryLog(logEntry);
-      console.error(`❌ Sync ${isStale ? 'rejected as stale' : 'failed'} for batch ${logEntry.id}:`, (error as Error).message);
+      log.error(`Sync ${isStale ? 'rejected as stale' : 'failed'} for batch ${logEntry.id}`, '/indexedDB/syncQueue/master.ts', (error as Error).message);
     } else {
-      console.error(`❌ Non-node sync ${isStale ? 'rejected as stale' : 'failed'}:`, (error as Error).message);
+      log.error(`Non-node sync ${isStale ? 'rejected as stale' : 'failed'}`, '/indexedDB/syncQueue/master.ts', (error as Error).message);
     }
     // Tiered server-error handling. A 5xx means the SERVER failed (our fault), but the edit
     // is saved locally and will retry:
@@ -763,19 +727,12 @@ export const debouncedMasterSync = debounce(async () => {
   }
 
   if (pendingSyncs.size === 0) {
-    console.log(`[SYNC] All pending items were for synthetic books, nothing to sync`);
     return;
   }
 
   const initialSyncPromise = getInitialBookSyncPromise();
   if (initialSyncPromise) {
-    console.log(
-      "DEBOUNCED SYNC: Waiting for initial book sync to complete before proceeding...",
-    );
     await initialSyncPromise;
-    console.log(
-      "DEBOUNCED SYNC: Initial book sync complete. Proceeding with edit sync.",
-    );
   }
 
   const itemsToSync = new Map(pendingSyncs);
@@ -825,8 +782,6 @@ export const debouncedMasterSync = debounce(async () => {
  * @returns {Promise<Object>} Sync result
  */
 export async function syncIndexedDBtoPostgreSQLBlocking(bookId: BookId): Promise<Record<string, unknown>> {
-  console.log("🔄 Starting BLOCKING full sync to PostgreSQL for book:", bookId);
-
   try {
     const db = await openDatabase();
 
@@ -859,11 +814,10 @@ export async function syncIndexedDBtoPostgreSQLBlocking(bookId: BookId): Promise
 
     // Execute sync
     const result = await executeSyncPayload(payload);
-    console.log("✅ Full sync completed for book:", bookId);
     return result;
 
   } catch (error) {
-    console.error("❌ Full sync failed:", error);
+    log.error('Full sync failed', '/indexedDB/syncQueue/master.ts', error);
     throw error;
   }
 }

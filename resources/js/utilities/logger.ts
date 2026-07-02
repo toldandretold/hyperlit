@@ -17,10 +17,22 @@
  *   log.content('First chunk rendered (50 nodes)', 'lazyLoaderFactory.js');
  *   log.user('Text selected', '/hyperlights/selection.js');
  *   log.error('Failed to load book', 'initializePage.js', error);
+ *
+ * RULES (the verbose-mode tab-hang was real — see the noNewConsole review gate):
+ * - NEVER call log.* or verbose.* — or build their arguments — in per-event /
+ *   per-entry / per-mutation / per-iteration code (scroll or input handlers,
+ *   IntersectionObserver/MutationObserver callbacks, sort comparators, per-node
+ *   loops). Log state TRANSITIONS or per-flush summaries with counts instead.
+ * - If a log's arguments are expensive to build (joins over big collections,
+ *   JSON.stringify of large objects, DOM serialization), guard the whole
+ *   statement with `if (isVerboseEnabled())` — arguments are evaluated even
+ *   when the log itself is gated off.
  */
 
-// Check if verbose mode is enabled
-const isVerboseMode = () => {
+// Verbose flag is cached at module load and kept in sync by
+// logger.enableVerbose()/disableVerbose() — reading localStorage on every log
+// call is a synchronous storage hit in hot paths.
+const readVerboseFlag = () => {
   try {
     return localStorage.getItem('hyperlit_verbose_logs') === 'true';
   } catch (e) {
@@ -28,10 +40,19 @@ const isVerboseMode = () => {
   }
 };
 
-// Check if we're in production mode (silence all logs except errors)
-const isProductionMode = () => {
-  return (import.meta as any).env?.MODE === 'production' || window.location.hostname !== 'localhost';
-};
+let verboseCache = readVerboseFlag();
+
+/**
+ * Raw cached verbose-mode boolean (no console output, unlike logger.isVerbose()).
+ * Use it to guard log statements whose ARGUMENTS are expensive to build.
+ */
+export const isVerboseEnabled = () => verboseCache;
+
+// Production mode (silence all logs except errors) — hostname can't change
+// mid-page, so compute once.
+const IS_PROD =
+  (import.meta as any).env?.MODE === 'production' ||
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost');
 
 // ANSI color codes for console styling
 const colors = {
@@ -41,6 +62,15 @@ const colors = {
   USER: '#F59E0B',    // Orange - User interactions
   ERROR: '#EF4444'    // Red - Errors
 };
+
+// Cheap HH:MM:SS.mmm timestamp (an Intl formatter per call is far too heavy).
+const pad2 = (n: number) => (n < 10 ? '0' + n : '' + n);
+function formatTimestamp() {
+  const d = new Date();
+  const ms = d.getMilliseconds();
+  const mmm = ms < 10 ? '00' + ms : ms < 100 ? '0' + ms : '' + ms;
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${mmm}`;
+}
 
 /**
  * Core logging function
@@ -52,28 +82,26 @@ const colors = {
  */
 function logMessage(level: any, message: any, filePath: any, details: unknown = null, forceShow = false) {
   // In production, only show errors
-  if (isProductionMode() && level !== 'ERROR') {
+  if (IS_PROD && level !== 'ERROR') {
     return;
   }
 
   // In normal mode, only show if forced or if verbose mode is enabled
-  if (!forceShow && !isVerboseMode() && level !== 'ERROR') {
+  if (!forceShow && !verboseCache && level !== 'ERROR') {
     // Skip verbose logs in normal mode
     return;
   }
 
   const color = (colors as any)[level] || '#6B7280';
-  const timestamp = new Date().toLocaleTimeString('en-US', {
-    hour12: false,
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    fractionalSecondDigits: 3
-  });
 
-  // Format: [LEVEL] Message (filePath)
-  console.log(
-    `%c[${level}]%c ${message} %c(${filePath})`,
+  // Errors must emit via console.error so DevTools filters and the e2e
+  // console-error gates (which only capture error-type messages) catch them.
+  const emit = level === 'ERROR' ? console.error : console.log;
+
+  // Format: HH:MM:SS.mmm [LEVEL] Message (filePath)
+  emit(
+    `%c${formatTimestamp()} %c[${level}]%c ${message} %c(${filePath})`,
+    'color: #6B7280',
     `color: ${color}; font-weight: bold`,
     'color: inherit',
     'color: #6B7280; font-style: italic'
@@ -81,7 +109,7 @@ function logMessage(level: any, message: any, filePath: any, details: unknown = 
 
   // If details provided, log them separately
   if (details !== null && details !== undefined) {
-    console.log('  └─', details);
+    emit('  └─', details);
   }
 }
 
@@ -93,28 +121,28 @@ export const log = {
   /**
    * Initialization checkpoints (database, modules, components)
    */
-  init: (message: any, filePath: any, details = null) => {
+  init: (message: any, filePath: any, details: unknown = null) => {
     logMessage('INIT', message, filePath, details, true);
   },
 
   /**
    * Navigation checkpoints (page loads, transitions, routing)
    */
-  nav: (message: any, filePath: any, details = null) => {
+  nav: (message: any, filePath: any, details: unknown = null) => {
     logMessage('NAV', message, filePath, details, true);
   },
 
   /**
    * Content/data loading checkpoints (chunks, books, data sync)
    */
-  content: (message: any, filePath: any, details = null) => {
+  content: (message: any, filePath: any, details: unknown = null) => {
     logMessage('CONTENT', message, filePath, details, true);
   },
 
   /**
    * User interaction checkpoints (selections, clicks, pastes)
    */
-  user: (message: any, filePath: any, details = null) => {
+  user: (message: any, filePath: any, details: unknown = null) => {
     logMessage('USER', message, filePath, details, true);
   },
 
@@ -134,26 +162,27 @@ export const log = {
 /**
  * Verbose logging - only shown when verbose mode is enabled
  * Use for debugging details that clutter normal operation
+ * (NEVER in per-event/per-entry/per-iteration code — see RULES above)
  */
 export const verbose = {
-  init: (message: any, filePath: any, details = null) => {
+  init: (message: any, filePath: any, details: unknown = null) => {
     logMessage('INIT', message, filePath, details, false);
   },
 
-  nav: (message: any, filePath: any, details = null) => {
+  nav: (message: any, filePath: any, details: unknown = null) => {
     logMessage('NAV', message, filePath, details, false);
   },
 
-  content: (message: any, filePath: any, details = null) => {
+  content: (message: any, filePath: any, details: unknown = null) => {
     logMessage('CONTENT', message, filePath, details, false);
   },
 
-  user: (message: any, filePath: any, details = null) => {
+  user: (message: any, filePath: any, details: unknown = null) => {
     logMessage('USER', message, filePath, details, false);
   },
 
-  debug: (message: any, filePath: any, details = null) => {
-    if (isVerboseMode()) {
+  debug: (message: any, filePath: any, details: unknown = null) => {
+    if (verboseCache) {
       console.log(`[DEBUG] ${message} (${filePath})`, details || '');
     }
   }
@@ -164,24 +193,26 @@ export const verbose = {
  */
 export const logger = {
   /**
-   * Enable verbose logging
+   * Enable verbose logging (effective immediately, persists via localStorage)
    */
   enableVerbose: () => {
     try {
       localStorage.setItem('hyperlit_verbose_logs', 'true');
-      console.log('%c[LOGGER] Verbose mode enabled. Reload the page to see all logs.', 'color: #10B981; font-weight: bold');
+      verboseCache = true;
+      console.log('%c[LOGGER] Verbose mode enabled (effective immediately).', 'color: #10B981; font-weight: bold');
     } catch (e) {
       console.error('Failed to enable verbose mode:', e);
     }
   },
 
   /**
-   * Disable verbose logging
+   * Disable verbose logging (effective immediately)
    */
   disableVerbose: () => {
     try {
       localStorage.removeItem('hyperlit_verbose_logs');
-      console.log('%c[LOGGER] Verbose mode disabled. Reload the page to apply.', 'color: #6B7280; font-weight: bold');
+      verboseCache = false;
+      console.log('%c[LOGGER] Verbose mode disabled (effective immediately).', 'color: #6B7280; font-weight: bold');
     } catch (e) {
       console.error('Failed to disable verbose mode:', e);
     }
@@ -191,10 +222,9 @@ export const logger = {
    * Check current verbose mode status
    */
   isVerbose: () => {
-    const verbose = isVerboseMode();
-    console.log(`%c[LOGGER] Verbose mode: ${verbose ? 'ENABLED' : 'DISABLED'}`,
-      verbose ? 'color: #10B981; font-weight: bold' : 'color: #6B7280');
-    return verbose;
+    console.log(`%c[LOGGER] Verbose mode: ${verboseCache ? 'ENABLED' : 'DISABLED'}`,
+      verboseCache ? 'color: #10B981; font-weight: bold' : 'color: #6B7280');
+    return verboseCache;
   },
 
   /**
@@ -220,14 +250,15 @@ export const logger = {
   verbose.init('Detailed step...', '/path/to/file.js');
 
 🔧 DEVELOPER COMMANDS:
-  logger.enableVerbose()   - Enable verbose logging
-  logger.disableVerbose()  - Disable verbose logging
+  logger.enableVerbose()   - Enable verbose logging (instant)
+  logger.disableVerbose()  - Disable verbose logging (instant)
   logger.isVerbose()       - Check current mode
   logger.help()            - Show this help
 
 💡 TIP: Use verbose.* for debugging details that clutter
        normal operation. Use log.* sparingly for major
-       checkpoints only.
+       checkpoints only. NEVER log per event/entry/mutation —
+       log state transitions or per-flush summaries instead.
     `, 'color: #3B82F6');
   }
 };

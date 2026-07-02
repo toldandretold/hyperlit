@@ -83,7 +83,6 @@ export async function insertFootnoteAtCursor(
   }
 
   if (parentNode && parentNode.id && saveCallback) {
-    console.log(`Saving parent node: ${parentNode.id}`);
     // Skip auto-renumber in batch.js - we handle renumbering ourselves below
     await saveCallback(parentNode.id, parentNode.outerHTML, { skipFootnoteRenumber: true });
   }
@@ -100,7 +99,6 @@ export async function insertFootnoteAtCursor(
       if (displayNumber) {
         supElement.setAttribute('fn-count-id', displayNumber.toString());
         supElement.textContent = displayNumber.toString();
-        console.log(`Footnote ${footnoteId} assigned display number: ${displayNumber}`);
         // Also update the sup inside the hyperlit container if it's currently open for this footnote
         const containerSup = document.querySelector(`#hyperlit-container .footnotes-section[data-footnote-id="${footnoteId}"] .footnote-number`);
         if (containerSup) {
@@ -140,7 +138,6 @@ async function createFootnoteRecord(footnoteId: string, bookId: BookId): Promise
 
   await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => {
-      console.log(`Created footnote record: ${footnoteId}`);
       resolve();
     };
     tx.onerror = () => reject(tx.error);

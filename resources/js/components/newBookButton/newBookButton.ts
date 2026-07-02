@@ -6,7 +6,7 @@
 // registerComponents.ts. Also exposes the singleton on window.newBookManager
 // (read by the cite-form modules) and as the default export.
 import { NewBookContainerManager } from "../newbookContainer/index";
-import { log, verbose } from "../../utilities/logger";
+import { verbose } from "../../utilities/logger";
 
 // Container manager instance
 let newBookManager: any = null;
@@ -21,12 +21,12 @@ export function initializeNewBookContainer() {
         "newBookButton",
         ["main-content"]
       );
-      log.init('New book container initialized', '/components/newBookButton/newBookButton.ts');
+      verbose.init('New book container initialized', '/components/newBookButton/newBookButton.ts');
     } else {
       // Manager exists, just update button reference
       newBookManager.button = document.getElementById("newBookButton");
       newBookManager.rebindElements();
-      log.init('New book container updated', '/components/newBookButton/newBookButton.ts');
+      verbose.init('New book container updated', '/components/newBookButton/newBookButton.ts');
     }
 
     // Make available globally for mobile link handling

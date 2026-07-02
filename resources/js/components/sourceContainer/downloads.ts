@@ -8,6 +8,7 @@ import { book } from '../../app';
 import { openDatabase, getNodesFromIndexedDB } from '../../indexedDB/index';
 import { formatBibtexToCitation } from '../../utilities/bibtexProcessor';
 import { getRecord, getBookDownloadName } from './helpers';
+import { log } from '../../utilities/logger';
 
 let _TurndownService: any = null;
 async function loadTurndown() {
@@ -143,12 +144,10 @@ export async function downloadAllForBook(downloadAllBtn: any, bookId: any = book
       const augmented = await zip.generateAsync({ type: 'blob' });
       triggerBlobDownload(augmented, `${bookId}.zip`);
     } catch (augmentErr) {
-      console.warn('[sourceButton] BlackBox augmentation failed, downloading plain zip:', augmentErr);
       triggerBlobDownload(serverZipBlob, `${bookId}.zip`);
     }
   } catch (err) {
     // Server zip fetch failed (404, network error) — build client-only blackBox zip
-    console.warn('[sourceButton] Server zip fetch failed, building client-only zip:', err);
     try {
       const [{ buildBrowserMd, buildBrowserDatabaseMd, buildServerDatabaseMd, buildStitchedUpMd, buildReadme, buildTopLevelReadme }, JSZip] =
         await Promise.all([
@@ -185,7 +184,7 @@ export async function downloadAllForBook(downloadAllBtn: any, bookId: any = book
       const blob = await zip.generateAsync({ type: 'blob' });
       triggerBlobDownload(blob, `${bookId}.zip`);
     } catch (fallbackErr) {
-      console.error('[sourceButton] Client-only zip also failed:', fallbackErr);
+      log.error('[sourceButton] Client-only zip also failed', '/components/sourceContainer/downloads.ts', fallbackErr);
       downloadAllBtn.textContent = 'Download failed';
       setTimeout(() => { downloadAllBtn.textContent = origText; }, 3000);
     }
@@ -253,9 +252,7 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
             }
             hyperciteArrows.push({ id: anchor.id, targetBookId: decodeURIComponent(segments[0]!), sourceUrl });
           }
-        } catch (e) {
-          console.warn('Failed to parse hypercite href:', anchor.getAttribute('href'), e);
-        }
+        } catch (e) {}
       }
     });
 
@@ -268,7 +265,7 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
   const footnoteContents = new Map<string, string[]>(); // fnId → markdown string
   let fnDb: any;
   if (footnoteRefIds.length > 0) {
-    try { fnDb = await openDatabase(); } catch (e) { console.warn('Failed to open DB for footnotes:', e); }
+    try { fnDb = await openDatabase(); } catch (e) {}
   }
 
   // Helper: convert footnote HTML nodes to markdown text
@@ -293,9 +290,7 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
           if (fnRecord?.preview_nodes?.length) {
             fnNodes = fnRecord.preview_nodes;
           }
-        } catch (e) {
-          console.warn(`Failed to look up footnotes store for ${fnId}:`, e);
-        }
+        } catch (e) {}
       }
 
       if (fnNodes) fnNodes.sort((a: any, b: any) => a.chunk_id - b.chunk_id);
@@ -308,7 +303,6 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
       }
       footnoteContents.set(fnId, paragraphs.length > 0 ? paragraphs : ['(footnote)']);
     } catch (e) {
-      console.warn(`Failed to fetch footnote content for ${fnId}:`, e);
       footnoteContents.set(fnId, ['(footnote)']);
     }
   }
@@ -317,7 +311,7 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
   const hyperciteContents = new Map<string, string>(); // elementId → markdown citation string
   let db: any;
   if (hyperciteArrows.length > 0) {
-    try { db = await openDatabase(); } catch (e) { console.warn('Failed to open database for hypercite citations:', e); }
+    try { db = await openDatabase(); } catch (e) {}
   }
 
   for (const { id, targetBookId, sourceUrl } of hyperciteArrows) {
@@ -342,9 +336,7 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
           citationMd = citationHtmlToMarkdown(citationHtml);
         }
       }
-    } catch (e) {
-      console.warn(`Failed to fetch citation for ${targetBookId}:`, e);
-    }
+    } catch (e) {}
     hyperciteContents.set(id, citationMd);
   }
 
@@ -352,7 +344,7 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
   const referencesData: any[] = [];
   if (citationRefIds.length > 0) {
     let bibDb: any;
-    try { bibDb = db || fnDb || await openDatabase(); } catch (e) { console.warn('Failed to open DB for bibliography:', e); }
+    try { bibDb = db || fnDb || await openDatabase(); } catch (e) {}
     if (bibDb) {
       const seenSourceIds = new Set<any>();
       for (const refId of citationRefIds) {
@@ -373,9 +365,7 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
             seenSourceIds.add(dedupKey);
             referencesData.push({ content: record.content });
           }
-        } catch (e) {
-          console.warn(`Failed to fetch bibliography record for ${refId}:`, e);
-        }
+        } catch (e) {}
       }
     }
   }
@@ -389,9 +379,7 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
     if (gfm.tables) {
       turndownService.use(gfm.tables);
     }
-  } catch (e) {
-    console.warn('Failed to load GFM tables plugin:', e);
-  }
+  } catch (e) {}
 
   // Unified footnote numbering: footnotes and hypercites share one sequence
   let footnoteCounter = 0;
@@ -562,9 +550,7 @@ export async function exportBookAsMarkdown(bookId: any = book || 'latest') {
           const resp = await fetch(src);
           const blob = await resp.blob();
           imgFolder.file(filename, blob);
-        } catch (e) {
-          console.warn('Failed to fetch image for zip:', src, e);
-        }
+        } catch (e) {}
       }
 
       const zipBlob = await zip.generateAsync({ type: 'blob' });
@@ -576,14 +562,12 @@ export async function exportBookAsMarkdown(bookId: any = book || 'latest') {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      console.log(`✅ Markdown + images exported as zip`);
     } else {
       const filename = await getBookDownloadName(bookId, 'md');
       downloadMarkdown(filename, markdown);
-      console.log(`✅ Markdown exported to ${filename}`);
     }
   } catch (err) {
-    console.error('❌ Failed to export markdown:', err);
+    log.error('Failed to export markdown', '/components/sourceContainer/downloads.ts', err);
   }
 }
 
@@ -969,9 +953,7 @@ async function buildDocxWithStyles(bookId: any = book || 'latest') {
             }
             hyperciteArrows.push({ id: anchor.id, targetBookId: decodeURIComponent(segments[0]!), sourceUrl });
           }
-        } catch (e) {
-          console.warn('Failed to parse hypercite href:', anchor.getAttribute('href'), e);
-        }
+        } catch (e) {}
       }
     });
   }
@@ -1009,7 +991,7 @@ async function buildDocxWithStyles(bookId: any = book || 'latest') {
   // Open DB once for footnote fallback lookups
   let fnDb: any;
   if (footnoteRefIds.length > 0) {
-    try { fnDb = await openDatabase(); } catch (e) { console.warn('Failed to open DB for footnotes:', e); }
+    try { fnDb = await openDatabase(); } catch (e) {}
   }
 
   for (const fnId of footnoteRefIds) {
@@ -1033,9 +1015,7 @@ async function buildDocxWithStyles(bookId: any = book || 'latest') {
           if (fnRecord?.preview_nodes?.length) {
             fnNodes = fnRecord.preview_nodes;
           }
-        } catch (e) {
-          console.warn(`Failed to look up footnotes store for ${fnId}:`, e);
-        }
+        } catch (e) {}
       }
 
       if (fnNodes) fnNodes.sort((a: any, b: any) => a.chunk_id - b.chunk_id);
@@ -1051,7 +1031,6 @@ async function buildDocxWithStyles(bookId: any = book || 'latest') {
       footnoteMap.set(fnId, num);
       footnoteDefinitions[num] = { children: fnParagraphs };
     } catch (e) {
-      console.warn(`Failed to fetch footnote content for ${fnId}:`, e);
       const num = fnCounter++;
       footnoteMap.set(fnId, num);
       footnoteDefinitions[num] = { children: [new Paragraph({ children: [new TextRun({ text: '(footnote)', font: 'Helvetica' })] })] };
@@ -1063,9 +1042,7 @@ async function buildDocxWithStyles(bookId: any = book || 'latest') {
   if (hyperciteArrows.length > 0) {
     try {
       db = await openDatabase();
-    } catch (e) {
-      console.warn('Failed to open database for hypercite citations:', e);
-    }
+    } catch (e) {}
   }
 
   for (const { id, targetBookId, sourceUrl } of hyperciteArrows) {
@@ -1094,9 +1071,7 @@ async function buildDocxWithStyles(bookId: any = book || 'latest') {
           fnParagraphs = htmlToFootnoteParagraphs(citationHtml);
         }
       }
-    } catch (e) {
-      console.warn(`Failed to fetch citation for ${targetBookId}:`, e);
-    }
+    } catch (e) {}
     if (fnParagraphs.length === 0) {
       // Fallback: create a linked citation with the target book ID
       const linkChildren = sourceUrl
@@ -1116,7 +1091,7 @@ async function buildDocxWithStyles(bookId: any = book || 'latest') {
   const referencesData: any[] = [];
   if (citationRefIds.length > 0) {
     let bibDb: any;
-    try { bibDb = db || fnDb || await openDatabase(); } catch (e) { console.warn('Failed to open DB for bibliography:', e); }
+    try { bibDb = db || fnDb || await openDatabase(); } catch (e) {}
     if (bibDb) {
       const seenSourceIds = new Set<any>();
       for (const refId of citationRefIds) {
@@ -1137,9 +1112,7 @@ async function buildDocxWithStyles(bookId: any = book || 'latest') {
             seenSourceIds.add(dedupKey);
             referencesData.push({ content: record.content });
           }
-        } catch (e) {
-          console.warn(`Failed to fetch bibliography record for ${refId}:`, e);
-        }
+        } catch (e) {}
       }
     }
   }
@@ -1148,18 +1121,7 @@ async function buildDocxWithStyles(bookId: any = book || 'latest') {
   const docxComponents = { TextRun, Paragraph, HeadingLevel, ExternalHyperlink, FootnoteReferenceRun, footnoteMap, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, nextListInstance: 0 };
   const children: any[] = [];
 
-  // Debug: count element types for diagnostics
-  const tagCounts: any = {};
-
   for (const frag of fragments) {
-    // Log what top-level tag is inside each fragment's wrapper div
-    frag.childNodes.forEach((child: any) => {
-      if (child.nodeType === Node.ELEMENT_NODE) {
-        const tag = child.tagName.toLowerCase();
-        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-      }
-    });
-
     const runsAndParas = htmlElementToDocx(frag, docxComponents);
 
     // group Runs into Paragraphs; Tables and image placeholders are block-level
@@ -1180,8 +1142,6 @@ async function buildDocxWithStyles(bookId: any = book || 'latest') {
       children.push(new Paragraph({ children: buf, style: "Normal" }));
     }
   }
-
-  console.log('📊 DOCX export tag summary:', tagCounts);
 
   // --- Phase 6: Append References section ---
   if (referencesData.length > 0) {
@@ -1251,7 +1211,6 @@ async function buildDocxWithStyles(bookId: any = book || 'latest') {
           })],
         });
       } catch (e) {
-        console.warn('Failed to fetch image for docx export:', item.src, e);
         children[i] = new Paragraph({
           children: [new TextRun({ text: `[image: ${item.src}]`, font: 'Helvetica', italics: true })],
           style: 'Normal',
@@ -1334,9 +1293,8 @@ export async function exportBookAsDocxStyled(bookId: any = book || 'latest') {
     a.download = await getBookDownloadName(bookId, 'docx');
     a.click();
     URL.revokeObjectURL(url);
-    console.log('✅ Styled DOCX exported');
   } catch (e) {
-    console.error('❌ export styled docx failed', e);
+    log.error('export styled docx failed', '/components/sourceContainer/downloads.ts', e);
   }
 }
 
@@ -1441,9 +1399,7 @@ async function buildEpubBlob(bookId: any = book || 'latest') {
           if (segments.length > 0) {
             hyperciteArrows.push({ id: anchor.id, targetBookId: decodeURIComponent(segments[0]!) });
           }
-        } catch (e) {
-          console.warn('Failed to parse hypercite href:', anchor.getAttribute('href'), e);
-        }
+        } catch (e) {}
       }
     });
 
@@ -1463,7 +1419,7 @@ async function buildEpubBlob(bookId: any = book || 'latest') {
 
   let fnDb: any;
   if (footnoteRefIds.length > 0) {
-    try { fnDb = await openDatabase(); } catch (e) { console.warn('Failed to open DB for footnotes:', e); }
+    try { fnDb = await openDatabase(); } catch (e) {}
   }
 
   for (const fnId of footnoteRefIds) {
@@ -1485,9 +1441,7 @@ async function buildEpubBlob(bookId: any = book || 'latest') {
           if (fnRecord?.preview_nodes?.length) {
             fnNodes = fnRecord.preview_nodes;
           }
-        } catch (e) {
-          console.warn(`Failed to look up footnotes store for ${fnId}:`, e);
-        }
+        } catch (e) {}
       }
 
       if (fnNodes) fnNodes.sort((a: any, b: any) => a.chunk_id - b.chunk_id);
@@ -1497,7 +1451,6 @@ async function buildEpubBlob(bookId: any = book || 'latest') {
       }
       footnoteContents.set(fnId, html || '<p>(footnote)</p>');
     } catch (e) {
-      console.warn(`Failed to fetch footnote content for ${fnId}:`, e);
       footnoteContents.set(fnId, '<p>(footnote)</p>');
     }
   }
@@ -1506,7 +1459,7 @@ async function buildEpubBlob(bookId: any = book || 'latest') {
   const hyperciteContents = new Map<string, string>(); // id → html string
   let hcDb: any;
   if (hyperciteArrows.length > 0) {
-    try { hcDb = db || fnDb || await openDatabase(); } catch (e) { console.warn('Failed to open DB for hypercites:', e); }
+    try { hcDb = db || fnDb || await openDatabase(); } catch (e) {}
   }
 
   for (const { id, targetBookId } of hyperciteArrows) {
@@ -1523,7 +1476,6 @@ async function buildEpubBlob(bookId: any = book || 'latest') {
         hyperciteContents.set(id, `<p>${escapeXml(targetBookId)}</p>`);
       }
     } catch (e) {
-      console.warn(`Failed to fetch citation for ${targetBookId}:`, e);
       hyperciteContents.set(id, `<p>${escapeXml(targetBookId)}</p>`);
     }
   }
@@ -1532,7 +1484,7 @@ async function buildEpubBlob(bookId: any = book || 'latest') {
   const referencesData: any[] = [];
   if (citationRefIds.length > 0) {
     let bibDb: any;
-    try { bibDb = hcDb || db || fnDb || await openDatabase(); } catch (e) { console.warn('Failed to open DB for bibliography:', e); }
+    try { bibDb = hcDb || db || fnDb || await openDatabase(); } catch (e) {}
     if (bibDb) {
       const seenSourceIds = new Set<any>();
       for (const refId of citationRefIds) {
@@ -1553,9 +1505,7 @@ async function buildEpubBlob(bookId: any = book || 'latest') {
             seenSourceIds.add(dedupKey);
             referencesData.push({ content: record.content });
           }
-        } catch (e) {
-          console.warn(`Failed to fetch bibliography record for ${refId}:`, e);
-        }
+        } catch (e) {}
       }
     }
   }
@@ -1743,7 +1693,6 @@ ${chapters[i].html}
     const parseErrors = doc.querySelector('parsererror');
     let xhtml;
     if (parseErrors) {
-      console.warn(`EPUB: XHTML parse error in ${chapterFiles[i]}, falling back to HTML parse + serialize`);
       const htmlDoc = parser.parseFromString(rawXhtml, 'text/html');
       let serializedBody = '';
       for (const child of htmlDoc.body.childNodes as any) {
@@ -1787,7 +1736,6 @@ ${referencesHtml}
     const endDoc = parser.parseFromString(rawEndnotes, 'application/xhtml+xml');
     const endErrors = endDoc.querySelector('parsererror');
     if (endErrors) {
-      console.warn('EPUB: XHTML parse error in endnotes, falling back to HTML parse + serialize');
       const htmlDoc = parser.parseFromString(rawEndnotes, 'text/html');
       let serializedBody = '';
       for (const child of htmlDoc.body.childNodes as any) {
@@ -1894,9 +1842,7 @@ ${spineChapters}${spineEndnotes}  </spine>
       const resp = await fetch(src);
       const blob = await resp.blob();
       imageBlobs.set(filename, blob);
-    } catch (e) {
-      console.warn('Failed to fetch image for EPUB:', src, e);
-    }
+    } catch (e) {}
   }
 
   // --- Phase 10: Assemble ZIP ---
@@ -1932,8 +1878,7 @@ export async function exportBookAsEpub(bookId: any = book || 'latest') {
     a.download = await getBookDownloadName(bookId, 'epub');
     a.click();
     URL.revokeObjectURL(url);
-    console.log('✅ EPUB exported');
   } catch (e) {
-    console.error('❌ export EPUB failed', e);
+    log.error('export EPUB failed', '/components/sourceContainer/downloads.ts', e);
   }
 }

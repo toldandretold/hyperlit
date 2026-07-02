@@ -346,7 +346,7 @@ export function initializeFileDropTarget() {
   window.addEventListener('dragleave', onDragLeave);
   window.addEventListener('drop', onDrop);
 
-  log.init('File drop target initialized', '/components/fileDropTarget/fileDropTarget.ts');
+  verbose.init('File drop target initialized', '/components/fileDropTarget/fileDropTarget.ts');
 }
 
 export function destroyFileDropTarget() {

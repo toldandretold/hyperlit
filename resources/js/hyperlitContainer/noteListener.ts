@@ -14,6 +14,7 @@ import { updateCitationForExistingHypercite } from '../indexedDB/index';
 import { book } from '../app';
 import { broadcastToOpenTabs } from '../utilities/BroadcastListener';
 import { getCurrentContainer } from './containerActions';
+import { log } from '../utilities/logger';
 
 // Track debounce timers by ID
 const debounceTimers = new Map();
@@ -104,7 +105,6 @@ export function attachNoteListeners() {
   container.addEventListener('beforeinput', supEscapeHandler, { capture: true });
 
   isAttached = true;
-  console.log('Note listeners attached to hyperlit-container');
 }
 
 /**
@@ -136,7 +136,6 @@ export function detachNoteListeners() {
   debounceTimers.clear();
 
   isAttached = false;
-  console.log('Note listeners detached from hyperlit-container');
 }
 
 /**
@@ -145,8 +144,6 @@ export function detachNoteListeners() {
  */
 function flushPendingSaves(container: any) {
   if (debounceTimers.size === 0) return;
-
-  console.log(`Flushing ${debounceTimers.size} pending save(s)...`);
 
   for (const [id, timer] of debounceTimers.entries()) {
     // Cancel the pending timer
@@ -282,13 +279,11 @@ async function saveContent(type: any, id: any, content: any) {
   try {
     if (type === 'highlight') {
       await saveHighlightAnnotation(id, content);
-      console.log(`Annotation saved for highlight: ${id}`);
     } else {
       await saveFootnoteToIndexedDB(id, content);
-      console.log(`Content saved for footnote: ${id}`);
     }
   } catch (error) {
-    console.error(`Error saving ${type} content:`, error);
+    log.error(`Error saving ${type} content`, 'hyperlitContainer/noteListener.ts', error as any);
   }
 }
 
@@ -312,8 +307,6 @@ async function processHypercitePaste(clipboardHtml: any, contentId: any) {
   if (!(citeLink && citeLink.innerText.replace(/[\u200B\s]/g, '') === '↗')) {
     return false;
   }
-
-  console.log('Detected hypercite in paste');
 
   const originalHref = citeLink.getAttribute('href');
   const parsed = parseHyperciteHref(originalHref || '');
@@ -381,11 +374,10 @@ async function processHypercitePaste(clipboardHtml: any, contentId: any) {
       citationIDb
     );
     if (updateResult && updateResult.success) {
-      console.log(`Successfully linked: ${citationIDa} cited in ${citationIDb}`);
       broadcastToOpenTabs(booka, updateResult.startLine);
     }
   } catch (error) {
-    console.error('Error during hypercite paste update:', error);
+    log.error('Error during hypercite paste update', 'hyperlitContainer/noteListener.ts', error as any);
   }
 
   return true;

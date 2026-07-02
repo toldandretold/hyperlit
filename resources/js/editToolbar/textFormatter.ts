@@ -18,6 +18,7 @@ import {
   replaceBlockUndoable,
 } from "./toolbarDOMUtils";
 import { asLineId } from "../utilities/idHelpers";
+import { log } from "../utilities/logger";
 import type { SaveToIndexedDBCallback } from "./types";
 
 /**
@@ -45,14 +46,6 @@ export class TextFormatter {
    * @param {string} type - "bold" or "italic"
    */
   async formatText(type: any) {
-    console.log("🔧 Format text called:", {
-      type: type,
-      hasCurrentSelection: !!this.selectionManager.currentSelection,
-      hasLastValidRange: !!this.selectionManager.lastValidRange,
-      isCollapsed: this.selectionManager.currentSelection?.isCollapsed,
-      currentSelectionText: this.selectionManager.currentSelection?.toString(),
-    });
-
     this.isFormatting = true;
 
     try {
@@ -61,7 +54,6 @@ export class TextFormatter {
       const { selection: workingSelection, range: workingRange } = this.selectionManager.getWorkingSelection();
 
       if (!workingSelection || !workingRange) {
-        console.warn("❌ No valid selection found - cannot format");
         return;
       }
 
@@ -133,7 +125,7 @@ export class TextFormatter {
       };
 
       handleHistoryAndSave().catch((error) => {
-        console.error("Error processing save from formatText:", error);
+        log.error("Error processing save from formatText", '/editToolbar/textFormatter.ts', error);
       });
     } finally {
       setTimeout(() => {

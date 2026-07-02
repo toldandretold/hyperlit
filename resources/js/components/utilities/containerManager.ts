@@ -4,7 +4,7 @@
 // which 5+ components `extends`, into an import cycle that TDZ-crashed the bundle at init.)
 import { isProcessing, isComplete } from '../cloudRef/editIndicator'
 import { book } from '../../app';
-import { log } from '../../utilities/logger'
+import { verbose } from '../../utilities/logger'
 
 export class ContainerManager {
   [key: string]: any;
@@ -232,7 +232,7 @@ export class ContainerManager {
         const mainContent = document.getElementById('test555yeah') || document.querySelector('.main-content');
         if (mainContent && (window as any).currentLazyLoader && (window as any).currentLazyLoader.scrollLocked) {
         } else {
-          log.content(`🔧 CONTAINER MANAGER: Applying scroll restoration to ${el.dataset.scrollPos}`, 'components/utilities/ContainerManager.ts');
+          verbose.content(`🔧 CONTAINER MANAGER: Applying scroll restoration to ${el.dataset.scrollPos}`, 'components/utilities/ContainerManager.ts');
           el.scrollTop = el.dataset.scrollPos;
         }
         delete el.dataset.scrollPos;

@@ -76,6 +76,7 @@ export {
 // ============================================================================
 
 import { book } from '../app';
+import { log, verbose } from '../utilities/logger';
 import { resetSubBookState, restoreSubBookState, saveSubBookState } from './subBookActions';
 import { clearActiveBook } from './utilities/activeContext';
 import { openDatabase } from '../indexedDB/index';
@@ -164,9 +165,6 @@ registerContainerActions({
  * @param {boolean} isNewFootnote - Whether this is a newly inserted footnote (should auto-focus)
  */
 export async function handleUnifiedContentClick(element: any, highlightIds: any = null, newHighlightIds: any = [], skipUrlUpdate: any = false, isBackNavigation: any = false, directHyperciteId: any = null, isNewFootnote: any = false, options: any = {}) {
-  const logElement = element ? (element.id || element.tagName) : (directHyperciteId || 'No element');
-  console.log("🎯 handleUnifiedContentClick called with:", { element: logElement, isBackNavigation, directHyperciteId, isProcessingClick: containerState.isProcessingClick });
-
   // Defensive: a non-Element "element" (a legacy dummy object from openHighlightById,
   // or a stale/detached ref during rapid back/forward restore) has NO DOM methods, so
   // the element.closest(…) calls below throw "element.closest is not a function" —
@@ -201,16 +199,12 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
     focusPreserver.id = 'focus-preserver';
     document.body.appendChild(focusPreserver);
     focusPreserver.focus({ preventScroll: true });
-    console.log('🔑 Focus preserver activated for potential footnote');
   }
 
   if (containerState.isProcessingClick) {
-    console.log("🚫 Click already being processed, ignoring duplicate. Current flag state:", containerState.isProcessingClick);
-    console.log("🚫 Call stack:", new Error().stack);
     if (focusPreserver) focusPreserver.remove();
     return;
   }
-  console.log("✅ Setting containerState.isProcessingClick to true");
   containerState.isProcessingClick = true;
 
   try {
@@ -222,7 +216,6 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
       const { isStacked, getDepth, getCurrentContainer: getContainer }: any = await import('./stack.js');
       const sourceContainer = element.closest('.hyperlit-container-stacked, #hyperlit-container');
       if (sourceContainer) {
-        console.log(`📚 Click from inside container at depth ${getDepth()}, pushing stacked layer`);
         if (focusPreserver) focusPreserver.remove();
         await pushStackedLayer(element, highlightIds, newHighlightIds, skipUrlUpdate, directHyperciteId, isNewFootnote, options);
         containerState.isProcessingClick = false;
@@ -237,8 +230,6 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
     // If this is a history navigation, we have no element, only an ID.
     // We can skip the broad detection and go straight to finding the content.
     if (!element && directHyperciteId) {
-        console.log(`🎯 History navigation detected for: ${directHyperciteId}. Detecting content directly.`);
-
         // Determine content type from the ID and detect accordingly
         if (directHyperciteId.startsWith('hypercite_')) {
           const { detectHypercites }: any = await import('./detection.js');
@@ -272,21 +263,17 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
         }
     } else if (element) {
         // This is a standard click, run the full detection.
-        console.log("🎯 Click navigation detected. Running full content detection.");
         contentTypes = await detectContentTypes(element, highlightIds, directHyperciteId, db);
     } else {
-        console.warn("handleUnifiedContentClick called with no element or direct ID. Aborting.");
+        log.error("handleUnifiedContentClick called with no element or direct ID. Aborting.", 'hyperlitContainer/index.ts');
         containerState.isProcessingClick = false;
         return;
     }
 
     if (contentTypes.length === 0) {
-      console.log("No hyperlit content detected.");
       containerState.isProcessingClick = false;
       return;
     }
-
-    console.log(`📊 Detected content types: ${contentTypes.map((c: any) => c.type).join(', ')}`);
 
     // The single in-book element id this container scrolls the reader back to (the exact thing the
     // user clicked, precise-element first). Computed from the LIVE content types — while we still
@@ -325,7 +312,7 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
         hyperlitContainer: containerState
       };
 
-      console.log('📊 Storing hyperlit container state in history:', containerState);
+      verbose.nav('📊 Storing hyperlit container state in history', 'hyperlitContainer/index.ts');
 
       // Determine if we should update URL (only for single content types).
       // We COMPUTE the URL here but do NOT call replaceState — the URL change
@@ -348,15 +335,14 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
 
         if (hasHyperciteTarget && contentTypes[0].type === 'highlight') {
           // Preserve the original hypercite hash for in-container scrolling
-          console.log(`📊 Preserving hypercite target in URL: #${currentHash}`);
         } else if (urlUpdate.type === 'path') {
           // Path-based URL (for footnotes): /book/footnoteID
           pendingUrlOverride = `/${renderedBook}/${urlUpdate.value}${window.location.hash || ''}`;
-          console.log(`📊 Computed footnote URL for new entry: ${pendingUrlOverride}`);
+          verbose.nav(`📊 Computed footnote URL for new entry: ${pendingUrlOverride}`, 'hyperlitContainer/index.ts');
         } else {
           // Hash-based URL (for hypercites, highlights, citations)
           pendingUrlOverride = `/${renderedBook}#${urlUpdate.value}`;
-          console.log(`📊 Computed hash URL for new entry: ${pendingUrlOverride}`);
+          verbose.nav(`📊 Computed hash URL for new entry: ${pendingUrlOverride}`, 'hyperlitContainer/index.ts');
         }
       } else if (anchorId) {
         // Multi/overlapping content: no single canonical hash, but anchor the new history entry
@@ -364,9 +350,6 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
         const renderedBook = document.querySelector('.main-content')?.id
           || window.location.pathname.split('/').filter(Boolean)[0] || '';
         pendingUrlOverride = `/${renderedBook}#${anchorId}`;
-        console.log(`📊 Computed multi-content anchor URL for new entry: ${pendingUrlOverride}`);
-      } else {
-        console.log(`📊 Multi-content: no URL change needed`);
       }
 
       // Write any non-URL state changes (e.g. hyperlitContainer metadata)
@@ -381,13 +364,11 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
     // =========================================================================
     const hasJustCreatedItem = isNewFootnote || (newHighlightIds && newHighlightIds.length > 0);
     if (hasJustCreatedItem && !isBackNavigation && !options.brainModeHighlightId) {
-      console.log('✏️ Just-created item detected, auto-enabling edit mode');
       setHyperlitEditMode(true);
     }
 
     // Get current edit mode state
     const editModeEnabled = getHyperlitEditMode();
-    console.log(`✏️ Edit mode enabled: ${editModeEnabled}`);
 
     // 🚀 PERFORMANCE: Build content FIRST so highlight caches are warm for permission check
     const unifiedContent: any = await buildUnifiedContent(contentTypes, newHighlightIds, db, editModeEnabled);
@@ -395,9 +376,6 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
     // Check if user has permission to edit ANY item (determines if edit button shows)
     // Uses cached highlightOwnership from buildHighlightContent when available
     const hasAnyEditPermission = isNewFootnote || await checkIfUserHasAnyEditPermission(contentTypes, newHighlightIds, db);
-    console.log(`✏️ User has edit permission: ${hasAnyEditPermission}`);
-
-    console.log(`📦 Built unified content (${unifiedContent.length} chars)`);
 
     // Apply cascade-origin glow to the source highlight (persists while container
     // is open). A highlight renders as MULTIPLE sibling marks (split by overlaps
@@ -504,7 +482,7 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
     }
 
   } catch (error) {
-    console.error("❌ Error in unified content handler:", error);
+    log.error("Error in unified content handler", 'hyperlitContainer/index.ts', error as any);
   } finally {
     // Clean up focus preserver if it wasn't used (e.g., not a footnote after all)
     if (focusPreserver && focusPreserver.parentNode) {
@@ -512,7 +490,6 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
     }
     // Reset the processing flag immediately (no delay needed)
     containerState.isProcessingClick = false;
-    console.log("🔄 Reset containerState.isProcessingClick flag");
   }
 }
 
@@ -621,7 +598,7 @@ async function pushStackedLayer(element: any, highlightIds: any, newHighlightIds
       flushInputDebounce();
       await flushAllPendingSaves();
     } catch (err) {
-      console.warn('Pre-back flush failed for stacked overlay (non-fatal):', err);
+      log.error('Pre-back flush failed for stacked overlay (non-fatal)', 'hyperlitContainer/index.ts', err as any);
     }
     history.back();
   });
@@ -646,7 +623,6 @@ async function pushStackedLayer(element: any, highlightIds: any, newHighlightIds
   const contentTypes: any = await detectContentTypes(element, highlightIds, directHyperciteId, db);
 
   if (contentTypes.length === 0) {
-    console.warn('📚 No content detected for stacked layer, aborting');
     const { popLayer: popRaw, removeStackedContainerDOM }: any = await import('./stack.js');
     popRaw(); // remove the new active layer
 
@@ -733,8 +709,6 @@ async function pushStackedLayer(element: any, highlightIds: any, newHighlightIds
   const topNow = getTopLayer();
   if (topNow) topNow.contentMetadata = stackedContainerState;
 
-  console.log(`📚 Stacked layer ${newDepth} opened successfully`);
-
   // --- 7. Update URL to reflect the new chain segment ---
   // Same pattern as the layer-0 callsite: COMPUTE the URL here but DO NOT
   // replaceState on it. The URL change is part of the *new* history entry
@@ -762,7 +736,6 @@ async function pushStackedLayer(element: any, highlightIds: any, newHighlightIds
 
       // Single-content stacked layer — URL is the sub-book path
       stackedPendingUrlOverride = '/' + subBookId;
-      console.log(`📚 Computed sub-book URL for new entry: ${stackedPendingUrlOverride}`);
     } else {
       // Multi-content in stacked layer — save URL on layer below (containerStack handles restoration)
       const { getLayerBelow }: any = await import('./stack.js');
@@ -770,7 +743,6 @@ async function pushStackedLayer(element: any, highlightIds: any, newHighlightIds
       if (layerBelow) {
         layerBelow.savedUrl = window.location.pathname + window.location.search + window.location.hash;
       }
-      console.log(`📚 Multi-content in stacked layer: stored in containerStack`);
     }
   }
 

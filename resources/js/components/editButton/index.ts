@@ -4,7 +4,7 @@
 // and the module-load visibility side-effect. Pure caret helpers live in ./cursor;
 // the lock/permission UI in ./lock (re-exported here so importers have one entry).
 import { book } from "../../app";
-import { log } from "../../utilities/logger";
+import { verbose } from "../../utilities/logger";
 import { getCurrentUser, canUserEditBook } from "../../utilities/auth/index";
 import userManager from "../userButton/userButton";
 import {
@@ -128,7 +128,7 @@ export async function enableEditMode(targetElementId: string | null = null, isNe
     setTimeout(async () => {
       try {
         (window as any).isEditing = true;
-        log.init('Edit mode entered via edit button', '/components/editButton/index.ts');
+        verbose.init('Edit mode entered via edit button', '/components/editButton/index.ts');
         if (editBtn) editBtn.classList.add("inverted");
 
         // Ensure perimeter buttons are visible in edit mode

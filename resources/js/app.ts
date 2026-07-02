@@ -1,5 +1,5 @@
 import './integrity/logCapture';
-import { log } from './utilities/logger';
+import { log, verbose } from './utilities/logger';
 import { asBookId, type BookId } from './indexedDB/types';
 import { seedFromServer } from './utilities/preferences';
 import { initializeTheme } from './components/settingsContainer/themeSwitcher';
@@ -12,9 +12,7 @@ initializeTheme();
 
 // Load navigation health check in development
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-  import('./SPA/navigation/healthCheck').then(() => {
-    console.log('🏥 Health check loaded. Run window.checkNavigationHealth() in console to diagnose issues.');
-  }).catch(() => {
+  import('./SPA/navigation/healthCheck').catch(() => {
     // Silently fail if health check not available
   });
 }
@@ -50,15 +48,15 @@ const domBook = document.querySelector(".main-content")?.id;
 export let book: BookId = asBookId(domBook || pathSegments[0] || "most-recent"); // Fallback to most-recent
 
 if (!book) {
-  console.error("No book ID found in DOM or URL!");
+  log.error("No book ID found in DOM or URL!", 'app.js');
 }
 
-log.init(`Loading hypertext for: ${book}`, 'app.js');
+verbose.init(`Loading hypertext for: ${book}`, 'app.js');
 
 // This allows our viewManager to update the global book state after an SPA transition.
 export function setCurrentBook(newBookId: BookId): void {
   book = newBookId;
-  log.init(`Book updated to: ${book}`, 'app.js');
+  verbose.init(`Book updated to: ${book}`, 'app.js');
 }
 
 // Slug support: URL alias for the current book

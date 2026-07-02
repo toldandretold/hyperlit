@@ -2,7 +2,7 @@
  * Content Swap Helpers - Shared content swapping logic for navigation transitions
  * Extracted from DifferentTemplateTransition and SameTemplateTransition for reusability
  */
-import { log } from '../../../utilities/logger';
+import { verbose } from '../../../utilities/logger';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { showNavigationLoading, hideNavigationLoading, navigateToInternalId } from '../../../scrolling/index';
 import { destroyHomepageDisplayUnit, initializeHomepageButtons, fixHeaderSpacing } from '../../../components/homepage/homepageDisplayUnit';
@@ -20,7 +20,7 @@ import { initializeUserContainer } from '../../../components/userButton/userButt
  * Extracted from DifferentTemplateTransition.fetchHtml()
  */
 export async function fetchHtml(url: any) {
-  log.nav('Fetching target page', '/navigation/utils/contentSwapHelpers.js');
+  verbose.nav('Fetching target page', '/navigation/utils/contentSwapHelpers.js');
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -36,7 +36,7 @@ export async function fetchHtml(url: any) {
  * Extracted from DifferentTemplateTransition.replaceBodyContent()
  */
 export async function replaceBodyContent(htmlString: any) {
-  log.nav('Replacing page template', '/navigation/utils/contentSwapHelpers.js');
+  verbose.nav('Replacing page template', '/navigation/utils/contentSwapHelpers.js');
 
   const parser = new DOMParser();
   const newDoc = parser.parseFromString(htmlString, 'text/html');
@@ -260,7 +260,7 @@ export function updateUrl(url: any, options: any = {}) {
       } else {
         window.history.pushState(newState, '', url);
       }
-      log.nav('Updated browser URL', '/navigation/utils/contentSwapHelpers.js');
+      verbose.nav('Updated browser URL', '/navigation/utils/contentSwapHelpers.js');
     }
   } catch (error) {
     console.warn('Could not update URL:', error);

@@ -17,7 +17,7 @@ import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow }
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../../components/tocContainer/index';
 import { deleteIndexedDBRecordWithRetry, updateSingleIndexedDBRecord } from '../../indexedDB/index';
 import { isPasteOperationActive } from '../../paste/pasteState';
-import { verbose } from '../../utilities/logger';
+import { log, verbose } from '../../utilities/logger';
 import { setChunkLoadingInProgress } from '../../lazyLoader/utilities/chunkLoadingState';
 
 // 🚀 PERFORMANCE: Import cached regex pattern
@@ -195,7 +195,6 @@ export class ChunkMutationHandler {
   async sweepChunkOverflow(): Promise<void> {
     const chunks = document.querySelectorAll<HTMLElement>('.chunk[data-chunk-id]');
     for (const chunk of Array.from(chunks)) {
-      const cid = chunk.getAttribute('data-chunk-id');
       if (!chunk.isConnected) continue;
       // Count the LIVE DOM directly — chunkNodeCounts is maintained incrementally by PROCESSED
       // mutations, but the mutations that overflowed this chunk were suppressed (paste/programmatic),
@@ -204,11 +203,10 @@ export class ChunkMutationHandler {
       const count = Array.from(chunk.querySelectorAll<HTMLElement>('[id]'))
         .filter((el) => /^\d+(\.\d+)?$/.test(el.id)).length;
       if (count > NODE_LIMIT) {
-        console.log(`🧹 Overflow sweep: chunk ${cid} at ${count}/${NODE_LIMIT} — rotating.`);
         try {
           await handleChunkOverflow(chunk, null);
         } catch (e) {
-          console.error('Overflow sweep: handleChunkOverflow failed:', e);
+          log.error('Overflow sweep: handleChunkOverflow failed', 'divEditor/chunkMutationHandler.js', e);
         }
       }
     }
@@ -259,7 +257,6 @@ export class ChunkMutationHandler {
 
           // Ignore MARK tag mutations (handled by hyperlights module), but only if no paragraph deletions present
           if (!hasNumericalIdRemoval && (isOnlyHighlightNodes(mutation.addedNodes) || isOnlyHighlightNodes(mutation.removedNodes))) {
-            verbose.content("Ignoring MARK tag mutation in divEditor, handled by hyperlights module", 'divEditor/chunkMutationHandler.js');
             return;
           }
         }
@@ -275,14 +272,9 @@ export class ChunkMutationHandler {
         );
 
         if (chunkDeletions.length > 0) {
-          if (chunkOverflowInProgress) {
-            console.log(`⚠️ Skipping chunk deletion handling - overflow in progress`);
-          } else if (!userDeletionInProgress) {
-            console.log(`⚠️ Skipping chunk deletion handling - no active user deletion`);
-          } else {
-            const chunkIds = chunkDeletions.map((c: any) => c.getAttribute('data-chunk-id')).filter(Boolean);
-            let totalNodes = 0;
-
+          // Only handle a genuine user-driven chunk deletion — skip overflow rotations
+          // (chunkOverflowInProgress) and non-user restructuring (!userDeletionInProgress).
+          if (!chunkOverflowInProgress && userDeletionInProgress) {
             chunkDeletions.forEach((deletedChunk: any) => {
               // ✅ Block lazy loader from reloading this chunk until deletions complete
               const chunkId = deletedChunk.getAttribute('data-chunk-id');
@@ -292,7 +284,6 @@ export class ChunkMutationHandler {
               }
 
               const numericalIdNodes = this.findNumericalIdNodesInChunk(deletedChunk);
-              totalNodes += numericalIdNodes.length;
 
               // ✅ FIX: Get bookId from observedChunks using composite key lookup
               let chunkBookId = null;
@@ -315,17 +306,6 @@ export class ChunkMutationHandler {
                 });
               }
             });
-
-            console.log(`🗑️ Chunk deletion detected: ${chunkIds.length} chunks [${chunkIds.join(', ')}], ${totalNodes} nodes queued`);
-            // ⚠️ DIAGNOSTIC: Log stack trace for chunk deletions
-            if (totalNodes > 10) {
-              console.warn(`⚠️ CHUNK DELETION with ${totalNodes} nodes`, {
-                stack: new Error().stack,
-                chunkIds,
-                userDeletionInProgress: true, // if we got here, it's true
-                timestamp: Date.now()
-              });
-            }
           }
 
           filteredMutations.push(mutation);
@@ -373,7 +353,6 @@ export class ChunkMutationHandler {
         const chunkId = chunk.getAttribute('data-chunk-id');
 
         if (!chunkId) {
-          console.warn("Found chunk without data-chunk-id:", chunk);
           continue;
         }
 
@@ -430,14 +409,11 @@ export class ChunkMutationHandler {
         // setTimeout(, 0) adds unnecessary latency
         await this.processChunkMutations(liveChunk, chunkMutations, bookId);
       } else if (!(window as any).isEditing) {
-        console.log(`🗑️ Chunk ${chunkId} actually removed from DOM`);
-
         setTimeout(() => {
           this.observedChunks.delete(chunkId);
           delete (chunkNodeCounts as any)[chunkId];
           // 🚀 PERFORMANCE: Clear chunk cache when structure changes
           this.clearChunkCache();
-          console.log(`✅ Chunk ${chunkId} cleanup completed`);
         }, 300);
       }
     }
@@ -452,7 +428,6 @@ export class ChunkMutationHandler {
     const chunkId = chunk.getAttribute('data-chunk-id');
 
     if (!chunkId) {
-      console.warn("Found chunk without data-chunk-id:", chunk);
       return;
     }
 
@@ -491,11 +466,9 @@ export class ChunkMutationHandler {
       chunk._bookId = bookId;
     }
 
-    verbose.content(`Processing ${mutations.length} mutations for chunk ${chunkId} (book: ${bookId})`, 'divEditor/chunkMutationHandler.js');
 
     // Skip during renumbering
     if ((window as any).renumberingInProgress) {
-      console.log(`⚠️ Skipping mutation processing for chunk ${chunkId} during renumbering`);
       return;
     }
 
@@ -504,7 +477,6 @@ export class ChunkMutationHandler {
       const isRemovalMutation = mutations.some(m => m.type === "childList" && m.removedNodes.length > 0);
 
       if (isRemovalMutation) {
-        console.log(`⚠️ Skipping mutation processing for chunk ${chunkId} during chunk overflow (due to removal).`);
         return;
       }
     }
@@ -519,7 +491,6 @@ export class ChunkMutationHandler {
         mutations.some(m => m.type === "childList" && m.addedNodes.length > 0)) {
       if (currentNodeCount >= NODE_LIMIT + OVERFLOW_SLACK) {
         // Hard ceiling — bound transient growth (held Enter / paste-then-type). Split now.
-        console.log(`Chunk ${chunkId} hit hard ceiling (${currentNodeCount}/${NODE_LIMIT + OVERFLOW_SLACK}). Splitting immediately...`);
         this.cancelRebalanceDebounce();
         const didOverflow = await handleChunkOverflow(chunk, mutations);
         if (didOverflow) {
@@ -530,7 +501,6 @@ export class ChunkMutationHandler {
         // Soft over-limit during active typing — let rapid Enter keep flowing; rebalance once
         // typing pauses. Do NOT return: the freshly added node must still be processed and
         // queued for save below (the deferred sweep hasn't moved anything yet).
-        console.log(`Chunk ${chunkId} over limit (${currentNodeCount}/${NODE_LIMIT}) — deferring rebalance until typing pauses.`);
         this.scheduleRebalance();
       }
     }
@@ -558,9 +528,6 @@ export class ChunkMutationHandler {
       for (const id of removedIds) {
         if (addedIds.has(id)) replacedNodeIds.add(id);
       }
-      if (replacedNodeIds.size > 0) {
-        console.log(`🔄 Tag replacement detected for IDs: ${[...replacedNodeIds].join(', ')} — skipping spurious delete/add`);
-      }
     }
 
     // Track parent nodes that need updates
@@ -571,7 +538,6 @@ export class ChunkMutationHandler {
 
     if (mutations.some(m => m.type === "childList" && m.addedNodes.length > 1)) {
       pasteDetected = true;
-      console.log("Possible paste operation detected");
     }
 
     for (const mutation of mutations) {
@@ -592,7 +558,6 @@ export class ChunkMutationHandler {
             // (isConnected) is the timing-independent source of truth; a genuinely deleted
             // node is detached, a moved one is not.
             if (node.id && (movedNodesByOverflow.has(node.id) || node.isConnected)) {
-              console.log(`🗑️ Skipping deletion for node ${node.id} — moved/still-connected, not deleted.`);
               if (movedNodesByOverflow.has(node.id)) movedNodesByOverflow.delete(node.id);
               continue;
             }
@@ -633,8 +598,6 @@ export class ChunkMutationHandler {
               const hasNoDeleteMarker = node.getAttribute('no-delete-id') === 'please';
 
               if (hasNoDeleteMarker) {
-                console.log(`🚨 Last node marker detected on ${node.id} - handling deletion`);
-
                 // Find another node to transfer the marker to
                 const allNodes = chunk.querySelectorAll('[id]');
                 const otherNodes = Array.from(allNodes).filter((n: any) =>
@@ -716,8 +679,6 @@ export class ChunkMutationHandler {
                     this.removedNodeIds.add(node.id);
                   } else {
                     // SCENARIO 3: Truly the last node in the entire document
-                    console.log(`🚨 Last node in document - restoring minimum structure`);
-
                     deleteIndexedDBRecordWithRetry(node.id).then(() => {
                       const pasteActive = isPasteOperationActive();
                       if (!pasteActive && this.ensureMinimumStructure) {
@@ -741,7 +702,6 @@ export class ChunkMutationHandler {
             else if (node.id && node.id.startsWith("hypercite_")) {
               parentNode = mutation.target;
               shouldUpdateParent = true;
-              console.log(`Hypercite removed from parent: ${parentNode.id}`, node);
             }
           }
         }
@@ -786,7 +746,6 @@ export class ChunkMutationHandler {
               const hasCitations = hcRecord && Array.isArray(hcRecord.citedIN) && hcRecord.citedIN.length > 0;
 
               if (hasCitations) {
-                console.log(`👻 Empty <u> hypercite → tombstone: ${target.id}`);
                 target.className = 'hypercite-tombstone';
                 target.setAttribute('data-ghost', 'true');
                 target.removeAttribute('style');
@@ -800,7 +759,7 @@ export class ChunkMutationHandler {
                 target.remove();
               }
             } catch (error) {
-              console.error('❌ Error converting empty hypercite to tombstone:', error);
+              log.error('Error converting empty hypercite to tombstone', 'divEditor/chunkMutationHandler.js', error);
             }
           }
         }
@@ -857,7 +816,6 @@ export class ChunkMutationHandler {
             }
 
             if (node.id && node.id.startsWith('hypercite_')) {
-              console.log(`✍️ Ignoring standalone hypercite mutation for ${node.id}. It will be saved with its parent.`);
               return;
             }
 
@@ -867,7 +825,6 @@ export class ChunkMutationHandler {
             // which batch.ts rejects as an invalid node ID and (mis)reports as a `batch-invalid-id`
             // integrity mismatch. Ignore them here, exactly like hypercites above.
             if (node.tagName === 'SUP' && node.classList && node.classList.contains('footnote-ref')) {
-              console.log(`✍️ Ignoring standalone footnote-ref mutation for ${node.id}. It will be saved with its parent.`);
               return;
             }
 
@@ -909,7 +866,6 @@ export class ChunkMutationHandler {
             // as a direct child of <ol>/<ul> despite preventDefault(). This is always invalid HTML.
             if (['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'PRE'].includes(node.tagName) &&
                 node.parentElement && ['OL', 'UL'].includes(node.parentElement.tagName)) {
-              console.log(`🛑 Removing phantom <${node.tagName.toLowerCase()}> inside <${node.parentElement.tagName.toLowerCase()}> (iOS Safari list bug)${node.textContent ? ` — had text: "${node.textContent.slice(0, 50)}"` : ''}`);
               const listParent = node.parentElement;
               node.remove();
               // Queue the parent list for save since its structure changed
@@ -929,7 +885,6 @@ export class ChunkMutationHandler {
             this.queueTocInvalidation(node.id, node);
 
             if (pasteDetected && node.id) {
-              verbose.content(`Queueing potentially pasted node: ${node.id}`, 'divEditor/chunkMutationHandler.js');
               if (this.queueNodeForSave) {
                 this.queueNodeForSave(node.id, 'add');
               }
@@ -943,7 +898,6 @@ export class ChunkMutationHandler {
               }
 
               if (parentWithId && parentWithId.id) {
-                verbose.content(`Queueing parent ${parentWithId.id} due to formatting change (${node.tagName})`, 'divEditor/chunkMutationHandler.js');
                 if (this.queueNodeForSave) {
                   this.queueNodeForSave(parentWithId.id, 'update');
                 }
@@ -962,7 +916,6 @@ export class ChunkMutationHandler {
         }
 
         if (parent && parent.id) {
-          verbose.content(`Queueing characterData change in parent: ${parent.id}`, 'divEditor/chunkMutationHandler.js');
 
           // 🚀 PERFORMANCE: Batch TOC invalidation
           this.queueTocInvalidation(parent.id, parent);
@@ -971,8 +924,6 @@ export class ChunkMutationHandler {
             this.queueNodeForSave(parent.id, 'update');
           }
           this.modifiedNodes.add(parent.id);
-        } else {
-          console.warn("characterData change detected but couldn't find parent with ID");
         }
       }
     }
@@ -992,7 +943,6 @@ export class ChunkMutationHandler {
         verbose.content(`Queueing ${newNodes.length} new nodes individually`, 'divEditor/chunkMutationHandler.js');
         newNodes.forEach((node: any) => {
           if (node.id) {
-            verbose.content(`Queueing new node: ${node.id}`, 'divEditor/chunkMutationHandler.js');
             if (this.queueNodeForSave) {
               this.queueNodeForSave(node.id, 'add');
             }

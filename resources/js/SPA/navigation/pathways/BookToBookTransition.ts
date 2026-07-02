@@ -7,6 +7,7 @@
  * This pathway does NOT hide the overlay - NavigationManager handles that
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
+import { log, verbose } from '../../../utilities/logger';
 import { waitForNavigationTarget, waitForElementReady, waitForElementReadyWithProgress, waitForMultipleElementsReadyWithProgress, waitForLayoutStabilization, waitForContentReady } from '../../domReadiness';
 import { cleanupReaderView } from '../../viewManager';
 import { resetEditModeState, enforceEditableState } from '../../../components/editButton/index';
@@ -59,9 +60,9 @@ export class BookToBookTransition {
     } = options;
 
     // URL will be updated at the end after all initialization is complete
-    console.log('📖 BookToBookTransition: Starting book-to-book transition', {
+    verbose.nav('📖 BookToBookTransition: Starting book-to-book transition', '/SPA/navigation/pathways/BookToBookTransition.ts', {
       fromBook, toBook, hash, hyperlightId, hyperciteId, footnoteId
-    });
+    } as any);
 
     // Create the transition promise for concurrent handling
     this.currentTransitionPromise = (async () => {
@@ -116,7 +117,7 @@ export class BookToBookTransition {
         let resolvedBookId: any;
         const clientOnly = isPopstate && !isMultiLevelCascade && await this.isBookFreshInIndexedDB(toBook);
         if (clientOnly) {
-          console.log(`⚡ BookToBookTransition: ${toBook} is fresh in IndexedDB — client-only nav, NO server fetch`);
+          verbose.nav(`BookToBookTransition: ${toBook} is fresh in IndexedDB — client-only nav, NO server fetch`, '/SPA/navigation/pathways/BookToBookTransition.ts');
           progress(40, 'Loading from your device...');
           resolvedBookId = this.reuseShellForClientOnly(toBook);
         } else {
@@ -197,15 +198,14 @@ export class BookToBookTransition {
 
         progress(100, 'Complete!');
 
-        console.log('✅ BookToBookTransition: Book-to-book transition complete');
+        verbose.nav('✅ BookToBookTransition: Book-to-book transition complete', '/SPA/navigation/pathways/BookToBookTransition.ts');
         // NOTE: NavigationManager will hide the overlay when this returns
 
       } catch (error) {
-        console.error('❌ BookToBookTransition: Transition failed:', error);
+        log.error('❌ BookToBookTransition: Transition failed:', '/SPA/navigation/pathways/BookToBookTransition.ts', error);
 
         // Fallback to full page navigation
         const fallbackUrl = `/${toBook}${hash}`;
-        console.log('🔄 BookToBookTransition: Falling back to full page navigation:', fallbackUrl);
         window.location.href = fallbackUrl;
 
         throw error;
@@ -229,8 +229,6 @@ export class BookToBookTransition {
    * Clean up current reader state while preserving navigation
    */
   static async cleanupCurrentReader() {
-    console.log('🧹 BookToBookTransition: Cleaning up current reader (preserving navigation)');
-
     try {
       // Import and call the existing cleanup function from viewManager
       cleanupReaderView();
@@ -241,14 +239,13 @@ export class BookToBookTransition {
       // 🧹 CRITICAL: Destroy user container to prevent stale button references
       if (typeof destroyUserContainer === 'function') {
         destroyUserContainer();
-        console.log('✅ BookToBookTransition: User container destroyed');
       }
 
       // The original cleanup for overlays is still useful here
       this.cleanupNavigationOverlays();
 
     } catch (error) {
-      console.warn('Some cleanup steps failed, continuing:', error);
+      // Non-fatal: continue the transition
     }
   }
 
@@ -256,24 +253,15 @@ export class BookToBookTransition {
    * Clean up accumulated navigation overlays
    */
   static cleanupNavigationOverlays() {
-    console.log('🧹 BookToBookTransition: Cleaning up accumulated navigation overlays');
-    
     // Remove all navigation overlay elements (except the main one we'll reuse)
     const overlays = document.querySelectorAll('.navigation-overlay');
-    let removedCount = 0;
-    
+
     overlays.forEach(overlay => {
       // Keep the main initial-navigation-overlay for reuse, remove any duplicates
       if (overlay.id !== 'initial-navigation-overlay') {
         overlay.remove();
-        removedCount++;
-        console.log('🧹 BookToBookTransition: Removed duplicate navigation overlay');
       }
     });
-    
-    if (removedCount > 0) {
-      console.log(`🧹 BookToBookTransition: Cleaned up ${removedCount} duplicate navigation overlays`);
-    }
   }
 
   /**
@@ -291,7 +279,6 @@ export class BookToBookTransition {
     }
     
     const htmlString = await response.text();
-    console.log(`✅ BookToBookTransition: Fetched HTML (${htmlString.length} characters)`);
 
     return htmlString;
   }
@@ -323,7 +310,6 @@ export class BookToBookTransition {
         ((serverRec as any).annotations_updated_at || 0) <= ((localRec as any).annotations_updated_at || 0);
       return fresh;
     } catch (e) {
-      console.warn('BookToBookTransition: freshness check failed, using server path:', e);
       return false;
     }
   }
@@ -357,7 +343,7 @@ export class BookToBookTransition {
     (window as any).realBook = null;
     (window as any).timeMachineTimestamp = null;
 
-    try { enforceEditableState(); } catch (e) { console.warn('enforceEditableState failed:', e); }
+    try { enforceEditableState(); } catch (e) { /* non-fatal */ }
     return bookId;
   }
 
@@ -365,8 +351,6 @@ export class BookToBookTransition {
    * Replace only the page content, preserving navigation elements
    */
   static async replacePageContent(htmlString: any, bookId: any) {
-    console.log('🔄 BookToBookTransition: Replacing page content (preserving navigation)');
-    
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(htmlString, 'text/html');
     
@@ -375,11 +359,9 @@ export class BookToBookTransition {
     const newPageWrapper = newDoc.getElementById('page-wrapper');
     
     if (currentPageWrapper && newPageWrapper) {
-      console.log('🎯 BookToBookTransition: Replacing #page-wrapper content');
       currentPageWrapper.innerHTML = newPageWrapper.innerHTML;
     } else {
       // Fallback: replace entire body but preserve navigation overlay
-      console.warn('🎯 BookToBookTransition: #page-wrapper not found, falling back to body replacement');
 
       // 🎯 CRITICAL: Preserve the existing navigation overlay
       const existingOverlay = document.getElementById('initial-navigation-overlay');
@@ -388,7 +370,6 @@ export class BookToBookTransition {
       const overlayInFetchedHTML = newDoc.getElementById('initial-navigation-overlay');
       if (overlayInFetchedHTML) {
         overlayInFetchedHTML.remove();
-        console.log('🎯 BookToBookTransition: Removed overlay from fetched HTML');
       }
 
       // Replace body content
@@ -397,7 +378,6 @@ export class BookToBookTransition {
       // 🎯 CRITICAL: Re-insert the preserved overlay if it existed
       if (existingOverlay) {
         document.body.insertBefore(existingOverlay, document.body.firstChild);
-        console.log('🎯 BookToBookTransition: Preserved navigation overlay across body replacement');
       }
     }
     
@@ -457,14 +437,13 @@ export class BookToBookTransition {
     const editableDiv = document.getElementById(bookId);
     if (editableDiv) {
       editableDiv.contentEditable = "false";
-      console.log("🧹 BookToBookTransition: Reset contentEditable");
     }
-    
+
     // Enforce editable state
     try {
       enforceEditableState();
     } catch (error) {
-      console.warn('Could not enforce editable state:', error);
+      // Non-fatal
     }
   }
 
@@ -472,7 +451,7 @@ export class BookToBookTransition {
    * Initialize the reader for the new book
    */
   static async initializeReader(bookId: any, progressCallback: any, hasHashNavigation = false) {
-    console.log(`🚀 BookToBookTransition: Initializing reader for ${bookId}, hasHashNavigation: ${hasHashNavigation}`);
+    verbose.nav(`BookToBookTransition: Initializing reader for ${bookId}, hasHashNavigation: ${hasHashNavigation}`, '/SPA/navigation/pathways/BookToBookTransition.ts');
 
     try {
       // Set the current book
@@ -485,7 +464,6 @@ export class BookToBookTransition {
       // 🚀 CRITICAL: If we have hash navigation, set the global skip flag BEFORE universalPageInitializer
       // This persists across lazy loader resets and prevents restoreScrollPosition() from interfering
       if (hasHashNavigation) {
-        console.log(`🔒 Pre-setting skipScrollRestoration = true (hash navigation pending)`);
         setSkipScrollRestoration(true);
       }
 
@@ -493,17 +471,14 @@ export class BookToBookTransition {
       await universalPageInitializer(progressCallback);
 
       // 🔧 Reinitialize logo navigation toggle
-      console.log('🔧 BookToBookTransition: Reinitializing logo navigation toggle');
       if (typeof initializeLogoNav === 'function') {
         initializeLogoNav();
-        console.log('✅ BookToBookTransition: Logo navigation toggle initialized');
       }
 
       // All UI rebinding is now handled by universalPageInitializer
-      console.log("✅ BookToBookTransition: UI initialization delegated to universalPageInitializer");
 
     } catch (error) {
-      console.error('❌ BookToBookTransition: Reader initialization failed:', error);
+      log.error('❌ BookToBookTransition: Reader initialization failed:', '/SPA/navigation/pathways/BookToBookTransition.ts', error);
       throw error;
     }
   }
@@ -514,13 +489,9 @@ export class BookToBookTransition {
    */
   static async handleHashNavigation(hash: any, hyperlightId: any, hyperciteId: any, footnoteId: any, bookId: any, progress: any, targetUrl: any = null) {
     if (!hash && !hyperlightId && !hyperciteId && !footnoteId) {
-      console.log('📖 BookToBookTransition: No hash navigation needed');
+      verbose.nav('BookToBookTransition: No hash navigation needed', '/SPA/navigation/pathways/BookToBookTransition.ts');
       return false;
     }
-
-    console.log('🎯 BookToBookTransition: Handling hash navigation', {
-      hash, hyperlightId, hyperciteId, footnoteId
-    });
 
     // If the backend couldn't resolve the target (e.g. stale hypercite),
     // check whether the parent hyperlight/footnote still exists — if so,
@@ -534,7 +505,7 @@ export class BookToBookTransition {
       (window as any)._targetResolved = undefined; // Consume to prevent staleness
 
       if (!isMultiLevelCascade) {
-        console.warn('⚠️ BookToBookTransition: Target not resolved by backend');
+        verbose.nav('BookToBookTransition: Target not resolved by backend', '/SPA/navigation/pathways/BookToBookTransition.ts');
 
         // Show toast for the missing citation
         import('../../../components/toast/toast').then(({ showTargetNotFoundToast }) => {
@@ -548,12 +519,10 @@ export class BookToBookTransition {
 
         // If there's a parent hyperlight or footnote, navigate to that instead
         if (hyperlightId) {
-          console.log(`🎯 BookToBookTransition: Hypercite not found, navigating to hyperlight ${hyperlightId} instead`);
           await this.navigateToInternalId(hyperlightId, progress);
           return true;
         }
         if (footnoteId) {
-          console.log(`🎯 BookToBookTransition: Hypercite not found, navigating to footnote ${footnoteId} instead`);
           await navigateToFootnoteTarget(footnoteId, null, currentLazyLoader);
           return true;
         }
@@ -562,8 +531,6 @@ export class BookToBookTransition {
         await this.ensureInitialContentLoaded(bookId);
         return false;
       }
-
-      console.log('🔗 BookToBookTransition: Multi-level cascade detected, skipping "not found" fallback — letting chain system handle it');
     }
 
     try {
@@ -573,14 +540,11 @@ export class BookToBookTransition {
       // won't resolve until _navigateToInternalId loads the correct chunk itself.
       const hasPreloadedChunk = !!document.querySelector(`#${CSS.escape(bookId)} [data-chunk-id]`);
       if (pendingFirstChunkLoadedPromise && hasPreloadedChunk) {
-        console.log('⏳ BookToBookTransition: Waiting for content to load before navigation');
         await pendingFirstChunkLoadedPromise;
-        console.log('✅ BookToBookTransition: Content loaded, proceeding with navigation');
       }
 
       // Multi-level cascade: footnote + hyperlight/hypercite → nested containers
       if (footnoteId && (hyperlightId || hyperciteId) && targetUrl) {
-        console.log('🔗 BookToBookTransition: Detected multi-level cascade, using chain system');
         try {
           const urlObj = new URL(targetUrl, window.location.origin);
           const pathSegments = urlObj.pathname.split('/').filter(Boolean);
@@ -588,13 +552,11 @@ export class BookToBookTransition {
 
           if (chain && chain.length > 0) {
             const finalHash = hyperciteId || null;
-            console.log(`🔗 BookToBookTransition: Opening chain: ${chain.map(c => c.itemId).join(' -> ')} -> ${finalHash}`);
             await openContainerChain(chain, currentLazyLoader, finalHash);
             return true;
           }
-          console.warn('🔗 BookToBookTransition: Chain resolution returned empty, falling through');
         } catch (chainError) {
-          console.error('🔗 BookToBookTransition: Chain navigation failed, falling through:', chainError);
+          log.error('🔗 BookToBookTransition: Chain navigation failed, falling through:', '/SPA/navigation/pathways/BookToBookTransition.ts', chainError);
         }
       }
 
@@ -610,7 +572,6 @@ export class BookToBookTransition {
       } else if (footnoteId) {
         // Footnote navigation - scroll to footnote marker and open in container
         const internalId = hash ? (hash.startsWith('#') ? hash.substring(1) : hash) : null;
-        console.log(`🎯 BookToBookTransition: Navigating to footnote ${footnoteId}, internal: ${internalId}`);
         await navigateToFootnoteTarget(footnoteId, internalId, currentLazyLoader);
         return true;
       } else if (hash) {
@@ -623,7 +584,7 @@ export class BookToBookTransition {
       return false; // No navigation performed
 
     } catch (error) {
-      console.error('❌ BookToBookTransition: Hash navigation failed:', error);
+      log.error('❌ BookToBookTransition: Hash navigation failed:', '/SPA/navigation/pathways/BookToBookTransition.ts', error);
       // Don't throw - navigation failure shouldn't break the entire transition
       return false; // Progress was not hidden due to error
     }
@@ -633,8 +594,6 @@ export class BookToBookTransition {
    * Navigate to a hypercite target with deterministic element detection and progress optimization
    */
   static async navigateToHyperciteTarget(hyperlightId: any, hyperciteId: any, progress: any) {
-    console.log(`🎯 BookToBookTransition: Delegating to navigateToHyperciteTarget for ${hyperlightId} -> ${hyperciteId}`);
-
     try {
       // Let navigateToHyperciteTarget handle all the logic: waiting, scrolling, and opening
       // Don't wait here - it causes double-waiting and prevents proper scrolling
@@ -647,17 +606,17 @@ export class BookToBookTransition {
           setTimeout(() => progress.hide(), 100);
         }
       } else {
-        console.warn('currentLazyLoader not available for hypercite navigation');
+        log.error('currentLazyLoader not available for hypercite navigation', '/SPA/navigation/pathways/BookToBookTransition.ts');
       }
     } catch (error) {
-      console.error('Failed to navigate to hypercite target:', error);
+      log.error('Failed to navigate to hypercite target:', '/SPA/navigation/pathways/BookToBookTransition.ts', error);
       // Don't throw - attempt navigation anyway as fallback
       try {
         if (currentLazyLoader) {
           await navigateToHyperciteTarget(hyperlightId, hyperciteId, currentLazyLoader, false);
         }
       } catch (fallbackError) {
-        console.error('Fallback hypercite navigation also failed:', fallbackError);
+        log.error('Fallback hypercite navigation also failed:', '/SPA/navigation/pathways/BookToBookTransition.ts', fallbackError);
       }
     }
   }
@@ -666,8 +625,6 @@ export class BookToBookTransition {
    * Navigate to an internal ID with deterministic element detection and progress optimization
    */
   static async navigateToInternalId(targetId: any, progress: any) {
-    console.log(`🎯 BookToBookTransition: Navigating to internal ID: ${targetId}`);
-
     try {
       // Get the lazy loader and call navigateToInternalId which handles:
       // 1. Determining which chunk contains the element
@@ -678,7 +635,6 @@ export class BookToBookTransition {
         // 🚀 iOS Safari fix: Properly await navigation completion
         // This prevents iOS scroll restoration from interfering before navigation is done
         const result = await navigateToInternalId(targetId, currentLazyLoader, false);
-        console.log(`✅ BookToBookTransition: Navigation complete for ${targetId}`, result);
 
         // Update progress to show navigation is complete
         if (progress) {
@@ -686,11 +642,11 @@ export class BookToBookTransition {
         }
         return result;
       } else {
-        console.warn('currentLazyLoader not available for internal navigation');
+        log.error('currentLazyLoader not available for internal navigation', '/SPA/navigation/pathways/BookToBookTransition.ts');
         throw new Error('LazyLoader not available');
       }
     } catch (error) {
-      console.error('Failed to navigate to internal ID:', error);
+      log.error('Failed to navigate to internal ID:', '/SPA/navigation/pathways/BookToBookTransition.ts', error);
       // Re-throw to let NavigationManager handle error cleanup
       throw error;
     }
@@ -709,7 +665,7 @@ export class BookToBookTransition {
 
       // Only update URL if we're not already there
       if (currentUrl !== newUrl) {
-        console.log(`🔗 BookToBookTransition: Navigating to ${newUrl}`);
+        verbose.nav(`BookToBookTransition: Navigating to ${newUrl}`, '/SPA/navigation/pathways/BookToBookTransition.ts');
 
         // For book-to-book navigation, create a new history entry so back/forward works
         const currentState = history.state || {};
@@ -747,10 +703,10 @@ export class BookToBookTransition {
           history.pushState(newEntryState, '', newUrl);
         }
       } else {
-        console.log(`🔗 BookToBookTransition: Already at ${newUrl}`);
+        verbose.nav(`BookToBookTransition: Already at ${newUrl}`, '/SPA/navigation/pathways/BookToBookTransition.ts');
       }
     } catch (error) {
-      console.warn('Could not update URL:', error);
+      // Non-fatal
     }
   }
 
@@ -785,13 +741,9 @@ export class BookToBookTransition {
       toBook, 
       hyperlightId, 
       hyperciteId,
-      progressCallback 
+      progressCallback
     } = options;
-    
-    console.log('✨ BookToBookTransition: Handling hyperlight navigation', { 
-      fromBook, toBook, hyperlightId, hyperciteId 
-    });
-    
+
     // Use deterministic progress callback that shows progress immediately
     const progress = progressCallback || this.createDeterministicProgressCallback(toBook);
     
@@ -824,7 +776,7 @@ export class BookToBookTransition {
       
       return null;
     } catch (error) {
-      console.error('Error parsing hyperlight URL:', error);
+      log.error('Error parsing hyperlight URL:', '/SPA/navigation/pathways/BookToBookTransition.ts', error);
       return null;
     }
   }
@@ -854,25 +806,22 @@ export class BookToBookTransition {
    * Ensure initial content is actually loaded into the DOM
    */
   static async ensureInitialContentLoaded(bookId: any) {
-    console.log(`📄 BookToBookTransition: Ensuring initial content loaded for ${bookId}`);
-    
     try {
       // Check if content is already in the DOM
       const container = document.getElementById(bookId);
       if (!container) {
-        console.warn(`Container #${bookId} not found`);
+        log.error(`Container #${bookId} not found`, '/SPA/navigation/pathways/BookToBookTransition.ts');
         return;
       }
-      
+
       const existingChunks = container.querySelectorAll('[data-chunk-id]');
       if (existingChunks.length > 0) {
-        console.log(`✅ Content already loaded: ${existingChunks.length} chunks found`);
         return;
       }
-      
+
       // Get the lazy loader and manually load first chunk
       if (!currentLazyLoader) {
-        console.warn('No lazy loader available for manual chunk loading');
+        log.error('No lazy loader available for manual chunk loading', '/SPA/navigation/pathways/BookToBookTransition.ts');
         return;
       }
       
@@ -893,13 +842,11 @@ export class BookToBookTransition {
               );
               if (matchingNode) {
                 targetChunkId = matchingNode.chunk_id;
-                console.log(`📄 Resuming at chunk ${targetChunkId} (saved position: ${parsed.elementId})`);
               }
             }
           }
         } catch (e) { /* fall back to first chunk */ }
 
-        console.log(`📄 Manually loading chunk ${targetChunkId} for ${bookId}`);
         await currentLazyLoader.loadChunk(targetChunkId, "down");
 
         // If the loaded chunk has fewer than 20 nodes, load the next chunk too
@@ -921,15 +868,13 @@ export class BookToBookTransition {
 
         // Verify content was loaded
         const loadedChunks = container.querySelectorAll('[data-chunk-id]');
-        if (loadedChunks.length > 0) {
-          console.log(`✅ Initial content loaded successfully: ${loadedChunks.length} chunks`);
-        } else {
-          console.warn(`❌ Initial content load may have failed`);
+        if (loadedChunks.length === 0) {
+          log.error(`❌ Initial content load may have failed`, '/SPA/navigation/pathways/BookToBookTransition.ts');
         }
       }
-      
+
     } catch (error) {
-      console.error('Error ensuring initial content loaded:', error);
+      log.error('Error ensuring initial content loaded:', '/SPA/navigation/pathways/BookToBookTransition.ts', error);
     }
   }
 
@@ -939,8 +884,7 @@ export class BookToBookTransition {
   static createBookToBookProgressCallback(toBook: any) {
     const { ProgressOverlayConductor } = window as any;
     if (!ProgressOverlayConductor) {
-      console.warn('ProgressOverlayConductor not available, using console fallback');
-      return (percent: any, message: any) => console.log(`Progress: ${percent}% - ${message}`);
+      return (_percent: any, _message: any) => {};
     }
 
     return ProgressOverlayConductor.showBookToBookTransition(toBook);

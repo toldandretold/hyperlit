@@ -1,6 +1,6 @@
 // DOM Readiness Detection Utilities for Hyperlit Navigation
 // Provides reliable element detection for lazy-loaded content
-import { log } from "../utilities/logger";
+import { log, verbose } from "../utilities/logger";
 
 /**
  * Checks if an element is fully rendered and ready for interaction
@@ -32,15 +32,13 @@ function isElementFullyRendered(element: any) {
   if (element.tagName === 'MARK' && (element.id.startsWith('HL_') || element.id === 'HL_overlap')) {
     // Highlight should have proper classes applied
     const hasClasses = element.className && element.className.length > 0;
-    
+
     if (!hasClasses) {
-      console.log(`🔍 Highlight ${element.id} missing classes`);
       return false;
     }
-    
+
     // Check if highlight has proper data attributes
     if (!element.hasAttribute('data-highlight-count')) {
-      console.log(`🔍 Highlight ${element.id} missing data-highlight-count attribute`);
       return false;
     }
     
@@ -51,7 +49,6 @@ function isElementFullyRendered(element: any) {
                          computedStyle.backgroundColor !== 'transparent';
     
     if (!hasBackground) {
-      console.log(`🔍 Highlight ${element.id} missing background styling`);
       return false;
     }
     
@@ -65,12 +62,10 @@ function isElementFullyRendered(element: any) {
                           element.classList.contains('poly');
     
     if (!hasValidClass) {
-      console.log(`🔍 Hypercite ${element.id} missing relationship class. Classes: ${element.className}`);
       return false;
     }
-    
+
     // If it has the right class and dimensions, it's ready
-    console.log(`✅ Hypercite ${element.id} ready with class: ${element.className}`);
     return true;
   }
   
@@ -95,9 +90,7 @@ export function waitForElementReady(targetId: string, options: any = {}) {
   return new Promise<any>((resolve, reject) => {
     let attempts = 0;
     let startTime = Date.now();
-    
-    console.log(`⏳ Waiting for element: ${targetId} (max ${maxAttempts} attempts)`);
-    
+
     const checkElement = () => {
       attempts++;
       
@@ -115,7 +108,6 @@ export function waitForElementReady(targetId: string, options: any = {}) {
         for (const overlappingElement of overlappingElements) {
           const overlappingIds = overlappingElement.getAttribute('data-overlapping');
           if (overlappingIds && overlappingIds.split(',').map((id: any) => id.trim()).includes(targetId)) {
-            console.log(`🎯 Found hypercite ${targetId} in overlapping element during DOM readiness check`);
             element = overlappingElement;
             break;
           }
@@ -135,7 +127,6 @@ export function waitForElementReady(targetId: string, options: any = {}) {
                            rect.right <= window.innerWidth;
           
           if (!isVisible) {
-            console.log(`📍 Element ${targetId} found but not visible (attempt ${attempts})`);
             if (attempts >= maxAttempts) {
               reject(new Error(`Element ${targetId} found but never became visible after ${attempts} attempts`));
               return;
@@ -144,25 +135,19 @@ export function waitForElementReady(targetId: string, options: any = {}) {
             return;
           }
         }
-        
-        const elapsedTime = Date.now() - startTime;
-        console.log(`✅ Element ${targetId} ready after ${attempts} attempts (${elapsedTime}ms)`);
+
         resolve(element);
-        
+
       } else if (attempts >= maxAttempts) {
         const elapsedTime = Date.now() - startTime;
         const error = element 
           ? `Element ${targetId} found but not fully rendered after ${attempts} attempts (${elapsedTime}ms)`
           : `Element ${targetId} not found after ${attempts} attempts (${elapsedTime}ms)`;
-        
-        console.warn(`❌ ${error}`);
+
         reject(new Error(error));
-        
+
       } else {
         // Continue checking
-        if (attempts % 5 === 0) {
-          console.log(`⏳ Still waiting for ${targetId}... (attempt ${attempts}/${maxAttempts})`);
-        }
         setTimeout(checkElement, checkInterval);
       }
     };
@@ -186,9 +171,7 @@ export function waitForElementReadyWithProgress(targetId: string, progressCallba
     hideProgressMessage = 'Element ready',
     ...waitOptions
   } = options;
-  
-  console.log(`⏳ Waiting for ${targetId} with progress integration`);
-  
+
   let progressHidden = false;
   
   return waitForElementReady(targetId, {
@@ -199,16 +182,13 @@ export function waitForElementReadyWithProgress(targetId: string, progressCallba
         const element = document.querySelector(`#${CSS.escape(targetId)}`);
         if (element && isElementFullyRendered(element)) {
           // 🎯 CRITICAL: Element is visually ready - hide progress bar NOW
-          console.log(`✅ Hiding progress - ${targetId} is visually ready`);
           progressCallback(hideProgressAtPercent, `${targetId} ${hideProgressMessage}`);
-          
+
           // Import and hide progress overlay
           import('../SPA/navigation/ProgressOverlayEnactor.js').then(({ ProgressOverlayEnactor }) => {
             ProgressOverlayEnactor.hide();
-          }).catch(err => {
-            console.warn('Could not hide progress overlay:', err);
-          });
-          
+          }).catch(() => { /* non-fatal */ });
+
           progressHidden = true;
           return true; // Signal that we can proceed
         }
@@ -225,12 +205,9 @@ export function waitForElementReadyWithProgress(targetId: string, progressCallba
  * @returns {Promise<HTMLElement[]>} - Resolves with array of elements when all ready
  */
 export function waitForMultipleElementsReady(targetIds: any[], options: any = {}) {
-  console.log(`⏳ Waiting for multiple elements: ${targetIds.join(', ')}`);
-  
   const promises = targetIds.map((id: any) => waitForElementReady(id, options));
-  
+
   return Promise.all(promises).then(elements => {
-    console.log(`✅ All elements ready: ${targetIds.join(', ')}`);
     return elements;
   });
 }
@@ -249,9 +226,7 @@ export function waitForMultipleElementsReadyWithProgress(targetIds: any[], progr
     hideProgressMessage = 'Elements ready',
     ...waitOptions
   } = options;
-  
-  console.log(`⏳ Waiting for multiple elements with progress: ${targetIds.join(', ')}`);
-  
+
   let progressHidden = false;
   let readyCount = 0;
   
@@ -266,15 +241,12 @@ export function waitForMultipleElementsReadyWithProgress(targetIds: any[], progr
             
             // Hide progress when all elements are ready
             if (readyCount >= targetIds.length) {
-              console.log(`✅ Hiding progress - all ${targetIds.length} elements are visually ready`);
               progressCallback(hideProgressAtPercent, hideProgressMessage);
 
               import('../SPA/navigation/ProgressOverlayEnactor.js').then(({ ProgressOverlayEnactor }) => {
                 ProgressOverlayEnactor.hide();
-              }).catch(err => {
-                console.warn('Could not hide progress overlay:', err);
-              });
-              
+              }).catch(() => { /* non-fatal */ });
+
               progressHidden = true;
             }
             return true;
@@ -286,7 +258,6 @@ export function waitForMultipleElementsReadyWithProgress(targetIds: any[], progr
   );
   
   return Promise.all(promises).then(elements => {
-    console.log(`✅ All elements ready with progress: ${targetIds.join(', ')}`);
     return elements;
   });
 }
@@ -303,13 +274,10 @@ export function waitForChunkLoadingComplete(container: any, chunkId: any, timeou
     const startTime = Date.now();
     let mutationTimer: any = null;
     let hasSeenChunk = false;
-    
-    console.log(`⏳ Waiting for chunk ${chunkId} loading to complete...`);
-    
+
     // Check if chunk already exists
     const existingChunk = container.querySelector(`[data-chunk-id="${chunkId}"]`);
     if (existingChunk) {
-      console.log(`✅ Chunk ${chunkId} already loaded`);
       resolve();
       return;
     }
@@ -337,7 +305,6 @@ export function waitForChunkLoadingComplete(container: any, chunkId: any, timeou
         clearTimeout(mutationTimer);
         mutationTimer = setTimeout(() => {
           observer.disconnect();
-          console.log(`✅ Chunk ${chunkId} loading complete (mutations settled)`);
           resolve();
         }, 200); // Wait 200ms after last mutation to allow for styling
       }
@@ -355,7 +322,6 @@ export function waitForChunkLoadingComplete(container: any, chunkId: any, timeou
       clearTimeout(mutationTimer);
       
       if (hasSeenChunk) {
-        console.log(`✅ Chunk ${chunkId} loading timeout reached, but chunk was seen`);
         resolve();
       } else {
         reject(new Error(`Timeout waiting for chunk ${chunkId} after ${timeoutMs}ms`));
@@ -370,16 +336,13 @@ export function waitForChunkLoadingComplete(container: any, chunkId: any, timeou
  */
 async function waitForFontsReady() {
   if (!document.fonts) {
-    console.log(`📝 Font API not available, skipping font wait`);
     return;
   }
-  
+
   try {
-    console.log(`📝 Waiting for fonts to load...`);
     await document.fonts.ready;
-    console.log(`📝 Fonts loaded successfully`);
   } catch (error) {
-    console.warn(`📝 Font loading error (continuing anyway):`, error);
+    // Continue anyway
   }
 }
 
@@ -392,7 +355,7 @@ export async function waitForLayoutStabilization() {
     // Wait for any pending layout operations
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        log.init('waitForLayoutStabilization complete', '/SPA/domReadiness.ts')
+        verbose.init('waitForLayoutStabilization complete', '/SPA/domReadiness.ts')
         resolve();
       });
     });
@@ -411,11 +374,9 @@ export async function waitForLayoutStabilization() {
 export async function waitForNavigationTarget(targetId: string, container: any, expectedChunkId: any = null, options: any = {}) {
   const { 
     maxWaitTime = 10000,
-    requireVisible = false 
+    requireVisible = false
   } = options;
-  
-  console.log(`🎯 Waiting for navigation target: ${targetId} (chunk: ${expectedChunkId})`);
-  
+
   try {
     // If we know which chunk should contain the element, wait for that chunk first
     if (expectedChunkId !== null) {
@@ -468,9 +429,7 @@ export async function waitForContentReady(bookId: string, options: any = {}) {
   return new Promise<void>((resolve, reject) => {
     const startTime = Date.now();
     let attempts = 0;
-    
-    console.log(`⏳ Waiting for content to be ready for book: ${bookId}`);
-    
+
     const checkContentReady = () => {
       attempts++;
       const elapsed = Date.now() - startTime;
@@ -483,9 +442,6 @@ export async function waitForContentReady(bookId: string, options: any = {}) {
       
       // Check 1: nodes must be available
       if (!(window as any).nodes || (window as any).nodes.length === 0) {
-        if (attempts % 10 === 0) {
-          console.log(`⏳ Still waiting for nodes... (attempt ${attempts}, ${elapsed}ms)`);
-        }
         setTimeout(checkContentReady, checkInterval);
         return;
       }
@@ -495,62 +451,39 @@ export async function waitForContentReady(bookId: string, options: any = {}) {
         // Import dynamically to avoid circular dependencies
         import('../pageLoad/currentLazyLoaderState').then(({ currentLazyLoader }) => {
           if (!currentLazyLoader) {
-            if (attempts % 10 === 0) {
-              console.log(`⏳ Still waiting for lazy loader... (attempt ${attempts}, ${elapsed}ms)`);
-            }
             setTimeout(checkContentReady, checkInterval);
             return;
           }
-          
+
           // Check 3: Lazy loader must have the correct book ID
           if (currentLazyLoader.bookId !== bookId) {
-            if (attempts % 10 === 0) {
-              console.log(`⏳ Lazy loader book ID mismatch (${currentLazyLoader.bookId} !== ${bookId}) (attempt ${attempts}, ${elapsed}ms)`);
-            }
             setTimeout(checkContentReady, checkInterval);
             return;
           }
-          
+
           // Check 4: Container must exist in DOM
           const container = document.getElementById(bookId);
           if (!container) {
-            if (attempts % 10 === 0) {
-              console.log(`⏳ Still waiting for container #${bookId}... (attempt ${attempts}, ${elapsed}ms)`);
-            }
             setTimeout(checkContentReady, checkInterval);
             return;
           }
-          
+
           // All checks passed!
-          console.log(`✅ Content ready for ${bookId} after ${attempts} attempts (${elapsed}ms)`);
-          console.log(`   - nodes: ${(window as any).nodes.length} chunks available`);
-          console.log(`   - lazyLoader: initialized with book ${currentLazyLoader.bookId}`);
-          console.log(`   - container: #${bookId} found in DOM`);
           resolve();
-          
+
         }).catch(error => {
-          console.warn('Error importing initializePage.js:', error);
           // Continue without lazy loader check
-          if (attempts % 10 === 0) {
-            console.log(`⏳ Lazy loader check failed, continuing... (attempt ${attempts}, ${elapsed}ms)`);
-          }
           setTimeout(checkContentReady, checkInterval);
         });
       } else {
         // Skip lazy loader check, just verify container exists
         const container = document.getElementById(bookId);
         if (!container) {
-          if (attempts % 10 === 0) {
-            console.log(`⏳ Still waiting for container #${bookId}... (attempt ${attempts}, ${elapsed}ms)`);
-          }
           setTimeout(checkContentReady, checkInterval);
           return;
         }
-        
+
         // All checks passed (without lazy loader)
-        console.log(`✅ Content ready for ${bookId} after ${attempts} attempts (${elapsed}ms) - no lazy loader required`);
-        console.log(`   - nodes: ${(window as any).nodes.length} chunks available`);
-        console.log(`   - container: #${bookId} found in DOM`);
         resolve();
       }
     };
@@ -573,24 +506,19 @@ export async function waitForCompleteReadiness(bookId: string, options: any = {}
     maxWaitTime = 20000,    // Total maximum wait time
     requireLazyLoader = true
   } = options;
-  
-  console.log(`🎯 Starting complete readiness check for ${bookId}`, { targetId, maxWaitTime });
-  
+
   try {
     // Step 1: Wait for layout stabilization
-    console.log(`📐 Step 1: Layout stabilization`);
     await waitForLayoutStabilization();
-    
+
     // Step 2: Wait for content to be ready
-    console.log(`📄 Step 2: Content readiness`);
-    await waitForContentReady(bookId, { 
+    await waitForContentReady(bookId, {
       maxWaitTime: maxWaitTime * 0.7, // Use 70% of total time for content
       requireLazyLoader 
     });
     
     // Step 3: If navigation target specified, wait for it
     if (targetId) {
-      console.log(`🎯 Step 3: Navigation target readiness`);
       const container = document.getElementById(bookId) || document.body;
       await waitForElementReady(targetId, {
         maxAttempts: (maxWaitTime * 0.3) / 50, // Use remaining 30% of time
@@ -598,11 +526,9 @@ export async function waitForCompleteReadiness(bookId: string, options: any = {}
         container
       });
     }
-    
-    console.log(`✅ Complete readiness achieved for ${bookId}${targetId ? ` (target: ${targetId})` : ''}`);
-    
+
   } catch (error) {
-    console.error(`❌ Complete readiness failed for ${bookId}:`, error);
+    log.error(`❌ Complete readiness failed for ${bookId}:`, '/SPA/domReadiness.ts', error);
     throw error;
   }
 }

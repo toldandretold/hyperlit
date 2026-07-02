@@ -3,7 +3,6 @@
 // deps (pageLoad/currentLazyLoader, SPA/ProgressOverlayConductor, indexedDB barrel, syncQueue/master,
 // cloudRef). Only deps: leaf logger + blockElements constant + the app `book` global (app.js is the eager
 // entry root — referencing it folds nothing). IDfunctions.ts re-exports everything here.
-import { verbose } from './logger';
 import { ID_SKIP_TAGS } from './blockElements';
 import { book } from '../app';
 // Type-only import (erased at runtime) — keeps idHelpers a zero-runtime-import leaf.
@@ -109,7 +108,6 @@ function needsRenumbering(beforeId: string | null | undefined, afterId: string |
 // Utility: Generate a fallback unique ID if needed (used as a last resort).
 
 export function compareDecimalStrings(a: string | null | undefined, b: string | null | undefined): number {
-  verbose.content(`Comparing decimal strings: "${a}" vs "${b}"`, 'utilities/IDfunctions');
 
   // Handle null/undefined cases
   if (!a && !b) return 0;
@@ -124,7 +122,6 @@ export function compareDecimalStrings(a: string | null | undefined, b: string | 
   const [aInt = "", aDec = ""] = aStr.split(".");
   const [bInt = "", bDec = ""] = bStr.split(".");
 
-  verbose.content(`Split results: a(${aInt}.${aDec}) vs b(${bInt}.${bDec})`, 'utilities/IDfunctions');
 
   // Compare integer parts numerically
   const aIntNum = parseInt(aInt);
@@ -132,11 +129,9 @@ export function compareDecimalStrings(a: string | null | undefined, b: string | 
 
   if (aIntNum !== bIntNum) {
     const result = aIntNum - bIntNum;
-    verbose.content(`Integer parts differ: ${aIntNum} vs ${bIntNum}, result: ${result}`, 'utilities/IDfunctions');
     return result; // -1 if a < b, 1 if a > b, 0 if equal
   }
 
-  verbose.content(`Integer parts equal (${aIntNum}), comparing decimal parts`, 'utilities/IDfunctions');
 
   // Integer parts are equal, compare decimal parts as strings
   // Pad the shorter decimal with zeros for proper comparison
@@ -144,10 +139,8 @@ export function compareDecimalStrings(a: string | null | undefined, b: string | 
   const aPadded = aDec.padEnd(maxLen, '0');
   const bPadded = bDec.padEnd(maxLen, '0');
 
-  verbose.content(`Padded decimals: "${aPadded}" vs "${bPadded}"`, 'utilities/IDfunctions');
 
   const result = aPadded.localeCompare(bPadded);
-  verbose.content(`Decimal comparison result: ${result}`, 'utilities/IDfunctions');
 
   return result;
 }
@@ -184,21 +177,16 @@ export function setElementIds(element: any, beforeId: any, afterId: any, bookId:
 }
 
 export function generateIdBetween(beforeId: any, afterId: any) {
-  verbose.content(`Generating ID between: beforeId=${beforeId}, afterId=${afterId}`, 'utilities/IDfunctions');
 
   // RENUMBERING CHECK: Don't trigger here - let caller handle it after element is saved
   // Store the flag so caller can trigger renumbering deterministically
   const shouldRenumber = needsRenumbering(beforeId, afterId);
-  if (shouldRenumber) {
-    verbose.content('RENUMBERING NEEDED - Will trigger after element is saved', 'utilities/IDfunctions');
-  }
 
   // Store renumbering flag on window for caller to check
   (window as any).__pendingRenumbering = shouldRenumber;
 
   // 1) No beforeId → just pick something before afterId
   if (!beforeId) {
-    verbose.content("EXIT: No beforeId", 'utilities/IDfunctions');
     if (!afterId) return "1";
     const afterNum = parseFloat(afterId);
     return isNaN(afterNum)
@@ -208,7 +196,6 @@ export function generateIdBetween(beforeId: any, afterId: any) {
 
   // 2) No afterId → increment with 100-unit gap
   if (!afterId) {
-    verbose.content("EXIT: No afterId", 'utilities/IDfunctions');
     const beforeNum = parseFloat(beforeId);
     if (isNaN(beforeNum)) return `${beforeId}_1`;
 
@@ -232,7 +219,6 @@ export function generateIdBetween(beforeId: any, afterId: any) {
       return `${intPart}.${decPart.slice(0, -1)}${last + 1}`;
     }
 
-    verbose.content(`EXIT: No afterId, using 100-gap: ${nextInteger}`, 'utilities/IDfunctions');
     return nextInteger.toString();
   }
 
@@ -240,7 +226,6 @@ export function generateIdBetween(beforeId: any, afterId: any) {
   const beforeNum = parseFloat(beforeId);
   const afterNum = parseFloat(afterId);
   const cmp = compareDecimalStrings(beforeId, afterId);
-  verbose.content(`Comparison result: ${cmp}`, 'utilities/IDfunctions');
 
   if (cmp >= 0) {
     console.warn(`IDs out of order: ${beforeId} ≥ ${afterId}`);
@@ -267,7 +252,6 @@ export function generateIdBetween(beforeId: any, afterId: any) {
       const gap = afterNum - beforeNum;
       if (gap >= 2) {
         const midpoint = Math.floor((beforeNum + afterNum) / 2);
-        verbose.content(`EXIT: Integer gap ${gap}, using midpoint: ${midpoint}`, 'utilities/IDfunctions');
         return midpoint.toString();
       }
     }
@@ -276,7 +260,6 @@ export function generateIdBetween(beforeId: any, afterId: any) {
     // If there's room for an integer between them, use it
     const nextIntAfterBefore = Math.floor(beforeNum) + 1;
     if (compareDecimalStrings(nextIntAfterBefore.toString(), afterId) < 0) {
-      console.log(`EXIT: Using next available integer: ${nextIntAfterBefore}`);
       return nextIntAfterBefore.toString();
     }
 
@@ -288,7 +271,6 @@ export function generateIdBetween(beforeId: any, afterId: any) {
 
     // CASE 1) same integer part, both have decimals
     if (beforeParts[0] === afterParts[0] && lenB > 0 && lenA > 0) {
-      console.log("Case 1: same int & both decimals");
       const intPart = beforeParts[0];
       const beforeDec = beforeParts[1];
       const afterDec = afterParts[1];
@@ -304,31 +286,26 @@ export function generateIdBetween(beforeId: any, afterId: any) {
       if (afterDecNum - beforeDecNum > 1) {
         // Room to increment: 1.18 and 1.2 → 1.19
         let newDec = (beforeDecNum + 1).toString().padStart(workingLength, "0");
-        console.log(`EXIT: Room to increment decimal: ${intPart}.${newDec}`);
         return `${intPart}.${newDec}`;
       }
 
       // No room to increment, need to append a digit
       // 1.18 and 1.19 → 1.181
-      console.log("EXIT: No room to increment, appending digit");
       return `${beforeId}1`;
     }
 
     // CASE 2: before is integer, after has decimals (e.g. 100 vs 100.1)
-    verbose.content(`Checking case 2: beforeParts=${beforeParts.length}, afterParts=${afterParts.length}, sameInt=${beforeParts[0] === afterParts[0]}`, 'utilities/IDfunctions');
     if (
       beforeParts.length === 1 &&
       afterParts.length === 2 &&
       beforeParts[0] === afterParts[0]
     ) {
       // ... (This logic is correct for its purpose and is now protected by the fix above)
-      verbose.content("EXIT: Case 2 triggered", 'utilities/IDfunctions');
       const suffix = "0".repeat(lenA) + "1";
       return `${beforeParts[0]}.${suffix}`;
     }
 
     // CASE 3: integers with gap (e.g. 1 and 2 → 1.1, or 3 and 5 → 4)
-    verbose.content("Checking case 3...", 'utilities/IDfunctions');
     if (Number.isInteger(beforeNum) && Number.isInteger(afterNum)) {
       // ... (The fix above already handles the "3 and 5 -> 4" case, but this is fine as a fallback)
       if (afterNum - beforeNum === 1) {
@@ -377,7 +354,6 @@ export function generateIdBetween(beforeId: any, afterId: any) {
   }
 
   // FINAL fallback: This should now be unreachable for valid numerical inputs.
-  console.log("EXIT: Fallback");
   return `${beforeId}_next`;
 }
 // Helper function to find the ID of the previous element with a numerical ID
@@ -415,7 +391,6 @@ export function isNumericalId(id: any) {
 
 export function generateUniqueId() {
   const id = "node_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
-  console.log(`🆔 generateUniqueId: Created fallback ID: ${id}`);
   return id;
 }
 
@@ -451,10 +426,6 @@ export function isIdInUse(id: string): boolean {
 // derived from its neighbours. Falls back to a non-numeric generateUniqueId() when no
 // numeric base is available (hence the loose return type). NOT the stable data-node-id.
 export function generateInsertedLineId(referenceNode: any, insertAfter = true) {
-  console.log(`🔄 generateInsertedLineId: Called with reference node:`, 
-    referenceNode ? `#${referenceNode.id} <${referenceNode.tagName.toLowerCase()}>` : 'null', 
-    `insertAfter: ${insertAfter}`);
-  
   if (!referenceNode || !referenceNode.id) {
     console.warn(`⚠️ generateInsertedLineId: No valid reference node, falling back to unique ID`);
     return generateUniqueId();
@@ -471,7 +442,6 @@ export function generateInsertedLineId(referenceNode: any, insertAfter = true) {
   let newId: any;
   if (insertAfter) {
     newId = getNextDecimalForBase(baseId);
-    console.log(`✅ generateInsertedLineId: Inserting AFTER #${referenceNode.id} → new ID: ${newId}`);
   } else {
     // For inserting before, try to derive from the previous sibling.
     const parent = referenceNode.parentElement;
@@ -482,7 +452,6 @@ export function generateInsertedLineId(referenceNode: any, insertAfter = true) {
     
     const siblings = Array.from(parent.children);
     const pos = siblings.indexOf(referenceNode);
-    console.log(`🔍 generateInsertedLineId: Reference node position among siblings: ${pos}/${siblings.length}`);
     
     if (pos > 0) {
       const prevSibling: any = siblings[pos - 1];
@@ -491,18 +460,14 @@ export function generateInsertedLineId(referenceNode: any, insertAfter = true) {
         if (prevMatch) {
           const prevBase = prevMatch[1];
           newId = getNextDecimalForBase(prevBase);
-          console.log(`✅ generateInsertedLineId: Using previous sibling #${prevSibling.id} → new ID: ${newId}`);
         } else {
           newId = `${baseId}.1`;
-          console.log(`⚠️ generateInsertedLineId: Previous sibling has non-standard ID, using ${newId}`);
         }
       } else {
         newId = `${baseId}.1`;
-        console.log(`⚠️ generateInsertedLineId: Previous sibling has no ID, using ${newId}`);
       }
     } else {
       newId = `${baseId}.1`;
-      console.log(`✅ generateInsertedLineId: No previous sibling, using ${newId}`);
     }
   }
   
@@ -560,7 +525,6 @@ export function ensureNodeHasValidId(node: any, options: any = {}) {
 
   // Skip elements that shouldn't have IDs (e.g. inline tags, LI whose parent OL/UL has the ID)
   if (ID_SKIP_TAGS.has(node.tagName)) {
-    console.log(`Skipping ID assignment for ${node.tagName} element`);
     return;
   }
 
@@ -575,12 +539,10 @@ export function ensureNodeHasValidId(node: any, options: any = {}) {
       if (match) {
         const baseId = match[1];
         const newId = getNextDecimalForBase(baseId);
-        console.log(`ID conflict detected. Changing node id from ${node.id} to ${newId}`);
         node.id = newId;
       } else {
         const oldId = node.id;
         node.id = generateUniqueId();
-        console.log(`ID conflict detected (non-numeric). Changing node id from ${oldId} to ${node.id}`);
       }
     }
   } else {
@@ -593,7 +555,6 @@ export function ensureNodeHasValidId(node: any, options: any = {}) {
         node.setAttribute('data-node-id', generateDataNodeId(book));
       }
 
-      console.log(`Assigned new id ${node.id} and data-node-id based on reference insertion direction.`);
     } else {
       // Find the node's position in the DOM and assign appropriate ID
       let beforeId = findPreviousElementId(node);
@@ -620,7 +581,6 @@ export function ensureNodeHasValidId(node: any, options: any = {}) {
         node.setAttribute('data-node-id', generateDataNodeId(book));
       }
 
-      console.log(`Assigned positional id ${node.id} and data-node-id to node <${node.tagName.toLowerCase()}> (between ${beforeId} and ${afterId})`);
     }
 
     // Defense in depth: the assignment above can collide with an existing node
@@ -634,12 +594,10 @@ export function ensureNodeHasValidId(node: any, options: any = {}) {
       const match = node.id.match(/^(\d+)(\.\d+)?$/);
       if (match) {
         const newId = getNextDecimalForBase(match[1]);
-        console.log(`ID conflict on insert. Changing node id from ${node.id} to ${newId}`);
         node.id = newId;
       } else {
         const oldId = node.id;
         node.id = generateUniqueId();
-        console.log(`ID conflict on insert (non-numeric). Changing node id from ${oldId} to ${node.id}`);
       }
     }
   }

@@ -14,8 +14,13 @@ class OpenLibraryService
     /**
      * Search Open Library for books matching the given criteria.
      * Returns an array of normalised work arrays compatible with the library stub shape.
+     *
+     * $throwOnFailure: opt-in exception on HTTP/transport failure, for callers
+     * that must distinguish "source down" from "source had nothing" (the
+     * citation ingest job's status reporting). Default keeps the silent-empty
+     * contract for existing callers.
      */
-    public function search(string $title, ?string $author = null, int $limit = 5): array
+    public function search(string $title, ?string $author = null, int $limit = 5, bool $throwOnFailure = false): array
     {
         $params = [
             'title'  => $title,
@@ -32,6 +37,9 @@ class OpenLibraryService
 
             if (!$response->successful()) {
                 Log::warning('Open Library API returned ' . $response->status() . ' for title: ' . $title);
+                if ($throwOnFailure) {
+                    throw new \RuntimeException('Open Library API returned ' . $response->status());
+                }
                 return [];
             }
 
@@ -40,6 +48,9 @@ class OpenLibraryService
             return array_map(fn(array $doc) => $this->normaliseDoc($doc), $docs);
         } catch (\Exception $e) {
             Log::warning('Open Library API request failed: ' . $e->getMessage());
+            if ($throwOnFailure) {
+                throw $e instanceof \RuntimeException ? $e : new \RuntimeException('Open Library request failed: ' . $e->getMessage(), 0, $e);
+            }
             return [];
         }
     }

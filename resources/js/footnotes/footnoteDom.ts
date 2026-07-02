@@ -6,7 +6,7 @@
  * the rendered HTML. Depends only on the footnoteCache leaf.
  */
 
-import { log, verbose } from '../utilities/logger';
+import { verbose } from '../utilities/logger';
 import { isFootnoteId, getDisplayNumber, hasOldFormatFootnotes } from './footnoteCache';
 
 /**
@@ -216,7 +216,7 @@ export async function migrateOldFormatFootnotes(bookId: string, nodes: any[]): P
     return nodes;
   }
 
-  log.content(`Migrating old footnote format to new format for book ${bookId}...`, 'FootnoteNumberingService.js');
+  verbose.content(`Migrating old footnote format to new format for book ${bookId}...`, 'FootnoteNumberingService.js');
 
   // Build a map from display number to footnote ID by scanning HTML content
   const displayToId = new Map<string, string>();
@@ -274,7 +274,7 @@ export async function migrateOldFormatFootnotes(bookId: string, nodes: any[]): P
     }
   }
 
-  log.content(`Migration complete: ${migratedCount} footnote references migrated`, 'FootnoteNumberingService.js');
+  verbose.content(`Migration complete: ${migratedCount} footnote references migrated`, 'FootnoteNumberingService.js');
 
   // Note: The caller should save the updated nodes to IndexedDB if needed
   return nodes;

@@ -7,7 +7,7 @@
  * import — those handlers live in the page-load layer, not the data layer.
  */
 import { openDatabase } from '../index';
-import { log, verbose } from '../../utilities/logger';
+import { verbose } from '../../utilities/logger';
 import { flushAllPendingEdits } from './flush';
 import {
   clearBookDataFromIndexedDB,
@@ -120,7 +120,7 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<PullResu
       throw new Error(`Failed to load ${failures.length} data types into IndexedDB`);
     }
 
-    log.content('Database sync completed', 'serverSync/pull');
+    verbose.content('Database sync completed', 'serverSync/pull');
 
     return {
       success: true,
@@ -196,7 +196,7 @@ export async function syncAnnotationsOnly(bookId: string): Promise<PullResult> {
     // We use the standalone hyperlights (data.hyperlights) because they're unfiltered
     await updateEmbeddedAnnotationsInNodes(db, bookId, data.hyperlights, data.hypercites);
 
-    log.content('Annotations-only sync completed', 'serverSync/pull');
+    verbose.content('Annotations-only sync completed', 'serverSync/pull');
 
     return {
       success: true,

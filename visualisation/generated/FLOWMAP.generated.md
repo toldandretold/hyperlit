@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1572 functions in 338 modules · 10 object stores · 10 PG tables · 3214 edges
+**MarkdownDB** schema v27 · 1572 functions in 338 modules · 10 object stores · 10 PG tables · 3210 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -520,12 +520,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `queueNodeForDeletion` | `divEditor/editorState` | — | — | — | — |
 | `queueNodeForSave` | `divEditor/editorState` | — | — | — | — |
 | `setActiveSaveQueue` | `divEditor/editorState` | — | — | — | — |
-| `forceLeakTest` | `divEditor/editSessionManager` | — | — | read/write | — |
 | `getActiveEditSession` | `divEditor/editSessionManager` | — | — | — | — |
-| `getDiagnosticReport` | `divEditor/editSessionManager` | — | — | — | — |
 | `isContainerEditing` | `divEditor/editSessionManager` | — | — | — | — |
 | `isEventInActiveDiv` | `divEditor/editSessionManager` | — | — | — | — |
-| `printSessionHistory` | `divEditor/editSessionManager` | — | — | — | — |
 | `registerEditSession` | `divEditor/editSessionManager` | — | — | — | — |
 | `setPreemptStop` | `divEditor/editSessionManager` | — | — | — | — |
 | `unregisterEditSession` | `divEditor/editSessionManager` | — | — | — | — |
@@ -654,6 +651,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `CitationMode._renderShelfOptions` | `editToolbar/citationMode/index` | — | — | read/write | — |
 | `CitationMode._togglePickerVisibility` | `editToolbar/citationMode/index` | — | — | — | — |
 | `CitationMode._updateScopeBarVisibility` | `editToolbar/citationMode/index` | — | — | — | — |
+| `CitationMode.applyExternalEmptyMessage` | `editToolbar/citationMode/index` | — | — | write | — |
 | `CitationMode.attachEventHandlers` | `editToolbar/citationMode/index` | — | — | — | — |
 | `CitationMode.clearExternalRetry` | `editToolbar/citationMode/index` | — | — | — | — |
 | `CitationMode.close` | `editToolbar/citationMode/index` | — | — | read/write | — |
@@ -670,7 +668,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `CitationMode.performSearch` | `editToolbar/citationMode/index` | — | — | read/write | — |
 | `CitationMode.renderResults` | `editToolbar/citationMode/index` | — | — | read/write | — |
 | `CitationMode.repositionContainer` | `editToolbar/citationMode/index` | — | — | read | — |
-| `CitationMode.scheduleExternalRetry` | `editToolbar/citationMode/index` | — | — | — | — |
+| `CitationMode.scheduleNextExternalPoll` | `editToolbar/citationMode/index` | — | — | — | — |
+| `CitationMode.showExternalSearchingState` | `editToolbar/citationMode/index` | — | — | write | — |
+| `CitationMode.updateExternalPolling` | `editToolbar/citationMode/index` | — | — | — | — |
 | `buildResultButton` | `editToolbar/citationMode/resultsRender` | — | — | write | — |
 | `buildCombinedSearchUrl` | `editToolbar/citationMode/searchQuery` | — | — | — | — |
 | `HeadingSubmenu.closeHeadingSubmenu` | `editToolbar/headingSubmenu` | — | — | write | — |
@@ -785,7 +785,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `generateFootnoteId` | `footnotes/footnoteInserter` | — | — | — | — |
 | `insertFootnoteAtCursor` | `footnotes/footnoteInserter` | — | `footnotes` | read/write | — |
 | `openFootnoteForEditing` | `footnotes/footnoteInserter` | — | — | — | — |
-| `rebuildAndRenumber` | `footnotes/FootnoteNumberingService` | `nodes` | `nodes` | read | — |
+| `rebuildAndRenumber` | `footnotes/FootnoteNumberingService` | `nodes` | `nodes` | — | — |
 | `highlightTargetHypercite` | `hypercites/animations` | — | — | read/write | — |
 | `restoreNormalHyperciteDisplay` | `hypercites/animations` | — | — | read/write | — |
 | `revealGhostIfTombstone` | `hypercites/animations` | — | — | read/write | — |
@@ -1585,7 +1585,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 235
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 234
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1690,7 +1690,6 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `editToolbar/citationMode/index` → `citations/citationInserter`
 - `editToolbar/index` → `footnotes/footnoteInserter`
 - `footnotes/FootnoteNumberingService` → `indexedDB/core/connection`
-- `footnotes/FootnoteNumberingService` → `indexedDB/index`
 - `footnotes/FootnoteNumberingService` → `indexedDB/nodes/batch`
 - `hypercites/deletion` → `hyperlights/index`
 - `hyperlights/deleteHighlight` → `divEditor/index`

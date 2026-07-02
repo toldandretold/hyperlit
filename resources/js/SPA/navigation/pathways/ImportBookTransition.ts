@@ -7,6 +7,7 @@
  * This pathway does NOT hide the overlay - NavigationManager handles that
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
+import { log, verbose } from '../../../utilities/logger';
 import { registerNavActions } from '../navigationRegistry';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { waitForLayoutStabilization, waitForContentReady } from '../../domReadiness';
@@ -29,16 +30,14 @@ export class ImportBookTransition {
    * Execute book import and transition
    */
   static async execute(options: any = {}) {
-    console.log('🔥 DEBUG: ImportBookTransition.execute() CALLED with options:', options);
-
     const {
       bookId,
       progressCallback,
       shouldEnterEditMode = true
     } = options;
 
-    console.log('📥 ImportBookTransition: Starting import book transition', { bookId, shouldEnterEditMode });
-    
+    verbose.nav('📥 ImportBookTransition: Starting import book transition', '/SPA/navigation/pathways/ImportBookTransition.ts', { bookId, shouldEnterEditMode } as any);
+
     try {
       // Use provided progress callback or create our own
       const progress = progressCallback || ProgressOverlayConductor.createProgressCallback('spa');
@@ -91,15 +90,14 @@ export class ImportBookTransition {
 
       progress(100, 'Import complete!');
 
-      console.log('✅ ImportBookTransition: Import book transition complete');
+      verbose.nav('✅ ImportBookTransition: Import book transition complete', '/SPA/navigation/pathways/ImportBookTransition.ts');
       // NOTE: NavigationManager will hide the overlay when this returns
 
     } catch (error) {
-      console.error('❌ ImportBookTransition: Transition failed:', error);
+      log.error('❌ ImportBookTransition: Transition failed:', '/SPA/navigation/pathways/ImportBookTransition.ts', error);
 
       // Fallback to full page navigation
       const fallbackUrl = `/${bookId}/edit`;
-      console.log('🔄 ImportBookTransition: Falling back to full page navigation:', fallbackUrl);
       window.location.href = fallbackUrl;
 
       throw error;
@@ -110,13 +108,10 @@ export class ImportBookTransition {
    * Clean up any previous reader state
    */
   static async cleanupPreviousState() {
-    console.log('🧹 ImportBookTransition: Cleaning up previous state');
-    
     try {
       // Import and destroy homepage-specific components
       if (destroyUserContainer) destroyUserContainer();
       if (destroyNewBookContainer) destroyNewBookContainer();
-      console.log('🧹 ImportBookTransition: Homepage containers destroyed.');
 
       if (destroyHomepageDisplayUnit) destroyHomepageDisplayUnit();
 
@@ -126,7 +121,7 @@ export class ImportBookTransition {
       // Also clean up the reader view in case of an inconsistent state
       cleanupReaderView();
     } catch (error) {
-      console.warn('⚠️ Cleanup failed, but continuing transition:', error);
+      // Non-fatal: continue the transition
     }
   }
 
@@ -142,8 +137,7 @@ export class ImportBookTransition {
     }
     
     const htmlString = await response.text();
-    console.log(`✅ ImportBookTransition: Fetched HTML (${htmlString.length} characters)`);
-    
+
     return htmlString;
   }
 
@@ -151,8 +145,6 @@ export class ImportBookTransition {
    * Replace body content with reader HTML
    */
   static async replaceBodyContent(htmlString: any, bookId: BookId) {
-    console.log('🔄 ImportBookTransition: Replacing body content (import form → reader)');
-
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(htmlString, 'text/html');
 
@@ -163,7 +155,6 @@ export class ImportBookTransition {
     const overlayInFetchedHTML = newDoc.getElementById('initial-navigation-overlay');
     if (overlayInFetchedHTML) {
       overlayInFetchedHTML.remove();
-      console.log('🎯 ImportBookTransition: Removed overlay from fetched HTML');
     }
 
     // Replace the entire body content
@@ -172,7 +163,6 @@ export class ImportBookTransition {
     // 🎯 CRITICAL: Re-insert the preserved overlay if it existed
     if (existingOverlay) {
       document.body.insertBefore(existingOverlay, document.body.firstChild);
-      console.log('🎯 ImportBookTransition: Preserved navigation overlay across body replacement');
     }
 
     // 🔥 CRITICAL: Rebind ProgressOverlayEnactor to the preserved element
@@ -186,8 +176,7 @@ export class ImportBookTransition {
     
     // Ensure data-page is set to "reader"
     document.body.setAttribute('data-page', 'reader');
-    console.log('🎯 ImportBookTransition: Set data-page="reader"');
-    
+
     // Update document title
     document.title = newDoc.title;
     
@@ -195,14 +184,13 @@ export class ImportBookTransition {
     const editableDiv = document.getElementById(bookId);
     if (editableDiv) {
       editableDiv.contentEditable = "false";
-      console.log("🧹 ImportBookTransition: Reset contentEditable after HTML replacement");
     }
-    
+
     // Enforce editable state
     try {
       enforceEditableState();
     } catch (error) {
-      console.warn('Could not enforce editable state:', error);
+      // Non-fatal
     }
   }
 
@@ -212,19 +200,15 @@ export class ImportBookTransition {
   static setupImportedBookSession(bookId: BookId) {
     // Set the session flag for overlay management
     sessionStorage.setItem('pending_import_book', bookId);
-    console.log(`🎯 ImportBookTransition: Set pending_import_book flag: ${bookId}`);
-    
+
     // Mark this as imported content
     sessionStorage.setItem('imported_book_flag', bookId);
-    console.log(`🎯 ImportBookTransition: Set imported_book_flag: ${bookId}`);
   }
 
   /**
    * Initialize the imported reader view
    */
   static async initializeImportedReader(bookId: BookId, progressCallback: any) {
-    console.log(`🚀 ImportBookTransition: Initializing imported reader for ${bookId}`);
-    
     try {
       // Set the current book
       setCurrentBook(bookId);
@@ -235,32 +219,27 @@ export class ImportBookTransition {
       if (overlay) {
         overlay.style.display = 'none';
         overlay.style.visibility = 'hidden';
-        console.log('🎯 ImportBookTransition: Overlay hidden for imported book');
       }
 
       // Resolve the first chunk promise since content is already in DOM
       try {
         resolveFirstChunkPromise();
-        console.log("✅ ImportBookTransition: First chunk promise resolved");
       } catch (error) {
-        console.warn('Could not resolve first chunk promise:', error);
+        // Non-fatal
       }
 
       // Initialize the reader view using the existing system
       await universalPageInitializer(progressCallback);
 
       // 🔧 Reinitialize logo navigation toggle
-      console.log('🔧 ImportBookTransition: Reinitializing logo navigation toggle');
       if (typeof initializeLogoNav === 'function') {
         initializeLogoNav();
-        console.log('✅ ImportBookTransition: Logo navigation toggle initialized');
       }
 
       // All UI rebinding is now handled by universalPageInitializer
-      console.log("✅ ImportBookTransition: UI initialization delegated to universalPageInitializer");
-      
+
     } catch (error) {
-      console.error('❌ ImportBookTransition: Reader initialization failed:', error);
+      log.error('❌ ImportBookTransition: Reader initialization failed:', '/SPA/navigation/pathways/ImportBookTransition.ts', error);
       throw error;
     }
   }
@@ -269,15 +248,11 @@ export class ImportBookTransition {
    * Enter edit mode
    */
   static async enterEditMode() {
-    console.log('📝 ImportBookTransition: Entering edit mode');
-    
     try {
       await (enableEditMode as any)(null, false); // false = don't force redirect
 
-      console.log('✅ ImportBookTransition: Edit mode enabled');
-      
     } catch (error) {
-      console.error('❌ ImportBookTransition: Failed to enter edit mode:', error);
+      log.error('❌ ImportBookTransition: Failed to enter edit mode:', '/SPA/navigation/pathways/ImportBookTransition.ts', error);
       // Don't throw - edit mode failure shouldn't break the entire transition
     }
   }
@@ -290,9 +265,8 @@ export class ImportBookTransition {
     
     try {
       history.pushState({}, '', newUrl);
-      console.log(`🔗 ImportBookTransition: Updated URL to ${newUrl}`);
-    } catch (error) {
-      console.warn('Could not update URL:', error);
+    } catch {
+      // Non-fatal — URL update is best-effort
     }
   }
 
@@ -331,7 +305,6 @@ export class ImportBookTransition {
     const targetEl = (citeForm || container) as HTMLElement | null;
 
     if (!targetEl) {
-      console.warn('Could not find form container for progress UI');
       return null;
     }
 
@@ -506,7 +479,6 @@ export class ImportBookTransition {
         await new Promise(r => setTimeout(r, 2000));
         return poll();
       } catch (err: any) {
-        console.warn(`[poll] error: ${err.name}: ${err.message}`);
         // Network/server errors — retry with backoff
         if (err.message?.startsWith('Poll failed') || err.name === 'TypeError') {
           networkRetries++;
@@ -531,8 +503,6 @@ export class ImportBookTransition {
    * This is the main entry point from newBookForm.js
    */
   static async handleFormSubmissionAndTransition(formData: any, submitButton: any) {
-    console.log('ImportBookTransition: Starting form submission and transition');
-
     // Hoisted so the outer catch can restore button layout regardless of
     // where in the try block the failure occurred.
     let restoreButtonLayout = () => {};
@@ -628,7 +598,7 @@ export class ImportBookTransition {
 
         try {
           const errorJson = JSON.parse(errorText);
-          console.error('Server validation errors:', errorJson);
+          log.error('Server validation errors:', '/SPA/navigation/pathways/ImportBookTransition.ts', errorJson);
 
           if (errorJson.error && errorJson.error.includes('Failed to process file')) {
             isProcessingError = true;
@@ -642,7 +612,7 @@ export class ImportBookTransition {
             errorDetails = errorJson.message || errorJson.error || errorText;
           }
         } catch (e) {
-          console.error('Server error (not JSON):', errorText);
+          log.error('Server error (not JSON):', '/SPA/navigation/pathways/ImportBookTransition.ts', errorText);
           errorDetails = errorText;
         }
 
@@ -653,7 +623,6 @@ export class ImportBookTransition {
       }
 
       const result = await response.json();
-      console.log('Import response:', result);
 
       if (!result.bookId) {
         throw new Error('No bookId returned from backend');
@@ -671,19 +640,11 @@ export class ImportBookTransition {
           tx.oncomplete = () => resolve();
           tx.onerror = () => reject(tx.error);
         });
-        console.log('Server library record saved to IndexedDB');
       }
 
       // If status is 'processing', show progress UI and poll
       if (result.status === 'processing') {
-        console.log('Import dispatched to background, starting progress polling');
-
         const progressUI = this.createImportProgressUI(result.bookId);
-
-        if (!progressUI) {
-          // Fallback: can't show progress UI, just wait
-          console.warn('Could not create progress UI, falling back');
-        }
 
         try {
           const completeData = await this.pollImportProgress(result.bookId, progressUI || {
@@ -708,16 +669,14 @@ export class ImportBookTransition {
                 tx.oncomplete = () => resolve();
                 tx.onerror = () => reject(tx.error);
               });
-              console.log('Updated library record saved to IndexedDB from post-processing');
             } catch (libErr) {
-              console.warn('Failed to update library in IndexedDB (non-fatal):', libErr);
+              // Non-fatal
             }
           }
 
           // Data is already in PostgreSQL from the background job.
           // Skip loadFromJSONFiles (downloads entire JSON via HTTP — too large for big books).
           // The reader's normal chunked loading (database-to-indexeddb API) will handle it.
-          console.log('Background import complete — reader will load from database');
 
           if (progressUI) {
             progressUI.update(100, 'Import complete! Opening book...', '');
@@ -729,7 +688,6 @@ export class ImportBookTransition {
             bookId: result.bookId,
             shouldEnterEditMode: true
           });
-          console.log('Import transition complete');
 
           // Show conversion feedback toast if stats are available
           const stats = completedResult?.conversionStats;
@@ -744,7 +702,7 @@ export class ImportBookTransition {
           return completedResult;
 
         } catch (pollError: any) {
-          console.error('Import polling failed:', pollError);
+          log.error('Import polling failed:', '/SPA/navigation/pathways/ImportBookTransition.ts', pollError);
           // Restore the form so the user can see the container and try again
           if (progressUI) {
             progressUI.restoreForm();
@@ -783,9 +741,8 @@ export class ImportBookTransition {
       // Pre-load the book's content into IndexedDB
       try {
         await loadFromJSONFiles(result.bookId);
-        console.log('Pre-loaded imported book content');
       } catch (e) {
-        console.warn('Preloading JSON failed; continuing with reader fallback:', e);
+        // Non-fatal: continue with reader fallback
       }
 
       this.clearFormData();
@@ -806,7 +763,7 @@ export class ImportBookTransition {
       return result;
 
     } catch (error) {
-      console.error('Import failed:', error);
+      log.error('Import failed:', '/SPA/navigation/pathways/ImportBookTransition.ts', error);
 
       // Re-enable submit button + restore Clear button visibility on failure.
       if (submitButton) {
@@ -826,9 +783,8 @@ export class ImportBookTransition {
     try {
       localStorage.removeItem('formData');
       localStorage.removeItem('newbook-form-data');
-      console.log('🧹 ImportBookTransition: Cleared saved form data');
     } catch (e) {
-      console.warn('Unable to clear saved form data:', e);
+      // Non-fatal
     }
   }
 
@@ -968,10 +924,8 @@ export class ImportBookTransition {
         },
         credentials: 'include',
       });
-
-      console.log(`🗑️ ImportBookTransition: Deleted book ${bookId} for re-submit`);
     } catch (e) {
-      console.warn('Failed to delete imported book for re-submit:', e);
+      // Non-fatal
     }
   }
 }

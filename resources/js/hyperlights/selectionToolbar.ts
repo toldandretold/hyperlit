@@ -32,9 +32,6 @@ export function handleSelection(): void {
 
   // If the source container is open, don't do anything here.
   if ((window as any).activeContainer === "source-container") {
-    console.log("Source container is active; skipping hyperlight button toggling.");
-    console.log("Current active container:", (window as any).activeContainer);
-
     // If this function is triggered by an event, make sure to prevent further actions:
     if (event) {
       event.preventDefault();
@@ -137,12 +134,6 @@ export function handleSelection(): void {
   }
 
   if (selectedText.length > 0) {
-    // Only log first 100 chars to avoid massive logs for large selections
-    const preview = selectedText.length > 100
-      ? selectedText.substring(0, 100) + `... (${selectedText.length} chars total)`
-      : selectedText;
-    console.log("Showing buttons. Selected text:", preview);
-
     // Get the bounding box of the selected text to position buttons near it
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
@@ -171,10 +162,8 @@ export function handleSelection(): void {
 
     // Show delete button if selecting user's own highlight or a content link
     if (isSelectingUserHighlight || isSelectingLink) {
-      console.log("Detected user highlight or content link selection - showing delete button");
       document.getElementById("delete-hyperlight")!.style.display = "block";
     } else {
-      console.log("No user highlight or content link selected - hiding delete button");
       document.getElementById("delete-hyperlight")!.style.display = "none";
     }
 
@@ -206,7 +195,7 @@ export function handleSelection(): void {
  * Initialize highlighting controls for the current book
  */
 export function initializeHighlightingControls(currentBookId: string): void {
-  log.init(`Highlighting controls initialized for ${currentBookId}`, '/hyperlights/selection.js');
+  verbose.init(`Highlighting controls initialized for ${currentBookId}`, '/hyperlights/selection.js');
 
   // Find the UI elements within the newly loaded reader view
   const copyButton = document.getElementById("copy-hyperlight");
@@ -214,9 +203,7 @@ export function initializeHighlightingControls(currentBookId: string): void {
   const buttonsContainer = document.getElementById("hyperlight-buttons");
 
   if (!copyButton || !deleteButton || !buttonsContainer) {
-    console.error(
-      "Highlighting UI controls not found in the DOM. Aborting initialization."
-    );
+    log.error("Highlighting UI controls not found in the DOM. Aborting initialization.", 'hyperlights/selection.js');
     return;
   }
 
@@ -242,11 +229,10 @@ export function initializeHighlightingControls(currentBookId: string): void {
   if (brainButton) {
     addTouchAndClickListener(brainButton, (event) => {
       event.preventDefault();
-      console.log('🧠 Brain button pressed');
       openBrainFromSelection(event);
     });
   } else {
-    console.warn('🧠 Brain button #brain-hyperlight not found in DOM');
+    log.error('🧠 Brain button #brain-hyperlight not found in DOM', 'hyperlights/selection.js');
   }
 
   // Prevent iOS from cancelling selection

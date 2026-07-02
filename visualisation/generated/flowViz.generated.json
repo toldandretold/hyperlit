@@ -6,7 +6,7 @@
     "moduleCount": 338,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3214,
+    "edgeCount": 3210,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -5250,24 +5250,8 @@
       "leaf": true
     },
     {
-      "id": "divEditor/editSessionManager:forceLeakTest",
-      "label": "forceLeakTest",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/editSessionManager",
-      "leaf": false
-    },
-    {
       "id": "divEditor/editSessionManager:getActiveEditSession",
       "label": "getActiveEditSession",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/editSessionManager",
-      "leaf": true
-    },
-    {
-      "id": "divEditor/editSessionManager:getDiagnosticReport",
-      "label": "getDiagnosticReport",
       "kind": "fn",
       "stage": "divEditor",
       "module": "divEditor/editSessionManager",
@@ -5284,14 +5268,6 @@
     {
       "id": "divEditor/editSessionManager:isEventInActiveDiv",
       "label": "isEventInActiveDiv",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/editSessionManager",
-      "leaf": true
-    },
-    {
-      "id": "divEditor/editSessionManager:printSessionHistory",
-      "label": "printSessionHistory",
       "kind": "fn",
       "stage": "divEditor",
       "module": "divEditor/editSessionManager",
@@ -6327,6 +6303,14 @@
       "leaf": true
     },
     {
+      "id": "editToolbar/citationMode/index:CitationMode.applyExternalEmptyMessage",
+      "label": "CitationMode.applyExternalEmptyMessage",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode/index",
+      "leaf": false
+    },
+    {
       "id": "editToolbar/citationMode/index:CitationMode.attachEventHandlers",
       "label": "CitationMode.attachEventHandlers",
       "kind": "fn",
@@ -6455,8 +6439,24 @@
       "leaf": false
     },
     {
-      "id": "editToolbar/citationMode/index:CitationMode.scheduleExternalRetry",
-      "label": "CitationMode.scheduleExternalRetry",
+      "id": "editToolbar/citationMode/index:CitationMode.scheduleNextExternalPoll",
+      "label": "CitationMode.scheduleNextExternalPoll",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/citationMode/index:CitationMode.showExternalSearchingState",
+      "label": "CitationMode.showExternalSearchingState",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode/index",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode/index:CitationMode.updateExternalPolling",
+      "label": "CitationMode.updateExternalPolling",
       "kind": "fn",
       "stage": "editToolbar",
       "module": "editToolbar/citationMode/index",
@@ -15592,14 +15592,11 @@
       "id": "divEditor/editSessionManager",
       "label": "divEditor/editSessionManager",
       "stage": "divEditor",
-      "band": "capture",
+      "band": "store",
       "fnIds": [
-        "divEditor/editSessionManager:forceLeakTest",
         "divEditor/editSessionManager:getActiveEditSession",
-        "divEditor/editSessionManager:getDiagnosticReport",
         "divEditor/editSessionManager:isContainerEditing",
         "divEditor/editSessionManager:isEventInActiveDiv",
-        "divEditor/editSessionManager:printSessionHistory",
         "divEditor/editSessionManager:registerEditSession",
         "divEditor/editSessionManager:setPreemptStop",
         "divEditor/editSessionManager:unregisterEditSession",
@@ -15912,6 +15909,7 @@
         "editToolbar/citationMode/index:CitationMode._renderShelfOptions",
         "editToolbar/citationMode/index:CitationMode._togglePickerVisibility",
         "editToolbar/citationMode/index:CitationMode._updateScopeBarVisibility",
+        "editToolbar/citationMode/index:CitationMode.applyExternalEmptyMessage",
         "editToolbar/citationMode/index:CitationMode.attachEventHandlers",
         "editToolbar/citationMode/index:CitationMode.clearExternalRetry",
         "editToolbar/citationMode/index:CitationMode.close",
@@ -15928,7 +15926,9 @@
         "editToolbar/citationMode/index:CitationMode.performSearch",
         "editToolbar/citationMode/index:CitationMode.renderResults",
         "editToolbar/citationMode/index:CitationMode.repositionContainer",
-        "editToolbar/citationMode/index:CitationMode.scheduleExternalRetry"
+        "editToolbar/citationMode/index:CitationMode.scheduleNextExternalPoll",
+        "editToolbar/citationMode/index:CitationMode.showExternalSearchingState",
+        "editToolbar/citationMode/index:CitationMode.updateExternalPolling"
       ]
     },
     {
@@ -16161,7 +16161,7 @@
       "id": "footnotes/FootnoteNumberingService",
       "label": "footnotes/FootnoteNumberingService",
       "stage": "footnotes",
-      "band": "capture",
+      "band": "store",
       "fnIds": [
         "footnotes/FootnoteNumberingService:rebuildAndRenumber"
       ]
@@ -22997,12 +22997,6 @@
       "rel": "call"
     },
     {
-      "id": "divEditor/editSessionManager:forceLeakTest__domwrite__dom",
-      "source": "divEditor/editSessionManager:forceLeakTest",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
       "id": "divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph__call__divEditor/editorState:queueNodeForSave",
       "source": "divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
       "target": "divEditor/editorState:queueNodeForSave",
@@ -23235,12 +23229,6 @@
       "id": "divEditor/mutationProcessor:MutationProcessor.process__call__editToolbar/index:getEditToolbar",
       "source": "divEditor/mutationProcessor:MutationProcessor.process",
       "target": "editToolbar/index:getEditToolbar",
-      "rel": "call"
-    },
-    {
-      "id": "divEditor/mutationProcessor:MutationProcessor.process__call__lazyLoader/utilities/chunkLoadingState:getLoadingChunkId",
-      "source": "divEditor/mutationProcessor:MutationProcessor.process",
-      "target": "lazyLoader/utilities/chunkLoadingState:getLoadingChunkId",
       "rel": "call"
     },
     {
@@ -24652,12 +24640,6 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__divEditor/editSessionManager:forceLeakTest",
-      "source": "dom",
-      "target": "divEditor/editSessionManager:forceLeakTest",
-      "rel": "domread"
-    },
-    {
       "id": "dom__domread__divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
       "source": "dom",
       "target": "divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
@@ -25285,12 +25267,6 @@
       "id": "dom__domread__footnotes/footnoteInserter:insertFootnoteAtCursor",
       "source": "dom",
       "target": "footnotes/footnoteInserter:insertFootnoteAtCursor",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__footnotes/FootnoteNumberingService:rebuildAndRenumber",
-      "source": "dom",
-      "target": "footnotes/FootnoteNumberingService:rebuildAndRenumber",
       "rel": "domread"
     },
     {
@@ -27306,6 +27282,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "editToolbar/citationMode/index:CitationMode.applyExternalEmptyMessage__domwrite__dom",
+      "source": "editToolbar/citationMode/index:CitationMode.applyExternalEmptyMessage",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "editToolbar/citationMode/index:CitationMode.close__domwrite__dom",
       "source": "editToolbar/citationMode/index:CitationMode.close",
       "target": "dom",
@@ -27363,6 +27345,12 @@
     {
       "id": "editToolbar/citationMode/index:CitationMode.renderResults__domwrite__dom",
       "source": "editToolbar/citationMode/index:CitationMode.renderResults",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/citationMode/index:CitationMode.showExternalSearchingState__domwrite__dom",
+      "source": "editToolbar/citationMode/index:CitationMode.showExternalSearchingState",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -27917,12 +27905,6 @@
       "rel": "call"
     },
     {
-      "id": "footnotes/FootnoteNumberingService:rebuildAndRenumber__call__footnotes/footnoteCache:getCurrentMap",
-      "source": "footnotes/FootnoteNumberingService:rebuildAndRenumber",
-      "target": "footnotes/footnoteCache:getCurrentMap",
-      "rel": "call"
-    },
-    {
       "id": "footnotes/FootnoteNumberingService:rebuildAndRenumber__call__footnotes/footnoteCache:getMapSize",
       "source": "footnotes/FootnoteNumberingService:rebuildAndRenumber",
       "target": "footnotes/footnoteCache:getMapSize",
@@ -27951,13 +27933,6 @@
       "id": "footnotes/FootnoteNumberingService:rebuildAndRenumber__call__indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "source": "footnotes/FootnoteNumberingService:rebuildAndRenumber",
       "target": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "footnotes/FootnoteNumberingService:rebuildAndRenumber__call__indexedDB/nodes/read:getNodesFromIndexedDB",
-      "source": "footnotes/FootnoteNumberingService:rebuildAndRenumber",
-      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
     },
@@ -40833,11 +40808,6 @@
     },
     {
       "source": "footnotes/FootnoteNumberingService",
-      "target": "indexedDB/index",
-      "kind": "lazy"
-    },
-    {
-      "source": "footnotes/FootnoteNumberingService",
       "target": "indexedDB/nodes/batch",
       "kind": "lazy"
     },
@@ -43566,6 +43536,6 @@
       ]
     ],
     "breakerCount": 1,
-    "lazyCount": 235
+    "lazyCount": 234
   }
 }

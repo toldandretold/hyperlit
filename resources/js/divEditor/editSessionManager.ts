@@ -3,6 +3,7 @@
  * Central registry for active editing sessions with built-in diagnostics
  */
 import type { BookId } from '../utilities/idHelpers';
+import { log } from '../utilities/logger';
 
 interface EditSession {
   containerId: string;
@@ -18,9 +19,6 @@ let activeSession: EditSession | null = null;
 let sessionHistory: any[] = []; // For debugging last 10 sessions
 const MAX_HISTORY = 10;
 
-// Debug flag - set true to enable console diagnostics
-const DEBUG = true;
-
 // Injected preempt-stop (set by ./index at module load) — avoids a dynamic
 // import('./index') inside registerEditSession, which created an index↔session cycle.
 let preemptStop: (() => Promise<void>) | null = null;
@@ -34,24 +32,12 @@ export function setPreemptStop(fn: () => Promise<void>): void {
 }
 
 /**
- * Log with context - minimal console output
- */
-function log(action: string, details: any = {}): void {
-  if (!DEBUG) return;
-  const sessionInfo = activeSession ?
-    `${activeSession.containerId} (${activeSession.bookId})` : 'none';
-  console.log(`[EditSession] ${action} | Active: ${sessionInfo}`, details);
-}
-
-/**
  * Register a new edit session
  * Automatically preempts any existing session
  */
 export async function registerEditSession(containerId: string, divElement: HTMLElement, bookId: BookId | null): Promise<void> {
   // Check for existing session
   if (activeSession && activeSession.containerId !== containerId) {
-    log('PREEMPT', { from: activeSession.containerId, to: containerId });
-
     // Stop the current observer (await to ensure flush completes)
     await preemptStop?.();
 
@@ -73,7 +59,6 @@ export async function registerEditSession(containerId: string, divElement: HTMLE
     mutations: 0 // Track mutation count for diagnostics
   };
 
-  log('START', { containerId, bookId });
   recordEvent('start', { containerId, bookId });
 }
 
@@ -82,12 +67,10 @@ export async function registerEditSession(containerId: string, divElement: HTMLE
  */
 export function unregisterEditSession(containerId: string): void {
   if (!activeSession || activeSession.containerId !== containerId) {
-    log('WARN: Unregister mismatch', { requested: containerId, active: activeSession?.containerId });
     return;
   }
 
   const duration = Date.now() - activeSession.startTime;
-  log('END', { containerId, duration: `${duration}ms`, mutations: activeSession.mutations });
   recordEvent('end', { containerId, duration, mutations: activeSession.mutations });
 
   activeSession = null;
@@ -129,7 +112,6 @@ function recordEvent(type: string, data: any): void {
  */
 export function verifyMutationSource(mutation: any): boolean {
   if (!activeSession) {
-    console.warn('[EditSession] 🚨 REJECTED: No active session for mutation on', mutation.target?.id || mutation.target?.nodeName);
     return false;
   }
 
@@ -152,19 +134,12 @@ export function verifyMutationSource(mutation: any): boolean {
       timestamp: new Date().toISOString()
     };
 
-    console.error('[EditSession] 🚨🚨🚨 ISOLATION BREACH 🚨🚨🚨', leakInfo);
-    console.error('[EditSession] Mutation from WRONG CONTAINER was detected!');
+    log.error('[EditSession] ISOLATION BREACH: Mutation from WRONG CONTAINER was detected!', 'divEditor/editSessionManager.js', leakInfo);
 
     // Record leak for analysis
     recordEvent('isolation_breach', leakInfo);
 
     return false;
-  }
-
-  // Mutation accepted - log occasionally for verification
-  const shouldLog = activeSession.mutations === 0 || activeSession.mutations % 20 === 0;
-  if (shouldLog) {
-    console.log(`[EditSession] ✓ ACCEPTED mutation #${activeSession.mutations} in ${activeSession.containerId} (${mutation.type} on ${target.id || target.nodeName})`);
   }
 
   // Track mutation count
@@ -180,80 +155,4 @@ export function verifyMutationSource(mutation: any): boolean {
 export function isEventInActiveDiv(eventTarget: Node | null): boolean {
   if (!activeSession) return false;
   return !!activeSession.divElement?.contains(eventTarget);
-}
-
-/**
- * DIAGNOSTIC: Print session history
- */
-export function printSessionHistory(): void {
-  console.log('[EditSession] === HISTORY (last ' + MAX_HISTORY + ') ===');
-  sessionHistory.forEach((event, i) => {
-    const time = new Date(event.timestamp).toLocaleTimeString();
-    console.log(`  ${i + 1}. [${time}] ${event.type}:`,
-      JSON.stringify(event, null, 2).slice(0, 100) + '...');
-  });
-  console.log('[EditSession] Active:', activeSession || 'none');
-}
-
-/**
- * DIAGNOSTIC: Force-leak test
- * Call from console to test if main-content can leak while hyperlit is active
- */
-export function forceLeakTest(): void {
-  const mainContent = document.getElementById('main-content');
-  const testP = mainContent?.querySelector('p');
-
-  if (!testP) {
-    console.log('[EditSession] ⚠️ No paragraph found for test');
-    return;
-  }
-
-  const originalText = testP.textContent;
-  testP.textContent = `[LEAK TEST ${Date.now()}]`;
-
-  console.log('[EditSession] 🧪 Leak test: Modified main-content paragraph');
-  console.log('[EditSession] 🧪 Check console for "MUTATION LEAK" errors...');
-
-  // Restore after 2 seconds
-  setTimeout(() => {
-    testP.textContent = originalText;
-    console.log('[EditSession] 🧪 Test complete. If no leak errors above, isolation is working!');
-  }, 2000);
-}
-
-/**
- * DIAGNOSTIC: Get diagnostic report
- */
-export function getDiagnosticReport(): any {
-  const report = {
-    activeSession: activeSession ? {
-      containerId: activeSession.containerId,
-      bookId: activeSession.bookId,
-      startTime: new Date(activeSession.startTime).toISOString(),
-      duration: Date.now() - activeSession.startTime,
-      mutations: activeSession.mutations
-    } : null,
-    recentHistory: sessionHistory.slice(-5),
-    summary: {
-      totalEvents: sessionHistory.length,
-      preemptions: sessionHistory.filter(e => e.type === 'preempt').length,
-      leaks: sessionHistory.filter(e => e.type === 'leak').length
-    }
-  };
-
-  console.log('[EditSession] Diagnostic Report:', report);
-  return report;
-}
-
-// Expose diagnostics to window for console access
-if (typeof window !== 'undefined') {
-  (window as any).editSessionDiagnostics = {
-    getActiveSession: getActiveEditSession,
-    printHistory: printSessionHistory,
-    forceLeakTest,
-    getReport: getDiagnosticReport
-  };
-
-  console.log('[EditSession] 🔧 Diagnostics available: window.editSessionDiagnostics');
-  console.log('[EditSession] 🔧 Try: window.editSessionDiagnostics.forceLeakTest()');
 }

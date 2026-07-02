@@ -4,7 +4,7 @@
  */
 
 import DOMPurify from 'dompurify';
-import { log, verbose } from '../../utilities/logger';
+import { verbose } from '../../utilities/logger';
 import { searchCacheGet, searchCacheSet } from '../searchResultCache';
 
 // Configuration
@@ -67,7 +67,7 @@ export function initializeHomepageSearch() {
     // Close results when clicking outside
     document.addEventListener('click', handleOutsideClick);
 
-    log.init('Homepage search initialized', 'homepageSearch.js');
+    verbose.init('Homepage search initialized', 'homepageSearch.js');
 }
 
 /**

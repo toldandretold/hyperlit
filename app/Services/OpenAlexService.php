@@ -109,7 +109,7 @@ class OpenAlexService
      *
      * @return array<int, array>
      */
-    public function fetchFromOpenAlex(string $query, int $limit = 10, int $page = 1, bool $userFacing = false): array
+    public function fetchFromOpenAlex(string $query, int $limit = 10, int $page = 1, bool $userFacing = false, bool $throwOnFailure = false): array
     {
         $response = $this->retryableGet(self::BASE_URL . '/works', [
             'search'   => $query,
@@ -120,6 +120,12 @@ class OpenAlexService
 
         if (!$response->successful()) {
             Log::warning('OpenAlex API returned ' . $response->status() . ' for query: ' . $query);
+            if ($throwOnFailure) {
+                // Callers that need to distinguish "source down" from "source
+                // had nothing" (the citation ingest job's status reporting)
+                // opt into an exception instead of a silent empty array.
+                throw new \RuntimeException('OpenAlex API returned ' . $response->status());
+            }
             return [];
         }
 

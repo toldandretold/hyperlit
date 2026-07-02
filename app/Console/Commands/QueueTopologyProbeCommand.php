@@ -46,7 +46,7 @@ class QueueTopologyProbeCommand extends Command
     /** @var Process[] */
     private array $workers = [];
 
-    private const QUEUES = ['default', 'citation-pipeline', 'vibe', 'embeddings'];
+    private const QUEUES = ['default', 'citation-pipeline', 'vibe', 'embeddings', 'search-supplement'];
 
     public function handle(): int
     {

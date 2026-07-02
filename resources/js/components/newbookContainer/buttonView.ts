@@ -4,7 +4,7 @@
 // navigation seam — no import cycle. Was NewBookContainerManager.setupButtonListeners /
 // restoreOriginalContent.
 import { navigate } from '../../SPA/navigation/navigationRegistry';
-import { log, verbose } from '../../utilities/logger';
+import { verbose } from '../../utilities/logger';
 import type { ContainerHost } from './host';
 
 const SETUP_FORM_MAX_RETRIES = 200; // 10s @ 50ms/retry — generous; the form normally appears on retry 1–3.
@@ -35,7 +35,7 @@ export function setupButtonListeners(host: ContainerHost): void {
     try {
       // NavigationManager manages the overlay lifecycle correctly.
       await navigate('create-new-book', { createAndTransition: true });
-      log.init('New book transition completed successfully', 'newBookButton.js');
+      verbose.init('New book transition completed successfully', 'newBookButton.js');
     } catch (error) {
       console.error('❌ New book creation failed:', error);
     }

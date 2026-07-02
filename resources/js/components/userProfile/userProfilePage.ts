@@ -1,6 +1,6 @@
 // resources/js/components/userProfile/userProfilePage.ts
 
-import { log } from '../../utilities/logger'
+import { log, verbose } from '../../utilities/logger'
 
 let userProfilePageInitialized = false;
 
@@ -260,7 +260,7 @@ async function handleDeleteBook(bookId: any, target: any) {
             const txt = await resp.text();
             throw new Error(`${resp.status} ${txt}`);
         }
-        log.content(`Book ${bookId} deletion request sent to server.`, '/components/userProfile/userProfilePage.ts');
+        verbose.content(`Book ${bookId} deletion request sent to server.`, '/components/userProfile/userProfilePage.ts');
     } catch (err) {
         log.error('Server delete failed:', '/components/userProfile/userProfilePage.ts', err);
     }

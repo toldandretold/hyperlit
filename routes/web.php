@@ -26,6 +26,9 @@ require __DIR__.'/auth.php';
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/home', [HomeController::class, 'index']);
 
+// Experimental homepage (lava-lamp hero)
+Route::get('/chat', [HomeController::class, 'chat'])->name('chat');
+
 // Sitemap
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 

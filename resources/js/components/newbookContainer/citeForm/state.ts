@@ -10,10 +10,18 @@ let allowedResubmitBookId: any = null;
 export const getAllowedResubmitBookId = (): any => allowedResubmitBookId;
 export const setAllowedResubmitBookId = (v: any): void => { allowedResubmitBookId = v; };
 
-export const searchState: { abort: any; debounce: any; externalRetry: ReturnType<typeof setTimeout> | null; offset: number; query: string } = {
+export const searchState: {
+  abort: any;
+  debounce: any;
+  externalRetry: ReturnType<typeof setTimeout> | null;
+  externalPoll: { query: string; attemptsLeft: number; baseline: number } | null;
+  offset: number;
+  query: string;
+} = {
   abort: null,
   debounce: null,
-  externalRetry: null, // one-shot re-query timer for external_pending responses
+  externalRetry: null, // poll timer for external_pending supplementation
+  externalPoll: null,  // poll bookkeeping (query, attempts left, pre-ingest result count)
   offset: 0,
   query: '',
 };

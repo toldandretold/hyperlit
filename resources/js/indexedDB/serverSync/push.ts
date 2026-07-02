@@ -102,7 +102,9 @@ async function syncBookDataToServer(bookName: string, objectStoreName: string, m
             );
         }
 
-        verbose.content(`${objectStoreName} data found: ${bookData ? JSON.stringify(bookData).substring(0, 100) + '...' : 'none'}`, 'serverSync/push');
+        // NOTE: never JSON.stringify(bookData) here — it serializes the entire
+        // book even when verbose logging is off (arguments always evaluate).
+        verbose.content(`${objectStoreName} data found: ${Array.isArray(bookData) ? bookData.length + ' records' : bookData ? '1 record' : 'none'}`, 'serverSync/push');
 
         // If no data, return early
         if (!bookData || (Array.isArray(bookData) && bookData.length === 0)) {

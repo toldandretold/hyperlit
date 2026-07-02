@@ -7,6 +7,7 @@ import { openDatabase } from '../core/connection';
 import { parseNodeId } from '../core/utilities';
 import { resolveHypercite } from './helpers';
 import { getHyperciteFromIndexedDB } from './read';
+import { log } from '../../utilities/logger';
 import type { BookId, HyperciteRecord, NodeRecord, QueueForSyncFn, RelationshipStatus } from '../types';
 
 // Re-export the read primitive (lives in the ./read leaf to avoid a helpers↔index cycle)
@@ -46,8 +47,6 @@ export async function updateHyperciteInIndexedDB(
   updatedFields: Partial<HyperciteRecord>,
   skipQueue = false,
 ): Promise<boolean> {
-  console.log(`Updating in hypercites store, key: [${book}, ${hyperciteId}], skipQueue: ${skipQueue}`);
-
   try {
     const db = await openDatabase();
     const tx = db.transaction(["hypercites"], "readwrite");
@@ -61,12 +60,10 @@ export async function updateHyperciteInIndexedDB(
         const existingRecord = getRequest.result as HyperciteRecord | undefined;
 
         if (!existingRecord) {
-          console.error(`Hypercite record not found for key: [${book}, ${hyperciteId}]`);
+          log.error(`Hypercite record not found for key: [${book}, ${hyperciteId}]`, '/indexedDB/hypercites/index.ts');
           resolve(false);
           return;
         }
-
-        console.log("Found existing hypercite record:", existingRecord);
 
         // Update the fields in the existing record
         Object.assign(existingRecord, updatedFields);
@@ -75,30 +72,26 @@ export async function updateHyperciteInIndexedDB(
         const updateRequest = objectStore.put(existingRecord);
 
         updateRequest.onsuccess = async () => {
-          console.log(`Successfully updated hypercite for key: [${book}, ${hyperciteId}]`);
-          console.log(`🔍 Queuing hypercite with citedIN:`, existingRecord.citedIN, `status:`, existingRecord.relationshipStatus);
           await updateBookTimestamp(book);
           if (!skipQueue) {
             queueForSync("hypercites", hyperciteId, "update", existingRecord);
-          } else {
-            console.log(`⏭️ Skipping queue for hypercite ${hyperciteId} (batched sync)`);
           }
           resolve(true);
         };
 
         updateRequest.onerror = () => {
-          console.error(`Error updating hypercite record:`, updateRequest.error);
+          log.error('Error updating hypercite record', '/indexedDB/hypercites/index.ts', updateRequest.error);
           resolve(false);
         };
       };
 
       getRequest.onerror = () => {
-        console.error(`Error getting hypercite record:`, getRequest.error);
+        log.error('Error getting hypercite record', '/indexedDB/hypercites/index.ts', getRequest.error);
         resolve(false);
       };
     });
   } catch (error) {
-    console.error("Transaction error:", error);
+    log.error('Transaction error', '/indexedDB/hypercites/index.ts', error);
     return false;
   }
 }
@@ -116,15 +109,12 @@ export async function addCitationToHypercite(
 ): Promise<{ success: boolean; relationshipStatus?: RelationshipStatus }> {
   const numericStartLine = parseNodeId(startLine);
 
-  console.log(`Adding citation to hypercite in node: book=${book}, startLine=${numericStartLine}, hyperciteId=${hyperciteId}, citation=${newCitation}`);
-
   try {
     const db = await openDatabase();
     const transaction = db.transaction(["nodes"], "readwrite");
     const objectStore = transaction.objectStore("nodes");
 
     const key = [book, numericStartLine];
-    console.log("Using key for update:", key);
 
     const getRequest = objectStore.get(key);
 
@@ -134,12 +124,10 @@ export async function addCitationToHypercite(
           const record = getRequest.result as NodeRecord | undefined;
 
           if (!record) {
-            console.error(`Record not found for key: [${book}, ${numericStartLine}]`);
+            log.error(`Record not found for key: [${book}, ${numericStartLine}]`, '/indexedDB/hypercites/index.ts');
             resolve({ success: false });
             return;
           }
-
-          console.log("Existing node before update:", JSON.stringify(record));
 
           // Ensure hypercites array exists and is an array
           if (!Array.isArray(record.hypercites)) {
@@ -150,7 +138,7 @@ export async function addCitationToHypercite(
           const hyperciteIndex = record.hypercites.findIndex(h => h.hyperciteId === hyperciteId);
 
           if (hyperciteIndex === -1) {
-            console.error(`Hypercite ${hyperciteId} not found in node [${book}, ${numericStartLine}]`);
+            log.error(`Hypercite ${hyperciteId} not found in node [${book}, ${numericStartLine}]`, '/indexedDB/hypercites/index.ts');
             resolve({ success: false });
             return;
           }
@@ -166,9 +154,6 @@ export async function addCitationToHypercite(
           // Add the citation if it doesn't already exist
           if (!hyperciteToUpdate.citedIN.includes(newCitation)) {
             hyperciteToUpdate.citedIN.push(newCitation);
-            console.log(`Added citation ${newCitation} to hypercite ${hyperciteId}`);
-          } else {
-             console.log(`Citation ${newCitation} already exists for hypercite ${hyperciteId}`);
           }
 
           // Update relationshipStatus based on citedIN length
@@ -176,24 +161,10 @@ export async function addCitationToHypercite(
             hyperciteToUpdate.citedIN.length === 1 ? "couple" :
             hyperciteToUpdate.citedIN.length >= 2 ? "poly" : "single";
 
-          console.log("Updated hypercite object:", JSON.stringify(hyperciteToUpdate));
-          console.log("Node after modifying hypercite:", JSON.stringify(record));
-
           // Put the *entire* updated record back
           const updateRequest = objectStore.put(record);
 
           updateRequest.onsuccess = async () => {
-            console.log(`✅ Successfully updated node [${book}, ${numericStartLine}]`);
-
-            // IMMEDIATE verification within the same function
-            const immediateVerify = objectStore.get(key);
-            immediateVerify.onsuccess = () => {
-              const verifyRecord = immediateVerify.result as NodeRecord | undefined;
-              const verifyHypercite = verifyRecord?.hypercites?.find(h => h.hyperciteId === hyperciteId);
-              console.log('🔍 IMMEDIATE VERIFY - hypercite after put:', verifyHypercite);
-              console.log('🔍 IMMEDIATE VERIFY - citedIN:', verifyHypercite?.citedIN);
-            };
-
             await updateBookTimestamp(book);
             resolve({
               success: true,
@@ -202,18 +173,18 @@ export async function addCitationToHypercite(
           };
 
           updateRequest.onerror = () => {
-            console.error(`❌ Error updating node record:`, updateRequest.error);
+            log.error('Error updating node record', '/indexedDB/hypercites/index.ts', updateRequest.error);
             resolve({ success: false });
           };
         };
 
         getRequest.onerror = () => {
-          console.error(`❌ Error getting node record:`, getRequest.error);
+          log.error('Error getting node record', '/indexedDB/hypercites/index.ts', getRequest.error);
           resolve({ success: false });
         };
     });
   } catch (error) {
-    console.error("❌ Transaction error:", error);
+    log.error('Transaction error', '/indexedDB/hypercites/index.ts', error);
     return { success: false };
   }
 }
@@ -228,19 +199,13 @@ export function updateCitationForExistingHypercite(
   citationIDb: string,
 ): Promise<{ success: boolean; startLine: number | null; newStatus: RelationshipStatus | null }> {
   return withPending(async () => {
-    console.log(
-      `✅ NEW SYSTEM: Updating citation: book=${booka}, hyperciteID=${hyperciteIDa}, citationIDb=${citationIDb}`,
-    );
-
     // ✅ Ensure the hypercite exists in our local IndexedDB, fetching
     // it from the server if necessary.
     const resolvedHypercite = await resolveHypercite(booka, hyperciteIDa);
 
     // If it's not found anywhere (local or server), we cannot proceed.
     if (!resolvedHypercite) {
-      console.error(
-        `❌ NEW SYSTEM: Could not resolve hypercite ${hyperciteIDa} from any source. Aborting link.`,
-      );
+      log.error(`Could not resolve hypercite ${hyperciteIDa} from any source. Aborting link.`, '/indexedDB/hypercites/index.ts');
       return { success: false, startLine: null, newStatus: null };
     }
 
@@ -251,9 +216,7 @@ export function updateCitationForExistingHypercite(
     );
 
     if (!existingHypercite) {
-      console.error(
-        `❌ NEW SYSTEM: Hypercite ${hyperciteIDa} not found in normalized hypercites table`,
-      );
+      log.error(`Hypercite ${hyperciteIDa} not found in normalized hypercites table`, '/indexedDB/hypercites/index.ts');
       return { success: false, startLine: null, newStatus: null };
     }
 
@@ -281,8 +244,6 @@ export function updateCitationForExistingHypercite(
       false,
     );
 
-    console.log(`✅ NEW SYSTEM: Updated hypercite ${hyperciteIDa} in normalized table with status: ${updatedRelationshipStatus}`);
-
     // ✅ NEW SYSTEM: Rebuild affected node arrays from normalized tables
     const affectedDataNodeIDs = existingHypercite.node_id || [];
     if (affectedDataNodeIDs.length > 0) {
@@ -292,7 +253,6 @@ export function updateCitationForExistingHypercite(
       // node when the same node_id exists in both parent and sub-book.
       const affectedNodes = allNodes.filter(n => n.book === booka);
       await rebuildNodeArrays(affectedNodes);
-      console.log(`✅ NEW SYSTEM: Rebuilt arrays for ${affectedNodes.length} affected nodes`);
     }
 
     // Determine startLine for broadcasting (use first affected node)

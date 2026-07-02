@@ -3,7 +3,7 @@
 // (which lives top-right on home/user but in the left logo-nav on the reader). Geometry comes
 // from ./geometry (single source); completion wiring from ./animation. Sibling restore-on-close
 // is reached via host.setupButtonListeners (inside finishClose) so there's no import cycle.
-import { log, verbose } from '../../utilities/logger';
+import { verbose } from '../../utilities/logger';
 import { computeFormGeometry, applyFormGeometry } from './geometry';
 import { armTransition, resetAnimationState, finishClose } from './animation';
 import type { ContainerHost, ButtonRect } from './host';
@@ -131,7 +131,7 @@ export function closeContainer(host: ContainerHost): void {
   // what makes a quick overlay click reliably dismiss the form during the ~500ms open window.
   if (host.isAnimating) {
     if (host.animationType === 'close' && host.animationTimeout) return;
-    log.init('Interrupting in-flight open animation to close', 'newBookButton.js');
+    verbose.init('Interrupting in-flight open animation to close', 'newBookButton.js');
     resetAnimationState(host);
   }
 

@@ -2,7 +2,7 @@ import { asBookId } from "../indexedDB/types";
 // EditToolbar - Main orchestrator for toolbar functionality
 // Delegates to specialized modules for different formatting operations
 
-import { log } from "../utilities/logger";
+import { log, verbose } from "../utilities/logger";
 import {
   updateSingleIndexedDBRecord,
   deleteIndexedDBRecord,
@@ -81,7 +81,6 @@ class EditToolbar {
 
     this.toolbar = document.getElementById(this.toolbarId);
     if (!this.toolbar) {
-      console.log(`ℹ️ EditToolbar: Element with id "${this.toolbarId}" not found. Skipping toolbar initialization.`);
       this.isDisabled = true;
       return;
     }
@@ -205,7 +204,6 @@ class EditToolbar {
 
   init() {
     if (this.isDisabled) {
-      console.log('ℹ️ EditToolbar: Skipping init() - toolbar is disabled due to missing elements');
       return;
     }
     this.attachButtonHandlers();
@@ -255,8 +253,6 @@ class EditToolbar {
       document.addEventListener('touchend', globalTouchHandler, { capture: true, passive: false });
       document.addEventListener('touchmove', globalTouchHandler, { capture: true, passive: false });
 
-      console.log('🛡️ Global touch interceptor installed');
-
       // Also prevent touches on keyboard gap blocker
       const gapBlocker = document.getElementById('keyboard-gap-blocker');
       if (gapBlocker) {
@@ -277,10 +273,8 @@ class EditToolbar {
           e.stopPropagation();
           e.stopImmediatePropagation();
         }, { capture: true, passive: false });
-
-        console.log('🛡️ Gap blocker listeners attached');
       } else {
-        console.warn('❌ Gap blocker element NOT found - cannot attach listeners');
+        log.error('Gap blocker element not found - cannot attach listeners', '/editToolbar/index.ts');
       }
     }
 
@@ -327,7 +321,6 @@ class EditToolbar {
         const bookId = getBookIdFromSelection() || resolveBookId(target);
         if (!bookId) return;
 
-        console.log(`[UndoManager] beforeinput ${inputType}, bookId=${bookId}`);
         if (inputType === 'historyUndo') {
           this.undoManager.undo(
             bookId,
@@ -408,7 +401,6 @@ class EditToolbar {
         if (this.undoManager.hasRedo(bookId)) {
           e.preventDefault();
           e.stopPropagation();
-          console.log(`[UndoManager] Cmd+Shift+Z → redo, bookId=${bookId}`);
           this.undoManager.redo(
             bookId,
             (id: LineId, html: string, opts: Record<string, unknown>) => this.saveToIndexedDB(id, html, opts),
@@ -420,7 +412,6 @@ class EditToolbar {
         if (this.undoManager.hasUndo(bookId) || this.undoManager.hasAnyUndo()) {
           e.preventDefault();
           e.stopPropagation();
-          console.log(`[UndoManager] Cmd+Z → undo, bookId=${bookId}, stackSize=${this.undoManager._getStacks(bookId).undoStack.length}, hasGroup=${!!this.undoManager._currentGroup}`);
           this.undoManager.undo(
             bookId,
             (id: LineId, html: string, opts: Record<string, unknown>) => this.saveToIndexedDB(id, html, opts),
@@ -581,7 +572,7 @@ class EditToolbar {
     });
 
     // Single consolidated log after initialization
-    log.init(`Edit toolbar buttons initialized (${foundButtons.length}/${buttons.length} found)`, '/editToolbar/index.js');
+    verbose.init(`Edit toolbar buttons initialized (${foundButtons.length}/${buttons.length} found)`, '/editToolbar/index.js');
   }
 
   /**
@@ -726,12 +717,12 @@ class EditToolbar {
       || document.querySelector('.main-content')?.id;
 
     if (!bookId) {
-      console.warn("EditToolbar: Cannot open citation search: no book ID found.");
+      log.error("Cannot open citation search: no book ID found", '/editToolbar/index.ts');
       return;
     }
 
     if (!range) {
-      console.warn("EditToolbar: Cannot insert citation: no cursor position.");
+      log.error("Cannot insert citation: no cursor position", '/editToolbar/index.ts');
       return;
     }
 
@@ -774,12 +765,12 @@ class EditToolbar {
       || this.currentBookId;
 
     if (!bookId) {
-      console.warn("EditToolbar: Cannot insert footnote: no book ID found.");
+      log.error("Cannot insert footnote: no book ID found", '/editToolbar/index.ts');
       return;
     }
 
     if (!range || !selection) {
-      console.warn("EditToolbar: Cannot insert footnote: no cursor position.");
+      log.error("Cannot insert footnote: no cursor position", '/editToolbar/index.ts');
       return;
     }
 
@@ -808,8 +799,6 @@ class EditToolbar {
         (id: any, html: any, options: any) => this.saveToIndexedDB(id, html, options)
       );
 
-      console.log(`Footnote inserted: ${footnoteId}`);
-
       // Record the insertion as an input entry (sup added to block innerHTML).
       // Footnote record stays in IndexedDB on undo — only the <sup> is removed/restored.
       if (blockEl && blockEl.id && oldHTML !== null) {
@@ -832,7 +821,6 @@ class EditToolbar {
             cursorBefore,
             cursorAfter,
           });
-          console.log(`[UndoManager] Recorded footnote insertion for undo on #${blockEl.id}`);
           this._updateUndoRedoButtons(bookId);
         }
       }
@@ -841,7 +829,7 @@ class EditToolbar {
       await openFootnoteForEditing(footnoteId, supElement);
 
     } catch (error) {
-      console.error("Error inserting footnote:", error);
+      log.error("Error inserting footnote", '/editToolbar/index.ts', error);
     }
   }
 
@@ -852,7 +840,6 @@ class EditToolbar {
    */
   async saveToIndexedDB(id: LineId, html: string, options: Record<string, unknown> = {}) {
     // `id` here is the positional LineId of the DOM element being saved
-    console.log(`EditToolbar: saveToIndexedDB called for ID: ${id}`);
 
     // Derive the correct book from where the element actually lives in the DOM.
     // When editing a sub-book the element is inside [data-book-id][contenteditable],
@@ -863,7 +850,7 @@ class EditToolbar {
     const bookId = (subBookEl as HTMLElement | null)?.dataset?.bookId || this.currentBookId;
 
     if (!bookId) {
-      console.warn("EditToolbar: Cannot save to IndexedDB: book ID not found.");
+      log.error("Cannot save to IndexedDB: book ID not found", '/editToolbar/index.ts');
       return;
     }
 
@@ -875,10 +862,6 @@ class EditToolbar {
       action: "update", // This action type is used internally by updateSingleIndexedDBRecord
       book: bookId,
     } as any, options);
-
-    console.log(
-      `EditToolbar: Queued update for ID: ${id}. History handled by debounced sync.`
-    );
   }
 
   /**
@@ -887,21 +870,14 @@ class EditToolbar {
    * It no longer directly handles history payload or calls addHistoryBatch.
    */
   async deleteFromIndexedDB(id: any) {
-    console.log(`EditToolbar: deleteFromIndexedDB called for ID: ${id}`);
     if (!this.currentBookId) {
-      console.warn(
-        "EditToolbar: Cannot delete from IndexedDB: currentBookId is not set."
-      );
+      log.error("Cannot delete from IndexedDB: currentBookId is not set", '/editToolbar/index.ts');
       return;
     }
 
     // `deleteIndexedDBRecord` will handle parsing ID and calling `queueForSync`.
     // The history payload for this action will be built by `debouncedMasterSync`.
     await deleteIndexedDBRecord(id);
-
-    console.log(
-      `EditToolbar: Queued deletion for ID: ${id}. History handled by debounced sync.`
-    );
   }
 
   /**
@@ -919,8 +895,6 @@ class EditToolbar {
     if (this.isDisabled) return;
     if (this.isVisible) return;
     if (!this.toolbar) return;
-
-    console.log("👁️ EditToolbar: Showing toolbar");
 
     this.toolbar.classList.add("visible");
     this.isVisible = true;
