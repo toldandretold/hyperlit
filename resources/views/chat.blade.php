@@ -38,7 +38,6 @@
   <!-- Center column: hero card (logo + search + arranger buttons), no preloaded content -->
   <div class="home-content-wrapper">
     <div class="fixed-header">
-      <h1 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;margin:0;padding:0;">Hyperlit — read, write and publish hypertext literature</h1>
       <div id="imageContainer" class="top-content">
         <svg id="top" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 432.49 110.22">
           <defs>
@@ -92,11 +91,25 @@
         <button class="arranger-button" data-content="most-recent">Most Recent</button>
         <button class="arranger-button" data-content="most-connected">Most Connected</button>
         <button class="arranger-button" data-content="most-lit">Most Lit</button>
+        {{-- visible only while a feed is open; chatHero closes back to the hero --}}
+        <button type="button" id="chat-feed-close" aria-label="Close feed" title="Close feed">&times;</button>
       </div>
     </div>
+
+    {{-- Intro copy: big headings over the lava, revealed by scrolling in the hero
+         state, hidden while a feed is open. Crawlable marketing/help text. --}}
+    <section class="chat-intro" aria-label="What is Hyperlit?">
+      <h1>Read, Write and Publish Hypertext Literature</h1>
+      <h2>Drag &amp; drop a PDF, Word or Markdown file anywhere on this page to convert it into your private library &mdash; or <a href="#" id="chat-intro-import">import</a> one now.</h2>
+      <h2>Select any text to create a highlight, ask the AI archivist about it, or copy it to paste elsewhere as a hypercite &mdash; a citation that links both ways.</h2>
+      <h2 class="chat-intro-statement">Hyperlit is an open-source docuverse that seeks to expand the digital knowledge commons.</h2>
+    </section>
     {{-- No <main> containers: homepageDisplayUnit creates a fresh .main-content
          inside .home-content-wrapper when an arranger button is pressed. --}}
   </div>
+
+  {{-- scroll affordance for the hero state --}}
+  <div class="chat-scroll-hint" aria-hidden="true">&darr;</div>
 
   <!-- Right Column: The New Book Button -->
   <div id="topRightContainer" class="loading">

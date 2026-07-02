@@ -66,6 +66,112 @@ body[data-page="home"] #app-container.chat-page .fixed-header {
     background-color 0.6s ease-in-out;
 }
 
+/* scrolled (intro reading) state: the card keeps its glass-card look but
+   docks to the top while the copy scrolls beneath it */
+body[data-page="home"] #app-container.chat-page.scrolled:not(.content-active) .fixed-header {
+  top: 16px;
+  transform: translate(-50%, 0);
+}
+
+/* ---------- intro copy ---------- */
+
+.chat-intro {
+  /* starts below the fold: wrapper already pads 200px, so 100vh total */
+  margin-top: calc(100vh - 200px);
+  padding: 0 8px 25vh;
+  /* --color-text, NOT --hyperlit-black: the latter is theme-REMAPPED to the
+     background tone (sepia turns it cream), which made the copy invisible */
+  color: var(--color-text, #CBCCCC);
+}
+
+.chat-intro h1 {
+  font-size: clamp(2.2rem, 5.5vw, 3.4rem);
+  line-height: 1.12;
+  margin: 0 0 0.9em;
+  color: inherit; /* theme heading colors are light — the intro is black-on-light */
+}
+
+.chat-intro h2 {
+  font-size: clamp(1.35rem, 3vw, 1.9rem);
+  line-height: 1.3;
+  font-weight: 600;
+  margin: 0 0 1.1em;
+  color: inherit;
+}
+
+.chat-intro h2.chat-intro-statement {
+  font-size: clamp(1.7rem, 4vw, 2.5rem);
+  line-height: 1.2;
+  margin-top: 1.4em;
+}
+
+.chat-intro a {
+  /* pink text vanishes over the pink lava — black with a thick pink underline
+     stays legible over both the white backdrop and the hills */
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--hyperlit-pink, #EE4A95);
+  text-decoration-thickness: 4px;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+/* feed open → intro gone */
+#app-container.chat-page.content-active .chat-intro {
+  display: none;
+}
+
+/* ---------- close-feed × ---------- */
+
+#chat-feed-close {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.6em;
+  height: 1.6em;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(75, 75, 75, 0.6);
+  color: var(--hyperlit-white, #CBCCCC);
+  font-size: 1em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#app-container.chat-page.content-active #chat-feed-close {
+  display: inline-flex;
+}
+
+#chat-feed-close:hover {
+  background: rgba(110, 110, 110, 0.7);
+}
+
+/* ---------- scroll hint ---------- */
+
+.chat-scroll-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  font-size: 1.7rem;
+  color: var(--hyperlit-white, #CBCCCC);
+  opacity: 0.7;
+  pointer-events: none;
+  animation: chat-hint-bob 2.2s ease-in-out infinite;
+  transition: opacity 0.4s ease;
+}
+
+#app-container.chat-page.scrolled .chat-scroll-hint,
+#app-container.chat-page.content-active .chat-scroll-hint {
+  opacity: 0;
+}
+
+@keyframes chat-hint-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%      { transform: translateX(-50%) translateY(7px); }
+}
+
 /* hero-only child alignment: home's header layout is left-aligned (partly via
    JS-set inline styles), so these center the logo/search/buttons ONLY while
    the card is centered; the risen state reverts to normal home alignment */
