@@ -28,6 +28,11 @@ let clickHandler: ((e: Event) => void) | null = null;
 let scrollHandler: (() => void) | null = null;
 let observer: MutationObserver | null = null;
 let fadeRaf = 0;
+let returnTimer = 0;
+
+// scroll distance over which the hero migrates centre → docked (≈ its actual
+// travel in px, so it moves at the same speed as the text)
+const HERO_TRAVEL = 280;
 
 const chatPage = (): HTMLElement | null =>
   document.querySelector<HTMLElement>('#app-container.chat-page');
@@ -92,8 +97,14 @@ function closeFeed(): void {
   document.querySelectorAll('.home-content-wrapper .main-content').forEach(el => el.remove());
   page.querySelectorAll('.arranger-button.active').forEach(el => el.classList.remove('active'));
   page.classList.remove('content-active', 'scrolled');
+  // the one non-scroll-driven move: glide (don't snap) back to centre
+  page.classList.add('hero-return');
+  window.clearTimeout(returnTimer);
+  returnTimer = window.setTimeout(() => chatPage()?.classList.remove('hero-return'), 700);
+  page.style.setProperty('--hero-p', '0');
   suppressTabRestore(); // so a reload doesn't reopen the feed
   document.querySelector('.home-content-wrapper')?.scrollTo({ top: 0 });
+  trackFadeFor(750);
 }
 
 export function initChatHero(): void {
@@ -117,7 +128,14 @@ export function initChatHero(): void {
     }
     // instant rise on tab press (before the fetch lands)
     if (target.closest('.arranger-button')) {
-      chatPage()?.classList.add('content-active');
+      const p = chatPage();
+      if (p) {
+        p.classList.add('content-active');
+        // feed mode: lava returns to its resting pose (the dim fader takes over)
+        document.getElementById('lava-lamp-mount')?.style.setProperty('--lava-parallax', '0px');
+        setLavaRise(0);
+        trackFadeFor(750); // follow the header while it glides to the top
+      }
     }
   };
   // capture phase: runs regardless of what homepageDisplayUnit's handler does
@@ -131,18 +149,21 @@ export function initChatHero(): void {
     if (!p || !wrapper) return;
     const st = wrapper.scrollTop;
 
-    const wasScrolled = p.classList.contains('scrolled');
-    const nowScrolled = st > 30;
-    p.classList.toggle('scrolled', nowScrolled);
+    p.classList.toggle('scrolled', st > 30); // scroll-hint fade
+    // hero pose is scroll-LINKED: it rises/shrinks at the text's speed
+    p.style.setProperty('--hero-p', Math.min(st / HERO_TRAVEL, 1).toFixed(4));
 
-    // background parallax: whole artwork creeps up gently (as before)...
-    const mount = document.getElementById('lava-lamp-mount');
-    mount?.style.setProperty('--lava-parallax', `${(-Math.min(st * 0.12, 130)).toFixed(0)}px`);
-    // ...while the shorter/foreground hills GROW up with the text
-    setLavaRise(Math.min(st / 700, 1));
+    // lava reacts to scroll only in intro mode — in feed mode it sits still
+    // behind the dim fader
+    if (!p.classList.contains('content-active')) {
+      // background parallax: whole artwork creeps up gently...
+      const mount = document.getElementById('lava-lamp-mount');
+      mount?.style.setProperty('--lava-parallax', `${(-Math.min(st * 0.12, 130)).toFixed(0)}px`);
+      // ...while the hills behind the copy GROW up with the text
+      setLavaRise(Math.min(st / 700, 1));
+    }
 
-    if (wasScrolled !== nowScrolled) trackFadeFor(750); // card is gliding — follow it
-    else updateIntroFade();
+    updateIntroFade(); // header moves in lockstep with scroll — no tracker needed
   };
   document.addEventListener('scroll', scrollHandler, true);
 
@@ -162,6 +183,8 @@ export function destroyChatHero(): void {
   clickHandler = null;
   if (scrollHandler) document.removeEventListener('scroll', scrollHandler, true);
   scrollHandler = null;
+  window.clearTimeout(returnTimer);
+  returnTimer = 0;
   cancelAnimationFrame(fadeRaf);
   fadeRaf = 0;
   observer?.disconnect();

@@ -47,42 +47,47 @@
 
 /* ---------- hero: centered glass card ---------- */
 
+/* SCROLL-LINKED hero: --hero-p (0 = centered card, 1 = docked header slot)
+   is set by chatHero from scrollTop, so the card rises/widens/squishes at
+   the SAME speed as the text — a live interpolation, not a triggered
+   animation. NO transitions here: scroll drives every frame directly. */
 body[data-page="home"] #app-container.chat-page .fixed-header {
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: min(92vw, 480px); /* px, not em: header font-size is 28px so em blows up */
+  --p: var(--hero-p, 0);
+  /* docked pose floats 12px below the top edge — corners stay rounded */
+  top: calc(50% * (1 - var(--p)) + 12px * var(--p));
+  transform: translate(-50%, calc(-50% * (1 - var(--p))));
+  /* lerp: centered card width → full header slot (px, not em: header
+     font-size is 28px so em blows up) */
+  width: calc(
+    min(92vw, 480px) * (1 - var(--p)) +
+    min(100vw, var(--content-width, 40ch)) * var(--p)
+  );
+  max-width: none;
   background-color: var(--container-glass-bg, rgba(34, 31, 32, 0.35));
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  border-radius: 1.5em;
-  padding: 40px 28px;
+  border-radius: 1.5em; /* constant — no corner sharpening while docking */
+  padding:
+    calc(40px - 16px * var(--p))
+    calc(28px - 6px * var(--p))
+    calc(40px - 26px * var(--p));
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 28px;
+  gap: calc(28px - 12px * var(--p));
+}
+
+/* the ×/close path is the one place the card should GLIDE back to centre
+   (--hero-p snaps to 0 when the wrapper rescrolls to the top) */
+#app-container.chat-page.hero-return .fixed-header {
   transition:
     top 0.6s ease-in-out,
     transform 0.6s ease-in-out,
     width 0.6s ease-in-out,
-    max-width 0.6s ease-in-out,
     border-radius 0.6s ease-in-out,
     padding 0.6s ease-in-out,
     gap 0.6s ease-in-out,
     background-color 0.6s ease-in-out;
-}
-
-/* scrolled (intro reading) state: the card keeps its glass-card look but
-   docks to the top while the copy scrolls beneath it */
-/* IDENTICAL box to the feed (.content-active) header — the card gradually
-   widens into the full header slot as it rises; it never leaves the screen */
-body[data-page="home"] #app-container.chat-page.scrolled .fixed-header {
-  top: 0;
-  transform: translate(-50%, 0);
-  width: 100%;
-  max-width: var(--content-width, 40ch);
-  border-radius: 0 0 1em 1em;
-  padding: 20px 20px 10px 20px;
-  gap: 0.5em;
 }
 
 /* ---------- intro copy ---------- */
@@ -213,30 +218,38 @@ body[data-page="home"] #app-container.chat-page.scrolled .fixed-header {
   50%      { transform: translateX(-50%) translateY(7px); }
 }
 
-/* hero-only child alignment: home's header layout is left-aligned (partly via
-   JS-set inline styles), so these center the logo/search/buttons ONLY while
-   the card is centered; the risen state reverts to normal home alignment */
-#app-container.chat-page:not(.content-active) .fixed-header #imageContainer {
+/* pill corners for the tab buttons on the chat page */
+#app-container.chat-page .arranger-button {
+  border-radius: 999px;
+}
+
+/* Child alignment is CENTERED in EVERY chat state (hero, docked, feed) —
+   home's header layout is left-aligned partly via JS-set inline styles,
+   hence the !importants. The search row also centers its own contents. */
+#app-container.chat-page .fixed-header #imageContainer {
   width: auto !important;
   margin: 0 !important;
   text-align: center !important;
 }
 
-#app-container.chat-page:not(.content-active) .fixed-header #imageContainer svg {
+#app-container.chat-page .fixed-header #imageContainer svg {
   width: min(64vw, 280px);
   height: auto;
   transition: width 0.6s ease-in-out;
 }
 
-#app-container.chat-page:not(.content-active) .fixed-header .arranger-buttons-container {
+#app-container.chat-page .fixed-header .arranger-buttons-container {
   width: 100% !important;
   justify-content: center !important;
 }
 
-#app-container.chat-page:not(.content-active) .fixed-header .search-container {
+#app-container.chat-page .fixed-header .search-container {
   width: 100% !important;
   max-width: none !important;
   box-sizing: border-box;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center;
 }
 
 /* risen state: same card glides into the normal home header position;
@@ -249,6 +262,23 @@ body[data-page="home"] #app-container.chat-page.content-active .fixed-header {
   border-radius: 0 0 1em 1em;
   padding: 20px 20px 10px 20px;
   gap: 0.5em;
+  background-color: transparent; /* blur-only glass in feed mode */
+  transition:
+    top 0.6s ease-in-out,
+    transform 0.6s ease-in-out,
+    width 0.6s ease-in-out,
+    max-width 0.6s ease-in-out,
+    border-radius 0.6s ease-in-out,
+    padding 0.6s ease-in-out,
+    gap 0.6s ease-in-out,
+    background-color 0.6s ease-in-out;
+}
+
+/* home's JS pins the wrapper's padding-top to the exact header height
+   (inline style), which parks the first entry inside the fade band — pad the
+   CONTENT instead so it rests clear of the dissolve line */
+#app-container.chat-page.content-active .main-content {
+  padding-top: 48px;
 }
 
 /* ---------- hidden lava adjuster (Shift+L) ---------- */
