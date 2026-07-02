@@ -20,6 +20,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Search Read Connection
+    |--------------------------------------------------------------------------
+    |
+    | Connection used for the READ-ONLY full-text search queries (SearchService
+    | + SearchController). pgsql_admin (BYPASSRLS) everywhere — dev and prod
+    | identical: the GIN search indexes are unusable under RLS (ts_match is not
+    | LEAKPROOF and managed Postgres has no superuser to change that), so
+    | RLS-enforced searches take seconds. The search queries enforce visibility
+    | EXPLICITLY (public+listed / caller's own books / shelf members — stricter
+    | than the RLS policies) and that contract is locked by CitationSearchTest
+    | + RetrievalScopeTest. RLS remains fully enforced for everything else.
+    | Full story: deploy/search-performance.md.
+    |
+    | phpunit.xml pins this to 'pgsql' so search reads share the per-test
+    | transaction that RefreshDatabase wraps around the default connection.
+    |
+    */
+
+    'search_read_connection' => env('DB_SEARCH_CONNECTION', 'pgsql_admin'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Connections
     |--------------------------------------------------------------------------
     |

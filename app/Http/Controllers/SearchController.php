@@ -273,8 +273,11 @@ class SearchController extends Controller
      */
     private function executeLibraryQuery(Request $request, string $tsQuery, int $limit, int $offset, ?string $sourceScope = null, ?string $shelfId = null): \Illuminate\Support\Collection
     {
+        // Read-only search runs on the search connection (BYPASSRLS in prod —
+        // see config/database.php 'search_read_connection'); visibility is
+        // enforced explicitly by applyVisibilityFilter below, not by RLS.
         // Using 'simple' config to match the search_vector (preserves stop words)
-        $dbQuery = DB::table('library')
+        $dbQuery = DB::connection(config('database.search_read_connection'))->table('library')
             ->selectRaw("
                 book,
                 title,
@@ -436,7 +439,9 @@ class SearchController extends Controller
             $request->cookie('anon_token'),
         );
 
-        return collect(DB::select($sql, $params));
+        // Read-only search on the search connection (BYPASSRLS in prod); the
+        // visibility clause inside the query enforces access, not RLS.
+        return collect(DB::connection(config('database.search_read_connection'))->select($sql, $params));
     }
 
     /**

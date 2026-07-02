@@ -8,6 +8,21 @@ use Illuminate\Support\Facades\DB;
 class SearchService
 {
     /**
+     * Connection for the read-only search queries. Defaults to the BYPASSRLS
+     * admin connection — see config/database.php 'search_read_connection' and
+     * deploy/search-performance.md for the full rationale (GIN indexes are
+     * unusable under RLS because ts_match is not LEAKPROOF, and managed
+     * Postgres has no superuser to change that). Visibility is enforced
+     * explicitly in every query here, NOT by RLS; the privacy contract is
+     * locked by tests/Feature/AiBrain/RetrievalScopeTest.php +
+     * tests/Feature/Citations/CitationSearchTest.php.
+     */
+    private function searchConnection(): \Illuminate\Database\ConnectionInterface
+    {
+        return DB::connection(config('database.search_read_connection'));
+    }
+
+    /**
      * Convert user query to PostgreSQL tsquery format.
      * Handles phrase search with quotes and joins terms with &.
      */
@@ -90,7 +105,7 @@ class SearchService
         }
 
         // Try exact (simple) first, fall back to stemmed (english)
-        $simpleCount = DB::selectOne("
+        $simpleCount = $this->searchConnection()->selectOne("
             SELECT COUNT(*) as cnt FROM (
                 SELECT 1 FROM nodes
                 WHERE search_vector_simple @@ to_tsquery('simple', ?)
@@ -187,7 +202,7 @@ class SearchService
             [$limit]
         );
 
-        $results = DB::select($sql, $params);
+        $results = $this->searchConnection()->select($sql, $params);
 
         // Normalize to stdClass with consistent field names
         return array_map(function ($row) {
@@ -219,7 +234,7 @@ class SearchService
             return [];
         }
 
-        $dbQuery = DB::table('library')
+        $dbQuery = $this->searchConnection()->table('library')
             ->selectRaw("
                 library.book,
                 library.title,
@@ -290,7 +305,7 @@ class SearchService
 
         [$sql, $params] = $this->buildCitationSearchQuery($tsQuery, $limit, $offset, $sourceScope, $creatorName, $shelfId);
 
-        $rows = DB::select($sql, $params);
+        $rows = $this->searchConnection()->select($sql, $params);
 
         // Generate synthetic bibtex for canonical rows so the frontend's
         // parseAuthorYear gives a sensible inline (Author Year) citation.
@@ -466,17 +481,18 @@ class SearchService
 
         // Shape notes (each stage measured via `php artisan search:profile -v`):
         //
-        // 1. GIN search_vector indexes only work under RLS because ts_match_vq
-        //    is marked LEAKPROOF (migration 2026_07_02_000001) — without it the
-        //    planner may not evaluate @@ below the policy barrier and every
-        //    node search seq-scanned 2.2M rows (measured seconds per query).
+        // 1. This runs on the search connection (BYPASSRLS everywhere — GIN
+        //    indexes are unusable under RLS because ts_match_vq is not
+        //    LEAKPROOF and managed Postgres has no superuser to change that:
+        //    seq scans of 2.2M rows, seconds per query). Visibility is
+        //    enforced by the explicit clause below, not RLS.
         // 2. `hits` is a MATERIALIZED CTE over nodes ONLY, so the plan ALWAYS
         //    drives from the GIN index. Without the fence the planner sometimes
         //    drives from library instead (585 visible books × bitmap probe each
         //    ≈ 800ms for single-term queries); fenced, every query class
-        //    measures 2-50ms. The RLS policy still filters rows inside the CTE.
-        // 3. The candidate cap bounds the CTE. RLS-visible nodes that fail the
-        //    stricter visibility clause below (e.g. unlisted books) consume cap
+        //    measures 2-50ms.
+        // 3. The candidate cap bounds the CTE. Candidates that fail the
+        //    visibility clause below (private/unlisted books) consume cap
         //    slots, so pathological corpora could theoretically starve the
         //    final page — 20× limit keeps that risk negligible.
         // 4. parent_lib joins on the MATERIALIZED sub.parent_book AFTER the

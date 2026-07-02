@@ -31,6 +31,10 @@
              the dev DB that Herd serves. Create it once: createdb
              my_laravel_db_test. The same value lives in .env.testing. -->
         <env name="DB_DATABASE" value="my_laravel_db_test"/>
+        <!-- Search reads must share RefreshDatabase's per-test transaction on the
+             default connection; the BYPASSRLS admin connection (the non-test
+             default) would not see rows seeded inside that transaction. -->
+        <env name="DB_SEARCH_CONNECTION" value="pgsql"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
