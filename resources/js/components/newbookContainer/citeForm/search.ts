@@ -7,6 +7,7 @@
 import DOMPurify from 'dompurify';
 import { $, qs } from './dom';
 import { searchState } from './state';
+import { searchCacheGet, searchCacheSet } from '../../../search/searchResultCache';
 import { generateBookIdFromMetadata, findAvailableBookId, updateBookUrlPreview } from './bookId';
 import { populateFieldsFromBibtex } from './bibtex';
 import { showFieldsForType } from './fields';
@@ -17,6 +18,7 @@ export function setupImportSearch() {
 
   input.addEventListener('input', () => {
     clearTimeout(searchState.debounce);
+    clearExternalRetry();
     const query = input.value.trim();
     if (query.length < 2) {
       const results = $('import-search-results');
@@ -27,7 +29,7 @@ export function setupImportSearch() {
   });
 }
 
-async function performImportSearch(query: string, offset = 0) {
+async function performImportSearch(query: string, offset = 0, bypassCache = false) {
   if (searchState.abort) searchState.abort.abort();
   searchState.abort = new AbortController();
 
@@ -43,17 +45,57 @@ async function performImportSearch(query: string, offset = 0) {
 
   try {
     const url = `/api/search/combined?q=${encodeURIComponent(query)}&limit=10&offset=${offset}`;
+
+    // Client-side cache (URL key) — retyped queries render instantly. The
+    // external-pending retry bypasses so it reaches the server.
+    if (!bypassCache) {
+      const cached = searchCacheGet<{ results?: any[]; has_more?: boolean }>(url);
+      if (cached) {
+        await renderImportSearchResults(cached.results || [], offset, cached.has_more ?? false);
+        return;
+      }
+    }
+
     const resp = await fetch(url, {
       headers: { 'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as any)?.content },
       signal: searchState.abort.signal
     });
     if (!resp.ok) throw new Error('Search failed');
     const data = await resp.json();
+    // Never cache pending-external pages — the one-shot retry must hit the server.
+    if (data.external_pending !== true) {
+      searchCacheSet(url, data);
+    }
     await renderImportSearchResults(data.results || [], offset, data.has_more ?? false);
+    scheduleExternalRetry(data.external_pending === true, query, offset);
   } catch (err: any) {
     if (err.name !== 'AbortError') {
       results.innerHTML = '<div class="import-search-empty">Search failed. Please try again.</div>';
     }
+  }
+}
+
+/**
+ * One-shot follow-up query. external_pending=true means the server dispatched a
+ * background OpenAlex/Open Library ingest for this query — re-fire the same
+ * search once (~2.5s) so the new canonicals fold in. The retry's own response
+ * has external_pending=false (server dedup key), so this cannot loop.
+ */
+function scheduleExternalRetry(pending: boolean, query: string, offset: number) {
+  clearExternalRetry();
+  if (!pending || offset !== 0) return;
+  searchState.externalRetry = setTimeout(() => {
+    searchState.externalRetry = null;
+    if (searchState.query === query) {
+      performImportSearch(query, 0, true); // bypassCache: must reach the server
+    }
+  }, 2500);
+}
+
+function clearExternalRetry() {
+  if (searchState.externalRetry) {
+    clearTimeout(searchState.externalRetry);
+    searchState.externalRetry = null;
   }
 }
 

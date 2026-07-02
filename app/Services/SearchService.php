@@ -288,6 +288,36 @@ class SearchService
             return [];
         }
 
+        [$sql, $params] = $this->buildCitationSearchQuery($tsQuery, $limit, $offset, $sourceScope, $creatorName, $shelfId);
+
+        $rows = DB::select($sql, $params);
+
+        // Generate synthetic bibtex for canonical rows so the frontend's
+        // parseAuthorYear gives a sensible inline (Author Year) citation.
+        foreach ($rows as $row) {
+            if (empty($row->bibtex) && !empty($row->title)) {
+                $row->bibtex = $this->buildSyntheticBibtex($row);
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Assemble the hybrid citation-search SQL + params for a pre-built tsquery.
+     * Split from searchForCitations so `php artisan search:profile` can EXPLAIN
+     * the exact production query without duplicating it.
+     *
+     * @return array{0: string, 1: array} [sql, params]
+     */
+    public function buildCitationSearchQuery(
+        string $tsQuery,
+        int $limit = 15,
+        int $offset = 0,
+        string $sourceScope = 'public',
+        ?string $creatorName = null,
+        ?string $shelfId = null,
+    ): array {
         [$libScopeSql, $libScopeParams, $libJoinSql, $libJoinParams] = $this->buildLibraryScopeClauseForCitations($sourceScope, $creatorName, $shelfId);
         [$canonScopeSql, $canonScopeParams] = $this->buildCanonicalScopeClauseForCitations($sourceScope, $creatorName, $shelfId);
 
@@ -306,30 +336,45 @@ class SearchService
         // expression — never hard-code the version_book columns here.
         $bestVersionSql = BestVersionService::sqlCoalesceExpression('c');
 
+        // The lv join + has_version EXISTS live OUTSIDE the LIMITed inner
+        // select, on the MATERIALIZED best_version_book column. Joining on the
+        // raw COALESCE expression prevented index use on library.book — the
+        // planner materialized the whole RLS-filtered library table per scan
+        // (~200ms measured). Post-restructure it's ≤ $limit index lookups.
         $sql = "
             SELECT * FROM (
                 (
                     SELECT
                         'canonical'::text AS row_type,
-                        c.id::text AS id,
-                        c.title,
-                        c.author,
-                        c.year::text AS year,
-                        c.journal,
+                        cb.raw_id::text AS id,
+                        cb.title,
+                        cb.author,
+                        cb.year::text AS year,
+                        cb.journal,
                         NULL::text AS bibtex,
-                        {$bestVersionSql} AS best_version_book,
+                        cb.best_version_book,
                         (
-                            {$bestVersionSql} IS NOT NULL
-                            OR EXISTS (SELECT 1 FROM library WHERE canonical_source_id = c.id LIMIT 1)
+                            cb.best_version_book IS NOT NULL
+                            OR EXISTS (SELECT 1 FROM library WHERE canonical_source_id = cb.raw_id LIMIT 1)
                         ) AS has_version,
                         (lv.visibility = 'private') AS is_private,
-                        ts_rank('{0.05, 0.1, 0.3, 1.0}', c.search_vector, to_tsquery('simple', ?)) AS relevance
-                    FROM canonical_source c
-                    LEFT JOIN library lv ON lv.book = {$bestVersionSql}
-                    WHERE c.search_vector @@ to_tsquery('simple', ?)
-                      AND {$canonScopeSql}
-                    ORDER BY relevance DESC
-                    LIMIT ?
+                        cb.relevance
+                    FROM (
+                        SELECT
+                            c.id AS raw_id,
+                            c.title,
+                            c.author,
+                            c.year,
+                            c.journal,
+                            {$bestVersionSql} AS best_version_book,
+                            ts_rank('{0.05, 0.1, 0.3, 1.0}', c.search_vector, to_tsquery('simple', ?)) AS relevance
+                        FROM canonical_source c
+                        WHERE c.search_vector @@ to_tsquery('simple', ?)
+                          AND {$canonScopeSql}
+                        ORDER BY relevance DESC
+                        LIMIT ?
+                    ) cb
+                    LEFT JOIN library lv ON lv.book = cb.best_version_book
                 )
                 UNION ALL
                 (
@@ -378,17 +423,126 @@ class SearchService
             [$limit, $limit, $offset],      // library limit, outer limit, outer offset
         );
 
-        $rows = DB::select($sql, $params);
+        return [$sql, $params];
+    }
 
-        // Generate synthetic bibtex for canonical rows so the frontend's
-        // parseAuthorYear gives a sensible inline (Author Year) citation.
-        foreach ($rows as $row) {
-            if (empty($row->bibtex) && !empty($row->title)) {
-                $row->bibtex = $this->buildSyntheticBibtex($row);
-            }
+    /**
+     * Assemble the /api/search/nodes SQL + params for a pre-built tsquery.
+     *
+     * Extracted from SearchController::executeNodeSearch so the controller and
+     * `php artisan search:profile` share one copy of the query. The controller
+     * keeps the config/vector-column whitelist validation; this method trusts
+     * its inputs (callers must validate).
+     *
+     * Two-stage: inner subquery uses no ORDER BY so the GIN scan can
+     * stream-and-stop at LIMIT (cheap regardless of match cardinality).
+     * Outer query computes ts_headline + ts_rank_cd on just those rows
+     * and orders them by relevance (cheap — only $limit rows).
+     *
+     * @return array{0: string, 1: array} [sql, params]
+     */
+    public function buildNodeSearchQuery(
+        string $tsQuery,
+        string $config,
+        string $vectorColumn,
+        int $limit,
+        ?string $creatorName = null,
+        ?string $anonToken = null,
+    ): array {
+        $visibilityConditions = ["(library.listed = true AND library.visibility NOT IN ('private', 'deleted'))"];
+        $visibilityParams = [];
+
+        if ($creatorName) {
+            $visibilityConditions[] = "(library.creator = ? AND library.visibility != 'deleted')";
+            $visibilityParams[] = $creatorName;
         }
 
-        return $rows;
+        if ($anonToken) {
+            $visibilityConditions[] = "(library.creator_token = ? AND library.visibility != 'deleted')";
+            $visibilityParams[] = $anonToken;
+        }
+
+        $visibilityClause = '(' . implode(' OR ', $visibilityConditions) . ')';
+
+        // Shape notes (each stage measured via `php artisan search:profile -v`):
+        //
+        // 1. GIN search_vector indexes only work under RLS because ts_match_vq
+        //    is marked LEAKPROOF (migration 2026_07_02_000001) — without it the
+        //    planner may not evaluate @@ below the policy barrier and every
+        //    node search seq-scanned 2.2M rows (measured seconds per query).
+        // 2. `hits` is a MATERIALIZED CTE over nodes ONLY, so the plan ALWAYS
+        //    drives from the GIN index. Without the fence the planner sometimes
+        //    drives from library instead (585 visible books × bitmap probe each
+        //    ≈ 800ms for single-term queries); fenced, every query class
+        //    measures 2-50ms. The RLS policy still filters rows inside the CTE.
+        // 3. The candidate cap bounds the CTE. RLS-visible nodes that fail the
+        //    stricter visibility clause below (e.g. unlisted books) consume cap
+        //    slots, so pathological corpora could theoretically starve the
+        //    final page — 20× limit keeps that risk negligible.
+        // 4. parent_lib joins on the MATERIALIZED sub.parent_book AFTER the
+        //    LIMIT. Joining on split_part(...) inside the scan seq-scanned the
+        //    whole RLS-filtered library per candidate row (~1.3s measured);
+        //    materialized it's ≤ $limit index lookups.
+        $candidateCap = max($limit * 20, 300);
+
+        $sql = "
+            WITH hits AS MATERIALIZED (
+                SELECT
+                    nodes.book,
+                    nodes.node_id,
+                    nodes.\"startLine\",
+                    COALESCE(nodes.\"plainText\", nodes.content, '') as text_content,
+                    nodes.{$vectorColumn} AS vec
+                FROM nodes
+                WHERE nodes.{$vectorColumn} @@ to_tsquery('{$config}', ?)
+                    AND nodes.book NOT IN ('most-recent', 'most-connected', 'most-lit')
+                LIMIT {$candidateCap}
+            )
+            SELECT
+                sub.book,
+                sub.node_id,
+                sub.\"startLine\",
+                sub.title,
+                sub.author,
+                sub.is_subbook,
+                sub.subbook_kind,
+                sub.parent_book,
+                parent_lib.title AS parent_title,
+                parent_lib.author AS parent_author,
+                ts_headline('{$config}', sub.text_content,
+                    to_tsquery('{$config}', ?),
+                    'StartSel=<mark>, StopSel=</mark>, MaxWords=35, MinWords=15'
+                ) as headline
+            FROM (
+                SELECT
+                    hits.book,
+                    hits.node_id,
+                    hits.\"startLine\",
+                    library.title,
+                    library.author,
+                    (hits.book LIKE '%/%') AS is_subbook,
+                    CASE WHEN hits.book ~ 'HL_[^/]*\$' THEN 'highlight' ELSE 'footnote' END AS subbook_kind,
+                    split_part(hits.book, '/', 1) AS parent_book,
+                    hits.text_content,
+                    hits.vec
+                FROM hits
+                JOIN library ON hits.book = library.book
+                WHERE {$visibilityClause}
+                LIMIT ?
+            ) sub
+            LEFT JOIN library AS parent_lib
+                ON sub.is_subbook
+                AND parent_lib.book = sub.parent_book
+            ORDER BY ts_rank_cd(sub.vec, to_tsquery('{$config}', ?)) DESC
+        ";
+
+        $params = array_merge(
+            [$tsQuery, $tsQuery],
+            $visibilityParams,
+            [$limit, $tsQuery]
+        );
+
+        return [$sql, $params];
     }
 
     /**

@@ -1,5 +1,13 @@
 @extends('layout')
 
+@if(isset($jsonLd))
+@section('structured_data')
+<script type="application/ld+json">
+@json($jsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+</script>
+@endsection
+@endif
+
 @section('styles')
     @vite(['resources/css/app.css', 'resources/css/reader.css', 'resources/css/highlight-div.css', 'resources/css/containers.css', 'resources/css/buttons.css', 'resources/css/form.css', 'resources/css/alert.css', 'resources/css/layout.css'])
 @endsection
@@ -45,6 +53,10 @@
   -->
   <div class="home-content-wrapper">
     <div class="fixed-header">
+      {{-- The logo is inline SVG polygons — without this there is no machine-readable
+           site name on the page. Visually hidden; outside .main-content so the SPA's
+           container rebuild never removes it. --}}
+      <h1 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;margin:0;padding:0;">Hyperlit — read, write and publish hypertext literature</h1>
       <div id="imageContainer" class="top-content">
         <svg id="top" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 432.49 110.22">
           <defs>
@@ -101,7 +113,15 @@
       </div>
     </div>
     <!-- Homepage content containers -->
-    <main id="most-recent" class="main-content active-content"></main>
+    <main id="most-recent" class="main-content active-content">
+@if(!empty($prerenderHtml ?? null))
+{{-- SEO prerender of the most-recent card list. The client rebuilds this container from
+     scratch (transitionToBookContent in homepageDisplayUnit.ts removes all .main-content
+     divs before injecting), so this markup exists purely for crawlers / no-JS — it is
+     never double-rendered. --}}
+<div class="chunk" data-chunk-id="0" data-prerendered="true">{!! $prerenderHtml !!}</div>
+@endif
+    </main>
     <main id="most-connected" class="main-content hidden-content"></main>
     <main id="most-lit" class="main-content hidden-content"></main>
   </div>

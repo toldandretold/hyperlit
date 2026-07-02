@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1566,
-    "moduleCount": 337,
+    "fnCount": 1572,
+    "moduleCount": 338,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3210,
+    "edgeCount": 3214,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -6335,6 +6335,14 @@
       "leaf": true
     },
     {
+      "id": "editToolbar/citationMode/index:CitationMode.clearExternalRetry",
+      "label": "CitationMode.clearExternalRetry",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode/index",
+      "leaf": true
+    },
+    {
       "id": "editToolbar/citationMode/index:CitationMode.close",
       "label": "CitationMode.close",
       "kind": "fn",
@@ -6445,6 +6453,14 @@
       "stage": "editToolbar",
       "module": "editToolbar/citationMode/index",
       "leaf": false
+    },
+    {
+      "id": "editToolbar/citationMode/index:CitationMode.scheduleExternalRetry",
+      "label": "CitationMode.scheduleExternalRetry",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/citationMode/index",
+      "leaf": true
     },
     {
       "id": "editToolbar/citationMode/resultsRender:buildResultButton",
@@ -7580,6 +7596,14 @@
     {
       "id": "hypercites/utils:generateHyperciteID",
       "label": "generateHyperciteID",
+      "kind": "fn",
+      "stage": "hypercites",
+      "module": "hypercites/utils",
+      "leaf": true
+    },
+    {
+      "id": "hypercites/utils:isHyperciteId",
+      "label": "isHyperciteId",
       "kind": "fn",
       "stage": "hypercites",
       "module": "hypercites/utils",
@@ -12630,6 +12654,30 @@
       "leaf": false
     },
     {
+      "id": "search/searchResultCache:searchCacheClear",
+      "label": "searchCacheClear",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/searchResultCache",
+      "leaf": true
+    },
+    {
+      "id": "search/searchResultCache:searchCacheGet",
+      "label": "searchCacheGet",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/searchResultCache",
+      "leaf": true
+    },
+    {
+      "id": "search/searchResultCache:searchCacheSet",
+      "label": "searchCacheSet",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/searchResultCache",
+      "leaf": true
+    },
+    {
       "id": "SPA/createNewBook:createNewBook",
       "label": "createNewBook",
       "kind": "fn",
@@ -15865,6 +15913,7 @@
         "editToolbar/citationMode/index:CitationMode._togglePickerVisibility",
         "editToolbar/citationMode/index:CitationMode._updateScopeBarVisibility",
         "editToolbar/citationMode/index:CitationMode.attachEventHandlers",
+        "editToolbar/citationMode/index:CitationMode.clearExternalRetry",
         "editToolbar/citationMode/index:CitationMode.close",
         "editToolbar/citationMode/index:CitationMode.constructor",
         "editToolbar/citationMode/index:CitationMode.detachEventHandlers",
@@ -15878,7 +15927,8 @@
         "editToolbar/citationMode/index:CitationMode.open",
         "editToolbar/citationMode/index:CitationMode.performSearch",
         "editToolbar/citationMode/index:CitationMode.renderResults",
-        "editToolbar/citationMode/index:CitationMode.repositionContainer"
+        "editToolbar/citationMode/index:CitationMode.repositionContainer",
+        "editToolbar/citationMode/index:CitationMode.scheduleExternalRetry"
       ]
     },
     {
@@ -16205,6 +16255,7 @@
         "hypercites/utils:extractHyperciteIdFromHref",
         "hypercites/utils:findParentWithNumericalId",
         "hypercites/utils:generateHyperciteID",
+        "hypercites/utils:isHyperciteId",
         "hypercites/utils:parseHyperciteHref",
         "hypercites/utils:removeCitedINEntry",
         "hypercites/utils:selectionSpansMultipleNodes"
@@ -18082,6 +18133,17 @@
       ]
     },
     {
+      "id": "search/searchResultCache",
+      "label": "search/searchResultCache",
+      "stage": "infra",
+      "band": "store",
+      "fnIds": [
+        "search/searchResultCache:searchCacheClear",
+        "search/searchResultCache:searchCacheGet",
+        "search/searchResultCache:searchCacheSet"
+      ]
+    },
+    {
       "id": "SPA/createNewBook",
       "label": "SPA/createNewBook",
       "stage": "SPA",
@@ -19497,6 +19559,18 @@
       "id": "components/newbookContainer/citeForm/search:setupImportSearch__call__components/newbookContainer/citeForm/fields:showFieldsForType",
       "source": "components/newbookContainer/citeForm/search:setupImportSearch",
       "target": "components/newbookContainer/citeForm/fields:showFieldsForType",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/search:setupImportSearch__call__search/searchResultCache:searchCacheGet",
+      "source": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "target": "search/searchResultCache:searchCacheGet",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/search:setupImportSearch__call__search/searchResultCache:searchCacheSet",
+      "source": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "target": "search/searchResultCache:searchCacheSet",
       "rel": "call"
     },
     {
@@ -27263,6 +27337,18 @@
       "rel": "call"
     },
     {
+      "id": "editToolbar/citationMode/index:CitationMode.performSearch__call__search/searchResultCache:searchCacheGet",
+      "source": "editToolbar/citationMode/index:CitationMode.performSearch",
+      "target": "search/searchResultCache:searchCacheGet",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/citationMode/index:CitationMode.performSearch__call__search/searchResultCache:searchCacheSet",
+      "source": "editToolbar/citationMode/index:CitationMode.performSearch",
+      "target": "search/searchResultCache:searchCacheSet",
+      "rel": "call"
+    },
+    {
       "id": "editToolbar/citationMode/index:CitationMode.performSearch__domwrite__dom",
       "source": "editToolbar/citationMode/index:CitationMode.performSearch",
       "target": "dom",
@@ -34354,6 +34440,12 @@
       "rel": "call"
     },
     {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__hypercites/utils:isHyperciteId",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "hypercites/utils:isHyperciteId",
+      "rel": "call"
+    },
+    {
       "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__hypercites/utils:parseHyperciteHref",
       "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
       "target": "hypercites/utils:parseHyperciteHref",
@@ -37803,12 +37895,6 @@
       "rel": "read"
     },
     {
-      "id": "store:library__read__components/userProfile/userProfileEditor:initializeUserProfileEditor",
-      "source": "store:library",
-      "target": "components/userProfile/userProfileEditor:initializeUserProfileEditor",
-      "rel": "read"
-    },
-    {
       "id": "store:library__read__hypercites/healthCheck/index:checkHyperciteExists",
       "source": "store:library",
       "target": "hypercites/healthCheck/index:checkHyperciteExists",
@@ -39436,6 +39522,11 @@
       "kind": "static"
     },
     {
+      "source": "components/newbookContainer/citeForm/search",
+      "target": "search/searchResultCache",
+      "kind": "static"
+    },
+    {
       "source": "components/newbookContainer/citeForm/sourceToggle",
       "target": "components/newbookContainer/citeForm/dom",
       "kind": "static"
@@ -40618,6 +40709,11 @@
     {
       "source": "editToolbar/citationMode/index",
       "target": "editToolbar/citationMode/searchQuery",
+      "kind": "static"
+    },
+    {
+      "source": "editToolbar/citationMode/index",
+      "target": "search/searchResultCache",
       "kind": "static"
     },
     {
@@ -43453,6 +43549,11 @@
     {
       "source": "search/inTextSearch/searchToolbar",
       "target": "search/inTextSearch/searchHighlight",
+      "kind": "static"
+    },
+    {
+      "source": "search/postgreSQLsearch/homepageSearch",
+      "target": "search/searchResultCache",
       "kind": "static"
     }
   ],

@@ -87,6 +87,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // SEO hardening: absolute URLs (canonical, og:url, the cached sitemap) must
+        // always be built on the canonical host, never the request host — one crawl
+        // of www.hyperlit.io/sitemap.xml would otherwise poison the 1h sitemap cache
+        // with www URLs. Production-only so http://hyperlit.test is untouched.
+        if ($this->app->isProduction()) {
+            \Illuminate\Support\Facades\URL::forceRootUrl(config('app.url'));
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
+
         // Register authorization policies
         Gate::policy(PgLibrary::class, LibraryPolicy::class);
         Gate::policy(PgHyperlight::class, HyperlightPolicy::class);

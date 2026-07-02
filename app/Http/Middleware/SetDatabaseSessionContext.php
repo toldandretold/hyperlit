@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
@@ -39,11 +40,18 @@ class SetDatabaseSessionContext
         if ($user) {
             // Authenticated user - set username AND user_token for RLS
             // Fetch user_token via admin connection (not exposed via SQL functions)
-            // This protects user_token from SQL injection attacks
-            $userToken = DB::connection('pgsql_admin')
-                ->table('users')
-                ->where('id', $user->id)
-                ->value('user_token') ?? '';
+            // This protects user_token from SQL injection attacks.
+            // Cached 5 min: user_token is written ONLY at user creation
+            // (User::creating / AuthController::register), never rotated — if
+            // rotation is ever added, invalidate this key there.
+            $userToken = Cache::remember(
+                "user_token:{$user->id}",
+                300,
+                fn () => DB::connection('pgsql_admin')
+                    ->table('users')
+                    ->where('id', $user->id)
+                    ->value('user_token') ?? ''
+            );
             $this->setSessionVariables($user->name, $userToken, $sessionId);
         } elseif ($anonymousToken) {
             // Anonymous user with token - set token, clear username
@@ -61,14 +69,17 @@ class SetDatabaseSessionContext
      * Set the PostgreSQL session variables.
      *
      * Uses set_config() with is_local=false to persist for the entire session/connection.
+     * One statement, not three — this runs on EVERY /api/* request, so each
+     * saved round-trip is pure request-latency win.
      */
     private function setSessionVariables(string $username, string $token, string $sessionId): void
     {
         try {
             // Values are passed as parameterized placeholders — PDO handles escaping
-            DB::statement("SELECT set_config('app.current_user', ?, false)", [$username]);
-            DB::statement("SELECT set_config('app.current_token', ?, false)", [$token]);
-            DB::statement("SELECT set_config('app.session_id', ?, false)", [$sessionId]);
+            DB::statement(
+                "SELECT set_config('app.current_user', ?, false), set_config('app.current_token', ?, false), set_config('app.session_id', ?, false)",
+                [$username, $token, $sessionId]
+            );
 
         } catch (\Exception $e) {
             Log::error('Failed to set RLS session context', [

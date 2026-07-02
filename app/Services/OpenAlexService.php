@@ -77,7 +77,9 @@ class OpenAlexService
     {
         $remaining = $response->header('X-RateLimit-Remaining');
 
-        if ($remaining === null) {
+        // Laravel's header() yields '' (not null) when the header is absent —
+        // treating that as 0 made every background call sleep 2s for nothing.
+        if ($remaining === null || $remaining === '') {
             return;
         }
 

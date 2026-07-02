@@ -19,7 +19,7 @@ import {
 import { parseHyperciteHref, attachUnderlineClickListeners, delinkHypercite } from '../../hypercites/index';
 import { getEditToolbar } from '../../editToolbar/index';
 import { getTextOffsetInElement } from '../../editToolbar/toolbarDOMUtils';
-import { determineRelationshipStatus } from '../../hypercites/utils';
+import { determineRelationshipStatus, isHyperciteId } from '../../hypercites/utils';
 import { broadcastToOpenTabs } from '../../utilities/BroadcastListener';
 import {
   setHandleHypercitePaste
@@ -282,8 +282,8 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
   // Get current book (where paste is happening)
   const bookb = targetBookId || getActiveBook();
 
-  // Process all hypercite links and build combined HTML
-  let combinedHtml = '';
+  // Process all hypercite links and build combined content
+  const contentFragment = document.createDocumentFragment();
   const updateTasks: any[] = []; // Store update promises to await later
 
   for (const citeLink of citeLinks) {
@@ -297,6 +297,17 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
 
     const { booka, hyperciteIDa, citationIDa } = parsed;
     console.log("Parsed citation info:", { booka, hyperciteIDa, citationIDa });
+
+    // SECURITY: never re-embed the raw clipboard href. sanitizeHtml() (above) keeps
+    // a legitimate hypercite <a> intact, but citeLink.getAttribute("href") returns the
+    // DECODED value — splicing that into an HTML string that is later re-parsed would
+    // resurrect a `"`-escaped payload (e.g. href='…"><img onerror=…>'). We only accept
+    // a well-formed hypercite id and rebuild the href from validated parts.
+    if (!isHyperciteId(hyperciteIDa)) {
+      console.warn("Rejecting hypercite link with malformed id:", hyperciteIDa);
+      continue;
+    }
+    const safeHref = `/${booka}#${hyperciteIDa}`;
 
     // Generate new hypercite ID for this instance
     const hyperciteIDb = "hypercite_" + Math.random().toString(36).substr(2, 8);
@@ -314,9 +325,19 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
 
     console.log(`🔍 Extracted quoted text for link ${citeLinks.indexOf(citeLink) + 1}:`, `"${quotedText}"`);
 
-    // Add to combined HTML (with space between multiple hypercites)
-    if (combinedHtml) combinedHtml += ' ';
-    combinedHtml += `'${quotedText}'\u2060<a href="${originalHref}" id="${hyperciteIDb}" class="open-icon">↗</a>`;
+    // Build the inserted content with DOM APIs (NOT an HTML string). setAttribute /
+    // textContent escape their inputs, so nothing here is ever parsed back out of a
+    // string — quotedText and the href cannot break out of their context.
+    if (contentFragment.childNodes.length > 0) {
+      contentFragment.appendChild(document.createTextNode(' '));
+    }
+    contentFragment.appendChild(document.createTextNode(`'${quotedText}'⁠`));
+    const anchor = document.createElement('a');
+    anchor.setAttribute('href', safeHref);
+    anchor.id = hyperciteIDb;
+    anchor.className = 'open-icon';
+    anchor.textContent = '↗';
+    contentFragment.appendChild(anchor);
 
     // Store update task to process after insertion
     updateTasks.push({
@@ -328,12 +349,12 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
   }
 
   // Check if we successfully processed any hypercites
-  if (!combinedHtml) {
+  if (contentFragment.childNodes.length === 0) {
     console.warn("No valid hypercites were processed");
     return false;
   }
 
-  console.log(`📝 Built combined HTML for ${updateTasks.length} hypercite(s)`);
+  console.log(`📝 Built combined content for ${updateTasks.length} hypercite(s)`);
 
   // Set the flag to prevent MutationObserver from processing this paste
   setHandleHypercitePaste(true);
@@ -379,36 +400,31 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
     }
   }
 
-  // Insert the combined content - use a more controlled approach
+  // Insert the combined content - use a more controlled approach.
+  // contentFragment was built entirely with DOM APIs (createElement / setAttribute /
+  // textContent), so it is inserted directly — no HTML string is ever re-parsed.
   const selection: any = window.getSelection();
-  const insertedAnchors: any[] = [];
+  // Capture anchor refs before insertion — the same node objects survive the
+  // DocumentFragment move performed by range.insertNode().
+  const insertedAnchors: any[] = Array.from<any>(contentFragment.querySelectorAll('a.open-icon'));
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
 
-    // Create a document fragment with all the hypercite links
-    const fragment = document.createDocumentFragment();
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = combinedHtml;
-
-    // Move all nodes from tempDiv to fragment
-    while (tempDiv.firstChild) {
-      fragment.appendChild(tempDiv.firstChild);
-    }
-
-    // Capture anchor refs before insertion — they survive the fragment move.
-    insertedAnchors.push(...fragment.querySelectorAll('a.open-icon'));
-
-    // Clear the range and insert our clean fragment
+    // Clear the range and insert our DOM-built fragment
     range.deleteContents();
-    range.insertNode(fragment);
+    range.insertNode(contentFragment);
 
     // Move cursor to end of insertion
     range.collapse(false);
     selection.removeAllRanges();
     selection.addRange(range);
   } else {
-    // Fallback to execCommand if selection isn't available
-    document.execCommand("insertHTML", false, combinedHtml);
+    // Fallback to execCommand if selection isn't available. Serialising the
+    // DOM-built fragment is safe: every value was escaped by setAttribute /
+    // textContent, so re-parsing it cannot introduce markup.
+    const tmp = document.createElement('div');
+    tmp.appendChild(contentFragment);
+    document.execCommand("insertHTML", false, tmp.innerHTML);
   }
 
   // Guarantee a space (or end-of-block) after each inserted anchor before save.
@@ -603,7 +619,10 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
             {
               citedIN: existingHypercite.citedIN,
               relationshipStatus: updatedRelationshipStatus,
-              hypercitedHTML: `<u id="${hyperciteIDa}" class="${updatedRelationshipStatus}">${existingHypercite.hypercitedText}</u>`,
+              // Defense-in-depth: hyperciteIDa is already validated (isHyperciteId) and
+              // the status is internal, but hypercitedText is stored data — sanitize the
+              // assembled markup so this write path can never persist active content.
+              hypercitedHTML: sanitizeHtml(`<u id="${hyperciteIDa}" class="${updatedRelationshipStatus}">${existingHypercite.hypercitedText}</u>`),
             },
             true // skipQueue: we're doing batched sync immediately
           );

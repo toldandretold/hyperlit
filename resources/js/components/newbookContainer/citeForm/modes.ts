@@ -20,8 +20,9 @@ export function switchImportMode(mode: string) {
   const formFields = $('import-form-fields');
   const libraryNotice = $('library-match-notice');
 
-  // Abort in-flight search
+  // Abort in-flight search + any pending external-ingest follow-up query
   if (searchState.abort) { searchState.abort.abort(); searchState.abort = null; }
+  if (searchState.externalRetry) { clearTimeout(searchState.externalRetry); searchState.externalRetry = null; }
 
   // Hide library notice
   if (libraryNotice) libraryNotice.style.display = 'none';

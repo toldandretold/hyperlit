@@ -40,4 +40,15 @@ class BookSlugHelper
             ->where('book', $bookId)
             ->value('slug');
     }
+
+    /**
+     * The ONE canonical URL for a book: the slug route when a slug exists,
+     * else /book_<id>. Pass $slug when already fetched to avoid a second query.
+     */
+    public static function canonicalUrl(string $bookId, ?string $slug = null): string
+    {
+        $slug = $slug ?? self::getSlug($bookId);
+
+        return url('/' . ($slug ?: $bookId));
+    }
 }

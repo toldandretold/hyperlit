@@ -5,6 +5,7 @@
 
 import DOMPurify from 'dompurify';
 import { log, verbose } from '../../utilities/logger';
+import { searchCacheGet, searchCacheSet } from '../searchResultCache';
 
 // Configuration
 const DEBOUNCE_MS = 300;
@@ -150,6 +151,14 @@ async function performSearch(query: any) {
     const endpoint = isFullTextMode ? '/api/search/nodes' : '/api/search/library';
     const url = `${endpoint}?q=${encodeURIComponent(query)}&limit=${RESULTS_LIMIT}`;
 
+    // Client-side cache (URL key encodes endpoint/mode/query) — backspacing or
+    // retyping an identical query renders instantly without a round-trip.
+    const cached = searchCacheGet<{ results: any; mode: any }>(url);
+    if (cached) {
+        renderResults(cached.results, cached.mode);
+        return;
+    }
+
     abortController = new AbortController();
 
     try {
@@ -170,6 +179,7 @@ async function performSearch(query: any) {
         const data = await response.json();
 
         if (data.success) {
+            searchCacheSet(url, data);
             renderResults(data.results, data.mode);
         } else {
             showError('Search failed. Please try again.');

@@ -39,7 +39,9 @@ class SearchController extends Controller
         }
 
         try {
+            $t = hrtime(true);
             $results = $this->runLibrarySearch($request, $query, $limit);
+            $dbMs = round((hrtime(true) - $t) / 1e6, 1);
 
             if ($results === null) {
                 return response()->json([
@@ -56,7 +58,7 @@ class SearchController extends Controller
                 'query' => $query,
                 'mode' => 'library',
                 'count' => $results->count()
-            ]);
+            ])->header('Server-Timing', $this->serverTimingHeader(['db_ms' => $dbMs]));
 
         } catch (QueryException $qe) {
             // Malformed full-text query (to_tsquery syntax error). The query is
@@ -157,6 +159,12 @@ class SearchController extends Controller
                 $payload['results']
             );
 
+            $timings = $payload['timings'] ?? [];
+            $totalMs = array_sum($timings);
+            if ($totalMs > 500) {
+                Log::info('citation_search.timings', ['query' => $query, 'timings' => $timings]);
+            }
+
             return response()->json([
                 'success'           => true,
                 'results'           => $results,
@@ -165,8 +173,9 @@ class SearchController extends Controller
                 'count'             => count($results),
                 'has_more'          => $payload['has_more'],
                 'offset'            => $offset,
-                'external_ingested' => $payload['external_ingested'],
-            ]);
+                'external_ingested' => $payload['external_ingested'], // deprecated: always 0, use external_pending
+                'external_pending'  => $payload['external_pending'],
+            ])->header('Server-Timing', $this->serverTimingHeader($timings));
 
         } catch (QueryException $qe) {
             // Malformed full-text query (to_tsquery syntax error). The query is
@@ -326,6 +335,7 @@ class SearchController extends Controller
             $userKey = Auth::id() ?? $request->cookie('anon_token') ?? 'guest';
             $cacheKey = "search:nodes:{$userKey}:{$tsQuery}:{$limit}";
 
+            $t = hrtime(true);
             $payload = Cache::remember($cacheKey, 60, function () use ($request, $tsQuery, $limit) {
                 $results = $this->executeNodeSearch($request, $tsQuery, 'simple', 'search_vector_simple', $limit);
                 $searchType = 'exact';
@@ -362,6 +372,8 @@ class SearchController extends Controller
                 ];
             });
 
+            $dbMs = round((hrtime(true) - $t) / 1e6, 1);
+
             return response()->json([
                 'success' => true,
                 'results' => $payload['results'],
@@ -369,7 +381,7 @@ class SearchController extends Controller
                 'mode' => 'fulltext',
                 'search_type' => $payload['search_type'],
                 'count' => $payload['count'],
-            ]);
+            ])->header('Server-Timing', $this->serverTimingHeader(['db_ms' => $dbMs]));
 
         } catch (QueryException $qe) {
             // Malformed full-text query (to_tsquery syntax error). The query is
@@ -401,10 +413,9 @@ class SearchController extends Controller
     /**
      * Execute node search with specified text search configuration.
      *
-     * Uses a subquery to LIMIT first (by ts_rank_cd) so ts_headline only runs
-     * on the top N rows. Joins library twice: once for the matched book's own
-     * row (for visibility filtering) and once via split_part(book, '/', 1)
-     * to surface the foundation book's title/author for sub-book results.
+     * SQL assembly lives in SearchService::buildNodeSearchQuery (shared with
+     * `php artisan search:profile`); this wrapper validates the config/vector
+     * whitelist and supplies the caller's identity for visibility filtering.
      */
     private function executeNodeSearch(Request $request, string $tsQuery, string $config, string $vectorColumn, int $limit)
     {
@@ -416,75 +427,13 @@ class SearchController extends Controller
             throw new \InvalidArgumentException("Invalid vector column: {$vectorColumn}");
         }
 
-        $user = Auth::user();
-        $anonymousToken = $request->cookie('anon_token');
-
-        $visibilityConditions = ["(library.listed = true AND library.visibility NOT IN ('private', 'deleted'))"];
-        $visibilityParams = [];
-
-        if ($user) {
-            $visibilityConditions[] = "(library.creator = ? AND library.visibility != 'deleted')";
-            $visibilityParams[] = $user->name;
-        }
-
-        if ($anonymousToken) {
-            $visibilityConditions[] = "(library.creator_token = ? AND library.visibility != 'deleted')";
-            $visibilityParams[] = $anonymousToken;
-        }
-
-        $visibilityClause = '(' . implode(' OR ', $visibilityConditions) . ')';
-
-        // Two-stage: inner subquery uses no ORDER BY so the GIN scan can
-        // stream-and-stop at LIMIT (cheap regardless of match cardinality).
-        // Outer query computes ts_headline + ts_rank_cd on just those rows
-        // and orders them by relevance (cheap — only $limit rows).
-        $sql = "
-            SELECT
-                sub.book,
-                sub.node_id,
-                sub.\"startLine\",
-                sub.title,
-                sub.author,
-                sub.is_subbook,
-                sub.subbook_kind,
-                sub.parent_book,
-                sub.parent_title,
-                sub.parent_author,
-                ts_headline('{$config}', sub.text_content,
-                    to_tsquery('{$config}', ?),
-                    'StartSel=<mark>, StopSel=</mark>, MaxWords=35, MinWords=15'
-                ) as headline
-            FROM (
-                SELECT
-                    nodes.book,
-                    nodes.node_id,
-                    nodes.\"startLine\",
-                    library.title,
-                    library.author,
-                    (nodes.book LIKE '%/%') AS is_subbook,
-                    CASE WHEN nodes.book ~ 'HL_[^/]*\$' THEN 'highlight' ELSE 'footnote' END AS subbook_kind,
-                    split_part(nodes.book, '/', 1) AS parent_book,
-                    parent_lib.title AS parent_title,
-                    parent_lib.author AS parent_author,
-                    COALESCE(nodes.\"plainText\", nodes.content, '') as text_content,
-                    nodes.{$vectorColumn} AS vec
-                FROM nodes
-                JOIN library ON nodes.book = library.book
-                LEFT JOIN library AS parent_lib
-                    ON nodes.book LIKE '%/%'
-                    AND parent_lib.book = split_part(nodes.book, '/', 1)
-                WHERE nodes.{$vectorColumn} @@ to_tsquery('{$config}', ?)
-                    AND nodes.book NOT IN ('most-recent', 'most-connected', 'most-lit')
-                    AND {$visibilityClause}
-                LIMIT ?
-            ) sub
-            ORDER BY ts_rank_cd(sub.vec, to_tsquery('{$config}', ?)) DESC
-        ";
-
-        $params = array_merge(
-            [$tsQuery, $tsQuery],
-            $visibilityParams,
-            [$limit, $tsQuery]
+        [$sql, $params] = $this->searchService->buildNodeSearchQuery(
+            $tsQuery,
+            $config,
+            $vectorColumn,
+            $limit,
+            Auth::user()?->name,
+            $request->cookie('anon_token'),
         );
 
         return collect(DB::select($sql, $params));
@@ -565,5 +514,22 @@ class SearchController extends Controller
     private function buildTsQuery(string $query): string
     {
         return $this->searchService->buildTsQuery($query);
+    }
+
+    /**
+     * Format stage timings (keys like 'local_ms') as a Server-Timing header value,
+     * visible in the browser devtools network waterfall — permanent, zero-UI
+     * observability for "where did this search spend its time".
+     */
+    private function serverTimingHeader(array $timings): string
+    {
+        if (empty($timings)) {
+            return 'app;dur=0';
+        }
+        return implode(', ', array_map(
+            fn ($key, $value) => sprintf('%s;dur=%.1f', str_replace('_ms', '', $key), $value),
+            array_keys($timings),
+            array_values($timings),
+        ));
     }
 }

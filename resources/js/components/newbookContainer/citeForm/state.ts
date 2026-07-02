@@ -10,9 +10,10 @@ let allowedResubmitBookId: any = null;
 export const getAllowedResubmitBookId = (): any => allowedResubmitBookId;
 export const setAllowedResubmitBookId = (v: any): void => { allowedResubmitBookId = v; };
 
-export const searchState: { abort: any; debounce: any; offset: number; query: string } = {
+export const searchState: { abort: any; debounce: any; externalRetry: ReturnType<typeof setTimeout> | null; offset: number; query: string } = {
   abort: null,
   debounce: null,
+  externalRetry: null, // one-shot re-query timer for external_pending responses
   offset: 0,
   query: '',
 };

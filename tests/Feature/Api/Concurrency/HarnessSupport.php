@@ -52,6 +52,33 @@ final class HarnessSupport
         }
     }
 
+    /**
+     * Fire $n concurrent GETs at $path and return per-request wall-times (seconds).
+     * Reads each response's transferStats — do NOT pass a custom 'on_stats' option;
+     * the Laravel client installs its own handler and a user-supplied one never fires.
+     *
+     * $paths may be a single path (string) or one path per request (array of $n
+     * strings) — the latter lets cache-cold rows use a unique query per request.
+     */
+    public static function poolLatencies(string|array $paths, int $n, array $headers = []): array
+    {
+        $base = self::baseUrl();
+        $responses = Http::pool(fn ($pool) => array_map(
+            fn ($i) => $pool->withHeaders($headers)
+                ->get($base . (is_array($paths) ? $paths[$i - 1] : $paths)),
+            range(1, $n)
+        ));
+
+        $times = [];
+        foreach ($responses as $r) {
+            if ($r instanceof \Illuminate\Http\Client\Response && $r->transferStats) {
+                $times[] = $r->transferStats->getTransferTime();
+            }
+        }
+
+        return [$times, $responses];
+    }
+
     /** p50 / p95 / max over a list of seconds. */
     public static function percentiles(array $times): array
     {

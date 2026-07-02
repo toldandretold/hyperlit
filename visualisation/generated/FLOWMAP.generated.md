@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1566 functions in 337 modules · 10 object stores · 10 PG tables · 3210 edges
+**MarkdownDB** schema v27 · 1572 functions in 338 modules · 10 object stores · 10 PG tables · 3214 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -419,7 +419,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `validatePassword` | `components/userContainer/validation` | — | — | — | — |
 | `validateUsername` | `components/userContainer/validation` | — | — | — | — |
 | `destroyUserProfileEditor` | `components/userProfile/userProfileEditor` | — | — | write | — |
-| `initializeUserProfileEditor` | `components/userProfile/userProfileEditor` | `library` | `library` | read/write | — |
+| `initializeUserProfileEditor` | `components/userProfile/userProfileEditor` | — | `library` | read/write | — |
 | `destroyUserProfilePage` | `components/userProfile/userProfilePage` | — | — | — | — |
 | `initializeUserProfilePage` | `components/userProfile/userProfilePage` | — | — | read/write | — |
 | `ButtonRegistry._initializeComponent` | `components/utilities/buttonRegistry` | — | — | — | — |
@@ -655,6 +655,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `CitationMode._togglePickerVisibility` | `editToolbar/citationMode/index` | — | — | — | — |
 | `CitationMode._updateScopeBarVisibility` | `editToolbar/citationMode/index` | — | — | — | — |
 | `CitationMode.attachEventHandlers` | `editToolbar/citationMode/index` | — | — | — | — |
+| `CitationMode.clearExternalRetry` | `editToolbar/citationMode/index` | — | — | — | — |
 | `CitationMode.close` | `editToolbar/citationMode/index` | — | — | read/write | — |
 | `CitationMode.constructor` | `editToolbar/citationMode/index` | `localStorage` | — | read | — |
 | `CitationMode.detachEventHandlers` | `editToolbar/citationMode/index` | — | — | — | — |
@@ -669,6 +670,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `CitationMode.performSearch` | `editToolbar/citationMode/index` | — | — | read/write | — |
 | `CitationMode.renderResults` | `editToolbar/citationMode/index` | — | — | read/write | — |
 | `CitationMode.repositionContainer` | `editToolbar/citationMode/index` | — | — | read | — |
+| `CitationMode.scheduleExternalRetry` | `editToolbar/citationMode/index` | — | — | — | — |
 | `buildResultButton` | `editToolbar/citationMode/resultsRender` | — | — | write | — |
 | `buildCombinedSearchUrl` | `editToolbar/citationMode/searchQuery` | — | — | — | — |
 | `HeadingSubmenu.closeHeadingSubmenu` | `editToolbar/headingSubmenu` | — | — | write | — |
@@ -811,6 +813,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `extractHyperciteIdFromHref` | `hypercites/utils` | — | — | — | — |
 | `findParentWithNumericalId` | `hypercites/utils` | — | — | read | — |
 | `generateHyperciteID` | `hypercites/utils` | — | — | — | — |
+| `isHyperciteId` | `hypercites/utils` | — | — | — | — |
 | `parseHyperciteHref` | `hypercites/utils` | — | — | — | — |
 | `removeCitedINEntry` | `hypercites/utils` | — | — | — | — |
 | `selectionSpansMultipleNodes` | `hypercites/utils` | — | — | read | — |
@@ -1389,6 +1392,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `toggleSearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `destroyHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | — | — | — | — |
 | `initializeHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | `localStorage` | — | read | — |
+| `searchCacheClear` | `search/searchResultCache` | — | — | — | — |
+| `searchCacheGet` | `search/searchResultCache` | — | — | — | — |
+| `searchCacheSet` | `search/searchResultCache` | — | — | — | — |
 | `createNewBook` | `SPA/createNewBook` | — | `library` `nodes` `sessionStorage` | — | — |
 | `fireAndForgetSync` | `SPA/createNewBook` | `library` `nodes` `sessionStorage` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `markdownStore` `nodes` `sessionStorage` | read | — |
 | `waitForChunkLoadingComplete` | `SPA/domReadiness` | — | — | read | — |

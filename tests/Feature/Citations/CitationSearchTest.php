@@ -580,6 +580,34 @@ test('cached query short-circuits external lookup within TTL', function () {
     Http::assertSentCount(2); // OpenAlex + Open Library, once each
 });
 
+test('background ingest folds into results on the follow-up query via generation bump', function () {
+    Http::fake([
+        'api.openalex.org/*'   => Http::response(citationFixtureOpenAlexMarxCapital(), 200),
+        'openlibrary.org/*'    => Http::response(citationFixtureOpenLibraryMarxCapital(), 200),
+    ]);
+
+    // Matches the fixture canonical's title ("Capital: A Critique of Political
+    // Economy, Volume I") so the ingested row is findable on the re-query.
+    $query = 'Critique of Political Economy Volume';
+    $svc = app(CitationSearchService::class);
+
+    // First search: thin local results → dispatch. QUEUE_CONNECTION=sync runs
+    // the ingest job inline, AFTER the local results were computed — so this
+    // response predates the ingest (exactly like prod, where the job runs on a
+    // worker). external_pending tells the frontend to re-query.
+    $first = $svc->search($query, 15, 0, 'public');
+    expect($first['external_pending'])->toBeTrue();
+
+    // Follow-up search (the frontend's one-shot re-query): the job bumped the
+    // generation counter, rolling the results-cache key → fresh SQL sees the
+    // ingested canonical.
+    $second = $svc->search($query, 15, 0, 'public');
+    $titles = collect($second['results'])->pluck('title');
+    expect($titles->first(fn ($t) => str_contains((string) $t, 'Critique of Political Economy')))
+        ->not->toBeNull('ingested canonical must appear on the follow-up query')
+        ->and($second['external_pending'])->toBeFalse();
+});
+
 // =============================================================================
 // Controller validation contract (mirrors AiBrainScopeValidationTest)
 // =============================================================================
@@ -608,6 +636,16 @@ test('controller rejects shelf belonging to another user with 404', function () 
     $this->actingAs($caller)
         ->getJson('/api/search/combined?q=anything&sourceScope=shelf&shelfId=' . $shelfId)
         ->assertStatus(404);
+});
+
+test('combined search response carries a Server-Timing header', function () {
+    citationSeedCanonical(['title' => 'CiteTest timing header alpha']);
+    Http::fake();
+
+    $response = $this->getJson('/api/search/combined?q=CiteTest+timing');
+
+    $response->assertOk();
+    expect($response->headers->get('Server-Timing'))->toContain('local;dur=');
 });
 
 // =============================================================================

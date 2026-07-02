@@ -181,3 +181,13 @@ result instead of colliding. Confirm no half-built state afterwards:
 ```bash
 php artisan tinker --execute="echo DB::connection('pgsql_admin')->table('nodes')->where('book','$SBID')->select('node_id')->groupBy('node_id')->havingRaw('count(*)>1')->get()->count().' duplicate node_ids';"
 ```
+
+## Search latency: measuring, and when (not) to reach for Elasticsearch
+
+Search performance has its own instrumentation (added 2026-07-02, after the async-external-ingest + RLS/GIN fixes):
+
+- **`SearchLatencyTest`** (`tests/Feature/Api/Concurrency/SearchLatencyTest.php`) — live p50/p95 dashboard for `/api/search/library`, `/api/search/nodes` (cold + cached), and `/api/search/combined`. Run: `HYPERLIT_TEST_URL=http://hyperlit.test php artisan test --group=concurrency --filter=SearchLatency`. Add `HYPERLIT_TEST_EXTERNAL=1` to also time one external-supplement-triggering request (writes real canonical rows).
+- **`php artisan search:profile "<query>" --analyze --role=both`** — EXPLAIN ANALYZE of the exact production query shapes under the app role (RLS-enforced) vs admin (BYPASSRLS); the delta is the measured RLS cost. `-v` prints full plans.
+- **`Server-Timing` response headers** on all three search endpoints — per-stage timings visible in the browser devtools waterfall.
+
+**Do we need Elasticsearch? No — measured.** Postgres FTS (GENERATED tsvector columns + GIN) serves every query class in single-to-double-digit ms at the current ~2.2M-node corpus, once three things were true: external API calls moved out of the request path (queued `IngestExternalCitationCandidatesJob`), `ts_match_vq` marked LEAKPROOF so GIN indexes work under RLS (migration `2026_07_02_000001`), and join keys materialized before joining `library`. Revisit only if: (1) nodes grows past ~5-10M rows AND the node-FTS p95 in `SearchLatencyTest` exceeds ~300ms; (2) product needs typo-tolerant fuzzy matching (try `pg_trgm` first — much cheaper than ES); or (3) search needs faceting/aggregations or must be offloaded from the transactional DB.

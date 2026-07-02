@@ -17,6 +17,16 @@ export function generateHyperciteID(): string {
 export interface ParsedHyperciteHref { citationIDa: string; hyperciteIDa: string; booka: string }
 
 /**
+ * Validate that a string is a well-formed hypercite id (`hypercite_<alnum>`).
+ * Used at trust boundaries before a clipboard-derived id/href is echoed back into
+ * markup — see the hypercite paste handler, where reusing a raw clipboard href
+ * would otherwise re-parse an attacker payload.
+ */
+export function isHyperciteId(id: string | null | undefined): boolean {
+  return typeof id === 'string' && /^hypercite_[A-Za-z0-9]+$/.test(id);
+}
+
+/**
  * Parse hypercite href URL to extract components
  */
 export function parseHyperciteHref(href: string): ParsedHyperciteHref | null {

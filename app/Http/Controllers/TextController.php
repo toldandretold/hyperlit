@@ -57,6 +57,14 @@ class TextController extends Controller
         // Fetch library metadata for SEO
         $seoData = $this->buildSeoData($book);
 
+        // User pseudo-books canonicalize to the /u/ profile URL, not the bare
+        // /{username} path (which 301s to /u/ anyway).
+        if ($username !== null) {
+            $userCanonical = url('/u/' . str_replace(' ', '', $username));
+            $seoData['canonicalUrl'] = $userCanonical;
+            $seoData['ogUrl'] = $userCanonical;
+        }
+
         // Check all possible data sources
         $bookExistsInDB = DB::table('nodes')->where('book', $book)->exists();
         $markdownPath = resource_path("markdown/{$book}/main-text.md");
@@ -354,6 +362,10 @@ class TextController extends Controller
         $author = $library->author;
         $isArticle = !empty($library->journal);
 
+        // Every URL variant of a book (slug, raw id, HL/Fn deep links, /edit)
+        // must canonicalize to ONE URL, or ranking signals fragment across them.
+        $canonicalUrl = BookSlugHelper::canonicalUrl($bookId, $library->slug);
+
         // Page title
         $pageTitle = $author ? "{$title} by {$author} - Hyperlit" : "{$title} - Hyperlit";
 
@@ -380,6 +392,8 @@ class TextController extends Controller
             'pageTitle' => $pageTitle,
             'pageDescription' => $pageDescription,
             'ogType' => $isArticle ? 'article' : 'book',
+            'canonicalUrl' => $canonicalUrl,
+            'ogUrl' => $canonicalUrl,
         ];
 
         // Open Graph card: a single static branded card for every book (see the
@@ -436,7 +450,7 @@ class TextController extends Controller
             '@context' => 'https://schema.org',
             '@type' => $schemaType,
             'name' => $title,
-            'url' => url()->current(),
+            'url' => $canonicalUrl,
         ];
         if ($author) $jsonLd['author'] = ['@type' => 'Person', 'name' => $author];
         if ($library->publisher) {

@@ -15,6 +15,7 @@
 
 import { buildResultButton } from "./resultsRender";
 import { buildCombinedSearchUrl } from "./searchQuery";
+import { searchCacheGet, searchCacheSet } from "../../search/searchResultCache";
 import type { CitationModeOptions, ShelfUI, ScopeChipsUI, PendingContext, CitationSearchResult } from "./types";
 
 declare global {
@@ -50,6 +51,7 @@ export class CitationMode {
   isOpen: boolean = false;
   pendingContext: PendingContext | null = null;
   debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  externalRetryTimer: ReturnType<typeof setTimeout> | null = null;
   abortController: AbortController | null = null;
   currentQuery: string = '';
   currentOffset: number = 0;
@@ -255,6 +257,9 @@ export class CitationMode {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
+
+    // Clear any pending external-ingest follow-up query
+    this.clearExternalRetry();
 
     // Tear down scope chip handlers
     this._destroyScopeChips();
@@ -604,10 +609,12 @@ export class CitationMode {
     // .citation-scope-bar when data-has-query='true'.
     this.citationResults.dataset.hasQuery = query.length > 0 ? 'true' : 'false';
 
-    // Cancel previous debounce
+    // Cancel previous debounce + any pending external-ingest retry (the retry
+    // is bound to the query it was scheduled for; a new keystroke supersedes it)
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
+    this.clearExternalRetry();
 
     if (query.length < 2) {
       this._items().innerHTML = '';
@@ -640,7 +647,7 @@ export class CitationMode {
     }, 300);
   }
 
-  async performSearch(query: any, offset = 0) {
+  async performSearch(query: any, offset = 0, bypassCache = false) {
     // Guard: shelf scope needs a shelfId — otherwise we'd fire the request just to
     // get a 422 back. Surface a friendlier message in the results pane AND keep
     // the scope bar visible so the user can actually use the picker (hiding it
@@ -664,6 +671,18 @@ export class CitationMode {
 
     try {
       const url = buildCombinedSearchUrl(query, this.currentScope, this.currentShelfId, offset);
+
+      // Client-side cache: the URL is the key (encodes query/scope/shelf/offset).
+      // Backspacing or retyping an identical query renders instantly. The
+      // external-pending retry bypasses so it reaches the server.
+      if (!bypassCache) {
+        const cached = searchCacheGet<{ results?: CitationSearchResult[]; has_more?: boolean }>(url);
+        if (cached) {
+          await this.renderResults(cached.results || [], offset, cached.has_more ?? false);
+          return;
+        }
+      }
+
       const response = await fetch(url, {
         headers: {
           'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content || '',
@@ -674,7 +693,12 @@ export class CitationMode {
       if (!response.ok) throw new Error('Search failed');
 
       const data = await response.json();
+      // Never cache pending-external pages — the one-shot retry must hit the server.
+      if (data.external_pending !== true) {
+        searchCacheSet(url, data);
+      }
       await this.renderResults(data.results || [], offset, data.has_more ?? false);
+      this.scheduleExternalRetry(data.external_pending === true, query, offset);
 
     } catch (error: any) {
       if (error.name !== 'AbortError') {
@@ -682,6 +706,33 @@ export class CitationMode {
         this.citationResults.dataset.state = 'empty';
         this.repositionContainer();
       }
+    }
+  }
+
+  /**
+   * One-shot follow-up query. When the server returns external_pending=true it
+   * has dispatched a background OpenAlex/Open Library ingest for this query;
+   * new canonicals land a couple of seconds later, so re-fire the same search
+   * once to fold them in. The retry's own response always has
+   * external_pending=false (the server's dedup key), so this cannot loop.
+   */
+  scheduleExternalRetry(pending: boolean, query: string, offset: number) {
+    this.clearExternalRetry();
+    if (!pending || offset !== 0) return;
+    this.externalRetryTimer = setTimeout(() => {
+      this.externalRetryTimer = null;
+      // Only if the modal is still open and the user hasn't typed a new query.
+      // bypassCache: the follow-up must reach the server for the fresh page.
+      if (this.isOpen && this.currentQuery === query) {
+        this.performSearch(query, 0, true);
+      }
+    }, 2500);
+  }
+
+  clearExternalRetry() {
+    if (this.externalRetryTimer) {
+      clearTimeout(this.externalRetryTimer);
+      this.externalRetryTimer = null;
     }
   }
 
