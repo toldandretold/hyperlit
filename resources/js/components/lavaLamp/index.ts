@@ -109,6 +109,8 @@ class LavaLamp {
   private cfg: LavaCfg;
   private root: HTMLDivElement;
   private pathEls: SVGPathElement[] = [];
+  private rise = 0; // 0..1: scroll-driven — hills GROW toward the viewport top
+  private riseRaf = 0;
   private simT = 0;
   private lastNow = 0;
   private lastFrame = 0;
@@ -142,6 +144,7 @@ class LavaLamp {
 
   destroy(): void {
     this.stop();
+    cancelAnimationFrame(this.riseRaf);
     document.removeEventListener('keydown', this.keyHandler);
     this.adjuster?.remove();
     this.adjuster = null;
@@ -178,6 +181,34 @@ class LavaLamp {
     this.rafId = 0;
   }
 
+  /** Scroll-driven "rise": like the lava-lamp cycle, but every hill grows
+   *  toward filling the viewport so scrolled text always sits over lava. */
+  setRise(f: number): void {
+    const next = clamp(f, 0, 1);
+    if (next === this.rise) return;
+    this.rise = next;
+    if (this.running) return; // the animation loop redraws anyway
+    cancelAnimationFrame(this.riseRaf);
+    this.riseRaf = requestAnimationFrame(() => {
+      const blobs = this.buildBlobs();
+      if (blobs.length !== this.pathEls.length) this.renderFull();
+      else blobs.forEach((b, i) => this.pathEls[i]?.setAttribute('d', b.d));
+    });
+  }
+
+  private riseCluster(c: Cluster): Cluster {
+    if (this.rise === 0) return c; // at rest: pixel-identical to the base art
+    // Hills BEHIND the text column rise ~1:1 with the scrolling copy (rise=1
+    // ≈ 700px of scroll ≈ +760 viewBox units); hills outside the column
+    // (e.g. the already-tall right mass) only drift. Weight = how much of
+    // the cluster's span overlaps the copy column (~330..1200 viewBox x).
+    const x0 = c.x - c.W;
+    const x1 = c.x + c.W;
+    const overlap = Math.max(0, Math.min(x1, 1200) - Math.max(x0, 330));
+    const w = Math.min(1, overlap / Math.max(1, x1 - x0));
+    return { ...c, H: c.H + this.rise * (760 * w + 110 * (1 - w)) };
+  }
+
   private animCluster(c: Cluster, ci: number): Cluster {
     const k = this.cfg.animAmt;
     if (this.simT === 0 || k === 0) return c;
@@ -208,7 +239,7 @@ class LavaLamp {
     const blobs: Blob[] = [];
     const k = cfg.animAmt;
     cfg.clusters.forEach((cBase, ci) => {
-      const c = this.animCluster(cBase, ci);
+      const c = this.animCluster(this.riseCluster(cBase), ci);
       const rng = mulberry32(cfg.seed * 7919 + ci * 1013);
       for (let i = 0; i < c.n; i++) {
         const ry = c.H * Math.pow(1 - c.stepDown, i) * (1 + (rng() - 0.5) * 0.10);
@@ -218,7 +249,10 @@ class LavaLamp {
       }
     });
     const bobX = (i: number) => (this.simT ? Math.sin(this.simT * 0.15 + i * 1.9) * 30 * k : 0);
-    const bobY = (i: number) => (this.simT ? 1 + 0.08 * k * Math.sin(this.simT * 0.21 + i * 2.7) : 1);
+    // scatter bumps swell only gently with the rise — big swells turned the
+    // foreground into one flat mass that hid the layered hills behind
+    const bobY = (i: number) =>
+      (this.simT ? 1 + 0.08 * k * Math.sin(this.simT * 0.21 + i * 2.7) : 1) * (1 + 0.5 * this.rise);
     const sRng = mulberry32(cfg.seed * 104729 + 17);
     const mid = Math.round(8 * cfg.scatterMul);
     const front = Math.round(12 * cfg.scatterMul);
@@ -327,4 +361,9 @@ export function initLavaLamp(cfg: Partial<LavaCfg> = {}): void {
 export function destroyLavaLamp(): void {
   instance?.destroy();
   instance = null;
+}
+
+/** Scroll hook (chatHero): 0 = resting art, 1 = hills fully risen. */
+export function setLavaRise(f: number): void {
+  instance?.setRise(f);
 }

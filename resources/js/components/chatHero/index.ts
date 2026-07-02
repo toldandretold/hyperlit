@@ -22,12 +22,47 @@
  * normal homepage even though it registers for pages: ['home'].
  */
 
+import { setLavaRise } from '../lavaLamp/index';
+
 let clickHandler: ((e: Event) => void) | null = null;
 let scrollHandler: (() => void) | null = null;
 let observer: MutationObserver | null = null;
+let fadeRaf = 0;
 
 const chatPage = (): HTMLElement | null =>
   document.querySelector<HTMLElement>('#app-container.chat-page');
+
+/**
+ * Scrolling content (the intro copy AND the feed cards) must DISAPPEAR under
+ * the glass card rather than show through it. A CSS mask fades each element
+ * out at the card's bottom edge — but masks are element-relative while the
+ * card is viewport-fixed, so the fade line is fed in as a CSS var recomputed
+ * on scroll (and while the card's dock transition is still moving it).
+ */
+function updateIntroFade(): void {
+  const header = document.querySelector('.fixed-header');
+  if (!header) return;
+  const line = header.getBoundingClientRect().bottom + 6;
+  document
+    .querySelectorAll<HTMLElement>('.chat-intro, .home-content-wrapper .main-content')
+    .forEach(el => {
+      // may go negative (element below the card) — that just pushes the fade
+      // band above the element, i.e. fully visible; do NOT clamp to 0
+      const y = line - el.getBoundingClientRect().top;
+      el.style.setProperty('--intro-fade-y', `${y.toFixed(0)}px`);
+    });
+}
+
+/** Keep the fade line glued to the card while its 0.6s dock transition runs. */
+function trackFadeFor(ms: number): void {
+  cancelAnimationFrame(fadeRaf);
+  const until = performance.now() + ms;
+  const step = (now: number) => {
+    updateIntroFade();
+    if (now < until) fadeRaf = requestAnimationFrame(step);
+  };
+  fadeRaf = requestAnimationFrame(step);
+}
 
 function suppressTabRestore(): void {
   localStorage.removeItem('homepage_active_button');
@@ -94,12 +129,29 @@ export function initChatHero(): void {
     const p = chatPage();
     const wrapper = document.querySelector('.home-content-wrapper');
     if (!p || !wrapper) return;
-    p.classList.toggle('scrolled', wrapper.scrollTop > 30);
+    const st = wrapper.scrollTop;
+
+    const wasScrolled = p.classList.contains('scrolled');
+    const nowScrolled = st > 30;
+    p.classList.toggle('scrolled', nowScrolled);
+
+    // background parallax: whole artwork creeps up gently (as before)...
+    const mount = document.getElementById('lava-lamp-mount');
+    mount?.style.setProperty('--lava-parallax', `${(-Math.min(st * 0.12, 130)).toFixed(0)}px`);
+    // ...while the shorter/foreground hills GROW up with the text
+    setLavaRise(Math.min(st / 700, 1));
+
+    if (wasScrolled !== nowScrolled) trackFadeFor(750); // card is gliding — follow it
+    else updateIntroFade();
   };
   document.addEventListener('scroll', scrollHandler, true);
 
-  // catches the SPA-return path where the feed DOM is restored wholesale
-  observer = new MutationObserver(() => syncHeroState());
+  // catches the SPA-return path where the feed DOM is restored wholesale,
+  // and keeps the fade var fresh on newly created .main-content elements
+  observer = new MutationObserver(() => {
+    syncHeroState();
+    updateIntroFade();
+  });
   observer.observe(document.body, { childList: true, subtree: true });
 
   syncHeroState();
@@ -110,6 +162,8 @@ export function destroyChatHero(): void {
   clickHandler = null;
   if (scrollHandler) document.removeEventListener('scroll', scrollHandler, true);
   scrollHandler = null;
+  cancelAnimationFrame(fadeRaf);
+  fadeRaf = 0;
   observer?.disconnect();
   observer = null;
 }

@@ -32,8 +32,12 @@
 
 #lava-lamp-mount .lava-lamp-bg svg {
   width: 100%;
-  height: 100%;
+  /* 140px taller than the viewport so the gentle parallax never exposes a gap */
+  height: calc(100% + 140px);
   display: block;
+  /* set by chatHero on scroll: whole artwork creeps up at ~12% of scroll
+     speed; the foreground hills additionally GROW via setLavaRise (JS) */
+  transform: translateY(var(--lava-parallax, 0px));
 }
 
 /* once content is showing, calm the lava down so cards stay readable */
@@ -63,14 +67,22 @@ body[data-page="home"] #app-container.chat-page .fixed-header {
     max-width 0.6s ease-in-out,
     border-radius 0.6s ease-in-out,
     padding 0.6s ease-in-out,
+    gap 0.6s ease-in-out,
     background-color 0.6s ease-in-out;
 }
 
 /* scrolled (intro reading) state: the card keeps its glass-card look but
    docks to the top while the copy scrolls beneath it */
-body[data-page="home"] #app-container.chat-page.scrolled:not(.content-active) .fixed-header {
-  top: 16px;
+/* IDENTICAL box to the feed (.content-active) header — the card gradually
+   widens into the full header slot as it rises; it never leaves the screen */
+body[data-page="home"] #app-container.chat-page.scrolled .fixed-header {
+  top: 0;
   transform: translate(-50%, 0);
+  width: 100%;
+  max-width: var(--content-width, 40ch);
+  border-radius: 0 0 1em 1em;
+  padding: 20px 20px 10px 20px;
+  gap: 0.5em;
 }
 
 /* ---------- intro copy ---------- */
@@ -79,9 +91,23 @@ body[data-page="home"] #app-container.chat-page.scrolled:not(.content-active) .f
   /* starts below the fold: wrapper already pads 200px, so 100vh total */
   margin-top: calc(100vh - 200px);
   padding: 0 8px 25vh;
-  /* --color-text, NOT --hyperlit-black: the latter is theme-REMAPPED to the
-     background tone (sepia turns it cream), which made the copy invisible */
-  color: var(--color-text, #CBCCCC);
+  /* literal near-black in EVERY theme (never a var: --hyperlit-black is
+     theme-remapped to the background tone): the 1:1 parallax keeps colored
+     lava behind the copy at all scroll depths, and black reads on all of it */
+  color: #221F20;
+  /* copy dissolves as it reaches the glass card's bottom edge instead of
+     scrolling visibly beneath it; --intro-fade-y is set by chatHero on scroll
+     (masks are element-relative, the card is viewport-fixed) */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent var(--intro-fade-y, -200px),
+    #000 calc(var(--intro-fade-y, -200px) + 36px)
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent var(--intro-fade-y, -200px),
+    #000 calc(var(--intro-fade-y, -200px) + 36px)
+  );
 }
 
 .chat-intro h1 {
@@ -114,6 +140,21 @@ body[data-page="home"] #app-container.chat-page.scrolled:not(.content-active) .f
   text-decoration-thickness: 4px;
   text-underline-offset: 4px;
   cursor: pointer;
+}
+
+/* the feed cards dissolve under the header too (same mechanism: chatHero
+   feeds each element its own --intro-fade-y on scroll) */
+#app-container.chat-page .home-content-wrapper .main-content {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent var(--intro-fade-y, -200px),
+    #000 calc(var(--intro-fade-y, -200px) + 36px)
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent var(--intro-fade-y, -200px),
+    #000 calc(var(--intro-fade-y, -200px) + 36px)
+  );
 }
 
 /* feed open → intro gone */
@@ -184,6 +225,7 @@ body[data-page="home"] #app-container.chat-page.scrolled:not(.content-active) .f
 #app-container.chat-page:not(.content-active) .fixed-header #imageContainer svg {
   width: min(64vw, 280px);
   height: auto;
+  transition: width 0.6s ease-in-out;
 }
 
 #app-container.chat-page:not(.content-active) .fixed-header .arranger-buttons-container {
