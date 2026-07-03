@@ -55,6 +55,7 @@ body[data-page="home"] #app-container.chat-page .fixed-header {
   --p: var(--hero-p, 0);
   /* docked pose floats 12px below the top edge — corners stay rounded */
   top: calc(50% * (1 - var(--p)) + 12px * var(--p));
+  left: 50%; /* mobile media queries override home's left — re-pin the centre */
   transform: translate(-50%, calc(-50% * (1 - var(--p))));
   /* lerp: centered card width → full header slot (px, not em: header
      font-size is 28px so em blows up) */
@@ -77,6 +78,25 @@ body[data-page="home"] #app-container.chat-page .fixed-header {
   gap: calc(28px - 12px * var(--p));
 }
 
+/* NARROW screens only: the tint fades out as the card docks (blur-only like
+   feed) — at full width the tinted slab collides with the corner buttons.
+   On wide screens the docked card keeps its tint (looks better there). */
+@media (max-width: 700px) {
+  body[data-page="home"] #app-container.chat-page .fixed-header {
+    background-color: color-mix(
+      in srgb,
+      var(--container-glass-bg, rgba(34, 31, 32, 0.35)) calc((1 - var(--p)) * 100%),
+      transparent
+    );
+  }
+}
+
+/* the corner nav buttons (.open: user / new-book) carry a page-background
+   circle that's invisible on home but shows over the lava — flatten it */
+#app-container.chat-page .open {
+  background-color: transparent;
+}
+
 /* the ×/close path is the one place the card should GLIDE back to centre
    (--hero-p snaps to 0 when the wrapper rescrolls to the top) */
 #app-container.chat-page.hero-return .fixed-header {
@@ -95,7 +115,7 @@ body[data-page="home"] #app-container.chat-page .fixed-header {
 .chat-intro {
   /* starts below the fold: wrapper already pads 200px, so 100vh total */
   margin-top: calc(100vh - 200px);
-  padding: 0 8px 25vh;
+  padding: 0 clamp(18px, 5vw, 28px) 25vh;
   /* literal near-black in EVERY theme (never a var: --hyperlit-black is
      theme-remapped to the background tone): the 1:1 parallax keeps colored
      lava behind the copy at all scroll depths, and black reads on all of it */

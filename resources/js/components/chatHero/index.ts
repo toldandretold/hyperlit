@@ -23,6 +23,7 @@
  */
 
 import { setLavaRise } from '../lavaLamp/index';
+import { fixHeaderSpacing } from '../homepage/homepageDisplayUnit';
 
 let clickHandler: ((e: Event) => void) | null = null;
 let scrollHandler: (() => void) | null = null;
@@ -135,6 +136,10 @@ export function initChatHero(): void {
         document.getElementById('lava-lamp-mount')?.style.setProperty('--lava-parallax', '0px');
         setLavaRise(0);
         trackFadeFor(750); // follow the header while it glides to the top
+        // homepageDisplayUnit measured the header while it was still the BIG
+        // centered card and padded the wrapper to that height — re-measure
+        // once the 0.6s glide has landed it in its (smaller) docked pose
+        window.setTimeout(fixHeaderSpacing, 680);
       }
     }
   };
