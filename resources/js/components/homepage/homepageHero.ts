@@ -25,6 +25,8 @@
 
 import { setLavaCeiling, setLavaRise } from './lavaLampBackground';
 import { fixHeaderSpacing, resetHeaderAlignment } from './homepageDisplayUnit';
+import { setPerimeterButtonsHidden } from '../../utilities/operationState';
+
 
 let clickHandler: ((e: Event) => void) | null = null;
 let scrollHandler: (() => void) | null = null;
@@ -133,6 +135,12 @@ export function initHomepageHero(): void {
     // links can coexist (ids must be unique — prefer .copy-import).
     if (target.closest('.copy-import') || target.closest('#copy-import')) {
       e.preventDefault();
+
+      // Reveal the perimeter buttons before opening the login container.
+      ["bottom-right-buttons", "bottom-left-buttons", "topRightContainer",
+       "logoNavWrapper", "userButtonContainer"].forEach((id) =>
+        document.getElementById(id)?.classList.remove("perimeter-hidden"));
+      setPerimeterButtonsHidden(false);
       document.getElementById('newBookButton')?.click();
       return;
     }

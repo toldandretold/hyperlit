@@ -404,6 +404,18 @@ shouldIgnoreEvent(event: any) {
 
         const newPos = marginSize - buttonGap - buttonWidth;
 
+        // On the lava-lamp homepage the docked hero card keeps a minimum
+        // side margin (--hero-edge-min in homepage.css — keep this formula
+        // in sync). At narrow/mid widths the column is ~full-width so newPos
+        // clamps — to the 10px floor the buttons would sit OUTSIDE that
+        // margin, off the card. Floor the TOP buttons at the card's edge
+        // + 14px instead; when the column term governs, card-edge + 14 ==
+        // newPos exactly, so wide screens are unaffected.
+        const w = window.innerWidth;
+        const lavaTopFloor = document.querySelector('#app-container.lava-lamp-background')
+          ? Math.min(Math.max(0.02 * w, 0.06 * w - 16), 40) + 14
+          : 10;
+
         // Toggle transparent background when buttons overlap content column
         const isOverlapping = newPos < 10;
         this.loadingElements.forEach((element: any) => {
@@ -417,14 +429,14 @@ shouldIgnoreEvent(event: any) {
         const bottomOffset = toolbarHeight + verticalGap;
 
         this.loadingElements.forEach((element: any) => {
-          if (
-            element.id === "bottom-right-buttons" ||
-            element.id === "topRightContainer"
-          ) {
+          if (element.id === "topRightContainer") {
+            element.style.right = `${Math.max(lavaTopFloor, newPos)}px`;
+          } else if (element.id === "userButtonContainer") {
+            element.style.left = `${Math.max(lavaTopFloor, newPos)}px`;
+          } else if (element.id === "bottom-right-buttons") {
             element.style.right = `${Math.max(10, newPos)}px`;
           } else if (
             element.id === "logoNavWrapper" ||
-            element.id === "userButtonContainer" ||
             element.id === "bottom-left-buttons"
           ) {
             element.style.left = `${Math.max(10, newPos)}px`;

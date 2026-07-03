@@ -22,6 +22,13 @@
 #app-container.lava-lamp-background {
   position: relative;
   z-index: 1;
+  /* minimum side margin for the DOCKED card when the viewport (not the
+     content column) is what limits its width. Scales with viewport: phones
+     keep the tight 2vw tuck (~8px), but the 500-830px band — where the old
+     flat 96vw cap hugged the edges — gets real breathing room (547px→17px,
+     650px→23px, 837px→34px). Above ~830px the column+148px term is narrower
+     anyway, so this stops mattering. Used by both docked poses below. */
+  --hero-edge-min: clamp(2vw, 6vw - 16px, 40px);
 }
 
 #lava-lamp-mount .lava-lamp-bg {
@@ -63,12 +70,12 @@ body[data-page="home"] #app-container.lava-lamp-background .fixed-header {
      60px OUTSIDE the column edge (20px gap + 40px button), so a 74px
      overhang each side tucks them ~14px inside the card — and since that JS
      re-measures on width-setting changes, card and buttons stay in sync at
-     any viewport width. 96vw cap: on narrow screens --content-width
+     any viewport width. Viewport cap: on narrow screens --content-width
      resolves to 40ch/100% (wider than the viewport) and the sum would
-     full-bleed. */
+     full-bleed, so the card keeps at least --hero-edge-min per side. */
   width: calc(
     min(92vw, 480px) * (1 - var(--p)) +
-    min(96vw, var(--content-width, 40ch) + 148px) * var(--p)
+    min(100vw - 2 * var(--hero-edge-min), var(--content-width, 40ch) + 148px) * var(--p)
   );
   max-width: none;
   background-color: var(--container-glass-bg, rgba(34, 31, 32, 0.35));
@@ -127,6 +134,20 @@ body[data-page="home"] #newbook-container {
 #app-container.lava-lamp-background .open {
   background-color: transparent;
 }
+
+/* Below 768px togglePerimeterButtons strips its inline positions and the
+   layout.css 10px corners take over — but the docked card keeps at least
+   --hero-edge-min per side, which is MORE than 10px at mid widths, leaving
+   the buttons off the card. Park them 14px inside the card's minimum edge
+   instead (static; ≥768px the JS inline styles override this with the
+   column-derived position, which uses the same floor). */
+body[data-page="home"] #app-container.lava-lamp-background #userButtonContainer {
+  left: calc(var(--hero-edge-min) + 14px);
+}
+body[data-page="home"] #app-container.lava-lamp-background #topRightContainer {
+  right: calc(var(--hero-edge-min) + 14px);
+}
+
 
 /* the ×/close path is the one place the card should GLIDE back to centre
    (--hero-p snaps to 0 when the wrapper rescrolls to the top) */
@@ -192,7 +213,7 @@ body[data-page="home"] #newbook-container {
      stays legible over both the white backdrop and the hills */
   color: inherit;
   text-decoration: underline;
-  text-decoration-color: var(--hyperlit-white);
+  text-decoration-color: #221F20;
   text-decoration-thickness: 4px;
   text-underline-offset: 4px;
   cursor: pointer;
@@ -203,13 +224,13 @@ body[data-page="home"] #newbook-container {
   color: black;
 }
 
-.welcome-copy #cloudRef-svg {
-
-  background-color: transparent;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+.welcome-copy #cloudRef-svg .cls-1,
+.welcome-copy #cloudRef-svg .cls-2 {
+  fill: #221F20;
 }
-
+.welcome-copy #cloudRef-svg rect {
+  fill: none;
+}
 
 
 
@@ -326,7 +347,7 @@ body[data-page="home"] #app-container.lava-lamp-background.content-active .fixed
   width: 100%;
   /* same +148px overhang as the scroll-docked pose: wraps the JS-positioned
      corner buttons (60px outside the column) with ~14px to spare */
-  max-width: min(96vw, var(--content-width, 40ch) + 148px);
+  max-width: min(100vw - 2 * var(--hero-edge-min), var(--content-width, 40ch) + 148px);
   border-radius: 0 0 1em 1em;
   padding: 20px 20px 10px 20px;
   gap: 0.5em;

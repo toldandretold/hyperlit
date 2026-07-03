@@ -14,6 +14,7 @@ import {
   ensureCsrfToken,
 } from '../../utilities/auth/index';
 import { flushAllPendingEdits } from '../../indexedDB/serverSync/index';
+import { setPerimeterButtonsHidden } from '../../utilities/operationState';
 
 export function showLoginForm(self: any) {
   // Already authenticated? There's nothing to log into — fall back to the
@@ -32,6 +33,14 @@ export function showLoginForm(self: any) {
   attachValidationListeners('login');
 
   if (!self.isOpen && container === self.container) {
+    // Reveal the perimeter buttons before opening the login container.
+    // NOTE: setPerimeterButtonsHidden() is ONLY a state flag — it does not
+    // touch the DOM. The visual hide/show is the `.perimeter-hidden` class,
+    // so we must strip it off the elements ourselves, then sync the flag.
+    ["bottom-right-buttons", "bottom-left-buttons", "topRightContainer",
+     "logoNavWrapper", "userButtonContainer"].forEach((id) =>
+      document.getElementById(id)?.classList.remove("perimeter-hidden"));
+    setPerimeterButtonsHidden(false);
     self.openContainer("login");
   }
 }
@@ -51,6 +60,11 @@ export function showRegisterForm(self: any) {
   attachValidationListeners('register');
 
   if (!self.isOpen && container === self.container) {
+    // Reveal the perimeter buttons before opening the login container.
+    ["bottom-right-buttons", "bottom-left-buttons", "topRightContainer",
+     "logoNavWrapper", "userButtonContainer"].forEach((id) =>
+      document.getElementById(id)?.classList.remove("perimeter-hidden"));
+    setPerimeterButtonsHidden(false);
     self.openContainer("register");
   }
 }
