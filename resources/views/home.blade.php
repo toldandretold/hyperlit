@@ -79,14 +79,17 @@
       <div class="arranger-buttons-container">
         <!-- Homepage search (same logic as home: homepageSearch keys off these ids) -->
         <div id="homepage-search-container" class="search-container">
-          <input
-            type="text"
-            id="homepage-search-input"
-            class="search-input"
-            placeholder="Search titles & authors..."
-            autocomplete="off"
-            spellcheck="false"
-          >
+          <div class="search-input-anchor">
+            <input
+              type="text"
+              id="homepage-search-input"
+              class="search-input"
+              placeholder="Search titles & authors..."
+              autocomplete="off"
+              spellcheck="false"
+            >
+            <div id="search-results-container" class="search-results hidden"></div>
+          </div>
           <label class="fulltext-toggle-label" title="Search within book content">
             <input
               type="checkbox"
@@ -96,7 +99,6 @@
             <span class="fulltext-toggle-slider"></span>
             <span class="fulltext-toggle-text">Full text</span>
           </label>
-          <div id="search-results-container" class="search-results hidden"></div>
         </div>
         {{-- NO `active` class here: that is what defers the initial content load --}}
         <button class="arranger-button" data-content="most-recent">Most Recent</button>
@@ -118,7 +120,7 @@
           <rect width="503.23" height="309.68"></rect>
           <path class="cls-1" d="M503.23,219.35c0-35.07-20.41-66.75-51.68-81.56C449.35,61.43,386.55,0,309.68,0c-54.39,0-103.11,30.53-127.01,78.67-4.94-.84-9.92-1.25-14.93-1.25-35.1,0-66.79,20.43-81.57,51.7C38.28,131.3,0,170.94,0,219.35s40.53,90.32,90.32,90.32h322.58c49.79,0,90.32-40.52,90.32-90.32ZM25.81,219.35c0-35.57,28.94-64.52,64.52-64.52.8,0,1.57.06,2.36.12l11.02.67,3.21-9.2c9.06-25.83,33.51-43.2,60.83-43.2,6.28,0,12.55.93,18.61,2.76l11.28,3.39,4.41-10.92c17.86-44.14,60.09-72.66,107.64-72.66,64.04,0,116.13,52.1,116.13,116.13l-.54,13.46,8.94,3.14c25.85,9.06,43.21,33.51,43.21,60.83,0,35.57-28.94,64.52-64.52,64.52H90.32c-35.57,0-64.52-28.94-64.52-64.52Z"></path>
           <path class="cls-2" d="M247.54,243.04h-67.31v-51.84c0-19.08,3.97-34.15,11.92-45.19,7.94-11.04,21.56-20.79,40.85-29.25l14.55,27.54c-11.86,5.57-20.07,11.12-24.6,16.64-4.54,5.52-7.07,12.05-7.58,19.58h32.19v62.52ZM326,243.04h-67.31v-51.84c0-19.08,3.97-34.15,11.92-45.19,7.94-11.04,21.56-20.79,40.85-29.25l14.55,27.54c-11.86,5.57-20.07,11.12-24.6,16.64-4.54,5.52-7.07,12.05-7.58,19.58h32.19v62.52Z"></path>
-          </svg> to export to markdown or word.</h2>
+          </svg> to export to markdown, word or epub.</h2>
       <h2>5. Write with citations, footnotes and endlessly-nested highlights.</h2>
         
         <h1 class="copy-statement">Hyperlit is an <a href="https://github.com/toldandretold/hyperlit">open-source</a> docuverse for open-access text. Use it to grow and till the digital knowledge commons.</h1>
