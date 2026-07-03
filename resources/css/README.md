@@ -13,19 +13,24 @@ css/
 │   └── custom-theme-template.css  # Template for creating custom themes
 │
 ├── base/                          # Page-agnostic foundations
+│   ├── btnSpinner.css             # Inline spinner for deferred button states
 │   └── layout.css                 # Page layout, scroll wrappers, headers
 │
 ├── components/                    # One file per feature, named after its resources/js folder
 │   ├── accountPage.css            # Account/balance page, logo-nav sizing (ex reader.css)
 │   ├── alert.css                  # Alerts + integrity reporter modal
+│   ├── bookActions.css            # Three-dots book actions button (shared: homepage/shelves/userProfile)
 │   ├── divEditor.css              # (parked — not imported yet)
 │   ├── floatingActionMenu.css     # ↔ js/components/floatingActionMenu
 │   ├── form.css                   # Cite-form / notepad-style forms
 │   ├── gateFilter.css             # Annotation visibility panel ↔ js/components/settingsContainer/gate.ts
 │   ├── highlight-div.css          # #highlight-div + global spinner
 │   ├── homepage.css               # Hero, lava-lamp, feed
+│   ├── hyperciteTombstone.css     # Hypercite tombstone/ghost ↔ js/hypercites
 │   ├── quantizer.css              # Standalone quantizer view
+│   ├── search.css                 # Homepage/library search ↔ js/search
 │   ├── shelves.css                # Shelf system ↔ js/components/shelves
+│   ├── vibe.css                   # Vibe theme generator + gallery ↔ js/components/settingsContainer/vibe
 │   └── vibeAnimations.css         # (imported by containers.css)
 │
 ├── pages/                         # ONE entry per blade view; @import order IS the cascade order
