@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1596 functions in 340 modules · 10 object stores · 10 PG tables · 3229 edges
+**MarkdownDB** schema v27 · 1597 functions in 340 modules · 10 object stores · 10 PG tables · 3229 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -73,6 +73,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `LavaLampBackground.constructor` | `components/homepage/lavaLampBackground` | — | — | write | — |
 | `LavaLampBackground.destroy` | `components/homepage/lavaLampBackground` | — | — | write | — |
 | `LavaLampBackground.gradStops` | `components/homepage/lavaLampBackground` | — | — | — | — |
+| `LavaLampBackground.isMountedIn` | `components/homepage/lavaLampBackground` | — | — | — | — |
 | `LavaLampBackground.isTypingTarget` | `components/homepage/lavaLampBackground` | — | — | — | — |
 | `LavaLampBackground.redrawSoon` | `components/homepage/lavaLampBackground` | — | — | write | — |
 | `LavaLampBackground.renderFull` | `components/homepage/lavaLampBackground` | — | — | read/write | — |

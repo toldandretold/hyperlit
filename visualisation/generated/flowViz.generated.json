@@ -2,7 +2,7 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1596,
+    "fnCount": 1597,
     "moduleCount": 340,
     "storeCount": 10,
     "tableCount": 10,
@@ -646,6 +646,14 @@
     {
       "id": "components/homepage/lavaLampBackground:LavaLampBackground.gradStops",
       "label": "LavaLampBackground.gradStops",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.isMountedIn",
+      "label": "LavaLampBackground.isMountedIn",
       "kind": "fn",
       "stage": "components",
       "module": "components/homepage/lavaLampBackground",
@@ -14607,6 +14615,7 @@
         "components/homepage/lavaLampBackground:LavaLampBackground.constructor",
         "components/homepage/lavaLampBackground:LavaLampBackground.destroy",
         "components/homepage/lavaLampBackground:LavaLampBackground.gradStops",
+        "components/homepage/lavaLampBackground:LavaLampBackground.isMountedIn",
         "components/homepage/lavaLampBackground:LavaLampBackground.isTypingTarget",
         "components/homepage/lavaLampBackground:LavaLampBackground.redrawSoon",
         "components/homepage/lavaLampBackground:LavaLampBackground.renderFull",

@@ -192,6 +192,13 @@ class LavaLampBackground {
     this.root.remove();
   }
 
+  /** True if this instance's SVG is still attached inside the given live mount.
+   *  SPA body swaps (replaceBodyContent) wipe our root and hand back a fresh,
+   *  empty #lava-lamp-mount — a surviving (module-scoped) instance is then stale. */
+  isMountedIn(mount: HTMLElement): boolean {
+    return this.root.isConnected && mount.contains(this.root);
+  }
+
   private isTypingTarget(t: EventTarget | null): boolean {
     return t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
   }
@@ -432,7 +439,15 @@ let instance: LavaLampBackground | null = null;
 export function initLavaLampBackground(cfg: Partial<LavaCfg> = {}): void {
   const mount = document.getElementById('lava-lamp-mount');
   if (!mount) return; // page doesn't want the lava background
-  if (instance) return; // create-once; survives repeated init calls
+  // Re-entrant / self-healing (like containerDragger's "re-init clears stale state"):
+  // the singleton survives SPA body swaps, but its SVG doesn't. If the old instance's
+  // root was wiped (or the mount replaced), rebuild against the fresh mount instead of
+  // no-op'ing — otherwise a return to home ("back button") leaves the mount empty HTML.
+  if (instance) {
+    if (instance.isMountedIn(mount)) return; // still alive & attached — keep it
+    instance.destroy();                      // stale — mount was swapped out from under it
+    instance = null;
+  }
   instance = new LavaLampBackground(mount, { ...DEFAULT_CFG, ...cfg });
 }
 

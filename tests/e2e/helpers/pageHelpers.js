@@ -164,6 +164,7 @@ const EXPECTED_COMPONENTS = {
   home: [
     'logoNav', 'userContainer', 'perimeterButtons', 'settings', 'searchToolbar',
     'newBookButton', 'homepageSearch', 'homepageDisplayUnit', 'homepageBookActions',
+    'lavaLampBackground', 'homepageHero',
   ],
   user: [
     'logoNav', 'userContainer', 'perimeterButtons', 'settings', 'searchToolbar',

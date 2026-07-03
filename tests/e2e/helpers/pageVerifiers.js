@@ -83,6 +83,17 @@ export async function verifyHomePage(page, spa) {
   expect(await spa.getStructure(page)).toBe('home');
   await spa.assertRegistryHealthy(page, 'home');
 
+  // Lava-lamp background is actually rendered AND animating (rAF running), not
+  // dead HTML. This is the "cooked when returning" guard: verifyHomePage runs at
+  // EVERY home landing in the grand tour — including the back-button/forward
+  // replay phases — so a blank mount after SPA re-entry fails here.
+  const lavaPath = page.locator('.lava-lamp-bg path').first();
+  await expect(lavaPath).toBeAttached();
+  const lavaD1 = await lavaPath.getAttribute('d');
+  await page.waitForTimeout(1500);
+  const lavaD2 = await lavaPath.getAttribute('d');
+  expect(lavaD2, 'lava-lamp background is not animating (rAF dead / stale singleton after SPA return)').not.toBe(lavaD1);
+
   // Drop overlay element exists and is hidden by default
   const overlayState = await page.evaluate(() => {
     const el = document.getElementById('page-drop-overlay');

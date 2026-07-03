@@ -56,6 +56,8 @@ const REQUIRED_REGISTERED_COMPONENTS = [
   'toc',
   'footnoteCitationListeners',
   'footnoteTapExtender',
+  'lavaLampBackground', // homepage animated bg — dead after SPA return if un-registered
+  'homepageHero',       // homepage centered glass hero — same SPA-return lifecycle
 ];
 
 // ---------------------------------------------------------------------------
