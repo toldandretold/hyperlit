@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1597,
-    "moduleCount": 340,
+    "fnCount": 1599,
+    "moduleCount": 341,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3229,
+    "edgeCount": 3230,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -12478,6 +12478,22 @@
       "leaf": true
     },
     {
+      "id": "scrolling/wheelScrollForwarder:destroyWheelScrollForwarder",
+      "label": "destroyWheelScrollForwarder",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/wheelScrollForwarder",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/wheelScrollForwarder:initWheelScrollForwarder",
+      "label": "initWheelScrollForwarder",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/wheelScrollForwarder",
+      "leaf": false
+    },
+    {
       "id": "search/inTextSearch/searchEngine:buildSearchIndex",
       "label": "buildSearchIndex",
       "kind": "fn",
@@ -18292,6 +18308,16 @@
         "scrolling/userScrollDetection:setNavigatingState",
         "scrolling/userScrollDetection:setupUserScrollDetection",
         "scrolling/userScrollDetection:shouldSkipScrollRestoration"
+      ]
+    },
+    {
+      "id": "scrolling/wheelScrollForwarder",
+      "label": "scrolling/wheelScrollForwarder",
+      "stage": "scrolling",
+      "band": "capture",
+      "fnIds": [
+        "scrolling/wheelScrollForwarder:destroyWheelScrollForwarder",
+        "scrolling/wheelScrollForwarder:initWheelScrollForwarder"
       ]
     },
     {
@@ -26984,6 +27010,12 @@
       "id": "dom__domread__scrolling/scrollHelpers:waitForElementAndScroll",
       "source": "dom",
       "target": "scrolling/scrollHelpers:waitForElementAndScroll",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/wheelScrollForwarder:initWheelScrollForwarder",
+      "source": "dom",
+      "target": "scrolling/wheelScrollForwarder:initWheelScrollForwarder",
       "rel": "domread"
     },
     {
@@ -40639,6 +40671,11 @@
     {
       "source": "components/utilities/registerComponents",
       "target": "scrolling/selectionAutoScroll",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "scrolling/wheelScrollForwarder",
       "kind": "static"
     },
     {

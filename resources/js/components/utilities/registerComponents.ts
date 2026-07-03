@@ -111,6 +111,11 @@ import {
   destroyHomepageHero
 } from '../homepage/homepageHero';
 
+import {
+  initWheelScrollForwarder,
+  destroyWheelScrollForwarder
+} from '../../scrolling/wheelScrollForwarder';
+
 import { verbose } from "../../utilities/logger";
 
 /**
@@ -350,6 +355,18 @@ export function registerAllComponents() {
     name: 'homepageDisplayUnit',
     initFn: initializeHomepageButtons,
     destroyFn: destroyHomepageDisplayUnit,
+    pages: ['home', 'user'],
+    dependencies: [],
+    required: false
+  });
+
+  // Forwards the mouse wheel to the content wrapper when the pointer sits in a
+  // dead zone (over the fixed header, or the margins beside the centered column),
+  // which otherwise have no scroll target on desktop. Document-delegated singleton.
+  buttonRegistry.register({
+    name: 'wheelScrollForwarder',
+    initFn: initWheelScrollForwarder,
+    destroyFn: destroyWheelScrollForwarder,
     pages: ['home', 'user'],
     dependencies: [],
     required: false
