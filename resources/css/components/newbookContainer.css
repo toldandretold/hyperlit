@@ -1,0 +1,194 @@
+/* When the container is in button view (open state) */
+/* Closed state: container is hidden */
+#newbook-container.closed {
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+
+}
+
+/* Pre-first-open state: until the manager opens the container the first
+   time, its inner buttons would otherwise paint at the fixed-position
+   origin (0,0) and intercept clicks on whatever sits there — on the
+   reader page that's #logoContainer. Hiding via display:none neutralises
+   both the layout and the pointer hit-testing without affecting the
+   open/close animation (the manager sets `display:block` inline when
+   opening, which overrides this). */
+#newbook-container.hidden {
+  display: none;
+}
+
+
+/* Button view: container is open and laid out for buttons */
+#newbook-container.button-view {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  width: 160px;  /* Final desired width */
+  height: auto;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+
+
+#newbook-container button {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  background-color: #4a4a4a;
+  color: #CBCCCC;
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+/* Hover handled in JS - see newBookButton.js setupButtonListeners() */
+
+#createNewBook {
+  margin-bottom: 10px;
+}
+
+/* ---------------------------------------------------
+   SCROLLER (exact same as toc/highlight/ref/hypercite)
+   --------------------------------------------------- */
+#newbook-container .scroller {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: auto;
+  padding: 0 1em 1em 1em; /* no top padding */
+  /* NO border-radius here on purpose: Firefox bug 1803813 — backdrop-filter fails to render
+     when an ancestor has border-radius (>3px) + overflow!=visible AND a descendant is
+     position:sticky. This scroller is the overflow:auto+sticky-footer ancestor of #clearButton's
+     backdrop-filter, so its rounding broke the Clear button's frosted-glass blur in Firefox.
+     The radius was redundant anyway — #newbook-container's own 0.75em border-radius clips it.
+     https://bugzilla.mozilla.org/show_bug.cgi?id=1803813 */
+}
+
+/* ---------------------------------------------------
+   FADE OUT AT TOP
+   --------------------------------------------------- */
+#newbook-container .mask-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1em; /* matches scroller's top padding */
+  pointer-events: none;
+  /* -webkit-backdrop-filter: blur(30px); /* Safari support */ 
+  z-index: 10;
+  /* box-shadow: inset 0px -4px 4px -4px var(--container-glass-bg); */
+  border-radius: 1em 1em 0 0;
+}
+
+/* ---------------------------------------------------
+   FADE OUT AT BOTTOM
+   --------------------------------------------------- */
+#newbook-container .mask-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 1em; /* matches scroller's bottom padding */
+  pointer-events: none;
+  /* background-color: var(--container-glass-bg); */
+  /* -webkit-backdrop-filter: blur(10px); /* Safari support */
+  z-index: 10; /* Corrected: changed en dash to hyphen */
+  /* box-shadow: inset 0px 4px 4px -4px var(--container-glass-bg); */
+  border-radius: 0 0 1em 1em;
+}
+
+
+#importCitation-container {
+  display: none;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+#importCitation-container form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#importCitation-container label {
+  margin-top: 10px;
+  color: #ddd;
+}
+
+#importCitation-container input,
+#importCitation-container textarea {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background-color: #333;
+  color: white;
+}
+
+#importCitation-container button {
+  margin-top: 15px;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  background-color: #4a4a4a;
+  color: white;
+  cursor: pointer;
+}
+
+#importCitation-container button:hover {
+  background-color: #666;
+}
+
+
+
+
+
+
+
+.top-content {
+  width: 100%;
+  text-align: left; /* Changed from center to left */
+  padding: 0px 40px 0px 40px; /* Match main content horizontal padding */
+}
+
+#top {
+  width: 50%;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0;
+  margin-left: -20px; /* Pull logo to the left for better alignment */
+  margin-right: auto; /* This keeps space on the right side */
+}
+
+.button-container {
+  /* Style your buttons container here */
+  padding: 10px 0;
+  text-align: center;
+}
+
+
+
+#imageContainer,
+#userLibraryContainer {
+  margin-bottom: 1em;
+  margin-top: 1em;
+  margin-left: 20px;
+  padding-left: 40px;
+}
+
+/* Override padding for user page to account for fixed-header padding */
+body[data-page="user"] #userLibraryContainer {
+  padding-left: 20px;
+  padding-right: 20px;
+  margin-left: 0; /* Ensure consistent alignment with or without buttons */
+}

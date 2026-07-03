@@ -1,0 +1,41 @@
+/* ========================================
+   Citation Search (inside bottom-up-container)
+   Content injected dynamically when citation button pressed
+   ======================================== */
+
+.citation-search-wrapper {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.75em;
+  width: 100%;
+}
+
+.citation-search-input {
+  width: 100%;
+  padding: 0.75em 1em;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5em;
+  background-color: rgba(0, 0, 0, 0.3);
+  color: var(--color-text);
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.citation-search-input:focus {
+  border-color: var(--hyperlit-aqua);
+}
+
+.citation-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.citation-search-results {
+  overflow-y: auto;
+  max-height: 15em;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.5em;
+}
+
+/* Old citation styles removed - now in buttons.css */

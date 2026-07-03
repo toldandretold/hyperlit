@@ -1,0 +1,361 @@
+/* Shared button styling for user and newbook containers. called fucked as it is FUCKED */
+.fucked-buttons {
+  font-size: 12px;
+}
+
+/* ========================================
+   Import Form: Source Toggle (URL vs File)
+   ======================================== */
+
+#newbook-container .import-source-toggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1em;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #444;
+}
+
+#newbook-container .import-source-toggle-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto !important;
+  padding: 7px 10px !important;
+  font-size: 13px !important;
+  background: transparent !important;
+  color: var(--color-text) !important;
+  border: none !important;
+  border-right: 1px solid #444 !important;
+  border-radius: 0 !important;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+#newbook-container .import-source-toggle-btn:last-child {
+  border-right: none !important;
+}
+
+#newbook-container .import-source-toggle-btn.active {
+  background: var(--hyperlit-aqua, #4EACAE) !important;
+  color: var(--hyperlit-black, #000) !important;
+  font-weight: 600;
+}
+
+#newbook-container .import-source-toggle-btn:not(.active):hover {
+  background: rgba(78, 172, 174, 0.15) !important;
+}
+
+#newbook-container .import-url-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+#newbook-container .import-url-input-row input[type="text"] {
+  flex: 1 1 0;
+  min-width: 0;
+  margin-bottom: 0 !important;
+}
+
+#newbook-container .import-url-fetch-btn {
+  flex: 0 0 auto;
+  width: auto !important;
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  white-space: nowrap;
+  min-width: 90px;
+}
+
+/* Lock button geometry across :hover/:active/:focus so the box doesn't
+   visibly shift size when colour changes. Global #newbook-container rules
+   define padding/border separately; this rule reasserts both. */
+#newbook-container #import-url-fetch,
+#newbook-container #import-url-commit {
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  border: 1px solid currentColor !important;
+  border-radius: 4px !important;
+  box-sizing: border-box !important;
+}
+#newbook-container #import-url-fetch:hover,
+#newbook-container #import-url-fetch:active,
+#newbook-container #import-url-fetch:focus,
+#newbook-container #import-url-commit:hover,
+#newbook-container #import-url-commit:active,
+#newbook-container #import-url-commit:focus {
+  padding: 8px 16px !important;
+  font-weight: 500 !important;
+  border-width: 1px !important;
+  outline: none;
+}
+
+/* Spinner — a trailing animated dot triplet appended via ::after.
+   Used by the JS-toggled .is-loading class on Fetch and Create Book. */
+#newbook-container .formButton.is-loading::after {
+  content: '';
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-left: 0.5em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -0.1em;
+  animation: hyperlit-spin 0.7s linear infinite;
+}
+
+@keyframes hyperlit-spin {
+  to { transform: rotate(360deg); }
+}
+
+.import-url-preview {
+  margin-top: 1em;
+}
+
+.import-url-preview-card {
+  padding: 10px 12px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: rgba(78, 172, 174, 0.06);
+  margin-bottom: 0.75em;
+}
+
+.import-url-preview-card h3 {
+  margin: 0 0 0.25em;
+  font-size: 14px;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.import-url-preview-card .muted {
+  margin: 0 0 0.6em;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.import-url-preview-card p {
+  margin: 0.4em 0 0;
+  font-size: 13px;
+}
+
+.access-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+#newbook-container .import-url-access-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em;
+  margin: 0.4em 0 0 !important;
+  font-size: 13px;
+}
+
+#newbook-container .import-existing-versions {
+  margin-top: 0.75em;
+  padding: 10px 12px;
+  border: 1px solid rgba(239, 141, 52, 0.4);
+  border-radius: 6px;
+  background: rgba(239, 141, 52, 0.06);
+}
+
+#newbook-container .import-existing-versions p {
+  margin: 0 0 0.4em;
+  font-size: 13px;
+}
+
+#newbook-container .import-existing-versions ul {
+  list-style: none;
+  margin: 0 0 0.5em;
+  padding: 0;
+}
+
+#newbook-container .import-existing-versions li {
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+}
+
+#newbook-container .import-existing-versions li:last-child {
+  border-bottom: none;
+}
+
+#newbook-container .import-existing-link {
+  color: var(--hyperlit-aqua, #4EACAE);
+  text-decoration: none;
+}
+
+#newbook-container .import-existing-link:hover {
+  text-decoration: underline;
+}
+
+.access-badge.open {
+  background: rgba(78, 172, 174, 0.25);
+  color: var(--hyperlit-aqua, #4EACAE);
+}
+
+.access-badge.closed {
+  background: rgba(239, 141, 52, 0.2);
+  color: var(--color-accent, #EF8D34);
+}
+
+/* ========================================
+   Import Form: 3-Mode Interface
+   ======================================== */
+
+/* Mode Selector — horizontal pill tabs */
+.import-mode-selector {
+  margin-bottom: 1em;
+}
+
+.import-mode-group {
+  display: flex;
+  gap: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #444;
+}
+
+.import-mode-label {
+  flex: 1;
+  text-align: center;
+  cursor: pointer;
+  margin: 0 !important;
+}
+
+.import-mode-label input[type="radio"] {
+  display: none;
+}
+
+.import-mode-label span {
+  display: block;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--color-text);
+  background: transparent;
+  transition: background 0.2s, color 0.2s;
+  border-right: 1px solid #444;
+}
+
+.import-mode-label:last-child span {
+  border-right: none;
+}
+
+.import-mode-label:has(input:checked) span {
+  background: var(--hyperlit-aqua);
+  color: var(--hyperlit-black);
+  font-weight: 600;
+}
+
+.import-mode-label:not(:has(input:checked)):hover span {
+  background: rgba(78, 172, 174, 0.15);
+}
+
+/* Search input */
+#import-search-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 16px; /* Prevents iOS zoom */
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: var(--container-solid-bg);
+  color: var(--color-text);
+  outline: none;
+  box-sizing: border-box;
+  margin-bottom: 0.75em;
+}
+
+#import-search-input:focus {
+  border-color: var(--hyperlit-aqua);
+  box-shadow: 0 0 0 2px rgba(78, 172, 174, 0.2);
+}
+
+#import-search-input::placeholder {
+  color: rgba(203, 204, 204, 0.5);
+}
+
+/* Search results container */
+.import-search-results {
+  max-height: 40vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.import-search-loading,
+.import-search-empty {
+  text-align: center;
+  padding: 1.5em 1em;
+  color: var(--color-text);
+  opacity: 0.6;
+  font-size: 14px;
+}
+
+/* Library match notice */
+.import-library-notice {
+  background: rgba(78, 172, 174, 0.1);
+  border: 1px solid rgba(78, 172, 174, 0.3);
+  border-radius: 6px;
+  padding: 1em;
+  margin: 0.75em 0;
+}
+
+.import-library-notice p {
+  margin: 0 0 0.75em 0;
+  color: #4EACAE;
+  font-size: 14px;
+}
+
+.import-library-notice-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.import-library-notice-actions .formButton {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  padding: 8px 12px !important;
+  text-decoration: none;
+  display: block;
+}
+
+/* Book URL preview */
+#book-url-preview {
+  color: #4EACAE;
+}
+
+/* Mode panel visibility */
+.import-mode-panel {
+  /* Default visible — JS manages display */
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .import-mode-label span {
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+
+  .import-library-notice-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .import-search-results {
+    max-height: 35vh;
+  }
+}

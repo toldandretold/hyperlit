@@ -1,0 +1,122 @@
+/*
+  =====================================================================
+  HYPERCITE MANAGEMENT BUTTONS (Health Check & Delete)
+  =====================================================================
+*/
+
+/* Container styling to match hyperlight buttons */
+.hypercite-management-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 0.5em;
+}
+
+/* Button base styling - matching hyperlight buttons */
+.hypercite-management-buttons button,
+.hypercite-health-check-btn,
+.hypercite-delete-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+/* SVG sizing */
+.hypercite-management-buttons button svg,
+.hypercite-health-check-btn svg,
+.hypercite-delete-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Default icon colors */
+.hypercite-management-buttons .hypercite-health-check-btn svg,
+.hypercite-health-check-btn svg {
+  fill: var(--icon-fill-primary);
+}
+
+.hypercite-management-buttons .hypercite-delete-btn svg,
+.hypercite-delete-btn svg {
+  stroke: var(--icon-stroke-primary);
+  fill: none;
+}
+
+/* Hover effects - matching hyperlight buttons */
+.hypercite-management-buttons button:not(:disabled):not(.health-check-complete):hover,
+.hypercite-health-check-btn:not(:disabled):not(.health-check-complete):hover,
+.hypercite-delete-btn:not(:disabled):hover {
+  transform: scale(1.1);
+  background: transparent;
+}
+
+/* Health check button uses fill, delete uses stroke */
+.hypercite-management-buttons .hypercite-health-check-btn:not(:disabled):not(.health-check-complete):hover svg,
+.hypercite-health-check-btn:not(:disabled):not(.health-check-complete):hover svg {
+  fill: var(--icon-hover-fill);
+}
+
+.hypercite-management-buttons .hypercite-delete-btn:not(:disabled):hover svg,
+.hypercite-delete-btn:not(:disabled):hover svg {
+  stroke: var(--icon-hover-stroke);
+}
+
+/* Disable interaction after health check completes */
+.hypercite-management-buttons .health-check-complete,
+.health-check-complete {
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Disabled state */
+.hypercite-management-buttons button:disabled,
+.hypercite-health-check-btn:disabled,
+.hypercite-delete-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.hypercite-management-buttons .hypercite-health-check-btn:disabled svg,
+.hypercite-health-check-btn:disabled svg {
+  fill: var(--icon-disabled-fill);
+}
+
+.hypercite-management-buttons .hypercite-delete-btn:disabled svg,
+.hypercite-delete-btn:disabled svg {
+  stroke: var(--icon-disabled-stroke);
+}
+
+/* Bulk delete all disconnected citations button (header icon) */
+.hypercite-bulk-delete-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.hypercite-bulk-delete-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.hypercite-bulk-delete-btn:hover {
+  transform: scale(1.1);
+}
+
+/* end  */

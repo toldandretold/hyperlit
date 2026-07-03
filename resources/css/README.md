@@ -16,34 +16,29 @@ css/
 │   ├── btnSpinner.css             # Inline spinner for deferred button states
 │   └── layout.css                 # Page layout, scroll wrappers, headers
 │
-├── components/                    # One file per feature, named after its resources/js folder
-│   ├── accountPage.css            # Account/balance page, logo-nav sizing (ex reader.css)
-│   ├── alert.css                  # Alerts + integrity reporter modal
-│   ├── bookActions.css            # Three-dots book actions button (shared: homepage/shelves/userProfile)
-│   ├── divEditor.css              # (parked — not imported yet)
-│   ├── floatingActionMenu.css     # ↔ js/components/floatingActionMenu
-│   ├── form.css                   # Cite-form / notepad-style forms
-│   ├── gateFilter.css             # Annotation visibility panel ↔ js/components/settingsContainer/gate.ts
-│   ├── highlight-div.css          # #highlight-div + global spinner
-│   ├── homepage.css               # Hero, lava-lamp, feed
-│   ├── hyperciteTombstone.css     # Hypercite tombstone/ghost ↔ js/hypercites
-│   ├── quantizer.css              # Standalone quantizer view
-│   ├── search.css                 # Homepage/library search ↔ js/search
-│   ├── shelves.css                # Shelf system ↔ js/components/shelves
-│   ├── vibe.css                   # Vibe theme generator + gallery ↔ js/components/settingsContainer/vibe
-│   └── vibeAnimations.css         # (imported by containers.css)
+├── components/                    # ~50 files: one per feature, named after its resources/js folder
+│   │                              # (accountPage, alert, homepage, form, quantizer, highlight-div, …)
+│   ├── (containers)               # tocContainer, sourceContainer, sourceContainerForm, newbookContainer,
+│   │                              # stackedContainers, settingsContainer, gateFilter, importForm,
+│   │                              # referenceOverlay, dragResize, progressModal, versionHistory,
+│   │                              # containerEditing, annotationEditing, footnoteTouchTargets,
+│   │                              # formValidation, citationSearch, containersMobile
+│   ├── (buttons/toolbars)         # buttonIcons, editToolbar, editToolbarButtons, editButton-adjacent
+│   │                              # (hyperlitEditButton), siteLogoButton, userButton, perimeterGlass,
+│   │                              # searchToolbar, citationMode, brainMode, searchHighlight,
+│   │                              # hyperlightButtons, citationHealth, userPageTabs, buttonsMobile
+│   └── (features)                 # shelves, floatingActionMenu, search, bookActions, hyperciteTombstone,
+│                                  # vibe, vibeAnimations, divEditor (parked)
 │
 ├── pages/                         # ONE entry per blade view; @import order IS the cascade order
 │   ├── reader.css  home.css  user.css  auth.css  user-home.css  quantizer.css
 │
-├── app.css                        # Shared base (typography, marks, hypercites) — every blade loads it
-├── buttons.css                    # LEGACY RESIDUAL — being drained into components/, do not add to it
-└── containers.css                 # LEGACY RESIDUAL — being drained into components/, do not add to it
+└── app.css                        # Shared base (typography, marks, hypercites) — every blade loads it
 ```
 
-**How CSS loads:** each blade `@vite()`s exactly `app.css` + its `pages/<page>.css`; the page entry `@import`s feature files in cascade order. New styles go in `components/<feature>.css` (named after the owning `resources/js` folder), wired into the relevant `pages/*.css` — never into the legacy residuals.
+**How CSS loads:** each blade `@vite()`s exactly `app.css` + its `pages/<page>.css`; the page entry `@import`s feature files in cascade order. New styles go in `components/<feature>.css` (named after the owning `resources/js` folder), wired into the relevant `pages/*.css`. The old mega-files (`buttons.css`, `containers.css`) are gone — their sections were split verbatim into the component files above, in original order, so the page entries' import order still reproduces the historical cascade exactly.
 
-**Migration guardrails:** `tests/javascript/architecture/cssStructure.test.js` enforces placement, a line-count ratchet on the residuals (`cssBaseline.json` — counts only go down), no double-bundling (a file must not be both a Vite entry and an `@import` target), and no orphan files. When extracting a section from a residual, move it VERBATIM, import it at the exact cascade position it occupied (tail section → right after the residual's import), then prove the cascade unchanged with `node scripts/css-cascade-snapshot.mjs save` (before) / `compare` (after).
+**Guardrails:** `tests/javascript/architecture/cssStructure.test.js` enforces placement (theme/base/components/pages only), a line-count ratchet on `app.css` (`cssBaseline.json` — counts only go down), no double-bundling (a file must not be both a Vite entry and an `@import` target), and no orphan files. Any refactor that moves rules between files must keep the resolved cascade byte-identical — prove it with `node scripts/css-cascade-snapshot.mjs save` (before) / `compare` (after). Rule moves that intentionally change the cascade (dedup/consolidation) need browser-level verification instead (computed-style parity), not just source diffs.
 
 ## Theme System
 
@@ -152,11 +147,11 @@ intended workflow for re-tuning hypercite brightness.
 
 ### Current State
 
-The `base/` + `components/` + `pages/` structure (see Structure above) is live. The two legacy mega-files (`buttons.css`, `containers.css`) are being drained into `components/*.css` one verbatim section at a time, ratchet-protected — see the migration guardrails note above.
+The `base/` + `components/` + `pages/` structure (see Structure above) is fully live: both legacy mega-files were drained to zero and deleted (2026-07), every move proven byte-identical at the resolved-cascade level AND at the built-bundle level (identical output hashes).
 
 ### Remaining (later phases)
 
-Once the residuals are empty: a dedup pass merges the duplicated `.hyperlit-container` / `mark` / footnote / hypercite rules into `base/marks.css`, `base/hypercites.css`, `base/footnotes.css` and extracts `base/typography.css` from `app.css` (verified with computed-style parity, not just source diffs, since that pass intentionally changes rules).
+A dedup/consolidation pass can now merge the duplicated `.hyperlit-container` / `mark` / footnote / hypercite rules into `base/marks.css`, `base/hypercites.css`, `base/footnotes.css`, extract `base/typography.css` from `app.css`, and merge multi-file features (e.g. the several editToolbar/settings files) — verified with computed-style parity, not just source diffs, since that pass intentionally changes rules. Optional later: co-locate truly-lazy feature CSS (editToolbar, divEditor) with their JS chunks, and/or an atomic `@layer` wrap.
 
 ## Best Practices
 

@@ -1,0 +1,190 @@
+/*
+ * =====================================================================
+ * STANDARDIZED SVG ICON STYLING
+ * =====================================================================
+ * All SVG icons now have clean HTML with NO inline fill/stroke attributes.
+ * CSS controls all styling using CSS variables for easy theming.
+ *
+ * Special Cases:
+ * - cloudRef (.cls-1, .cls-2): Uses JS for status colors (saving/success/error)
+ * - copy-hyperlight (.hyperlight-color): Pink accent, brightens on hover
+ * =====================================================================
+ */
+
+/* ===== CLOUD/SOURCE BUTTON (cloudRef) ===== */
+/* Background rect — transparent so glass backdrop shows through */
+#cloudRef-svg rect {
+  fill: transparent;
+}
+
+/* Cloud paths - default to ready state, JS overrides for status */
+#cloudRef-svg .cls-1,
+#cloudRef-svg .cls-2 {
+  fill: var(--status-ready);
+  transition: fill 0.3s ease;
+}
+
+/* Hover state for cloudRef */
+#cloudRef:hover .cls-1 {
+  fill: var(--icon-hover-fill);
+}
+
+/* ===== USER LOGO ===== */
+#userLogo {
+  fill: var(--icon-fill-primary);
+}
+
+/* ===== HOME BUTTON NAV ===== */
+#homeButtonNav svg {
+  fill: var(--icon-fill-primary);
+}
+
+/* ===== TOC TOGGLE BUTTON ===== */
+#toc-toggle-button svg rect {
+  fill: transparent;
+}
+
+#toc-toggle-button svg g path {
+  fill: var(--icon-fill-primary);
+}
+
+/* ===== EDIT BUTTON (STROKED ICON) ===== */
+#editButton svg path {
+  stroke: var(--icon-stroke-primary);
+  fill: none;
+}
+
+/* ===== SETTINGS BUTTON (FILLED ICON) ===== */
+#settingsButton svg {
+  width: 32px !important;
+  height: auto !important;
+}
+
+#settingsButton svg path {
+  fill: var(--icon-fill-primary);
+}
+
+/* ===== SEARCH BUTTON (STROKED ICON) ===== */
+#searchButton svg {
+  width: 24px;
+  height: 24px;
+}
+
+#searchButton svg path,
+#searchButton svg line {
+  stroke: var(--icon-stroke-primary);
+  stroke-width: 32px;
+  stroke-linecap: round;
+  stroke-miterlimit: 10;
+  fill: none;
+}
+
+#searchButton:hover svg path,
+#searchButton:hover svg line {
+  stroke: var(--icon-hover-stroke);
+}
+
+/* ===== HYPERLIGHT BUTTONS ===== */
+/* Delete button - stroked icon */
+#hyperlight-buttons #delete-hyperlight svg path {
+  stroke: var(--icon-stroke-primary);
+  fill: none;
+}
+
+#hyperlight-buttons #delete-hyperlight:hover svg path {
+  stroke: var(--icon-hover-stroke);
+}
+
+/* Copy hyperlight - pink filled square (special case) */
+#hyperlight-buttons #copy-hyperlight .hyperlight-color {
+  fill: var(--icon-fill-accent);
+}
+
+#hyperlight-buttons #copy-hyperlight:hover .hyperlight-color {
+  filter: brightness(1.3);
+}
+
+/* Copy hypercite - filled paths */
+#hyperlight-buttons #copy-hypercite svg .st0 {
+  fill: var(--icon-fill-primary);
+}
+
+#hyperlight-buttons #copy-hypercite:hover svg .st0 {
+  fill: var(--icon-hover-fill);
+}
+
+/* Brain button - stroked icon (lucide brain) */
+#hyperlight-buttons #brain-hyperlight svg .brain-icon-path {
+  stroke: var(--icon-stroke-primary);
+  fill: none;
+}
+#hyperlight-buttons #brain-hyperlight:hover {
+  background: var(--icon-hover-background);
+}
+#hyperlight-buttons #brain-hyperlight:hover svg .brain-icon-path {
+  stroke: var(--icon-hover-stroke);
+}
+
+/* ===== EDIT TOOLBAR BUTTONS ===== */
+/* Background rects for all toolbar buttons */
+#edit-toolbar button svg rect {
+  fill: var(--icon-background);
+}
+
+/* Stroked icons (bold, italic, heading, blockquote, code) */
+/* Exclude undo/redo which use fill instead of stroke */
+#edit-toolbar button:not(#undoButton):not(#redoButton) svg path,
+#edit-toolbar button svg line,
+#edit-toolbar button svg polyline {
+  stroke: var(--icon-stroke-primary);
+  fill: none;
+}
+
+/* Footnote/Citation button text - filled like Bold/Italic */
+#footnoteButton svg text,
+#citationButton svg text {
+  fill: var(--icon-fill-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Footnote/Citation hover state */
+#footnoteButton:hover svg text,
+#footnoteButton.active svg text,
+#citationButton:hover svg text,
+#citationButton.active svg text {
+  fill: var(--icon-hover-fill);
+}
+
+/* Filled icons (undo, redo) - add stroke to fill in the outline shape */
+#undoButton svg path,
+#redoButton svg path {
+  fill: var(--icon-fill-primary);
+  stroke: var(--icon-fill-primary);
+  stroke-width: 2;
+}
+
+/* Hover states for toolbar buttons */
+#edit-toolbar button:hover svg rect,
+#edit-toolbar button.active svg rect {
+  fill: transparent;
+}
+
+/* Exclude undo/redo from stroke-only rule (they use fill+stroke) */
+#edit-toolbar button:not(#undoButton):not(#redoButton):hover svg path,
+#edit-toolbar button:hover svg line,
+#edit-toolbar button:hover svg polyline,
+#edit-toolbar button:not(#undoButton):not(#redoButton).active svg path,
+#edit-toolbar button.active svg line,
+#edit-toolbar button.active svg polyline {
+  stroke: var(--icon-hover-stroke);
+}
+
+/* Override for filled icons (undo/redo) on hover */
+#undoButton:hover svg path,
+#redoButton:hover svg path,
+#undoButton.active svg path,
+#redoButton.active svg path {
+  fill: var(--icon-hover-fill) !important;
+  stroke: var(--icon-hover-fill) !important;
+  stroke-width: 2;
+}

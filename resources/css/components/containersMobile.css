@@ -1,0 +1,112 @@
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .progress-modal-content {
+    width: calc(100vw - 2em); /* Only go full width on mobile */
+    padding: 1.5em;
+  }
+  
+  .progress-text {
+    font-size: 14px;
+  }
+  
+  .progress-bar-container {
+    height: 16px;
+  }
+  
+  .progress-details {
+    font-size: 11px;
+  }
+
+  /* TOC font size adjustments for mobile */
+  #toc-container h1 {
+    font-size: 20px;
+  }
+
+  #toc-container h2 {
+    font-size: 16px;
+  }
+
+  #toc-container h3, #toc-container h4 {
+    font-size: 14px;
+  }
+
+  /* Mobile-specific styling for newbook container */
+  #newbook-container {
+    /* Ensure smooth transitions on mobile */
+    transition: width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, 
+                padding 0.3s ease-out, top 0.3s ease-out, left 0.3s ease-out, right 0.3s ease-out;
+  }
+
+  /* Mobile form styling adjustments */
+  #newbook-container .scroller {
+    padding: 0.5em;
+  }
+
+  #newbook-container form {
+    /* Ensure form content is properly spaced on mobile */
+    margin: 0;
+  }
+
+  #newbook-container input,
+  #newbook-container textarea {
+    /* Improve touch targets on mobile */
+    min-height: 44px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+}
+
+/* Very small screens */
+@media (max-width: 480px) {
+  /* Make containers wider on phone screens only */
+  #toc-container {
+    max-width: 75vw; /* Use most of screen width on phones */
+    width: 75vw;
+  }
+
+  #hyperlit-container {
+    max-width: 75vw; /* Use most of screen width on phones */
+    width: 75vw;
+    /* box-shadow spotlight lives on .open (above) so it applies here too without dimming
+       while the container is parked off-screen. */
+  }
+
+  .progress-modal-content {
+    padding: 1em;
+    border-radius: 8px;
+  }
+
+  .progress-text {
+    font-size: 13px;
+  }
+
+  .progress-bar-container {
+    height: 14px;
+    margin: 0.75em 0;
+  }
+
+  .progress-details {
+    font-size: 10px;
+  }
+}
+#newbook-container {
+  background-color: var(--container-glass-bg);
+  -webkit-backdrop-filter: var(--container-glass-blur);
+  backdrop-filter: var(--container-glass-blur);
+  border: none;
+  border-radius: 0.75em; /* Same as other containers */
+  box-sizing: border-box;
+  box-shadow: 0 0 0 250vmax rgba(0, 0, 0, 0.5);
+}
+
+#newbook-container .scroller {
+  padding: 1em; /* Same as other containers */
+}
+
+#newbook-container form input,
+#newbook-container form textarea,
+#newbook-container form label,
+#newbook-container form button {
+  font-size: 16px;
+  font-family: inherit;
+}

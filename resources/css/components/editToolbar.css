@@ -1,0 +1,297 @@
+/* Edit toolbar container - horizontal at bottom (all screen sizes) */
+#edit-toolbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  transform: none;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 16px 18px 16px; /* top right bottom left */
+  background: color-mix(in srgb, var(--icon-background) 98%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 0.5px solid color-mix(in srgb, var(--icon-stroke-primary) 20%, transparent);
+  transition: opacity 0.3s ease;
+  z-index: 9999; /* Higher than citation-toolbar-results (999) so toolbar is clickable */
+  opacity: 0;
+  visibility: hidden;
+
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  pointer-events: auto;
+}
+
+#edit-toolbar.visible.perimeter-hidden {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, right 0.3s ease;
+}
+
+#edit-toolbar.visible {
+  opacity: 1;
+  visibility: visible;
+}
+#edit-toolbar button.disabled {
+  opacity: 0.3 !important;
+  pointer-events: none !important;
+  cursor: not-allowed !important;
+  transform: none !important; /* Reset hover transform */
+}
+
+#edit-toolbar button.processing {
+  opacity: 0.5 !important;
+  pointer-events: none !important;
+  cursor: wait !important;
+  transform: none !important; /* Reset hover transform */
+}
+
+
+
+/* Specific styling for the SVG path (the arrow shape) when undo/redo buttons are disabled/processing */
+#undoButton.disabled svg path,
+#redoButton.disabled svg path {
+  fill: #888888 !important; /* Fade the arrow color to gray */
+  stroke: #888888 !important;
+  stroke-width: 2;
+}
+
+#undoButton.processing svg path,
+#redoButton.processing svg path {
+  fill: #aaaaaa !important; /* Slightly lighter gray for processing */
+  stroke: #aaaaaa !important;
+  stroke-width: 2;
+}
+
+/* Ensure the SVG's background rect is NOT affected by these specific arrow fill changes,
+   and stays its original background color if it has one. */
+#undoButton.disabled svg rect,
+#redoButton.disabled svg rect,
+#undoButton.processing svg rect,
+#redoButton.processing svg rect {
+  fill: var(--icon-background) !important; /* Ensure the rect retains its background fill */
+}
+
+/* Hide undo/redo buttons when hyperlight selection buttons are visible */
+#edit-toolbar.hyperlight-selection-active #undoButton,
+#edit-toolbar.hyperlight-selection-active #redoButton {
+  display: none !important;
+}
+
+#edit-toolbar button {
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+  user-select: none;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#edit-toolbar button svg {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
+/* --- UNIFIED HOVER & ACTIVE STYLES (CORRECTED) --- */
+
+/* --- UNIFIED HOVER & ACTIVE STYLES (FINAL V2) --- */
+
+/* 1. Style the button's background on hover and active states. */
+#edit-toolbar button:hover,
+#edit-toolbar button.active {
+  background-color: var(--icon-hover-background); /* Apply background to the button itself */
+}
+/* Apply transform only on hover for better UX */
+#edit-toolbar button:hover {
+  transform: scale(1.1);
+}
+
+/* 2. Make the SVG's own background rectangle transparent. */
+/* This lets the button's new white background show through. */
+#edit-toolbar button:hover svg rect,
+#edit-toolbar button.active svg rect {
+  fill: transparent !important;
+}
+
+/* 3. Style OUTLINED icons (Bold, Italic, Heading, etc.). */
+/* This rule targets the visual parts of these specific icons. */
+/* Exclude undo/redo buttons which use fill instead of stroke */
+#edit-toolbar button:not(#undoButton):not(#redoButton):hover svg path,
+#edit-toolbar button:hover svg line,
+#edit-toolbar button:hover svg polyline,
+#edit-toolbar button:not(#undoButton):not(#redoButton).active svg path,
+#edit-toolbar button.active svg line,
+#edit-toolbar button.active svg polyline {
+  stroke: var(--icon-hover-stroke); /* Make the outline inverted. */
+  fill: transparent; /* Make the inside of shapes transparent. */
+}
+
+/* 4. Create a specific OVERRIDE for FILLED icons (Undo/Redo). */
+/* This rule is more specific and will apply ONLY to the undo/redo paths. */
+#undoButton:hover svg path,
+#redoButton:hover svg path,
+#undoButton.active svg path,
+#redoButton.active svg path {
+  /* CRITICAL FIX: Use !important to override the inline fill attribute in the SVG */
+  fill: var(--icon-hover-fill) !important;
+  stroke: var(--icon-hover-fill) !important;
+  stroke-width: 2;
+}
+
+/* Heading Submenu */
+.heading-submenu {
+  position: absolute;
+  background: color-mix(in srgb, var(--icon-background) 85%, transparent);
+  backdrop-filter: blur(10px);
+  border: .25px solid color-mix(in srgb, var(--icon-stroke-primary) 20%, transparent); 
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 1001;
+  display: flex;
+  gap: 4px;
+}
+
+.heading-submenu.hidden {
+  display: none;
+}
+
+/* Submenu positioned above the horizontal toolbar */
+.heading-submenu {
+  bottom: calc(100% + 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  flex-direction: row;
+}
+
+.heading-level-btn,
+.heading-remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.heading-remove-btn {
+  font-size: 18px;
+  padding: 6px 10px;
+  display: none; /* Hidden by default */
+}
+
+.heading-remove-btn.visible {
+  display: block;
+}
+
+.heading-level-btn:hover,
+.heading-remove-btn:hover {
+  background-color: var(--icon-hover-background);
+  color: var(--icon-hover-stroke);
+  transform: scale(1.05);
+}
+
+.heading-level-btn.active {
+  background-color: var(--icon-hover-background);
+  color: var(--icon-hover-stroke);
+}
+
+/* Block Format Submenu (blockquote/list) */
+.blockquote-submenu {
+  position: absolute;
+  background: color-mix(in srgb, var(--icon-background) 85%, transparent);
+  backdrop-filter: blur(10px);
+  border: .25px solid color-mix(in srgb, var(--icon-stroke-primary) 20%, transparent);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 1001;
+  display: flex;
+  gap: 4px;
+  bottom: calc(100% + 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  flex-direction: row;
+}
+
+.blockquote-submenu.hidden {
+  display: none;
+}
+
+.block-type-btn,
+.block-remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 600;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.block-type-btn svg {
+  width: 24px;
+  height: 24px;
+  stroke: var(--icon-stroke-primary);
+  fill: none;
+}
+
+.block-type-btn svg circle {
+  fill: var(--icon-stroke-primary);
+  stroke: none;
+}
+
+.block-type-btn svg text {
+  fill: var(--icon-stroke-primary);
+  stroke: none;
+}
+
+.block-type-btn:hover svg {
+  stroke: var(--icon-hover-stroke);
+}
+
+.block-type-btn:hover svg circle {
+  fill: var(--icon-hover-stroke);
+}
+
+.block-type-btn:hover svg text {
+  fill: var(--icon-hover-stroke);
+}
+
+.block-remove-btn {
+  font-size: 18px;
+  padding: 6px 10px;
+  display: none; /* Hidden by default */
+}
+
+.block-remove-btn.visible {
+  display: flex;
+}
+
+.block-type-btn:hover,
+.block-remove-btn:hover {
+  background-color: var(--icon-hover-background);
+  color: var(--icon-hover-stroke);
+}
+
+/* end  */

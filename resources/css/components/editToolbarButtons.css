@@ -1,0 +1,145 @@
+/* ===== END OF STANDARDIZED ICON STYLING ===== */
+
+/* edit toolbar */
+#boldButton,
+#italicButton,
+#headingButton,
+#blockquoteButton,
+#codeButton,
+#footnoteButton,
+#citationButton {
+  width: 28px;
+  height: 28px;
+}
+
+#undoButton,
+#redoButton {
+  width: 28px; /* Set width to match other buttons */
+  height: 28px; /* Set height to match other buttons */
+  padding: 0; /* Remove padding as content is now SVG, not text */
+  /* Remove font-related styles as they are no longer relevant for SVG buttons */
+  color: transparent; /* Make text transparent if any accidental text remains */
+  font-size: 0;
+  font-family: none;
+  font-weight: normal;
+
+  /* Reset background and border from previous text-based styling */
+  background: transparent;
+  border: none;
+
+  /* Add flex properties to center the SVG within the button */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#undoButton svg,
+#redoButton svg {
+  width: 28px;
+  height: 28px;
+  display: block; /* Important for preventing extra space */
+}
+
+#toc-toggle-button {
+  width: 26px;
+  height: 26px;
+  background-color: var(--color-background);
+  border: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#settingsButton {
+  width: 32px;
+  height: 32px;
+  background-color: var(--color-background);
+  border: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#editButton,
+#edit-source {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0px;
+  stroke: var(--color-text);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+#editButton svg,
+#edit-source svg {
+  width: 90% !important;
+  height: 90% !important;
+  pointer-events: none !important; /* Prevent SVG from blocking clicks */
+}
+
+#editButton path,
+#edit-source path {
+  stroke: var(--icon-stroke-primary) !important; /* Use theme-aware color */
+  pointer-events: none !important; /* Prevent path elements from blocking clicks */
+}
+
+#editButton.inverted,
+#edit-source.inverted {
+  background: var(--color-text) !important;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: none;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+#editButton.inverted svg path,
+#edit-source.inverted svg path {
+  stroke: var(--color-background) !important;
+}
+
+/* Hide the glass backdrop when edit button is inverted */
+#edit-source.inverted::before {
+  display: none;
+}
+
+/* Hover and active states for proper color inversion - but NOT when inverted */
+#editButton:hover:not(.inverted),
+#editButton.active:not(.inverted) {
+  background-color: var(--icon-hover-background) !important;
+  border-radius: 4px;
+}
+
+#editButton:hover:not(.inverted) svg path,
+#editButton.active:not(.inverted) svg path {
+  stroke: var(--icon-hover-stroke) !important;
+}
+
+#editButton.locked-state {
+  background: var(--color-background);
+  color: #666666; /* Slightly muted color for lock */
+  cursor: default !important;
+  opacity: 0.8;
+}
+
+#editButton.locked-state svg {
+  fill: currentColor;
+  color: #666666; /* Muted gray color for the lock */
+}
+
+/* Hide lock icon entirely — glass pill auto-sizes to remaining buttons */
+#editButton[data-is-locked="true"] {
+  display: none !important;
+}

@@ -1,17 +1,52 @@
 /* Page entry: reset-password.blade.php
  * Loaded alongside app.css (the shared base). Import order below IS the cascade
- * order and reproduces the pre-reorg Blade @vite list exactly — do not reorder.
- * Extracted files import at the cascade position their section occupied inside
- * its residual. Verify: node scripts/css-cascade-snapshot.mjs compare
+ * order — see pages/reader.css for the full explanation.
+ * Verify changes with: node scripts/css-cascade-snapshot.mjs compare
  */
-@import url('../containers.css');
+/* — ex containers.css, in original section order — */
+@import url('../theme/variables.css');
+@import url('../components/vibeAnimations.css');
+@import url('../components/tocContainer.css');
+@import url('../components/sourceContainer.css');
+@import url('../components/newbookContainer.css');
+@import url('../components/containerEditing.css');
+@import url('../components/footnoteTouchTargets.css');
+@import url('../components/referenceOverlay.css');
+@import url('../components/dragResize.css');
+@import url('../components/progressModal.css');
+@import url('../components/containersMobile.css');
+@import url('../components/formValidation.css');
+@import url('../components/annotationEditing.css');
+@import url('../components/sourceContainerForm.css');
+@import url('../components/settingsContainer.css');
+@import url('../components/citationSearch.css');
+@import url('../components/stackedContainers.css');
+@import url('../components/versionHistory.css');
+@import url('../components/importForm.css');
 @import url('../components/vibe.css');
 @import url('../base/btnSpinner.css');
 @import url('../components/gateFilter.css');
-@import url('../buttons.css');
+/* — ex buttons.css, in original section order — */
+@import url('../theme/variables.css');
+@import url('../components/buttonIcons.css');
+@import url('../components/editToolbarButtons.css');
+@import url('../components/hyperlitEditButton.css');
+@import url('../components/siteLogoButton.css');
+@import url('../components/userButton.css');
+@import url('../components/perimeterGlass.css');
+@import url('../components/editToolbar.css');
+@import url('../components/searchToolbar.css');
+@import url('../components/citationMode.css');
+@import url('../components/brainMode.css');
+@import url('../components/searchHighlight.css');
+@import url('../components/hyperlightButtons.css');
+@import url('../components/citationHealth.css');
+@import url('../components/userPageTabs.css');
+@import url('../components/buttonsMobile.css');
 @import url('../components/search.css');
 @import url('../components/hyperciteTombstone.css');
 @import url('../components/bookActions.css');
 @import url('../components/floatingActionMenu.css');
 @import url('../components/shelves.css');
+/* — remainder of the blade list — */
 @import url('../components/form.css');

@@ -1,0 +1,82 @@
+/* USER BUTTON */
+#userLogo {
+  height: 20px;
+  width: 20px;
+  fill: var(--color-text);
+}
+
+#userButtonContainer {
+  z-index: 999;
+  flex-shrink: 0;
+  position: relative; /* Enable positioning for pseudo-element */
+}
+
+/* Glass circle on user button */
+#userButtonContainer::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background-color: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+#userButton {
+  background-color: transparent !important;
+}
+
+/* No double glass when user button is inside logo nav */
+#logoNavWrapper #userButtonContainer::after {
+  display: none;
+}
+
+/* Expanded clickable area for user button */
+#userButtonContainer::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  right: -15px;
+  bottom: -15px;
+  z-index: 1;
+  /* Uncomment next line for debugging - shows the expanded click area */
+  /* background: rgba(255, 0, 0, 0.2); */
+}
+
+#topRightContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  transition: right 0.3s ease;
+}
+
+#bottom-left-buttons {
+  position: fixed;
+  bottom: 40px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: left 0.3s ease;
+  z-index: 999;
+}
+
+#bottom-right-buttons {
+  position: fixed;
+  bottom: 40px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: right 0.3s ease;
+  z-index: 999;
+}

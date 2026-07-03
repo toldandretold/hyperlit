@@ -1,0 +1,290 @@
+/* Lock body scroll when hyperlit container is open */
+/* NOTE: Avoiding position: fixed on body - Safari has bugs with contenteditable + fixed body */
+body.hyperlit-container-open {
+  overflow: hidden;
+  /* position: fixed removed - caused 4+ second delay for keyboard input in Safari */
+  /* width: 100% removed - not needed without position: fixed */
+}
+
+/* Ensure main content doesn't scroll when container is open */
+body.hyperlit-container-open .home-content-wrapper,
+body.hyperlit-container-open .reader-content-wrapper {
+  overflow: hidden;
+  touch-action: none; /* Prevent touch scrolling on main content */
+}
+
+/* Bottom-up settings container */
+#settings-container {
+  transform: translateY(calc(100% + 2em)); /* Off-screen, below viewport */
+  transition: transform 0.3s ease-in-out;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: auto;
+  width: 100%;
+  background-color: transparent; /* Fully transparent so page content shows through */
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  z-index: 9999999; /* Above mobile edit-toolbar (999999) */
+  padding: 1em 2em;
+  border-radius: 1em 1em 0 0;
+
+  /* Column layout for rows */
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+  align-items: center;
+  justify-content: center;
+}
+
+/* When hidden, ensure container is fully removed from rendering */
+#settings-container.hidden {
+  display: none !important; /* Completely hide to prevent backdrop-filter from showing */
+  transform: translateY(calc(100% + 2em));
+}
+
+/* When open, slide up into view */
+#settings-container.open {
+  transform: translateY(0);
+}
+
+/* Floating selection word-count pill — sits under #topRightContainer */
+#word-count-display {
+  position: fixed;
+  top: 40px;
+  right: 3px;
+  text-align: right;
+  background-color: var(--container-glass-bg, rgba(34, 31, 32, 0.6));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 999px;
+  padding: 0.25em 0.6em;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--color-text, #fff);
+  opacity: 0.7;
+  z-index: 998;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Settings button styling */
+.settings-button {
+  padding: 0.75em 1em;
+  background-color: rgba(75, 75, 75, 0.6);
+  border: none;
+  border-radius: 0.5em;
+  color: var(--color-text);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 0 1 auto; /* Allow buttons to shrink if needed */
+  min-width: fit-content;
+}
+
+/* Search button - square with same height as other buttons */
+#searchButton {
+  padding: 0.75em;
+  width: 2.75em; /* Match height: 1em (line-height) + 0.75em*2 (padding) = 2.5em, but add a bit for visual match */
+  height: 2.75em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-button:hover {
+  background-color: rgba(95, 95, 95, 0.8);
+}
+
+/* Theme preview colors for inactive buttons */
+#darkModeButton:not(.active) {
+  background-color: #221F20;  /* Dark theme background */
+  color: #CBCCCC;             /* Dark theme text */
+}
+
+#darkModeButton:not(.active):hover {
+  background-color: #2A2A2A;  /* Slightly lighter on hover */
+}
+
+#lightModeButton:not(.active) {
+  background-color: #F4ECD8;
+  color: #2C2C2C;
+}
+
+#lightModeButton:not(.active):hover {
+  background-color: #EAE0CC;
+}
+
+#sepiaModeButton:not(.active) {
+  background-color: #E8D7B8;
+  color: #3A2F1F;
+}
+
+#sepiaModeButton:not(.active):hover {
+  background-color: #D9C8A8;
+}
+
+/* Active button gets aqua styling (overrides preview) */
+.settings-button.active {
+  background-color: var(--hyperlit-aqua);
+  color: var(--hyperlit-black);
+}
+
+
+/* Settings slider rows */
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75em;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.settings-theme-row {
+  margin-bottom: 0.5em;
+}
+
+.settings-slider-row {
+  flex-wrap: nowrap;
+  gap: 0.5em;
+  padding: 0.25em 0;
+}
+
+.settings-slider-label {
+  color: var(--color-text);
+  font-size: 14px;
+  min-width: 2em;
+  text-align: center;
+  opacity: 0.7;
+}
+
+.settings-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  min-width: 0;
+}
+
+.settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--hyperlit-aqua);
+  cursor: pointer;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+}
+
+.settings-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--hyperlit-aqua);
+  cursor: pointer;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+}
+
+.settings-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.settings-slider-value {
+  color: var(--color-text);
+  font-size: 12px;
+  min-width: 3.5em;
+  text-align: right;
+  opacity: 0.6;
+  font-family: var(--font-family-mono);
+}
+
+/* Mobile adjustments for settings sliders */
+@media (max-width: 480px) {
+  #settings-container {
+    padding: 0.75em 1em;
+  }
+}
+
+/* Content width slider — hide on small phones; full-width toggle is the only
+   width control there. Narrower (400px) than the 500px font-size "mobile"
+   breakpoint so phones in the 401–500px band keep the width slider. Keep in
+   sync with WIDTH_HIDE_BP in textControls.ts and the --content-width override
+   in variables.css. */
+@media (max-width: 400px) {
+  .settings-width-row {
+    display: none;
+  }
+}
+
+/* Full-width toggle — the width control for small phones only; it's the exact
+   complement of the content-width slider, handing off at the same 400px line
+   (slider hidden ≤400 → toggle shown ≤400; slider shown ≥401 → toggle hidden).
+   Keep the 401px here in sync with the slider's 400px hide rule above and
+   WIDTH_HIDE_BP in textControls.ts. */
+@media (min-width: 401px) {
+  #fullWidthToggle {
+    display: none;
+  }
+}
+
+/* Flex break element — hidden on wide screens, forces a line break on narrow */
+.settings-theme-break {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .settings-theme-break {
+    display: block;
+    flex-basis: 100%;
+    height: 0;
+  }
+}
+
+.settings-fullwidth-btn {
+  font-family: var(--font-family-mono);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+}
+.settings-fullwidth-btn.active {
+  background-color: rgba(75, 75, 75, 0.6);
+  color: inherit;
+}
+.settings-fullwidth-btn.active:hover {
+  background-color: rgba(95, 95, 95, 0.8);
+}
+
+/* Perimeter button transparency when overlapping content */
+.perimeter-transparent {
+  background-color: transparent !important;
+}
+
+.perimeter-transparent button {
+  background-color: transparent !important;
+}
+
+/* Settings Overlay */
+#settings-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: transparent; /* Fully transparent so page remains visible */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease-in-out;
+  z-index: 9999998; /* Below settings container (9999999) but above edit-toolbar (999999) */
+}
+
+#settings-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}

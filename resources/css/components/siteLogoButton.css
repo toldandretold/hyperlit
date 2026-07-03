@@ -1,0 +1,49 @@
+/* ───────────────────────────────────────────────────────────────────── */
+/* SITE LOGO BUTTON */
+#logoContainer {
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s ease, filter 0.1s ease, left 0.3s ease; /* Added left transition */
+  appearance: none;
+  flex-shrink: 0;
+  position: relative; /* Enable positioning for pseudo-element */
+}
+
+/* Expanded clickable area for logo container (horizontal only to prevent overlap) */
+#logoContainer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -15px;
+  right: -15px;
+  bottom: 0;
+  z-index: 1;
+  /* Uncomment next line for debugging - shows the expanded click area */
+  /* background: rgba(0, 255, 0, 0.2); */
+}
+
+#logoContainer img {
+  display: block;
+  width: 20px !important;
+  height: 20px !important;
+  transition: none;
+}
+
+#logoContainer:active {
+  transform: scale(0.95);
+  filter: brightness(0.7);
+}
+
+#logoContainer:hover::after,
+#logoContainer:focus::after {
+  display: none;
+}

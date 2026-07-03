@@ -1,0 +1,154 @@
+/* Larger touch targets for footnotes inside containers —
+   nested scrollable divs need bigger invisible tap zones on mobile */
+#hyperlit-container sup[fn-count-id]::before,
+.hyperlit-container-stacked sup[fn-count-id]::before {
+    top: -16px;
+    left: -16px;
+    right: -16px;
+    bottom: -16px;
+    z-index: 1;
+}
+
+@media (hover: none) and (pointer: coarse) {
+    #hyperlit-container sup[fn-count-id]::before,
+    .hyperlit-container-stacked sup[fn-count-id]::before {
+        pointer-events: none;
+    }
+}
+
+#toc-container .scroller {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+  padding: 0 1em 1em 1em;
+  border-radius: 1em 1em;
+}
+
+#user-container .scroller {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+  padding: 0 1em 1em 1em;
+  border-radius: 1em 1em;
+}
+
+#hyperlit-container .scroller {
+  flex: 1;
+  overflow: auto;
+  padding: 2em 1em 1em 1em; /* Increased top padding from 0 to 2em */
+  border-radius: 1em 1em;
+  min-height: 0; /* Allow flex item to shrink below content size if needed */
+  width: 100%;
+  box-sizing: border-box;
+  overscroll-behavior: contain; /* Prevent scroll chaining to page */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  touch-action: manipulation; /* Allow pan, pinch, and text selection */
+}
+
+#toc-container .mask-top,
+#user-container .mask-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1em; /* Matches the scroller's top padding */
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--container-solid-bg) 0%, transparent 100%);
+  z-index: 10;
+  border-radius: 1em 1em;
+}
+
+
+#hyperlit-container .mask-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1em; /* Matches the scroller's top padding */
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--container-glass-bg) 0%, transparent 100%);
+  z-index: 10;
+}
+
+#toc-container .mask-bottom,
+#user-container .mask-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1em; /* Matches the scroller's bottom padding */
+  pointer-events: none;
+  background: linear-gradient(to top, var(--container-solid-bg) 0%, transparent 100%);
+  z-index: 10;
+}
+
+
+#hyperlit-container .mask-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1em; /* Matches the scroller's bottom padding */
+  pointer-events: none;
+  background: linear-gradient(to top, var(--container-glass-bg) 0%, transparent 100%);
+  z-index: 10;
+}
+
+
+
+#topRightContainer {
+  position: relative; /* or absolute/fixed if needed */
+  z-index: 999; /* Below the overlay */
+  flex-shrink: 0;
+}
+
+
+#toc-container.open {
+    transform: translateX(0);
+}
+
+#hyperlit-container.open {
+  transform: translateX(0); /* Slide in to show the gap on the right */
+  /* Ensure container captures all pointer events even with overlay behind it */
+  pointer-events: auto;
+  /* Dim the rest of the page via the container's OWN shadow (spotlight) instead of a separate
+     #ref-overlay element. The overlay sat in the container's backdrop-filter, so the blur dragged
+     its darkness up into the glass (muddy sepia/light). Casting the dim from the container means
+     nothing dark is behind it → the blur shows the true page. Only on .open (it's parked off-screen
+     when closed, so a base-rule shadow would dim the page even while hidden).
+     250vmax (not 100vmax): the shadow slides in with the panel, and 100vmax = one viewport, so
+     mid-slide (panel ~a viewport off-screen) the far edge flashes undimmed. 250vmax always covers. */
+  box-shadow: 0 0 0 250vmax rgba(0, 0, 0, 0.5);
+}
+
+#toc-overlay,
+#user-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.0); 
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out;
+    z-index: 999;
+}
+
+#source-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out;
+    z-index: 998; /* Below topRightContainer (999) so button remains clickable */
+}

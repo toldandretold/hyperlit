@@ -1,0 +1,109 @@
+/* Drag Handle (center) - lighter */
+.drag-handle {
+  flex: 1;
+  background: linear-gradient(to bottom, transparent, rgba(203, 204, 204, 0.1));
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.drag-handle:active,
+.drag-handle.dragging {
+  cursor: grabbing;
+  background: linear-gradient(to bottom, transparent, rgba(203, 204, 204, 0.2));
+}
+
+/* Resize Handles (corners) - darker */
+.resize-handle {
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(to bottom, transparent, rgba(203, 204, 204, 0.2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: background 0.2s ease;
+}
+
+.resize-left {
+  cursor: sw-resize;
+  border-radius: 0 0 0 1em;
+}
+
+.resize-right {
+  cursor: se-resize;
+  border-radius: 0 0 1em 0;
+}
+
+.resize-handle:hover {
+  background: linear-gradient(to bottom, transparent, rgba(203, 204, 204, 0.3));
+}
+
+.resize-handle:active,
+.resize-handle.resizing {
+  background: linear-gradient(to bottom, transparent, rgba(203, 204, 204, 0.4));
+}
+
+/* Left-edge resize strip — full-height invisible grab zone */
+.resize-edge.resize-left {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  cursor: ew-resize;
+  z-index: 16;
+  user-select: none;
+  touch-action: none;
+  border-radius: 1em 0 0 0;
+  transition: background 0.2s ease;
+}
+
+.resize-edge.resize-left:hover {
+  background: linear-gradient(to right, var(--resize-edge-tint), transparent);
+}
+
+.resize-edge.resize-left:active,
+.resize-edge.resize-left.resizing {
+  background: linear-gradient(to right, var(--resize-edge-tint-active), transparent);
+}
+
+/* Right-edge resize strip — full-height invisible grab zone (mirror of resize-left).
+   Used by the left-anchored #toc-container, which resizes from its right edge. */
+.resize-edge.resize-right {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  cursor: ew-resize;
+  z-index: 16;
+  user-select: none;
+  touch-action: none;
+  border-radius: 0 1em 0 0;
+  transition: background 0.2s ease;
+}
+
+.resize-edge.resize-right:hover {
+  background: linear-gradient(to left, var(--resize-edge-tint), transparent);
+}
+
+.resize-edge.resize-right:active,
+.resize-edge.resize-right.resizing {
+  background: linear-gradient(to left, var(--resize-edge-tint-active), transparent);
+}
+
+/* Prevent text selection during drag/resize */
+.container-dragging,
+.container-resizing {
+  user-select: none;
+  pointer-events: none;
+}
+
+.container-dragging .resize-edge,
+.container-resizing .resize-edge {
+  pointer-events: auto;
+}
+

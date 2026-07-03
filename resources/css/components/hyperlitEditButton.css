@@ -1,0 +1,176 @@
+/* ===== HYPERLIT CONTAINER EDIT BUTTON ===== */
+/* Edit button inside hyperlit-container for toggling edit mode */
+.hyperlit-edit-btn {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0px;
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  z-index: 1002;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto !important;
+}
+
+.hyperlit-edit-btn svg {
+  width: 90% !important;
+  height: 90% !important;
+  pointer-events: none !important;
+}
+
+.hyperlit-edit-btn path {
+  stroke: var(--icon-stroke-primary) !important;
+  pointer-events: none !important;
+}
+
+.hyperlit-edit-btn.inverted {
+  background: var(--color-text);
+  border-radius: 4px;
+}
+
+.hyperlit-edit-btn.inverted svg path {
+  stroke: var(--color-background) !important;
+}
+
+/* Hover states — only on devices that support hover (not touch) */
+@media (hover: hover) {
+  .hyperlit-edit-btn:hover:not(.inverted) {
+    background-color: var(--icon-hover-background);
+    border-radius: 4px;
+  }
+
+  .hyperlit-edit-btn:hover:not(.inverted) svg path {
+    stroke: var(--icon-hover-stroke) !important;
+  }
+}
+
+.open {
+  background-color: var(--color-background);
+  border: none;
+  color: var(--color-text);
+  font-size: 24px;
+
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative; /* Enable positioning for pseudo-element */
+
+  /* Prevent flashing square during icon rotation */
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+/* Expanded clickable area for specific navigation buttons only */
+#newBookButton.open::before,
+#userButton.open::before,
+#editButton.open::before,
+#toc-toggle-button.open::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  right: -15px;
+  bottom: -15px;
+  z-index: 1;
+  /* Uncomment next line for debugging - shows the expanded click area */
+  /* background: rgba(255, 255, 0, 0.2); */
+}
+
+#cloudRef {
+  border: none;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  position: relative; /* Enable positioning for pseudo-element */
+}
+
+/* Expanded clickable area for source button */
+#cloudRef::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  right: -15px;
+  bottom: -15px;
+  z-index: 1;
+  /* Uncomment next line for debugging - shows the expanded click area */
+  /* background: rgba(0, 0, 255, 0.2); */
+}
+
+#cloudRef svg {
+  display: block;
+  width: 28px !important;
+  height: auto !important;
+}
+
+#cloudRef:hover .cls-1 {
+  fill: var(--color-background);
+}
+
+/* Container for both buttons */
+#hyperlight-buttons {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  z-index: 9999;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--icon-background);
+}
+
+#copy-hyperlight {
+  width: 16px;
+  height: 16px;
+  background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#copy-hypercite {
+  width: 16px;
+  height: 16px;
+  background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+}
+
+#brain-hyperlight {
+  width: 16px;
+  height: 16px;
+  background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#delete-hyperlight {
+  font-size: 15px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: "Segoe UI Emoji", "NotoColorEmoji", "Apple Color Emoji",
+    sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

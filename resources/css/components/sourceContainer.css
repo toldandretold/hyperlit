@@ -1,0 +1,172 @@
+/* Source container - similar to hyperlit-container */
+#source-container {
+  transform: translateX(calc(100% + 2em)); /* Off-screen right, including gap */
+  transition: transform 0.3s ease-in-out, height 0.3s ease-in-out;
+  position: fixed;
+  right: .75em;
+  top: 1em;
+  height: auto; /* Grow to fit content */
+  max-height: calc(100vh - 2em); /* Don't exceed viewport */
+  width: 300px; /* Fixed width, narrower than hyperlit */
+  font-size: 14px; /* Base size — everything inside scales from this */
+  background-color: var(--container-glass-bg); /* Use theme-aware glass background */
+  -webkit-backdrop-filter: var(--container-glass-blur);
+  backdrop-filter: var(--container-glass-blur);
+  z-index: 1001;
+  overflow: hidden;
+  padding-left: 1em;
+  padding-right: 2em;
+  border-radius: 1em;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+#source-container .citation {
+  margin: 0.5em 0;
+}
+
+#source-container .license-line {
+  margin: 0;
+}
+
+
+#source-container .icon-wrapper {
+  width: 2.2em;
+  height: 2.2em;
+}
+
+#source-container.open {
+  transform: translateX(0); /* Slide in */
+  /* 250vmax (not 100vmax): the shadow moves with the panel as it slides, and 100vmax is only
+     one viewport — mid-slide the panel is ~a viewport off-screen, so 100vmax can't reach the
+     far edge and a strip flashes undimmed. 250vmax always covers regardless of slide position. */
+  box-shadow: 0 0 0 250vmax rgba(0, 0, 0, 0.5);
+}
+
+#source-container.hidden {
+  display: block; /* Override display: none */
+  transform: translateX(calc(100% + 2em)); /* Keep off-screen */
+}
+
+#source-container #source-content {
+  overflow: auto;
+  max-height: calc(100vh - 2em);
+  padding: 1em;
+  padding-left: 1.5em;
+  border-radius: 1em;
+}
+
+/* Edit form fills the fixed-size container (JS sets explicit width/height on #source-container) */
+#source-container #edit-form-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+#source-container #edit-form-container .scroller {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+  padding: 1em;
+  padding-left: 1.5em;
+  border-radius: 1em;
+}
+
+/* Glass circle backdrop for source-container corner buttons
+   Matches perimeter buttons: transparent bg + blur = invisible on solid,
+   frosted glass when text scrolls behind */
+#source-container #privacy-toggle,
+#source-container #edit-source {
+  position: absolute;
+}
+
+#source-container #privacy-toggle::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border-radius: 50%;
+  background-color: var(--container-glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+#source-container #edit-source::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 10px;
+  background-color: var(--container-glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Privacy toggle button */
+#privacy-toggle {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease;
+}
+
+#privacy-toggle:hover {
+  opacity: 0.7;
+}
+
+#privacy-toggle svg {
+  pointer-events: none;
+}
+
+/* Creator Tools toggle button */
+#creator-tools-toggle {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--color-label);
+  border: 1px solid var(--border-button);
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+/* Hover + active/open: invert — fill with text colour, flip label + SVGs
+   (currentColor) to the background colour. */
+#creator-tools-toggle:hover,
+#creator-tools-toggle.expanded {
+  background: var(--color-text);
+  color: var(--color-background);
+  border-color: var(--color-text);
+}
+
+#creator-tools-toggle .creator-tools-chevron {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+#creator-tools-toggle.expanded .creator-tools-chevron {
+  transform: rotate(180deg);
+}

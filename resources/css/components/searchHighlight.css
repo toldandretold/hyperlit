@@ -1,0 +1,38 @@
+/*
+  =====================================================================
+  SEARCH HIGHLIGHT STYLES
+  =====================================================================
+*/
+
+/* Hide regular highlight styling in search mode */
+body.search-mode mark:not(.search-highlight) {
+  background: transparent !important;
+  --highlight-intensity: 0 !important;
+}
+
+body.search-mode u:not(.search-highlight) {
+  text-decoration: none !important;
+}
+
+/* Search highlight styling - dimmed for non-current matches */
+mark.search-highlight {
+  background-color: rgba(255, 255, 0, 0.3);
+}
+
+/* Current match - full brightness */
+mark.search-highlight.current {
+  background-color: rgba(255, 255, 0, 0.8);
+}
+
+/* Dark theme override */
+[data-theme="dark"] mark.search-highlight {
+  background-color: rgba(255, 255, 0, 0.3);
+  color: inherit;
+}
+
+[data-theme="dark"] mark.search-highlight.current {
+  background-color: rgba(255, 255, 0, 0.8);
+  color: #000;
+}
+
+/* end search highlight styles */

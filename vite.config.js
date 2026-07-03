@@ -95,10 +95,10 @@ export default defineConfig({
     laravel({
       input: [
                 // CSS — ONE entry per page (each blade @vite()s app.css + its pages/*.css).
-                // Feature files under base/ components/ and the legacy residuals
-                // (containers.css/buttons.css) are reached via @import from these entries;
-                // a file must NEVER be both an entry here and an @import target, or it gets
-                // built twice and double-applied (cssStructure.test.js gate 3 enforces this).
+                // Feature files under base/ and components/ are reached via @import from
+                // these entries; a file must NEVER be both an entry here and an @import
+                // target, or it gets built twice and double-applied (cssStructure.test.js
+                // gate 3 enforces this).
                 // Theme files are @imported by app.css (switching is body-class based), so
                 // they are not entries either.
                 'resources/css/app.css',

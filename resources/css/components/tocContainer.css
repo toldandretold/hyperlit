@@ -1,0 +1,32 @@
+/* Base styles for the TOC */
+#toc-container {
+  transform: translateX(calc(-100% - 2em)); /* Off-screen, including the gap */
+  transition: transform 0.3s ease-in-out;
+  position: fixed;
+  left: .75em;
+  bottom: 1em;
+  top: 1em;
+  height: 90%;
+  width: 60%;
+  max-width: 30ch; /* 70ch text plus ~6ch padding (2em left + 1em right) */
+  background-color: var(--container-glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 1001;
+  overflow: hidden; /* Ensure content doesn't overflow the container */
+  padding-left: 1em;
+  padding-right: 2em;
+  border-radius: 1em 1em;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+#toc-container.open {
+   box-shadow: 0 0 0 250vmax rgba(0, 0, 0, 0.5);
+}
+
+/* When hidden, ensure container stays off-screen */
+#toc-container.hidden {
+  display: block; /* Override Tailwind's display: none */
+  transform: translateX(calc(-100% - 2em)); /* Keep off-screen */
+}

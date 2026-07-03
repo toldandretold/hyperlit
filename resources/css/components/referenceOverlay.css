@@ -1,0 +1,99 @@
+/* Reference Overlay */
+#ref-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%; /* Covers the entire screen */
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.0);
+    /* Dimming moved to #hyperlit-container.open's box-shadow so it's not in the container's
+       blur backdrop. This overlay now only catches clicks/blocks scroll (transparent). */
+    /* -webkit-backdrop-filter: var(--container-overlay-blur); */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out;
+    z-index: 1001; /* Between main content and hyperlit container */
+    overscroll-behavior: none; /* Prevent scroll chaining */
+    touch-action: none; /* Block all touch scrolling/gestures */
+    overflow: hidden; /* Prevent overflow scrolling */
+}
+
+
+
+
+
+#toc-overlay.active,
+#user-overlay.active,
+#source-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+
+#ref-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+
+
+
+#toc-container h1.first {
+    color: var(--hyperlit-orange) !important;
+    padding-top: 1em;
+}
+
+#toc-container h1 {
+    font-size: 25px;
+    color: var(--color-text);
+    margin: 0.5em 0 0.25em 0;
+}
+
+#toc-container h2 {
+    font-size: 20px;
+    padding-left: 2em;
+    color: var(--color-text);
+    opacity: 0.85;
+    margin: 0.4em 0 0.2em 0;
+}
+
+#toc-container h3, #toc-container h4 {
+    padding-left: 4em;
+    font-size: 20px;
+    color: var(--color-text);
+    opacity: 0.7;
+    margin: 0.3em 0 0.15em 0;
+}
+
+.hidden-content {
+  display: none;
+}
+
+.active-content {
+  display: block;
+}
+
+
+
+#user-container {
+  position: fixed;
+  background-color: var(--container-glass-bg);
+  backdrop-filter: blur(10px); /* Glass blur effect */
+  -webkit-backdrop-filter: blur(10px); /* Safari support */
+  z-index: 1001;
+  border: none;
+  border-radius: 0.75em;
+  box-sizing: border-box;
+  /* Spotlight dim is set inline in userContainer/index.ts (combined with the edge drop-shadow),
+     because this panel's inline box-shadow would override any CSS rule here anyway. */
+}
+
+#user-container.open {
+  transform: translateX(0); /* SAME AS TOC */
+}
+
+
+#user-container.hidden {
+  display: none;
+}
+

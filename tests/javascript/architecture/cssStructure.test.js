@@ -5,8 +5,8 @@
  * foundations), components/ (one file per feature, named after its resources/js folder),
  * pages/ (one entry per blade view — each blade @vite()s app.css + its pages/*.css, and
  * the entry's @import order IS the cascade order). The legacy mega-files (buttons.css /
- * containers.css) are residuals being drained verbatim into components/*.css; migration
- * changes are verified byte-identical with scripts/css-cascade-snapshot.mjs.
+ * containers.css) were fully drained into components/*.css (2026-07); cascade-affecting
+ * refactors are verified byte-identical with scripts/css-cascade-snapshot.mjs.
  *
  * Three gates:
  *  1. RATCHET — residual line counts may only go DOWN (cssBaseline.json). When you
@@ -31,8 +31,8 @@ const ROOT = path.resolve(HERE, '../../..');
 const CSS = path.join(ROOT, 'resources/css');
 const BASELINE = JSON.parse(fs.readFileSync(path.join(HERE, 'cssBaseline.json'), 'utf8'));
 
-// Top-level legacy residuals (drained by the migration) + the shared base entry.
-const LEGACY_TOP_LEVEL = new Set(['app.css', 'buttons.css', 'containers.css']);
+// The shared base entry is the only css allowed at the top level.
+const LEGACY_TOP_LEVEL = new Set(['app.css']);
 
 // Known intentionally-unwired files (not @imported, not entries — yet).
 const UNWIRED_ALLOWLIST = new Set([

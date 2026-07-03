@@ -1,0 +1,152 @@
+/* Glass circle backdrop for perimeter buttons.
+   Against a solid background blur(solid) = solid → invisible.
+   When text scrolls behind, frosted glass circle appears. */
+/* Glass circle backdrop for perimeter buttons */
+#bottom-left-buttons button {
+  background-color: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 50%;
+}
+
+/* Transparent button backgrounds so glass shows through */
+#bottom-right-buttons button {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+/* Glass pill on bottom-right — rounded rectangle behind edit + toc buttons */
+#bottom-right-buttons::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border-radius: 999px;
+  background-color: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Glass on logo nav — ::after pseudo-element avoids layout issues
+   (menu uses visibility:hidden so wrapper is always tall) */
+#logoNavWrapper::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -4px;
+  right: -4px;
+  height: 34px;
+  border-radius: 10px;
+  background-color: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Open: glass pill stretches to cover all nav items */
+#logoNavWrapper:has(.logo-nav-menu:not(.hidden))::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -4px;
+  right: -4px;
+  height: 126px;
+  border-radius: 10px;
+  background-color: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Glass circle on top-right container (cloudRef / newBook) */
+#topRightContainer::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background-color: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Home page: no text scrolls behind buttons, so blur picks up dark theme
+   and creates visible dark circles against the solid background. Hide glass. */
+body[data-page="home"] #userButtonContainer::after,
+body[data-page="home"] #topRightContainer::after {
+  display: none;
+}
+
+.icon {
+  display: inline-block;
+  transform: rotate(0deg);
+  transition: transform 0.3s ease-out;
+
+  /* Prevent flashing square during rotation on mobile/light themes */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  backface-visibility: hidden;
+  will-change: transform;
+  background: transparent;
+}
+
+.icon.tilted {
+  transform: rotate(45deg);
+  transition: transform 0.3s ease-out;
+}
+
+.download-icon {
+  display: block;
+}
+
+.download-icon path {
+  fill: var(--icon-fill-primary) !important; /* themes: #CBCCCC dark, dark on sepia/light */
+}
+
+.icon-wrapper {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#download-md .download-icon {
+  width: 100%;
+  height: 100%;
+}
+
+#download-docx .download-icon {
+  width: 80%;
+  height: 100%;
+}
+
+#download-epub .download-icon {
+  width: 80%;
+  height: 100%;
+}
+
+#download-all .download-icon {
+  width: 80%;
+  height: 100%;
+}
+
+.download-btn {
+  background: transparent;
+  color: var(--color-text);
+  border: none;
+  padding: 0.5em;
+  border-radius: 0.25em;
+  cursor: pointer;
+}
+
