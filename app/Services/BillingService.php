@@ -6,6 +6,7 @@ use App\Models\BillingLedger;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class BillingService
 {
@@ -24,7 +25,11 @@ class BillingService
         array $lineItems = [],
         ?array $metadata = null,
     ): BillingLedger {
-        return DB::transaction(function () use ($user, $amount, $description, $category, $lineItems, $metadata) {
+        // NOTE: regeneration below runs after this transaction returns (i.e.
+        // post-commit). If a caller ever wraps charge() in an outer
+        // transaction, switch to DB::afterCommit() — today none do, and the
+        // freshness guard in generateAccountBookIfNeeded self-heals any miss.
+        $entry = DB::transaction(function () use ($user, $amount, $description, $category, $lineItems, $metadata) {
             DB::statement("SELECT set_config('app.current_user', ?, true)", [$user->name]);
 
             $user = User::lockForUpdate()->find($user->id);
@@ -56,6 +61,10 @@ class BillingService
                 'balance_after' => $user->balance,
             ]);
         });
+
+        $this->refreshAccountBook($user->name);
+
+        return $entry;
     }
 
     /**
@@ -81,7 +90,8 @@ class BillingService
         string $category = 'topup',
         ?array $metadata = null,
     ): BillingLedger {
-        return DB::transaction(function () use ($user, $amount, $description, $category, $metadata) {
+        // Post-commit regeneration — same outer-transaction caveat as charge().
+        $entry = DB::transaction(function () use ($user, $amount, $description, $category, $metadata) {
             DB::statement("SELECT set_config('app.current_user', ?, true)", [$user->name]);
 
             $user = User::lockForUpdate()->find($user->id);
@@ -99,6 +109,30 @@ class BillingService
                 'balance_after' => $user->balance,
             ]);
         });
+
+        $this->refreshAccountBook($user->name);
+
+        return $entry;
+    }
+
+    /**
+     * Regenerate the user's pre-rendered Account book so the balance card and
+     * ledger list reflect the mutation that just committed (and its library
+     * timestamp bump makes clients refetch). Best-effort: a regen failure must
+     * never fail the billing write itself — the freshness guard in
+     * UserHomeServerController::generateAccountBookIfNeeded self-heals on the
+     * next profile visit.
+     */
+    public function refreshAccountBook(string $username): void
+    {
+        try {
+            app(\App\Http\Controllers\UserHomeServerController::class)->generateAccountBook($username);
+        } catch (\Throwable $e) {
+            Log::warning('Account book regeneration failed after billing mutation', [
+                'username' => $username,
+                'error'    => $e->getMessage(),
+            ]);
+        }
     }
 
     public function getBalance(User $user): float

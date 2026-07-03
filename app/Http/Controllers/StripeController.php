@@ -154,6 +154,11 @@ class StripeController extends Controller
             ]);
         });
 
+        // Refresh the pre-rendered Account book so the balance card shows the
+        // top-up. Best-effort inside refreshAccountBook — a regen failure
+        // still returns 200 so Stripe doesn't retry-spam the webhook.
+        $this->billing->refreshAccountBook($target->name);
+
         Log::info('Stripe credits applied', [
             'user_id'       => $userId,
             'amount'        => $creditAmount,

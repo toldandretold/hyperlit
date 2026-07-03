@@ -30,6 +30,10 @@ function hbCleanup(): void
         hbAdmin()->table('library')->where('creator', $username)->delete();
         hbAdmin()->table('library')->where('book', 'like', $sanitized . '%')->delete();
     }
+    // billing_ledger.user_id is FK-constrained (no cascade) — clear ledger
+    // rows before the users delete or Account-book tests make cleanup FK-fail.
+    $userIds = hbAdmin()->table('users')->where('name', 'like', HB_TEST_USER_PREFIX . '%')->pluck('id');
+    hbAdmin()->table('billing_ledger')->whereIn('user_id', $userIds)->delete();
     hbAdmin()->table('users')->where('name', 'like', HB_TEST_USER_PREFIX . '%')->delete();
 }
 

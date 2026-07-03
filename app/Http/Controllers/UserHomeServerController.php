@@ -98,7 +98,22 @@ class UserHomeServerController extends Controller
 
         DB::connection('pgsql_admin')->table('users')
             ->where('id', $user->id)
-            ->update(['status' => $request->tier]);
+            // updated_at feeds the Account-book freshness guard, so a missed
+            // eager regen below still self-heals on the next profile visit.
+            ->update(['status' => $request->tier, 'updated_at' => now()]);
+
+        // The tier label/multiplier is baked into the Account book's balance
+        // card — regenerate it so the card (and the client, via the library
+        // timestamp bump) reflects the new tier. Best-effort: a regen failure
+        // must not fail the tier change.
+        try {
+            $this->generateAccountBook($user->name);
+        } catch (\Throwable $e) {
+            Log::warning('Account book regeneration failed after tier change', [
+                'username' => $user->name,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         $tiers = config('services.billing_tiers', []);
         $tier = $tiers[$request->tier] ?? ['multiplier' => 1.5, 'label' => ucfirst($request->tier)];
@@ -235,6 +250,40 @@ class UserHomeServerController extends Controller
     }
 
     /**
+     * Newest billing input for the Account book, in epoch ms: the latest
+     * `billing_ledger.created_at` for the user, and `users.updated_at` (which
+     * updateTier bumps so tier changes count as billing input too). Backs the
+     * Account-book freshness guard the same way maxRealBookTimestamp backs the
+     * home-book guards.
+     */
+    private function maxAccountInputTimestamp(string $username): ?int
+    {
+        $admin = DB::connection('pgsql_admin');
+
+        $user = $admin->table('users')->where('name', $username)->first(['id', 'updated_at']);
+        if (!$user) {
+            return null;
+        }
+
+        // Floor on the SQL side so the guard and the generator's stored
+        // timestamp compare identically (no sub-ms rounding drift).
+        $ledgerMs = $admin->table('billing_ledger')
+            ->where('user_id', $user->id)
+            ->selectRaw('floor(extract(epoch from max(created_at)) * 1000)::bigint AS ts')
+            ->value('ts');
+
+        $userMs = $user->updated_at
+            ? Carbon::parse($user->updated_at)->getTimestampMs()
+            : null;
+
+        if ($ledgerMs === null && $userMs === null) {
+            return null;
+        }
+
+        return max((int) ($ledgerMs ?? 0), (int) ($userMs ?? 0));
+    }
+
+    /**
      * The home book is maintained INCREMENTALLY at every library mutation
      * (addBookToUserPage / moveBookBetweenHomeBooks / updateBookOnUserPage, and
      * BookDeletionService removes the card on delete) — all keyed by node_id, no
@@ -351,12 +400,33 @@ class UserHomeServerController extends Controller
         return ['success' => true, 'count' => count($chunks)];
     }
 
+    /**
+     * The Account book is regenerated EAGERLY at every billing mutation
+     * (BillingService::charge/addCredits, the Stripe top-up webhook, and
+     * updateTier). This guard is the failsafe: it generates on the true first
+     * visit, and regenerates once if a billing input (ledger row / tier
+     * change) is NEWER than the Account book — i.e. an eager regen was
+     * somehow missed. Uses pgsql_admin (not the RLS-scoped connection) so it
+     * behaves the same with or without a session.
+     */
     private function generateAccountBookIfNeeded(string $username): void
     {
         $sanitizedUsername = $this->sanitizeUsername($username);
         $bookName = $sanitizedUsername . 'Account';
 
-        if (!DB::table('library')->where('book', $bookName)->exists()) {
+        $account = DB::connection('pgsql_admin')->table('library')->where('book', $bookName)->first();
+        if (!$account) {
+            $this->generateAccountBook($username);
+            return;
+        }
+
+        $newest = $this->maxAccountInputTimestamp($username);
+        if ($newest !== null && $newest > (int) ($account->timestamp ?? 0)) {
+            Log::info('Regenerating account book: billing data is newer than the account book.', [
+                'username' => $username,
+                'newest_billing_ts' => $newest,
+                'account_book_ts' => $account->timestamp,
+            ]);
             $this->generateAccountBook($username);
         }
     }
@@ -691,6 +761,11 @@ class UserHomeServerController extends Controller
         $now = Carbon::now();
         $admin = DB::connection('pgsql_admin');
 
+        // Account book timestamp must be >= the newest billing input it
+        // incorporates, so the freshness guard (maxAccountInputTimestamp >
+        // account.timestamp) is self-stable — regenerates once, then settles.
+        $accountTs = max((int) round(microtime(true) * 1000), $this->maxAccountInputTimestamp($username) ?? 0);
+
         // Upsert library record
         $admin->table('library')->updateOrInsert(
             ['book' => $bookName],
@@ -698,7 +773,7 @@ class UserHomeServerController extends Controller
                 'author' => null, 'title' => $username . "'s account", 'visibility' => 'private', 'listed' => false, 'creator' => $username,
                 'creator_token' => null,
                 'raw_json' => json_encode(['type' => 'user_account', 'username' => $username, 'sanitized_username' => $sanitizedUsername]),
-                'timestamp' => round(microtime(true) * 1000), 'updated_at' => now(), 'created_at' => now(),
+                'timestamp' => $accountTs, 'updated_at' => now(), 'created_at' => now(),
             ]
         );
 
