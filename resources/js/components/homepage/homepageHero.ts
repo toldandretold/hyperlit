@@ -102,6 +102,9 @@ function closeFeed(): void {
   // feed set inline left-margins on the header (alignHeaderContent) to match the
   // now-removed feed text — clear them so the hero re-centres
   resetHeaderAlignment();
+  // ...and send the perimeter buttons back to the viewport corners (their
+  // .main-content reference is gone; updatePosition listens on resize)
+  window.dispatchEvent(new Event('resize'));
   // the one non-scroll-driven move: glide (don't snap) back to centre
   page.classList.add('hero-return');
   window.clearTimeout(returnTimer);

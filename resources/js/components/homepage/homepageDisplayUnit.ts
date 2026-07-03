@@ -48,6 +48,12 @@ export function resetHeaderAlignment() {
 
 // Align header content with main content text dynamically
 function alignHeaderContent() {
+  // The lava-lamp homepage centers ALL header children via CSS (homepage.css:
+  // "Child alignment is CENTERED in EVERY homepage-hero state") — and the
+  // docked card is deliberately WIDER than the content column there, so these
+  // left-align margins would shift the rows off-centre. Skip entirely.
+  if (document.querySelector('#app-container.lava-lamp-background')) return;
+
   const mainContent = document.querySelector('body[data-page="home"] .main-content, body[data-page="user"] .main-content');
   const headerContainer = document.getElementById('imageContainer') || document.getElementById('userLibraryContainer');
   const buttonsContainer: any = document.querySelector('.arranger-buttons-container');
@@ -403,6 +409,12 @@ export async function transitionToBookContent(bookId: any, showLoader = true) {
 
     // Realign header content after new content is loaded
     alignHeaderContent();
+
+    // Perimeter buttons hug the freshly-created .main-content column on
+    // desktop, but togglePerimeterButtons.updatePosition() only re-measures
+    // on resize — at boot the hero had no .main-content, so without this the
+    // buttons stay parked at the viewport corners after the feed opens.
+    window.dispatchEvent(new Event('resize'));
 
     verbose.content(`Successfully loaded ${bookId} content`, '/components/homepage/homepageDisplayUnit.ts');
     

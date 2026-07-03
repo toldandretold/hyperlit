@@ -53,20 +53,22 @@
    animation. NO transitions here: scroll drives every frame directly. */
 body[data-page="home"] #app-container.lava-lamp-background .fixed-header {
   --p: var(--hero-p, 0);
-  /* docked pose floats 12px below the top edge — corners stay rounded */
-  top: calc(50% * (1 - var(--p)) + 12px * var(--p));
+  /* docked pose floats 10px below the top edge — corners stay rounded */
+  top: calc(50% * (1 - var(--p)) + 6px * var(--p));
   left: 50%; /* mobile media queries override home's left — re-pin the centre */
   transform: translate(-50%, calc(-50% * (1 - var(--p))));
   /* lerp: centered card width → full header slot (px, not em: header
-     font-size is 28px so em blows up). Docked term is capped at 92vw (NOT
-     100vw): on narrow screens --content-width resolves to 40ch/100%, both
-     wider than the viewport, so a 100vw cap collapsed the docked card to
-     full-bleed. 96vw keeps a small side margin (a touch wider than the
-     centered pose's 92vw, so the docked card tucks under the corner nav
-     buttons) without going fully edge-to-edge. */
+     font-size is 28px so em blows up). Docked term = content column + 148px:
+     togglePerimeterButtons.updatePosition() parks the corner nav buttons
+     60px OUTSIDE the column edge (20px gap + 40px button), so a 74px
+     overhang each side tucks them ~14px inside the card — and since that JS
+     re-measures on width-setting changes, card and buttons stay in sync at
+     any viewport width. 96vw cap: on narrow screens --content-width
+     resolves to 40ch/100% (wider than the viewport) and the sum would
+     full-bleed. */
   width: calc(
     min(92vw, 480px) * (1 - var(--p)) +
-    min(96vw, var(--content-width, 40ch)) * var(--p)
+    min(96vw, var(--content-width, 40ch) + 148px) * var(--p)
   );
   max-width: none;
   background-color: var(--container-glass-bg, rgba(34, 31, 32, 0.35));
@@ -322,7 +324,9 @@ body[data-page="home"] #app-container.lava-lamp-background.content-active .fixed
   top: 0;
   transform: translate(-50%, 0);
   width: 100%;
-  max-width: var(--content-width, 40ch);
+  /* same +148px overhang as the scroll-docked pose: wraps the JS-positioned
+     corner buttons (60px outside the column) with ~14px to spare */
+  max-width: min(96vw, var(--content-width, 40ch) + 148px);
   border-radius: 0 0 1em 1em;
   padding: 20px 20px 10px 20px;
   gap: 0.5em;
