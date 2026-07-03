@@ -23,7 +23,7 @@
  * everywhere else even though it registers for pages: ['home'].
  */
 
-import { setLavaRise } from './lavaLampBackground';
+import { setLavaCeiling, setLavaRise } from './lavaLampBackground';
 import { fixHeaderSpacing, resetHeaderAlignment } from './homepageDisplayUnit';
 
 let clickHandler: ((e: Event) => void) | null = null;
@@ -155,6 +155,7 @@ export function initHomepageHero(): void {
         p.classList.add('content-active');
         // feed mode: lava returns to its resting pose (the dim fader takes over)
         document.getElementById('lava-lamp-mount')?.style.setProperty('--lava-parallax', '0px');
+        setLavaCeiling(null);
         setLavaRise(0);
         trackFadeFor(750); // follow the header while it glides to the top
         // homepageDisplayUnit measured the header while it was still the BIG
@@ -185,7 +186,11 @@ export function initHomepageHero(): void {
       // background parallax: whole artwork creeps up gently...
       const mount = document.getElementById('lava-lamp-mount');
       mount?.style.setProperty('--lava-parallax', `${(-Math.min(st * 0.12, 130)).toFixed(0)}px`);
-      // ...while the hills behind the copy GROW up with the text
+      // ...while the hills behind the copy GROW up with the text, capped at
+      // the header's bottom edge (rect read AFTER the parallax/--hero-p writes
+      // forces a sync flush, so the ceiling tracks the docking card exactly)
+      const header = document.querySelector('.fixed-header');
+      if (header) setLavaCeiling(header.getBoundingClientRect().bottom);
       setLavaRise(Math.min(st / 700, 1));
     }
 

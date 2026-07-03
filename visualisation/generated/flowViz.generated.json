@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1590,
+    "fnCount": 1596,
     "moduleCount": 340,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3223,
+    "edgeCount": 3229,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -548,6 +548,14 @@
       "leaf": false
     },
     {
+      "id": "components/homepage/homepageDisplayUnit:resetHeaderAlignment",
+      "label": "resetHeaderAlignment",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/homepageDisplayUnit",
+      "leaf": false
+    },
+    {
       "id": "components/homepage/homepageDisplayUnit:transitionToBookContent",
       "label": "transitionToBookContent",
       "kind": "fn",
@@ -570,6 +578,22 @@
       "stage": "components",
       "module": "components/homepage/homepageHero",
       "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:capRise",
+      "label": "capRise",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:ceilingCapRy",
+      "label": "ceilingCapRy",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": true
     },
     {
       "id": "components/homepage/lavaLampBackground:destroyLavaLampBackground",
@@ -636,6 +660,14 @@
       "leaf": true
     },
     {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.redrawSoon",
+      "label": "LavaLampBackground.redrawSoon",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": false
+    },
+    {
       "id": "components/homepage/lavaLampBackground:LavaLampBackground.renderFull",
       "label": "LavaLampBackground.renderFull",
       "kind": "fn",
@@ -652,12 +684,20 @@
       "leaf": true
     },
     {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.setCeiling",
+      "label": "LavaLampBackground.setCeiling",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": false
+    },
+    {
       "id": "components/homepage/lavaLampBackground:LavaLampBackground.setRise",
       "label": "LavaLampBackground.setRise",
       "kind": "fn",
       "stage": "components",
       "module": "components/homepage/lavaLampBackground",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "components/homepage/lavaLampBackground:LavaLampBackground.sliderRow",
@@ -690,6 +730,14 @@
       "stage": "components",
       "module": "components/homepage/lavaLampBackground",
       "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:setLavaCeiling",
+      "label": "setLavaCeiling",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": true
     },
     {
       "id": "components/homepage/lavaLampBackground:setLavaRise",
@@ -14534,6 +14582,7 @@
         "components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
         "components/homepage/homepageDisplayUnit:fixHeaderSpacing",
         "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+        "components/homepage/homepageDisplayUnit:resetHeaderAlignment",
         "components/homepage/homepageDisplayUnit:transitionToBookContent"
       ]
     },
@@ -14559,15 +14608,20 @@
         "components/homepage/lavaLampBackground:LavaLampBackground.destroy",
         "components/homepage/lavaLampBackground:LavaLampBackground.gradStops",
         "components/homepage/lavaLampBackground:LavaLampBackground.isTypingTarget",
+        "components/homepage/lavaLampBackground:LavaLampBackground.redrawSoon",
         "components/homepage/lavaLampBackground:LavaLampBackground.renderFull",
         "components/homepage/lavaLampBackground:LavaLampBackground.riseCluster",
+        "components/homepage/lavaLampBackground:LavaLampBackground.setCeiling",
         "components/homepage/lavaLampBackground:LavaLampBackground.setRise",
         "components/homepage/lavaLampBackground:LavaLampBackground.sliderRow",
         "components/homepage/lavaLampBackground:LavaLampBackground.start",
         "components/homepage/lavaLampBackground:LavaLampBackground.stop",
         "components/homepage/lavaLampBackground:LavaLampBackground.toggleAdjuster",
+        "components/homepage/lavaLampBackground:capRise",
+        "components/homepage/lavaLampBackground:ceilingCapRy",
         "components/homepage/lavaLampBackground:destroyLavaLampBackground",
         "components/homepage/lavaLampBackground:initLavaLampBackground",
+        "components/homepage/lavaLampBackground:setLavaCeiling",
         "components/homepage/lavaLampBackground:setLavaRise"
       ]
     },
@@ -19145,6 +19199,18 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/homepage/homepageHero:initHomepageHero__call__components/homepage/homepageDisplayUnit:resetHeaderAlignment",
+      "source": "components/homepage/homepageHero:initHomepageHero",
+      "target": "components/homepage/homepageDisplayUnit:resetHeaderAlignment",
+      "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageHero:initHomepageHero__call__components/homepage/lavaLampBackground:setLavaCeiling",
+      "source": "components/homepage/homepageHero:initHomepageHero",
+      "target": "components/homepage/lavaLampBackground:setLavaCeiling",
+      "rel": "call"
+    },
+    {
       "id": "components/homepage/homepageHero:initHomepageHero__call__components/homepage/lavaLampBackground:setLavaRise",
       "source": "components/homepage/homepageHero:initHomepageHero",
       "target": "components/homepage/lavaLampBackground:setLavaRise",
@@ -19163,6 +19229,12 @@
       "rel": "write"
     },
     {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.buildBlobs__call__components/homepage/lavaLampBackground:capRise",
+      "source": "components/homepage/lavaLampBackground:LavaLampBackground.buildBlobs",
+      "target": "components/homepage/lavaLampBackground:capRise",
+      "rel": "call"
+    },
+    {
       "id": "components/homepage/lavaLampBackground:LavaLampBackground.constructor__domwrite__dom",
       "source": "components/homepage/lavaLampBackground:LavaLampBackground.constructor",
       "target": "dom",
@@ -19175,16 +19247,22 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.redrawSoon__domwrite__dom",
+      "source": "components/homepage/lavaLampBackground:LavaLampBackground.redrawSoon",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/homepage/lavaLampBackground:LavaLampBackground.renderFull__domwrite__dom",
       "source": "components/homepage/lavaLampBackground:LavaLampBackground.renderFull",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "components/homepage/lavaLampBackground:LavaLampBackground.setRise__domwrite__dom",
-      "source": "components/homepage/lavaLampBackground:LavaLampBackground.setRise",
-      "target": "dom",
-      "rel": "domwrite"
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.setCeiling__call__components/homepage/lavaLampBackground:ceilingCapRy",
+      "source": "components/homepage/lavaLampBackground:LavaLampBackground.setCeiling",
+      "target": "components/homepage/lavaLampBackground:ceilingCapRy",
+      "rel": "call"
     },
     {
       "id": "components/homepage/lavaLampBackground:LavaLampBackground.start__domwrite__dom",
@@ -23870,6 +23948,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/homepage/homepageDisplayUnit:resetHeaderAlignment",
+      "source": "dom",
+      "target": "components/homepage/homepageDisplayUnit:resetHeaderAlignment",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/homepage/homepageDisplayUnit:transitionToBookContent",
       "source": "dom",
       "target": "components/homepage/homepageDisplayUnit:transitionToBookContent",
@@ -23891,6 +23975,12 @@
       "id": "dom__domread__components/homepage/lavaLampBackground:LavaLampBackground.renderFull",
       "source": "dom",
       "target": "components/homepage/lavaLampBackground:LavaLampBackground.renderFull",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/homepage/lavaLampBackground:LavaLampBackground.setCeiling",
+      "source": "dom",
+      "target": "components/homepage/lavaLampBackground:LavaLampBackground.setCeiling",
       "rel": "domread"
     },
     {

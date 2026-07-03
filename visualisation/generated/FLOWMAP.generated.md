@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1590 functions in 340 modules · 10 object stores · 10 PG tables · 3223 edges
+**MarkdownDB** schema v27 · 1596 functions in 340 modules · 10 object stores · 10 PG tables · 3229 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -58,11 +58,14 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `destroyHomepageDisplayUnit` | `components/homepage/homepageDisplayUnit` | — | — | — | — |
 | `fixHeaderSpacing` | `components/homepage/homepageDisplayUnit` | — | — | read | — |
 | `initializeHomepageButtons` | `components/homepage/homepageDisplayUnit` | `localStorage` | `localStorage` | read/write | — |
+| `resetHeaderAlignment` | `components/homepage/homepageDisplayUnit` | — | — | read | — |
 | `transitionToBookContent` | `components/homepage/homepageDisplayUnit` | — | — | read/write | — |
 | `destroyHomepageHero` | `components/homepage/homepageHero` | — | — | — | — |
 | `initHomepageHero` | `components/homepage/homepageHero` | — | `localStorage` | read/write | — |
 | `initializeHomepage` | `components/homepage/homepage` | — | — | — | — |
 | `initializeHomepageBookActions` | `components/homepage/homepage` | — | — | read | — |
+| `capRise` | `components/homepage/lavaLampBackground` | — | — | — | — |
+| `ceilingCapRy` | `components/homepage/lavaLampBackground` | — | — | — | — |
 | `destroyLavaLampBackground` | `components/homepage/lavaLampBackground` | — | — | — | — |
 | `initLavaLampBackground` | `components/homepage/lavaLampBackground` | — | — | read | — |
 | `LavaLampBackground.animCluster` | `components/homepage/lavaLampBackground` | — | — | — | — |
@@ -71,13 +74,16 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `LavaLampBackground.destroy` | `components/homepage/lavaLampBackground` | — | — | write | — |
 | `LavaLampBackground.gradStops` | `components/homepage/lavaLampBackground` | — | — | — | — |
 | `LavaLampBackground.isTypingTarget` | `components/homepage/lavaLampBackground` | — | — | — | — |
+| `LavaLampBackground.redrawSoon` | `components/homepage/lavaLampBackground` | — | — | write | — |
 | `LavaLampBackground.renderFull` | `components/homepage/lavaLampBackground` | — | — | read/write | — |
 | `LavaLampBackground.riseCluster` | `components/homepage/lavaLampBackground` | — | — | — | — |
-| `LavaLampBackground.setRise` | `components/homepage/lavaLampBackground` | — | — | write | — |
+| `LavaLampBackground.setCeiling` | `components/homepage/lavaLampBackground` | — | — | read | — |
+| `LavaLampBackground.setRise` | `components/homepage/lavaLampBackground` | — | — | — | — |
 | `LavaLampBackground.sliderRow` | `components/homepage/lavaLampBackground` | — | — | — | — |
 | `LavaLampBackground.start` | `components/homepage/lavaLampBackground` | — | — | write | — |
 | `LavaLampBackground.stop` | `components/homepage/lavaLampBackground` | — | — | — | — |
 | `LavaLampBackground.toggleAdjuster` | `components/homepage/lavaLampBackground` | — | — | read/write | — |
+| `setLavaCeiling` | `components/homepage/lavaLampBackground` | — | — | — | — |
 | `setLavaRise` | `components/homepage/lavaLampBackground` | — | — | — | — |
 | `destroyLogoNav` | `components/logoNav/logoNav` | — | — | read/write | — |
 | `initializeLogoNav` | `components/logoNav/logoNav` | — | — | read/write | — |
