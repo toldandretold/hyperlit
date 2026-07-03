@@ -161,11 +161,17 @@ body[data-page="home"] #app-container.lava-lamp-background .fixed-header {
      stays legible over both the white backdrop and the hills */
   color: inherit;
   text-decoration: underline;
-  text-decoration-color: var(--hyperlit-pink, #EE4A95);
+  text-decoration-color: var(--hyperlit-white);
   text-decoration-thickness: 4px;
   text-underline-offset: 4px;
   cursor: pointer;
 }
+
+.welcome-copy li {
+
+  color: black;
+}
+
 
 /* the feed cards dissolve under the header too (same mechanism: homepageHero
    feeds each element its own --copy-fade-y on scroll) */
