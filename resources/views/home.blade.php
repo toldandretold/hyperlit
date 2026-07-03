@@ -123,7 +123,7 @@
           </svg> [top-right] to publish or download your text.</li>
           <li>Press the edit button [bottom-right] to write, paste hypercites, or insert footnotes and citations.</li>
         </ul>
-        <h1 class="copy-statement">Hyperlit is an <a href="https://github.com/toldandretold/hyperlit">open-source</a> docuverse for open-access text. It empowers humans to grow and till the digital knowledge commons.</h1>
+        <h1 class="copy-statement">Hyperlit is an <a href="https://github.com/toldandretold/hyperlit">open-source</a> docuverse for open-access text. Use it to grow and till the digital knowledge commons.</h1>
     </section>
     {{-- No <main> containers: homepageDisplayUnit creates a fresh .main-content
          inside .home-content-wrapper when an arranger button is pressed. --}}

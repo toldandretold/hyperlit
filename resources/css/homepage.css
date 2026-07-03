@@ -78,6 +78,28 @@ body[data-page="home"] #app-container.lava-lamp-background .fixed-header {
   gap: calc(28px - 12px * var(--p));
 }
 
+body[data-page="home"] .fixed-header {
+   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45)
+}
+
+
+body[data-page="home"] #user-overlay,
+body[data-page="home"] #source-overlay {
+
+  opacity: 1.0;
+  background-color: transparent; /* Fully transparent so page content shows through */
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+
+
+  }
+
+body[data-page="home"] #user-container,
+body[data-page="home"] #newbook-container {
+   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+
 /* NARROW screens only: the tint fades out as the card docks (blur-only like
    feed) — at full width the tinted slab collides with the corner buttons.
    On wide screens the docked card keeps its tint (looks better there). */
@@ -94,6 +116,9 @@ body[data-page="home"] #app-container.lava-lamp-background .fixed-header {
     margin-left: 18px;
     margin-right: 18px;
   }
+
+
+
 }
 
 /* the corner nav buttons (.open: user / new-book) carry a page-background
@@ -302,6 +327,7 @@ body[data-page="home"] #app-container.lava-lamp-background.content-active .fixed
   border-radius: 0 0 1em 1em;
   padding: 20px 20px 10px 20px;
   gap: 0.5em;
+  box-shadow: 0 0px 0px rgba(0, 0, 0, 0);
   background-color: transparent; /* blur-only glass in feed mode */
   transition:
     top 0.6s ease-in-out,
@@ -360,3 +386,4 @@ body[data-page="home"] #app-container.lava-lamp-background.content-active .fixed
   cursor: pointer;
   margin-right: 6px;
 }
+

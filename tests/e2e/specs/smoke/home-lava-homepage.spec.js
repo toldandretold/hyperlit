@@ -64,6 +64,26 @@ test('home: hero boot, lava animates, scroll docks, feed opens/closes, reload st
   expect(await page.locator('.arranger-button.active').count()).toBe(0);
   await expect(page.locator('.welcome-copy')).toBeVisible();
 
+  // 5b. the header content re-CENTERS after returning from the feed. Opening a
+  //     feed sets an inline left-margin on the arranger buttons (to align with
+  //     feed text); closing must clear it, else the header stays shifted.
+  //     Assert the buttons row is horizontally centered within the header and
+  //     carries no leftover inline margin-left.
+  await expect
+    .poll(() => page.locator('.arranger-buttons-container').evaluate(el => el.style.marginLeft || ''))
+    .toBe('');
+  await expect
+    .poll(async () => {
+      const { headerCenter, btnCenter } = await page.locator('.fixed-header').evaluate(header => {
+        const btns = header.querySelector('.arranger-buttons-container');
+        const h = header.getBoundingClientRect();
+        const b = btns.getBoundingClientRect();
+        return { headerCenter: h.left + h.width / 2, btnCenter: b.left + b.width / 2 };
+      });
+      return Math.abs(headerCenter - btnCenter);
+    })
+    .toBeLessThan(4);
+
   // 6. reload after opening a feed: `/` must STILL boot to the hero
   //    (tab restore suppressed — this was the centered-hero-over-cards bug)
   await page.click('.arranger-button[data-content="most-lit"]');

@@ -79,7 +79,10 @@ export function openContainer(host: ContainerHost, mode = 'buttons'): void {
       host.overlay.style.transition = 'none';
       host.overlay.classList.add('active');
       host.overlay.style.display = 'block';
-      host.overlay.style.opacity = '0.5';
+      // Full opacity, matching .active — a fractional value here scales down the
+      // overlay's backdrop-filter blur (opacity composites the blurred backdrop too),
+      // which made this overlay visibly less blurred than #user-overlay on home.
+      host.overlay.style.opacity = '1';
       requestAnimationFrame(() => { if (host.overlay) host.overlay.style.transition = ''; });
     }
 

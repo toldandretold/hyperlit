@@ -35,6 +35,17 @@ export function fixHeaderSpacing() {
   }
 }
 
+// Clear the inline left-margins alignHeaderContent() applied to line the header
+// up with feed text. On return-to-hero there is no .main-content, so
+// alignHeaderContent() no-ops (its body is guarded on mainContent) and would
+// leave these stale — the header would stay shifted instead of re-centering.
+export function resetHeaderAlignment() {
+  const headerContainer: any = document.getElementById('imageContainer') || document.getElementById('userLibraryContainer');
+  const buttonsContainer: any = document.querySelector('.arranger-buttons-container');
+  if (headerContainer) headerContainer.style.marginLeft = '';
+  if (buttonsContainer) buttonsContainer.style.marginLeft = '';
+}
+
 // Align header content with main content text dynamically
 function alignHeaderContent() {
   const mainContent = document.querySelector('body[data-page="home"] .main-content, body[data-page="user"] .main-content');

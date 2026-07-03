@@ -24,7 +24,7 @@
  */
 
 import { setLavaRise } from './lavaLampBackground';
-import { fixHeaderSpacing } from './homepageDisplayUnit';
+import { fixHeaderSpacing, resetHeaderAlignment } from './homepageDisplayUnit';
 
 let clickHandler: ((e: Event) => void) | null = null;
 let scrollHandler: (() => void) | null = null;
@@ -49,7 +49,7 @@ const heroRoot = (): HTMLElement | null =>
 function updateCopyFade(): void {
   const header = document.querySelector('.fixed-header');
   if (!header) return;
-  const line = header.getBoundingClientRect().bottom + 6;
+  const line = header.getBoundingClientRect().bottom + 30;
   document
     .querySelectorAll<HTMLElement>('.welcome-copy, .home-content-wrapper .main-content')
     .forEach(el => {
@@ -99,6 +99,9 @@ function closeFeed(): void {
   document.querySelectorAll('.home-content-wrapper .main-content').forEach(el => el.remove());
   page.querySelectorAll('.arranger-button.active').forEach(el => el.classList.remove('active'));
   page.classList.remove('content-active', 'scrolled');
+  // feed set inline left-margins on the header (alignHeaderContent) to match the
+  // now-removed feed text — clear them so the hero re-centres
+  resetHeaderAlignment();
   // the one non-scroll-driven move: glide (don't snap) back to centre
   page.classList.add('hero-return');
   window.clearTimeout(returnTimer);
