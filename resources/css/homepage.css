@@ -89,6 +89,11 @@ body[data-page="home"] #app-container.lava-lamp-background .fixed-header {
       transparent
     );
   }
+
+  .welcome-copy {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
 }
 
 /* the corner nav buttons (.open: user / new-book) carry a page-background
@@ -171,6 +176,15 @@ body[data-page="home"] #app-container.lava-lamp-background .fixed-header {
 
   color: black;
 }
+
+.welcome-copy #cloudRef-svg {
+
+  background-color: transparent;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+
 
 
 /* the feed cards dissolve under the header too (same mechanism: homepageHero

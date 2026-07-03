@@ -16,6 +16,15 @@ import {
 import { flushAllPendingEdits } from '../../indexedDB/serverSync/index';
 
 export function showLoginForm(self: any) {
+  // Already authenticated? There's nothing to log into — fall back to the
+  // container's default logged-in state (the profile) instead of an auth form.
+  // This lets any caller (hero CTA, edit-button gate, "My Library", etc.) call
+  // showLoginForm() unconditionally without checking auth first.
+  if (self.user) {
+    self.showUserProfile();
+    return;
+  }
+
   const container = document.querySelector(".custom-alert") || self.container;
   container.innerHTML = getLoginFormHTML();
 
@@ -28,6 +37,13 @@ export function showLoginForm(self: any) {
 }
 
 export function showRegisterForm(self: any) {
+  // Already authenticated? Show the profile (default logged-in state) rather
+  // than a registration form. See showLoginForm for rationale.
+  if (self.user) {
+    self.showUserProfile();
+    return;
+  }
+
   const container = document.querySelector(".custom-alert") || self.container;
   container.innerHTML = getRegisterFormHTML();
 
