@@ -1,0 +1,138 @@
+/* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black 221F20 */
+    
+li {
+    color: var(--color-text);
+    margin-bottom: 0.3em;
+    margin-left: 0;
+    padding-left: 0;
+    line-height: var(--line-height-base);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    /* Match p tag font styling */
+    font-size: 1em;
+    font-weight: 350;
+    letter-spacing: var(--letter-spacing-medium);
+    word-spacing: -0.02em;
+    hyphens: auto;
+    text-align: left;
+    /* Keep the marker inline so an orphan <li> (one whose <ul>/<ol> parent has
+       been stripped by the chunker) still renders its bullet inside the
+       content box instead of floating into the left margin. */
+    list-style-position: inside;
+}
+
+/* Fix paragraphs inside list items */
+li p {
+    margin-top: 0; /* Remove top margin */
+    margin-bottom: 0; /* Remove bottom margin */
+    padding-left: 0; /* Remove any padding */
+}
+
+
+a {
+    color: var(--color-link);
+    text-decoration: none;
+    outline: none;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+}
+
+
+/*used by container-manager*/
+.frozen {
+  pointer-events: none; /* Prevent interactions */
+  overflow: hidden;     /* Disable scrolling */
+}
+
+/* Adjust the pseudo-element to not interfere with clicks */
+sup.note::before {
+    pointer-events: none; /* Prevent interference */
+    z-index: 1;
+}
+
+sup.note::before {
+  content: "";
+  position: absolute;
+  top: -20px;
+  bottom: -20px;
+  left: -20px;
+  right: -20px;
+  /* Ensure the pseudo-element isn’t visible and doesn’t interfere visually */
+  background: transparent;
+}
+
+
+
+ol {
+    hyphens: auto;
+    font-size: 1em;
+    margin-block-start: .2em;
+    margin-block-end: 2em;
+    padding-left: 0;
+    margin-left: 0;
+    /* Number sits inline at paragraph-text-start; the digits + browser gap
+       naturally indent the following text. Wrapped lines align with the
+       number (no hanging indent). */
+    list-style-position: inside;
+}
+
+code {
+    font-family: var(--font-family-mono);
+    background-color: var(--color-accent);
+    padding: 2px 4px;
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-code);
+}
+
+    /* Base styles for code blocks */
+pre code {
+    display: block;
+    padding: 16px;
+    margin: 0 0 16px;
+    overflow-x: auto;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    font-size: 90%;
+    color: #333;
+    line-height: 1.5;
+}
+
+hr {
+    border-color: var(--color-primary);
+    opacity: 0.5;
+}
+
+
+
+/* change cursor behaviour for links in editable div */
+#html-editor a {
+    cursor: pointer;
+    color: var(--hyperlit-black);
+}
+
+/* Disable iOS long-press text selection menu */
+html, body, * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Enable interaction for annotation links */
+.annotation a,
+.annotation a.open-icon {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
+    pointer-events: auto;
+}
+
+
+
+
+/* The perimeter-hidden class hides perimeter buttons */
+.perimeter-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}

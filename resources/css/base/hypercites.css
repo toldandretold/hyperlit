@@ -1,0 +1,275 @@
+/* ============================================================================
+   HYPERCITE UNDERLINES
+   Opacity is driven by --hypercite-intensity: resting fallbacks live in the theme
+   files (--hypercite-*-opacity), the overlap ramp is computed in JS (RAMP_* consts
+   in resources/js/lazyLoaderFactory.js), and the navigated cite jumps to 1.0 below.
+
+   ➜ To re-tune brightness, use the standalone playground at repo root:
+       hypercite-overlap-ramp-demo.html
+     (compare curves, live-tune values, test navigation — no build step).
+     See resources/css/README.md › "Hypercite Underlines & the Ramp Tuning Demo".
+   ============================================================================ */
+u.single {
+  text-decoration: underline;
+  text-decoration-skip-ink: auto;
+  text-decoration-color: rgba(203, 204, 204, var(--hypercite-intensity, var(--hypercite-single-opacity)));
+}
+
+
+u.couple, u.poly {
+    text-decoration: none;
+    display: inline;
+    background-image: linear-gradient(to right,
+        rgba(238, 74, 149, var(--hypercite-intensity, var(--hypercite-multi-opacity))),
+        rgba(239, 141, 52, var(--hypercite-intensity, var(--hypercite-multi-opacity))),
+        rgba(78, 172, 174, var(--hypercite-intensity, var(--hypercite-multi-opacity))),
+        rgba(238, 74, 149, var(--hypercite-intensity, var(--hypercite-multi-opacity))));
+    background-position: 0 1.04em;
+    background-repeat: no-repeat;
+    background-size: 100% 2.5px;
+    padding-bottom: 3px;
+}
+
+/* NOTE: header-offset for fragment navigation is handled globally via
+   scroll-padding-top on .reader-content-wrapper (layout.css) — covers ALL
+   fragment targets (HL_, hypercite_, footnote_, node ids), not just hypercites. */
+
+/* Hypercite navigation states */
+u.hypercite-target {
+    --hypercite-intensity: 1.0 !important; /* Max brightness for target */
+    transition: all 2000ms ease-in-out; /* Smooth transition for highlighting */
+}
+
+/* Single hypercites get dimmed to 50% of their already dim state */
+u.single.hypercite-dimmed {
+    --hypercite-intensity: var(--hypercite-dimmed-single) !important;
+    transition: all var(--transition-slow);
+}
+
+/* Couple/poly hypercites get dimmed to about 70% of their current intensity */
+u.couple.hypercite-dimmed,
+u.poly.hypercite-dimmed {
+    --hypercite-intensity: var(--hypercite-dimmed-multi) !important;
+    transition: all var(--transition-slow);
+}
+
+/* Special styling for single hypercites when they're the target */
+u.single.hypercite-target {
+    text-decoration: none !important;
+    background-image: linear-gradient(to right, 
+        rgba(238, 74, 149, 1.0), 
+        rgba(239, 141, 52, 1.0), 
+        rgba(78, 172, 174, 1.0), 
+        rgba(238, 74, 149, 1.0)) !important;
+    background-position: 0 1.04em !important;
+    background-repeat: no-repeat !important;
+    background-size: 100% 2.5px !important;
+    padding-bottom: 3px !important;
+    transition: all 2000ms ease-in-out; /* Smooth transition for target highlighting */
+}
+
+/* Base transitions for all hypercite types */
+u.single, u.couple, u.poly {
+    cursor: pointer; /* was an inline style; lives in CSS so it survives edit-time style stripping */
+    /* Animate ONLY brightness/colour (the navigation target/dimmed states change
+       --hypercite-intensity). NOT background-position/size: those are constant, and
+       letting `all` animate them made a freshly-created couple/poly underline slide
+       down from the top of the line on first paint (background-position 0 0 → 0 1.04em). */
+    transition: background-image 2000ms ease-in-out,
+                text-decoration-color 2000ms ease-in-out,
+                color 2000ms ease-in-out; /* was: all 2000ms (caused the dropping-underline glitch) */
+}
+
+/* Arrow icon navigation target state */
+.open-icon.arrow-target,
+span.open-icon.arrow-target {
+    display: inline-block;
+    animation: arrow-pulse 2000ms ease-in-out forwards;
+}
+
+@keyframes arrow-pulse {
+    0% {
+        transform: scale(1) rotate(0deg);
+        filter: brightness(1);
+        color: inherit;
+        text-shadow: none;
+    }
+    25% {
+        transform: scale(1.5) rotate(45deg);
+        filter: brightness(2.5);
+        color: #EF8D34;
+        text-shadow: 0 0 12px rgba(239, 141, 52, 0.8);
+    }
+    50% {
+        transform: scale(1.4) rotate(45deg);
+        filter: brightness(2);
+        color: #EF8D34;
+        text-shadow: 0 0 10px rgba(239, 141, 52, 0.7);
+    }
+    75% {
+        transform: scale(1.3) rotate(30deg);
+        filter: brightness(1.5);
+        color: #EF8D34;
+        text-shadow: 0 0 8px rgba(239, 141, 52, 0.5);
+    }
+    100% {
+        transform: scale(1) rotate(0deg);
+        filter: brightness(1);
+        color: inherit;
+        text-shadow: none;
+    }
+}
+
+
+.main-content.loading::before {
+    content: "Loading...";
+    display: block;
+    text-align: center;
+    font-size: 18px;
+    color: gray;
+}
+
+b, strong {
+    font-weight: 600;
+    color: var(--color-strong);
+}
+
+.libraryCard b, .libraryCard strong {
+    color: var(--hyperlit-orange);
+}
+
+h1 {
+    font-family: var(--font-family-display);
+    font-size: var(--font-size-h1);
+    color: var(--color-text);
+    font-weight: 700;
+    letter-spacing: var(--letter-spacing-tight);
+    margin-bottom: 0em;
+}
+
+h2 {
+    font-family: var(--font-family-display);
+    color: var(--color-text);
+    font-size: var(--font-size-h2);
+    letter-spacing: var(--letter-spacing-medium);
+    margin-top: 1.6em;
+    margin-bottom: .4em;
+    font-weight: 650;
+}
+
+h3 {
+    font-family: var(--font-family-display);
+    font-size: var(--font-size-h3);
+    color: var(--color-text);
+    margin-top: 1.6em;
+    margin-bottom: .4em;
+    letter-spacing: var(--letter-spacing-light);
+    font-weight: 550;
+}
+
+/* Remove top margin from h3 in user container */
+#user-container h3 {
+    margin-top: 0;
+}
+
+h4 {
+    font-family: var(--font-family-display);
+    font-size: var(--font-size-h4);
+    color: var(--color-text);
+    margin-top: 1.6em;
+    margin-bottom: .4em;
+    letter-spacing: var(--letter-spacing-light);
+    font-weight: 550;
+}
+
+h5, h6 {
+    font-family: var(--font-family-display);
+    font-size: var(--font-size-h5);
+    color: var(--color-text);
+    margin-top: 1.6em;
+    margin-bottom: .4em;
+    letter-spacing: var(--letter-spacing-light);
+    font-weight: 550;
+}
+
+blockquote {
+    color: var(--color-text);
+    padding: 1em;
+    padding-left: 1rem;
+    display: flow-root;
+    font-style: normal;
+    font-weight: 350;
+    letter-spacing: .01em;
+}
+
+
+
+/* Media query for phones (small screens) */
+@media only screen and (max-width: 500px) {
+  blockquote {
+    margin: 10px;
+    padding: 8px; /* Increase vertical padding if needed */
+    padding-left: 1rem;
+    overflow: auto; /* or display: flow-root; */
+    font-style: normal;
+  }
+
+   body {
+    font-size: var(--font-size-base); /* defaults to --font-size-mobile (18px) via variables.css; slider overrides via inline --font-size-base on <html> */
+    overflow-x: hidden; /* Prevent horizontal scroll */
+  }
+  
+  /* Ensure all content wraps on mobile */
+  * {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+  }
+  
+  /* Force links to break on mobile */
+  a {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+  }
+  
+  /* Lighter weights at small sizes to prevent squished letterforms */
+  h1 {
+    font-weight: 600;
+  }
+  h2 {
+    font-weight: 550;
+  }
+  h3, h4, h5, h6 {
+    font-weight: 500;
+  }
+  
+  code {
+    word-break: break-all;
+    white-space: pre-wrap;
+  }
+  
+
+  ol, ul {
+    font-size: 1em; /* Match paragraph font size on mobile */
+  }
+}
+
+
+ins {
+    text-decoration: underline;
+    text-decoration-thickness: 4px;
+    text-decoration-color: transparent;
+    background: var(--gradient-hyperlit);
+    background-size: 100% 4px;
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+}
+
+blockquote strong {
+    color: var(--color-text);
+    font-weight: 600;
+}
+
+sup {
+    font-size: var(--font-size-sup);
+}

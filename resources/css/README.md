@@ -12,7 +12,13 @@ css/
 │   ├── sepia-theme.css            # Sepia theme (layer(sepia-theme))
 │   └── custom-theme-template.css  # Template for creating custom themes
 │
-├── base/                          # Page-agnostic foundations
+├── base/                          # Page-agnostic foundations (app.css is their import manifest)
+│   ├── foundation.css             # body, images, content width, editing hyphenation
+│   ├── hypercites.css             # Hypercite underline states + navigation glow
+│   ├── footnotes.css              # Footnote sups, citation arrows, touch targets
+│   ├── contentMisc.css            # Lists, container-manager pseudo, cursor/iOS behaviors
+│   ├── marks.css                  # Highlight mark styling (base + user + AI verdict + glow)
+│   ├── tablesLoading.css          # Tables, loading indicator, annotation placeholder
 │   ├── btnSpinner.css             # Inline spinner for deferred button states
 │   └── layout.css                 # Page layout, scroll wrappers, headers
 │
@@ -23,22 +29,28 @@ css/
 │   │                              # referenceOverlay, dragResize, progressModal, versionHistory,
 │   │                              # containerEditing, annotationEditing, footnoteTouchTargets,
 │   │                              # formValidation, citationSearch, containersMobile
-│   ├── (buttons/toolbars)         # buttonIcons, editToolbar, editToolbarButtons, editButton-adjacent
+│   ├── (buttons/toolbars)         # buttonIcons, editToolbar (incl. button sizing), editButton-adjacent
 │   │                              # (hyperlitEditButton), siteLogoButton, userButton, perimeterGlass,
 │   │                              # searchToolbar, citationMode, brainMode, searchHighlight,
 │   │                              # hyperlightButtons, citationHealth, userPageTabs, buttonsMobile
 │   └── (features)                 # shelves, floatingActionMenu, search, bookActions, hyperciteTombstone,
 │                                  # vibe, vibeAnimations, divEditor (parked)
+│                                  # settingsContainer includes the gate filter; sourceContainer includes
+│                                  # its form styling (folded 2026-07, parity-verified)
 │
 ├── pages/                         # ONE entry per blade view; @import order IS the cascade order
 │   ├── reader.css  home.css  user.css  auth.css  user-home.css  quantizer.css
 │
-└── app.css                        # Shared base (typography, marks, hypercites) — every blade loads it
+└── app.css                        # Pure @import manifest for theme/ + base/ — every blade loads it
 ```
 
 **How CSS loads:** each blade `@vite()`s exactly `app.css` + its `pages/<page>.css`; the page entry `@import`s feature files in cascade order. New styles go in `components/<feature>.css` (named after the owning `resources/js` folder), wired into the relevant `pages/*.css`. The old mega-files (`buttons.css`, `containers.css`) are gone — their sections were split verbatim into the component files above, in original order, so the page entries' import order still reproduces the historical cascade exactly.
 
-**Guardrails:** `tests/javascript/architecture/cssStructure.test.js` enforces placement (theme/base/components/pages only), a line-count ratchet on `app.css` (`cssBaseline.json` — counts only go down), no double-bundling (a file must not be both a Vite entry and an `@import` target), and no orphan files. Any refactor that moves rules between files must keep the resolved cascade byte-identical — prove it with `node scripts/css-cascade-snapshot.mjs save` (before) / `compare` (after). Rule moves that intentionally change the cascade (dedup/consolidation) need browser-level verification instead (computed-style parity), not just source diffs.
+**Guardrails:** `tests/javascript/architecture/cssStructure.test.js` enforces placement (theme/base/components/pages only), a line-count ratchet on `app.css` (`cssBaseline.json` — counts only go down), no double-bundling (a file must not be both a Vite entry and an `@import` target), and no orphan files. Two verification tiers for refactors: (1) verbatim moves must keep the resolved cascade byte-identical — `node scripts/css-cascade-snapshot.mjs save` (before) / `compare` (after); (2) intentional rule changes (dedup, folds, reordering) must pass the browser-level harness — `node scripts/css-style-parity.mjs save` / `compare` (needs the dev server; captures getComputedStyle for every element across home/reader/reader-settings/user at two viewports; run `selftest` first if you changed the captured states).
+
+**Known intentional overlaps (do not "fix" blindly):** `.validation-message` is defined in both `formValidation.css` and `form.css` — form.css doesn't load on the reader page, so formValidation's copy is live there and the pair is page-dependent, not dead code. `#hyperlight-buttons` is split between `hyperlitEditButton.css` (positioning) and `hyperlightButtons.css` (appearance) — complementary declarations, not duplication. app.css base files and `base/layout.css` both touch `body`/`html`/`p`/`a`/`code` — order-dependent, layout.css intentionally later.
+
+**Deliberately rejected (2026-07, analysis on record):** an `@layer` wrap — layers make later files win regardless of specificity, rewriting every cross-file conflict this codebase resolves by specificity today; the pages/*.css manifests already give explicit reviewable order. CSS co-location with lazy JS chunks — runtime-injected CSS lands after `buttonsMobile.css`'s toolbar keyboard overrides (flipping winners on mobile edit mode, a state the parity harness can't capture), for only a few kB gzip of deferred CSS; also SPA nav means any entry page's CSS must serve all SPA-reachable pages, so page entries must stay supersets.
 
 ## Theme System
 

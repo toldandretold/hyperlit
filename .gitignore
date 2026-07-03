@@ -62,3 +62,4 @@ tests/conversion/corpus/*
 tests/conversion/vibe_eval_report.json
 tests/conversion/vibe_eval_report.md
 .css-cascade-snapshots/
+.css-style-parity/

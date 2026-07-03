@@ -1,0 +1,100 @@
+
+body {
+    font-size: var(--font-size-base);
+    overflow-x: hidden;
+    background-color: var(--color-background);
+    color: var(--color-text);
+}
+
+/* Prevent horizontal overflow globally */
+* {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Prevent iPad Safari SVG collapse - SVGs in buttons need to size from their CSS, not max-width */
+button svg, #logoContainer img {
+    max-width: none;
+}
+
+/* Ensure images resize proportionally */
+img {
+    max-width: 100%;
+    height: auto; /* This maintains aspect ratio */
+}
+
+/* Imported figures (arXiv ar5iv, OCR PDFs, etc.) are typically PNGs designed
+   for a white page — many have transparent backgrounds with black text and
+   line art that vanishes against a dark page bg. Give every imported img a
+   white canvas + a little padding so it stays readable without distorting
+   the image's own colours. Scoped to dark themes only — sepia/light page
+   colours already give black ink enough contrast. */
+body.theme-dark [data-node-id] img,
+body.theme-vibe [data-node-id] img {
+    background: #fff;
+    padding: 0.5em;
+    border-radius: 4px;
+}
+
+/* Ensure main content container doesn't overflow */
+.main-content, .reader-content-wrapper {
+    overflow-x: hidden;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+#conversion-message {
+    color: var(--hyperlit-black);
+}
+
+
+ul {
+    margin-block-start: .2em;
+    margin-block-end: 2em;
+    padding-left: 0;
+    margin-left: 0;
+    /* Bullet sits inline at paragraph-text-start; the bullet glyph + browser
+       gap naturally indents the following text. Wrapped lines align with the
+       bullet (no hanging indent). */
+    list-style-position: inside;
+}
+
+
+p {
+    margin-bottom: .8em;
+    margin-top: -.1em;
+    text-align: left;
+    hyphens: auto;
+    font-size: 1em;
+    color: var(--color-text);
+    font-weight: 350;
+    letter-spacing: var(--letter-spacing-medium);
+    word-spacing: -0.02em;
+    line-height: var(--line-height-base);
+}
+
+
+p[data-original-line="1"] {
+  margin-top: 1em;
+  /* other styles here */
+}
+
+
+/* While editing, keep line breaks stable and stop re-hyphenation so text
+   above/left of the caret doesn't reflow on every keystroke. Without this the
+   browser re-decides where each line wraps (and whether to hyphenate the word
+   at a line edge) on every input, making a word hop between the line above and
+   below and shoving surrounding content around. text-wrap/hyphens both inherit,
+   so setting them on the contenteditable container cascades to its p/li/ol/a.
+   Scoped to contenteditable="true" only — the reading view keeps hyphens: auto
+   for tighter justification. text-wrap: stable degrades gracefully (unknown
+   value ignored) on browsers that don't support it. */
+.main-content[contenteditable="true"],
+.sub-book-content[contenteditable="true"],
+.footnote-text[contenteditable="true"],
+.annotation[contenteditable="true"],
+.brain-query-annotation[contenteditable="true"],
+blockquote.highlight-text[contenteditable="true"] {
+    text-wrap: stable;   /* lines before the edit point don't re-wrap */
+    hyphens: none;       /* no per-keystroke hyphenate/unhyphenate at line edges */
+}

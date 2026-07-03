@@ -1,0 +1,164 @@
+/* hyperlit colors:  
+orange #EF8D34; 
+pink #EE4A95; 
+aqua #4EACAE; 
+black #221F20; 
+"white" #CBCCCC*/
+/* General mark styles first */
+mark[data-highlight-count] {
+  position: relative;
+  background-color: rgba(238, 74, 149, var(--highlight-intensity, var(--highlight-resting-opacity)));
+  border-width: calc(var(--highlight-intensity, var(--highlight-resting-opacity)) * 3px);
+  color: var(--color-text);
+}
+
+mark:hover {
+    text-decoration: none !important;
+    cursor: pointer;
+    background-color: rgba(238, 74, 149, var(--highlight-intensity, var(--highlight-resting-opacity)));
+    filter: brightness(1.4);
+    transition: filter var(--transition-fast);
+}
+
+/* Dim when bright (3+ overlapping highlights) */
+mark[data-highlight-count="3"]:hover,
+mark[data-highlight-count="4"]:hover,
+mark[data-highlight-count="5"]:hover,
+mark[data-highlight-count="6"]:hover,
+mark[data-highlight-count="7"]:hover,
+mark[data-highlight-count="8"]:hover,
+mark[data-highlight-count="9"]:hover {
+    filter: brightness(0.75);
+}
+
+/* Group hover: a highlight renders as multiple sibling marks (split by
+   overlaps and footnote sups). JS (hyperlights/markGroup.js) stamps
+   .hl-group-hover on EVERY mark sharing the hovered mark's HL_* classes so
+   the whole highlight lights up — mirrors the :hover rules above. */
+mark.hl-group-hover {
+    filter: brightness(1.4);
+    transition: filter var(--transition-fast);
+}
+
+mark[data-highlight-count="3"].hl-group-hover,
+mark[data-highlight-count="4"].hl-group-hover,
+mark[data-highlight-count="5"].hl-group-hover,
+mark[data-highlight-count="6"].hl-group-hover,
+mark[data-highlight-count="7"].hl-group-hover,
+mark[data-highlight-count="8"].hl-group-hover,
+mark[data-highlight-count="9"].hl-group-hover {
+    filter: brightness(0.75);
+}
+
+
+/* User-specific overrides (more specific, comes after) */
+mark[data-highlight-count].user-highlight {
+    background-color: rgba(78, 172, 174, calc(var(--highlight-intensity, var(--highlight-resting-opacity)) * 1.8));
+    color: var(--color-text);
+    text-decoration: none !important;
+}
+
+mark[data-highlight-count].user-highlight:hover {
+    background-color: rgba(78, 172, 174, calc(var(--highlight-intensity, var(--highlight-resting-opacity)) * 1.8));
+    filter: brightness(1.4);
+    color: var(--color-text);
+    text-decoration: none !important;
+    transition: filter var(--transition-fast);
+}
+
+/* User highlights: Dim when bright (3+ overlaps) */
+mark[data-highlight-count].user-highlight[data-highlight-count="3"]:hover,
+mark[data-highlight-count].user-highlight[data-highlight-count="4"]:hover,
+mark[data-highlight-count].user-highlight[data-highlight-count="5"]:hover,
+mark[data-highlight-count].user-highlight[data-highlight-count="6"]:hover,
+mark[data-highlight-count].user-highlight[data-highlight-count="7"]:hover,
+mark[data-highlight-count].user-highlight[data-highlight-count="8"]:hover,
+mark[data-highlight-count].user-highlight[data-highlight-count="9"]:hover {
+    filter: brightness(0.75);
+}
+
+/* AI Review verdict-colored highlights */
+mark.hl-confirmed {
+  background-color: rgba(39, 174, 96, var(--highlight-intensity, var(--highlight-resting-opacity))) !important;
+}
+mark.hl-likely {
+  background-color: rgba(100, 200, 100, var(--highlight-intensity, var(--highlight-resting-opacity))) !important;
+}
+mark.hl-plausible {
+  background-color: rgba(241, 196, 15, var(--highlight-intensity, var(--highlight-resting-opacity))) !important;
+}
+mark.hl-unlikely {
+  background-color: rgba(231, 65, 50, var(--highlight-intensity, var(--highlight-resting-opacity))) !important;
+}
+mark.hl-rejected {
+  background-color: rgba(231, 76, 60, var(--highlight-intensity, var(--highlight-resting-opacity))) !important;
+}
+
+/* Dark text for light verdict highlights at high intensity (3+ overlaps).
+   LITERAL dark — themes remap --hyperlit-black (sepia: cream #E8D7B8), which
+   made this rule paint light text on saturated green in sepia/light. Dark
+   text on a bright green stack is correct in every theme. */
+mark.hl-likely:not([data-highlight-count="1"]):not([data-highlight-count="2"]),
+mark.hl-plausible:not([data-highlight-count="1"]):not([data-highlight-count="2"]) {
+  color: #221F20 !important;
+}
+
+mark.hl-confirmed:hover { background-color: rgba(39, 174, 96, var(--highlight-intensity, var(--highlight-resting-opacity))) !important; }
+mark.hl-likely:hover { background-color: rgba(100, 200, 100, var(--highlight-intensity, var(--highlight-resting-opacity))) !important; }
+mark.hl-plausible:hover { background-color: rgba(241, 196, 15, var(--highlight-intensity, var(--highlight-resting-opacity))) !important; }
+mark.hl-unlikely:hover { background-color: rgba(231, 65, 50, var(--highlight-intensity, var(--highlight-resting-opacity))) !important; }
+mark.hl-rejected:hover { background-color: rgba(231, 76, 60, var(--highlight-intensity, var(--highlight-resting-opacity))) !important; }
+
+/* Sustained glow on the base mark element when navigating to a hyperlight */
+mark.cascade-origin,
+mark.cascade-origin:hover {
+    --highlight-intensity: 0.55 !important;
+    filter: brightness(1.4) !important;
+    transition: filter var(--transition-fast);
+}
+
+
+
+
+table {
+    width: auto; /* Fit content, don't stretch */
+    max-width: 100%;
+    border-collapse: collapse; /* Remove double borders */
+    background-color: #2e2e2e; /* Dark background for table */
+    color: #e0e0e0; /* Light text for contrast */
+    border: 1px solid #444; /* Subtle border for the table */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6); /* Slight shadow for depth */
+}
+
+th, td {
+    padding: 12px 15px; /* Comfortable padding */
+    text-align: left; /* Align text to the left */
+    border: 1px solid #444; /* Subtle borders between cells */
+}
+
+th {
+    background-color: #1f1f1f; /* Slightly darker header row */
+    color: #ffffff; /* Bright text for headers */
+    font-weight: bold; /* Emphasize header */
+    text-transform: uppercase; /* Optional: uppercase text */
+}
+
+tr:nth-child(odd) {
+    background-color: #252525; /* Alternating row background for readability */
+}
+
+tr:nth-child(even) {
+    background-color: #2e2e2e; /* Match main table background */
+}
+
+tr:hover {
+    background-color: #444; /* Highlight row on hover */
+    cursor: pointer; /* Indicate interactivity if applicable */
+}
+
+caption {
+    margin-bottom: 10px; /* Space below caption */
+    font-size: 1.25em; /* Larger, prominent font size */
+    color: #e0e0e0; /* Match table text color */
+    text-align: center; /* Center-align caption */
+}

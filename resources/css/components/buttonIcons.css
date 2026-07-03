@@ -25,14 +25,8 @@
 }
 
 /* Hover state for cloudRef */
-#cloudRef:hover .cls-1 {
-  fill: var(--icon-hover-fill);
-}
 
 /* ===== USER LOGO ===== */
-#userLogo {
-  fill: var(--icon-fill-primary);
-}
 
 /* ===== HOME BUTTON NAV ===== */
 #homeButtonNav svg {
@@ -91,17 +85,9 @@
   fill: none;
 }
 
-#hyperlight-buttons #delete-hyperlight:hover svg path {
-  stroke: var(--icon-hover-stroke);
-}
-
 /* Copy hyperlight - pink filled square (special case) */
 #hyperlight-buttons #copy-hyperlight .hyperlight-color {
   fill: var(--icon-fill-accent);
-}
-
-#hyperlight-buttons #copy-hyperlight:hover .hyperlight-color {
-  filter: brightness(1.3);
 }
 
 /* Copy hypercite - filled paths */
@@ -164,27 +150,7 @@
 }
 
 /* Hover states for toolbar buttons */
-#edit-toolbar button:hover svg rect,
-#edit-toolbar button.active svg rect {
-  fill: transparent;
-}
 
 /* Exclude undo/redo from stroke-only rule (they use fill+stroke) */
-#edit-toolbar button:not(#undoButton):not(#redoButton):hover svg path,
-#edit-toolbar button:hover svg line,
-#edit-toolbar button:hover svg polyline,
-#edit-toolbar button:not(#undoButton):not(#redoButton).active svg path,
-#edit-toolbar button.active svg line,
-#edit-toolbar button.active svg polyline {
-  stroke: var(--icon-hover-stroke);
-}
 
 /* Override for filled icons (undo/redo) on hover */
-#undoButton:hover svg path,
-#redoButton:hover svg path,
-#undoButton.active svg path,
-#redoButton.active svg path {
-  fill: var(--icon-hover-fill) !important;
-  stroke: var(--icon-hover-fill) !important;
-  stroke-width: 2;
-}

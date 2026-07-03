@@ -1,0 +1,106 @@
+/* Pink applies only to dynamic footnote superscripts, not plain <sup> text.
+   Old format: <sup class="footnote-ref" fn-count-id="N">N</sup>
+   New format: <sup fn-count-id="N"><a class="footnote-ref">N</a></sup>
+   (sup.note is the legacy footnote marker; .footnote-ref handled below.) */
+sup[fn-count-id],
+sup.note {
+    color: var(--color-primary);
+}
+
+
+
+/* Prevent orphaning of citation arrows on their own line */
+.nowrap { white-space: nowrap; }
+
+/* Hypercite arrow links — single atomic element replacing old <a><sup> structure */
+a.open-icon {
+    color: var(--color-primary);
+    padding: 8px; /* Add padding to increase clickable area */
+    margin: -8px; /* Offset padding to maintain visual position */
+    position: relative; /* Enable z-index */
+    z-index: 2; /* Ensure it's above other elements */
+    vertical-align: super;
+    font-size: 0.7em;
+    line-height: 0;
+    text-decoration: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+    a.open-icon {
+        padding: 0;
+        margin: 0;
+    }
+}
+
+
+.footnote-ref {
+    color: var(--color-primary);
+}
+
+.citation-ref {
+    color: #4EACAE; /* aqua - same as in-text-citation links */
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* Touch-friendly footnotes and citations */
+sup[fn-count-id],
+.footnote-ref,
+.in-text-citation,
+.citation-ref,
+a[id^="hypercite_"] {
+    /* Increase touch target size */
+    position: relative;
+    cursor: pointer;
+    /* Prevent touch delay and scroll-to-visible quirks on mobile */
+    touch-action: manipulation;
+}
+
+sup[fn-count-id]::before,
+.in-text-citation::before,
+.citation-ref::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    right: -8px;
+    bottom: -8px;
+    /* This creates an invisible 16px padding around the element for easier clicking */
+}
+
+@media (hover: none) and (pointer: coarse) {
+    sup[fn-count-id]::before,
+    .in-text-citation::before,
+    .citation-ref::before {
+        pointer-events: none;
+    }
+}
+
+/* Visual feedback on touch/hover */
+sup[fn-count-id]:hover,
+.in-text-citation:hover,
+.citation-ref:hover,
+a[id^="hypercite_"]:hover {
+    background-color: rgba(238, 74, 149, 0.1); /* Light pink background */
+    border-radius: 3px;
+    padding: 6px;
+    margin: -6px;
+}
+
+/* Active state for touch feedback */
+sup[fn-count-id]:active,
+.in-text-citation:active,
+.citation-ref:active,
+a[id^="hypercite_"]:active {
+    background-color: rgba(238, 74, 149, 0.2); /* Darker pink when tapped */
+    transform: scale(1.05); /* Slight scale up when tapped */
+}
+
+@media (hover: none) and (pointer: coarse) {
+    sup[fn-count-id]:active,
+    .in-text-citation:active,
+    .citation-ref:active,
+    a[id^="hypercite_"]:active {
+        transform: none;
+    }
+}

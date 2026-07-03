@@ -1,0 +1,89 @@
+/* Optional: make table scrollable on smaller screens */
+.table-container {
+    overflow-x: auto;
+}
+
+/* Make tables in main-content horizontally scrollable */
+.main-content table {
+    display: block;
+    overflow-x: auto;
+    max-width: 100%;
+    white-space: nowrap;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+
+
+
+
+/* Loading indicator styling */
+#loading-indicator {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 9999;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        font-size: 18px;
+    }
+
+.bookmark-indicator {
+    position: relative;
+    background-color: #c0392b;
+    color: var(--hyperlit-black);
+    padding: 8px 30px;
+    font-size: 1em;
+    font-weight: bold;
+    display: inline-block;
+}
+
+.bookmark-indicator::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 100%;
+  background-color: var(--color-background);
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
+
+div {
+  -ms-overflow-style: none; /* IE and Edge (legacy) */
+  scrollbar-width: none; /* Firefox */
+}
+
+div::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Use ::before to show the placeholder text */
+.temp-text:empty::before {
+    content: attr(data-placeholder);
+    color: #aaa;
+}
+
+.temp-text {
+      min-height: 20px;
+      outline: none;
+    }
+
+#citedInHyperlight,
+#citedInFootnote,
+.citedInHyperlight,
+.citedInFootnote {
+    color: var(--color-primary);
+}
+
+/* Ensure annotation container allows interaction */
+.annotation {
+    pointer-events: auto;
+    position: relative;
+    z-index: 1;
+}

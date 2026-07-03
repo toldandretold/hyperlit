@@ -17,7 +17,6 @@
 @import url('../components/containersMobile.css');
 @import url('../components/formValidation.css');
 @import url('../components/annotationEditing.css');
-@import url('../components/sourceContainerForm.css');
 @import url('../components/settingsContainer.css');
 @import url('../components/citationSearch.css');
 @import url('../components/stackedContainers.css');
@@ -25,11 +24,9 @@
 @import url('../components/importForm.css');
 @import url('../components/vibe.css');
 @import url('../base/btnSpinner.css');
-@import url('../components/gateFilter.css');
 /* — ex buttons.css, in original section order — */
 @import url('../theme/variables.css');
 @import url('../components/buttonIcons.css');
-@import url('../components/editToolbarButtons.css');
 @import url('../components/hyperlitEditButton.css');
 @import url('../components/siteLogoButton.css');
 @import url('../components/userButton.css');

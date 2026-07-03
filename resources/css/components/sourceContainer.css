@@ -170,3 +170,252 @@
 #creator-tools-toggle.expanded .creator-tools-chevron {
   transform: rotate(180deg);
 }
+/* SOURCE CONTAINER FORM STYLING - Make it match newbook-container */
+
+#source-container input,
+#source-container textarea,
+#source-container label,
+#source-container button {
+  font-size: 16px;
+  font-family: inherit;
+}
+
+/* CRITICAL: Override browser default button styling - ONLY FOR FORM BUTTONS WITH .formButton CLASS */
+#source-container .formButton {
+  font-size: 16px;
+  font-family: inherit;
+  border: none !important;
+  background: transparent !important;
+  padding: 5px 10px !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  color: #CBCCCC !important;
+  cursor: pointer;
+  outline: none;
+}
+
+/* Tighter spacing for form elements */
+#source-container label {
+  margin-bottom: 0.25em;
+  margin-top: 0.5em;
+  display: block;
+}
+
+#source-container label:first-child {
+  margin-top: 0;
+}
+
+#source-container input[type="text"],
+#source-container input[type="number"],
+#source-container input[type="url"],
+#source-container textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 0.25em;
+  background-color: var(--container-solid-bg) !important;
+  border: 1px solid #444 !important;
+  color: var(--color-text) !important;
+  padding: 8px !important;
+  border-radius: 4px !important;
+  resize: none !important;
+  overflow: hidden;
+}
+
+#source-container input[type="text"]:focus,
+#source-container input[type="number"]:focus,
+#source-container input[type="url"]:focus,
+#source-container textarea:focus {
+  outline: none !important;
+  border-color: #4EACAE !important;
+  box-shadow: 0 0 0 2px rgba(78, 172, 174, 0.2) !important;
+}
+
+/* Radio button group spacing */
+#source-container .radio-group {
+  margin: 0.3em 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+
+#source-container .radio-group label {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  font-weight: normal;
+}
+
+#source-container .radio-group input[type="radio"] {
+  margin-right: 0.5em;
+  margin-bottom: 0;
+}
+
+#source-container h2 {
+  font-size: 18px;
+  margin-bottom: 0.5em;
+}
+
+#source-container h3 {
+  font-size: 13px;
+  color: var(--color-label);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 8px;
+}
+
+/* Form structure and validation styles */
+#source-container .form-header {
+  text-align: left;
+  margin-bottom: 0.75em;
+}
+
+#source-container .form-header h2 {
+  margin-top: 0;
+  margin-bottom: 0.3em;
+}
+
+#source-container .form-subtitle {
+  font-size: 12px;
+  color: var(--color-text);
+  opacity: 0.7;
+  margin: 0.2em 0;
+}
+
+#source-container .form-section {
+  margin-bottom: 0.4em;
+  padding-bottom: 0.2em;
+}
+
+#source-container .form-section:not(:last-of-type) {
+  border-bottom: none;
+}
+
+/* Required field indicators */
+#source-container .required-indicator {
+  color: #EE4A95;
+  font-weight: bold;
+}
+
+#source-container .required {
+  position: relative;
+}
+
+/* Field hints */
+#source-container .field-hint {
+  font-size: 10px;
+  color: var(--color-text);
+  opacity: 0.6;
+  margin-top: 0.1em;
+  margin-bottom: 0.3em;
+  font-style: italic;
+}
+
+/* Validation messages */
+#source-container .validation-message {
+  font-size: 12px;
+  margin-top: 0.25em;
+  display: none;
+}
+
+#source-container .validation-message.error {
+  color: #EE4A95;
+  display: block;
+}
+
+#source-container .validation-message.success {
+  color: #4EACAE;
+  display: block;
+}
+
+#source-container .validation-summary {
+  background: rgba(238, 74, 149, 0.1);
+  border: 1px solid #EE4A95;
+  border-radius: 4px;
+  padding: 1em;
+  margin-top: 1em;
+}
+
+#source-container .validation-summary h4 {
+  color: #EE4A95;
+  margin: 0 0 0.5em 0;
+  font-size: 14px;
+}
+
+#source-container .validation-summary ul {
+  margin: 0;
+  padding-left: 1.5em;
+  color: #EE4A95;
+  font-size: 12px;
+}
+
+/* Input field states */
+#source-container input:invalid:not(:placeholder-shown),
+#source-container textarea:invalid:not(:placeholder-shown) {
+  border-color: #EE4A95;
+  box-shadow: 0 0 0 2px rgba(238, 74, 149, 0.1);
+}
+
+#source-container input:valid:not(:placeholder-shown),
+#source-container textarea:valid:not(:placeholder-shown) {
+  border-color: #4EACAE;
+  box-shadow: 0 0 0 2px rgba(78, 172, 174, 0.1);
+}
+
+/* Submit button states - ONLY .formButton CLASS */
+#source-container .formButton[type="submit"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #666 !important;
+}
+
+#source-container .formButton[type="submit"]:not(:disabled) {
+  background-color: #4EACAE !important;
+  color: #221F20 !important;
+}
+
+#source-container .formButton[type="submit"]:not(:disabled):hover {
+  background-color: #5FBCC0 !important;
+}
+
+/* All .formButton hover states - covers non-submit buttons too */
+#source-container .formButton:hover {
+  background-color: #4EACAE !important;
+  color: #221F20 !important;
+}
+
+/* Delete button in highlight containers */
+.delete-highlight-btn {
+  font-size: 15px;
+  background: none;
+  border: none;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  position: relative;
+}
+
+.delete-highlight-btn svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+}
+
+.delete-highlight-btn svg path {
+  stroke: var(--color-text);
+}
+
+.delete-highlight-btn:hover {
+  background: var(--color-text);
+  border-radius: 2px;
+}
+
+.delete-highlight-btn:hover svg path {
+  stroke: var(--color-background);
+}
