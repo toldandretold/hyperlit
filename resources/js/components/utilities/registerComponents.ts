@@ -102,14 +102,14 @@ import {
 } from '../../scrolling/selectionAutoScroll';
 
 import {
-  initLavaLamp,
-  destroyLavaLamp
-} from '../lavaLamp/index';
+  initLavaLampBackground,
+  destroyLavaLampBackground
+} from '../homepage/lavaLampBackground';
 
 import {
-  initChatHero,
-  destroyChatHero
-} from '../chatHero/index';
+  initHomepageHero,
+  destroyHomepageHero
+} from '../homepage/homepageHero';
 
 import { verbose } from "../../utilities/logger";
 
@@ -320,22 +320,22 @@ export function registerAllComponents() {
     required: false
   });
 
-  // Experimental /chat homepage: lava-lamp background + centered glass hero.
-  // Both no-op unless their marker DOM exists (#lava-lamp-mount /
-  // #app-container.chat-page), so they are inert on the normal homepage.
+  // Homepage lava-lamp background + centered glass hero. Both no-op unless
+  // their marker DOM exists (#lava-lamp-mount / #app-container.lava-lamp-background),
+  // so they are inert everywhere but the homepage.
   buttonRegistry.register({
-    name: 'lavaLamp',
-    initFn: initLavaLamp,
-    destroyFn: destroyLavaLamp,
+    name: 'lavaLampBackground',
+    initFn: initLavaLampBackground,
+    destroyFn: destroyLavaLampBackground,
     pages: ['home'],
     dependencies: [],
     required: false
   });
 
   buttonRegistry.register({
-    name: 'chatHero',
-    initFn: initChatHero,
-    destroyFn: destroyChatHero,
+    name: 'homepageHero',
+    initFn: initHomepageHero,
+    destroyFn: destroyHomepageHero,
     pages: ['home'],
     dependencies: [],
     required: false

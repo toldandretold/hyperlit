@@ -1,9 +1,9 @@
 /* ==================================================
-   Experimental /chat homepage
+   Homepage
    Lava-lamp animated background + centered glass hero.
    The hero IS the normal home .fixed-header (logo + search + arranger
    buttons) — these rules re-position it as a centered glass card, and
-   .content-active (added by chatHero when an arranger button is pressed)
+   .content-active (added by homepageHero when an arranger button is pressed)
    glides it up into the usual header slot while the library cards load.
    ================================================== */
 
@@ -19,7 +19,7 @@
   pointer-events: none;
 }
 
-#app-container.chat-page {
+#app-container.lava-lamp-background {
   position: relative;
   z-index: 1;
 }
@@ -35,23 +35,23 @@
   /* 140px taller than the viewport so the gentle parallax never exposes a gap */
   height: calc(100% + 140px);
   display: block;
-  /* set by chatHero on scroll: whole artwork creeps up at ~12% of scroll
+  /* set by homepageHero on scroll: whole artwork creeps up at ~12% of scroll
      speed; the foreground hills additionally GROW via setLavaRise (JS) */
   transform: translateY(var(--lava-parallax, 0px));
 }
 
 /* once content is showing, calm the lava down so cards stay readable */
-#app-container.chat-page.content-active ~ #lava-lamp-mount .lava-lamp-bg {
+#app-container.lava-lamp-background.content-active ~ #lava-lamp-mount .lava-lamp-bg {
   opacity: 0.16;
 }
 
 /* ---------- hero: centered glass card ---------- */
 
 /* SCROLL-LINKED hero: --hero-p (0 = centered card, 1 = docked header slot)
-   is set by chatHero from scrollTop, so the card rises/widens/squishes at
+   is set by homepageHero from scrollTop, so the card rises/widens/squishes at
    the SAME speed as the text — a live interpolation, not a triggered
    animation. NO transitions here: scroll drives every frame directly. */
-body[data-page="home"] #app-container.chat-page .fixed-header {
+body[data-page="home"] #app-container.lava-lamp-background .fixed-header {
   --p: var(--hero-p, 0);
   /* docked pose floats 12px below the top edge — corners stay rounded */
   top: calc(50% * (1 - var(--p)) + 12px * var(--p));
@@ -82,7 +82,7 @@ body[data-page="home"] #app-container.chat-page .fixed-header {
    feed) — at full width the tinted slab collides with the corner buttons.
    On wide screens the docked card keeps its tint (looks better there). */
 @media (max-width: 700px) {
-  body[data-page="home"] #app-container.chat-page .fixed-header {
+  body[data-page="home"] #app-container.lava-lamp-background .fixed-header {
     background-color: color-mix(
       in srgb,
       var(--container-glass-bg, rgba(34, 31, 32, 0.35)) calc((1 - var(--p)) * 100%),
@@ -93,13 +93,13 @@ body[data-page="home"] #app-container.chat-page .fixed-header {
 
 /* the corner nav buttons (.open: user / new-book) carry a page-background
    circle that's invisible on home but shows over the lava — flatten it */
-#app-container.chat-page .open {
+#app-container.lava-lamp-background .open {
   background-color: transparent;
 }
 
 /* the ×/close path is the one place the card should GLIDE back to centre
    (--hero-p snaps to 0 when the wrapper rescrolls to the top) */
-#app-container.chat-page.hero-return .fixed-header {
+#app-container.lava-lamp-background.hero-return .fixed-header {
   transition:
     top 0.6s ease-in-out,
     transform 0.6s ease-in-out,
@@ -112,7 +112,7 @@ body[data-page="home"] #app-container.chat-page .fixed-header {
 
 /* ---------- intro copy ---------- */
 
-.chat-intro {
+.welcome-copy {
   /* starts below the fold: wrapper already pads 200px, so 100vh total */
   margin-top: calc(100vh - 200px);
   padding: 0 clamp(18px, 5vw, 28px) 25vh;
@@ -121,28 +121,28 @@ body[data-page="home"] #app-container.chat-page .fixed-header {
      lava behind the copy at all scroll depths, and black reads on all of it */
   color: #221F20;
   /* copy dissolves as it reaches the glass card's bottom edge instead of
-     scrolling visibly beneath it; --intro-fade-y is set by chatHero on scroll
+     scrolling visibly beneath it; --copy-fade-y is set by homepageHero on scroll
      (masks are element-relative, the card is viewport-fixed) */
   -webkit-mask-image: linear-gradient(
     to bottom,
-    transparent var(--intro-fade-y, -200px),
-    #000 calc(var(--intro-fade-y, -200px) + 36px)
+    transparent var(--copy-fade-y, -200px),
+    #000 calc(var(--copy-fade-y, -200px) + 36px)
   );
   mask-image: linear-gradient(
     to bottom,
-    transparent var(--intro-fade-y, -200px),
-    #000 calc(var(--intro-fade-y, -200px) + 36px)
+    transparent var(--copy-fade-y, -200px),
+    #000 calc(var(--copy-fade-y, -200px) + 36px)
   );
 }
 
-.chat-intro h1 {
+.welcome-copy h1 {
   font-size: clamp(2.2rem, 5.5vw, 3.4rem);
   line-height: 1.12;
   margin: 0 0 0.9em;
   color: inherit; /* theme heading colors are light — the intro is black-on-light */
 }
 
-.chat-intro h2 {
+.welcome-copy h2 {
   font-size: clamp(1.35rem, 3vw, 1.9rem);
   line-height: 1.3;
   font-weight: 600;
@@ -150,13 +150,13 @@ body[data-page="home"] #app-container.chat-page .fixed-header {
   color: inherit;
 }
 
-.chat-intro h2.chat-intro-statement {
+.welcome-copy h2.copy-statement {
   font-size: clamp(1.7rem, 4vw, 2.5rem);
   line-height: 1.2;
   margin-top: 1.4em;
 }
 
-.chat-intro a {
+.welcome-copy a {
   /* pink text vanishes over the pink lava — black with a thick pink underline
      stays legible over both the white backdrop and the hills */
   color: inherit;
@@ -167,29 +167,29 @@ body[data-page="home"] #app-container.chat-page .fixed-header {
   cursor: pointer;
 }
 
-/* the feed cards dissolve under the header too (same mechanism: chatHero
-   feeds each element its own --intro-fade-y on scroll) */
-#app-container.chat-page .home-content-wrapper .main-content {
+/* the feed cards dissolve under the header too (same mechanism: homepageHero
+   feeds each element its own --copy-fade-y on scroll) */
+#app-container.lava-lamp-background .home-content-wrapper .main-content {
   -webkit-mask-image: linear-gradient(
     to bottom,
-    transparent var(--intro-fade-y, -200px),
-    #000 calc(var(--intro-fade-y, -200px) + 36px)
+    transparent var(--copy-fade-y, -200px),
+    #000 calc(var(--copy-fade-y, -200px) + 36px)
   );
   mask-image: linear-gradient(
     to bottom,
-    transparent var(--intro-fade-y, -200px),
-    #000 calc(var(--intro-fade-y, -200px) + 36px)
+    transparent var(--copy-fade-y, -200px),
+    #000 calc(var(--copy-fade-y, -200px) + 36px)
   );
 }
 
 /* feed open → intro gone */
-#app-container.chat-page.content-active .chat-intro {
+#app-container.lava-lamp-background.content-active .welcome-copy {
   display: none;
 }
 
 /* ---------- close-feed × ---------- */
 
-#chat-feed-close {
+#copy-feed-close {
   display: none;
   align-items: center;
   justify-content: center;
@@ -205,17 +205,17 @@ body[data-page="home"] #app-container.chat-page .fixed-header {
   cursor: pointer;
 }
 
-#app-container.chat-page.content-active #chat-feed-close {
+#app-container.lava-lamp-background.content-active #copy-feed-close {
   display: inline-flex;
 }
 
-#chat-feed-close:hover {
+#copy-feed-close:hover {
   background: rgba(110, 110, 110, 0.7);
 }
 
 /* ---------- scroll hint ---------- */
 
-.chat-scroll-hint {
+.copy-scroll-hint {
   position: fixed;
   left: 50%;
   bottom: 18px;
@@ -224,46 +224,46 @@ body[data-page="home"] #app-container.chat-page .fixed-header {
   color: var(--hyperlit-white, #CBCCCC);
   opacity: 0.7;
   pointer-events: none;
-  animation: chat-hint-bob 2.2s ease-in-out infinite;
+  animation: copy-hint-bob 2.2s ease-in-out infinite;
   transition: opacity 0.4s ease;
 }
 
-#app-container.chat-page.scrolled .chat-scroll-hint,
-#app-container.chat-page.content-active .chat-scroll-hint {
+#app-container.lava-lamp-background.scrolled .copy-scroll-hint,
+#app-container.lava-lamp-background.content-active .copy-scroll-hint {
   opacity: 0;
 }
 
-@keyframes chat-hint-bob {
+@keyframes copy-hint-bob {
   0%, 100% { transform: translateX(-50%) translateY(0); }
   50%      { transform: translateX(-50%) translateY(7px); }
 }
 
-/* pill corners for the tab buttons on the chat page */
-#app-container.chat-page .arranger-button {
+/* pill corners for the tab buttons on the homepage */
+#app-container.lava-lamp-background .arranger-button {
   border-radius: 999px;
 }
 
-/* Child alignment is CENTERED in EVERY chat state (hero, docked, feed) —
+/* Child alignment is CENTERED in EVERY homepage-hero state (hero, docked, feed) —
    home's header layout is left-aligned partly via JS-set inline styles,
    hence the !importants. The search row also centers its own contents. */
-#app-container.chat-page .fixed-header #imageContainer {
+#app-container.lava-lamp-background .fixed-header #imageContainer {
   width: auto !important;
   margin: 0 !important;
   text-align: center !important;
 }
 
-#app-container.chat-page .fixed-header #imageContainer svg {
+#app-container.lava-lamp-background .fixed-header #imageContainer svg {
   width: min(64vw, 280px);
   height: auto;
   transition: width 0.6s ease-in-out;
 }
 
-#app-container.chat-page .fixed-header .arranger-buttons-container {
+#app-container.lava-lamp-background .fixed-header .arranger-buttons-container {
   width: 100% !important;
   justify-content: center !important;
 }
 
-#app-container.chat-page .fixed-header .search-container {
+#app-container.lava-lamp-background .fixed-header .search-container {
   width: 100% !important;
   max-width: none !important;
   box-sizing: border-box;
@@ -274,7 +274,7 @@ body[data-page="home"] #app-container.chat-page .fixed-header {
 
 /* risen state: same card glides into the normal home header position;
    keeps the glass (cards scrolling beneath blur through it) */
-body[data-page="home"] #app-container.chat-page.content-active .fixed-header {
+body[data-page="home"] #app-container.lava-lamp-background.content-active .fixed-header {
   top: 0;
   transform: translate(-50%, 0);
   width: 100%;
@@ -297,7 +297,7 @@ body[data-page="home"] #app-container.chat-page.content-active .fixed-header {
 /* home's JS pins the wrapper's padding-top to the exact header height
    (inline style), which parks the first entry inside the fade band — pad the
    CONTENT instead so it rests clear of the dissolve line */
-#app-container.chat-page.content-active .main-content {
+#app-container.lava-lamp-background.content-active .main-content {
   padding-top: 48px;
 }
 

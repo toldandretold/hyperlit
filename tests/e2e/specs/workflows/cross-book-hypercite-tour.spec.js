@@ -384,6 +384,7 @@ test.describe('Cross-book hypercite stress tour', () => {
       // Navigate home and back into Book B for next loop
       await spa.navigateToHome(page);
       await spa.waitForTransition(page);
+      await spa.openHomeFeed(page); // deferred homepage: press Most Recent to load cards
       await snap(`L${loop} home`);
 
       const wentBack = await page.evaluate((bId) => {

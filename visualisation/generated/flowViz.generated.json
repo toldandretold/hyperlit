@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1572,
-    "moduleCount": 338,
+    "fnCount": 1590,
+    "moduleCount": 340,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3210,
+    "edgeCount": 3223,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -554,6 +554,150 @@
       "stage": "components",
       "module": "components/homepage/homepageDisplayUnit",
       "leaf": false
+    },
+    {
+      "id": "components/homepage/homepageHero:destroyHomepageHero",
+      "label": "destroyHomepageHero",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/homepageHero",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/homepageHero:initHomepageHero",
+      "label": "initHomepageHero",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/homepageHero",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:destroyLavaLampBackground",
+      "label": "destroyLavaLampBackground",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:initLavaLampBackground",
+      "label": "initLavaLampBackground",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.animCluster",
+      "label": "LavaLampBackground.animCluster",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.buildBlobs",
+      "label": "LavaLampBackground.buildBlobs",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.constructor",
+      "label": "LavaLampBackground.constructor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.destroy",
+      "label": "LavaLampBackground.destroy",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.gradStops",
+      "label": "LavaLampBackground.gradStops",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.isTypingTarget",
+      "label": "LavaLampBackground.isTypingTarget",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.renderFull",
+      "label": "LavaLampBackground.renderFull",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.riseCluster",
+      "label": "LavaLampBackground.riseCluster",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.setRise",
+      "label": "LavaLampBackground.setRise",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.sliderRow",
+      "label": "LavaLampBackground.sliderRow",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.start",
+      "label": "LavaLampBackground.start",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.stop",
+      "label": "LavaLampBackground.stop",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.toggleAdjuster",
+      "label": "LavaLampBackground.toggleAdjuster",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:setLavaRise",
+      "label": "setLavaRise",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": true
     },
     {
       "id": "components/logoNav/logoNav:destroyLogoNav",
@@ -14394,6 +14538,40 @@
       ]
     },
     {
+      "id": "components/homepage/homepageHero",
+      "label": "components/homepage/homepageHero",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/homepage/homepageHero:destroyHomepageHero",
+        "components/homepage/homepageHero:initHomepageHero"
+      ]
+    },
+    {
+      "id": "components/homepage/lavaLampBackground",
+      "label": "components/homepage/lavaLampBackground",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/homepage/lavaLampBackground:LavaLampBackground.animCluster",
+        "components/homepage/lavaLampBackground:LavaLampBackground.buildBlobs",
+        "components/homepage/lavaLampBackground:LavaLampBackground.constructor",
+        "components/homepage/lavaLampBackground:LavaLampBackground.destroy",
+        "components/homepage/lavaLampBackground:LavaLampBackground.gradStops",
+        "components/homepage/lavaLampBackground:LavaLampBackground.isTypingTarget",
+        "components/homepage/lavaLampBackground:LavaLampBackground.renderFull",
+        "components/homepage/lavaLampBackground:LavaLampBackground.riseCluster",
+        "components/homepage/lavaLampBackground:LavaLampBackground.setRise",
+        "components/homepage/lavaLampBackground:LavaLampBackground.sliderRow",
+        "components/homepage/lavaLampBackground:LavaLampBackground.start",
+        "components/homepage/lavaLampBackground:LavaLampBackground.stop",
+        "components/homepage/lavaLampBackground:LavaLampBackground.toggleAdjuster",
+        "components/homepage/lavaLampBackground:destroyLavaLampBackground",
+        "components/homepage/lavaLampBackground:initLavaLampBackground",
+        "components/homepage/lavaLampBackground:setLavaRise"
+      ]
+    },
+    {
       "id": "components/logoNav/logoNav",
       "label": "components/logoNav/logoNav",
       "stage": "components",
@@ -18963,6 +19141,60 @@
     {
       "id": "components/homepage/homepageDisplayUnit:transitionToBookContent__domwrite__dom",
       "source": "components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/homepageHero:initHomepageHero__call__components/homepage/lavaLampBackground:setLavaRise",
+      "source": "components/homepage/homepageHero:initHomepageHero",
+      "target": "components/homepage/lavaLampBackground:setLavaRise",
+      "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageHero:initHomepageHero__domwrite__dom",
+      "source": "components/homepage/homepageHero:initHomepageHero",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/homepageHero:initHomepageHero__write__store:localStorage",
+      "source": "components/homepage/homepageHero:initHomepageHero",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.constructor__domwrite__dom",
+      "source": "components/homepage/lavaLampBackground:LavaLampBackground.constructor",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.destroy__domwrite__dom",
+      "source": "components/homepage/lavaLampBackground:LavaLampBackground.destroy",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.renderFull__domwrite__dom",
+      "source": "components/homepage/lavaLampBackground:LavaLampBackground.renderFull",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.setRise__domwrite__dom",
+      "source": "components/homepage/lavaLampBackground:LavaLampBackground.setRise",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.start__domwrite__dom",
+      "source": "components/homepage/lavaLampBackground:LavaLampBackground.start",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.toggleAdjuster__domwrite__dom",
+      "source": "components/homepage/lavaLampBackground:LavaLampBackground.toggleAdjuster",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -23641,6 +23873,30 @@
       "id": "dom__domread__components/homepage/homepageDisplayUnit:transitionToBookContent",
       "source": "dom",
       "target": "components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/homepage/homepageHero:initHomepageHero",
+      "source": "dom",
+      "target": "components/homepage/homepageHero:initHomepageHero",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/homepage/lavaLampBackground:initLavaLampBackground",
+      "source": "dom",
+      "target": "components/homepage/lavaLampBackground:initLavaLampBackground",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/homepage/lavaLampBackground:LavaLampBackground.renderFull",
+      "source": "dom",
+      "target": "components/homepage/lavaLampBackground:LavaLampBackground.renderFull",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/homepage/lavaLampBackground:LavaLampBackground.toggleAdjuster",
+      "source": "dom",
+      "target": "components/homepage/lavaLampBackground:LavaLampBackground.toggleAdjuster",
       "rel": "domread"
     },
     {
@@ -39312,6 +39568,21 @@
       "kind": "breaker"
     },
     {
+      "source": "components/homepage/homepageHero",
+      "target": "components/homepage/homepageDisplayUnit",
+      "kind": "static"
+    },
+    {
+      "source": "components/homepage/homepageHero",
+      "target": "components/homepage/lavaLampBackground",
+      "kind": "static"
+    },
+    {
+      "source": "components/homepage/homepageHero",
+      "target": "components/userButton/userButton",
+      "kind": "lazy"
+    },
+    {
       "source": "components/newBookButton/newBookButton",
       "target": "components/newbookContainer/index",
       "kind": "static"
@@ -40199,6 +40470,16 @@
     {
       "source": "components/utilities/registerComponents",
       "target": "components/homepage/homepageDisplayUnit",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/homepage/homepageHero",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/homepage/lavaLampBackground",
       "kind": "static"
     },
     {
@@ -43536,6 +43817,6 @@
       ]
     ],
     "breakerCount": 1,
-    "lazyCount": 234
+    "lazyCount": 235
   }
 }

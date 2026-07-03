@@ -202,10 +202,29 @@ export async function assertRegistryHealthy(page, expectedPageType) {
 }
 
 /**
+ * Open the homepage feed if it isn't already showing cards.
+ *
+ * The lava-lamp homepage defers content: nothing loads until an arranger tab
+ * is pressed (no `.arranger-button.active`, no `.main-content` at boot). On the
+ * user page (and once a feed is open) cards are already present, so this is a
+ * no-op there. Safe to call before any `.libraryCard` interaction on `/`.
+ */
+export async function openHomeFeed(page) {
+  if (await page.locator('.libraryCard a').count()) return; // cards already present
+  const tab = page.locator('.arranger-button[data-content="most-recent"]');
+  if (await tab.count()) {
+    await tab.first().click();
+    await page.waitForSelector('.libraryCard a', { timeout: 10000 });
+  }
+}
+
+/**
  * Click the first available book link on a home or user page.
  * Book entries are .libraryCard elements containing an <a> with an arrow icon.
  */
 export async function clickFirstBookLink(page) {
+  // Homepage defers its feed — press the tab first if no cards are shown yet.
+  await openHomeFeed(page);
   // Wait for at least one book card to be rendered
   await page.waitForSelector('.libraryCard a', { timeout: 10000 });
   // Click the first one

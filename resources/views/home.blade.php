@@ -1,5 +1,18 @@
 @extends('layout')
 
+{{-- Homepage: lava-lamp animated background + centered glass hero.
+     Design invariants (guarded by tests/Feature/HomeSeoTest.php +
+     tests/e2e/specs/smoke/home-lava-homepage.spec.js):
+       - NO .arranger-button has the `active` class and there are NO <main>
+         elements — that is exactly what defers homepageDisplayUnit's initial
+         auto-load; content loads only when a tab is pressed (the click path
+         creates the .main-content). Re-adding a `class="main-content"`
+         element here silently re-enables the auto-load.
+       - the crawlable SEO body is the .welcome-copy section (real <h1> tagline +
+         feature vocabulary) — there is no card prerender anymore.
+       - #app-container carries .lava-lamp-background (homepage.css + homepageHero key off it)
+       - #lava-lamp-mount enables the lavaLampBackground component (inert elsewhere) --}}
+
 @if(isset($jsonLd))
 @section('structured_data')
 <script type="application/ld+json">
@@ -9,20 +22,12 @@
 @endif
 
 @section('styles')
-    @vite(['resources/css/app.css', 'resources/css/reader.css', 'resources/css/highlight-div.css', 'resources/css/containers.css', 'resources/css/buttons.css', 'resources/css/form.css', 'resources/css/alert.css', 'resources/css/layout.css'])
+    @vite(['resources/css/app.css', 'resources/css/reader.css', 'resources/css/highlight-div.css', 'resources/css/containers.css', 'resources/css/buttons.css', 'resources/css/form.css', 'resources/css/alert.css', 'resources/css/layout.css', 'resources/css/homepage.css'])
 @endsection
 
 @section('content')
 
-
-
-<!-- 
-  ======================================================================
-  1. THE NEW APP CONTAINER
-  This is the main flexbox layout for the entire page.
-  ======================================================================
--->
-<div id="app-container">
+<div id="app-container" class="lava-lamp-background">
 
   <!-- Left Column: The User Button -->
   <div id="userButtonContainer" class="loading">
@@ -41,22 +46,9 @@
     </button>
   </div>
 
-
-
-  <!--
-    ==================================================================
-    2. THE CENTER COLUMN
-    This is your original content-wrapper, now acting as the central,
-    scrollable column in our new layout.
-    I've renamed the class to "home-content-wrapper" to match the CSS.
-    ==================================================================
-  -->
+  <!-- Center column: hero card (logo + search + arranger buttons), no preloaded content -->
   <div class="home-content-wrapper">
     <div class="fixed-header">
-      {{-- The logo is inline SVG polygons — without this there is no machine-readable
-           site name on the page. Visually hidden; outside .main-content so the SPA's
-           container rebuild never removes it. --}}
-      <h1 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;margin:0;padding:0;">Hyperlit — read, write and publish hypertext literature</h1>
       <div id="imageContainer" class="top-content">
         <svg id="top" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 432.49 110.22">
           <defs>
@@ -85,7 +77,7 @@
         </svg>
       </div>
       <div class="arranger-buttons-container">
-        <!-- Homepage search -->
+        <!-- Homepage search (same logic as home: homepageSearch keys off these ids) -->
         <div id="homepage-search-container" class="search-container">
           <input
             type="text"
@@ -106,29 +98,36 @@
           </label>
           <div id="search-results-container" class="search-results hidden"></div>
         </div>
-        <!-- Homepage: sorting options -->
-        <button class="arranger-button active" data-content="most-recent">Most Recent</button>
+        {{-- NO `active` class here: that is what defers the initial content load --}}
+        <button class="arranger-button" data-content="most-recent">Most Recent</button>
         <button class="arranger-button" data-content="most-connected">Most Connected</button>
         <button class="arranger-button" data-content="most-lit">Most Lit</button>
+        {{-- visible only while a feed is open; homepageHero closes back to the hero --}}
+        <button type="button" id="copy-feed-close" aria-label="Close feed" title="Close feed">&times;</button>
       </div>
     </div>
-    <!-- Homepage content containers -->
-    <main id="most-recent" class="main-content active-content">
-@if(!empty($prerenderHtml ?? null))
-{{-- SEO prerender of the most-recent card list. The client rebuilds this container from
-     scratch (transitionToBookContent in homepageDisplayUnit.ts removes all .main-content
-     divs before injecting), so this markup exists purely for crawlers / no-JS — it is
-     never double-rendered. --}}
-<div class="chunk" data-chunk-id="0" data-prerendered="true">{!! $prerenderHtml !!}</div>
-@endif
-    </main>
-    <main id="most-connected" class="main-content hidden-content"></main>
-    <main id="most-lit" class="main-content hidden-content"></main>
+
+    {{-- Intro copy: big headings over the lava, revealed by scrolling in the hero
+         state, hidden while a feed is open. Crawlable marketing/help text. --}}
+    <section class="welcome-copy" aria-label="What is Hyperlit?">
+      <h1 class="mega">Read, Write & Publish Hypertext Literature</h1>
+      <h2>1. <a href="/welcome">Read about hyperciting, hyperlighting and the origins of hyperlit <span class="open-icon">↗</span></a></h2>
+      <h2>2. <a class="import-auth-link import-auth-register">Register</a> or <a class="import-auth-link import-auth-login">login</a></h2>
+      <h2>3. <a href="#" class="copy-import">Create a new text</a>, or <a href="#" class="copy-import">convert</a> a word.doc, epub or PDF.</h2>
+      <h2>4. While reading, click the cloud-ref button <svg id="cloudRef-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 503.23 309.68" width="36" height="36" preserveAspectRatio="xMidYMid meet">
+          <rect width="503.23" height="309.68"></rect>
+          <path class="cls-1" d="M503.23,219.35c0-35.07-20.41-66.75-51.68-81.56C449.35,61.43,386.55,0,309.68,0c-54.39,0-103.11,30.53-127.01,78.67-4.94-.84-9.92-1.25-14.93-1.25-35.1,0-66.79,20.43-81.57,51.7C38.28,131.3,0,170.94,0,219.35s40.53,90.32,90.32,90.32h322.58c49.79,0,90.32-40.52,90.32-90.32ZM25.81,219.35c0-35.57,28.94-64.52,64.52-64.52.8,0,1.57.06,2.36.12l11.02.67,3.21-9.2c9.06-25.83,33.51-43.2,60.83-43.2,6.28,0,12.55.93,18.61,2.76l11.28,3.39,4.41-10.92c17.86-44.14,60.09-72.66,107.64-72.66,64.04,0,116.13,52.1,116.13,116.13l-.54,13.46,8.94,3.14c25.85,9.06,43.21,33.51,43.21,60.83,0,35.57-28.94,64.52-64.52,64.52H90.32c-35.57,0-64.52-28.94-64.52-64.52Z"></path>
+          <path class="cls-2" d="M247.54,243.04h-67.31v-51.84c0-19.08,3.97-34.15,11.92-45.19,7.94-11.04,21.56-20.79,40.85-29.25l14.55,27.54c-11.86,5.57-20.07,11.12-24.6,16.64-4.54,5.52-7.07,12.05-7.58,19.58h32.19v62.52ZM326,243.04h-67.31v-51.84c0-19.08,3.97-34.15,11.92-45.19,7.94-11.04,21.56-20.79,40.85-29.25l14.55,27.54c-11.86,5.57-20.07,11.12-24.6,16.64-4.54,5.52-7.07,12.05-7.58,19.58h32.19v62.52Z"></path>
+          </svg> [top-right] to publish or download your text.
+      <h2>5. Press the edit button [bottom-right] to write, paste hypercites, or insert footnotes and citations.</h2>
+      <h1 class="copy-statement">Hyperlit is an <a href="https://github.com/toldandretold/hyperlit">open-source</a> docuverse for open-access text. It empowers humans to grow and till the digital knowledge commons.</h1>
+    </section>
+    {{-- No <main> containers: homepageDisplayUnit creates a fresh .main-content
+         inside .home-content-wrapper when an arranger button is pressed. --}}
   </div>
-  <!-- ================================================================ -->
 
-  <!-- Spacer to keep the content centered -->
-
+  {{-- scroll affordance for the hero state --}}
+  <div class="copy-scroll-hint" aria-hidden="true">&darr;</div>
 
   <!-- Right Column: The New Book Button -->
   <div id="topRightContainer" class="loading">
@@ -136,6 +135,10 @@
   </div>
 
 </div> <!-- End of #app-container -->
+
+{{-- Lava-lamp background mount (must be AFTER #app-container: the dimming rule
+     uses the sibling selector #app-container.content-active ~ #lava-lamp-mount) --}}
+<div id="lava-lamp-mount" aria-hidden="true"></div>
 
 <!-- Bottom left settings button -->
 <div id="bottom-left-buttons" class="loading">
@@ -146,13 +149,7 @@
   </button>
 </div>
 
-<!--
-  ======================================================================
-  3. FLOATING & OVERLAY ELEMENTS
-  All of these remain outside the #app-container, as direct children
-  of the <body>, so they can float freely over the whole page.
-  ======================================================================
--->
+<!-- Floating & overlay elements (same as home so shared components find their DOM) -->
 
 <!-- Buttons for hyper-lighting -->
 <div id="hyperlight-buttons" style="display: none; position: absolute; z-index: 9999;">
@@ -164,7 +161,7 @@
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
     </svg>
   </button>
-  
+
   <!-- Hyperlight Button (Pink Square) -->
   <button id="copy-hyperlight" type="button">
     <svg
@@ -172,11 +169,9 @@
       viewBox="0 0 24 24"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <!-- The color is now a class so CSS can control it -->
       <rect class="hyperlight-color" width="24" height="24" rx="4" ry="4" />
     </svg>
   </button>
-
 
   <!-- Hypercite Button -->
   <button id="copy-hypercite" type="button">
@@ -211,9 +206,6 @@
   <button id="createNewBook" type="button" class="fucked-buttons" style="width: 100%; padding: 10px; background: #4a4a4a; color: #CBCCCC; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; font-family: inherit;">New</button>
   <button id="importBook" type="button" class="fucked-buttons" style="width: 100%; padding: 10px; background: #4a4a4a; color: #CBCCCC; border: none; border-radius: 4px; cursor: pointer; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; font-family: inherit;">Import</button>
 </div>
-
-
-
 
 <div id="toc-overlay"></div>
 <div id="ref-overlay"></div>

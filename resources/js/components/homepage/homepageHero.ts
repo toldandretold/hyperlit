@@ -1,29 +1,30 @@
 /**
- * Chat-homepage hero behavior (/chat experimental homepage).
+ * Homepage hero behavior — the interactive layer over the lava-lamp background.
  *
- * The chat page renders the logo + search + arranger buttons as a centered
- * glass card over the lava-lamp background, with big intro copy scrollable
- * beneath it. States (classes on #app-container.chat-page, CSS in chat.css):
+ * The homepage renders the logo + search + arranger buttons as a centered
+ * glass card (the "hero") over the lava-lamp background, with big welcome copy
+ * scrollable beneath it. States (classes on #app-container.lava-lamp-background,
+ * CSS in homepage.css):
  *
- *  - (none)          centered hero, intro copy below the fold, scroll hint
- *  - .scrolled       user scrolled the intro — hero docks to the top while
+ *  - (none)          centered hero, welcome copy below the fold, scroll hint
+ *  - .scrolled       user scrolled the copy — hero docks to the top while
  *                    the copy scrolls beneath it (backdrop stays theme-native)
- *  - .content-active an arranger tab is open — hero docks, intro hides,
- *                    feed shows, × (chat-feed-close) appears
+ *  - .content-active an arranger tab is open — hero docks, copy hides,
+ *                    feed shows, × (#copy-feed-close) appears
  *
- * /chat always boots to the hero: homepageDisplayUnit would otherwise restore
- * the last tab (localStorage 'homepage_active_button' / history.state
- * .userPageActiveTab) and auto-load the feed, so init clears both. chatHero
+ * The homepage always boots to the hero: homepageDisplayUnit would otherwise
+ * restore the last tab (localStorage 'homepage_active_button' / history.state
+ * .userPageActiveTab) and auto-load the feed, so init clears both. homepageHero
  * registers before homepageDisplayUnit, so this runs before its restore reads.
  * The × closes the feed the same way. SPA returns from a book DO restore the
  * feed DOM — the MutationObserver re-applies .content-active for that case.
  *
- * No-ops unless #app-container.chat-page exists, so it is inert on the
- * normal homepage even though it registers for pages: ['home'].
+ * No-ops unless #app-container.lava-lamp-background exists, so it is inert
+ * everywhere else even though it registers for pages: ['home'].
  */
 
-import { setLavaRise } from '../lavaLamp/index';
-import { fixHeaderSpacing } from '../homepage/homepageDisplayUnit';
+import { setLavaRise } from './lavaLampBackground';
+import { fixHeaderSpacing } from './homepageDisplayUnit';
 
 let clickHandler: ((e: Event) => void) | null = null;
 let scrollHandler: (() => void) | null = null;
@@ -35,8 +36,8 @@ let returnTimer = 0;
 // travel in px, so it moves at the same speed as the text)
 const HERO_TRAVEL = 280;
 
-const chatPage = (): HTMLElement | null =>
-  document.querySelector<HTMLElement>('#app-container.chat-page');
+const heroRoot = (): HTMLElement | null =>
+  document.querySelector<HTMLElement>('#app-container.lava-lamp-background');
 
 /**
  * Scrolling content (the intro copy AND the feed cards) must DISAPPEAR under
@@ -45,17 +46,17 @@ const chatPage = (): HTMLElement | null =>
  * card is viewport-fixed, so the fade line is fed in as a CSS var recomputed
  * on scroll (and while the card's dock transition is still moving it).
  */
-function updateIntroFade(): void {
+function updateCopyFade(): void {
   const header = document.querySelector('.fixed-header');
   if (!header) return;
   const line = header.getBoundingClientRect().bottom + 6;
   document
-    .querySelectorAll<HTMLElement>('.chat-intro, .home-content-wrapper .main-content')
+    .querySelectorAll<HTMLElement>('.welcome-copy, .home-content-wrapper .main-content')
     .forEach(el => {
       // may go negative (element below the card) — that just pushes the fade
       // band above the element, i.e. fully visible; do NOT clamp to 0
       const y = line - el.getBoundingClientRect().top;
-      el.style.setProperty('--intro-fade-y', `${y.toFixed(0)}px`);
+      el.style.setProperty('--copy-fade-y', `${y.toFixed(0)}px`);
     });
 }
 
@@ -64,7 +65,7 @@ function trackFadeFor(ms: number): void {
   cancelAnimationFrame(fadeRaf);
   const until = performance.now() + ms;
   const step = (now: number) => {
-    updateIntroFade();
+    updateCopyFade();
     if (now < until) fadeRaf = requestAnimationFrame(step);
   };
   fadeRaf = requestAnimationFrame(step);
@@ -85,7 +86,7 @@ function suppressTabRestore(): void {
 }
 
 function syncHeroState(): void {
-  const page = chatPage();
+  const page = heroRoot();
   if (!page) return;
   const hasContent = !!document.querySelector('.home-content-wrapper .main-content');
   const hasActiveTab = !!page.querySelector('.arranger-button.active');
@@ -93,7 +94,7 @@ function syncHeroState(): void {
 }
 
 function closeFeed(): void {
-  const page = chatPage();
+  const page = heroRoot();
   if (!page) return;
   document.querySelectorAll('.home-content-wrapper .main-content').forEach(el => el.remove());
   page.querySelectorAll('.arranger-button.active').forEach(el => el.classList.remove('active'));
@@ -101,35 +102,52 @@ function closeFeed(): void {
   // the one non-scroll-driven move: glide (don't snap) back to centre
   page.classList.add('hero-return');
   window.clearTimeout(returnTimer);
-  returnTimer = window.setTimeout(() => chatPage()?.classList.remove('hero-return'), 700);
+  returnTimer = window.setTimeout(() => heroRoot()?.classList.remove('hero-return'), 700);
   page.style.setProperty('--hero-p', '0');
   suppressTabRestore(); // so a reload doesn't reopen the feed
   document.querySelector('.home-content-wrapper')?.scrollTo({ top: 0 });
   trackFadeFor(750);
 }
 
-export function initChatHero(): void {
-  const page = chatPage();
+export function initHomepageHero(): void {
+  const page = heroRoot();
   if (!page) return;
   if (clickHandler) { syncHeroState(); return; } // create-once + re-sync on SPA re-init
 
-  suppressTabRestore(); // /chat always boots to the hero
+  suppressTabRestore(); // the homepage always boots to the hero
 
   clickHandler = (e: Event) => {
     const target = e.target instanceof Element ? e.target : null;
     if (!target) return;
-    if (target.closest('#chat-feed-close')) {
+    if (target.closest('#copy-feed-close')) {
       closeFeed();
       return;
     }
-    if (target.closest('#chat-intro-import')) {
+    // Import/convert links open the new-book panel. Accept a class so multiple
+    // links can coexist (ids must be unique — prefer .copy-import).
+    if (target.closest('.copy-import') || target.closest('#copy-import')) {
       e.preventDefault();
       document.getElementById('newBookButton')?.click();
       return;
     }
+    // Auth links in the intro copy. The existing `.import-auth-*` handlers
+    // (citeForm submission/urlImport) bind DIRECTLY to elements at creation
+    // time, so statically-authored copy never gets a listener — this
+    // capture-phase delegate is what makes them work in the hero. Reuses the
+    // same entry point (initializeUserContainer → showLoginForm/RegisterForm).
+    if (target.closest('.import-auth-login') || target.closest('.import-auth-register')) {
+      e.preventDefault();
+      const register = !!target.closest('.import-auth-register');
+      void import('../userButton/userButton').then(({ initializeUserContainer }) => {
+        const mgr = initializeUserContainer();
+        if (register) mgr?.showRegisterForm();
+        else mgr?.showLoginForm();
+      });
+      return;
+    }
     // instant rise on tab press (before the fetch lands)
     if (target.closest('.arranger-button')) {
-      const p = chatPage();
+      const p = heroRoot();
       if (p) {
         p.classList.add('content-active');
         // feed mode: lava returns to its resting pose (the dim fader takes over)
@@ -149,7 +167,7 @@ export function initChatHero(): void {
   // hero docks while the intro is being read; scroll doesn't bubble but IS
   // capturable at document level, which survives SPA wrapper rebuilds
   scrollHandler = () => {
-    const p = chatPage();
+    const p = heroRoot();
     const wrapper = document.querySelector('.home-content-wrapper');
     if (!p || !wrapper) return;
     const st = wrapper.scrollTop;
@@ -168,7 +186,7 @@ export function initChatHero(): void {
       setLavaRise(Math.min(st / 700, 1));
     }
 
-    updateIntroFade(); // header moves in lockstep with scroll — no tracker needed
+    updateCopyFade(); // header moves in lockstep with scroll — no tracker needed
   };
   document.addEventListener('scroll', scrollHandler, true);
 
@@ -176,14 +194,14 @@ export function initChatHero(): void {
   // and keeps the fade var fresh on newly created .main-content elements
   observer = new MutationObserver(() => {
     syncHeroState();
-    updateIntroFade();
+    updateCopyFade();
   });
   observer.observe(document.body, { childList: true, subtree: true });
 
   syncHeroState();
 }
 
-export function destroyChatHero(): void {
+export function destroyHomepageHero(): void {
   if (clickHandler) document.removeEventListener('click', clickHandler, true);
   clickHandler = null;
   if (scrollHandler) document.removeEventListener('scroll', scrollHandler, true);

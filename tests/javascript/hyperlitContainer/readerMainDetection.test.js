@@ -9,8 +9,12 @@
  *
  * This guards the blade contract the fix depends on:
  *   reader.blade.php: <main class="main-content" id="{{ $book }}" data-slug="…">
- *   home.blade.php:   <main class="main-content active-content" id="most-recent">  (no data-slug)
+ *   home (feed open):  <main class="main-content active-content" id="most-recent">  (no data-slug)
  *   user.blade.php:   <main class="main-content active-content" id="…">            (no data-slug)
+ *
+ * Note: the homepage now DEFERS its feed (lava-lamp hero) — there is no
+ * .main-content until a tab is pressed, at which point homepageDisplayUnit
+ * creates one (no data-slug), which is exactly the "home" case below.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 

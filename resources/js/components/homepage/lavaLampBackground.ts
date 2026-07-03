@@ -105,7 +105,7 @@ function domePath(rng: Rng, cx: number, rx: number, ry: number, wobble: number):
   return d + 'Z';
 }
 
-class LavaLamp {
+class LavaLampBackground {
   private cfg: LavaCfg;
   private root: HTMLDivElement;
   private pathEls: SVGPathElement[] = [];
@@ -137,7 +137,7 @@ class LavaLamp {
       // slower cycles, smaller morphs. Shift+L still allows full pause.
       this.cfg.animSpeed *= 0.5;
       this.cfg.animAmt *= 0.4;
-      verbose.init('lavaLamp: prefers-reduced-motion — gentle mode (Shift+L to pause/adjust)', 'components/lavaLamp');
+      verbose.init('lavaLampBackground: prefers-reduced-motion — gentle mode (Shift+L to pause/adjust)', 'components/homepage/lavaLampBackground');
     }
     this.start();
   }
@@ -349,21 +349,21 @@ class LavaLamp {
   }
 }
 
-let instance: LavaLamp | null = null;
+let instance: LavaLampBackground | null = null;
 
-export function initLavaLamp(cfg: Partial<LavaCfg> = {}): void {
+export function initLavaLampBackground(cfg: Partial<LavaCfg> = {}): void {
   const mount = document.getElementById('lava-lamp-mount');
   if (!mount) return; // page doesn't want the lava background
   if (instance) return; // create-once; survives repeated init calls
-  instance = new LavaLamp(mount, { ...DEFAULT_CFG, ...cfg });
+  instance = new LavaLampBackground(mount, { ...DEFAULT_CFG, ...cfg });
 }
 
-export function destroyLavaLamp(): void {
+export function destroyLavaLampBackground(): void {
   instance?.destroy();
   instance = null;
 }
 
-/** Scroll hook (chatHero): 0 = resting art, 1 = hills fully risen. */
+/** Scroll hook (homepageHero): 0 = resting art, 1 = hills fully risen. */
 export function setLavaRise(f: number): void {
   instance?.setRise(f);
 }

@@ -104,7 +104,7 @@ export default defineConfig({
                 'resources/css/form.css',
                 'resources/css/alert.css',
                 'resources/css/layout.css',
-                'resources/css/chat.css',
+                'resources/css/homepage.css',
                 'resources/sass/app.scss',
 
                 // Theme system

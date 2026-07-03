@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1572 functions in 338 modules · 10 object stores · 10 PG tables · 3210 edges
+**MarkdownDB** schema v27 · 1590 functions in 340 modules · 10 object stores · 10 PG tables · 3223 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -59,8 +59,26 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `fixHeaderSpacing` | `components/homepage/homepageDisplayUnit` | — | — | read | — |
 | `initializeHomepageButtons` | `components/homepage/homepageDisplayUnit` | `localStorage` | `localStorage` | read/write | — |
 | `transitionToBookContent` | `components/homepage/homepageDisplayUnit` | — | — | read/write | — |
+| `destroyHomepageHero` | `components/homepage/homepageHero` | — | — | — | — |
+| `initHomepageHero` | `components/homepage/homepageHero` | — | `localStorage` | read/write | — |
 | `initializeHomepage` | `components/homepage/homepage` | — | — | — | — |
 | `initializeHomepageBookActions` | `components/homepage/homepage` | — | — | read | — |
+| `destroyLavaLampBackground` | `components/homepage/lavaLampBackground` | — | — | — | — |
+| `initLavaLampBackground` | `components/homepage/lavaLampBackground` | — | — | read | — |
+| `LavaLampBackground.animCluster` | `components/homepage/lavaLampBackground` | — | — | — | — |
+| `LavaLampBackground.buildBlobs` | `components/homepage/lavaLampBackground` | — | — | — | — |
+| `LavaLampBackground.constructor` | `components/homepage/lavaLampBackground` | — | — | write | — |
+| `LavaLampBackground.destroy` | `components/homepage/lavaLampBackground` | — | — | write | — |
+| `LavaLampBackground.gradStops` | `components/homepage/lavaLampBackground` | — | — | — | — |
+| `LavaLampBackground.isTypingTarget` | `components/homepage/lavaLampBackground` | — | — | — | — |
+| `LavaLampBackground.renderFull` | `components/homepage/lavaLampBackground` | — | — | read/write | — |
+| `LavaLampBackground.riseCluster` | `components/homepage/lavaLampBackground` | — | — | — | — |
+| `LavaLampBackground.setRise` | `components/homepage/lavaLampBackground` | — | — | write | — |
+| `LavaLampBackground.sliderRow` | `components/homepage/lavaLampBackground` | — | — | — | — |
+| `LavaLampBackground.start` | `components/homepage/lavaLampBackground` | — | — | write | — |
+| `LavaLampBackground.stop` | `components/homepage/lavaLampBackground` | — | — | — | — |
+| `LavaLampBackground.toggleAdjuster` | `components/homepage/lavaLampBackground` | — | — | read/write | — |
+| `setLavaRise` | `components/homepage/lavaLampBackground` | — | — | — | — |
 | `destroyLogoNav` | `components/logoNav/logoNav` | — | — | read/write | — |
 | `initializeLogoNav` | `components/logoNav/logoNav` | — | — | read/write | — |
 | `destroyNewBookContainer` | `components/newBookButton/newBookButton` | — | — | — | — |
@@ -1585,7 +1603,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 234
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 1 · dynamic cycle-breakers (debt): 1 · lazy-loads (code-split): 235
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1643,6 +1661,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/homepage/homepage` → `components/shelves/addToShelfMenu`
 - `components/homepage/homepage` → `components/shelves/shelfPreview`
 - `components/homepage/homepage` → `components/userButton/userButton`
+- `components/homepage/homepageHero` → `components/userButton/userButton`
 - `components/newbookContainer/buttonView` → `components/newbookContainer/citeForm/index`
 - `components/newbookContainer/citeForm/fileUpload` → `components/utilities/fileMetadataExtractor`
 - `components/newbookContainer/citeForm/submission` → `SPA/navigation/pathways/ImportBookTransition`

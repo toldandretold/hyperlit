@@ -27,6 +27,7 @@ import {
   navigateToHome,
   navigateToUserPage,
   navigateViaHypercite,
+  openHomeFeed,
 } from './pageHelpers.js';
 import {
   verifyHomePage,
@@ -80,6 +81,7 @@ async function spaSentinelSurvived(page) {
  * card; falls back to the first card (the reader verifier is book-agnostic).
  */
 async function enterReaderViaCard(page) {
+  await openHomeFeed(page); // homepage defers its feed — press Most Recent first
   await page.waitForSelector('.libraryCard a[href]', { timeout: 10000 });
   const pick = async () => {
     if (_tourAnchorBookId) {
@@ -112,6 +114,9 @@ async function enterReaderViaCard(page) {
  */
 export async function homeToHomeArranger(page, spa) {
   expect(await spa.getStructure(page)).toBe('home');
+  // The lava-lamp homepage defers its feed — open it first (Most Recent), so
+  // the swap below is a genuine .main-content content-swap, not a feed-open.
+  await openHomeFeed(page);
   const alt = page.locator('.arranger-button:not(.active)').first();
   if (!(await alt.count())) return false;
 

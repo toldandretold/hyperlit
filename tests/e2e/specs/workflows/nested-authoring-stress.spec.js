@@ -129,6 +129,7 @@ test.describe('Nested authoring stress', () => {
     // ── Navigate away + back to force a fresh load ─────────────────────
     await spa.navigateToHome(page);
     await spa.waitForTransition(page);
+    await spa.openHomeFeed(page); // deferred homepage: press Most Recent to load cards
     await snap('home');
 
     // Navigate back to the book
