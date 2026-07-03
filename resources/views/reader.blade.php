@@ -10,7 +10,7 @@
 
 @section('styles')
 
-    @vite(['resources/css/app.css', 'resources/css/reader.css', 'resources/css/highlight-div.css', 'resources/css/containers.css', 'resources/css/buttons.css', 'resources/css/alert.css', 'resources/css/layout.css'])
+    @vite(['resources/css/app.css', 'resources/css/pages/reader.css'])
     @endsection
 @section('content')
 

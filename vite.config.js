@@ -94,24 +94,19 @@ export default defineConfig({
   plugins: [
     laravel({
       input: [
-        // CSS & SASS (no changes)
+                // CSS — ONE entry per page (each blade @vite()s app.css + its pages/*.css).
+                // Feature files under base/ components/ and the legacy residuals
+                // (containers.css/buttons.css) are reached via @import from these entries;
+                // a file must NEVER be both an entry here and an @import target, or it gets
+                // built twice and double-applied (cssStructure.test.js gate 3 enforces this).
+                // Theme files are @imported by app.css (switching is body-class based), so
+                // they are not entries either.
                 'resources/css/app.css',
-                'resources/css/reader.css',
-                'resources/css/highlight-div.css',
-                'resources/css/div-editor.css',
-                'resources/css/containers.css',
-                'resources/css/buttons.css',
-                'resources/css/form.css',
-                'resources/css/alert.css',
-                'resources/css/layout.css',
-                'resources/css/homepage.css',
-                'resources/sass/app.scss',
-
-                // Theme system
-                'resources/css/theme/variables.css',
-                'resources/css/theme/light-theme.css',
-                'resources/css/theme/sepia-theme.css',
-                'resources/css/theme/custom-theme-template.css',
+                'resources/css/pages/reader.css',
+                'resources/css/pages/home.css',
+                'resources/css/pages/user.css',
+                'resources/css/pages/auth.css',
+                'resources/css/pages/user-home.css',
 
                 // JAVASCRIPT — ONLY the real page entries blade @vite()s. Everything else
                 // (divEditor/*, editToolbar/*, hyperlights/index, scrolling, pageLoad/index,
@@ -124,7 +119,7 @@ export default defineConfig({
                 'resources/js/pageLoad/readerEntry.ts',                      // reader/home/user.blade
 
                 // Quantizer view
-                'resources/css/quantizer.css',
+                'resources/css/pages/quantizer.css',
                 'resources/js/quantizer/index.js',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.

@@ -6,22 +6,39 @@ This directory contains all CSS files for Hyperlit, organized for maintainabilit
 
 ```
 css/
-├── theme/                          # Theme system
+├── theme/                          # Theme system (tokens + theme layers)
 │   ├── variables.css              # Core CSS variables (colors, spacing, typography)
-│   ├── light-theme.css            # Example light theme
+│   ├── light-theme.css            # Light theme (imported by app.css via layer(light-theme))
+│   ├── sepia-theme.css            # Sepia theme (layer(sepia-theme))
 │   └── custom-theme-template.css  # Template for creating custom themes
 │
-├── app.css                        # Main styles (typography, base elements)
-├── buttons.css                    # Button components
-├── containers.css                 # Container components
-├── layout.css                     # Layout and grid
-├── reader.css                     # Reader-specific styles
-├── form.css                       # Form components
-├── highlight-div.css              # Highlight division styles
-├── div-editor.css                 # Div editor styles
-├── alert.css                      # Alert components
-└── layerTwoConainer.css          # Layer two container styles
+├── base/                          # Page-agnostic foundations
+│   └── layout.css                 # Page layout, scroll wrappers, headers
+│
+├── components/                    # One file per feature, named after its resources/js folder
+│   ├── accountPage.css            # Account/balance page, logo-nav sizing (ex reader.css)
+│   ├── alert.css                  # Alerts + integrity reporter modal
+│   ├── divEditor.css              # (parked — not imported yet)
+│   ├── floatingActionMenu.css     # ↔ js/components/floatingActionMenu
+│   ├── form.css                   # Cite-form / notepad-style forms
+│   ├── gateFilter.css             # Annotation visibility panel ↔ js/components/settingsContainer/gate.ts
+│   ├── highlight-div.css          # #highlight-div + global spinner
+│   ├── homepage.css               # Hero, lava-lamp, feed
+│   ├── quantizer.css              # Standalone quantizer view
+│   ├── shelves.css                # Shelf system ↔ js/components/shelves
+│   └── vibeAnimations.css         # (imported by containers.css)
+│
+├── pages/                         # ONE entry per blade view; @import order IS the cascade order
+│   ├── reader.css  home.css  user.css  auth.css  user-home.css  quantizer.css
+│
+├── app.css                        # Shared base (typography, marks, hypercites) — every blade loads it
+├── buttons.css                    # LEGACY RESIDUAL — being drained into components/, do not add to it
+└── containers.css                 # LEGACY RESIDUAL — being drained into components/, do not add to it
 ```
+
+**How CSS loads:** each blade `@vite()`s exactly `app.css` + its `pages/<page>.css`; the page entry `@import`s feature files in cascade order. New styles go in `components/<feature>.css` (named after the owning `resources/js` folder), wired into the relevant `pages/*.css` — never into the legacy residuals.
+
+**Migration guardrails:** `tests/javascript/architecture/cssStructure.test.js` enforces placement, a line-count ratchet on the residuals (`cssBaseline.json` — counts only go down), no double-bundling (a file must not be both a Vite entry and an `@import` target), and no orphan files. When extracting a section from a residual, move it VERBATIM, import it at the exact cascade position it occupied (tail section → right after the residual's import), then prove the cascade unchanged with `node scripts/css-cascade-snapshot.mjs save` (before) / `compare` (after).
 
 ## Theme System
 
@@ -129,23 +146,12 @@ intended workflow for re-tuning hypercite brightness.
 ## Component Organization
 
 ### Current State
-CSS is currently being reorganized from scattered files into a modular system.
 
-### Future State (Planned)
-```
-css/
-├── theme/
-│   └── variables.css
-├── base/
-│   ├── typography.css    # h1-h6, p, lists, etc.
-│   └── reset.css        # Normalize/reset
-├── components/
-│   ├── marks.css        # Centralized mark styling
-│   ├── buttons.css
-│   ├── containers.css
-│   └── forms.css
-└── app.css              # Imports all above
-```
+The `base/` + `components/` + `pages/` structure (see Structure above) is live. The two legacy mega-files (`buttons.css`, `containers.css`) are being drained into `components/*.css` one verbatim section at a time, ratchet-protected — see the migration guardrails note above.
+
+### Remaining (later phases)
+
+Once the residuals are empty: a dedup pass merges the duplicated `.hyperlit-container` / `mark` / footnote / hypercite rules into `base/marks.css`, `base/hypercites.css`, `base/footnotes.css` and extracts `base/typography.css` from `app.css` (verified with computed-style parity, not just source diffs, since that pass intentionally changes rules).
 
 ## Best Practices
 

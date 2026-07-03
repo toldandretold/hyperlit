@@ -1,4 +1,4 @@
-@import url('./theme/variables.css');
+@import url('../theme/variables.css');
 
 .custom-alert-overlay {
   position: fixed;

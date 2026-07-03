@@ -2,7 +2,7 @@
 /* === layout.css - FINAL CORRECTED VERSION       === */
 /* ================================================== */
 
-@import url('./theme/variables.css');
+@import url('../theme/variables.css');
 
 /* 1. Base Setup */
 html,

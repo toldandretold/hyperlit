@@ -61,3 +61,4 @@ tests/conversion/corpus/*
 !tests/conversion/corpus/README.md
 tests/conversion/vibe_eval_report.json
 tests/conversion/vibe_eval_report.md
+.css-cascade-snapshots/

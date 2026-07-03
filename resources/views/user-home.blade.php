@@ -1,7 +1,7 @@
 @extends('layout')
 
 @section('styles')
-    @vite(['resources/css/app.css', 'resources/css/layout.css'])
+    @vite(['resources/css/app.css', 'resources/css/pages/user-home.css'])
 @endsection
 
 @section('content')

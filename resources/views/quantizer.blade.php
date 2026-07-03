@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Q — {{ $title }}</title>
     <meta name="robots" content="noindex">
-    @vite(['resources/css/quantizer.css'])
+    @vite(['resources/css/pages/quantizer.css'])
 </head>
 <body>
     <div class="quantizer-shell">

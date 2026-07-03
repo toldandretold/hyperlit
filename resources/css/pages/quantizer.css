@@ -1,0 +1,4 @@
+/* Page entry: quantizer.blade.php
+ * The quantizer view is standalone: it does NOT load app.css (matches pre-reorg).
+ */
+@import url('../components/quantizer.css');

@@ -1,0 +1,17 @@
+/* Page entry: home.blade.php
+ * Loaded alongside app.css (the shared base). Import order below IS the cascade
+ * order and reproduces the pre-reorg Blade @vite list exactly — do not reorder.
+ * Extracted files import at the cascade position their section occupied inside
+ * its residual. Verify: node scripts/css-cascade-snapshot.mjs compare
+ */
+@import url('../components/accountPage.css');
+@import url('../components/highlight-div.css');
+@import url('../containers.css');
+@import url('../components/gateFilter.css');
+@import url('../buttons.css');
+@import url('../components/floatingActionMenu.css');
+@import url('../components/shelves.css');
+@import url('../components/form.css');
+@import url('../components/alert.css');
+@import url('../base/layout.css');
+@import url('../components/homepage.css');

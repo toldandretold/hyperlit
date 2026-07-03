@@ -1,0 +1,6 @@
+{
+  "_comment": "Line-count RATCHET for the legacy CSS residuals being drained into resources/css/components (see resources/css/README.md). Counts may only go DOWN: when you extract a section, the test prints the new (lower) count — copy it in. Raising a number is a conscious, reviewed exception. When a residual hits ~0, delete the file and its entry here.",
+  "resources/css/buttons.css": 3516,
+  "resources/css/containers.css": 2968,
+  "resources/css/app.css": 889
+}

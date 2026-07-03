@@ -1,6 +1,6 @@
 /* hyperlit colors: orange #EF8D34; pink #EE4A95; aqua #4EACAE; black #221F20 */
 
-@import url('./theme/variables.css');
+@import url('../theme/variables.css');
 
 /* User-home delete/actions icon sizing and alignment */
 .libraryCard { position: relative; padding-right: 28px; }

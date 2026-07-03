@@ -22,7 +22,7 @@
 @endif
 
 @section('styles')
-    @vite(['resources/css/app.css', 'resources/css/reader.css', 'resources/css/highlight-div.css', 'resources/css/containers.css', 'resources/css/buttons.css', 'resources/css/form.css', 'resources/css/alert.css', 'resources/css/layout.css', 'resources/css/homepage.css'])
+    @vite(['resources/css/app.css', 'resources/css/pages/home.css'])
 @endsection
 
 @section('content')

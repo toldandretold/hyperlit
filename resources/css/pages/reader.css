@@ -1,0 +1,17 @@
+/* Page entry: reader.blade.php
+ * Loaded alongside app.css (the shared base). Import order below IS the cascade
+ * order and reproduces the pre-reorg Blade @vite list exactly — do not reorder.
+ * Files extracted from the legacy residuals (containers.css/buttons.css) import
+ * at the exact cascade position the section occupied inside its residual (a tail
+ * section imports right after it, a head section right before). Every change is
+ * verified byte-identical via: node scripts/css-cascade-snapshot.mjs compare
+ */
+@import url('../components/accountPage.css');
+@import url('../components/highlight-div.css');
+@import url('../containers.css');
+@import url('../components/gateFilter.css');
+@import url('../buttons.css');
+@import url('../components/floatingActionMenu.css');
+@import url('../components/shelves.css');
+@import url('../components/alert.css');
+@import url('../base/layout.css');
