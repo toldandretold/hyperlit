@@ -176,6 +176,17 @@ export async function updateAnnotationsTimestamp(bookId: BookId): Promise<boolea
       getRequest.onsuccess = () => {
         const record = getRequest.result as LibraryRecord | undefined;
         if (!record) {
+          // Sub-books (footnote/highlight sub-books, id "book_X/FnY") have no
+          // local library row — only real books do. Annotating inside one is a
+          // normal action, so cascade the timestamp bump to the parent book's
+          // row instead of erroring out and silently dropping the update.
+          if (bookId.includes('/')) {
+            const { foundation } = parseSubBookId(bookId);
+            if (foundation && foundation !== bookId) {
+              resolve(updateAnnotationsTimestamp(foundation as BookId));
+              return;
+            }
+          }
           log.error(`No library record found for ${bookId}`, '/indexedDB/core/library.ts');
           resolve(false);
           return;

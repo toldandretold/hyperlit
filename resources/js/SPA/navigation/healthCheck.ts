@@ -32,7 +32,22 @@ export function checkNavigationHealth() {
   });
 
   if (visibleOverlays.length > 0) {
-    results.issues.push(`❌ ${visibleOverlays.length} overlays are visible (should be hidden)`);
+    const desc = visibleOverlays.map((el: any) => {
+      const s = window.getComputedStyle(el);
+      return `#${el.id || '?'}.${String(el.className).split(' ').join('.')}{display:${s.display},opacity:${s.opacity},text:"${(el.textContent || '').trim().slice(0, 40)}"}`;
+    }).join('; ');
+    // A visible overlay is only a LEAK if it has been up longer than any
+    // transition legitimately takes. Mid-transition captures (e.g. a health
+    // snapshot taken 1s into a book-to-book restore) are expected — report
+    // those as warnings, not issues. The Enactor timestamps visibility.
+    const STUCK_THRESHOLD_MS = 8000;
+    const visibleSince = (window as any).ProgressOverlayEnactor?.visibleSince ?? null;
+    const visibleForMs = visibleSince ? Date.now() - visibleSince : null;
+    if (visibleForMs === null || visibleForMs > STUCK_THRESHOLD_MS) {
+      results.issues.push(`❌ ${visibleOverlays.length} overlays are visible (should be hidden; visible for ${visibleForMs === null ? 'unknown' : Math.round(visibleForMs / 1000) + 's'}): ${desc}`);
+    } else {
+      results.warnings.push(`⚠️ ${visibleOverlays.length} overlay(s) visible but transition in flight (${Math.round(visibleForMs / 1000)}s): ${desc}`);
+    }
     console.log('Visible overlays:', visibleOverlays);
   }
 

@@ -675,7 +675,19 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
     verbose.nav(`Waiting for layout completion before scrolling to: ${targetId}`, 'scrolling/internalNav');
 
     try {
-      await pendingFirstChunkLoadedPromise;
+      // BOUNDED wait: pendingFirstChunkLoadedPromise can be left unsettled
+      // forever (a book/sub-book load resets it and bails before resolving).
+      // Awaiting it bare hangs this ladder between updateProgress(80) and
+      // (90) — the progress overlay freezes at "Loading... 80%" and its
+      // hide() below never runs (the stuck-overlay healthCheck failure).
+      // Layout stabilization is an optimization, not a correctness gate, so
+      // cap the wait and proceed.
+      await Promise.race([
+        pendingFirstChunkLoadedPromise,
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('first-chunk layout wait timed out (3s)')), 3000)
+        ),
+      ]);
       verbose.nav('Layout complete, proceeding with scroll', 'scrolling/internalNav');
     } catch (error: any) {
       console.warn(`⚠️ Layout promise failed, proceeding anyway: ${error.message}`);

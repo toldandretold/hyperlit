@@ -436,10 +436,17 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
     // before closing the base layer.
     // =========================================================================
     try {
-      const { getDepth, popTopLayer, clear: clearStack }: any = await import('./stack.js');
+      const { getDepth, popTopLayer, clear: clearStack, dumpLayersForDiagnostics }: any = await import('./stack.js');
+      // Forensics for the safety-sweep error below: what the layers array
+      // believed at entry, so a desync report names the divergence instead
+      // of just the symptom.
+      const depthAtEntry = getDepth();
+      const layersAtEntry = dumpLayersForDiagnostics();
+      let popsRun = 0;
       // Pop all dynamic layers (depth > 1 means there are stacked layers above base)
       while (getDepth() > 1) {
         await popTopLayer();
+        popsRun++;
       }
       // Clear the base layer entry from the stack (if any)
       clearStack();
@@ -453,7 +460,14 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
       // zombie hanging on the new page. Remove them defensively.
       const survivors = document.querySelectorAll('.hyperlit-container-stacked, .hyperlit-overlay-stacked');
       if (survivors.length > 0) {
-        log.error(`[closeHyperlitContainer] safety sweep: removing ${survivors.length} surviving stacked-container DOM node(s) after stack unwind (state-DOM desync)`, '/hyperlitContainer/core.ts');
+        const survivorDesc = Array.from(survivors).map((el: any) =>
+          `${el.tagName}.${String(el.className).split(' ').join('.')}[data-layer=${el.getAttribute('data-layer')}]`
+        ).join(', ');
+        log.error(
+          `[closeHyperlitContainer] safety sweep: removing ${survivors.length} surviving stacked-container DOM node(s) after stack unwind (state-DOM desync). ` +
+          `depthAtEntry=${depthAtEntry} popsRun=${popsRun} layersAtEntry=${JSON.stringify(layersAtEntry)} survivors=[${survivorDesc}]`,
+          '/hyperlitContainer/core.ts'
+        );
         survivors.forEach((el: any) => el.remove());
       }
 

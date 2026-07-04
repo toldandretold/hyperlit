@@ -657,9 +657,19 @@ export class LinkNavigationHandler {
         if (savedDepth === currentDepth + 1) {
           const newTopMeta = capturedStack[currentDepth]?.contentMetadata;
           if (newTopMeta?.contentTypes?.length) {
-            const { restoreStackedLayer, deriveMainAnchorId } = await import('../../hyperlitContainer/history');
+            const { restoreStackedLayer, restoreHyperlitContainerFromHistory, deriveMainAnchorId } = await import('../../hyperlitContainer/history');
             verbose.nav(`📚 [popstate] Fast-path FORWARD: pushing new top layer (${currentDepth} → ${savedDepth})`, '/navigation/LinkNavigationHandler.js');
-            const ok = await restoreStackedLayer(newTopMeta);
+            // 0 → 1 opens the BASE #hyperlit-container, not a stacked layer.
+            // restoreStackedLayer here would createStackedContainerDOM(0) — a
+            // dynamic `.hyperlit-container-stacked[data-layer=0]` masquerading
+            // as the base. closeHyperlitContainer's unwind (`while depth > 1`)
+            // never pops that bottom entry's DOM (clear() drops the entry
+            // only), leaving zombie container+overlay nodes for the safety
+            // sweep to reap — the state↔DOM desync seen in nested back/forward
+            // walks. Route depth 0 through the base-container restore instead.
+            const ok = currentDepth === 0
+              ? await restoreHyperlitContainerFromHistory(newTopMeta)
+              : await restoreStackedLayer(newTopMeta);
             if (ok) {
               // Opening the BASE container (0 → 1) over the main page: scroll the reader to the
               // container's anchor (hypercite/highlight in main), same as restoreContainerStack does

@@ -252,6 +252,23 @@ export function removeStackedContainerDOM(container: any, overlay: any) {
   overlay?.remove();
 }
 
+/**
+ * Forensic snapshot of the live layers array for desync diagnostics.
+ * Reports, per layer: depth, isDynamic, and whether the tracked container/
+ * overlay DOM refs are still connected to the document. A layer whose refs
+ * are disconnected while same-class nodes exist in the DOM is the signature
+ * of the state↔DOM desync behind closeHyperlitContainer's safety sweep.
+ */
+export function dumpLayersForDiagnostics() {
+  return layers.map((l: any) => ({
+    depth: l.depth,
+    isDynamic: !!l.isDynamic,
+    containerConnected: !!l.container?.isConnected,
+    overlayConnected: !!l.overlay?.isConnected,
+    containerLayerAttr: l.container?.getAttribute?.('data-layer') ?? null,
+  }));
+}
+
 // ============================================================================
 // PROPORTIONAL RESIZE
 // ============================================================================
@@ -517,6 +534,14 @@ async function _popTopLayerImpl() {
 
   // 4. Remove DOM elements for dynamic layers
   if (top.isDynamic) {
+    // Desync probe: a pop whose tracked refs are already detached removes
+    // NOTHING from the live DOM — any same-class node still on the page is
+    // an untracked zombie that closeHyperlitContainer's safety sweep will
+    // have to reap. Log it here so the creation side of the desync is
+    // attributable (which depth, which pop) rather than only the symptom.
+    if (top.container && !top.container.isConnected) {
+      log.error(`[popTopLayer] desync probe: popping layer depth=${top.depth} whose tracked container is DISCONNECTED (live stacked nodes in DOM: ${document.querySelectorAll('.hyperlit-container-stacked').length})`, 'hyperlitContainer/stack.ts');
+    }
     removeStackedContainerDOM(top.container, top.overlay);
   }
 

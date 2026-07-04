@@ -30,6 +30,11 @@ export class ProgressOverlayEnactor {
   // State machine
   static state = 'hidden'; // 'hidden' | 'visible' | 'hiding'
 
+  // When the overlay became visible (ms epoch), null while hidden. Lets
+  // healthCheck distinguish a legitimately in-flight transition overlay
+  // from a STUCK one (visible far longer than any transition should take).
+  static visibleSince: number | null = null;
+
   // Hide operation promise (for preventing concurrent hides)
   static hidePromise: any = null;
 
@@ -102,9 +107,11 @@ export class ProgressOverlayEnactor {
 
     if (isCurrentlyVisible) {
       this.state = 'visible';
+      if (this.visibleSince === null) this.visibleSince = Date.now();
       verbose.debug('ProgressOverlayEnactor: Bound to overlay (currently VISIBLE)', 'navigation/ProgressOverlayEnactor.js');
     } else {
       this.state = 'hidden';
+      this.visibleSince = null;
       verbose.debug('ProgressOverlayEnactor: Bound to overlay (currently HIDDEN)', 'navigation/ProgressOverlayEnactor.js');
     }
   }
@@ -149,6 +156,7 @@ export class ProgressOverlayEnactor {
     verbose.debug(`ProgressOverlayEnactor.show: Showing overlay (${percent}% - ${message}, block: ${blockInteractions})`, 'navigation/ProgressOverlayEnactor.js');
 
     this.state = 'visible';
+    this.visibleSince = Date.now();
     this.overlay.style.display = 'block';
     this.overlay.style.visibility = 'visible';
     // Use setProperty with !important to override inline styles from blade template
@@ -286,6 +294,7 @@ export class ProgressOverlayEnactor {
       }
 
       this.state = 'hidden';
+      this.visibleSince = null;
       verbose.debug('ProgressOverlayEnactor: Overlay hidden', 'navigation/ProgressOverlayEnactor.js');
     }
   }
@@ -318,6 +327,7 @@ export class ProgressOverlayEnactor {
     }
 
     this.state = 'hidden';
+    this.visibleSince = null;
     this.hidePromise = null;
 
     verbose.debug('ProgressOverlayEnactor: Force hidden complete', 'navigation/ProgressOverlayEnactor.js');

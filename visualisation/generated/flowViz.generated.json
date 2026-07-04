@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1601,
+    "fnCount": 1602,
     "moduleCount": 342,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3241,
+    "edgeCount": 3245,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -8908,6 +8908,14 @@
       "leaf": false
     },
     {
+      "id": "hyperlitContainer/stack:dumpLayersForDiagnostics",
+      "label": "dumpLayersForDiagnostics",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/stack",
+      "leaf": false
+    },
+    {
       "id": "hyperlitContainer/stack:getCurrentContainer",
       "label": "getCurrentContainer",
       "kind": "fn",
@@ -16968,6 +16976,7 @@
       "fnIds": [
         "hyperlitContainer/stack:clear",
         "hyperlitContainer/stack:createStackedContainerDOM",
+        "hyperlitContainer/stack:dumpLayersForDiagnostics",
         "hyperlitContainer/stack:getCurrentContainer",
         "hyperlitContainer/stack:getCurrentScroller",
         "hyperlitContainer/stack:getDepth",
@@ -26181,6 +26190,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__hyperlitContainer/stack:dumpLayersForDiagnostics",
+      "source": "dom",
+      "target": "hyperlitContainer/stack:dumpLayersForDiagnostics",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__hyperlitContainer/stack:getCurrentContainer",
       "source": "dom",
       "target": "hyperlitContainer/stack:getCurrentContainer",
@@ -30076,6 +30091,12 @@
       "rel": "call"
     },
     {
+      "id": "hyperlitContainer/core:closeHyperlitContainer__call__hyperlitContainer/stack:dumpLayersForDiagnostics",
+      "source": "hyperlitContainer/core:closeHyperlitContainer",
+      "target": "hyperlitContainer/stack:dumpLayersForDiagnostics",
+      "rel": "call"
+    },
+    {
       "id": "hyperlitContainer/core:closeHyperlitContainer__call__hyperlitContainer/stack:getDepth",
       "source": "hyperlitContainer/core:closeHyperlitContainer",
       "target": "hyperlitContainer/stack:getDepth",
@@ -31607,6 +31628,13 @@
       "id": "indexedDB/core/library:updateAnnotationsTimestamp__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/core/library:updateAnnotationsTimestamp",
       "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/core/library:updateAnnotationsTimestamp__call__indexedDB/core/library:updateAnnotationsTimestamp",
+      "source": "indexedDB/core/library:updateAnnotationsTimestamp",
+      "target": "indexedDB/core/library:updateAnnotationsTimestamp",
       "rel": "call",
       "dataPath": true
     },
@@ -36816,6 +36844,13 @@
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__hyperlitContainer/history:restoreContainerStack",
       "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
       "target": "hyperlitContainer/history:restoreContainerStack",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__hyperlitContainer/history:restoreHyperlitContainerFromHistory",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "target": "hyperlitContainer/history:restoreHyperlitContainerFromHistory",
       "rel": "call",
       "dataPath": true
     },
