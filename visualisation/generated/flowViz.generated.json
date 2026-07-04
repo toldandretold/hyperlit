@@ -6,7 +6,7 @@
     "moduleCount": 342,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3239,
+    "edgeCount": 3241,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -22649,6 +22649,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/utilities/containerManager:ContainerManager.rebindElements__call__hyperlitContainer/core:getHyperlitEditMode",
+      "source": "components/utilities/containerManager:ContainerManager.rebindElements",
+      "target": "hyperlitContainer/core:getHyperlitEditMode",
+      "rel": "call"
+    },
+    {
       "id": "components/utilities/containerManager:ContainerManager.rebindElements__call__hyperlitContainer/stack:isStackPopPending",
       "source": "components/utilities/containerManager:ContainerManager.rebindElements",
       "target": "hyperlitContainer/stack:isStackPopPending",
@@ -31149,6 +31155,12 @@
       "target": "hyperlitContainer/core:closeHyperlitContainer",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/stack:popTopLayer__call__hyperlitContainer/core:getHyperlitEditMode",
+      "source": "hyperlitContainer/stack:popTopLayer",
+      "target": "hyperlitContainer/core:getHyperlitEditMode",
+      "rel": "call"
     },
     {
       "id": "hyperlitContainer/stack:popTopLayer__call__hyperlitContainer/core:isContainerClosing",
@@ -40650,6 +40662,11 @@
     },
     {
       "source": "components/utilities/containerManager",
+      "target": "hyperlitContainer/core",
+      "kind": "breaker"
+    },
+    {
+      "source": "components/utilities/containerManager",
       "target": "hyperlitContainer/stack",
       "kind": "lazy"
     },
@@ -44045,9 +44062,13 @@
       [
         "components/homepage/homepageDisplayUnit",
         "components/shelves/shelfHeader"
+      ],
+      [
+        "components/utilities/containerManager",
+        "hyperlitContainer/core"
       ]
     ],
-    "breakerCount": 1,
+    "breakerCount": 2,
     "lazyCount": 235
   }
 }

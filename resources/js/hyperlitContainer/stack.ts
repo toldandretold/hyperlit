@@ -455,12 +455,23 @@ async function _popTopLayerImpl() {
   // Set flag FIRST to prevent handleSelection() from firing during flush
   isPopping = true;
 
+  // Only run the save path when actually in edit mode. A plain read-mode close
+  // has no pending user changes and must NOT flush/save (mirrors the read-mode
+  // early-returns in prepareContainerClose() and saveAndPopTopLayer()). Running
+  // the save path in reader mode wrote sub-book preview_nodes to IndexedDB on
+  // every highlight/hypercite close — a save the user never triggered.
+  // Lazy import of ./core.js (not static) to avoid the core↔stack TDZ cycle.
+  const { getHyperlitEditMode }: any = await import('./core.js');
+  const inEditMode = getHyperlitEditMode();
+
   try {
 
-  // Flush pending saves BEFORE clearing selection.
+  // Flush pending saves BEFORE clearing selection (edit mode only).
   // The debounced input handler uses window.getSelection() to locate the
   // target node — clearing ranges first makes the flush silently skip the save.
-  await flushPendingEdits();
+  if (inEditMode) {
+    await flushPendingEdits();
+  }
 
   // NOW safe to clear selection (saves already captured)
   try {
@@ -477,9 +488,11 @@ async function _popTopLayerImpl() {
   const { cleanupContainerListeners }: any = await import('./containerListeners');
   await cleanupContainerListeners({ stackPop: true });
 
-  // 2.5 Save preview_nodes for active sub-books BEFORE destroying them
-  const { savePreviewNodes }: any = await import('./core.js');
-  await savePreviewNodes();
+  // 2.5 Save preview_nodes for active sub-books BEFORE destroying them (edit mode only)
+  if (inEditMode) {
+    const { savePreviewNodes }: any = await import('./core.js');
+    await savePreviewNodes();
+  }
 
   // 3. Destroy ONLY the sub-books that live inside the layer being popped.
   // Previously this called `destroyAllSubBooks` which wiped every sub-book —

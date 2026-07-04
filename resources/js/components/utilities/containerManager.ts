@@ -137,12 +137,16 @@ export class ContainerManager {
               console.warn('Overlay click BLOCKED — pop already in flight');
               return;
             }
-            // Flush any pending saves before navigating away from this state
-            // (popstate handler will flush again as part of its teardown,
-            // but flushing here too keeps autosave timing tight).
+            // Flush any pending saves before navigating away from this state,
+            // but ONLY in edit mode — a read-mode close has no pending user
+            // changes and must not run the save path (the popstate teardown's
+            // popTopLayer applies the same edit-mode guard).
             try {
-              const { flushPendingEdits } = await import('../../utilities/pendingEditsRegistry');
-              await flushPendingEdits();
+              const { getHyperlitEditMode } = await import('../../hyperlitContainer/core');
+              if (getHyperlitEditMode()) {
+                const { flushPendingEdits } = await import('../../utilities/pendingEditsRegistry');
+                await flushPendingEdits();
+              }
             } catch (err) {
               console.warn('Pre-back flush failed (non-fatal):', err);
             }

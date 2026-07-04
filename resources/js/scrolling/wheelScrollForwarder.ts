@@ -34,6 +34,9 @@ const WRAPPER_SEL = '.home-content-wrapper, .user-content-wrapper, .reader-conte
 // scrollable reading content — native scroll already works here, leave it alone
 const CONTENT_SEL =
   '.home-content-wrapper .main-content, .user-content-wrapper .main-content, .welcome-copy, .reader-content-wrapper';
+// the search-results dropdown is its own scroller but lives INSIDE .fixed-header, so the
+// dead-zone rule below would forward its wheel to the page — exempt it explicitly.
+const SCROLLABLE_OVERLAY_SEL = '#search-results-container';
 
 export function initWheelScrollForwarder(): void {
   if (wheelHandler) return; // document-delegated singleton — create once
@@ -43,6 +46,8 @@ export function initWheelScrollForwarder(): void {
     const wrapper = document.querySelector<HTMLElement>(WRAPPER_SEL);
     if (!wrapper) return;
     const target = e.target instanceof Element ? e.target : null;
+    // scrollable overlay inside the fixed header (search results) → let it scroll natively
+    if (target && target.closest(SCROLLABLE_OVERLAY_SEL)) return;
     // over the reading content (and not the fixed card): let native scroll run
     if (target && target.closest(CONTENT_SEL) && !target.closest('.fixed-header')) return;
     // dead zone (fixed header or side margins) → forward the wheel to the scroller
