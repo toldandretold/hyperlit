@@ -367,7 +367,7 @@ export function registerAllComponents() {
     name: 'wheelScrollForwarder',
     initFn: initWheelScrollForwarder,
     destroyFn: destroyWheelScrollForwarder,
-    pages: ['home', 'user'],
+    pages: ['home', 'user', 'reader'],
     dependencies: [],
     required: false
   });
