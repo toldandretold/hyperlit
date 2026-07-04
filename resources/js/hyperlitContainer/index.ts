@@ -155,6 +155,26 @@ registerContainerActions({
 // ============================================================================
 
 /**
+ * The URL segment that names the rendered book for history-entry URLs.
+ *
+ * `.main-content`.id is the URL-agnostic truth (`book_X`, or `book_X/AIreview`
+ * for the report) — NOT pathname.split('/')[0], whose first-segment shortcut
+ * truncates two-segment sub-books. EXCEPT when the address bar is already
+ * using the book's vanity slug (first segment === main's data-slug): keep the
+ * slug, because pushing the raw id flips the URL identity mid-session
+ * (/welcome → /book_123…#HL_…) and the entry behind then reads as a
+ * different book on Back.
+ */
+function resolveRenderedBookSegment(): string {
+  const readerMainEl: any = document.querySelector('.main-content');
+  const mainId = readerMainEl?.id || '';
+  const mainSlug = readerMainEl?.getAttribute?.('data-slug') || '';
+  const urlFirst = window.location.pathname.split('/').filter(Boolean)[0] || '';
+  if (mainSlug && urlFirst === mainSlug) return mainSlug;
+  return mainId || urlFirst;
+}
+
+/**
  * Main function to handle any element click and detect all overlapping content types
  * @param {HTMLElement} element - The clicked element
  * @param {Array} highlightIds - Optional array of highlight IDs if already known
@@ -328,10 +348,13 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
         // first-segment shortcut silently drops the 2nd segment of a two-segment
         // sub-book (e.g. `book_X/AIreview`), rewriting the address bar to `/book_X`
         // while the sub-book is still on screen → URL↔content desync that kills Back.
-        // `.main-content`.id is URL-agnostic truth: `book_X` for normal books, the
-        // vanity slug for canonical books, `book_X/AIreview` for the report.
-        const renderedBook = document.querySelector('.main-content')?.id
-          || window.location.pathname.split('/').filter(Boolean)[0] || '';
+        // `.main-content`.id is URL-agnostic truth: `book_X` for normal books,
+        // `book_X/AIreview` for the report.
+        // SLUG EXCEPTION: when the address bar is using the book's vanity slug
+        // (URL first segment === main's data-slug), keep the slug — pushing the
+        // raw id would flip the URL identity mid-session (/welcome →
+        // /book_123…#HL_…), and the entry behind then reads as a DIFFERENT book.
+        const renderedBook = resolveRenderedBookSegment();
 
         if (hasHyperciteTarget && contentTypes[0].type === 'highlight') {
           // Preserve the original hypercite hash for in-container scrolling
@@ -347,8 +370,7 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
       } else if (anchorId) {
         // Multi/overlapping content: no single canonical hash, but anchor the new history entry
         // on the exact clicked element so Back doesn't inherit a stale hash from the address bar.
-        const renderedBook = document.querySelector('.main-content')?.id
-          || window.location.pathname.split('/').filter(Boolean)[0] || '';
+        const renderedBook = resolveRenderedBookSegment();
         pendingUrlOverride = `/${renderedBook}#${anchorId}`;
       }
 

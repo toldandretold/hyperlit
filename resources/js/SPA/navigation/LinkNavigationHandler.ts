@@ -556,9 +556,21 @@ export class LinkNavigationHandler {
     // book differs from what's on screen, take the cross-book path regardless of a possibly
     // stale/truncated `_bookSlug` — otherwise a URL↔content desync leaves Back a permanent
     // no-op (the slug clause wrongly reports "same book").
-    const renderedBookId = document.querySelector('.main-content')?.id || null;
-    const differsFromRendered = !!renderedBookId && urlBookId !== renderedBookId;
-    if (urlBookId !== currentBookVariable && (differsFromRendered || !_bookSlug || urlBookId !== _bookSlug)) {
+    //
+    // SLUG-AWARE: the rendered reader is `<main id="{{ $book }}" data-slug="…">` — for a
+    // vanity-slug book, id is the RAW id (book_123…) while the URL carries the slug
+    // (/welcome). Comparing urlBookId against id alone made every container close on a
+    // slug URL (back → /welcome) misdetect as cross-book and FULL-RELOAD the same book
+    // (the "Loading welcome…" flash on closing a highlight in read mode). A URL naming
+    // the rendered book's data-slug is the SAME book.
+    const readerMainEl: any = document.querySelector('.main-content');
+    const renderedBookId = readerMainEl?.id || null;
+    const renderedSlug = readerMainEl?.getAttribute?.('data-slug') || null;
+    const differsFromRendered = !!renderedBookId
+      && urlBookId !== renderedBookId
+      && !(renderedSlug && urlBookId === renderedSlug);
+    const effectiveSlug = _bookSlug || renderedSlug;
+    if (urlBookId !== currentBookVariable && (differsFromRendered || !effectiveSlug || urlBookId !== effectiveSlug)) {
       verbose.nav(`Back button: URL shows ${urlBookId} but content is ${currentBookVariable}. Using structure-aware navigation.`, '/navigation/LinkNavigationHandler.js');
 
       // Parse cascade segments from URL path (same logic as handleBookToBookNavigation)
