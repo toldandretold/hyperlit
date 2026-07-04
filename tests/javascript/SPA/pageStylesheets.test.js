@@ -117,4 +117,30 @@ describe('syncBodyAttributes — exact sync, stale attributes removed', () => {
     expect(document.body.getAttribute('data-page')).toBe('home');
     expect(document.body.hasAttribute('data-book-id')).toBe(false);
   });
+
+  // The fetched server <body> never carries a theme class (it's applied
+  // client-side by themeSwitcher), so a naive exact sync would strip it and
+  // paint a frame of the default theme mid-transition — a visible flash.
+  it('preserves the client-applied theme-* class across the swap', () => {
+    document.body.className = '';
+    document.body.classList.add('theme-sepia');
+    document.body.setAttribute('data-page', 'reader');
+
+    // Incoming server body has data-page="home" and no class attribute.
+    syncBodyAttributes(fetchedDocWith(APP, HOME));
+
+    expect(document.body.classList.contains('theme-sepia')).toBe(true);
+    expect(document.body.getAttribute('data-page')).toBe('home');
+  });
+
+  it('still strips non-theme classes the incoming template lacks', () => {
+    document.body.className = '';
+    document.body.classList.add('theme-dark', 'some-stale-class');
+
+    syncBodyAttributes(fetchedDocWith(APP, HOME));
+
+    // theme class kept, unrelated leftover class gone
+    expect(document.body.classList.contains('theme-dark')).toBe(true);
+    expect(document.body.classList.contains('some-stale-class')).toBe(false);
+  });
 });

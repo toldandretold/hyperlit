@@ -282,7 +282,9 @@ export async function universalPageInitializer(progressCallback = null) {
 
   enforceEditableState();
 
-  // Re-apply vibe CSS after SPA navigation so the canvas + theme persist
+  // Re-apply vibe CSS after SPA navigation so the canvas + theme persist.
+  // (The base `theme-*` body class is preserved synchronously across the body
+  // swap by syncBodyAttributes(), so only the vibe canvas needs re-applying.)
   import('../components/settingsContainer/themeSwitcher').then(({ getCurrentTheme, THEMES }) => {
     if (getCurrentTheme() === THEMES.VIBE) {
       import('../components/settingsContainer/vibeCSS/index').then(m => m.applyVibeCSS());

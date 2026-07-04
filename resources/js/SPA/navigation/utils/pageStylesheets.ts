@@ -66,10 +66,22 @@ export async function syncPageStylesheets(newDoc: Document): Promise<() => void>
  * keyed off them on the incoming page. Mirrors what a full load produces.
  */
 export function syncBodyAttributes(newDoc: Document): void {
+  // The active theme is a `theme-*` class applied to the live <body> purely
+  // client-side (themeSwitcher) — the server-rendered incoming <body> never
+  // carries it. The exact sync below would therefore strip it, and because
+  // that happens synchronously mid-transition, the browser can paint one frame
+  // of the default (dark) theme before anything re-applies it — a visible
+  // flash. Capture the client-applied theme class(es) and restore them in the
+  // same synchronous turn so no un-themed frame is ever painted. A full page
+  // load reaches the same end state via initializeTheme().
+  const themeClasses = Array.from(document.body.classList).filter(c => c.startsWith('theme-'));
+
   for (const name of Array.from(document.body.getAttributeNames())) {
     if (!newDoc.body.hasAttribute(name)) document.body.removeAttribute(name);
   }
   for (const { name, value } of newDoc.body.attributes) {
     document.body.setAttribute(name, value);
   }
+
+  for (const c of themeClasses) document.body.classList.add(c);
 }
