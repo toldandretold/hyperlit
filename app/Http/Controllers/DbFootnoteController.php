@@ -87,6 +87,10 @@ class DbFootnoteController extends Controller
 
             $book = $validated['book'];
             $footnotes = $validated['data'];
+
+            // E2EE backstop (docs/e2ee.md): encrypted books only ever store ciphertext.
+            \App\Services\E2ee\EncryptedBookGuard::rejectPlaintextWrites($book, $footnotes, ['content']);
+
             $upsertedCount = 0;
             $subBookIds = [];
 
@@ -147,7 +151,9 @@ class DbFootnoteController extends Controller
                 'book' => $book
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e; // E2EE guard 422 — render via the framework handler
+            } catch (\Exception $e) {
             Log::error('Footnote upsert error:', [
                 'error' => $e->getMessage(),
                 'book' => $request->input('book')

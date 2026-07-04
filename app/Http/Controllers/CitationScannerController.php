@@ -26,6 +26,13 @@ class CitationScannerController extends Controller
         ]);
 
         $bookId = $request->input('book');
+
+        // E2EE (docs/e2ee.md): citation scanning reads node content server-side —
+        // impossible for an encrypted book (server only holds ciphertext).
+        if (\App\Services\E2ee\EncryptedBookGuard::isEncrypted($bookId)) {
+            return response()->json(['success' => false, 'message' => 'Encrypted books cannot use server-side citation scanning'], 422);
+        }
+
         $db = DB::connection('pgsql_admin');
 
         // F2: serialise the "is one already running?" check and the insert so two

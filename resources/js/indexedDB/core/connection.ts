@@ -18,10 +18,11 @@
  * Version 25: Fixed node_id index to properly set multiEntry: true
  * Version 26: Added source_id index to bibliography store for linked citations
  * Version 27: Removed redoLog store (legacy undo/redo system replaced by in-memory UndoManager)
+ * Version 28: Added 'e2ee' store (persisted non-extractable vault CryptoKey for encrypted books)
  *
  * The resulting schema is pinned by tests/javascript/indexedDB/schema.characterization.test.js
  */
-export const DB_VERSION = 27;
+export const DB_VERSION = 28;
 
 // Exponential backoff delays for IDB connection retries (ms).
 // Covers iOS bfcache recovery which can take 1-5 seconds.
@@ -95,6 +96,12 @@ export const STORE_CONFIGS: StoreConfig[] = [
     keyPath: "id",
     autoIncrement: true,
     indices: ["status", "bookId"],
+  },
+  {
+    // E2EE key storage: { id: 'vaultKey', key: CryptoKey } — the persisted
+    // non-extractable vault key (see resources/js/e2ee/keys.ts).
+    name: "e2ee",
+    keyPath: "id",
   },
 ];
 
@@ -383,6 +390,14 @@ async function _openFresh(retryCount = 0): Promise<IDBDatabase> {
         if (db.objectStoreNames.contains("redoLog")) {
           db.deleteObjectStore("redoLog");
           console.log("🔥 Deleted legacy 'redoLog' store");
+        }
+      }
+
+      // Migration logic for schema version 28: e2ee key store
+      // (fresh installs get it via the oldVersion<21 STORE_CONFIGS loop)
+      if (oldVersion < 28) {
+        if (!db.objectStoreNames.contains("e2ee")) {
+          db.createObjectStore("e2ee", { keyPath: "id" });
         }
       }
 

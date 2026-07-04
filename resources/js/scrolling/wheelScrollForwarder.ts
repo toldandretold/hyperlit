@@ -34,9 +34,11 @@ const WRAPPER_SEL = '.home-content-wrapper, .user-content-wrapper, .reader-conte
 // scrollable reading content — native scroll already works here, leave it alone
 const CONTENT_SEL =
   '.home-content-wrapper .main-content, .user-content-wrapper .main-content, .welcome-copy, .reader-content-wrapper';
-// the search-results dropdown is its own scroller but lives INSIDE .fixed-header, so the
-// dead-zone rule below would forward its wheel to the page — exempt it explicitly.
-const SCROLLABLE_OVERLAY_SEL = '#search-results-container';
+// overlays that are their own scrollers but sit outside the content wrapper, so the
+// dead-zone rule below would forward their wheel to the page — exempt them explicitly:
+// the search-results dropdown (inside .fixed-header) and the newbook/import form
+// (fixed overlay, sibling of #app-container; scrolls via its inner .scroller).
+const SCROLLABLE_OVERLAY_SEL = '#search-results-container, #newbook-container';
 
 export function initWheelScrollForwarder(): void {
   if (wheelHandler) return; // document-delegated singleton — create once

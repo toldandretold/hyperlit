@@ -26,9 +26,11 @@
     "verify": "bash scripts/verify.sh",
     "test:e2e": "npx playwright test --config tests/e2e/playwright.config.js",
     "test:e2e:headed": "npx playwright test --config tests/e2e/playwright.config.js --headed",
+    "test:a11y": "npx playwright test --config tests/e2e/playwright.config.js specs/a11y; node tests/e2e/scripts/merge-a11y-report.mjs",
     "build:paste-engine": "node scripts/bundle-paste-engine.mjs"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.60.0",
     "@testing-library/dom": "^10.4.1",
     "@vitest/ui": "^4.0.5",

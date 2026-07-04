@@ -31,6 +31,8 @@ use App\Http\Controllers\VibesController;
 use App\Http\Controllers\IntegrityReportController;
 use App\Http\Controllers\ScrapeController;
 use App\Http\Controllers\ShelfController;
+use App\Http\Controllers\PasskeyController;
+use App\Http\Controllers\E2eeVaultController;
 
 
 // Import progress polling — lightweight, no auth needed (bookId is unguessable)
@@ -175,6 +177,21 @@ Route::post('/email/change', [AuthController::class, 'changeEmail'])
 
 Route::post('/auth/associate-content', [AuthController::class, 'associateContent'])->middleware('auth:sanctum');
 
+// E2EE passkeys + vault (docs/e2ee.md) — unlock ceremony for encrypted books.
+// Wrapped blobs only; the PRF output / keys never reach the server.
+Route::middleware(['auth:sanctum', 'throttle:30,1'])->group(function () {
+    Route::get('/passkeys', [PasskeyController::class, 'index']);
+    Route::post('/passkeys/registration-options', [PasskeyController::class, 'registrationOptions']);
+    Route::post('/passkeys/register', [PasskeyController::class, 'register']);
+    Route::post('/passkeys/assertion-options', [PasskeyController::class, 'assertionOptions']);
+    Route::post('/passkeys/assert', [PasskeyController::class, 'assert']);
+    Route::post('/passkeys/{id}/vault-key', [PasskeyController::class, 'storeVaultKey'])->whereNumber('id');
+    Route::patch('/passkeys/{id}', [PasskeyController::class, 'update'])->whereNumber('id');
+    Route::delete('/passkeys/{id}', [PasskeyController::class, 'destroy'])->whereNumber('id');
+    Route::get('/e2ee/vault', [E2eeVaultController::class, 'show']);
+    Route::post('/e2ee/vault/recovery', [E2eeVaultController::class, 'rotateRecovery']);
+});
+
 Route::get('/auth/session-info', [AuthController::class, 'getSessionInfo']);
 
 Route::post('/anonymous-session', [AuthController::class, 'createAnonymousSession']);
@@ -297,6 +314,13 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         '/db/library/set-slug',
         [DbLibraryController::class, 'setSlug']
     );
+
+    // E2EE transition (docs/e2ee.md): mark a book encrypted (client re-uploads
+    // ciphertext) or published (flags off; client re-uploads plaintext).
+    Route::post(
+        '/db/library/{book}/encryption',
+        [DbLibraryController::class, 'setEncryption']
+    )->where('book', '.*');
 
     Route::post(
         '/validate-book-id',

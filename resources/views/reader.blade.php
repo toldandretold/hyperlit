@@ -219,10 +219,7 @@
   <div id="user-overlay"></div>
   <div id="user-container" class="hidden" style="visibility: hidden;"></div>
 
-  <div id="newbook-container" class="hidden loading">
-    <button id="createNewBook" type="button" class="fucked-buttons" style="width: 100%; padding: 10px; background: #4a4a4a; color: #CBCCCC; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; font-family: inherit;">New</button>
-    <button id="importBook" type="button" class="fucked-buttons" style="width: 100%; padding: 10px; background: #4a4a4a; color: #CBCCCC; border: none; border-radius: 4px; cursor: pointer; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; font-family: inherit;">Import</button>
-  </div>
+  @include('partials.newbook-container')
 
   <x-settings-panel />
 

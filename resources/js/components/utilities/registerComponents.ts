@@ -116,6 +116,11 @@ import {
   destroyWheelScrollForwarder
 } from '../../scrolling/wheelScrollForwarder';
 
+import {
+  initLockedCardTitles,
+  destroyLockedCardTitles
+} from '../../e2ee/ui/lockedCardTitles';
+
 import { verbose } from "../../utilities/logger";
 
 /**
@@ -376,6 +381,18 @@ export function registerAllComponents() {
     name: 'homepageBookActions',
     initFn: initializeHomepageBookActions,
     destroyFn: destroyHomepageListeners,
+    pages: ['home', 'user'],
+    dependencies: ['homepageDisplayUnit'],
+    required: false
+  });
+
+  // E2EE (docs/e2ee.md): swaps the generic "Encrypted book" card label for the
+  // real title from the LOCAL plaintext library store (owner devices only).
+  // Inert when no .libraryCard-encrypted exists on the page.
+  buttonRegistry.register({
+    name: 'lockedCardTitles',
+    initFn: initLockedCardTitles,
+    destroyFn: destroyLockedCardTitles,
     pages: ['home', 'user'],
     dependencies: ['homepageDisplayUnit'],
     required: false

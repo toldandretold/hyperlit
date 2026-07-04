@@ -19,7 +19,7 @@ describe('IndexedDB schema (characterization)', () => {
     const db = await openDatabase();
     expect(db.name).toBe('MarkdownDB');
     expect(db.version).toBe(DB_VERSION);
-    expect(DB_VERSION).toBe(27);
+    expect(DB_VERSION).toBe(28);
   });
 
   it('creates exactly the pinned stores and indexes on a fresh install', async () => {
@@ -110,6 +110,12 @@ describe('IndexedDB schema (characterization)', () => {
           status: { keyPath: 'status', unique: false, multiEntry: false },
           bookId: { keyPath: 'bookId', unique: false, multiEntry: false },
         },
+      },
+      // v28: persisted non-extractable vault CryptoKey (resources/js/e2ee/keys.ts)
+      e2ee: {
+        keyPath: 'id',
+        autoIncrement: false,
+        indexes: {},
       },
     });
   });

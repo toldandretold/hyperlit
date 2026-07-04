@@ -10,6 +10,7 @@ import { updateBookUrlPreview } from './bookId';
 import { isLoggedIn } from '../../../utilities/auth/index';
 import { escapeHtml } from '../../../paste/utils/normalizer';
 import { showImportFailureModal } from '../../../conversion/bugReportModal.js';
+import { getImportEncryptIntent } from '../encryptIntent';
 
 export function setupFormSubmission() {
   const form = $('cite-form');
@@ -137,6 +138,30 @@ export function setupFormSubmission() {
         submitButton.textContent = 'Create Book';
       }
       return false;
+    }
+
+    // E2EE (docs/e2ee.md): encrypt-after-import needs a READY vault BEFORE the
+    // upload starts — the auto-lock at the end of the import transition must
+    // never silently downgrade to a plaintext book. The intent comes from the
+    // buttons-view "Encrypted" checkbox (shared with New), captured in
+    // buttonView.importBookHandler — the checkbox itself left the DOM when
+    // this form replaced the buttons view.
+    const encryptAfterImport = getImportEncryptIntent();
+    sessionStorage.removeItem('pending_import_encrypt');
+    if (encryptAfterImport) {
+      try {
+        const { isVaultUnlocked } = await import('../../../e2ee/keys');
+        if (!(await isVaultUnlocked())) {
+          const { showUnlockModal } = await import('../../../e2ee/ui/unlockModal');
+          await showUnlockModal(); // throws if dismissed / no vault yet
+        }
+        const bookIdField = document.getElementById('book') as HTMLInputElement | null;
+        sessionStorage.setItem('pending_import_encrypt', bookIdField?.value?.trim() || '1');
+      } catch {
+        window.alert('Encrypted imports need a passkey vault — set one up under your profile → Passkeys, then try again.');
+        form._submitting = false;
+        return false;
+      }
     }
 
     // Passed validations — disable to avoid double submission

@@ -16,6 +16,9 @@ import { runSerializedPerKey } from './bookSyncChain';
 import { advanceBaseTimestamp } from '../core/library';
 import { log } from '../../utilities/logger';
 import { asBookId } from '../types';
+// E2EE seam (docs/e2ee.md): registry is a zero-import leaf (cheap sync check);
+// the transform module is dynamic-imported only when a book is actually encrypted.
+import { isBookEncrypted } from '../../e2ee/registry';
 
 export { filterFreshNodesForBook };
 
@@ -240,6 +243,13 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
         ?? payload.updates.library?.timestamp),
   };
 
+  // E2EE seam: an encrypted book's payload leaves the client as ciphertext.
+  // encryptUnifiedPayload throws VaultLockedError when the vault key is absent —
+  // the sync then follows the ordinary failure path (edits stay local + queued).
+  const wirePayload: UnifiedSyncPayload = isBookEncrypted(bookId)
+    ? await (await import('../../e2ee/transform')).encryptUnifiedPayload(unifiedPayload)
+    : unifiedPayload;
+
   // Helper: perform the fetch with a fresh CSRF token + a per-call abort timeout (so a hung
   // POST can't stall the per-book chain). The controller/timer are per call because doFetch
   // may run twice (419 retry).
@@ -256,7 +266,7 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
           "X-CSRF-TOKEN": document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content
         } as HeadersInit,
         credentials: "include",
-        body: JSON.stringify(unifiedPayload),
+        body: JSON.stringify(wirePayload),
         signal: controller.signal,
       });
     } finally {

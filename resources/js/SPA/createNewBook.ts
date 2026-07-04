@@ -223,9 +223,18 @@ async function syncNewBookToPostgreSQL(bookId: any, libraryData: any = null) {
       throw new Error(`Library record not found for book: ${bookId}`);
     }
 
+    // E2EE seam (docs/e2ee.md): a born-encrypted book's metadata leaves the
+    // client as ciphertext even on this direct bulk-create call (which bypasses
+    // the sync-queue seams).
+    let wireRecord = libraryRecord;
+    if (libraryRecord?.encrypted) {
+      const { encryptStoreRows } = await import("../e2ee/transform");
+      [wireRecord] = await encryptStoreRows("library", bookId, [libraryRecord]);
+    }
+
     const payload = {
       book: bookId,
-      data: libraryRecord,
+      data: wireRecord,
     };
 
     console.log("📤 Sending new book data to bulk-create endpoint:", payload);
@@ -297,6 +306,20 @@ export async function createNewBook() {
       is_owner: true, // You're always the owner of a book you just created
     };
     newLibraryRecord.bibtex = buildBibtexEntry(newLibraryRecord);
+
+    // E2EE (docs/e2ee.md): born-encrypted book. The flag is set by the newBook
+    // button ONLY after it verified the vault is unlocked, so DEK creation here
+    // can't hit a locked vault in the normal flow (and if it somehow does, we
+    // fail the CREATE rather than silently making a plaintext book).
+    if (sessionStorage.getItem("pending_new_book_encrypted") === "1") {
+      sessionStorage.removeItem("pending_new_book_encrypted");
+      const { createDekForBook } = await import("../e2ee/keys");
+      const { setBookEncrypted } = await import("../e2ee/registry");
+      const { wrappedDek } = await createDekForBook(bookId);
+      newLibraryRecord.encrypted = true;
+      newLibraryRecord.wrapped_dek = wrappedDek;
+      setBookEncrypted(bookId, true);
+    }
 
     // Generate node_id for the initial H1 element
     const initialNodeId = generateDataNodeId(bookId);

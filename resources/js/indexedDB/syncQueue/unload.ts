@@ -7,6 +7,11 @@ import { pendingSyncs } from './queue';
 import { debouncedMasterSync } from './master';
 import { flushPendingEdits } from '../../utilities/pendingEditsRegistry';
 import { asBookId, type BookId, type SyncQueueItem, type SyncRecordData } from '../types';
+// E2EE seam (docs/e2ee.md): the beacon is synchronous, so encrypted-book items
+// are substituted from the pre-encrypted outbox; uncaptured ones are skipped
+// and stay queued rather than ever leaving as plaintext.
+import { isBookEncrypted } from '../../e2ee/registry';
+import { getBeaconCiphertext, discardBeaconCiphertext } from '../../e2ee/outbox';
 
 // Dependencies
 let book: BookId | null | undefined;
@@ -57,19 +62,24 @@ function syncOnUnload(): string | undefined {
   const mainContent = document.querySelector('.main-content');
   const fallbackBookId = asBookId(mainContent?.id || book || "latest");
 
-  const itemsByBook = new Map<BookId, SyncQueueItem[]>();
-  for (const item of pendingSyncs.values()) {
+  const itemsByBook = new Map<BookId, Array<{ key: string; item: SyncQueueItem }>>();
+  for (const [key, item] of pendingSyncs.entries()) {
     const itemBook = item.data?.book || fallbackBookId;
     if (!itemsByBook.has(itemBook)) {
       itemsByBook.set(itemBook, []);
     }
-    itemsByBook.get(itemBook)!.push(item);
+    itemsByBook.get(itemBook)!.push({ key, item });
   }
 
   const syncUrl = "/api/db/sync/beacon";
   let allSuccess = true;
+  // Keys actually included in a successfully queued beacon — only these are
+  // cleared from pendingSyncs (skipped encrypted items stay queued).
+  const sentKeys: string[] = [];
 
-  for (const [bookId, items] of itemsByBook) {
+  for (const [bookId, entries] of itemsByBook) {
+    const bookEncrypted = isBookEncrypted(bookId);
+    const bookKeys: string[] = [];
     const payload: BeaconPayload = {
       book: bookId,
       updates: {
@@ -84,26 +94,40 @@ function syncOnUnload(): string | undefined {
       },
     };
 
-    for (const item of items) {
+    for (const { key, item } of entries) {
       if (item.type === "update") {
         if (!item.data) continue;
+        // E2EE: substitute the pre-encrypted outbox copy; if capture hasn't
+        // settled yet, SKIP the item (it stays in pendingSyncs) — plaintext
+        // must never ride the beacon for an encrypted book.
+        let wireData: SyncRecordData = item.data;
+        if (bookEncrypted) {
+          const ciphertext = getBeaconCiphertext(key);
+          if (!ciphertext) continue;
+          wireData = ciphertext as SyncRecordData;
+        }
         switch (item.store) {
           case "nodes":
-            payload.updates.nodes.push(item.data);
+            payload.updates.nodes.push(wireData);
+            bookKeys.push(key);
             break;
           case "hypercites":
-            payload.updates.hypercites.push(item.data);
+            payload.updates.hypercites.push(wireData);
+            bookKeys.push(key);
             break;
           case "hyperlights":
-            payload.updates.hyperlights.push(item.data);
+            payload.updates.hyperlights.push(wireData);
+            bookKeys.push(key);
             break;
           case "library":
-            payload.updates.library = item.data;
+            payload.updates.library = wireData;
             // The queued library record carries the (un-bumped) base set on pull/last sync.
             payload.base_timestamp = (item.data as { base_timestamp?: number })?.base_timestamp;
+            bookKeys.push(key);
             break;
         }
       } else if (item.type === "delete") {
+        // Deletions carry ids only (no content) — safe for encrypted books too.
         switch (item.store) {
           case "nodes":
             payload.deletions.nodes.push({
@@ -111,12 +135,14 @@ function syncOnUnload(): string | undefined {
               startLine: item.id,
               _action: "delete",
             });
+            bookKeys.push(key);
             break;
           case "hyperlights":
             payload.deletions.hyperlights.push({
               book: bookId,
               hyperlight_id: item.id,
             });
+            bookKeys.push(key);
             break;
         }
       }
@@ -129,17 +155,24 @@ function syncOnUnload(): string | undefined {
     const success = navigator.sendBeacon(syncUrl, blob);
     if (success) {
       console.log(`✅ Beacon sync queued for book: ${bookId}`);
+      sentKeys.push(...bookKeys);
     } else {
       console.warn(`⚠️ Beacon sync failed for book: ${bookId}`);
       allSuccess = false;
     }
   }
 
-  if (allSuccess) {
-    console.log("✅ All beacon syncs successfully queued.");
-    pendingSyncs.clear();
-  } else {
+  // Clear only what actually rode a successful beacon; skipped encrypted items
+  // (outbox not settled) and failed books stay queued for the next opportunity.
+  for (const key of sentKeys) {
+    pendingSyncs.delete(key);
+    discardBeaconCiphertext(key);
+  }
+  if (!allSuccess) {
     console.error("❌ Some beacon syncs failed. Data may be lost.");
+  } else {
+    // pendingSyncs.size > 0 here = encrypted items skipped awaiting outbox capture.
+    console.log(`✅ Beacon syncs queued (${pendingSyncs.size} encrypted item(s) retained).`);
   }
 
   // This message may be shown to the user in a confirmation dialog.

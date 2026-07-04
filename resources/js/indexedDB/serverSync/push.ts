@@ -8,6 +8,8 @@ import { DB_VERSION } from '../core/connection';
 import { advanceBaseTimestamp } from '../core/library';
 import { asBookId } from '../types';
 import { verbose } from '../../utilities/logger';
+// E2EE seam (docs/e2ee.md): cheap sync flag check; transform loads on demand.
+import { isBookEncrypted } from '../../e2ee/registry';
 
 /** Per-store push configuration (endpoint + the IDB key range to read). */
 interface StoreConfig {
@@ -155,10 +157,26 @@ async function syncBookDataToServer(bookName: string, objectStoreName: string, m
         // Normalize the book ID format for sending to server
         const normalizedBookName = bookNameWithoutSlash;
 
+        // E2EE seam (docs/e2ee.md): encrypted books leave the client as
+        // ciphertext on EVERY per-store endpoint this full-book push hits.
+        // Throws VaultLockedError when locked — surfaces as a sync failure.
+        let wireData = bookData;
+        if (isBookEncrypted(normalizedBookName)) {
+            const { encryptStoreRows, encryptRecordForStore } = await import('../../e2ee/transform');
+            const { getDekForBook } = await import('../../e2ee/keys');
+            const { rootBookId } = await import('../../e2ee/registry');
+            if (Array.isArray(bookData)) {
+                wireData = await encryptStoreRows(objectStoreName, normalizedBookName, bookData);
+            } else {
+                const dek = await getDekForBook(normalizedBookName);
+                wireData = await encryptRecordForStore(objectStoreName, bookData, dek, rootBookId(normalizedBookName));
+            }
+        }
+
         // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
         const requestBody = {
             book: normalizedBookName,
-            data: bookData
+            data: wireData
         };
 
         verbose.content(`Sending ${objectStoreName} data to server`, 'serverSync/push');

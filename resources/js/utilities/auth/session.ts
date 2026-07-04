@@ -365,6 +365,19 @@ export function setCurrentUser(user: any) {
 // Call this after logout to reset state
 export async function clearCurrentUser() {
   resetAuth();
+  // E2EE (docs/e2ee.md): drop the IN-MEMORY vault key / DEK / registry caches —
+  // logout doesn't reload the page, and clearDatabase below only removes the
+  // PERSISTED copy. Without this a shared-device session keeps the keys warm.
+  try {
+    const [{ clearKeyCaches }, { clearEncryptedBookRegistry }, { clearBeaconOutbox }] = await Promise.all([
+      import('../../e2ee/keys'),
+      import('../../e2ee/registry'),
+      import('../../e2ee/outbox'),
+    ]);
+    clearKeyCaches();
+    clearEncryptedBookRegistry();
+    clearBeaconOutbox();
+  } catch { /* e2ee chunk unavailable (offline) — IDB wipe below still removes the persisted key */ }
   // NEW: Clear all local data on logout
   await clearDatabase();
   // Re-initialize to get new anonymous session and WAIT for it

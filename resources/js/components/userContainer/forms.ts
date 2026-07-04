@@ -86,6 +86,10 @@ export function getProfileHTML(emailVerified = true): string {
               style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: 1px solid var(--color-accent); border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; font-family: inherit;">
         My Library
       </button>${verifyBanner}
+      <button id="passkeysBtn" class="fucked-buttons"
+              style="width: 100%; padding: 8px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; font-family: inherit; font-size: 12px;">
+        Passkeys
+      </button>
       <button id="logout" class="fucked-buttons"
               style="width: 100%; padding: 10px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer; box-sizing: border-box; transition: background-color 0.3s, color 0.3s, border-color 0.3s; font-family: inherit;">
         Logout

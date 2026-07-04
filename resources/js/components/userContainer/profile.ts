@@ -38,6 +38,20 @@ export function attachProfileButtonListeners(self: any) {
     });
   }
 
+  const passkeysBtn = self.container.querySelector('#passkeysBtn');
+  if (passkeysBtn) {
+    passkeysBtn.addEventListener('click', async (e: any) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // Lazy: keeps the e2ee/WebAuthn code out of the eager bundle.
+      const { showPasskeySettings } = await import('../../e2ee/ui/passkeySettings');
+      await showPasskeySettings({
+        container: self.container,
+        onBack: () => showUserProfile(self),
+      });
+    });
+  }
+
   const myBooksBtn = self.container.querySelector('#myBooksBtn');
   if (myBooksBtn) {
     myBooksBtn.addEventListener('click', (e: any) => {

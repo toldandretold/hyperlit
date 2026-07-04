@@ -36,6 +36,14 @@ function getNetworkIp() {
   return 'localhost';
 }
 
+// WebAuthn/passkeys (docs/e2ee.md) need a SECURE context — http://hyperlit.test
+// doesn't qualify, so the site must run https once `herd secure` has minted a
+// cert. Auto-detect it: with the cert present, vite serves https + wss on
+// hyperlit.test (mixed content would otherwise block every dev script on the
+// https page); without it, everything stays exactly as before.
+const HERD_CERT = `${os.homedir()}/Library/Application Support/Herd/config/valet/Certificates/hyperlit.test.crt`;
+const HAS_TLS = fs.existsSync(HERD_CERT);
+
 export default defineConfig({
   build: {
     rollupOptions: {
@@ -67,9 +75,10 @@ export default defineConfig({
     strictPort: true,
     cors: true,
     hmr: {
-      // Support both network IP and local .test domains for subdomains
-      host: process.env.VITE_HMR_HOST || getNetworkIp(),
-      protocol: 'ws',
+      // Support both network IP and local .test domains for subdomains.
+      // Under TLS the cert is only valid for hyperlit.test, so HMR pins there.
+      host: process.env.VITE_HMR_HOST || (HAS_TLS ? 'hyperlit.test' : getNetworkIp()),
+      protocol: HAS_TLS ? 'wss' : 'ws',
     },
     proxy: {
       '/resources/markdown': {
@@ -125,6 +134,10 @@ export default defineConfig({
         // but it will be processed by Vite and not end up at the root.
       ],
       refresh: true,
+      // Serve dev assets over https://hyperlit.test once `herd secure` has run
+      // (the laravel plugin picks up Herd's cert AND writes the https hot-file
+      // URL). Without the cert this is false and everything stays plain http.
+      detectTls: HAS_TLS ? 'hyperlit.test' : false,
     }),
   ],
 });

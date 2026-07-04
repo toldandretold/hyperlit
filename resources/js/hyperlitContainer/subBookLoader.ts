@@ -381,6 +381,17 @@ async function enrichSubBookFromDB(subBookId: any, subBookState: any) {
  */
 async function createSubBookOnBackend(subBookId: any, parentBook: any, itemId: any, type: any, annotationHtml: any, nodeId: any = null) {
   try {
+    // E2EE seam (docs/e2ee.md): previewContent is annotation HTML — encrypt it
+    // when the parent book is encrypted (the sub-book inherits the parent DEK).
+    let wirePreviewContent = annotationHtml;
+    const { isBookEncrypted, rootBookId } = await import('../e2ee/registry');
+    if (annotationHtml && isBookEncrypted(String(parentBook))) {
+      const { encryptString } = await import('../e2ee/crypto');
+      const { getDekForBook } = await import('../e2ee/keys');
+      const dek = await getDekForBook(String(parentBook));
+      wirePreviewContent = await encryptString(String(annotationHtml), dek, rootBookId(String(parentBook)));
+    }
+
     const xsrfToken = decodeURIComponent(
       document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || ''
     );
@@ -391,7 +402,7 @@ async function createSubBookOnBackend(subBookId: any, parentBook: any, itemId: a
         'X-XSRF-TOKEN': xsrfToken,
       },
       credentials: 'include',
-      body: JSON.stringify({ type, parentBook, itemId, previewContent: annotationHtml, nodeId }),
+      body: JSON.stringify({ type, parentBook, itemId, previewContent: wirePreviewContent, nodeId }),
     });
     const data: any = await res.json();
     return data.nodeId || null;

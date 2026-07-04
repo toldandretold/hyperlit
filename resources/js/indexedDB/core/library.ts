@@ -9,6 +9,10 @@ import { parseSubBookId } from '../../utilities/subBookIdHelper';
 
 import { queueForSync } from '../syncQueue/queue';
 import { log } from '../../utilities/logger';
+// E2EE (docs/e2ee.md): every IDB library read refreshes the encrypted-book
+// registry, so the sync emitters know the flag even when the book was never
+// re-downloaded this session (cached/offline open).
+import { setBookEncrypted } from '../../e2ee/registry';
 import { LATEST, type BookId, type LibraryRecord } from '../types';
 import type { ServerLibraryRow } from '../serverSync/types';
 
@@ -97,6 +101,14 @@ export async function getLibraryObjectFromIndexedDB(book: unknown): Promise<Libr
         reject(getRequest.error);
       };
     });
+
+    // Refresh the E2EE registry from the stored flag (see import note above).
+    if (libraryObject) {
+      setBookEncrypted(
+        String(libraryObject.book),
+        (libraryObject as { encrypted?: boolean }).encrypted === true,
+      );
+    }
 
     return libraryObject;
 

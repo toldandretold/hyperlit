@@ -1,12 +1,12 @@
 {
   "meta": {
     "dbName": "MarkdownDB",
-    "dbVersion": 27,
-    "fnCount": 1602,
-    "moduleCount": 342,
+    "dbVersion": 28,
+    "fnCount": 1606,
+    "moduleCount": 343,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3245,
+    "edgeCount": 3264,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -144,6 +144,10 @@
         "status",
         "bookId"
       ]
+    },
+    "e2ee": {
+      "keyPath": "id",
+      "indices": []
     }
   },
   "nodes": [
@@ -1148,6 +1152,22 @@
       "leaf": false
     },
     {
+      "id": "components/newbookContainer/encryptIntent:getImportEncryptIntent",
+      "label": "getImportEncryptIntent",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/encryptIntent",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/encryptIntent:setImportEncryptIntent",
+      "label": "setImportEncryptIntent",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/encryptIntent",
+      "leaf": true
+    },
+    {
       "id": "components/newbookContainer/geometry:applyFormGeometry",
       "label": "applyFormGeometry",
       "kind": "fn",
@@ -2100,6 +2120,14 @@
       "leaf": false
     },
     {
+      "id": "components/sourceContainer/citationDisplay:handleEncryptToggle",
+      "label": "handleEncryptToggle",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/citationDisplay",
+      "leaf": false
+    },
+    {
       "id": "components/sourceContainer/citationDisplay:handlePrivacyToggle",
       "label": "handlePrivacyToggle",
       "kind": "fn",
@@ -2506,6 +2534,14 @@
     {
       "id": "components/sourceContainer/index:SourceContainerManager.handleEditClick",
       "label": "SourceContainerManager.handleEditClick",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.handleEncryptToggle",
+      "label": "SourceContainerManager.handleEncryptToggle",
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/index",
@@ -4843,6 +4879,7 @@
         "creator_token",
         "custom_license_text",
         "editor",
+        "encrypted",
         "fileName",
         "fileType",
         "gate_defaults",
@@ -4865,6 +4902,7 @@
         "url",
         "visibility",
         "volume",
+        "wrapped_dek",
         "year"
       ]
     },
@@ -4882,6 +4920,34 @@
       "shape": [
         "message",
         "success"
+      ]
+    },
+    {
+      "id": "controller:DbLibraryController@setEncryption",
+      "label": "setEncryption",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbLibraryController",
+      "method": "setEncryption",
+      "group": "content",
+      "tables": [
+        "library",
+        "nodes",
+        "nodes_history"
+      ],
+      "shape": [
+        "book",
+        "encrypted",
+        "success",
+        "tree",
+        "visibility"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicNode",
+        "ServerNodeRow"
       ]
     },
     {
@@ -12044,6 +12110,11 @@
       ]
     },
     {
+      "id": "pg:nodes_history",
+      "label": "nodes_history",
+      "kind": "table"
+    },
+    {
       "id": "pg:shelves",
       "label": "shelves",
       "kind": "table",
@@ -13859,7 +13930,7 @@
       "kind": "fn",
       "stage": "SPA",
       "module": "SPA/navigation/pathways/ImportBookTransition",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.fetchReaderPageHtml",
@@ -14892,6 +14963,16 @@
       ]
     },
     {
+      "id": "components/newbookContainer/encryptIntent",
+      "label": "components/newbookContainer/encryptIntent",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/newbookContainer/encryptIntent:getImportEncryptIntent",
+        "components/newbookContainer/encryptIntent:setImportEncryptIntent"
+      ]
+    },
+    {
       "id": "components/newbookContainer/geometry",
       "label": "components/newbookContainer/geometry",
       "stage": "components",
@@ -15243,6 +15324,7 @@
       "stage": "components",
       "band": "components",
       "fnIds": [
+        "components/sourceContainer/citationDisplay:handleEncryptToggle",
         "components/sourceContainer/citationDisplay:handlePrivacyToggle"
       ]
     },
@@ -15364,6 +15446,7 @@
         "components/sourceContainer/index:SourceContainerManager.handleCheckSource",
         "components/sourceContainer/index:SourceContainerManager.handleDeleteBook",
         "components/sourceContainer/index:SourceContainerManager.handleEditClick",
+        "components/sourceContainer/index:SourceContainerManager.handleEncryptToggle",
         "components/sourceContainer/index:SourceContainerManager.handleFormSubmit",
         "components/sourceContainer/index:SourceContainerManager.handlePrivacyToggle",
         "components/sourceContainer/index:SourceContainerManager.handleReconvert",
@@ -19377,16 +19460,40 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/newbookContainer/buttonView:restoreOriginalContent__call__components/newbookContainer/encryptIntent:getImportEncryptIntent",
+      "source": "components/newbookContainer/buttonView:restoreOriginalContent",
+      "target": "components/newbookContainer/encryptIntent:getImportEncryptIntent",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/buttonView:restoreOriginalContent__domwrite__dom",
       "source": "components/newbookContainer/buttonView:restoreOriginalContent",
       "target": "dom",
       "rel": "domwrite"
     },
     {
+      "id": "components/newbookContainer/buttonView:setupButtonListeners__call__components/newbookContainer/encryptIntent:setImportEncryptIntent",
+      "source": "components/newbookContainer/buttonView:setupButtonListeners",
+      "target": "components/newbookContainer/encryptIntent:setImportEncryptIntent",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/buttonView:setupButtonListeners__call__SPA/navigation/navigationRegistry:navigate",
       "source": "components/newbookContainer/buttonView:setupButtonListeners",
       "target": "SPA/navigation/navigationRegistry:navigate",
       "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/buttonView:setupButtonListeners__domwrite__dom",
+      "source": "components/newbookContainer/buttonView:setupButtonListeners",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/buttonView:setupButtonListeners__write__store:sessionStorage",
+      "source": "components/newbookContainer/buttonView:setupButtonListeners",
+      "target": "store:sessionStorage",
+      "rel": "write"
     },
     {
       "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal__call__components/newbookContainer/citeForm/bookId:findAvailableBookId",
@@ -20008,6 +20115,12 @@
       "rel": "call"
     },
     {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__call__components/newbookContainer/encryptIntent:getImportEncryptIntent",
+      "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "target": "components/newbookContainer/encryptIntent:getImportEncryptIntent",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__call__components/userButton/userButton:initializeUserContainer",
       "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
       "target": "components/userButton/userButton:initializeUserContainer",
@@ -20024,6 +20137,12 @@
       "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__write__store:sessionStorage",
+      "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "target": "store:sessionStorage",
+      "rel": "write"
     },
     {
       "id": "components/newbookContainer/citeForm/urlImport:setupUrlImport__call__components/newbookContainer/citeForm/dom:$",
@@ -20175,7 +20294,8 @@
       "id": "components/newbookContainer/index:NewBookContainerManager.setupButtonListeners__call__components/newbookContainer/buttonView:setupButtonListeners",
       "source": "components/newbookContainer/index:NewBookContainerManager.setupButtonListeners",
       "target": "components/newbookContainer/buttonView:setupButtonListeners",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/newbookContainer/index:NewBookContainerManager.showImportForm__call__components/newbookContainer/importForm:showImportForm",
@@ -21175,6 +21295,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/citationDisplay:handleEncryptToggle__domwrite__dom",
+      "source": "components/sourceContainer/citationDisplay:handleEncryptToggle",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/sourceContainer/citationDisplay:handlePrivacyToggle__call__components/sourceContainer/helpers:getRecord",
       "source": "components/sourceContainer/citationDisplay:handlePrivacyToggle",
       "target": "components/sourceContainer/helpers:getRecord",
@@ -21636,6 +21762,12 @@
       "id": "components/sourceContainer/index:SourceContainerManager.handleEditClick__call__components/sourceContainer/editForm:handleEditClick",
       "source": "components/sourceContainer/index:SourceContainerManager.handleEditClick",
       "target": "components/sourceContainer/editForm:handleEditClick",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.handleEncryptToggle__call__components/sourceContainer/citationDisplay:handleEncryptToggle",
+      "source": "components/sourceContainer/index:SourceContainerManager.handleEncryptToggle",
+      "target": "components/sourceContainer/citationDisplay:handleEncryptToggle",
       "rel": "call"
     },
     {
@@ -22455,6 +22587,12 @@
       "rel": "call"
     },
     {
+      "id": "components/userContainer/profile:attachProfileButtonListeners__call__components/userContainer/profile:showUserProfile",
+      "source": "components/userContainer/profile:attachProfileButtonListeners",
+      "target": "components/userContainer/profile:showUserProfile",
+      "rel": "call"
+    },
+    {
       "id": "components/userContainer/profile:showUserProfile__call__components/userContainer/forms:getProfileHTML",
       "source": "components/userContainer/profile:showUserProfile",
       "target": "components/userContainer/forms:getProfileHTML",
@@ -22922,6 +23060,24 @@
       "id": "controller:DbLibraryController@destroy__push__pg:library",
       "source": "controller:DbLibraryController@destroy",
       "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@setEncryption__push__pg:library",
+      "source": "controller:DbLibraryController@setEncryption",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@setEncryption__push__pg:nodes",
+      "source": "controller:DbLibraryController@setEncryption",
+      "target": "pg:nodes",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@setEncryption__push__pg:nodes_history",
+      "source": "controller:DbLibraryController@setEncryption",
+      "target": "pg:nodes_history",
       "rel": "push"
     },
     {
@@ -24084,6 +24240,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/newbookContainer/buttonView:restoreOriginalContent",
+      "source": "dom",
+      "target": "components/newbookContainer/buttonView:restoreOriginalContent",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/newbookContainer/buttonView:setupButtonListeners",
       "source": "dom",
       "target": "components/newbookContainer/buttonView:setupButtonListeners",
@@ -24495,6 +24657,12 @@
       "id": "dom__domread__components/sourceContainer/checkSource:wireSourceStatus",
       "source": "dom",
       "target": "components/sourceContainer/checkSource:wireSourceStatus",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/citationDisplay:handleEncryptToggle",
+      "source": "dom",
+      "target": "components/sourceContainer/citationDisplay:handleEncryptToggle",
       "rel": "domread"
     },
     {
@@ -32626,6 +32794,13 @@
       "rel": "call"
     },
     {
+      "id": "indexedDB/serverSync/loaders:loadNodesToIndexedDB__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "indexedDB/serverSync/loaders:loadNodesToIndexedDB",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "indexedDB/serverSync/loaders:loadNodesToIndexedDB__call__indexedDB/types:asChunkId",
       "source": "indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "target": "indexedDB/types:asChunkId",
@@ -32741,7 +32916,8 @@
       "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
       "target": "indexedDB/serverSync/loaders:loadNodesToIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__pageLoad/accessGuards:handleDeletedBookAccess",
@@ -33031,6 +33207,13 @@
       "source": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
       "target": "indexedDB/core/utilities:parseNodeId",
       "rel": "call"
+    },
+    {
+      "id": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB__write__store:nodes",
@@ -33610,7 +33793,8 @@
       "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "source": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
       "target": "indexedDB/serverSync/loaders:loadNodesToIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks__call__indexedDB/types:asBookId",
@@ -33715,7 +33899,8 @@
       "id": "pageLoad/initialChunk:fetchInitialChunk__call__indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "source": "pageLoad/initialChunk:fetchInitialChunk",
       "target": "indexedDB/serverSync/loaders:loadNodesToIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "pageLoad/initialChunk:fetchInitialChunk__call__pageLoad/accessGuards:handleDeletedBookAccess",
@@ -34078,7 +34263,8 @@
       "id": "pageLoad/timeMachine:initializeTimeMachine__call__indexedDB/serverSync/loaders:loadNodesToIndexedDB",
       "source": "pageLoad/timeMachine:initializeTimeMachine",
       "target": "indexedDB/serverSync/loaders:loadNodesToIndexedDB",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "pageLoad/timeMachine:initializeTimeMachine__domwrite__dom",
@@ -37317,6 +37503,12 @@
       "rel": "call"
     },
     {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.execute__write__store:sessionStorage",
+      "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.execute",
+      "target": "store:sessionStorage",
+      "rel": "write"
+    },
+    {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.handleFormSubmissionAndTransition__call__indexedDB/core/connection:openDatabase",
       "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.handleFormSubmissionAndTransition",
       "target": "indexedDB/core/connection:openDatabase",
@@ -38936,6 +39128,12 @@
       "rel": "read"
     },
     {
+      "id": "store:sessionStorage__read__SPA/createNewBook:createNewBook",
+      "source": "store:sessionStorage",
+      "target": "SPA/createNewBook:createNewBook",
+      "rel": "read"
+    },
+    {
       "id": "store:sessionStorage__read__SPA/createNewBook:fireAndForgetSync",
       "source": "store:sessionStorage",
       "target": "SPA/createNewBook:fireAndForgetSync",
@@ -38963,6 +39161,12 @@
       "id": "store:sessionStorage__read__SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.isFreshPageLoad",
       "source": "store:sessionStorage",
       "target": "SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.isFreshPageLoad",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.execute",
+      "source": "store:sessionStorage",
+      "target": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.execute",
       "rel": "read"
     },
     {
@@ -39867,6 +40071,11 @@
     },
     {
       "source": "components/newbookContainer/buttonView",
+      "target": "components/newbookContainer/encryptIntent",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/buttonView",
       "target": "components/newbookContainer/citeForm/index",
       "kind": "lazy"
     },
@@ -40068,6 +40277,11 @@
     {
       "source": "components/newbookContainer/citeForm/submission",
       "target": "components/newbookContainer/citeForm/state",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/submission",
+      "target": "components/newbookContainer/encryptIntent",
       "kind": "static"
     },
     {
@@ -42786,6 +43000,11 @@
       "kind": "lazy"
     },
     {
+      "source": "indexedDB/serverSync/loaders",
+      "target": "indexedDB/hydration/rebuild",
+      "kind": "lazy"
+    },
+    {
       "source": "indexedDB/serverSync/pull",
       "target": "indexedDB/index",
       "kind": "static"
@@ -42904,6 +43123,11 @@
       "source": "lazyLoader/chunkFetcher",
       "target": "indexedDB/index",
       "kind": "static"
+    },
+    {
+      "source": "lazyLoader/chunkFetcher",
+      "target": "indexedDB/hydration/rebuild",
+      "kind": "lazy"
     },
     {
       "source": "lazyLoader/chunkRender",
@@ -44104,6 +44328,6 @@
       ]
     ],
     "breakerCount": 2,
-    "lazyCount": 235
+    "lazyCount": 237
   }
 }

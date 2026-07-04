@@ -134,6 +134,9 @@ export interface ServerLibraryRow {
   annotations_updated_at?: number;
   visibility?: 'public' | 'private' | 'deleted';
   listed?: boolean;
+  /** E2EE (docs/e2ee.md): mirrors LibraryRecord.encrypted / wrapped_dek. */
+  encrypted?: boolean;
+  wrapped_dek?: string | null;
   license?: string | null;
   custom_license_text?: string | null;
   gate_defaults?: GateDefaults | null;

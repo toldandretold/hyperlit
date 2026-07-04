@@ -4,6 +4,9 @@
  */
 
 import type { BookId, SyncOperationType, SyncQueueItem, SyncStoreRecordMap, SyncStore } from '../types';
+// E2EE beacon outbox (docs/e2ee.md): pre-encrypts encrypted-book items so the
+// synchronous unload beacon can substitute ciphertext. No-ops for plaintext books.
+import { captureForBeacon, discardBeaconCiphertext } from '../../e2ee/outbox';
 
 // Global pending syncs map
 export const pendingSyncs = new Map<string, SyncQueueItem>();
@@ -72,6 +75,9 @@ export function queueForSync<S extends SyncStore>(
   // the partial-vs-full seam is bridged — replacing scattered call-site `as any`.
   pendingSyncs.set(key, { store, id, type, data, originalData } as SyncQueueItem);
 
+  // Fire-and-forget ciphertext mirror for the unload beacon (encrypted books only).
+  captureForBeacon(key, store, data as Record<string, unknown> | null);
+
   // Not injected = programming error; calling through undefined throws, same as the
   // pre-TS behaviour.
   debouncedMasterSync!();
@@ -92,7 +98,10 @@ export function clearPendingSyncsForBook(bookId: BookId): number {
       keysToDelete.push(key);
     }
   }
-  keysToDelete.forEach(key => pendingSyncs.delete(key));
+  keysToDelete.forEach(key => {
+    pendingSyncs.delete(key);
+    discardBeaconCiphertext(key);
+  });
   console.log(`🧹 Cleared ${keysToDelete.length} pending syncs for book: ${bookId}`);
   return keysToDelete.length;
 }

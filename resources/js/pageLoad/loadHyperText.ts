@@ -87,6 +87,19 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
   const currentBook = bookId || book;
   verbose.content(`Book data loaded: ${currentBook}`, 'initializePage.js');
   setupOnlineSyncListener();
+
+  // E2EE open-gate, cached case (docs/e2ee.md): when the library record is
+  // already local and marks the book encrypted, require the vault BEFORE any
+  // render/sync work. (Fresh-device case is gated inside fetchInitialChunk,
+  // where the library row first arrives.) Resolves instantly for plaintext
+  // books and unlocked vaults.
+  try {
+    const { ensureUnlockedForBook } = await import('../e2ee/lifecycle');
+    await ensureUnlockedForBook(String(currentBook));
+  } catch {
+    window.location.href = '/'; // unlock dismissed — leave the book
+    return;
+  }
   const openHyperlightID = OpenHyperlightID || null;
   const openFootnoteID = OpenFootnoteID || null;
 

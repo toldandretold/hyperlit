@@ -200,6 +200,15 @@ public function upsert(Request $request)
             $data = $this->sanitizeMetadata((array) $request->input('data'));
             $bookId = $data['book']; // validated as required above
 
+            // E2EE backstop (docs/e2ee.md): encrypted books only ever store
+            // ciphertext metadata (the PgLibrary saving hook separately pins
+            // visibility/listed/slug while encrypted).
+            \App\Services\E2ee\EncryptedBookGuard::rejectPlaintextWrites(
+                $bookId,
+                $data,
+                ['title', 'author', 'note', 'abstract', 'bibtex'],
+            );
+
             $libraryRecord = PgLibrary::where('book', $bookId)->firstOrFail();
 
             $currentUserInfo = $this->getCreatorInfo($request);
@@ -333,7 +342,9 @@ public function upsert(Request $request)
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json(['success' => false, 'message' => 'Book not found'], 404);
-        } catch (\Exception $e) {
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e; // E2EE guard 422 — render via the framework handler
+            } catch (\Exception $e) {
             Log::error('Upsert failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return response()->json(['success' => false, 'message' => 'Failed to sync data', 'error' => $e->getMessage()], 500);
         }
@@ -421,10 +432,24 @@ public function bulkCreate(Request $request)
                     'total_views' => $item['total_views'] ?? 0,
                     'total_highlights' => $item['total_highlights'] ?? 0,
                     'total_citations' => $item['total_citations'] ?? 0,
+                    // E2EE (docs/e2ee.md): a book can be born encrypted — the client
+                    // sends the flag + its vault-wrapped DEK; the PgLibrary saving
+                    // hook then pins private/unlisted/slug-less.
+                    'encrypted' => (bool) ($item['encrypted'] ?? false),
+                    'wrapped_dek' => $item['wrapped_dek'] ?? null,
                     'raw_json' => json_encode($this->cleanItemForStorage($item)),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];
+
+                // E2EE backstop: a born-encrypted book's metadata must be ciphertext
+                // (the flag comes from the request — no library row to look up yet).
+                if ($record['encrypted']) {
+                    \App\Services\E2ee\EncryptedBookGuard::assertCiphertextFields(
+                        [array_intersect_key($item, array_flip(['title', 'author', 'note', 'abstract', 'bibtex']))],
+                        ['title', 'author', 'note', 'abstract', 'bibtex'],
+                    );
+                }
                 
                 Log::info('Creating library record with auth info', [
                     'book' => $record['book'],
@@ -793,20 +818,29 @@ public function bulkCreate(Request $request)
                 ], 400);
             }
 
-            // Check if the book ID exists in the book column (primary key)
-            $existingRecord = PgLibrary::where('book', $bookId)->first();
-            
-            if ($existingRecord) {
+            // Existence must be checked PAST RLS: `library.book` is a GLOBAL
+            // primary key, but an RLS-scoped query can't see other users'
+            // private rows — so a taken id looked "available", the form
+            // submitted, and the insert 500'd on library_pkey (found via an
+            // import colliding with another account's private book). The
+            // SECURITY DEFINER probe exists for exactly this.
+            $probe = DB::selectOne('SELECT * FROM check_book_visibility(?)', [$bookId]);
+
+            if ($probe && $probe->book_exists) {
+                // Only reveal WHOSE book it is when the caller can see it
+                // anyway (own/public) — never leak a stranger's private metadata.
+                $visibleRecord = PgLibrary::where('book', $bookId)->first();
+
                 return response()->json([
                     'success' => true,
                     'exists' => true,
                     'message' => 'Book ID is already taken',
-                    'book_url' => url('/') . '/' . $bookId,
-                    'book_title' => $existingRecord->title,
-                    'book_author' => $existingRecord->author
+                    'book_url' => $visibleRecord ? url('/') . '/' . $bookId : null,
+                    'book_title' => $visibleRecord?->title,
+                    'book_author' => $visibleRecord?->author,
                 ]);
             }
-            
+
             return response()->json([
                 'success' => true,
                 'exists' => false,
@@ -945,6 +979,132 @@ public function bulkCreate(Request $request)
      * Set or update the slug for a book.
      * Creator-only. Validates slug format and checks for collisions.
      */
+    /**
+     * E2EE transition endpoint (docs/e2ee.md): POST /api/db/library/{book}/encryption
+     *
+     * encrypt ({encrypted:true, wrapped_dek}): flag the book tree encrypted,
+     * force private/unlisted/slug-less, scrub server-derived plaintext
+     * (plainText + embeddings). The client then full-pushes ciphertext.
+     *
+     * publish ({encrypted:false}): clear the flags + wrapped DEK on the tree.
+     * The client then full-pushes plaintext (until it does, content stays
+     * ciphertext in a private book — nothing public ever shows ciphertext).
+     */
+    public function setEncryption(Request $request, string $book)
+    {
+        $validator = Validator::make($request->all(), [
+            'encrypted' => 'required|boolean',
+            'wrapped_dek' => 'required_if:encrypted,true|nullable|string|max:4096',
+        ]);
+        if ($validator->fails()) {
+            return ApiResponse::validationError($validator->errors());
+        }
+
+        $user = Auth::user();
+        if (! $user) {
+            return response()->json(['success' => false, 'message' => 'Authentication required'], 401);
+        }
+
+        // Transitions apply to the whole tree — address the ROOT book only.
+        if (str_contains($book, '/')) {
+            return response()->json(['success' => false, 'message' => 'Encryption is set on the top-level book'], 422);
+        }
+
+        $library = PgLibrary::where('book', $book)->first();
+        if (! $library) {
+            return response()->json(['success' => false, 'message' => 'Book not found'], 404);
+        }
+        if ($library->creator !== $user->name) {
+            return response()->json(['success' => false, 'message' => 'Only the book creator can change encryption'], 403);
+        }
+
+        $encrypting = (bool) $request->boolean('encrypted');
+        $oldVisibility = $library->visibility;
+
+        try {
+            DB::transaction(function () use ($library, $book, $encrypting, $request) {
+                if ($encrypting) {
+                    $library->encrypted = true;
+                    $library->wrapped_dek = $request->input('wrapped_dek');
+                    $library->save(); // saving hook forces private/unlisted/null-slug
+
+                    // Cascade to sub-books (footnote/annotation sub-books share the root DEK)
+                    PgLibrary::where('book', 'like', $book.'/%')->update([
+                        'encrypted' => true,
+                        'visibility' => 'private',
+                        'listed' => false,
+                        'slug' => null,
+                    ]);
+
+                    // Scrub server-derived plaintext for the whole tree
+                    DB::update(
+                        'UPDATE nodes SET "plainText" = NULL, embedding = NULL WHERE book = ? OR book LIKE ?',
+                        [$book, $book.'/%'],
+                    );
+
+                    // ...and the plaintext RESIDUE the row-scrub misses:
+                    // 1. nodes_history (temporal mirror) keeps OLD row versions —
+                    //    including pre-encryption plaintext content. Admin conn:
+                    //    the mirror isn't covered by the app role's RLS policies.
+                    DB::connection('pgsql_admin')
+                        ->table('nodes_history')
+                        ->where(function ($q) use ($book) {
+                            $q->where('book', $book)->orWhere('book', 'like', $book.'/%');
+                        })
+                        ->delete();
+
+                    // 2. Conversion artifacts on disk (uploaded source, markdown,
+                    //    assessment traces) — all live under resources/markdown/{book}.
+                    $artifactDir = resource_path("markdown/{$book}");
+                    if (is_dir($artifactDir)) {
+                        \Illuminate\Support\Facades\File::deleteDirectory($artifactDir);
+                    }
+                } else {
+                    $library->encrypted = false;
+                    $library->wrapped_dek = null;
+                    $library->save();
+
+                    PgLibrary::where('book', 'like', $book.'/%')->update([
+                        'encrypted' => false,
+                    ]);
+                }
+            });
+        } catch (\Exception $e) {
+            Log::error('Encryption transition failed', ['book' => $book, 'error' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => 'Encryption transition failed'], 500);
+        }
+
+        \App\Services\E2ee\EncryptedBookGuard::forget($book);
+        $library->refresh();
+
+        // The full tree (root first) — the client must pull + re-push EVERY one
+        // of these so no sub-book's content is left behind in the old form.
+        $tree = PgLibrary::where('book', $book)
+            ->orWhere('book', 'like', $book.'/%')
+            ->orderByRaw("book = ? DESC", [$book])
+            ->pluck('book');
+
+        // Keep home cards + shelves in sync with the (possibly) changed visibility.
+        if ($library->creator) {
+            if ($oldVisibility !== $library->visibility) {
+                app(UserHomeServerController::class)
+                    ->moveBookBetweenHomeBooks($library->creator, $library, $oldVisibility, $library->visibility);
+            } else {
+                app(UserHomeServerController::class)->updateBookOnUserPage($library->creator, $library);
+            }
+            (new ShelfCacheInvalidator())->flushShelvesContaining($book);
+        }
+
+        return response()->json([
+            'success' => true,
+            'book' => $book,
+            'encrypted' => $library->encrypted,
+            'visibility' => $library->visibility,
+            'tree' => $tree,
+        ]);
+    }
+
     public function setSlug(Request $request)
     {
         try {
@@ -980,6 +1140,15 @@ public function bulkCreate(Request $request)
                     'success' => false,
                     'message' => 'Only the book creator can set a slug'
                 ], 403);
+            }
+
+            // E2EE (docs/e2ee.md): encrypted books have no public URL — no slug
+            // until the book is published (which decrypts it).
+            if ($library->encrypted) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Encrypted books cannot have a slug — publish the book first'
+                ], 422);
             }
 
             // Allow clearing the slug

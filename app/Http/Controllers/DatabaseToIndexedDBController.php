@@ -918,6 +918,12 @@ class DatabaseToIndexedDBController extends Controller
             'license' => $library->license ?? null,
             'custom_license_text' => $library->custom_license_text ?? null,
             'gate_defaults' => $library->gate_defaults ? json_decode($library->gate_defaults, true) : null,
+            // E2EE (docs/e2ee.md): MUST round-trip — the client registry + the
+            // upload seam key off `encrypted`, and the DEK cache is bootstrapped
+            // from `wrapped_dek`. Omitting them made a pull reset the flag to
+            // false, so the next push sent plaintext into an encrypted row (422).
+            'encrypted' => (bool) ($library->encrypted ?? false),
+            'wrapped_dek' => $library->wrapped_dek ?? null,
             'raw_json' => $rawJson,
             // Canonical / verified-source state — drives the [check source] button vs verified badge
             // in the source panel. Read-only here (set by CanonicalSourceMatcher / SourceVerificationController).

@@ -41,6 +41,9 @@ class DbReferencesController extends Controller
         $references = $request->input('data');
         $upsertedCount = 0;
 
+        // E2EE backstop (docs/e2ee.md): encrypted books only ever store ciphertext.
+        \App\Services\E2ee\EncryptedBookGuard::rejectPlaintextWrites($bookId, $references, ['content']);
+
         try {
             foreach ($references as $item) {
                 // Use DB::table() instead of Eloquent because the model has a composite primary key

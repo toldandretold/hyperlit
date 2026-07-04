@@ -42,6 +42,13 @@ class VibeConvertController extends Controller
             return response()->json(['success' => false, 'message' => 'Insufficient balance'], 402);
         }
         $bookId = $validated['bookId'];
+
+        // E2EE (docs/e2ee.md): the vibe pipeline reads book content server-side —
+        // impossible for an encrypted book (server only holds ciphertext).
+        if (\App\Services\E2ee\EncryptedBookGuard::isEncrypted($bookId)) {
+            return response()->json(['success' => false, 'message' => 'Encrypted books cannot use server-side conversion'], 422);
+        }
+
         $dir = resource_path("markdown/{$bookId}");
         if (!is_dir($dir) || !file_exists("{$dir}/assessment.json")) {
             return response()->json(['success' => false, 'message' => 'No conversion decision-trace for this book yet.'], 404);

@@ -115,6 +115,17 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       ${isPrivate ? PRIVATE_SVG : PUBLIC_SVG}
     </button>` : '';
 
+  // E2EE (docs/e2ee.md): lock/publish toggle — only for the owner of a
+  // TOP-LEVEL book (sub-books inherit the root's encryption).
+  const isEncrypted = (record as { encrypted?: boolean } | null)?.encrypted === true;
+  const encryptToggleHtml = (canEdit && !accessDenied && record && !String(record.book ?? '').includes('/')) ? `
+    <button id="encrypt-toggle"
+            data-is-encrypted="${isEncrypted}"
+            style="position: absolute; top: 10px; right: 46px; z-index: 1002; background: transparent; border: none; cursor: pointer; font-size: 16px;"
+            title="${isEncrypted ? 'Encrypted — click to publish (permanently decrypts on the server)' : 'Not encrypted — click to lock with your passkey'}">
+      ${isEncrypted ? '🔐' : '🔓'}
+    </button>` : '';
+
   // Get license info
   const license = record?.license || 'CC-BY-SA-4.0-NO-AI';
   const LICENSE_INFO: any = {
@@ -299,6 +310,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     </div>
 
     ${privacyToggleHtml}
+    ${encryptToggleHtml}
     ${editButtonHtml}
 
     <!-- Edit Form (initially hidden) -->

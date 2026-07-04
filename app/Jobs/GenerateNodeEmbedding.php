@@ -58,6 +58,13 @@ class GenerateNodeEmbedding implements ShouldQueue
             return;
         }
 
+        // E2EE (docs/e2ee.md): encrypted books hold ciphertext — never embed.
+        // (plainText is NULLed for them anyway; this guards already-queued jobs
+        // racing an encryption transition.)
+        if (!empty($library->encrypted)) {
+            return;
+        }
+
         $embedding = $embeddingService->embed($node->plainText);
 
         if ($embedding) {

@@ -48,6 +48,16 @@ export function setupRealTimeValidation() {
         }
 
         if (data.exists) {
+          // book_title/book_url are null when the taken id belongs to a book
+          // the caller can't see (another user's private book) — say "taken"
+          // without leaking whose it is.
+          if (!data.book_url) {
+            return {
+              valid: false,
+              message: `Citation ID "${value}" is already taken — pick another.`,
+              isHtml: false
+            };
+          }
           const linkHtml = `<a href="${data.book_url}" target="_blank" style="color: #EF8D34; text-decoration: underline;">View existing book</a>`;
           return {
             valid: false,

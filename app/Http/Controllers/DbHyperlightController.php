@@ -264,6 +264,15 @@ class DbHyperlightController extends Controller
             ]);
             
             if (isset($data['data']) && is_array($data['data'])) {
+                // E2EE backstop (docs/e2ee.md): encrypted books only ever store ciphertext.
+                foreach ($data['data'] as $guardItem) {
+                    \App\Services\E2ee\EncryptedBookGuard::rejectPlaintextWrites(
+                        $guardItem['book'] ?? '',
+                        [$guardItem],
+                        ['annotation', 'highlightedText', 'highlightedHTML'],
+                    );
+                }
+
                 $processedCount = 0;
                 $processedBookIds = [];
                 $indexUpdates = [];   // book => [hyperlight_id => firstNodeId] for the cached deep-link index
@@ -419,7 +428,9 @@ class DbHyperlightController extends Controller
             }
             Log::error('DbHyperlightController::upsert - QueryException', ['error' => $qe->getMessage()]);
             return ApiResponse::error('Failed to sync data', 500, ['error' => $qe->getMessage()]);
-        } catch (\Exception $e) {
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e; // E2EE guard 422 — render via the framework handler
+            } catch (\Exception $e) {
             Log::error('DbHyperlightController::upsert - Exception', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()

@@ -305,6 +305,10 @@ export interface LibraryRecord {
   annotations_updated_at?: number;
   visibility?: 'public' | 'private' | 'deleted';
   listed?: boolean;
+  /** E2EE (docs/e2ee.md): content columns hold client-side ciphertext on the server. */
+  encrypted?: boolean;
+  /** The book's DEK wrapped by the owner's vault key (hlenc envelope; root books only). */
+  wrapped_dek?: string | null;
   license?: string | null;
   custom_license_text?: string | null;
   gate_defaults?: GateDefaults | null;

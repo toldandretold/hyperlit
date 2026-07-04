@@ -635,6 +635,7 @@
                 "creator_token",
                 "custom_license_text",
                 "editor",
+                "encrypted",
                 "fileName",
                 "fileType",
                 "gate_defaults",
@@ -657,6 +658,7 @@
                 "url",
                 "visibility",
                 "volume",
+                "wrapped_dek",
                 "year"
             ],
             "endpoints": [
@@ -679,6 +681,29 @@
             ],
             "endpoints": [
                 "/api/books/{}"
+            ]
+        },
+        {
+            "id": "controller:DbLibraryController@setEncryption",
+            "label": "DbLibraryController@setEncryption",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbLibraryController",
+            "method": "setEncryption",
+            "tables": [
+                "library",
+                "nodes",
+                "nodes_history"
+            ],
+            "shape": [
+                "book",
+                "encrypted",
+                "success",
+                "tree",
+                "visibility"
+            ],
+            "endpoints": [
+                "/api/db/library/{}/encryption"
             ]
         },
         {
@@ -1048,6 +1073,21 @@
         {
             "source": "controller:DbLibraryController@destroy",
             "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@setEncryption",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@setEncryption",
+            "target": "pg:nodes_history",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@setEncryption",
+            "target": "pg:nodes",
             "rel": "write"
         },
         {
@@ -1421,6 +1461,7 @@
         "/api/db/library/set-slug": "controller:DbLibraryController@setSlug",
         "/api/db/library/update-timestamp": "controller:DbLibraryController@updateTimestamp",
         "/api/db/library/upsert": "controller:DbLibraryController@upsert",
+        "/api/db/library/{}/encryption": "controller:DbLibraryController@setEncryption",
         "/api/db/nodes/bulk-create": "controller:DbNodeController@bulkCreate",
         "/api/db/nodes/targeted-upsert": "controller:DbNodeController@targetedUpsert",
         "/api/db/nodes/upsert": "controller:DbNodeController@upsert",

@@ -16,7 +16,7 @@ import {
   setupEditFormListeners, saveEditForm, hideEditForm, handleFormSubmit,
   syncLibraryRecordToBackend, collectFormData, refreshCitationDisplay,
 } from "./editForm";
-import { handlePrivacyToggle } from "./citationDisplay";
+import { handlePrivacyToggle, handleEncryptToggle } from "./citationDisplay";
 import { loadCreatorTools } from "./creatorTools/index";
 import { loadVersionHistory } from "./creatorTools/versionHistory";
 import { loadReconvertInfo, handleReconvert, _awaitReconvert } from "./creatorTools/reconvert";
@@ -101,6 +101,12 @@ export class SourceContainerManager extends (ContainerManager as any) {
     if (privacyBtn && !privacyBtn._listenerAttached) {
       privacyBtn._listenerAttached = true;
       privacyBtn.addEventListener("click", () => this.handlePrivacyToggle());
+    }
+
+    const encryptBtn = this.container.querySelector("#encrypt-toggle");
+    if (encryptBtn && !encryptBtn._listenerAttached) {
+      encryptBtn._listenerAttached = true;
+      encryptBtn.addEventListener("click", () => this.handleEncryptToggle());
     }
 
     // Creator tools toggle (lazy-load on first expand)
@@ -288,6 +294,7 @@ export class SourceContainerManager extends (ContainerManager as any) {
 
   // citationDisplay
   handlePrivacyToggle() { return handlePrivacyToggle(this); }
+  handleEncryptToggle() { return handleEncryptToggle(this); }
 
   // checkSource
   handleCheckSource() { return handleCheckSource(this); }

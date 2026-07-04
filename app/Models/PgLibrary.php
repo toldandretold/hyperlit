@@ -82,9 +82,12 @@ class PgLibrary extends Model
         'canonical_match_method',
         'canonical_matched_at',
         'canonical_matched_by',
+        'encrypted',
+        'wrapped_dek',
     ];
 
     protected $casts = [
+        'encrypted' => 'boolean',
         'timestamp' => 'integer',
         'annotations_updated_at' => 'integer',
         'recent' => 'integer',
@@ -126,6 +129,22 @@ class PgLibrary extends Model
 
     protected static function booted()
     {
+        // E2EE invariants (docs/e2ee.md): while a book is encrypted it is forced
+        // private, unlisted, and slug-less — regardless of what any write path
+        // tries to set. Belt-and-braces under the controller-level 422 guards.
+        static::saving(function ($library) {
+            if ($library->encrypted) {
+                $library->visibility = 'private';
+                $library->listed = false;
+                $library->slug = null;
+            }
+        });
+        static::saved(function ($library) {
+            if ($library->wasChanged('encrypted')) {
+                \App\Services\E2ee\EncryptedBookGuard::forget($library->book);
+            }
+        });
+
         // Only invalidate cache when citation/highlight counts change
         static::updating(function ($library) {
             $isDirty = $library->isDirty(['total_citations', 'total_highlights']);

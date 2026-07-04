@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v27 · 1602 functions in 342 modules · 10 object stores · 10 PG tables · 3245 edges
+**MarkdownDB** schema v28 · 1606 functions in 343 modules · 10 object stores · 10 PG tables · 3264 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -93,8 +93,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `armTransition` | `components/newbookContainer/animation` | — | — | — | — |
 | `finishClose` | `components/newbookContainer/animation` | — | — | write | — |
 | `resetAnimationState` | `components/newbookContainer/animation` | — | — | — | — |
-| `restoreOriginalContent` | `components/newbookContainer/buttonView` | — | — | write | — |
-| `setupButtonListeners` | `components/newbookContainer/buttonView` | — | — | read | — |
+| `restoreOriginalContent` | `components/newbookContainer/buttonView` | — | — | read/write | — |
+| `setupButtonListeners` | `components/newbookContainer/buttonView` | — | `sessionStorage` | read/write | — |
 | `checkBibtexAndReveal` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
 | `populateFieldsFromBibtex` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
 | `setupBibtexModeAutoReveal` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
@@ -127,7 +127,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setupSourceToggle` | `components/newbookContainer/citeForm/sourceToggle` | — | — | write | — |
 | `getAllowedResubmitBookId` | `components/newbookContainer/citeForm/state` | — | — | — | — |
 | `setAllowedResubmitBookId` | `components/newbookContainer/citeForm/state` | — | — | — | — |
-| `setupFormSubmission` | `components/newbookContainer/citeForm/submission` | — | — | read/write | — |
+| `setupFormSubmission` | `components/newbookContainer/citeForm/submission` | — | `sessionStorage` | read/write | — |
 | `getCiteFormHTML` | `components/newbookContainer/citeForm/template` | — | — | read | — |
 | `setupUrlImport` | `components/newbookContainer/citeForm/urlImport` | — | — | read/write | — |
 | `setupRealTimeValidation` | `components/newbookContainer/citeForm/validation` | — | — | read/write | — |
@@ -135,6 +135,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `createDebugPanel` | `components/newbookContainer/debugLog` | — | `localStorage` | read/write | — |
 | `debugLog` | `components/newbookContainer/debugLog` | `localStorage` | `localStorage` | — | — |
 | `updateDebugPanel` | `components/newbookContainer/debugLog` | `localStorage` | — | read/write | — |
+| `getImportEncryptIntent` | `components/newbookContainer/encryptIntent` | — | — | — | — |
+| `setImportEncryptIntent` | `components/newbookContainer/encryptIntent` | — | — | — | — |
 | `applyFormGeometry` | `components/newbookContainer/geometry` | — | — | — | — |
 | `computeFormGeometry` | `components/newbookContainer/geometry` | — | — | — | — |
 | `showImportForm` | `components/newbookContainer/importForm` | — | — | read/write | — |
@@ -249,6 +251,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `librarianHtml` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `sourceStatusSectionHtml` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `wireSourceStatus` | `components/sourceContainer/checkSource` | — | — | read/write | — |
+| `handleEncryptToggle` | `components/sourceContainer/citationDisplay` | — | — | read/write | — |
 | `handlePrivacyToggle` | `components/sourceContainer/citationDisplay` | — | `library` | read/write | — |
 | `handleDeleteBook` | `components/sourceContainer/creatorTools/deleteBook` | — | — | read/write | — |
 | `loadCreatorTools` | `components/sourceContainer/creatorTools/index` | — | — | read/write | — |
@@ -299,6 +302,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.handleCheckSource` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleDeleteBook` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleEditClick` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.handleEncryptToggle` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleFormSubmit` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handlePrivacyToggle` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleReconvert` | `components/sourceContainer/index` | — | — | — | — |
@@ -1423,7 +1427,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `searchCacheClear` | `search/searchResultCache` | — | — | — | — |
 | `searchCacheGet` | `search/searchResultCache` | — | — | — | — |
 | `searchCacheSet` | `search/searchResultCache` | — | — | — | — |
-| `createNewBook` | `SPA/createNewBook` | — | `library` `nodes` `sessionStorage` | — | — |
+| `createNewBook` | `SPA/createNewBook` | `sessionStorage` | `library` `nodes` `sessionStorage` | — | — |
 | `fireAndForgetSync` | `SPA/createNewBook` | `library` `nodes` `sessionStorage` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `markdownStore` `nodes` `sessionStorage` | read | — |
 | `waitForChunkLoadingComplete` | `SPA/domReadiness` | — | — | read | — |
 | `waitForCompleteReadiness` | `SPA/domReadiness` | — | — | read | — |
@@ -1542,7 +1546,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ImportBookTransition.createImportProgressUI` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read/write | — |
 | `ImportBookTransition.deleteImportedBook` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read | — |
 | `ImportBookTransition.enterEditMode` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
-| `ImportBookTransition.execute` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
+| `ImportBookTransition.execute` | `SPA/navigation/pathways/ImportBookTransition` | `sessionStorage` | `sessionStorage` | — | — |
 | `ImportBookTransition.fetchReaderPageHtml` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
 | `ImportBookTransition.handleFormSubmissionAndTransition` | `SPA/navigation/pathways/ImportBookTransition` | — | `library` | read/write | — |
 | `ImportBookTransition.initializeImportedReader` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read | — |
@@ -1615,7 +1619,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 2 · lazy-loads (code-split): 235
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 2 · lazy-loads (code-split): 237
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1784,9 +1788,11 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `indexedDB/serverSync/flush` → `indexedDB/syncQueue/master`
 - `indexedDB/serverSync/flush` → `indexedDB/syncQueue/queue`
 - `indexedDB/serverSync/loaders` → `components/utilities/gateFilter`
+- `indexedDB/serverSync/loaders` → `indexedDB/hydration/rebuild`
 - `indexedDB/serverSync/pull` → `components/utilities/gateFilter`
 - `indexedDB/serverSync/pull` → `pageLoad/accessGuards`
 - `indexedDB/syncQueue/master` → `indexedDB/hydration/rebuild`
+- `lazyLoader/chunkFetcher` → `indexedDB/hydration/rebuild`
 - `lazyLoader/chunkRender` → `divEditor/domUtilities`
 - `lazyLoader/chunkRender` → `indexedDB/index`
 - `lazyLoader/footnoteSelfHeal` → `indexedDB/nodes/batch`

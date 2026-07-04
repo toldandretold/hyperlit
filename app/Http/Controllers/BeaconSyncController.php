@@ -61,6 +61,12 @@ class BeaconSyncController extends Controller
         $payload = $validator->validated();
         $bookId = $payload['book'];
 
+        // E2EE backstop (docs/e2ee.md): an encrypted book only ever stores ciphertext.
+        \App\Services\E2ee\EncryptedBookGuard::rejectPlaintextWrites($bookId, $payload['updates']['nodes'] ?? null, ['content']);
+        \App\Services\E2ee\EncryptedBookGuard::rejectPlaintextWrites($bookId, $payload['updates']['hyperlights'] ?? null, ['annotation', 'highlightedText', 'highlightedHTML']);
+        \App\Services\E2ee\EncryptedBookGuard::rejectPlaintextWrites($bookId, $payload['updates']['hypercites'] ?? null, ['hypercitedText', 'hypercitedHTML']);
+        \App\Services\E2ee\EncryptedBookGuard::rejectPlaintextWrites($bookId, $payload['updates']['library'] ?? null, ['title', 'author', 'note', 'abstract']);
+
         try {
             DB::transaction(function () use ($ownerKey, $ownerValue, $bookId, $payload) {
                 $updates = $payload['updates'];

@@ -51,12 +51,24 @@ class SubBookController extends Controller
 
             [$creator, $creatorToken] = $this->getCreatorInfo($request);
 
+            // E2EE (docs/e2ee.md): sub-books inherit the root book's encryption —
+            // preview content arriving for an encrypted parent must be ciphertext.
+            $parentEncrypted = \App\Services\E2ee\EncryptedBookGuard::isEncrypted($parentBook);
+            if ($parentEncrypted) {
+                \App\Services\E2ee\EncryptedBookGuard::rejectPlaintextWrites(
+                    $parentBook,
+                    [['previewContent' => $validated['previewContent'] ?? null]],
+                    ['previewContent'],
+                );
+            }
+
             // Upsert library record for the sub-book
             PgLibrary::updateOrCreate(
                 ['book' => $subBookId],
                 [
                     'creator'       => $creator,
                     'creator_token' => $creatorToken,
+                    'encrypted'     => $parentEncrypted,
                     'visibility'    => $type === 'footnote'
                         ? ($this->getParentLibraryVisibility($parentBook) ?? 'private')
                         : 'public',
@@ -115,7 +127,9 @@ class SubBookController extends Controller
                 'message' => 'Validation failed',
                 'errors'  => $e->errors(),
             ], 422);
-        } catch (\Exception $e) {
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e; // E2EE guard 422 — render via the framework handler
+            } catch (\Exception $e) {
             Log::error('SubBookController::create - exception', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),

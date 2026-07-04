@@ -89,6 +89,12 @@ class AiBrainController extends Controller
             ], 422);
         }
 
+        // E2EE (docs/e2ee.md): the AI brain reads highlighted content server-side —
+        // impossible for an encrypted book (server only holds ciphertext).
+        if (\App\Services\E2ee\EncryptedBookGuard::isEncrypted($validated['bookId'])) {
+            return response()->json(['success' => false, 'message' => 'Encrypted books cannot use the AI brain'], 422);
+        }
+
         // Shelf scope ownership check (cheap pre-flight before opening the stream).
         // Covered by: tests/Feature/AiBrain/AiBrainScopeValidationTest.php
         //   "rejects shelfId belonging to another user with 404"

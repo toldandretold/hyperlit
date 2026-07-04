@@ -1,0 +1,30 @@
+{
+  "_comment": "Axe WCAG-A/AA violation-node counts per page-state per rule id. RATCHET (mirrors consoleBaseline.json): counts may only go DOWN. `npm run test:a11y` prints the suggested lower baseline when a state improves, and prints seed counts for any state with no entry here (e.g. reader-footnote-open, which needs a footnote-bearing E2E_READER_BOOK). A state with no key is report-only. Raising a number is a deliberate, reviewer-visible decision. Regenerate the blob with: node tests/e2e/scripts/merge-a11y-report.mjs. Baseline seeded 2026-07-05 against E2E_READER_BOOK=book_1778118568525.",
+  "home": {
+    "button-name": 2,
+    "meta-viewport": 1
+  },
+  "reader": {
+    "button-name": 4,
+    "meta-viewport": 1
+  },
+  "reader-edit-mode": {
+    "button-name": 11,
+    "meta-viewport": 1
+  },
+  "reader-settings-open": {
+    "button-name": 5,
+    "color-contrast": 4,
+    "meta-viewport": 1
+  },
+  "reader-toc-open": {
+    "button-name": 4,
+    "meta-viewport": 1
+  },
+  "user": {
+    "button-name": 1,
+    "color-contrast": 10,
+    "meta-viewport": 1,
+    "select-name": 1
+  }
+}

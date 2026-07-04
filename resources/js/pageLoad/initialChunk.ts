@@ -35,6 +35,23 @@ export async function fetchInitialChunk(bookId: string): Promise<any> {
 
         const data = await response.json();
 
+        // E2EE open-gate, fresh-device case (docs/e2ee.md): the library row rides
+        // this response — if the book is encrypted and the vault is locked, unlock
+        // BEFORE the loaders run (their decrypt would throw, and allSettled below
+        // would swallow that into a broken half-loaded render).
+        if (data.library?.encrypted) {
+            const { isVaultUnlocked } = await import('../e2ee/keys');
+            if (!(await isVaultUnlocked())) {
+                try {
+                    const { showUnlockModal } = await import('../e2ee/ui/unlockModal');
+                    await showUnlockModal();
+                } catch {
+                    window.location.href = '/'; // dismissed — leave the book
+                    return { success: false, reason: 'e2ee_locked' };
+                }
+            }
+        }
+
         // Store to IndexedDB
         const db = await openDatabase();
         // Clear stale data for this book to prevent duplicate node_ids
@@ -239,26 +256,32 @@ async function loadFootnotesToIndexedDB(db: any, footnotes: any) {
         return;
     }
 
-    const tx = db.transaction('footnotes', 'readwrite');
-    const store = tx.objectStore('footnotes');
     const footnotesData = footnotes.data;
-    const promises = [];
+    const records: any[] = [];
 
     for (const [footnoteId, footnoteData] of Object.entries(footnotesData) as [string, any][]) {
         const isNewFormat = typeof footnoteData === 'object' && footnoteData !== null;
-        const record = {
+        records.push({
             book: footnotes.book,
             footnoteId: footnoteId,
             content: isNewFormat ? (footnoteData.content ?? '') : footnoteData,
             preview_nodes: isNewFormat ? (footnoteData.preview_nodes ?? null) : null,
-        };
-
-        promises.push(new Promise<void>((resolve, reject) => {
-            const request = store.put(record);
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
-        }));
+        });
     }
+
+    // E2EE seam (docs/e2ee.md): decrypt BEFORE opening the write transaction.
+    const { rowHasEnvelopes, decryptRows } = await import('../e2ee/transform');
+    const finalRecords = records.some((r) => rowHasEnvelopes('footnotes', r))
+        ? await decryptRows('footnotes', records)
+        : records;
+
+    const tx = db.transaction('footnotes', 'readwrite');
+    const store = tx.objectStore('footnotes');
+    const promises = finalRecords.map((record) => new Promise<void>((resolve, reject) => {
+        const request = store.put(record);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    }));
 
     await Promise.all(promises);
 }

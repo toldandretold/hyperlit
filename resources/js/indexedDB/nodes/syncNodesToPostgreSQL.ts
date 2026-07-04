@@ -4,6 +4,8 @@
  */
 
 import type { BookId, PublicNode } from '../types';
+// E2EE seam (docs/e2ee.md): cheap sync flag check; transform loads on demand.
+import { isBookEncrypted } from '../../e2ee/registry';
 
 /**
  * Response shape of POST /api/db/nodes/targeted-upsert.
@@ -30,10 +32,16 @@ export async function syncNodesToPostgreSQL(bookId: BookId, nodes: PublicNode[] 
     return { success: true };
   }
 
+  // E2EE seam: encrypted books leave the client as ciphertext. Throws
+  // VaultLockedError when locked — callers treat it like any sync failure.
+  const wireNodes = isBookEncrypted(bookId)
+    ? await (await import('../../e2ee/transform')).encryptNodes(bookId, nodes)
+    : nodes;
+
   // ✅ SIMPLIFIED: Just send the data - auth is handled by middleware
   const payload = {
     book: bookId,
-    data: nodes
+    data: wireNodes
   };
 
   const res = await fetch("/api/db/nodes/targeted-upsert", {

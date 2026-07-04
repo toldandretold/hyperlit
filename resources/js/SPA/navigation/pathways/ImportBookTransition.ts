@@ -89,6 +89,25 @@ export class ImportBookTransition {
       // Update the URL
       this.updateUrl(bookId);
 
+      // E2EE (docs/e2ee.md): "Encrypt after import" — the pipeline needed the
+      // plaintext to convert; now lock the finished book (transition + full
+      // pull + ciphertext re-push) and the server scrubs every plaintext
+      // residue (plainText, embeddings, nodes_history, conversion artifacts).
+      const encryptFlag = sessionStorage.getItem('pending_import_encrypt');
+      if (encryptFlag && (encryptFlag === bookId || encryptFlag === '1')) {
+        sessionStorage.removeItem('pending_import_encrypt');
+        progress(96, 'Encrypting book…');
+        try {
+          const { lockBook } = await import('../../../e2ee/lifecycle');
+          await lockBook(bookId);
+          progress(99, 'Book encrypted.');
+        } catch (lockError) {
+          log.error('Auto-lock after import failed — book imported but NOT encrypted', '/SPA/navigation/pathways/ImportBookTransition.ts', lockError);
+          const detail = lockError instanceof Error ? `\n\nDetails: ${lockError.name}: ${lockError.message}` : '';
+          window.alert(`The book imported fine, but encrypting it failed — use the lock button in the book's source panel to retry.${detail}`);
+        }
+      }
+
       progress(100, 'Import complete!');
 
       verbose.nav('✅ ImportBookTransition: Import book transition complete', '/SPA/navigation/pathways/ImportBookTransition.ts');

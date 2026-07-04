@@ -57,7 +57,12 @@ class LibraryCardGenerator
         $classes = 'libraryCard';
         if ($locked) $classes .= ' libraryCard-locked';
         if ($isPrivate) $classes .= ' libraryCard-private';
-        $content = '<p class="' . $classes . '" id="' . $positionId . '" data-node-id="' . $nodeId . '">' . $citationHtml;
+        // E2EE (docs/e2ee.md): the card renders a generic label (title/author are
+        // ciphertext server-side); the owner's client swaps the real title in from
+        // its local plaintext store. Book stays openable — the reader gate unlocks.
+        if (!empty($record->encrypted)) $classes .= ' libraryCard-encrypted';
+        $content = '<p class="' . $classes . '" id="' . $positionId . '" data-node-id="' . $nodeId . '">'
+            . '<span class="card-citation">' . $citationHtml . '</span>';
 
         if ($locked) {
             $content .= '<span class="locked-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg></span>';
@@ -84,6 +89,12 @@ class LibraryCardGenerator
      */
     public function generateCitationHtml($record): string
     {
+        // E2EE: never render ciphertext metadata — generic label instead
+        // (the owner's client swaps in the real title from local plaintext).
+        if (!empty($record->encrypted)) {
+            return '<strong>🔒</strong> <em>Encrypted book</em>';
+        }
+
         $hasTitle = !empty($record->title);
         $hasAuthor = !empty($record->author);
         $hasYear = !empty($record->year);

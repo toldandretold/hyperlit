@@ -8,6 +8,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
 use App\Models\PgNode;
+use App\Services\E2ee\EncryptedBookGuard;
 use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -195,6 +196,9 @@ class DbNodeController extends Controller
             }
 
             if (isset($data['data']) && is_array($data['data'])) {
+                // E2EE backstop (docs/e2ee.md): an encrypted book only ever stores ciphertext.
+                EncryptedBookGuard::rejectPlaintextWrites($bookId, $data['data'], ['content']);
+
                 $records = [];
 
                 foreach ($data['data'] as $item) {
@@ -208,7 +212,7 @@ class DbNodeController extends Controller
                         'footnotes' => json_encode($item['footnotes'] ?? []),
                         // 🔄 NEW SYSTEM: Don't touch hypercites/hyperlights columns - leave existing data intact
                         // 'hypercites' and 'hyperlights' columns intentionally omitted
-                        'plainText' => $item['plainText'] ?? ($content ? strip_tags($content) : null),
+                        'plainText' => EncryptedBookGuard::plainTextFor($bookId, $content, $item['plainText'] ?? null),
                         'type' => $item['type'] ?? null,
                         'raw_json' => json_encode($this->cleanItemForStorage($item)),
                         'created_at' => now(),
@@ -243,7 +247,9 @@ class DbNodeController extends Controller
 
             return ApiResponse::error('Invalid data format', 422); // F5/F6 (was 400)
 
-        } catch (\Exception $e) {
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e; // E2EE guard 422 — render via the framework handler
+            } catch (\Exception $e) {
             Log::error('Bulk create failed', [
                 'error' => $e->getMessage(),
                 'book' => $data['book'] ?? 'unknown',
@@ -293,6 +299,9 @@ class DbNodeController extends Controller
 
                 $now = now()->format('Y-m-d H:i:s');
 
+                // E2EE backstop (docs/e2ee.md): an encrypted book only ever stores ciphertext.
+                EncryptedBookGuard::rejectPlaintextWrites($book, $data['data'], ['content']);
+
                 $records = [];
                 foreach ($data['data'] as $item) {
                     $content = NodeHtmlSanitizer::clean($item['content'] ?? null); // 🔒 strip stored XSS on write
@@ -303,7 +312,7 @@ class DbNodeController extends Controller
                         'node_id' => $item['node_id'] ?? null,
                         'content' => $content,
                         'footnotes' => json_encode($item['footnotes'] ?? []),
-                        'plainText' => $item['plainText'] ?? ($content ? strip_tags($content) : null),
+                        'plainText' => EncryptedBookGuard::plainTextFor($book, $content, $item['plainText'] ?? null),
                         'type' => $item['type'] ?? null,
                         'raw_json' => json_encode($this->cleanItemForStorage($item)),
                     ];
@@ -377,7 +386,9 @@ class DbNodeController extends Controller
 
             return ApiResponse::error('Invalid data format', 422); // F5/F6 (was 400)
 
-        } catch (\Exception $e) {
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e; // E2EE guard 422 — render via the framework handler
+            } catch (\Exception $e) {
             Log::error('Upsert failed', [
                 'error' => $e->getMessage(),
                 'book' => $data['book'] ?? 'unknown',
@@ -431,6 +442,9 @@ class DbNodeController extends Controller
 
             // Process each book's items
             foreach ($itemsByBook as $bookId => $items) {
+                // E2EE backstop (docs/e2ee.md): an encrypted book only ever stores ciphertext.
+                EncryptedBookGuard::rejectPlaintextWrites($bookId, $items, ['content']);
+
                 $hasPermission = $this->checkBookPermission($request, $bookId);
 
                 Log::info('Targeted upsert permissions check', [
@@ -484,7 +498,9 @@ class DbNodeController extends Controller
                             'node_id' => $item['node_id'] ?? ($existingChunk ? $existingChunk->node_id : null),
                             'content' => $updatedContent,
                             'footnotes' => $item['footnotes'] ?? ($existingChunk ? $existingChunk->footnotes : []),
-                            'plainText' => $item['plainText'] ?? ($updatedContent ? strip_tags($updatedContent) : ($existingChunk ? $existingChunk->plainText : null)),
+                            'plainText' => EncryptedBookGuard::isEncrypted($bookId)
+                                ? null
+                                : ($item['plainText'] ?? ($updatedContent ? strip_tags($updatedContent) : ($existingChunk ? $existingChunk->plainText : null))),
                             'type' => $item['type'] ?? ($existingChunk ? $existingChunk->type : null),
                         ];
                     }
@@ -630,7 +646,9 @@ class DbNodeController extends Controller
 
             return response()->json(['success' => true, 'message' => 'Node chunks updated successfully (targeted)']);
 
-        } catch (\Exception $e) {
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e; // E2EE guard 422 — render via the framework handler
+            } catch (\Exception $e) {
             Log::error('Targeted upsert failed', [
                 'error' => $e->getMessage(),
                 'book' => $data['data'][0]['book'] ?? 'unknown',
@@ -750,6 +768,9 @@ class DbNodeController extends Controller
             $totalUpserted = 0;
 
             foreach ($itemsByBook as $bookId => $items) {
+                // E2EE backstop (docs/e2ee.md): an encrypted book only ever stores ciphertext.
+                EncryptedBookGuard::rejectPlaintextWrites($bookId, $items, ['content']);
+
                 $hasPermission = $this->checkBookPermission($request, $bookId);
 
                 if (! $hasPermission) {
@@ -844,7 +865,9 @@ class DbNodeController extends Controller
                 'upserted' => $totalUpserted,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e; // E2EE guard 422 — render via the framework handler
+            } catch (\Exception $e) {
             Log::error('Bulk targeted upsert failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -1015,7 +1038,8 @@ class DbNodeController extends Controller
             $bindings[] = json_encode($item['footnotes'] ?? []);
             // Client never sends plainText — derive it from content (mirrors upsert()),
             // else re-syncs through this path would null it and starve embeddings.
-            $bindings[] = $item['plainText'] ?? ($content ? strip_tags($content) : null);
+            // (E2EE: NULL for encrypted books — see EncryptedBookGuard.)
+            $bindings[] = EncryptedBookGuard::plainTextFor($bookId, $content, $item['plainText'] ?? null);
             $bindings[] = $item['type'] ?? null;
             $bindings[] = json_encode($this->cleanItemForStorage($item));
             $bindings[] = $now;
@@ -1068,7 +1092,8 @@ class DbNodeController extends Controller
             $bindings[] = json_encode($item['footnotes'] ?? []);
             // Client never sends plainText — derive it from content (mirrors upsert()),
             // else re-syncs through this path would null it and starve embeddings.
-            $bindings[] = $item['plainText'] ?? ($content ? strip_tags($content) : null);
+            // (E2EE: NULL for encrypted books — see EncryptedBookGuard.)
+            $bindings[] = EncryptedBookGuard::plainTextFor($bookId, $content, $item['plainText'] ?? null);
             $bindings[] = $item['type'] ?? null;
             $bindings[] = json_encode($this->cleanItemForStorage($item));
             $bindings[] = $now;

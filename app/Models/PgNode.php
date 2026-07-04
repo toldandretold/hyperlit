@@ -36,6 +36,13 @@ class PgNode extends Model
     protected static function booted(): void
     {
         static::saving(function (PgNode $node) {
+            // E2EE (docs/e2ee.md): encrypted books never get plainText — content
+            // is ciphertext, so a strip_tags copy is useless (and would feed the
+            // embedding job + tsvectors garbage). NULL keeps them inert.
+            if (\App\Services\E2ee\EncryptedBookGuard::isEncrypted($node->book)) {
+                $node->plainText = null;
+                return;
+            }
             // Auto-generate plainText from content when content changes or plainText is empty
             if ($node->isDirty('content') || empty($node->plainText)) {
                 if (!empty($node->content)) {
