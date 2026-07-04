@@ -10,6 +10,7 @@ import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 import { log, verbose } from '../../../utilities/logger';
 import { registerNavActions } from '../navigationRegistry';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
+import { syncPageStylesheets, syncBodyAttributes } from '../utils/pageStylesheets';
 import { waitForLayoutStabilization, waitForContentReady } from '../../domReadiness';
 import { destroyUserContainer } from '../../../components/userButton/userButton';
 import { destroyNewBookContainer } from '../../../components/newBookButton/newBookButton';
@@ -157,6 +158,9 @@ export class ImportBookTransition {
       overlayInFetchedHTML.remove();
     }
 
+    // Install reader page CSS before its body appears (home→reader switch)
+    const removeStaleStylesheets = await syncPageStylesheets(newDoc);
+
     // Replace the entire body content
     document.body.innerHTML = newDoc.body.innerHTML;
 
@@ -169,13 +173,14 @@ export class ImportBookTransition {
     // After body replacement, ProgressOverlayEnactor's references are stale
     ProgressOverlayEnactor.rebind();
     
-    // Sync all body attributes
-    for (const { name, value } of newDoc.body.attributes) {
-      document.body.setAttribute(name, value);
-    }
-    
+    // Sync all body attributes (exact — stale ones from the old template go)
+    syncBodyAttributes(newDoc);
+
     // Ensure data-page is set to "reader"
     document.body.setAttribute('data-page', 'reader');
+
+    // New page CSS is live and the old body is gone — drop the old page's sheets
+    removeStaleStylesheets();
 
     // Update document title
     document.title = newDoc.title;

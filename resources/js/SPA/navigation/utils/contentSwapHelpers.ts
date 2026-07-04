@@ -14,6 +14,7 @@ import { resetCurrentLazyLoader, currentLazyLoader } from '../../../pageLoad/ind
 // import { togglePerimeterButtons } from '../../../pageLoad/index';
 import { destroyLogoNav, initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { initializeUserContainer } from '../../../components/userButton/userButton';
+import { syncPageStylesheets, syncBodyAttributes } from './pageStylesheets';
 
 /**
  * Fetch HTML for target URL
@@ -40,6 +41,9 @@ export async function replaceBodyContent(htmlString: any) {
 
   const parser = new DOMParser();
   const newDoc = parser.parseFromString(htmlString, 'text/html');
+
+  // Install the incoming template's page CSS BEFORE its body appears
+  const removeStaleStylesheets = await syncPageStylesheets(newDoc);
 
   // Remove any overlay from the fetched HTML to prevent conflicts
   const overlayInFetchedHTML = newDoc.getElementById('initial-navigation-overlay');
@@ -68,10 +72,11 @@ export async function replaceBodyContent(htmlString: any) {
     ProgressOverlayEnactor.rebind();
   }
 
-  // Sync all body attributes
-  for (const { name, value } of newDoc.body.attributes) {
-    document.body.setAttribute(name, value);
-  }
+  // Sync all body attributes (exact — stale ones from the old template go)
+  syncBodyAttributes(newDoc);
+
+  // New page CSS is live and the old body is gone — drop the old page's sheets
+  removeStaleStylesheets();
 
   // Execute inline scripts that were in the fetched HTML
   // (innerHTML assignment does not execute script tags).

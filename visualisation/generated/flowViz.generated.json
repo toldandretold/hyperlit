@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 27,
-    "fnCount": 1599,
-    "moduleCount": 341,
+    "fnCount": 1601,
+    "moduleCount": 342,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3230,
+    "edgeCount": 3239,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -14342,6 +14342,22 @@
       "leaf": true
     },
     {
+      "id": "SPA/navigation/utils/pageStylesheets:syncBodyAttributes",
+      "label": "syncBodyAttributes",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/utils/pageStylesheets",
+      "leaf": false
+    },
+    {
+      "id": "SPA/navigation/utils/pageStylesheets:syncPageStylesheets",
+      "label": "syncPageStylesheets",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/utils/pageStylesheets",
+      "leaf": false
+    },
+    {
       "id": "SPA/navigation/utils/structureDetection:areStructuresCompatible",
       "label": "areStructuresCompatible",
       "kind": "fn",
@@ -18773,6 +18789,16 @@
         "SPA/navigation/utils/initHelpers:initializeUser",
         "SPA/navigation/utils/initHelpers:initializeUserSpecificFeatures",
         "SPA/navigation/utils/initHelpers:reinitializeContainerManagers"
+      ]
+    },
+    {
+      "id": "SPA/navigation/utils/pageStylesheets",
+      "label": "SPA/navigation/utils/pageStylesheets",
+      "stage": "SPA",
+      "band": "capture",
+      "fnIds": [
+        "SPA/navigation/utils/pageStylesheets:syncBodyAttributes",
+        "SPA/navigation/utils/pageStylesheets:syncPageStylesheets"
       ]
     },
     {
@@ -27328,6 +27354,12 @@
       "id": "dom__domread__SPA/navigation/utils/initHelpers:initializeUserSpecificFeatures",
       "source": "dom",
       "target": "SPA/navigation/utils/initHelpers:initializeUserSpecificFeatures",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__SPA/navigation/utils/pageStylesheets:syncPageStylesheets",
+      "source": "dom",
+      "target": "SPA/navigation/utils/pageStylesheets:syncPageStylesheets",
       "rel": "domread"
     },
     {
@@ -37295,6 +37327,18 @@
       "rel": "call"
     },
     {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent__call__SPA/navigation/utils/pageStylesheets:syncBodyAttributes",
+      "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent",
+      "target": "SPA/navigation/utils/pageStylesheets:syncBodyAttributes",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent__call__SPA/navigation/utils/pageStylesheets:syncPageStylesheets",
+      "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent",
+      "target": "SPA/navigation/utils/pageStylesheets:syncPageStylesheets",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent__domwrite__dom",
       "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent",
       "target": "dom",
@@ -37417,6 +37461,18 @@
       "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.replaceBodyContent__call__components/editButton/index:enforceEditableState",
       "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.replaceBodyContent",
       "target": "components/editButton/index:enforceEditableState",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.replaceBodyContent__call__SPA/navigation/utils/pageStylesheets:syncBodyAttributes",
+      "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.replaceBodyContent",
+      "target": "SPA/navigation/utils/pageStylesheets:syncBodyAttributes",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.replaceBodyContent__call__SPA/navigation/utils/pageStylesheets:syncPageStylesheets",
+      "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.replaceBodyContent",
+      "target": "SPA/navigation/utils/pageStylesheets:syncPageStylesheets",
       "rel": "call"
     },
     {
@@ -37605,6 +37661,18 @@
       "target": "scrolling/internalNav:navigateToInternalId",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/utils/contentSwapHelpers:replaceBodyContent__call__SPA/navigation/utils/pageStylesheets:syncBodyAttributes",
+      "source": "SPA/navigation/utils/contentSwapHelpers:replaceBodyContent",
+      "target": "SPA/navigation/utils/pageStylesheets:syncBodyAttributes",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/utils/contentSwapHelpers:replaceBodyContent__call__SPA/navigation/utils/pageStylesheets:syncPageStylesheets",
+      "source": "SPA/navigation/utils/contentSwapHelpers:replaceBodyContent",
+      "target": "SPA/navigation/utils/pageStylesheets:syncPageStylesheets",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/utils/contentSwapHelpers:replaceBodyContent__domwrite__dom",
@@ -37822,6 +37890,18 @@
       "source": "SPA/navigation/utils/initHelpers:reinitializeContainerManagers",
       "target": "components/userButton/userButton:initializeUserContainer",
       "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/utils/pageStylesheets:syncBodyAttributes__domwrite__dom",
+      "source": "SPA/navigation/utils/pageStylesheets:syncBodyAttributes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "SPA/navigation/utils/pageStylesheets:syncPageStylesheets__domwrite__dom",
+      "source": "SPA/navigation/utils/pageStylesheets:syncPageStylesheets",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "SPA/navigation/utils/structureDetection:getBookIdFromUrl__call__SPA/navigation/utils/structureDetection:getSubdomain",
@@ -39195,6 +39275,11 @@
     },
     {
       "source": "SPA/navigation/pathways/ImportBookTransition",
+      "target": "SPA/navigation/utils/pageStylesheets",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/ImportBookTransition",
       "target": "SPA/viewManager",
       "kind": "static"
     },
@@ -39251,6 +39336,11 @@
     {
       "source": "SPA/navigation/pathways/NewBookTransition",
       "target": "SPA/navigation/utils/initHelpers",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/NewBookTransition",
+      "target": "SPA/navigation/utils/pageStylesheets",
       "kind": "static"
     },
     {
@@ -39376,6 +39466,11 @@
     {
       "source": "SPA/navigation/utils/contentSwapHelpers",
       "target": "SPA/navigation/ProgressOverlayEnactor",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/contentSwapHelpers",
+      "target": "SPA/navigation/utils/pageStylesheets",
       "kind": "static"
     },
     {

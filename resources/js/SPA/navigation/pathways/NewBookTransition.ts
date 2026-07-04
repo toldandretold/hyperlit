@@ -20,6 +20,7 @@ import { enforceEditableState, enableEditMode } from '../../../components/editBu
 import { setCurrentBook } from '../../../app';
 import { universalPageInitializer } from '../../viewManager';
 import { reinitializeContainerManagers } from '../utils/initHelpers.js';
+import { syncPageStylesheets, syncBodyAttributes } from '../utils/pageStylesheets';
 import { initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { createNewBook, fireAndForgetSync } from '../../createNewBook';
 import { setInitialBookSyncPromise } from '../../../utilities/operationState';
@@ -317,6 +318,9 @@ export class NewBookTransition {
       verbose.nav('Removed overlay from fetched HTML', 'NewBookTransition.js');
     }
 
+    // Install reader page CSS before its body appears (home→reader switch)
+    const removeStaleStylesheets = await syncPageStylesheets(newDoc);
+
     // Replace the entire body content
     document.body.innerHTML = newDoc.body.innerHTML;
 
@@ -330,14 +334,15 @@ export class NewBookTransition {
       ProgressOverlayEnactor.rebind();
     }
 
-    // Sync all body attributes
-    for (const { name, value } of newDoc.body.attributes) {
-      document.body.setAttribute(name, value);
-    }
-    
+    // Sync all body attributes (exact — stale ones from the old template go)
+    syncBodyAttributes(newDoc);
+
     // Ensure data-page is set to "reader"
     document.body.setAttribute('data-page', 'reader');
     verbose.nav('Set data-page="reader"', 'NewBookTransition.js');
+
+    // New page CSS is live and the old body is gone — drop the old page's sheets
+    removeStaleStylesheets();
     
     // Update document title
     document.title = newDoc.title;
