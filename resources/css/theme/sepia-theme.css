@@ -156,15 +156,16 @@ body.theme-sepia #toc-container h4 {
   opacity: 0.75 !important;
 }
 
-/* Search icon matches theme background color */
+/* Search icon: dark strokes to match the light settings-button wash (the
+   button bg override lives at the bottom of this file). */
 body.theme-sepia #searchButton svg path,
 body.theme-sepia #searchButton svg line {
-  stroke: #E8D7B8 !important; /* Same as --hyperlit-black for sepia theme */
+  stroke: #3A2F1F !important;
 }
 
 body.theme-sepia #searchButton:hover svg path,
 body.theme-sepia #searchButton:hover svg line {
-  stroke: #E8D7B8 !important;
+  stroke: #3A2F1F !important;
 }
 
 /* AI-review verdict labels (Verdict/Claim/Source/Summary/Reasoning in
@@ -177,3 +178,27 @@ body.theme-sepia strong[style*="#f1c40f"] { color: #9a7d0a !important; } /* plau
 body.theme-sepia strong[style*="#e67e22"] { color: #b35c0e !important; } /* unlikely */
 body.theme-sepia strong[style*="#e74c3c"] { color: #b03024 !important; } /* rejected */
 body.theme-sepia strong[style*="#9b59b6"] { color: #6f3a86 !important; } /* unverified */
+
+/* Library-card titles use --hyperlit-orange as TEXT (hypercites.css). The
+   theme's orange (#C25E10) is fine for graphics (lava lamp etc.) but reads
+   3:1 on the sepia bg — under the 4.5:1 text minimum (WCAG 1.4.3). Darken
+   the TEXT usage only; leave the variable alone so decorative art keeps its
+   hue. !important: this file is layered (app.css `layer(sepia-theme)`). */
+body.theme-sepia .libraryCard b,
+body.theme-sepia .libraryCard strong {
+  color: #96490C !important;
+}
+
+/* Settings buttons: the default rgba(75,75,75,.6) grey blends to mud under
+   sepia's dark text (3.5:1 — fails WCAG 1.4.3). Use a light sepia wash so the
+   dark text keeps the theme's own contrast. !important because this file is
+   imported into a layer (app.css `layer(sepia-theme)`) and must beat the
+   unlayered component CSS. Theme-preview buttons keep their swatch colors and
+   .active keeps its aqua via the :not() exclusions. */
+body.theme-sepia .settings-button:not(.active):not(#darkModeButton):not(#lightModeButton):not(#sepiaModeButton) {
+  background-color: rgba(58, 47, 31, 0.12) !important;
+}
+
+body.theme-sepia .settings-button:not(.active):not(#darkModeButton):not(#lightModeButton):not(#sepiaModeButton):hover {
+  background-color: rgba(58, 47, 31, 0.22) !important;
+}

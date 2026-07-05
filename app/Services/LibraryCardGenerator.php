@@ -6,6 +6,9 @@ use Carbon\Carbon;
 
 class LibraryCardGenerator
 {
+    /** The asterisked E2EE padlock, 14px inline (see resources/js/e2ee/ui/lockIcon.ts). */
+    private const ENCRYPTED_LOCK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><text x="7.5" y="20" font-size="10" font-weight="bold" fill="var(--color-danger)" stroke="none" text-anchor="middle" font-family="monospace">*</text><text x="12" y="20" font-size="10" font-weight="bold" fill="var(--color-danger)" stroke="none" text-anchor="middle" font-family="monospace">*</text><text x="16.5" y="20" font-size="10" font-weight="bold" fill="var(--color-danger)" stroke="none" text-anchor="middle" font-family="monospace">*</text></svg>';
+
     /**
      * Generate a library card chunk array ready for DB insertion.
      */
@@ -91,8 +94,10 @@ class LibraryCardGenerator
     {
         // E2EE: never render ciphertext metadata — generic label instead
         // (the owner's client swaps in the real title from local plaintext).
+        // PHP copy of the asterisked padlock in resources/js/e2ee/ui/lockIcon.ts —
+        // keep them visually in sync.
         if (!empty($record->encrypted)) {
-            return '<strong>🔒</strong> <em>Encrypted book</em>';
+            return self::ENCRYPTED_LOCK_SVG . ' <em>Encrypted book</em>';
         }
 
         $hasTitle = !empty($record->title);

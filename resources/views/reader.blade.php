@@ -48,7 +48,7 @@
     <div id="logoNavMenu" class="logo-nav-menu hidden">
       <!-- User Button -->
       <div id="userButtonContainer">
-        <button type="button" class="open" id="userButton">
+        <button type="button" class="open" id="userButton" aria-label="Account">
           <svg
             id="userLogo"
             xmlns="http://www.w3.org/2000/svg"
@@ -78,6 +78,7 @@
       <div class="spacer"></div>
       <div class="reader-content-wrapper">
   <!-- Load the content of the main-text.md file -->
+  <span id="main-start" tabindex="-1"></span>
   <main id="{{ $book }}" class="main-content" data-slug="{{ $slug ?? '' }}" contenteditable="{{ $editMode ? 'true' : 'false' }}">
 @if(!empty($prerenderHtml ?? null))
 {{-- Server-rendered target chunk = a real chunk element. Crawlers index the article body and
@@ -93,7 +94,7 @@
       <div class="spacer"></div>
 
   <div id="topRightContainer" class="loading">
-      <button type="button" id="cloudRef">
+      <button type="button" id="cloudRef" aria-label="Sync status">
           <svg
             id="cloudRef-svg"
             xmlns="http://www.w3.org/2000/svg"
@@ -166,7 +167,7 @@
 <div id="word-count-display" style="display: none;"></div>
 
   <div id="bottom-left-buttons" class="loading"> <!-- bottom left buttons -->
-      <button type="button" id="settingsButton">
+      <button type="button" id="settingsButton" aria-label="Settings">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="50" height="50">
           <path d="M47.16,21.221l-5.91-0.966c-0.346-1.186-0.819-2.326-1.411-3.405l3.45-4.917c0.279-0.397,0.231-0.938-0.112-1.282 l-3.889-3.887c-0.347-0.346-0.893-0.391-1.291-0.104l-4.843,3.481c-1.089-0.602-2.239-1.08-3.432-1.427l-1.031-5.886 C28.607,2.35,28.192,2,27.706,2h-5.5c-0.49,0-0.908,0.355-0.987,0.839l-0.956,5.854c-1.2,0.345-2.352,0.818-3.437,1.412l-4.83-3.45 c-0.399-0.285-0.942-0.239-1.289,0.106L6.82,10.648c-0.343,0.343-0.391,0.883-0.112,1.28l3.399,4.863 c-0.605,1.095-1.087,2.254-1.438,3.46l-5.831,0.971c-0.482,0.08-0.836,0.498-0.836,0.986v5.5c0,0.485,0.348,0.9,0.825,0.985 l5.831,1.034c0.349,1.203,0.831,2.362,1.438,3.46l-3.441,4.813c-0.284,0.397-0.239,0.942,0.106,1.289l3.888,3.891 c0.343,0.343,0.884,0.391,1.281,0.112l4.87-3.411c1.093,0.601,2.248,1.078,3.445,1.424l0.976,5.861C21.3,47.647,21.717,48,22.206,48 h5.5c0.485,0,0.9-0.348,0.984-0.825l1.045-5.89c1.199-0.353,2.348-0.833,3.43-1.435l4.905,3.441 c0.398,0.281,0.938,0.232,1.282-0.111l3.888-3.891c0.346-0.347,0.391-0.894,0.104-1.292l-3.498-4.857 c0.593-1.08,1.064-2.222,1.407-3.408l5.918-1.039c0.479-0.084,0.827-0.5,0.827-0.985v-5.5C47.999,21.718,47.644,21.3,47.16,21.221z M25,32c-3.866,0-7-3.134-7-7c0-3.866,3.134-7,7-7s7,3.134,7,7C32,28.866,28.866,32,25,32z"></path>
           </svg>
@@ -174,14 +175,14 @@
   </div>
 
   <div id="bottom-right-buttons" class="loading"> <!-- bottom right buttons -->
-      <button type="button" id="editButton">
+      <button type="button" id="editButton" aria-label="Toggle edit mode">
           <svg viewBox="0 0 24 24" width="100%" height="100%" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 20h9" />
           <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
           </svg>
           </button>
       
-      <button type="button" id="toc-toggle-button">
+      <button type="button" id="toc-toggle-button" aria-label="Table of contents">
           <svg width="36" height="36" viewBox="0 0 24.75 24.75" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
           <rect width="24.75" height="24.75" />
           <g>
@@ -227,7 +228,7 @@
 
   <!-- Add the new edit-toolbar div -->
   <div id="edit-toolbar">
-    <button type="button" id="boldButton">
+    <button type="button" id="boldButton" aria-label="Bold">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <rect width="24" height="24" />
         <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -235,7 +236,7 @@
       </svg>
     </button>
 
-    <button type="button" id="italicButton">
+    <button type="button" id="italicButton" aria-label="Italic">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <rect width="24" height="24" />
         <line x1="19" y1="4" x2="10" y2="4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -244,7 +245,7 @@
       </svg>
     </button>
 
-    <button type="button" id="headingButton">
+    <button type="button" id="headingButton" aria-label="Heading">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <rect width="24" height="24" />
         <path d="M6 12h12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -262,7 +263,7 @@
       <button type="button" class="heading-level-btn" data-heading="h4">H4</button>
     </div>
 
-    <button type="button" id="blockquoteButton">
+    <button type="button" id="blockquoteButton" aria-label="Block format">
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
       <rect width="24" height="24" />
       <line x1="4" y1="4" x2="4" y2="20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -304,7 +305,7 @@
       </button>
     </div>
 
-    <button type="button" id="codeButton">
+    <button type="button" id="codeButton" aria-label="Code block">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <rect width="24" height="24" />
         <polyline points="16 18 22 12 16 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -327,13 +328,13 @@
       </svg>
     </button>
 
-    <button type="button" id="undoButton">
+    <button type="button" id="undoButton" aria-label="Undo">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <rect width="24" height="24" />
         <path d="M30.3,12.6c10.4,0,18.9,8.4,18.9,18.9s-8.5,18.9-18.9,18.9h-8.2c-0.8,0-1.3-0.6-1.3-1.4v-3.2 c0-0.8,0.6-1.5,1.4-1.5h8.1c7.1,0,12.8-5.7,12.8-12.8s-5.7-12.8-12.8-12.8H16.4c0,0-0.8,0-1.1,0.1c-0.8,0.4-0.6,1,0.1,1.7l4.9,4.9 c0.6,0.6,0.5,1.5-0.1,2.1L18,29.7c-0.6,0.6-1.3,0.6-1.9,0.1l-13-13c-0.5-0.5-0.5-1.3,0-1.8L16,2.1c0.6-0.6,1.6-0.6,2.1,0l2.1,2.1 c0.6,0.6,0.6,1.6,0,2.1l-4.9,4.9c-0.6,0.6-0.6,1.3,0.4,1.3c0.3,0,0.7,0,0.7,0L30.3,12.6z" transform="scale(0.35) translate(8.2, 8.2)" />
       </svg>
     </button>
-    <button type="button" id="redoButton">
+    <button type="button" id="redoButton" aria-label="Redo">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <rect width="24" height="24" />
         <path d="M30.3,12.6c10.4,0,18.9,8.4,18.9,18.9s-8.5,18.9-18.9,18.9h-8.2c-0.8,0-1.3-0.6-1.3-1.4v-3.2 c0-0.8,0.6-1.5,1.4-1.5h8.1c7.1,0,12.8-5.7,12.8-12.8s-5.7-12.8-12.8-12.8H16.4c0,0-0.8,0-1.1,0.1c-0.8,0.4-0.6,1,0.1,1.7l4.9,4.9 c0.6,0.6,0.5,1.5-0.1,2.1L18,29.7c-0.6,0.6-1.3,0.6-1.9,0.1l-13-13c-0.5-0.5-0.5-1.3,0-1.8L16,2.1c0.6-0.6,1.6-0.6,2.1,0l2.1,2.1 c0.6,0.6,0.6,1.6,0,2.1l-4.9,4.9c-0.6,0.6-0.6,1.3,0.4,1.3c0.3,0,0.7,0,0.7,0L30.3,12.6z" transform="scale(-0.35, 0.35) translate(-60.2, 8.2)" />

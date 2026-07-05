@@ -220,6 +220,7 @@ export class UserContainerManager extends (ContainerManager as any) {
   openContainer(mode = "login") {
     if (this.isAnimating) return;
     this.isAnimating = true;
+    this.animationType = "open";
 
     if (this.button) {
       const rect = this.button.getBoundingClientRect();
@@ -257,6 +258,7 @@ export class UserContainerManager extends (ContainerManager as any) {
       this.isOpen = true;
       (window as any).activeContainer = this.container.id;
       this.updateState();
+      this._engageFocusTrap(); // base ContainerManager: Tab trap + Escape + focus restore
 
       this.container.addEventListener("transitionend", () => {
         this.isAnimating = false;
@@ -272,8 +274,12 @@ export class UserContainerManager extends (ContainerManager as any) {
   }
 
   closeContainer() {
-    if (this.isAnimating) return;
+    // A running CLOSE is left to finish; an in-flight OPEN is interrupted so
+    // the close takes over (same semantics as newbookContainer/openClose.ts —
+    // without this, Escape during the ~1s open window was silently dropped).
+    if (this.isAnimating && this.animationType === "close") return;
     this.isAnimating = true;
+    this.animationType = "close";
 
     this.container.style.padding = "0";
     this.container.style.width = "0";
@@ -283,6 +289,7 @@ export class UserContainerManager extends (ContainerManager as any) {
     this.isOpen = false;
     (window as any).activeContainer = "main-content";
     this.updateState();
+    this._releaseFocusTrap();
 
     this.container.addEventListener("transitionend", () => {
       this.container.classList.add("hidden");

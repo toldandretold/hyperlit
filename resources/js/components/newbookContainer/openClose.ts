@@ -124,6 +124,7 @@ export function openContainer(host: ContainerHost, mode = 'buttons'): void {
 
     host.isOpen = true;
     (window as any).uiState?.setActiveContainer(host.container.id);
+    (host as any)._engageFocusTrap?.(); // base ContainerManager: Tab trap + Escape + focus restore
     armTransition(host, () => resetAnimationState(host));
   }
 }
@@ -175,6 +176,7 @@ export function closeContainer(host: ContainerHost): void {
   } else {
     (window as any).activeContainer = 'main-content';
   }
+  (host as any)._releaseFocusTrap?.();
 
   armTransition(host, () => finishClose(host));
 }

@@ -7,6 +7,7 @@
 
 import { log } from '../../utilities/logger';
 import { isVaultUnlocked } from '../keys';
+import { encryptedLockSvg } from './lockIcon';
 import {
   isPasskeySupported,
   listPasskeys,
@@ -72,7 +73,7 @@ export async function showPasskeySettings(host: PasskeyPanelHost): Promise<void>
             .map(
               (p) =>
                 `<div style="padding: 4px 0; border-bottom: 1px solid var(--color-border, #333);">
-                   ${escapeHtml(p.name || 'Unnamed passkey')}${p.has_vault_key ? ' 🔐' : ''}
+                   ${escapeHtml(p.name || 'Unnamed passkey')}${p.has_vault_key ? ' ' + encryptedLockSvg(13, 'vertical-align:-2px') : ''}
                  </div>`,
             )
             .join('')

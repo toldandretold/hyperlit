@@ -178,7 +178,12 @@ export class LinkNavigationHandler {
     // Skip blob URLs (downloads)
     const isBlobUrl = linkUrl.protocol === 'blob:';
 
-    if (isHypercite || isTocLink || isDeleteButton || isBookActions || isStripeTopup || isTierSelector || isTierOption || isBlobUrl || isFootnoteLink) {
+    // Skip the accessibility skip-to-content link (layout.blade.php): native
+    // fragment navigation must handle it — routing it through SPA nav builds
+    // a `/${book}` path, which on home (book=null) rewrote the URL to /null.
+    const isSkipLink = link.classList.contains('skip-link');
+
+    if (isHypercite || isTocLink || isDeleteButton || isBookActions || isStripeTopup || isTierSelector || isTierOption || isBlobUrl || isFootnoteLink || isSkipLink) {
       return true;
     }
 
@@ -510,6 +515,16 @@ export class LinkNavigationHandler {
       hasHash: !!window.location.hash,
       hash: window.location.hash
     } as any);
+
+    // Skip-link fragment jump (#main-start — the accessibility anchor in
+    // layout.blade.php, present on every page). Activating it is a native
+    // same-document navigation that fires popstate; it is never a book/content
+    // navigation. Routing it through the machinery below misread it as
+    // home→home with a null book and rewrote the URL to /null#main-start.
+    if (window.location.hash === '#main-start') {
+      verbose.nav('Popstate is the #main-start skip-link jump — native behavior stands', '/navigation/LinkNavigationHandler.js');
+      return;
+    }
 
     // 🔍 DIAGNOSTIC (flag-gated): record the decision INPUTS — captured BEFORE the line below
     // deletes the saved scroll position, so the trace shows the value that was destroyed.

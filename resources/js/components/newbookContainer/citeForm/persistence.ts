@@ -9,6 +9,7 @@ import { switchImportMode } from './modes';
 import { updateBookUrlPreview } from './bookId';
 import { hidePdfCostEstimate, hideInsufficientBalanceBanner } from './fileUpload';
 import { setAllowedResubmitBookId } from './state';
+import { getImportEncryptIntent } from '../encryptIntent';
 
 export function saveFormData() {
   const selectedType = qs('input[name="type"]:checked');
@@ -141,6 +142,12 @@ export function setupClearButton() {
 
       // Reset inputs
       form.reset();
+
+      // form.reset() reverts the header's Encrypt switch to its render-time
+      // default — re-sync it from the intent leaf (Clear wipes fields, not the
+      // encrypt choice).
+      const encryptToggle = $('importEncrypted');
+      if (encryptToggle) encryptToggle.checked = getImportEncryptIntent();
 
       // Hide PDF cost estimate and balance banner
       hidePdfCostEstimate();

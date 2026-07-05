@@ -8,7 +8,7 @@
         console.log('%cVerbose logs: logger.enableVerbose()  ·  logger.disableVerbose()  ·  logger.isVerbose()', 'color: #6B7280; font-size: 11px');
     </script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{{ $pageTitle ?? 'Hyperlit' }}</title>
     <meta name="description" content="{{ $pageDescription ?? 'Read, write and publish hypertext literature' }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -106,6 +106,10 @@
 
 {{-- THIS IS THE FIX. THIS ONE LINE. --}}
 <body data-page="{{ $pageType ?? 'unknown' }}">
+
+    {{-- Skip link (WCAG 2.4.1): first focusable on every page; visually hidden
+         until keyboard focus. Each page template provides the #main-start anchor. --}}
+    <a href="#main-start" class="skip-link">Skip to content</a>
 
     <!-- Navigation overlay for immediate display - show by default, hide for special cases -->
     <div id="initial-navigation-overlay" class="navigation-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.3); z-index: 10000; pointer-events: none; display: block;">

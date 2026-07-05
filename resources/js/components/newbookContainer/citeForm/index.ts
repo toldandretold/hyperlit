@@ -17,6 +17,7 @@ import { setupBookUrlPreview, setupBookIdSanitization } from './bookId';
 import { setupSourceToggle } from './sourceToggle';
 import { setupUrlImport } from './urlImport';
 import { setupInlineDropzone } from './fileUpload';
+import { setImportEncryptIntent } from '../encryptIntent';
 
 // Main initialization function
 export function initializeCitationFormListeners() {
@@ -109,6 +110,13 @@ export function initializeCitationFormListeners() {
   // Inline dropzone (sits below the file input; reuses the file input's
   // change-event pipeline by feeding files into it via attachFilesToInput).
   setupInlineDropzone();
+
+  // E2EE: the header's Encrypt switch writes straight to the intent leaf, so
+  // flipping it here works even after a drag-and-drop entry — and the buttons
+  // view re-syncs its checkbox from the same leaf when the form closes.
+  $('importEncrypted')?.addEventListener('change', function (this: HTMLInputElement) {
+    setImportEncryptIntent(this.checked);
+  });
 }
 
 // Keep setupFormSubmissionHandler as alias for backward compatibility

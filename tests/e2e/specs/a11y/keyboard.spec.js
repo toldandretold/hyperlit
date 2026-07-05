@@ -50,10 +50,7 @@ async function gotoReader(page) {
 
 /* ── 2.4.1 Bypass Blocks — skip-to-content link ───────────────────────── */
 
-// FIXME (known gap, 2026-07-05): home has no skip-to-content link — the first
-// Tab lands on #userButton. Add a visually-hidden "Skip to content" anchor as
-// the first focusable in the layout, then flip this back to `test(`.
-test.fixme('skip-to-content link is the first focusable on home (WCAG 2.4.1)', async ({ page }) => {
+test('skip-to-content link is the first focusable on home (WCAG 2.4.1)', async ({ page }) => {
   await page.goto('/');
   await page.waitForLoadState('networkidle');
   await page.keyboard.press('Tab');
@@ -65,6 +62,17 @@ test.fixme('skip-to-content link is the first focusable on home (WCAG 2.4.1)', a
     `First Tab focused <${first.tag} id="${first.id}" href="${first.href}">"${first.text}" — ` +
     `expected a skip-to-content link.`
   ).toBe(true);
+
+  // Activating it must be a NATIVE fragment jump: focus lands on #main-start
+  // and the path is untouched. Regression guard: the SPA link interceptor once
+  // routed this through book navigation and rewrote the URL to /null#main-start.
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(300);
+  const pathname = await page.evaluate(() => window.location.pathname);
+  expect(pathname, 'skip link must not be routed through SPA book navigation').not.toContain('null');
+  expect(pathname).toBe('/');
+  const focusedTarget = await page.evaluate(() => document.activeElement?.id || '');
+  expect(focusedTarget, 'activating the skip link should move focus to #main-start').toBe('main-start');
 });
 
 /* ── 2.1.1 Keyboard — home book cards reachable & Enter-activatable ────── */
@@ -157,11 +165,7 @@ test('footnote container closes on Escape and restores focus to the trigger (WCA
 
 /* ── 2.1.2 — settings panel closes on Escape ──────────────────────────── */
 
-// FIXME (known gap, 2026-07-05): the settings container has no Escape handler
-// (settingsContainer/index.ts closes only via #settings-overlay click or the
-// toggle button), so a keyboard-only user who opens settings can't dismiss it.
-// Wire an Escape keydown to the container close, then flip this back to `test(`.
-test.fixme('reader settings panel closes on Escape (WCAG 2.1.2)', async ({ page }) => {
+test('reader settings panel closes on Escape (WCAG 2.1.2)', async ({ page }) => {
   await gotoReader(page);
   const hasSettings = await page.locator('#settingsButton').count();
   test.skip(!hasSettings, 'no #settingsButton on this reader');
@@ -177,6 +181,69 @@ test.fixme('reader settings panel closes on Escape (WCAG 2.1.2)', async ({ page 
     null, { timeout: 3000 }
   ).then(() => true).catch(() => false);
   expect(closed, 'settings panel did not close on Escape').toBe(true);
+});
+
+/* ── 2.1.2 / 2.4.3 — modal containers trap focus & restore it ─────────── */
+
+/**
+ * Open a modal container by real keyboard gesture (focus trigger + Enter),
+ * then assert: Tab stays inside, Escape closes, focus returns to the trigger.
+ * Regression for: user/newbook panels opened with a blurred backdrop but Tab
+ * wandered the inert page behind them.
+ */
+async function assertModalTrap(page, { triggerId, containerId, tabs = 12 }) {
+  await page.evaluate((id) => document.getElementById(id)?.focus(), triggerId);
+  await page.keyboard.press('Enter');
+  // "Open" = visible, not the .open class — newbook-container animates via
+  // inline styles and never gets the class.
+  const isVisible = (id) => {
+    const c = document.getElementById(id);
+    if (!c) return false;
+    const s = getComputedStyle(c);
+    return s.visibility !== 'hidden' && s.opacity === '1' && c.getBoundingClientRect().width > 0;
+  };
+  await page.waitForFunction(isVisible, containerId, { timeout: 5000 });
+  await page.waitForTimeout(300); // slide-in / content mount
+
+  for (let i = 0; i < tabs; i++) {
+    await page.keyboard.press('Tab');
+    const inside = await page.evaluate((id) => {
+      const c = document.getElementById(id);
+      return !!(c && (c === document.activeElement || c.contains(document.activeElement)));
+    }, containerId);
+    if (!inside) {
+      const leaked = await page.evaluate(() => {
+        const el = document.activeElement;
+        return el ? `${el.tagName}#${el.id || '(no id)'}` : '(none)';
+      });
+      throw new Error(`Tab #${i + 1} escaped #${containerId} to ${leaked} while the modal was open (WCAG 2.4.3)`);
+    }
+  }
+
+  await page.keyboard.press('Escape');
+  await page.waitForFunction((id) => {
+    const c = document.getElementById(id);
+    if (!c) return true;
+    const s = getComputedStyle(c);
+    return s.visibility === 'hidden' || s.opacity === '0' || s.display === 'none'
+      || c.classList.contains('hidden') || c.getBoundingClientRect().width === 0;
+  }, containerId, { timeout: 3000 });
+  const focusedAfter = await page.evaluate(() => document.activeElement?.id || '');
+  expect(focusedAfter, `focus should return to #${triggerId} after Escape (WCAG 2.4.3)`).toBe(triggerId);
+}
+
+test('user container traps Tab, closes on Escape, restores focus (WCAG 2.1.2, 2.4.3)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  await page.waitForSelector('#userButton', { timeout: 10000 });
+  await assertModalTrap(page, { triggerId: 'userButton', containerId: 'user-container' });
+});
+
+test('new-book container traps Tab, closes on Escape, restores focus (WCAG 2.1.2, 2.4.3)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  await page.waitForSelector('#newBookButton', { timeout: 10000 });
+  await assertModalTrap(page, { triggerId: 'newBookButton', containerId: 'newbook-container' });
 });
 
 /* ── 2.1.1 — TOC keyboard operable ────────────────────────────────────── */

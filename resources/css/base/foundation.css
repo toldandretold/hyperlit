@@ -6,6 +6,25 @@ body {
     color: var(--color-text);
 }
 
+/* Skip-to-content link (WCAG 2.4.1). First focusable element on every page
+   (layout.blade.php); off-screen until it receives keyboard focus. */
+.skip-link {
+    position: fixed;
+    top: -100px;
+    left: 8px;
+    z-index: 10001; /* above the navigation overlay (10000) */
+    padding: 8px 16px;
+    background-color: var(--color-background);
+    color: var(--color-text);
+    border: 2px solid var(--color-text);
+    border-radius: 4px;
+    text-decoration: none;
+}
+
+.skip-link:focus {
+    top: 8px;
+}
+
 /* Prevent horizontal overflow globally */
 * {
     max-width: 100%;

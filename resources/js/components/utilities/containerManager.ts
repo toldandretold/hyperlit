@@ -6,6 +6,22 @@ import { isProcessing, isComplete } from '../cloudRef/editIndicator'
 import { book } from '../../app';
 import { verbose } from '../../utilities/logger'
 
+// Modal-style panels (their overlay blurs/blocks the page): while open, Tab is
+// trapped inside the container, Escape closes it, and focus returns to the
+// element that opened it (WCAG 2.1.2 / 2.4.3 — keyboard focus must not wander
+// the inert background, and keyboard users need a non-pointer way out).
+// hyperlit-container is deliberately NOT here: it hosts sub-book content with
+// its own history-driven close and edit-mode keyboard semantics.
+const FOCUS_TRAP_CONTAINER_IDS = new Set([
+  'user-container',
+  'newbook-container',
+  'settings-container',
+  'source-container',
+]);
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export class ContainerManager {
   [key: string]: any;
   constructor(containerId: any, overlayId: any, buttonId: any = null, frozenContainerIds: any = [], options: any = {}) {
@@ -326,9 +342,78 @@ export class ContainerManager {
       this.container.focus();
     }
 
+    this._engageFocusTrap();
+
     // Call onOpen callback if provided (after innerHTML replacement)
     if (this.onOpenCallback) {
       this.onOpenCallback();
+    }
+  }
+
+  /** Trap keyboard focus inside a modal container while it is open. */
+  _engageFocusTrap() {
+    if (!FOCUS_TRAP_CONTAINER_IDS.has(this.containerId)) return;
+    if (this._trapKeydownHandler) return; // already engaged (re-open / content refresh)
+
+    // Remember the trigger so closeContainer can hand focus back to it.
+    this._focusReturnEl = document.activeElement instanceof HTMLElement
+      && !this.container.contains(document.activeElement)
+      ? document.activeElement
+      : null;
+
+    // Seat focus inside the panel without popping the mobile keyboard: focus
+    // the container itself (needs tabindex to be focusable), not an input.
+    if (!this.container.hasAttribute('tabindex')) {
+      this.container.setAttribute('tabindex', '-1');
+    }
+    if (!this.isBackNavigation) {
+      this.container.focus();
+    }
+
+    this._trapKeydownHandler = (e: KeyboardEvent) => {
+      if (!this.isOpen || !this.container) return;
+
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        this.closeContainer();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+
+      const focusables = Array.from(this.container.querySelectorAll(FOCUSABLE_SELECTOR))
+        .filter((el: any) => el.offsetParent !== null);
+      if (focusables.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first: any = focusables[0];
+      const last: any = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      const inside = this.container.contains(active);
+
+      if (e.shiftKey) {
+        if (!inside || active === first || active === this.container) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (!inside || active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', this._trapKeydownHandler, true);
+  }
+
+  /** Undo _engageFocusTrap: detach the listener and restore focus to the trigger. */
+  _releaseFocusTrap() {
+    if (this._trapKeydownHandler) {
+      document.removeEventListener('keydown', this._trapKeydownHandler, true);
+      this._trapKeydownHandler = null;
+    }
+    const returnEl = this._focusReturnEl;
+    this._focusReturnEl = null;
+    if (returnEl && returnEl.isConnected) {
+      try { returnEl.focus(); } catch { /* non-fatal */ }
     }
   }
 
@@ -391,6 +476,7 @@ export class ContainerManager {
     this.container.classList.remove("open");
     this.container.classList.add("hidden");
     this.container.style.visibility = "";
+    this._releaseFocusTrap();
     this.cleanupURL();
   }
 
@@ -442,6 +528,7 @@ export class ContainerManager {
     if (this.isOpen) {
       this.closeContainer();
     }
+    this._releaseFocusTrap(); // safety: closeContainer normally releases it
 
     // Clear references
     this.container = null;

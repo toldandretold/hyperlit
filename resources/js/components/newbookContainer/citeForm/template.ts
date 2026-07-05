@@ -1,6 +1,9 @@
 // The #cite-form HTML, injected into #newbook-container by the
 // NewBookContainerManager. Moved verbatim out of newBookButton.showImportForm();
 // behavior is wired by citeForm/index.ts (initializeCitationFormListeners).
+import { getImportEncryptIntent } from '../encryptIntent';
+import { encryptedLockSvg } from '../../../e2ee/ui/lockIcon';
+
 export function getCiteFormHTML(): string {
   // Get the CSRF token from the meta tag.
   const csrfToken = document
@@ -17,6 +20,14 @@ export function getCiteFormHTML(): string {
       <form id="cite-form" action="/import-file" method="POST" enctype="multipart/form-data">
         <div class="form-header">
           <h2 style="color: #EF8D34;">Import</h2>
+          <!-- E2EE: mirrors the buttons-view "Encrypt" checkbox (encryptIntent leaf),
+               so a user who drag-and-dropped straight into the form can still choose. -->
+          <label id="importEncryptToggle" class="import-encrypt-toggle" title="Encrypt this book after import">
+            <input type="checkbox" id="importEncrypted"${getImportEncryptIntent() ? ' checked' : ''}>
+            <span class="import-encrypt-icon" aria-hidden="true">${encryptedLockSvg(16)}</span>
+            <span class="import-encrypt-text">Encrypt</span>
+            <span class="import-encrypt-slider" aria-hidden="true"></span>
+          </label>
         </div>
 
         <input type="hidden" name="_token" value="${csrfToken}" id="submitFile">

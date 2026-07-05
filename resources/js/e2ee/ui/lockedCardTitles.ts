@@ -1,6 +1,6 @@
 /**
  * Locked-card title enhancer (docs/e2ee.md): server-rendered cards for
- * encrypted books carry a generic "🔒 Encrypted book" label (the server only
+ * encrypted books carry a generic "[padlock] Encrypted book" label (the server only
  * has ciphertext). On the OWNER's device the plaintext title lives in the
  * local library store — swap it in. Fresh devices simply keep the generic
  * label until the book is first opened/unlocked.
@@ -10,6 +10,7 @@
 
 import { getConnection } from '../../indexedDB/core/connection';
 import { verbose } from '../../utilities/logger';
+import { encryptedLockSvg } from './lockIcon';
 
 let enhanced = new WeakSet<Element>();
 
@@ -45,7 +46,7 @@ export function initLockedCardTitles(): void {
 
       const title = await localTitle(bookId);
       if (title) {
-        citation.innerHTML = '<strong>🔒</strong> ';
+        citation.innerHTML = encryptedLockSvg(14, 'vertical-align:-2px') + ' ';
         const em = document.createElement('em');
         em.textContent = title; // textContent — the title is user data
         citation.appendChild(em);

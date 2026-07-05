@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1609,
+    "fnCount": 1611,
     "moduleCount": 344,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3268,
+    "edgeCount": 3273,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -3903,6 +3903,22 @@
       "stage": "components",
       "module": "components/utilities/containerManager",
       "leaf": false
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager._engageFocusTrap",
+      "label": "ContainerManager._engageFocusTrap",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager._releaseFocusTrap",
+      "label": "ContainerManager._releaseFocusTrap",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": true
     },
     {
       "id": "components/utilities/containerManager:ContainerManager.cleanupURL",
@@ -15811,6 +15827,8 @@
       "band": "components",
       "fnIds": [
         "components/utilities/containerManager:ContainerManager._applyTopRightVisibility",
+        "components/utilities/containerManager:ContainerManager._engageFocusTrap",
+        "components/utilities/containerManager:ContainerManager._releaseFocusTrap",
         "components/utilities/containerManager:ContainerManager.cleanupURL",
         "components/utilities/containerManager:ContainerManager.closeContainer",
         "components/utilities/containerManager:ContainerManager.constructor",
@@ -19897,6 +19915,12 @@
       "dataPath": true
     },
     {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/encryptIntent:setImportEncryptIntent",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/encryptIntent:setImportEncryptIntent",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/citeForm/index:setupFormSubmissionHandler__call__components/newbookContainer/citeForm/submission:setupFormSubmission",
       "source": "components/newbookContainer/citeForm/index:setupFormSubmissionHandler",
       "target": "components/newbookContainer/citeForm/submission:setupFormSubmission",
@@ -20021,6 +20045,12 @@
       "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/state:setAllowedResubmitBookId",
       "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
       "target": "components/newbookContainer/citeForm/state:setAllowedResubmitBookId",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/encryptIntent:getImportEncryptIntent",
+      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "target": "components/newbookContainer/encryptIntent:getImportEncryptIntent",
       "rel": "call"
     },
     {
@@ -20179,6 +20209,12 @@
       "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
       "target": "store:sessionStorage",
       "rel": "write"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/template:getCiteFormHTML__call__components/newbookContainer/encryptIntent:getImportEncryptIntent",
+      "source": "components/newbookContainer/citeForm/template:getCiteFormHTML",
+      "target": "components/newbookContainer/encryptIntent:getImportEncryptIntent",
+      "rel": "call"
     },
     {
       "id": "components/newbookContainer/citeForm/urlImport:setupUrlImport__call__components/newbookContainer/citeForm/dom:$",
@@ -22827,6 +22863,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/utilities/containerManager:ContainerManager._engageFocusTrap__domwrite__dom",
+      "source": "components/utilities/containerManager:ContainerManager._engageFocusTrap",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/utilities/containerManager:ContainerManager.closeContainer__domwrite__dom",
       "source": "components/utilities/containerManager:ContainerManager.closeContainer",
       "target": "dom",
@@ -25072,6 +25114,12 @@
       "id": "dom__domread__components/utilities/containerManager:ContainerManager._applyTopRightVisibility",
       "source": "dom",
       "target": "components/utilities/containerManager:ContainerManager._applyTopRightVisibility",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/containerManager:ContainerManager._engageFocusTrap",
+      "source": "dom",
+      "target": "components/utilities/containerManager:ContainerManager._engageFocusTrap",
       "rel": "domread"
     },
     {
@@ -40246,6 +40294,11 @@
       "kind": "static"
     },
     {
+      "source": "components/newbookContainer/citeForm/index",
+      "target": "components/newbookContainer/encryptIntent",
+      "kind": "static"
+    },
+    {
       "source": "components/newbookContainer/citeForm/modes",
       "target": "components/newbookContainer/citeForm/dom",
       "kind": "static"
@@ -40283,6 +40336,11 @@
     {
       "source": "components/newbookContainer/citeForm/persistence",
       "target": "components/newbookContainer/citeForm/state",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/persistence",
+      "target": "components/newbookContainer/encryptIntent",
       "kind": "static"
     },
     {
@@ -40359,6 +40417,11 @@
       "source": "components/newbookContainer/citeForm/submission",
       "target": "components/userButton/userButton",
       "kind": "lazy"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/template",
+      "target": "components/newbookContainer/encryptIntent",
+      "kind": "static"
     },
     {
       "source": "components/newbookContainer/citeForm/urlImport",

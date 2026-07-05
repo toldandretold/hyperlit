@@ -1,6 +1,6 @@
 # Accessibility (a11y) findings
 
-Target standard: **WCAG 2.2 Level AA**. Baseline seeded 2026-07-05.
+Target standard: **WCAG 2.2 Level AA**. Baseline seeded 2026-07-05 at **48 violation nodes**; remediated to **0** the same day (see "Remediation applied" below). The findings sections are kept as the audit record.
 
 ## What the standard is, and why AA
 
@@ -62,19 +62,27 @@ On `/`, the first Tab lands on `#userButton`; there is no "skip to content" link
 
 The settings container (`resources/js/components/settingsContainer/index.ts`) closes only via an `#settings-overlay` pointer click or the toggle button — there is no Escape handler. A keyboard-only user who opens settings is stuck. Remediation: wire an `Escape` keydown to the container's close path. Tracked by the fixme in `keyboard.spec.js` (settings closes on Escape — WCAG 2.1.2).
 
-## Prioritized remediation queue
+## Remediation applied (2026-07-05) — 48 nodes → 0, both keyboard gaps closed
 
-1. **Viewport zoom** (finding 4) — one line in `layout.blade.php`, clears 6 nodes across every page.
-2. **Icon button names** (finding 1) — highest node count (27, critical); mechanical `aria-label` additions.
-3. **Unlabeled select** (finding 2) — one control, critical.
-4. **Settings Escape** (finding 6) — small handler, removes a keyboard trap.
-5. **Skip link** (finding 5) — layout + CSS.
-6. **Contrast** (finding 3) — design pass on the settings/user-page colors.
+All six findings were fixed the same day the baseline was seeded. `a11yBaseline.json` is now all-zeros and the ratchet holds it there. What was done, for the record:
 
-After any fix: re-run `npm run test:a11y`, and when a state improves, lower its entry in `a11yBaseline.json` to the printed count (the run prints the suggested value). Convert a fixed keyboard `test.fixme` back to `test`. Both are diff-visible proof of the improvement.
+1. **Viewport zoom** (finding 4): removed `user-scalable=no` from the viewport meta in `layout.blade.php`.
+2. **Icon button names** (finding 1): `aria-label` on every icon-only button — `#userButton` ("Account"), `#settingsButton` ("Settings"), `#editButton` ("Toggle edit mode"), `#cloudRef` ("Sync status"), `#toc-toggle-button` ("Table of contents"), the settings `#searchButton` ("Search in text"), and the edit toolbar (`bold/italic/heading/blockquote/code/undo/redo` in `reader.blade.php`).
+3. **Unlabeled selects** (finding 2): `aria-label="Sort books"` on the JS-rendered sort `<select>`s in `resources/js/components/shelves/shelfSortAndSearch.ts` and `shelfHeader.ts`.
+4. **Contrast** (finding 3): sepia-scoped fixes in `sepia-theme.css` — library-card title text darkened to `#96490C` via a `.libraryCard strong` override (the `--hyperlit-orange` VARIABLE is untouched so decorative art like the lava-lamp keeps its hue); settings buttons get a light sepia wash instead of the muddy grey; slider label/value opacities bumped `0.6/0.7 → 0.8` in `settingsContainer.css` + `shelves.css`. Gotcha: `sepia-theme.css` is imported into a CSS `@layer`, so overrides there need `!important` to beat unlayered component CSS.
+5. **Skip link** (finding 5): visually-hidden-until-focus "Skip to content" anchor as the first focusable in `layout.blade.php`, `#main-start` targets in the three page blades, styles in `base/foundation.css`. SPA integration needed two guards in `LinkNavigationHandler`: the click interceptor skips `.skip-link` (native fragment behavior), and the popstate handler early-returns on `#main-start` (fragment clicks fire popstate; without the guard, home routed it as a null-book navigation and rewrote the URL to `/null#main-start`). The keyboard test asserts both. Note: macOS Safari/Firefox don't Tab to links by default — verify in Chrome or with Option+Tab.
+6. **Modal focus trap + Escape** (finding 6, later broadened): found live after the first pass — user/newbook panels opened with a blurred backdrop but Tab wandered the inert page behind them. Now the `ContainerManager` base owns a generic modal focus trap (`_engageFocusTrap`/`_releaseFocusTrap`): for `user-container`, `newbook-container`, `settings-container`, `source-container` (NOT `hyperlit-container` — sub-book content with its own history-driven close and edit-mode keyboard semantics), Tab cycles inside the open panel, Escape closes it, and focus returns to the trigger button. Subclasses that override `openContainer`/`closeContainer` without `super` (user, newbook, source) call the hooks in their overrides. `UserContainerManager.closeContainer` also adopted newbook's "close interrupts an in-flight open animation" semantics — its old `isAnimating` guard silently dropped Escape during the ~1s open window. Covered by the two "traps Tab, closes on Escape, restores focus" tests in `keyboard.spec.js`.
+
+Verified: `npm run test:a11y` twice back-to-back — 12 passed / 0 WCAG-A/AA nodes across all 6 scanned states; both keyboard `test.fixme`s converted back to passing `test`s; full vitest suite (1097) and the grand-tour isolation phases still green.
+
+## Keeping it at zero
+
+- Any new violation now FAILS `npm run test:a11y` (no baseline slack left). Fix the regression, or — as a deliberate, diff-visible decision — add a baseline entry.
+- The two still-skipped states (`reader-footnote-open`, and hyperlit-container coverage generally) need a footnote-bearing `E2E_READER_BOOK`; scanning them may surface new nodes — seed their baseline entries honestly when enabled.
+- Scans run under the e2e user's persisted theme (currently sepia). Dark/light themes are unscanned for contrast; a future pass could parameterize theme.
 
 ## What "more accessible" means here, measurably
 
-- **Primary:** total WCAG-A/AA violation nodes in `a11yBaseline.json`, weighted by impact (critical/serious tracked separately in `test-results/a11y/summary.json`). Started at 48.
-- **Secondary:** number of `test.fixme` keyboard tests turned back into passing `test` (started at 2).
-- **Tertiary:** count of distinct failing rule ids (started at 4: button-name, select-name, color-contrast, meta-viewport).
+- **Primary:** total WCAG-A/AA violation nodes in `a11yBaseline.json`, weighted by impact (critical/serious tracked separately in `test-results/a11y/summary.json`). Started at 48, now 0.
+- **Secondary:** number of `test.fixme` keyboard tests turned back into passing `test` (started at 2, now 0 — all 7 keyboard tests pass or skip on missing fixtures).
+- **Tertiary:** count of distinct failing rule ids (started at 4: button-name, select-name, color-contrast, meta-viewport; now 0).

@@ -223,6 +223,7 @@ export class SourceContainerManager extends (ContainerManager as any) {
     this.isOpen = true;
     (window as any).activeContainer = this.container.id;
     this.updateState(); // Adds .open class via parent's updateState()
+    this._engageFocusTrap(); // base ContainerManager: Tab trap + Escape + focus restore
 
     this._settleAnimation();
   }
@@ -258,6 +259,7 @@ export class SourceContainerManager extends (ContainerManager as any) {
     this.isOpen = false;
     (window as any).activeContainer = "main-content";
     this.updateState(); // Removes .open class via parent's updateState()
+    this._releaseFocusTrap();
 
     this._settleAnimation(() => this.container.classList.add("hidden"));
   }

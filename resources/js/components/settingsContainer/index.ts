@@ -49,6 +49,9 @@ export class SettingsContainerManager extends (ContainerManager as any) {
     verbose.init('Settings event listeners attached', '/components/settingsContainer/index.ts');
   }
 
+  // Escape-to-close + Tab focus trap come from the ContainerManager base
+  // (settings-container is in its FOCUS_TRAP_CONTAINER_IDS).
+
   /** Debounced viewport-width reconcile (strips/reapplies inline content-width). */
   _reconcileWidthDebounced() {
     if (this._widthReconcileDebounce) clearTimeout(this._widthReconcileDebounce);

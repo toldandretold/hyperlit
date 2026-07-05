@@ -34,6 +34,7 @@ export function showSortBar(options: any = {}) {
 
     const sortSelect = document.createElement('select');
     sortSelect.className = 'shelf-sort-select';
+    sortSelect.setAttribute('aria-label', 'Sort books');
 
     const sortOptions = [
         { value: 'recent', label: 'Recent' },

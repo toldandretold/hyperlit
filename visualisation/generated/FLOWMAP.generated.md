@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1609 functions in 344 modules · 10 object stores · 10 PG tables · 3268 edges
+**MarkdownDB** schema v28 · 1611 functions in 344 modules · 10 object stores · 10 PG tables · 3273 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -473,6 +473,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ContainerCustomizer.saveCustomizations` | `components/utilities/containerCustomization` | — | `localStorage` | — | — |
 | `ContainerCustomizer.updateContainer` | `components/utilities/containerCustomization` | — | — | — | — |
 | `ContainerManager._applyTopRightVisibility` | `components/utilities/containerManager` | — | — | read/write | — |
+| `ContainerManager._engageFocusTrap` | `components/utilities/containerManager` | — | — | read/write | — |
+| `ContainerManager._releaseFocusTrap` | `components/utilities/containerManager` | — | — | — | — |
 | `ContainerManager.cleanupURL` | `components/utilities/containerManager` | — | — | — | — |
 | `ContainerManager.closeContainer` | `components/utilities/containerManager` | — | — | read/write | — |
 | `ContainerManager.constructor` | `components/utilities/containerManager` | — | — | — | — |

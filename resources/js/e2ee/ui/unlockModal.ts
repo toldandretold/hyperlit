@@ -5,6 +5,7 @@
  */
 
 import { unlockVaultWithPasskey, unlockVaultWithRecoveryCode, PasskeyError } from '../passkey';
+import { encryptedLockSvg } from './lockIcon';
 
 const BTN =
   'width: 100%; padding: 10px; border-radius: 6px; cursor: pointer; box-sizing: border-box; font-family: inherit; font-size: 14px; margin-bottom: 10px;';
@@ -22,7 +23,7 @@ export function showUnlockModal(): Promise<void> {
       'position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center;';
     overlay.innerHTML = `
       <div style="background: var(--color-background, #111); color: var(--color-text, #eee); max-width: 380px; width: 90%; padding: 24px; border-radius: 10px; font-family: inherit; text-align: center;">
-        <div style="font-size: 34px; margin-bottom: 8px;">🔐</div>
+        <div style="margin-bottom: 8px;">${encryptedLockSvg(34)}</div>
         <h3 style="color: var(--color-secondary); margin: 0 0 8px;">This book is encrypted</h3>
         <p style="font-size: 13px; line-height: 1.5; margin-bottom: 16px;">
           Unlock with your passkey to read and edit it on this device.
