@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1606 functions in 343 modules · 10 object stores · 10 PG tables · 3264 edges
+**MarkdownDB** schema v28 · 1609 functions in 344 modules · 10 object stores · 10 PG tables · 3268 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -251,8 +251,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `librarianHtml` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `sourceStatusSectionHtml` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `wireSourceStatus` | `components/sourceContainer/checkSource` | — | — | read/write | — |
-| `handleEncryptToggle` | `components/sourceContainer/citationDisplay` | — | — | read/write | — |
-| `handlePrivacyToggle` | `components/sourceContainer/citationDisplay` | — | `library` | read/write | — |
 | `handleDeleteBook` | `components/sourceContainer/creatorTools/deleteBook` | — | — | read/write | — |
 | `loadCreatorTools` | `components/sourceContainer/creatorTools/index` | — | — | read/write | — |
 | `_awaitReconvert` | `components/sourceContainer/creatorTools/reconvert` | — | — | — | — |
@@ -302,9 +300,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.handleCheckSource` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleDeleteBook` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleEditClick` | `components/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.handleEncryptToggle` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleFormSubmit` | `components/sourceContainer/index` | — | — | — | — |
-| `SourceContainerManager.handlePrivacyToggle` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleReconvert` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleReupload` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.hideEditForm` | `components/sourceContainer/index` | — | — | — | — |
@@ -331,6 +327,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.syncLibraryRecordToBackend` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.syncPipelineHighlights` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.validateUrl` | `components/sourceContainer/index` | — | — | — | — |
+| `applyVisibilityState` | `components/sourceContainer/visibilityControl` | — | `library` | read/write | — |
+| `attachVisibilityControlListeners` | `components/sourceContainer/visibilityControl` | — | — | read/write | — |
+| `buildVisibilityControlHtml` | `components/sourceContainer/visibilityControl` | — | — | — | — |
+| `deriveVisibilityState` | `components/sourceContainer/visibilityControl` | — | — | — | — |
 | `showTargetNotFoundToast` | `components/toast/toast` | — | — | read/write | — |
 | `setInitialBookmarkPosition` | `components/tocContainer/bookmark` | — | — | read | — |
 | `updateOrInsertBookmark` | `components/tocContainer/bookmark` | `localStorage` `sessionStorage` | — | read/write | — |
@@ -1138,6 +1138,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `normalizeHyperciteElements` | `lazyLoader/chunkRender` | — | — | read/write | — |
 | `renderMathElements` | `lazyLoader/chunkRender` | — | — | read/write | — |
 | `throttle` | `lazyLoader/chunkRender` | — | — | — | — |
+| `clearImageBlobCache` | `lazyLoader/encryptedImages` | — | — | — | — |
+| `hydrateEncryptedImages` | `lazyLoader/encryptedImages` | — | — | read/write | — |
+| `restoreCanonicalImageSrcs` | `lazyLoader/encryptedImages` | — | — | — | — |
 | `applyDynamicFootnoteNumbers` | `lazyLoader/footnoteSelfHeal` | — | — | read/write | — |
 | `handleBrokenImages` | `lazyLoader/imageState` | — | — | read/write | — |
 | `createLazyLoader` | `lazyLoader/index` | `library` `localStorage` `sessionStorage` | `localStorage` `sessionStorage` | read/write | — |
@@ -1619,7 +1622,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 2 · lazy-loads (code-split): 237
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 2 · lazy-loads (code-split): 238
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1795,6 +1798,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `lazyLoader/chunkFetcher` → `indexedDB/hydration/rebuild`
 - `lazyLoader/chunkRender` → `divEditor/domUtilities`
 - `lazyLoader/chunkRender` → `indexedDB/index`
+- `lazyLoader/chunkRender` → `lazyLoader/encryptedImages`
 - `lazyLoader/footnoteSelfHeal` → `indexedDB/nodes/batch`
 - `lazyLoader/index` → `hyperlitContainer/index`
 - `lazyLoader/index` → `indexedDB/hydration/rebuild`

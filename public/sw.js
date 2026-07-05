@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v15';
+const CACHE_VERSION = 'v16';
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 
@@ -131,8 +131,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Handle static assets (fonts, images, css, js) - CacheFirst
-  if (url.pathname.match(/\.(js|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico)$/)) {
+  // Handle static assets (fonts, images, css, js) - CacheFirst.
+  // EXCLUDE book media (`/{book}/media/…`): those bytes MUTATE in place across
+  // an E2EE lock/publish (plaintext ⇄ HLENC1 ciphertext at the SAME URL), so
+  // CacheFirst would serve a stale copy — which made the image encrypt/decrypt
+  // passes (and encrypted-image render) fetch the wrong bytes. Let them fall
+  // through to the NetworkFirst default (fresh when online, cache offline).
+  if (url.pathname.match(/\.(js|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico)$/) && !url.pathname.includes('/media/')) {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
         if (cachedResponse) {

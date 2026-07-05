@@ -66,12 +66,13 @@ def apply_patch_to_book(book_dir, patch_path=None):
             print("Patch failed to apply:", out)
             return 1
         outdir = tempfile.mkdtemp(prefix='vibe-apply-')
-        # APPLY path: re-convert under the REAL book id so the regenerated <img src> paths resolve to
-        # /storage/books/<realId>/images/ (which already exists). The gate uses the default 'vibebook'.
+        # APPLY path: re-convert under the REAL book id so the regenerated <img src> paths are
+        # /{realId}/media/... (the canonical media route). The gate uses the default 'vibebook'.
         real_book_id = os.path.basename(book_dir.rstrip('/'))
-        # Tell the sandboxed ImageProcessor the REAL repo root so it writes this book's images to the LIVE
-        # storage (storage/app/public/books/<id>/images) + rewrites <img src> to /storage/... — the sandbox
-        # has no `artisan` to walk to, so without this images break (raw epub_original paths, no live files).
+        # ImageProcessor writes images into {outdir}/media (bare srcs → finalize prefixes
+        # /{book}/media/); we copy that dir back to book_dir below so ConversionArtifactSaver
+        # ingests it into the unified private store. SOURCE_ROOT lets epub_normalizer resolve
+        # image files from the source (epub_original/). (No more live /storage writes.)
         r = _pipeline_into(os.path.join(sandbox, 'app', 'Python'), book_dir, outdir, book_id=real_book_id,
                            extra_env={'HYPERLIT_PROJECT_ROOT': REPO_ROOT,
                                       'HYPERLIT_SOURCE_ROOT': os.path.abspath(book_dir)})
@@ -85,6 +86,13 @@ def apply_patch_to_book(book_dir, patch_path=None):
             p = os.path.join(outdir, fn)
             if os.path.isfile(p):
                 shutil.copy2(p, os.path.join(book_dir, fn))
+        # Copy the regenerated media/ dir back to book_dir so the PHP saver ingests it into
+        # the private store (mirror the file list above; media is a directory not a file).
+        src_media = os.path.join(outdir, 'media')
+        if os.path.isdir(src_media):
+            dst_media = os.path.join(book_dir, 'media')
+            shutil.rmtree(dst_media, ignore_errors=True)  # mirror the fresh conversion
+            shutil.copytree(src_media, dst_media)
         # Regenerate the ARRAY forms (nodes.json, footnotes.json) from the fresh .jsonl. The pipeline only
         # writes the .jsonl; the .json is normally produced by the Laravel import — but ConversionArtifactSaver
         # reads the .json. Without this, apply copied the converted .jsonl yet the saver persisted the STALE

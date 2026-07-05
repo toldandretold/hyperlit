@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1606,
-    "moduleCount": 343,
+    "fnCount": 1609,
+    "moduleCount": 344,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3264,
+    "edgeCount": 3268,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -2120,25 +2120,6 @@
       "leaf": false
     },
     {
-      "id": "components/sourceContainer/citationDisplay:handleEncryptToggle",
-      "label": "handleEncryptToggle",
-      "kind": "fn",
-      "stage": "components",
-      "module": "components/sourceContainer/citationDisplay",
-      "leaf": false
-    },
-    {
-      "id": "components/sourceContainer/citationDisplay:handlePrivacyToggle",
-      "label": "handlePrivacyToggle",
-      "kind": "fn",
-      "stage": "components",
-      "module": "components/sourceContainer/citationDisplay",
-      "leaf": false,
-      "types": [
-        "LibraryRecord"
-      ]
-    },
-    {
       "id": "components/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
       "label": "handleDeleteBook",
       "kind": "fn",
@@ -2540,24 +2521,8 @@
       "leaf": true
     },
     {
-      "id": "components/sourceContainer/index:SourceContainerManager.handleEncryptToggle",
-      "label": "SourceContainerManager.handleEncryptToggle",
-      "kind": "fn",
-      "stage": "components",
-      "module": "components/sourceContainer/index",
-      "leaf": true
-    },
-    {
       "id": "components/sourceContainer/index:SourceContainerManager.handleFormSubmit",
       "label": "SourceContainerManager.handleFormSubmit",
-      "kind": "fn",
-      "stage": "components",
-      "module": "components/sourceContainer/index",
-      "leaf": true
-    },
-    {
-      "id": "components/sourceContainer/index:SourceContainerManager.handlePrivacyToggle",
-      "label": "SourceContainerManager.handlePrivacyToggle",
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/index",
@@ -2769,6 +2734,38 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/visibilityControl:applyVisibilityState",
+      "label": "applyVisibilityState",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/visibilityControl",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/visibilityControl:attachVisibilityControlListeners",
+      "label": "attachVisibilityControlListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/visibilityControl",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/visibilityControl:buildVisibilityControlHtml",
+      "label": "buildVisibilityControlHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/visibilityControl",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/visibilityControl:deriveVisibilityState",
+      "label": "deriveVisibilityState",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/visibilityControl",
       "leaf": true
     },
     {
@@ -4408,6 +4405,7 @@
         "custom_license_text",
         "doi",
         "editor",
+        "encrypted",
         "fileName",
         "fileType",
         "foundation_source",
@@ -4432,6 +4430,7 @@
         "url",
         "visibility",
         "volume",
+        "wrapped_dek",
         "year"
       ]
     },
@@ -4622,6 +4621,7 @@
         "custom_license_text",
         "doi",
         "editor",
+        "encrypted",
         "fileName",
         "fileType",
         "foundation_source",
@@ -4646,6 +4646,7 @@
         "url",
         "visibility",
         "volume",
+        "wrapped_dek",
         "year"
       ]
     },
@@ -10426,6 +10427,30 @@
       "leaf": true
     },
     {
+      "id": "lazyLoader/encryptedImages:clearImageBlobCache",
+      "label": "clearImageBlobCache",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/encryptedImages",
+      "leaf": true
+    },
+    {
+      "id": "lazyLoader/encryptedImages:hydrateEncryptedImages",
+      "label": "hydrateEncryptedImages",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/encryptedImages",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/encryptedImages:restoreCanonicalImageSrcs",
+      "label": "restoreCanonicalImageSrcs",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/encryptedImages",
+      "leaf": true
+    },
+    {
       "id": "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
       "label": "applyDynamicFootnoteNumbers",
       "kind": "fn",
@@ -15319,16 +15344,6 @@
       ]
     },
     {
-      "id": "components/sourceContainer/citationDisplay",
-      "label": "components/sourceContainer/citationDisplay",
-      "stage": "components",
-      "band": "components",
-      "fnIds": [
-        "components/sourceContainer/citationDisplay:handleEncryptToggle",
-        "components/sourceContainer/citationDisplay:handlePrivacyToggle"
-      ]
-    },
-    {
       "id": "components/sourceContainer/creatorTools/deleteBook",
       "label": "components/sourceContainer/creatorTools/deleteBook",
       "stage": "components",
@@ -15446,9 +15461,7 @@
         "components/sourceContainer/index:SourceContainerManager.handleCheckSource",
         "components/sourceContainer/index:SourceContainerManager.handleDeleteBook",
         "components/sourceContainer/index:SourceContainerManager.handleEditClick",
-        "components/sourceContainer/index:SourceContainerManager.handleEncryptToggle",
         "components/sourceContainer/index:SourceContainerManager.handleFormSubmit",
-        "components/sourceContainer/index:SourceContainerManager.handlePrivacyToggle",
         "components/sourceContainer/index:SourceContainerManager.handleReconvert",
         "components/sourceContainer/index:SourceContainerManager.handleReupload",
         "components/sourceContainer/index:SourceContainerManager.hideEditForm",
@@ -15476,6 +15489,18 @@
         "components/sourceContainer/index:SourceContainerManager.syncPipelineHighlights",
         "components/sourceContainer/index:SourceContainerManager.validateUrl",
         "components/sourceContainer/index:destroySourceManager"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/visibilityControl",
+      "label": "components/sourceContainer/visibilityControl",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/visibilityControl:applyVisibilityState",
+        "components/sourceContainer/visibilityControl:attachVisibilityControlListeners",
+        "components/sourceContainer/visibilityControl:buildVisibilityControlHtml",
+        "components/sourceContainer/visibilityControl:deriveVisibilityState"
       ]
     },
     {
@@ -17587,6 +17612,17 @@
         "lazyLoader/chunkRender:normalizeHyperciteElements",
         "lazyLoader/chunkRender:renderMathElements",
         "lazyLoader/chunkRender:throttle"
+      ]
+    },
+    {
+      "id": "lazyLoader/encryptedImages",
+      "label": "lazyLoader/encryptedImages",
+      "stage": "lazyLoader",
+      "band": "capture",
+      "fnIds": [
+        "lazyLoader/encryptedImages:clearImageBlobCache",
+        "lazyLoader/encryptedImages:hydrateEncryptedImages",
+        "lazyLoader/encryptedImages:restoreCanonicalImageSrcs"
       ]
     },
     {
@@ -21197,6 +21233,12 @@
       "rel": "call"
     },
     {
+      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/visibilityControl:buildVisibilityControlHtml",
+      "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "components/sourceContainer/visibilityControl:buildVisibilityControlHtml",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__indexedDB/core/connection:openDatabase",
       "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
       "target": "indexedDB/core/connection:openDatabase",
@@ -21293,37 +21335,6 @@
       "source": "components/sourceContainer/checkSource:wireSourceStatus",
       "target": "dom",
       "rel": "domwrite"
-    },
-    {
-      "id": "components/sourceContainer/citationDisplay:handleEncryptToggle__domwrite__dom",
-      "source": "components/sourceContainer/citationDisplay:handleEncryptToggle",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
-      "id": "components/sourceContainer/citationDisplay:handlePrivacyToggle__call__components/sourceContainer/helpers:getRecord",
-      "source": "components/sourceContainer/citationDisplay:handlePrivacyToggle",
-      "target": "components/sourceContainer/helpers:getRecord",
-      "rel": "call"
-    },
-    {
-      "id": "components/sourceContainer/citationDisplay:handlePrivacyToggle__call__indexedDB/core/connection:openDatabase",
-      "source": "components/sourceContainer/citationDisplay:handlePrivacyToggle",
-      "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "components/sourceContainer/citationDisplay:handlePrivacyToggle__domwrite__dom",
-      "source": "components/sourceContainer/citationDisplay:handlePrivacyToggle",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
-      "id": "components/sourceContainer/citationDisplay:handlePrivacyToggle__write__store:library",
-      "source": "components/sourceContainer/citationDisplay:handlePrivacyToggle",
-      "target": "store:library",
-      "rel": "write"
     },
     {
       "id": "components/sourceContainer/creatorTools/deleteBook:handleDeleteBook__call__indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
@@ -21689,6 +21700,13 @@
       "dataPath": true
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/sourceContainer/visibilityControl:attachVisibilityControlListeners",
+      "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "target": "components/sourceContainer/visibilityControl:attachVisibilityControlListeners",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__domwrite__dom",
       "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
       "target": "dom",
@@ -21765,22 +21783,9 @@
       "rel": "call"
     },
     {
-      "id": "components/sourceContainer/index:SourceContainerManager.handleEncryptToggle__call__components/sourceContainer/citationDisplay:handleEncryptToggle",
-      "source": "components/sourceContainer/index:SourceContainerManager.handleEncryptToggle",
-      "target": "components/sourceContainer/citationDisplay:handleEncryptToggle",
-      "rel": "call"
-    },
-    {
       "id": "components/sourceContainer/index:SourceContainerManager.handleFormSubmit__call__components/sourceContainer/editForm:handleFormSubmit",
       "source": "components/sourceContainer/index:SourceContainerManager.handleFormSubmit",
       "target": "components/sourceContainer/editForm:handleFormSubmit",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "components/sourceContainer/index:SourceContainerManager.handlePrivacyToggle__call__components/sourceContainer/citationDisplay:handlePrivacyToggle",
-      "source": "components/sourceContainer/index:SourceContainerManager.handlePrivacyToggle",
-      "target": "components/sourceContainer/citationDisplay:handlePrivacyToggle",
       "rel": "call",
       "dataPath": true
     },
@@ -21943,6 +21948,50 @@
       "id": "components/sourceContainer/index:SourceContainerManager.validateUrl__call__components/sourceContainer/editForm:validateUrl",
       "source": "components/sourceContainer/index:SourceContainerManager.validateUrl",
       "target": "components/sourceContainer/editForm:validateUrl",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/visibilityControl:applyVisibilityState__call__components/sourceContainer/helpers:getRecord",
+      "source": "components/sourceContainer/visibilityControl:applyVisibilityState",
+      "target": "components/sourceContainer/helpers:getRecord",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/visibilityControl:applyVisibilityState__call__indexedDB/core/connection:openDatabase",
+      "source": "components/sourceContainer/visibilityControl:applyVisibilityState",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/visibilityControl:applyVisibilityState__domwrite__dom",
+      "source": "components/sourceContainer/visibilityControl:applyVisibilityState",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/visibilityControl:applyVisibilityState__write__store:library",
+      "source": "components/sourceContainer/visibilityControl:applyVisibilityState",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "components/sourceContainer/visibilityControl:attachVisibilityControlListeners__call__components/sourceContainer/visibilityControl:applyVisibilityState",
+      "source": "components/sourceContainer/visibilityControl:attachVisibilityControlListeners",
+      "target": "components/sourceContainer/visibilityControl:applyVisibilityState",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/visibilityControl:attachVisibilityControlListeners__domwrite__dom",
+      "source": "components/sourceContainer/visibilityControl:attachVisibilityControlListeners",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/visibilityControl:buildVisibilityControlHtml__call__components/sourceContainer/visibilityControl:deriveVisibilityState",
+      "source": "components/sourceContainer/visibilityControl:buildVisibilityControlHtml",
+      "target": "components/sourceContainer/visibilityControl:deriveVisibilityState",
       "rel": "call"
     },
     {
@@ -24660,18 +24709,6 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__components/sourceContainer/citationDisplay:handleEncryptToggle",
-      "source": "dom",
-      "target": "components/sourceContainer/citationDisplay:handleEncryptToggle",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__components/sourceContainer/citationDisplay:handlePrivacyToggle",
-      "source": "dom",
-      "target": "components/sourceContainer/citationDisplay:handlePrivacyToggle",
-      "rel": "domread"
-    },
-    {
       "id": "dom__domread__components/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
       "source": "dom",
       "target": "components/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
@@ -24783,6 +24820,18 @@
       "id": "dom__domread__components/sourceContainer/index:SourceContainerManager.constructor",
       "source": "dom",
       "target": "components/sourceContainer/index:SourceContainerManager.constructor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/visibilityControl:applyVisibilityState",
+      "source": "dom",
+      "target": "components/sourceContainer/visibilityControl:applyVisibilityState",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/visibilityControl:attachVisibilityControlListeners",
+      "source": "dom",
+      "target": "components/sourceContainer/visibilityControl:attachVisibilityControlListeners",
       "rel": "domread"
     },
     {
@@ -26607,6 +26656,12 @@
       "id": "dom__domread__lazyLoader/chunkRender:renderMathElements",
       "source": "dom",
       "target": "lazyLoader/chunkRender:renderMathElements",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/encryptedImages:hydrateEncryptedImages",
+      "source": "dom",
+      "target": "lazyLoader/encryptedImages:hydrateEncryptedImages",
       "rel": "domread"
     },
     {
@@ -33325,6 +33380,12 @@
     {
       "id": "lazyLoader/chunkRender:renderMathElements__domwrite__dom",
       "source": "lazyLoader/chunkRender:renderMathElements",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/encryptedImages:hydrateEncryptedImages__domwrite__dom",
+      "source": "lazyLoader/encryptedImages:hydrateEncryptedImages",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -40576,6 +40637,11 @@
     },
     {
       "source": "components/sourceContainer/buildSourceHtml",
+      "target": "components/sourceContainer/visibilityControl",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/buildSourceHtml",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -40586,16 +40652,6 @@
     },
     {
       "source": "components/sourceContainer/checkSource",
-      "target": "indexedDB/index",
-      "kind": "static"
-    },
-    {
-      "source": "components/sourceContainer/citationDisplay",
-      "target": "components/sourceContainer/helpers",
-      "kind": "static"
-    },
-    {
-      "source": "components/sourceContainer/citationDisplay",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -40686,11 +40742,6 @@
     },
     {
       "source": "components/sourceContainer/index",
-      "target": "components/sourceContainer/citationDisplay",
-      "kind": "static"
-    },
-    {
-      "source": "components/sourceContainer/index",
       "target": "components/sourceContainer/creatorTools/deleteBook",
       "kind": "static"
     },
@@ -40726,7 +40777,22 @@
     },
     {
       "source": "components/sourceContainer/index",
+      "target": "components/sourceContainer/visibilityControl",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/index",
       "target": "components/utilities/containerManager",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/visibilityControl",
+      "target": "components/sourceContainer/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/visibilityControl",
+      "target": "indexedDB/index",
       "kind": "static"
     },
     {
@@ -43160,6 +43226,11 @@
       "kind": "lazy"
     },
     {
+      "source": "lazyLoader/chunkRender",
+      "target": "lazyLoader/encryptedImages",
+      "kind": "lazy"
+    },
+    {
       "source": "lazyLoader/footnoteSelfHeal",
       "target": "footnotes/FootnoteNumberingService",
       "kind": "static"
@@ -44328,6 +44399,6 @@
       ]
     ],
     "breakerCount": 2,
-    "lazyCount": 237
+    "lazyCount": 238
   }
 }

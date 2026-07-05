@@ -295,32 +295,12 @@ Route::get('/{book}/download-all', function (Request $request, $book) {
     return response()->download($zipPath, "{$book}_all_data.zip")->deleteFileAfterSend(true);
 })->where('book', '[a-zA-Z0-9\-_]+');
 
-// Media serving route for all images (folder uploads use media/, docx uses media/)
-Route::get('/{book}/media/{filename}', function (Request $request, $book, $filename) {
-    $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
-
-    // SECURITY: Check authorization
-    if (!canAccessBookContent($book, $request)) {
-        abort(403, 'Access denied.');
-    }
-
-    $filePath = resource_path("markdown/{$book}/media/{$filename}");
-
-    if (!file_exists($filePath)) {
-        abort(404, 'Image not found.');
-    }
-
-    // Get MIME type for proper content type
-    $mimeType = mime_content_type($filePath);
-
-    return response()->file($filePath, [
-        'Content-Type' => $mimeType,
-        'Cache-Control' => 'public, max-age=3600'
+// Media serving — unified private image store, RLS-gated (docs/e2ee.md).
+Route::get('/{book}/media/{filename}', [\App\Http\Controllers\BookMediaController::class, 'show'])
+    ->where([
+        'book' => '[a-zA-Z0-9\-_]+',
+        'filename' => '[a-zA-Z0-9\-_.]+\.(jpg|jpeg|png|gif|webp|svg)'
     ]);
-})->where([
-    'book' => '[a-zA-Z0-9\-_]+',
-    'filename' => '[a-zA-Z0-9\-_.]+\.(jpg|jpeg|png|gif|webp|svg)'
-]);
 
 // Password reset page
 Route::get('/reset-password/{token}', function (Request $request, $token) {

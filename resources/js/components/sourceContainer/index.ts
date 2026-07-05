@@ -1,7 +1,7 @@
 // SourceContainerManager — coordinator for the #source-container modal that the
 // #cloudRef button opens. Owns the core lifecycle (open/close/animation +
 // listener wiring) inline and delegates every concern method to its sibling
-// module (downloads / editForm / citationDisplay / creatorTools/* / aiReview/*).
+// module (downloads / editForm / visibilityControl / creatorTools/* / aiReview/*).
 // The class is the single dispatch hub: extracted functions take this instance
 // as `self` and call peers via `self.*`, so the only static edges are
 // index → submodules → leaves (acyclic). The default export is the singleton
@@ -16,7 +16,7 @@ import {
   setupEditFormListeners, saveEditForm, hideEditForm, handleFormSubmit,
   syncLibraryRecordToBackend, collectFormData, refreshCitationDisplay,
 } from "./editForm";
-import { handlePrivacyToggle, handleEncryptToggle } from "./citationDisplay";
+import { attachVisibilityControlListeners } from "./visibilityControl";
 import { loadCreatorTools } from "./creatorTools/index";
 import { loadVersionHistory } from "./creatorTools/versionHistory";
 import { loadReconvertInfo, handleReconvert, _awaitReconvert } from "./creatorTools/reconvert";
@@ -58,7 +58,6 @@ export class SourceContainerManager extends (ContainerManager as any) {
     const mdBtn = this.container.querySelector("#download-md");
     const docxBtn = this.container.querySelector("#download-docx");
     const editBtn = this.container.querySelector("#edit-source");
-    const privacyBtn = this.container.querySelector("#privacy-toggle");
 
     if (mdBtn && !mdBtn._listenerAttached) {
       mdBtn._listenerAttached = true;
@@ -98,16 +97,9 @@ export class SourceContainerManager extends (ContainerManager as any) {
       editBtn._listenerAttached = true;
       editBtn.addEventListener("click", () => this.handleEditClick());
     }
-    if (privacyBtn && !privacyBtn._listenerAttached) {
-      privacyBtn._listenerAttached = true;
-      privacyBtn.addEventListener("click", () => this.handlePrivacyToggle());
-    }
 
-    const encryptBtn = this.container.querySelector("#encrypt-toggle");
-    if (encryptBtn && !encryptBtn._listenerAttached) {
-      encryptBtn._listenerAttached = true;
-      encryptBtn.addEventListener("click", () => this.handleEncryptToggle());
-    }
+    // Unified visibility control (Public / Private / Encrypted)
+    attachVisibilityControlListeners(this);
 
     // Creator tools toggle (lazy-load on first expand)
     // Guard against duplicate listeners from hideEditForm → attachInternalListeners
@@ -291,10 +283,6 @@ export class SourceContainerManager extends (ContainerManager as any) {
   syncLibraryRecordToBackend(libraryRecord: any) { return syncLibraryRecordToBackend(this, libraryRecord); }
   collectFormData() { return collectFormData(this); }
   refreshCitationDisplay() { return refreshCitationDisplay(this); }
-
-  // citationDisplay
-  handlePrivacyToggle() { return handlePrivacyToggle(this); }
-  handleEncryptToggle() { return handleEncryptToggle(this); }
 
   // checkSource
   handleCheckSource() { return handleCheckSource(this); }

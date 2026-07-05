@@ -12,8 +12,9 @@
 import { ensureCsrfToken } from '../utilities/auth/csrf';
 import { getConnection } from '../indexedDB/core/connection';
 import { log } from '../utilities/logger';
-import { createDekForBook, isVaultUnlocked, clearKeyCaches } from './keys';
+import { createDekForBook, getDekForBook, isVaultUnlocked, clearKeyCaches } from './keys';
 import { setBookEncrypted, rootBookId } from './registry';
+import { runPool, type ProgressFn } from './pool';
 
 export class E2eeLifecycleError extends Error {
   constructor(message: string) {
@@ -58,13 +59,16 @@ async function postTransition(
  * otherwise drop the missing nodes. The full-data endpoint routes slash ids to
  * the sub-book variant, so one call shape covers both.
  */
-async function pullBookTree(tree: string[]): Promise<void> {
+async function pullBookTree(tree: string[], onProgress?: ProgressFn): Promise<void> {
   const { syncBookDataFromDatabase } = await import('../indexedDB/serverSync/pull');
-  for (const id of tree) {
+  const failures = await runPool(tree, async (id) => {
     const result = await syncBookDataFromDatabase(id);
     if (result && result.success === false && result.reason !== 'book_not_found') {
-      throw new E2eeLifecycleError(`Could not download "${id}" before the transition (${result.reason ?? 'pull failed'})`);
+      throw new Error(result.reason ?? 'pull failed');
     }
+  }, { onProgress });
+  if (failures.length) {
+    throw new E2eeLifecycleError(`Could not download ${failures.length} of ${tree.length} book parts — try again`);
   }
 }
 
@@ -86,13 +90,25 @@ async function patchLocalLibrary(bookId: string, patch: Record<string, unknown>)
 /**
  * Full-push every tree id through the per-store push (nodes, annotations,
  * footnotes, bibliography, library) — its E2EE seam encrypts or passes
- * plaintext according to the registry flag at push time.
+ * plaintext according to the registry flag at push time. Parallel + retried:
+ * a failure re-pushes rather than aborting the whole lock.
  */
-async function pushBookTree(tree: string[]): Promise<void> {
+async function pushBookTree(tree: string[], onProgress?: ProgressFn): Promise<void> {
   const { syncIndexedDBtoPostgreSQL } = await import('../indexedDB/serverSync/push');
-  for (const id of tree) {
-    await syncIndexedDBtoPostgreSQL(id);
+  const failures = await runPool(tree, (id) => syncIndexedDBtoPostgreSQL(id).then(() => undefined), { onProgress });
+  if (failures.length) {
+    throw new E2eeLifecycleError(`Could not encrypt ${failures.length} of ${tree.length} book parts — try again`);
   }
+}
+
+/** Read a book's local library record (for the resume/fresh decision). */
+async function getLocalLibrary(bookId: string): Promise<{ encrypted?: boolean; wrapped_dek?: string | null } | undefined> {
+  const db = await getConnection();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('library', 'readonly').objectStore('library').get(bookId);
+    req.onsuccess = () => resolve(req.result as { encrypted?: boolean; wrapped_dek?: string | null } | undefined);
+    req.onerror = () => reject(req.error);
+  });
 }
 
 /**
@@ -100,30 +116,53 @@ async function pushBookTree(tree: string[]): Promise<void> {
  * action per book — never automatic. Removes the book from server keyword
  * search (in-book search is unaffected; IndexedDB stays plaintext locally).
  */
-export async function lockBook(bookId: string): Promise<void> {
+export async function lockBook(bookId: string, onStatus?: (message: string) => void): Promise<void> {
   const root = rootBookId(bookId);
   if (!(await isVaultUnlocked())) {
     throw new E2eeLifecycleError('Unlock your encrypted books first (passkey required)');
   }
 
-  const { wrappedDek } = await createDekForBook(root);
-  // Flags flip first — the server pins private/unlisted and scrubs derived
-  // plaintext, but the CONTENT columns stay readable-plaintext until the
-  // ciphertext push below overwrites them (private-only window).
-  const { tree } = await postTransition(root, { encrypted: true, wrapped_dek: wrappedDek });
+  // Resume vs fresh: ANY stored wrapped DEK — from a partial lock OR an
+  // unfinished publish — must be REUSED, never replaced: ciphertext bound to it
+  // (image blobs, undecrypted parts) may still exist, and minting a new key
+  // would orphan that ciphertext permanently. (The server refuses to overwrite
+  // a stored wrapped_dek for the same reason.) Only a truly DEK-less book
+  // creates a fresh key.
+  const existing = await getLocalLibrary(root);
+  const resuming = !!existing?.wrapped_dek;
+
+  onStatus?.('Preparing…');
+  let wrappedDek: string | null = null;
+  if (resuming) {
+    await getDekForBook(root); // unwrap the existing DEK into the session cache
+  } else {
+    ({ wrappedDek } = await createDekForBook(root));
+  }
+
+  // Flag flip (idempotent server-side): pins private/unlisted, keeps the
+  // existing wrapped_dek on resume, and returns the full tree. Content columns
+  // stay readable-plaintext until the ciphertext push below overwrites them
+  // (private-only window).
+  const { tree } = await postTransition(root, wrappedDek ? { encrypted: true, wrapped_dek: wrappedDek } : { encrypted: true });
 
   setBookEncrypted(root, true);
   await patchLocalLibrary(root, {
     encrypted: true,
-    wrapped_dek: wrappedDek,
+    wrapped_dek: wrappedDek ?? existing?.wrapped_dek,
     visibility: 'private',
     listed: false,
     slug: null,
   });
 
-  // Complete-then-push: the plaintext rows pass the decrypt seam untouched.
-  await pullBookTree(tree);
-  await pushBookTree(tree);
+  // Complete-then-push (parallel + retried): pull the whole tree, then push it
+  // back as ciphertext. Already-ciphertext parts re-push idempotently on a resume.
+  await pullBookTree(tree, (d, t) => onStatus?.(`Downloading ${d}/${t}…`));
+  await pushBookTree(tree, (d, t) => onStatus?.(`Encrypting ${d}/${t}…`));
+
+  // Encrypt the image bytes (idempotent — already-encrypted rows skip).
+  onStatus?.('Encrypting images…');
+  const { encryptBookImages } = await import('./imageBlobs');
+  await encryptBookImages(root);
   log.user(`Book locked (E2EE): ${root}`, '/e2ee/lifecycle.ts');
 }
 
@@ -132,25 +171,38 @@ export async function lockBook(bookId: string): Promise<void> {
  * then the plaintext tree is re-uploaded. The caller confirms with the user
  * FIRST — this is a one-way door until they lock again (new DEK).
  */
-export async function publishBook(bookId: string): Promise<void> {
+export async function publishBook(bookId: string, onStatus?: (message: string) => void): Promise<void> {
   const root = rootBookId(bookId);
 
-  // Warm the DEK cache BEFORE the server clears wrapped_dek — the pull below
-  // downloads ciphertext rows and the decrypt seam needs the key one last time.
-  const { getDekForBook } = await import('./keys');
+  // Warm the DEK cache — the pull + image decrypt below need the key.
   await getDekForBook(root).catch(() => {
     throw new E2eeLifecycleError('Unlock your encrypted books first (passkey required)');
   });
 
+  // Phase 1: flip the flag off but KEEP wrapped_dek. Clearing the only copy of
+  // the DEK before the ciphertext (content + images) is gone would make a
+  // failed decrypt PERMANENT data loss — so the key survives until finalize.
+  onStatus?.('Preparing…');
   const { tree } = await postTransition(root, { encrypted: false });
-
   setBookEncrypted(root, false);
-  await patchLocalLibrary(root, { encrypted: false, wrapped_dek: null });
+  await patchLocalLibrary(root, { encrypted: false }); // wrapped_dek retained locally too
 
-  // Pull decrypts the remaining ciphertext locally (cached DEK), then the
-  // push re-uploads plaintext — the seam passes it through (flag is off).
-  await pullBookTree(tree);
-  await pushBookTree(tree);
+  // Pull decrypts the remaining ciphertext locally (cached DEK), then the push
+  // re-uploads plaintext — the seam passes it through (flag is off now).
+  await pullBookTree(tree, (d, t) => onStatus?.(`Downloading ${d}/${t}…`));
+  await pushBookTree(tree, (d, t) => onStatus?.(`Decrypting ${d}/${t}…`));
+
+  // Decrypt the image bytes (robust + retried). Throws if any can't be
+  // decrypted — and because wrapped_dek is still intact, that state is
+  // recoverable (re-open finishes it) rather than lost.
+  onStatus?.('Decrypting images…');
+  const { decryptBookImages } = await import('./imageBlobs');
+  await decryptBookImages(root, (d, t) => onStatus?.(`Decrypting images ${d}/${t}…`));
+
+  // Phase 2 (finalize): everything is plaintext — NOW clear the wrapped DEK on
+  // the whole tree. This is the one-way door.
+  await postTransition(root, { encrypted: false, finalize: true });
+  await patchLocalLibrary(root, { wrapped_dek: null });
   log.user(`Book published (decrypted): ${root}`, '/e2ee/lifecycle.ts');
 }
 
@@ -161,12 +213,20 @@ export async function publishBook(bookId: string): Promise<void> {
  */
 export async function ensureUnlockedForBook(bookId: string): Promise<void> {
   const root = rootBookId(bookId);
-  const db = await getConnection();
-  const record = await new Promise<{ encrypted?: boolean } | undefined>((resolve, reject) => {
-    const req = db.transaction('library', 'readonly').objectStore('library').get(root);
-    req.onsuccess = () => resolve(req.result as { encrypted?: boolean } | undefined);
-    req.onerror = () => reject(req.error);
-  });
+  const record = await getLocalLibrary(root);
+
+  // Self-heal an incomplete publish: the flag is off but a wrapped DEK lingers,
+  // meaning a prior decrypt didn't finish (some image bytes may still be
+  // ciphertext → they'd render broken). If the vault is already unlocked, finish
+  // it in the background; never prompt (this is a non-encrypted book). Failures
+  // are LOGGED (a silent swallow here cost a debugging round).
+  if (record?.encrypted !== true && record?.wrapped_dek && (await isVaultUnlocked())) {
+    void finishIncompletePublish(root).catch((error) => {
+      log.error(`Incomplete-publish self-heal failed: ${root}`, '/e2ee/lifecycle.ts', error);
+    });
+    return;
+  }
+
   // Unknown-locally books resolve too: if the server row is encrypted, the
   // library loader records the flag and the DECRYPT path throws VaultLockedError,
   // which the caller routes back through this gate via the modal.
@@ -177,7 +237,33 @@ export async function ensureUnlockedForBook(bookId: string): Promise<void> {
   await showUnlockModal();
 }
 
+/** Is this book stuck mid-publish (flag off but a wrapped DEK lingering)? */
+export async function hasIncompletePublish(bookId: string): Promise<boolean> {
+  const root = rootBookId(bookId);
+  const record = await getLocalLibrary(root);
+  return record?.encrypted !== true && !!record?.wrapped_dek;
+}
+
+/**
+ * Finish a publish that died after the flag flipped off but before the DEK was
+ * cleared — decrypt any still-ciphertext images, then finalize (clear the DEK).
+ * Requires an unlocked vault. Throws on failure (wrapped_dek stays intact, so
+ * it's always retryable). Called from the open-gate (background) and from the
+ * visibility control (so the user's own click repairs the book).
+ */
+export async function finishIncompletePublish(bookId: string, onStatus?: (message: string) => void): Promise<void> {
+  const root = rootBookId(bookId);
+  onStatus?.('Decrypting images…');
+  const { decryptBookImages } = await import('./imageBlobs');
+  await decryptBookImages(root, (d, t) => onStatus?.(`Decrypting images ${d}/${t}…`));
+  await postTransition(root, { encrypted: false, finalize: true });
+  await patchLocalLibrary(root, { wrapped_dek: null });
+  log.user(`Finished an incomplete publish: ${root}`, '/e2ee/lifecycle.ts');
+}
+
 /** Logout hook: drop in-memory keys (IDB wipe is handled by clearDatabase). */
 export function lockSessionCaches(): void {
   clearKeyCaches();
+  // Revoke decrypted image blob URLs too (they were only valid while unlocked).
+  void import('../lazyLoader/encryptedImages').then(({ clearImageBlobCache }) => clearImageBlobCache());
 }

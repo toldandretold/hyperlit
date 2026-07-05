@@ -39,6 +39,14 @@ class ConversionArtifactSaver
         $this->saveNodes($path, $bookId);
         $this->saveFootnotes($path, $bookId);
         $this->saveReferences($path, $bookId);
+
+        // Unified image store ingest (docs/e2ee.md) — the vibe-apply path
+        // regenerates artifacts (incl. {path}/media/) next to nodes.json.
+        try {
+            app(\App\Services\BookImageStore::class)->ingestFromDirectory($bookId, "{$path}/media", prune: true);
+        } catch (\Throwable $e) {
+            Log::warning('ConversionArtifactSaver: book image ingest failed', ['book' => $bookId, 'error' => $e->getMessage()]);
+        }
     }
 
     /**

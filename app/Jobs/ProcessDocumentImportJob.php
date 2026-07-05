@@ -172,6 +172,19 @@ class ProcessDocumentImportJob implements ShouldQueue
             $this->writeProgress($path, 'processing', 95, 'db_references', 'Saving references to database');
             $this->saveReferencesToDatabase($path, $this->bookId);
 
+            // Ingest extracted images into the unified private store (docs/e2ee.md).
+            // ALL conversion paths (epub/docx/pdf/zip) drop images in {path}/media/;
+            // prune:true makes the store mirror THIS conversion, closing the
+            // reconvert-accumulation gap. Best-effort — a book still renders text
+            // if image ingest hiccups.
+            try {
+                app(\App\Services\BookImageStore::class)->ingestFromDirectory(
+                    $this->bookId, "{$path}/media", prune: true
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Book image ingest failed', ['book' => $this->bookId, 'error' => $e->getMessage()]);
+            }
+
             // Bump the CONTENT timestamp now that nodes/footnotes/references have landed,
             // so the book-cache (and open clients) invalidate against a value that is
             // strictly newer than this (re)conversion's writes. Harmless on a brand-new

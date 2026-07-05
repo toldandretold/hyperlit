@@ -8,8 +8,9 @@ import { openDatabase } from '../../indexedDB/index';
 import { formatBibtexToCitation } from '../../utilities/bibtexProcessor';
 import { book } from '../../app';
 import { canUserEditBook, getAuthContextSync } from '../../utilities/auth/index';
-import { getRecord, isSyntheticBook, PUBLIC_SVG, PRIVATE_SVG } from './helpers';
+import { getRecord, isSyntheticBook } from './helpers';
 import { sourceStatusSectionHtml } from './checkSource';
+import { buildVisibilityControlHtml } from './visibilityControl';
 import type { LibraryRecord } from '../../indexedDB/types';
 
 /**
@@ -103,28 +104,11 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       </svg>
     </button>` : '';
 
-  // Only show privacy toggle if user can edit AND we have access to the record
-  // Don't show toggle if access was denied (e.g., private book after logout)
-  const isPrivate = record?.visibility === 'private';
-  const privacyToggleHtml = (canEdit && !accessDenied && record) ? `
-    <!-- Privacy Toggle in top right corner -->
-    <button id="privacy-toggle"
-            data-is-private="${isPrivate}"
-            style="position: absolute; top: 10px; right: 10px; z-index: 1002;"
-            title="${isPrivate ? 'Book is Private - Click to make public' : 'Book is Public - Click to make private'}">
-      ${isPrivate ? PRIVATE_SVG : PUBLIC_SVG}
-    </button>` : '';
-
-  // E2EE (docs/e2ee.md): lock/publish toggle — only for the owner of a
-  // TOP-LEVEL book (sub-books inherit the root's encryption).
-  const isEncrypted = (record as { encrypted?: boolean } | null)?.encrypted === true;
-  const encryptToggleHtml = (canEdit && !accessDenied && record && !String(record.book ?? '').includes('/')) ? `
-    <button id="encrypt-toggle"
-            data-is-encrypted="${isEncrypted}"
-            style="position: absolute; top: 10px; right: 46px; z-index: 1002; background: transparent; border: none; cursor: pointer; font-size: 16px;"
-            title="${isEncrypted ? 'Encrypted — click to publish (permanently decrypts on the server)' : 'Not encrypted — click to lock with your passkey'}">
-      ${isEncrypted ? '🔐' : '🔓'}
-    </button>` : '';
+  // Unified visibility control (Public / Private / Encrypted) in the top-right
+  // corner — one button showing the current state, expanding to a glass popover.
+  // Only for owners with a record and access (mirrors the old privacy/encrypt
+  // toggle guards). Encryption row is omitted for sub-books inside the builder.
+  const visibilityControlHtml = buildVisibilityControlHtml(record, canEdit, accessDenied);
 
   // Get license info
   const license = record?.license || 'CC-BY-SA-4.0-NO-AI';
@@ -309,8 +293,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
 
     </div>
 
-    ${privacyToggleHtml}
-    ${encryptToggleHtml}
+    ${visibilityControlHtml}
     ${editButtonHtml}
 
     <!-- Edit Form (initially hidden) -->

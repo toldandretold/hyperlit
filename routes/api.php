@@ -337,6 +337,12 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     Route::get('/books/{book}/reconvert-info', [ImportController::class, 'reconvertInfo']);
     Route::post('/books/{book}/reconvert', [ImportController::class, 'reconvert']);
 
+    // E2EE image blobs (docs/e2ee.md): list images + replace one image's bytes
+    // (lock encrypts, publish decrypts). Owner-only + magic guard in-controller.
+    Route::get('/books/{book}/images', [\App\Http\Controllers\BookImageController::class, 'index']);
+    Route::put('/books/{book}/images/{filename}', [\App\Http\Controllers\BookImageController::class, 'update'])
+        ->where('filename', '[a-zA-Z0-9\-_.]+\.(jpg|jpeg|png|gif|webp|svg)');
+
      Route::get(
         '/db/hypercites/find/{book}/{hyperciteId}',
         [DbHyperciteController::class, 'find']

@@ -994,7 +994,9 @@ public function bulkCreate(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'encrypted' => 'required|boolean',
-            'wrapped_dek' => 'required_if:encrypted,true|nullable|string|max:4096',
+            // wrapped_dek is required only on a FRESH encrypt (checked below);
+            // a RESUME of a partially-encrypted book re-locks WITHOUT a new DEK.
+            'wrapped_dek' => 'nullable|string|max:4096',
         ]);
         if ($validator->fails()) {
             return ApiResponse::validationError($validator->errors());
@@ -1019,13 +1021,39 @@ public function bulkCreate(Request $request)
         }
 
         $encrypting = (bool) $request->boolean('encrypted');
+
+        // A FRESH encrypt needs a wrapped DEK; a RESUME (a stored DEK already
+        // exists — partial lock OR unfinished publish) reuses it and sends none.
+        if ($encrypting && empty($library->wrapped_dek) && empty($request->input('wrapped_dek'))) {
+            return response()->json(['success' => false, 'message' => 'wrapped_dek is required to encrypt a book'], 422);
+        }
         $oldVisibility = $library->visibility;
+
+        // E2EE (docs/e2ee.md): pull any legacy (un-migrated) images into the
+        // private store BEFORE the transaction's scrub deletes the legacy dirs —
+        // otherwise encrypting an old book would destroy its only image copies.
+        // Idempotent + a no-op for already-migrated books. The client's
+        // encryptBookImages pass then encrypts the now-in-store rows.
+        if ($encrypting) {
+            try {
+                app(\App\Services\LegacyImageMigrator::class)->migrateBook($book);
+            } catch (\Throwable $e) {
+                Log::warning('Encryption: legacy image migration failed', ['book' => $book, 'error' => $e->getMessage()]);
+            }
+        }
 
         try {
             DB::transaction(function () use ($library, $book, $encrypting, $request) {
                 if ($encrypting) {
                     $library->encrypted = true;
-                    $library->wrapped_dek = $request->input('wrapped_dek');
+                    // Set the DEK ONLY when none is stored. NEVER overwrite an
+                    // existing wrapped_dek: ciphertext bound to it may still
+                    // exist (image blobs after an unfinished publish), and
+                    // rotating the key would make that ciphertext PERMANENTLY
+                    // undecryptable. Only `finalize` (below) may clear it.
+                    if (empty($library->wrapped_dek) && ! empty($request->input('wrapped_dek'))) {
+                        $library->wrapped_dek = $request->input('wrapped_dek');
+                    }
                     $library->save(); // saving hook forces private/unlisted/null-slug
 
                     // Cascade to sub-books (footnote/annotation sub-books share the root DEK)
@@ -1054,19 +1082,38 @@ public function bulkCreate(Request $request)
                         ->delete();
 
                     // 2. Conversion artifacts on disk (uploaded source, markdown,
-                    //    assessment traces) — all live under resources/markdown/{book}.
+                    //    assessment traces) under resources/markdown/{book}. media/
+                    //    is empty post-ingest (images now live in the private store,
+                    //    encrypted in place by the Phase II lock pass), so deleting
+                    //    this no longer breaks images.
                     $artifactDir = resource_path("markdown/{$book}");
                     if (is_dir($artifactDir)) {
                         \Illuminate\Support\Facades\File::deleteDirectory($artifactDir);
                     }
+
+                    // 3. Defensive: any legacy EPUB public-storage images (pre
+                    //    unified-store migration) — plaintext + unauthenticated.
+                    $legacyPublic = storage_path("app/public/books/{$book}");
+                    if (is_dir($legacyPublic)) {
+                        \Illuminate\Support\Facades\File::deleteDirectory($legacyPublic);
+                    }
                 } else {
+                    // Publish (decrypt). Flip the flag off, but KEEP wrapped_dek
+                    // until the client confirms every ciphertext (content AND
+                    // image bytes) is gone — clearing the only copy of the DEK
+                    // first would make a failed decrypt PERMANENT data loss. The
+                    // client re-POSTs with finalize=true once fully plaintext.
+                    $finalize = $request->boolean('finalize');
                     $library->encrypted = false;
-                    $library->wrapped_dek = null;
+                    if ($finalize) {
+                        $library->wrapped_dek = null;
+                    }
                     $library->save();
 
-                    PgLibrary::where('book', 'like', $book.'/%')->update([
-                        'encrypted' => false,
-                    ]);
+                    PgLibrary::where('book', 'like', $book.'/%')->update(array_merge(
+                        ['encrypted' => false],
+                        $finalize ? ['wrapped_dek' => null] : [],
+                    ));
                 }
             });
         } catch (\Exception $e) {

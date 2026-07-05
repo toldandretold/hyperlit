@@ -507,9 +507,10 @@ class EpubNormalizer:
                 self._markers_after_structural = _count_footnote_markers(self.combined_soup)
             elif self._markers_after_structural is None:
                 self._last_structural = transform.name   # the last Phase-1 transform before detection
-            # Set context for transforms that need it
+            # Set context for transforms that need it. output_dir is where the
+            # media/ handoff dir goes (BookImageStore ingests from {output_dir}/media).
             if isinstance(transform, ImageProcessor):
-                transform.set_context(self.book_id, self.source_root)
+                transform.set_context(self.book_id, self.source_root, self.output_dir)
             # Hand style-driven detectors the parsed CSS + toc.ncx (duck-typed, so any future
             # style-aware transform opts in just by defining set_style_context).
             if hasattr(transform, 'set_style_context'):

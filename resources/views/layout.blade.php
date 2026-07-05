@@ -185,9 +185,15 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                // updateViaCache:'none' → sw.js itself always bypasses the HTTP
+                // cache, and the explicit update() forces the version check every
+                // load — so a new SW (skipWaiting+claim) takes over immediately
+                // instead of a stale one lingering. A stale CacheFirst SW serving
+                // mutated /media/ bytes broke the E2EE image passes + render.
+                navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
                     .then((registration) => {
                         console.log('[SW] Registered with scope:', registration.scope);
+                        registration.update();
                     })
                     .catch((error) => {
                         console.error('[SW] Registration failed:', error);

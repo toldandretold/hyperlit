@@ -80,24 +80,8 @@
 /* Glass circle backdrop for source-container corner buttons
    Matches perimeter buttons: transparent bg + blur = invisible on solid,
    frosted glass when text scrolls behind */
-#source-container #privacy-toggle,
 #source-container #edit-source {
   position: absolute;
-}
-
-#source-container #privacy-toggle::before {
-  content: '';
-  position: absolute;
-  top: -3px;
-  left: -3px;
-  right: -3px;
-  bottom: -3px;
-  border-radius: 50%;
-  background-color: var(--container-glass-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index: -1;
-  pointer-events: none;
 }
 
 #source-container #edit-source::before {
@@ -115,24 +99,170 @@
   pointer-events: none;
 }
 
-/* Privacy toggle button */
-#privacy-toggle {
+/* ── Visibility control (Public / Private / Encrypted) ─────────────────────
+   One corner trigger showing the current state; clicking expands a frosted-glass
+   popover with the three labelled options. Replaces the old #privacy-toggle +
+   #encrypt-toggle padlocks. */
+#source-container #visibility-control {
+  position: absolute;
+  overflow: visible; /* the dropdown hangs below the trigger — never clip it */
+}
+
+/* While the popover is open, blur the container's CONTENT directly with a real
+   filter (not a backdrop-filter overlay — that only smears, because a
+   backdrop-filter nested inside #source-container's own backdrop-filter samples
+   an already-flattened layer). #visibility-control is a SIBLING of
+   #source-content, so blurring the content leaves the trigger + panel sharp.
+   NB: do NOT transition the blur radius — animating filter: blur re-rasterises a
+   downsampled buffer each frame, so the content visibly shakes/wobbles as it
+   ramps. Snap it on instead (standard for a dropdown). */
+#source-container:has(.visibility-control.vis-open) #source-content {
+  filter: blur(5px);
+}
+
+/* Transparent click-catcher over the blurred content: sits above #source-content
+   but below the control (z 1002) + panel (z 1003). A click here closes the panel
+   instead of hitting a link beneath it. No backdrop-filter — the blur is on the
+   content itself now. */
+.visibility-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  cursor: pointer;
+}
+
+#source-container .visibility-trigger {
+  position: relative;
   background: transparent;
   border: none;
   padding: 4px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 2px;
   transition: opacity 0.2s ease;
 }
 
-#privacy-toggle:hover {
+#source-container .visibility-trigger:hover {
   opacity: 0.7;
 }
 
-#privacy-toggle svg {
+#source-container .visibility-trigger svg {
   pointer-events: none;
+}
+
+/* Frosted glass pill behind the corner trigger (was #privacy-toggle::before) */
+#source-container .visibility-trigger::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border-radius: 999px;
+  background-color: var(--container-glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+#source-container .visibility-trigger-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#source-container .visibility-chevron {
+  opacity: 0.7;
+  transition: transform 0.2s ease;
+}
+
+#source-container .visibility-control.vis-open .visibility-chevron {
+  transform: rotate(180deg);
+}
+
+/* The glass popover of options */
+#source-container .visibility-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 170px;
+  max-width: none; /* defeat the global `* { max-width: 100% }` clamp (foundation.css) */
+  padding: 4px;
+  border-radius: 10px;
+  background-color: var(--container-glass-bg);
+  -webkit-backdrop-filter: var(--container-glass-blur);
+  backdrop-filter: var(--container-glass-blur);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 1003;
+}
+
+#source-container .visibility-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+#source-container .visibility-option:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+  color: var(--color-text);
+}
+
+#source-container .visibility-option:disabled {
+  cursor: default;
+}
+
+#source-container .visibility-option.active {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--hyperlit-aqua) 18%, transparent);
+}
+
+#source-container .visibility-option-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+#source-container .visibility-option-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+#source-container .visibility-option-label {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+#source-container .visibility-option-check {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--hyperlit-aqua);
+  opacity: 0;
+}
+
+#source-container .visibility-option.active .visibility-option-check {
+  opacity: 1;
+}
+
+/* Dark-row override for the shared .btn-spinner (tuned for light buttons) */
+#source-container .visibility-option-icon .btn-spinner {
+  margin: 0;
+  border-color: color-mix(in srgb, var(--color-text) 25%, transparent);
+  border-top-color: var(--color-text);
 }
 
 /* Creator Tools toggle button */

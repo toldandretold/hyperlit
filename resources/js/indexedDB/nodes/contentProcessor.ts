@@ -248,6 +248,19 @@ export function processNodeContentHighlightsAndCites(
     }
   });
 
+  // E2EE (docs/e2ee.md): a decrypted image was rendered with a transient
+  // blob: src (see lazyLoader/encryptedImages). NEVER persist that — restore
+  // the canonical /{book}/media/ src from data-hl-src and drop the transient
+  // hydration markers, so IndexedDB (and thus the sync) always stores the
+  // stable src. Harmless no-op for plaintext books (no img has data-hl-src).
+  contentClone.querySelectorAll('img[data-hl-src]').forEach((img) => {
+    const canonical = img.getAttribute('data-hl-src');
+    if (canonical) img.setAttribute('src', canonical);
+    img.removeAttribute('data-hl-src');
+    img.classList.remove('e2ee-img-loading', 'e2ee-img-locked');
+    if (img.getAttribute('class') === '') img.removeAttribute('class');
+  });
+
   const result: ProcessedNodeContent = {
     content: contentClone.outerHTML,
     hyperlights,

@@ -63,12 +63,10 @@ def _pipeline_into(py_dir, book_dir, out, book_id='vibebook', extra_env=None):
             # at identical paths. The container has no network and no host env → secrets are
             # unreachable to the model-written code it runs.
             sandbox_root = os.path.dirname(os.path.dirname(py_dir))
+            # ImageProcessor writes into {out}/media (already writable) — no live
+            # /storage mount needed. apply.py copies that media dir back to the
+            # book for the PHP store ingest.
             rw = [out]
-            root = (extra_env or {}).get('HYPERLIT_PROJECT_ROOT')
-            if root:   # APPLY: let ImageProcessor write this book's images to the REAL live storage
-                book_store = os.path.join(root, 'storage', 'app', 'public', 'books', book_id)
-                os.makedirs(book_store, exist_ok=True)
-                rw.append(book_store)
             full = _docker_cmd(runtime._DOCKER_IMAGE, [sandbox_root, book_dir], rw, ['python', *cmd],
                                env=extra_env)
             return subprocess.run(full, capture_output=True, text=True)

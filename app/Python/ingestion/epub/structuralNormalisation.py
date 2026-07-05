@@ -216,13 +216,16 @@ class SpanUnwrapper(EpubTransform):
 class ImageProcessor(EpubTransform):
     """
     Processes images from EPUB:
-    1. Copies images from epub_original to public storage location
-    2. Updates image src paths to use public URLs
+    1. Copies images from epub_original into the conversion's media/ handoff dir
+    2. Rewrites each <img src> to the BARE filename
     3. Converts nested div wrappers to proper <figure> elements
     4. Detects and preserves figure captions as <figcaption>
 
-    Image storage: /storage/app/public/books/{bookId}/images/
-    Public URL: /storage/books/{bookId}/images/{filename}
+    Handoff: {output_dir}/media/{filename}. finalize.py then injects width/height
+    and prefixes the canonical /{book_id}/media/ URL — identical to the DOCX/PDF
+    paths. The unified store (BookImageStore) later moves these into the private
+    disk + registers rows. (Replaces the old public /storage/books/ scheme, which
+    served images unauthenticated — see docs/e2ee.md.)
     """
 
     name = "ImageProcessor"
@@ -231,51 +234,33 @@ class ImageProcessor(EpubTransform):
     def __init__(self):
         self.book_id = None
         self.input_dir = None
+        self.output_dir = None
         self.images_copied = 0
 
     def detect(self, soup) -> bool:
         return bool(soup.find('img'))
 
-    def set_context(self, book_id, input_dir):
+    def set_context(self, book_id, input_dir, output_dir=None):
         """Set context for image processing (called before transform)."""
         self.book_id = book_id
         self.input_dir = input_dir
+        self.output_dir = output_dir
 
     def transform(self, soup, log) -> dict:
-        if not self.book_id or not self.input_dir:
-            log("  Warning: ImageProcessor context not set, skipping")
+        if not self.book_id or not self.input_dir or not self.output_dir:
+            log("  Warning: ImageProcessor context not set (needs output_dir), skipping")
             return {'images_processed': 0}
 
+        import pathlib
         body = soup.body if soup.body else soup
         images_processed = 0
         figures_created = 0
 
-        # Find the project root = the dir holding Laravel's `artisan`, by walking UP from this file.
-        # (Do NOT hardcode a .parent chain: this file moved from app/Python/ to app/Python/ingestion/epub/
-        # in the folder reorg, and the old `.parent.parent.parent` then resolved to app/Python — so images
-        # were copied to app/Python/storage/… which the web server never serves → every image 404'd and the
-        # reader injected a broken-image-wrapper per image, churning integrity. The sentinel survives reorgs.)
-        import pathlib
-        here = pathlib.Path(__file__).resolve()
-        # HYPERLIT_PROJECT_ROOT is set by the vibe APPLY: its re-conversion runs from a /tmp sandbox that has
-        # no `artisan` to walk to, so without this ImageProcessor couldn't find the REAL storage — it bailed,
-        # leaving raw epub_original paths (broken images) and never copying the files. The env points it at the
-        # real repo so it writes to the live storage + rewrites URLs correctly. Falls back to the artisan walk.
-        env_root = os.environ.get('HYPERLIT_PROJECT_ROOT')
-        project_root = (pathlib.Path(env_root) if env_root and (pathlib.Path(env_root) / 'artisan').is_file()
-                        else next((p for p in here.parents if (p / 'artisan').is_file()), None))
-
-        # The copy needs a reachable storage dir; the URL REWRITE does not (it's the deterministic
-        # /storage/books/<id>/images/<file>). So decouple them: when we can't find the project root we still
-        # rewrite every <img> to the canonical URL (the original import already placed the files there) — we
-        # just skip the physical copy, instead of bailing and leaving a broken raw path.
-        storage_dir = None
-        if project_root is not None:
-            storage_dir = project_root / 'storage' / 'app' / 'public' / 'books' / self.book_id / 'images'
-            storage_dir.mkdir(parents=True, exist_ok=True)
-        else:
-            log("  Warning: project root (artisan) not found; rewriting image URLs to /storage but NOT "
-                "copying files (assuming they exist from the original import)")
+        # Images go into the conversion's media/ handoff dir; finalize.py prefixes
+        # /{book}/media/ and the PHP ingest (BookImageStore) moves them into the
+        # private store. No project-root walk, no public storage.
+        media_dir = pathlib.Path(self.output_dir) / 'media'
+        media_dir.mkdir(parents=True, exist_ok=True)
 
         # Define allowed base directories for path traversal protection
         allowed_base = pathlib.Path(self.input_dir).resolve()
@@ -315,18 +300,17 @@ class ImageProcessor(EpubTransform):
                 log(f"    Warning: Image not found: {src}")
                 continue
 
-            # Copy image to storage (only when a storage dir is reachable — see the decouple note above).
+            # Copy image into the media/ handoff dir.
             filename = src_path.name
-            if storage_dir is not None:
-                dest_path = storage_dir / filename
-                if not dest_path.exists():
-                    import shutil
-                    shutil.copy2(src_path, dest_path)
-                    self.images_copied += 1
+            dest_path = media_dir / filename
+            if not dest_path.exists():
+                import shutil
+                shutil.copy2(src_path, dest_path)
+                self.images_copied += 1
 
-            # ALWAYS rewrite src to the canonical public URL (deterministic; the file is there from the
-            # copy above OR from the original import).
-            img['src'] = f'/storage/books/{self.book_id}/images/{filename}'
+            # Rewrite src to the BARE filename — finalize.py injects width/height
+            # and prefixes /{book_id}/media/ uniformly across all import formats.
+            img['src'] = filename
             images_processed += 1
 
             # Convert div wrappers to figure

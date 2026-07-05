@@ -167,7 +167,7 @@ trait SeedsRlsFixtures
 
         if ($this->rlsSeededBooks) {
             $books = array_values(array_unique($this->rlsSeededBooks));
-            foreach (['hyperlights', 'hypercites', 'nodes', 'library'] as $table) {
+            foreach (['hyperlights', 'hypercites', 'nodes', 'book_images', 'library'] as $table) {
                 try {
                     $admin->table($table)->whereIn('book', $books)->delete();
                 } catch (\Throwable $e) {

@@ -2,6 +2,7 @@
     "generatedBy": "visualisation/php/collect.php",
     "note": "Static php-parser analysis of routes/api.php + Db* + DatabaseToIndexedDB controllers. Table attribution derived from Pg* $table + DB::table/raw-SQL literals. Do not edit by hand \u2014 run `php visualisation/php/collect.php` (chained by `npm run viz:idb`).",
     "modelTable": {
+        "PgBookImage": "book_images",
         "PgFootnote": "footnotes",
         "PgHypercite": "hypercites",
         "PgHyperlight": "hyperlights",
@@ -170,6 +171,7 @@
                 "custom_license_text",
                 "doi",
                 "editor",
+                "encrypted",
                 "fileName",
                 "fileType",
                 "foundation_source",
@@ -194,6 +196,7 @@
                 "url",
                 "visibility",
                 "volume",
+                "wrapped_dek",
                 "year"
             ],
             "endpoints": [
@@ -365,6 +368,7 @@
                 "custom_license_text",
                 "doi",
                 "editor",
+                "encrypted",
                 "fileName",
                 "fileType",
                 "foundation_source",
@@ -389,6 +393,7 @@
                 "url",
                 "visibility",
                 "volume",
+                "wrapped_dek",
                 "year"
             ],
             "endpoints": [

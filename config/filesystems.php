@@ -44,6 +44,17 @@ return [
             'throw' => false,
         ],
 
+        // Private book-image store (docs/e2ee.md). NOT under public/ and NOT
+        // symlinked — bytes are served only through the RLS-gated media route,
+        // never as static files. 'book_images' driver stays local for now; the
+        // Flysystem seam makes an S3 swap config-only later.
+        'book_images' => [
+            'driver' => 'local',
+            'root' => storage_path('app/books'),
+            'visibility' => 'private',
+            'throw' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

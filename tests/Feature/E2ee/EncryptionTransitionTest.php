@@ -1,8 +1,10 @@
 <?php
 
 use App\Models\PgLibrary;
+use App\Services\BookImageStore;
 use App\Services\E2ee\EncryptedBookGuard;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 /**
  * POST /api/db/library/{book}/encryption (docs/e2ee.md): the encrypt/publish
@@ -90,6 +92,33 @@ it('encrypt forces private/unlisted/null-slug, cascades to sub-books, and scrubs
     expect(DB::table('nodes')->where('book', 'e2ee_lock/Fn1')->value('plainText'))->toBeNull();
 });
 
+it('publish defers clearing the wrapped DEK until finalize (no data-loss window)', function () {
+    // Clearing the only copy of the DEK before the client confirms every
+    // ciphertext (content + image bytes) is decrypted would make a failed
+    // decrypt PERMANENT loss — so the flag flips off but the key survives until
+    // the client re-POSTs finalize=true.
+    $user = $this->seedUser();
+    $this->actingAs($user);
+    $this->seedLibrary(ownedBookAttrs($user, 'e2ee_defer'));
+    $this->seedLibrary(ownedBookAttrs($user, 'e2ee_defer/Fn1', ['type' => 'sub_book']));
+    $this->postJson('/api/db/library/e2ee_defer/encryption', ['encrypted' => true, 'wrapped_dek' => 'hlenc.v1.KEEP.ME'])
+        ->assertOk();
+
+    // Phase 1: flag off, DEK RETAINED (recoverable if the client decrypt fails)
+    EncryptedBookGuard::forget();
+    $this->postJson('/api/db/library/e2ee_defer/encryption', ['encrypted' => false])
+        ->assertOk()->assertJsonPath('encrypted', false);
+    expect(DB::table('library')->where('book', 'e2ee_defer')->value('encrypted'))->toBeFalse();
+    expect(DB::table('library')->where('book', 'e2ee_defer')->value('wrapped_dek'))->toBe('hlenc.v1.KEEP.ME');
+
+    // Phase 2: finalize → NOW the DEK is cleared on the whole tree
+    EncryptedBookGuard::forget();
+    $this->postJson('/api/db/library/e2ee_defer/encryption', ['encrypted' => false, 'finalize' => true])
+        ->assertOk();
+    expect(DB::table('library')->where('book', 'e2ee_defer')->value('wrapped_dek'))->toBeNull();
+    expect(DB::table('library')->where('book', 'e2ee_defer/Fn1')->value('wrapped_dek'))->toBeNull();
+});
+
 it('rejects transitions addressed to a sub-book', function () {
     $user = $this->seedUser();
     $this->actingAs($user);
@@ -132,7 +161,9 @@ it('publish clears the flags + wrapped DEK on the whole tree and plainText regen
     $this->postJson('/api/db/library/e2ee_pub/encryption', ['encrypted' => true, 'wrapped_dek' => 'hlenc.v1.A.B'])
         ->assertOk();
 
-    $this->postJson('/api/db/library/e2ee_pub/encryption', ['encrypted' => false])
+    // finalize=true is the client's second phase (after the ciphertext is fully
+    // decrypted) — it flips the flag AND clears the DEK in one call here.
+    $this->postJson('/api/db/library/e2ee_pub/encryption', ['encrypted' => false, 'finalize' => true])
         ->assertOk()->assertJsonPath('encrypted', false);
 
     // Default-connection reads: the transition wrote inside this test's transaction.
@@ -150,6 +181,83 @@ it('publish clears the flags + wrapped DEK on the whole tree and plainText regen
     ])->assertOk();
     expect(DB::table('nodes')->where('book', 'e2ee_pub')->where('startLine', 100)->value('plainText'))
         ->toBe('republished words');
+});
+
+it('encrypt migrates an un-migrated book\'s legacy images into the store instead of destroying them', function () {
+    // Correctness proof (docs/e2ee.md): the encrypt scrub deletes the legacy
+    // image dirs; without migrate-on-encrypt this would delete the ONLY copies.
+    $user = $this->seedUser();
+    $this->actingAs($user);
+    $book = 'e2ee_legimg';
+    $this->seedLibrary(ownedBookAttrs($user, $book));
+
+    // A legacy DOCX-style image on disk with NO book_images row + a node using it
+    $legacy = resource_path("markdown/{$book}/media/pic.png");
+    File::ensureDirectoryExists(dirname($legacy));
+    File::put($legacy, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC'));
+    $this->seedNode(['book' => $book, 'startLine' => 100, 'content' => '<p><img src="/'.$book.'/media/pic.png"></p>']);
+
+    $this->postJson("/api/db/library/{$book}/encryption", ['encrypted' => true, 'wrapped_dek' => 'hlenc.v1.A.B'])
+        ->assertOk();
+
+    // Image NOT lost: moved into the private store + registered as a row
+    $store = app(BookImageStore::class);
+    expect(File::exists($store->path($book, 'pic.png')))->toBeTrue();
+    expect(DB::connection('pgsql_admin')->table('book_images')->where('book', $book)->count())->toBe(1);
+    // Legacy dir gone (scrub ran, but the file survived the migration)
+    expect(File::isDirectory(resource_path("markdown/{$book}")))->toBeFalse();
+
+    $store->purgeBook($book);
+});
+
+it('encrypt is idempotent for resume: re-locking without a new wrapped_dek keeps the existing one', function () {
+    // A big-tree lock that died partway leaves the book flagged encrypted; the
+    // client re-runs Lock to FINISH it — reusing the existing DEK, sending none.
+    $user = $this->seedUser();
+    $this->actingAs($user);
+    $this->seedLibrary(ownedBookAttrs($user, 'e2ee_resume'));
+
+    // Fresh encrypt sets the DEK
+    $this->postJson('/api/db/library/e2ee_resume/encryption', ['encrypted' => true, 'wrapped_dek' => 'hlenc.v1.ORIG.DEK'])
+        ->assertOk();
+    expect(DB::table('library')->where('book', 'e2ee_resume')->value('wrapped_dek'))->toBe('hlenc.v1.ORIG.DEK');
+
+    // Resume: encrypt again with NO wrapped_dek → still OK, existing DEK preserved
+    EncryptedBookGuard::forget();
+    $this->postJson('/api/db/library/e2ee_resume/encryption', ['encrypted' => true])
+        ->assertOk()
+        ->assertJsonPath('encrypted', true);
+    expect(DB::table('library')->where('book', 'e2ee_resume')->value('wrapped_dek'))->toBe('hlenc.v1.ORIG.DEK');
+});
+
+it('encrypt NEVER rotates a stored wrapped DEK — even mid-unfinished-publish with a new dek offered', function () {
+    // The trap: book stuck mid-publish (flag off, DEK retained, image blobs
+    // still ciphertext under DEK1). A re-lock that minted+stored DEK2 would
+    // orphan that ciphertext PERMANENTLY. The server must keep DEK1.
+    $user = $this->seedUser();
+    $this->actingAs($user);
+    $this->seedLibrary(ownedBookAttrs($user, 'e2ee_norot'));
+
+    $this->postJson('/api/db/library/e2ee_norot/encryption', ['encrypted' => true, 'wrapped_dek' => 'hlenc.v1.DEK.ONE'])
+        ->assertOk();
+
+    // Unfinished publish: flag off, DEK retained
+    EncryptedBookGuard::forget();
+    $this->postJson('/api/db/library/e2ee_norot/encryption', ['encrypted' => false])->assertOk();
+    expect(DB::table('library')->where('book', 'e2ee_norot')->value('wrapped_dek'))->toBe('hlenc.v1.DEK.ONE');
+
+    // Re-lock offering a DIFFERENT dek → accepted, but DEK1 is kept
+    EncryptedBookGuard::forget();
+    $this->postJson('/api/db/library/e2ee_norot/encryption', ['encrypted' => true, 'wrapped_dek' => 'hlenc.v1.DEK.TWO'])
+        ->assertOk();
+    expect(DB::table('library')->where('book', 'e2ee_norot')->value('wrapped_dek'))->toBe('hlenc.v1.DEK.ONE');
+
+    // Re-lock with NO dek while flag is off but DEK stored (resume) → also fine
+    EncryptedBookGuard::forget();
+    $this->postJson('/api/db/library/e2ee_norot/encryption', ['encrypted' => false])->assertOk();
+    EncryptedBookGuard::forget();
+    $this->postJson('/api/db/library/e2ee_norot/encryption', ['encrypted' => true])->assertOk();
+    expect(DB::table('library')->where('book', 'e2ee_norot')->value('wrapped_dek'))->toBe('hlenc.v1.DEK.ONE');
 });
 
 it('encrypt requires a wrapped_dek', function () {

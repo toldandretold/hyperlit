@@ -167,6 +167,56 @@ export async function decryptString(envelope: string, dek: CryptoKey, aad: strin
   return textDecoder.decode(plaintext);
 }
 
+// ── Binary blob encryption (image files — docs/e2ee.md) ─────────────
+//
+// A raw binary envelope for image bytes (data-URI inlining was rejected for
+// bloat/fidelity). Format: magic "HLENC1" (6 bytes) + iv (12) + AES-GCM
+// ciphertext. AAD = root book id (same cross-book-splice binding as strings).
+// The magic lets both the client and the server-side upload guard recognise a
+// ciphertext blob without decrypting it.
+
+export const BLOB_MAGIC = 'HLENC1';
+const BLOB_MAGIC_BYTES = new TextEncoder().encode(BLOB_MAGIC); // 6 ASCII bytes
+
+/** Does this byte buffer start with the HLENC1 magic? */
+export function hasBlobMagic(bytes: Uint8Array): boolean {
+  if (bytes.length < BLOB_MAGIC_BYTES.length) return false;
+  for (let i = 0; i < BLOB_MAGIC_BYTES.length; i++) {
+    if (bytes[i] !== BLOB_MAGIC_BYTES[i]) return false;
+  }
+  return true;
+}
+
+/** Encrypt raw bytes into a self-describing HLENC1 blob. */
+export async function encryptBytes(plain: Uint8Array, dek: CryptoKey, aad: string): Promise<Uint8Array> {
+  const iv = randomBytes(IV_BYTES);
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv as BufferSource, additionalData: textEncoder.encode(aad) },
+    dek,
+    plain as BufferSource,
+  ));
+  const out = new Uint8Array(BLOB_MAGIC_BYTES.length + IV_BYTES + ciphertext.length);
+  out.set(BLOB_MAGIC_BYTES, 0);
+  out.set(iv, BLOB_MAGIC_BYTES.length);
+  out.set(ciphertext, BLOB_MAGIC_BYTES.length + IV_BYTES);
+  return out;
+}
+
+/** Decrypt an HLENC1 blob back to the original bytes. Throws on missing magic / tamper / wrong key. */
+export async function decryptBytes(blob: Uint8Array, dek: CryptoKey, aad: string): Promise<Uint8Array> {
+  if (!hasBlobMagic(blob)) {
+    throw new Error('Not an HLENC1 blob');
+  }
+  const iv = blob.subarray(BLOB_MAGIC_BYTES.length, BLOB_MAGIC_BYTES.length + IV_BYTES);
+  const ciphertext = blob.subarray(BLOB_MAGIC_BYTES.length + IV_BYTES);
+  const plain = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: iv as BufferSource, additionalData: textEncoder.encode(aad) },
+    dek,
+    ciphertext as BufferSource,
+  );
+  return new Uint8Array(plain);
+}
+
 // ── Misc ────────────────────────────────────────────────────────────
 
 /** Random salt for HKDF (per passkey credential) or PBKDF2 (per recovery code). */
