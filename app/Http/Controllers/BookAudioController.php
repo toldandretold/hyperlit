@@ -102,9 +102,18 @@ class BookAudioController extends Controller
             return response()->json(['success' => false, 'message' => 'Audio generation is already in progress for this book.'], 409);
         }
 
-        File::delete(app(BookAudioStore::class)->progressPath($book));
-
-        GenerateBookAudioJob::dispatch($book, $user->id, $voice);
+        // Anything failing between acquiring the lock and the dispatch MUST
+        // release it, or every later attempt 409s against a run that doesn't
+        // exist until the TTL expires (a stale config-cache 500 did exactly
+        // this in prod: the client then polls a progress file that will never
+        // appear).
+        try {
+            File::delete(app(BookAudioStore::class)->progressPath($book));
+            GenerateBookAudioJob::dispatch($book, $user->id, $voice);
+        } catch (\Throwable $e) {
+            $lock->forceRelease();
+            throw $e;
+        }
 
         return response()->json(['success' => true], 202);
     }

@@ -114,10 +114,27 @@ function watchGeneration(id: string, playWhenDone: boolean): void {
   let beat = 0;
   let startedLive = false;
   let startingLive = false;
+  let noneBeats = 0;
 
   pollGenerationProgress(
     id,
     (progress) => {
+      // 'none' means no progress file exists. A few beats of it right after
+      // dispatch is normal (worker pickup); a stretch of it means the run
+      // never started (e.g. a crashed request left a stale lock) — stop
+      // pretending, don't spin forever.
+      if (progress.status === 'none') {
+        noneBeats++;
+        if (noneBeats >= 10) { // ~20s with no sign of life
+          stopProgressPolling();
+          generating = false;
+          bar?.setGenerating(false);
+          bar?.setStatus('Generation didn’t start — try again shortly.');
+        }
+
+        return;
+      }
+      noneBeats = 0;
       if (progress.status === 'generating' && !startedLive) {
         bar?.setStatus(`Generating audio… ${progress.done_nodes ?? 0}/${progress.total_nodes ?? '?'} sections`);
       }
