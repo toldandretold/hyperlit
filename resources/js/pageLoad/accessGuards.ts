@@ -1,3 +1,5 @@
+import { trapModalFocus } from '../utilities/modalFocusTrap';
+
 /**
  * 🔒 Handle access denied to private book
  * Shows appropriate UI based on login status
@@ -45,6 +47,9 @@ function showPrivateBookLoginPrompt(bookId: string) {
 
   overlay.appendChild(alertBox);
   document.body.appendChild(overlay);
+  // Keyboard: trap Tab in the alert; Escape = Go to Home (the non-destructive
+  // way off a page the user can't read anyway).
+  const releaseTrap = trapModalFocus(overlay, { onEscape: () => { window.location.href = "/"; } });
 
   // Handle button clicks
   alertBox.addEventListener("click", async (e: any) => {
@@ -86,6 +91,7 @@ function showPrivateBookLoginPrompt(bookId: string) {
         buttonContainer.appendChild(cancelButton);
 
         cancelButton.addEventListener("click", () => {
+          releaseTrap();
           document.body.removeChild(overlay);
         });
       }
@@ -119,6 +125,7 @@ function showPrivateBookAccessDenied(bookId: string, user: any) {
 
   overlay.appendChild(alertBox);
   document.body.appendChild(overlay);
+  trapModalFocus(overlay, { onEscape: () => { window.location.href = "/"; } });
 
   // Handle button click
   document.getElementById("goHomeButtonDenied")!.addEventListener("click", () => {
@@ -156,6 +163,7 @@ export async function handleDeletedBookAccess(bookId: string) {
 
   overlay.appendChild(alertBox);
   document.body.appendChild(overlay);
+  trapModalFocus(overlay, { onEscape: () => { window.location.href = "/"; } });
 
   // Handle button click
   document.getElementById("goHomeButtonDeleted")!.addEventListener("click", () => {

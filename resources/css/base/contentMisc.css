@@ -32,10 +32,24 @@ li p {
 a {
     color: var(--color-link);
     text-decoration: none;
-    outline: none;
     word-break: break-word;
     overflow-wrap: break-word;
     hyphens: auto;
+}
+
+/* Keyboard focus ring (WCAG 2.4.7). The old blanket `outline: none` here made
+   Tab-focus on links invisible — keyboard users couldn't see they'd reached a
+   card's ↗ / actions link. :focus-visible keeps mouse clicks ring-free.
+   mark/u/sup get the same ring: the contentHopper (n/p keys) focuses them via
+   tabindex="-1" so keyboard users can see which annotation they're on. */
+a:focus-visible,
+button:focus-visible,
+mark:focus-visible,
+u:focus-visible,
+sup:focus-visible {
+    outline: 2px solid var(--color-accent, #4EACAE);
+    outline-offset: 2px;
+    border-radius: 2px;
 }
 
 

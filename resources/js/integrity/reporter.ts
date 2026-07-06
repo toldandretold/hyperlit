@@ -10,6 +10,7 @@
  */
 
 import { getRecentLogs } from './logCapture';
+import { trapModalFocus } from '../utilities/modalFocusTrap';
 import { isIDBBroken } from '../indexedDB/core/healthMonitor';
 import {
   buildBrowserMd,
@@ -50,6 +51,7 @@ const _sessionStartTs = Date.now();
 let _lastPopupTs = 0;
 const POPUP_COOLDOWN_MS = 60_000;
 let _modalEl: any = null;
+let _releaseModalTrap: (() => void) | null = null;
 
 /**
  * Report an integrity failure.
@@ -526,6 +528,10 @@ function _showModal(bookId: any, payload: any, selfHealed = false, suspiciousWip
   backdrop.appendChild(card);
   document.body.appendChild(backdrop);
   _modalEl = backdrop;
+  // Keyboard: trap Tab inside the modal. Deliberately NO onEscape — this is a
+  // blocking data-loss dialog; the choice (report / rectify / dismiss) must be
+  // an explicit button press, and the trap swallows Escape while open.
+  _releaseModalTrap = trapModalFocus(backdrop);
 
   // Wire up all "?" info toggles
   card.querySelectorAll('.integrity-info-toggle').forEach(toggle => {
@@ -822,6 +828,10 @@ async function _grantPremium() {
 }
 
 function _closeModal() {
+  if (_releaseModalTrap) {
+    _releaseModalTrap();
+    _releaseModalTrap = null;
+  }
   if (_modalEl) {
     _modalEl.remove();
     _modalEl = null;

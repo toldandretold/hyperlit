@@ -680,50 +680,17 @@ export function removeShelfHeader() {
 /**
  * Show a confirmation dialog before changing shelf visibility.
  * Returns a Promise that resolves to true (confirmed) or false (cancelled).
+ * Uses the shared app dialog (focus-trapped, Escape=cancel, Enter=confirm).
  */
-function showVisibilityConfirm(shelfName: any, newVis: any) {
+async function showVisibilityConfirm(shelfName: any, newVis: any) {
     const isGoingPublic = newVis === 'public';
-    const message = isGoingPublic
-        ? `Make <strong>${escapeHtml(shelfName)}</strong> public? Anyone with the link will be able to see this shelf.`
-        : `Make <strong>${escapeHtml(shelfName)}</strong> private? Only you will be able to see it.`;
-    const confirmLabel = isGoingPublic ? 'Make Public' : 'Make Private';
-
-    return new Promise((resolve) => {
-        const existing = document.querySelector('.shelf-visibility-confirm');
-        if (existing) existing.remove();
-
-        const overlay = document.createElement('div');
-        overlay.className = 'shelf-visibility-confirm';
-
-        const modal = document.createElement('div');
-        modal.className = 'shelf-visibility-confirm-modal';
-        modal.innerHTML = `
-            <p>${message}</p>
-            <div class="shelf-visibility-confirm-actions">
-                <button class="confirm-cancel">Cancel</button>
-                <button class="confirm-action">${confirmLabel}</button>
-            </div>
-        `;
-
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-
-        modal.querySelector('.confirm-cancel')!.addEventListener('click', () => {
-            overlay.remove();
-            resolve(false);
-        });
-
-        modal.querySelector('.confirm-action')!.addEventListener('click', () => {
-            overlay.remove();
-            resolve(true);
-        });
-
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                overlay.remove();
-                resolve(false);
-            }
-        });
+    const { confirmDialog } = await import('../dialog/dialog');
+    return confirmDialog({
+        message: isGoingPublic
+            ? `Make "${shelfName}" public? Anyone with the link will be able to see this shelf.`
+            : `Make "${shelfName}" private? Only you will be able to see it.`,
+        confirmLabel: isGoingPublic ? 'Make Public' : 'Make Private',
+        danger: isGoingPublic,
     });
 }
 
@@ -732,45 +699,11 @@ function showVisibilityConfirm(shelfName: any, newVis: any) {
  * Returns a Promise that resolves to true (confirmed) or false (cancelled).
  */
 function showDeleteConfirm(shelfName: any) {
-    const message = `Delete <strong>${escapeHtml(shelfName)}</strong>? This will remove the shelf and unlink all books from it. The books themselves will not be deleted.`;
-
-    return new Promise((resolve) => {
-        const existing = document.querySelector('.shelf-visibility-confirm');
-        if (existing) existing.remove();
-
-        const overlay = document.createElement('div');
-        overlay.className = 'shelf-visibility-confirm';
-
-        const modal = document.createElement('div');
-        modal.className = 'shelf-visibility-confirm-modal';
-        modal.innerHTML = `
-            <p>${message}</p>
-            <div class="shelf-visibility-confirm-actions">
-                <button class="confirm-cancel">Cancel</button>
-                <button class="confirm-action confirm-danger">Delete</button>
-            </div>
-        `;
-
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-
-        modal.querySelector('.confirm-cancel')!.addEventListener('click', () => {
-            overlay.remove();
-            resolve(false);
-        });
-
-        modal.querySelector('.confirm-action')!.addEventListener('click', () => {
-            overlay.remove();
-            resolve(true);
-        });
-
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                overlay.remove();
-                resolve(false);
-            }
-        });
-    });
+    return import('../dialog/dialog').then(({ confirmDialog }) => confirmDialog({
+        message: `Delete "${shelfName}"? This will remove the shelf and unlink all books from it. The books themselves will not be deleted.`,
+        confirmLabel: 'Delete',
+        danger: true,
+    }));
 }
 
 function escapeHtml(text: any) {

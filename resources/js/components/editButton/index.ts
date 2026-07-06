@@ -5,6 +5,7 @@
 // the lock/permission UI in ./lock (re-exported here so importers have one entry).
 import { book } from "../../app";
 import { verbose } from "../../utilities/logger";
+import { trapModalFocus } from "../../utilities/modalFocusTrap";
 import { getCurrentUser, canUserEditBook } from "../../utilities/auth/index";
 import userManager from "../userButton/userButton";
 import {
@@ -499,13 +500,17 @@ async function showCustomAlert(title: any, message: any, options: any = {}) {
   document.body.appendChild(overlay);
   document.body.appendChild(alertBox);
 
+  // Keyboard: trap Tab in the alert (overlay is a sibling, so the alert box is
+  // the trap root); Escape cancels back to read mode; focus restored on close.
+  const releaseTrap = trapModalFocus(alertBox, { onEscape: () => closeAlertAndCancel() });
+
   // --- Event Handlers ---
 
   // A single, reliable function to close the modal and reset the state.
   function closeAlertAndCancel() {
+    releaseTrap();
     if (overlay.parentElement) overlay.remove();
     if (alertBox.parentElement) alertBox.remove();
-    document.removeEventListener("keydown", handleEscape);
     handleEditModeCancel(); // Go back to read mode
   }
 
@@ -547,14 +552,7 @@ async function showCustomAlert(title: any, message: any, options: any = {}) {
 
   // The overlay click should ALWAYS allow cancellation.
   overlay.addEventListener("click", closeAlertAndCancel);
-
-  // The Escape key should ALWAYS allow cancellation.
-  function handleEscape(e: any) {
-    if (e.key === "Escape") {
-      closeAlertAndCancel();
-    }
-  }
-  document.addEventListener("keydown", handleEscape);
+  // (Escape is handled by the focus trap above.)
 }
 
 export function enforceEditableState() {

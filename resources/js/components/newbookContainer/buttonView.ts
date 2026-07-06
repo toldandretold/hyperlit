@@ -30,6 +30,13 @@ function wireEncryptInfoToggle(host: ContainerHost): void {
   host.container.addEventListener('click', (e) => toggle(e.target));
   host.container.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
+    // Native checkboxes only toggle on Space; in this keyboard-trapped popup
+    // users expect Enter to toggle the Encrypt checkbox too.
+    if (e.key === 'Enter' && (e.target as HTMLElement | null)?.id === 'createEncrypted') {
+      e.preventDefault();
+      (e.target as HTMLInputElement).click();
+      return;
+    }
     const btn = (e.target as HTMLElement | null)?.closest?.('.newbook-encrypt-info-toggle');
     if (!btn) return;
     e.preventDefault();

@@ -207,6 +207,13 @@ export function processNodeContentHighlightsAndCites(
     });
   });
 
+  // ⌨️ STRIP tabindex — a render-time artifact (chunkRender sets tabindex="-1"
+  // on content anchors for the Tab-order model; the contentHopper sets it on
+  // hop targets). Persisting it would mutate stored content and churn the
+  // integrity hash system.
+  contentClone.querySelectorAll('[tabindex]').forEach(el => el.removeAttribute('tabindex'));
+  if (contentClone.hasAttribute('tabindex')) contentClone.removeAttribute('tabindex');
+
   // 🔗 NORMALIZE WORD JOINER before hypercite anchors (prevents line breaks)
   // Ensures all hypercite anchors have a word joiner character (\u2060) immediately before them
   // This prevents the arrow from being orphaned on its own line when text wraps

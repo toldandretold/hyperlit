@@ -5,6 +5,7 @@
 import { isProcessing, isComplete } from '../cloudRef/editIndicator'
 import { book } from '../../app';
 import { verbose } from '../../utilities/logger'
+import { pushModal, popModal, isTopModal } from '../../utilities/modalState'
 
 // Modal-style panels (their overlay blurs/blocks the page): while open, Tab is
 // trapped inside the container, Escape closes it, and focus returns to the
@@ -17,6 +18,7 @@ const FOCUS_TRAP_CONTAINER_IDS = new Set([
   'newbook-container',
   'settings-container',
   'source-container',
+  'toc-container',
 ]);
 
 const FOCUSABLE_SELECTOR =
@@ -178,6 +180,24 @@ export class ContainerManager {
       // Anchor the handler on the DOM element so any future instance can find and remove it
       this.overlay[handlerKey] = this.overlayClickHandler;
       this.overlay.addEventListener("click", this.overlayClickHandler);
+    }
+
+    // hyperlit-container: Escape = the overlay-click close (history-driven —
+    // consumes the history entry; the popstate fast-path pops the top layer,
+    // flushing edit-mode saves exactly like an overlay click). WCAG 2.1.2:
+    // keyboard users otherwise had no way out of a footnote/highlight.
+    // Bubble phase on purpose: capture-phase focus traps stacked above
+    // (settings, dialogs) stopImmediatePropagation their Escape first.
+    if (this.containerId === 'hyperlit-container') {
+      if (this._hyperlitEscapeHandler) {
+        document.removeEventListener('keydown', this._hyperlitEscapeHandler);
+      }
+      this._hyperlitEscapeHandler = (e: KeyboardEvent) => {
+        if (e.key !== 'Escape') return;
+        if (!this.container?.classList.contains('open')) return;
+        this.overlayClickHandler?.(e);
+      };
+      document.addEventListener('keydown', this._hyperlitEscapeHandler);
     }
 
     // If the button exists, set up its click handler
@@ -361,6 +381,10 @@ export class ContainerManager {
       ? document.activeElement
       : null;
 
+    // Register on the global modal stack: only the TOP trap acts on keydown,
+    // so a dialog/panel opened above this container takes over Tab/Escape.
+    this._modalToken = pushModal();
+
     // Seat focus inside the panel without popping the mobile keyboard: focus
     // the container itself (needs tabindex to be focusable), not an input.
     if (!this.container.hasAttribute('tabindex')) {
@@ -372,22 +396,29 @@ export class ContainerManager {
 
     this._trapKeydownHandler = (e: KeyboardEvent) => {
       if (!this.isOpen || !this.container) return;
+      if (!this._modalToken || !isTopModal(this._modalToken)) return;
 
       if (e.key === 'Escape') {
-        e.stopPropagation();
+        // stopImmediatePropagation: no other capture listener (stacked traps,
+        // legacy Escape handlers) may also act on this press.
+        e.stopImmediatePropagation();
         this.closeContainer();
         return;
       }
       if (e.key !== 'Tab') return;
 
-      const focusables = Array.from(this.container.querySelectorAll(FOCUSABLE_SELECTOR))
-        .filter((el: any) => el.offsetParent !== null);
-      if (focusables.length === 0) {
+      // getClientRects (offsetParent is null for position:fixed subtrees and
+      // mid-boot layouts); fall back to the unfiltered list rather than
+      // dead-trapping Tab when layout hasn't settled.
+      const all = Array.from(this.container.querySelectorAll(FOCUSABLE_SELECTOR));
+      const visible = all.filter((el: any) => el.getClientRects().length > 0);
+      const focusables = visible.length > 0 ? visible : all;
+      const first: any = focusables[0];
+      const last: any = focusables[focusables.length - 1];
+      if (!first || !last) {
         e.preventDefault();
         return;
       }
-      const first: any = focusables[0];
-      const last: any = focusables[focusables.length - 1];
       const active = document.activeElement;
       const inside = this.container.contains(active);
 
@@ -396,7 +427,7 @@ export class ContainerManager {
           e.preventDefault();
           last.focus();
         }
-      } else if (!inside || active === last) {
+      } else if (!inside || active === last || active === this.container) {
         e.preventDefault();
         first.focus();
       }
@@ -406,6 +437,10 @@ export class ContainerManager {
 
   /** Undo _engageFocusTrap: detach the listener and restore focus to the trigger. */
   _releaseFocusTrap() {
+    if (this._modalToken) {
+      popModal(this._modalToken);
+      this._modalToken = null;
+    }
     if (this._trapKeydownHandler) {
       document.removeEventListener('keydown', this._trapKeydownHandler, true);
       this._trapKeydownHandler = null;
@@ -522,6 +557,11 @@ export class ContainerManager {
     if (this.button && this.buttonClickHandler) {
       this.button.removeEventListener("click", this.buttonClickHandler);
       this.buttonClickHandler = null;
+    }
+
+    if (this._hyperlitEscapeHandler) {
+      document.removeEventListener('keydown', this._hyperlitEscapeHandler);
+      this._hyperlitEscapeHandler = null;
     }
 
     // Close container if it's open

@@ -75,10 +75,44 @@ All six findings were fixed the same day the baseline was seeded. `a11yBaseline.
 
 Verified: `npm run test:a11y` twice back-to-back — 12 passed / 0 WCAG-A/AA nodes across all 6 scanned states; both keyboard `test.fixme`s converted back to passing `test`s; full vitest suite (1097) and the grand-tour isolation phases still green.
 
+## Round 2 (same day, found by real keyboard use)
+
+Live keyboard testing after the first pass surfaced four more gaps, all fixed and test-guarded:
+
+7. **Invisible focus on links — the "can't tab to card arrows" bug**: a global `a { outline: none }` in `base/contentMisc.css` suppressed every link's focus ring, so Tab reached the card ↗ / actions / DOI links invisibly. Replaced with `a:focus-visible` (2px accent ring, keyboard-only — mouse clicks stay ring-free). Guard: "library-card links show a focus ring" test.
+8. **Modal focus traps** (see Remediation item 6) — user/newbook panels let Tab wander the blurred page behind them.
+9. **Encrypt checkbox ignored Enter**: native checkboxes only toggle on Space; the newbook popup's delegated keydown now maps Enter on `#createEncrypted` to a toggle as well. Guard: "encrypt checkbox toggles with Enter and Space" test.
+10. **E2EE unlock dialog unreachable by keyboard**: `e2ee/ui/unlockModal.ts` never moved focus into the dialog. New zero-import leaf `utilities/modalFocusTrap.ts` (`trapModalFocus(root, {onEscape})` → release fn) seats focus on the first button, cycles Tab, Escape cancels, and restores focus on close. The leaf serves any future ad-hoc dialog; registry-managed containers use `ContainerManager`'s own trap. (No e2e guard — driving it needs a passkey-encrypted book; verify manually.)
+
+## Round 3 (2026-07-05): the systematic sweep — inventory, traps everywhere, hop layer
+
+Rounds 1–2 fixed surfaces one at a time as the user found them. Round 3 replaced whack-a-mole with a closed system:
+
+**Inventory + drift gate.** A code sweep enumerated every transient surface (28 names once the CSS/string scan ran — more than the manual sweep found, which is the point). Each is registered in `tests/javascript/architecture/overlaySurfacesInventory.json` with its wiring status; `overlaySurfaces.test.js` (in `npm test`) scans `resources/css` + `resources/js` for `-(overlay|backdrop|modal|sheet|menu)` names and fails on any unregistered or stale entry. New surfaces cannot ship unwired silently — worst case they ship as visible `deferred:*` debt. CLAUDE.md gained the matching review gate ("Overlay surfaces MUST declare focus wiring").
+
+**Trap infrastructure.** `utilities/modalState.ts` (global modal stack — only the TOP trap owns Tab/Escape, so stacked modals compose; also the "modal open" signal for the hop layer). `utilities/modalFocusTrap.ts` hardened: `getClientRects()` visibility check with unfiltered fallback + rAF re-seat — this was the root cause of the unlock modal being Tab-dead on the real reader open-gate (mid-boot layout reported zero visible buttons; the old trap cancelled Tab with nowhere to go). Same fixes mirrored in `ContainerManager`.
+
+**Wired in Round 3**: TOC panel (now in the ContainerManager trap set), `dialog.ts` confirm/alert (trap + focus restore), shelf preview, add-to-shelf menu (+Escape, had none), shelf visibility/delete confirms (migrated to `confirmDialog`), access-guard alerts ×3 (+Escape=go home), edit-login alert, import footnote-audit alert (Escape=proceed), integrity data-loss modal (trap, Escape deliberately blocked), recovery-code overlay (trap, Escape deliberately blocked — Done is gated on the "I saved it" checkbox), source visibility panel (stacks above the container trap), logo-nav menu (Escape+refocus, non-modal), search toolbar (focus restore). Deferred (in the inventory): hyperlitContainer (history-driven close + edit-mode keys need their own design), citation-mode toolbar, edit submenus, selection toolbar, paste/import/AI-viz overlays.
+
+**Real-gate test fixtures.** `php artisan e2e:seed-fixtures` seeds `E2E_ENCRYPTED_BOOK` (drives the REAL E2EE open-gate — `e2ee-unlock-gate.spec.js` regression-guards the boot-time seat bug) and `E2E_A11Y_BOOK` (one of every in-text interactable, un-skipping footnote specs). `modal-surfaces.spec.js` runs one shared keyboard contract over every reachable surface (real gestures) plus direct-invoke probes for deep-state modals.
+
+## The keyboard model (how a keyboard user drives Hyperlit)
+
+Standard: WCAG 2.1.1 requires all functionality be keyboard-operable — NOT that every clickable thing be a Tab stop. Content in Hyperlit is unbounded (a book's thousands of annotations; a 100-card home feed); making it Tab stops buries the chrome. The ARIA Authoring Practices answer is a composite/hop pattern (Gmail's `j`/`k`, GitHub's PR navigation): few Tab stops, dedicated keys inside content. **One rule, every page — Tab never enters content; `n`/`p` always does.**
+
+- **Tab** = a short chrome loop only, in visual reading order (WCAG 2.4.3): skip link → user → + → (page controls: search, feed tabs / logo, cloudRef, edit, TOC) → settings. Under ~12 stops on every page. ALL content links are `tabindex="-1"`: rendered content via `lazyLoader/chunkRender.ts` (reader books AND home/user card feeds — everything except sub-book containers, whose keyboard design is deferred), static homepage copy links directly in `home.blade.php`. The save path strips `tabindex` (`indexedDB/nodes/contentProcessor.ts`) so it never persists into stored content.
+- **n / j** next, **p / k** previous content interactable — reader annotations (hyperlight `mark`, hypercite `u`, footnote `sup`, citations, links) and home/user card links alike — in DOM order, scrolled into view with a visible focus ring; **Enter** opens it; **?** shows the shortcut list. Module: `components/contentHopper/contentHopper.ts` (ButtonRegistry, reader+home+user; roots `.main-content` + `.welcome-copy`). Inert while typing, in edit mode, or while any modal is open.
+- **Arrows / Space / PageUp / PageDown** are NEVER intercepted — native scrolling everywhere (a deliberate decision over the ARIA arrow-roving variant: readers expect arrows to scroll).
+- **Modals** (settings, user, new-book, source, TOC, dialogs, previews, menus): focus seats inside on open, Tab cycles inside, Escape closes (except deliberately blocking modals: integrity data-loss, recovery code), focus returns to the trigger.
+- Known limitations: the hop layer sees only rendered DOM (lazy-loaded chunks/cards join as they load); sub-book containers keep native tabbing until their own design lands.
+
+Specs: `content-hopper.spec.js` (Tab-loop length, hop order, Enter-opens-footnote, guards) + `modal-surfaces.spec.js` + `keyboard.spec.js`, all in `npm run test:a11y`.
+
 ## Keeping it at zero
 
-- Any new violation now FAILS `npm run test:a11y` (no baseline slack left). Fix the regression, or — as a deliberate, diff-visible decision — add a baseline entry.
-- The two still-skipped states (`reader-footnote-open`, and hyperlit-container coverage generally) need a footnote-bearing `E2E_READER_BOOK`; scanning them may surface new nodes — seed their baseline entries honestly when enabled.
+- Any new violation now FAILS `npm run test:a11y` (no baseline slack left, bar one recorded debt below). Fix the regression, or — as a deliberate, diff-visible decision — add a baseline entry.
+- The footnote states are now scannable (fixture book from `e2e:seed-fixtures`). One debt node recorded: `link-in-text-block` — content links are distinguishable only by color (the app deliberately renders links without underlines). Fixing it is a DESIGN decision (underline or otherwise mark content links); until then it lives in the baseline as visible debt.
+- Escape now closes the footnote/highlight container (mirrors the overlay click's history-driven close); full hyperlit-container focus management (trap, restore, stacked layers, edit mode) remains `deferred:` in the overlay inventory.
 - Scans run under the e2e user's persisted theme (currently sepia). Dark/light themes are unscanned for contrast; a future pass could parameterize theme.
 
 ## What "more accessible" means here, measurably

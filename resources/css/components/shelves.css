@@ -393,38 +393,8 @@
 }
 
 
-/* ===== SHELF VISIBILITY CONFIRM ===== */
-.shelf-visibility-confirm {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.6);
-  z-index: 9999;
-  display: flex; align-items: center; justify-content: center;
-}
-.shelf-visibility-confirm-modal {
-  background: var(--color-background);
-  border: 1px solid var(--resize-edge-tint);
-  border-radius: var(--border-radius-xl);
-  padding: 24px;
-  max-width: 400px; width: 90%;
-  color: var(--color-text);
-}
-.shelf-visibility-confirm-modal p {
-  margin: 0 0 16px;
-  line-height: 1.5;
-}
-.shelf-visibility-confirm-actions {
-  display: flex; gap: 8px; justify-content: flex-end;
-}
-.shelf-visibility-confirm-actions button {
-  padding: 6px 14px; border-radius: var(--border-radius-md); cursor: pointer;
-  font-size: 0.85em; border: 1px solid var(--resize-edge-tint);
-  background: none; color: var(--color-text);
-}
-.shelf-visibility-confirm-actions button:hover { background: var(--editable-bg); }
-.shelf-visibility-confirm-actions .confirm-action {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-}
+/* (Shelf visibility/delete confirms now use the shared app dialog —
+   components/dialog/dialog.ts — which is focus-trapped and keyboard-operable.) */
 
 /* ===== SHELF SORT BAR ===== */
 .shelf-sort-bar {
@@ -494,6 +464,8 @@
   max-height: 80vh;
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain; /* Prevent scroll chaining to the page behind */
+  -webkit-overflow-scrolling: touch;
   padding: 24px;
   padding-bottom: 0;
   position: relative;

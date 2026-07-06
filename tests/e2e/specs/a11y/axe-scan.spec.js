@@ -154,9 +154,14 @@ const STATES = [
   {
     label: 'reader-footnote-open',
     async setup(page, spa) {
-      await gotoReader(page);
+      // Prefer the seeded fixture book (guaranteed footnote refs).
+      const fnBook = process.env.E2E_A11Y_BOOK || READER_BOOK;
+      test.skip(!fnBook, 'no reader book configured');
+      await page.goto(`/${fnBook}`);
+      await page.waitForLoadState('networkidle');
+      await page.waitForSelector('.main-content', { timeout: 15000 });
       const { opened } = await spa.openFootnoteStack(page, 1);
-      test.skip(opened === 0, 'E2E_READER_BOOK has no openable footnote refs');
+      test.skip(opened === 0, 'book has no openable footnote refs');
       await page.waitForSelector('#hyperlit-container.open', { timeout: 5000 });
       await page.waitForTimeout(300); // container slide-in
     },

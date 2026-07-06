@@ -25,6 +25,15 @@
   margin: 0.5em 0;
 }
 
+/* Clear the visibility control (absolute, top:10px right:10px, ~53px wide incl.
+   its glass pill) — it floats over the scroller, and without this the citation's
+   first lines run underneath it. Together with the scroller's own 1em right
+   padding this matches the control's footprint. Scoped with :has() because the
+   control only renders for the book's owner — readers keep the full width. */
+#source-container:has(#visibility-control) .citation {
+  padding-right: 44px;
+}
+
 #source-container .license-line {
   margin: 0;
 }

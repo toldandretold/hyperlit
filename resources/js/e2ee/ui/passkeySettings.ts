@@ -6,6 +6,7 @@
  */
 
 import { log } from '../../utilities/logger';
+import { trapModalFocus } from '../../utilities/modalFocusTrap';
 import { isVaultUnlocked } from '../keys';
 import { encryptedLockSvg } from './lockIcon';
 import {
@@ -208,9 +209,16 @@ export function showRecoveryCodeModal(recoveryCode: string): void {
   overlay.querySelector('#copyRecoveryCode')?.addEventListener('click', () => {
     void navigator.clipboard?.writeText(recoveryCode);
   });
-  done.addEventListener('click', () => overlay.remove());
 
   document.body.appendChild(overlay);
+  // Keyboard: trap Tab inside (copy → checkbox → Done). Deliberately NO
+  // onEscape — the code is shown exactly once and Done is gated behind the
+  // "I have saved it" checkbox; Escape must not bypass that.
+  const releaseTrap = trapModalFocus(overlay);
+  done.addEventListener('click', () => {
+    releaseTrap();
+    overlay.remove();
+  });
 }
 
 function escapeHtml(value: string): string {

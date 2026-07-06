@@ -23,6 +23,8 @@
   right: 0;
   bottom: 0;
   overflow: auto;
+  overscroll-behavior: contain; /* Prevent scroll chaining to the page behind */
+  -webkit-overflow-scrolling: touch;
   padding: 0 1em 1em 1em;
   border-radius: 1em 1em;
 }
@@ -34,6 +36,8 @@
   right: 0;
   bottom: 0;
   overflow: auto;
+  overscroll-behavior: contain; /* Prevent scroll chaining to the page behind */
+  -webkit-overflow-scrolling: touch;
   padding: 0 1em 1em 1em;
   border-radius: 1em 1em;
 }

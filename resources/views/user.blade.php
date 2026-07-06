@@ -57,7 +57,13 @@
     </div>
   </div>
 
- 
+  {{-- Right Column: The New Book Button. Directly after the top-left cluster
+       so Tab order = visual reading order, top-left → top-right (WCAG 2.4.3);
+       position:fixed makes DOM placement visually free. --}}
+  <div id="topRightContainer" class="loading">
+    <button type="button" id="newBookButton" class="open"><span class="icon">+</span></button>
+  </div>
+
 
   <!--
     ==================================================================
@@ -92,12 +98,6 @@
   <!-- ================================================================ -->
 
   <!-- Spacer to keep the content centered -->
-
-
-  <!-- Right Column: The New Book Button -->
-  <div id="topRightContainer" class="loading">
-    <button type="button" id="newBookButton" class="open"><span class="icon">+</span></button>
-  </div>
 
 </div> <!-- End of #app-container -->
 

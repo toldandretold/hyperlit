@@ -249,6 +249,13 @@ export function createChunkElement(nodes: NodeRecord[], instance: any) {
       });
     });
 
+    // ⌨️ KEYBOARD MODEL (docs/a11y-findings.md): Tab never enters content, on
+    // ANY page or container — book anchors, home/user feed cards, sub-book
+    // content alike are reached via the contentHopper hop layer (n/p keys;
+    // when a hyperlit container is open it becomes the hop territory).
+    // Render-time only; the save path (contentProcessor) strips tabindex.
+    temp.querySelectorAll('a[href]').forEach(a => a.setAttribute('tabindex', '-1'));
+
     // 📝 DYNAMIC FOOTNOTE NUMBERING: Apply display numbers from FootnoteNumberingService
     // This replaces the old static fn-count-id with dynamically calculated numbers.
     // Pass the node's startLine + bookId so any mutation triggers a deferred

@@ -6,6 +6,7 @@
 
 import { unlockVaultWithPasskey, unlockVaultWithRecoveryCode, PasskeyError } from '../passkey';
 import { encryptedLockSvg } from './lockIcon';
+import { trapModalFocus } from '../../utilities/modalFocusTrap';
 
 const BTN =
   'width: 100%; padding: 10px; border-radius: 6px; cursor: pointer; box-sizing: border-box; font-family: inherit; font-size: 14px; margin-bottom: 10px;';
@@ -41,7 +42,10 @@ export function showUnlockModal(): Promise<void> {
       </div>`;
 
     const errorLine = () => overlay.querySelector('#e2eeUnlockError') as HTMLElement;
+    let releaseFocusTrap: (() => void) | null = null;
     const finish = (ok: boolean, error?: unknown) => {
+      releaseFocusTrap?.(); // restores focus to whatever opened the gate
+      releaseFocusTrap = null;
       overlay.remove();
       activeModal = null;
       if (ok) resolve();
@@ -74,6 +78,10 @@ export function showUnlockModal(): Promise<void> {
     overlay.querySelector('#e2eeUnlockCancel')?.addEventListener('click', () => finish(false));
 
     document.body.appendChild(overlay);
+    // Keyboard focus: move into the dialog, keep Tab cycling its three
+    // buttons, Escape = cancel (WCAG 2.1.2 — without this, Tab wandered the
+    // blocked page behind the overlay).
+    releaseFocusTrap = trapModalFocus(overlay, { onEscape: () => finish(false) });
   });
 
   return activeModal;

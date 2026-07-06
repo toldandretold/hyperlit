@@ -1,10 +1,14 @@
 // App-styled modal dialogs (glass theme) that replace the native browser
 // confirm()/alert() white popups. Promise-based, created on demand, appended to
 // <body>, no registry entry (same pattern as e2ee/ui/unlockModal). Escape =
-// cancel, Enter = confirm; the confirm button is focused on open.
+// cancel, Enter = confirm; the confirm button is focused on open. Keyboard
+// focus is trapped inside the dialog via utilities/modalFocusTrap (Tab cycles
+// the buttons, focus restored to the opener on close).
 //
 //   if (await confirmDialog({ message: 'Delete?', danger: true })) { ... }
 //   await alertDialog({ message: 'Done.' });
+
+import { trapModalFocus } from '../../utilities/modalFocusTrap';
 
 interface ConfirmOptions {
   title?: string;
@@ -67,14 +71,17 @@ export function confirmDialog(opts: ConfirmOptions): Promise<boolean> {
         </div>
       </div>`;
 
+    let release: (() => void) | null = null;
     const done = (result: boolean) => {
       document.removeEventListener('keydown', onKey, true);
+      release?.(); // restores focus to the opener
+      release = null;
       overlay.remove();
       resolve(result);
     };
+    // Enter = confirm (Escape is owned by the focus trap → done(false)).
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); }
-      else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(true); }
+      if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(true); }
     };
 
     overlay.addEventListener('click', (e) => {
@@ -85,6 +92,8 @@ export function confirmDialog(opts: ConfirmOptions): Promise<boolean> {
     document.addEventListener('keydown', onKey, true);
 
     document.body.appendChild(overlay);
+    release = trapModalFocus(overlay, { onEscape: () => done(false) });
+    // The trap seats the first focusable (cancel); the designed default is confirm.
     (overlay.querySelector('[data-act="confirm"]') as HTMLElement | null)?.focus();
   });
 }
@@ -106,13 +115,17 @@ export function alertDialog(opts: AlertOptions): Promise<void> {
         </div>
       </div>`;
 
+    let release: (() => void) | null = null;
     const done = () => {
       document.removeEventListener('keydown', onKey, true);
+      release?.(); // restores focus to the opener
+      release = null;
       overlay.remove();
       resolve();
     };
+    // Enter = dismiss (Escape is owned by the focus trap).
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(); }
+      if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(); }
     };
 
     overlay.addEventListener('click', (e) => {
@@ -121,6 +134,6 @@ export function alertDialog(opts: AlertOptions): Promise<void> {
     document.addEventListener('keydown', onKey, true);
 
     document.body.appendChild(overlay);
-    (overlay.querySelector('[data-act="ok"]') as HTMLElement | null)?.focus();
+    release = trapModalFocus(overlay, { onEscape: done });
   });
 }

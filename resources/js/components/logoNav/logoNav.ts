@@ -7,6 +7,7 @@ import { verbose } from '../../utilities/logger';
 
 let isOpen = false;
 let clickOutsideHandler: any = null;
+let escapeHandler: any = null;
 let logoClickHandler: any = null; // Store handler reference for cleanup
 
 /**
@@ -81,6 +82,15 @@ function openLogoNav(logoBtn: any, navMenu: any) {
     };
     document.addEventListener('click', clickOutsideHandler);
   }, 0);
+
+  // Keyboard: Escape closes the menu and returns focus to the logo (this is a
+  // nav dropdown, not a modal — no focus trap; its buttons are plain tabbables).
+  escapeHandler = (e: KeyboardEvent) => {
+    if (e.key !== 'Escape') return;
+    closeLogoNav(logoBtn, navMenu);
+    try { logoBtn.focus(); } catch { /* non-fatal */ }
+  };
+  document.addEventListener('keydown', escapeHandler);
 }
 
 /**
@@ -99,6 +109,10 @@ function closeLogoNav(logoBtn: any, navMenu: any) {
   if (clickOutsideHandler) {
     document.removeEventListener('click', clickOutsideHandler);
     clickOutsideHandler = null;
+  }
+  if (escapeHandler) {
+    document.removeEventListener('keydown', escapeHandler);
+    escapeHandler = null;
   }
 }
 
@@ -122,6 +136,10 @@ export function destroyLogoNav() {
   if (clickOutsideHandler) {
     document.removeEventListener('click', clickOutsideHandler);
     clickOutsideHandler = null;
+  }
+  if (escapeHandler) {
+    document.removeEventListener('keydown', escapeHandler);
+    escapeHandler = null;
   }
 
   // ✅ CRITICAL FIX: Remove main click listener

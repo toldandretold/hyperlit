@@ -4,9 +4,12 @@
  * Mobile (<768px): fixed bottom sheet.
  */
 
+import { trapModalFocus } from '../../utilities/modalFocusTrap';
+
 let activeMenu: any = null;
 let activeBackdrop: any = null;
 let dismissHandler: any = null;
+let releaseFocusTrap: (() => void) | null = null;
 
 /**
  * Show a floating menu near an anchor element.
@@ -65,6 +68,11 @@ export function showFloatingMenu(anchorEl: any, items: any, onSelect: any) {
     activeMenu = menu;
     activeBackdrop = backdrop;
 
+    // Keyboard: seat focus on the first item, keep Tab cycling the menu, and
+    // restore focus to the anchor on close (WCAG 2.1.2 / 2.4.3). Escape is
+    // handled by the trap (capture) so it must close the menu itself.
+    releaseFocusTrap = trapModalFocus(menu, { onEscape: hideFloatingMenu });
+
     // ESC + scroll still close (the backdrop handles outside clicks).
     dismissHandler = (e: any) => {
         if (e.type === 'keydown' && e.key !== 'Escape') return;
@@ -81,6 +89,10 @@ export function showFloatingMenu(anchorEl: any, items: any, onSelect: any) {
  * Hide the active floating menu.
  */
 export function hideFloatingMenu() {
+    if (releaseFocusTrap) {
+        releaseFocusTrap(); // restores focus to the anchor that opened the menu
+        releaseFocusTrap = null;
+    }
     if (activeMenu) {
         activeMenu.remove();
         activeMenu = null;

@@ -75,26 +75,64 @@ test('skip-to-content link is the first focusable on home (WCAG 2.4.1)', async (
   expect(focusedTarget, 'activating the skip link should move focus to #main-start').toBe('main-start');
 });
 
+/* ── 2.4.3 Focus Order — chrome follows visual reading order ──────────── */
+
+test('home Tab order: user button (top-left) → new-book button (top-right) (WCAG 2.4.3)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  await page.waitForSelector('#userButton', { timeout: 10000 });
+  // The chrome containers are position:fixed; their DOM order IS the Tab
+  // order, deliberately arranged top-left → top-right before any content.
+  await page.evaluate(() => document.getElementById('userButton')?.focus());
+  await page.keyboard.press('Tab');
+  const next = await page.evaluate(() => document.activeElement?.id || '');
+  expect(next, 'Tab after the user button should reach the + (new book) button').toBe('newBookButton');
+});
+
 /* ── 2.1.1 Keyboard — home book cards reachable & Enter-activatable ────── */
 
-test('home book cards are keyboard-reachable and Enter opens the reader (WCAG 2.1.1)', async ({ page, spa }) => {
+test('home book cards are hop-reachable (n) and Enter opens the reader (WCAG 2.1.1)', async ({ page, spa }) => {
+  // Keyboard model: Tab is chrome-only on EVERY page — cards are content,
+  // reached via the hop layer (n/p), never Tab (a 100-card feed would bury
+  // the perimeter buttons otherwise).
   await gotoHomeFeed(page, spa);
   let reached = false;
-  for (let i = 0; i < 60; i++) {
-    await page.keyboard.press('Tab');
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press('n');
+    await page.waitForTimeout(120);
     const onCard = await page.evaluate(() => {
       const el = document.activeElement;
       return !!(el && el.closest && el.closest('.libraryCard'));
     });
     if (onCard) { reached = true; break; }
   }
-  expect(reached, 'No .libraryCard link received focus within 60 Tab presses').toBe(true);
+  expect(reached, 'No .libraryCard link received focus within 6 hops (n)').toBe(true);
 
   await page.keyboard.press('Enter');
   await page.waitForFunction(
     () => document.body.getAttribute('data-page') === 'reader',
     null, { timeout: 8000 }
   );
+});
+
+test('home Tab loop stays out of the card feed (WCAG 2.4.3)', async ({ page, spa }) => {
+  await gotoHomeFeed(page, spa);
+  await page.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur());
+  const stops = [];
+  for (let i = 0; i < 20; i++) {
+    await page.keyboard.press('Tab');
+    const d = await page.evaluate(() => {
+      const el = document.activeElement;
+      return {
+        key: el ? `${el.tagName}#${el.id || ''}` : '(none)',
+        inContent: !!el?.closest?.('.main-content, .welcome-copy'),
+      };
+    });
+    if (stops.includes(d.key)) break; // wrapped
+    stops.push(d.key);
+    expect(d.inContent, `Tab stop #${i + 1} (${d.key}) is inside content — content is hop-layer only`).toBe(false);
+  }
+  expect(stops.length, `home chrome Tab loop too long: ${stops.join(' → ')}`).toBeLessThan(13);
 });
 
 /* ── 2.4.7 Focus Visible — home primary control ───────────────────────── */
@@ -133,12 +171,44 @@ test('a focused control shows a visible focus indicator (WCAG 2.4.7)', async ({ 
   ).toBe(true);
 });
 
+test('library-card links show a focus ring under keyboard focus (WCAG 2.4.7)', async ({ page, spa }) => {
+  await gotoHomeFeed(page, spa);
+  // Seat focus on a card link, then Tab (real keyboard) so the NEXT link gets
+  // keyboard-initiated focus — :focus-visible only matches for keyboard focus.
+  // Cards are hop-layer content (n/p), so the ring is checked on a hop.
+  // Regression guard: a global `a { outline: none }` once made keyboard focus
+  // invisible across every card ↗ / actions / DOI link.
+  let focused = null;
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press('n');
+    await page.waitForTimeout(120);
+    focused = await page.evaluate(() => {
+      const el = document.activeElement;
+      if (!el || el.tagName !== 'A' || !el.closest('.libraryCard')) return null;
+      const s = getComputedStyle(el);
+      return { outlineStyle: s.outlineStyle, outlineWidth: s.outlineWidth };
+    });
+    if (focused) break;
+  }
+  expect(focused, 'hopping (n) did not land on a library-card link').not.toBeNull();
+  expect(
+    focused.outlineStyle,
+    `card link has no visible focus outline (got ${JSON.stringify(focused)})`
+  ).not.toBe('none');
+});
+
 /* ── 2.1.2 / 2.4.3 — footnote container: Escape closes, focus restored ── */
 
 test('footnote container closes on Escape and restores focus to the trigger (WCAG 2.1.2, 2.4.3)', async ({ page, spa }) => {
-  await gotoReader(page);
+  // Prefer the seeded fixture book (guaranteed footnote refs — `php artisan
+  // e2e:seed-fixtures`); fall back to the general reader book.
+  const fnBook = process.env.E2E_A11Y_BOOK || READER_BOOK;
+  test.skip(!fnBook, 'no reader book configured');
+  await page.goto(`/${fnBook}`);
+  await page.waitForLoadState('networkidle');
+  await page.waitForSelector('.main-content', { timeout: 15000 });
   const { opened } = await spa.openFootnoteStack(page, 1);
-  test.skip(opened === 0, 'E2E_READER_BOOK has no openable footnote refs');
+  test.skip(opened === 0, 'book has no openable footnote refs');
   await page.waitForSelector('#hyperlit-container.open', { timeout: 5000 });
 
   // Focus should be inside the container after it opens (else a screen-reader
@@ -244,6 +314,81 @@ test('new-book container traps Tab, closes on Escape, restores focus (WCAG 2.1.2
   await page.waitForLoadState('networkidle');
   await page.waitForSelector('#newBookButton', { timeout: 10000 });
   await assertModalTrap(page, { triggerId: 'newBookButton', containerId: 'newbook-container' });
+});
+
+test('encrypt checkbox in new-book popup toggles with Enter and Space (WCAG 2.1.1)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  await page.waitForSelector('#newBookButton', { timeout: 10000 });
+  await page.evaluate(() => document.getElementById('newBookButton')?.focus());
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => {
+    const c = document.getElementById('newbook-container');
+    return c && getComputedStyle(c).opacity === '1';
+  }, null, { timeout: 5000 });
+  await page.waitForTimeout(300);
+
+  // Tab until the checkbox has focus (it's inside the trapped popup).
+  let onCheckbox = false;
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press('Tab');
+    onCheckbox = await page.evaluate(() => document.activeElement?.id === 'createEncrypted');
+    if (onCheckbox) break;
+  }
+  expect(onCheckbox, '#createEncrypted never received focus inside the popup').toBe(true);
+
+  const checked = () => page.evaluate(() => document.getElementById('createEncrypted')?.checked);
+  const before = await checked();
+  await page.keyboard.press('Enter');
+  expect(await checked(), 'Enter should toggle the encrypt checkbox').toBe(!before);
+  await page.keyboard.press('Space');
+  expect(await checked(), 'Space should toggle it back (native behavior intact)').toBe(before);
+
+  await page.keyboard.press('Escape'); // cleanup: close the popup
+});
+
+/* ── 2.1.1 — edit mode must not hijack chrome keys ────────────────────── */
+
+test('edit mode: Enter activates chrome buttons; Tab reaches the edit toolbar with a ring (WCAG 2.1.1, 2.4.7)', async ({ page, spa }) => {
+  const book = process.env.E2E_A11Y_BOOK;
+  test.skip(!book, 'E2E_A11Y_BOOK not set — run `php artisan e2e:seed-fixtures`');
+  await page.goto(`/${book}`);
+  await page.waitForLoadState('networkidle');
+  await page.waitForSelector('.main-content p', { timeout: 15000 });
+
+  await page.click('#editButton');
+  await spa.waitForEditMode(page);
+
+  // Put the caret in the editor so its selection lingers — the exact state
+  // that used to hijack Enter into "insert paragraph".
+  await page.click('.main-content p');
+  await page.waitForTimeout(200);
+
+  // Enter on a chrome button must activate it, not edit content.
+  const paraCountBefore = await page.evaluate(() => document.querySelectorAll('.main-content p').length);
+  await page.evaluate(() => document.getElementById('logoContainer')?.focus());
+  await page.keyboard.press('Enter');
+  const menuOpened = await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 3000 })
+    .then(() => true).catch(() => false);
+  expect(menuOpened, 'Enter on #logoContainer should open the nav menu (was hijacked by the editor)').toBe(true);
+  const paraCountAfter = await page.evaluate(() => document.querySelectorAll('.main-content p').length);
+  expect(paraCountAfter, 'Enter on a chrome button must not insert a paragraph').toBe(paraCountBefore);
+  await page.keyboard.press('Escape'); // close nav menu
+
+  // Tab must reach the edit toolbar, and its buttons must show a focus ring.
+  await page.evaluate(() => document.getElementById('logoContainer')?.focus());
+  let onToolbar = false;
+  for (let i = 0; i < 30; i++) {
+    await page.keyboard.press('Tab');
+    onToolbar = await page.evaluate(() => !!document.activeElement?.closest('#edit-toolbar'));
+    if (onToolbar) break;
+  }
+  expect(onToolbar, 'Tab never reached #edit-toolbar in edit mode').toBe(true);
+  const ring = await page.evaluate(() => getComputedStyle(document.activeElement).outlineStyle);
+  expect(ring, 'edit-toolbar button focus must be visible').not.toBe('none');
+
+  await page.click('#editButton'); // exit edit mode (no content was changed)
+  await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 }).catch(() => {});
 });
 
 /* ── 2.1.1 — TOC keyboard operable ────────────────────────────────────── */

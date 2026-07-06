@@ -8,6 +8,7 @@
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
 import { log, verbose } from '../../../utilities/logger';
+import { trapModalFocus } from '../../../utilities/modalFocusTrap';
 import { registerNavActions } from '../navigationRegistry';
 import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { syncPageStylesheets, syncBodyAttributes } from '../utils/pageStylesheets';
@@ -901,7 +902,10 @@ export class ImportBookTransition {
         </div>
       `;
 
+      let releaseTrap: (() => void) | null = null;
       const cleanup = (action: any) => {
+        releaseTrap?.(); // restores focus to the opener
+        releaseTrap = null;
         overlay.remove();
         alertBox.remove();
         resolve(action);
@@ -914,17 +918,11 @@ export class ImportBookTransition {
         }
       });
 
-      // Escape key dismisses as "proceed"
-      const keyHandler = (e: any) => {
-        if (e.key === 'Escape') {
-          document.removeEventListener('keydown', keyHandler);
-          cleanup('proceed');
-        }
-      };
-      document.addEventListener('keydown', keyHandler);
-
       document.body.appendChild(overlay);
       document.body.appendChild(alertBox);
+      // Keyboard: trap Tab in the alert (overlay is a sibling — trap the box);
+      // Escape dismisses as "proceed", matching the previous behavior.
+      releaseTrap = trapModalFocus(alertBox, { onEscape: () => cleanup('proceed') });
     });
   }
 

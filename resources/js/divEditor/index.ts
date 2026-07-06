@@ -522,6 +522,13 @@ initSelectionFocusTracker();
 document.addEventListener("keydown", function handleTypingActivity(event) {
   if (!(window as any).isEditing) return;
 
+  // Only act while keyboard FOCUS is inside the editable content — the
+  // editor's selection lingers when Tab moves focus to a chrome button, and
+  // Backspace/Delete pressed on a button must not mutate editor content
+  // (same guard as enterKeyHandler).
+  const focusTarget = event.target instanceof HTMLElement ? event.target : null;
+  if (focusTarget && !focusTarget.closest('[contenteditable="true"]')) return;
+
   // 🆕 O(1) CHECK: delete-key guards. Both handlers are extracted to ./keydownGuards
   // (pure + unit-tested); this listener is just a thin dispatcher over them.
   if (['Backspace', 'Delete'].includes(event.key)) {

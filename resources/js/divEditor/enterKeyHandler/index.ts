@@ -42,6 +42,18 @@ export class EnterKeyHandler {
   }
 
   handleKeyDown(event: KeyboardEvent) {
+    // Enter belongs to the editor only while keyboard FOCUS is inside it. A
+    // contenteditable's selection lingers when Tab moves focus to a chrome
+    // button — without this guard, Enter on any perimeter button in edit mode
+    // was hijacked into "insert paragraph" and the button never activated
+    // (WCAG 2.1.1; keydown target === the focused element).
+    const focusTarget = event.target instanceof HTMLElement ? event.target : null;
+    if (event.key === "Enter" && focusTarget && !focusTarget.closest('[contenteditable="true"]')) {
+      this.lastKeyWasEnter = false;
+      this.enterCount = 0;
+      return;
+    }
+
     if (event.key === "Enter" && chunkOverflowInProgress) {
       event.preventDefault();
       console.log("Enter key ignored during chunk overflow processing");

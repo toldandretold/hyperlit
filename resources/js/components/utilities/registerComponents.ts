@@ -60,6 +60,11 @@ import {
 } from '../logoNav/logoNav';
 
 import {
+  initContentHopper,
+  destroyContentHopper
+} from '../contentHopper/contentHopper';
+
+import {
   initializeHomepageSearch,
   destroyHomepageSearch
 } from '../../search/postgreSQLsearch/homepageSearch';
@@ -137,6 +142,18 @@ export function registerAllComponents() {
     name: 'logoNav',
     initFn: initializeLogoNav,
     destroyFn: destroyLogoNav,
+    pages: ['reader', 'home', 'user'],
+    dependencies: [],
+    required: false
+  });
+
+  // Keyboard hop layer for content (n/p/j/k/Enter — WCAG 2.1.1). Content is
+  // never in the Tab order (chrome-only Tab model); this is the way in, on
+  // EVERY page. Document-delegated singleton: create-once init.
+  buttonRegistry.register({
+    name: 'contentHopper',
+    initFn: initContentHopper,
+    destroyFn: destroyContentHopper,
     pages: ['reader', 'home', 'user'],
     dependencies: [],
     required: false

@@ -4,9 +4,11 @@
  */
 
 import { fetchSingleChunkFromServer } from '../../lazyLoader/chunkFetcher';
+import { trapModalFocus } from '../../utilities/modalFocusTrap';
 
 let previewOverlay: any = null;
 let previewContainer: any = null;
+let releaseFocusTrap: (() => void) | null = null;
 
 /**
  * Show a read-only preview of a book.
@@ -133,20 +135,22 @@ export async function showShelfPreview(bookId: any) {
         previewContainer.innerHTML = '<p class="shelf-preview-empty"><em>Failed to load preview</em></p>';
     }
 
-    // ESC to close
-    const escHandler = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-            hideShelfPreview();
-            document.removeEventListener('keydown', escHandler);
-        }
-    };
-    document.addEventListener('keydown', escHandler);
+    // Keyboard: trap focus in the preview (Tab cycles the action-bar links/
+    // buttons + any content links), Escape closes, focus restored to whatever
+    // opened it (WCAG 2.1.2 / 2.4.3). The trap owns Escape.
+    if (previewOverlay) {
+        releaseFocusTrap = trapModalFocus(previewOverlay, { onEscape: hideShelfPreview });
+    }
 }
 
 /**
  * Hide and clean up the preview overlay.
  */
 export function hideShelfPreview() {
+    if (releaseFocusTrap) {
+        releaseFocusTrap(); // restores focus to the opener
+        releaseFocusTrap = null;
+    }
     if (previewOverlay) {
         previewOverlay.remove();
         previewOverlay = null;

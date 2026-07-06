@@ -17,6 +17,7 @@ import { book } from '../../app';
 import { clearEditPermissionCache } from '../../utilities/auth/index';
 import { getRecord, PUBLIC_SVG, PRIVATE_SVG, ENCRYPTED_SVG } from './helpers';
 import { log } from '../../utilities/logger';
+import { trapModalFocus } from '../../utilities/modalFocusTrap';
 import { confirmDialog, alertDialog } from '../dialog/dialog';
 
 type VisState = 'public' | 'private' | 'encrypted';
@@ -134,18 +135,19 @@ export function attachVisibilityControlListeners(self: any) {
   // While a confirm/transition is in flight (vis-busy), keep the panel open so
   // the row spinner stays visible and a styled-dialog click doesn't collapse it.
   const onOutside = (e: any) => { if (control.classList.contains('vis-busy')) return; if (!control.contains(e.target)) closePanel(); };
-  const onKey = (e: any) => { if (e.key === 'Escape' && !control.classList.contains('vis-busy')) closePanel(); };
   // NB: class is 'vis-open', NOT 'open' — a global bare `.open` button rule
   // (hyperlitEditButton.css) forces width/height:36px on anything class="open".
   let overlay: HTMLElement | null = null;
+  let releaseTrap: (() => void) | null = null;
   function closePanel() {
     panel.style.display = 'none';
     control.classList.remove('vis-open');
     trigger.setAttribute('aria-expanded', 'false');
     overlay?.remove();
     overlay = null;
+    releaseTrap?.();
+    releaseTrap = null;
     document.removeEventListener('click', onOutside, true);
-    document.removeEventListener('keydown', onKey, true);
   }
   function openPanel() {
     panel.style.display = 'block';
@@ -163,7 +165,12 @@ export function attachVisibilityControlListeners(self: any) {
     });
     self.container.appendChild(overlay);
     document.addEventListener('click', onOutside, true);
-    document.addEventListener('keydown', onKey, true);
+    // Keyboard: trap Tab within the trigger+panel cluster while open — it
+    // stacks ABOVE the source-container's own trap (modalState), so Escape
+    // closes just the panel, not the whole container. Busy-guard preserved.
+    releaseTrap = trapModalFocus(control, {
+      onEscape: () => { if (!control.classList.contains('vis-busy')) closePanel(); },
+    });
   }
   // Let the orchestrator collapse the panel after a successful change.
   control._closePanel = closePanel;

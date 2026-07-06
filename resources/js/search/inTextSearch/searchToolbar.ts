@@ -110,6 +110,13 @@ class SearchToolbarManager {
 
     verbose.init('SearchToolbar: Opening', '/search/inTextSearch/searchToolbar');
 
+    // Remember what had focus so close() can hand it back (keyboard users
+    // otherwise land on <body> after Escape and lose their place).
+    this._focusReturnEl = document.activeElement instanceof HTMLElement
+      && !this.toolbar.contains(document.activeElement)
+      ? document.activeElement
+      : null;
+
     // Capture initial scroll position for nearest-match search
     this.initialStartLine = this.getCurrentVisibleStartLine();
     verbose.init(`SearchToolbar: Captured initial position: ${this.initialStartLine}`, '/search/inTextSearch/searchToolbar');
@@ -203,6 +210,13 @@ class SearchToolbarManager {
     if (this.input) {
       this.input.value = '';
       this.input.blur();
+    }
+
+    // Hand focus back to whatever opened the toolbar (non-modal: no trap).
+    const returnEl = this._focusReturnEl;
+    this._focusReturnEl = null;
+    if (returnEl && returnEl.isConnected) {
+      try { returnEl.focus(); } catch { /* non-fatal */ }
     }
 
     // Clear search state but keep index cached

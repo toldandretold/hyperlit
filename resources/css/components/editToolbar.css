@@ -243,6 +243,14 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Keyboard focus ring (WCAG 2.4.7) — the `outline: none` above kills the
+   default ring for pointer taps; :focus-visible restores it for Tab focus
+   (must out-specify the id-scoped reset, so it lives here not globally). */
+#edit-toolbar button:focus-visible {
+  outline: 2px solid var(--color-accent, #4EACAE);
+  outline-offset: 2px;
+}
+
 #edit-toolbar button svg {
   width: 28px;
   height: 28px;

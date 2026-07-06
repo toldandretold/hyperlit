@@ -46,6 +46,13 @@
     </button>
   </div>
 
+  {{-- Right Column: The New Book Button. Sits directly after the user button
+       in the DOM so Tab order = visual reading order, top-left → top-right
+       (WCAG 2.4.3); position:fixed makes DOM placement visually free. --}}
+  <div id="topRightContainer" class="loading">
+    <button type="button" id="newBookButton" class="open"><span class="icon">+</span></button>
+  </div>
+
   <!-- Center column: hero card (logo + search + arranger buttons), no preloaded content -->
   <div class="home-content-wrapper">
     <div class="fixed-header">
@@ -112,11 +119,13 @@
     {{-- Intro copy: big headings over the lava, revealed by scrolling in the hero
          state, hidden while a feed is open. Crawlable marketing/help text. --}}
     <span id="main-start" tabindex="-1"></span>
+    {{-- Content links carry tabindex="-1": Tab is chrome-only (keyboard model,
+         docs/a11y-findings.md); the contentHopper (n/p) reaches these. --}}
     <section class="welcome-copy" aria-label="What is Hyperlit?">
       <h1 class="mega">Read, Write & Publish Hypertext Literature</h1>
-      <h2>1. <a href="/welcome">Read</a> about hyperciting, hyperlighting and the origins of hyperlit <a href="/welcome"><span class="open-icon">↗</span></a></h2>
-      <h2>2. <a class="import-auth-link import-auth-register">Register</a> or <a class="import-auth-link import-auth-login">login</a></h2>
-      <h2>3. <a href="#" class="copy-import">Create a new text</a>, or <a href="#" class="copy-import">convert</a> a word.doc, epub or PDF.</h2>
+      <h2>1. <a href="/welcome" tabindex="-1">Read</a> about hyperciting, hyperlighting and the origins of hyperlit <a href="/welcome" tabindex="-1"><span class="open-icon">↗</span></a></h2>
+      <h2>2. <a class="import-auth-link import-auth-register" tabindex="-1">Register</a> or <a class="import-auth-link import-auth-login" tabindex="-1">login</a></h2>
+      <h2>3. <a href="#" class="copy-import" tabindex="-1">Create a new text</a>, or <a href="#" class="copy-import" tabindex="-1">convert</a> a word.doc, epub or PDF.</h2>
       <h2>4. While reading, use the cloud-ref button <svg id="cloudRef-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 503.23 309.68" width="36" height="36" preserveAspectRatio="xMidYMid meet">
           <rect width="503.23" height="309.68"></rect>
           <path class="cls-1" d="M503.23,219.35c0-35.07-20.41-66.75-51.68-81.56C449.35,61.43,386.55,0,309.68,0c-54.39,0-103.11,30.53-127.01,78.67-4.94-.84-9.92-1.25-14.93-1.25-35.1,0-66.79,20.43-81.57,51.7C38.28,131.3,0,170.94,0,219.35s40.53,90.32,90.32,90.32h322.58c49.79,0,90.32-40.52,90.32-90.32ZM25.81,219.35c0-35.57,28.94-64.52,64.52-64.52.8,0,1.57.06,2.36.12l11.02.67,3.21-9.2c9.06-25.83,33.51-43.2,60.83-43.2,6.28,0,12.55.93,18.61,2.76l11.28,3.39,4.41-10.92c17.86-44.14,60.09-72.66,107.64-72.66,64.04,0,116.13,52.1,116.13,116.13l-.54,13.46,8.94,3.14c25.85,9.06,43.21,33.51,43.21,60.83,0,35.57-28.94,64.52-64.52,64.52H90.32c-35.57,0-64.52-28.94-64.52-64.52Z"></path>
@@ -124,7 +133,7 @@
           </svg> to export to markdown, word or epub.</h2>
       <h2>5. Write with citations, footnotes and endlessly-nested highlights.</h2>
         
-        <h1 class="copy-statement">Hyperlit is an <a href="https://github.com/toldandretold/hyperlit">open-source</a> docuverse for open-access text. Use it to grow and till the digital knowledge commons.</h1>
+        <h1 class="copy-statement">Hyperlit is an <a href="https://github.com/toldandretold/hyperlit" tabindex="-1">open-source</a> docuverse for open-access text. Use it to grow and till the digital knowledge commons.</h1>
     </section>
     {{-- No <main> containers: homepageDisplayUnit creates a fresh .main-content
          inside .home-content-wrapper when an arranger button is pressed. --}}
@@ -132,11 +141,6 @@
 
   {{-- scroll affordance for the hero state --}}
   <div class="copy-scroll-hint" aria-hidden="true">&darr;</div>
-
-  <!-- Right Column: The New Book Button -->
-  <div id="topRightContainer" class="loading">
-    <button type="button" id="newBookButton" class="open"><span class="icon">+</span></button>
-  </div>
 
 </div> <!-- End of #app-container -->
 

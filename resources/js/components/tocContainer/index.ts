@@ -63,6 +63,11 @@ export class TocContainerManager extends (ContainerManager as any) {
     if (!this.isBackNavigation) {
       this.container.focus();
     }
+
+    // Base ContainerManager trap (toc-container is in FOCUS_TRAP_CONTAINER_IDS):
+    // Tab cycles the TOC entry links, Escape closes, focus returns to the
+    // toggle button. This override skips super.openContainer(), so engage here.
+    this._engageFocusTrap();
   }
 }
 

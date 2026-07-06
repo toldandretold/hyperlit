@@ -52,6 +52,16 @@ Reports land in `tests/e2e/report/` (HTML) and `tests/e2e/test-results/`
    `fixtures/.auth-state.json`. All other tests reuse that session.
 3. **Test user must exist** in the dev DB — auth setup doesn't create it. If
    login fails, register the account through the UI first.
+4. **A11y fixture books** (for `specs/a11y/`): run `php artisan e2e:seed-fixtures`
+   (idempotent) and add to `.env.e2e`:
+   ```
+   E2E_ENCRYPTED_BOOK=book_e2e_encrypted_fixture
+   E2E_A11Y_BOOK=book_e2e_a11y_fixture
+   ```
+   The encrypted book drives the REAL E2EE open-gate for the unlock-modal
+   keyboard spec; the a11y book carries one of every in-text interactable
+   (footnote ref, hyperlight, hypercite, citation, external link) for the
+   keyboard-hop specs. Without these vars the specs `test.skip` themselves.
 
 ## How tests are wired
 

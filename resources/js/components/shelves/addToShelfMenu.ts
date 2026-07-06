@@ -4,6 +4,7 @@
  */
 
 import { isLoggedIn } from '../../utilities/auth/index';
+import { trapModalFocus } from '../../utilities/modalFocusTrap';
 import type { Shelf, ShelfListResponse } from './types';
 
 async function getFloatingMenu() {
@@ -41,6 +42,7 @@ function buildMenuShell(anchorEl: any) {
     const close = () => {
         if (closed) return;
         closed = true;
+        releaseTrap(); // restores focus to the anchor
         backdrop.remove();
         menu.remove();
         document.removeEventListener('click', dismiss);
@@ -52,6 +54,11 @@ function buildMenuShell(anchorEl: any) {
         if (!menu.contains(e.target as Node | null)) close();
     };
     setTimeout(() => document.addEventListener('click', dismiss), 0);
+
+    // Keyboard: trap Tab within the menu, Escape closes (had no Escape at
+    // all before), focus restored on close. The menu is still empty here —
+    // the trap's rAF re-seat lands on the first item the caller appends.
+    const releaseTrap = trapModalFocus(menu, { onEscape: () => close() });
 
     return { menu, close };
 }

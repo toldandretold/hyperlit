@@ -58,6 +58,7 @@ const REQUIRED_REGISTERED_COMPONENTS = [
   'footnoteTapExtender',
   'lavaLampBackground', // homepage animated bg — dead after SPA return if un-registered
   'homepageHero',       // homepage centered glass hero — same SPA-return lifecycle
+  'contentHopper',      // keyboard hop layer (n/p) — dead after SPA nav if un-registered
 ];
 
 // ---------------------------------------------------------------------------

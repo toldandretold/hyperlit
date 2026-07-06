@@ -1,9 +1,12 @@
 {
-  "_comment": "Axe WCAG-A/AA violation-node counts per page-state per rule id. RATCHET (mirrors consoleBaseline.json): counts may only go DOWN. `npm run test:a11y` prints the suggested lower baseline when a state improves, and prints seed counts for any state with no entry here (e.g. reader-footnote-open, which needs a footnote-bearing E2E_READER_BOOK). A state with no key is report-only. Raising a number is a deliberate, reviewer-visible decision. Regenerate the blob with: node tests/e2e/scripts/merge-a11y-report.mjs. Scans run under the e2e user's persisted theme (currently sepia) — a theme change can shift color-contrast counts. Baseline: seeded 2026-07-05 at 48 nodes, remediated to 0 the same day (see docs/a11y-findings.md).",
+  "_comment": "Axe WCAG-A/AA violation-node counts per page-state per rule id. RATCHET (mirrors consoleBaseline.json): counts may only go DOWN. `npm run test:a11y` prints the suggested lower baseline when a state improves, and prints seed counts for any state with no entry here. A state with no key is report-only. Raising a number is a deliberate, reviewer-visible decision. Regenerate the blob with: node tests/e2e/scripts/merge-a11y-report.mjs. Scans run under the e2e user's persisted theme (currently sepia) — a theme change can shift color-contrast counts. History: seeded 2026-07-05 at 48 nodes, remediated to 0 the same day; reader-footnote-open (scannable once the fixture book landed) carries 1 known debt node — link-in-text-block, links distinguishable only by color, a deliberate design question (docs/a11y-findings.md).",
   "home": {},
   "reader": {},
   "reader-edit-mode": {},
   "reader-settings-open": {},
   "reader-toc-open": {},
+  "reader-footnote-open": {
+    "link-in-text-block": 1
+  },
   "user": {}
 }
