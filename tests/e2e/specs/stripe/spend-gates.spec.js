@@ -7,7 +7,7 @@
 // Run: npx playwright test --config tests/e2e/playwright.stripe.config.js spend-gates
 
 import { test, expect } from '@playwright/test';
-import { provisionUser, getBalance, getLedger, postRetry } from './helpers/billing.js';
+import { provisionUser, getBalance, getLedger, postRetry, apiHeaders, BASE } from './helpers/billing.js';
 
 // path, body, and the message the 402 should carry. Payloads are crafted to pass
 // each controller's input validation so the request actually reaches the balance
@@ -29,8 +29,8 @@ for (const ep of PAID_ENDPOINTS) {
         const m = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
         return m ? decodeURIComponent(m[1]) : '';
       });
-      const resp = await page.request.post('http://hyperlit.test' + ep.path, {
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-XSRF-TOKEN': token, Origin: 'http://hyperlit.test', Referer: 'http://hyperlit.test/' },
+      const resp = await page.request.post(BASE + ep.path, {
+        headers: apiHeaders(token),
         data: ep.body,
       });
 

@@ -119,6 +119,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/vibe-convert/review/{book}/keep', [VibeConvertController::class, 'keepReview']);
     Route::post('/vibe-convert/review/{book}/reject', [VibeConvertController::class, 'rejectReview']);
 
+    // Book audio (per-node TTS) — the WRITE half: generate is requester-pays,
+    // cancel is owner/requester-side. Reads (status/progress/manifest) live in
+    // the public throttled block below — anonymous readers of a public book
+    // play audio too; RLS gates visibility either way.
+    Route::post('/book-audio/{book}/generate', [\App\Http\Controllers\BookAudioController::class, 'generate']);
+    Route::post('/book-audio/{book}/cancel', [\App\Http\Controllers\BookAudioController::class, 'cancel']);
+
     // User preferences
     Route::get('/user/preferences', [UserPreferencesController::class, 'show']);
     Route::post('/user/preferences', [UserPreferencesController::class, 'update']);
@@ -162,6 +169,13 @@ Route::prefix('public/library')->middleware('throttle:60,1')->group(function () 
 // Public vibes gallery — no auth, throttled
 Route::get('/vibes/public', [VibesController::class, 'publicIndex'])
     ->middleware('throttle:60,1');
+
+// Book audio reads — no auth (RLS decides what's visible), throttled
+Route::middleware('throttle:120,1')->where(['book' => '[a-zA-Z0-9_-]+'])->group(function () {
+    Route::get('/book-audio/{book}/status', [\App\Http\Controllers\BookAudioController::class, 'status']);
+    Route::get('/book-audio/{book}/progress', [\App\Http\Controllers\BookAudioController::class, 'progress']);
+    Route::get('/book-audio/{book}/manifest', [\App\Http\Controllers\BookAudioController::class, 'manifest']);
+});
 
 // Password reset routes (throttled to prevent abuse)
 Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])

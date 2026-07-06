@@ -38,7 +38,13 @@ export const unregisterSwScript = () => {
   } catch { /* ignore */ }
   try {
     // Block layout.blade.php's `window.load` re-register so the SW can't come back.
-    navigator.serviceWorker.register = () => Promise.resolve({ scope: '/', unregister: () => Promise.resolve(true) });
+    // The fake registration needs update() too — the blade calls registration.update()
+    // after registering (stale-SW fix), and a missing method logs a console error.
+    navigator.serviceWorker.register = () => Promise.resolve({
+      scope: '/',
+      unregister: () => Promise.resolve(true),
+      update: () => Promise.resolve(),
+    });
   } catch { /* register is sometimes non-writable; getRegistrations cleanup above still applies */ }
 };
 

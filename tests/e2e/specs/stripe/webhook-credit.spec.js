@@ -21,24 +21,26 @@ test.beforeAll(() => {
 test('a valid signed top-up credits the user 1:1 and writes a ledger row', async ({ browser }) => {
   const { context, page, userId } = await provisionUser(browser);
   try {
+    // Delta-based: a freshly provisioned user SHOULD start at 0, but assert the
+    // credit as a delta so leftover state from an aborted earlier run can't
+    // fail the actual thing under test (webhook → 1:1 credit).
     const before = await getBalance(page);
-    expect(before.balance).toBe(0);
 
     const { response, sessionId } = await creditViaWebhook(page, { userId, amount: 25 });
     expect(response.status()).toBe(200);
     expect((await response.json()).received).toBe(true);
 
     const after = await getBalance(page);
-    expect(after.credits).toBe(25);          // 1 credit == $1
-    expect(after.debits).toBe(0);
-    expect(after.balance).toBe(25);
+    expect(after.credits - before.credits).toBe(25);   // 1 credit == $1
+    expect(after.debits).toBe(before.debits);
+    expect(after.balance - before.balance).toBe(25);
 
     // A stripe_topup ledger row exists, tagged with the session id, balance_after correct.
     const ledger = await getLedger(page);
     const row = ledger.find((e) => (e.category === 'stripe_topup') && Number(e.amount) === 25);
     expect(row, 'a stripe_topup credit row should exist').toBeTruthy();
     expect(row.type).toBe('credit');
-    expect(Number(row.balance_after)).toBe(25);
+    expect(Number(row.balance_after)).toBe(before.balance + 25);
     const sidInMeta = JSON.stringify(row.metadata || {}).includes(sessionId);
     expect(sidInMeta, 'ledger row metadata should carry the stripe_session_id').toBeTruthy();
   } finally {

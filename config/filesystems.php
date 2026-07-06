@@ -55,6 +55,16 @@ return [
             'throw' => false,
         ],
 
+        // Private per-node TTS audio store — same root and serving model as
+        // book_images (RLS-gated route, never static). Kept as its own disk so
+        // an S3 swap can move audio independently of images.
+        'book_audio' => [
+            'driver' => 'local',
+            'root' => storage_path('app/books'),
+            'visibility' => 'private',
+            'throw' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

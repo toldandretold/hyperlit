@@ -8,6 +8,7 @@ import { ContainerManager } from "../utilities/containerManager";
 import { verbose } from "../../utilities/logger";
 import { switchTheme, getCurrentTheme, THEMES } from "./themeSwitcher";
 import { openSearchToolbar } from "../../search/inTextSearch/searchToolbar";
+import { openAudioPlayer, syncListenButton } from "../audioPlayer/index";
 import { handleVibeClick, _openVibeGallery, _openVibeUI } from "./vibe";
 import { _openGatePanel } from "./gate";
 import { toggleFullWidth, applyTextAdjustments, syncSliderUI, handleSliderInput, _debounceResize, reconcileViewportWidth } from "./textControls";
@@ -134,6 +135,18 @@ export class SettingsContainerManager extends (ContainerManager as any) {
       return;
     }
 
+    // Handle listen (TTS audio) button click — same choreography as search
+    if (e.target.closest("#audioListenButton")) {
+      e.preventDefault();
+      e.stopPropagation();
+      verbose.init('Listen button clicked via delegation', '/components/settingsContainer/index.ts');
+      this.closeContainer();
+      setTimeout(() => {
+        openAudioPlayer();
+      }, 100);
+      return;
+    }
+
     // Handle overlay click to close
     if (e.target.closest("#settings-overlay") && this.isOpen) {
       this.closeContainer();
@@ -145,6 +158,10 @@ export class SettingsContainerManager extends (ContainerManager as any) {
    * Called on theme change events and after rebinding
    */
   async updateButtonStates() {
+    // The parent's innerHTML reset restores the Listen button's default
+    // `hidden` — re-reveal it when the open book is narratable.
+    syncListenButton();
+
     const currentTheme = getCurrentTheme();
 
     const darkButton = document.getElementById("darkModeButton");

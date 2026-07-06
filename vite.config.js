@@ -42,7 +42,14 @@ function getNetworkIp() {
 // hyperlit.test (mixed content would otherwise block every dev script on the
 // https page); without it, everything stays exactly as before.
 const HERD_CERT = `${os.homedir()}/Library/Application Support/Herd/config/valet/Certificates/hyperlit.test.crt`;
-const HAS_TLS = fs.existsSync(HERD_CERT);
+// NETWORK_MODE (set by `npm run dev:network`) is for testing from another device on the
+// LAN — a phone, a tablet. Those devices can't resolve `hyperlit.test` and don't trust the
+// Herd cert, so the TLS auto-detect below would pin every asset URL at an unreachable host
+// (→ HTML loads but JS/CSS 404 → "nojs/nocss"). In network mode we force plain http + the
+// LAN IP so assets load. Trade-off: passkeys/WebAuthn (E2EE) need a secure context and won't
+// work over a plain-http LAN IP — that's fine for general layout/feature testing on a phone.
+const NETWORK_MODE = !!process.env.VITE_NETWORK;
+const HAS_TLS = fs.existsSync(HERD_CERT) && !NETWORK_MODE;
 
 export default defineConfig({
   build: {

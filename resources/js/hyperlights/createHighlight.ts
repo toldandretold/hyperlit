@@ -422,8 +422,11 @@ export async function createHighlightHandler(event: Event, bookId: BookId, optio
       // node when the same node_id exists in both parent and sub-book.
       const affectedNodes = allAffectedNodes.filter((n: any) => n.book === bookId);
 
+      // The book filter can legitimately empty the list (node_id collisions
+      // across parent/sub-book, or nodes not yet in IDB for a fresh book) —
+      // rebuild treats an empty call as an error, so skip the no-op.
       await Promise.all([
-        rebuildNodeArrays(affectedNodes),
+        affectedNodes.length > 0 ? rebuildNodeArrays(affectedNodes) : Promise.resolve(),
         updateAnnotationsTimestamp(bookId),
       ]);
 

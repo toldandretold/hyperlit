@@ -78,6 +78,24 @@
   stroke: var(--icon-hover-stroke);
 }
 
+/* ===== LISTEN BUTTON (STROKED ICON — music note over text lines) ===== */
+#audioListenButton svg {
+  width: 24px;
+  height: 24px;
+}
+
+#audioListenButton svg path {
+  stroke: var(--icon-stroke-primary);
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+#audioListenButton:hover svg path {
+  stroke: var(--icon-hover-stroke);
+}
+
 /* ===== HYPERLIGHT BUTTONS ===== */
 /* Delete button - stroked icon */
 #hyperlight-buttons #delete-hyperlight svg path {

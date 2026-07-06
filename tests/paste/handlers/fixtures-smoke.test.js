@@ -169,7 +169,9 @@ describe('clipboard fixtures — baselines', () => {
           expect(result.references.length).toBe(baseline.references);
         }
         expect(result.html.length).toBeGreaterThan(0);
-      });
+        // 20s not the 5s default: the biggest fixtures (MITpress, 133 refs) run
+        // >5s when the suite shares the CPU with other work — a load flake.
+      }, 20_000);
 
       it(`links ${baseline.inTextCitations ?? '?'} in-text citation(s) and ${baseline.footnoteMarkers ?? '?'} footnote marker(s) — app-native output`, async () => {
         const { processor } = getProcessorForContent(html);

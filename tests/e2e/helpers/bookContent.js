@@ -110,6 +110,15 @@ export async function importMarkdownBook(page, spa, opts) {
     return dzText.includes('File ready') && dzText.includes(expected);
   }, expectedName, { timeout: 15000 });
 
+  // Pin an explicit book_<digits> id. The cite-form's metadata extraction
+  // (handleFileMetadataExtraction) auto-fills #book with a slug derived from
+  // the file's title/author, which lands the reader on /<slug>/edit and breaks
+  // every downstream assumption that ids look like book_<digits>. Let the
+  // async autofill settle, then overwrite it with our own id.
+  await page.waitForTimeout(500);
+  const pinnedBookId = 'book_' + Date.now();
+  await page.fill('#book', pinnedBookId);
+
   await page.click('#createButton');
   await spa.waitForTransition(page);
 

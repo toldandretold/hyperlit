@@ -328,6 +328,10 @@ body[data-page="home"] #app-container.lava-lamp-background #topRightContainer {
 #app-container.lava-lamp-background .fixed-header .arranger-buttons-container {
   width: 100% !important;
   justify-content: center !important;
+  /* cancel userPageTabs.css's base margin-left: 20px — with width:100% it
+     shifts the hero row 10px off-center. No !important: the feed-open JS
+     inline margin (homepageDisplayUnit) must still win. */
+  margin-left: 0;
 }
 
 #app-container.lava-lamp-background .fixed-header .search-container {

@@ -29,6 +29,18 @@ import { asLineId, type LineId } from '../../utilities/idHelpers';
 
 export { resolveBookIdForBatch };
 
+/**
+ * Warm the FootnoteNumberingService chunk through THIS module's own dynamic
+ * import expression (the renumber trigger below). Called when the edit toolbar
+ * comes up: offline editing must be able to renumber, and the chunk can only
+ * be fetched while still online. Same expression → same resolved URL → the
+ * offline import hits the module cache (a warm-up via a different specifier
+ * can miss when Vite's ?t HMR bust diverges between importers).
+ */
+export function preloadFootnoteRenumberChunk(): void {
+  import('../../footnotes/FootnoteNumberingService').catch(() => { /* offline already — renumber will surface it */ });
+}
+
 /** A record handed to the batch writer: a positional node id, optionally with html/chunk overrides. */
 export interface BatchRecord {
   id: LineId;

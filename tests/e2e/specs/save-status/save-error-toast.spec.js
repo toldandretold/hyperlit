@@ -80,7 +80,9 @@ test.describe('cloudRef red glow → save-error toast', () => {
     // Blocking overlay appears; the passive toast must NOT (overlay owns this case).
     await expect(page.locator('#stale-tab-overlay')).toBeVisible({ timeout: 12_000 });
     await expect(page.locator('#stale-tab-overlay')).toContainText(/out of date|edited elsewhere/i);
-    await expect(page.locator('#stale-tab-overlay button')).toHaveText(/refresh/i);
+    // The overlay has grown a second button (#stale-tab-download "Download (.md)"),
+    // so target the refresh button specifically.
+    await expect(page.locator('#stale-tab-refresh')).toHaveText(/refresh/i);
     await expect(page.locator('#save-error-toast')).toHaveCount(0);
   });
 

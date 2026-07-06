@@ -40,21 +40,77 @@ function captureApiBodies(page, sink) {
   });
 }
 
+/**
+ * Register + log in a fresh throwaway account in a NEW context (no storageState).
+ * The first-mint recovery-code modal shows ONCE per vault, so running this
+ * lifecycle as the shared fixture user only ever works on the very first run
+ * (and each rerun would orphan another server-side passkey on that account).
+ */
+async function provisionFreshUser(browser) {
+  // Manual contexts don't inherit the config's ignoreHTTPSErrors — pass it.
+  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const page = await context.newPage();
+  await page.goto('/');
+
+  const xsrf = () => page.evaluate(() => {
+    const m = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  });
+  const origin = new URL(page.url()).origin;
+  const headers = (token) => ({
+    'Accept': 'application/json', 'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest', 'X-XSRF-TOKEN': token,
+    'Origin': origin, 'Referer': origin + '/',
+  });
+  const rand = Math.random().toString(36).slice(2, 8);
+  const creds = { name: 'e2ee' + rand, email: 'e2ee_' + rand + '@redteam.local', password: 'E2ee!' + rand + 'Aa1' };
+  await page.request.post(origin + '/api/register', {
+    headers: headers(await xsrf()),
+    data: { name: creds.name, email: creds.email, password: creds.password, password_confirmation: creds.password },
+  });
+  await page.request.post(origin + '/api/login', { headers: headers(await xsrf()), data: { email: creds.email, password: creds.password } });
+  const me = await page.request.get(origin + '/api/auth-check', { headers: headers(await xsrf()) });
+  const authedName = (await me.json().catch(() => ({})))?.user?.name ?? null;
+  if (authedName !== creds.name) {
+    throw new Error(`provisionFreshUser: expected "${creds.name}", session belongs to "${authedName ?? 'nobody'}" (registration throttled?)`);
+  }
+  // Plain load, NOT networkidle: the homepage can hold a connection open and
+  // with the fixture's timeout:0 a networkidle wait hangs the whole test.
+  // The caller's toPass retry loop absorbs hydration timing.
+  await page.reload();
+  return { context, page };
+}
+
 test.describe('E2EE encrypted book lifecycle', () => {
-  test('register passkey → create encrypted book → ciphertext-only wire → fresh-device unlock', async ({ page }) => {
+  test('register passkey → create encrypted book → ciphertext-only wire → fresh-device unlock', async ({ browser }) => {
     test.setTimeout(240_000);
+    // Fresh user per run → the vault is ALWAYS minted here, deterministically.
+    const { context, page } = await provisionFreshUser(browser);
     const apiBodies = [];
     captureApiBodies(page, apiBodies);
     await addPrfAuthenticator(page);
 
     // ── 1. Register a passkey (profile → Passkeys) ────────────────────
-    await page.goto('/');
-    await page.locator('#userButton, #userButtonContainer button').first().click();
-    await page.locator('#passkeysBtn').click();
+    // Wait for the SPA's auth state to be warm BEFORE opening the menu: a
+    // click during auth init bakes the LOGIN form into the container, and
+    // repeated toggle-clicks strand the slide-in container off-viewport
+    // (which then hangs every later click forever under timeout:0). So:
+    // warm auth → ONE click → let the slide-in settle.
+    await page.waitForFunction(async () => {
+      const r = await fetch('/api/auth/session-info', { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'include' });
+      const j = await r.json().catch(() => null);
+      return j && j.authenticated === true;
+    }, null, { timeout: 20_000 });
+    await page.waitForTimeout(1500); // hydration settle (ButtonRegistry wiring)
+    await page.locator('#userButton, #userButtonContainer button').first().click({ timeout: 10_000 });
+    await expect(page.locator('#passkeysBtn')).toBeVisible({ timeout: 10_000 });
+    await page.waitForTimeout(600); // slide-in animation to rest
+    await page.locator('#passkeysBtn').click({ timeout: 10_000 });
 
     const addPasskey = page.locator('#addPasskeyBtn');
     await expect(addPasskey).toBeVisible({ timeout: 15_000 });
-    await addPasskey.click();
+    await page.waitForTimeout(300);
+    await addPasskey.click({ timeout: 15_000 });
 
     // First registration mints the vault → recovery-code modal (shown ONCE)
     const recoveryOverlay = page.locator('#recovery-code-overlay');
@@ -63,6 +119,15 @@ test.describe('E2EE encrypted book lifecycle', () => {
     expect(recoveryCode).toMatch(/^([0-9A-HJKMNP-TV-Z]{4}-){5}[0-9A-HJKMNP-TV-Z]{4}$/);
     await page.locator('#recoveryCodeSavedCheck').check();
     await page.locator('#recoveryCodeDone').click();
+
+    // Close the passkeys panel/user container — its #user-overlay backdrop
+    // otherwise keeps covering the header buttons (clicks hang forever).
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#user-overlay.active')).toHaveCount(0, { timeout: 10_000 })
+      .catch(async () => {
+        await page.locator('#user-overlay').click({ force: true });
+        await expect(page.locator('#user-overlay.active')).toHaveCount(0, { timeout: 5_000 });
+      });
 
     // ── 2. Create a born-encrypted book ───────────────────────────────
     await page.locator('#newBookButton, #newbook-button, [data-testid="new-book"]').first().click()
@@ -111,5 +176,7 @@ test.describe('E2EE encrypted book lifecycle', () => {
 
     // Content decrypts and renders — including the sentinel we typed
     await expect(page.locator('.main-content')).toContainText(SENTINEL, { timeout: 30_000 });
+
+    await context.close();
   });
 });

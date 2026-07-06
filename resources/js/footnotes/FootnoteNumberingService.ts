@@ -82,7 +82,10 @@ export async function rebuildAndRenumber(bookId: BookId, nodes: any[]): Promise<
  */
 async function reconcileStoredFootnoteContent(bookId: BookId, skipStartLines: Set<any> = new Set()): Promise<number> {
   const { openDatabase } = await import('../indexedDB/core/connection');
-  const { queueForSync } = await import('../indexedDB/syncQueue/index');
+  // Leaf, NOT the syncQueue/index barrel: the barrel has no eager importer, so
+  // in dev an OFFLINE renumber can't fetch it (batch.ts already loads the leaf
+  // eagerly → guaranteed module-cache hit). Same queueForSync re-export.
+  const { queueForSync } = await import('../indexedDB/syncQueue/queue');
 
   let db: any;
   try {

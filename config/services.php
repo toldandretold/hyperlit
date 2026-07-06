@@ -89,6 +89,23 @@ return [
         'api_key' => env('MISTRAL_OCR_API_KEY'),
     ],
 
+    // Per-node TTS audiobook generation (GenerateBookAudioJob). Provider is
+    // swappable via TtsProviderInterface; 'deepinfra' serves open-weight
+    // Kokoro-82M and returns MP3 directly (no server-side transcode).
+    'tts' => [
+        'provider' => env('TTS_PROVIDER', 'deepinfra'),
+        'api_key' => env('TTS_API_KEY'),
+        'base_url' => env('TTS_BASE_URL', 'https://api.deepinfra.com/v1/inference/hexgrad/Kokoro-82M'),
+        'voice' => env('TTS_DEFAULT_VOICE', 'af_heart'),
+        'bitrate_kbps' => 64,               // CBR mp3 — duration is estimated from this
+        'max_chars_per_request' => 1500,    // sentence-split nodes above this
+        'concurrency' => 5,                 // parallel provider requests per batch
+        'pricing' => [
+            'provider_cost_per_million_chars' => 0.80, // DeepInfra Kokoro-82M, checked 2026-07-06
+            'billed_per_million_chars' => 1.00,        // raw rate passed to BillingService::charge (tier multiplier applies on top)
+        ],
+    ],
+
     'brave_search' => [
         'api_key' => env('BRAVE_SEARCH_API_KEY'),
     ],

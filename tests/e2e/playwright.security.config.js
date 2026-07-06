@@ -42,7 +42,7 @@ export default defineConfig({
   outputDir: 'test-results-security',
   timeout: 60_000,
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'http://hyperlit.test',
+    baseURL: process.env.E2E_BASE_URL || 'https://hyperlit.test',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     ignoreHTTPSErrors: true,

@@ -188,6 +188,14 @@ class BookDeletionService
                 Log::warning('BookDeletionService: book image purge failed', ['book' => $bookId, 'error' => $e->getMessage()]);
             }
 
+            // Purge the book's TTS audio (rows + meta + private-disk bytes) —
+            // same best-effort posture as the image purge.
+            try {
+                app(\App\Services\BookAudioStore::class)->purgeBook($bookId);
+            } catch (\Throwable $e) {
+                Log::warning('BookDeletionService: book audio purge failed', ['book' => $bookId, 'error' => $e->getMessage()]);
+            }
+
             // Clear + re-resolve any canonical version pointer that named this book
             // (or a descendant). assign() is fill-only, so a pointer aimed at a
             // now-deleted row would otherwise dangle forever; this nulls it and

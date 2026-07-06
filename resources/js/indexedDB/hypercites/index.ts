@@ -252,7 +252,11 @@ export function updateCitationForExistingHypercite(
       // Filter to correct book — getNodesByDataNodeIDs may return a parent book's
       // node when the same node_id exists in both parent and sub-book.
       const affectedNodes = allNodes.filter(n => n.book === booka);
-      await rebuildNodeArrays(affectedNodes);
+      // The book filter can legitimately empty the list (node_id collisions
+      // across parent/sub-book) — rebuild treats an empty call as an error.
+      if (affectedNodes.length > 0) {
+        await rebuildNodeArrays(affectedNodes);
+      }
     }
 
     // Determine startLine for broadcasting (use first affected node)

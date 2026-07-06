@@ -7,6 +7,8 @@ import {
   updateSingleIndexedDBRecord,
   deleteIndexedDBRecord,
 } from "../indexedDB/index.js";
+// Direct leaf import (not the barrel) — see the offline chunk warm-up in the constructor.
+import { preloadFootnoteRenumberChunk } from "../indexedDB/nodes/batch";
 import { SelectionManager } from "./selectionManager";
 import { ButtonStateManager } from "./buttonStateManager";
 import { HeadingSubmenu } from "./headingSubmenu";
@@ -196,6 +198,15 @@ class EditToolbar {
     this.attachButtonHandlers = this.attachButtonHandlers.bind(this);
 
     this.isVisible = false;
+
+    // Warm the footnote-insertion chunk now, while we're (presumably) online.
+    // insertFootnote() loads it with a dynamic import (a cycle-breaker, so it
+    // must stay dynamic); without this preload an OFFLINE editor that hadn't
+    // yet inserted a footnote this session can't fetch the chunk and the
+    // footnote button dies. Same specifier → resolved from the module cache.
+    import('../footnotes/footnoteInserter').catch(() => { /* offline already; insertFootnote will surface it */ });
+    // Same deal for the renumber path (batch.ts's own dynamic import).
+    preloadFootnoteRenumberChunk();
   }
 
   get isFormatting() {

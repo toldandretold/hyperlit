@@ -23,6 +23,11 @@ import {
 } from '../../search/inTextSearch/searchToolbar';
 
 import {
+  initAudioPlayer,
+  destroyAudioPlayer
+} from '../audioPlayer/index';
+
+import {
   initializeUserContainer,
   destroyUserContainer
 } from '../userButton/userButton';
@@ -259,6 +264,17 @@ export function registerAllComponents() {
     },
     destroyFn: destroySearchToolbar,
     pages: ['reader', 'home', 'user'],
+    dependencies: [],
+    required: false
+  });
+
+  // "Listen to this book" — per-node TTS player (play button + bottom bar).
+  // Reader-only: playback follows the open book's nodes.
+  buttonRegistry.register({
+    name: 'audioPlayer',
+    initFn: initAudioPlayer,
+    destroyFn: destroyAudioPlayer,
+    pages: ['reader'],
     dependencies: [],
     required: false
   });

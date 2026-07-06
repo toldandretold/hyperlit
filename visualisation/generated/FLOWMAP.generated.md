@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1611 functions in 344 modules · 10 object stores · 10 PG tables · 3273 edges
+**MarkdownDB** schema v28 · 1612 functions in 344 modules · 10 object stores · 10 PG tables · 3274 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1071,6 +1071,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `batchDeleteIndexedDBRecords` | `indexedDB/nodes/batch` | `hypercites` `hyperlights` `nodes` | `hypercites` `hyperlights` `nodes` | read | — |
 | `batchUpdateIndexedDBRecords` | `indexedDB/nodes/batch` | `nodes` | `bibliography` `hypercites` `hyperlights` `nodes` | read | — |
 | `initNodeBatchDependencies` | `indexedDB/nodes/batch` | — | — | — | — |
+| `preloadFootnoteRenumberChunk` | `indexedDB/nodes/batch` | — | — | — | — |
 | `updateSingleIndexedDBRecord` | `indexedDB/nodes/batch` | — | — | — | — |
 | `resolveBookIdForBatch` | `indexedDB/nodes/bookIdResolver` | — | — | read | — |
 | `determineChunkIdFromDOM` | `indexedDB/nodes/contentProcessor` | — | — | read | — |
@@ -1733,6 +1734,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `editToolbar/index` → `footnotes/footnoteInserter`
 - `footnotes/FootnoteNumberingService` → `indexedDB/core/connection`
 - `footnotes/FootnoteNumberingService` → `indexedDB/nodes/batch`
+- `footnotes/FootnoteNumberingService` → `indexedDB/syncQueue/queue`
 - `hypercites/deletion` → `hyperlights/index`
 - `hyperlights/deleteHighlight` → `divEditor/index`
 - `hyperlights/deletion` → `lazyLoader/index`

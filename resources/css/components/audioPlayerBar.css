@@ -1,0 +1,129 @@
+/*
+  =====================================================================
+  AUDIO PLAYER PILL — small centred bottom widget, visible ONLY while
+  TTS audio is playing or generating (components/audioPlayer)
+  =====================================================================
+*/
+
+#audio-player-bar {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  max-width: calc(100vw - 24px);
+  background: color-mix(in srgb, var(--icon-background) 96%, transparent);
+  backdrop-filter: blur(10px);
+  border: 0.5px solid color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
+  border-radius: 999px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+  z-index: 999998; /* just under the search toolbar so find-in-page wins when both open */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#audio-player-bar.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* While generating, playback-only controls make no sense — the pill is a
+   progress line + a cancel (stop) button. */
+#audio-player-bar.generating .audio-playback-only {
+  display: none;
+}
+
+#audio-player-bar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  color: var(--color-text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  touch-action: manipulation;
+}
+
+#audio-player-bar button:hover {
+  background: color-mix(in srgb, var(--icon-stroke-primary) 12%, transparent);
+}
+
+#audio-player-bar button svg {
+  width: 18px;
+  height: 18px;
+  stroke: var(--icon-stroke-primary);
+  fill: none;
+}
+
+/* Play/pause swaps its two glyphs via .is-playing */
+#audio-play-pause .audio-icon-pause { display: none; }
+#audio-play-pause.is-playing .audio-icon-play { display: none; }
+#audio-play-pause.is-playing .audio-icon-pause { display: block; }
+
+/* Shared swatch: what the read-along highlight paints on the paragraph AND
+   what the toggle button shows behind the pen when active — keep them the
+   same so the button literally previews the effect. */
+:root {
+  --audio-reading-bg: color-mix(in srgb, var(--hyperlit-aqua, #4EACAE) 14%, transparent);
+}
+
+/* Read-along highlight toggle: a FILL icon (highlighter pen), unlike the
+   stroked siblings. Off = plain white pen, no circle; on = white pen on the
+   highlight swatch. */
+#audio-highlight svg path {
+  fill: var(--icon-stroke-primary);
+  stroke: none;
+}
+
+#audio-player-bar #audio-highlight.active,
+#audio-player-bar #audio-highlight.active:hover {
+  background: var(--audio-reading-bg);
+}
+
+#audio-status-text {
+  color: var(--color-text);
+  font-size: 12px;
+  opacity: 0.75;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40vw;
+}
+
+#audio-status-text:empty {
+  display: none;
+}
+
+/* "Audio may be out of date · Update" chip + "Resume following" */
+#audio-stale-chip,
+#audio-resume-follow {
+  border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 30%, transparent);
+  font-size: 12px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.audio-hidden {
+  display: none !important;
+}
+
+/* The node currently being read aloud (same swatch as the toggle button) */
+.audio-reading {
+  background: var(--audio-reading-bg);
+  border-radius: 4px;
+  transition: background 0.4s ease;
+}

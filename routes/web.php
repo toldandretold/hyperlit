@@ -302,6 +302,14 @@ Route::get('/{book}/media/{filename}', [\App\Http\Controllers\BookMediaControlle
         'filename' => '[a-zA-Z0-9\-_.]+\.(jpg|jpeg|png|gif|webp|svg)'
     ]);
 
+// Per-node TTS audio — same RLS-gated serving model; BinaryFileResponse
+// handles Range natively (required for <audio> seeking).
+Route::get('/{book}/audio/{filename}', [\App\Http\Controllers\BookAudioController::class, 'serve'])
+    ->where([
+        'book' => '[a-zA-Z0-9\-_]+',
+        'filename' => '[a-zA-Z0-9\-_.]+\.mp3',
+    ]);
+
 // Password reset page
 Route::get('/reset-password/{token}', function (Request $request, $token) {
     return view('reset-password', [

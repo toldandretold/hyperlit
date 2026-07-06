@@ -21,6 +21,11 @@ Production `hyperlit.io` runs queue workers under Supervisor (`/etc/supervisor/c
 - Job: `VibeConversionJob`.
 - Up to ~28 min Python.
 
+### `audio` → worker `hyperlit-audio`
+
+- Job: `GenerateBookAudioJob` (per-node TTS audiobook generation, docs/audio.md).
+- Minutes of batched TTS-API calls per book (job `$timeout` 3600s); resumable + charge-after-success, so interrupting it loses nothing but the in-flight batch. Needs `TTS_API_KEY` in the droplet `.env`.
+
 ### `embeddings` → worker `hyperlit-embeddings`
 
 - Job: `GenerateNodeEmbedding`.
@@ -77,6 +82,7 @@ cd /var/www/hyperlit && git pull           # picks up confs + retry_after bump
 sudo cp deploy/supervisor/hyperlit-worker.conf     /etc/supervisor/conf.d/
 sudo cp deploy/supervisor/hyperlit-citation.conf   /etc/supervisor/conf.d/
 sudo cp deploy/supervisor/hyperlit-vibe.conf       /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/hyperlit-audio.conf      /etc/supervisor/conf.d/
 sudo cp deploy/supervisor/hyperlit-embeddings.conf /etc/supervisor/conf.d/
 sudo cp deploy/supervisor/hyperlit-search.conf     /etc/supervisor/conf.d/
 sudo supervisorctl reread
@@ -94,7 +100,7 @@ Check the droplet's `.env` does NOT set `DB_QUEUE_RETRY_AFTER` (it would overrid
 
 ## Local dev
 
-`npm run dev:all` / `dev:network` mirror this topology with a dedicated worker per queue: **IMP1+IMP2** (`queue:import` — two import workers, so concurrent-import testing works locally), **CITE** (`queue:citation`), **VIBE** (`queue:vibe`), **EMBED** (`queue:embeddings`), **SRCH** (`queue:search`). `php artisan work` remains as a single catch-all for one-off manual shells only — it is serial and reintroduces the blocking.
+`npm run dev:all` / `dev:network` mirror this topology with a dedicated worker per queue: **IMP1+IMP2** (`queue:import` — two import workers, so concurrent-import testing works locally), **CITE** (`queue:citation`), **VIBE** (`queue:vibe`), **AUD** (`queue:audio`), **EMBED** (`queue:embeddings`), **SRCH** (`queue:search`). `php artisan work` remains as a single catch-all for one-off manual shells only — it is serial and reintroduces the blocking.
 
 ## The RAM budget (measured) — and why more concurrency means more RAM
 
@@ -109,7 +115,8 @@ Peaks measured 2026-06-12 with real jobs (`tests/load/memprobe.sh`; full method 
 | vibe conversion | **182 MB** | PHP worker + Python sandbox re-conversion + gate |
 | embeddings | **50 MB** | PHP worker, small HTTP calls |
 | search-supplement | **~50 MB** (est. — same profile as embeddings: PHP worker, two HTTP fetches + small upserts; re-measure with memprobe when convenient) | PHP worker, OpenAlex + Open Library fetch |
-| **all five truly simultaneous** | **~570 MB** observed-basis / **~695 MB** worst-case sum | |
+| audio (TTS) | **~50 MB** (est. — embeddings profile: PHP worker, 5-wide `Http::pool` of ~150 KB base64 audio responses; re-measure with memprobe when convenient) | PHP worker, DeepInfra TTS calls + file writes |
+| **all six truly simultaneous** | **~620 MB** observed-basis / **~745 MB** worst-case sum | |
 
 (Citation was measured with `--skip-fetch`. A live vacuum phase launches headless chromium per fetch — ~150–300 MB transient on top of the citation worker — so worst case during vacuum trends toward ~900 MB. Check `free -m` during the first real run after installing chromium.)
 
@@ -117,7 +124,7 @@ The arithmetic for this droplet (~1.9 GB physical + 2 GB swap, OOM history):
 
 ```
 baseline (nginx + PHP-FPM + Postgres + idle workers)   ~700–1000 MB  ← read it: ssh marx@… 'free -m'
-max overlap, current topology (numprocs=1 everywhere)   ~695 MB
+max overlap, current topology (numprocs=1 everywhere)   ~745 MB
                                                         ─────────────
                                                         ~1.4–1.7 GB of 1.9 GB
 ```

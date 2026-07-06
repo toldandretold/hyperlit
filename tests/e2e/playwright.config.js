@@ -31,6 +31,10 @@ export default defineConfig({
 
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://localhost:8000',
+    // Herd serves hyperlit.test over https with a locally-signed cert. Chrome
+    // trusts it via the macOS keychain, but Playwright's Node-side request
+    // context does not — API calls in specs die on TLS without this.
+    ignoreHTTPSErrors: true,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'on-first-retry',

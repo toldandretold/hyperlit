@@ -14,6 +14,17 @@
         <line x1="338.29" y1="338.29" x2="448" y2="448" />
       </svg>
     </button>
+    {{-- Hidden by default: only the reader-page audioPlayer component reveals
+         it (and only for narratable books — not encrypted, not sub-books) --}}
+    <button type="button" id="audioListenButton" class="settings-button" aria-label="Listen to this book" hidden>
+      <svg viewBox="-0.5 0 25 25" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13 22.42C15.2091 22.42 17 20.6292 17 18.42C17 16.2109 15.2091 14.42 13 14.42C10.7909 14.42 9 16.2109 9 18.42C9 20.6292 10.7909 22.42 13 22.42Z" />
+        <path d="M17 18.4099V9.5C16.9991 8.0814 17.5008 6.70828 18.4161 5.62451C19.3315 4.54074 20.6012 3.81639 22 3.57996" />
+        <path d="M2 7.42004H12" />
+        <path d="M2 11.42H12" />
+        <path d="M2 3.42004H12" />
+      </svg>
+    </button>
     <button type="button" id="fullWidthToggle" class="settings-button settings-fullwidth-btn">&gt;margins&lt;</button>
   </div>
 
@@ -30,6 +41,7 @@
     <input type="range" id="contentWidthSlider" class="settings-slider" min="25" max="80" value="40" step="1">
     <span class="settings-slider-value" id="contentWidthValue">40ch</span>
   </div>
+
 
 </div>
 <div id="settings-overlay"></div>

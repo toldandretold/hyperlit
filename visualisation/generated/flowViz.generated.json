@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1611,
+    "fnCount": 1612,
     "moduleCount": 344,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3273,
+    "edgeCount": 3274,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -9819,6 +9819,14 @@
       "leaf": true
     },
     {
+      "id": "indexedDB/nodes/batch:preloadFootnoteRenumberChunk",
+      "label": "preloadFootnoteRenumberChunk",
+      "kind": "fn",
+      "stage": "capture",
+      "module": "indexedDB/nodes/batch",
+      "leaf": true
+    },
+    {
       "id": "indexedDB/nodes/batch:updateSingleIndexedDBRecord",
       "label": "updateSingleIndexedDBRecord",
       "kind": "fn",
@@ -17369,6 +17377,7 @@
         "indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
         "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
         "indexedDB/nodes/batch:initNodeBatchDependencies",
+        "indexedDB/nodes/batch:preloadFootnoteRenumberChunk",
         "indexedDB/nodes/batch:updateSingleIndexedDBRecord"
       ]
     },
@@ -28112,6 +28121,12 @@
       "source": "editToolbar/index:EditToolbar._updateUndoRedoButtons",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.constructor__call__indexedDB/nodes/batch:preloadFootnoteRenumberChunk",
+      "source": "editToolbar/index:EditToolbar.constructor",
+      "target": "indexedDB/nodes/batch:preloadFootnoteRenumberChunk",
+      "rel": "call"
     },
     {
       "id": "editToolbar/index:EditToolbar.deleteFromIndexedDB__call__indexedDB/nodes/delete:deleteIndexedDBRecord",
@@ -41670,6 +41685,11 @@
     },
     {
       "source": "editToolbar/index",
+      "target": "indexedDB/nodes/batch",
+      "kind": "static"
+    },
+    {
+      "source": "editToolbar/index",
       "target": "indexedDB/types",
       "kind": "static"
     },
@@ -41716,6 +41736,11 @@
     {
       "source": "footnotes/FootnoteNumberingService",
       "target": "indexedDB/nodes/batch",
+      "kind": "lazy"
+    },
+    {
+      "source": "footnotes/FootnoteNumberingService",
+      "target": "indexedDB/syncQueue/queue",
       "kind": "lazy"
     },
     {

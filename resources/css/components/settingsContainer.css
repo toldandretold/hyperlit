@@ -70,7 +70,8 @@ body.hyperlit-container-open .reader-content-wrapper {
 }
 
 /* Settings button styling */
-.settings-button {
+.settings-button,
+.gateFilterButton {
   padding: 0.75em 1em;
   background-color: rgba(75, 75, 75, 0.6);
   border: none;
@@ -83,8 +84,9 @@ body.hyperlit-container-open .reader-content-wrapper {
   min-width: fit-content;
 }
 
-/* Search button - square with same height as other buttons */
-#searchButton {
+/* Search + Listen buttons - square with same height as other buttons */
+#searchButton,
+#audioListenButton {
   padding: 0.75em;
   width: 2.75em; /* Match height: 1em (line-height) + 0.75em*2 (padding) = 2.5em, but add a bit for visual match */
   height: 2.75em;

@@ -406,6 +406,34 @@
     <span id="search-match-counter">0 of 0</span>
   </div>
 
+  <!-- Audio player pill — appears only while TTS audio is playing or
+       generating (components/audioPlayer); opened via the settings menu -->
+  <div id="audio-player-bar">
+    <button type="button" id="audio-play-pause" class="audio-playback-only" aria-label="Play">
+      <svg class="audio-icon-play" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="6 4 20 12 6 20 6 4" />
+      </svg>
+      <svg class="audio-icon-pause" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="8" y1="5" x2="8" y2="19" />
+        <line x1="16" y1="5" x2="16" y2="19" />
+      </svg>
+    </button>
+    <button type="button" id="audio-stop" aria-label="Stop">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="6" y="6" width="12" height="12" rx="1" />
+      </svg>
+    </button>
+    <span id="audio-status-text"></span>
+    <button type="button" id="audio-speed" class="audio-playback-only" aria-label="Playback speed">1×</button>
+    <button type="button" id="audio-highlight" class="audio-playback-only" aria-label="Toggle read-along highlight">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="m20.707 5.826-3.535-3.533a.999.999 0 0 0-1.408-.006L7.096 10.82a1.01 1.01 0 0 0-.273.488l-1.024 4.437L4 18h2.828l1.142-1.129 3.588-.828c.18-.042.345-.133.477-.262l8.667-8.535a1 1 0 0 0 .005-1.42zm-9.369 7.833-2.121-2.12 7.243-7.131 2.12 2.12-7.242 7.131zM4 20h16v2H4z" />
+      </svg>
+    </button>
+    <button type="button" id="audio-resume-follow" class="audio-hidden">Resume following</button>
+    <button type="button" id="audio-stale-chip" class="audio-hidden"></button>
+  </div>
+
   <!-- Citation search toolbar - deprecated, will be removed after migration -->
   <!-- Keeping temporarily for rollback capability -->
   <!--

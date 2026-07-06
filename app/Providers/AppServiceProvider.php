@@ -44,6 +44,14 @@ class AppServiceProvider extends ServiceProvider
         // Without this, each phase gets its own instance and billing reads $0.
         $this->app->singleton(\App\Services\LlmService::class);
 
+        // TTS provider seam — config-selected so a self-hosted Kokoro service
+        // can swap in without touching GenerateBookAudioJob.
+        $this->app->bind(\App\Services\Tts\TtsProviderInterface::class, function () {
+            return match (config('services.tts.provider', 'deepinfra')) {
+                default => new \App\Services\Tts\DeepInfraKokoroProvider,
+            };
+        });
+
         // Register DocumentImport services as singletons
         $this->app->singleton(ValidationService::class);
         $this->app->singleton(SanitizationService::class);

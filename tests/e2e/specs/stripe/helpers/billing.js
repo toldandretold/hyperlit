@@ -20,7 +20,12 @@ import crypto from 'crypto';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-export const BASE = process.env.E2E_BASE_URL || 'http://hyperlit.test';
+// The site is served over HTTPS now (APP_URL=https://hyperlit.test; plain http
+// 301s, which flips a POST into a GET when the request context follows it, and
+// the checkout return_url validation requires an APP_URL-prefixed URL). Upgrade
+// a stale http env value rather than bouncing through the redirect.
+export const BASE = (process.env.E2E_BASE_URL || 'https://hyperlit.test')
+  .replace(/^http:\/\/hyperlit\.test/, 'https://hyperlit.test');
 
 /** Read a key from the project-root .env (Playwright runs with cwd = project root). */
 export function readEnv(key) {
@@ -85,13 +90,34 @@ export async function provisionUser(browser) {
     email: 'pay_' + rand + '@redteam.local',
     password: 'Redteam!' + rand + 'Aa1',
   };
-  await postRetry(page, '/api/register', {
+  let reg = await postRetry(page, '/api/register', {
     name: creds.name, email: creds.email, password: creds.password, password_confirmation: creds.password,
   });
-  await postRetry(page, '/api/login', { email: creds.email, password: creds.password });
+  if (reg.status() === 429) {
+    // /api/register is throttle:10,1 — a full-suite run burns through that.
+    // Wait out the window (Retry-After) once instead of failing mysteriously.
+    const retryAfter = Number(reg.headers()['retry-after']) || 61;
+    await page.waitForTimeout((retryAfter + 1) * 1000);
+    reg = await postRetry(page, '/api/register', {
+      name: creds.name, email: creds.email, password: creds.password, password_confirmation: creds.password,
+    });
+  }
+  const login = await postRetry(page, '/api/login', { email: creds.email, password: creds.password });
 
   const me = await page.request.get(BASE + '/api/auth-check', { headers: apiHeaders(await xsrf(page)) });
-  const userId = (await me.json())?.user?.id ?? null;
+  const meJson = await me.json().catch(() => ({}));
+  const authedName = meJson?.user?.name ?? null;
+  // Fail LOUDLY if this context isn't the user we just provisioned. Mid-suite
+  // runs have produced sessions belonging to the MAIN e2e user here (balance
+  // 8.6061/38.6061 mysteries) — a silent mismatch corrupts every balance
+  // assertion downstream and, worse, would credit/spend the wrong account.
+  if (authedName !== creds.name) {
+    throw new Error(
+      `provisionUser: session belongs to "${authedName ?? 'nobody'}", expected fresh user "${creds.name}" ` +
+      `(register=${reg.status()}, login=${login.status()}) — registration throttled or session contamination`,
+    );
+  }
+  const userId = meJson?.user?.id ?? null;
   return { context, page, creds, userId };
 }
 
