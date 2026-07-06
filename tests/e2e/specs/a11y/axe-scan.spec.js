@@ -163,7 +163,14 @@ const STATES = [
       const { opened } = await spa.openFootnoteStack(page, 1);
       test.skip(opened === 0, 'book has no openable footnote refs');
       await page.waitForSelector('#hyperlit-container.open', { timeout: 5000 });
-      await page.waitForTimeout(300); // container slide-in
+      // Anti-flake: wait for the sub-book CONTENT (not just the shell) — the
+      // async enrichment re-render otherwise races the scan and the counts
+      // wobble between the preview and enriched states.
+      await page.waitForFunction(
+        () => !!document.querySelector('#hyperlit-container .sub-book-content a[href], #hyperlit-container .sub-book-content p'),
+        null, { timeout: 8000 }
+      ).catch(() => {});
+      await page.waitForTimeout(600); // enrichment re-render settle
     },
   },
 ];

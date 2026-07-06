@@ -227,7 +227,7 @@ body[data-page="user"] #userLibraryContainer {
   gap: 6px;
   margin-top: 14px;
   font-size: 12px;
-  color: #CBCCCC;
+  --color-background: var(--hyperlit-black);
 }
 
 #newbook-container .newbook-encrypt-label {
