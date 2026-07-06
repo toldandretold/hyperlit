@@ -1,13 +1,14 @@
 /**
- * E2EE image lock/publish passes (docs/e2ee.md).
+ * E2EE audio lock/publish passes (docs/e2ee.md + docs/audio.md §E2EE).
  *
- * Book content is encrypted at the sync seam, but image BYTES live as separate
- * files in the unified store. To make them E2EE we download each plaintext
- * image (owner-authed), encrypt it with the book DEK, and PUT the HLENC1 blob
- * back — the server replaces the bytes in place and flips the row's `encrypted`
- * flag. Publish reverses it. Runs AFTER the content push so a failure here
- * never blocks the (more important) text lock; re-running is idempotent
- * because already-flipped rows are skipped.
+ * TTS MP3s are spoken PLAINTEXT of the book, so the lock pass must cover them:
+ * download each plaintext file (owner-authed), encrypt it with the book DEK,
+ * and PUT the HLENC1 blob back — the server replaces the bytes in place and
+ * flips the row's `encrypted` flag (the book_images pattern, byte for byte).
+ * Publish reverses it. Playback for encrypted books decrypts client-side to
+ * blob URLs (components/audioPlayer/encryptedAudio.ts). Runs AFTER the content
+ * push so a failure here never blocks the (more important) text lock;
+ * re-running is idempotent because already-flipped rows are skipped.
  */
 
 import { ensureCsrfToken } from '../utilities/auth/csrf';
@@ -16,17 +17,16 @@ import { rootBookId } from './registry';
 import { encryptBytes, decryptBytes, hasBlobMagic } from './crypto';
 import { runPool, type ProgressFn } from './pool';
 
-interface ImageRow {
+interface AudioRow {
   filename: string;
-  mime: string;
   encrypted: boolean;
 }
 
 /**
- * fetch() that waits out 429s (honouring Retry-After) — runPool's retries are
- * instant, so a throttled PUT would burn every retry inside the same
- * rate-limit window and fail the whole pass (see audioBlobs.ts; images share
- * the `blob-swap` limiter and the same failure mode on image-heavy books).
+ * fetch() that waits out 429s (honouring Retry-After) instead of failing —
+ * runPool's retries are instant, so without this every retry of a throttled
+ * request lands inside the same rate-limit window and the whole pass dies
+ * with "upload rejected" (the 2026-07 lock failure).
  */
 async function fetchOutlastingThrottle(input: string, init: RequestInit, attempts = 4): Promise<Response> {
   let response = await fetch(input, init);
@@ -39,21 +39,21 @@ async function fetchOutlastingThrottle(input: string, init: RequestInit, attempt
   return response;
 }
 
-async function listImages(root: string): Promise<ImageRow[]> {
-  const response = await fetch(`/api/books/${encodeURIComponent(root)}/images`, {
+async function listAudio(root: string): Promise<AudioRow[]> {
+  const response = await fetch(`/api/books/${encodeURIComponent(root)}/audio`, {
     headers: { Accept: 'application/json' },
     credentials: 'include',
   });
   if (!response.ok) return [];
-  const data = (await response.json().catch(() => ({}))) as { images?: ImageRow[] };
-  return data.images ?? [];
+  const data = (await response.json().catch(() => ({}))) as { files?: AudioRow[] };
+  return data.files ?? [];
 }
 
 async function putBytes(root: string, filename: string, bytes: Uint8Array): Promise<boolean> {
   const csrfToken = await ensureCsrfToken();
   if (!csrfToken) return false;
   const response = await fetchOutlastingThrottle(
-    `/api/books/${encodeURIComponent(root)}/images/${encodeURIComponent(filename)}`,
+    `/api/books/${encodeURIComponent(root)}/audio/${encodeURIComponent(filename)}`,
     {
       method: 'PUT',
       headers: {
@@ -69,15 +69,11 @@ async function putBytes(root: string, filename: string, bytes: Uint8Array): Prom
 
 async function fetchBytes(root: string, filename: string): Promise<Uint8Array | null> {
   // The bytes at this URL flip between plaintext and HLENC1 across a lock/
-  // publish, so ANY cached copy is poison. `cache:'no-store'` covers the HTTP
-  // cache but does NOT bypass a service worker — and an old CacheFirst SW that
-  // hasn't updated yet will happily serve the stale plaintext it cached during
-  // the lock (the deterministic "N image(s) could not be decrypted" bug). A
-  // unique query string defeats every SW version: cache lookups match the full
-  // URL, so a never-seen URL can never hit a cached ghost.
+  // publish, so ANY cached copy is poison — the unique query defeats service-
+  // worker caches too (see imageBlobs.ts for the full CacheFirst-SW war story).
   const bust = `hlfresh=${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const response = await fetch(
-    `/${encodeURIComponent(root)}/media/${encodeURIComponent(filename)}?${bust}`,
+    `/${encodeURIComponent(root)}/audio/${encodeURIComponent(filename)}?${bust}`,
     { credentials: 'include', cache: 'no-store' },
   );
   if (!response.ok) return null;
@@ -85,13 +81,13 @@ async function fetchBytes(root: string, filename: string): Promise<Uint8Array | 
 }
 
 /**
- * Encrypt every still-plaintext image of a book tree. Parallel + retried (a
- * transient fetch/PUT hiccup no longer fails the whole lock); throws only if an
- * image STILL fails after retries. Already-encrypted rows are skipped (idempotent).
+ * Encrypt every still-plaintext audio file of a book. Parallel + retried (a
+ * transient fetch/PUT hiccup no longer fails the whole lock); throws only if a
+ * file STILL fails after retries. Already-encrypted rows are skipped (idempotent).
  */
-export async function encryptBookImages(bookId: string, onProgress?: ProgressFn): Promise<void> {
+export async function encryptBookAudio(bookId: string, onProgress?: ProgressFn): Promise<void> {
   const root = rootBookId(bookId);
-  const rows = (await listImages(root)).filter((r) => !r.encrypted);
+  const rows = (await listAudio(root)).filter((r) => !r.encrypted);
   if (!rows.length) return;
 
   const dek = await getDekForBook(root);
@@ -111,14 +107,14 @@ export async function encryptBookImages(bookId: string, onProgress?: ProgressFn)
 
   if (failures.length) {
     const detail = failures.map((f) => `${f.filename}: ${reasons.get(f.filename) ?? '?'}`).join('; ');
-    throw new Error(`${failures.length} image(s) could not be encrypted (${detail}) — run Lock again`);
+    throw new Error(`${failures.length} audio file(s) could not be encrypted (${detail}) — run Lock again`);
   }
 }
 
-/** Decrypt every still-encrypted image of a book tree (publish). Same robust shape. */
-export async function decryptBookImages(bookId: string, onProgress?: ProgressFn): Promise<void> {
+/** Decrypt every still-encrypted audio file of a book (publish). Same robust shape. */
+export async function decryptBookAudio(bookId: string, onProgress?: ProgressFn): Promise<void> {
   const root = rootBookId(bookId);
-  const rows = (await listImages(root)).filter((r) => r.encrypted);
+  const rows = (await listAudio(root)).filter((r) => r.encrypted);
   if (!rows.length) return;
 
   const dek = await getDekForBook(root);
@@ -128,8 +124,6 @@ export async function decryptBookImages(bookId: string, onProgress?: ProgressFn)
       const blob = await fetchBytes(root, row.filename); // ciphertext (octet-stream)
       if (!blob) throw new Error('download failed (404/denied)');
       if (!hasBlobMagic(blob)) {
-        // The server holds HLENC1 but we received something else → a cache
-        // (service worker / proxy) served a stale pre-lock plaintext copy.
         throw new Error(`received ${blob.length}B of NON-ciphertext (stale cache?)`);
       }
       const plain = await decryptBytes(blob, dek, root);
@@ -142,6 +136,6 @@ export async function decryptBookImages(bookId: string, onProgress?: ProgressFn)
 
   if (failures.length) {
     const detail = failures.map((f) => `${f.filename}: ${reasons.get(f.filename) ?? '?'}`).join('; ');
-    throw new Error(`${failures.length} image(s) could not be decrypted (${detail}) — run Publish again`);
+    throw new Error(`${failures.length} audio file(s) could not be decrypted (${detail}) — run Publish again`);
   }
 }

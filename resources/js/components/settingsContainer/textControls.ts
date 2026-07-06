@@ -88,9 +88,16 @@ function isFullWidthMode(): boolean {
   return !!document.querySelector('.main-content')?.classList.contains('full-width-mode');
 }
 
+// Dim via aria-disabled, NOT the native `disabled` attribute: disabled buttons
+// are skipped by browser hit-testing/event dispatch, and on iOS Safari the tap
+// retargets to the nearest "clickable" element — through our transparent panel
+// + overlay, straight onto content links behind the blur (a tap on a dimmed
+// stepper opened a footnote). aria-disabled keeps the button fully clickable
+// (bound clicks are no-ops in stepTextSize/stepWidth) and in the focus trap's
+// tab order.
 function setDisabled(id: string, disabled: boolean) {
   const el = document.getElementById(id) as HTMLButtonElement | null;
-  if (el) el.disabled = disabled;
+  if (el) el.setAttribute('aria-disabled', disabled ? 'true' : 'false');
 }
 
 /** Dim the text steppers at their bounds. */

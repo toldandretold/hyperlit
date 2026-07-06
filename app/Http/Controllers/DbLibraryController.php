@@ -1040,6 +1040,9 @@ public function bulkCreate(Request $request)
             } catch (\Throwable $e) {
                 Log::warning('Encryption: legacy image migration failed', ['book' => $book, 'error' => $e->getMessage()]);
             }
+            // TTS audio (docs/audio.md §E2EE) is NOT purged here: the client's
+            // lock pass encrypts the MP3s in place (encryptBookAudio, the
+            // book_images pattern), so an encrypted book keeps its audiobook.
         }
 
         try {

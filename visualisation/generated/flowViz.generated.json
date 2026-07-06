@@ -6,7 +6,7 @@
     "moduleCount": 344,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3275,
+    "edgeCount": 3274,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -20627,13 +20627,6 @@
       "rel": "call"
     },
     {
-      "id": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates__call__components/utilities/gateFilter:getGateSettings",
-      "source": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates",
-      "target": "components/utilities/gateFilter:getGateSettings",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
       "id": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates__domwrite__dom",
       "source": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates",
       "target": "dom",
@@ -40580,11 +40573,6 @@
       "kind": "static"
     },
     {
-      "source": "components/settingsContainer/index",
-      "target": "components/utilities/gateFilter",
-      "kind": "lazy"
-    },
-    {
       "source": "components/settingsContainer/vibe",
       "target": "components/settingsContainer/themeSwitcher",
       "kind": "static"
@@ -44493,6 +44481,6 @@
       ]
     ],
     "breakerCount": 2,
-    "lazyCount": 238
+    "lazyCount": 237
   }
 }

@@ -7,7 +7,9 @@
 // screen until then: audio exists → the mini player pill appears at the
 // bottom and playback starts from the reader's position; no audio → cost-
 // confirm dialog → requester-pays generation with progress (and cancel) in
-// the same pill. Encrypted books and sub-books hide the Listen button.
+// the same pill. Sub-books hide the Listen button. Encrypted books show it:
+// audio from before the lock plays via client-side decryption
+// (encryptedAudio.ts); creating NEW audio is impossible (explained on press).
 
 import { log, verbose } from '../../utilities/logger';
 import { ensureCsrfToken } from '../../utilities/auth/csrf';
@@ -35,33 +37,39 @@ export function openAudioPlayer(): void {
   void handlePlayPress();
 }
 
-/** Encrypted books: the server never sees plaintext, so server-side TTS is
- *  impossible — EXPLAIN that instead of silently doing nothing (the silent
- *  guard used to eat the press when the E2EE flag loaded after button sync). */
+/** Encrypted book with NO audio yet: the server never sees plaintext, so it
+ *  can't CREATE a narration — EXPLAIN that instead of silently doing nothing
+ *  (the silent guard used to eat the press when the E2EE flag loaded after
+ *  button sync). Books that had audio before locking keep it (encrypted in
+ *  place) and play fine — this dialog is only for the creation gap. */
 async function showEncryptedNotice(): Promise<void> {
   await alertDialog({
-    title: 'Audio unavailable for encrypted books',
+    title: 'Audio creation unavailable for encrypted books',
     // NOTE: alertDialog escapes its message (XSS posture) — HTML tags would
     // render as literal text. pre-line honours \n, so the list is plain text.
-    message: 'Audio conversion is unavailable for encrypted text. The server never sees it, so it can\'t be narrated. It will become possible with "hyperlit.local". Email sam@hyperlit.io and pester him to make it!\n\n'
-      + 'As a temporary hack, you *could*:\n'
+    message: 'Creating an audiobook is unavailable while a book is encrypted. The server never sees the text, so it can\'t narrate it. That will become possible with "hyperlit.local". Email sam@hyperlit.io and pester him to make it!\n\n'
+      + 'What you *can* do:\n'
       + '1. Make the book private (unencrypted).\n'
       + '2. Create the audiobook.\n'
-      + '3. Re-encrypt the book.\n\n'
-      + 'This will work, and your content will be encrypted *eventually*. However, during creation of the audiobook, the unencrypted text will be sent to the text-to-speech model via an external API.',
+      + '3. Re-encrypt the book — the audio files are encrypted along with it, and you can keep listening.\n\n'
+      + 'One caveat: during creation, the unencrypted text is sent to the text-to-speech model via an external API.',
   });
+}
+
+/** Decrypting audio needs the book DEK — prompt the passkey unlock if the
+ *  vault is locked (rare here: opening an encrypted book already unlocks it). */
+async function ensureVaultUnlocked(): Promise<void> {
+  const { isVaultUnlocked } = await import('../../e2ee/keys');
+  if (await isVaultUnlocked()) return;
+  const { showUnlockModal } = await import('../../e2ee/ui/unlockModal');
+  await showUnlockModal(); // throws if dismissed
 }
 
 async function handlePlayPress(): Promise<void> {
   const id = bookId();
   if (!id || busy || id.includes('/')) return;
-  if (isBookEncrypted(id)) {
-    void showEncryptedNotice();
 
-    return;
-  }
-
-  // Toggle when already active.
+  // Toggle when already active (encrypted playback toggles the same way).
   if (controller && controller.getState() === 'playing') {
     controller.pause();
 
@@ -69,6 +77,30 @@ async function handlePlayPress(): Promise<void> {
   }
   if (controller && controller.getState() === 'paused') {
     void controller.resume();
+
+    return;
+  }
+
+  // Encrypted book: audio that existed at lock time was encrypted in place
+  // (e2ee/audioBlobs.ts) and plays via client-side decryption. What CAN'T
+  // happen is creating/updating audio (the server would need plaintext).
+  if (isBookEncrypted(id)) {
+    busy = true;
+    try {
+      manifest = await fetchAudioManifest(id);
+      if (!manifest || Object.keys(manifest.nodes).length === 0) {
+        void showEncryptedNotice();
+
+        return;
+      }
+      await ensureVaultUnlocked();
+      await startPlayback(id);
+    } catch (e) {
+      // Unlock dismissed / decrypt failed — playback just doesn't start.
+      verbose.content(`audioPlayer: encrypted playback not started: ${e}`, '/components/audioPlayer');
+    } finally {
+      busy = false;
+    }
 
     return;
   }
@@ -150,6 +182,11 @@ async function startPlayback(id: string): Promise<void> {
 }
 
 function buildController(id: string): PlaybackController {
+  // Encrypted books: swap the src resolver for fetch-decrypt-to-blob-URL.
+  const resolveSrc = isBookEncrypted(id)
+    ? async (filename: string) => (await import('./encryptedAudio')).getDecryptedAudioUrl(id, filename)
+    : undefined;
+
   return new PlaybackController(id, {
     onStateChange: (state) => bar?.setPlaying(state === 'playing'),
     // Staleness was already decided at press-time (offerStaleUpdate) — the
@@ -167,7 +204,7 @@ function buildController(id: string): PlaybackController {
       bar?.setPlaying(false);
       bar?.setStatus('Audio ready — press play');
     },
-  });
+  }, resolveSrc);
 }
 
 function watchGeneration(id: string, playWhenDone: boolean): void {
@@ -339,4 +376,6 @@ export function destroyAudioPlayer(): void {
   bar?.destroy(); // removes its DOM listeners — the pill markup persists across SPA navs
   bar = null;
   busy = false;
+  // Revoke any decrypted audio blob URLs (encrypted-book playback).
+  void import('./encryptedAudio').then(({ clearAudioBlobCache }) => clearAudioBlobCache());
 }

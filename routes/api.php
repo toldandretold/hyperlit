@@ -353,9 +353,23 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
 
     // E2EE image blobs (docs/e2ee.md): list images + replace one image's bytes
     // (lock encrypts, publish decrypts). Owner-only + magic guard in-controller.
-    Route::get('/books/{book}/images', [\App\Http\Controllers\BookImageController::class, 'index']);
+    // `throttle:blob-swap` REPLACES the group's shared 120/min bucket: the
+    // swaps are one PUT per file, and an audiobook lock fires hundreds — on the
+    // shared per-user bucket they starved against the tree pull/push and 429'd.
+    Route::get('/books/{book}/images', [\App\Http\Controllers\BookImageController::class, 'index'])
+        ->withoutMiddleware('throttle:120,1')->middleware('throttle:blob-swap');
     Route::put('/books/{book}/images/{filename}', [\App\Http\Controllers\BookImageController::class, 'update'])
-        ->where('filename', '[a-zA-Z0-9\-_.]+\.(jpg|jpeg|png|gif|webp|svg)');
+        ->where('filename', '[a-zA-Z0-9\-_.]+\.(jpg|jpeg|png|gif|webp|svg)')
+        ->withoutMiddleware('throttle:120,1')->middleware('throttle:blob-swap');
+
+    // E2EE audio blobs (docs/audio.md §E2EE): list audio rows + replace one
+    // file's bytes (lock encrypts, publish decrypts) — the book_images pattern.
+    // Owner-only + HLENC1 magic guard in-controller.
+    Route::get('/books/{book}/audio', [\App\Http\Controllers\BookAudioController::class, 'index'])
+        ->withoutMiddleware('throttle:120,1')->middleware('throttle:blob-swap');
+    Route::put('/books/{book}/audio/{filename}', [\App\Http\Controllers\BookAudioController::class, 'update'])
+        ->where('filename', '[a-zA-Z0-9\-_.]+\.mp3')
+        ->withoutMiddleware('throttle:120,1')->middleware('throttle:blob-swap');
 
      Route::get(
         '/db/hypercites/find/{book}/{hyperciteId}',

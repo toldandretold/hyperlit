@@ -104,6 +104,18 @@ class AppServiceProvider extends ServiceProvider
             \Illuminate\Support\Facades\URL::forceScheme('https');
         }
 
+        // E2EE lock/publish byte-swaps (image + audio blobs): one PUT per FILE,
+        // so an audiobook lock legitimately fires hundreds of owner-authed
+        // requests in a minute. Inline `throttle:X,1` middlewares all share ONE
+        // per-user bucket (the key is just sha1(user id)), so the swaps starved
+        // against the tree pull/push and 429'd the lock — a NAMED limiter gets
+        // its own bucket. (Registered HERE: RouteServiceProvider is vestigial —
+        // not in bootstrap/providers.php — so nothing in it ever runs.)
+        \Illuminate\Support\Facades\RateLimiter::for('blob-swap', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(600)
+                ->by($request->user()?->id ?: $request->ip());
+        });
+
         // Register authorization policies
         Gate::policy(PgLibrary::class, LibraryPolicy::class);
         Gate::policy(PgHyperlight::class, HyperlightPolicy::class);

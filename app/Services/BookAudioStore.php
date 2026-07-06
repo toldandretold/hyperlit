@@ -116,6 +116,29 @@ class BookAudioStore
     }
 
     /**
+     * Replace one audio file's bytes in place (the E2EE lock/publish pass) and
+     * flip the row's encrypted flag. Mirrors BookImageStore::replaceBytes.
+     */
+    public function replaceBytes(string $book, string $filename, string $bytesPath, bool $encrypted): void
+    {
+        $dest = $this->path($book, $filename);
+        File::ensureDirectoryExists(dirname($dest), 0755);
+
+        $tmp = $dest.'.tmp'.bin2hex(random_bytes(4));
+        File::copy($bytesPath, $tmp);
+        @chmod($tmp, 0644);
+        File::move($tmp, $dest); // atomic replace within the same filesystem
+
+        DB::connection('pgsql_admin')->table('book_audio')
+            ->where('book', $book)->where('filename', $filename)
+            ->update([
+                'encrypted' => $encrypted,
+                'bytes' => filesize($dest) ?: 0,
+                'updated_at' => now(),
+            ]);
+    }
+
+    /**
      * The (node_id, source_hash) pairs that already have audio — the job skips
      * these, which makes generation idempotent, resumable, and IS the
      * regenerate-changed-nodes path.

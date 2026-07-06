@@ -236,7 +236,13 @@ export async function applyVisibilityState(self: any, target: VisState, optEl?: 
   if (!control) return;
 
   const current = (control.dataset.state as VisState) || 'private';
-  if (target === current) { control._closePanel?.(); return; }
+  // Re-picking "Encrypted" on an encrypted book RESUMES the lock (lockBook is
+  // idempotent — already-ciphertext parts and already-flipped image/audio rows
+  // are skipped). The lock flips the flag FIRST and then encrypts bytes, so a
+  // mid-pass failure (e.g. the audio-blob 429s) leaves the book flagged
+  // encrypted with plaintext residue — this click is the only "run Lock again"
+  // affordance. Every other same-state click stays a no-op.
+  if (target === current && target !== 'encrypted') { control._closePanel?.(); return; }
   if (control.classList.contains('vis-busy')) return;
 
   const wasEncrypted = current === 'encrypted';

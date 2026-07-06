@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1612 functions in 344 modules · 10 object stores · 10 PG tables · 3275 edges
+**MarkdownDB** schema v28 · 1612 functions in 344 modules · 10 object stores · 10 PG tables · 3274 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1625,7 +1625,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 2 · lazy-loads (code-split): 238
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 2 · lazy-loads (code-split): 237
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1695,7 +1695,6 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/settingsContainer/gate` → `indexedDB/core/library`
 - `components/settingsContainer/gate` → `indexedDB/index`
 - `components/settingsContainer/gate` → `indexedDB/syncQueue/queue`
-- `components/settingsContainer/index` → `components/utilities/gateFilter`
 - `components/settingsContainer/vibeCSS/galleryUI` → `components/userButton/userButton`
 - `components/settingsContainer/vibeCSS/storage` → `components/settingsContainer/themeSwitcher`
 - `components/settingsContainer/vibeCSS/storage` → `components/settingsContainer/vibeCanvas`

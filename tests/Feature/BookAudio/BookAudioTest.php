@@ -345,6 +345,107 @@ it('narrates nodes whose plainText was never populated (content is the only sour
     $store->purgeBook($book);
 });
 
+// ---------------------------------------------------------------------------
+// E2EE — audio SURVIVES the lock (encrypted in place, the book_images pattern)
+// ---------------------------------------------------------------------------
+
+/** Raw-body PUT (the octet-stream byte-replace endpoint). */
+function rawAudioPut($test, string $url, string $body)
+{
+    return $test->call('PUT', $url, [], [], [], ['CONTENT_TYPE' => 'application/octet-stream'], $body);
+}
+
+it('audio blob PUT: owner-only, row must exist', function () {
+    $book = audioBook();
+    $owner = $this->seedUser();
+    $this->seedLibrary(['book' => $book, 'creator' => $owner->name, 'creator_token' => $owner->user_token, 'visibility' => 'public']);
+    $filename = seedAudioRow($book, $book.'_n1', 'Hello.');
+    putAudioFile($book, $filename);
+
+    // Guest → 401
+    rawAudioPut($this, "/api/books/{$book}/audio/{$filename}", 'x')->assertStatus(401);
+
+    // Stranger who CAN see the (public) book but isn't owner → 403
+    $stranger = $this->seedUser();
+    $this->actingAs($stranger);
+    rawAudioPut($this, "/api/books/{$book}/audio/{$filename}", 'x')->assertStatus(403);
+
+    // Owner, missing row → 404
+    $this->actingAs($owner);
+    rawAudioPut($this, "/api/books/{$book}/audio/ghost-12345678.mp3", 'x')->assertStatus(404);
+
+    app(BookAudioStore::class)->purgeBook($book);
+});
+
+it('the encrypt transition keeps audio rows and files (no purge — the client encrypts them in place)', function () {
+    \App\Services\E2ee\EncryptedBookGuard::forget();
+    $book = audioBook();
+    $owner = $this->seedUser();
+    $this->seedLibrary(['book' => $book, 'creator' => $owner->name, 'creator_token' => $owner->user_token, 'visibility' => 'private']);
+    $filename = seedAudioRow($book, $book.'_n1', 'Spoken words.');
+    putAudioFile($book, $filename);
+
+    $this->actingAs($owner)
+        ->postJson("/api/db/library/{$book}/encryption", ['encrypted' => true, 'wrapped_dek' => 'hlenc.v1.A.B'])
+        ->assertOk()->assertJsonPath('encrypted', true);
+
+    $store = app(BookAudioStore::class);
+    expect(DB::connection('pgsql_admin')->table('book_audio')->where('book', $book)->count())->toBe(1)
+        ->and(is_file($store->path($book, $filename)))->toBeTrue();
+
+    $store->purgeBook($book);
+});
+
+it('audio blob PUT: the HLENC1 magic guard enforces the book\'s encryption direction', function () {
+    // The guard reads the encrypted flag on the ADMIN connection (identical for
+    // HTTP and workers), so the flag must be SEEDED (committed), not transitioned
+    // inside this test's uncommitted transaction — same pattern as the 403 test.
+    \App\Services\E2ee\EncryptedBookGuard::forget();
+    $owner = $this->seedUser();
+
+    // Direction 1: a plaintext book refuses a ciphertext blob.
+    $plainBook = audioBook();
+    $this->seedLibrary(['book' => $plainBook, 'creator' => $owner->name, 'creator_token' => $owner->user_token, 'visibility' => 'public']);
+    $plainFile = seedAudioRow($plainBook, $plainBook.'_n1', 'Plain words.');
+    putAudioFile($plainBook, $plainFile);
+    $this->actingAs($owner);
+    rawAudioPut($this, "/api/books/{$plainBook}/audio/{$plainFile}", 'HLENC1'.str_repeat("\x00", 40))
+        ->assertStatus(422);
+
+    // Direction 2: an encrypted book refuses plaintext bytes...
+    $encBook = audioBook();
+    $this->seedLibrary([
+        'book' => $encBook, 'creator' => $owner->name, 'creator_token' => $owner->user_token,
+        'visibility' => 'private', 'encrypted' => true, 'wrapped_dek' => 'hlenc.v1.A.B',
+    ]);
+    $encFile = seedAudioRow($encBook, $encBook.'_n1', 'Secret words.');
+    putAudioFile($encBook, $encFile);
+    rawAudioPut($this, "/api/books/{$encBook}/audio/{$encFile}", 'plain mp3 bytes')->assertStatus(422);
+
+    // ...and accepts the HLENC1 blob, flipping the row's encrypted flag.
+    rawAudioPut($this, "/api/books/{$encBook}/audio/{$encFile}", 'HLENC1'.str_repeat("\x01", 40))
+        ->assertOk()->assertJson(['encrypted' => true]);
+    expect((bool) DB::connection('pgsql_admin')->table('book_audio')
+        ->where('book', $encBook)->where('filename', $encFile)->value('encrypted'))->toBeTrue();
+
+    // The list endpoint reports the flag (what the lock/publish passes filter on).
+    $files = $this->getJson("/api/books/{$encBook}/audio")->assertOk()->json('files');
+    expect($files)->toHaveCount(1)->and((bool) $files[0]['encrypted'])->toBeTrue();
+
+    // Serving an encrypted row: octet-stream, not audio/mpeg.
+    $resp = $this->get("/{$encBook}/audio/{$encFile}")->assertOk();
+    expect($resp->headers->get('Content-Type'))->toContain('application/octet-stream');
+
+    // Manifest for an encrypted book: staleness is unknowable (content is
+    // ciphertext) → reported fresh, with the per-row encrypted flag exposed.
+    $manifest = $this->getJson("/api/book-audio/{$encBook}/manifest")->assertOk()->json();
+    expect($manifest['nodes'][$encBook.'_n1']['stale'])->toBeFalse()
+        ->and((bool) $manifest['nodes'][$encBook.'_n1']['encrypted'])->toBeTrue();
+
+    app(BookAudioStore::class)->purgeBook($plainBook);
+    app(BookAudioStore::class)->purgeBook($encBook);
+});
+
 it('prunes audio rows for nodes that no longer exist', function () {
     $book = audioBook();
     $owner = $this->seedUser(['credits' => 10]);

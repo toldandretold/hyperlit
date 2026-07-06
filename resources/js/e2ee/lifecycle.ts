@@ -163,6 +163,11 @@ export async function lockBook(bookId: string, onStatus?: (message: string) => v
   onStatus?.('Encrypting images…');
   const { encryptBookImages } = await import('./imageBlobs');
   await encryptBookImages(root);
+
+  // ...and the TTS audio bytes (spoken plaintext of the book — same pattern).
+  onStatus?.('Encrypting audio…');
+  const { encryptBookAudio } = await import('./audioBlobs');
+  await encryptBookAudio(root, (d, t) => onStatus?.(`Encrypting audio ${d}/${t}…`));
   log.user(`Book locked (E2EE): ${root}`, '/e2ee/lifecycle.ts');
 }
 
@@ -198,6 +203,11 @@ export async function publishBook(bookId: string, onStatus?: (message: string) =
   onStatus?.('Decrypting images…');
   const { decryptBookImages } = await import('./imageBlobs');
   await decryptBookImages(root, (d, t) => onStatus?.(`Decrypting images ${d}/${t}…`));
+
+  // ...and the TTS audio bytes back to playable MP3s.
+  onStatus?.('Decrypting audio…');
+  const { decryptBookAudio } = await import('./audioBlobs');
+  await decryptBookAudio(root, (d, t) => onStatus?.(`Decrypting audio ${d}/${t}…`));
 
   // Phase 2 (finalize): everything is plaintext — NOW clear the wrapped DEK on
   // the whole tree. This is the one-way door.
@@ -256,6 +266,9 @@ export async function finishIncompletePublish(bookId: string, onStatus?: (messag
   onStatus?.('Decrypting images…');
   const { decryptBookImages } = await import('./imageBlobs');
   await decryptBookImages(root, (d, t) => onStatus?.(`Decrypting images ${d}/${t}…`));
+  onStatus?.('Decrypting audio…');
+  const { decryptBookAudio } = await import('./audioBlobs');
+  await decryptBookAudio(root, (d, t) => onStatus?.(`Decrypting audio ${d}/${t}…`));
   await postTransition(root, { encrypted: false, finalize: true });
   await patchLocalLibrary(root, { wrapped_dek: null });
   log.user(`Finished an incomplete publish: ${root}`, '/e2ee/lifecycle.ts');
@@ -264,6 +277,7 @@ export async function finishIncompletePublish(bookId: string, onStatus?: (messag
 /** Logout hook: drop in-memory keys (IDB wipe is handled by clearDatabase). */
 export function lockSessionCaches(): void {
   clearKeyCaches();
-  // Revoke decrypted image blob URLs too (they were only valid while unlocked).
+  // Revoke decrypted image + audio blob URLs too (only valid while unlocked).
   void import('../lazyLoader/encryptedImages').then(({ clearImageBlobCache }) => clearImageBlobCache());
+  void import('../components/audioPlayer/encryptedAudio').then(({ clearAudioBlobCache }) => clearAudioBlobCache());
 }

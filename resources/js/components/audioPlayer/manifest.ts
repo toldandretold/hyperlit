@@ -12,6 +12,9 @@ export interface AudioNodeEntry {
   filename: string;
   duration_ms: number | null;
   stale: boolean;
+  /** True when the file is an HLENC1 blob (encrypted book) — the player
+   *  decrypts client-side (encryptedAudio.ts) instead of streaming. */
+  encrypted?: boolean;
 }
 
 export interface AudioManifest {

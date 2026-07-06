@@ -95,9 +95,18 @@ export class PlaybackController {
 
   private consecutiveSkips = 0;
 
-  constructor(bookId: string, callbacks: PlaybackCallbacks) {
+  /** Encrypted books swap in a fetch-decrypt-to-blob-URL resolver
+   *  (encryptedAudio.ts); plaintext books stream the serve URL directly. */
+  private resolveSrc: ((filename: string) => Promise<string>) | null;
+
+  constructor(
+    bookId: string,
+    callbacks: PlaybackCallbacks,
+    resolveSrc?: (filename: string) => Promise<string>,
+  ) {
     this.bookId = bookId;
     this.callbacks = callbacks;
+    this.resolveSrc = resolveSrc ?? null;
     this.settings = loadAudioSettings();
     this.audio = new Audio();
     this.audio.preload = 'auto';
@@ -247,9 +256,13 @@ export class PlaybackController {
       return;
     }
 
-    this.audio.src = audioUrl(this.bookId, entry.filename);
     this.audio.playbackRate = this.settings.speed;
     try {
+      // Resolver failures (fetch/decrypt) land in the same catch as play()
+      // failures — a bad node skips ahead (bounded), never crashes playback.
+      this.audio.src = this.resolveSrc
+        ? await this.resolveSrc(entry.filename)
+        : audioUrl(this.bookId, entry.filename);
       await this.audio.play();
       this.consecutiveSkips = 0;
     } catch (e) {
@@ -483,7 +496,12 @@ export class PlaybackController {
   private prefetchNext(): void {
     const nextEntry = this.playlist[this.index + 1];
     if (!nextEntry) return;
-    // Warm the HTTP cache so the next node starts gap-free.
+    // Warm the next node so it starts gap-free: the decrypt cache for
+    // encrypted books, the plain HTTP cache otherwise.
+    if (this.resolveSrc) {
+      void this.resolveSrc(nextEntry.filename).catch(() => { /* best-effort */ });
+      return;
+    }
     fetch(audioUrl(this.bookId, nextEntry.filename), { credentials: 'include' }).catch(() => { /* best-effort */ });
   }
 

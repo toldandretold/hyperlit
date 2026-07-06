@@ -103,9 +103,11 @@ body.hyperlit-container-open .reader-content-wrapper {
   background-color: rgba(95, 95, 95, 0.8);
 }
 
-/* Bounds-dimmed steppers (at min/max text size or column width) */
-.settings-button:disabled,
-.settings-button:disabled:hover {
+/* Bounds-dimmed steppers (at min/max text size or column width). aria-disabled,
+   not native disabled — disabled buttons get skipped by hit-testing and iOS
+   retargets the tap through the transparent panel onto content behind it. */
+.settings-button[aria-disabled="true"],
+.settings-button[aria-disabled="true"]:hover {
   opacity: 0.3;
   cursor: default;
   background-color: rgba(75, 75, 75, 0.6);
@@ -231,6 +233,10 @@ body.hyperlit-container-open .reader-content-wrapper {
 #settings-overlay.active {
   opacity: 1;
   visibility: visible;
+  /* iOS Safari clickability hint: its listeners are document-delegated, and
+     without this Safari can deem the transparent overlay non-clickable and
+     retarget taps to content links behind it. */
+  cursor: pointer;
 }
 /* ========================================
    GATE FILTER — Annotation visibility panel

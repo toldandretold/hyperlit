@@ -29,6 +29,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 class BookAudioController extends Controller
 {
+    private const MAX_BYTES = 50 * 1024 * 1024;
+
     /**
      * Generation state + a cost estimate priced with the CALLER's tier
      * multiplier, so the confirm dialog shows the number they'd actually pay.
@@ -38,8 +40,25 @@ class BookAudioController extends Controller
         $book = $this->cleanBookId($book);
         $this->assertVisible($book);
 
-        $counts = $this->audioCounts($book);
         $meta = PgBookAudioMeta::find($book);
+
+        // Encrypted book: content is ciphertext, so char counts / staleness are
+        // unknowable (and generation is 403 anyway). Report only what's true.
+        if (EncryptedBookGuard::isEncrypted($book)) {
+            return response()->json([
+                'has_audio' => PgBookAudio::where('book', $book)->exists(),
+                'voice' => $meta->voice ?? null,
+                'total_nodes' => 0,
+                'audio_nodes' => (int) PgBookAudio::where('book', $book)->count(),
+                'stale_nodes' => 0,
+                'missing_chars' => 0,
+                'stale_chars' => 0,
+                'estimated_cost_user' => 0,
+                'generating' => false,
+            ]);
+        }
+
+        $counts = $this->audioCounts($book);
 
         $billableChars = $counts['missing_chars'] + $counts['stale_chars'];
         $rate = (float) config('services.tts.pricing.billed_per_million_chars', 1.00);
@@ -164,12 +183,19 @@ class BookAudioController extends Controller
 
         // Both sides of the join run on the DEFAULT (RLS-gated) connection.
         $audioRows = PgBookAudio::where('book', $book)
-            ->get(['node_id', 'filename', 'source_hash', 'duration_ms']);
-        $liveNodes = DB::table('nodes')
-            ->where('book', $book)
-            ->whereIn('node_id', $audioRows->pluck('node_id'))
-            ->get(['node_id', 'content'])
-            ->keyBy('node_id');
+            ->get(['node_id', 'filename', 'source_hash', 'duration_ms', 'encrypted']);
+
+        // Encrypted book: content is ciphertext, so hashing it against
+        // source_hash would mark EVERYTHING stale. Staleness is unknowable
+        // (and un-actionable — regeneration needs plaintext), so report fresh.
+        $bookEncrypted = EncryptedBookGuard::isEncrypted($book);
+        $liveNodes = $bookEncrypted
+            ? collect()
+            : DB::table('nodes')
+                ->where('book', $book)
+                ->whereIn('node_id', $audioRows->pluck('node_id'))
+                ->get(['node_id', 'content'])
+                ->keyBy('node_id');
 
         $nodes = [];
         foreach ($audioRows as $row) {
@@ -179,8 +205,11 @@ class BookAudioController extends Controller
                 'duration_ms' => $row->duration_ms,
                 // A vanished node's audio is stale by definition (pruned on next
                 // regen). MUST hash the identical SpeakableText the job hashed.
-                'stale' => $live === null
-                    || hash('sha256', SpeakableText::fromContent($live->content)) !== $row->source_hash,
+                'stale' => ! $bookEncrypted
+                    && ($live === null
+                        || hash('sha256', SpeakableText::fromContent($live->content)) !== $row->source_hash),
+                // The player decrypts HLENC1 blobs client-side when set.
+                'encrypted' => (bool) $row->encrypted,
             ];
         }
 
@@ -212,10 +241,88 @@ class BookAudioController extends Controller
             abort(404, 'Audio not found.');
         }
 
-        $response = response()->file($path, ['Content-Type' => 'audio/mpeg']);
+        // An encrypted row's bytes are an HLENC1 blob, not playable MP3 — the
+        // client fetches + decrypts to a blob URL (encryptedAudio.ts).
+        $response = response()->file($path, [
+            'Content-Type' => $row->encrypted ? 'application/octet-stream' : 'audio/mpeg',
+        ]);
         $this->applyCachePosture($response, $book);
 
         return $response;
+    }
+
+    /**
+     * List the book's audio rows (filename + encrypted flag) for the E2EE
+     * lock/publish passes. RLS decides visibility — encrypted books are forced
+     * private, so this is owner-only for them automatically.
+     */
+    public function index(Request $request, string $book): JsonResponse
+    {
+        $book = $this->cleanBookId($book);
+        $this->assertVisible($book);
+
+        $rows = PgBookAudio::where('book', $book)
+            ->orderBy('filename')
+            ->get(['filename', 'bytes', 'encrypted']);
+
+        return response()->json(['success' => true, 'files' => $rows]);
+    }
+
+    /**
+     * Replace one audio file's bytes (raw body) — the E2EE lock/publish
+     * byte-swap, mirroring BookImageController::update. Owner-only; the HLENC1
+     * magic guard enforces the book's encryption direction (encrypted book only
+     * accepts ciphertext blobs, plaintext book only accepts non-magic bytes).
+     */
+    public function update(Request $request, string $book, string $filename)
+    {
+        $book = $this->cleanBookId($book);
+
+        $library = PgLibrary::where('book', $book)->first();
+        if (! $library) {
+            return response()->json(['success' => false, 'message' => 'Book not found'], 404);
+        }
+        $creatorInfo = app(DbLibraryController::class)->getCreatorInfo($request);
+        if (! ($creatorInfo['valid'] ?? false)) {
+            return response()->json(['success' => false, 'message' => 'Authentication required'], 401);
+        }
+        $isOwner = ($library->creator && $library->creator === $creatorInfo['creator'])
+            || ($library->creator_token && $library->creator_token === $creatorInfo['creator_token']);
+        if (! $isOwner) {
+            return response()->json(['success' => false, 'message' => 'Access denied'], 403);
+        }
+
+        // Row must already exist — this endpoint REPLACES bytes (lock/publish),
+        // it doesn't create audio (that's GenerateBookAudioJob).
+        $row = PgBookAudio::where('book', $book)->where('filename', $filename)->first();
+        if (! $row) {
+            return response()->json(['success' => false, 'message' => 'Audio not found'], 404);
+        }
+
+        $body = $request->getContent();
+        if ($body === '' || strlen($body) > self::MAX_BYTES) {
+            return response()->json(['success' => false, 'message' => 'Empty or oversized audio'], 422);
+        }
+
+        $hasMagic = str_starts_with($body, BookImageController::BLOB_MAGIC);
+        $bookEncrypted = EncryptedBookGuard::isEncrypted($book);
+
+        if ($bookEncrypted && ! $hasMagic) {
+            return response()->json(['success' => false, 'message' => 'E2EE violation: encrypted book requires an HLENC1 audio blob'], 422);
+        }
+        if (! $bookEncrypted && $hasMagic) {
+            return response()->json(['success' => false, 'message' => 'Plaintext book cannot store an HLENC1 blob'], 422);
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'hlaud');
+        file_put_contents($tmp, $body);
+        try {
+            app(BookAudioStore::class)->replaceBytes($book, $row->filename, $tmp, $hasMagic);
+        } finally {
+            @unlink($tmp);
+        }
+
+        return response()->json(['success' => true, 'encrypted' => $hasMagic]);
     }
 
     private function cleanBookId(string $book): string
