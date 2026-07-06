@@ -1,23 +1,41 @@
 // Reading-layout controls for the settings panel: text-size + column-width
-// STEPPERS (bigger/smaller, narrow/widen — no sliders) that write live CSS vars,
-// localStorage + backend pref, preserve the scroll anchor, and debounce the
-// resize that repositions perimeter buttons. Each stepper dims (disables) at its
-// bound: text size at MIN/MAX; column width at MIN and at the widest that still
-// fits the viewport — so on a narrow phone, where only ~2 widths fit, the buttons
-// automatically collapse to those two. Takes the manager as `self`.
+// STEPPERS (bigger/smaller, narrow/widen) that write live CSS vars, localStorage
+// + backend pref, preserve the scroll anchor, and debounce the resize that
+// repositions perimeter buttons.
+//
+// TWO WIDTH REGIMES (same as the old slider + >margins< toggle):
+//  - Wide viewports (> WIDTH_HIDE_BP): the steppers move the saved ch-width
+//    between WIDTH.MIN and the widest that fits the viewport.
+//  - Narrow viewports (≤ WIDTH_HIDE_BP, i.e. phones): the saved ch-width is
+//    NEVER applied — the stylesheet's --content-width:100% governs. There are
+//    exactly TWO width settings: default margins, and full-width-mode (margins
+//    out). The narrow/widen steppers toggle between them; "narrow" dims at
+//    default, "widen" dims at full-width.
+// Steppers dim (disable) at their bounds. Takes the manager as `self`.
 import { captureScrollAnchor, restoreScrollAnchor } from '../../utilities/scrollAnchor';
 import { savePreference, clearPreference } from '../../utilities/preferences';
 
-const STORAGE_KEYS = { TEXT_SIZE: 'hyperlit_text_size', CONTENT_WIDTH: 'hyperlit_content_width' };
+const STORAGE_KEYS = { TEXT_SIZE: 'hyperlit_text_size', CONTENT_WIDTH: 'hyperlit_content_width', FULL_WIDTH: 'hyperlit_full_width' };
 // Text size steps in px between MIN..MAX; default flips 28→18 below FONT_MOBILE_BP
 // (kept in sync with variables.css + app.css @500).
 const TEXT = { MIN: 14, MAX: 48, STEP: 2, DEFAULT: 28, DEFAULT_MOBILE: 18 };
-// Column width steps in ch between MIN..MAX. The effective max is additionally
-// clamped to what fits the viewport (see effectiveMaxWidth).
+// Column width steps in ch between MIN..MAX (wide viewports only). The effective
+// max is additionally clamped to what fits the viewport (see effectiveMaxWidth).
 const WIDTH = { MIN: 25, MAX: 80, STEP: 5, DEFAULT: 40 };
+// Two distinct breakpoints (kept in sync with the CSS):
+//  - FONT_MOBILE_BP: below this the text-size default flips 28→18px (variables.css + app.css @500).
+//  - WIDTH_HIDE_BP: at/below this --content-width is forced to 100% by the
+//    stylesheet (variables.css @400) and a saved ch-width must NOT be applied;
+//    the width steppers become the two-state margins toggle instead.
 const FONT_MOBILE_BP = 500;
+const WIDTH_HIDE_BP = 400;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+/** Phones: the two-state margins regime (saved ch-widths never apply here). */
+function isNarrowViewport(): boolean {
+  return window.innerWidth <= WIDTH_HIDE_BP;
+}
 
 /** The reading column element (reader page → wrapper, home/user → main-content). */
 function columnEl(): HTMLElement | null {
@@ -38,7 +56,7 @@ function measureCh(el: HTMLElement): number {
 }
 
 /** The widest column (in ch) that actually fits the viewport, clamped to WIDTH.MAX.
- *  Below this the "widen" button stops mattering, so we dim it there. */
+ *  Beyond this the "widen" button stops mattering, so we dim it there. */
 function effectiveMaxWidth(): number {
   const col = columnEl();
   if (!col) return WIDTH.MAX;
@@ -60,10 +78,14 @@ function currentTextSize(): number {
   return viewportTextDefault();
 }
 
-/** Saved/default column width in ch, before the viewport-fit clamp. */
+/** Saved/default column width in ch (wide-viewport regime only). */
 function savedWidth(): number {
   const saved = localStorage.getItem(STORAGE_KEYS.CONTENT_WIDTH);
   return saved ? parseInt(saved, 10) : WIDTH.DEFAULT;
+}
+
+function isFullWidthMode(): boolean {
+  return !!document.querySelector('.main-content')?.classList.contains('full-width-mode');
 }
 
 function setDisabled(id: string, disabled: boolean) {
@@ -78,16 +100,24 @@ function updateTextButtons() {
   setDisabled('textSizeIncrease', cur >= TEXT.MAX);
 }
 
-/** Dim the width steppers at MIN and at the widest that fits the viewport. */
+/** Dim the width steppers at their bounds — per regime. */
 function updateWidthButtons() {
+  if (isNarrowViewport()) {
+    // Two-state margins toggle: default (narrow) ⟷ full-width (wide).
+    const full = isFullWidthMode();
+    setDisabled('widthNarrow', !full);
+    setDisabled('widthWiden', full);
+    return;
+  }
   const emax = effectiveMaxWidth();
   const cur = clamp(savedWidth(), WIDTH.MIN, emax);
   setDisabled('widthNarrow', cur <= WIDTH.MIN);
   setDisabled('widthWiden', cur >= emax);
 }
 
-/** Write the column width: default clears the pref (stylesheet governs), else
- *  pins it as an inline var + wrapper max-width (beats `* { max-width:100% }`). */
+/** Write the ch column width (wide regime): default clears the pref (stylesheet
+ *  governs), else pins it as an inline var + wrapper max-width (beats
+ *  `* { max-width:100% }`). */
 function applyWidth(val: number) {
   const wrapper = document.querySelector('.reader-content-wrapper') as HTMLElement | null;
   if (val === WIDTH.DEFAULT) {
@@ -103,24 +133,51 @@ function applyWidth(val: number) {
   }
 }
 
+/** Toggle full-width-mode (narrow regime) — margins out / back to default. */
+function setFullWidthMode(active: boolean) {
+  document.querySelectorAll('.main-content').forEach(el => el.classList.toggle('full-width-mode', active));
+  if (active) {
+    localStorage.setItem(STORAGE_KEYS.FULL_WIDTH, 'true');
+    savePreference('full_width', true);
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.FULL_WIDTH);
+    clearPreference('full_width');
+  }
+}
+
 /**
- * Reconcile the applied column width with the current viewport (live resize /
- * rotate / devtools). Re-clamps the saved width to what now fits and re-applies,
- * then refreshes the bounds-dimming. Never touches the SAVED preference unless
- * the fit actually shrank it — so a wide-screen width returns intact on desktop.
+ * Reconcile the width artifacts with the current viewport (load / SPA-nav /
+ * live resize / rotate / devtools).
+ *
+ * Below WIDTH_HIDE_BP the saved ch-width must NOT apply: since it's applied as
+ * INLINE style (on <html> + the wrapper) and inline beats the stylesheet — even
+ * the @media --content-width:100% rule — a value set on a wider screen would
+ * linger as a too-narrow column on a phone. So we STRIP the inline artifacts
+ * there and restore the saved full-width-mode class instead. Above the
+ * breakpoint we (re)apply the saved ch-width and drop full-width-mode (a
+ * phones-only state). Never touches localStorage or the backend prefs — the
+ * saved width returns intact when back on a wide screen.
  */
 export function reconcileViewportWidth(_self?: any) {
-  const saved = localStorage.getItem(STORAGE_KEYS.CONTENT_WIDTH);
-  if (saved) {
-    const clamped = clamp(parseInt(saved, 10), WIDTH.MIN, effectiveMaxWidth());
-    // Only re-apply inline artifacts; keep the stored preference as the user set it.
-    document.documentElement.style.setProperty('--content-width', `${clamped}ch`);
-    const wrapper = document.querySelector('.reader-content-wrapper') as HTMLElement | null;
-    if (wrapper) wrapper.style.maxWidth = `${clamped}ch`;
-  } else {
+  const wrapper = document.querySelector('.reader-content-wrapper') as HTMLElement | null;
+
+  if (isNarrowViewport()) {
     document.documentElement.style.removeProperty('--content-width');
-    const wrapper = document.querySelector('.reader-content-wrapper') as HTMLElement | null;
     if (wrapper) wrapper.style.removeProperty('max-width');
+    // Restore the phone's own two-state setting.
+    const full = localStorage.getItem(STORAGE_KEYS.FULL_WIDTH) === 'true';
+    document.querySelectorAll('.main-content').forEach(el => el.classList.toggle('full-width-mode', full));
+  } else {
+    document.querySelectorAll('.main-content').forEach(el => el.classList.remove('full-width-mode'));
+    const saved = localStorage.getItem(STORAGE_KEYS.CONTENT_WIDTH);
+    if (saved) {
+      document.documentElement.style.setProperty('--content-width', `${saved}ch`);
+      // Inline max-width on wrapper to override global * { max-width: 100% }
+      if (wrapper) wrapper.style.maxWidth = `${saved}ch`;
+    } else {
+      document.documentElement.style.removeProperty('--content-width');
+      if (wrapper) wrapper.style.removeProperty('max-width');
+    }
   }
   updateWidthButtons();
 }
@@ -174,18 +231,25 @@ export function stepTextSize(self: any, dir: number) {
   self._debounceResize();
 }
 
-/** Step the column width by ±WIDTH.STEP (dir = +1 wider / -1 narrower),
- *  clamped to what fits the viewport. */
+/** Step the column width (dir = +1 wider / -1 narrower). On phones this is the
+ *  two-state margins toggle; on wide viewports it steps the saved ch-width,
+ *  clamped to what fits. */
 export function stepWidth(self: any, dir: number) {
-  const emax = effectiveMaxWidth();
-  const cur = clamp(savedWidth(), WIDTH.MIN, emax);
-  const next = clamp(cur + dir * WIDTH.STEP, WIDTH.MIN, emax);
-  if (next === cur) return;
-
   const wrapper: any = document.querySelector('.reader-content-wrapper');
   const anchor = wrapper ? captureScrollAnchor(wrapper) : null;
 
-  applyWidth(next);
+  if (isNarrowViewport()) {
+    const full = isFullWidthMode();
+    const wantFull = dir > 0;
+    if (wantFull === full) return; // already at that bound
+    setFullWidthMode(wantFull);
+  } else {
+    const emax = effectiveMaxWidth();
+    const cur = clamp(savedWidth(), WIDTH.MIN, emax);
+    const next = clamp(cur + dir * WIDTH.STEP, WIDTH.MIN, emax);
+    if (next === cur) return;
+    applyWidth(next);
+  }
 
   if (anchor) restoreScrollAnchor(wrapper, anchor);
 
