@@ -293,10 +293,10 @@ it('regenerates ONLY the edited node and bills only the gap', function () {
     $n1FileBefore = DB::connection('pgsql_admin')->table('book_audio')
         ->where('book', $book)->where('node_id', $book.'_n1')->value('filename');
 
-    // Edit n1 only.
+    // Edit n1 only (content is the narration source; plainText is ignored).
     DB::connection('pgsql_admin')->table('nodes')
         ->where('book', $book)->where('node_id', $book.'_n1')
-        ->update(['plainText' => 'Alpha, edited.']);
+        ->update(['content' => '<p>Alpha, edited.</p>', 'plainText' => 'Alpha, edited.']);
 
     (new GenerateBookAudioJob($book, $owner->id, 'af_heart'))->handle($store, $tts);
 
@@ -316,6 +316,31 @@ it('regenerates ONLY the edited node and bills only the gap', function () {
     $ledger = DB::table('billing_ledger')
         ->where('user_id', $owner->id)->where('category', 'tts')->orderBy('created_at')->get();
     expect($ledger)->toHaveCount(2);
+
+    $store->purgeBook($book);
+});
+
+it('narrates nodes whose plainText was never populated (content is the only source)', function () {
+    // Regression: a 280-node prod book had plainText on only 3 rows (write-path
+    // dependent) — the job narrated 3 paragraphs and playback "jumped around".
+    // SpeakableText now ALWAYS derives from content.
+    $book = audioBook();
+    $owner = $this->seedUser(['credits' => 10]);
+    $this->seedLibrary(['book' => $book, 'creator' => $owner->name, 'creator_token' => $owner->user_token, 'visibility' => 'public']);
+    $this->seedNode(['book' => $book, 'startLine' => 1, 'node_id' => $book.'_n1', 'content' => '<p>Has plain.</p>', 'plainText' => 'Has plain.', 'type' => 'text']);
+    $this->seedNode(['book' => $book, 'startLine' => 2, 'node_id' => $book.'_n2', 'content' => '<p>Only <em>content</em> here.</p>', 'plainText' => null, 'type' => 'text']);
+
+    $tts = fakeTts();
+    $store = app(BookAudioStore::class);
+    (new GenerateBookAudioJob($book, $owner->id, 'af_heart'))->handle($store, $tts);
+
+    // Both nodes narrated; the fallback spoke the tag-stripped content.
+    expect($tts->synthesized)->toHaveCount(2);
+    expect($tts->synthesized[1])->toBe('Only content here.');
+
+    // And the manifest agrees it's fresh (hash derivation matches the job's).
+    $manifest = $this->getJson("/api/book-audio/{$book}/manifest")->assertOk()->json();
+    expect($manifest['nodes'][$book.'_n2']['stale'])->toBeFalse();
 
     $store->purgeBook($book);
 });

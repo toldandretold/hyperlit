@@ -8,10 +8,12 @@
 export interface PlayerBarHandlers {
   onPlayPause: () => void;
   onStop: () => void;
+  onRestart: () => void;
+  onPrev: () => void;
+  onNext: () => void;
   onSpeed: () => void;
   onHighlightToggle: () => void;
   onResumeFollow: () => void;
-  onRegenerate: () => void;
 }
 
 export class PlayerBar {
@@ -29,8 +31,6 @@ export class PlayerBar {
 
   private followButton: HTMLButtonElement | null;
 
-  private staleChip: HTMLButtonElement | null;
-
   /** [element, type, listener] triples for destroy() — the pill's DOM lives in
    *  the blade and persists across SPA navs, so listeners MUST be removed or
    *  every reader re-entry stacks another set (a double-fire makes toggles
@@ -45,14 +45,15 @@ export class PlayerBar {
     this.speedButton = this.bar?.querySelector('#audio-speed') ?? null;
     this.highlightButton = this.bar?.querySelector('#audio-highlight') ?? null;
     this.followButton = this.bar?.querySelector('#audio-resume-follow') ?? null;
-    this.staleChip = this.bar?.querySelector('#audio-stale-chip') ?? null;
 
     this.listen(this.playPauseButton, handlers.onPlayPause);
     this.listen(this.stopButton, handlers.onStop);
+    this.listen(this.bar?.querySelector('#audio-restart') ?? null, handlers.onRestart);
+    this.listen(this.bar?.querySelector('#audio-prev') ?? null, handlers.onPrev);
+    this.listen(this.bar?.querySelector('#audio-next') ?? null, handlers.onNext);
     this.listen(this.speedButton, handlers.onSpeed);
     this.listen(this.highlightButton, handlers.onHighlightToggle);
     this.listen(this.followButton, handlers.onResumeFollow);
-    this.listen(this.staleChip, handlers.onRegenerate);
   }
 
   private listen(el: HTMLElement | null, handler: () => void): void {
@@ -103,18 +104,5 @@ export class PlayerBar {
 
   setFollowVisible(showResume: boolean): void {
     this.followButton?.classList.toggle('audio-hidden', !showResume);
-  }
-
-  setStale(staleNodes: number, price: string | null): void {
-    if (!this.staleChip) return;
-    if (staleNodes <= 0) {
-      this.staleChip.classList.add('audio-hidden');
-
-      return;
-    }
-    this.staleChip.classList.remove('audio-hidden');
-    this.staleChip.textContent = price
-      ? `Audio may be out of date · Update (${price})`
-      : 'Audio may be out of date';
   }
 }

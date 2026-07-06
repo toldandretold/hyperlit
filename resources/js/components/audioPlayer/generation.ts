@@ -21,6 +21,10 @@ export function stopProgressPolling(): void {
   }
 }
 
+export function formatPrice(status: AudioStatus): string {
+  return status.estimated_cost_user < 0.01 ? '<$0.01' : `~$${status.estimated_cost_user.toFixed(2)}`;
+}
+
 /**
  * Confirm cost with the user and kick off generation. Returns true if the
  * job was accepted (caller should start polling), false otherwise.
@@ -28,7 +32,7 @@ export function stopProgressPolling(): void {
 export async function confirmAndGenerate(bookId: string, status: AudioStatus): Promise<boolean> {
   const billableChars = status.missing_chars + status.stale_chars;
   const isTopUp = status.has_audio;
-  const price = status.estimated_cost_user < 0.01 ? '<$0.01' : `~$${status.estimated_cost_user.toFixed(2)}`;
+  const price = formatPrice(status);
 
   const confirmed = await confirmDialog({
     title: isTopUp ? 'Update audiobook?' : 'Generate audiobook?',
@@ -39,6 +43,15 @@ export async function confirmAndGenerate(bookId: string, status: AudioStatus): P
   });
   if (!confirmed) return false;
 
+  return requestGeneration(bookId);
+}
+
+/**
+ * POST the generate request (no dialog — the caller owns that UX) and
+ * surface auth/balance outcomes. True = a run was accepted or is already in
+ * flight (caller should poll progress).
+ */
+export async function requestGeneration(bookId: string): Promise<boolean> {
   // ensureCsrfToken returns the XSRF cookie token → goes in X-XSRF-TOKEN
   // (X-CSRF-TOKEN is the session-token header and 419s with this value).
   const csrf = await ensureCsrfToken();

@@ -35,7 +35,7 @@ export async function _openVibeGallery(self: any) {
 
   const restorePanel = () => {
     container.innerHTML = savedHTML;
-    self.syncSliderUI();
+    self.syncControlsUI();
     self.updateButtonStates();
   };
 
@@ -70,7 +70,7 @@ export async function _openVibeUI(self: any, fallbackHTML?: any) {
     // onComplete
     () => {
       container.innerHTML = savedHTML;
-      self.syncSliderUI();
+      self.syncControlsUI();
       switchTheme(THEMES.VIBE);
       self.updateButtonStates();
       self.closeContainer();
@@ -82,7 +82,7 @@ export async function _openVibeUI(self: any, fallbackHTML?: any) {
         self._openVibeGallery();
       } else {
         container.innerHTML = savedHTML;
-        self.syncSliderUI();
+        self.syncControlsUI();
         self.updateButtonStates();
       }
     }

@@ -13,8 +13,9 @@ import { log, verbose } from '../../utilities/logger';
 import { ensureCsrfToken } from '../../utilities/auth/csrf';
 import { currentLazyLoader } from '../../pageLoad/currentLazyLoaderState';
 import { isBookEncrypted } from '../../e2ee/registry';
+import { alertDialog, confirmDialog } from '../dialog/dialog';
 import { fetchAudioManifest, staleCount, type AudioManifest } from './manifest';
-import { confirmAndGenerate, pollGenerationProgress, refreshStatus, stopProgressPolling } from './generation';
+import { confirmAndGenerate, formatPrice, pollGenerationProgress, refreshStatus, requestGeneration, stopProgressPolling } from './generation';
 import { PlaybackController, type PlaylistEntry } from './playbackController';
 import { PlayerBar } from './playerBar';
 
@@ -29,18 +30,36 @@ function bookId(): string | null {
   return currentLazyLoader?.bookId ?? null;
 }
 
-function audioAvailableForBook(id: string): boolean {
-  return !id.includes('/') && !isBookEncrypted(id);
-}
-
 /** Settings-menu entry point (delegated in settingsContainer/index.ts). */
 export function openAudioPlayer(): void {
   void handlePlayPress();
 }
 
+/** Encrypted books: the server never sees plaintext, so server-side TTS is
+ *  impossible — EXPLAIN that instead of silently doing nothing (the silent
+ *  guard used to eat the press when the E2EE flag loaded after button sync). */
+async function showEncryptedNotice(): Promise<void> {
+  await alertDialog({
+    title: 'Audio unavailable for encrypted books',
+    // NOTE: alertDialog escapes its message (XSS posture) — HTML tags would
+    // render as literal text. pre-line honours \n, so the list is plain text.
+    message: 'Audio conversion is unavailable for encrypted text. The server never sees it, so it can\'t be narrated. It will become possible with "hyperlit.local". Email sam@hyperlit.io and pester him to make it!\n\n'
+      + 'As a temporary hack, you *could*:\n'
+      + '1. Make the book private (unencrypted).\n'
+      + '2. Create the audiobook.\n'
+      + '3. Re-encrypt the book.\n\n'
+      + 'This will work, and your content will be encrypted *eventually*. However, during creation of the audiobook, the unencrypted text will be sent to the text-to-speech model via an external API.',
+  });
+}
+
 async function handlePlayPress(): Promise<void> {
   const id = bookId();
-  if (!id || busy || !audioAvailableForBook(id)) return;
+  if (!id || busy || id.includes('/')) return;
+  if (isBookEncrypted(id)) {
+    void showEncryptedNotice();
+
+    return;
+  }
 
   // Toggle when already active.
   if (controller && controller.getState() === 'playing') {
@@ -76,10 +95,45 @@ async function handlePlayPress(): Promise<void> {
       return;
     }
 
+    // Audio exists but some paragraphs were edited since: decide HERE, at the
+    // press, not via chrome on the player (the pill stays clean).
+    if (manifest && staleCount(manifest) > 0 && await offerStaleUpdate(id)) {
+      return; // update accepted — watchGeneration takes over and auto-plays
+    }
+
     await startPlayback(id);
   } finally {
     busy = false;
   }
+}
+
+/**
+ * "Audio is out of date — update (price) | listen anyway". Returns true when
+ * an update run was accepted (caller stops; the watcher plays when ready).
+ * Any decline/failure falls back to listening to the current audio.
+ */
+async function offerStaleUpdate(id: string): Promise<boolean> {
+  const status = await refreshStatus(id);
+  if (!status || status.stale_nodes === 0) return false;
+
+  const wantsUpdate = await confirmDialog({
+    title: 'Audio is out of date',
+    message: `${status.stale_nodes} section(s) have been edited since this audiobook was narrated (update: ${formatPrice(status)}). You can update now or listen to the current audio.`,
+    confirmLabel: `Update (${formatPrice(status)})`,
+    cancelLabel: 'Listen anyway',
+  });
+  if (!wantsUpdate) return false;
+
+  const accepted = status.generating || await requestGeneration(id);
+  if (!accepted) return false; // 401/402/etc alerts shown — fall back to old audio
+
+  generating = true;
+  bar?.show();
+  bar?.setGenerating(true);
+  bar?.setStatus('Updating audio…');
+  watchGeneration(id, /*playWhenDone*/ true);
+
+  return true;
 }
 
 async function startPlayback(id: string): Promise<void> {
@@ -89,7 +143,6 @@ async function startPlayback(id: string): Promise<void> {
   bar?.setGenerating(false);
   bar?.setSpeed(controller.getSettings().speed);
   bar?.setHighlightActive(controller.getSettings().highlight);
-  void updateStaleChip(id);
   const started = await controller.start(manifest);
   if (!started) {
     bar?.setStatus('No audio available yet.');
@@ -99,13 +152,20 @@ async function startPlayback(id: string): Promise<void> {
 function buildController(id: string): PlaybackController {
   return new PlaybackController(id, {
     onStateChange: (state) => bar?.setPlaying(state === 'playing'),
-    onEntryChange: (entry: PlaylistEntry, index: number, total: number) => {
-      bar?.setStatus(`${index + 1} / ${total}${entry.stale ? ' · out-of-date section' : ''}`);
+    // Staleness was already decided at press-time (offerStaleUpdate) — the
+    // playing pill stays clean.
+    onEntryChange: (_entry: PlaylistEntry, index: number, total: number) => {
+      bar?.setStatus(`${index + 1} / ${total}`);
     },
     onFollowModeChange: (following) => bar?.setFollowVisible(!following),
     onFinished: () => {
       bar?.setStatus('');
       bar?.hide();
+    },
+    onAutoplayBlocked: () => {
+      bar?.show();
+      bar?.setPlaying(false);
+      bar?.setStatus('Audio ready — press play');
     },
   });
 }
@@ -136,7 +196,9 @@ function watchGeneration(id: string, playWhenDone: boolean): void {
       }
       noneBeats = 0;
       if (progress.status === 'generating' && !startedLive) {
-        bar?.setStatus(`Generating audio… ${progress.done_nodes ?? 0}/${progress.total_nodes ?? '?'} sections`);
+        bar?.setStatus(progress.stage === 'preparing'
+          ? 'Preparing text for narration…'
+          : `Generating audio… ${progress.done_nodes ?? 0}/${progress.total_nodes ?? '?'} sections`);
       }
       if (!playWhenDone) return;
 
@@ -182,7 +244,6 @@ function watchGeneration(id: string, playWhenDone: boolean): void {
         if (startedLive) {
           // Already listening — just hand the finished playlist over.
           if (manifest) controller?.updatePlaylist(manifest);
-          void updateStaleChip(id);
 
           return;
         }
@@ -218,43 +279,18 @@ async function cancelGeneration(id: string): Promise<void> {
   bar?.setStatus('Cancelling…');
 }
 
-async function updateStaleChip(id: string): Promise<void> {
-  if (!manifest) return;
-  const stale = staleCount(manifest);
-  if (stale === 0) {
-    bar?.setStale(0, null);
-
-    return;
-  }
-  const status = await refreshStatus(id);
-  const price = status
-    ? (status.estimated_cost_user < 0.01 ? '<$0.01' : `~$${status.estimated_cost_user.toFixed(2)}`)
-    : null;
-  bar?.setStale(stale, price);
-}
-
-async function handleRegenerate(): Promise<void> {
-  const id = bookId();
-  if (!id) return;
-  const status = await refreshStatus(id);
-  if (!status) return;
-  const accepted = await confirmAndGenerate(id, status);
-  if (!accepted) return;
-  generating = true;
-  bar?.setGenerating(true);
-  bar?.setStatus('Updating audio…');
-  watchGeneration(id, /*playWhenDone*/ false);
-}
-
 /**
  * Show the settings-menu Listen button iff the player is live on this page
- * and the open book is narratable. Also called by settingsContainer after
- * its innerHTML resets restore the button's default `hidden`.
+ * (reader) and this isn't a sub-book. Encrypted books DO show the button —
+ * pressing it explains why narration isn't possible (an invisible button +
+ * silent no-op left users baffled, especially since the E2EE flag can load
+ * after this sync). Also called by settingsContainer after its innerHTML
+ * resets restore the button's default `hidden`.
  */
 export function syncListenButton(): void {
   const id = bookId();
   const button = document.getElementById('audioListenButton');
-  if (button) button.hidden = !active || !id || !audioAvailableForBook(id);
+  if (button) button.hidden = !active || !id || id.includes('/');
 }
 
 export function initAudioPlayer(): void {
@@ -273,6 +309,9 @@ export function initAudioPlayer(): void {
       controller?.stop();
       bar?.hide();
     },
+    onRestart: () => void controller?.restartFromTop(),
+    onPrev: () => void controller?.previous(),
+    onNext: () => void controller?.next(),
     onSpeed: () => {
       if (controller) bar?.setSpeed(controller.cycleSpeed());
     },
@@ -283,7 +322,6 @@ export function initAudioPlayer(): void {
       bar?.setHighlightActive(enabled);
     },
     onResumeFollow: () => controller?.resumeFollowing(),
-    onRegenerate: () => void handleRegenerate(),
   });
 
   log.init('audioPlayer initialized', '/components/audioPlayer');

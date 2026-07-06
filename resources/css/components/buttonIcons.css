@@ -60,8 +60,8 @@
 
 /* ===== SEARCH BUTTON (STROKED ICON) ===== */
 #searchButton svg {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
 }
 
 #searchButton svg path,
@@ -80,8 +80,8 @@
 
 /* ===== LISTEN BUTTON (STROKED ICON — music note over text lines) ===== */
 #audioListenButton svg {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
 }
 
 #audioListenButton svg path {
@@ -94,6 +94,22 @@
 
 #audioListenButton:hover svg path {
   stroke: var(--icon-hover-stroke);
+}
+
+/* ===== GATE BUTTON (STROKED FUNNEL ICON) ===== */
+/* Uses currentColor so it follows the button's --color-text across every theme,
+   no per-theme override needed (unlike #searchButton). */
+#gateFilterButton svg {
+  width: 18px;
+  height: 18px;
+}
+
+#gateFilterButton svg path {
+  stroke: currentColor;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
 }
 
 /* ===== HYPERLIGHT BUTTONS ===== */

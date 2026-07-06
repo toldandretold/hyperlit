@@ -6,7 +6,7 @@
     "moduleCount": 344,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3274,
+    "edgeCount": 3275,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -1496,14 +1496,6 @@
       "leaf": false
     },
     {
-      "id": "components/settingsContainer/index:SettingsContainerManager.handleSliderInput",
-      "label": "SettingsContainerManager.handleSliderInput",
-      "kind": "fn",
-      "stage": "components",
-      "module": "components/settingsContainer/index",
-      "leaf": true
-    },
-    {
       "id": "components/settingsContainer/index:SettingsContainerManager.handleVibeClick",
       "label": "SettingsContainerManager.handleVibeClick",
       "kind": "fn",
@@ -1536,16 +1528,24 @@
       "leaf": true
     },
     {
-      "id": "components/settingsContainer/index:SettingsContainerManager.syncSliderUI",
-      "label": "SettingsContainerManager.syncSliderUI",
+      "id": "components/settingsContainer/index:SettingsContainerManager.stepTextSize",
+      "label": "SettingsContainerManager.stepTextSize",
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/index",
       "leaf": true
     },
     {
-      "id": "components/settingsContainer/index:SettingsContainerManager.toggleFullWidth",
-      "label": "SettingsContainerManager.toggleFullWidth",
+      "id": "components/settingsContainer/index:SettingsContainerManager.stepWidth",
+      "label": "SettingsContainerManager.stepWidth",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.syncControlsUI",
+      "label": "SettingsContainerManager.syncControlsUI",
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/index",
@@ -1576,14 +1576,6 @@
       "leaf": false
     },
     {
-      "id": "components/settingsContainer/textControls:handleSliderInput",
-      "label": "handleSliderInput",
-      "kind": "fn",
-      "stage": "components",
-      "module": "components/settingsContainer/textControls",
-      "leaf": false
-    },
-    {
       "id": "components/settingsContainer/textControls:reconcileViewportWidth",
       "label": "reconcileViewportWidth",
       "kind": "fn",
@@ -1592,16 +1584,24 @@
       "leaf": false
     },
     {
-      "id": "components/settingsContainer/textControls:syncSliderUI",
-      "label": "syncSliderUI",
+      "id": "components/settingsContainer/textControls:stepTextSize",
+      "label": "stepTextSize",
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/textControls",
       "leaf": false
     },
     {
-      "id": "components/settingsContainer/textControls:toggleFullWidth",
-      "label": "toggleFullWidth",
+      "id": "components/settingsContainer/textControls:stepWidth",
+      "label": "stepWidth",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/textControls",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/textControls:syncControlsUI",
+      "label": "syncControlsUI",
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/textControls",
@@ -15140,13 +15140,13 @@
         "components/settingsContainer/index:SettingsContainerManager.constructor",
         "components/settingsContainer/index:SettingsContainerManager.destroy",
         "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
-        "components/settingsContainer/index:SettingsContainerManager.handleSliderInput",
         "components/settingsContainer/index:SettingsContainerManager.handleVibeClick",
         "components/settingsContainer/index:SettingsContainerManager.openContainer",
         "components/settingsContainer/index:SettingsContainerManager.rebindElements",
         "components/settingsContainer/index:SettingsContainerManager.setupSettingsListeners",
-        "components/settingsContainer/index:SettingsContainerManager.syncSliderUI",
-        "components/settingsContainer/index:SettingsContainerManager.toggleFullWidth",
+        "components/settingsContainer/index:SettingsContainerManager.stepTextSize",
+        "components/settingsContainer/index:SettingsContainerManager.stepWidth",
+        "components/settingsContainer/index:SettingsContainerManager.syncControlsUI",
         "components/settingsContainer/index:SettingsContainerManager.updateButtonStates"
       ]
     },
@@ -15158,10 +15158,10 @@
       "fnIds": [
         "components/settingsContainer/textControls:_debounceResize",
         "components/settingsContainer/textControls:applyTextAdjustments",
-        "components/settingsContainer/textControls:handleSliderInput",
         "components/settingsContainer/textControls:reconcileViewportWidth",
-        "components/settingsContainer/textControls:syncSliderUI",
-        "components/settingsContainer/textControls:toggleFullWidth"
+        "components/settingsContainer/textControls:stepTextSize",
+        "components/settingsContainer/textControls:stepWidth",
+        "components/settingsContainer/textControls:syncControlsUI"
       ]
     },
     {
@@ -20593,13 +20593,6 @@
       "rel": "call"
     },
     {
-      "id": "components/settingsContainer/index:SettingsContainerManager.handleSliderInput__call__components/settingsContainer/textControls:handleSliderInput",
-      "source": "components/settingsContainer/index:SettingsContainerManager.handleSliderInput",
-      "target": "components/settingsContainer/textControls:handleSliderInput",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
       "id": "components/settingsContainer/index:SettingsContainerManager.handleVibeClick__call__components/settingsContainer/vibe:handleVibeClick",
       "source": "components/settingsContainer/index:SettingsContainerManager.handleVibeClick",
       "target": "components/settingsContainer/vibe:handleVibeClick",
@@ -20607,16 +20600,23 @@
       "dataPath": true
     },
     {
-      "id": "components/settingsContainer/index:SettingsContainerManager.syncSliderUI__call__components/settingsContainer/textControls:syncSliderUI",
-      "source": "components/settingsContainer/index:SettingsContainerManager.syncSliderUI",
-      "target": "components/settingsContainer/textControls:syncSliderUI",
+      "id": "components/settingsContainer/index:SettingsContainerManager.stepTextSize__call__components/settingsContainer/textControls:stepTextSize",
+      "source": "components/settingsContainer/index:SettingsContainerManager.stepTextSize",
+      "target": "components/settingsContainer/textControls:stepTextSize",
       "rel": "call",
       "dataPath": true
     },
     {
-      "id": "components/settingsContainer/index:SettingsContainerManager.toggleFullWidth__call__components/settingsContainer/textControls:toggleFullWidth",
-      "source": "components/settingsContainer/index:SettingsContainerManager.toggleFullWidth",
-      "target": "components/settingsContainer/textControls:toggleFullWidth",
+      "id": "components/settingsContainer/index:SettingsContainerManager.stepWidth__call__components/settingsContainer/textControls:stepWidth",
+      "source": "components/settingsContainer/index:SettingsContainerManager.stepWidth",
+      "target": "components/settingsContainer/textControls:stepWidth",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.syncControlsUI__call__components/settingsContainer/textControls:syncControlsUI",
+      "source": "components/settingsContainer/index:SettingsContainerManager.syncControlsUI",
+      "target": "components/settingsContainer/textControls:syncControlsUI",
       "rel": "call",
       "dataPath": true
     },
@@ -20647,40 +20647,40 @@
       "dataPath": true
     },
     {
-      "id": "components/settingsContainer/textControls:applyTextAdjustments__domwrite__dom",
-      "source": "components/settingsContainer/textControls:applyTextAdjustments",
+      "id": "components/settingsContainer/textControls:reconcileViewportWidth__domwrite__dom",
+      "source": "components/settingsContainer/textControls:reconcileViewportWidth",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "components/settingsContainer/textControls:handleSliderInput__domwrite__dom",
-      "source": "components/settingsContainer/textControls:handleSliderInput",
+      "id": "components/settingsContainer/textControls:stepTextSize__domwrite__dom",
+      "source": "components/settingsContainer/textControls:stepTextSize",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "components/settingsContainer/textControls:handleSliderInput__write__store:localStorage",
-      "source": "components/settingsContainer/textControls:handleSliderInput",
+      "id": "components/settingsContainer/textControls:stepTextSize__write__store:localStorage",
+      "source": "components/settingsContainer/textControls:stepTextSize",
       "target": "store:localStorage",
       "rel": "write"
     },
     {
-      "id": "components/settingsContainer/textControls:syncSliderUI__domwrite__dom",
-      "source": "components/settingsContainer/textControls:syncSliderUI",
+      "id": "components/settingsContainer/textControls:stepWidth__domwrite__dom",
+      "source": "components/settingsContainer/textControls:stepWidth",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "components/settingsContainer/textControls:toggleFullWidth__domwrite__dom",
-      "source": "components/settingsContainer/textControls:toggleFullWidth",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
-      "id": "components/settingsContainer/textControls:toggleFullWidth__write__store:localStorage",
-      "source": "components/settingsContainer/textControls:toggleFullWidth",
+      "id": "components/settingsContainer/textControls:stepWidth__write__store:localStorage",
+      "source": "components/settingsContainer/textControls:stepWidth",
       "target": "store:localStorage",
       "rel": "write"
+    },
+    {
+      "id": "components/settingsContainer/textControls:syncControlsUI__domwrite__dom",
+      "source": "components/settingsContainer/textControls:syncControlsUI",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "components/settingsContainer/themeSwitcher:initializeTheme__domwrite__dom",
@@ -24520,33 +24520,27 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__components/settingsContainer/textControls:applyTextAdjustments",
-      "source": "dom",
-      "target": "components/settingsContainer/textControls:applyTextAdjustments",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__components/settingsContainer/textControls:handleSliderInput",
-      "source": "dom",
-      "target": "components/settingsContainer/textControls:handleSliderInput",
-      "rel": "domread"
-    },
-    {
       "id": "dom__domread__components/settingsContainer/textControls:reconcileViewportWidth",
       "source": "dom",
       "target": "components/settingsContainer/textControls:reconcileViewportWidth",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__components/settingsContainer/textControls:syncSliderUI",
+      "id": "dom__domread__components/settingsContainer/textControls:stepTextSize",
       "source": "dom",
-      "target": "components/settingsContainer/textControls:syncSliderUI",
+      "target": "components/settingsContainer/textControls:stepTextSize",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__components/settingsContainer/textControls:toggleFullWidth",
+      "id": "dom__domread__components/settingsContainer/textControls:stepWidth",
       "source": "dom",
-      "target": "components/settingsContainer/textControls:toggleFullWidth",
+      "target": "components/settingsContainer/textControls:stepWidth",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/textControls:syncControlsUI",
+      "source": "dom",
+      "target": "components/settingsContainer/textControls:syncControlsUI",
       "rel": "domread"
     },
     {
@@ -38850,9 +38844,21 @@
       "rel": "read"
     },
     {
-      "id": "store:localStorage__read__components/settingsContainer/textControls:syncSliderUI",
+      "id": "store:localStorage__read__components/settingsContainer/textControls:stepTextSize",
       "source": "store:localStorage",
-      "target": "components/settingsContainer/textControls:syncSliderUI",
+      "target": "components/settingsContainer/textControls:stepTextSize",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/settingsContainer/textControls:stepWidth",
+      "source": "store:localStorage",
+      "target": "components/settingsContainer/textControls:stepWidth",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/settingsContainer/textControls:syncControlsUI",
+      "source": "store:localStorage",
+      "target": "components/settingsContainer/textControls:syncControlsUI",
       "rel": "read"
     },
     {

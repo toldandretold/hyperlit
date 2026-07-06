@@ -11,15 +11,18 @@
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   padding: 6px 12px;
-  max-width: calc(100vw - 24px);
+  width: fit-content;
+  /* Never wider than the reader column, never over the corner buttons:
+     150px clears the settings (bottom-left) + nav (bottom-right) clusters. */
+  max-width: min(calc(100vw - 150px), 34rem);
   background: color-mix(in srgb, var(--icon-background) 96%, transparent);
   backdrop-filter: blur(10px);
   border: 0.5px solid color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
-  border-radius: 999px;
+  border-radius: 18px;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
   z-index: 999998; /* just under the search toolbar so find-in-page wins when both open */
   opacity: 0;
@@ -32,6 +35,16 @@
 #audio-player-bar.visible {
   opacity: 1;
   visibility: visible;
+}
+
+.audio-pill-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  max-width: 100%;
+  flex-wrap: wrap; /* "Resume following"/stale chip wrap instead of overflowing */
 }
 
 /* While generating, playback-only controls make no sense — the pill is a
@@ -108,8 +121,7 @@
   display: none;
 }
 
-/* "Audio may be out of date · Update" chip + "Resume following" */
-#audio-stale-chip,
+/* "Resume following" chip */
 #audio-resume-follow {
   border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 30%, transparent);
   font-size: 12px;
@@ -119,6 +131,41 @@
 
 .audio-hidden {
   display: none !important;
+}
+
+/* Phones: compress the two rows so the pill clears the corner buttons */
+@media (max-width: 520px) {
+  #audio-player-bar {
+    gap: 0;
+    padding: 4px 8px;
+    max-width: calc(100vw - 120px);
+  }
+
+  .audio-pill-row {
+    gap: 2px;
+  }
+
+  #audio-player-bar button {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 4px;
+    font-size: 12px;
+  }
+
+  #audio-player-bar button svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  #audio-status-text {
+    font-size: 11px;
+    max-width: 22vw;
+  }
+
+  #audio-resume-follow {
+    font-size: 11px;
+    padding: 0 8px;
+  }
 }
 
 /* The node currently being read aloud (same swatch as the toggle button) */

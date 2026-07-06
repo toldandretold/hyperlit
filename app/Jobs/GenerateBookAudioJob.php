@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\BillingService;
 use App\Services\BookAudioStore;
 use App\Services\E2ee\EncryptedBookGuard;
+use App\Services\Tts\SpeakableText;
 use App\Services\Tts\TtsProviderInterface;
 use App\Services\Tts\TtsResult;
 use Illuminate\Bus\Queueable;
@@ -71,14 +72,19 @@ class GenerateBookAudioJob implements ShouldQueue
 
         @unlink($store->cancelPath($this->bookId));
 
-        // Speakable nodes, in reading order. plainText is the ready-made TTS
-        // input (strip_tags'd on write; NULL for encrypted books).
+        // Let the requester see the text-preparation pass (SpeakableText over
+        // every node) as its own stage before narration begins.
+        $this->writeProgress($store, 'generating', 0, 0, 0, 0, [], 'preparing');
+
+        // Speakable nodes, in reading order. Narration text is ALWAYS derived
+        // from content by SpeakableText (plainText is write-path-unreliable
+        // and carries strip_tags junk — arrows, citation brackets, entities).
         $nodes = DB::connection('pgsql_admin')->table('nodes')
             ->where('book', $this->bookId)
             ->whereNotNull('node_id')
             ->orderBy('startLine')
-            ->get(['node_id', 'plainText'])
-            ->filter(fn ($n) => trim((string) $n->plainText) !== '')
+            ->get(['node_id', 'content'])
+            ->filter(fn ($n) => SpeakableText::isSpeakable($n->content))
             ->values();
 
         // Drop audio for nodes that no longer exist (deleted paragraphs).
@@ -87,7 +93,7 @@ class GenerateBookAudioJob implements ShouldQueue
         $existing = $store->existingHashes($this->bookId);
         $pending = [];
         foreach ($nodes as $node) {
-            $text = (string) $node->plainText;
+            $text = SpeakableText::fromContent($node->content);
             $hash = hash('sha256', $text);
             if (($existing[$node->node_id] ?? null) !== $hash) {
                 $pending[] = ['node_id' => $node->node_id, 'text' => $text, 'hash' => $hash];
@@ -324,11 +330,13 @@ class GenerateBookAudioJob implements ShouldQueue
         int $doneChars,
         int $totalChars,
         array $failedNodes,
+        string $stage = 'narrating',
     ): void {
         $path = $store->progressPath($this->bookId);
         File::ensureDirectoryExists(dirname($path), 0755);
         File::put($path, json_encode([
             'status' => $status,
+            'stage' => $stage,
             'done_nodes' => $doneNodes,
             'total_nodes' => $totalNodes,
             'done_chars' => $doneChars,

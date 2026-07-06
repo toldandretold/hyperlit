@@ -12,7 +12,7 @@ export async function _openGatePanel(self: any) {
 
   const restorePanel = () => {
     container.innerHTML = savedHTML;
-    self.syncSliderUI();
+    self.syncControlsUI();
     self.updateButtonStates();
   };
 

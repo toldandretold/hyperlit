@@ -33,6 +33,7 @@ export interface AudioStatus {
 
 export interface AudioProgress {
   status: 'none' | 'generating' | 'done' | 'partial' | 'cancelled' | 'failed';
+  stage?: 'preparing' | 'narrating';
   done_nodes?: number;
   total_nodes?: number;
   done_chars?: number;

@@ -29,6 +29,10 @@ export interface PlaybackCallbacks {
   onEntryChange: (entry: PlaylistEntry, index: number, total: number) => void;
   onFollowModeChange: (following: boolean) => void;
   onFinished: () => void;
+  /** Autoplay was blocked (the triggering gesture is too old — e.g. playback
+   *  auto-starting after generation). Everything is staged; a press of the
+   *  play button resumes. */
+  onAutoplayBlocked: () => void;
 }
 
 const SPEED_STEPS = [1, 1.25, 1.5, 2];
@@ -64,9 +68,14 @@ export class PlaybackController {
 
   private playlist: PlaylistEntry[] = [];
 
-  /** Book nodes in reading order (cached once per session — edits mid-listen
-   *  are fine; staleness is the manifest's job, order rarely moves). */
+  /** Book nodes in reading order. NOT a once-only cache: on a freshly opened
+   *  book the background chunk download is still filling IndexedDB, so a
+   *  press-play snapshot can have HOLES (first paragraphs + some far-away
+   *  ones → playback suddenly jumps to the bottom of the book). Refreshed at
+   *  every paragraph boundary via refreshPlaylist(). */
   private orderedNodes: { nodeId: string; elementId: string }[] = [];
+
+  private lastManifest: AudioManifest | null = null;
 
   private index = -1;
 
@@ -83,6 +92,8 @@ export class PlaybackController {
   private boundEnded: () => void;
 
   private lastUserScrollAt = 0;
+
+  private consecutiveSkips = 0;
 
   constructor(bookId: string, callbacks: PlaybackCallbacks) {
     this.bookId = bookId;
@@ -150,6 +161,7 @@ export class PlaybackController {
    * would be wrong.
    */
   async start(manifest: AudioManifest, onlyIfPositionCovered = false): Promise<boolean> {
+    this.lastManifest = manifest;
     await this.ensureOrderedNodes();
     this.playlist = this.buildPlaylist(manifest);
 
@@ -176,16 +188,34 @@ export class PlaybackController {
    */
   updatePlaylist(manifest: AudioManifest): void {
     if (this.orderedNodes.length === 0) return; // start() hasn't run
+    this.lastManifest = manifest;
     const current = this.currentEntry();
     this.playlist = this.buildPlaylist(manifest);
-    if (current) {
-      const idx = this.playlist.findIndex((e) => e.nodeId === current.nodeId);
-      this.index = idx !== -1 ? idx : Math.min(this.index, this.playlist.length - 1);
-    }
+    this.relocate(current);
   }
 
-  private async ensureOrderedNodes(): Promise<void> {
-    if (this.orderedNodes.length > 0) return;
+  /**
+   * Re-read node order from IndexedDB and rebuild the playlist around the
+   * current entry. Called at every paragraph boundary — this is what closes
+   * the holes left by a press-play snapshot racing the background chunk
+   * download.
+   */
+  private async refreshPlaylist(): Promise<void> {
+    if (!this.lastManifest) return;
+    const current = this.currentEntry();
+    await this.ensureOrderedNodes(true);
+    this.playlist = this.buildPlaylist(this.lastManifest);
+    this.relocate(current);
+  }
+
+  private relocate(current: PlaylistEntry | null): void {
+    if (!current) return;
+    const idx = this.playlist.findIndex((e) => e.nodeId === current.nodeId);
+    this.index = idx !== -1 ? idx : Math.min(this.index, this.playlist.length - 1);
+  }
+
+  private async ensureOrderedNodes(force = false): Promise<void> {
+    if (!force && this.orderedNodes.length > 0) return;
     const nodes = await getNodesFromIndexedDB(asBookId(this.bookId));
     this.orderedNodes = [...nodes]
       .sort((a, b) => a.startLine - b.startLine)
@@ -221,11 +251,26 @@ export class PlaybackController {
     this.audio.playbackRate = this.settings.speed;
     try {
       await this.audio.play();
+      this.consecutiveSkips = 0;
     } catch (e) {
-      // Autoplay policy or a 404 (e.g. audio pruned mid-session) — skip ahead
-      // rather than dying silently on one bad node.
+      // Autoplay blocked: the gesture that led here is too old (generation
+      // just finished, or a background poll started playback). NOT a bad
+      // file — stage everything and wait for one press of play.
+      if (e instanceof DOMException && e.name === 'NotAllowedError') {
+        this.setState('paused');
+        this.callbacks.onEntryChange(entry, this.index, this.playlist.length);
+        this.applyHighlight(entry);
+        this.callbacks.onAutoplayBlocked();
+
+        return;
+      }
+      // A genuinely bad node (e.g. its file was pruned mid-session) — skip
+      // ahead, but bounded: systemic failure must not cascade through the
+      // whole book (the old unbounded skip is how an autoplay rejection once
+      // "finished" a 212-paragraph book instantly and hid the player).
       verbose.content(`audioPlayer: play failed on ${entry.nodeId}: ${e}`, '/components/audioPlayer/playbackController');
-      if (this.index < this.playlist.length - 1) {
+      this.consecutiveSkips++;
+      if (this.consecutiveSkips <= 5 && this.index < this.playlist.length - 1) {
         this.index++;
         await this.playCurrent();
       } else {
@@ -279,12 +324,20 @@ export class PlaybackController {
   }
 
   async next(): Promise<void> {
+    await this.refreshPlaylist(); // heal snapshot holes before choosing "next"
     if (this.index >= this.playlist.length - 1) {
       this.stop();
 
       return;
     }
     this.index++;
+    await this.playCurrent();
+  }
+
+  /** Hard restart from the first narrated paragraph of the book. */
+  async restartFromTop(): Promise<void> {
+    if (this.playlist.length === 0) return;
+    this.index = 0;
     await this.playCurrent();
   }
 
@@ -295,6 +348,7 @@ export class PlaybackController {
 
       return;
     }
+    await this.refreshPlaylist();
     this.index--;
     await this.playCurrent();
   }
@@ -354,21 +408,26 @@ export class PlaybackController {
   }
 
   /**
-   * Start where the reader is: the sessionStorage scroll anchor (searchToolbar
-   * pattern). Returns null (don't start yet) when `requireCovered` and the
-   * anchor position has no audio in the playlist yet — generation is in
-   * reading order, so a partial playlist is a prefix that hasn't reached them.
+   * Start where the reader is. Primary anchor: the topmost paragraph actually
+   * visible in the viewport RIGHT NOW (the saved scroll position lags —
+   * scroll-to-top then quick play used to jump back down). Fallback: the
+   * sessionStorage scroll anchor (searchToolbar pattern). Returns null (don't
+   * start yet) when `requireCovered` and the anchor position has no audio in
+   * the playlist yet — generation is in reading order, so a partial playlist
+   * is a prefix that hasn't reached them.
    */
   private findStartIndex(requireCovered = false): number | null {
-    let anchor: number | null = null;
-    try {
-      const key = getLocalStorageKey('scrollPosition', asBookId(this.bookId));
-      const raw = sessionStorage.getItem(key);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.elementId) anchor = parseFloat(parsed.elementId);
-      }
-    } catch { /* no anchor — start from the top */ }
+    let anchor: number | null = this.viewportAnchor();
+    if (anchor === null) {
+      try {
+        const key = getLocalStorageKey('scrollPosition', asBookId(this.bookId));
+        const raw = sessionStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.elementId) anchor = parseFloat(parsed.elementId);
+        }
+      } catch { /* no anchor — start from the top */ }
+    }
 
     if (anchor === null) return 0;
     const idx = this.playlist.findIndex((e) => parseFloat(e.elementId) >= (anchor as number));
@@ -376,6 +435,22 @@ export class PlaybackController {
     if (idx === -1) return requireCovered ? null : 0;
 
     return idx;
+  }
+
+  /** startLine of the topmost node element currently visible, or null. */
+  private viewportAnchor(): number | null {
+    const scope = document.getElementById(this.bookId) ?? document;
+    const nodes = scope.querySelectorAll<HTMLElement>('.chunk > [id]');
+    for (const el of nodes) {
+      const line = parseFloat(el.id);
+      if (Number.isNaN(line)) continue;
+      const rect = el.getBoundingClientRect();
+      // First element whose bottom clears the header band = topmost visible.
+      if (rect.bottom > 100 && rect.top < window.innerHeight) return line;
+      if (rect.top >= window.innerHeight) break; // document order — past the fold
+    }
+
+    return null;
   }
 
   private findElement(entry: PlaylistEntry): HTMLElement | null {

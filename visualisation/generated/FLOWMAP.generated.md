@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1612 functions in 344 modules · 10 object stores · 10 PG tables · 3274 edges
+**MarkdownDB** schema v28 · 1612 functions in 344 modules · 10 object stores · 10 PG tables · 3275 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -178,20 +178,20 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SettingsContainerManager.constructor` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.destroy` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.handleDocumentClick` | `components/settingsContainer/index` | — | — | read | — |
-| `SettingsContainerManager.handleSliderInput` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.handleVibeClick` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.openContainer` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.rebindElements` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.setupSettingsListeners` | `components/settingsContainer/index` | — | — | — | — |
-| `SettingsContainerManager.syncSliderUI` | `components/settingsContainer/index` | — | — | — | — |
-| `SettingsContainerManager.toggleFullWidth` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.stepTextSize` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.stepWidth` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.syncControlsUI` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.updateButtonStates` | `components/settingsContainer/index` | — | — | read/write | — |
 | `_debounceResize` | `components/settingsContainer/textControls` | — | — | — | — |
-| `applyTextAdjustments` | `components/settingsContainer/textControls` | `localStorage` | — | read/write | — |
-| `handleSliderInput` | `components/settingsContainer/textControls` | — | `localStorage` | read/write | — |
-| `reconcileViewportWidth` | `components/settingsContainer/textControls` | `localStorage` | — | read | — |
-| `syncSliderUI` | `components/settingsContainer/textControls` | `localStorage` | — | read/write | — |
-| `toggleFullWidth` | `components/settingsContainer/textControls` | — | `localStorage` | read/write | — |
+| `applyTextAdjustments` | `components/settingsContainer/textControls` | `localStorage` | — | — | — |
+| `reconcileViewportWidth` | `components/settingsContainer/textControls` | `localStorage` | — | read/write | — |
+| `stepTextSize` | `components/settingsContainer/textControls` | `localStorage` | `localStorage` | read/write | — |
+| `stepWidth` | `components/settingsContainer/textControls` | `localStorage` | `localStorage` | read/write | — |
+| `syncControlsUI` | `components/settingsContainer/textControls` | `localStorage` | — | read/write | — |
 | `getCurrentTheme` | `components/settingsContainer/themeSwitcher` | — | — | — | — |
 | `initializeTheme` | `components/settingsContainer/themeSwitcher` | `localStorage` | — | write | — |
 | `switchTheme` | `components/settingsContainer/themeSwitcher` | — | `localStorage` | write | — |

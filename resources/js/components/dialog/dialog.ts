@@ -36,7 +36,9 @@ const CARD_CSS =
   'color: var(--color-text, #CBCCCC); font-family: inherit;';
 
 const TITLE_CSS = 'margin: 0 0 8px; font-size: 15px; font-weight: 600; color: var(--color-text, #CBCCCC);';
-const MSG_CSS = 'margin: 0 0 18px; font-size: 14px; line-height: 1.55; color: var(--color-text, #CBCCCC);';
+// pre-line: messages may carry \n\n paragraph breaks (they're escaped text,
+// so this is the only way callers can shape longer copy).
+const MSG_CSS = 'margin: 0 0 18px; font-size: 14px; line-height: 1.55; color: var(--color-text, #CBCCCC); white-space: pre-line;';
 const ROW_CSS = 'display: flex; gap: 10px; justify-content: flex-end;';
 const BTN_BASE =
   'padding: 8px 16px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 13px; box-sizing: border-box;';
@@ -53,6 +55,15 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/**
+ * Message body renderer: escape EVERYTHING first (the XSS posture — raw HTML
+ * in messages renders as literal text), then allow exactly one bit of
+ * typography on the escaped result: *asterisk spans* become <em>italics</em>.
+ */
+function renderMessage(s: string): string {
+  return escapeHtml(s).replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+}
+
 /** Styled replacement for window.confirm — resolves true (confirm) / false (cancel/escape). */
 export function confirmDialog(opts: ConfirmOptions): Promise<boolean> {
   return new Promise((resolve) => {
@@ -64,7 +75,7 @@ export function confirmDialog(opts: ConfirmOptions): Promise<boolean> {
     overlay.innerHTML = `
       <div class="app-dialog-card" style="${CARD_CSS}">
         ${opts.title ? `<h3 style="${TITLE_CSS}">${escapeHtml(opts.title)}</h3>` : ''}
-        <p style="${MSG_CSS}">${escapeHtml(opts.message)}</p>
+        <p style="${MSG_CSS}">${renderMessage(opts.message)}</p>
         <div style="${ROW_CSS}">
           <button type="button" data-act="cancel" style="${CANCEL_CSS}">${escapeHtml(opts.cancelLabel ?? 'Cancel')}</button>
           <button type="button" data-act="confirm" style="${confirmCss(opts.danger)}">${escapeHtml(opts.confirmLabel ?? 'Confirm')}</button>
@@ -109,7 +120,7 @@ export function alertDialog(opts: AlertOptions): Promise<void> {
     overlay.innerHTML = `
       <div class="app-dialog-card" style="${CARD_CSS}">
         ${opts.title ? `<h3 style="${TITLE_CSS}">${escapeHtml(opts.title)}</h3>` : ''}
-        <p style="${MSG_CSS}">${escapeHtml(opts.message)}</p>
+        <p style="${MSG_CSS}">${renderMessage(opts.message)}</p>
         <div style="${ROW_CSS}">
           <button type="button" data-act="ok" style="${confirmCss(false)}">${escapeHtml(opts.okLabel ?? 'OK')}</button>
         </div>

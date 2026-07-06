@@ -11,7 +11,7 @@ import { openSearchToolbar } from "../../search/inTextSearch/searchToolbar";
 import { openAudioPlayer, syncListenButton } from "../audioPlayer/index";
 import { handleVibeClick, _openVibeGallery, _openVibeUI } from "./vibe";
 import { _openGatePanel } from "./gate";
-import { toggleFullWidth, applyTextAdjustments, syncSliderUI, handleSliderInput, _debounceResize, reconcileViewportWidth } from "./textControls";
+import { applyTextAdjustments, syncControlsUI, stepTextSize, stepWidth, _debounceResize, reconcileViewportWidth } from "./textControls";
 
 /**
  * SettingsContainerManager - Extends ContainerManager with event delegation
@@ -23,7 +23,6 @@ export class SettingsContainerManager extends (ContainerManager as any) {
 
     this.boundClickHandler = this.handleDocumentClick.bind(this);
     this.boundThemeChangeHandler = this.updateButtonStates.bind(this);
-    this.boundInputHandler = this.handleSliderInput.bind(this);
     this.boundViewportResizeHandler = this._reconcileWidthDebounced.bind(this);
     this._resizeDebounce = null;
     this._widthReconcileDebounce = null;
@@ -41,7 +40,6 @@ export class SettingsContainerManager extends (ContainerManager as any) {
    */
   setupSettingsListeners() {
     document.addEventListener("click", this.boundClickHandler);
-    document.addEventListener("input", this.boundInputHandler);
     window.addEventListener('themechange', this.boundThemeChangeHandler);
     // Reconcile the content-width inline artifacts when the viewport crosses the
     // width-control breakpoint (live resize / rotate) — keeps a saved wide-screen
@@ -105,11 +103,31 @@ export class SettingsContainerManager extends (ContainerManager as any) {
       return;
     }
 
-    // Handle full-width toggle click
-    if (e.target.closest("#fullWidthToggle")) {
+    // Text-size steppers
+    if (e.target.closest("#textSizeDecrease")) {
       e.preventDefault();
       e.stopPropagation();
-      this.toggleFullWidth();
+      this.stepTextSize(-1);
+      return;
+    }
+    if (e.target.closest("#textSizeIncrease")) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.stepTextSize(1);
+      return;
+    }
+
+    // Column-width steppers
+    if (e.target.closest("#widthNarrow")) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.stepWidth(-1);
+      return;
+    }
+    if (e.target.closest("#widthWiden")) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.stepWidth(1);
       return;
     }
 
@@ -168,7 +186,6 @@ export class SettingsContainerManager extends (ContainerManager as any) {
     const lightButton = document.getElementById("lightModeButton");
     const sepiaButton = document.getElementById("sepiaModeButton");
     const vibeButton = document.getElementById("vibeCSSButton");
-    const gateButton = document.getElementById("gateFilterButton");
 
     // Remove all active classes
     darkButton?.classList.remove("active");
@@ -192,13 +209,9 @@ export class SettingsContainerManager extends (ContainerManager as any) {
         break;
     }
 
-    // Gate button: active (aqua) when filtering is on (mode !== 'all')
-    if (gateButton) {
-      try {
-        const { getGateSettings } = await import('../utilities/gateFilter');
-        gateButton.classList.toggle('active', getGateSettings().mode !== 'all');
-      } catch { /* module not loaded yet — leave default */ }
-    }
+    // Gate is a neutral action button (like search / listen), NOT a theme toggle —
+    // it never gets `.active`, so it inherits each theme's plain settings-button
+    // wash and stays visually identical to the other action pills.
   }
 
   /**
@@ -211,15 +224,16 @@ export class SettingsContainerManager extends (ContainerManager as any) {
   }
 
   /**
-   * Override openContainer to update button active classes + slider positions.
-   * Parent resets innerHTML to initialContent, then we sync slider values from localStorage.
+   * Override openContainer to update button active classes + stepper bounds.
+   * Parent resets innerHTML to initialContent, then we refresh the dimmed-at-bound
+   * state of the text-size / width steppers from localStorage + viewport fit.
    */
   openContainer(content: any = null, highlightId: any = null) {
     super.openContainer(content, highlightId);
 
     requestAnimationFrame(() => {
       this.updateButtonStates();
-      this.syncSliderUI();
+      this.syncControlsUI();
     });
   }
 
@@ -228,7 +242,6 @@ export class SettingsContainerManager extends (ContainerManager as any) {
    */
   destroy() {
     document.removeEventListener("click", this.boundClickHandler);
-    document.removeEventListener("input", this.boundInputHandler);
     window.removeEventListener('themechange', this.boundThemeChangeHandler);
     window.removeEventListener('resize', this.boundViewportResizeHandler);
     if (this._resizeDebounce) clearTimeout(this._resizeDebounce);
@@ -247,9 +260,9 @@ export class SettingsContainerManager extends (ContainerManager as any) {
   _openGatePanel() { return _openGatePanel(this); }
 
   // textControls
-  toggleFullWidth() { return toggleFullWidth(this); }
   applyTextAdjustments() { return applyTextAdjustments(this); }
-  syncSliderUI() { return syncSliderUI(this); }
-  handleSliderInput(e: any) { return handleSliderInput(this, e); }
+  syncControlsUI() { return syncControlsUI(this); }
+  stepTextSize(dir: number) { return stepTextSize(this, dir); }
+  stepWidth(dir: number) { return stepWidth(this, dir); }
   _debounceResize() { return _debounceResize(this); }
 }

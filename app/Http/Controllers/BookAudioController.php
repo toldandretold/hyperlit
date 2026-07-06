@@ -9,6 +9,7 @@ use App\Models\PgLibrary;
 use App\Services\BillingService;
 use App\Services\BookAudioStore;
 use App\Services\E2ee\EncryptedBookGuard;
+use App\Services\Tts\SpeakableText;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -164,19 +165,22 @@ class BookAudioController extends Controller
         // Both sides of the join run on the DEFAULT (RLS-gated) connection.
         $audioRows = PgBookAudio::where('book', $book)
             ->get(['node_id', 'filename', 'source_hash', 'duration_ms']);
-        $hashes = DB::table('nodes')
+        $liveNodes = DB::table('nodes')
             ->where('book', $book)
             ->whereIn('node_id', $audioRows->pluck('node_id'))
-            ->pluck('plainText', 'node_id');
+            ->get(['node_id', 'content'])
+            ->keyBy('node_id');
 
         $nodes = [];
         foreach ($audioRows as $row) {
-            $plain = $hashes[$row->node_id] ?? null;
+            $live = $liveNodes[$row->node_id] ?? null;
             $nodes[$row->node_id] = [
                 'filename' => $row->filename,
                 'duration_ms' => $row->duration_ms,
-                // A vanished node's audio is stale by definition (pruned on next regen).
-                'stale' => $plain === null || hash('sha256', (string) $plain) !== $row->source_hash,
+                // A vanished node's audio is stale by definition (pruned on next
+                // regen). MUST hash the identical SpeakableText the job hashed.
+                'stale' => $live === null
+                    || hash('sha256', SpeakableText::fromContent($live->content)) !== $row->source_hash,
             ];
         }
 
@@ -241,8 +245,8 @@ class BookAudioController extends Controller
         $nodes = DB::table('nodes')
             ->where('book', $book)
             ->whereNotNull('node_id')
-            ->get(['node_id', 'plainText'])
-            ->filter(fn ($n) => trim((string) $n->plainText) !== '');
+            ->get(['node_id', 'content'])
+            ->filter(fn ($n) => SpeakableText::isSpeakable($n->content));
 
         $audio = PgBookAudio::where('book', $book)->pluck('source_hash', 'node_id');
 
@@ -251,16 +255,17 @@ class BookAudioController extends Controller
         $missingChars = 0;
         $staleChars = 0;
         foreach ($nodes as $node) {
+            $text = SpeakableText::fromContent($node->content);
             $existing = $audio[$node->node_id] ?? null;
             if ($existing === null) {
-                $missingChars += mb_strlen((string) $node->plainText);
+                $missingChars += mb_strlen($text);
 
                 continue;
             }
             $audioNodes++;
-            if (hash('sha256', (string) $node->plainText) !== $existing) {
+            if (hash('sha256', $text) !== $existing) {
                 $staleNodes++;
-                $staleChars += mb_strlen((string) $node->plainText);
+                $staleChars += mb_strlen($text);
             }
         }
 
