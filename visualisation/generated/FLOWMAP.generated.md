@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1612 functions in 344 modules · 10 object stores · 10 PG tables · 3274 edges
+**MarkdownDB** schema v28 · 1614 functions in 345 modules · 10 object stores · 10 PG tables · 3271 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -38,7 +38,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `doesContentExceedViewport` | `components/editButton/cursor` | — | — | read | — |
 | `getFirstElementWithId` | `components/editButton/cursor` | — | — | read | — |
 | `getLastContentElement` | `components/editButton/cursor` | — | — | read | — |
-| `getSavedScrollElementId` | `components/editButton/cursor` | `localStorage` `sessionStorage` | — | — | — |
+| `getSavedScrollElementId` | `components/editButton/cursor` | — | — | — | — |
 | `placeCursorAtEndOfElement` | `components/editButton/cursor` | — | — | read | — |
 | `destroyEditButtonListeners` | `components/editButton/index` | — | — | read | — |
 | `disableEditMode` | `components/editButton/index` | — | — | read/write | — |
@@ -333,7 +333,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `deriveVisibilityState` | `components/sourceContainer/visibilityControl` | — | — | — | — |
 | `showTargetNotFoundToast` | `components/toast/toast` | — | — | read/write | — |
 | `setInitialBookmarkPosition` | `components/tocContainer/bookmark` | — | — | read | — |
-| `updateOrInsertBookmark` | `components/tocContainer/bookmark` | `localStorage` `sessionStorage` | — | read/write | — |
+| `updateOrInsertBookmark` | `components/tocContainer/bookmark` | — | — | read/write | — |
 | `checkAndInvalidateTocCache` | `components/tocContainer/index` | — | — | — | — |
 | `generateTableOfContents` | `components/tocContainer/index` | — | — | read/write | `↓route:/api/database-to-indexeddb/books/{}/headings` |
 | `invalidateTocCache` | `components/tocContainer/index` | — | — | — | — |
@@ -1357,6 +1357,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hasScrolledAwayFromHash` | `scrolling/navState` | `sessionStorage` | — | — | — |
 | `markHashScrolledAway` | `scrolling/navState` | `sessionStorage` | `sessionStorage` | — | — |
 | `unmarkHashScrolledAway` | `scrolling/navState` | `sessionStorage` | `sessionStorage` | — | — |
+| `getFreshAnchor` | `scrolling/readingAnchor` | — | — | — | — |
+| `getSavedAnchor` | `scrolling/readingAnchor` | — | — | — | — |
 | `debouncedServerSave` | `scrolling/readingPosition` | — | — | read | `↑route:/api/database-to-indexeddb/books/{}/reading-position` |
 | `sendBeaconSave` | `scrolling/readingPosition` | — | — | — | `↑route:/api/database-to-indexeddb/books/{}/reading-position` |
 | `restoreScrollPosition` | `scrolling/restore` | `localStorage` `sessionStorage` | — | read/write | — |
@@ -1409,7 +1411,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SearchToolbarManager.destroy` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.ensureSearchIndex` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.findNearestMatchIndex` | `search/inTextSearch/searchToolbar` | — | — | — | — |
-| `SearchToolbarManager.getCurrentVisibleStartLine` | `search/inTextSearch/searchToolbar` | `sessionStorage` | — | — | — |
+| `SearchToolbarManager.getCurrentVisibleStartLine` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.handleClickOutside` | `search/inTextSearch/searchToolbar` | — | — | read | — |
 | `SearchToolbarManager.handleInput` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.handleKeydown` | `search/inTextSearch/searchToolbar` | — | — | — | — |

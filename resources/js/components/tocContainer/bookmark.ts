@@ -3,35 +3,15 @@
 // inserts/positions it. Was the bookmark half of toc.js. openContainer (in ./index)
 // calls updateOrInsertBookmark + setInitialBookmarkPosition.
 import { book } from "../../app";
-import { getLocalStorageKey } from "../../indexedDB/index";
+import { getFreshAnchor } from "../../scrolling/readingAnchor";
 
-/** Get current scroll position from localStorage (session, then local). */
+/** The CURRENT reading position (fresh — the bookmark marks where the reader
+ *  is at TOC-open time, not a ≤250ms-stale save). Decimal node ids (150.5)
+ *  are valid; the accessor validates the numeric shape. */
 function getCurrentScrollPosition(): number | null {
-  try {
-    const scrollKey = getLocalStorageKey("scrollPosition", book);
+  const anchor = getFreshAnchor(String(book));
 
-    // Try sessionStorage first
-    let savedPosition = sessionStorage.getItem(scrollKey);
-    if (!savedPosition || savedPosition === "0") {
-      // Fallback to localStorage
-      savedPosition = localStorage.getItem(scrollKey);
-    }
-
-    if (savedPosition && savedPosition !== "0") {
-      const parsed = JSON.parse(savedPosition);
-      // Allow decimals: node ids (and thus saved elementIds) can be fractional
-      // (150.5). The writer in lazyLoader stores them with /^\d+(\.\d+)?$/ — an
-      // integer-only regex here silently rejected them, so the whole bookmark
-      // failed to render whenever the reading position was on a decimal-id node.
-      if (parsed && parsed.elementId && /^\d+(\.\d+)?$/.test(parsed.elementId)) {
-        return parseFloat(parsed.elementId);
-      }
-    }
-  } catch (e) {
-    console.warn("Error reading scroll position:", e);
-  }
-
-  return null;
+  return anchor ? parseFloat(anchor.elementId) : null;
 }
 
 /** Create the bookmark SVG element (rotated 90 degrees anti-clockwise). */

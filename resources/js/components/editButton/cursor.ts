@@ -1,21 +1,15 @@
-// Pure cursor / scroll-position helpers for edit mode (leaf — no sibling imports):
-// place the caret at the end of an element, recover the saved scroll element,
-// find first/last content elements, and detect overflow. Used by enableEditMode
-// to decide where the caret lands when entering edit mode.
+// Pure cursor / scroll-position helpers for edit mode (leaf — no sibling imports;
+// readingAnchor is itself a near-leaf, cycle-safe): place the caret at the end of
+// an element, recover the current scroll element, find first/last content
+// elements, and detect overflow. Used by enableEditMode to decide where the
+// caret lands when entering edit mode.
 
-// Get the saved scroll position's element id (session, then local).
+import { getFreshAnchor } from "../../scrolling/readingAnchor";
+
+// The CURRENT position's element id (fresh — the caret should land where the
+// user is right now, not where a ≤250ms-stale save says they were).
 export function getSavedScrollElementId(bookId: any): string | null {
-  const storageKey = `scrollPosition_${bookId}`;
-  try {
-    const scrollData = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
-    if (scrollData) {
-      const parsed = JSON.parse(scrollData);
-      return parsed.elementId;
-    }
-  } catch (error) {
-    console.warn("Error parsing saved scroll position:", error);
-  }
-  return null;
+  return getFreshAnchor(String(bookId))?.elementId ?? null;
 }
 
 // Place the caret at the end of a specific element's content.

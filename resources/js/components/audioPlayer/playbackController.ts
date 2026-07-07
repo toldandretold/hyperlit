@@ -10,7 +10,7 @@
 import { log, verbose } from '../../utilities/logger';
 import { getNodesFromIndexedDB } from '../../indexedDB/nodes/read';
 import { asBookId } from '../../utilities/idHelpers';
-import { getLocalStorageKey } from '../../indexedDB/index';
+import { getFreshAnchor } from '../../scrolling/readingAnchor';
 import { navigateToInternalId } from '../../scrolling/internalNav';
 import { currentLazyLoader } from '../../pageLoad/currentLazyLoaderState';
 import { audioUrl, type AudioManifest } from './manifest';
@@ -421,26 +421,20 @@ export class PlaybackController {
   }
 
   /**
-   * Start where the reader is. Primary anchor: the topmost paragraph actually
-   * visible in the viewport RIGHT NOW (the saved scroll position lags —
-   * scroll-to-top then quick play used to jump back down). Fallback: the
-   * sessionStorage scroll anchor (searchToolbar pattern). Returns null (don't
-   * start yet) when `requireCovered` and the anchor position has no audio in
-   * the playlist yet — generation is in reading order, so a partial playlist
-   * is a prefix that hasn't reached them.
+   * Start where the reader is. Primary anchor: getFreshAnchor() — the
+   * reading-position system's proven detector, re-run synchronously at press
+   * time so it can't lag (stale anchors were the jump-to-top bug; the old
+   * live-scan-first order existed only because the saved value used to lag).
+   * Fallback: viewportAnchor() for any path where no loader was live to
+   * refresh it. Returns null (don't start yet) when `requireCovered` and the
+   * anchor position has no audio in the playlist yet — generation is in
+   * reading order, so a partial playlist is a prefix that hasn't reached them.
    */
   private findStartIndex(requireCovered = false): number | null {
-    let anchor: number | null = this.viewportAnchor();
-    if (anchor === null) {
-      try {
-        const key = getLocalStorageKey('scrollPosition', asBookId(this.bookId));
-        const raw = sessionStorage.getItem(key);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed?.elementId) anchor = parseFloat(parsed.elementId);
-        }
-      } catch { /* no anchor — start from the top */ }
-    }
+    const fresh = getFreshAnchor(this.bookId);
+    let anchor: number | null = fresh ? parseFloat(fresh.elementId) : null;
+
+    if (anchor === null) anchor = this.viewportAnchor();
 
     if (anchor === null) return 0;
     const idx = this.playlist.findIndex((e) => parseFloat(e.elementId) >= (anchor as number));

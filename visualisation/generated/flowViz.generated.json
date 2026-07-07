@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1612,
-    "moduleCount": 344,
+    "fnCount": 1614,
+    "moduleCount": 345,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3274,
+    "edgeCount": 3271,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -381,7 +381,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/editButton/cursor",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "components/editButton/cursor:placeCursorAtEndOfElement",
@@ -12411,6 +12411,22 @@
       "leaf": false
     },
     {
+      "id": "scrolling/readingAnchor:getFreshAnchor",
+      "label": "getFreshAnchor",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/readingAnchor",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/readingAnchor:getSavedAnchor",
+      "label": "getSavedAnchor",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/readingAnchor",
+      "leaf": true
+    },
+    {
       "id": "scrolling/readingPosition:debouncedServerSave",
       "label": "debouncedServerSave",
       "kind": "fn",
@@ -12835,7 +12851,7 @@
       "kind": "fn",
       "stage": "infra",
       "module": "search/inTextSearch/searchToolbar",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleClickOutside",
@@ -18410,6 +18426,16 @@
       ]
     },
     {
+      "id": "scrolling/readingAnchor",
+      "label": "scrolling/readingAnchor",
+      "stage": "scrolling",
+      "band": "store",
+      "fnIds": [
+        "scrolling/readingAnchor:getFreshAnchor",
+        "scrolling/readingAnchor:getSavedAnchor"
+      ]
+    },
+    {
       "id": "scrolling/readingPosition",
       "label": "scrolling/readingPosition",
       "stage": "scrolling",
@@ -19096,6 +19122,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/editButton/cursor:getSavedScrollElementId__call__scrolling/readingAnchor:getFreshAnchor",
+      "source": "components/editButton/cursor:getSavedScrollElementId",
+      "target": "scrolling/readingAnchor:getFreshAnchor",
+      "rel": "call"
+    },
+    {
       "id": "components/editButton/index:disableEditMode__call__components/editButton/index:enforceEditableState",
       "source": "components/editButton/index:disableEditMode",
       "target": "components/editButton/index:enforceEditableState",
@@ -19142,8 +19174,7 @@
       "id": "components/editButton/index:enableEditMode__call__components/editButton/cursor:getSavedScrollElementId",
       "source": "components/editButton/index:enableEditMode",
       "target": "components/editButton/cursor:getSavedScrollElementId",
-      "rel": "call",
-      "dataPath": true
+      "rel": "call"
     },
     {
       "id": "components/editButton/index:enableEditMode__call__components/editButton/cursor:placeCursorAtEndOfElement",
@@ -22039,9 +22070,9 @@
       "rel": "domwrite"
     },
     {
-      "id": "components/tocContainer/bookmark:updateOrInsertBookmark__call__indexedDB/core/utilities:getLocalStorageKey",
+      "id": "components/tocContainer/bookmark:updateOrInsertBookmark__call__scrolling/readingAnchor:getFreshAnchor",
       "source": "components/tocContainer/bookmark:updateOrInsertBookmark",
-      "target": "indexedDB/core/utilities:getLocalStorageKey",
+      "target": "scrolling/readingAnchor:getFreshAnchor",
       "rel": "call"
     },
     {
@@ -22123,8 +22154,7 @@
       "id": "components/tocContainer/index:TocContainerManager.openContainer__call__components/tocContainer/bookmark:updateOrInsertBookmark",
       "source": "components/tocContainer/index:TocContainerManager.openContainer",
       "target": "components/tocContainer/bookmark:updateOrInsertBookmark",
-      "rel": "call",
-      "dataPath": true
+      "rel": "call"
     },
     {
       "id": "components/tocContainer/index:TocContainerManager.openContainer__call__components/tocContainer/index:generateTableOfContents",
@@ -36575,6 +36605,12 @@
       "rel": "write"
     },
     {
+      "id": "scrolling/readingAnchor:getFreshAnchor__call__scrolling/readingAnchor:getSavedAnchor",
+      "source": "scrolling/readingAnchor:getFreshAnchor",
+      "target": "scrolling/readingAnchor:getSavedAnchor",
+      "rel": "call"
+    },
+    {
       "id": "scrolling/readingPosition:debouncedServerSave__push__route:/api/database-to-indexeddb/books/{}/reading-position",
       "source": "scrolling/readingPosition:debouncedServerSave",
       "target": "route:/api/database-to-indexeddb/books/{}/reading-position",
@@ -36825,9 +36861,9 @@
       "rel": "call"
     },
     {
-      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.getCurrentVisibleStartLine__call__indexedDB/core/utilities:getLocalStorageKey",
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.getCurrentVisibleStartLine__call__scrolling/readingAnchor:getFreshAnchor",
       "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.getCurrentVisibleStartLine",
-      "target": "indexedDB/core/utilities:getLocalStorageKey",
+      "target": "scrolling/readingAnchor:getFreshAnchor",
       "rel": "call"
     },
     {
@@ -38795,12 +38831,6 @@
       "rel": "read"
     },
     {
-      "id": "store:localStorage__read__components/editButton/cursor:getSavedScrollElementId",
-      "source": "store:localStorage",
-      "target": "components/editButton/cursor:getSavedScrollElementId",
-      "rel": "read"
-    },
-    {
       "id": "store:localStorage__read__components/homepage/homepageDisplayUnit:initializeHomepageButtons",
       "source": "store:localStorage",
       "target": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
@@ -38894,12 +38924,6 @@
       "id": "store:localStorage__read__components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
       "source": "store:localStorage",
       "target": "components/sourceContainer/aiReview/pipelineViz:syncPipelineHighlights",
-      "rel": "read"
-    },
-    {
-      "id": "store:localStorage__read__components/tocContainer/bookmark:updateOrInsertBookmark",
-      "source": "store:localStorage",
-      "target": "components/tocContainer/bookmark:updateOrInsertBookmark",
       "rel": "read"
     },
     {
@@ -39167,18 +39191,6 @@
       "rel": "read"
     },
     {
-      "id": "store:sessionStorage__read__components/editButton/cursor:getSavedScrollElementId",
-      "source": "store:sessionStorage",
-      "target": "components/editButton/cursor:getSavedScrollElementId",
-      "rel": "read"
-    },
-    {
-      "id": "store:sessionStorage__read__components/tocContainer/bookmark:updateOrInsertBookmark",
-      "source": "store:sessionStorage",
-      "target": "components/tocContainer/bookmark:updateOrInsertBookmark",
-      "rel": "read"
-    },
-    {
       "id": "store:sessionStorage__read__components/userContainer/cache:clearAllCachedData",
       "source": "store:sessionStorage",
       "target": "components/userContainer/cache:clearAllCachedData",
@@ -39242,12 +39254,6 @@
       "id": "store:sessionStorage__read__search/inTextSearch/searchToolbar:checkHighlightParam",
       "source": "store:sessionStorage",
       "target": "search/inTextSearch/searchToolbar:checkHighlightParam",
-      "rel": "read"
-    },
-    {
-      "id": "store:sessionStorage__read__search/inTextSearch/searchToolbar:SearchToolbarManager.getCurrentVisibleStartLine",
-      "source": "store:sessionStorage",
-      "target": "search/inTextSearch/searchToolbar:SearchToolbarManager.getCurrentVisibleStartLine",
       "rel": "read"
     },
     {
@@ -40083,6 +40089,11 @@
       "kind": "lazy"
     },
     {
+      "source": "components/editButton/cursor",
+      "target": "scrolling/readingAnchor",
+      "kind": "static"
+    },
+    {
       "source": "components/editButton/index",
       "target": "components/editButton/cursor",
       "kind": "static"
@@ -40869,7 +40880,7 @@
     },
     {
       "source": "components/tocContainer/bookmark",
-      "target": "indexedDB/index",
+      "target": "scrolling/readingAnchor",
       "kind": "static"
     },
     {
@@ -44368,6 +44379,11 @@
       "kind": "static"
     },
     {
+      "source": "scrolling/readingAnchor",
+      "target": "pageLoad/currentLazyLoaderState",
+      "kind": "static"
+    },
+    {
       "source": "scrolling/restore",
       "target": "indexedDB/index",
       "kind": "static"
@@ -44429,11 +44445,6 @@
     },
     {
       "source": "search/inTextSearch/searchToolbar",
-      "target": "indexedDB/index",
-      "kind": "static"
-    },
-    {
-      "source": "search/inTextSearch/searchToolbar",
       "target": "indexedDB/nodes/read",
       "kind": "static"
     },
@@ -44445,6 +44456,11 @@
     {
       "source": "search/inTextSearch/searchToolbar",
       "target": "scrolling/internalNav",
+      "kind": "static"
+    },
+    {
+      "source": "search/inTextSearch/searchToolbar",
+      "target": "scrolling/readingAnchor",
       "kind": "static"
     },
     {

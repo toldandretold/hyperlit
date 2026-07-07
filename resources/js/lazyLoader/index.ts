@@ -300,8 +300,15 @@ export function createLazyLoader(config: any) {
     if (!bypassLock && (instance.scrollLocked || instance.refreshInProgress || instance !== currentLazyLoader)) {
       return;
     }
-    // More efficient query for valid, trackable elements.
-    const elements = instance.container.querySelectorAll("p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]");
+    // In the reader, node elements are exactly the direct children of .chunk —
+    // ANY tag: real converted books have top-level ol/blockquote/figure/section
+    // nodes, which the old p/h1-h6 query skipped (viewport top inside a long
+    // list saved a node BELOW it). Non-chunked pages (home/user) keep the tag
+    // query. Numeric-id filtering happens in the loop.
+    let elements = instance.container.querySelectorAll(".chunk > [id]");
+    if (elements.length === 0) {
+      elements = instance.container.querySelectorAll("p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]");
+    }
     if (elements.length === 0) {
       return;
     }
@@ -310,13 +317,24 @@ export function createLazyLoader(config: any) {
       ? { top: 0 } // Viewport top is always 0
       : instance.scrollableParent.getBoundingClientRect();
 
-    // Find the first element that is at or below the container's top edge.
+    // Find the node the reader is actually IN: prefer the element whose box
+    // CONTAINS the container's top edge (a long paragraph read half-way has
+    // its top ABOVE the edge — picking the first element BELOW the edge, as
+    // this used to, skipped it and restore landed one node too far down).
+    // Fallback: the first element at/below the edge (old behaviour).
     let topVisible = null;
+    let straddler = null; // last element starting above the edge, in doc order
     for (const el of elements) {
-      if (el.getBoundingClientRect().top >= scrollSourceRect.top) {
+      if (!/^\d+(\.\d+)?$/.test(el.id)) continue; // only node-id elements
+      const rect = el.getBoundingClientRect();
+      if (rect.top >= scrollSourceRect.top) {
         topVisible = el;
         break;
       }
+      straddler = { el, rect };
+    }
+    if (straddler && straddler.rect.bottom > scrollSourceRect.top) {
+      topVisible = straddler.el;
     }
 
     if (topVisible) {

@@ -7,7 +7,7 @@ import { debounce } from "../../utilities/debounce";
 import { navigateToInternalId } from "../../scrolling/internalNav";
 import { cancelPendingNavigationCleanup } from "../../scrolling/userScrollDetection";
 import { getNodesFromIndexedDB } from "../../indexedDB/nodes/read";
-import { getLocalStorageKey } from "../../indexedDB/index";
+import { getFreshAnchor } from "../../scrolling/readingAnchor";
 import { currentLazyLoader } from "../../pageLoad/currentLazyLoaderState"; // zero-import leaf (not the pageLoad barrel) → no cycle
 import { buildSearchIndex, searchIndex } from "./searchEngine";
 import {
@@ -399,25 +399,17 @@ class SearchToolbarManager {
   }
 
   /**
-   * Get the current visible element's startLine from sessionStorage
+   * The current visible element's startLine — FRESH (search results should
+   * center on where the user is at open time; the saved anchor alone can lag
+   * by up to 250ms, the same staleness class as the audio jump-to-top bug).
    * @returns {number|null} The startLine of the currently visible element, or null
    */
   getCurrentVisibleStartLine() {
     if (!currentLazyLoader?.bookId) return null;
 
-    try {
-      const scrollKey = getLocalStorageKey("scrollPosition", currentLazyLoader.bookId);
-      const sessionData = sessionStorage.getItem(scrollKey);
-      if (sessionData) {
-        const parsed = JSON.parse(sessionData);
-        if (parsed?.elementId) {
-          return parseFloat(parsed.elementId);
-        }
-      }
-    } catch (e) {
-      console.warn('SearchToolbar: Error reading scroll position', e);
-    }
-    return null;
+    const anchor = getFreshAnchor(currentLazyLoader.bookId);
+
+    return anchor ? parseFloat(anchor.elementId) : null;
   }
 
   /**
