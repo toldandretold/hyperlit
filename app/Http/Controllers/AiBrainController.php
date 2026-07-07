@@ -38,6 +38,40 @@ class AiBrainController extends Controller
         ];
     }
 
+    /**
+     * Text of a node for the LLM. Prefers a MATH-AWARE render of its HTML content:
+     * math is stored as EMPTY `<latex data-math="<base64 LaTeX>">` elements (KaTeX
+     * renders them in the browser), so a plain `plainText`/strip_tags silently DROPS
+     * every equation — "16 to 511" would reach the model as "  to  ". This inlines the
+     * decoded LaTeX as `$…$` / `$$…$$` (which LLMs read natively). Falls back to plainText.
+     */
+    private function nodeText($node): string
+    {
+        $content = is_object($node) ? ($node->content ?? null) : null;
+        if (is_string($content) && $content !== '') {
+            $t = $this->mathAwareText($content);
+            if ($t !== '') return $t;
+        }
+        return is_object($node) ? ($node->plainText ?? '') : '';
+    }
+
+    private function mathAwareText(string $html): string
+    {
+        $decode = fn(string $b64): string => (($tex = base64_decode($b64, true)) === false ? '' : trim($tex));
+        $html = preg_replace_callback(
+            '/<latex-block\b[^>]*\bdata-math="([^"]*)"[^>]*>.*?<\/latex-block>/is',
+            fn($m) => ' $$' . $decode($m[1]) . '$$ ',
+            $html
+        );
+        $html = preg_replace_callback(
+            '/<latex\b[^>]*\bdata-math="([^"]*)"[^>]*>.*?<\/latex>/is',
+            fn($m) => ' $' . $decode($m[1]) . '$ ',
+            $html
+        );
+        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        return trim(preg_replace('/[ \t]+/', ' ', $text));
+    }
+
     public function status(string $highlightId): JsonResponse
     {
         $user = Auth::user();
@@ -229,8 +263,17 @@ class AiBrainController extends Controller
                 }
 
                 // 3. Fetch local context BEFORE router (so router can see it)
+                $sendEvent('status', ['message' => 'Reading your selection']);
                 $sendEvent('status', ['message' => 'Gathering surrounding context...']);
                 $localContext = $this->retrievalService->executeLocalContext($bookId, $validated['nodeIds']);
+
+                $sc = $validated['selectionContext'] ?? null;
+                if (!empty($sc['citations'])) {
+                    $sendEvent('status', ['message' => 'Extracting citation details from your selection']);
+                }
+                if (!empty($sc['hypercites'])) {
+                    $sendEvent('status', ['message' => 'Following the hypercite links in your selection']);
+                }
 
                 Log::info('AiBrain: local context fetched', ['nodes' => count($localContext)]);
 
@@ -410,6 +453,7 @@ class AiBrainController extends Controller
                     $processedHtml = $llmResponse;
 
                     if (!empty($matches)) {
+                        $sendEvent('status', ['message' => 'Linking sources into your answer']);
                         [$processedHtml, $hypercites] = $this->processCitationsInResponse(
                             $llmResponse,
                             $matches,
@@ -426,6 +470,7 @@ class AiBrainController extends Controller
                     ]);
 
                 // 8. Create library record for the sub-book (via pgsql_admin to bypass RLS)
+                $sendEvent('status', ['message' => 'Saving to your library']);
                 DB::connection('pgsql_admin')->table('library')->updateOrInsert(
                     ['book' => $subBookId],
                     [
@@ -607,7 +652,7 @@ class AiBrainController extends Controller
         $subBookId = SubBookIdHelper::build($bookId, $highlightId);
         $timestamp = now()->timestamp;
 
-        $sendEvent('status', ['message' => 'Sending to ' . $modelLabel . '...']);
+        $sendEvent('status', ['message' => 'Reading your selection']);
 
         $systemPrompt = <<<'PROMPT'
 You are a helpful reading assistant. The user is reading a book and has
@@ -634,12 +679,24 @@ PROMPT;
         // Surrounding paragraph + selection framing — Quick Chat now reads the same
         // local context the Archivist does (requirement: even Quick Chat should know
         // the node the selection came from), plus the nesting/author/link preamble.
+        $sendEvent('status', ['message' => 'Gathering the surrounding passage']);
         $rootMeta = $this->resolveRootBookMeta($bookId);
         $localContext = $this->retrievalService->executeLocalContext($bookId, $validated['nodeIds']);
-        $readingContext = $this->readingContext->build($validated['selectionContext'] ?? null, $rootMeta, $user);
+
+        $sc = $validated['selectionContext'] ?? null;
+        if (!empty($sc['citations'])) {
+            $sendEvent('status', ['message' => 'Extracting citation details from your selection']);
+        }
+        if (!empty($sc['hypercites'])) {
+            $sendEvent('status', ['message' => 'Following the hypercite links in your selection']);
+        }
+
+        $readingContext = $this->readingContext->build($sc, $rootMeta, $user);
         $userMessage = $this->buildUserMessage(
             $selectedText, $question, $localContext, [], $rootMeta['author'], $rootMeta['title'], $readingContext
         );
+
+        $sendEvent('status', ['message' => 'Composing the answer with ' . $modelLabel]);
 
         $onRetry = function (int $attempt, int $maxAttempts, int $status) use ($sendEvent) {
             $sendEvent('status', ['message' => "Server busy — retrying ({$attempt}/{$maxAttempts})..."]);
@@ -672,6 +729,7 @@ PROMPT;
         $processedHtml = trim($llmResponse);
 
         // Library upsert
+        $sendEvent('status', ['message' => 'Saving to your library']);
         DB::connection('pgsql_admin')->table('library')->updateOrInsert(
             ['book' => $subBookId],
             [
@@ -834,7 +892,7 @@ PROMPT;
         if (!empty($localContext)) {
             $passedSelected = false;
             foreach ($localContext as $node) {
-                $text = $node->plainText ?? '';
+                $text = $this->nodeText($node);
                 if (empty(trim($text))) continue;
                 if ($node->is_selected) {
                     $passedSelected = true;
@@ -1020,7 +1078,7 @@ PROMPT;
             $passedSelected = false;
 
             foreach ($localContext as $node) {
-                $text = $node->plainText ?? '';
+                $text = $this->nodeText($node);
                 if (empty(trim($text))) continue;
 
                 if ($node->is_selected) {

@@ -414,18 +414,23 @@
   color: var(--color-text);
 }
 /*
-  Status pill — a frosted "blurred glass" chip that appears while the AI request
-  is in flight (and for inline errors), holding the status text + the blob loader.
-  Frosted via backdrop-filter over whatever the theme background is; the pill's own
-  tint uses theme text/background vars so it reads in dark / light / sepia.
+  Status panel — a frosted "blurred glass" box that appears while the AI request is
+  in flight. Holds a vertical CHECKLIST of steps: as each new step arrives the prior
+  one ticks off (✓) and dims, and the trailing "…" + goo blob ride only the current
+  (bottom) row. Frosted via backdrop-filter over whatever the theme background is;
+  the tint uses theme text vars so it reads in dark / light / sepia.
 */
 .brain-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  /* Fixed-ish width so the panel never resizes with step length — the blob stays
+     pinned to the right edge and only moves DOWN as steps stack (less jolty). */
+  width: min(340px, 100%);
   margin: 0.75em 0;
-  padding: 0.4em 0.75em;
-  border-radius: 999px;
+  padding: 0.55em 0.85em;
+  border-radius: 14px;
   background: color-mix(in srgb, var(--color-text) 8%, transparent);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -433,11 +438,40 @@
   animation: fadeIn 0.25s ease forwards;
 }
 
-.brain-status-text {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  font-style: italic;
+.brain-steps { display: flex; flex-direction: column; gap: 5px; width: 100%; }
+
+.brain-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 24px;   /* rows keep height when the blob leaves — no vertical jump */
   font-size: 13px;
+  animation: fadeIn 0.25s ease forwards;
 }
+/* Completed steps recede; the current one stays bright. */
+.brain-step.done { opacity: 0.5; }
+
+.brain-step-mark {
+  flex: 0 0 14px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--hyperlit-aqua);
+}
+.brain-step.done .brain-step-mark::before { content: '✓'; }
+.brain-step.error .brain-step-mark::before { content: '!'; color: #e5484d; font-weight: 700; }
+
+.brain-step-text {
+  min-width: 0;               /* allow the text to wrap to a second line */
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--color-text) 72%, transparent);
+  font-style: italic;
+}
+.brain-step.error .brain-step-text { color: #e5484d; font-style: normal; }
+
+/* Only the current step gets the ellipsis; it trails the text inline so it wraps
+   with it. The blob (pinned right, below) supplies the motion. */
+.brain-step.current .brain-step-text::after { content: '…'; color: color-mix(in srgb, var(--color-text) 55%, transparent); }
 
 /*
   "Goo" loader — three brand-colour discs stacked at one centre, fused into a
@@ -451,10 +485,22 @@
 .brain-blobs {
   display: inline-block;
   flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;   /* pin to the right edge of the current row */
   overflow: visible;
   vertical-align: middle;
+  /* Blob disc colours — the theme brand vars by default; light/sepia (cream/tan
+     grounds) darken those for text contrast, so brighten the blob back up there. */
+  --blob-pink: var(--hyperlit-pink);
+  --blob-orange: var(--hyperlit-orange);
+  --blob-aqua: var(--hyperlit-aqua);
+}
+body.theme-light .brain-blobs,
+body.theme-sepia .brain-blobs {
+  --blob-pink: #FA4FA0;
+  --blob-orange: #FF9A34;
+  --blob-aqua: #3AC7C9;
 }
 
 .brain-goo-g {
@@ -469,9 +515,9 @@
   will-change: transform;
 }
 
-.brain-blobs .bg-pink   { fill: var(--hyperlit-pink);   animation: brainPlumeA 2.3s ease-in-out infinite; }
-.brain-blobs .bg-orange { fill: var(--hyperlit-orange); animation: brainPlumeB 2.7s ease-in-out infinite; }
-.brain-blobs .bg-aqua   { fill: var(--hyperlit-aqua);   animation: brainPlumeC 3.0s ease-in-out infinite; }
+.brain-blobs .bg-pink   { fill: var(--blob-pink);   animation: brainPlumeA 2.3s ease-in-out infinite; }
+.brain-blobs .bg-orange { fill: var(--blob-orange); animation: brainPlumeB 2.7s ease-in-out infinite; }
+.brain-blobs .bg-aqua   { fill: var(--blob-aqua);   animation: brainPlumeC 3.0s ease-in-out infinite; }
 
 /* Each disc wanders OUT along a curved path (3 stops) then home — smooth ease-in-out,
    just a touch quicker than resting so it feels lively, not frantic. Different headings

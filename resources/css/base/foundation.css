@@ -86,7 +86,7 @@ p {
     hyphens: auto;
     font-size: 1em;
     color: var(--color-text);
-    font-weight: 350;
+    font-weight: var(--reading-font-weight);
     letter-spacing: var(--letter-spacing-medium);
     word-spacing: -0.02em;
     line-height: var(--line-height-base);

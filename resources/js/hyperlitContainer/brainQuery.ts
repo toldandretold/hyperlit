@@ -37,6 +37,93 @@ const brainLoaderSvg = (hidden: boolean): string =>
   + `<circle class="bg-aqua" cx="44" cy="53" r="19"/></g></svg>`;
 
 /**
+ * Manages the status CHECKLIST: status messages stack as `.brain-step` rows, the
+ * previous one ticking off (done) as the next appears, with the goo blob riding the
+ * current row. Incoming steps are revealed at a gentle minimum cadence so they read
+ * as a checklist filling up rather than all flashing at once (the underlying work
+ * still runs full speed — only the reveal is paced).
+ */
+function createStepManager(statusEl: HTMLElement, stepsEl: HTMLElement) {
+  const MIN_STEP_MS = 400;
+  const host = document.createElement('template');
+  host.innerHTML = brainLoaderSvg(false).trim();
+  const blobEl = host.content.firstElementChild as SVGElement | null; // moved onto the current row
+
+  const queue: string[] = [];
+  let draining = false;
+  let lastMsg = '';
+
+  const clean = (m: string): string => String(m).replace(/[.…]+\s*$/, '').trim();
+  const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+  const finalizeCurrent = (): void => {
+    const cur = stepsEl.querySelector('.brain-step.current');
+    if (cur) { cur.classList.remove('current'); cur.classList.add('done'); }
+  };
+
+  const renderStep = (msg: string): void => {
+    finalizeCurrent();
+    const step = document.createElement('div');
+    step.className = 'brain-step current';
+    const mark = document.createElement('span'); mark.className = 'brain-step-mark';
+    const text = document.createElement('span'); text.className = 'brain-step-text'; text.textContent = clean(msg);
+    step.append(mark, text);
+    if (blobEl) step.appendChild(blobEl);
+    stepsEl.appendChild(step);
+    statusEl.style.display = 'flex';
+  };
+
+  const drain = async (): Promise<void> => {
+    if (draining) return;
+    draining = true;
+    while (queue.length) {
+      renderStep(queue.shift() as string);
+      if (queue.length) await sleep(MIN_STEP_MS);
+    }
+    draining = false;
+  };
+
+  const flushNow = (): void => { while (queue.length) renderStep(queue.shift() as string); };
+
+  return {
+    /** Queue a step; consecutive duplicates are ignored. */
+    enqueueStep(msg: string): void {
+      const c = clean(msg);
+      if (!c || c === lastMsg) return;
+      lastMsg = c;
+      queue.push(msg);
+      void drain();
+    },
+    /** Reveal any queued steps immediately (call before rendering a result). */
+    flushStepsNow(): void { flushNow(); },
+    /** Update the current row's text in place (used by the polling view — no stacking). */
+    updateCurrent(msg: string): void {
+      const cur = stepsEl.querySelector('.brain-step.current');
+      if (!cur) { renderStep(msg); return; }
+      const t = cur.querySelector('.brain-step-text');
+      if (t) t.textContent = clean(msg);
+      statusEl.style.display = 'flex';
+    },
+    /** Finalize the checklist and append a red error row (returns it, for extra UI). */
+    setError(msg: string): HTMLElement {
+      flushNow();
+      finalizeCurrent();
+      if (blobEl && blobEl.parentNode) blobEl.parentNode.removeChild(blobEl);
+      const step = document.createElement('div');
+      step.className = 'brain-step error';
+      const mark = document.createElement('span'); mark.className = 'brain-step-mark';
+      const text = document.createElement('span'); text.className = 'brain-step-text'; text.textContent = msg;
+      step.append(mark, text);
+      stepsEl.appendChild(step);
+      statusEl.style.display = 'flex';
+      return step;
+    },
+    /** Reset to empty (queue + rendered rows). */
+    clear(): void { queue.length = 0; lastMsg = ''; stepsEl.innerHTML = ''; },
+  };
+}
+
+/**
  * Clean up a pending brain highlight that was never completed.
  * Called from core.js during closeHyperlitContainer().
  * No-op when no brain query is pending, already succeeded, or request is in-flight.
@@ -149,10 +236,7 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
         <button type="button" class="brain-submit-btn">Ask</button>
         <button type="button" class="brain-cancel-btn">Cancel</button>
       </div>
-      <div class="brain-status" style="display:none;">
-        <span class="brain-status-text"></span>
-        ${brainLoaderSvg(true)}
-      </div>
+      <div class="brain-status" style="display:none;"><div class="brain-steps"></div></div>
     </div>
   `;
 
@@ -161,10 +245,8 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
   const submitBtn = section.querySelector('.brain-submit-btn');
   const cancelBtn = section.querySelector('.brain-cancel-btn');
   const statusEl = section.querySelector('.brain-status');
-  const statusTextEl = section.querySelector('.brain-status-text');
-  const blobsEl = section.querySelector('.brain-blobs');
-  const showBlobs = () => { if (blobsEl) blobsEl.style.display = ''; };
-  const hideBlobs = () => { if (blobsEl) blobsEl.style.display = 'none'; };
+  const stepsEl = section.querySelector('.brain-steps');
+  const steps = createStepManager(statusEl, stepsEl);
   const scopeBtns = section.querySelectorAll('.brain-scope-btn');
   const modeBtns = section.querySelectorAll('.brain-mode-btn');
   const sectionLabel = section.querySelector('.brain-section-label');
@@ -315,12 +397,12 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
     if (mode === 'archivist' && sourceScope === 'shelf') {
       shelfId = shelfSelect?.value || '';
       if (!shelfId) {
-        statusEl.style.display = 'inline-flex';
-        statusTextEl.textContent = 'Pick a shelf to limit the search to.';
+        steps.clear();
+        steps.setError('Pick a shelf to limit the search to.');
         if (shelfSelect) shelfSelect.classList.add('brain-input-error');
         shelfSelect?.addEventListener('change', () => {
           shelfSelect.classList.remove('brain-input-error');
-          statusTextEl.textContent = '';
+          steps.clear();
           statusEl.style.display = 'none';
         }, { once: true });
         return;
@@ -331,12 +413,12 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
       const pickedOption = shelfSelect.options[shelfSelect.selectedIndex];
       const itemCount = Number(pickedOption?.dataset.itemCount ?? 0);
       if (itemCount === 0) {
-        statusEl.style.display = 'inline-flex';
-        statusTextEl.textContent = 'This shelf is empty. Add books to it, or pick a different scope.';
+        steps.clear();
+        steps.setError('This shelf is empty. Add books to it, or pick a different scope.');
         if (shelfSelect) shelfSelect.classList.add('brain-input-error');
         shelfSelect?.addEventListener('change', () => {
           shelfSelect.classList.remove('brain-input-error');
-          statusTextEl.textContent = '';
+          steps.clear();
           statusEl.style.display = 'none';
         }, { once: true });
         return;
@@ -348,12 +430,12 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
     cancelBtn.style.display = 'none';
     scopeBtns.forEach((b: any) => b.disabled = true);
 
-    statusEl.style.display = 'inline-flex';
-    statusTextEl.textContent = 'Sending to archivist...';
+    steps.clear();
+    steps.enqueueStep('Sending your question');
 
     const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
     if (!csrfToken) {
-      statusTextEl.textContent = 'Error: No CSRF token found';
+      steps.setError('Error: No CSRF token found');
       annotation.contentEditable = 'true';
       submitBtn.disabled = false;
       cancelBtn.style.display = '';
@@ -362,23 +444,20 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
     }
 
     brainRequestInFlight = true;
-    showBlobs();
 
     const resetInputs = () => {
       annotation.contentEditable = 'true';
       submitBtn.disabled = false;
       cancelBtn.style.display = '';
       scopeBtns.forEach((b: any) => b.disabled = false);
-      hideBlobs();
     };
 
     const showBillingError = (msg: any) => {
-      statusTextEl.innerHTML = '';
-      statusTextEl.textContent = msg;
+      const step = steps.setError(msg);
       const topUpBtn = document.createElement('a');
       topUpBtn.href = '#';
       topUpBtn.textContent = 'Top Up Balance';
-      topUpBtn.style.cssText = 'display:inline-block;margin-top:8px;padding:6px 14px;background:#d63384;color:#fff;border-radius:4px;text-decoration:none;font-size:13px;font-weight:500;';
+      topUpBtn.style.cssText = 'display:inline-block;margin-left:8px;padding:4px 12px;background:#d63384;color:#fff;border-radius:4px;text-decoration:none;font-size:12px;font-weight:500;';
       topUpBtn.addEventListener('click', async (e: any) => {
         e.preventDefault();
         try {
@@ -398,8 +477,7 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
           console.warn('Top-up checkout failed:', err);
         }
       });
-      statusTextEl.appendChild(document.createElement('br'));
-      statusTextEl.appendChild(topUpBtn);
+      step.appendChild(topUpBtn);
     };
 
     try {
@@ -411,7 +489,8 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
           'Accept': 'text/event-stream',
         },
         body: JSON.stringify({
-          selectedText,
+          // Prefer the math-clean selection text when the selection contains LaTeX.
+          selectedText: selectionContext?.selectedText || selectedText,
           question,
           bookId,
           highlightId,
@@ -434,9 +513,9 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
         if (response.status === 402) {
           showBillingError(msg);
         } else if (response.status === 504) {
-          statusTextEl.textContent = 'The AI took too long. Please try again.';
+          steps.setError('The AI took too long. Please try again.');
         } else {
-          statusTextEl.textContent = msg;
+          steps.setError(msg);
         }
         resetInputs();
         return;
@@ -464,7 +543,7 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
             try {
               const parsed = JSON.parse(line.slice(6));
               if (eventType === 'status') {
-                statusTextEl.textContent = parsed.message;
+                steps.enqueueStep(parsed.message);
               } else if (eventType === 'error') {
                 streamError = parsed.message || 'AI query failed';
               } else if (eventType === 'result') {
@@ -482,16 +561,19 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
 
       // Handle stream-level errors
       if (streamError) {
-        statusTextEl.textContent = streamError;
+        steps.setError(streamError);
         resetInputs();
         return;
       }
 
       if (!data || !data.success) {
-        statusTextEl.textContent = (data && data.message) || 'AI query failed';
+        steps.setError((data && data.message) || 'AI query failed');
         resetInputs();
         return;
       }
+
+      // Success — reveal any still-queued steps so the checklist visibly completes.
+      steps.flushStepsNow();
 
       // Success — turn off edit mode (this is AI-generated content, not user-editable)
       const { getEditToolbar: getToolbar }: any = await import('../editToolbar/index');
@@ -545,7 +627,7 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
     } catch (error) {
       brainRequestInFlight = false;
       console.error('BrainQuery: Fetch error:', error);
-      statusTextEl.textContent = 'Network error. Try again.';
+      steps.setError('Network error. Try again.');
       resetInputs();
     }
   };
@@ -574,13 +656,11 @@ export async function injectBrainPolling(highlight: any, scroller: any) {
     scroller.innerHTML = `
         <div class="brain-query-section">
             <h1>Brain query in progress</h1>
-            <div class="brain-status" style="display:inline-flex;">
-                <span class="brain-status-text">Checking for results...</span>
-                ${brainLoaderSvg(false)}
-            </div>
+            <div class="brain-status" style="display:flex;"><div class="brain-steps"></div></div>
         </div>
     `;
-    const statusTextEl = scroller.querySelector('.brain-status-text');
+    const steps = createStepManager(scroller.querySelector('.brain-status'), scroller.querySelector('.brain-steps'));
+    steps.updateCurrent('Checking for results');
     const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
 
     let attempts = 0;
@@ -603,17 +683,17 @@ export async function injectBrainPolling(highlight: any, scroller: any) {
                     // Auth failed — the query may already be complete.
                     // Try loading the sub-book directly; on page reload
                     // Fix 1 (broadened gate) will skip polling if data exists.
-                    statusTextEl.textContent = 'Session expired — please refresh the page.';
+                    steps.setError('Session expired — please refresh the page.');
                     return;
                 }
-                statusTextEl.textContent = 'Error checking brain query status.';
+                steps.setError('Error checking brain query status.');
                 return;
             }
 
             const data: any = await resp.json();
 
             if (data.status === 'completed') {
-                statusTextEl.textContent = 'Result ready — loading...';
+                steps.updateCurrent('Result ready — loading');
                 await updateHyperlightInIndexedDB(highlightId, data.sub_book_id, data.preview_nodes || [], data.raw_json || null);
 
                 scroller.innerHTML = '';
@@ -643,19 +723,19 @@ export async function injectBrainPolling(highlight: any, scroller: any) {
             }
 
             if (data.status === 'not_found') {
-                statusTextEl.textContent = 'Brain query not found. It may have been removed.';
+                steps.setError('Brain query not found. It may have been removed.');
                 return;
             }
 
-            statusTextEl.textContent = 'Brain query still processing...';
+            steps.updateCurrent('Brain query still processing');
         } catch (e) {
-            statusTextEl.textContent = 'Checking server...';
+            steps.updateCurrent('Checking server');
         }
 
         if (attempts < maxAttempts) {
             setTimeout(poll, 3000);
         } else {
-            statusTextEl.textContent = 'Taking longer than expected. Close and reopen to check again.';
+            steps.updateCurrent('Taking longer than expected. Close and reopen to check again.');
         }
     };
 

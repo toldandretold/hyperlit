@@ -75,6 +75,13 @@ export interface SelectionContext {
   immediateContainer?: SelectionContainerLevel;
   citations: SelectionCitationRef[];
   hypercites: SelectionHyperciteRef[];
+  /**
+   * A math-clean rendering of the selected text — set ONLY when the selection
+   * contains LaTeX (`<latex>`), where the browser's `selection.toString()` garbles/
+   * duplicates KaTeX output. Each equation is decoded to its `$…$` source so the
+   * LLM gets readable math. The server prefers this over the raw selected text.
+   */
+  selectedText?: string;
 }
 
 // ── small helpers ─────────────────────────────────────────────────────────────
@@ -88,6 +95,26 @@ function stripToText(html: string | null | undefined): string {
 
 function truncate(text: string, max: number): string {
   return text.length > max ? text.slice(0, max - 1).trimEnd() + '…' : text;
+}
+
+/** Decode a `<latex data-math>` base64 payload to LaTeX (matches renderMathElements). */
+function decodeMathB64(b64: string): string {
+  try { return decodeURIComponent(escape(atob(b64))); } catch { return ''; }
+}
+
+/**
+ * Plain text of a selection fragment with math made readable: each `<latex>` /
+ * `<latex-block>` (KaTeX renders visible glyphs + a hidden MathML/TeX copy, which
+ * `toString()` duplicates) is replaced by its decoded `$…$` / `$$…$$` source.
+ */
+function cleanSelectionText(fragment: DocumentFragment): string {
+  const clone = fragment.cloneNode(true) as DocumentFragment;
+  clone.querySelectorAll('latex, latex-block').forEach((el) => {
+    const tex = decodeMathB64(el.getAttribute('data-math') || '');
+    const block = el.tagName.toLowerCase() === 'latex-block';
+    el.textContent = tex ? ' ' + (block ? '$$' + tex + '$$' : '$' + tex + '$') + ' ' : '';
+  });
+  return (clone.textContent || '').replace(/\s+/g, ' ').trim();
 }
 
 function isFootnoteItemId(itemId: string): boolean {
@@ -222,8 +249,24 @@ async function buildChain(startEl: Element | null): Promise<SelectionContainerLe
 
 // ── in-selection links ──────────────────────────────────────────────────────
 
-async function collectCitations(fragment: DocumentFragment, selectionBookId: BookId): Promise<SelectionCitationRef[]> {
-  const anchors = Array.from(fragment.querySelectorAll('a.citation-ref, a[id^="Ref"]'));
+/**
+ * Anchors matching `selector` that are relevant to the selection: those CONTAINED
+ * in the selection (fragment descendants) AND any single anchor the selection sits
+ * INSIDE (an ancestor — `cloneContents()` drops it, so we recover it with `.closest()`
+ * on the range's boundary elements). This is why selecting a short citation like
+ * "(2016)" — where the selection is entirely within the `<a>` — is still detected.
+ */
+function collectAnchors(fragment: DocumentFragment, enclosing: Element[], selector: string): Element[] {
+  const set = new Set<Element>(Array.from(fragment.querySelectorAll(selector)));
+  for (const el of enclosing) {
+    const a = el.closest(selector);
+    if (a) set.add(a);
+  }
+  return Array.from(set);
+}
+
+async function collectCitations(fragment: DocumentFragment, enclosing: Element[], selectionBookId: BookId): Promise<SelectionCitationRef[]> {
+  const anchors = collectAnchors(fragment, enclosing, 'a.citation-ref, a[id^="Ref"]');
   const out: SelectionCitationRef[] = [];
   const seen = new Set<string>();
 
@@ -272,8 +315,8 @@ async function readBibliography(selectionBookId: BookId, referenceId: string): P
   return rec;
 }
 
-async function collectHypercites(fragment: DocumentFragment): Promise<SelectionHyperciteRef[]> {
-  const anchors = Array.from(fragment.querySelectorAll('a[href*="#hypercite_"]'));
+async function collectHypercites(fragment: DocumentFragment, enclosing: Element[]): Promise<SelectionHyperciteRef[]> {
+  const anchors = collectAnchors(fragment, enclosing, 'a[href*="#hypercite_"]');
   const out: SelectionHyperciteRef[] = [];
   const seen = new Set<string>();
   const username = currentUsername();
@@ -329,14 +372,21 @@ export async function buildSelectionContext(range: Range, selectionBookId: BookI
     fragment = document.createDocumentFragment();
   }
 
-  const anchorNode = range.commonAncestorContainer;
-  const startEl: Element | null =
-    anchorNode.nodeType === Node.TEXT_NODE ? anchorNode.parentElement : (anchorNode as Element);
+  const toEl = (n: Node | null | undefined): Element | null =>
+    !n ? null : n.nodeType === Node.TEXT_NODE ? n.parentElement : (n as Element);
+  const startEl = toEl(range.commonAncestorContainer);
+  // Boundary elements the selection touches — used to recover a citation/hypercite
+  // anchor the selection sits INSIDE (an ancestor that cloneContents() drops).
+  const enclosing = [
+    toEl(range.commonAncestorContainer),
+    toEl(range.startContainer),
+    toEl(range.endContainer),
+  ].filter((e): e is Element => e !== null);
 
   const [rawChain, citations, hypercites] = await Promise.all([
     buildChain(startEl),
-    collectCitations(fragment, selectionBookId),
-    collectHypercites(fragment),
+    collectCitations(fragment, enclosing, selectionBookId),
+    collectHypercites(fragment, enclosing),
   ]);
 
   // rawChain is innermost-first; cap to the innermost MAX_CHAIN_DEPTH levels.
@@ -345,7 +395,12 @@ export async function buildSelectionContext(range: Range, selectionBookId: BookI
   const immediateContainer = capped[0];
   const chain = capped.slice().reverse(); // root → inner for the server
 
-  const ctx: SelectionContext = { chain, chainTruncated, immediateContainer, citations, hypercites };
+  // Only override the selected text when it actually contains math — otherwise the
+  // raw browser selection is already fine (and avoids any normalization surprises).
+  const hasMath = fragment.querySelector('latex, latex-block') !== null;
+  const selectedText = hasMath ? cleanSelectionText(fragment) : undefined;
+
+  const ctx: SelectionContext = { chain, chainTruncated, immediateContainer, citations, hypercites, selectedText };
   verbose.content(
     `SelectionContext: ${chain.length} levels${chainTruncated ? '+' : ''}, ` +
       `${citations.length} citations, ${hypercites.length} hypercites`,

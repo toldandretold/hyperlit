@@ -88,6 +88,12 @@
   --font-size-sup: 0.6em;
 
   --line-height-base: 1.4;
+
+  /* Reading-text weight. Dark themes bloom light-on-dark text so a thin 350
+     reads fine; light/sepia themes override this heavier (see their theme
+     files) because dark-on-light ink looks thinner at the same weight. */
+  --reading-font-weight: 350;
+
   --letter-spacing-tight: -0.03em;
   --letter-spacing-medium: -0.02em;
   --letter-spacing-light: -0.01em;

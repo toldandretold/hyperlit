@@ -182,6 +182,58 @@ describe('buildSelectionContext — in-selection links', () => {
     expect(ctx.citations[0].year).toBe('2020');
   });
 
+  it('detects a citation the selection sits INSIDE (enclosing anchor, not a fragment descendant)', async () => {
+    // Selecting a short citation puts the range WITHIN the <a>, so cloneContents()
+    // drops the anchor — it must still be recovered via the enclosing boundary.
+    document.body.innerHTML = `
+      <div class="main-content" id="book_root">
+        <p>see <a class="citation-ref" id="Ref9">2016</a> here</p>
+      </div>`;
+    h.db = makeDb({
+      bibliography: { 'book_root|Ref9': { book: 'book_root', referenceId: 'Ref9', content: 'Said, Orientalism (2016)' } },
+    });
+
+    const ctx = await buildSelectionContext(rangeOver(document.querySelector('a.citation-ref')), 'book_root');
+    expect(ctx.citations).toHaveLength(1);
+    expect(ctx.citations[0].referenceId).toBe('Ref9');
+    expect(ctx.citations[0].content).toContain('Said');
+  });
+
+  it('detects a hypercite the selection sits INSIDE (enclosing anchor)', async () => {
+    document.body.innerHTML = `
+      <div class="main-content" id="book_root">
+        <p>as argued <a href="/book_other#hypercite_z" data-target="book_other">china is big (sam 1999)</a></p>
+      </div>`;
+    h.db = makeDb({});
+    h.library = { book_other: { visibility: 'public', creator: 'someone', title: 'Other', author: 'Auth' } };
+    h.hypercite = { 'book_other|hypercite_z': { hypercitedText: 'china is a big country' } };
+
+    const ctx = await buildSelectionContext(rangeOver(document.querySelector('a[href*="#hypercite_"]')), 'book_root');
+    expect(ctx.hypercites).toHaveLength(1);
+    expect(ctx.hypercites[0].hyperciteId).toBe('hypercite_z');
+    expect(ctx.hypercites[0].hypercitedText).toBe('china is a big country');
+  });
+
+  it('produces a math-clean selectedText when the selection contains LaTeX', async () => {
+    const b16 = btoa('16'), b511 = btoa('511');
+    document.body.innerHTML = `
+      <div class="main-content" id="book_root">
+        <p><mark class="HL_m1">with <latex data-math="${b16}">16</latex> to <latex data-math="${b511}">511</latex> participants</mark></p>
+      </div>`;
+    h.db = makeDb({ hyperlights: [{ hyperlight_id: 'HL_m1', book: 'book_root', creator: 'sam' }] });
+
+    const ctx = await buildSelectionContext(rangeOver(document.querySelector('mark.HL_m1')), 'book_root');
+    expect(ctx.selectedText).toBe('with $16$ to $511$ participants');
+  });
+
+  it('leaves selectedText undefined when there is no math', async () => {
+    document.body.innerHTML = `
+      <div class="main-content" id="book_root"><p><mark class="HL_m2">plain words</mark></p></div>`;
+    h.db = makeDb({ hyperlights: [{ hyperlight_id: 'HL_m2', book: 'book_root', creator: 'sam' }] });
+    const ctx = await buildSelectionContext(rangeOver(document.querySelector('mark.HL_m2')), 'book_root');
+    expect(ctx.selectedText).toBeUndefined();
+  });
+
   it('includes hypercited text when the target book is public', async () => {
     document.body.innerHTML = `
       <div class="main-content" id="book_root">
