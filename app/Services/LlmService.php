@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Services\Llm\InferenceTransport;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -19,6 +20,14 @@ class LlmService
     private int $totalRequests = 0;
     private int $failedRequests = 0;
 
+    /**
+     * When set, chat()/chatBatch() park the request via this transport instead of
+     * calling the shared provider (BYO-key inference). LlmService is a SINGLETON,
+     * so setTransport MUST be paired with clearTransport() in a finally block —
+     * a stale transport would ticketise the next request's/job's calls.
+     */
+    private ?InferenceTransport $transport = null;
+
     public function __construct()
     {
         $this->baseUrl = rtrim(config('services.llm.base_url', ''), '/');
@@ -26,6 +35,40 @@ class LlmService
         $this->model   = config('services.llm.model');
         $this->extractionModel   = config('services.llm.extraction_model');
         $this->verificationModel = config('services.llm.verification_model');
+    }
+
+    /** Route subsequent chat()/chatBatch() calls through $transport. */
+    public function setTransport(InferenceTransport $transport): void
+    {
+        $this->transport = $transport;
+    }
+
+    /** Restore normal (shared-provider) behaviour. ALWAYS call in a finally. */
+    public function clearTransport(): void
+    {
+        $this->transport = null;
+    }
+
+    /**
+     * Assemble the OpenAI-style chat body shared by the normal path and the
+     * transport path (identical to the inline body chat() used to build).
+     */
+    private function assembleBody(string $systemPrompt, string $userMessage, float $temperature, int $maxTokens, ?string $model, ?string $reasoningEffort): array
+    {
+        $body = [
+            'model'       => $model ?? $this->model,
+            'temperature' => $temperature,
+            'max_tokens'  => $maxTokens,
+            'messages'    => [
+                ['role' => 'system', 'content' => $systemPrompt],
+                ['role' => 'user',   'content' => $userMessage],
+            ],
+        ];
+        $effort = $this->normaliseReasoningEffort($reasoningEffort, $body['model']);
+        if ($effort !== null) {
+            $body['reasoning_effort'] = $effort;
+        }
+        return $body;
     }
 
     /**
@@ -50,24 +93,22 @@ class LlmService
      */
     public function chat(string $systemPrompt, string $userMessage, float $temperature = 0.0, int $maxTokens = 200, ?string $model = null, int $timeout = 30, ?string $reasoningEffort = 'none', ?\Closure $onRetry = null, int $maxAttempts = 5): ?string
     {
+        // BYO-key path: park the request for the client to execute, don't call
+        // the shared provider. (Checked before the apiKey guard so it works even
+        // when the server holds no key.)
+        if ($this->transport !== null) {
+            return $this->transport->execute(
+                $this->assembleBody($systemPrompt, $userMessage, $temperature, $maxTokens, $model, $reasoningEffort),
+                $timeout
+            );
+        }
+
         if (!$this->apiKey || !$this->baseUrl) {
             return null;
         }
 
         try {
-            $body = [
-                'model'       => $model ?? $this->model,
-                'temperature' => $temperature,
-                'max_tokens'  => $maxTokens,
-                'messages'    => [
-                    ['role' => 'system', 'content' => $systemPrompt],
-                    ['role' => 'user',   'content' => $userMessage],
-                ],
-            ];
-            $reasoningEffort = $this->normaliseReasoningEffort($reasoningEffort, $body['model']);
-            if ($reasoningEffort !== null) {
-                $body['reasoning_effort'] = $reasoningEffort;
-            }
+            $body = $this->assembleBody($systemPrompt, $userMessage, $temperature, $maxTokens, $model, $reasoningEffort);
 
             // Retry on cURL timeout (error 28), 429 rate-limit, and 5xx responses with exponential backoff
             $attempts = 0;
@@ -226,6 +267,23 @@ class LlmService
 
     public function chatBatch(array $requests, int $timeout = 30): array
     {
+        // BYO-key path: park all requests up front so the client can run them
+        // concurrently, then collect.
+        if ($this->transport !== null) {
+            $bodies = [];
+            foreach ($requests as $key => $req) {
+                $bodies[$key] = $this->assembleBody(
+                    $req['system'],
+                    $req['user'],
+                    $req['temperature'] ?? 0.0,
+                    $req['max_tokens'] ?? 200,
+                    $req['model'] ?? null,
+                    array_key_exists('reasoning_effort', $req) ? $req['reasoning_effort'] : null
+                );
+            }
+            return $this->transport->executeBatch($bodies, $timeout);
+        }
+
         if (!$this->apiKey || !$this->baseUrl) {
             return array_fill_keys(array_keys($requests), null);
         }

@@ -27,13 +27,16 @@ class DatabaseCleanupJob implements ShouldQueue
             Log::info('Starting database cleanup job');
 
             $result = $this->cleanupOldAnonymousPrivateBooks();
+            $tickets = $this->cleanupInferenceTickets();
 
             Log::info('Database cleanup completed', [
                 'books_processed' => $result['processed'],
                 'books_hard_deleted' => $result['hard_deleted'],
                 'books_soft_deleted' => $result['soft_deleted'],
                 'total_hypercites_delinked' => $result['hypercites_delinked'],
-                'total_hyperlights_orphaned' => $result['hyperlights_orphaned']
+                'total_hyperlights_orphaned' => $result['hyperlights_orphaned'],
+                'inference_tickets_expired' => $tickets['expired'],
+                'inference_tickets_purged' => $tickets['purged'],
             ]);
 
         } catch (\Exception $e) {
@@ -43,6 +46,34 @@ class DatabaseCleanupJob implements ShouldQueue
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * Mark still-open past-expiry inference tickets as 'expired', and hard-delete
+     * finished/expired ones older than a day. Uses the admin connection to bypass
+     * RLS (this is a cross-user maintenance sweep).
+     */
+    private function cleanupInferenceTickets(): array
+    {
+        $adminDb = DB::connection('pgsql_admin');
+        $expired = 0;
+        $purged = 0;
+
+        try {
+            $expired = $adminDb->table('inference_tickets')
+                ->whereIn('status', ['pending', 'claimed'])
+                ->where('expires_at', '<', Carbon::now())
+                ->update(['status' => 'expired', 'updated_at' => Carbon::now()]);
+
+            $purged = $adminDb->table('inference_tickets')
+                ->whereIn('status', ['completed', 'failed', 'expired'])
+                ->where('updated_at', '<', Carbon::now()->subDay())
+                ->delete();
+        } catch (\Throwable $e) {
+            Log::warning('Inference ticket cleanup skipped', ['error' => $e->getMessage()]);
+        }
+
+        return ['expired' => $expired, 'purged' => $purged];
     }
 
     private function cleanupOldAnonymousPrivateBooks(): array

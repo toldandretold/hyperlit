@@ -46,7 +46,7 @@ export async function cleanupPendingBrainHighlight() {
  * @param {Object} highlight - The hyperlight record from IndexedDB
  * @param {HTMLElement} scroller - The container scroller element
  */
-export async function injectBrainInput(targetEl: any, highlight: any, scroller: any) {
+export async function injectBrainInput(targetEl: any, highlight: any, scroller: any, selectionContext?: import('./selectionContext').SelectionContext) {
   if (!scroller) {
     console.warn('BrainQuery: No scroller element');
     return;
@@ -398,6 +398,7 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
           sourceScope,
           mode,
           shelfId,
+          selectionContext: selectionContext ?? null,
         }),
       });
 

@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1614 functions in 345 modules · 10 object stores · 10 PG tables · 3271 edges
+**MarkdownDB** schema v28 · 1615 functions in 346 modules · 10 object stores · 10 PG tables · 3280 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -978,6 +978,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initializePlaceholders` | `hyperlitContainer/noteListener` | — | — | read/write | — |
 | `checkIfUserHasAnyEditPermission` | `hyperlitContainer/permissions` | — | — | — | — |
 | `handlePostOpenActions` | `hyperlitContainer/postOpen` | — | — | read/write | — |
+| `buildSelectionContext` | `hyperlitContainer/selectionContext` | `bibliography` | — | read/write | — |
 | `clear` | `hyperlitContainer/stack` | — | — | read/write | — |
 | `createStackedContainerDOM` | `hyperlitContainer/stack` | — | — | read/write | — |
 | `dumpLayersForDiagnostics` | `hyperlitContainer/stack` | — | — | read | — |
@@ -1627,7 +1628,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 2 · lazy-loads (code-split): 237
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 2 · lazy-loads (code-split): 238
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1737,6 +1738,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `footnotes/FootnoteNumberingService` → `indexedDB/nodes/batch`
 - `footnotes/FootnoteNumberingService` → `indexedDB/syncQueue/queue`
 - `hypercites/deletion` → `hyperlights/index`
+- `hyperlights/createHighlight` → `hyperlitContainer/selectionContext`
 - `hyperlights/deleteHighlight` → `divEditor/index`
 - `hyperlights/deletion` → `lazyLoader/index`
 - `hyperlitContainer/brainQuery` → `components/userButton/userButton`

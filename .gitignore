@@ -63,3 +63,10 @@ tests/conversion/vibe_eval_report.json
 tests/conversion/vibe_eval_report.md
 .css-cascade-snapshots/
 .css-style-parity/
+
+# Native macOS shell app (macOShyperlit/) is tracked as part of this monorepo,
+# but its Xcode build artifacts should never be committed.
+macOShyperlit/build/
+macOShyperlit/DerivedData/
+macOShyperlit/**/xcuserdata/
+macOShyperlit/**/*.xcuserstate

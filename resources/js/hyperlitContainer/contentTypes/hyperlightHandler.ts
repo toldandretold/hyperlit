@@ -208,7 +208,7 @@ export const hyperlightHandler: ContentTypeHandler = {
           // Brain mode: inject question input instead of loading sub-book
           if (ctx.options.brainModeHighlightId && highlight.hyperlight_id === ctx.options.brainModeHighlightId) {
             const { injectBrainInput }: any = await import('../brainQuery.js');
-            await injectBrainInput(targetEl, highlight, scroller);
+            await injectBrainInput(targetEl, highlight, scroller, ctx.options.selectionContext);
             continue;
           }
 

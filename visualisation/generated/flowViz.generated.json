@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1614,
-    "moduleCount": 345,
+    "fnCount": 1615,
+    "moduleCount": 346,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3271,
+    "edgeCount": 3280,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -8975,6 +8975,14 @@
       "leaf": false
     },
     {
+      "id": "hyperlitContainer/selectionContext:buildSelectionContext",
+      "label": "buildSelectionContext",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/selectionContext",
+      "leaf": false
+    },
+    {
       "id": "hyperlitContainer/stack:clear",
       "label": "clear",
       "kind": "fn",
@@ -17116,6 +17124,15 @@
       "band": "capture",
       "fnIds": [
         "hyperlitContainer/postOpen:handlePostOpenActions"
+      ]
+    },
+    {
+      "id": "hyperlitContainer/selectionContext",
+      "label": "hyperlitContainer/selectionContext",
+      "stage": "hyperlitContainer",
+      "band": "capture",
+      "fnIds": [
+        "hyperlitContainer/selectionContext:buildSelectionContext"
       ]
     },
     {
@@ -26469,6 +26486,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__hyperlitContainer/selectionContext:buildSelectionContext",
+      "source": "dom",
+      "target": "hyperlitContainer/selectionContext:buildSelectionContext",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__hyperlitContainer/stack:clear",
       "source": "dom",
       "target": "hyperlitContainer/stack:clear",
@@ -29439,6 +29462,13 @@
       "rel": "call"
     },
     {
+      "id": "hyperlights/createHighlight:openBrainFromSelection__call__hyperlitContainer/selectionContext:buildSelectionContext",
+      "source": "hyperlights/createHighlight:openBrainFromSelection",
+      "target": "hyperlitContainer/selectionContext:buildSelectionContext",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "hyperlights/createHighlight:openBrainFromSelection__call__indexedDB/core/connection:openDatabase",
       "source": "hyperlights/createHighlight:openBrainFromSelection",
       "target": "indexedDB/core/connection:openDatabase",
@@ -31433,6 +31463,46 @@
     {
       "id": "hyperlitContainer/postOpen:handlePostOpenActions__domwrite__dom",
       "source": "hyperlitContainer/postOpen:handlePostOpenActions",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlitContainer/selectionContext:buildSelectionContext__call__hyperlitContainer/detection:detectHyperciteCitation",
+      "source": "hyperlitContainer/selectionContext:buildSelectionContext",
+      "target": "hyperlitContainer/detection:detectHyperciteCitation",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/selectionContext:buildSelectionContext__call__indexedDB/bibliography/index:resolveBibliographyTarget",
+      "source": "hyperlitContainer/selectionContext:buildSelectionContext",
+      "target": "indexedDB/bibliography/index:resolveBibliographyTarget",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/selectionContext:buildSelectionContext__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlitContainer/selectionContext:buildSelectionContext",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/selectionContext:buildSelectionContext__call__indexedDB/core/library:getLibraryObjectFromIndexedDB",
+      "source": "hyperlitContainer/selectionContext:buildSelectionContext",
+      "target": "indexedDB/core/library:getLibraryObjectFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/selectionContext:buildSelectionContext__call__indexedDB/hypercites/read:getHyperciteFromIndexedDB",
+      "source": "hyperlitContainer/selectionContext:buildSelectionContext",
+      "target": "indexedDB/hypercites/read:getHyperciteFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/selectionContext:buildSelectionContext__domwrite__dom",
+      "source": "hyperlitContainer/selectionContext:buildSelectionContext",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -38477,6 +38547,12 @@
       "rel": "read"
     },
     {
+      "id": "store:bibliography__read__hyperlitContainer/selectionContext:buildSelectionContext",
+      "source": "store:bibliography",
+      "target": "hyperlitContainer/selectionContext:buildSelectionContext",
+      "rel": "read"
+    },
+    {
       "id": "store:bibliography__read__indexedDB/core/connection:openDatabase",
       "source": "store:bibliography",
       "target": "indexedDB/core/connection:openDatabase",
@@ -41979,6 +42055,11 @@
       "kind": "static"
     },
     {
+      "source": "hyperlights/createHighlight",
+      "target": "hyperlitContainer/selectionContext",
+      "kind": "lazy"
+    },
+    {
       "source": "hyperlights/database",
       "target": "indexedDB/index",
       "kind": "static"
@@ -42716,6 +42797,31 @@
     {
       "source": "hyperlitContainer/postOpen",
       "target": "hyperlitContainer/stack",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/selectionContext",
+      "target": "hyperlitContainer/detection",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/selectionContext",
+      "target": "indexedDB/bibliography/index",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/selectionContext",
+      "target": "indexedDB/core/library",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/selectionContext",
+      "target": "indexedDB/hypercites/read",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/selectionContext",
+      "target": "indexedDB/index",
       "kind": "static"
     },
     {
@@ -44497,6 +44603,6 @@
       ]
     ],
     "breakerCount": 2,
-    "lazyCount": 237
+    "lazyCount": 238
   }
 }

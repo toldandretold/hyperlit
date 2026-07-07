@@ -30,12 +30,12 @@ uses(InteractsWithApi::class)->in('Feature/Api');
 // Security/Auth suites seed users (and some pre-seed owned content) directly; under RLS
 // a bare User::factory()->create() is rejected (see SeedsRlsFixtures). Bind the admin-
 // seeding helpers + auto-clean the admin-committed rows after each test.
-uses(SeedsRlsFixtures::class)->in('Feature/Security', 'Feature/Auth', 'Feature/E2ee', 'Feature/BookImages', 'Feature/BookAudio');
+uses(SeedsRlsFixtures::class)->in('Feature/Security', 'Feature/Auth', 'Feature/E2ee', 'Feature/BookImages', 'Feature/BookAudio', 'Feature/Inference');
 afterEach(function () {
     if (method_exists($this, 'cleanupRlsFixtures')) {
         $this->cleanupRlsFixtures();
     }
-})->in('Feature/Security', 'Feature/Auth', 'Feature/E2ee', 'Feature/BookImages', 'Feature/BookAudio');
+})->in('Feature/Security', 'Feature/Auth', 'Feature/E2ee', 'Feature/BookImages', 'Feature/BookAudio', 'Feature/Inference');
 
 // E2EE passkey ceremony tests forge real WebAuthn credentials (CBOR + ES256).
 uses(Tests\Support\MakesWebAuthnCredentials::class)->in('Feature/E2ee');

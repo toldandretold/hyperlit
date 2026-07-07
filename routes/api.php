@@ -25,6 +25,7 @@ use App\Http\Controllers\StripeController;
 use App\Http\Controllers\UserHomeServerController;
 use App\Http\Controllers\AiBrainController;
 use App\Http\Controllers\VibeCSSController;
+use App\Http\Controllers\InferenceTicketController;
 use App\Http\Controllers\VibeConvertController;
 use App\Http\Controllers\UserPreferencesController;
 use App\Http\Controllers\VibesController;
@@ -106,6 +107,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Vibe CSS
     Route::post('/vibe-css/generate', [VibeCSSController::class, 'generate']);
     Route::get('/vibe-css/can-proceed', [VibeCSSController::class, 'canProceed']);
+
+    // BYO-key inference tickets — the native client claims parked prompts, runs
+    // them with the user's own key, and posts completions back.
+    Route::post('/inference/claim', [InferenceTicketController::class, 'claim']);
+    Route::post('/inference/{id}/complete', [InferenceTicketController::class, 'complete'])->whereUuid('id');
 
     // Vibe Conversion — per-document LLM re-conversion (background job + poll + cancel + accept)
     Route::post('/vibe-convert/start', [VibeConvertController::class, 'start']);

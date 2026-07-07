@@ -19,7 +19,24 @@ class AiBrainController extends Controller
 {
     public function __construct(
         private RetrievalService $retrievalService,
+        private \App\Services\AiBrain\ReadingContextFormatter $readingContext,
     ) {}
+
+    /**
+     * Resolve the ROOT book's citation metadata (title/author/year) for any book id.
+     * A selection may live in a sub-book (`foundation/…`) whose `library` row has no
+     * author — so we resolve the foundation and read ITS metadata instead.
+     */
+    private function resolveRootBookMeta(string $bookId): array
+    {
+        $root = \App\Helpers\SubBookIdHelper::parse($bookId)['foundation'] ?? $bookId;
+        $meta = DB::table('library')->where('book', $root)->select('title', 'author', 'year')->first();
+        return [
+            'title'  => $meta->title ?? 'Unknown',
+            'author' => $meta->author ?? null,
+            'year'   => $meta->year ?? null,
+        ];
+    }
 
     public function status(string $highlightId): JsonResponse
     {
@@ -80,6 +97,33 @@ class AiBrainController extends Controller
                 'sourceScope'  => 'nullable|string|in:public,mine,shelf',
                 'mode'         => 'nullable|string|in:quick,archivist',
                 'shelfId'      => 'nullable|string|uuid',
+
+                // Optional selection framing (nesting chain + in-selection links) — see
+                // App\Services\AiBrain\ReadingContextFormatter. Bounded so it can't blow the
+                // token budget or inject huge strings; nullable so old clients still work.
+                'selectionContext'                         => 'nullable|array',
+                'selectionContext.chain'                   => 'nullable|array|max:5',
+                'selectionContext.chain.*.type'            => 'required_with:selectionContext.chain|string|in:footnote,highlight,ai-response',
+                'selectionContext.chain.*.creator'         => 'nullable|string|max:100',
+                'selectionContext.chain.*.isAi'            => 'nullable|boolean',
+                'selectionContext.chain.*.label'           => 'nullable|string|max:200',
+                'selectionContext.chain.*.itemId'          => 'nullable|string|max:255',
+                'selectionContext.chain.*.subBookId'       => 'nullable|string|max:255',
+                'selectionContext.chainTruncated'          => 'nullable|boolean',
+                'selectionContext.immediateContainer'      => 'nullable|array',
+                'selectionContext.citations'               => 'nullable|array|max:8',
+                'selectionContext.citations.*.referenceId' => 'required_with:selectionContext.citations|string|max:100',
+                'selectionContext.citations.*.content'     => 'nullable|string|max:600',
+                'selectionContext.citations.*.title'       => 'nullable|string|max:300',
+                'selectionContext.citations.*.author'      => 'nullable|string|max:200',
+                'selectionContext.citations.*.year'        => 'nullable|string|max:20',
+                'selectionContext.hypercites'              => 'nullable|array|max:8',
+                'selectionContext.hypercites.*.hyperciteId'     => 'required_with:selectionContext.hypercites|string|max:100',
+                'selectionContext.hypercites.*.targetBook'      => 'required_with:selectionContext.hypercites|string|max:255',
+                'selectionContext.hypercites.*.hypercitedText'  => 'nullable|string|max:1000',
+                'selectionContext.hypercites.*.targetBookTitle' => 'nullable|string|max:300',
+                'selectionContext.hypercites.*.targetBookAuthor'=> 'nullable|string|max:200',
+                'selectionContext.hypercites.*.visibility'      => 'nullable|string|in:public,restricted',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -311,8 +355,13 @@ class AiBrainController extends Controller
 
                     $hasLocalContext = !empty($localContext);
                     $systemPrompt = $this->buildSystemPrompt($hasSearchTools, $allSameAuthor, $hasLocalContext);
+                    $readingContext = $this->readingContext->build(
+                        $validated['selectionContext'] ?? null,
+                        $this->resolveRootBookMeta($bookId),
+                        $user
+                    );
                     $userMessage = $this->buildUserMessage(
-                        $selectedText, $question, $localContext, $matches, $authorName, $bookTitle
+                        $selectedText, $question, $localContext, $matches, $authorName, $bookTitle, $readingContext
                     );
 
                     $promptParts = [];
@@ -569,6 +618,11 @@ question helpfully, drawing on your general knowledge where useful — e.g.
 explaining a word, comparing to other ideas, suggesting related authors,
 or giving background the passage assumes.
 
+A READING CONTEXT block may precede the passage, describing where it sits
+(inside a highlight / footnote / AI response, its author, the root book) and
+any citations or hypercite links it contains. Use it to read as an informed
+reader would — but treat it as framing only; never quote it back verbatim.
+
 Rules:
 - Format as HTML paragraphs using <p> tags. Use <em> for emphasis and
   <blockquote> for quoting back text.
@@ -577,7 +631,15 @@ Rules:
 - Don't fabricate citations or quotes that aren't there.
 - Keep responses focused — usually 1-4 paragraphs.
 PROMPT;
-        $userMessage = "SELECTED PASSAGE:\n{$selectedText}\n\nQUESTION:\n{$question}";
+        // Surrounding paragraph + selection framing — Quick Chat now reads the same
+        // local context the Archivist does (requirement: even Quick Chat should know
+        // the node the selection came from), plus the nesting/author/link preamble.
+        $rootMeta = $this->resolveRootBookMeta($bookId);
+        $localContext = $this->retrievalService->executeLocalContext($bookId, $validated['nodeIds']);
+        $readingContext = $this->readingContext->build($validated['selectionContext'] ?? null, $rootMeta, $user);
+        $userMessage = $this->buildUserMessage(
+            $selectedText, $question, $localContext, [], $rootMeta['author'], $rootMeta['title'], $readingContext
+        );
 
         $onRetry = function (int $attempt, int $maxAttempts, int $status) use ($sendEvent) {
             $sendEvent('status', ['message' => "Server busy — retrying ({$attempt}/{$maxAttempts})..."]);
@@ -740,9 +802,11 @@ PROMPT;
         ?\Closure $onRetry = null,
         ?\Closure $onFallback = null
     ): array {
-        $bookMeta = DB::table('library')->where('book', $bookId)->select('author', 'title', 'year')->first();
-        $authorName = $bookMeta->author ?? null;
-        $bookTitle = $bookMeta->title ?? 'Unknown';
+        // Resolve the ROOT book (foundation) so a sub-book selection still labels the
+        // passage with the real author/title rather than the sub-book's blank row.
+        $rootMeta = $this->resolveRootBookMeta($bookId);
+        $authorName = $rootMeta['author'] ?? null;
+        $bookTitle = $rootMeta['title'] ?? 'Unknown';
 
         $systemPrompt = <<<'PROMPT'
 You are an AI Archivist — a scholarly research assistant for the Hyperlit archive.
@@ -874,6 +938,9 @@ PROMPT;
      */
     private function buildSystemPrompt(bool $hasExternalSources, bool $allSameAuthor, bool $hasLocalContext = false): string
     {
+        // Shared note: how to treat the optional READING CONTEXT framing block.
+        $readingNote = "\n\nA READING CONTEXT block may precede the passage, describing where it sits (inside a highlight / footnote / AI response, its author, the root book's citation) and any citations or hypercite links it contains. Use it to read as an informed reader — treat it as framing only, never quote it back verbatim, and never treat a withheld/private link's contents as known.";
+
         if (!$hasExternalSources) {
             // Local context only — no external sources
             return <<<'PROMPT'
@@ -891,7 +958,8 @@ Rules:
 - Do NOT include headings (h1-h6) — the response will appear in a sub-book context
 - Do NOT wrap the entire response in a container div
 - Do NOT invent citations or reference works not in the provided context
-PROMPT;
+PROMPT
+                . $readingNote;
         }
 
         $base = <<<'PROMPT'
@@ -923,6 +991,8 @@ PROMPT;
             $base .= "\n- Highlight connections, developments, and continuities across the author's works";
         }
 
+        $base .= $readingNote;
+
         return $base;
     }
 
@@ -935,9 +1005,13 @@ PROMPT;
         array $localContext,
         array $matches,
         ?string $authorName,
-        string $bookTitle
+        string $bookTitle,
+        string $readingContext = ''
     ): string {
         $msg = '';
+        if ($readingContext !== '') {
+            $msg .= $readingContext . "\n\n";
+        }
         $preceding = '';
         $following = '';
 
@@ -1224,9 +1298,12 @@ PROMPT;
      */
     private function createResponseNodes(string $html, string $subBookId, int $startLineOffset = 0): array
     {
-        $paragraphs = preg_split('/(?<=<\/p>)\s*/', $html);
-        $paragraphs = array_filter($paragraphs, fn($p) => trim(strip_tags($p)) !== '');
-        $paragraphs = array_values($paragraphs);
+        // Split into clean top-level blocks. This lifts <blockquote>/<ul>/… OUT of
+        // <p> (LLMs nest them, which is invalid HTML — the browser then drops the
+        // quote and everything after it when the node renders). One block = one node.
+        $paragraphs = \App\Services\AiBrain\HtmlBlockSplitter::split($html);
+        // Drop blocks with no visible text (empty <p>/<blockquote> the model emitted).
+        $paragraphs = array_values(array_filter($paragraphs, fn($p) => trim(strip_tags($p)) !== ''));
 
         if (empty($paragraphs)) {
             $paragraphs = ['<p>' . $html . '</p>'];
@@ -1242,10 +1319,10 @@ PROMPT;
             $nodeId = (string) Str::uuid();
 
             if (!str_contains($paragraph, 'data-node-id')) {
-                if (preg_match('/^<p[\s>]/i', $paragraph)) {
-                    $paragraph = preg_replace('/^<p/i', '<p data-node-id="' . $nodeId . '"', $paragraph, 1);
-                } elseif (preg_match('/^<blockquote[\s>]/i', $paragraph)) {
-                    $paragraph = preg_replace('/^<blockquote/i', '<blockquote data-node-id="' . $nodeId . '"', $paragraph, 1);
+                // Inject the id into whatever the leading block tag is (p, blockquote,
+                // ul, …); only wrap in <p> when the fragment has no leading tag.
+                if (preg_match('/^<([a-zA-Z][a-zA-Z0-9]*)/', $paragraph, $m)) {
+                    $paragraph = preg_replace('/^<' . $m[1] . '/', '<' . $m[1] . ' data-node-id="' . $nodeId . '"', $paragraph, 1);
                 } else {
                     $paragraph = '<p data-node-id="' . $nodeId . '">' . $paragraph . '</p>';
                 }

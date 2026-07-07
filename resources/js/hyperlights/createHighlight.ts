@@ -21,6 +21,7 @@ import { reprocessHighlightsForNodes } from './deletion';
 import { generateHighlightID, openHighlightById } from './utils';
 import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements';
 import { withPending, addNewlyCreatedHighlight, removeNewlyCreatedHighlight } from '../utilities/operationState';
+import { verbose } from '../utilities/logger';
 
 // rangy is a global loaded via a <script> tag in the blade layout.
 declare const rangy: any;
@@ -183,6 +184,17 @@ export async function openBrainFromSelection(event: Event): Promise<void> {
 
   console.log('🧠 BrainMode: Creating highlight for bookId:', bookId, 'selectedText:', selectedText.substring(0, 50));
 
+  // Capture the selection's reading context NOW, while the live Range (and its
+  // un-mutated `<a>` anchors / ancestor marks) still exists — createHighlightHandler
+  // below runs rangy, which splits/wraps marks and destroys the fragment. Non-fatal.
+  let selectionContext: import('../hyperlitContainer/selectionContext').SelectionContext | undefined;
+  try {
+    const { buildSelectionContext } = await import('../hyperlitContainer/selectionContext');
+    if (range) selectionContext = await buildSelectionContext(range, asBookId(bookId));
+  } catch (e) {
+    verbose.content('BrainMode: selection context build failed (non-fatal)', '/hyperlights/createHighlight.ts', e);
+  }
+
   // Hide the hyperlight-buttons popup
   const hlButtons = document.getElementById('hyperlight-buttons');
   if (hlButtons) hlButtons.style.display = 'none';
@@ -226,7 +238,7 @@ export async function openBrainFromSelection(event: Event): Promise<void> {
     false,
     null as any,
     false,
-    { brainModeHighlightId: highlightId }
+    { brainModeHighlightId: highlightId, selectionContext }
   );
 }
 
