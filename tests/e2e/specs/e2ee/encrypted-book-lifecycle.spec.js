@@ -1,4 +1,15 @@
 import { test, expect } from '../../fixtures/navigation.fixture.js';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+
+// Vite dev origin (public/hot) for raw `.ts` imports — the app origin 404s for .ts modules.
+// Mirrors the vetted pattern in a11y/modal-surfaces.spec.js. Null in a built (CI) run.
+function viteOrigin() {
+  try { return readFileSync(join(HERE, '../../../../public/hot'), 'utf8').trim(); } catch { return null; }
+}
 
 /**
  * E2EE lifecycle, driven by REAL gestures with a CDP virtual authenticator
@@ -155,10 +166,23 @@ test.describe('E2EE encrypted book lifecycle', () => {
     expect(bookId).toMatch(/^book_/);
 
     // ── 3. Type a sentinel and let it sync ────────────────────────────
-    await page.locator('#editButton, [data-testid="edit-button"]').first().click().catch(() => {});
+    // Enter edit mode DETERMINISTICALLY: the editButton is dimmed (pointer-events:none) while a
+    // freshly-created book finishes background hydration, so a single click can no-op and leave
+    // window.isEditing false (then nothing types → the sentinel never lands). Wait for the button,
+    // click, and confirm isEditing — retry with a forced click if the first didn't take.
+    const editBtn = page.locator('#editButton, [data-testid="edit-button"]').first();
+    await expect(editBtn).toBeVisible({ timeout: 15_000 });
+    for (let attempt = 0; attempt < 3 && !(await page.evaluate(() => window.isEditing === true)); attempt++) {
+      await editBtn.click({ force: true }).catch(() => {});
+      await page.waitForFunction(() => window.isEditing === true, null, { timeout: 5_000 }).catch(() => {});
+    }
+    expect(await page.evaluate(() => window.isEditing === true), 'entered edit mode on the encrypted book').toBe(true);
+
     const firstNode = page.locator('.main-content h1').first();
     await firstNode.click();
     await page.keyboard.type(` ${SENTINEL}`);
+    // Confirm the edit actually landed in the DOM before relying on the sync.
+    await expect(firstNode).toContainText(SENTINEL, { timeout: 5_000 });
     // The debounced master sync fires at 3s; give it room + the beacon path
     await page.waitForTimeout(6_000);
     await page.evaluate(() => document.body.click()); // blur → flush edit pipeline
@@ -172,6 +196,22 @@ test.describe('E2EE encrypted book lifecycle', () => {
     }
     // And at least one payload actually carried ciphertext for it
     expect(bookRequests.some(({ body }) => body.includes('hlenc.v1.'))).toBe(true);
+
+    // Deterministically drain the encrypted edit pipeline to the SERVER before the fresh-device
+    // wipe. The fixed debounce waits above populate the wire-proof assertions, but the sentinel
+    // edit's debounced masterSync may not have landed server-side yet — without this the fresh-device
+    // load renders the pre-edit (empty) title and the sentinel assertion flakes. Best-effort via the
+    // app's real flush capability (raw-vite import; dev-server only, skipped in a built CI run).
+    try {
+      const hot = viteOrigin();
+      if (hot) {
+        await page.evaluate(async (origin) => {
+          const { flushAllPendingEdits } = await import(`${origin}/resources/js/indexedDB/serverSync/flush.ts`);
+          await flushAllPendingEdits();
+        }, hot);
+        await page.waitForTimeout(1_500);
+      }
+    } catch { /* best-effort — fall through to the fixed-wait behaviour */ }
 
     // ── 5. Fresh-device simulation: wipe local state, reload, unlock ──
     await page.evaluate(async () => {

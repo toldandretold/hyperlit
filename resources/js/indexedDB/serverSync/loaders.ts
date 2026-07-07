@@ -73,10 +73,10 @@ async function batchedWrite<T>(
 /**
  * Load nodes into IndexedDB
  */
-export async function loadNodesToIndexedDB(db: IDBDatabase, nodes: ServerNodeRow[] | undefined): Promise<void> {
+export async function loadNodesToIndexedDB(db: IDBDatabase, nodes: ServerNodeRow[] | undefined): Promise<NodeRecord[]> {
   if (!nodes || nodes.length === 0) {
     verbose.content('No nodes to load', 'serverSync/loaders');
-    return;
+    return [];
   }
 
   verbose.content(`Loading ${nodes.length} nodes`, 'serverSync/loaders');
@@ -151,6 +151,11 @@ export async function loadNodesToIndexedDB(db: IDBDatabase, nodes: ServerNodeRow
   }
 
   verbose.content(`Loaded ${nodes.length} nodes (${chunksWithHighlights} with highlights, ${userHighlightCount} user highlights)`, 'serverSync/loaders');
+
+  // Return the DECRYPTED, processed records so callers (fetchInitialChunk) can render from
+  // plaintext. The input `nodes` (raw server rows) stays ciphertext for an encrypted book —
+  // returning it as window.nodes rendered hlenc.v1 blobs (empty content) on fresh-device load.
+  return finalRecords;
 }
 
 /**

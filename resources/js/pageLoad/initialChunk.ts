@@ -57,7 +57,7 @@ export async function fetchInitialChunk(bookId: string): Promise<any> {
         // Clear stale data for this book to prevent duplicate node_ids
         // (server may have renumbered startLines since last cache)
         await clearBookDataFromIndexedDB(db, bookId);
-        await Promise.allSettled([
+        const [nodesResult] = await Promise.allSettled([
             loadNodesToIndexedDB(db, data.initial_chunk),
             loadFootnotesToIndexedDB(db, data.footnotes),
             loadLibraryToIndexedDB(db, data.library),
@@ -65,6 +65,16 @@ export async function fetchInitialChunk(bookId: string): Promise<any> {
             loadHyperlightsToIndexedDB(db, data.hyperlights),
             loadHypercitesToIndexedDB(db, data.hypercites),
         ]);
+
+        // The reader renders from the returned `nodes` (→ window.nodes). Use the DECRYPTED,
+        // processed records that loadNodesToIndexedDB returns — NOT the raw `data.initial_chunk`,
+        // which for an ENCRYPTED book is still ciphertext (loadNodesToIndexedDB decrypts a COPY for
+        // IDB). Returning the raw ciphertext rendered hlenc.v1 blobs as empty content on fresh-device
+        // load (IDB was plaintext, the DOM was blank). Fall back to the raw rows only if the loader
+        // rejected (plaintext books are unaffected either way).
+        const decryptedNodes = nodesResult.status === 'fulfilled' && nodesResult.value?.length
+            ? nodesResult.value
+            : (data.initial_chunk || []);
 
         verbose.content(
             `Initial chunk loaded: chunk ${data.target_chunk_id}, ` +
@@ -75,7 +85,7 @@ export async function fetchInitialChunk(bookId: string): Promise<any> {
 
         return {
             success: true,
-            nodes: data.initial_chunk || [],
+            nodes: decryptedNodes,
             chunkManifest: data.chunk_manifest || [],
             targetChunkId: data.target_chunk_id,
             targetResolved: data.target_resolved !== false, // default true for backward compat
