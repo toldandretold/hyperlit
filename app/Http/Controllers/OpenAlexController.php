@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Log;
 use App\Services\OpenAlexService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class OpenAlexController extends Controller
 {
@@ -18,7 +18,7 @@ class OpenAlexController extends Controller
     public function search(Request $request)
     {
         $request->validate([
-            'q'     => 'required|string|min:2',
+            'q' => 'required|string|min:2',
             'limit' => 'integer|min:1|max:20',
         ]);
 
@@ -31,16 +31,17 @@ class OpenAlexController extends Controller
             return response()->json([
                 'success' => true,
                 'results' => $results,
-                'query'   => $query,
-                'source'  => 'openalex',
-                'count'   => count($results),
+                'query' => $query,
+                'source' => 'openalex',
+                'count' => count($results),
             ]);
         } catch (\Exception $e) {
-            Log::error('OpenAlex search failed: ' . $e->getMessage());
+            Log::error('OpenAlex search failed: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'OpenAlex search failed',
-                'error'   => config('app.debug') ? $e->getMessage() : null,
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -62,17 +63,18 @@ class OpenAlexController extends Controller
             $results = $this->openAlex->fetchFromOpenAlex($extractedTitle, 5);
 
             return response()->json([
-                'success'         => true,
-                'candidates'      => array_slice($results, 0, 3),
+                'success' => true,
+                'candidates' => array_slice($results, 0, 3),
                 'extracted_title' => $extractedTitle,
-                'raw'             => $raw,
+                'raw' => $raw,
             ]);
         } catch (\Exception $e) {
-            Log::error('OpenAlex lookup-citation failed: ' . $e->getMessage());
+            Log::error('OpenAlex lookup-citation failed: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Citation lookup failed',
-                'error'   => config('app.debug') ? $e->getMessage() : null,
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -84,7 +86,7 @@ class OpenAlexController extends Controller
     public function saveToLibrary(Request $request): JsonResponse
     {
         $request->validate([
-            'openalex_id' => 'required|string|max:30',
+            'openalex_id' => 'required|string|max:30|regex:/^[WwAa]\d+$/',
         ]);
 
         $openalexId = $request->input('openalex_id');
@@ -94,20 +96,21 @@ class OpenAlexController extends Controller
         if ($existing) {
             return response()->json([
                 'success' => true,
-                'book'    => $existing->book,
-                'bibtex'  => $existing->bibtex,
+                'book' => $existing->book,
+                'bibtex' => $existing->bibtex,
             ]);
         }
 
         try {
             $response = \Illuminate\Support\Facades\Http::withHeaders([
                 'User-Agent' => OpenAlexService::USER_AGENT,
-            ])->get(OpenAlexService::BASE_URL . '/works/' . $openalexId, [
+            ])->get(OpenAlexService::BASE_URL.'/works/'.$openalexId, [
                 'select' => OpenAlexService::SELECT_FIELDS,
             ]);
 
-            if (!$response->successful()) {
-                Log::warning('OpenAlex /works/' . $openalexId . ' returned ' . $response->status());
+            if (! $response->successful()) {
+                Log::warning('OpenAlex /works/'.$openalexId.' returned '.$response->status());
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Could not fetch work from OpenAlex',
@@ -116,7 +119,8 @@ class OpenAlexController extends Controller
 
             $work = $response->json();
         } catch (\Exception $e) {
-            Log::error('OpenAlex saveToLibrary fetch failed: ' . $e->getMessage());
+            Log::error('OpenAlex saveToLibrary fetch failed: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to reach OpenAlex',
@@ -126,7 +130,7 @@ class OpenAlexController extends Controller
         $normalised = $this->openAlex->normaliseWork($work);
         $bookId = $this->openAlex->createOrFindStub($normalised);
 
-        if (!$bookId) {
+        if (! $bookId) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create library stub',
@@ -135,8 +139,8 @@ class OpenAlexController extends Controller
 
         return response()->json([
             'success' => true,
-            'book'    => $bookId,
-            'bibtex'  => $normalised['bibtex'],
+            'book' => $bookId,
+            'bibtex' => $normalised['bibtex'],
         ]);
     }
 }

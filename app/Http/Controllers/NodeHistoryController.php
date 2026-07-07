@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PgNode;
 use App\Models\PgLibrary;
+use App\Models\PgNode;
 use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
 
 class NodeHistoryController extends Controller
 {
@@ -20,12 +20,12 @@ class NodeHistoryController extends Controller
         $user = Auth::user();
         $book = PgLibrary::where('book', $bookId)->first();
 
-        if (!$book) {
+        if (! $book) {
             return false;
         }
 
         // If book is public and we don't require ownership, allow read access
-        if (!$requireOwnership && $book->visibility === 'public') {
+        if (! $requireOwnership && $book->visibility === 'public') {
             return true;
         }
 
@@ -33,9 +33,13 @@ class NodeHistoryController extends Controller
             // Logged in user - check they own the book
             return $book->creator === $user->name;
         } else {
-            // Anonymous user - check token
+            // Anonymous user - check token (constant-time to prevent timing attacks)
             $anonymousToken = $request->cookie('anon_token');
-            return $book->creator_token === $anonymousToken && is_null($book->creator);
+
+            return $book->creator_token
+                && $anonymousToken
+                && is_null($book->creator)
+                && hash_equals((string) $book->creator_token, (string) $anonymousToken);
         }
     }
 
@@ -46,10 +50,10 @@ class NodeHistoryController extends Controller
      */
     public function getSnapshots(Request $request, string $book)
     {
-        if (!$this->checkBookPermission($request, $book, false)) {
+        if (! $this->checkBookPermission($request, $book, false)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Access denied'
+                'message' => 'Access denied',
             ], 403);
         }
 
@@ -111,19 +115,18 @@ class NodeHistoryController extends Controller
             return response()->json([
                 'success' => true,
                 'snapshots' => $snapshots,
-                'count' => count($snapshots)
+                'count' => count($snapshots),
             ]);
 
         } catch (\Exception $e) {
             Log::error('Failed to get snapshots', [
                 'book' => $book,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve snapshots',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -135,25 +138,25 @@ class NodeHistoryController extends Controller
      */
     public function getNodeHistory(Request $request, string $book, string $nodeId)
     {
-        if (!$this->checkBookPermission($request, $book, false)) {
+        if (! $this->checkBookPermission($request, $book, false)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Access denied'
+                'message' => 'Access denied',
             ], 403);
         }
 
         try {
             // Get all versions: current + historical
-            $history = DB::select("
+            $history = DB::select('
                 -- Current version (if exists)
                 SELECT
                     id,
                     book,
                     node_id,
-                    \"startLine\",
+                    "startLine",
                     chunk_id,
                     content,
-                    \"plainText\",
+                    "plainText",
                     type,
                     raw_json,
                     footnotes,
@@ -173,10 +176,10 @@ class NodeHistoryController extends Controller
                     id,
                     book,
                     node_id,
-                    \"startLine\",
+                    "startLine",
                     chunk_id,
                     content,
-                    \"plainText\",
+                    "plainText",
                     type,
                     raw_json,
                     footnotes,
@@ -190,27 +193,26 @@ class NodeHistoryController extends Controller
                 WHERE book = ? AND node_id = ?
 
                 ORDER BY valid_from DESC
-            ", [$book, $nodeId, $book, $nodeId]);
+            ', [$book, $nodeId, $book, $nodeId]);
 
             return response()->json([
                 'success' => true,
                 'book' => $book,
                 'node_id' => $nodeId,
                 'versions' => $history,
-                'total_versions' => count($history)
+                'total_versions' => count($history),
             ]);
 
         } catch (\Exception $e) {
             Log::error('Failed to get node history', [
                 'book' => $book,
                 'node_id' => $nodeId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve history',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -222,25 +224,25 @@ class NodeHistoryController extends Controller
      */
     public function getNodeAtTimestamp(Request $request, string $book, string $nodeId, string $timestamp)
     {
-        if (!$this->checkBookPermission($request, $book, false)) {
+        if (! $this->checkBookPermission($request, $book, false)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Access denied'
+                'message' => 'Access denied',
             ], 403);
         }
 
         try {
             // Query for the version that was active at that timestamp
-            $node = DB::selectOne("
+            $node = DB::selectOne('
                 -- Check current version first
                 SELECT
                     id,
                     book,
                     node_id,
-                    \"startLine\",
+                    "startLine",
                     chunk_id,
                     content,
-                    \"plainText\",
+                    "plainText",
                     type,
                     raw_json,
                     footnotes,
@@ -260,10 +262,10 @@ class NodeHistoryController extends Controller
                     id,
                     book,
                     node_id,
-                    \"startLine\",
+                    "startLine",
                     chunk_id,
                     content,
-                    \"plainText\",
+                    "plainText",
                     type,
                     raw_json,
                     footnotes,
@@ -277,19 +279,19 @@ class NodeHistoryController extends Controller
                 AND sys_period @> ?::timestamptz
 
                 LIMIT 1
-            ", [$book, $nodeId, $timestamp, $book, $nodeId, $timestamp]);
+            ', [$book, $nodeId, $timestamp, $book, $nodeId, $timestamp]);
 
-            if (!$node) {
+            if (! $node) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Node did not exist at the specified timestamp'
+                    'message' => 'Node did not exist at the specified timestamp',
                 ], 404);
             }
 
             return response()->json([
                 'success' => true,
                 'node' => $node,
-                'queried_timestamp' => $timestamp
+                'queried_timestamp' => $timestamp,
             ]);
 
         } catch (\Exception $e) {
@@ -297,13 +299,12 @@ class NodeHistoryController extends Controller
                 'book' => $book,
                 'node_id' => $nodeId,
                 'timestamp' => $timestamp,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve node',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -315,10 +316,10 @@ class NodeHistoryController extends Controller
      */
     public function getBookAtTimestamp(Request $request, string $book, string $timestamp)
     {
-        if (!$this->checkBookPermission($request, $book, false)) {
+        if (! $this->checkBookPermission($request, $book, false)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Access denied'
+                'message' => 'Access denied',
             ], 403);
         }
 
@@ -352,20 +353,19 @@ class NodeHistoryController extends Controller
                 'book' => $book,
                 'timestamp' => $timestamp,
                 'nodes' => $nodes,
-                'node_count' => count($nodes)
+                'node_count' => count($nodes),
             ]);
 
         } catch (\Exception $e) {
             Log::error('Failed to get book at timestamp', [
                 'book' => $book,
                 'timestamp' => $timestamp,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve book state',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -377,10 +377,10 @@ class NodeHistoryController extends Controller
      */
     public function getRecentChanges(Request $request, string $book)
     {
-        if (!$this->checkBookPermission($request, $book)) {
+        if (! $this->checkBookPermission($request, $book)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Access denied'
+                'message' => 'Access denied',
             ], 403);
         }
 
@@ -388,12 +388,12 @@ class NodeHistoryController extends Controller
 
         try {
             // Get recent changes from history, ordered by when they were superseded
-            $changes = DB::select("
+            $changes = DB::select('
                 SELECT
                     history_id,
                     id as original_id,
                     node_id,
-                    \"startLine\",
+                    "startLine",
                     LEFT(content, 200) as content_preview,
                     type,
                     lower(sys_period) as valid_from,
@@ -402,25 +402,24 @@ class NodeHistoryController extends Controller
                 WHERE book = ?
                 ORDER BY upper(sys_period) DESC
                 LIMIT ?
-            ", [$book, $limit]);
+            ', [$book, $limit]);
 
             return response()->json([
                 'success' => true,
                 'book' => $book,
                 'changes' => $changes,
-                'count' => count($changes)
+                'count' => count($changes),
             ]);
 
         } catch (\Exception $e) {
             Log::error('Failed to get recent changes', [
                 'book' => $book,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve changes',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -434,41 +433,41 @@ class NodeHistoryController extends Controller
      */
     public function restoreNodeVersion(Request $request, string $book, string $nodeId)
     {
-        if (!$this->checkBookPermission($request, $book)) {
+        if (! $this->checkBookPermission($request, $book)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Access denied'
+                'message' => 'Access denied',
             ], 403);
         }
 
         $historyId = $request->input('history_id');
         $timestamp = $request->input('timestamp');
 
-        if (!$historyId && !$timestamp) {
+        if (! $historyId && ! $timestamp) {
             return response()->json([
                 'success' => false,
-                'message' => 'Either history_id or timestamp is required'
+                'message' => 'Either history_id or timestamp is required',
             ], 400);
         }
 
         try {
             // Get the historical version to restore
             if ($historyId) {
-                $historicalNode = DB::selectOne("
+                $historicalNode = DB::selectOne('
                     SELECT * FROM nodes_history
                     WHERE history_id = ? AND book = ? AND node_id = ?
-                ", [$historyId, $book, $nodeId]);
+                ', [$historyId, $book, $nodeId]);
             } else {
-                $historicalNode = DB::selectOne("
+                $historicalNode = DB::selectOne('
                     SELECT * FROM nodes_history
                     WHERE book = ? AND node_id = ? AND sys_period @> ?::timestamptz
-                ", [$book, $nodeId, $timestamp]);
+                ', [$book, $nodeId, $timestamp]);
             }
 
-            if (!$historicalNode) {
+            if (! $historicalNode) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Historical version not found'
+                    'message' => 'Historical version not found',
                 ], 404);
             }
 
@@ -521,14 +520,14 @@ class NodeHistoryController extends Controller
                 'node_id' => $nodeId,
                 'history_id' => $historyId,
                 'timestamp' => $timestamp,
-                'action' => $action
+                'action' => $action,
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => "Node {$action} from historical version",
                 'action' => $action,
-                'restored_from' => $historyId ? "history_id: {$historyId}" : "timestamp: {$timestamp}"
+                'restored_from' => $historyId ? "history_id: {$historyId}" : "timestamp: {$timestamp}",
             ]);
 
         } catch (\Exception $e) {
@@ -537,13 +536,12 @@ class NodeHistoryController extends Controller
                 'node_id' => $nodeId,
                 'history_id' => $historyId,
                 'timestamp' => $timestamp,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to restore node',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -557,22 +555,22 @@ class NodeHistoryController extends Controller
      */
     public function getTimeMachineData(Request $request, string $book)
     {
-        if (!$this->checkBookPermission($request, $book, false)) {
+        if (! $this->checkBookPermission($request, $book, false)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Access denied'
+                'message' => 'Access denied',
             ], 403);
         }
 
         $timestamp = $request->query('at');
-        if (!$timestamp) {
+        if (! $timestamp) {
             return response()->json([
                 'success' => false,
-                'message' => 'Missing "at" query parameter'
+                'message' => 'Missing "at" query parameter',
             ], 400);
         }
 
-        $virtualBookId = $book . '/timemachine';
+        $virtualBookId = $book.'/timemachine';
 
         try {
             // Get all nodes as they were at the timestamp (same query as getBookAtTimestamp)
@@ -599,52 +597,52 @@ class NodeHistoryController extends Controller
             if (empty($nodes)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No nodes found at the specified timestamp'
+                    'message' => 'No nodes found at the specified timestamp',
                 ], 404);
             }
 
             // Rewrite each node's book field to the virtual book ID and add empty annotations
             $processedNodes = array_map(function ($node) use ($virtualBookId) {
                 return [
-                    'book'      => $virtualBookId,
-                    'chunk_id'  => (int) $node->chunk_id,
+                    'book' => $virtualBookId,
+                    'chunk_id' => (int) $node->chunk_id,
                     'startLine' => (int) $node->startLine,
-                    'node_id'   => $node->node_id,
-                    'content'   => $node->content,
+                    'node_id' => $node->node_id,
+                    'content' => $node->content,
                     'plainText' => $node->plainText,
-                    'type'      => $node->type,
+                    'type' => $node->type,
                     'footnotes' => $node->footnotes,
-                    'hypercites'=> [],
-                    'hyperlights'=> [],
-                    'raw_json'  => $node->raw_json,
+                    'hypercites' => [],
+                    'hyperlights' => [],
+                    'raw_json' => $node->raw_json,
                 ];
             }, $nodes);
 
             // Get the parent book's library record for title
             $parentLibrary = PgLibrary::where('book', $book)->first();
-            $title = $parentLibrary ? ($parentLibrary->title . ' (Version History)') : 'Version History';
+            $title = $parentLibrary ? ($parentLibrary->title.' (Version History)') : 'Version History';
 
             // Build synthetic library record
             $library = [
-                'book'       => $virtualBookId,
-                'title'      => $title,
-                'timestamp'  => time(),
-                'creator'    => $parentLibrary->creator ?? null,
+                'book' => $virtualBookId,
+                'title' => $title,
+                'timestamp' => time(),
+                'creator' => $parentLibrary->creator ?? null,
                 'visibility' => 'private',
-                'is_owner'   => true,
+                'is_owner' => true,
             ];
 
             return response()->json([
-                'nodes'        => $processedNodes,
-                'footnotes'    => ['book' => $virtualBookId, 'data' => []],
+                'nodes' => $processedNodes,
+                'footnotes' => ['book' => $virtualBookId, 'data' => []],
                 'bibliography' => ['book' => $virtualBookId, 'data' => []],
-                'hyperlights'  => [],
-                'hypercites'   => [],
-                'library'      => $library,
-                'metadata'     => [
-                    'book_id'       => $virtualBookId,
-                    'total_chunks'  => count($processedNodes),
-                    'generated_at'  => now()->toIso8601String(),
+                'hyperlights' => [],
+                'hypercites' => [],
+                'library' => $library,
+                'metadata' => [
+                    'book_id' => $virtualBookId,
+                    'total_chunks' => count($processedNodes),
+                    'generated_at' => now()->toIso8601String(),
                 ],
             ]);
 
@@ -652,13 +650,12 @@ class NodeHistoryController extends Controller
             Log::error('Failed to get time machine data', [
                 'book' => $book,
                 'timestamp' => $timestamp,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve time machine data',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -671,19 +668,19 @@ class NodeHistoryController extends Controller
      */
     public function restoreBookToTimestamp(Request $request, string $book)
     {
-        if (!$this->checkBookPermission($request, $book)) {
+        if (! $this->checkBookPermission($request, $book)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Access denied'
+                'message' => 'Access denied',
             ], 403);
         }
 
         $timestamp = $request->input('timestamp');
 
-        if (!$timestamp) {
+        if (! $timestamp) {
             return response()->json([
                 'success' => false,
-                'message' => 'timestamp is required'
+                'message' => 'timestamp is required',
             ], 400);
         }
 
@@ -694,25 +691,24 @@ class NodeHistoryController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => "Book restored to state at {$timestamp}",
-                'nodes_restored' => $restored
+                'nodes_restored' => $restored,
             ]);
 
         } catch (\RuntimeException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'No nodes found at the specified timestamp'
+                'message' => 'No nodes found at the specified timestamp',
             ], 404);
         } catch (\Exception $e) {
             Log::error('Failed to restore book to timestamp', [
                 'book' => $book,
                 'timestamp' => $timestamp,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to restore book',
-                'error' => $e->getMessage()
             ], 500);
         }
     }

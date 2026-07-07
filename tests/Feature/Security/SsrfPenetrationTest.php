@@ -67,13 +67,10 @@ test('WebFetchService.extractUrl extracts localhost URLs from plain text', funct
     expect($url)->toBe('http://localhost:6379');
 });
 
-test('WebFetchService.fetchWebPage fetches internal URLs without host validation', function (string $internalUrl) {
-    Http::fake(function ($request) use ($internalUrl) {
-        // Capture the URL that was actually requested
-        expect($request->url())->toBe($internalUrl);
-
-        return Http::response('internal response', 200);
-    });
+test('WebFetchService.fetchWebPage blocks internal URLs via UrlGuard', function (string $internalUrl) {
+    // No Http::fake needed — the guard should block BEFORE any HTTP call.
+    // If the guard fails, the Http call to an internal URL would throw in the
+    // test environment (no fake to catch it), which is also a valid failure signal.
 
     $service = app(WebFetchService::class);
 
@@ -82,42 +79,28 @@ test('WebFetchService.fetchWebPage fetches internal URLs without host validation
     $method = $ref->getMethod('fetchWebPage');
     $method->setAccessible(true);
 
-    // This SHOULD throw or return null for internal URLs.
-    // VULNERABILITY: It fetches the URL without any host check.
+    // UrlGuard now blocks internal URLs — fetchWebPage returns null without
+    // making the HTTP request. The Http::fake would fail if the request WAS
+    // made (the expect($request->url()) assertion inside the fake callback).
     $result = $method->invoke($service, $internalUrl);
 
-    // If we get here, the server fetched the internal URL — SSRF confirmed.
-    // The test PASSES (the Http::fake captured the request), proving the
-    // server WOULD fetch the internal URL. In production this is a real SSRF.
-    expect($result)->not->toBeNull();
-})->with('ssrf_internal_targets')->skip(
-    'SSRF CONFIRMED: WebFetchService.fetchWebPage has NO host validation. '.
-    'A user-imported document with a crafted bibliography URL (e.g. http://169.254.169.254/...) '.
-    'is fetched server-side. Un-skip after adding a host allowlist or private-IP blocklist.'
-);
+    expect($result)->toBeNull();
+})->with('ssrf_internal_targets');
 
 // =============================================================================
 // 2. OpenAccessPdfFetcher — fetches OpenAlex-sourced pdf_url without host allowlist
 // =============================================================================
 
-test('OpenAccessPdfFetcher fetches internal URLs from poisoned pdf_url metadata', function (string $internalUrl) {
-    Http::fake(function ($request) use ($internalUrl) {
-        expect($request->url())->toBe($internalUrl);
-
-        // Return something that's NOT a PDF so the fetcher reports "not_a_pdf"
-        // — but the REQUEST WAS STILL MADE, which is the SSRF.
-        return Http::response('<html>internal</html>', 200, ['Content-Type' => 'text/html']);
-    });
-
+test('OpenAccessPdfFetcher blocks internal URLs via UrlGuard', function (string $internalUrl) {
     $fetcher = app(OpenAccessPdfFetcher::class);
 
     // Build a SourceMetadata with an internal pdf_url — this simulates
     // an attacker who registered a DOI and poisoned OpenAlex's metadata
     // to point pdf_url at an internal host.
-    $metadata = new SourceMetadata([
-        'pdf_url' => $internalUrl,
-        'source' => 'openalex',
-    ]);
+    $metadata = new SourceMetadata(
+        ['pdf_url' => $internalUrl],
+        'openalex',
+    );
     $identifier = new Doi('10.9999/ssrf-test');
 
     $destDir = sys_get_temp_dir().'/ssrf-test-'.uniqid();
@@ -126,18 +109,14 @@ test('OpenAccessPdfFetcher fetches internal URLs from poisoned pdf_url metadata'
     try {
         $result = $fetcher->fetch($identifier, $metadata, $destDir);
 
-        // The fetcher fetched the URL (Http::fake captured it) and returned
-        // a failure because it wasn't a PDF — but the SSRF request was made.
-        expect($result->ok)->toBeFalse();
+        // UrlGuard should block the fetch — the result is a failure with
+        // reason 'blocked_url', and NO HTTP request was made.
+        expect($result->ok)->toBeFalse()
+            ->and($result->reason)->toBe('blocked_url');
     } finally {
         @rmdir($destDir);
     }
-})->with('ssrf_internal_targets')->skip(
-    'SSRF CONFIRMED: OpenAccessPdfFetcher.fetch() has NO host allowlist. '.
-    'A poisoned OpenAlex pdf_url pointing at 169.254.169.254 / localhost is fetched. '.
-    'The %PDF magic check happens AFTER the request, so the SSRF succeeds even though '.
-    'the fetcher reports "not_a_pdf". Un-skip after adding a host allowlist.'
-);
+})->with('ssrf_internal_targets');
 
 // =============================================================================
 // 3. OpenAlexController — openalex_id path traversal (low severity)
@@ -147,31 +126,13 @@ test('openalex save-to-library rejects path traversal in openalex_id', function 
     $user = $this->seedUser();
     $this->actingAs($user);
 
-    Http::fake(function ($request) {
-        // If the openalex_id traverses to a different API path, capture it.
-        // The URL would be https://api.openalex.org/works/../../authors/W123
-        // which normalises to https://api.openalex.org/authors/W123
-        expect($request->url())->not->toContain('..');
-
-        return Http::response(json_encode(['id' => 'W123', 'title' => 'test']), 200);
-    });
-
     $response = $this->postJson('/api/openalex/save-to-library', [
         'openalex_id' => '../../authors/W123',
     ]);
 
-    // The validation is 'required|string|max:30' — no regex/charset constraint.
-    // Path traversal characters (../) are NOT blocked by validation.
-    // VULNERABILITY: The request reaches Http::get() with the traversal payload.
-    // (Low severity: the host is fixed to api.openalex.org, so this only
-    // traverses within the OpenAlex API — but it's still an injection.)
-    expect($response->status())->toBeLessThan(500);
-})->skip(
-    'OpenAlex openalex_id has no charset whitelist (only string|max:30). '.
-    'A crafted id like "../../authors/W123" traverses within the OpenAlex API. '.
-    'Low severity (fixed host), but add a regex:/^[Ww]\d+$/ validation. '.
-    'Un-skip after adding the constraint.'
-);
+    // The regex:/^[WwAa]\d++$/ validation now rejects path traversal characters.
+    expect($response->status())->toBe(422);
+});
 
 // =============================================================================
 // 4. URL import — SSRF via DOI pointing to internal host

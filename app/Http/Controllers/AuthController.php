@@ -5,14 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -23,12 +23,11 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        if (!Auth::attempt($request->only('email', 'password'), true)) {
+        if (! Auth::attempt($request->only('email', 'password'), true)) {
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
         }
-
 
         // Check for anonymous content to transfer
         $anonymousContent = $this->checkAnonymousContent($request);
@@ -119,14 +118,14 @@ class AuthController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Logout successful'
+                'message' => 'Logout successful',
             ]);
         } catch (\Exception $e) {
-            \Log::error('Logout error: ' . $e->getMessage());
-            
+            \Log::error('Logout error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Logout failed: ' . $e->getMessage()
+                'message' => 'Logout failed: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -135,7 +134,7 @@ class AuthController extends Controller
     {
         return response()->json([
             'authenticated' => Auth::check(),
-            'user' => Auth::user()
+            'user' => Auth::user(),
         ]);
     }
 
@@ -144,9 +143,6 @@ class AuthController extends Controller
     // boot path depends on `{token, type}` plus the HttpOnly anon_token cookie.
     public function createAnonymousSession(Request $request)
     {
-        $maxTokensPerHour = 10;
-        $ip = $request->ip();
-
         // Check if user already has a valid anonymous session (outside transaction)
         $existingToken = $request->cookie('anon_token');
 
@@ -158,9 +154,9 @@ class AuthController extends Controller
             // SECURITY: Log if IP changed significantly (potential token theft)
             if ($session && $session->ip_address && $session->ip_address !== $request->ip()) {
                 Log::info('Anonymous session IP changed', [
-                    'token_prefix' => substr($existingToken, 0, 8) . '...',
+                    'token_prefix' => substr($existingToken, 0, 8).'...',
                     'original_ip' => $session->ip_address,
-                    'current_ip' => $request->ip()
+                    'current_ip' => $request->ip(),
                 ]);
             }
 
@@ -171,70 +167,35 @@ class AuthController extends Controller
 
             return response()->json([
                 'token' => $existingToken,
-                'type' => 'existing'
+                'type' => 'existing',
             ]);
         }
 
         // 🔒 SECURITY: Cache-based rate limiting (works with RLS)
         // Using cache instead of DB count because RLS restricts visibility to own sessions only
-        try {
-            $rateLimitKey = 'anon_session_rate:' . $ip;
-            $currentCount = Cache::get($rateLimitKey, 0);
+        $token = $this->createAnonymousToken($request);
 
-            if ($currentCount >= $maxTokensPerHour) {
-                Log::warning('Anonymous token rate limit exceeded', [
-                    'ip' => $ip,
-                    'count' => $currentCount
-                ]);
-                return response()->json([
-                    'error' => 'Too many session requests. Please try again later.'
-                ], 429);
-            }
-
-            // Increment rate limit counter (expires after 1 hour)
-            Cache::put($rateLimitKey, $currentCount + 1, 3600);
-
-            // Generate and insert new token
-            $token = Str::uuid()->toString();
-
-            DB::table('anonymous_sessions')->insert([
-                'token' => $token,
-                'created_at' => now(),
-                'last_used_at' => now(),
-                'ip_address' => $ip,
-                'user_agent' => substr($request->userAgent() ?? '', 0, 500),
-            ]);
-
-            Log::info('New anonymous session created', [
-                'token_prefix' => substr($token, 0, 8) . '...',
-                'ip' => $ip
-            ]);
-
-            // 🔒 SECURITY: Set HttpOnly and other security flags on cookie
+        if ($token === null) {
             return response()->json([
-                'token' => $token,
-                'type' => 'new'
-            ])->cookie(
-                'anon_token',
-                $token,
-                60 * 24 * 90,  // 90 days (standardized expiration)
-                '/',
-                config('session.domain'),
-                config('session.secure'),
-                true,  // 🔒 HttpOnly - prevents XSS token theft
-                false,
-                'lax'  // SameSite
-            );
-
-        } catch (\Exception $e) {
-            Log::error('Failed to create anonymous session', [
-                'ip' => $ip,
-                'error' => $e->getMessage()
-            ]);
-            return response()->json([
-                'error' => 'Failed to create session. Please try again.'
-            ], 500);
+                'error' => 'Too many session requests. Please try again later.',
+            ], 429);
         }
+
+        // 🔒 SECURITY: Set HttpOnly and other security flags on cookie
+        return response()->json([
+            'token' => $token,
+            'type' => 'new',
+        ])->cookie(
+            'anon_token',
+            $token,
+            60 * 24 * 90,  // 90 days (standardized expiration)
+            '/',
+            config('session.domain'),
+            config('session.secure'),
+            true,  // 🔒 HttpOnly - prevents XSS token theft
+            false,
+            'lax'  // SameSite
+        );
     }
 
     // Response shape pinned by tests/Feature/Api/AuthApiContractTest.php — the SPA
@@ -245,10 +206,10 @@ class AuthController extends Controller
             return response()->json([
                 'authenticated' => true,
                 'user' => Auth::user(),
-                'anonymous_token' => null
+                'anonymous_token' => null,
             ]);
         }
-        
+
         // Check for valid anonymous session
         $anonToken = $request->cookie('anon_token');
         if ($anonToken && $this->isValidAnonymousToken($anonToken, $request)) {
@@ -256,39 +217,41 @@ class AuthController extends Controller
             DB::table('anonymous_sessions')
                 ->where('token', $anonToken)
                 ->update(['last_used_at' => now()]);
-                
+
             return response()->json([
                 'authenticated' => false,
                 'user' => null,
-                'anonymous_token' => $anonToken
+                'anonymous_token' => $anonToken,
             ]);
         }
-        
+
         // Instead of returning 401, return that no session exists
         // The frontend will then call /anonymous-session to create one
         return response()->json([
             'authenticated' => false,
             'user' => null,
-            'anonymous_token' => null
+            'anonymous_token' => null,
         ], 200); // Changed from 401 to 200
     }
 
     // 🔒 SECURITY: Standardized token expiration (90 days)
     private const TOKEN_EXPIRY_DAYS = 90;
+
     private const TOKEN_VALIDATION_RATE_LIMIT = 30; // max attempts per minute per IP
 
     private function isValidAnonymousToken($token, ?Request $request = null)
     {
         // 🔒 SECURITY: Rate limit token validation to prevent brute force attacks
         if ($request) {
-            $rateLimitKey = 'token_validation:' . $request->ip();
+            $rateLimitKey = 'token_validation:'.$request->ip();
             $attempts = Cache::get($rateLimitKey, 0);
 
             if ($attempts >= self::TOKEN_VALIDATION_RATE_LIMIT) {
                 Log::warning('Token validation rate limit exceeded', [
                     'ip' => $request->ip(),
-                    'attempts' => $attempts
+                    'attempts' => $attempts,
                 ]);
+
                 return false; // Silently fail - don't reveal that rate limiting occurred
             }
 
@@ -304,6 +267,58 @@ class AuthController extends Controller
         );
 
         return $result->valid ?? false;
+    }
+
+    /**
+     * Create a new anonymous session token with cache-based rate limiting.
+     * Shared by createAnonymousSession() and getSessionInfo() so BOTH paths
+     * enforce the per-IP limit (10/hour). Returns the token string on success,
+     * or null if rate-limited.
+     */
+    private function createAnonymousToken(Request $request): ?string
+    {
+        $maxTokensPerHour = 10;
+        $ip = $request->ip();
+
+        try {
+            $rateLimitKey = 'anon_session_rate:'.$ip;
+            $currentCount = Cache::get($rateLimitKey, 0);
+
+            if ($currentCount >= $maxTokensPerHour) {
+                Log::warning('Anonymous token rate limit exceeded', [
+                    'ip' => $ip,
+                    'count' => $currentCount,
+                ]);
+
+                return null;
+            }
+
+            Cache::put($rateLimitKey, $currentCount + 1, 3600);
+
+            $token = Str::uuid()->toString();
+
+            DB::table('anonymous_sessions')->insert([
+                'token' => $token,
+                'created_at' => now(),
+                'last_used_at' => now(),
+                'ip_address' => $ip,
+                'user_agent' => substr($request->userAgent() ?? '', 0, 500),
+            ]);
+
+            Log::info('New anonymous session created', [
+                'token_prefix' => substr($token, 0, 8).'...',
+                'ip' => $ip,
+            ]);
+
+            return $token;
+        } catch (\Exception $e) {
+            Log::error('Failed to create anonymous session', [
+                'ip' => $ip,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     // Response shape pinned by tests/Feature/Api/AuthApiContractTest.php — the SPA
@@ -333,17 +348,21 @@ class AuthController extends Controller
         }
 
         // Case 3: No session exists. This is a new visitor.
-        // Create a new anonymous session for them.
-        $newAnonymousToken = Str::uuid()->toString();
+        // Create a new anonymous session for them — routed through the same
+        // rate-limited helper as createAnonymousSession() to prevent unlimited
+        // session creation (DB pollution / resource exhaustion).
+        $newAnonymousToken = $this->createAnonymousToken($request);
 
-        // Store in your database (using your existing logic)
-        DB::table('anonymous_sessions')->insert([
-            'token' => $newAnonymousToken,
-            'created_at' => now(),
-            'last_used_at' => now(),
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-        ]);
+        if ($newAnonymousToken === null) {
+            // Rate limited — return a 429 so the SPA can back off.
+            return response()->json([
+                'authenticated' => false,
+                'user' => null,
+                'anonymous_token' => null,
+                'csrf_token' => csrf_token(),
+                'error' => 'Too many session requests. Please try again later.',
+            ], 429);
+        }
 
         // Return the new token and set the cookie for future requests.
         // 🔒 SECURITY: Use standardized 90-day expiration
@@ -355,24 +374,23 @@ class AuthController extends Controller
         ])->cookie(
             'anon_token',
             $newAnonymousToken,
-            60 * 24 * self::TOKEN_EXPIRY_DAYS,  // 90 days (standardized)
+            60 * 24 * self::TOKEN_EXPIRY_DAYS,
             '/',
             config('session.domain'),
             config('session.secure'),
-            true,   // 🔒 HttpOnly
+            true,
             false,
             'lax'
         );
     }
 
-
     public function associateContent(Request $request)
     {
         Log::info('🔄 associateContent called', [
-            'has_user' => (bool)$request->user(),
+            'has_user' => (bool) $request->user(),
             'user_name' => $request->user()?->name,
-            'requested_token' => $request->input('anonymous_token') ? substr($request->input('anonymous_token'), 0, 8) . '...' : null,
-            'cookie_token' => $request->cookie('anon_token') ? substr($request->cookie('anon_token'), 0, 8) . '...' : null,
+            'requested_token' => $request->input('anonymous_token') ? substr($request->input('anonymous_token'), 0, 8).'...' : null,
+            'cookie_token' => $request->cookie('anon_token') ? substr($request->cookie('anon_token'), 0, 8).'...' : null,
         ]);
 
         $request->validate([
@@ -382,8 +400,9 @@ class AuthController extends Controller
         $user = $request->user();
         $requestedToken = $request->input('anonymous_token');
 
-        if (!$user) {
+        if (! $user) {
             Log::warning('associateContent: No authenticated user');
+
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
@@ -391,23 +410,24 @@ class AuthController extends Controller
         // This prevents attackers from claiming content from other users' anonymous tokens
         $cookieToken = $request->cookie('anon_token');
 
-        if (!$cookieToken || !hash_equals($cookieToken, $requestedToken)) {
+        if (! $cookieToken || ! hash_equals($cookieToken, $requestedToken)) {
             Log::warning('Content association rejected: token mismatch', [
                 'user' => $user->name,
-                'requested_token_prefix' => substr($requestedToken, 0, 8) . '...',
-                'has_cookie' => !empty($cookieToken),
+                'requested_token_prefix' => substr($requestedToken, 0, 8).'...',
+                'has_cookie' => ! empty($cookieToken),
             ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Cannot associate content: token does not match your session.'
+                'message' => 'Cannot associate content: token does not match your session.',
             ], 403);
         }
 
         // 🔒 SECURITY: Verify the token exists and is valid (not expired)
-        if (!$this->isValidAnonymousToken($requestedToken, $request)) {
+        if (! $this->isValidAnonymousToken($requestedToken, $request)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Cannot associate content: invalid or expired token.'
+                'message' => 'Cannot associate content: invalid or expired token.',
             ], 400);
         }
 
@@ -450,7 +470,7 @@ class AuthController extends Controller
 
             Log::info('Content associated successfully', [
                 'user' => $user->name,
-                'token_prefix' => substr($requestedToken, 0, 8) . '...',
+                'token_prefix' => substr($requestedToken, 0, 8).'...',
                 'counts' => $updatedCounts,
             ]);
 
@@ -461,7 +481,7 @@ class AuthController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Content association failed: ' . $e->getMessage() . '\n' . $e->getTraceAsString());
+            Log::error('Content association failed: '.$e->getMessage().'\n'.$e->getTraceAsString());
 
             return response()->json(['success' => false, 'message' => 'An error occurred during content association.'], 500);
         }
@@ -486,12 +506,12 @@ class AuthController extends Controller
             // Insert via SECURITY DEFINER function (password_reset_tokens has RLS, deny-all)
             DB::selectOne('SELECT auth_create_password_reset_token(?, ?)', [$email, $hash]);
 
-            $resetUrl = url("/reset-password/{$token}?email=" . urlencode($email));
+            $resetUrl = url("/reset-password/{$token}?email=".urlencode($email));
 
             // Send the reset email
             \Illuminate\Support\Facades\Mail::send('emails.password-reset', [
                 'resetUrl' => $resetUrl,
-                'logoUrl'  => url('/images/logoc.png'),
+                'logoUrl' => url('/images/logoc.png'),
             ], function ($message) use ($email) {
                 $message->to($email)->subject('Reset Your Password');
             });
@@ -524,7 +544,7 @@ class AuthController extends Controller
             Str::random(60),
         ]);
 
-        if (!$result || !$result->success) {
+        if (! $result || ! $result->success) {
             return response()->json([
                 'success' => false,
                 'message' => 'This reset link is invalid or has expired.',
@@ -560,7 +580,7 @@ class AuthController extends Controller
             ->where('id', $id)
             ->first();
 
-        if (!$user || !hash_equals($hash, sha1($user->email))) {
+        if (! $user || ! hash_equals($hash, sha1($user->email))) {
             return redirect('/?verified=0');
         }
 
@@ -593,7 +613,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         $request->validate([
-            'email' => 'required|string|email|max:255|unique:pgsql_admin.users,email,' . $user->id,
+            'email' => 'required|string|email|max:255|unique:pgsql_admin.users,email,'.$user->id,
         ]);
 
         $newEmail = $request->input('email');
@@ -628,7 +648,7 @@ class AuthController extends Controller
         // Get the anonymous token from cookie
         $anonymousToken = $request->cookie('anon_token');
 
-        if (!$anonymousToken || !$this->isValidAnonymousToken($anonymousToken, $request)) {
+        if (! $anonymousToken || ! $this->isValidAnonymousToken($anonymousToken, $request)) {
             return null;
         }
 
@@ -636,7 +656,7 @@ class AuthController extends Controller
             'token' => $anonymousToken,
             'books' => [],
             'highlights' => [],
-            'cites' => []
+            'cites' => [],
         ];
 
         try {
@@ -645,7 +665,7 @@ class AuthController extends Controller
                 ->where('creator_token', $anonymousToken)
                 ->whereNull('creator') // Only get books not already assigned to a user
                 ->count();
-            
+
             if ($booksCount > 0) {
                 $content['books'] = DB::table('library')
                     ->where('creator_token', $anonymousToken)
@@ -659,7 +679,7 @@ class AuthController extends Controller
                 ->where('creator_token', $anonymousToken)
                 ->whereNull('creator') // Only get highlights not already assigned to a user
                 ->count();
-            
+
             if ($highlightsCount > 0) {
                 $content['highlights'] = DB::table('hyperlights')
                     ->where('creator_token', $anonymousToken)
@@ -673,7 +693,7 @@ class AuthController extends Controller
                 ->where('creator_token', $anonymousToken)
                 ->whereNull('creator') // Only get citations not already assigned to a user
                 ->count();
-            
+
             if ($citesCount > 0) {
                 $content['cites'] = DB::table('hypercites')
                     ->where('creator_token', $anonymousToken)
@@ -690,9 +710,9 @@ class AuthController extends Controller
             return $content;
 
         } catch (\Exception $e) {
-            \Log::error('Error checking anonymous content: ' . $e->getMessage());
+            \Log::error('Error checking anonymous content: '.$e->getMessage());
+
             return null;
         }
     }
 }
-

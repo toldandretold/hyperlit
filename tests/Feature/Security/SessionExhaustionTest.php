@@ -40,37 +40,32 @@ it('createAnonymousSession is rate limited (positive control)', function () {
         ->and($successCount)->toBeLessThanOrEqual(10);
 });
 
-it('getSessionInfo creates anonymous sessions without rate limiting', function () {
+it('getSessionInfo creates anonymous sessions with rate limiting', function () {
     $successCount = 0;
+    $rateLimitedCount = 0;
 
     // Call getSessionInfo 30 times WITHOUT an anon_token cookie.
-    // Each call creates a new anonymous session (case 3 in the controller).
+    // Each call that creates a new session goes through the shared
+    // createAnonymousToken() helper with the same 10/hour/IP rate limit.
     for ($i = 0; $i < 30; $i++) {
-        // Ensure no cookie is sent
-        $response = $this->withoutCookie('anon_token')
-            ->getJson('/api/auth/session-info');
+        $response = $this->getJson('/api/auth/session-info');
 
         if ($response->status() === 200 && $response->json('anonymous_token')) {
             $successCount++;
+        } elseif ($response->status() === 429) {
+            $rateLimitedCount++;
         }
     }
 
     // Count the sessions actually created in the DB
     $dbCount = DB::table('anonymous_sessions')->where('ip_address', '127.0.0.1')->count();
 
-    // VULNERABILITY: getSessionInfo creates a new session on EVERY call when no
-    // cookie is present. No rate limiting, no cache check, no IP throttle.
-    // All 30 calls create 30 sessions — unlimited DB pollution.
-    expect($successCount)->toBe(30)
-        ->and($dbCount)->toBeGreaterThan(10); // far exceeds the 10/hour limit
-})->skip(
-    'RESOURCE EXHAUSTION CONFIRMED: getSessionInfo creates anonymous sessions with NO rate limiting. '.
-    'Unlike createAnonymousSession (10/hour/IP), this path directly inserts into anonymous_sessions '.
-    'on every cookieless request. An attacker can create unlimited sessions → DB pollution. '.
-    'Fix: route session creation in getSessionInfo through the same cache-based rate limiter as '.
-    'createAnonymousSession, or have getSessionInfo always delegate to createAnonymousSession. '.
-    'Un-skip after adding rate limiting to getSessionInfo.'
-);
+    // FIXED: getSessionInfo now uses the same cache-based rate limiter as
+    // createAnonymousSession (10/hour/IP). The 11th+ call returns 429.
+    expect($successCount)->toBeLessThanOrEqual(10)
+        ->and($rateLimitedCount)->toBeGreaterThan(0)
+        ->and($dbCount)->toBeLessThanOrEqual(10);
+});
 
 it('getSessionInfo reuses existing token when cookie is present', function () {
     // First call creates a session (no cookie is set by default in the test client)
@@ -91,20 +86,20 @@ it('getSessionInfo reuses existing token when cookie is present', function () {
         ->and($second->json('anonymous_token'))->not->toBeNull();
 });
 
-it('getSessionInfo creates sessions faster than the rate limit allows', function () {
-    // The createAnonymousSession path allows 10/hour. getSessionInfo should
-    // be at least as restrictive — but it has NO limit at all.
+it('getSessionInfo rate limits match createAnonymousSession', function () {
+    // The createAnonymousSession path allows 10/hour. getSessionInfo now
+    // uses the same createAnonymousToken() helper, so it's equally limited.
     $count = 0;
+    $rateLimited = 0;
     for ($i = 0; $i < 25; $i++) {
-        $response = $this->withoutCookie('anon_token')->getJson('/api/auth/session-info');
+        $response = $this->getJson('/api/auth/session-info');
         if ($response->status() === 200 && $response->json('anonymous_token')) {
             $count++;
+        } elseif ($response->status() === 429) {
+            $rateLimited++;
         }
     }
 
-    // If getSessionInfo were rate-limited like createAnonymousSession,
-    // we'd see at most 10 successes. Instead we see 25.
-    expect($count)->toBeGreaterThan(10);
-})->skip(
-    'Same finding as above — getSessionInfo has no rate limit. Un-skip after fixing.'
-);
+    expect($count)->toBeLessThanOrEqual(10)
+        ->and($rateLimited)->toBeGreaterThan(0);
+});

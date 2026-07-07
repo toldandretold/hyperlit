@@ -37,27 +37,27 @@ class BillingService
             $multiplier = $user->getBillingMultiplier();
 
             $metadata = array_merge($metadata ?? [], [
-                'raw_cost'   => round($amount, 4),
+                'raw_cost' => round($amount, 4),
                 'multiplier' => $multiplier,
-                'tier'       => $user->status,
+                'tier' => $user->status,
             ]);
 
             $chargedAmount = round($amount * $multiplier, 4);
             $isPremium = $user->status === 'premium';
 
-            if (!$isPremium) {
+            if (! $isPremium) {
                 $user->increment('debits', $chargedAmount);
             }
             $user->refresh();
 
             return BillingLedger::create([
-                'user_id'       => $user->id,
-                'type'          => 'debit',
-                'amount'        => $chargedAmount,
-                'description'   => $description,
-                'category'      => $category,
-                'line_items'    => !empty($lineItems) ? $lineItems : null,
-                'metadata'      => $metadata,
+                'user_id' => $user->id,
+                'type' => 'debit',
+                'amount' => $chargedAmount,
+                'description' => $description,
+                'category' => $category,
+                'line_items' => ! empty($lineItems) ? $lineItems : null,
+                'metadata' => $metadata,
                 'balance_after' => $user->balance,
             ]);
         });
@@ -81,6 +81,71 @@ class BillingService
     }
 
     /**
+     * Atomically reserve credits for an upcoming operation, preventing
+     * concurrent requests from all passing a non-locking canProceed() check.
+     *
+     * Premium: always succeeds (no debit hold needed).
+     * Pay-as-you-go: increments debits by $estimatedCost under a row lock
+     * (lockForUpdate), creating a 'reservation' ledger entry. If the balance
+     * after the hold is negative, the reservation is rolled back and null is
+     * returned. The actual charge happens later via charge() — the reservation
+     * is a temporary hold that ensures only one operation proceeds at a time.
+     *
+     * Returns a BillingLedger entry on success, or null if insufficient balance.
+     */
+    public function reserveCredits(User $user, float $estimatedCost, string $description): ?BillingLedger
+    {
+        if ($user->status === 'premium') {
+            // Premium users aren't charged per-use; no reservation needed.
+            return null;
+        }
+
+        if ($estimatedCost <= 0) {
+            return null;
+        }
+
+        try {
+            return DB::transaction(function () use ($user, $estimatedCost, $description) {
+                DB::statement("SELECT set_config('app.current_user', ?, true)", [$user->name]);
+
+                $locked = User::lockForUpdate()->find($user->id);
+                if ($locked->balance <= 0) {
+                    return null;
+                }
+
+                $multiplier = $locked->getBillingMultiplier();
+                $holdAmount = round($estimatedCost * $multiplier, 4);
+
+                $locked->increment('debits', $holdAmount);
+                $locked->refresh();
+
+                return BillingLedger::create([
+                    'user_id' => $locked->id,
+                    'type' => 'debit',
+                    'amount' => $holdAmount,
+                    'description' => $description,
+                    'category' => 'tts_reservation',
+                    'metadata' => [
+                        'reservation' => true,
+                        'raw_cost' => round($estimatedCost, 4),
+                        'multiplier' => $multiplier,
+                        'tier' => $locked->status,
+                    ],
+                    'balance_after' => $locked->balance,
+                ]);
+            });
+        } catch (\Throwable $e) {
+            Log::warning('Credit reservation failed', [
+                'user' => $user->name,
+                'estimated_cost' => $estimatedCost,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
      * Add credits to a user.
      */
     public function addCredits(
@@ -100,12 +165,12 @@ class BillingService
             $user->refresh();
 
             return BillingLedger::create([
-                'user_id'       => $user->id,
-                'type'          => 'credit',
-                'amount'        => $amount,
-                'description'   => $description,
-                'category'      => $category,
-                'metadata'      => $metadata,
+                'user_id' => $user->id,
+                'type' => 'credit',
+                'amount' => $amount,
+                'description' => $description,
+                'category' => $category,
+                'metadata' => $metadata,
                 'balance_after' => $user->balance,
             ]);
         });
@@ -130,7 +195,7 @@ class BillingService
         } catch (\Throwable $e) {
             Log::warning('Account book regeneration failed after billing mutation', [
                 'username' => $username,
-                'error'    => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
     }

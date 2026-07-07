@@ -53,7 +53,8 @@ class BookImageController extends Controller
             return response()->json(['success' => false, 'message' => 'Authentication required'], 401);
         }
         $isOwner = ($library->creator && $library->creator === $creatorInfo['creator'])
-            || ($library->creator_token && $library->creator_token === $creatorInfo['creator_token']);
+            || ($library->creator_token && $creatorInfo['creator_token']
+                && hash_equals((string) $library->creator_token, (string) $creatorInfo['creator_token']));
         if (! $isOwner) {
             return response()->json(['success' => false, 'message' => 'Access denied'], 403);
         }

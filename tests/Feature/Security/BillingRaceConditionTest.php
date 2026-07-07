@@ -38,7 +38,7 @@ it('canProceed returns false with zero balance (baseline)', function () {
     expect($billing->canProceed($user))->toBeFalse();
 });
 
-it('multiple simultaneous audio generations all pass the balance check', function () {
+it('multiple simultaneous audio generations are gated by credit reservation', function () {
     $user = $this->seedUser(['credits' => 0.01, 'debits' => 0]);
     $this->actingAs($user);
 
@@ -68,9 +68,9 @@ it('multiple simultaneous audio generations all pass the balance check', functio
     $insufficientCount = 0;
 
     // Simulate concurrent requests: all hit generate before any job charges.
-    // In production these would be parallel HTTP requests; in the test they're
-    // sequential but the charge is deferred to the job (Queue::fake), so the
-    // balance never decrements between calls — exactly the race window.
+    // The credit reservation (reserveCredits) atomically increments debits
+    // under a row lock — the first request reserves, subsequent requests see
+    // a negative balance and get 402.
     foreach ($books as $bookId) {
         $response = $this->postJson("/api/book-audio/{$bookId}/generate");
 
@@ -81,22 +81,13 @@ it('multiple simultaneous audio generations all pass the balance check', functio
         }
     }
 
-    // VULNERABILITY: All 5 pass canProceed() because the balance check is
-    // non-locking and the charge is deferred. A user with $0.01 can start
-    // 5 generations that will each charge ~$1+ when the jobs complete.
-    expect($acceptedCount)->toBe(5)
-        ->and($insufficientCount)->toBe(0);
-
-    // Confirm the jobs were dispatched (they would charge on completion)
-    Queue::assertPushed(GenerateBookAudioJob::class, 5);
-})->skip(
-    'RACE CONDITION CONFIRMED: canProceed() is a non-locking read; charges are deferred to the job. '.
-    'A user with $0.01 can start generation on N books simultaneously — all pass the check, '.
-    'all jobs run, and the total charge drives the balance to -$(N-1).99. '.
-    'Fix: either (a) reserve the estimated cost atomically before dispatch (lockForUpdate + increment debits), '.
-    'or (b) use a per-user lock in canProceed, or (c) check balance again inside the job before generation starts. '.
-    'Un-skip after implementing one of these.'
-);
+    // The reservation prevents the multi-book overdraft: at most 1 generation
+    // is accepted (the first reservation consumes the $0.01 balance), the rest
+    // get 402. (Exact count depends on the cost estimate, but the key invariant
+    // is that NOT ALL 5 are accepted.)
+    expect($acceptedCount)->toBeLessThan(5)
+        ->and($insufficientCount)->toBeGreaterThan(0);
+});
 
 it('per-book lock prevents duplicate generation for the SAME book', function () {
     $user = $this->seedUser(['credits' => 100, 'debits' => 0]);

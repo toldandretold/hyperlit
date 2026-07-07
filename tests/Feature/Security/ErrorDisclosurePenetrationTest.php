@@ -20,24 +20,28 @@ use Illuminate\Support\Facades\DB;
 // NodeHistoryController — leaks exception messages in error responses
 // =============================================================================
 
-it('NodeHistoryController getSnapshots error response includes exception message', function () {
-    // Verify the source code pattern: the controller returns $e->getMessage()
+it('NodeHistoryController error responses do not include raw exception messages', function () {
+    // Verify the source code pattern: the controller no longer returns $e->getMessage()
     $source = file_get_contents(app_path('Http/Controllers/NodeHistoryController.php'));
 
-    // Count how many times $e->getMessage() appears in error responses
-    $count = substr_count($source, "'error' => \$e->getMessage()");
+    // FIXED: all 8 error response paths now return only a generic 'message',
+    // without the raw 'error' => $e->getMessage() that leaked DB internals.
+    // (The Log::error() calls still include $e->getMessage() server-side — that's correct.)
+    $responseErrorCount = 0;
+    // Count 'error' => $e->getMessage() that appear in response()->json blocks,
+    // not in Log::error blocks. The pattern in responses was always:
+    //   'message' => 'Failed to ...',
+    //   'error' => $e->getMessage(),
+    // After the fix, the 'error' line is gone from all response blocks.
+    preg_match_all("/'message' => 'Failed to[^}]+}/", $source, $matches);
+    foreach ($matches[0] ?? [] as $block) {
+        if (str_contains($block, "'error' => \$e->getMessage()")) {
+            $responseErrorCount++;
+        }
+    }
 
-    // VULNERABILITY: 7 error paths return raw exception messages.
-    // These bypass the global exception handler's production sanitisation
-    // (which only sanitises status 500 — these paths return their own
-    // response with status 500 but include the raw message).
-    expect($count)->toBeGreaterThan(0);
-})->skip(
-    'INFORMATION DISCLOSURE: NodeHistoryController returns $e->getMessage() in '.
-    'multiple error responses. A DB error (SQL syntax, missing column, etc.) '.
-    'leaks to the client. Fix: return a generic message and log the detail server-side. '.
-    'Un-skip after replacing all $e->getMessage() in error responses with generic messages.'
-);
+    expect($responseErrorCount)->toBe(0);
+});
 
 it('NodeHistoryController getSnapshots does not leak DB error on malformed timestamp', function () {
     $user = $this->seedUser();
@@ -76,13 +80,7 @@ it('NodeHistoryController getSnapshots does not leak DB error on malformed times
         ->not->toContain('timestamptz')
         ->not->toContain('pg_')
         ->not->toContain('postgres');
-})->skip(
-    'INFORMATION DISCLOSURE CONFIRMED: NodeHistoryController::getTimeMachineData returns '.
-    'raw $e->getMessage() in the error response — a malformed timestamp triggers a Postgres '.
-    'timestamptz cast error whose SQLSTATE and syntax details leak to the client. '.
-    'Fix: replace $e->getMessage() with a generic "Failed to retrieve time machine data" '.
-    'in all 7 error paths in NodeHistoryController. Un-skip after fixing.'
-);
+});
 
 it('NodeHistoryController restore error does not leak DB internals', function () {
     $user = $this->seedUser();
@@ -109,28 +107,20 @@ it('NodeHistoryController restore error does not leak DB internals', function ()
         ->not->toContain('pdoexception')
         ->not->toContain('drop table')
         ->not->toContain('pg_');
-})->skip(
-    'INFORMATION DISCLOSURE: NodeHistoryController::restoreNodeVersion returns $e->getMessage() '.
-    'in the error response — a DB error leaks SQLSTATE and query details to the client. '.
-    'Same class of bug as the timemachine-data endpoint. Un-skip after fixing all '.
-    '$e->getMessage() paths in NodeHistoryController.'
-);
+});
 
 // =============================================================================
 // ScrapeController — leaks exception message in server error
 // =============================================================================
 
-it('ScrapeController server error includes exception message', function () {
+it('ScrapeController server error does not include exception message', function () {
     $source = file_get_contents(app_path('Http/Controllers/ScrapeController.php'));
 
-    // ScrapeController returns $e->getMessage() in its serverError helper.
-    expect($source)->toContain('$e->getMessage()');
-})->skip(
-    'INFORMATION DISCLOSURE: NodeHistoryController returns $e->getMessage() in '.
-    'multiple error responses. A DB error (SQL syntax, missing column, etc.) '.
-    'leaks to the client. Fix: return a generic message and log the detail server-side. '.
-    'Un-skip after replacing all $e->getMessage() in error responses with generic messages.'
-);
+    // FIXED: serverError() calls now pass only a generic message.
+    // The $e->getMessage() is logged server-side but NOT returned to the client.
+    expect($source)->not->toContain("serverError('Failed to fetch chapter list: ' . \$e->getMessage())")
+        ->not->toContain("serverError('Failed to fetch chapter: ' . \$e->getMessage())");
+});
 
 // =============================================================================
 // Global exception handler — verify production sanitisation works

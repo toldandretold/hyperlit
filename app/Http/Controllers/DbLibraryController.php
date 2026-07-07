@@ -12,27 +12,26 @@ updateAllLibraryStats() → manually triggers the full chain
 
 namespace App\Http\Controllers;
 
-use App\Models\PgLibrary;
+use App\Http\Responses\ApiResponse;
+use App\Models\AnonymousSession;
 use App\Models\PgHypercite;
 use App\Models\PgHyperlight;
-use App\Http\Responses\ApiResponse;
+use App\Models\PgLibrary;
+use App\Services\BookDeletionService;
 use App\Services\Security\NodeHtmlSanitizer;
+use App\Services\ShelfCacheInvalidator;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
-use App\Models\AnonymousSession;
-use App\Services\BookDeletionService;
-use App\Services\ShelfCacheInvalidator;
+use Illuminate\Support\Facades\Validator;
 
 class DbLibraryController extends Controller
 {
-
     public function test(Request $request)
     {
         $creatorInfo = $this->getCreatorInfo($request);
-        
+
         return response()->json([
             'success' => true,
             'message' => 'DbLibraryController is working!',
@@ -44,8 +43,8 @@ class DbLibraryController extends Controller
                 'headers' => [
                     'origin' => $request->header('Origin'),
                     'user_agent' => $request->header('User-Agent'),
-                ]
-            ]
+                ],
+            ],
         ]);
     }
 
@@ -59,12 +58,12 @@ class DbLibraryController extends Controller
     public function destroy(Request $request, string $book)
     {
         $user = Auth::user();
-        if (!$user) {
+        if (! $user) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
         $record = DB::table('library')->where('book', $book)->first();
-        if (!$record) {
+        if (! $record) {
             return response()->json(['success' => false, 'message' => 'Book not found'], 404);
         }
 
@@ -74,28 +73,29 @@ class DbLibraryController extends Controller
 
         try {
             // Remove from all shelves and invalidate their caches
-            $invalidator = new ShelfCacheInvalidator();
+            $invalidator = new ShelfCacheInvalidator;
             $invalidator->removeBookFromAllShelves($book);
             $invalidator->flushUserHomeShelves($record->creator);
 
-            $service = (new BookDeletionService())->useConnection(DB::connection('pgsql_admin'));
+            $service = (new BookDeletionService)->useConnection(DB::connection('pgsql_admin'));
             $stats = $service->deleteBook($book);
 
             return response()->json([
                 'success' => true,
-                'stats' => $stats
+                'stats' => $stats,
             ]);
         } catch (\Exception $e) {
             Log::error('Delete book failed', ['book' => $book, 'error' => $e->getMessage()]);
+
             return response()->json(['success' => false, 'message' => 'Delete failed'], 500);
         }
     }
 
-
-     private function isValidAnonymousToken($token)
+    private function isValidAnonymousToken($token)
     {
-        if (!$token) {
+        if (! $token) {
             Log::info('No token provided for validation');
+
             return false;
         }
 
@@ -109,7 +109,7 @@ class DbLibraryController extends Controller
         Log::info('Token validation result', [
             'token_length' => strlen($token),
             'session_found' => $isValid,
-            'session_created_at' => $session ? $session->created_at : null
+            'session_created_at' => $session ? $session->created_at : null,
         ]);
 
         return $isValid;
@@ -121,403 +121,422 @@ class DbLibraryController extends Controller
     public function getCreatorInfo(Request $request)
     {
         $user = Auth::user();
-        
+
         if ($user) {
             // Authenticated user - creator_token is null (RLS uses JOIN to users table)
             // This prevents user_token from being stored in content tables where it could be exposed
             Log::info('Using authenticated user', ['user' => $user->name]);
+
             return [
                 'creator' => $user->name,
                 'creator_token' => null,
-                'valid' => true
+                'valid' => true,
             ];
         } else {
             // Anonymous user - validate server token
             $anonToken = $request->cookie('anon_token');
-            
+
             Log::info('Checking anonymous session', [
                 'cookie_present' => $anonToken ? 'yes' : 'no',
                 'cookie_length' => $anonToken ? strlen($anonToken) : 0,
-                'all_cookies' => array_keys($request->cookies->all())
+                'all_cookies' => array_keys($request->cookies->all()),
             ]);
-            
-            if (!$anonToken || !$this->isValidAnonymousToken($anonToken)) {
+
+            if (! $anonToken || ! $this->isValidAnonymousToken($anonToken)) {
                 Log::warning('Anonymous session validation failed', [
                     'token_present' => $anonToken ? 'yes' : 'no',
-                    'validation_passed' => $anonToken ? $this->isValidAnonymousToken($anonToken) : false
+                    'validation_passed' => $anonToken ? $this->isValidAnonymousToken($anonToken) : false,
                 ]);
+
                 return [
                     'creator' => null,
                     'creator_token' => null,
-                    'valid' => false
+                    'valid' => false,
                 ];
             }
-            
+
             // Update last used time for the anonymous session
             AnonymousSession::where('token', $anonToken)
                 ->update(['last_used_at' => now()]);
-            
+
             Log::info('Anonymous session validated successfully');
+
             return [
                 'creator' => null,
                 'creator_token' => $anonToken,
-                'valid' => true
+                'valid' => true,
             ];
         }
     }
 
     // In app/Http/Controllers/DbLibraryController.php
 
-/**
- * SAVE path for the `library` store — owner edits to an existing book's metadata.
- *
- * The client sends `data` as a TS `LibraryRecord` (resources/js/indexedDB/types.ts). The owner-only
- * `$updateData` written below is the accepted write shape:
- *   array{ title:?string, author:?string, type:?string, timestamp:?int, bibtex:?string, url:?string,
- *     year:?string, journal:?string, pages:?string, publisher:?string, school:?string, note:?string,
- *     volume:?string, issue:?string, booktitle:?string, chapter:?string, editor:?string, license:?string,
- *     custom_license_text:?string, visibility:string, listed:bool, annotations_updated_at:int,
- *     gate_defaults:?array, raw_json:string }
- *
- * `creator`/`creator_token` are set once on create (bulkCreate), never here. Non-owners may only bump
- * `annotations_updated_at`. (getLibrary returns the same bibliographic columns this accepts — the
- * load/write round-trip is symmetric.)
- */
-public function upsert(Request $request)
-{
-    // F5/F6/F7: validate inline (NOT a Form Request — also called by
-    // UnifiedSyncController with a plain Request). A missing data.book now returns
-    // the standard 422 envelope instead of a bare 400. The other returns below
-    // already follow the {success, message, library} standard.
-    $validator = Validator::make($request->all(), ['data.book' => 'required']);
-    if ($validator->fails()) {
-        return ApiResponse::validationError($validator->errors());
-    }
-
-    // The transaction is still a great idea to ensure the update is atomic.
-    return DB::transaction(function () use ($request) {
-        try {
-            $data = $this->sanitizeMetadata((array) $request->input('data'));
-            $bookId = $data['book']; // validated as required above
-
-            // E2EE backstop (docs/e2ee.md): encrypted books only ever store
-            // ciphertext metadata (the PgLibrary saving hook separately pins
-            // visibility/listed/slug while encrypted).
-            \App\Services\E2ee\EncryptedBookGuard::rejectPlaintextWrites(
-                $bookId,
-                $data,
-                ['title', 'author', 'note', 'abstract', 'bibtex'],
-            );
-
-            $libraryRecord = PgLibrary::where('book', $bookId)->firstOrFail();
-
-            $currentUserInfo = $this->getCreatorInfo($request);
-            if (!$currentUserInfo['valid']) {
-                return response()->json(['success' => false, 'message' => 'Invalid session'], 401);
-            }
-
-            $isOwner = ($libraryRecord->creator && $libraryRecord->creator === $currentUserInfo['creator']) ||
-                       ($libraryRecord->creator_token && $libraryRecord->creator_token === $currentUserInfo['creator_token']);
-
-            // This logic remains exactly the same.
-            if ($isOwner) {
-                // Truncate title to approximately 15 words
-                $title = $data['title'] ?? $libraryRecord->title;
-                $words = explode(' ', $title);
-                if (count($words) > 15) {
-                    $title = implode(' ', array_slice($words, 0, 15)) . '...';
-                }
-                
-                // Preserve newer timestamps - never downgrade
-                $newTimestamp = $data['timestamp'] ?? $libraryRecord->timestamp;
-                $visibility = $data['visibility'] ?? $libraryRecord->visibility;
-                if ($libraryRecord->timestamp && $newTimestamp && $libraryRecord->timestamp > $newTimestamp) {
-                    $newTimestamp = $libraryRecord->timestamp;
-                    $title = $libraryRecord->title;
-                    $visibility = $libraryRecord->visibility;
-                    Log::info('Preserving existing newer timestamp in upsert', [
-                        'book' => $bookId,
-                        'existing_timestamp' => $libraryRecord->timestamp,
-                        'client_timestamp' => $data['timestamp']
-                    ]);
-
-                }
-
-                $updateData = [
-                    'title' => $title,
-                    'author' => $data['author'] ?? $libraryRecord->author,
-                    'type' => $data['type'] ?? $libraryRecord->type,
-                    'timestamp' => $newTimestamp,
-                    'bibtex' => $data['bibtex'] ?? $libraryRecord->bibtex,
-                    'url' => $data['url'] ?? $libraryRecord->url,
-                    'year' => $data['year'] ?? $libraryRecord->year,
-                    'journal' => $data['journal'] ?? $libraryRecord->journal,
-                    'pages' => $data['pages'] ?? $libraryRecord->pages,
-                    'publisher' => $data['publisher'] ?? $libraryRecord->publisher,
-                    'school' => $data['school'] ?? $libraryRecord->school,
-                    'note' => $data['note'] ?? $libraryRecord->note,
-                    'volume' => $data['volume'] ?? $libraryRecord->volume,
-                    'issue' => $data['issue'] ?? $libraryRecord->issue,
-                    'booktitle' => $data['booktitle'] ?? $libraryRecord->booktitle,
-                    'chapter' => $data['chapter'] ?? $libraryRecord->chapter,
-                    'editor' => $data['editor'] ?? $libraryRecord->editor,
-                    'license' => $data['license'] ?? $libraryRecord->license,
-                    'custom_license_text' => $data['custom_license_text'] ?? $libraryRecord->custom_license_text,
-                    'visibility' => $visibility,
-                    'listed' => $data['listed'] ?? $libraryRecord->listed,
-                    'annotations_updated_at' => max($data['annotations_updated_at'] ?? 0, $libraryRecord->annotations_updated_at ?? 0),
-                    'gate_defaults' => array_key_exists('gate_defaults', $data)
-                        ? $data['gate_defaults']
-                        : $libraryRecord->gate_defaults,
-                    'raw_json' => json_encode($this->cleanItemForStorage($data)),
-                ];
-            } else {
-                // Non-owners can only update annotations_updated_at (for their highlights/hypercites)
-                // Must use SECURITY DEFINER function to bypass RLS policy
-                if (isset($data['annotations_updated_at'])) {
-                    $newAnnotationsTs = max($data['annotations_updated_at'] ?? 0, $libraryRecord->annotations_updated_at ?? 0);
-
-                    // Use the SECURITY DEFINER function which bypasses RLS for public books
-                    $result = DB::selectOne('SELECT update_annotations_timestamp(?, ?) as success', [$bookId, $newAnnotationsTs]);
-
-                    Log::info('Non-owner updated annotations_updated_at via SECURITY DEFINER', [
-                        'book' => $bookId,
-                        'new_timestamp' => $newAnnotationsTs,
-                        'function_result' => $result->success ?? false,
-                        'by' => $currentUserInfo['creator'] ?? $currentUserInfo['creator_token'] ?? 'unknown'
-                    ]);
-
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Annotations timestamp updated',
-                        'library' => $libraryRecord->refresh()
-                    ]);
-                }
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'No changes applied - only book owners can update library metadata',
-                    'library' => $libraryRecord
-                ]);
-            }
-
-            // Capture old visibility before applying update
-            $oldVisibility = $libraryRecord->visibility;
-
-            // Apply the update (this is fast)
-            $libraryRecord->update($updateData);
-
-            if ($isOwner && $libraryRecord->creator) {
-                $newVisibility = $libraryRecord->visibility;
-
-                if ($oldVisibility !== $newVisibility) {
-                    // Visibility changed — move the card between home books in place
-                    // (O(1) instead of regenerating both home books)
-                    app(UserHomeServerController::class)
-                        ->moveBookBetweenHomeBooks($libraryRecord->creator, $libraryRecord, $oldVisibility, $newVisibility);
-                } else {
-                    app(UserHomeServerController::class)->updateBookOnUserPage($libraryRecord->creator, $libraryRecord);
-                }
-
-                // Shelves cache rendered cards from `library`, so a metadata edit
-                // (title/author/visibility) would otherwise show stale data on any
-                // shelf containing this book. Flush those shelves so they rebuild
-                // with fresh data on next view. (Mirrors the home-book update above.)
-                (new ShelfCacheInvalidator())->flushShelvesContaining($libraryRecord->book);
-            }
-
-            Log::info('Library record updated successfully', [
-                'book' => $bookId, 
-                'is_owner' => $isOwner,
-                'creator_info' => $currentUserInfo,
-                'raw_request_data' => $data,
-                'auth_user' => Auth::user() ? ['id' => Auth::user()->id, 'name' => Auth::user()->name] : null,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Library record updated successfully.',
-                'library' => $libraryRecord->refresh(),
-            ]);
-
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json(['success' => false, 'message' => 'Book not found'], 404);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
-            throw $e; // E2EE guard 422 — render via the framework handler
-            } catch (\Exception $e) {
-            Log::error('Upsert failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            return response()->json(['success' => false, 'message' => 'Failed to sync data', 'error' => $e->getMessage()], 500);
+    /**
+     * SAVE path for the `library` store — owner edits to an existing book's metadata.
+     *
+     * The client sends `data` as a TS `LibraryRecord` (resources/js/indexedDB/types.ts). The owner-only
+     * `$updateData` written below is the accepted write shape:
+     *   array{ title:?string, author:?string, type:?string, timestamp:?int, bibtex:?string, url:?string,
+     *     year:?string, journal:?string, pages:?string, publisher:?string, school:?string, note:?string,
+     *     volume:?string, issue:?string, booktitle:?string, chapter:?string, editor:?string, license:?string,
+     *     custom_license_text:?string, visibility:string, listed:bool, annotations_updated_at:int,
+     *     gate_defaults:?array, raw_json:string }
+     *
+     * `creator`/`creator_token` are set once on create (bulkCreate), never here. Non-owners may only bump
+     * `annotations_updated_at`. (getLibrary returns the same bibliographic columns this accepts — the
+     * load/write round-trip is symmetric.)
+     */
+    public function upsert(Request $request)
+    {
+        // F5/F6/F7: validate inline (NOT a Form Request — also called by
+        // UnifiedSyncController with a plain Request). A missing data.book now returns
+        // the standard 422 envelope instead of a bare 400. The other returns below
+        // already follow the {success, message, library} standard.
+        $validator = Validator::make($request->all(), ['data.book' => 'required']);
+        if ($validator->fails()) {
+            return ApiResponse::validationError($validator->errors());
         }
-    });
-}
 
-    // In app/Http/Controllers/DbLibraryController.php
-/**
- * CREATE path for the `library` store — first insert of a book's metadata.
- *
- * The client sends `data` as a TS `LibraryRecord`. The inserted `$record` shape:
- *   array{ book:?string, title:?string, author:?string, creator:?string, creator_token:?string,
- *     type:?string, timestamp:?int, bibtex:?string, year:?string, publisher:?string, journal:?string,
- *     pages:?string, url:?string, note:?string, school:?string, volume:?string, issue:?string,
- *     booktitle:?string, chapter:?string, editor:?string, fileName:?string, fileType:?string,
- *     visibility:string, license:string, custom_license_text:?string, annotations_updated_at:int,
- *     gate_defaults:?array, recent:?int, total_views:int, total_highlights:int, total_citations:int,
- *     raw_json:string, created_at:mixed, updated_at:mixed }
- *
- * NOTE: `creator`/`creator_token` are server-determined here (getCreatorInfo), not taken from the
- * client. license/custom_license_text/gate_defaults/annotations_updated_at are written symmetrically
- * with upsert — honoured if the client sends them, else DB defaults.
- */
-public function bulkCreate(Request $request)
-{
-    // Use database transaction to ensure atomicity
-    return DB::transaction(function () use ($request) {
-        try {
-            $data = $request->all();
-            
-            // Get creator info based on auth state
-            $creatorInfo = $this->getCreatorInfo($request);
-            if (!$creatorInfo['valid']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid session'
-                ], 401);
-            }
-            
-            if (isset($data['data']) && (is_object($data['data']) || is_array($data['data']))) {
-                
-                $item = $this->sanitizeMetadata((array) $data['data']);
+        // The transaction is still a great idea to ensure the update is atomic.
+        return DB::transaction(function () use ($request) {
+            try {
+                $data = $this->sanitizeMetadata((array) $request->input('data'));
+                $bookId = $data['book']; // validated as required above
 
-                // Truncate title to approximately 15 words
-                $title = $item['title'] ?? null;
-                if ($title) {
-                    $words = explode(' ', $title);
-                    if (count($words) > 15) {
-                        $title = implode(' ', array_slice($words, 0, 15)) . '...';
-                    }
-
-                }
-                
-                $record = [
-                    'book' => $item['book'] ?? null,
-                    'title' => $title,
-                    'author' => $item['author'] ?? null,
-                    'creator' => $creatorInfo['creator'], // Use server-determined creator
-                    'creator_token' => $creatorInfo['creator_token'], // Use server-determined token
-                    'type' => $item['type'] ?? null,
-                    'timestamp' => $item['timestamp'] ?? null,
-                    'bibtex' => $item['bibtex'] ?? null,
-                    'year' => $item['year'] ?? null,
-                    'publisher' => $item['publisher'] ?? null,
-                    'journal' => $item['journal'] ?? null,
-                    'pages' => $item['pages'] ?? null,
-                    'url' => $item['url'] ?? null,
-                    'note' => $item['note'] ?? null,
-                    'school' => $item['school'] ?? null,
-                    'volume' => $item['volume'] ?? null,
-                    'issue' => $item['issue'] ?? null,
-                    'booktitle' => $item['booktitle'] ?? null,
-                    'chapter' => $item['chapter'] ?? null,
-                    'editor' => $item['editor'] ?? null,
-                    'fileName' => $item['fileName'] ?? null,
-                    'fileType' => $item['fileType'] ?? null,
-                    'visibility' => $item['visibility'] ?? 'private', // Default to private
-                    // Symmetric with upsert: honour these if the client sends them at create time
-                    // (e.g. an import with a known license / gate defaults), else fall back to DB defaults.
-                    'license' => $item['license'] ?? 'CC-BY-SA-4.0-NO-AI',
-                    'custom_license_text' => $item['custom_license_text'] ?? null,
-                    'annotations_updated_at' => $item['annotations_updated_at'] ?? 0,
-                    'gate_defaults' => array_key_exists('gate_defaults', $item) ? $item['gate_defaults'] : null,
-                    'recent' => $item['recent'] ?? null,
-                    'total_views' => $item['total_views'] ?? 0,
-                    'total_highlights' => $item['total_highlights'] ?? 0,
-                    'total_citations' => $item['total_citations'] ?? 0,
-                    // E2EE (docs/e2ee.md): a book can be born encrypted — the client
-                    // sends the flag + its vault-wrapped DEK; the PgLibrary saving
-                    // hook then pins private/unlisted/slug-less.
-                    'encrypted' => (bool) ($item['encrypted'] ?? false),
-                    'wrapped_dek' => $item['wrapped_dek'] ?? null,
-                    'raw_json' => json_encode($this->cleanItemForStorage($item)),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-
-                // E2EE backstop: a born-encrypted book's metadata must be ciphertext
-                // (the flag comes from the request — no library row to look up yet).
-                if ($record['encrypted']) {
-                    \App\Services\E2ee\EncryptedBookGuard::assertCiphertextFields(
-                        [array_intersect_key($item, array_flip(['title', 'author', 'note', 'abstract', 'bibtex']))],
-                        ['title', 'author', 'note', 'abstract', 'bibtex'],
-                    );
-                }
-                
-                Log::info('Creating library record with auth info', [
-                    'book' => $record['book'],
-                    'creator' => $record['creator'],
-                    'creator_type' => gettype($record['creator']),
-                    'creator_token' => $record['creator_token'] ? 'present' : 'null',
-                    'raw_frontend_data' => $item,
-                    'auth_user' => Auth::user() ? ['id' => Auth::user()->id, 'name' => Auth::user()->name] : null,
-                ]);
-                
-                // Check if server already has a newer record — if so, skip the write entirely
-                $existingRecord = PgLibrary::where('book', $record['book'])->first();
-
-                if ($existingRecord && $existingRecord->timestamp && $record['timestamp']
-                    && $existingRecord->timestamp > $record['timestamp']) {
-                    Log::info('Existing record is newer, skipping bulkCreate update', [
-                        'book' => $record['book'],
-                        'existing_timestamp' => $existingRecord->timestamp,
-                        'client_timestamp' => $record['timestamp'],
-                        'preserved_visibility' => $existingRecord->visibility,
-                    ]);
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Library record preserved (existing data is newer).',
-                        'library' => $existingRecord,
-                    ]);
-                }
-
-                $createdRecord = PgLibrary::updateOrCreate(
-                    ['book' => $record['book']], // The unique key to find the record
-                    $record                     // The data to insert or update with
+                // E2EE backstop (docs/e2ee.md): encrypted books only ever store
+                // ciphertext metadata (the PgLibrary saving hook separately pins
+                // visibility/listed/slug while encrypted).
+                \App\Services\E2ee\EncryptedBookGuard::rejectPlaintextWrites(
+                    $bookId,
+                    $data,
+                    ['title', 'author', 'note', 'abstract', 'bibtex'],
                 );
 
-                if ($createdRecord->wasRecentlyCreated && $creatorInfo['creator']) {
-                    app(UserHomeServerController::class)->addBookToUserPage($creatorInfo['creator'], $createdRecord);
+                $libraryRecord = PgLibrary::where('book', $bookId)->firstOrFail();
+
+                $currentUserInfo = $this->getCreatorInfo($request);
+                if (! $currentUserInfo['valid']) {
+                    return response()->json(['success' => false, 'message' => 'Invalid session'], 401);
                 }
+
+                $isOwner = ($libraryRecord->creator && $libraryRecord->creator === $currentUserInfo['creator']) ||
+                           ($libraryRecord->creator_token && $libraryRecord->creator_token === $currentUserInfo['creator_token']);
+
+                // This logic remains exactly the same.
+                if ($isOwner) {
+                    // Truncate title to approximately 15 words
+                    $title = $data['title'] ?? $libraryRecord->title;
+                    $words = explode(' ', $title);
+                    if (count($words) > 15) {
+                        $title = implode(' ', array_slice($words, 0, 15)).'...';
+                    }
+
+                    // Preserve newer timestamps - never downgrade
+                    $newTimestamp = $data['timestamp'] ?? $libraryRecord->timestamp;
+                    $visibility = $data['visibility'] ?? $libraryRecord->visibility;
+                    if ($libraryRecord->timestamp && $newTimestamp && $libraryRecord->timestamp > $newTimestamp) {
+                        $newTimestamp = $libraryRecord->timestamp;
+                        $title = $libraryRecord->title;
+                        $visibility = $libraryRecord->visibility;
+                        Log::info('Preserving existing newer timestamp in upsert', [
+                            'book' => $bookId,
+                            'existing_timestamp' => $libraryRecord->timestamp,
+                            'client_timestamp' => $data['timestamp'],
+                        ]);
+
+                    }
+
+                    $updateData = [
+                        'title' => $title,
+                        'author' => $data['author'] ?? $libraryRecord->author,
+                        'type' => $data['type'] ?? $libraryRecord->type,
+                        'timestamp' => $newTimestamp,
+                        'bibtex' => $data['bibtex'] ?? $libraryRecord->bibtex,
+                        'url' => $data['url'] ?? $libraryRecord->url,
+                        'year' => $data['year'] ?? $libraryRecord->year,
+                        'journal' => $data['journal'] ?? $libraryRecord->journal,
+                        'pages' => $data['pages'] ?? $libraryRecord->pages,
+                        'publisher' => $data['publisher'] ?? $libraryRecord->publisher,
+                        'school' => $data['school'] ?? $libraryRecord->school,
+                        'note' => $data['note'] ?? $libraryRecord->note,
+                        'volume' => $data['volume'] ?? $libraryRecord->volume,
+                        'issue' => $data['issue'] ?? $libraryRecord->issue,
+                        'booktitle' => $data['booktitle'] ?? $libraryRecord->booktitle,
+                        'chapter' => $data['chapter'] ?? $libraryRecord->chapter,
+                        'editor' => $data['editor'] ?? $libraryRecord->editor,
+                        'license' => $data['license'] ?? $libraryRecord->license,
+                        'custom_license_text' => $data['custom_license_text'] ?? $libraryRecord->custom_license_text,
+                        'visibility' => $visibility,
+                        'listed' => $data['listed'] ?? $libraryRecord->listed,
+                        'annotations_updated_at' => max($data['annotations_updated_at'] ?? 0, $libraryRecord->annotations_updated_at ?? 0),
+                        'gate_defaults' => array_key_exists('gate_defaults', $data)
+                            ? $data['gate_defaults']
+                            : $libraryRecord->gate_defaults,
+                        'raw_json' => json_encode($this->cleanItemForStorage($data)),
+                    ];
+                } else {
+                    // Non-owners can only update annotations_updated_at (for their highlights/hypercites)
+                    // Must use SECURITY DEFINER function to bypass RLS policy
+                    if (isset($data['annotations_updated_at'])) {
+                        $newAnnotationsTs = max($data['annotations_updated_at'] ?? 0, $libraryRecord->annotations_updated_at ?? 0);
+
+                        // Use the SECURITY DEFINER function which bypasses RLS for public books
+                        $result = DB::selectOne('SELECT update_annotations_timestamp(?, ?) as success', [$bookId, $newAnnotationsTs]);
+
+                        Log::info('Non-owner updated annotations_updated_at via SECURITY DEFINER', [
+                            'book' => $bookId,
+                            'new_timestamp' => $newAnnotationsTs,
+                            'function_result' => $result->success ?? false,
+                            'by' => $currentUserInfo['creator'] ?? $currentUserInfo['creator_token'] ?? 'unknown',
+                        ]);
+
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Annotations timestamp updated',
+                            'library' => $libraryRecord->refresh(),
+                        ]);
+                    }
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'No changes applied - only book owners can update library metadata',
+                        'library' => $libraryRecord,
+                    ]);
+                }
+
+                // Capture old visibility before applying update
+                $oldVisibility = $libraryRecord->visibility;
+
+                // Apply the update (this is fast)
+                $libraryRecord->update($updateData);
+
+                if ($isOwner && $libraryRecord->creator) {
+                    $newVisibility = $libraryRecord->visibility;
+
+                    if ($oldVisibility !== $newVisibility) {
+                        // Visibility changed — move the card between home books in place
+                        // (O(1) instead of regenerating both home books)
+                        app(UserHomeServerController::class)
+                            ->moveBookBetweenHomeBooks($libraryRecord->creator, $libraryRecord, $oldVisibility, $newVisibility);
+                    } else {
+                        app(UserHomeServerController::class)->updateBookOnUserPage($libraryRecord->creator, $libraryRecord);
+                    }
+
+                    // Shelves cache rendered cards from `library`, so a metadata edit
+                    // (title/author/visibility) would otherwise show stale data on any
+                    // shelf containing this book. Flush those shelves so they rebuild
+                    // with fresh data on next view. (Mirrors the home-book update above.)
+                    (new ShelfCacheInvalidator)->flushShelvesContaining($libraryRecord->book);
+                }
+
+                Log::info('Library record updated successfully', [
+                    'book' => $bookId,
+                    'is_owner' => $isOwner,
+                    'creator_info' => $currentUserInfo,
+                    'raw_request_data' => $data,
+                    'auth_user' => Auth::user() ? ['id' => Auth::user()->id, 'name' => Auth::user()->name] : null,
+                ]);
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Library record created successfully.',
-                    'library' => $createdRecord,
+                    'message' => 'Library record updated successfully.',
+                    'library' => $libraryRecord->refresh(),
                 ]);
+
+            } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+                return response()->json(['success' => false, 'message' => 'Book not found'], 404);
+            } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+                throw $e; // E2EE guard 422 — render via the framework handler
+            } catch (\Exception $e) {
+                Log::error('Upsert failed: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
+
+                return response()->json(['success' => false, 'message' => 'Failed to sync data', 'error' => $e->getMessage()], 500);
             }
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid data format'
-            ], 400);
-            
-        } catch (\Illuminate\Database\QueryException $qe) {
-            // Malformed input tripping a DB constraint/data rule (SQLSTATE class 23/22) is a CLIENT error → 422.
-            $sqlState = (string) $qe->getCode();
-            if (str_starts_with($sqlState, '23') || str_starts_with($sqlState, '22')) {
-                return response()->json(['success' => false, 'message' => 'Invalid library data'], 422);
+        });
+    }
+
+    // In app/Http/Controllers/DbLibraryController.php
+    /**
+     * CREATE path for the `library` store — first insert of a book's metadata.
+     *
+     * The client sends `data` as a TS `LibraryRecord`. The inserted `$record` shape:
+     *   array{ book:?string, title:?string, author:?string, creator:?string, creator_token:?string,
+     *     type:?string, timestamp:?int, bibtex:?string, year:?string, publisher:?string, journal:?string,
+     *     pages:?string, url:?string, note:?string, school:?string, volume:?string, issue:?string,
+     *     booktitle:?string, chapter:?string, editor:?string, fileName:?string, fileType:?string,
+     *     visibility:string, license:string, custom_license_text:?string, annotations_updated_at:int,
+     *     gate_defaults:?array, recent:?int, total_views:int, total_highlights:int, total_citations:int,
+     *     raw_json:string, created_at:mixed, updated_at:mixed }
+     *
+     * NOTE: `creator`/`creator_token` are server-determined here (getCreatorInfo), not taken from the
+     * client. license/custom_license_text/gate_defaults/annotations_updated_at are written symmetrically
+     * with upsert — honoured if the client sends them, else DB defaults.
+     */
+    public function bulkCreate(Request $request)
+    {
+        // Use database transaction to ensure atomicity
+        return DB::transaction(function () use ($request) {
+            try {
+                $data = $request->all();
+
+                // Get creator info based on auth state
+                $creatorInfo = $this->getCreatorInfo($request);
+                if (! $creatorInfo['valid']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Invalid session',
+                    ], 401);
+                }
+
+                if (isset($data['data']) && (is_object($data['data']) || is_array($data['data']))) {
+
+                    $item = $this->sanitizeMetadata((array) $data['data']);
+
+                    // Truncate title to approximately 15 words
+                    $title = $item['title'] ?? null;
+                    if ($title) {
+                        $words = explode(' ', $title);
+                        if (count($words) > 15) {
+                            $title = implode(' ', array_slice($words, 0, 15)).'...';
+                        }
+
+                    }
+
+                    $record = [
+                        'book' => $item['book'] ?? null,
+                        'title' => $title,
+                        'author' => $item['author'] ?? null,
+                        'creator' => $creatorInfo['creator'], // Use server-determined creator
+                        'creator_token' => $creatorInfo['creator_token'], // Use server-determined token
+                        'type' => $item['type'] ?? null,
+                        'timestamp' => $item['timestamp'] ?? null,
+                        'bibtex' => $item['bibtex'] ?? null,
+                        'year' => $item['year'] ?? null,
+                        'publisher' => $item['publisher'] ?? null,
+                        'journal' => $item['journal'] ?? null,
+                        'pages' => $item['pages'] ?? null,
+                        'url' => $item['url'] ?? null,
+                        'note' => $item['note'] ?? null,
+                        'school' => $item['school'] ?? null,
+                        'volume' => $item['volume'] ?? null,
+                        'issue' => $item['issue'] ?? null,
+                        'booktitle' => $item['booktitle'] ?? null,
+                        'chapter' => $item['chapter'] ?? null,
+                        'editor' => $item['editor'] ?? null,
+                        'fileName' => $item['fileName'] ?? null,
+                        'fileType' => $item['fileType'] ?? null,
+                        'visibility' => $item['visibility'] ?? 'private', // Default to private
+                        // Symmetric with upsert: honour these if the client sends them at create time
+                        // (e.g. an import with a known license / gate defaults), else fall back to DB defaults.
+                        'license' => $item['license'] ?? 'CC-BY-SA-4.0-NO-AI',
+                        'custom_license_text' => $item['custom_license_text'] ?? null,
+                        'annotations_updated_at' => $item['annotations_updated_at'] ?? 0,
+                        'gate_defaults' => array_key_exists('gate_defaults', $item) ? $item['gate_defaults'] : null,
+                        'recent' => $item['recent'] ?? null,
+                        'total_views' => $item['total_views'] ?? 0,
+                        'total_highlights' => $item['total_highlights'] ?? 0,
+                        'total_citations' => $item['total_citations'] ?? 0,
+                        // E2EE (docs/e2ee.md): a book can be born encrypted — the client
+                        // sends the flag + its vault-wrapped DEK; the PgLibrary saving
+                        // hook then pins private/unlisted/slug-less.
+                        'encrypted' => (bool) ($item['encrypted'] ?? false),
+                        'wrapped_dek' => $item['wrapped_dek'] ?? null,
+                        'raw_json' => json_encode($this->cleanItemForStorage($item)),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+
+                    // E2EE backstop: a born-encrypted book's metadata must be ciphertext
+                    // (the flag comes from the request — no library row to look up yet).
+                    if ($record['encrypted']) {
+                        \App\Services\E2ee\EncryptedBookGuard::assertCiphertextFields(
+                            [array_intersect_key($item, array_flip(['title', 'author', 'note', 'abstract', 'bibtex']))],
+                            ['title', 'author', 'note', 'abstract', 'bibtex'],
+                        );
+                    }
+
+                    Log::info('Creating library record with auth info', [
+                        'book' => $record['book'],
+                        'creator' => $record['creator'],
+                        'creator_type' => gettype($record['creator']),
+                        'creator_token' => $record['creator_token'] ? 'present' : 'null',
+                        'raw_frontend_data' => $item,
+                        'auth_user' => Auth::user() ? ['id' => Auth::user()->id, 'name' => Auth::user()->name] : null,
+                    ]);
+
+                    // Check if server already has a newer record — if so, skip the write entirely
+                    $existingRecord = PgLibrary::where('book', $record['book'])->first();
+
+                    if ($existingRecord && $existingRecord->timestamp && $record['timestamp']
+                        && $existingRecord->timestamp > $record['timestamp']) {
+                        Log::info('Existing record is newer, skipping bulkCreate update', [
+                            'book' => $record['book'],
+                            'existing_timestamp' => $existingRecord->timestamp,
+                            'client_timestamp' => $record['timestamp'],
+                            'preserved_visibility' => $existingRecord->visibility,
+                        ]);
+
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Library record preserved (existing data is newer).',
+                            'library' => $existingRecord,
+                        ]);
+                    }
+
+                    // E2EE invariant: the encrypted flag + wrapped_dek can only be
+                    // set via the proper transition endpoint (POST /db/library/{book}/encryption),
+                    // which cascades to sub-books and scrubs plaintext. bulkCreate on an
+                    // EXISTING plaintext book must NOT flip the flag — that would bypass
+                    // the scrub/cascade. Born-encrypted (no existing record) is allowed.
+                    if ($existingRecord && ! $existingRecord->encrypted && $record['encrypted']) {
+                        Log::warning('bulkCreate: stripped encrypted flag on existing plaintext book', [
+                            'book' => $record['book'],
+                        ]);
+                        $record['encrypted'] = false;
+                        $record['wrapped_dek'] = null;
+                    }
+
+                    $createdRecord = PgLibrary::updateOrCreate(
+                        ['book' => $record['book']], // The unique key to find the record
+                        $record                     // The data to insert or update with
+                    );
+
+                    if ($createdRecord->wasRecentlyCreated && $creatorInfo['creator']) {
+                        app(UserHomeServerController::class)->addBookToUserPage($creatorInfo['creator'], $createdRecord);
+                    }
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Library record created successfully.',
+                        'library' => $createdRecord,
+                    ]);
+                }
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid data format',
+                ], 400);
+
+            } catch (\Illuminate\Database\QueryException $qe) {
+                // Malformed input tripping a DB constraint/data rule (SQLSTATE class 23/22) is a CLIENT error → 422.
+                $sqlState = (string) $qe->getCode();
+                if (str_starts_with($sqlState, '23') || str_starts_with($sqlState, '22')) {
+                    return response()->json(['success' => false, 'message' => 'Invalid library data'], 422);
+                }
+                Log::error('BulkCreate QueryException: '.$qe->getMessage());
+
+                return response()->json(['success' => false, 'message' => 'Failed to sync data'], 500);
+            } catch (\Exception $e) {
+                Log::error('BulkCreate failed: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to sync data',
+                    'error' => $e->getMessage(),
+                ], 500);
             }
-            Log::error('BulkCreate QueryException: ' . $qe->getMessage());
-            return response()->json(['success' => false, 'message' => 'Failed to sync data', 'error' => $qe->getMessage()], 500);
-        } catch (\Exception $e) {
-            Log::error('BulkCreate failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to sync data',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    });
-}
-    
+        });
+    }
 
     /**
      * Execute the chained operations with proper error handling and sequencing
@@ -527,52 +546,52 @@ public function bulkCreate(Request $request)
         $results = [
             'stats_updated' => false,
             'homepage_updated' => false,
-            'errors' => []
+            'errors' => [],
         ];
-        
+
         try {
             // Step 2a: Update stats (each method returns success/failure)
             Log::info('Starting stats update chain...');
-            
+
             $recentResult = $this->updateRecentColumnInternal();
-            if (!$recentResult['success']) {
-                throw new \Exception('Failed to update recent column: ' . $recentResult['message']);
+            if (! $recentResult['success']) {
+                throw new \Exception('Failed to update recent column: '.$recentResult['message']);
             }
-            
+
             $citesResult = $this->updateTotalCitesColumnInternal();
-            if (!$citesResult['success']) {
-                throw new \Exception('Failed to update cites column: ' . $citesResult['message']);
+            if (! $citesResult['success']) {
+                throw new \Exception('Failed to update cites column: '.$citesResult['message']);
             }
-            
+
             $highlightsResult = $this->updateTotalHighlightsColumnInternal();
-            if (!$highlightsResult['success']) {
-                throw new \Exception('Failed to update highlights column: ' . $highlightsResult['message']);
+            if (! $highlightsResult['success']) {
+                throw new \Exception('Failed to update highlights column: '.$highlightsResult['message']);
             }
-            
+
             $results['stats_updated'] = true;
             Log::info('Stats update completed successfully');
-            
+
             // Step 2b: Update homepage ONLY after stats are confirmed updated
             Log::info('Starting homepage update...');
-            
-            $homePageController = new \App\Http\Controllers\HomePageServerController();
-            $homepageResponse = $homePageController->updateHomePageBooks(new Request());
-            
+
+            $homePageController = new \App\Http\Controllers\HomePageServerController;
+            $homepageResponse = $homePageController->updateHomePageBooks(new Request);
+
             // Check if homepage update was successful
             $homepageData = $homepageResponse->getData(true);
-            if (!isset($homepageData['success']) || !$homepageData['success']) {
-                throw new \Exception('Homepage update failed: ' . ($homepageData['message'] ?? 'Unknown error'));
+            if (! isset($homepageData['success']) || ! $homepageData['success']) {
+                throw new \Exception('Homepage update failed: '.($homepageData['message'] ?? 'Unknown error'));
             }
-            
+
             $results['homepage_updated'] = true;
             Log::info('Homepage update completed successfully');
-            
+
         } catch (\Exception $e) {
-            $error = 'Chain operation failed: ' . $e->getMessage();
+            $error = 'Chain operation failed: '.$e->getMessage();
             Log::error($error);
             $results['errors'][] = $error;
         }
-        
+
         return $results;
     }
 
@@ -581,7 +600,7 @@ public function bulkCreate(Request $request)
     {
         try {
             $libraryRecords = PgLibrary::orderBy('updated_at', 'desc')->get();
-            
+
             foreach ($libraryRecords as $index => $record) {
                 $record->update(['recent' => $index + 1]);
             }
@@ -589,12 +608,12 @@ public function bulkCreate(Request $request)
             return [
                 'success' => true,
                 'message' => 'Recent column updated successfully',
-                'updated_count' => $libraryRecords->count()
+                'updated_count' => $libraryRecords->count(),
             ];
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'message' => 'Error updating recent column: ' . $e->getMessage()
+                'message' => 'Error updating recent column: '.$e->getMessage(),
             ];
         }
     }
@@ -603,39 +622,39 @@ public function bulkCreate(Request $request)
     {
         try {
             $books = PgLibrary::distinct()->pluck('book');
-            
+
             foreach ($books as $book) {
                 $hypercites = PgHypercite::where('book', $book)->get();
                 $totalCites = 0;
-                
+
                 foreach ($hypercites as $hypercite) {
                     if ($hypercite->citedIN) {
-                        $citedInArray = is_array($hypercite->citedIN) 
-                            ? $hypercite->citedIN 
+                        $citedInArray = is_array($hypercite->citedIN)
+                            ? $hypercite->citedIN
                             : json_decode($hypercite->citedIN, true);
-                        
+
                         if (is_array($citedInArray)) {
                             foreach ($citedInArray as $citation) {
-                                if (!$this->isSelfCitation($citation, $book)) {
+                                if (! $this->isSelfCitation($citation, $book)) {
                                     $totalCites++;
                                 }
                             }
                         }
                     }
                 }
-                
+
                 PgLibrary::where('book', $book)->update(['total_citations' => $totalCites]);
             }
 
             return [
                 'success' => true,
                 'message' => 'Total cites column updated successfully',
-                'updated_books' => $books->count()
+                'updated_books' => $books->count(),
             ];
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'message' => 'Error updating total cites column: ' . $e->getMessage()
+                'message' => 'Error updating total cites column: '.$e->getMessage(),
             ];
         }
     }
@@ -644,7 +663,7 @@ public function bulkCreate(Request $request)
     {
         try {
             $books = PgLibrary::distinct()->pluck('book');
-            
+
             foreach ($books as $book) {
                 $highlightCount = PgHyperlight::where('book', $book)->count();
                 PgLibrary::where('book', $book)->update(['total_highlights' => $highlightCount]);
@@ -653,12 +672,12 @@ public function bulkCreate(Request $request)
             return [
                 'success' => true,
                 'message' => 'Total highlights column updated successfully',
-                'updated_books' => $books->count()
+                'updated_books' => $books->count(),
             ];
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'message' => 'Error updating total highlights column: ' . $e->getMessage()
+                'message' => 'Error updating total highlights column: '.$e->getMessage(),
             ];
         }
     }
@@ -667,18 +686,21 @@ public function bulkCreate(Request $request)
     public function updateRecentColumn()
     {
         $result = $this->updateRecentColumnInternal();
+
         return response()->json($result, $result['success'] ? 200 : 500);
     }
 
     public function updateTotalCitesColumn()
     {
         $result = $this->updateTotalCitesColumnInternal();
+
         return response()->json($result, $result['success'] ? 200 : 500);
     }
 
     public function updateTotalHighlightsColumn()
     {
         $result = $this->updateTotalHighlightsColumnInternal();
+
         return response()->json($result, $result['success'] ? 200 : 500);
     }
 
@@ -686,16 +708,16 @@ public function bulkCreate(Request $request)
     {
         try {
             $chainResult = $this->executeChainedOperations();
-            
+
             return response()->json([
                 'success' => $chainResult['stats_updated'] && $chainResult['homepage_updated'],
                 'message' => 'Library statistics and homepage update completed',
-                'details' => $chainResult
+                'details' => $chainResult,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error updating library statistics: ' . $e->getMessage()
+                'message' => 'Error updating library statistics: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -706,67 +728,67 @@ public function bulkCreate(Request $request)
             try {
                 // Update recent column (this affects all books, so we run it)
                 $recentResult = $this->updateRecentColumnInternal();
-                if (!$recentResult['success']) {
+                if (! $recentResult['success']) {
                     throw new \Exception('Failed to update recent column');
                 }
-                
+
                 // Update cites for specific book
                 $hypercites = PgHypercite::where('book', $book)->get();
                 $totalCites = 0;
-                
+
                 foreach ($hypercites as $hypercite) {
                     if ($hypercite->citedIN) {
-                        $citedInArray = is_array($hypercite->citedIN) 
-                            ? $hypercite->citedIN 
+                        $citedInArray = is_array($hypercite->citedIN)
+                            ? $hypercite->citedIN
                             : json_decode($hypercite->citedIN, true);
-                        
+
                         if (is_array($citedInArray)) {
                             foreach ($citedInArray as $citation) {
-                                if (!$this->isSelfCitation($citation, $book)) {
+                                if (! $this->isSelfCitation($citation, $book)) {
                                     $totalCites++;
                                 }
                             }
                         }
                     }
                 }
-                
+
                 // Update highlights for specific book
                 $highlightCount = PgHyperlight::where('book', $book)->count();
-                
+
                 // Update the library record
                 $updated = PgLibrary::where('book', $book)->update([
                     'total_citations' => $totalCites,
-                    'total_highlights' => $highlightCount
+                    'total_highlights' => $highlightCount,
                 ]);
-                
+
                 if ($updated === 0) {
                     return response()->json([
                         'success' => false,
-                        'message' => "Book '{$book}' not found in library"
+                        'message' => "Book '{$book}' not found in library",
                     ], 404);
                 }
-                
+
                 // Chain: Update homepage ONLY after book stats are confirmed updated
-                $homePageController = new \App\Http\Controllers\HomePageServerController();
-                $homepageResponse = $homePageController->updateHomePageBooks(new Request());
-                
+                $homePageController = new \App\Http\Controllers\HomePageServerController;
+                $homepageResponse = $homePageController->updateHomePageBooks(new Request);
+
                 $homepageData = $homepageResponse->getData(true);
-                if (!isset($homepageData['success']) || !$homepageData['success']) {
+                if (! isset($homepageData['success']) || ! $homepageData['success']) {
                     throw new \Exception('Homepage update failed');
                 }
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => "Stats updated for book: {$book} and homepage updated",
                     'book' => $book,
                     'total_citations' => $totalCites,
-                    'total_highlights' => $highlightCount
+                    'total_highlights' => $highlightCount,
                 ]);
-                
+
             } catch (\Exception $e) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Error updating book stats: ' . $e->getMessage()
+                    'message' => 'Error updating book stats: '.$e->getMessage(),
                 ], 500);
             }
         });
@@ -777,12 +799,12 @@ public function bulkCreate(Request $request)
         try {
             return response()->json([
                 'success' => true,
-                'message' => 'Total views column update is not implemented yet'
+                'message' => 'Total views column update is not implemented yet',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error updating total views column: ' . $e->getMessage()
+                'message' => 'Error updating total views column: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -791,14 +813,16 @@ public function bulkCreate(Request $request)
     {
         if (preg_match('/^\/([^#]+)#/', $citation, $matches)) {
             $citedBook = $matches[1];
+
             return $citedBook === $currentBook;
         }
-        
+
         if (preg_match('/^\/([^\/]+)\//', $citation, $matches)) {
             $citedBook = $matches[1];
+
             return $citedBook === $currentBook;
         }
-        
+
         return false;
     }
 
@@ -811,10 +835,10 @@ public function bulkCreate(Request $request)
         try {
             $bookId = $request->input('book');
 
-            if (!$bookId) {
+            if (! $bookId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Book ID is required'
+                    'message' => 'Book ID is required',
                 ], 400);
             }
 
@@ -835,7 +859,7 @@ public function bulkCreate(Request $request)
                     'success' => true,
                     'exists' => true,
                     'message' => 'Book ID is already taken',
-                    'book_url' => $visibleRecord ? url('/') . '/' . $bookId : null,
+                    'book_url' => $visibleRecord ? url('/').'/'.$bookId : null,
                     'book_title' => $visibleRecord?->title,
                     'book_author' => $visibleRecord?->author,
                 ]);
@@ -844,14 +868,15 @@ public function bulkCreate(Request $request)
             return response()->json([
                 'success' => true,
                 'exists' => false,
-                'message' => 'Book ID is available'
+                'message' => 'Book ID is available',
             ]);
-            
+
         } catch (\Exception $e) {
-            Log::error('Book ID validation failed: ' . $e->getMessage());
+            Log::error('Book ID validation failed: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Validation check failed'
+                'message' => 'Validation check failed',
             ], 500);
         }
     }
@@ -882,6 +907,7 @@ public function bulkCreate(Request $request)
             $probe = preg_replace('/[\s\x00-\x1F]+/', '', $url);
             $data['url'] = preg_match('/^(?:javascript|vbscript|data)\s*:/i', $probe) ? null : $url;
         }
+
         return $data;
     }
 
@@ -902,78 +928,79 @@ public function bulkCreate(Request $request)
     }
 
     /**
-         * Update only the timestamp for a library record
-         * This allows any authenticated user to update the last activity timestamp
-         */
-        public function updateTimestamp(Request $request)
-        {
-            try {
-                $data = $request->all();
-                
-                // Get creator info based on auth state
-                $creatorInfo = $this->getCreatorInfo($request);
-                if (!$creatorInfo['valid']) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Invalid session'
-                    ], 401);
-                }
-                
-                $bookId = $data['book'] ?? null;
-                $timestamp = $data['timestamp'] ?? null;
-                
-                if (!$bookId) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Book ID is required'
-                    ], 400);
-                }
-                
-                if (!$timestamp) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Timestamp is required'
-                    ], 400);
-                }
-                
-                // Find the library record by book ID
-                $libraryRecord = PgLibrary::where('book', $bookId)->first();
-                
-                if (!$libraryRecord) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Library record not found'
-                    ], 404);
-                }
-                
-                // Update only the timestamp - any valid user can do this
-                $libraryRecord->update([
-                    'timestamp' => $timestamp,
-                    'updated_at' => now()
-                ]);
-                
-                Log::info('Library timestamp updated', [
-                    'book' => $bookId,
-                    'timestamp' => $timestamp,
-                    'updated_by' => $creatorInfo['creator'] ?? 'anonymous'
-                ]);
-                
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Library timestamp updated successfully',
-                    'book' => $bookId,
-                    'timestamp' => $timestamp
-                ]);
-                
-            } catch (\Exception $e) {
-                Log::error('Update timestamp failed: ' . $e->getMessage());
+     * Update only the timestamp for a library record
+     * This allows any authenticated user to update the last activity timestamp
+     */
+    public function updateTimestamp(Request $request)
+    {
+        try {
+            $data = $request->all();
+
+            // Get creator info based on auth state
+            $creatorInfo = $this->getCreatorInfo($request);
+            if (! $creatorInfo['valid']) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to update timestamp',
-                    'error' => $e->getMessage()
-                ], 500);
+                    'message' => 'Invalid session',
+                ], 401);
             }
+
+            $bookId = $data['book'] ?? null;
+            $timestamp = $data['timestamp'] ?? null;
+
+            if (! $bookId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Book ID is required',
+                ], 400);
+            }
+
+            if (! $timestamp) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Timestamp is required',
+                ], 400);
+            }
+
+            // Find the library record by book ID
+            $libraryRecord = PgLibrary::where('book', $bookId)->first();
+
+            if (! $libraryRecord) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Library record not found',
+                ], 404);
+            }
+
+            // Update only the timestamp - any valid user can do this
+            $libraryRecord->update([
+                'timestamp' => $timestamp,
+                'updated_at' => now(),
+            ]);
+
+            Log::info('Library timestamp updated', [
+                'book' => $bookId,
+                'timestamp' => $timestamp,
+                'updated_by' => $creatorInfo['creator'] ?? 'anonymous',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Library timestamp updated successfully',
+                'book' => $bookId,
+                'timestamp' => $timestamp,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Update timestamp failed: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update timestamp',
+                'error' => $e->getMessage(),
+            ], 500);
         }
+    }
 
     /**
      * Set or update the slug for a book.
@@ -1132,7 +1159,7 @@ public function bulkCreate(Request $request)
         // of these so no sub-book's content is left behind in the old form.
         $tree = PgLibrary::where('book', $book)
             ->orWhere('book', 'like', $book.'/%')
-            ->orderByRaw("book = ? DESC", [$book])
+            ->orderByRaw('book = ? DESC', [$book])
             ->pluck('book');
 
         // Keep home cards + shelves in sync with the (possibly) changed visibility.
@@ -1143,7 +1170,7 @@ public function bulkCreate(Request $request)
             } else {
                 app(UserHomeServerController::class)->updateBookOnUserPage($library->creator, $library);
             }
-            (new ShelfCacheInvalidator())->flushShelvesContaining($book);
+            (new ShelfCacheInvalidator)->flushShelvesContaining($book);
         }
 
         return response()->json([
@@ -1159,28 +1186,28 @@ public function bulkCreate(Request $request)
     {
         try {
             $user = Auth::user();
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Authentication required'
+                    'message' => 'Authentication required',
                 ], 401);
             }
 
             $bookId = $request->input('book');
             $slug = $request->input('slug');
 
-            if (!$bookId) {
+            if (! $bookId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Book ID is required'
+                    'message' => 'Book ID is required',
                 ], 400);
             }
 
             $library = PgLibrary::where('book', $bookId)->first();
-            if (!$library) {
+            if (! $library) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Book not found'
+                    'message' => 'Book not found',
                 ], 404);
             }
 
@@ -1188,7 +1215,7 @@ public function bulkCreate(Request $request)
             if ($library->creator !== $user->name) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Only the book creator can set a slug'
+                    'message' => 'Only the book creator can set a slug',
                 ], 403);
             }
 
@@ -1197,26 +1224,27 @@ public function bulkCreate(Request $request)
             if ($library->encrypted) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Encrypted books cannot have a slug — publish the book first'
+                    'message' => 'Encrypted books cannot have a slug — publish the book first',
                 ], 422);
             }
 
             // Allow clearing the slug
             if ($slug === null || $slug === '') {
                 $library->update(['slug' => null]);
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Slug removed',
                     'book' => $bookId,
-                    'slug' => null
+                    'slug' => null,
                 ]);
             }
 
             // Validate slug format: lowercase alphanumeric + hyphens, 3-60 chars
-            if (!preg_match('/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/', $slug)) {
+            if (! preg_match('/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/', $slug)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Slug must be 3-60 characters, lowercase alphanumeric and hyphens only, cannot start or end with a hyphen'
+                    'message' => 'Slug must be 3-60 characters, lowercase alphanumeric and hyphens only, cannot start or end with a hyphen',
                 ], 422);
             }
 
@@ -1225,7 +1253,7 @@ public function bulkCreate(Request $request)
             if (in_array($slug, $reserved)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This slug is reserved and cannot be used'
+                    'message' => 'This slug is reserved and cannot be used',
                 ], 422);
             }
 
@@ -1233,7 +1261,7 @@ public function bulkCreate(Request $request)
             if (\App\Models\User::where('name', $slug)->exists()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This slug collides with an existing username'
+                    'message' => 'This slug collides with an existing username',
                 ], 422);
             }
 
@@ -1241,7 +1269,7 @@ public function bulkCreate(Request $request)
             if (DB::table('library')->where('book', $slug)->exists()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This slug collides with an existing book ID'
+                    'message' => 'This slug collides with an existing book ID',
                 ], 422);
             }
 
@@ -1249,7 +1277,7 @@ public function bulkCreate(Request $request)
             if (DB::table('library')->where('slug', $slug)->where('book', '!=', $bookId)->exists()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This slug is already in use by another book'
+                    'message' => 'This slug is already in use by another book',
                 ], 422);
             }
 
@@ -1258,24 +1286,24 @@ public function bulkCreate(Request $request)
             Log::info('Book slug set', [
                 'book' => $bookId,
                 'slug' => $slug,
-                'user' => $user->name
+                'user' => $user->name,
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Slug set successfully',
                 'book' => $bookId,
-                'slug' => $slug
+                'slug' => $slug,
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Set slug failed: ' . $e->getMessage());
+            Log::error('Set slug failed: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to set slug',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-
 }

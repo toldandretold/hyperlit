@@ -106,8 +106,26 @@ class BookAudioController extends Controller
         $this->assertVisible($book);
 
         $user->refresh();
-        if (! $billingService->canProceed($user)) {
+
+        // Estimate the cost so we can reserve credits atomically — this prevents
+        // a race where a user with $0.01 starts generation on N books simultaneously
+        // and all N pass the old non-locking canProceed() check. The reservation
+        // increments debits under a row lock; the actual charge happens in the job.
+        $estimatedCost = $this->estimateAudioCost($book, $user);
+
+        if ($user->status === 'premium') {
+            // Premium users bypass the balance check entirely.
+        } elseif (! $billingService->canProceed($user)) {
             return response()->json(['success' => false, 'message' => 'Insufficient balance'], 402);
+        } elseif ($estimatedCost > 0) {
+            $reservation = $billingService->reserveCredits(
+                $user,
+                $estimatedCost,
+                "Audio generation reservation: {$book}",
+            );
+            if ($reservation === null) {
+                return response()->json(['success' => false, 'message' => 'Insufficient balance'], 402);
+            }
         }
 
         // Voice is pinned per book once any audio exists — regens must match
@@ -383,6 +401,28 @@ class BookAudioController extends Controller
             'missing_chars' => $missingChars,
             'stale_chars' => $staleChars,
         ];
+    }
+
+    /**
+     * Rough cost estimate for the credit reservation (prevents the multi-book
+     * overdraft race). Uses the same pricing as status(); the actual charge
+     * happens in the job and may differ — the reservation is a temporary hold.
+     */
+    private function estimateAudioCost(string $book, $user): float
+    {
+        $counts = $this->audioCounts($book);
+        $billableChars = $counts['missing_chars'] + $counts['stale_chars'];
+        if ($billableChars === 0) {
+            return 0.0;
+        }
+        $rate = (float) config('services.tts.pricing.billed_per_million_chars', 1.00);
+        $multiplier = $user ? $user->getBillingMultiplier() : 1.0;
+
+        $cost = round($billableChars / 1_000_000 * $rate * $multiplier, 2);
+
+        // Minimum reservation of 0.01 when there are billable chars — prevents
+        // the multi-book overdraft race even when the rounded cost is 0.
+        return $billableChars > 0 ? max($cost, 0.01) : 0.0;
     }
 
     /**

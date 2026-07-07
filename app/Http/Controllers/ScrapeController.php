@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -24,7 +24,7 @@ class ScrapeController extends Controller
             'User-Agent' => self::USER_AGENT,
         ])->timeout(30)->get($url);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             throw new \RuntimeException("HTTP {$response->status()} fetching {$url}");
         }
 
@@ -37,9 +37,10 @@ class ScrapeController extends Controller
     private function validateHost(string $url, array $allowed): ?JsonResponse
     {
         $host = parse_url($url, PHP_URL_HOST);
-        if (!in_array($host, $allowed, true)) {
-            return $this->error('Unsupported domain: ' . $host, 422);
+        if (! in_array($host, $allowed, true)) {
+            return $this->error('Unsupported domain: '.$host, 422);
         }
+
         return null;
     }
 
@@ -58,19 +59,22 @@ class ScrapeController extends Controller
         $request->validate(['url' => 'required|url']);
         $url = $request->input('url');
 
-        if ($err = $this->validateHost($url, self::NOVEL_HOSTS)) return $err;
+        if ($err = $this->validateHost($url, self::NOVEL_HOSTS)) {
+            return $err;
+        }
 
         try {
             $html = $this->fetchPage($url);
             [$bookTitle, $chapters] = $this->parseNovelChapterList($html, $url);
 
             return response()->json([
-                'title'    => $bookTitle,
+                'title' => $bookTitle,
                 'chapters' => $chapters,
             ]);
         } catch (\Exception $e) {
-            Log::error('Novel scraper chapters failed: ' . $e->getMessage());
-            return $this->serverError('Failed to fetch chapter list: ' . $e->getMessage());
+            Log::error('Novel scraper chapters failed: '.$e->getMessage());
+
+            return $this->serverError('Failed to fetch chapter list.');
         }
     }
 
@@ -83,19 +87,22 @@ class ScrapeController extends Controller
         $request->validate(['url' => 'required|url']);
         $url = $request->input('url');
 
-        if ($err = $this->validateHost($url, self::NOVEL_HOSTS)) return $err;
+        if ($err = $this->validateHost($url, self::NOVEL_HOSTS)) {
+            return $err;
+        }
 
         try {
             $html = $this->fetchPage($url);
             [$chapterTitle, $paragraphs] = $this->parseNovelChapter($html);
 
             return response()->json([
-                'title'      => $chapterTitle,
+                'title' => $chapterTitle,
                 'paragraphs' => $paragraphs,
             ]);
         } catch (\Exception $e) {
-            Log::error('Novel scraper chapter failed: ' . $e->getMessage());
-            return $this->serverError('Failed to fetch chapter: ' . $e->getMessage());
+            Log::error('Novel scraper chapter failed: '.$e->getMessage());
+
+            return $this->serverError('Failed to fetch chapter.');
         }
     }
 
@@ -117,24 +124,24 @@ class ScrapeController extends Controller
         // Determine book slug from source URL to filter out unrelated "related posts"
         $parsedUrl = parse_url($sourceUrl);
         $pathParts = array_values(array_filter(explode('/', trim($parsedUrl['path'] ?? '', '/'))));
-        $bookSlug  = $pathParts[0] ?? '';
+        $bookSlug = $pathParts[0] ?? '';
 
         $chapters = [];
         $seenUrls = [];
 
         foreach ($matches as $match) {
-            $href  = $match[1];
+            $href = $match[1];
             $title = trim(html_entity_decode(strip_tags($match[2]), ENT_QUOTES, 'UTF-8'));
 
             // Make URL absolute if needed
-            if (!str_starts_with($href, 'http')) {
-                $href = rtrim($sourceUrl, '/') . '/' . ltrim($href, '/');
+            if (! str_starts_with($href, 'http')) {
+                $href = rtrim($sourceUrl, '/').'/'.ltrim($href, '/');
             }
 
             // Filter: keep only links whose path starts with the same slug
             $linkParsed = parse_url($href);
-            $linkParts  = array_values(array_filter(explode('/', trim($linkParsed['path'] ?? '', '/'))));
-            if ($bookSlug && !empty($linkParts) && $linkParts[0] !== $bookSlug) {
+            $linkParts = array_values(array_filter(explode('/', trim($linkParsed['path'] ?? '', '/'))));
+            if ($bookSlug && ! empty($linkParts) && $linkParts[0] !== $bookSlug) {
                 continue;
             }
 

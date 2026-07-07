@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
+use App\Services\Security\UrlGuard;
 use Illuminate\Http\Client\Pool;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -30,11 +30,11 @@ class WebFetchService
         }
 
         // Plain text URL fallback
-        if (!$url && preg_match('#(https?://[^\s<>"\']+)#i', $content, $m)) {
+        if (! $url && preg_match('#(https?://[^\s<>"\']+)#i', $content, $m)) {
             $url = $m[1];
         }
 
-        if (!$url) {
+        if (! $url) {
             return null;
         }
 
@@ -58,17 +58,18 @@ class WebFetchService
     {
         $text = $this->fetchWebPage($url);
 
-        if (!$text || strlen($text) < 200) {
+        if (! $text || strlen($text) < 200) {
             return null;
         }
 
         // LLM screen: reject cookie walls, 404s, login pages, unrelated content
-        if (!$this->llm->validateWebContent($text, $title)) {
+        if (! $this->llm->validateWebContent($text, $title)) {
             Log::info('WebFetchService: LLM rejected content as irrelevant', [
                 'url' => $url,
                 'title' => $title,
                 'text_length' => strlen($text),
             ]);
+
             return null;
         }
 
@@ -79,7 +80,7 @@ class WebFetchService
      * Fetch and validate multiple URLs concurrently using Http::pool.
      * Fetches in chunks of 8 with 1s gap to avoid overwhelming publisher servers.
      *
-     * @param array $items Keyed by referenceId: ['ref1' => ['url' => ..., 'title' => ...], ...]
+     * @param  array  $items  Keyed by referenceId: ['ref1' => ['url' => ..., 'title' => ...], ...]
      * @return array Validated text keyed by referenceId (null for failures)
      */
     public function fetchAndValidateBatch(array $items): array
@@ -93,9 +94,20 @@ class WebFetchService
         $chunks = array_chunk($keys, 8);
 
         foreach ($chunks as $chunkIndex => $chunkKeys) {
+            // SSRF guard: filter out any URL that resolves to a private/reserved IP
+            // before adding it to the pool.
+            $safeKeys = array_filter($chunkKeys, function ($key) use ($items) {
+                return UrlGuard::isSafeFetchUrl($items[$key]['url']);
+            });
+            $blockedKeys = array_diff($chunkKeys, $safeKeys);
+            foreach ($blockedKeys as $blockedKey) {
+                Log::warning('WebFetchService: blocked SSRF attempt in batch', ['url' => $items[$blockedKey]['url']]);
+                $results[$blockedKey] = null;
+            }
+
             // Fetch chunk concurrently
-            $responses = Http::pool(function (Pool $pool) use ($items, $chunkKeys) {
-                foreach ($chunkKeys as $key) {
+            $responses = Http::pool(function (Pool $pool) use ($items, $safeKeys) {
+                foreach ($safeKeys as $key) {
                     $pool->as((string) $key)
                         ->withHeaders(ContentFetchService::browserHeaders())
                         ->timeout(15)
@@ -104,33 +116,37 @@ class WebFetchService
             });
 
             // Process responses
-            foreach ($chunkKeys as $key) {
+            foreach ($safeKeys as $key) {
                 $item = $items[$key];
                 $response = $responses[(string) $key] ?? null;
-                if (!$response || $response instanceof \Illuminate\Http\Client\ConnectionException || !$response->successful()) {
+                if (! $response || $response instanceof \Illuminate\Http\Client\ConnectionException || ! $response->successful()) {
                     $results[$key] = null;
+
                     continue;
                 }
 
                 $contentType = $response->header('Content-Type') ?? '';
                 if (str_contains($contentType, 'application/pdf')) {
                     $results[$key] = null;
+
                     continue;
                 }
 
                 $text = $this->extractTextFromHtml($response->body());
-                if (!$text || strlen($text) < 200) {
+                if (! $text || strlen($text) < 200) {
                     $results[$key] = null;
+
                     continue;
                 }
 
                 // LLM validate (sequential — typically few entries reach this wave)
-                if (!$this->llm->validateWebContent($text, $item['title'])) {
+                if (! $this->llm->validateWebContent($text, $item['title'])) {
                     Log::info('WebFetchService batch: LLM rejected content', [
-                        'url'   => $item['url'],
+                        'url' => $item['url'],
                         'title' => $item['title'],
                     ]);
                     $results[$key] = null;
+
                     continue;
                 }
 
@@ -168,30 +184,30 @@ class WebFetchService
             }
         }
 
-        $bookId = 'web_' . Str::random(20);
+        $bookId = 'web_'.Str::random(20);
 
         try {
             $now = now()->toDateTimeString();
 
             // Create library stub with has_nodes = true
             $db->table('library')->insert([
-                'book'       => $bookId,
-                'title'      => $title ?: 'Web Source',
-                'author'     => $author,
-                'year'       => $year,
-                'abstract'   => Str::limit($text, 2000, '...'),
-                'url'        => $url,
-                'type'       => 'web_source',
-                'has_nodes'  => true,
-                'creator'    => 'WebFetch',
+                'book' => $bookId,
+                'title' => $title ?: 'Web Source',
+                'author' => $author,
+                'year' => $year,
+                'abstract' => Str::limit($text, 2000, '...'),
+                'url' => $url,
+                'type' => 'web_source',
+                'has_nodes' => true,
+                'creator' => 'WebFetch',
                 'visibility' => 'public',
-                'listed'     => false,
-                'raw_json'   => json_encode([
+                'listed' => false,
+                'raw_json' => json_encode([
                     'source_url' => $url,
-                    'method'     => 'web_fetch',
+                    'method' => 'web_fetch',
                     'fetched_at' => now()->toIso8601String(),
                 ]),
-                'timestamp'  => round(microtime(true) * 1000),
+                'timestamp' => round(microtime(true) * 1000),
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
@@ -202,7 +218,8 @@ class WebFetchService
 
             return $bookId;
         } catch (\Exception $e) {
-            Log::warning('WebFetchService stub creation failed: ' . $e->getMessage());
+            Log::warning('WebFetchService stub creation failed: '.$e->getMessage());
+
             return null;
         }
     }
@@ -212,12 +229,18 @@ class WebFetchService
      */
     private function fetchWebPage(string $url): ?string
     {
+        if (! UrlGuard::isSafeFetchUrl($url)) {
+            Log::warning('WebFetchService: blocked SSRF attempt', ['url' => $url]);
+
+            return null;
+        }
+
         try {
             $response = Http::withHeaders(ContentFetchService::browserHeaders())
                 ->timeout(15)
                 ->get($url);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 return null;
             }
 
@@ -233,6 +256,7 @@ class WebFetchService
                 'url' => $url,
                 'error' => Str::limit($e->getMessage(), 100),
             ]);
+
             return null;
         }
     }
@@ -307,13 +331,13 @@ class WebFetchService
                         $chunks[] = trim($sentenceBuf);
                         $sentenceBuf = '';
                     }
-                    $sentenceBuf .= ($sentenceBuf ? ' ' : '') . $sentence;
+                    $sentenceBuf .= ($sentenceBuf ? ' ' : '').$sentence;
                 }
                 if ($sentenceBuf !== '') {
                     $current = $sentenceBuf;
                 }
             } else {
-                $current .= ($current ? "\n\n" : '') . $para;
+                $current .= ($current ? "\n\n" : '').$para;
             }
         }
 
@@ -339,19 +363,19 @@ class WebFetchService
             $startLine = ($index + 1) * 100;
             $chunkId = floor($index / 100) * 100;
 
-            $nodeHtml = '<p data-node-id="' . e($nodeId) . '" no-delete-id="please" '
-                      . 'style="min-height:1.5em;">' . e($chunk) . '</p>';
+            $nodeHtml = '<p data-node-id="'.e($nodeId).'" no-delete-id="please" '
+                      .'style="min-height:1.5em;">'.e($chunk).'</p>';
 
             $insertData[] = [
-                'book'       => $bookId,
-                'startLine'  => $startLine,
-                'chunk_id'   => $chunkId,
-                'node_id'    => $nodeId,
-                'content'    => $nodeHtml,
-                'plainText'  => $chunk,
-                'type'       => 'p',
-                'footnotes'  => json_encode([]),
-                'raw_json'   => json_encode([]),
+                'book' => $bookId,
+                'startLine' => $startLine,
+                'chunk_id' => $chunkId,
+                'node_id' => $nodeId,
+                'content' => $nodeHtml,
+                'plainText' => $chunk,
+                'type' => 'p',
+                'footnotes' => json_encode([]),
+                'raw_json' => json_encode([]),
                 'created_at' => $now,
                 'updated_at' => $now,
             ];

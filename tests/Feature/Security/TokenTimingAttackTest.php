@@ -41,45 +41,27 @@ it('BookMediaController::canAccessLegacy uses hash_equals (correct pattern)', fu
     expect($source)->toContain('hash_equals(');
 });
 
-it('NodeHistoryController::checkBookPermission uses === instead of hash_equals (VULNERABLE)', function () {
+it('NodeHistoryController::checkBookPermission uses hash_equals (fixed)', function () {
     $source = file_get_contents(app_path('Http/Controllers/NodeHistoryController.php'));
 
-    // VULNERABILITY: Line 38 uses === for anonymous token comparison.
-    // A timing attack can progressively guess the token byte-by-byte.
-    expect($source)->toContain('creator_token === $anonymousToken')
-        ->and($source)->not->toContain('hash_equals(');
-})->skip(
-    'TIMING ATTACK: NodeHistoryController::checkBookPermission compares the anonymous token with '.
-    '=== (string equality) instead of hash_equals() (constant-time). The comparison short-circuits '.
-    'on the first differing byte, leaking how many leading bytes are correct via response timing. '.
-    'Fix: replace $book->creator_token === $anonymousToken with '.
-    'hash_equals((string)$book->creator_token, (string)$anonymousToken). '.
-    'Un-skip after fixing.'
-);
+    // FIXED: now uses hash_equals() for constant-time anonymous token comparison.
+    expect($source)->toContain('hash_equals(')
+        ->not->toContain('$book->creator_token === $anonymousToken');
+});
 
-it('web.php canAccessBookContent uses === instead of hash_equals (VULNERABLE)', function () {
+it('web.php canAccessBookContent uses hash_equals (fixed)', function () {
     $source = file_get_contents(base_path('routes/web.php'));
 
-    // VULNERABILITY: Line 158 uses === for anonymous token comparison.
-    expect($source)->toContain('creator_token === $anonToken')
-        ->and($source)->not->toContain('hash_equals(');
-})->skip(
-    'TIMING ATTACK: web.php canAccessBookContent() compares the anonymous token with === '.
-    'instead of hash_equals(). Same vulnerability as NodeHistoryController. '.
-    'Un-skip after fixing.'
-);
+    expect($source)->toContain('hash_equals(')
+        ->not->toContain('creator_token === $anonToken');
+});
 
-it('BookImageController::update uses === instead of hash_equals (VULNERABLE)', function () {
+it('BookImageController::update uses hash_equals (fixed)', function () {
     $source = file_get_contents(app_path('Http/Controllers/BookImageController.php'));
 
-    // VULNERABILITY: Line 56 uses === for anonymous token comparison.
-    expect($source)->toContain('creator_token === $creatorInfo')
-        ->and($source)->not->toContain('hash_equals(');
-})->skip(
-    'TIMING ATTACK: BookImageController::update compares the anonymous token with === '.
-    'instead of hash_equals(). Same vulnerability as NodeHistoryController. '.
-    'Un-skip after fixing.'
-);
+    expect($source)->toContain('hash_equals(')
+        ->not->toContain('creator_token === $creatorInfo');
+});
 
 // =============================================================================
 // FUNCTIONAL TEST: verify the vulnerable path is reachable

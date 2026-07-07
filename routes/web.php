@@ -1,24 +1,14 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\TextController;
-use Illuminate\Http\Request;
-use App\Models\User;
-
-use App\Events\ProcessComplete;
-use App\Http\Controllers\FootnotesController;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\ConversionController;
-use App\Http\Controllers\DbLibraryController;
 use App\Http\Controllers\QuantizerController;
 use App\Http\Controllers\SitemapController;
-use Illuminate\Validation\ValidationException;
-
-
-
+use App\Http\Controllers\TextController;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Route;
 
 require __DIR__.'/auth.php';
 
@@ -31,15 +21,15 @@ Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap')
 
 // Per-book Open Graph card (link-preview image)
 Route::get('/og/{book}.png', [\App\Http\Controllers\OgImageController::class, 'show'])
-     ->where('book', '[A-Za-z0-9_-]+')
-     ->name('og.image');
+    ->where('book', '[A-Za-z0-9_-]+')
+    ->name('og.image');
 
 // Offline fallback page - now served as static /public/offline.html by Service Worker
 
 // Standalone sub-book route: /based/{subBookId} loads sub-book as full-screen
 Route::get('/based/{subBookId}', [TextController::class, 'showStandalone'])
-     ->where('subBookId', '.+')
-     ->name('book.standalone');
+    ->where('subBookId', '.+')
+    ->name('book.standalone');
 
 // Hyperlights routes
 Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML'])->name('hyperlights.show');
@@ -48,15 +38,16 @@ Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML']
 Route::get('/{book}/AIreview', function (Request $request, $book) {
     $book = \App\Helpers\BookSlugHelper::resolve($book);
     $subBookId = "{$book}/AIreview";
-    if (!DB::table('nodes')->where('book', $subBookId)->exists()) {
+    if (! DB::table('nodes')->where('book', $subBookId)->exists()) {
         abort(404, 'AI Review not found for this book.');
     }
+
     return view('reader', [
-        'html'       => '',
-        'book'       => $subBookId,
-        'editMode'   => false,
+        'html' => '',
+        'book' => $subBookId,
+        'editMode' => false,
         'dataSource' => 'database',
-        'pageType'   => 'reader',
+        'pageType' => 'reader',
     ]);
 })->where('book', '[A-Za-z0-9_-]+')->name('book.aireview');
 
@@ -82,13 +73,13 @@ Route::get('/{book}/main-text-footnotes.json', function (Request $request, $book
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
 
     // SECURITY: Check authorization
-    if (!canAccessBookContent($book, $request)) {
+    if (! canAccessBookContent($book, $request)) {
         abort(403, 'Access denied.');
     }
 
     $filePath = resource_path("markdown/{$book}/main-text-footnotes.json");
 
-    if (!file_exists($filePath)) {
+    if (! file_exists($filePath)) {
         abort(404, 'File not found.');
     }
 
@@ -100,13 +91,13 @@ Route::get('/{book}/main-text.md', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
 
     // SECURITY: Check authorization
-    if (!canAccessBookContent($book, $request)) {
+    if (! canAccessBookContent($book, $request)) {
         abort(403, 'Access denied.');
     }
 
     $filePath = resource_path("markdown/{$book}/main-text.md");
 
-    if (!file_exists($filePath)) {
+    if (! file_exists($filePath)) {
         abort(404, 'File not found.');
     }
 
@@ -118,13 +109,13 @@ Route::get('/{book}/latest_update.json', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
 
     // SECURITY: Check authorization
-    if (!canAccessBookContent($book, $request)) {
+    if (! canAccessBookContent($book, $request)) {
         abort(403, 'Access denied.');
     }
 
     $filePath = resource_path("markdown/{$book}/latest_update.json");
 
-    if (!file_exists($filePath)) {
+    if (! file_exists($filePath)) {
         abort(404, 'File not found.');
     }
 
@@ -133,12 +124,13 @@ Route::get('/{book}/latest_update.json', function (Request $request, $book) {
 
 // SECURITY: Helper function to check if user can access book content
 // Returns true if book is public OR user is the owner
-if (!function_exists('canAccessBookContent')) {
-    function canAccessBookContent($book, $request) {
+if (! function_exists('canAccessBookContent')) {
+    function canAccessBookContent($book, $request)
+    {
         $library = \App\Models\PgLibrary::where('book', $book)->first();
 
         // If no library record, allow access (legacy or public content)
-        if (!$library) {
+        if (! $library) {
             return true;
         }
 
@@ -153,9 +145,9 @@ if (!function_exists('canAccessBookContent')) {
             return true;
         }
 
-        // Check anonymous token
+        // Check anonymous token (constant-time to prevent timing attacks)
         $anonToken = $request->cookie('anon_token');
-        if ($anonToken && $library->creator_token === $anonToken) {
+        if ($anonToken && $library->creator_token && hash_equals((string) $library->creator_token, (string) $anonToken)) {
             return true;
         }
 
@@ -168,14 +160,15 @@ Route::get('/{book}/nodes.json', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
 
     // SECURITY: Check authorization
-    if (!canAccessBookContent($book, $request)) {
+    if (! canAccessBookContent($book, $request)) {
         abort(403, 'Access denied.');
     }
 
     $filePath = resource_path("markdown/{$book}/nodes.json");
-    if (!file_exists($filePath)) {
+    if (! file_exists($filePath)) {
         abort(404, 'File not found.');
     }
+
     return response()->file($filePath, ['Content-Type' => 'application/json']);
 })->where('book', '[a-zA-Z0-9\-_]+');
 
@@ -183,14 +176,15 @@ Route::get('/{book}/footnotes.json', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
 
     // SECURITY: Check authorization
-    if (!canAccessBookContent($book, $request)) {
+    if (! canAccessBookContent($book, $request)) {
         abort(403, 'Access denied.');
     }
 
     $filePath = resource_path("markdown/{$book}/footnotes.json");
-    if (!file_exists($filePath)) {
+    if (! file_exists($filePath)) {
         abort(404, 'File not found.');
     }
+
     return response()->file($filePath, ['Content-Type' => 'application/json']);
 })->where('book', '[a-zA-Z0-9\-_]+');
 
@@ -198,14 +192,15 @@ Route::get('/{book}/references.json', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
 
     // SECURITY: Check authorization
-    if (!canAccessBookContent($book, $request)) {
+    if (! canAccessBookContent($book, $request)) {
         abort(403, 'Access denied.');
     }
 
     $filePath = resource_path("markdown/{$book}/references.json");
-    if (!file_exists($filePath)) {
+    if (! file_exists($filePath)) {
         abort(404, 'File not found.');
     }
+
     return response()->file($filePath, ['Content-Type' => 'application/json']);
 })->where('book', '[a-zA-Z0-9\-_]+');
 
@@ -214,26 +209,26 @@ Route::get('/{book}/download-all', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
 
     // Check ownership (not just read access)
-    $user    = $request->user();
+    $user = $request->user();
     $anonTok = $request->cookie('anon_author');
 
     $record = DB::table('library')->where('book', $book)->first();
-    if (!$record) {
+    if (! $record) {
         abort(404, 'Book not found.');
     }
 
     $isOwner = false;
     if ($user && $record->creator === $user->name) {
         $isOwner = true;
-    } elseif (!$user && $anonTok && $record->creator_token && hash_equals($record->creator_token, $anonTok)) {
+    } elseif (! $user && $anonTok && $record->creator_token && hash_equals($record->creator_token, $anonTok)) {
         $isOwner = true;
     }
-    if (!$isOwner) {
+    if (! $isOwner) {
         abort(403, 'Only the book owner can download all data.');
     }
 
-    $zipPath = tempnam(sys_get_temp_dir(), 'hyperlit_') . '.zip';
-    $zip = new \ZipArchive();
+    $zipPath = tempnam(sys_get_temp_dir(), 'hyperlit_').'.zip';
+    $zip = new \ZipArchive;
     if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
         abort(500, 'Could not create ZIP archive.');
     }
@@ -251,7 +246,7 @@ Route::get('/{book}/download-all', function (Request $request, $book) {
     $zip->addFromString("{$prefix}/nodes.json", json_encode($nodes, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
     // Sub-book nodes (footnotes/hyperlights have book IDs like book_123/Fn456)
-    $subBookNodes = DB::table('nodes')->where('book', 'like', $book . '/%')->get();
+    $subBookNodes = DB::table('nodes')->where('book', 'like', $book.'/%')->get();
     $zip->addFromString("{$prefix}/sub_book_nodes.json", json_encode($subBookNodes, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
     // Footnotes
@@ -261,6 +256,7 @@ Route::get('/{book}/download-all', function (Request $request, $book) {
     // Hyperlights (strip creator_token from each record)
     $hyperlights = DB::table('hyperlights')->where('book', $book)->get()->map(function ($row) {
         unset($row->creator_token);
+
         return $row;
     })->values();
     $zip->addFromString("{$prefix}/hyperlights.json", json_encode($hyperlights, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
@@ -284,7 +280,7 @@ Route::get('/{book}/download-all', function (Request $request, $book) {
         foreach ($files as $file) {
             if ($file->isFile()) {
                 $realPath = $file->getRealPath();
-                $relativePath = "{$book}/original_files/" . substr($realPath, strlen($bookDir) + 1);
+                $relativePath = "{$book}/original_files/".substr($realPath, strlen($bookDir) + 1);
                 $zip->addFile($realPath, $relativePath);
             }
         }
@@ -299,7 +295,7 @@ Route::get('/{book}/download-all', function (Request $request, $book) {
 Route::get('/{book}/media/{filename}', [\App\Http\Controllers\BookMediaController::class, 'show'])
     ->where([
         'book' => '[a-zA-Z0-9\-_]+',
-        'filename' => '[a-zA-Z0-9\-_.]+\.(jpg|jpeg|png|gif|webp|svg)'
+        'filename' => '[a-zA-Z0-9\-_.]+\.(jpg|jpeg|png|gif|webp|svg)',
     ]);
 
 // Per-node TTS audio — same RLS-gated serving model; BinaryFileResponse
@@ -325,40 +321,40 @@ Route::get('/email/verify/{id}/{hash}', [\App\Http\Controllers\AuthController::c
 
 // Quantizer view — experimental two-column annotation visualization
 Route::get('/q/{book}', [QuantizerController::class, 'show'])
-     ->where('book', '[A-Za-z0-9_-]+')
-     ->name('book.quantizer');
+    ->where('book', '[A-Za-z0-9_-]+')
+    ->name('book.quantizer');
 Route::get('/q/{parentBook}/{subId}/data', [QuantizerController::class, 'subBookData'])
-     ->where('subId', '.+')
-     ->name('quantizer.sub-book-data');
+    ->where('subId', '.+')
+    ->name('quantizer.sub-book-data');
 
 // Time machine route (must come before /{book}/edit catch)
 Route::get('/{book}/timemachine', [TextController::class, 'showTimeMachine'])
-     ->where('book', '[A-Za-z0-9_-]+')
-     ->name('book.timemachine');
+    ->where('book', '[A-Za-z0-9_-]+')
+    ->name('book.timemachine');
 
 // Book edit route
 Route::get('/{book}/edit', [TextController::class, 'show'])
-     ->where('book', '[A-Za-z0-9_-]+')
-     ->name('book.edit');
+    ->where('book', '[A-Za-z0-9_-]+')
+    ->name('book.edit');
 
 // User pages - /u/{username}/shelf/{shelfId} (must be before /u/{username})
-Route::get('/u/{username}/shelf/{shelfId}', function($username, $shelfId) {
+Route::get('/u/{username}/shelf/{shelfId}', function ($username, $shelfId) {
     return app(\App\Http\Controllers\UserHomeServerController::class)->show($username, $shelfId);
 })->where(['username' => '[A-Za-z0-9_-]+', 'shelfId' => '[a-zA-Z0-9_-]+'])->name('user.shelf');
 
 // User pages - /u/{username}
-Route::get('/u/{username}', function($username) {
+Route::get('/u/{username}', function ($username) {
     return app(\App\Http\Controllers\UserHomeServerController::class)->show($username);
 })->where('username', '[A-Za-z0-9_-]+')->name('user.home');
 
 // Legacy user page route - redirects to new /u/{username} format
-Route::get('/{identifier}', function(Request $request, $identifier) {
+Route::get('/{identifier}', function (Request $request, $identifier) {
     // Check if it's a username - redirect to new format
     // Try exact match first
     $user = User::where('name', $identifier)->first();
 
     // If no exact match, try sanitized match (handles usernames with spaces)
-    if (!$user) {
+    if (! $user) {
         $users = User::all();
         foreach ($users as $potentialUser) {
             $sanitizedDbName = str_replace(' ', '', $potentialUser->name);
@@ -373,6 +369,7 @@ Route::get('/{identifier}', function(Request $request, $identifier) {
     // If we found a user, redirect to /u/{sanitized_username}
     if ($user) {
         $sanitizedUsername = str_replace(' ', '', $user->name);
+
         return redirect("/u/{$sanitizedUsername}", 301);
     }
 
@@ -382,19 +379,19 @@ Route::get('/{identifier}', function(Request $request, $identifier) {
 
 // Deep nesting route: /book/2/Fn.../HL_... loads parent book with auto-open chain
 Route::get('/{book}/{rest}', [TextController::class, 'showNested'])
-     ->where([
-       'book' => '[A-Za-z0-9_-]+',
-       'rest' => '[0-9]+/.+',
-     ])
-     ->name('book.nested');
+    ->where([
+        'book' => '[A-Za-z0-9_-]+',
+        'rest' => '[0-9]+/.+',
+    ])
+    ->name('book.nested');
 
 // Book with hyperlight route
 Route::get('/{book}/{hl?}', [TextController::class, 'show'])
-     ->where([
-       'book' => '[A-Za-z0-9_-]+',
-       'hl'   => 'HL_[A-Za-z0-9_-]+'
-     ])
-     ->name('book.show');
+    ->where([
+        'book' => '[A-Za-z0-9_-]+',
+        'hl' => 'HL_[A-Za-z0-9_-]+',
+    ])
+    ->name('book.show');
 
 // Book with footnote route
 // Matches all known footnote ID formats:
@@ -403,8 +400,8 @@ Route::get('/{book}/{hl?}', [TextController::class, 'show'])
 //   ahumada2025_section_1_Fn1766534896037_2ksr  (_Fn in middle)
 //   book_1757846828811Fn175784683098524         (Fn in middle, no preceding _)
 Route::get('/{book}/{fn}', [TextController::class, 'show'])
-     ->where([
-       'book' => '[A-Za-z0-9_-]+',
-       'fn'   => '[A-Za-z0-9_-]*Fn[A-Za-z0-9_-]+'
-     ])
-     ->name('book.footnote');
+    ->where([
+        'book' => '[A-Za-z0-9_-]+',
+        'fn' => '[A-Za-z0-9_-]*Fn[A-Za-z0-9_-]+',
+    ])
+    ->name('book.footnote');
