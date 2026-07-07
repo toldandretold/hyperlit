@@ -23,6 +23,20 @@ const STORAGE_KEYS = {
 let brainRequestInFlight = false;
 
 /**
+ * The "goo" loader SVG: three brand-colour discs at one centre, fused by an inline
+ * goo filter into a single mutating blob with colour plumes (styled in brainMode.css).
+ * @param hidden start hidden (main form, until the request actually fires)
+ */
+const brainLoaderSvg = (hidden: boolean): string =>
+  `<svg class="brain-blobs"${hidden ? ' style="display:none;"' : ''} viewBox="0 0 100 100" aria-hidden="true">`
+  + `<defs><filter id="brainGoo"><feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b"/>`
+  + `<feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"/></filter></defs>`
+  + `<g filter="url(#brainGoo)" class="brain-goo-g">`
+  + `<circle class="bg-pink" cx="50" cy="44" r="19"/>`
+  + `<circle class="bg-orange" cx="56" cy="53" r="19"/>`
+  + `<circle class="bg-aqua" cx="44" cy="53" r="19"/></g></svg>`;
+
+/**
  * Clean up a pending brain highlight that was never completed.
  * Called from core.js during closeHyperlitContainer().
  * No-op when no brain query is pending, already succeeded, or request is in-flight.
@@ -135,7 +149,10 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
         <button type="button" class="brain-submit-btn">Ask</button>
         <button type="button" class="brain-cancel-btn">Cancel</button>
       </div>
-      <div class="brain-status" style="display:none;"></div>
+      <div class="brain-status" style="display:none;">
+        <span class="brain-status-text"></span>
+        ${brainLoaderSvg(true)}
+      </div>
     </div>
   `;
 
@@ -144,6 +161,10 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
   const submitBtn = section.querySelector('.brain-submit-btn');
   const cancelBtn = section.querySelector('.brain-cancel-btn');
   const statusEl = section.querySelector('.brain-status');
+  const statusTextEl = section.querySelector('.brain-status-text');
+  const blobsEl = section.querySelector('.brain-blobs');
+  const showBlobs = () => { if (blobsEl) blobsEl.style.display = ''; };
+  const hideBlobs = () => { if (blobsEl) blobsEl.style.display = 'none'; };
   const scopeBtns = section.querySelectorAll('.brain-scope-btn');
   const modeBtns = section.querySelectorAll('.brain-mode-btn');
   const sectionLabel = section.querySelector('.brain-section-label');
@@ -294,12 +315,12 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
     if (mode === 'archivist' && sourceScope === 'shelf') {
       shelfId = shelfSelect?.value || '';
       if (!shelfId) {
-        statusEl.style.display = 'block';
-        statusEl.textContent = 'Pick a shelf to limit the search to.';
+        statusEl.style.display = 'inline-flex';
+        statusTextEl.textContent = 'Pick a shelf to limit the search to.';
         if (shelfSelect) shelfSelect.classList.add('brain-input-error');
         shelfSelect?.addEventListener('change', () => {
           shelfSelect.classList.remove('brain-input-error');
-          statusEl.textContent = '';
+          statusTextEl.textContent = '';
           statusEl.style.display = 'none';
         }, { once: true });
         return;
@@ -310,12 +331,12 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
       const pickedOption = shelfSelect.options[shelfSelect.selectedIndex];
       const itemCount = Number(pickedOption?.dataset.itemCount ?? 0);
       if (itemCount === 0) {
-        statusEl.style.display = 'block';
-        statusEl.textContent = 'This shelf is empty. Add books to it, or pick a different scope.';
+        statusEl.style.display = 'inline-flex';
+        statusTextEl.textContent = 'This shelf is empty. Add books to it, or pick a different scope.';
         if (shelfSelect) shelfSelect.classList.add('brain-input-error');
         shelfSelect?.addEventListener('change', () => {
           shelfSelect.classList.remove('brain-input-error');
-          statusEl.textContent = '';
+          statusTextEl.textContent = '';
           statusEl.style.display = 'none';
         }, { once: true });
         return;
@@ -327,12 +348,12 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
     cancelBtn.style.display = 'none';
     scopeBtns.forEach((b: any) => b.disabled = true);
 
-    statusEl.style.display = 'block';
-    statusEl.textContent = 'Sending to archivist...';
+    statusEl.style.display = 'inline-flex';
+    statusTextEl.textContent = 'Sending to archivist...';
 
     const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
     if (!csrfToken) {
-      statusEl.textContent = 'Error: No CSRF token found';
+      statusTextEl.textContent = 'Error: No CSRF token found';
       annotation.contentEditable = 'true';
       submitBtn.disabled = false;
       cancelBtn.style.display = '';
@@ -341,17 +362,19 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
     }
 
     brainRequestInFlight = true;
+    showBlobs();
 
     const resetInputs = () => {
       annotation.contentEditable = 'true';
       submitBtn.disabled = false;
       cancelBtn.style.display = '';
       scopeBtns.forEach((b: any) => b.disabled = false);
+      hideBlobs();
     };
 
     const showBillingError = (msg: any) => {
-      statusEl.innerHTML = '';
-      statusEl.textContent = msg;
+      statusTextEl.innerHTML = '';
+      statusTextEl.textContent = msg;
       const topUpBtn = document.createElement('a');
       topUpBtn.href = '#';
       topUpBtn.textContent = 'Top Up Balance';
@@ -375,8 +398,8 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
           console.warn('Top-up checkout failed:', err);
         }
       });
-      statusEl.appendChild(document.createElement('br'));
-      statusEl.appendChild(topUpBtn);
+      statusTextEl.appendChild(document.createElement('br'));
+      statusTextEl.appendChild(topUpBtn);
     };
 
     try {
@@ -411,9 +434,9 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
         if (response.status === 402) {
           showBillingError(msg);
         } else if (response.status === 504) {
-          statusEl.textContent = 'The AI took too long. Please try again.';
+          statusTextEl.textContent = 'The AI took too long. Please try again.';
         } else {
-          statusEl.textContent = msg;
+          statusTextEl.textContent = msg;
         }
         resetInputs();
         return;
@@ -441,7 +464,7 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
             try {
               const parsed = JSON.parse(line.slice(6));
               if (eventType === 'status') {
-                statusEl.textContent = parsed.message;
+                statusTextEl.textContent = parsed.message;
               } else if (eventType === 'error') {
                 streamError = parsed.message || 'AI query failed';
               } else if (eventType === 'result') {
@@ -459,13 +482,13 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
 
       // Handle stream-level errors
       if (streamError) {
-        statusEl.textContent = streamError;
+        statusTextEl.textContent = streamError;
         resetInputs();
         return;
       }
 
       if (!data || !data.success) {
-        statusEl.textContent = (data && data.message) || 'AI query failed';
+        statusTextEl.textContent = (data && data.message) || 'AI query failed';
         resetInputs();
         return;
       }
@@ -522,7 +545,7 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
     } catch (error) {
       brainRequestInFlight = false;
       console.error('BrainQuery: Fetch error:', error);
-      statusEl.textContent = 'Network error. Try again.';
+      statusTextEl.textContent = 'Network error. Try again.';
       resetInputs();
     }
   };
@@ -551,10 +574,13 @@ export async function injectBrainPolling(highlight: any, scroller: any) {
     scroller.innerHTML = `
         <div class="brain-query-section">
             <h1>Brain query in progress</h1>
-            <div class="brain-status">Checking for results...</div>
+            <div class="brain-status" style="display:inline-flex;">
+                <span class="brain-status-text">Checking for results...</span>
+                ${brainLoaderSvg(false)}
+            </div>
         </div>
     `;
-    const statusEl = scroller.querySelector('.brain-status');
+    const statusTextEl = scroller.querySelector('.brain-status-text');
     const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
 
     let attempts = 0;
@@ -577,17 +603,17 @@ export async function injectBrainPolling(highlight: any, scroller: any) {
                     // Auth failed — the query may already be complete.
                     // Try loading the sub-book directly; on page reload
                     // Fix 1 (broadened gate) will skip polling if data exists.
-                    statusEl.textContent = 'Session expired — please refresh the page.';
+                    statusTextEl.textContent = 'Session expired — please refresh the page.';
                     return;
                 }
-                statusEl.textContent = 'Error checking brain query status.';
+                statusTextEl.textContent = 'Error checking brain query status.';
                 return;
             }
 
             const data: any = await resp.json();
 
             if (data.status === 'completed') {
-                statusEl.textContent = 'Result ready — loading...';
+                statusTextEl.textContent = 'Result ready — loading...';
                 await updateHyperlightInIndexedDB(highlightId, data.sub_book_id, data.preview_nodes || [], data.raw_json || null);
 
                 scroller.innerHTML = '';
@@ -617,19 +643,19 @@ export async function injectBrainPolling(highlight: any, scroller: any) {
             }
 
             if (data.status === 'not_found') {
-                statusEl.textContent = 'Brain query not found. It may have been removed.';
+                statusTextEl.textContent = 'Brain query not found. It may have been removed.';
                 return;
             }
 
-            statusEl.textContent = 'Brain query still processing...';
+            statusTextEl.textContent = 'Brain query still processing...';
         } catch (e) {
-            statusEl.textContent = 'Checking server...';
+            statusTextEl.textContent = 'Checking server...';
         }
 
         if (attempts < maxAttempts) {
             setTimeout(poll, 3000);
         } else {
-            statusEl.textContent = 'Taking longer than expected. Close and reopen to check again.';
+            statusTextEl.textContent = 'Taking longer than expected. Close and reopen to check again.';
         }
     };
 

@@ -413,11 +413,95 @@
 .brain-query-section .brain-cancel-btn:hover {
   color: var(--color-text);
 }
+/*
+  Status pill — a frosted "blurred glass" chip that appears while the AI request
+  is in flight (and for inline errors), holding the status text + the blob loader.
+  Frosted via backdrop-filter over whatever the theme background is; the pill's own
+  tint uses theme text/background vars so it reads in dark / light / sepia.
+*/
 .brain-status {
-  padding: 0.75em 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0.75em 0;
+  padding: 0.4em 0.75em;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  animation: fadeIn 0.25s ease forwards;
+}
+
+.brain-status-text {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   font-style: italic;
   font-size: 13px;
+}
+
+/*
+  "Goo" loader — three brand-colour discs stacked at one centre, fused into a
+  single organic mass by an SVG goo filter (blur + alpha-contrast, defined inline
+  in the SVG). Each disc pushes OUT in its own direction and drifts back, so the
+  mass sprouts colour plumes (NE / down / west); the whole group rotates slowly
+  so the plumes sweep around. Colours are the theme brand vars (re-tinted per
+  theme); the goo works on alpha, so it reads over any background. Inline in the
+  frosted status pill, after the text.
+*/
+.brain-blobs {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  overflow: visible;
+  vertical-align: middle;
+}
+
+.brain-goo-g {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: brainGooSpin 13s linear infinite;
+}
+
+.brain-blobs circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.brain-blobs .bg-pink   { fill: var(--hyperlit-pink);   animation: brainPlumeA 2.3s ease-in-out infinite; }
+.brain-blobs .bg-orange { fill: var(--hyperlit-orange); animation: brainPlumeB 2.7s ease-in-out infinite; }
+.brain-blobs .bg-aqua   { fill: var(--hyperlit-aqua);   animation: brainPlumeC 3.0s ease-in-out infinite; }
+
+/* Each disc wanders OUT along a curved path (3 stops) then home — smooth ease-in-out,
+   just a touch quicker than resting so it feels lively, not frantic. Different headings
+   keep the mass asymmetric; travel stays < 2·radius so the goo neck never snaps. */
+@keyframes brainPlumeA {   /* north-east */
+  0%   { transform: translate(0, 0) scale(0.92); }
+  35%  { transform: translate(8px, -8px) scale(1.06); }
+  65%  { transform: translate(3px, -11px) scale(0.98); }
+  100% { transform: translate(0, 0) scale(0.92); }
+}
+@keyframes brainPlumeB {   /* south-east */
+  0%   { transform: translate(0, 0) scale(0.94); }
+  40%  { transform: translate(5px, 9px) scale(1.08); }
+  70%  { transform: translate(10px, 4px) scale(0.98); }
+  100% { transform: translate(0, 0) scale(0.94); }
+}
+@keyframes brainPlumeC {   /* west, curling up */
+  0%   { transform: translate(0, 0) scale(0.9); }
+  45%  { transform: translate(-10px, 6px) scale(1.05); }
+  75%  { transform: translate(-5px, -4px) scale(0.94); }
+  100% { transform: translate(0, 0) scale(0.9); }
+}
+@keyframes brainGooSpin { to { transform: rotate(360deg); } }
+
+/* Gentle mode: slow the whole thing to a calm churn rather than freezing it. */
+@media (prefers-reduced-motion: reduce) {
+  .brain-goo-g { animation-duration: 30s; }
+  .brain-blobs .bg-pink { animation-duration: 7s; }
+  .brain-blobs .bg-orange { animation-duration: 7.8s; }
+  .brain-blobs .bg-aqua { animation-duration: 8.6s; }
 }
 .brain-section-label {
   font-size: 11px;
