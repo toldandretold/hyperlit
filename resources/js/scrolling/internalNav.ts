@@ -223,12 +223,18 @@ function isCitationRefTarget(id: string): boolean {
   return /^Ref\d/.test(id);
 }
 
-export function navigateToInternalId(targetId: string, lazyLoader: any, showOverlay = true): Promise<any> {
+export function navigateToInternalId(targetId: string, lazyLoader: any, showOverlay = true, scrollOffset: number | null = null): Promise<any> {
   if (!lazyLoader) {
     console.error("Lazy loader instance not provided!");
     return Promise.reject(new Error("Lazy loader instance not provided"));
   }
   targetId = toScrollTargetId(targetId);
+  // Where to land the target's top, in px from the scroll container's top edge. Deep-link targets
+  // (hypercite / highlight / footnote) use the 192px header offset so they clear the sticky header.
+  // A reading-position RESUME passes the saved sub-node offset so refresh lands on the exact pixel
+  // the reader was at (see restoreScrollPosition + forceSavePosition). null → default header offset.
+  const landingOffset = (scrollOffset === null || Number.isNaN(scrollOffset)) ? 192 : scrollOffset;
+  (lazyLoader as any)._pendingLandingOffset = landingOffset;
   verbose.nav(`Initiating navigation to internal ID: ${targetId}`, 'scrolling/internalNav');
 
   // 🚀 Return a Promise that resolves when navigation is truly complete
@@ -726,7 +732,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
     if (!isAlreadyVisible || !isReasonablyPositioned) {
       if (scrollableParent && scrollableParent !== window) {
         verbose.nav(`Using consistent scroll for container: ${scrollableParent.className}`, 'scrolling/internalNav');
-        scrollElementWithConsistentMethod(targetElement, scrollableParent, 192);
+        scrollElementWithConsistentMethod(targetElement, scrollableParent, (lazyLoader as any)._pendingLandingOffset ?? 192);
       } else {
         verbose.nav('Using scrollIntoView for window scrolling', 'scrolling/internalNav');
         nextScrollReason('internalNav-scrollIntoView');
@@ -782,7 +788,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
 
     // 🚨 SMART CLEANUP: Check if element is perfectly positioned to decide on delay
     // Reuse the elementRect and containerRect from above
-    const targetPosition = 192; // header offset
+    const targetPosition = (lazyLoader as any)._pendingLandingOffset ?? 192; // landing offset (header offset for deep links, saved sub-node offset for resume)
 
     const isAlreadyPerfectlyPositioned = Math.abs(currentPosition - targetPosition) < 20; // 20px tolerance
     const cleanupDelay = isAlreadyPerfectlyPositioned ? 0 : 500; // No delay if perfect, 500ms if corrections might fire

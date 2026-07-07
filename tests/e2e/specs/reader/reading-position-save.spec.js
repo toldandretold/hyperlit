@@ -1,11 +1,23 @@
 import { test, expect } from '../../fixtures/navigation.fixture.js';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+
+// In dev the app HTML is served at the app origin but ES modules come from the Vite dev server
+// (public/hot, e.g. https://hyperlit.test:5173) — so a raw `.ts` import MUST target that origin,
+// not location.origin (which 404s for .ts). Mirrors the vetted pattern in a11y/modal-surfaces.spec.js.
+function viteOrigin() {
+  try { return readFileSync(join(HERE, '../../../../public/hot'), 'utf8').trim(); } catch { return null; }
+}
 
 /**
  * Reading-position SAVE system — direct coverage.
  *
  * The reader records "where am I" as you scroll: the topmost visible node's id
- * is written to sessionStorage (`scrollPosition_<bookId>`) + localStorage
- * (`scrollPosition_latest`) by the throttled scroll handler, and pushed to the
+ * is written to BOTH sessionStorage AND localStorage under the same per-book key
+ * (`scrollPosition_<bookId>`) by the throttled scroll handler, and pushed to the
  * server (debounced 5s) for cross-device resume. This is the machinery in
  * lazyLoader/index.ts `forceSavePosition` + scrolling/readingPosition.ts.
  *
@@ -126,11 +138,13 @@ test.describe('reading position save', () => {
     const savedDeep = await savedElementId(page, bookId);
     expect(parseFloat(savedDeep), 'saved node advanced further on deeper scroll').toBeGreaterThan(parseFloat(savedMid));
 
-    // localStorage mirrors sessionStorage (the cross-tab / latest fallback).
-    const latest = await page.evaluate(() => {
-      try { return JSON.parse(localStorage.getItem('scrollPosition_latest') || '{}').elementId ?? null; } catch { return null; }
-    });
-    expect(latest, 'scrollPosition_latest mirrors the current saved node').toBe(savedDeep);
+    // localStorage mirrors sessionStorage under the SAME per-book key — the
+    // centralized save writes scrollPosition_<bookId> to both stores (there is
+    // no global "latest" mirror; position is keyed per-book, read via readingAnchor).
+    const latest = await page.evaluate((bid) => {
+      try { return JSON.parse(localStorage.getItem(`scrollPosition_${bid}`) || '{}').elementId ?? null; } catch { return null; }
+    }, bookId);
+    expect(latest, 'localStorage mirrors the current saved node under the per-book key').toBe(savedDeep);
 
     // ── B. getFreshAnchor() captures the current node SYNCHRONOUSLY ──
     await scrollNodeToTop(page, firstId);
@@ -142,11 +156,13 @@ test.describe('reading position save', () => {
     await page.evaluate((nid) => {
       document.getElementById(nid)?.scrollIntoView({ block: 'start' });
     }, deepId);
-    const freshAnchor = await page.evaluate(async (bid) => {
-      // Vetted raw-vite direct-invoke pattern (see a11y/modal-surfaces.spec.js).
-      const mod = await import(`${location.origin}/resources/js/scrolling/readingAnchor.ts`);
+    const freshAnchor = await page.evaluate(async ({ bid, origin }) => {
+      // Vetted raw-vite direct-invoke pattern (see a11y/modal-surfaces.spec.js): import from the
+      // Vite dev origin (public/hot), NOT location.origin — the app origin 404s for .ts modules.
+      const base = origin || location.origin;
+      const mod = await import(`${base}/resources/js/scrolling/readingAnchor.ts`);
       return mod.getFreshAnchor(bid)?.elementId ?? null;
-    }, bookId);
+    }, { bid: bookId, origin: viteOrigin() });
     expect(
       parseFloat(freshAnchor),
       'getFreshAnchor() synchronously captured the deep position (no throttle wait)'

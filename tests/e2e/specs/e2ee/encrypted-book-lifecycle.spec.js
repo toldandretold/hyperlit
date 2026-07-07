@@ -62,23 +62,37 @@ async function provisionFreshUser(browser) {
     'X-Requested-With': 'XMLHttpRequest', 'X-XSRF-TOKEN': token,
     'Origin': origin, 'Referer': origin + '/',
   });
-  const rand = Math.random().toString(36).slice(2, 8);
-  const creds = { name: 'e2ee' + rand, email: 'e2ee_' + rand + '@redteam.local', password: 'E2ee!' + rand + 'Aa1' };
-  await page.request.post(origin + '/api/register', {
-    headers: headers(await xsrf()),
-    data: { name: creds.name, email: creds.email, password: creds.password, password_confirmation: creds.password },
-  });
-  await page.request.post(origin + '/api/login', { headers: headers(await xsrf()), data: { email: creds.email, password: creds.password } });
-  const me = await page.request.get(origin + '/api/auth-check', { headers: headers(await xsrf()) });
-  const authedName = (await me.json().catch(() => ({})))?.user?.name ?? null;
-  if (authedName !== creds.name) {
-    throw new Error(`provisionFreshUser: expected "${creds.name}", session belongs to "${authedName ?? 'nobody'}" (registration throttled?)`);
+  // /api/register is rate-limited (throttle:10,1). During a full-suite run the shared IP can hit the
+  // limit, and a throttled (429) register would silently cascade into a login/auth mismatch and fail
+  // the whole lifecycle. Retry with backoff on a throttle (or any auth mismatch), minting FRESH creds
+  // each attempt, so a transient throttle self-heals instead of flaking.
+  const MAX_ATTEMPTS = 5;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const rand = Math.random().toString(36).slice(2, 8);
+    const creds = { name: 'e2ee' + rand, email: 'e2ee_' + rand + '@redteam.local', password: 'E2ee!' + rand + 'Aa1' };
+    const reg = await page.request.post(origin + '/api/register', {
+      headers: headers(await xsrf()),
+      data: { name: creds.name, email: creds.email, password: creds.password, password_confirmation: creds.password },
+    });
+    const backoff = Math.min(15000, 2000 * attempt); // 2s, 4s, 6s, 8s
+    if (reg.status() === 429) {
+      if (attempt === MAX_ATTEMPTS) break;
+      await page.waitForTimeout(backoff);
+      continue;
+    }
+    await page.request.post(origin + '/api/login', { headers: headers(await xsrf()), data: { email: creds.email, password: creds.password } });
+    const me = await page.request.get(origin + '/api/auth-check', { headers: headers(await xsrf()) });
+    const authedName = (await me.json().catch(() => ({})))?.user?.name ?? null;
+    if (authedName === creds.name) {
+      // Plain load, NOT networkidle: the homepage can hold a connection open and
+      // with the fixture's timeout:0 a networkidle wait hangs the whole test.
+      // The caller's toPass retry loop absorbs hydration timing.
+      await page.reload();
+      return { context, page };
+    }
+    if (attempt < MAX_ATTEMPTS) await page.waitForTimeout(backoff);
   }
-  // Plain load, NOT networkidle: the homepage can hold a connection open and
-  // with the fixture's timeout:0 a networkidle wait hangs the whole test.
-  // The caller's toPass retry loop absorbs hydration timing.
-  await page.reload();
-  return { context, page };
+  throw new Error(`provisionFreshUser: could not establish a fresh session after ${MAX_ATTEMPTS} attempts (registration throttled?)`);
 }
 
 test.describe('E2EE encrypted book lifecycle', () => {

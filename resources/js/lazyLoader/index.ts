@@ -348,7 +348,13 @@ export function createLazyLoader(config: any) {
 
       // The query is specific, but we double-check for a numerical ID.
       if (/^\d+(\.\d+)?$/.test(detectedId)) {
-        const scrollData = { elementId: detectedId };
+        // Persist the sub-node offset too: how far the container's top edge sits INTO the anchor
+        // node (negative when the node's top is above the edge — the straddling-node case). On
+        // resume, restoreScrollPosition replays this offset so refresh lands on the EXACT pixel the
+        // reader was at, instead of snapping the node's top to the 192px deep-link header offset
+        // (which left refresh ~a header-height too high — the hash-survives-scrollaway failure).
+        const offset = Math.round(instance._scrollAnchor.offsetFromContainer);
+        const scrollData = { elementId: detectedId, offset };
         const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
         const stringifiedData = JSON.stringify(scrollData);
 

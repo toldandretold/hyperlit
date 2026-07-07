@@ -76,21 +76,28 @@ export async function restoreScrollPosition(): Promise<void> {
     return;
   }
 
+  // 🚀 A book-to-book / hash navigation sets this skip flag; scroll restoration must yield to it.
+  // Check it BEFORE touching currentLazyLoader — during a transition the loader is momentarily null
+  // (between resetCurrentLazyLoader() and the re-init), and reaching the null-check below would emit
+  // a spurious "Lazy loader instance not available!" console.error that trips the e2e console gate
+  // even though we were going to skip restoration anyway.
+  if (shouldSkipScrollRestorationGlobal()) {
+    verbose.nav('RESTORE SCROLL: Skip flag is set, clearing and returning', 'scrolling/restore');
+    setSkipScrollRestoration(false); // Clear the flag for next time
+    return;
+  }
+
   if (!currentLazyLoader) {
-    console.error("Lazy loader instance not available!");
+    // NOT an error: during an in-flight BookToBookTransition the loader is briefly null
+    // (reset → re-init). There is nothing to restore yet and the transition drives navigation
+    // itself, so yield quietly rather than logging an error.
+    verbose.nav('restoreScrollPosition: no lazy loader yet — skipping (transition in flight?)', 'scrolling/restore');
     return;
   }
 
   // 🚀 FIX: Skip if we're already navigating to a target
   // This prevents race conditions with BookToBookTransition and other navigation pathways
   if (currentLazyLoader.isNavigatingToInternalId) {
-    return;
-  }
-
-  // 🚀 FIX: Check global flag to skip scroll restoration (set by BookToBookTransition for hash navigation)
-  if (shouldSkipScrollRestorationGlobal()) {
-    verbose.nav('RESTORE SCROLL: Skip flag is set, clearing and returning', 'scrolling/restore');
-    setSkipScrollRestoration(false); // Clear the flag for next time
     return;
   }
 
@@ -118,6 +125,10 @@ export async function restoreScrollPosition(): Promise<void> {
 
   // Read target id from URL hash first.
   let targetId = window.location.hash.substring(1);
+  // Sub-node offset for a reading-position RESUME (px the container top edge sits into the anchor
+  // node when it was saved). Stays null for deep-link hash targets → navigateToInternalId uses its
+  // default 192px header offset. Set only when we adopt a saved position below.
+  let savedOffset: number | null = null;
 
   // Suppress re-jumping to the hash ONLY when this is effectively a page refresh:
   //  - navigatedHashes (module-level Set) — we already jumped to this hash this page session;
@@ -170,7 +181,8 @@ export async function restoreScrollPosition(): Promise<void> {
         verbose.nav(`Parsed session data = ${JSON.stringify(parsed)}`, 'scrolling/restore');
         if (parsed?.elementId) {
           targetId = parsed.elementId;
-          verbose.nav(`Using saved session position: ${targetId}`, 'scrolling/restore');
+          savedOffset = typeof parsed.offset === 'number' ? parsed.offset : null;
+          verbose.nav(`Using saved session position: ${targetId} (offset ${savedOffset})`, 'scrolling/restore');
         }
       }
 
@@ -183,7 +195,8 @@ export async function restoreScrollPosition(): Promise<void> {
           verbose.nav(`Parsed local data = ${JSON.stringify(parsed)}`, 'scrolling/restore');
           if (parsed?.elementId) {
             targetId = parsed.elementId;
-            verbose.nav(`Using saved local position: ${targetId}`, 'scrolling/restore');
+            savedOffset = typeof parsed.offset === 'number' ? parsed.offset : null;
+            verbose.nav(`Using saved local position: ${targetId} (offset ${savedOffset})`, 'scrolling/restore');
           }
         }
       }
@@ -293,6 +306,8 @@ export async function restoreScrollPosition(): Promise<void> {
     return;
   }
 
-  // Navigate to the target position
-  navigateToInternalId(targetId, currentLazyLoader, !overlayShown);
+  // Navigate to the target position. For a saved-position resume, savedOffset replays the exact
+  // sub-node scroll offset (so refresh lands where the reader was); for a hash target it is null and
+  // navigateToInternalId falls back to the 192px header offset.
+  navigateToInternalId(targetId, currentLazyLoader, !overlayShown, savedOffset);
 }

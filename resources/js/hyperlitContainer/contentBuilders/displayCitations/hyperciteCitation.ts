@@ -168,6 +168,22 @@ export async function buildHyperciteCitationContent(contentType: any, db: any = 
       buttonSuffix = BTN_SPINNER_HTML;
     }
 
+    // Normalize the stored target URL to the CURRENT origin. Hypercite target URLs can carry a
+    // stale absolute origin (an http://localhost:8000 dev URL, or an http:// value from before the
+    // HTTPS migration, or a different host if the book was created/imported elsewhere). An absolute
+    // href with a foreign origin makes LinkNavigationHandler.handleLinkClick treat the "See in source
+    // text" click as EXTERNAL (isExternal = linkUrl.origin !== currentUrl.origin) and let the browser
+    // do a full cross-origin page reload instead of the SPA BookToBookTransition. Keeping only
+    // path+search+hash makes the link same-origin so it is intercepted for SPA navigation.
+    const navHref = (() => {
+      try {
+        const u = new URL(targetUrl, window.location.origin);
+        return `${u.pathname}${u.search}${u.hash}`;
+      } catch {
+        return targetUrl;
+      }
+    })();
+
     // Build dead banner (if applicable)
     let deadBannerHtml = '';
     let deadNavLink = '';
@@ -188,7 +204,7 @@ export async function buildHyperciteCitationContent(contentType: any, db: any = 
         ${deadBannerHtml}
         ${deadNavLink}
         <div style="margin-top: ${isGhost || isDead ? '0.5em' : '1em'};">
-          <a href="${targetUrl}" class="see-in-source-btn" ${buttonAttrs} style="${buttonStyle}">
+          <a href="${navHref}" class="see-in-source-btn" ${buttonAttrs} style="${buttonStyle}">
             ${buttonText}${buttonSuffix}
           </a>
         </div>
