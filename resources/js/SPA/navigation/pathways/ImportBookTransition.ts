@@ -66,7 +66,13 @@ export class ImportBookTransition {
       
       // Set up session storage for imported book handling
       this.setupImportedBookSession(bookId);
-      
+
+      // Update the URL now that the book id is known — BEFORE initializeImportedReader
+      // hides the nav overlay (which is when the SPA transition is considered done).
+      // Doing it later (after the up-to-10s content-ready wait + edit-mode entry) left
+      // the URL stuck at the home root for the whole import window.
+      this.updateUrl(bookId);
+
       progress(70, 'Initializing imported content...');
       
       // Initialize the imported reader view
@@ -87,8 +93,7 @@ export class ImportBookTransition {
         await this.enterEditMode();
       }
       
-      // Update the URL
-      this.updateUrl(bookId);
+      // (URL was updated earlier, before initializeImportedReader hid the overlay.)
 
       // E2EE (docs/e2ee.md): "Encrypt after import" — the pipeline needed the
       // plaintext to convert; now lock the finished book (transition + full

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1615,
-    "moduleCount": 346,
+    "fnCount": 1616,
+    "moduleCount": 347,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3280,
+    "edgeCount": 3288,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -4537,6 +4537,36 @@
       ]
     },
     {
+      "id": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+      "label": "getSubBookAnnotations",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DatabaseToIndexedDBController",
+      "method": "getSubBookAnnotations",
+      "group": "content",
+      "tables": [
+        "hypercites",
+        "hyperlights",
+        "library"
+      ],
+      "shape": [
+        "annotation",
+        "book",
+        "charData",
+        "creator",
+        "hidden",
+        "highlightedHTML",
+        "highlightedText",
+        "hyperlight_id",
+        "is_user_highlight",
+        "node_id",
+        "preview_nodes",
+        "raw_json",
+        "startLine",
+        "time_since"
+      ]
+    },
+    {
       "id": "controller:DatabaseToIndexedDBController@getSubBookData",
       "label": "getSubBookData",
       "kind": "controller",
@@ -5111,8 +5141,7 @@
       "group": "content",
       "tables": [
         "hyperlights",
-        "library",
-        "nodes"
+        "library"
       ],
       "shape": [
         "book",
@@ -5126,13 +5155,6 @@
         "startLine",
         "type",
         "updated_at"
-      ],
-      "types": [
-        "NodeHyperciteView",
-        "NodeHyperlightView",
-        "NodeRecord",
-        "PublicNode",
-        "ServerNodeRow"
       ]
     },
     {
@@ -7826,6 +7848,14 @@
       "kind": "fn",
       "stage": "hypercites",
       "module": "hypercites/listeners",
+      "leaf": false
+    },
+    {
+      "id": "hypercites/marking:restampHyperciteStatusInDOM",
+      "label": "restampHyperciteStatusInDOM",
+      "kind": "fn",
+      "stage": "hypercites",
+      "module": "hypercites/marking",
       "leaf": false
     },
     {
@@ -14379,7 +14409,7 @@
       "kind": "fn",
       "stage": "SPA",
       "module": "SPA/navigation/utils/cleanupHelpers",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "SPA/navigation/utils/cleanupHelpers:cleanupUser",
@@ -16671,6 +16701,15 @@
         "hypercites/listeners:cleanupHypercitingControls",
         "hypercites/listeners:cleanupUnderlineClickListeners",
         "hypercites/listeners:initializeHypercitingControls"
+      ]
+    },
+    {
+      "id": "hypercites/marking",
+      "label": "hypercites/marking",
+      "stage": "hypercites",
+      "band": "capture",
+      "fnIds": [
+        "hypercites/marking:restampHyperciteStatusInDOM"
       ]
     },
     {
@@ -23293,12 +23332,6 @@
       "rel": "push"
     },
     {
-      "id": "controller:DbNodeController@bulkCreate__push__pg:nodes",
-      "source": "controller:DbNodeController@bulkCreate",
-      "target": "pg:nodes",
-      "rel": "push"
-    },
-    {
       "id": "controller:DbNodeController@targetedUpsert__push__pg:hyperlights",
       "source": "controller:DbNodeController@targetedUpsert",
       "target": "pg:hyperlights",
@@ -26090,6 +26123,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__hypercites/marking:restampHyperciteStatusInDOM",
+      "source": "dom",
+      "target": "hypercites/marking:restampHyperciteStatusInDOM",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__hypercites/navigation:navigateToFootnoteTarget",
       "source": "dom",
       "target": "hypercites/navigation:navigateToFootnoteTarget",
@@ -27662,6 +27701,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__SPA/navigation/utils/cleanupHelpers:cleanupReader",
+      "source": "dom",
+      "target": "SPA/navigation/utils/cleanupHelpers:cleanupReader",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__SPA/navigation/utils/cleanupHelpers:closeOpenContainers",
       "source": "dom",
       "target": "SPA/navigation/utils/cleanupHelpers:closeOpenContainers",
@@ -29101,6 +29146,12 @@
       "id": "hypercites/listeners:initializeHypercitingControls__call__hyperlitContainer/utilities/activeContext:getActiveBook",
       "source": "hypercites/listeners:initializeHypercitingControls",
       "target": "hyperlitContainer/utilities/activeContext:getActiveBook",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/marking:restampHyperciteStatusInDOM__call__hypercites/listeners:attachUnderlineClickListeners",
+      "source": "hypercites/marking:restampHyperciteStatusInDOM",
+      "target": "hypercites/listeners:attachUnderlineClickListeners",
       "rel": "call"
     },
     {
@@ -35265,6 +35316,12 @@
       "rel": "call"
     },
     {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__hypercites/marking:restampHyperciteStatusInDOM",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "hypercites/marking:restampHyperciteStatusInDOM",
+      "rel": "call"
+    },
+    {
       "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__hypercites/utils:determineRelationshipStatus",
       "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
       "target": "hypercites/utils:determineRelationshipStatus",
@@ -36007,6 +36064,12 @@
       "rel": "pull"
     },
     {
+      "id": "pg:hypercites__pull__controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+      "source": "pg:hypercites",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+      "rel": "pull"
+    },
+    {
       "id": "pg:hypercites__pull__controller:DatabaseToIndexedDBController@getSubBookData",
       "source": "pg:hypercites",
       "target": "controller:DatabaseToIndexedDBController@getSubBookData",
@@ -36062,6 +36125,12 @@
       "rel": "pull"
     },
     {
+      "id": "pg:hyperlights__pull__controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+      "source": "pg:hyperlights",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+      "rel": "pull"
+    },
+    {
       "id": "pg:hyperlights__pull__controller:DatabaseToIndexedDBController@getSubBookData",
       "source": "pg:hyperlights",
       "target": "controller:DatabaseToIndexedDBController@getSubBookData",
@@ -36107,6 +36176,12 @@
       "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getSingleChunk",
       "source": "pg:library",
       "target": "controller:DatabaseToIndexedDBController@getSingleChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getSubBookAnnotations",
+      "source": "pg:library",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookAnnotations",
       "rel": "pull"
     },
     {
@@ -38078,6 +38153,12 @@
       "rel": "call"
     },
     {
+      "id": "SPA/navigation/utils/cleanupHelpers:cleanupReader__call__hyperlitContainer/stack:clear",
+      "source": "SPA/navigation/utils/cleanupHelpers:cleanupReader",
+      "target": "hyperlitContainer/stack:clear",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/utils/cleanupHelpers:cleanupReader__call__SPA/navigation/utils/cleanupHelpers:closeOpenContainers",
       "source": "SPA/navigation/utils/cleanupHelpers:cleanupReader",
       "target": "SPA/navigation/utils/cleanupHelpers:closeOpenContainers",
@@ -38090,6 +38171,12 @@
       "target": "SPA/viewManager:cleanupReaderView",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/utils/cleanupHelpers:cleanupReader__domwrite__dom",
+      "source": "SPA/navigation/utils/cleanupHelpers:cleanupReader",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "SPA/navigation/utils/cleanupHelpers:cleanupUser__call__components/userProfile/userProfileEditor:destroyUserProfileEditor",
@@ -39907,6 +39994,11 @@
     {
       "source": "SPA/navigation/utils/cleanupHelpers",
       "target": "hyperlitContainer/index",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/utils/cleanupHelpers",
+      "target": "hyperlitContainer/stack",
       "kind": "static"
     },
     {
@@ -41937,6 +42029,11 @@
     {
       "source": "hypercites/listeners",
       "target": "hyperlitContainer/utilities/activeContext",
+      "kind": "static"
+    },
+    {
+      "source": "hypercites/marking",
+      "target": "hypercites/listeners",
       "kind": "static"
     },
     {

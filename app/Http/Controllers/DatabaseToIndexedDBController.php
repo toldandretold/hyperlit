@@ -1177,6 +1177,18 @@ class DatabaseToIndexedDBController extends Controller
     }
 
     /**
+     * Get annotations (hyperlights + hypercites) for a sub-book ({parentBook}/{subId}/annotations).
+     * Same slash problem as getSubBookLibrary: a nested sub-book id can't ride in the
+     * single-segment {bookId}/annotations route, so syncAnnotationsOnly 404'd for every nested
+     * sub-book. Reconstructs the full id and delegates to getBookAnnotations.
+     */
+    public function getSubBookAnnotations(Request $request, string $parentBook, string $subId): JsonResponse
+    {
+        $parentBook = BookSlugHelper::resolve($parentBook);
+        return $this->getBookAnnotations($request, $parentBook . '/' . $subId);
+    }
+
+    /**
      * Get initial chunk for fast first-render loading.
      * Returns a single chunk of nodes + chunk manifest for lazy loading the rest.
      */

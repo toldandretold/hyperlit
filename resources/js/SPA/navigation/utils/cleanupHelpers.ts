@@ -9,6 +9,7 @@ import { destroyUserContainer } from '../../../components/userButton/userButton'
 import { destroyUserProfileEditor } from '../../../components/userProfile/userProfileEditor';
 import { destroyLogoNav } from '../../../components/logoNav/logoNav';
 import { closeHyperlitContainer, hyperlitManager } from '../../../hyperlitContainer/index';
+import { clear as clearContainerStack } from '../../../hyperlitContainer/stack';
 import { buttonRegistry } from '../../../components/utilities/buttonRegistry';
 
 /**
@@ -28,10 +29,21 @@ function forceClearOpenContainers() {
   if (!anyOpen) return;
 
   base?.classList.remove('open');
-  document.querySelectorAll('.hyperlit-container-stacked').forEach((el) => el.remove());
+  // Remove BOTH halves of every stacked layer — the container (.hyperlit-container-stacked) AND its
+  // overlay (.hyperlit-overlay-stacked, the class stack.ts's createStackedContainerDOM assigns). This
+  // list must match closeHyperlitContainer's safety-sweep query exactly; previously only the container
+  // (+ a stale .ref-overlay-stacked name) was removed, so the overlays survived and the sweep flagged
+  // them as a state-DOM desync ("removing N surviving stacked-container DOM node(s)").
+  document.querySelectorAll('.hyperlit-container-stacked, .hyperlit-overlay-stacked').forEach((el) => el.remove());
   document.getElementById('ref-overlay')?.classList.remove('active');
-  document.querySelectorAll('.ref-overlay-stacked').forEach((el) => el.remove());
   document.body.classList.remove('hyperlit-container-open');
+
+  // CRITICAL: we just yanked every stacked-container DOM node out, so the layers[] stack now points
+  // at detached elements. Empty it in lock-step — otherwise the closeHyperlitContainer(true) that
+  // cleanupReaderView() runs a few lines later unwinds this now-orphaned stack and popTopLayer trips
+  // the "[popTopLayer] desync probe … tracked container is DISCONNECTED (live stacked nodes in DOM: 0)"
+  // on every deep-stack cross-book back/forward. DOM and stack state must move together.
+  clearContainerStack();
 
   // Reset the live manager so a later reader entry rebinds clean (a stale isOpen=true would make
   // initializeHyperlitManagerInternal rebind-instead-of-recreate and suppress the next open).

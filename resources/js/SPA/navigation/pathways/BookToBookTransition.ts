@@ -230,8 +230,16 @@ export class BookToBookTransition {
    */
   static async cleanupCurrentReader() {
     try {
-      // Import and call the existing cleanup function from viewManager
-      cleanupReaderView();
+      // AWAIT this. cleanupReaderView() is async — it tears down the container stack via
+      // closeHyperlitContainer(true), which pops every layer, clears the layers[] array, and
+      // safety-sweeps the stacked DOM (appended to document.body). Left un-awaited, that teardown
+      // ran fire-and-forget and RACED the rest of the transition: the DOM got wiped / the container
+      // stack got restored while closeHyperlitContainer's pop loop was still running, so popTopLayer
+      // popped layers whose container was already detached → the "[popTopLayer] desync probe …
+      // DISCONNECTED (live stacked nodes in DOM: 0)" error on cross-book back/forward. Awaiting makes
+      // the previous book's stack fully torn down BEFORE the next book loads; back-restore is
+      // unaffected because it rebuilds from the preserved history.state containerStack recipe afterward.
+      await cleanupReaderView();
 
       // Explicitly reset all edit mode state flags as a safeguard
       resetEditModeState();

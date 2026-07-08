@@ -471,6 +471,13 @@ Route::prefix('database-to-indexeddb')->group(function () {
     Route::get('books/{parentBook}/{subId}/library', [DatabaseToIndexedDBController::class, 'getSubBookLibrary'])
         ->where('subId', '.+')
         ->name('api.database-to-indexeddb.sub-book-library');
+    // Sub-book annotations: same slash problem as /library above. The per-load
+    // freshness check bumps annotations_updated_at on the sub-book's library row,
+    // then syncAnnotationsOnly fetches /annotations — which 404'd for every nested
+    // sub-book because only the single-segment {bookId}/annotations route existed.
+    Route::get('books/{parentBook}/{subId}/annotations', [DatabaseToIndexedDBController::class, 'getSubBookAnnotations'])
+        ->where('subId', '.+')
+        ->name('api.database-to-indexeddb.sub-book-annotations');
 
     // Headings (lightweight TOC data when not fully loaded)
     Route::get('books/{bookId}/headings', [DatabaseToIndexedDBController::class, 'getBookHeadings'])

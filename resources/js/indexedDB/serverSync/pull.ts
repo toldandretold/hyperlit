@@ -160,7 +160,18 @@ export async function syncAnnotationsOnly(bookId: string): Promise<PullResult> {
     // Include gate filter as query param so server applies it immediately
     // (avoids race with async preference save, works for anonymous users)
     const { appendGateParam } = await import('../../components/utilities/gateFilter');
-    const response = await fetch(appendGateParam(`/api/database-to-indexeddb/books/${bookId}/annotations`));
+    // Slash-split nested sub-book ids (book_x/Fn_y/HL_z) onto the two-segment route — a plain
+    // /books/${bookId}/annotations 404'd for EVERY nested sub-book (only the single-segment route
+    // existed server-side; Laravel params don't match "/"). The literal is built inline here — in
+    // the SAME function as the fetch — on purpose: the flow-map generator detects endpoints by
+    // scanning a fetch fn's own body for `/api/…` literals and only resolves URL-builder helpers in
+    // the SAME module, so a cross-module helper would hide this endpoint (flowViz.generate.test.js).
+    const annId = String(bookId);
+    const annSlash = annId.indexOf('/');
+    const annotationsUrl = annSlash !== -1
+      ? `/api/database-to-indexeddb/books/${annId.substring(0, annSlash)}/${annId.substring(annSlash + 1)}/annotations`
+      : `/api/database-to-indexeddb/books/${annId}/annotations`;
+    const response = await fetch(appendGateParam(annotationsUrl));
 
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);

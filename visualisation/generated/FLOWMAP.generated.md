@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1615 functions in 346 modules · 10 object stores · 10 PG tables · 3280 edges
+**MarkdownDB** schema v28 · 1616 functions in 347 modules · 10 object stores · 10 PG tables · 3288 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -837,6 +837,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `cleanupHypercitingControls` | `hypercites/listeners` | — | — | read | — |
 | `cleanupUnderlineClickListeners` | `hypercites/listeners` | — | — | read/write | — |
 | `initializeHypercitingControls` | `hypercites/listeners` | — | — | read | — |
+| `restampHyperciteStatusInDOM` | `hypercites/marking` | — | — | read | — |
 | `handleUnderlineClick` | `hypercites/navigation` | — | — | — | — |
 | `navigateToFootnoteTarget` | `hypercites/navigation` | — | `sessionStorage` | read/write | — |
 | `navigateToHyperciteTarget` | `hypercites/navigation` | — | `sessionStorage` | read | — |
@@ -1602,7 +1603,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `cleanupFromStructure` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
 | `cleanupHome` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
 | `cleanupLogoNav` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
-| `cleanupReader` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
+| `cleanupReader` | `SPA/navigation/utils/cleanupHelpers` | — | — | read/write | — |
 | `cleanupUser` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
 | `closeOpenContainers` | `SPA/navigation/utils/cleanupHelpers` | — | — | read | — |
 | `fetchHtml` | `SPA/navigation/utils/contentSwapHelpers` | — | — | — | — |
