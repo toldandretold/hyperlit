@@ -216,6 +216,18 @@ export async function restoreHyperlitContainerFromHistory(providedContainerState
     const result: any = await buildContentFromMetadata(containerState);
     if (!result) return false;
 
+    // The await above (chunk/content load) can span an SPA navigation AWAY from the
+    // reader — a rapid back/forward burst that ends with navigate-home leaves this
+    // restoration in flight while cleanupReader swaps the body out. #hyperlit-container
+    // exists ONLY on reader pages, so if it's gone we're no longer on a reader: abort the
+    // restore quietly rather than letting prepareHyperlitContainer log a spurious
+    // "hyperlit-container not found after initialization!" error against the wrong page.
+    // Returning false is a valid "layer 0 did not restore" outcome the caller already handles.
+    if (!document.getElementById('hyperlit-container')) {
+      console.log('📊 restoreHyperlitContainerFromHistory aborted — navigated away from the reader mid-restore');
+      return false;
+    }
+
     const { html, contentTypes, newHighlightIds, hasAnyEditPermission } = result;
 
     // Two-phase open: prepare off-screen → load content → animate in

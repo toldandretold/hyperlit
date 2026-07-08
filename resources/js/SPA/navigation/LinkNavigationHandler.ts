@@ -28,6 +28,10 @@ export class LinkNavigationHandler {
   static globalFocusHandler: any = null;
   static globalPopstateHandler: any = null;
   static isReloading = false;
+  // Set when a popstate arrives while a transition is already in flight — signals
+  // handlePopstate to reconcile once more against the final history entry after
+  // the burst (see handlePopstate). Coalescing, not dropping.
+  static pendingPopstate = false;
 
 
   /**
@@ -40,6 +44,7 @@ export class LinkNavigationHandler {
     this.removeGlobalHandlers();
     // Reset reload flag when handlers are attached (page is loaded)
     this.isReloading = false;
+    this.pendingPopstate = false;
 
     // Track recent link clicks for mobile overlay handling
     let recentLinkClick = false;
@@ -61,14 +66,11 @@ export class LinkNavigationHandler {
       hideNavigationLoading();
     };
 
-    // Handle browser back/forward navigation
+    // Handle browser back/forward navigation. Serialization + coalescing of
+    // overlapping events lives in handlePopstate — do NOT early-drop here (that
+    // was the second half of the drop-on-reentry bug: a mid-transition popstate
+    // never even reached handlePopstate to be reconciled).
     this.globalPopstateHandler = async (event: any) => {
-      // Prevent reload loops
-      if (this.isReloading) {
-        verbose.nav('Already reloading, ignoring popstate', '/navigation/LinkNavigationHandler.js');
-        return;
-      }
-
       verbose.nav('Browser navigation detected (back/forward)', '/navigation/LinkNavigationHandler.js', {
         state: event.state,
         currentURL: window.location.href,
@@ -77,7 +79,6 @@ export class LinkNavigationHandler {
         hash: window.location.hash
       } as any);
 
-      // Delegate to the existing robust popstate handler
       await this.handlePopstate(event);
     };
 
@@ -489,19 +490,45 @@ export class LinkNavigationHandler {
    * Handle browser back/forward navigation
    */
   static async handlePopstate(event: any) {
-    // Prevent reload loops AND concurrent in-flight popstates. Without this
-    // flag actually being set, rapid back/forward fires multiple overlapping
-    // BookToBookTransition runs that race on body.innerHTML replacement and
-    // chunk appending, leaving the DOM with duplicate chunks (every
-    // data-node-id, Fn..., and hypercite_... id appearing twice).
+    // Serialize transitions (only one at a time) AND coalesce overlapping
+    // popstates — do NOT drop them.
+    //
+    // Serialization is load-bearing: without it, rapid back/forward fires
+    // multiple overlapping BookToBookTransition runs that race on
+    // body.innerHTML replacement and chunk appending, leaving the DOM with
+    // duplicate chunks (every data-node-id / Fn… / hypercite_… id twice).
+    //
+    // But simply IGNORING an event that arrives mid-transition (the old
+    // behaviour) is itself a bug: the browser has ALREADY advanced the URL by
+    // the time popstate fires, so a dropped event means the URL moved on while
+    // the DOM never processed that step. Under a rapid burst that left the
+    // reader showing the PREVIOUS book (stale chunks, a stuck-open
+    // #hyperlit-container, subBooks mounted) while `location` pointed at a
+    // different book — the `container-persisted-across-nav` desync the
+    // cross-book hypercite tour reproduces.
+    //
+    // Fix: when an event lands mid-transition, flag it and RECONCILE once more
+    // after the in-flight transition finishes. _handlePopstateInner reads the
+    // live window.location / history.state, so the reconcile pass always
+    // resolves to the FINAL history entry after the burst, leaving the DOM in
+    // sync with the URL.
     if (this.isReloading) {
-      verbose.nav('Already reloading, ignoring popstate', '/navigation/LinkNavigationHandler.js');
+      this.pendingPopstate = true;
+      verbose.nav('Popstate arrived mid-transition — queued to reconcile after', '/navigation/LinkNavigationHandler.js');
       return;
     }
     this.isReloading = true;
 
     try {
-      await this._handlePopstateInner(event);
+      let evt = event;
+      do {
+        this.pendingPopstate = false;
+        await this._handlePopstateInner(evt);
+        // If a popstate landed while we were transitioning, re-run against the
+        // CURRENT entry — a synthetic event carrying the live history.state, since
+        // the real event object is stale (only its .state is read, in the enter log).
+        evt = { state: history.state };
+      } while (this.pendingPopstate);
     } finally {
       this.isReloading = false;
     }
