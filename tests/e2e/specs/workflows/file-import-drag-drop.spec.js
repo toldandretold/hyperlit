@@ -144,8 +144,8 @@ test.describe('File import via drag-and-drop (SPA flow)', () => {
     // 99999) that overlaps #logoContainer and only dismisses on a user click.
     // navigateToHome opens the logo nav menu by clicking #logoContainer, so the
     // toast would intercept that click and hang the test — dismiss it first, as a
-    // real user would via the toast's × button.
-    await page.evaluate(() => document.getElementById('conversion-feedback-toast')?.remove());
+    // real user would via the toast's × button (clicks it, doesn't nuke the node).
+    await spa.dismissConversionFeedbackToast(page);
     await spa.navigateToHome(page);
     await spa.waitForTransition(page);
     expect(await spa.getStructure(page)).toBe('home');

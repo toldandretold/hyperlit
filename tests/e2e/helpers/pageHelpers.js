@@ -258,6 +258,42 @@ async function ensureLogoNavOpen(page) {
 }
 
 /**
+ * Dismiss the post-import conversion-feedback toast the way a real user would — by clicking one
+ * of its buttons — rather than force-removing the node from the DOM (which tests nothing and
+ * masks regressions). The toast is a full-width top bar (`#conversion-feedback-toast`,
+ * z-index 99999) pinned across the top over `#logoContainer`, and it ONLY leaves on a user
+ * click. So any later `navigateToHome`/`navigateToUserPage` — which click `#logoContainer` to
+ * open the logo nav menu — get their click intercepted by the toast and hang until the test's
+ * own timeout (the cross-book-hypercite tour's 900s timeout came from exactly this).
+ *
+ * The toast is shown ASYNCHRONOUSLY, after the reader lands, once conversion stats resolve — so
+ * a one-shot "click it if it's present right now" check races it and misses (that stale attempt
+ * is what let the toast survive in its initial state and block the nav). Wait for it
+ * (best-effort — a plain-markdown import with no stats never shows one), click its × (a pure
+ * dismiss with no feedback POST), then wait for it to detach so its 200ms fade-out can't still
+ * intercept the following click.
+ *
+ * @returns {Promise<boolean>} true if a toast was found and dismissed, false if none appeared.
+ */
+export async function dismissConversionFeedbackToast(page, { timeout = 6000 } = {}) {
+  const toast = page.locator('#conversion-feedback-toast');
+  try {
+    await toast.waitFor({ state: 'visible', timeout });
+  } catch {
+    return false; // no toast for this import — nothing to dismiss
+  }
+  // × cancel = dismiss only (no network); fall back to "Looks good" if the markup ever changes.
+  const cancel = toast.locator('button', { hasText: '×' });
+  if (await cancel.count()) {
+    await cancel.first().click();
+  } else {
+    await toast.locator('button', { hasText: /Looks good/i }).first().click();
+  }
+  await toast.waitFor({ state: 'detached', timeout: 4000 });
+  return true;
+}
+
+/**
  * Navigate to the home page via #homeButtonNav.
  * On reader/user pages this is inside the logo nav menu (hidden by default).
  * On home pages the logo itself links home.

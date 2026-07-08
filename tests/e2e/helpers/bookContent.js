@@ -9,6 +9,7 @@
  * file-import-drag-drop.spec.js and returns the imported book's id.
  */
 import { dropFileOnWindow } from './dropFile.js';
+import { dismissConversionFeedbackToast } from './pageHelpers.js';
 import path from 'path';
 
 const LOREM_WORDS = [
@@ -153,13 +154,10 @@ export async function importMarkdownBook(page, spa, opts) {
     throw new Error(`importMarkdownBook: expected book_<digits>, got "${bookId}"`);
   }
 
-  // Dismiss the post-import "References detected?" / "PDF imported" dialog if it appears.
-  // The modal blocks subsequent interactions like clicking #toc-toggle-button.
-  await page.evaluate(() => {
-    const buttons = [...document.querySelectorAll('button')];
-    const looksGood = buttons.find(b => /Looks good/i.test(b.textContent || ''));
-    if (looksGood) looksGood.click();
-  });
-  await page.waitForTimeout(300);
+  // Dismiss the post-import conversion-feedback toast (full-width top bar over #logoContainer)
+  // by clicking a real button and waiting for it to leave — see dismissConversionFeedbackToast.
+  // The previous inline "click Looks good if present right now" was a one-shot with no wait, so
+  // it raced the async toast render and missed, leaving the bar to hang the next navigateToHome.
+  await dismissConversionFeedbackToast(page);
   return { bookId };
 }
