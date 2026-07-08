@@ -104,9 +104,15 @@ async function waitForPasteSettled(page, { hasFootnotes, hasReferences }) {
     ).catch(() => { /* tolerate */ });
   }
 
-  // Let the debounced save queue drain. This is a coarse wait but the only
-  // signal available without instrumenting the SaveQueue from the test.
-  await page.waitForTimeout(1500);
+  // Wait for the save/sync pipeline to actually finish rather than guessing with a fixed timeout:
+  // the cloud indicator turns green (#63B995) once the pasted nodes are persisted. Same observable
+  // signal chunk-overflow-paste.spec.js + footnote-integrity.spec.js already use. A racing paste
+  // (integrity reporter firing mid-render) is exactly what this removes. Falls back to the old
+  // coarse wait if a paste never greens in time — no worse than before.
+  await page.waitForFunction(() => {
+    const c = document.querySelector('#cloudRef-svg .cls-1');
+    return c && c.getAttribute('fill') === '#63B995';
+  }, null, { timeout: 20_000 }).catch(() => page.waitForTimeout(1500));
 
   // Pasted publisher articles can produce hundreds of chunks; the lazy
   // loader only renders the first ~100 into the DOM. Force the rest by
@@ -122,7 +128,17 @@ async function waitForPasteSettled(page, { hasFootnotes, hasReferences }) {
       await new Promise(r => setTimeout(r, 250));
     }
   });
-  await page.waitForTimeout(800);
+  // Wait for the lazy loader to stop adding chunks (two consecutive stable samples) instead of a
+  // fixed 800ms — under load the tail sections (footnotes/bibliography the assertions read) can
+  // still be rendering. `__pasteChunkCount` carries the previous poll's value across polls; each
+  // test has a fresh page so it starts undefined. Falls back to a short wait if it never settles.
+  await page.evaluate(() => { delete window.__pasteChunkCount; });
+  await page.waitForFunction(() => {
+    const count = document.querySelectorAll('.main-content .chunk[data-chunk-id]').length;
+    const prev = window.__pasteChunkCount;
+    window.__pasteChunkCount = count;
+    return prev !== undefined && prev === count && count > 0;
+  }, null, { timeout: 10_000, polling: 300 }).catch(() => page.waitForTimeout(800));
 }
 
 /**
@@ -303,6 +319,14 @@ test.describe('Publisher clipboard paste — end-to-end', () => {
         const firstMarker = page.locator('.main-content sup.footnote-ref, .main-content sup[fn-count-id]').first();
 
         if (await firstMarker.count() > 0) {
+          // Wait for footnote LINKING to finish before clicking — under load the marker can still be
+          // un-linked (inert), which is the flake. `fn-count-id` is set when buildFootnoteMap /
+          // rebuildAndRenumber completes; polling the attribute is race-free vs. the one-shot
+          // `footnotesRenumbered` event.
+          await page.waitForFunction(() => {
+            const m = document.querySelector('.main-content sup.footnote-ref, .main-content sup[fn-count-id]');
+            return m && m.hasAttribute('fn-count-id');
+          }, null, { timeout: 15_000 }).catch(() => {});
           await firstMarker.click({ timeout: 5000 }).catch(() => { /* tolerate — markers may be inert */ });
           await page.waitForTimeout(500);
 

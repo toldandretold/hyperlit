@@ -8,8 +8,40 @@ import { resetEditModeState } from '../../../components/editButton/index';
 import { destroyUserContainer } from '../../../components/userButton/userButton';
 import { destroyUserProfileEditor } from '../../../components/userProfile/userProfileEditor';
 import { destroyLogoNav } from '../../../components/logoNav/logoNav';
-import { closeHyperlitContainer } from '../../../hyperlitContainer/index';
+import { closeHyperlitContainer, hyperlitManager } from '../../../hyperlitContainer/index';
 import { buttonRegistry } from '../../../components/utilities/buttonRegistry';
+
+/**
+ * SYNCHRONOUS hard-reset of any open hyperlit-container state. Runs at the very start of reader
+ * cleanup — BEFORE the async close + body swap. Under CPU contention a late async op from a rapid
+ * back/forward can otherwise leave `#hyperlit-container.open` (+ `body.hyperlit-container-open`,
+ * `#ref-overlay.active`) on the home page after the swap (the `container-persisted-across-nav`
+ * flake). Stripping the visible state synchronously here defangs that stale state immediately; the
+ * async `closeOpenContainers()` still runs afterwards for history-state + listener cleanup. No-op
+ * when nothing is open. Nothing relies on a container surviving a reader→home/user nav.
+ */
+function forceClearOpenContainers() {
+  const base = document.getElementById('hyperlit-container');
+  const anyOpen = !!base?.classList.contains('open')
+    || !!document.querySelector('.hyperlit-container-stacked.open')
+    || document.body.classList.contains('hyperlit-container-open');
+  if (!anyOpen) return;
+
+  base?.classList.remove('open');
+  document.querySelectorAll('.hyperlit-container-stacked').forEach((el) => el.remove());
+  document.getElementById('ref-overlay')?.classList.remove('active');
+  document.querySelectorAll('.ref-overlay-stacked').forEach((el) => el.remove());
+  document.body.classList.remove('hyperlit-container-open');
+
+  // Reset the live manager so a later reader entry rebinds clean (a stale isOpen=true would make
+  // initializeHyperlitManagerInternal rebind-instead-of-recreate and suppress the next open).
+  if (hyperlitManager) {
+    try {
+      hyperlitManager.isOpen = false;
+      hyperlitManager._releaseFocusTrap?.();
+    } catch { /* non-fatal */ }
+  }
+}
 
 /**
  * Clean up reader state
@@ -18,6 +50,10 @@ import { buttonRegistry } from '../../../components/utilities/buttonRegistry';
 export async function cleanupReader() {
 
   try {
+    // Hard-reset any open container FIRST (synchronous) so a late async op can't leave it on the
+    // next page — see forceClearOpenContainers().
+    forceClearOpenContainers();
+
     // Use existing cleanup from viewManager
     // Already imported statically
     cleanupReaderView();

@@ -376,6 +376,14 @@ class DbHyperciteController extends Controller
                 // never affects the save — the live resolver fallback covers any gap).
                 $this->refreshAnnotationIndex($indexUpdates);
 
+                // Bump each touched book's annotations_updated_at so clients holding a
+                // CACHED copy re-hydrate annotations on next load. Without this the source
+                // book of a citation stayed at annotations_updated_at=0 forever, so a plain
+                // refresh trusted the stale cache and the new cite only showed in a fresh
+                // (cache-less) window. SECURITY DEFINER fn handles the cross-book case where
+                // the citer doesn't own the cited public book.
+                $this->updateAnnotationsTimestamp($processedBookIds);
+
                 Log::info('DbHyperciteController::upsert - Success', [
                     'records_processed' => $processedCount
                 ]);
@@ -528,9 +536,19 @@ class DbHyperciteController extends Controller
         $now = round(microtime(true) * 1000);
         $uniqueBookIds = array_unique($bookIds);
 
-        // Use SECURITY DEFINER function to bypass RLS for this specific update
+        // Use SECURITY DEFINER function to bypass RLS for this specific update.
+        // Best-effort: a failure to bump the freshness signal must NEVER fail the
+        // citation save itself (mirrors refreshAnnotationIndex). A per-book try
+        // means one bad book id can't skip the others.
         foreach ($uniqueBookIds as $bookId) {
-            DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, $now]);
+            try {
+                DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, $now]);
+            } catch (\Throwable $e) {
+                Log::warning('Failed to bump annotations_updated_at (hypercites)', [
+                    'book' => $bookId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         Log::info('Updated annotations_updated_at for books (hypercites)', [

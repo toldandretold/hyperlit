@@ -315,7 +315,19 @@ export function showStaleTabOverlay(
   });
 }
 
+// The node-updates listener is attached exactly ONCE for the tab's lifetime.
+// universalPageInitializer() calls initializeBroadcastListener() on EVERY SPA
+// navigation, so without this guard each nav stacked another BroadcastChannel +
+// listener that was never closed — an unbounded leak that made every incoming
+// broadcast fire updateDomNode() N times (N = navigations this session),
+// re-running innerHTML N times per node. The single listener reads the live
+// `book` binding, so it always reflects the current book without re-attaching.
+let nodeUpdatesListenerAttached = false;
+
 export function initializeBroadcastListener() {
+  if (nodeUpdatesListenerAttached) return;
+  nodeUpdatesListenerAttached = true;
+
   const channel = new BroadcastChannel("node-updates");
 
   channel.addEventListener("message", (event) => {

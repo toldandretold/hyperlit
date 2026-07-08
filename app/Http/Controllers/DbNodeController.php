@@ -172,6 +172,54 @@ class DbNodeController extends Controller
         return $isPublicOnly;
     }
 
+    /**
+     * Idempotent multi-row insert of node records (already sanitized by the caller).
+     * Mirrors upsert()'s parameterized ON CONFLICT statement so a duplicate (book, node_id) —
+     * which a paste under load can produce via two overlapping sync paths — becomes a no-op UPDATE
+     * instead of a SQLSTATE 23505. Fully parameterized: no record data is interpolated into the SQL.
+     *
+     * @param array<int,array<string,mixed>> $records
+     */
+    private function bulkUpsertNodes(array $records): void
+    {
+        if (empty($records)) {
+            return;
+        }
+
+        $values = [];
+        $bindings = [];
+        foreach ($records as $r) {
+            $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            $bindings[] = $r['book'] ?? null;
+            $bindings[] = $r['node_id'] ?? null;
+            $bindings[] = $r['startLine'] ?? null;
+            $bindings[] = $r['chunk_id'] ?? 0;
+            $bindings[] = $r['content'] ?? null;
+            $bindings[] = $r['footnotes'] ?? json_encode([]);
+            $bindings[] = $r['plainText'] ?? null;
+            $bindings[] = $r['type'] ?? null;
+            $bindings[] = $r['raw_json'] ?? null;
+            $bindings[] = $r['created_at'] ?? now();
+            $bindings[] = $r['updated_at'] ?? now();
+        }
+
+        $sql = '
+            INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, raw_json, created_at, updated_at)
+            VALUES '.implode(', ', $values).'
+            ON CONFLICT (book, node_id) WHERE node_id IS NOT NULL
+            DO UPDATE SET
+                "startLine" = EXCLUDED."startLine",
+                chunk_id = EXCLUDED.chunk_id,
+                content = EXCLUDED.content,
+                footnotes = EXCLUDED.footnotes,
+                "plainText" = EXCLUDED."plainText",
+                type = EXCLUDED.type,
+                raw_json = EXCLUDED.raw_json,
+                updated_at = EXCLUDED.updated_at
+        ';
+        \DB::statement($sql, $bindings);
+    }
+
     public function bulkCreate(Request $request)
     {
         try {
@@ -220,7 +268,12 @@ class DbNodeController extends Controller
                     ];
                 }
 
-                PgNode::insert($records);
+                // Idempotent insert: under load a paste fires two overlapping server-sync paths for
+                // the same nodes (full-book create + the post-paste flush), so the same node_id can
+                // arrive twice. A raw INSERT then 23505s on the (book, node_id) unique index; ON
+                // CONFLICT turns the duplicate into a harmless UPDATE. Content is already sanitized
+                // above; the statement is fully parameterized (mirrors upsert()).
+                $this->bulkUpsertNodes($records);
 
                 Log::info('Bulk create completed', [
                     'book' => $bookId,
@@ -607,23 +660,41 @@ class DbNodeController extends Controller
                         $result = $existingChunk;
                     } else {
                         // Create new record - always include required NOT NULL fields
-                        $result = PgNode::create(array_merge(
-                            [
-                                'book' => $item['book'],
-                                'startLine' => $item['startLine'],
-                                'chunk_id' => $item['chunk_id'] ?? 0,  // Required NOT NULL field
-                                'content' => NodeHtmlSanitizer::clean($item['content'] ?? '') ?? '',    // Required NOT NULL field
-                                'node_id' => $item['node_id'] ?? null,
-                            ],
-                            $updateData
-                        ));
+                        try {
+                            $result = PgNode::create(array_merge(
+                                [
+                                    'book' => $item['book'],
+                                    'startLine' => $item['startLine'],
+                                    'chunk_id' => $item['chunk_id'] ?? 0,  // Required NOT NULL field
+                                    'content' => NodeHtmlSanitizer::clean($item['content'] ?? '') ?? '',    // Required NOT NULL field
+                                    'node_id' => $item['node_id'] ?? null,
+                                ],
+                                $updateData
+                            ));
+                        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+                            // Concurrency: a paste fires two overlapping node-sync paths (full-book
+                            // upsert + the post-paste flush). Both can reach this create branch for the
+                            // same node_id — the SELECT above ran before the other request committed —
+                            // and node_chunks_node_id_unique is NOT deferrable, so the second create()
+                            // 23505s. The row now exists (same node, same paste); reconcile by updating
+                            // it by its stable (book, node_id) identity. Keeps the genuine-update path
+                            // above (with its raw_json merge) untouched.
+                            $result = ! empty($item['node_id'])
+                                ? PgNode::where('book', $item['book'])->where('node_id', $item['node_id'])->first()
+                                : null;
+                            if ($result) {
+                                $result->fill($updateData);
+                                $result->startLine = $item['startLine'];
+                                $result->save();
+                            }
+                        }
                     }
 
                     Log::debug('After updateOrCreate', [
                         'book' => $item['book'],
                         'startLine' => $item['startLine'],
-                        'saved_hypercites' => $result->hypercites,
-                        'saved_hypercites_count' => is_array($result->hypercites) ? count($result->hypercites) : 'NOT_ARRAY',
+                        'saved_hypercites' => $result?->hypercites,
+                        'saved_hypercites_count' => is_array($result?->hypercites) ? count($result->hypercites) : 'NOT_ARRAY',
                     ]);
                 }
             }

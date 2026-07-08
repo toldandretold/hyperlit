@@ -88,7 +88,13 @@ test.describe.serial('Library ↔ user-page home-book sync', () => {
     await spa.navigateToHome(page);
     await spa.waitForTransition(page);
     await gotoUserPage();
-    await page.waitForTimeout(500);
-    expect(await page.locator(cardLink).count(), 'deleted book should be gone from user page').toBe(0);
+    // Wait DETERMINISTICALLY for the card to disappear rather than snapshotting after a fixed 500ms:
+    // the delete propagates via a local card-node eviction + a server DELETE + the user page's
+    // freshness pull, and under load that settles in >500ms (the flake seen in full-suite runs). A
+    // real regression (book never removed) still fails this within the timeout.
+    await expect(
+      page.locator(cardLink),
+      'deleted book should be gone from user page',
+    ).toHaveCount(0, { timeout: 10000 });
   });
 });

@@ -16,7 +16,7 @@ import {
   toPublicNode,
   syncHyperciteWithNodeImmediately
 } from '../../indexedDB/index';
-import { parseHyperciteHref, attachUnderlineClickListeners, delinkHypercite } from '../../hypercites/index';
+import { parseHyperciteHref, attachUnderlineClickListeners, delinkHypercite, restampHyperciteStatusInDOM } from '../../hypercites/index';
 import { getEditToolbar } from '../../editToolbar/index';
 import { getTextOffsetInElement } from '../../editToolbar/toolbarDOMUtils';
 import { determineRelationshipStatus, isHyperciteId } from '../../hypercites/utils';
@@ -559,11 +559,16 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
               console.error("❌ Failed to fetch hypercite from IndexedDB for sync");
             }
 
-            // Update the DOM in the CURRENT tab
-            const localElement = document.getElementById(hyperciteIDa);
-            if (localElement) {
-              console.log(`(Paste Handler) Updating local DOM for ${hyperciteIDa} to class: ${updateResult.newStatus}`);
-              localElement.className = updateResult.newStatus as any;
+            // Update the DOM in the CURRENT tab. Re-stamp EVERY rendered instance
+            // of the source marker (class + --hypercite-intensity + couple/poly
+            // click listener), not just a bare className flip — a bare flip left
+            // the source visually dim (no intensity var) and unclickable (the
+            // listener only lives on couple/poly). The broadcast below can't do
+            // this for a cross-book source: the source book is not the current
+            // book, so updateDomNode never touches it (see hypercites/marking.ts).
+            if (updateResult.newStatus) {
+              const stamped = restampHyperciteStatusInDOM(hyperciteIDa, updateResult.newStatus);
+              console.log(`(Paste Handler) Re-stamped ${stamped} DOM instance(s) of ${hyperciteIDa} → ${updateResult.newStatus}`);
             }
 
             // Broadcast to OTHER tabs
@@ -721,13 +726,12 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
           if (allSucceeded) {
             console.log(`✅ Batched sync successful for ${updatedHypercites.length} hypercite(s)`);
 
-            // 5. Apply DOM updates only after successful sync
+            // 5. Apply DOM updates only after successful sync. Full render-
+            // equivalent re-stamp (class + intensity + listener) of every rendered
+            // instance — see the single-hypercite path above and marking.ts.
             domUpdates.forEach(({ hyperciteIDa, newStatus, startLine, booka }) => {
-              const localElement = document.getElementById(hyperciteIDa);
-              if (localElement) {
-                console.log(`(Paste Handler) Updating local DOM for ${hyperciteIDa} to class: ${newStatus}`);
-                localElement.className = newStatus;
-              }
+              const stamped = restampHyperciteStatusInDOM(hyperciteIDa, newStatus);
+              console.log(`(Paste Handler) Re-stamped ${stamped} DOM instance(s) of ${hyperciteIDa} → ${newStatus}`);
 
               // Broadcast to OTHER tabs
               broadcastToOpenTabs(booka, startLine);

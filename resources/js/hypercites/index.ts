@@ -23,3 +23,4 @@ export * from './database';
 export * from './navigation';
 export * from './copy';
 export * from './listeners';
+export * from './marking';
