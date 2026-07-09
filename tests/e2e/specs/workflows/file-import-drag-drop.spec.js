@@ -81,6 +81,17 @@ test.describe('File import via drag-and-drop (SPA flow)', () => {
     // ──────────────────────────────────────────────────────────
     await page.click('#createButton');
 
+    // The import is NOT a synchronous transition: #createButton kicks off ImportBookTransition,
+    // which POLLS /api/import-progress/{book} (server-side conversion job) until it reports
+    // complete, and only THEN swaps to the reader (data-page=reader). Its polling phase shows its
+    // OWN progress panel — not #initial-navigation-overlay — so waitForTransition returns early and
+    // races the import. Under a loaded server (full suite) the assert then reads 'home'. Wait for the
+    // real completion signal: the reader swap. Import time is unbounded, so allow a generous ceiling.
+    await page.waitForFunction(
+      () => document.body.getAttribute('data-page') === 'reader',
+      null,
+      { timeout: 120_000 }
+    );
     await spa.waitForTransition(page);
     expect(await spa.getStructure(page)).toBe('reader');
 

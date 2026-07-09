@@ -6,7 +6,7 @@
     "moduleCount": 347,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3288,
+    "edgeCount": 3289,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -22973,6 +22973,13 @@
       "source": "components/utilities/containerManager:ContainerManager.openContainer",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.rebindElements__call__hyperlitContainer/core:closeHyperlitContainer",
+      "source": "components/utilities/containerManager:ContainerManager.rebindElements",
+      "target": "hyperlitContainer/core:closeHyperlitContainer",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/utilities/containerManager:ContainerManager.rebindElements__call__hyperlitContainer/core:getHyperlitEditMode",

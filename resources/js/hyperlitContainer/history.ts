@@ -11,6 +11,7 @@ import { checkIfUserHasAnyEditPermission } from './permissions';
 import { prepareHyperlitContainer, animateHyperlitContainerOpen, hyperlitManager, getHyperlitEditMode } from './core.js';
 import { openDatabase } from '../indexedDB/index';
 import { getCurrentContainer } from './stack.js';
+import { verbose } from '../utilities/logger';
 
 /**
  * Determine URL update for single content types
@@ -224,7 +225,7 @@ export async function restoreHyperlitContainerFromHistory(providedContainerState
     // "hyperlit-container not found after initialization!" error against the wrong page.
     // Returning false is a valid "layer 0 did not restore" outcome the caller already handles.
     if (!document.getElementById('hyperlit-container')) {
-      console.log('📊 restoreHyperlitContainerFromHistory aborted — navigated away from the reader mid-restore');
+      verbose.nav('restoreHyperlitContainerFromHistory aborted — navigated away from the reader mid-restore', 'hyperlitContainer/history.ts');
       return false;
     }
 

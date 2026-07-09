@@ -10,6 +10,20 @@ import { nextScrollReason } from './scrollTrace';
 
 // Reusable scroll correction — recalculates offsetTop and snaps if the element drifted
 function correctScrollPosition(targetElement: any, scrollableContainer: any, headerOffset: number): void {
+  // The correction fires ~100ms after the initial scroll (and again on each image load). A
+  // re-render in that window — a chunk clear+reload, or a coalesced popstate reconcile on
+  // cross-book back/forward — DETACHES the node we captured. A detached node's offsetTop
+  // collapses to 0, so the "correction" would compute scroll-to-0 and dump the reader at the TOP,
+  // clobbering the good scroll (the "cross-book forward lands at the top, not the hypercite" bug).
+  // Re-resolve the id against the LIVE DOM; if the element is gone or not laid out, BAIL rather
+  // than scroll to a bogus 0 (the initial scroll already left the target in view).
+  if (!targetElement.isConnected) {
+    const live = targetElement.id ? document.getElementById(targetElement.id) : null;
+    if (!live) return;
+    targetElement = live;
+  }
+  if (targetElement.offsetParent === null) return; // not laid out (detached subtree / display:none ancestor)
+
   let elementOffset = 0;
   let el = targetElement;
   while (el && el !== scrollableContainer) {
