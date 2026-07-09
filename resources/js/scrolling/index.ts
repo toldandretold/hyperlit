@@ -9,8 +9,6 @@
  * Back-edges to hyperlights / hypercites / lazyLoaderFactory / initializePage are
  * dynamic imports inside the modules, so this folder's static graph is acyclic.
  */
-import { navigatedHashes } from './navState';
-
 export { restoreScrollPosition } from './restore';
 export { navigateToInternalId } from './internalNav';
 export { scrollElementIntoMainContent, isValidContentElement } from './scrollHelpers';
@@ -33,10 +31,3 @@ export {
   setCascadeOriginId,
   clearCascadeOriginId,
 } from '../SPA/navigation/cascadeOriginState.js';
-
-/**
- * Clear navigated hashes (called on popstate so back/forward re-navigates)
- */
-export function clearNavigatedHashes(): void {
-  navigatedHashes.clear();
-}

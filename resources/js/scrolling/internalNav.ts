@@ -11,7 +11,8 @@ import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigatio
 import { getNodesFromIndexedDB, getLocalStorageKey } from '../indexedDB/index.js';
 import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
 import { waitForNavigationTarget, waitForElementReady } from '../SPA/domReadiness';
-import { navigatedHashes, navTimers, unmarkHashScrolledAway } from './navState';
+import { navTimers } from './navState';
+import { recordNavigatedAt } from './navStamp';
 import { showNavigationLoading, hideNavigationLoading, NavigationProgressIndicator } from './navOverlay';
 import { scrollElementWithConsistentMethod, scrollElementIntoMainContent } from './scrollHelpers';
 import { shouldSkipScrollRestoration } from './userScrollDetection';
@@ -249,10 +250,6 @@ export function navigateToInternalId(targetId: string, lazyLoader: any, showOver
     lazyLoader.isNavigatingToInternalId = true;
     lazyLoader.pendingNavigationTarget = targetId; // Store target for refresh() to use
     verbose.nav(`Set isNavigatingToInternalId = true for ${targetId}`, 'scrolling/internalNav');
-
-    // We're deliberately navigating TO this target now → it's no longer "scrolled away", so a
-    // subsequent refresh should land here again (until the user scrolls off it once more).
-    unmarkHashScrolledAway(targetId);
 
     // 🚦 Start the NavigationCompletionBarrier to coordinate async processes
     // This ensures flags persist until scroll completes. If a timestamp check triggers
@@ -834,15 +831,14 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
         }
       }
 
-      // Mark this hash as "navigated to" for this page session.
-      // Uses module-level Set so it resets on page reload (fresh loads re-navigate).
-      // The URL hash keeps its `citation_` namespace prefix while `targetId` is the bare
-      // element id (see toScrollTargetId) — normalize the hash the same way so the citation
-      // case still keys navigatedHashes off the actual URL hash.
+      // Record "we deliberately navigated to this target at T" for the durable resume-vs-jump
+      // decision (scrolling/navStamp → restore.ts). The URL hash keeps its `citation_` namespace
+      // prefix while `targetId` is the bare element id (see toScrollTargetId) — normalize the hash
+      // the same way so the citation case keys navigatedAt off the actual URL hash.
       const urlHashId = window.location.hash.substring(1);
       if (toScrollTargetId(urlHashId) === targetId) {
-        navigatedHashes.add(urlHashId);
-        verbose.nav(`Marked hash ${urlHashId} as navigated (session-level)`, 'scrolling/internalNav');
+        recordNavigatedAt(lazyLoader.bookId, urlHashId);
+        verbose.nav(`Recorded navigatedAt for ${urlHashId}`, 'scrolling/internalNav');
       }
 
       // 🚀 iOS Safari fix: Resolve navigation Promise so callers know we're truly done

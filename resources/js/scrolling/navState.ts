@@ -27,51 +27,11 @@ export const userScrollState: UserScrollState = {
   touchStartX: null,
 };
 
-// Track hashes we've already navigated to during THIS page session.
-// Module-level (not history.state) so it resets on page reload, allowing fresh
-// page loads to always navigate to the URL hash.
-export const navigatedHashes = new Set<string>();
-
-// Hashes the user has SCROLLED AWAY from, persisted in sessionStorage so the signal survives a
-// same-tab refresh. Lets restoreScrollPosition resume the reading position on REFRESH instead of
-// re-jumping to a deep-link hash — WITHOUT stripping the hash from the URL (which would corrupt
-// back/forward to that entry). Written by scrolling/clearStaleHash on scroll-away, read by
-// scrolling/restore, cleared by scrolling/internalNav when we deliberately navigate to the hash.
-const SCROLLED_AWAY_KEY = 'hyperlit_scrolled_away_hashes';
-
-function readScrolledAwayHashes(): Set<string> {
-  try {
-    const raw = sessionStorage.getItem(SCROLLED_AWAY_KEY);
-    return new Set<string>(raw ? JSON.parse(raw) : []);
-  } catch {
-    return new Set<string>();
-  }
-}
-
-export function markHashScrolledAway(hashId: string): void {
-  try {
-    const set = readScrolledAwayHashes();
-    if (set.has(hashId)) return;
-    set.add(hashId);
-    sessionStorage.setItem(SCROLLED_AWAY_KEY, JSON.stringify([...set]));
-  } catch {
-    /* sessionStorage unavailable — best effort */
-  }
-}
-
-export function unmarkHashScrolledAway(hashId: string): void {
-  try {
-    const set = readScrolledAwayHashes();
-    if (!set.delete(hashId)) return;
-    sessionStorage.setItem(SCROLLED_AWAY_KEY, JSON.stringify([...set]));
-  } catch {
-    /* ignore */
-  }
-}
-
-export function hasScrolledAwayFromHash(hashId: string): boolean {
-  return readScrolledAwayHashes().has(hashId);
-}
+// The resume-vs-jump decision used to live here as two ephemeral signals — an in-memory
+// `navigatedHashes` Set and a sessionStorage `scrolled-away` marker. Both were retired: they only
+// survived a single session, so a reader who returned LATER (restart / another device) was yanked
+// back to a residual hash. The durable causal replacement is `savedAt` (reading-position payload)
+// vs per-target `navigatedAt` (scrolling/navStamp) — see scrolling/README.md.
 
 // Pending navigation cleanup timer, held in an object so it can be reassigned
 // from any module by reference.

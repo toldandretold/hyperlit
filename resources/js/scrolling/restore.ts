@@ -13,10 +13,11 @@ import { parseChunkId } from '../indexedDB/types';
 import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
 import { shouldSkipScrollRestoration as shouldSkipScrollRestorationGlobal, setSkipScrollRestoration } from '../utilities/operationState';
 import { isSearchToolbarOpen } from '../search/inTextSearch/searchToolbar';
-import { navigatedHashes, hasScrolledAwayFromHash } from './navState';
 import { shouldSkipScrollRestoration } from './userScrollDetection';
 import { showNavigationLoading } from './navOverlay';
 import { navigateToInternalId } from './internalNav';
+import { getSavedAnchor } from './readingAnchor';
+import { getNavigatedAt } from './navStamp';
 // Static, downward import of the lazy-loader singleton from its zero-import leaf (no cycle —
 // the leaf imports nothing). This is the real fix; no dynamic-import cycle-breaker needed.
 import { currentLazyLoader } from '../pageLoad/currentLazyLoaderState';
@@ -130,19 +131,35 @@ export async function restoreScrollPosition(): Promise<void> {
   // default 192px header offset. Set only when we adopt a saved position below.
   let savedOffset: number | null = null;
 
-  // Suppress re-jumping to the hash ONLY when this is effectively a page refresh:
-  //  - navigatedHashes (module-level Set) — we already jumped to this hash this page session;
-  //  - hasScrolledAwayFromHash (sessionStorage marker) — user scrolled away before refreshing.
-  // Both survive a refresh and make us resume the reading position instead of the deep-link hash.
-  // Crucially, a real back/forward is NOT a refresh: the popstate handler
-  // (LinkNavigationHandler._handlePopstateInner) clears BOTH signals for the current hash, so on
-  // back/forward `alreadyNavigatedToHash` is false and the hash wins — taking us to the hypercite.
-  // A genuine reload fires no popstate, so the signals persist and we resume position. The hash
-  // always stays in the URL either way (never stripped via replaceState).
-  const alreadyNavigatedToHash = navigatedHashes.has(targetId) || hasScrolledAwayFromHash(targetId);
-  const hasExplicitTarget = !!targetId && !alreadyNavigatedToHash;
+  // ── Resume-vs-jump for an internal-nav hash (#hypercite_ / #HL_ / #<node>) ──────────────────
+  // The URL can carry such a hash for two very different reasons and we must tell them apart:
+  //   • a DELIBERATE deep-link (pasted / typed / shared / a clicked internal link) → JUMP to it;
+  //   • a RESIDUAL hash the reader's OWN annotate-then-close left behind, that they have since
+  //     read past → RESUME the reading position (the "returns later, yanked back to the highlight"
+  //     bug). See resources/js/scrolling/README.md.
+  // Durable causal discriminator: did the saved reading position move AFTER we last deliberately
+  // navigated to THIS target? `savedAt` (position last-moved time) and `navigatedAt` (per-target)
+  // both live in localStorage, so this survives the tab closing and a later return — unlike the
+  // old ephemeral navigatedHashes/scrolledAway pair. If the reader read past the target
+  // (savedAt > navAt) → RESUME; otherwise (a deliberate deep-link has no navAt for this target on
+  // this device, OR they navigated here and haven't moved) → JUMP. Back/forward is unaffected: it
+  // re-navigates via the popstate handler and never reaches restore.ts.
+  const isInternalHash = !!targetId && (
+    targetId.startsWith('hypercite_') ||
+    targetId.startsWith('HL_') ||
+    /^\d+(\.\d+)?$/.test(targetId)
+  );
+  let readPastHashTarget = false;
+  if (isInternalHash) {
+    const savedForDecision = getSavedAnchor(currentLazyLoader.bookId);
+    const navAt = getNavigatedAt(currentLazyLoader.bookId, targetId);
+    readPastHashTarget = navAt !== undefined
+      && savedForDecision?.savedAt !== undefined
+      && savedForDecision.savedAt > navAt;
+  }
+  const hasExplicitTarget = !!targetId && !readPastHashTarget;
 
-  verbose.nav(`RESTORE SCROLL: URL hash: "${targetId}", alreadyNavigated: ${alreadyNavigatedToHash}, explicit: ${hasExplicitTarget}`, 'scrolling/restore');
+  verbose.nav(`RESTORE SCROLL: URL hash: "${targetId}", readPastHashTarget: ${readPastHashTarget}, explicit: ${hasExplicitTarget}`, 'scrolling/restore');
 
   // Show overlay for external navigation targets
   let overlayShown = false;
@@ -152,11 +169,7 @@ export async function restoreScrollPosition(): Promise<void> {
     existingOverlay.style.display !== ''
   );
 
-  const isInternalNavigation = hasExplicitTarget && (
-    targetId.startsWith('hypercite_') ||
-    targetId.startsWith('HL_') ||
-    /^\d+(\.\d+)?$/.test(targetId)
-  );
+  const isInternalNavigation = hasExplicitTarget && isInternalHash;
 
   if (hasExplicitTarget && !overlayAlreadyVisible && !isInternalNavigation) {
     showNavigationLoading(targetId);

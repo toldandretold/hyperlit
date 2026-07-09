@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1616 functions in 347 modules · 10 object stores · 10 PG tables · 3289 edges
+**MarkdownDB** schema v28 · 1613 functions in 345 modules · 10 object stores · 10 PG tables · 3282 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1347,8 +1347,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `transformYouTubeTranscript` | `paste/utils/youtube-helpers` | — | — | read | — |
 | `detectYouTubeTranscript` | `paste/utils/youtube-transcript` | — | — | — | — |
 | `transformYouTubeTranscript` | `paste/utils/youtube-transcript` | — | — | read | — |
-| `markInternalNavHashScrolledAway` | `scrolling/clearStaleHash` | — | — | — | — |
-| `clearNavigatedHashes` | `scrolling/index` | — | — | — | — |
 | `fallbackScrollPosition` | `scrolling/internalNav` | `localStorage` `sessionStorage` | — | read/write | — |
 | `findRenderedTarget` | `scrolling/internalNav` | — | — | read | — |
 | `loadDefaultContent` | `scrolling/internalNav` | — | — | write | — |
@@ -1356,9 +1354,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hideNavigationLoading` | `scrolling/navOverlay` | — | — | — | — |
 | `restoreNavigationOverlayIfNeeded` | `scrolling/navOverlay` | — | `sessionStorage` | — | — |
 | `showNavigationLoading` | `scrolling/navOverlay` | — | — | — | — |
-| `hasScrolledAwayFromHash` | `scrolling/navState` | `sessionStorage` | — | — | — |
-| `markHashScrolledAway` | `scrolling/navState` | `sessionStorage` | `sessionStorage` | — | — |
-| `unmarkHashScrolledAway` | `scrolling/navState` | `sessionStorage` | `sessionStorage` | — | — |
+| `getNavigatedAt` | `scrolling/navStamp` | `localStorage` | — | — | — |
+| `recordNavigatedAt` | `scrolling/navStamp` | `localStorage` | `localStorage` | — | — |
 | `getFreshAnchor` | `scrolling/readingAnchor` | — | — | — | — |
 | `getSavedAnchor` | `scrolling/readingAnchor` | — | — | — | — |
 | `debouncedServerSave` | `scrolling/readingPosition` | — | — | read | `↑route:/api/database-to-indexeddb/books/{}/reading-position` |
@@ -1463,7 +1460,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initializeReaderView` | `SPA/navigation/index` | — | — | — | — |
 | `smartNavigate` | `SPA/navigation/index` | — | — | — | — |
 | `transitionToReaderView` | `SPA/navigation/index` | — | — | — | — |
-| `LinkNavigationHandler._handlePopstateInner` | `SPA/navigation/LinkNavigationHandler` | `sessionStorage` | `sessionStorage` | read | — |
+| `LinkNavigationHandler._handlePopstateInner` | `SPA/navigation/LinkNavigationHandler` | `sessionStorage` | — | read | — |
 | `LinkNavigationHandler.areStructuresCompatible` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
 | `LinkNavigationHandler.attachGlobalLinkClickHandler` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
 | `LinkNavigationHandler.extractBookPathFromHyperlightUrl` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
@@ -1716,7 +1713,6 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/sourceContainer/creatorTools/deleteBook` → `indexedDB/index`
 - `components/sourceContainer/creatorTools/reconvert` → `indexedDB/index`
 - `components/tocContainer/index` → `pageLoad/currentLazyLoaderState`
-- `components/tocContainer/index` → `scrolling/index`
 - `components/userProfile/userProfilePage` → `components/floatingActionMenu/floatingActionMenu`
 - `components/userProfile/userProfilePage` → `components/shelves/addToShelfMenu`
 - `components/userProfile/userProfilePage` → `components/shelves/shelfPreview`
@@ -1777,11 +1773,9 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/history` → `hyperlitContainer/containerState`
 - `hyperlitContainer/history` → `hyperlitContainer/noteListener`
 - `hyperlitContainer/history` → `pageLoad/currentLazyLoaderState`
-- `hyperlitContainer/history` → `scrolling/index`
 - `hyperlitContainer/index` → `divEditor/editSessionManager`
 - `hyperlitContainer/index` → `divEditor/index`
 - `hyperlitContainer/index` → `hyperlights/markGroup`
-- `hyperlitContainer/index` → `scrolling/index`
 - `hyperlitContainer/stack` → `SPA/navigation/ProgressOverlayConductor`
 - `hyperlitContainer/stack` → `hyperlitContainer/containerListeners`
 - `hyperlitContainer/stack` → `hyperlitContainer/containerState`

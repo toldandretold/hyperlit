@@ -30,6 +30,13 @@ import { currentLazyLoader } from '../pageLoad/currentLazyLoaderState';
 export interface ReadingAnchor {
   /** The node's DOM id (= NodeRecord.startLine serialization, e.g. "150.5"). */
   elementId: string;
+  /**
+   * Epoch ms of when this position last actually MOVED (the writer stamps it only on an
+   * identity change; a server-seeded anchor carries the row's `updated_at`). Undefined for
+   * legacy rows saved before the field existed. The resume-vs-jump decision compares this
+   * against a per-target navigatedAt ("did they read past the target?").
+   */
+  savedAt?: number;
 }
 
 /** Same shape the writer enforces (lazyLoader forceSavePosition). */
@@ -53,7 +60,8 @@ export function getSavedAnchor(bookId: string): ReadingAnchor | null {
       const parsed = JSON.parse(raw);
       const elementId = parsed?.elementId;
       if (typeof elementId === 'string' && NUMERIC_ID.test(elementId)) {
-        return { elementId };
+        const savedAt = typeof parsed?.savedAt === 'number' ? parsed.savedAt : undefined;
+        return { elementId, savedAt };
       }
     } catch { /* try the next store */ }
   }

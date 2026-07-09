@@ -21,7 +21,6 @@ import {
 } from "./utilities/chunkLoadingState";
 import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock, setNavigatingState, getCascadeOriginId } from '../scrolling/index';
 import { scrollElementIntoMainContent } from "../scrolling/index";
-import { markInternalNavHashScrolledAway } from '../scrolling/clearStaleHash';
 // Zero-import leaf (no cycle) — used to ensure only the ACTIVE reader loader saves its position.
 import { currentLazyLoader } from '../pageLoad/currentLazyLoaderState';
 import { handleContentLinkClick } from '../utilities/linkClickRegistry';
@@ -354,21 +353,31 @@ export function createLazyLoader(config: any) {
         // reader was at, instead of snapping the node's top to the 192px deep-link header offset
         // (which left refresh ~a header-height too high — the hash-survives-scrollaway failure).
         const offset = Math.round(instance._scrollAnchor.offsetFromContainer);
-        const scrollData = { elementId: detectedId, offset };
         const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
-        const stringifiedData = JSON.stringify(scrollData);
 
-        // Only write to storage if the position has actually changed.
-        const existingData = sessionStorage.getItem(storageKey);
-        if (existingData !== stringifiedData) {
+        // Only write when the position IDENTITY (elementId + offset) actually changed. `savedAt`
+        // is EXCLUDED from that comparison — it's a timestamp, so including it would force a write
+        // on every scroll tick. When identity changes we stamp savedAt = now, so `savedAt` reads as
+        // "when the reading position last actually moved" — exactly the causal signal the
+        // resume-vs-jump decision compares against a per-target navigatedAt.
+        const positionKey = JSON.stringify({ elementId: detectedId, offset });
+        const existingRaw = sessionStorage.getItem(storageKey);
+        let existingPositionKey: string | null = null;
+        if (existingRaw) {
+          try {
+            const p = JSON.parse(existingRaw);
+            existingPositionKey = JSON.stringify({ elementId: p.elementId, offset: p.offset });
+          } catch { /* corrupt legacy value — treat as changed */ }
+        }
+
+        if (existingPositionKey !== positionKey) {
+          const scrollData = { elementId: detectedId, offset, savedAt: Date.now() };
+          const stringifiedData = JSON.stringify(scrollData);
           sessionStorage.setItem(storageKey, stringifiedData);
           localStorage.setItem(storageKey, stringifiedData);
-
-          // The saved position genuinely moved → the user scrolled away from any
-          // navigated-to target. Remember it (sessionStorage, NOT a URL mutation) so a refresh
-          // resumes here instead of jumping back to the hypercite/highlight/paragraph, while
-          // back/forward keep the hash in the URL and still navigate to it. Self-guarded.
-          markInternalNavHashScrolledAway();
+          // `savedAt` above is the durable "position last moved" timestamp the resume-vs-jump
+          // decision compares against a per-target navigatedAt (scrolling/navStamp) — the reader
+          // reading PAST a deep-link target is what makes a later return resume instead of re-jump.
 
           // Save to server (debounced) for cross-device resume
           const chunkEl = topVisible.closest('[data-chunk-id]');

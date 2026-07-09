@@ -69,7 +69,7 @@ export class NewBookTransition {
       // Update the URL to the new book NOW — BEFORE initializeReader() runs.
       // When this pathway is entered from a reader where a hypercite was open, the
       // browser URL still carries the PREVIOUS book's `#hypercite_…` hash (hypercite
-      // clicks keep the hash in the URL by design — see scrolling/clearStaleHash.ts).
+      // clicks keep the hash in the URL by design — see scrolling/README.md).
       // initializeReader() → universalPageInitializer() calls restoreScrollPosition(),
       // which reads window.location.hash and chases that stale target into the brand-new
       // empty book (the doomed NavigationCompletionBarrier on `hypercite_…`). Pushing the

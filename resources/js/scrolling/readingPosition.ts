@@ -20,6 +20,12 @@ import type { ChunkId } from '../indexedDB/types';
 export interface ReadingPosition {
   chunk_id: ChunkId;
   element_id: string | null;
+  /**
+   * LOAD-only: the row's `updated_at` as epoch MILLISECONDS (matches client `Date.now()`).
+   * The server stamps it on save (we never send it in the SAVE body). Consumed by the
+   * reading-position resume-vs-jump decision as the server bookmark's `savedAt`.
+   */
+  updated_at?: number;
 }
 
 /**

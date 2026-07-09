@@ -7,8 +7,7 @@ import { registerNavActions } from './navigationRegistry';
 import { BookToBookTransition } from './pathways/BookToBookTransition.js';
 import { getPageStructure, areStructuresCompatible, getSubdomain, getBookIdFromUrl } from './utils/structureDetection.js';
 import { log, verbose } from '../../utilities/logger';
-import { hideNavigationLoading, navigateToInternalId, clearNavigatedHashes } from '../../scrolling/index';
-import { unmarkHashScrolledAway, navigatedHashes, hasScrolledAwayFromHash } from '../../scrolling/navState';
+import { hideNavigationLoading, navigateToInternalId } from '../../scrolling/index';
 import { recordNavDecision } from '../../scrolling/scrollTrace';
 import { book, bookSlug as _bookSlug } from '../../app';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
@@ -562,31 +561,16 @@ export class LinkNavigationHandler {
       currentBook: book,
       urlBookId: this.extractBookSlugFromPath(window.location.pathname),
       sessionPos: (() => { try { return sessionStorage.getItem(getLocalStorageKey('scrollPosition', book)); } catch { return null; } })(),
-      navigatedHashes: [...navigatedHashes],
-      scrolledAway: _hash ? hasScrolledAwayFromHash(_hash.substring(1)) : false,
       capturedStackDepth: history.state?.containerStack?.length || 0,
       historyLength: window.history.length,
     });
 
-    // 🚀 CRITICAL: Clear saved scroll positions when navigating with hash to prevent interference
-    if (window.location.hash) {
-      verbose.nav(`POPSTATE: Clearing saved scroll positions because hash present: ${window.location.hash}`, '/navigation/LinkNavigationHandler.js');
-      // getLocalStorageKey already imported statically
-      const currentBookVariable = book; // Using statically imported book
-      const scrollKey = getLocalStorageKey("scrollPosition", currentBookVariable);
-      sessionStorage.removeItem(scrollKey);
-      // Don't clear localStorage - only session storage to prevent this navigation's interference
-
-      // Clear the navigated hashes so back/forward buttons re-navigate to the hash
-      clearNavigatedHashes();
-      // Also clear the "scrolled away" marker for THIS hash. That marker exists ONLY to make a
-      // genuine page refresh resume the reading position instead of re-jumping to the hash. A
-      // refresh fires no popstate — so reaching here means this is a real back/forward navigation,
-      // where the hash MUST win and take us to the hypercite/highlight. (We unmark only this hash,
-      // so other entries' refresh-resume behaviour is untouched.)
-      unmarkHashScrolledAway(window.location.hash.substring(1));
-      verbose.nav('POPSTATE: Cleared navigatedHashes + scrolled-away marker for fresh navigation', '/navigation/LinkNavigationHandler.js');
-    }
+    // NOTE: back/forward to a hash needs no marker-clearing here anymore. It re-navigates directly
+    // (same-book → navigateToInternalId below; cross-book → navigateByStructure), and
+    // navigateToInternalId already clears the stale sessionStorage position when it jumps. The
+    // resume-vs-jump decision (restore.ts) only runs on cold load / refresh — never on this
+    // popstate path — so the hash always wins on back/forward regardless. (The old
+    // navigatedHashes/scrolled-away clearing block was retired with those signals.)
 
     // Check if we need to navigate between different content using SPA transitions
     const currentBookVariable = book; // Using statically imported book

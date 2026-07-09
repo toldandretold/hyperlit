@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\DB;
 class ReadingPosition
 {
     /**
-     * @return array{chunk_id: float, element_id: ?string}|null
+     * @return array{chunk_id: float, element_id: ?string, updated_at: ?int}|null
      */
     public static function lookup(Request $request, string $book): ?array
     {
@@ -44,6 +44,12 @@ class ReadingPosition
         return [
             'chunk_id' => (float) $position->chunk_id,
             'element_id' => $position->element_id,
+            // Epoch MILLISECONDS to match the client's Date.now() so the reading-position
+            // system can compare a server bookmark's freshness against a per-target navigatedAt
+            // (the durable resume-vs-jump causal test). Null-safe though updated_at useCurrent()s.
+            'updated_at' => $position->updated_at
+                ? \Illuminate\Support\Carbon::parse($position->updated_at)->getTimestampMs()
+                : null,
         ];
     }
 }

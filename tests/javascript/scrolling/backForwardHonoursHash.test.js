@@ -1,20 +1,20 @@
 /**
- * Back/forward to a hypercite MUST navigate to the hypercite — refresh resumes reading position.
+ * Resume-vs-jump for an internal-nav hash — the durable causal rule.
  *
- * The bug: "I click a hypercite, scroll away, press back — and it does NOT take me to the
- * hypercite." Two mechanisms exist to make a genuine *page refresh* resume the reading position
- * instead of re-jumping to a deep-link hash:
- *   - the in-memory `navigatedHashes` set, and
- *   - the sessionStorage `scrolled-away` marker (survives refresh).
- * Both were ALSO suppressing the hash on back/forward, which is wrong: a real back/forward is not
- * a refresh and the hash must win.
+ * The URL can carry a `#hypercite_/#HL_/#<node>` hash for two very different reasons: a DELIBERATE
+ * deep-link (pasted / typed / shared / clicked link) that must JUMP to the target, or a RESIDUAL
+ * hash the reader's own annotate-then-close left behind that they have since read past, which must
+ * RESUME the reading position (the "returns later, yanked back to the highlight" bug).
  *
- * The architecture: a refresh fires NO popstate, so the markers persist → restore resumes the
- * saved position. A real back/forward fires popstate, whose handler clears BOTH markers for the
- * current hash (LinkNavigationHandler._handlePopstateInner) → restore honours the hash.
+ * The discriminator is a single durable causal test: did the saved reading position move AFTER we
+ * last deliberately navigated to THIS target? `savedAt` (in the scrollPosition payload) and
+ * `navigatedAt` (scrolling/navStamp, per-target) both live in localStorage, so the decision holds
+ * across a session close and a later return — unlike the retired ephemeral navigatedHashes/
+ * scrolledAway pair. Back/forward is unaffected: it re-navigates via the popstate handler and never
+ * reaches restoreScrollPosition.
  *
- * This test drives the REAL restoreScrollPosition() with the REAL navState markers and asserts the
- * actual navigation target handed to navigateToInternalId. No synthetic stand-in for the decision.
+ * This test drives the REAL restoreScrollPosition() with the REAL navStamp store and asserts the
+ * actual navigation target handed to navigateToInternalId.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -45,11 +45,16 @@ const { navigateToInternalId } = vi.hoisted(() => ({ navigateToInternalId: vi.fn
 vi.mock('../../../resources/js/scrolling/internalNav', () => ({ navigateToInternalId }));
 
 import { restoreScrollPosition } from '../../../resources/js/scrolling/restore';
-import { markHashScrolledAway, unmarkHashScrolledAway, navigatedHashes } from '../../../resources/js/scrolling/navState';
+import { recordNavigatedAt, getNavigatedAt } from '../../../resources/js/scrolling/navStamp';
 import { setCurrentLazyLoader } from '../../../resources/js/pageLoad/currentLazyLoaderState';
 
 const HASH = 'hypercite_target';
 const BOOK = 'book_test';
+
+/** Seed a saved reading position (elementId + savedAt ms) for BOOK. */
+function seedSavedPosition(elementId, savedAt) {
+  sessionStorage.setItem(`scrollPosition_${BOOK}`, JSON.stringify({ elementId, offset: 0, savedAt }));
+}
 
 function makeWrapperAndLoader() {
   document.body.innerHTML = '';
@@ -82,57 +87,53 @@ beforeEach(() => {
   vi.clearAllMocks();
   sessionStorage.clear();
   localStorage.clear();
-  navigatedHashes.clear();
   // Land on a hypercite deep-link URL (no HL_/Fn cascade path segments).
   window.history.pushState({}, '', `/${BOOK}#${HASH}`);
   makeWrapperAndLoader();
 });
 
-describe('back/forward honours the hypercite hash; refresh resumes position', () => {
-  it('BACK/FORWARD (no marker): navigates to the hypercite hash', async () => {
-    // Fresh history navigation — nothing marked. Hash must win.
+describe('resume-vs-jump: the durable causal rule', () => {
+  it('DELIBERATE deep-link (no navigatedAt for this target): JUMPs to the hash', async () => {
+    // A cold pasted/typed/shared URL — this device never deliberately navigated to the target, so
+    // there is no navStamp. Even a lone saved position must not steal a genuine deep-link.
+    seedSavedPosition('999', Date.now());
+
     await restoreScrollPosition();
+
     expect(navigateToInternalId).toHaveBeenCalledTimes(1);
     expect(navigateToInternalId.mock.calls[0][0]).toBe(HASH);
   });
 
-  it('REFRESH (scrolled-away marker set): resumes the saved reading position, NOT the hash', async () => {
-    // A real refresh: the marker survived in sessionStorage and there's a saved position.
-    markHashScrolledAway(HASH);
-    sessionStorage.setItem(`scrollPosition_${BOOK}`, JSON.stringify({ elementId: '999' }));
+  it('READ PAST the target (savedAt > navigatedAt): RESUMEs the saved reading position', async () => {
+    // We navigated to the target, then the reader scrolled on — the saved position moved AFTER.
+    recordNavigatedAt(BOOK, HASH);
+    const navAt = getNavigatedAt(BOOK, HASH);
+    seedSavedPosition('999', navAt + 10_000); // saved AFTER we navigated → read past it
 
     await restoreScrollPosition();
 
     expect(navigateToInternalId).toHaveBeenCalledTimes(1);
-    expect(navigateToInternalId.mock.calls[0][0]).toBe('999'); // saved position
-    expect(navigateToInternalId.mock.calls[0][0]).not.toBe(HASH); // NOT the hypercite
+    expect(navigateToInternalId.mock.calls[0][0]).toBe('999'); // resume
+    expect(navigateToInternalId.mock.calls[0][0]).not.toBe(HASH);
   });
 
-  it('BACK/FORWARD AFTER scroll-away: popstate clears the marker, so the hash wins again', async () => {
-    // User had scrolled away (marker set) and a saved position exists...
-    markHashScrolledAway(HASH);
-    sessionStorage.setItem(`scrollPosition_${BOOK}`, JSON.stringify({ elementId: '999' }));
-
-    // ...then presses back. _handlePopstateInner clears navigatedHashes AND unmarks this hash.
-    // Reproduce exactly that popstate-side effect:
-    navigatedHashes.clear();
-    unmarkHashScrolledAway(window.location.hash.substring(1));
+  it('NAVIGATED here but NOT moved (savedAt <= navigatedAt): JUMPs to the hash', async () => {
+    // Clicked the hypercite and are looking at it; a refresh should keep us on it.
+    recordNavigatedAt(BOOK, HASH);
+    const navAt = getNavigatedAt(BOOK, HASH);
+    seedSavedPosition('999', navAt - 10_000); // saved BEFORE we navigated → haven't read past
 
     await restoreScrollPosition();
 
-    // The hash must now win — take me to the hypercite, not the stale saved position.
     expect(navigateToInternalId).toHaveBeenCalledTimes(1);
     expect(navigateToInternalId.mock.calls[0][0]).toBe(HASH);
   });
 
-  it('SAME-SESSION re-store after we already jumped (navigatedHashes set): resumes, not re-jump', async () => {
-    // Within one page session we already navigated to the hash; an incidental restore re-fire
-    // (e.g. a chunk load) must NOT yank us back to the hash.
-    navigatedHashes.add(HASH);
-    sessionStorage.setItem(`scrollPosition_${BOOK}`, JSON.stringify({ elementId: '999' }));
-
+  it('no saved position at all: JUMPs to the hash', async () => {
+    // Fresh book, deep-link followed — nothing to resume to.
     await restoreScrollPosition();
 
-    expect(navigateToInternalId.mock.calls[0][0]).toBe('999');
+    expect(navigateToInternalId).toHaveBeenCalledTimes(1);
+    expect(navigateToInternalId.mock.calls[0][0]).toBe(HASH);
   });
 });

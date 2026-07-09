@@ -43,7 +43,7 @@ restoreScrollPosition()
 │    • URL path is /HL_… or /Fn…             (BookToBookTransition handles it)
 │
 ├─ pick a TARGET, in priority order:
-│    1. URL #hash  ──unless── "already navigated" (see Refresh rule below)
+│    1. URL #hash  ──unless── the causal rule says "resume" (see below)
 │    2. saved position (session → local storage)   [only if no explicit hash target]
 │    3. nothing → load chunk 0 (or lowest chunk; preserve bfcache DOM if present)
 │
@@ -52,17 +52,19 @@ restoreScrollPosition()
         • position resume  → offset = saved sub-node pixel offset (land on the exact pixel)
 ```
 
-### The refresh-vs-back/forward rule (the subtle one)
+### The resume-vs-jump rule (the subtle one)
 
-A `#hypercite_…` / `#HL_…` / `#<numeric>` hash in the URL means "a deep link was followed." The question is: **on the NEXT page load, do we re-jump to that hash, or resume where the reader actually scrolled to?** Two signals disambiguate, and the golden rule is **the hash is NEVER stripped from the URL** (stripping via `replaceState` corrupts the history entry, so back/forward would lose the target — that's the "lands at the top" class):
+A `#hypercite_…` / `#HL_…` / `#<numeric>` hash in the URL means one of two things and the reader must tell them apart on load: a **deliberate deep-link** (pasted / typed / shared / clicked) that should **JUMP**, or a **residual** hash the reader's own annotate-then-close left behind, which — if they have since read past it — should **RESUME** the reading position (the "return later, yanked back to the highlight" bug). The golden rule stays: **the hash is NEVER stripped from the URL** (stripping via `replaceState` corrupts the history entry, so back/forward would lose the target — the "lands at the top" class).
 
-- `navigatedHashes` (`navState.ts`) — an in-memory `Set`, **wiped on reload**. "We already jumped to this hash this session."
-- `hasScrolledAwayFromHash` (`navState.ts`, sessionStorage) — **survives a same-tab refresh**. Written by `clearStaleHash.ts` when the user scrolls away from an internal-nav hash (but not while a container is open).
+The discriminator is a single **durable causal test**: *did the saved reading position move AFTER we last deliberately navigated to THIS target?*
+- `savedAt` — the reading-position payload's "last moved" timestamp (`readingAnchor.ts`; a server-seeded anchor carries the row's `updated_at`).
+- `navigatedAt` — a per-`(book, target)` timestamp we write whenever `navigateToInternalId` deliberately goes to a target (`navStamp.ts`).
 
-How each entry event resolves:
-- **Refresh** (no popstate fires) — `navigatedHashes` is wiped (empty) but `scrolledAway` persists, so the surviving signal says "already seen this hash" → **resume the reading position**.
-- **Back/forward** (popstate fires) — `LinkNavigationHandler._handlePopstateInner` **clears both** signals for the current hash → **the hash wins, jump to it**.
-- **Fresh deep-link open** — both signals empty → the hash is a genuine explicit target → **jump to it**.
+Both live in **localStorage**, so the decision survives the tab closing and a later return (the reason it fixes the cross-session bug — the old in-memory + sessionStorage signals did not). The rule:
+- `navigatedAt` exists **and** `savedAt > navigatedAt` → the reader read past the target → **RESUME**.
+- otherwise (a deliberate deep-link has no `navigatedAt` on this device, OR they navigated here and haven't moved) → **JUMP**.
+
+**Back/forward is unaffected** and never reaches this rule: `LinkNavigationHandler._handlePopstateInner` re-navigates directly (same-book → `navigateToInternalId`; cross-book → `navigateByStructure`), so `restore.ts` runs only on cold load / refresh / bfcache / SPA-entry. A carried `#HL_x` opened on a device that never navigated there (no local `navigatedAt`) JUMPs — matching "a pasted/shared internal-id link is deliberate"; everyday cross-device continuity is the **no-hash** library open, which resumes the server bookmark.
 
 ## The NAVIGATE engine (`internalNav.ts` `navigateToInternalId`)
 
@@ -104,15 +106,15 @@ The header offset **192** appears in three places and they must stay in sync:
 
 Each module, its role, and its key exports:
 
-- **`index.ts`** — barrel, the folder's public surface. Exports: the re-exports below + `clearNavigatedHashes()`.
+- **`index.ts`** — barrel, the folder's public surface. Exports: the re-exports below.
 - **`restore.ts`** — the **RESTORE router**; page-load entry, the decision tree above. Exports: `restoreScrollPosition()`.
-- **`internalNav.ts`** — the **NAVIGATE engine**; scroll to an id through lazy loading. Exports: `navigateToInternalId()`, `resetUserScrollState` (re-export).
+- **`internalNav.ts`** — the **NAVIGATE engine**; scroll to an id through lazy loading (records `navigatedAt`). Exports: `navigateToInternalId()`, `resetUserScrollState` (re-export).
 - **`scrollHelpers.ts`** — the low-level scroll mechanic + correction. Exports: `scrollElementWithConsistentMethod`, `scrollElementIntoMainContent`, `isValidContentElement`.
-- **`readingAnchor.ts`** — **THE accessor** for the saved position (fresh vs saved). Exports: `getSavedAnchor`, `getFreshAnchor`.
-- **`readingPosition.ts`** — the server-persisted bookmark (cross-device resume). Exports: `debouncedServerSave`, `sendBeaconSave`.
-- **`navState.ts`** — zero-import leaf holding shared mutable state. Exports: `userScrollState`, `navigatedHashes`, `hasScrolledAwayFromHash`, `navTimers`.
+- **`readingAnchor.ts`** — **THE accessor** for the saved position (fresh vs saved, incl. `savedAt`). Exports: `getSavedAnchor`, `getFreshAnchor`.
+- **`navStamp.ts`** — durable per-`(book, target)` `navigatedAt` store (localStorage) — the causal half of resume-vs-jump. Exports: `recordNavigatedAt`, `getNavigatedAt`.
+- **`readingPosition.ts`** — the server-persisted bookmark (cross-device resume; carries `updated_at`). Exports: `debouncedServerSave`, `sendBeaconSave`.
+- **`navState.ts`** — zero-import leaf holding shared mutable state. Exports: `userScrollState`, `navTimers`.
 - **`userScrollDetection.ts`** — the "is the user scrolling?" guards. Exports: `isUserCurrentlyScrolling`, `shouldSkipScrollRestoration`, `setupUserScrollDetection`.
-- **`clearStaleHash.ts`** — marks "scrolled away" so a refresh resumes instead of re-jumping. Exports: `markInternalNavHashScrolledAway`.
 - **`navOverlay.ts`** — legacy wrappers over `ProgressOverlayConductor`. Exports: `showNavigationLoading`, `hideNavigationLoading`.
 - **`selectionAutoScroll.ts`** — stops the upward race during a drag-select. Exports: `initSelectionAutoScroll`, `isSelectionDragActive`.
 - **`wheelScrollForwarder.ts`** — forwards the wheel from dead zones (header / side margins). Exports: `initWheelScrollForwarder`.
@@ -122,7 +124,7 @@ Each module, its role, and its key exports:
 
 - `lazyLoader/index.ts` — the **write side**: renders chunks, owns the topmost-node detector (`forceSavePosition`), holds `scrollableParent` (`.reader-content-wrapper`), installs `scrollTrace`.
 - `SPA/navigation/pathways/BookToBookTransition.ts` — cross-book nav; sets the global skip flag, then calls `handleHashNavigation` → `navigateToInternalId`.
-- `SPA/navigation/LinkNavigationHandler.ts` `_handlePopstateInner` — back/forward; **clears `navigatedHashes` + `scrolledAway`** so the hash wins on popstate (the refresh-vs-back/forward rule).
+- `SPA/navigation/LinkNavigationHandler.ts` `_handlePopstateInner` — back/forward; re-navigates directly (never through `restore.ts`), so the hash always wins on popstate independently of the resume-vs-jump rule.
 - `hyperlitContainer/history.ts` `restoreContainerStack` — when a history entry has an open container (`?cs=N`), IT scrolls the main reader to the anchor (a *different* path from `internalNav`).
 - `utilities/operationState.ts` — the global `skipScrollRestoration` flag.
 
@@ -138,7 +140,7 @@ This is how the detached-node correction bug was caught: two writes, `newTop=102
 
 1. **One detector.** Never write a second "which node is visible" scan — extend `forceSavePosition`.
 2. **One accessor.** Read position only via `readingAnchor.ts`; `getFreshAnchor` when acting on *now*.
-3. **Never strip the hash** from the URL to suppress a re-jump — mark `scrolledAway` instead.
+3. **Never strip the hash** from the URL to suppress a re-jump — let the causal rule (`savedAt` vs `navigatedAt`) decide resume-vs-jump instead; the hash stays put for back/forward.
 4. **Never scroll off a detached/unmeasured node.** Re-resolve by id or bail; a computed `0` from a dead node is not a real target.
 5. **Yield to the user.** Check the scroll guards before any restoration; abort nav on real user input.
 6. **Keep 192 in sync** across `scrollHelpers`, the `scroll-padding-top` CSS, and `selectionAutoScroll`.

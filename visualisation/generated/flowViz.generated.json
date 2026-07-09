@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1616,
-    "moduleCount": 347,
+    "fnCount": 1613,
+    "moduleCount": 345,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3289,
+    "edgeCount": 3282,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -12353,22 +12353,6 @@
       "dir": "pull"
     },
     {
-      "id": "scrolling/clearStaleHash:markInternalNavHashScrolledAway",
-      "label": "markInternalNavHashScrolledAway",
-      "kind": "fn",
-      "stage": "scrolling",
-      "module": "scrolling/clearStaleHash",
-      "leaf": true
-    },
-    {
-      "id": "scrolling/index:clearNavigatedHashes",
-      "label": "clearNavigatedHashes",
-      "kind": "fn",
-      "stage": "scrolling",
-      "module": "scrolling/index",
-      "leaf": true
-    },
-    {
       "id": "scrolling/internalNav:fallbackScrollPosition",
       "label": "fallbackScrollPosition",
       "kind": "fn",
@@ -12425,27 +12409,19 @@
       "leaf": true
     },
     {
-      "id": "scrolling/navState:hasScrolledAwayFromHash",
-      "label": "hasScrolledAwayFromHash",
+      "id": "scrolling/navStamp:getNavigatedAt",
+      "label": "getNavigatedAt",
       "kind": "fn",
       "stage": "scrolling",
-      "module": "scrolling/navState",
+      "module": "scrolling/navStamp",
       "leaf": false
     },
     {
-      "id": "scrolling/navState:markHashScrolledAway",
-      "label": "markHashScrolledAway",
+      "id": "scrolling/navStamp:recordNavigatedAt",
+      "label": "recordNavigatedAt",
       "kind": "fn",
       "stage": "scrolling",
-      "module": "scrolling/navState",
-      "leaf": false
-    },
-    {
-      "id": "scrolling/navState:unmarkHashScrolledAway",
-      "label": "unmarkHashScrolledAway",
-      "kind": "fn",
-      "stage": "scrolling",
-      "module": "scrolling/navState",
+      "module": "scrolling/navStamp",
       "leaf": false
     },
     {
@@ -18430,24 +18406,6 @@
       ]
     },
     {
-      "id": "scrolling/clearStaleHash",
-      "label": "scrolling/clearStaleHash",
-      "stage": "scrolling",
-      "band": "store",
-      "fnIds": [
-        "scrolling/clearStaleHash:markInternalNavHashScrolledAway"
-      ]
-    },
-    {
-      "id": "scrolling/index",
-      "label": "scrolling/index",
-      "stage": "scrolling",
-      "band": "store",
-      "fnIds": [
-        "scrolling/index:clearNavigatedHashes"
-      ]
-    },
-    {
       "id": "scrolling/internalNav",
       "label": "scrolling/internalNav",
       "stage": "scrolling",
@@ -18471,14 +18429,13 @@
       ]
     },
     {
-      "id": "scrolling/navState",
-      "label": "scrolling/navState",
+      "id": "scrolling/navStamp",
+      "label": "scrolling/navStamp",
       "stage": "scrolling",
       "band": "store",
       "fnIds": [
-        "scrolling/navState:hasScrolledAwayFromHash",
-        "scrolling/navState:markHashScrolledAway",
-        "scrolling/navState:unmarkHashScrolledAway"
+        "scrolling/navStamp:getNavigatedAt",
+        "scrolling/navStamp:recordNavigatedAt"
       ]
     },
     {
@@ -33726,13 +33683,6 @@
       "rel": "call"
     },
     {
-      "id": "lazyLoader/index:createLazyLoader__call__scrolling/clearStaleHash:markInternalNavHashScrolledAway",
-      "source": "lazyLoader/index:createLazyLoader",
-      "target": "scrolling/clearStaleHash:markInternalNavHashScrolledAway",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
       "id": "lazyLoader/index:createLazyLoader__call__scrolling/scrollTrace:installScrollTrace",
       "source": "lazyLoader/index:createLazyLoader",
       "target": "scrolling/scrollTrace:installScrollTrace",
@@ -36540,13 +36490,6 @@
       "label": "/api/vibes/{}"
     },
     {
-      "id": "scrolling/clearStaleHash:markInternalNavHashScrolledAway__call__scrolling/navState:markHashScrolledAway",
-      "source": "scrolling/clearStaleHash:markInternalNavHashScrolledAway",
-      "target": "scrolling/navState:markHashScrolledAway",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
       "id": "scrolling/internalNav:fallbackScrollPosition__call__indexedDB/core/utilities:getLocalStorageKey",
       "source": "scrolling/internalNav:fallbackScrollPosition",
       "target": "indexedDB/core/utilities:getLocalStorageKey",
@@ -36667,9 +36610,9 @@
       "rel": "call"
     },
     {
-      "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/navState:unmarkHashScrolledAway",
+      "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/navStamp:recordNavigatedAt",
       "source": "scrolling/internalNav:navigateToInternalId",
-      "target": "scrolling/navState:unmarkHashScrolledAway",
+      "target": "scrolling/navStamp:recordNavigatedAt",
       "rel": "call",
       "dataPath": true
     },
@@ -36745,15 +36688,9 @@
       "rel": "write"
     },
     {
-      "id": "scrolling/navState:markHashScrolledAway__write__store:sessionStorage",
-      "source": "scrolling/navState:markHashScrolledAway",
-      "target": "store:sessionStorage",
-      "rel": "write"
-    },
-    {
-      "id": "scrolling/navState:unmarkHashScrolledAway__write__store:sessionStorage",
-      "source": "scrolling/navState:unmarkHashScrolledAway",
-      "target": "store:sessionStorage",
+      "id": "scrolling/navStamp:recordNavigatedAt__write__store:localStorage",
+      "source": "scrolling/navStamp:recordNavigatedAt",
+      "target": "store:localStorage",
       "rel": "write"
     },
     {
@@ -36809,11 +36746,17 @@
       "rel": "call"
     },
     {
-      "id": "scrolling/restore:restoreScrollPosition__call__scrolling/navState:hasScrolledAwayFromHash",
+      "id": "scrolling/restore:restoreScrollPosition__call__scrolling/navStamp:getNavigatedAt",
       "source": "scrolling/restore:restoreScrollPosition",
-      "target": "scrolling/navState:hasScrolledAwayFromHash",
+      "target": "scrolling/navStamp:getNavigatedAt",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "scrolling/restore:restoreScrollPosition__call__scrolling/readingAnchor:getSavedAnchor",
+      "source": "scrolling/restore:restoreScrollPosition",
+      "target": "scrolling/readingAnchor:getSavedAnchor",
+      "rel": "call"
     },
     {
       "id": "scrolling/restore:restoreScrollPosition__call__scrolling/userScrollDetection:shouldSkipScrollRestoration",
@@ -37386,29 +37329,9 @@
       "dataPath": true
     },
     {
-      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__scrolling/index:clearNavigatedHashes",
-      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
-      "target": "scrolling/index:clearNavigatedHashes",
-      "rel": "call"
-    },
-    {
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__scrolling/internalNav:navigateToInternalId",
       "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
       "target": "scrolling/internalNav:navigateToInternalId",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__scrolling/navState:hasScrolledAwayFromHash",
-      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
-      "target": "scrolling/navState:hasScrolledAwayFromHash",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__scrolling/navState:unmarkHashScrolledAway",
-      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
-      "target": "scrolling/navState:unmarkHashScrolledAway",
       "rel": "call",
       "dataPath": true
     },
@@ -37418,12 +37341,6 @@
       "target": "scrolling/scrollTrace:recordNavDecision",
       "rel": "call",
       "dataPath": true
-    },
-    {
-      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__write__store:sessionStorage",
-      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
-      "target": "store:sessionStorage",
-      "rel": "write"
     },
     {
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.areStructuresCompatible__call__SPA/navigation/utils/structureDetection:areStructuresCompatible",
@@ -39169,6 +39086,18 @@
       "rel": "read"
     },
     {
+      "id": "store:localStorage__read__scrolling/navStamp:getNavigatedAt",
+      "source": "store:localStorage",
+      "target": "scrolling/navStamp:getNavigatedAt",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__scrolling/navStamp:recordNavigatedAt",
+      "source": "store:localStorage",
+      "target": "scrolling/navStamp:recordNavigatedAt",
+      "rel": "read"
+    },
+    {
       "id": "store:localStorage__read__scrolling/restore:restoreScrollPosition",
       "source": "store:localStorage",
       "target": "scrolling/restore:restoreScrollPosition",
@@ -39397,24 +39326,6 @@
       "rel": "read"
     },
     {
-      "id": "store:sessionStorage__read__scrolling/navState:hasScrolledAwayFromHash",
-      "source": "store:sessionStorage",
-      "target": "scrolling/navState:hasScrolledAwayFromHash",
-      "rel": "read"
-    },
-    {
-      "id": "store:sessionStorage__read__scrolling/navState:markHashScrolledAway",
-      "source": "store:sessionStorage",
-      "target": "scrolling/navState:markHashScrolledAway",
-      "rel": "read"
-    },
-    {
-      "id": "store:sessionStorage__read__scrolling/navState:unmarkHashScrolledAway",
-      "source": "store:sessionStorage",
-      "target": "scrolling/navState:unmarkHashScrolledAway",
-      "rel": "read"
-    },
-    {
       "id": "store:sessionStorage__read__scrolling/restore:restoreScrollPosition",
       "source": "store:sessionStorage",
       "target": "scrolling/restore:restoreScrollPosition",
@@ -39541,16 +39452,6 @@
     {
       "source": "SPA/navigation/LinkNavigationHandler",
       "target": "indexedDB/index",
-      "kind": "static"
-    },
-    {
-      "source": "SPA/navigation/LinkNavigationHandler",
-      "target": "scrolling/index",
-      "kind": "static"
-    },
-    {
-      "source": "SPA/navigation/LinkNavigationHandler",
-      "target": "scrolling/navState",
       "kind": "static"
     },
     {
@@ -39736,11 +39637,6 @@
     {
       "source": "SPA/navigation/pathways/BookToBookTransition",
       "target": "indexedDB/index",
-      "kind": "static"
-    },
-    {
-      "source": "SPA/navigation/pathways/BookToBookTransition",
-      "target": "scrolling/index",
       "kind": "static"
     },
     {
@@ -40054,11 +39950,6 @@
       "kind": "static"
     },
     {
-      "source": "SPA/navigation/utils/contentSwapHelpers",
-      "target": "scrolling/index",
-      "kind": "static"
-    },
-    {
       "source": "SPA/navigation/utils/initHelpers",
       "target": "SPA/viewManager",
       "kind": "static"
@@ -40166,11 +40057,6 @@
     {
       "source": "SPA/viewManager",
       "target": "pageLoad/loadHyperText",
-      "kind": "static"
-    },
-    {
-      "source": "SPA/viewManager",
-      "target": "scrolling/index",
       "kind": "static"
     },
     {
@@ -40341,11 +40227,6 @@
     {
       "source": "components/homepage/homepageDisplayUnit",
       "target": "indexedDB/index",
-      "kind": "static"
-    },
-    {
-      "source": "components/homepage/homepageDisplayUnit",
-      "target": "scrolling/index",
       "kind": "static"
     },
     {
@@ -41081,11 +40962,6 @@
     {
       "source": "components/tocContainer/index",
       "target": "pageLoad/currentLazyLoaderState",
-      "kind": "lazy"
-    },
-    {
-      "source": "components/tocContainer/index",
-      "target": "scrolling/index",
       "kind": "lazy"
     },
     {
@@ -42069,11 +41945,6 @@
       "kind": "static"
     },
     {
-      "source": "hypercites/navigation",
-      "target": "scrolling/index",
-      "kind": "static"
-    },
-    {
       "source": "hyperlights/annotationPaste",
       "target": "hypercites/listeners",
       "kind": "static"
@@ -42216,11 +42087,6 @@
     {
       "source": "hyperlights/deletion",
       "target": "indexedDB/utilities/cleanup",
-      "kind": "static"
-    },
-    {
-      "source": "hyperlights/deletion",
-      "target": "scrolling/index",
       "kind": "static"
     },
     {
@@ -42535,11 +42401,6 @@
     },
     {
       "source": "hyperlitContainer/core",
-      "target": "scrolling/index",
-      "kind": "static"
-    },
-    {
-      "source": "hyperlitContainer/core",
       "target": "footnotes/footnoteAnnotations",
       "kind": "lazy"
     },
@@ -42629,18 +42490,8 @@
       "kind": "static"
     },
     {
-      "source": "hyperlitContainer/footnoteTapExtender",
-      "target": "scrolling/index",
-      "kind": "static"
-    },
-    {
       "source": "hyperlitContainer/footnotesCitations",
       "target": "hyperlitContainer/index",
-      "kind": "static"
-    },
-    {
-      "source": "hyperlitContainer/footnotesCitations",
-      "target": "scrolling/index",
       "kind": "static"
     },
     {
@@ -42706,11 +42557,6 @@
     {
       "source": "hyperlitContainer/history",
       "target": "pageLoad/currentLazyLoaderState",
-      "kind": "lazy"
-    },
-    {
-      "source": "hyperlitContainer/history",
-      "target": "scrolling/index",
       "kind": "lazy"
     },
     {
@@ -42821,11 +42667,6 @@
     {
       "source": "hyperlitContainer/index",
       "target": "hyperlights/markGroup",
-      "kind": "lazy"
-    },
-    {
-      "source": "hyperlitContainer/index",
-      "target": "scrolling/index",
       "kind": "lazy"
     },
     {
@@ -43590,16 +43431,6 @@
     },
     {
       "source": "lazyLoader/index",
-      "target": "scrolling/clearStaleHash",
-      "kind": "static"
-    },
-    {
-      "source": "lazyLoader/index",
-      "target": "scrolling/index",
-      "kind": "static"
-    },
-    {
-      "source": "lazyLoader/index",
       "target": "scrolling/scrollTrace",
       "kind": "static"
     },
@@ -43751,11 +43582,6 @@
     {
       "source": "pageLoad/lazyLoaderRegistry",
       "target": "pageLoad/nodeGen",
-      "kind": "static"
-    },
-    {
-      "source": "pageLoad/lazyLoaderRegistry",
-      "target": "scrolling/index",
       "kind": "static"
     },
     {
@@ -44469,46 +44295,6 @@
       "kind": "static"
     },
     {
-      "source": "scrolling/clearStaleHash",
-      "target": "scrolling/navState",
-      "kind": "static"
-    },
-    {
-      "source": "scrolling/index",
-      "target": "SPA/navigation/cascadeOriginState",
-      "kind": "static"
-    },
-    {
-      "source": "scrolling/index",
-      "target": "scrolling/internalNav",
-      "kind": "static"
-    },
-    {
-      "source": "scrolling/index",
-      "target": "scrolling/navOverlay",
-      "kind": "static"
-    },
-    {
-      "source": "scrolling/index",
-      "target": "scrolling/navState",
-      "kind": "static"
-    },
-    {
-      "source": "scrolling/index",
-      "target": "scrolling/restore",
-      "kind": "static"
-    },
-    {
-      "source": "scrolling/index",
-      "target": "scrolling/scrollHelpers",
-      "kind": "static"
-    },
-    {
-      "source": "scrolling/index",
-      "target": "scrolling/userScrollDetection",
-      "kind": "static"
-    },
-    {
       "source": "scrolling/internalNav",
       "target": "SPA/domReadiness",
       "kind": "static"
@@ -44540,7 +44326,7 @@
     },
     {
       "source": "scrolling/internalNav",
-      "target": "scrolling/navState",
+      "target": "scrolling/navStamp",
       "kind": "static"
     },
     {
@@ -44620,7 +44406,12 @@
     },
     {
       "source": "scrolling/restore",
-      "target": "scrolling/navState",
+      "target": "scrolling/navStamp",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/restore",
+      "target": "scrolling/readingAnchor",
       "kind": "static"
     },
     {
@@ -44635,22 +44426,12 @@
     },
     {
       "source": "scrolling/scrollHelpers",
-      "target": "scrolling/navState",
-      "kind": "static"
-    },
-    {
-      "source": "scrolling/scrollHelpers",
       "target": "scrolling/scrollTrace",
       "kind": "static"
     },
     {
       "source": "scrolling/scrollHelpers",
       "target": "scrolling/userScrollDetection",
-      "kind": "static"
-    },
-    {
-      "source": "scrolling/userScrollDetection",
-      "target": "scrolling/navState",
       "kind": "static"
     },
     {

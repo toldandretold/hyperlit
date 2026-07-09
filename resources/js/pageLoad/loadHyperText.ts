@@ -280,7 +280,10 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
       const bookmark: ReadingPosition | null = initialResult.bookmark ?? null;
       if (bookmark?.element_id && !openHyperlightID && !openFootnoteID) {
         const storageKey = getLocalStorageKey("scrollPosition", currentBook);
-        const scrollData = JSON.stringify({ elementId: bookmark.element_id });
+        // Carry the server row's updated_at (epoch ms) as `savedAt`. This is what makes
+        // cross-device RESUME work: a phone with an empty local navigatedAt store compares this
+        // server savedAt against "no navAt" and resumes the bookmark rather than a stale hash.
+        const scrollData = JSON.stringify({ elementId: bookmark.element_id, savedAt: bookmark.updated_at ?? Date.now() });
         sessionStorage.setItem(storageKey, scrollData);
       }
 

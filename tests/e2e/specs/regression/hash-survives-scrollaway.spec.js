@@ -7,9 +7,10 @@ import { test, expect } from '../../fixtures/navigation.fixture.js';
  * STRIP the hash from the URL via history.replaceState — which mutates the history ENTRY, so
  * back/forward to it lost the target and landed at the top of the page.
  *
- * Fix: scrolling away no longer touches the URL. It records a "scrolled away from this hash"
- * marker in sessionStorage; restoreScrollPosition consults it so only a REFRESH resumes the
- * reading position. The hash stays in the URL → back/forward still navigate to it.
+ * Fix: scrolling away no longer touches the URL. Resume-vs-jump is decided by the durable causal
+ * rule (scrolling/restore.ts + navStamp): we JUMP to a hash target unless we navigated there and
+ * then read PAST it (`savedAt > navigatedAt`), in which case we RESUME. The hash stays in the URL
+ * → back/forward still navigate to it.
  *
  * This guard asserts BOTH halves on a single book (fast, no EPUB):
  *   1. the hash SURVIVES a scroll-away (so forward/back keep working) — the regression;
@@ -85,15 +86,9 @@ test.describe('hash survives scroll-away', () => {
     const hashAfter = await page.evaluate(() => location.hash);
     expect(hashAfter, 'scroll-away must NOT strip the hash from the URL (would break back/forward)').toBe(`#${targetId}`);
 
-    // The sessionStorage marker should now be set (the mechanism that lets refresh resume).
-    const marked = await page.evaluate((id) => {
-      try {
-        const raw = sessionStorage.getItem('hyperlit_scrolled_away_hashes');
-        return !!raw && JSON.parse(raw).includes(id);
-      } catch { return false; }
-    }, targetId);
-    expect(marked, 'scroll-away should record the hash in the sessionStorage scrolled-away set').toBe(true);
-
+    // Resume-vs-jump is now decided by the durable causal rule (savedAt > navigatedAt), not the old
+    // sessionStorage scrolled-away marker — so we assert the OBSERVED behaviour below (refresh
+    // resumes), not the retired mechanism.
     const positionBeforeReload = await readerScrollTop(page);
 
     // (2) ORIGINAL GOAL: a REFRESH resumes the scroll position, NOT a re-jump to the hash target.

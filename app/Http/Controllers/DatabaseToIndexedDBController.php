@@ -1661,8 +1661,10 @@ class DatabaseToIndexedDBController extends Controller
      * The LOAD shape for the TS `ReadingPosition` contract (also embedded as `bookmark` in
      * `getInitialChunk`'s response). Identity is `user_name` when logged in, else the `anon_token`
      * cookie; no identity ⇒ null. `chunk_id` is cast to int here (the column is integer).
+     * `updated_at` is epoch ms (the row's last-saved time) — the client compares it against a
+     * per-target navigatedAt for the durable resume-vs-jump decision.
      *
-     * @return array{chunk_id: int, element_id: ?string}|null
+     * @return array{chunk_id: int, element_id: ?string, updated_at: ?int}|null
      */
     private function getBookmarkData(Request $request, string $bookId): ?array
     {
