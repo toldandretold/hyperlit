@@ -168,7 +168,24 @@ export class ContainerManager {
             } catch (err) {
               console.warn('Pre-back flush failed (non-fatal):', err);
             }
-            history.back();
+            // Normally, closing the base container consumes the history entry that opening it
+            // pushed — history.back() peels it. But a rapid back/forward burst can leave the
+            // CURRENT entry's container belonging to a DIFFERENT book than the one on screen: a
+            // stale async restoration replaceState-stamps another book's containerStack onto this
+            // book's URL entry (containerStackBookId mismatch), or the container is a DOM-only
+            // wedge with no matching entry (containerStackBookId null). history.back() there does
+            // NOT close-in-place — it TELEPORTS to that other book (the "close a hypercite and it
+            // jumps me to a different book / can't get home" glitch). Only go back when the entry's
+            // container actually belongs to the rendered book; otherwise close in place (a pure
+            // replaceState in closeHyperlitContainer — no navigation).
+            const renderedBookId = (document.querySelector('main.main-content') as any)?.id || null;
+            const stateBookId = history.state?.containerStackBookId || null;
+            if (stateBookId && renderedBookId && stateBookId === renderedBookId) {
+              history.back();
+            } else {
+              const { closeHyperlitContainer } = await import('../../hyperlitContainer/core');
+              await closeHyperlitContainer();
+            }
           } else {
             this.closeContainer();
           }
