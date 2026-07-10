@@ -1,0 +1,227 @@
+{
+  "records": [
+    {
+      "seq": 0,
+      "module": "pdf_footnote_classification",
+      "code_ref": "classification.py:classify_footnotes",
+      "node_help": "Fall-through: the signals matched no specific footnote layout, so assembly does generic cleanup only. Low confidence — a prime review candidate; the real layout is probably a near-miss of one of the others (check the margins).",
+      "decision": "footnote_layout=unknown",
+      "rationale": "signals matched no specific classifier — fell through to unknown",
+      "evidence": {
+        "total_pages": 25,
+        "pages_with_refs": 5,
+        "pages_with_defs": 4,
+        "pages_with_both": 0,
+        "co_location_ratio": 0.0,
+        "def_clustering_ratio": 0.16,
+        "reset_count": 0,
+        "reset_frequency": 0.0,
+        "notes_page_count": 0,
+        "notes_page_indices": [],
+        "trailing_page_number_offset": null,
+        "trailing_page_number_consistency": 0.0,
+        "ref_number_max_page_spread": 1,
+        "numbers_on_multiple_pages": 0,
+        "max_ref_number": 39
+      },
+      "question": "What is the PDF footnote layout? (drives per-page renumbering & assembly)",
+      "considered": [
+        {
+          "option": "none",
+          "rejected_because": "5 page(s) carry in-text references",
+          "would_need": "zero pages with in-text footnote references"
+        },
+        {
+          "option": "page_bottom",
+          "rejected_because": "co-location 0.00 / reset-freq 0.00 fit neither page_bottom rule (continuous: co>0.4 & resets<0.1 & maxref>10; restart: co>0.5 & resets>0.4)",
+          "would_need": "refs and their definitions sharing the same pages (high co-location)"
+        },
+        {
+          "option": "chapter_endnotes",
+          "rejected_because": "no Notes-header page and co-location 0.00/reset-freq 0.00 miss the endnote rules",
+          "would_need": "a \"Notes\" page header, OR per-chapter resets with separated definition pages (co-location < 0.3)"
+        },
+        {
+          "option": "document_endnotes",
+          "rejected_because": "co-location 0.00 (need <0.15) and def-clustering 0.16 (need <0.1)",
+          "would_need": "definitions clustered on very few trailing pages with near-zero co-location"
+        },
+        {
+          "option": "wackSTEMbibliographyNotes",
+          "rejected_because": "ref-number page-spread 1 (need >=3) and co-location 0.00 (need <0.2)",
+          "would_need": "the same low ref-numbers reappearing across many pages (bibliography citations)"
+        }
+      ],
+      "confidence": 0.0,
+      "margin": "FALL-THROUGH: no classifier matched (co 0.00, reset-freq 0.00, notes-pages 0, def-clustering 0.16). LOW confidence — prime review candidate."
+    },
+    {
+      "seq": 1,
+      "module": "pdf_footnote_harvest_fidelity",
+      "code_ref": "recovery.py:assess_harvest_fidelity",
+      "node_help": "AFTER assembly, a self-check: if footnotes are missing or duplicated, WHOSE bug is it? It compares what the OCR captured (page_summary refs/defs) against what we emitted. harvest_gap (OCR had them, we dropped them) + assembly_collisions (numbers not unique) are OUR bugs → flagged for the fix loop; fidelity_loss is an UPSTREAM OCR ceiling, only CONFIRMED once pypdf recovery has also failed; not_applicable = a layout that does not produce numbered footnote definitions.",
+      "decision": "harvest=not_applicable",
+      "question": "Did we harvest every footnote the OCR captured AND number them uniquely? (separates OCR fidelity loss from a harvest bug from a numbering/offset bug)",
+      "rationale": "Layout 'unknown' does not produce numbered footnote definitions — harvest fidelity N/A.",
+      "evidence": {
+        "classification": "unknown",
+        "refs_in_ocr": 9,
+        "defs_in_ocr": 30,
+        "defs_harvested": 2,
+        "coverage_vs_refs": 0.222,
+        "harvest_vs_ocr": 0.067,
+        "collision_count": 0,
+        "collision_numbers": [],
+        "pypdf_recovery_attempted": true,
+        "pypdf_recovered": 0,
+        "pypdf_unrecovered": 0
+      },
+      "considered": [
+        "clean",
+        "harvest_gap",
+        "fidelity_loss",
+        "assembly_collisions",
+        "no_footnotes",
+        "not_applicable"
+      ],
+      "confidence": 0.9,
+      "margin": null
+    },
+    {
+      "seq": 2,
+      "module": "bibliography_extraction",
+      "code_ref": "bibliography.py:extract_bibliography",
+      "decision": "0 reference entr(y/ies); 0 collision-suffixed, 0 duplicate(s) merged, 1 dropped (unkeyable)",
+      "rationale": "references found via the reverse paragraph scan (no heading matched)",
+      "evidence": {
+        "entries": 0,
+        "map_keys": 0,
+        "collisions_suffixed": 0,
+        "duplicates_merged": 0,
+        "dropped_no_keys": 1,
+        "detection": "reverse_scan"
+      },
+      "question": "Which paragraphs are bibliography entries, and what id does each get?",
+      "considered": [],
+      "node_help": "Find the reference list and give each entry an id, so in-text citations have something to point at. If citations do not link, suspect THIS (the link targets are missing) before blaming the citation linker. Collision-suffixing (two works, same author+year) makes a bare key resolve to the LAST entry — an inherent ambiguity.",
+      "confidence": 1.0,
+      "margin": "1 reference(s) could not be keyed — they exist as targets but no citation can ever link to them"
+    },
+    {
+      "seq": 3,
+      "module": "strategy_selection",
+      "code_ref": "strategy.py:analyze_document_structure",
+      "decision": "footnote_strategy=sequential",
+      "rationale": "explicit footnoteSectionStart/footnoteDefinitionsStart markers from simple_md_to_html",
+      "evidence": {
+        "ref_section_count": 5,
+        "def_section_count": 1
+      },
+      "question": "Which footnote strategy for this document?",
+      "considered": [
+        {
+          "option": "no_footnotes",
+          "rejected_because": "no definitions found",
+          "would_need": "zero \"[N]:\" definitions after bibliography exclusion"
+        },
+        {
+          "option": "sectioned",
+          "rejected_because": "no per-chapter numbering resets and no \"Notes\"/HR section structure",
+          "would_need": "duplicate footnote numbers across sections (resets) + HR or \"Notes\" separators"
+        },
+        {
+          "option": "whole_document",
+          "rejected_because": "per-section numbering resets / \"Notes\" sections indicate the notes are partitioned rather than one continuous end-stream",
+          "would_need": "definitions clustered at the end under one continuous numbering, with references scattered earlier"
+        }
+      ],
+      "node_help": "Now it is HTML — are the footnotes one continuous end-list (whole_document), restarting per section (sectioned), explicit per-section markers (sequential), or none? This decides HOW markers get wired to definitions. EPUB / HTML / DOCX / MD all rely on THIS layer (they detect footnote EXISTENCE by markup, not physical layout — only PDF classifies by layout upstream).",
+      "confidence": 0.95,
+      "margin": "5 ref + 1 def restart markers present (explicit signal — unambiguous)"
+    },
+    {
+      "seq": 4,
+      "module": "footnote_extraction",
+      "code_ref": "footnotes.py:process_sequential_footnotes",
+      "decision": "extracted 2 footnote definition(s) via sequential",
+      "rationale": "a line is a footnote definition when it opens with a [N]: / [^N]. / ^N: number marker (or the colon-less \"[N] Capital\" form); lines under a Bibliography/References heading are excluded as citations, not footnotes",
+      "evidence": {
+        "strategy": "sequential",
+        "def_candidates": 2,
+        "defs_extracted": 2,
+        "excluded_under_bibliography": 0,
+        "dropped": 0
+      },
+      "question": "Which lines are footnote definitions (vs prose / bibliography entries)?",
+      "considered": [],
+      "node_help": "Decides which lines ARE footnote definitions: a line starting with [N]: / [^N]: / ^N: (a number marker then a colon/period and text). Lines under a Bibliography/References heading are deliberately excluded (those are citations, not footnotes). Collects each definition (plus its continuation paragraphs) into the map the linker later wires to in-text markers.",
+      "confidence": 0.9,
+      "margin": "all 2 definition-shaped line(s) extracted"
+    },
+    {
+      "seq": 5,
+      "module": "citation_link_audit",
+      "code_ref": "citations.py:link_citations",
+      "decision": "citation scan skipped — no bibliography entries",
+      "rationale": "no references were extracted (PASS 1A), so there is nothing for in-text citations to link against",
+      "evidence": {
+        "bibliography_entries": 0,
+        "anchor_converted": 0
+      },
+      "question": "Were in-text citations linked to the bibliography?",
+      "considered": [
+        {
+          "option": "scan and link in-text citations",
+          "rejected_because": "bibliography_map is empty",
+          "would_need": "a detected references/bibliography section (PASS 1A)"
+        }
+      ],
+      "node_help": "Turn each in-text \"(Author Year)\" into a clickable link to its bibliography entry. Links only when a matching entry was extracted. We do NOT judge whether each bracketed year is 'really' a citation — if a bibliography exists but none of the bracketed-year candidates link to it, that is a SUSPICION worth checking (missing references upstream, OR they were prose-year parentheticals), not a proven bug. Both (Author YEAR) parentheses AND [Author YEAR] square brackets are recognised; numeric [N] STEM cites are handled separately in the PDF path (wrap_stem_citations).",
+      "confidence": 1.0,
+      "margin": "no bibliography to link against — nothing to do"
+    },
+    {
+      "seq": 6,
+      "module": "footnote_audit",
+      "code_ref": "audit.py:compute_footnote_audit",
+      "decision": "clean",
+      "rationale": "3 refs / 2 defs; 0 numbering gaps, 0 unmatched refs, 0 unmatched defs",
+      "evidence": {
+        "total_refs": 3,
+        "total_defs": 2,
+        "gaps": 0,
+        "unmatched_refs": 0,
+        "unmatched_defs": 0,
+        "duplicates": 0,
+        "gap_sample": [],
+        "unmatched_ref_sample": [],
+        "unmatched_def_sample": []
+      },
+      "question": "Did the footnote linking produce a clean ref/def correspondence? (the VERDICT)",
+      "node_help": "The final report card: did every footnote marker find its definition, with no gaps or leftover orphans? Records the verdict the fix-loop reacts to. Note: per-chapter numbering gaps are EXPECTED in renumbered books — a \"faulty\" stamp on those is over-flagging, not a real linking failure.",
+      "confidence": 1.0,
+      "margin": "no gaps or unmatched markers — footnote linking is sound"
+    },
+    {
+      "seq": 7,
+      "module": "structural_coverage",
+      "code_ref": "bibliography.py:_find_reference_paragraphs",
+      "decision": "faulty",
+      "rationale": "16 reference-shaped paragraphs are present in the document but only 0 were extracted — the reference list was not located. Its header is likely a STYLED <p> (e.g. a bold \"BIBLIOGRAPHY\"/\"REFERENCES\"), not an <h*>, so the heading-based scan in _find_reference_paragraphs skips it. Fix where the section HEADER is recognised (heading detection), not the reference matcher.",
+      "evidence": {
+        "reference_shaped_paragraphs": 16,
+        "references_extracted": 0
+      },
+      "question": "Was the reference list FOUND?",
+      "considered": [
+        {
+          "option": "reference section located by its heading",
+          "rejected_because": "only 0 of ~16 reference-shaped paragraphs were extracted",
+          "would_need": "an <h1>-<h6> (or a recognised styled-<p>) \"References\"/\"Bibliography\" heading sitting above the entries"
+        }
+      ],
+      "node_help": "Cross-checks what the document CONTAINS against what conversion PRODUCED. A pile of reference-shaped paragraphs with ~0 references extracted means the reference list was not located — usually because its section header is a styled <p>, not a real <h*> heading. This is the signal that tells a human (or the fix-loop) to look at HEADING DETECTION, not bibliography matching. Diagnostic only — never changes the conversion output.",
+      "confidence": 0.2
+    }
+  ]
+}

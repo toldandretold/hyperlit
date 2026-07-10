@@ -529,6 +529,85 @@ export class ImportBookTransition {
   }
 
   /**
+   * Show the import-failure modal and, if the user clicks "Try again", re-run the
+   * conversion for the same book via the reconvert endpoint. Loops so a failed retry
+   * simply re-offers the modal (each attempt is a user click — no auto-retry storm).
+   * Returns the completed import result when a retry succeeds, or null when the user
+   * dismisses / reports instead (caller then rethrows the original error).
+   */
+  static async offerFailureRecovery(bookId: any, initialError: any): Promise<any> {
+    let errorMessage = initialError?.message || String(initialError);
+
+    for (;;) {
+      let choice: any = null;
+      try {
+        choice = await showImportFailureModal({
+          status: 'poll_failure',
+          errorMessage,
+          bookId,
+          originalFile: null,
+          source: 'poll_failure',
+        });
+      } catch (_) {
+        return null; // modal failed to render — fall back to the thrown error
+      }
+
+      if (choice !== 'retry') return null; // dismissed / reported → stop recovering
+
+      try {
+        return await this.retryImportViaReconvert(bookId);
+      } catch (retryErr: any) {
+        // The retry failed too — loop back and re-show the modal with the new error
+        // so the user can retry again or send a report.
+        log.error('Import retry (reconvert) failed:', '/SPA/navigation/pathways/ImportBookTransition.ts', retryErr);
+        errorMessage = retryErr?.message || String(retryErr);
+      }
+    }
+  }
+
+  /**
+   * Re-run the import for an existing book via POST /api/books/{book}/reconvert,
+   * then poll to completion and open the book — the automated form of the manual
+   * "re-submit with the same book id" fix. Reuses the OCR cache server-side, so it
+   * does NOT re-charge the user. Reuses the same progress UI + poller as a fresh
+   * import. Throws if the reconvert dispatch or the ensuing poll fails.
+   */
+  static async retryImportViaReconvert(bookId: any): Promise<any> {
+    const progressUI = this.createImportProgressUI(bookId) || {
+      update() {}, showError() {}, restoreForm() {},
+    };
+    progressUI.update(2, 'Retrying import…', '');
+
+    const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
+    const resp = await fetch(`/api/books/${bookId}/reconvert`, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+      credentials: 'include',
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(data.message || `Retry failed — server returned ${resp.status}.`);
+    }
+
+    const completeData = await this.pollImportProgress(bookId, progressUI);
+    const completedResult = completeData?.result || completeData;
+
+    this.clearFormData();
+    await this.execute({ bookId, shouldEnterEditMode: true });
+
+    const stats = completedResult?.conversionStats;
+    if (stats) {
+      showConversionFeedbackToast({
+        bookId,
+        stats,
+        footnoteAudit: completedResult?.footnoteAudit,
+      });
+    }
+
+    return completedResult;
+  }
+
+  /**
    * Handle form submission and backend processing
    * This is the main entry point from newBookForm.js
    */
@@ -742,17 +821,11 @@ export class ImportBookTransition {
             submitButton.textContent = 'Submit';
           }
 
-          // Show the import-failure bug-report modal. File is already on disk
-          // server-side at this point (job ran), so no client-side re-upload.
-          try {
-            await showImportFailureModal({
-              status: 'poll_failure',
-              errorMessage: pollError?.message || String(pollError),
-              bookId: result.bookId,
-              originalFile: null,
-              source: 'poll_failure',
-            });
-          } catch (_) { /* modal failures are non-fatal */ }
+          // Show the import-failure modal and, if the user clicks "Try again",
+          // re-run the conversion for the same book. File is already on disk
+          // server-side (the job ran), so no client-side re-upload is needed.
+          const recovered = await this.offerFailureRecovery(result.bookId, pollError);
+          if (recovered) return recovered; // a retry succeeded → book is open
 
           // Tag so the outer catch in newBookForm.js doesn't open a second modal.
           (pollError as any).handledByImportFailureModal = true;

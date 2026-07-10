@@ -308,13 +308,25 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         header = page.get("header") or ""
         md_stripped = md.strip()
 
-        # Sticky notes section — only triggers AFTER all body refs are done.
-        # This prevents mid-book "Notes" headings (in chapter-endnote books like
-        # Road from Mont Pelerin) from accidentally flagging body pages.
-        if not ctx.in_notes_section and i > ctx.last_ref_page_idx:
+        # Sticky notes section — only triggers once all body refs are done; mid-book "Notes" headings
+        # (chapter-endnote books like Road from Mont Pelerin) sit BEFORE last_ref_page_idx, so they
+        # stay excluded. For the classifier FALL-THROUGH ('unknown') the generic path is the ONLY
+        # chance to find the notes section (there is no layout-specific assembler to harvest them), so
+        # we detect its heading PERMISSIVELY: case-insensitively (an all-caps "# NOTES"), anywhere on
+        # the page (MULTILINE — the heading routinely trails body prose on the transition page), and
+        # INCLUDING the last-ref page (>=, because in a document-endnotes book the final in-text marker
+        # and the "# NOTES" heading that opens the end-notes share one page — Cox 'Real Socialism':
+        # ref 39 and "# NOTES" both on page 21, so a strict > skipped it and every numbered definition
+        # stayed a dropped list item). Classified layouts keep the STRICT original detection so their
+        # established output (goldens) is unperturbed — their own assembler owns definition harvesting.
+        _permissive_notes = (classification == 'unknown')
+        _notes_gate = (i >= ctx.last_ref_page_idx) if _permissive_notes else (i > ctx.last_ref_page_idx)
+        _notes_re = r'^#+ *(Foot)?notes\b' if _permissive_notes else r'^#+ *(Foot)?[Nn]otes\b'
+        _notes_flags = (re.IGNORECASE | re.MULTILINE) if _permissive_notes else 0
+        if not ctx.in_notes_section and _notes_gate:
             if "Notes" in header or "NOTES" in header or "Footnotes" in header:
                 ctx.in_notes_section = True
-            elif re.search(r'^#+ *(Foot)?[Nn]otes\b', md_stripped):
+            elif re.search(_notes_re, md_stripped, _notes_flags):
                 ctx.in_notes_section = True
 
         # Detect leaving notes section (Acknowledgements, Bibliography, Index, etc.)
@@ -364,6 +376,13 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
 
         # Convert numbered notes to footnote definitions on Notes pages
         if is_notes_page and classification != "wackSTEMbibliographyNotes":
+            # OCR sometimes prepends a spurious ordered-list counter to an endnote's real printed
+            # number ("40. 13. The concept…" — 40 is Mistral's running list index, 13 is the actual
+            # note number). A footnote definition never legitimately opens with two "N. " markers, so
+            # drop the leading counter and key the def on the real (second) number. Without this the
+            # note is harvested but mis-keyed and can never link to its in-text marker (Cox notes
+            # 13–22 landed at [^40]–[^49]). Runs before the single-number rule so it wins the line.
+            md = re.sub(r'^\d{1,3}\. (\d{1,3})\. (.+)', r'[^\1]: \2', md, flags=re.MULTILINE)
             md = re.sub(r'^(\d{1,3})\. (.+)', r'[^\1]: \2', md, flags=re.MULTILINE)
             # Also handle N text format (no period) — common in document endnotes
             md = re.sub(r'^(\d{1,3}) ([A-Z\u2018\u201c\'"])', r'[^\1]: \2', md, flags=re.MULTILINE)

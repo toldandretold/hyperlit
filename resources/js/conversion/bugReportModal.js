@@ -224,9 +224,24 @@ function renderBody(card, { status, errorMessage, bookId, originalFile, source }
   applyBtnStyle(dismissBtn);
   dismissBtn.addEventListener('click', () => { hideImportFailureModal(); resolve(null); });
 
+  // "Try again" — re-run the import for this book. Only meaningful when we have a
+  // bookId (the server already saved the source file + created the library row), so
+  // the caller can hit the reconvert endpoint. Reusing the OCR cache means no extra
+  // charge. Resolves 'retry' so the caller (which owns the progress UI + reader
+  // transition) drives the actual re-run; the modal stays presentational.
+  let tryAgainBtn = null;
+  if (bookId) {
+    tryAgainBtn = document.createElement('button');
+    tryAgainBtn.textContent = 'Try again';
+    applyBtnStyle(tryAgainBtn, 'primary');
+    tryAgainBtn.title = 'Re-run the import for this book (reuses the OCR result, so no extra charge).';
+    tryAgainBtn.addEventListener('click', () => { hideImportFailureModal(); resolve('retry'); });
+  }
+
   const sendBtn = document.createElement('button');
   sendBtn.textContent = 'Send report';
-  applyBtnStyle(sendBtn, 'primary');
+  // When "Try again" is present it owns the primary accent; demote the report button.
+  applyBtnStyle(sendBtn, tryAgainBtn ? 'default' : 'primary');
   if (fileTooLarge) {
     sendBtn.disabled = true;
     sendBtn.style.opacity = '0.4';
@@ -268,6 +283,7 @@ function renderBody(card, { status, errorMessage, bookId, originalFile, source }
 
   btnRow.appendChild(dismissBtn);
   btnRow.appendChild(sendBtn);
+  if (tryAgainBtn) btnRow.appendChild(tryAgainBtn);
   card.appendChild(btnRow);
 }
 

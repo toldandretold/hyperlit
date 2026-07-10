@@ -19,6 +19,17 @@ MISTRAL_MAX_BYTES = 50 * 1024 * 1024
 CHUNK_TARGET_BYTES = 40 * 1024 * 1024
 
 
+# PDFs at or under this size skip the upload+signed-url round-trip and are sent
+# inline as a base64 data-URL. That middle step ("get a signed URL for the file I
+# just uploaded") is the one subject to Mistral's eventual-consistency lag — it can
+# 404 with "No file matches the given query" before the upload has propagated across
+# their backend. Inline delivery has no stored file to become queryable, so it cannot
+# hit that failure at all. Kept conservative: base64 inflates bytes ~33%, so 8MB → ~11MB
+# of request body, well under Mistral's inline-body ceiling. Larger files must still
+# upload (base64 would blow the request-size limit).
+INLINE_MAX_BYTES = 8 * 1024 * 1024
+
+
 def _get_signed_url_with_retry(client, file_id, expiry=1, attempts=6):
     """Fetch a signed URL for a just-uploaded file, retrying on a transient 404.
 
@@ -44,31 +55,77 @@ def _get_signed_url_with_retry(client, file_id, expiry=1, attempts=6):
     raise last_err
 
 
-def fetch_ocr(pdf_path, api_key):
-    """Upload PDF to Mistral OCR and return raw response dict."""
-    client = Mistral(api_key=api_key)
+def _run_ocr(client, document):
+    """Run Mistral OCR on an already-resolved document reference and return the dict.
 
-    file_size = pdf_path.stat().st_size
-    print(f"Uploading {pdf_path.name} ({file_size / 1024 / 1024:.1f}MB)...")
-    uploaded_file = client.files.upload(
-        file={"file_name": pdf_path.name, "content": pdf_path.read_bytes()},
-        purpose="ocr",
-    )
-    print(f"Upload response: id={uploaded_file.id}")
-    signed_url = _get_signed_url_with_retry(client, uploaded_file.id, expiry=1)
-
-    print("Running OCR... (this may take a few minutes)")
+    `document` is either an inline base64 data-URL or a signed URL — both take the
+    same {"type": "document_url", "document_url": ...} shape, so the OCR call and
+    its options live here once for both delivery paths.
+    """
     ocr_response = client.ocr.process(
-        document={"type": "document_url", "document_url": signed_url.url},
+        document=document,
         model="mistral-ocr-latest",
         include_image_base64=True,
         extract_header=True,
         extract_footer=True,
     )
-
     response_dict = json.loads(ocr_response.model_dump_json())
     print(f"Got {len(response_dict['pages'])} pages back")
     return response_dict
+
+
+def _upload_and_get_signed_url(client, pdf_path, upload_attempts=2):
+    """Upload the PDF and return a signed URL, re-uploading on a persistent 404.
+
+    `_get_signed_url_with_retry` already rides out the common eventual-consistency
+    lag (~15s of backoff on the same file id). But if that id is genuinely stuck —
+    never becomes queryable within the window — re-polling it forever is useless.
+    A *fresh* upload gets a fresh id that usually propagates cleanly (this is exactly
+    the manual "just re-run the import" fix, automated). So on a persistent 404 we
+    upload again from scratch. Any non-404 error (auth/SDK) re-raises immediately.
+    """
+    last_err = None
+    for attempt in range(upload_attempts):
+        uploaded_file = client.files.upload(
+            file={"file_name": pdf_path.name, "content": pdf_path.read_bytes()},
+            purpose="ocr",
+        )
+        print(f"Upload response: id={uploaded_file.id}")
+        try:
+            return _get_signed_url_with_retry(client, uploaded_file.id, expiry=1)
+        except Exception as e:  # noqa: BLE001 — SDK error class path varies by version
+            last_err = e
+            msg = str(e)
+            is_transient_404 = "404" in msg or "No file matches" in msg
+            if not is_transient_404 or attempt == upload_attempts - 1:
+                raise
+            print(f"  file still not queryable after retries — re-uploading (attempt {attempt + 2}/{upload_attempts})...")
+    raise last_err
+
+
+def fetch_ocr(pdf_path, api_key):
+    """Send a PDF to Mistral OCR and return the raw response dict.
+
+    Small PDFs (<= INLINE_MAX_BYTES) are sent inline as a base64 data-URL, skipping
+    the upload+signed-url dance entirely — that dance's middle step is the source of
+    the "No file matches the given query" 404 (see INLINE_MAX_BYTES). Larger files
+    must upload (base64 would exceed the request-size limit); that path re-uploads on
+    a persistent 404 via `_upload_and_get_signed_url`.
+    """
+    client = Mistral(api_key=api_key)
+
+    file_size = pdf_path.stat().st_size
+    if file_size <= INLINE_MAX_BYTES:
+        print(f"Sending {pdf_path.name} ({file_size / 1024 / 1024:.1f}MB) inline (base64, no upload)...")
+        b64 = base64.b64encode(pdf_path.read_bytes()).decode()
+        document = {"type": "document_url", "document_url": f"data:application/pdf;base64,{b64}"}
+        print("Running OCR... (this may take a few minutes)")
+        return _run_ocr(client, document)
+
+    print(f"Uploading {pdf_path.name} ({file_size / 1024 / 1024:.1f}MB)...")
+    signed_url = _upload_and_get_signed_url(client, pdf_path)
+    print("Running OCR... (this may take a few minutes)")
+    return _run_ocr(client, {"type": "document_url", "document_url": signed_url.url})
 
 
 def split_pdf_into_chunks(pdf_path, target_bytes, work_dir):

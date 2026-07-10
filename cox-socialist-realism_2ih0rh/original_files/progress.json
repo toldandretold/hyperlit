@@ -1,0 +1,35 @@
+{
+    "status": "complete",
+    "percent": 100,
+    "stage": "complete",
+    "detail": "Import complete",
+    "updated_at": "2026-07-10T01:34:43+00:00",
+    "bookId": "cox-socialist-realism_2ih0rh",
+    "result": {
+        "success": true,
+        "bookId": "cox-socialist-realism_2ih0rh",
+        "footnoteAudit": {
+            "total_refs": 3,
+            "total_defs": 2,
+            "gaps": [],
+            "duplicates": [],
+            "unmatched_refs": [],
+            "unmatched_defs": [],
+            "font_encoding_warnings": [],
+            "segment_boundaries": []
+        },
+        "hasFootnoteIssues": false,
+        "conversionStats": {
+            "references_found": 0,
+            "citations_total": 0,
+            "citations_linked": 0,
+            "footnotes_matched": 2,
+            "footnote_strategy": "sequential",
+            "citation_style": "none",
+            "font_encoding_warning_count": 0,
+            "segment_count": 1,
+            "file_type": "PDF"
+        },
+        "updatedLibrary": null
+    }
+}

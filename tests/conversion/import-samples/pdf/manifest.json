@@ -1,4 +1,4 @@
 {
-  "whole_document_example.pdf": { "fixture": "whole_document_example" },
-  "stem_bibliography_example.pdf": { "fixture": "stem_bibliography_example" }
+  "whole_document_example.pdf": { "fixture": "pdf/sequential/synthetic" },
+  "stem_bibliography_example.pdf": { "fixture": "pdf/bibliography_only/synthetic" }
 }

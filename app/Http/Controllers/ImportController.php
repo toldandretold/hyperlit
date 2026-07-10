@@ -343,7 +343,11 @@ class ImportController extends Controller
             && $extension === 'pdf'
             && ($fixture = $request->header('X-Test-Fixture'))
         ) {
-            $sanitised = preg_replace('/[^a-zA-Z0-9_-]/', '', $fixture);
+            // Fixtures live in nested per-pathway folders (fixtures/pdf/<case>/synthetic),
+            // so the header carries a subpath — allow '/' but strip '..' so it can't
+            // escape the fixtures dir. Whole block is env-gated to local/testing above.
+            $sanitised = preg_replace('/[^a-zA-Z0-9_\/-]/', '', $fixture);
+            $sanitised = str_replace('..', '', $sanitised);
             $cachePath = base_path("tests/conversion/fixtures/{$sanitised}/ocr_response.json");
             if ($sanitised !== '' && is_file($cachePath)) {
                 copy($cachePath, "{$path}/ocr_response.json");
@@ -644,6 +648,13 @@ class ImportController extends Controller
             }
             if (File::exists("{$path}/ocr_response.json")) {
                 File::delete("{$path}/ocr_response.json");
+            }
+            // The replaced source will be OCR'd fresh (real Mistral cost), so clear
+            // the billing marker too — this is the one reconvert path that legitimately
+            // re-bills. A reconvert that REUSES ocr_response.json (no new file) keeps
+            // the marker, so it is never charged twice for the same OCR.
+            if (File::exists("{$path}/ocr_charged.json")) {
+                File::delete("{$path}/ocr_charged.json");
             }
 
             // Save new file

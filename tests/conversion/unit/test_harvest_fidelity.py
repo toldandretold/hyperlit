@@ -10,7 +10,8 @@ assembled markdown):
 
 The flagging contract (confidence < 0.5) is the load-bearing part: the vibe loop must chase only the
 two buckets that are genuinely ours, and must NOT waste cycles on fidelity loss or on layouts that
-correctly harvest nothing (none/unknown/bibliography). These tests pin both the verdict AND the flag.
+correctly harvest nothing (none/wackSTEM-bibliography). The classifier FALL-THROUGH ('unknown') is NOT
+one of those — it is still audited, so a real harvest gap under it flags. These tests pin verdict + flag.
 """
 
 import os
@@ -87,12 +88,26 @@ def test_no_footnotes_when_there_are_no_in_text_markers():
 
 
 def test_not_applicable_for_non_harvesting_layout():
-    """unknown / bibliography layouts don't emit [^N] definitions — harvesting 0 is CORRECT, not a
-    fault (stem_bibliography). Must not be flagged."""
+    """none / wackSTEM(bibliography) layouts don't emit [^N] definitions — harvesting 0 is CORRECT,
+    not a fault (stem_bibliography). Must not be flagged."""
     ps = [{'index': 0, 'refs': [1, 2, 3], 'defs': []}]
-    rec = M.assess_harvest_fidelity(_meta('unknown', ps), '')
+    rec = M.assess_harvest_fidelity(_meta('wackSTEMbibliographyNotes', ps), '')
     assert rec['decision'] == 'harvest=not_applicable'
     assert not _flagged(rec)
+
+
+def test_unknown_fallthrough_is_audited_not_abstained():
+    """'unknown' is the classifier FALL-THROUGH, not a "no numbered notes" determination — so a big
+    harvest shortfall under it must be AUDITED (and flagged as harvest_gap), never silently excused as
+    not_applicable. This is the Cox 'Real Socialism' blind spot: 30 def-lines in OCR, 2 emitted, yet
+    the old code returned not_applicable because the layout classifier had itself given up."""
+    ps = [
+        {'index': 0, 'refs': list(range(1, 10)), 'defs': []},    # body markers
+        {'index': 1, 'refs': [], 'defs': list(range(1, 31))},    # 30 def-lines the OCR captured
+    ]
+    rec = M.assess_harvest_fidelity(_meta('unknown', ps), _md([1, 2]))  # only 2 emitted
+    assert rec['decision'] == 'harvest=harvest_gap'
+    assert _flagged(rec)
 
 
 def test_only_our_bugs_are_flagged():

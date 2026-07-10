@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "classification": "unknown",
+  "confidence": 0.0,
+  "signals": {
+    "total_pages": 25,
+    "pages_with_refs": 5,
+    "pages_with_defs": 4,
+    "pages_with_both": 0,
+    "co_location_ratio": 0.0,
+    "def_clustering_ratio": 0.16,
+    "reset_count": 0,
+    "reset_frequency": 0.0,
+    "notes_page_count": 0,
+    "notes_page_indices": [],
+    "trailing_page_number_offset": null,
+    "trailing_page_number_consistency": 0.0,
+    "ref_number_max_page_spread": 1,
+    "numbers_on_multiple_pages": 0,
+    "max_ref_number": 39
+  },
+  "page_summary": [
+    {
+      "index": 0,
+      "refs": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 5,
+      "refs": [
+        11
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 8,
+      "refs": [
+        12
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 18,
+      "refs": [
+        26,
+        27
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 21,
+      "refs": [
+        39
+      ],
+      "defs": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 22,
+      "refs": [],
+      "defs": [
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 23,
+      "refs": [],
+      "defs": [
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 24,
+      "refs": [],
+      "defs": [
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69
+      ],
+      "trailing_number": null
+    }
+  ],
+  "rationale": "signals matched no specific classifier \u2014 fell through to unknown",
+  "considered": [
+    {
+      "option": "none",
+      "rejected_because": "5 page(s) carry in-text references",
+      "would_need": "zero pages with in-text footnote references"
+    },
+    {
+      "option": "page_bottom",
+      "rejected_because": "co-location 0.00 / reset-freq 0.00 fit neither page_bottom rule (continuous: co>0.4 & resets<0.1 & maxref>10; restart: co>0.5 & resets>0.4)",
+      "would_need": "refs and their definitions sharing the same pages (high co-location)"
+    },
+    {
+      "option": "chapter_endnotes",
+      "rejected_because": "no Notes-header page and co-location 0.00/reset-freq 0.00 miss the endnote rules",
+      "would_need": "a \"Notes\" page header, OR per-chapter resets with separated definition pages (co-location < 0.3)"
+    },
+    {
+      "option": "document_endnotes",
+      "rejected_because": "co-location 0.00 (need <0.15) and def-clustering 0.16 (need <0.1)",
+      "would_need": "definitions clustered on very few trailing pages with near-zero co-location"
+    },
+    {
+      "option": "wackSTEMbibliographyNotes",
+      "rejected_because": "ref-number page-spread 1 (need >=3) and co-location 0.00 (need <0.2)",
+      "would_need": "the same low ref-numbers reappearing across many pages (bibliography citations)"
+    }
+  ],
+  "margin": "FALL-THROUGH: no classifier matched (co 0.00, reset-freq 0.00, notes-pages 0, def-clustering 0.16). LOW confidence \u2014 prime review candidate.",
+  "segment_boundaries": [],
+  "footnote_warnings": []
+}

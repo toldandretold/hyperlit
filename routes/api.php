@@ -49,13 +49,26 @@ Route::post('/import-progress/{bookId}/notify', [ImportController::class, 'reque
 // Stripe webhook — must be outside auth (Stripe calls it directly)
 Route::post('/stripe/webhook', [StripeController::class, 'handleWebhook']);
 
-// Public routes with rate limiting to prevent brute force and spam
+// Public routes with rate limiting to prevent brute force and spam.
+//
+// In the LOCAL env — the Herd-served e2e target (http://hyperlit.test) — a single
+// full e2e run legitimately registers + logs in ~20 throwaway users from one IP
+// (stripe/security/e2ee specs). That blows the production per-IP window and makes
+// the suite non-deterministic: `/register` 429s outright (stored-xss-poc) and the
+// billing helper's 62s Retry-After backoff overruns the 30s test timeout
+// (stripe/spend-gates). Relax the window in `local` ONLY — production keeps the
+// strict anti-brute-force limit, and PHPUnit (APP_ENV=testing) still exercises the
+// real numbers in tests/Feature/Security/RateLimitingTest.php.
+$isLocal = app()->environment('local');
+$loginThrottle = $isLocal ? 'throttle:1000,1' : 'throttle:20,1';
+$registerThrottle = $isLocal ? 'throttle:1000,1' : 'throttle:10,1';
+
 Route::post('/login', [AuthController::class, 'login'])
-    ->middleware('throttle:20,1') // 20 attempts per minute (reasonable for normal use + typos)
+    ->middleware($loginThrottle) // 20/min in prod; relaxed in local for the e2e suite
     ->name('login');
 
 Route::post('/register', [AuthController::class, 'register'])
-    ->middleware('throttle:10,1'); // 10 registrations per minute per IP
+    ->middleware($registerThrottle); // 10/min in prod; relaxed in local for the e2e suite
 
 // Search routes - public access with rate limiting
 Route::prefix('search')->middleware('throttle:60,1')->group(function () {
@@ -227,8 +240,12 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         ->middleware('throttle:120,1');
     Route::post('/integrity/conversion-feedback', [IntegrityReportController::class, 'conversionFeedback'])
         ->middleware('throttle:10,1');
+    // Auto-fired by the frontend when an import fails — a machine diagnostic, not a
+    // user spamming a form. A tight 10/min meant a burst of failures (or a user
+    // retrying) got 429'd ("Throttled — try again in a minute") on top of the failure
+    // itself. 60/min still bounds abuse while letting the auto-report through.
     Route::post('/integrity/import-failure', [IntegrityReportController::class, 'importFailureReport'])
-        ->middleware('throttle:10,1');
+        ->middleware('throttle:60,1');
     Route::post('/integrity/claim-premium', [IntegrityReportController::class, 'claimPremium'])
         ->middleware(['auth:sanctum', 'throttle:5,1']);
 

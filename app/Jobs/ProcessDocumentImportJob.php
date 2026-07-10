@@ -35,7 +35,17 @@ class ProcessDocumentImportJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $timeout = 900;
-    public $tries = 1;
+
+    // Retry transient failures (the big one: a Mistral OCR eventual-consistency 404
+    // that self-heals on a fresh attempt) before ever surfacing failure to the user.
+    // The import is idempotent — every DB save DELETEs-by-book then inserts — so a
+    // re-run with the same bookId cleanly overwrites. Billing is guarded separately
+    // (ocr_charged.json marker in billOcrImport) so retries never double-charge.
+    public $tries = 3;
+
+    // Backoff (seconds) between attempts: 20s then 60s. Gives a flaky upstream time
+    // to recover without hammering it.
+    public $backoff = [20, 60];
 
     public function __construct(
         private string $bookId,
@@ -317,31 +327,29 @@ class ProcessDocumentImportJob implements ShouldQueue
             Log::info('ProcessDocumentImportJob completed', ['book' => $this->bookId]);
 
         } catch (\Throwable $e) {
+            // $tries > 1, so this catch runs on EVERY failed attempt, not just the
+            // last. Only the final attempt is terminal — earlier ones will retry.
+            $isFinalAttempt = $this->attempts() >= $this->tries;
+
             Log::error('ProcessDocumentImportJob failed', [
                 'book' => $this->bookId,
+                'attempt' => $this->attempts(),
+                'tries' => $this->tries,
+                'final' => $isFinalAttempt,
                 'error' => $e->getMessage(),
             ]);
 
-            $this->writeProgress($path, 'failed', 0, 'error', $e->getMessage());
-
-            // Send failure email (only if user opted in)
-            if ($this->shouldSendEmail($path) && $this->userId) {
-                $user = User::find($this->userId);
-                if ($user?->email) {
-                    try {
-                        Mail::send(new ImportFailedMail(
-                            $user->email,
-                            $this->formData['title'] ?? $this->bookId,
-                            $this->bookId,
-                            $e->getMessage(),
-                        ));
-                        Log::info('Import failure email sent', ['book' => $this->bookId, 'to' => $user->email]);
-                    } catch (\Throwable $mailErr) {
-                        Log::warning('Failed to send import failure email', [
-                            'book' => $this->bookId, 'error' => $mailErr->getMessage(),
-                        ]);
-                    }
-                }
+            if ($isFinalAttempt) {
+                // Terminal: let failed() own the single ImportFailedMail (below). We
+                // do NOT email here — that would double up with failed() and, worse,
+                // fire on every intermediate retry. Writing 'failed' now just makes
+                // the terminal state visible to the poller immediately.
+                $this->writeProgress($path, 'failed', 0, 'error', $e->getMessage());
+            } else {
+                // Retry pending — keep the frontend polling instead of flashing
+                // failure. The fresh updated_at dodges the poller's 5-min staleness
+                // timeout while the backoff delay elapses before the next attempt.
+                $this->writeProgress($path, 'processing', 0, 'retrying', 'Import hit a snag — retrying automatically...');
             }
 
             throw $e;
@@ -774,6 +782,20 @@ class ProcessDocumentImportJob implements ShouldQueue
 
     private function billOcrImport(User $user, string $bookId, string $path, BillingService $billing): void
     {
+        // Idempotency guard. This runs inside handle(), which re-runs on every job
+        // retry ($tries > 1), and BillingService::charge() has no idempotency of its
+        // own — so without this marker a retry would charge the user again for the
+        // same OCR. Keyed on the book (NOT $this->attempts()): it must bill exactly
+        // once whenever OCR actually succeeded, even when an earlier attempt failed
+        // *before* reaching billing and a later attempt is the one that gets here.
+        // ImportController::reconvert() removes this marker only when it re-runs OCR
+        // from source (fresh OCR = fair to re-bill); reconvert-from-cache keeps it.
+        $chargedMarker = "{$path}/ocr_charged.json";
+        if (File::exists($chargedMarker)) {
+            Log::info('OCR already billed for this book — skipping charge', ['book' => $bookId]);
+            return;
+        }
+
         $ocrJson = "{$path}/ocr_response.json";
         if (!File::exists($ocrJson)) {
             return;
@@ -808,6 +830,15 @@ class ProcessDocumentImportJob implements ShouldQueue
             ]],
             ['book' => $bookId],
         );
+
+        // Record that this OCR was billed so a job retry (or a reconvert-from-cache,
+        // which re-uses ocr_response.json without a fresh OCR) never double-charges.
+        File::put($chargedMarker, json_encode([
+            'book' => $bookId,
+            'pages' => $totalPages,
+            'amount' => round($cost, 4),
+            'charged_at' => gmdate('c'),
+        ], JSON_PRETTY_PRINT));
     }
 
     private function updateLibraryMetadata(string $path, MetadataExtractor $extractor): void

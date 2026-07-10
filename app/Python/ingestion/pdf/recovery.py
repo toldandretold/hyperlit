@@ -293,7 +293,13 @@ def scan_footnote_mojibake(response_dict, footnote_meta, pdf_path,
     return warnings
 
 
-_HARVESTING_CLASSES = {'page_bottom', 'chapter_endnotes', 'document_endnotes'}
+# Layouts that legitimately emit NO numbered [^N] definitions — harvesting 0 is correct, not a fault
+# (their "definitions" are a reference list the citation/STEM path handles, or there are no notes at
+# all). 'unknown' is deliberately NOT in this set: it is the classifier FALL-THROUGH — "we could not
+# tell the layout", NOT a determination that the document has no numbered notes. A large harvest
+# shortfall under 'unknown' is precisely the silent-loss case (Cox: 30 def-lines in OCR, 2 emitted)
+# that must still be audited and flagged, so 'unknown' falls through to the coverage checks below.
+_NON_HARVESTING_CLASSES = {'none', 'wackSTEMbibliographyNotes'}
 
 
 def assess_harvest_fidelity(footnote_meta, markdown, footnote_warnings=None):
@@ -346,10 +352,11 @@ def assess_harvest_fidelity(footnote_meta, markdown, footnote_warnings=None):
         verdict, confidence, why = ('no_footnotes', 0.9,
             'No in-text footnote markers in the OCR — nothing to link (def-shaped lines, if any, '
             'are numbered-list noise, not footnotes).')
-    elif cls not in _HARVESTING_CLASSES:
-        # This layout (none / unknown / wackSTEM / bibliography) does not emit [^N] footnote
-        # definitions — harvesting 0 is correct, not a fault. Don't flag (same principle as the
-        # citation plausibility guard: never flag what isn't ours to harvest).
+    elif cls in _NON_HARVESTING_CLASSES:
+        # This layout (none / wackSTEM / bibliography) does not emit [^N] footnote definitions —
+        # harvesting 0 is correct, not a fault. Don't flag (same principle as the citation
+        # plausibility guard: never flag what isn't ours to harvest). NOTE: 'unknown' is NOT here —
+        # it falls through so a genuine harvest gap under the classifier fall-through is caught.
         verdict, confidence, why = ('not_applicable', 0.9,
             f'Layout {cls!r} does not produce numbered footnote definitions — harvest fidelity N/A.')
     elif coverage_vs_refs is not None and coverage_vs_refs < 0.85 and \

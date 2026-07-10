@@ -150,13 +150,19 @@ it('imports a PDF using the side-loaded OCR cache', function (string $pdfPath, s
     $response->assertOk();
     expect(PgLibrary::where('book', $bookId)->exists())->toBeTrue();
 
-    // Confirm the cache really was side-loaded (proves OCR API was bypassed).
-    // Compare bytes to the fixture; if Mistral was actually called, the bytes
-    // would differ (different upload id, etc.).
+    // Confirm the cache really was side-loaded (proves the OCR API was bypassed):
+    // the served OCR `pages` must equal the fixture's. Had Mistral actually run on
+    // the 461-byte stub PDF, the pages would be entirely different. We compare the
+    // parsed `pages` rather than raw bytes because the pipeline annotates the cached
+    // JSON in place (footnote-renumber markers — expected), which changes the bytes
+    // but not the OCR content.
     $servedPath  = resource_path("markdown/{$bookId}/ocr_response.json");
     $fixturePath = base_path("tests/conversion/fixtures/{$fixtureName}/ocr_response.json");
     expect(File::exists($servedPath))->toBeTrue();
-    expect(md5_file($servedPath))->toBe(md5_file($fixturePath));
+    $servedPages  = json_decode(File::get($servedPath), true)['pages'] ?? null;
+    $fixturePages = json_decode(File::get($fixturePath), true)['pages'] ?? null;
+    expect($servedPages)->not->toBeNull();
+    expect($servedPages)->toEqual($fixturePages);
 })->with('pdf_files');
 
 

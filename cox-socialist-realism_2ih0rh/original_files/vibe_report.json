@@ -1,0 +1,78 @@
+{
+  "book": "cox-socialist-realism_2ih0rh",
+  "engine": "native",
+  "prompt_variant": "full",
+  "outcome": "exhausted",
+  "baseline": "refs 0, citations 0/0, footnotes 2, headings 7",
+  "best": null,
+  "flagged": [
+    "pdf_footnote_classification",
+    "structural_coverage"
+  ],
+  "attempts": [
+    {
+      "attempt": 1,
+      "diagnosis": "The root cause is that the PDF footnote layout is not recognized (classification fell through to 'unknown'), so the assembly does not convert the endnote definitions (numbered list items like '1. Text') into the [^N]: format expected by downstream extraction. The document is clearly document_endnotes (all definitions at the end, zero co-location), but the def_clustering_ratio threshold of 0.1 is too strict (4/25 pages = 0.16). Raising it to 0.2 correctly classifies the document. Additionally, the sticky notes detection only triggers on an explicit 'Notes' header, which is absent; we extend it ",
+      "touches": [
+        "classification.py:?",
+        "assembly.py:?"
+      ],
+      "tier": "reject",
+      "why": "it linked 23 more but introduced ~22 audit fault(s) — most of the new links look misaligned, which is worse than leaving them unlinked",
+      "stats": "refs 0, citations 0/0, footnotes 25, headings 7",
+      "categories": [
+        "fix_pdf_ocr_assembly",
+        "tune_threshold"
+      ],
+      "ops": [
+        "edit"
+      ]
+    },
+    {
+      "attempt": 2,
+      "diagnosis": "The PDF classification fell through to 'unknown' because def_clustering_ratio 0.16 was just above the document_endnotes threshold of 0.1. The definitions exist as '1. Text' lines on pages after the last reference, but the assembly never converts them to [^N]: format because the in_notes_section flag is never set (no 'Notes' header). This causes the digestion footnote extraction to miss them, resulting in only 2 footnotes matched. The fix adds a condition to set in_notes_section when a page after the last ref page contains definitions but no refs, triggering the existing conversion of 'N. Text'",
+      "touches": [
+        "assembly.py:?"
+      ],
+      "tier": "reject",
+      "why": "it linked 23 more but introduced ~22 audit fault(s) — most of the new links look misaligned, which is worse than leaving them unlinked",
+      "stats": "refs 0, citations 0/0, footnotes 25, headings 7",
+      "categories": [
+        "fix_pdf_ocr_assembly"
+      ],
+      "ops": [
+        "edit"
+      ]
+    },
+    {
+      "attempt": 3,
+      "diagnosis": "The PDF classification fell through to 'unknown' because the document_endnotes classifier's def_clustering_ratio threshold (0.1) was too strict for this 25-page book (0.16). With 'unknown', the DefaultAssembler did not convert the trailing numbered definitions ('1. The National Interest…') into [^N]: format, so footnote extraction found only 2 definitions. Fix: relax the threshold to 0.2 so the document is correctly classified as document_endnotes, and add a post-processing step in DocumentEndnotesAssembler to convert trailing 'N. text' / 'N Text' lines into [^N]: definitions. This ensures all",
+      "touches": [
+        "classification.py:?",
+        "pdf_shared.py:convert_trailing_numbered_defs",
+        "assembly.py:?"
+      ],
+      "tier": "reject",
+      "why": "it linked 16 more but introduced ~18 audit fault(s) — most of the new links look misaligned, which is worse than leaving them unlinked",
+      "stats": "refs 0, citations 0/0, footnotes 18, headings 7",
+      "categories": [
+        "fix_pdf_ocr_assembly",
+        "tune_threshold"
+      ],
+      "ops": [
+        "add",
+        "edit"
+      ]
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 189244,
+    "completion_tokens": 19730,
+    "total_tokens": 208974,
+    "calls": 3,
+    "cached_calls": 0,
+    "cost_usd": 0.3979,
+    "model": "accounts/fireworks/models/deepseek-v4-pro"
+  },
+  "issue_url": null
+}
