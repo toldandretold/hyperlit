@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1638,
-    "moduleCount": 349,
+    "fnCount": 1641,
+    "moduleCount": 350,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3311,
+    "edgeCount": 3317,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -2133,6 +2133,30 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/creatorTools/deleteBook",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestField:computeHarvestProgress",
+      "label": "computeHarvestProgress",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/harvestField",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestField:harvestFieldHtml",
+      "label": "harvestFieldHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/harvestField",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestField:positionHarvestField",
+      "label": "positionHarvestField",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/harvestField",
       "leaf": false
     },
     {
@@ -15622,6 +15646,17 @@
       ]
     },
     {
+      "id": "components/sourceContainer/creatorTools/harvestField",
+      "label": "components/sourceContainer/creatorTools/harvestField",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/creatorTools/harvestField:computeHarvestProgress",
+        "components/sourceContainer/creatorTools/harvestField:harvestFieldHtml",
+        "components/sourceContainer/creatorTools/harvestField:positionHarvestField"
+      ]
+    },
+    {
       "id": "components/sourceContainer/creatorTools/harvestNetwork",
       "label": "components/sourceContainer/creatorTools/harvestNetwork",
       "stage": "components",
@@ -21695,6 +21730,18 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/creatorTools/harvestField:harvestFieldHtml__call__components/sourceContainer/creatorTools/combineIcon:combineIcon",
+      "source": "components/sourceContainer/creatorTools/harvestField:harvestFieldHtml",
+      "target": "components/sourceContainer/creatorTools/combineIcon:combineIcon",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestField:positionHarvestField__domwrite__dom",
+      "source": "components/sourceContainer/creatorTools/harvestField:positionHarvestField",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork__domwrite__dom",
       "source": "components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork",
       "target": "dom",
@@ -21719,10 +21766,28 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/creatorTools/harvestViz:openHarvestVizOverlay__call__components/sourceContainer/creatorTools/harvestField:harvestFieldHtml",
+      "source": "components/sourceContainer/creatorTools/harvestViz:openHarvestVizOverlay",
+      "target": "components/sourceContainer/creatorTools/harvestField:harvestFieldHtml",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/creatorTools/harvestViz:openHarvestVizOverlay__domwrite__dom",
       "source": "components/sourceContainer/creatorTools/harvestViz:openHarvestVizOverlay",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz__call__components/sourceContainer/creatorTools/harvestField:computeHarvestProgress",
+      "source": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz",
+      "target": "components/sourceContainer/creatorTools/harvestField:computeHarvestProgress",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz__call__components/sourceContainer/creatorTools/harvestField:positionHarvestField",
+      "source": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz",
+      "target": "components/sourceContainer/creatorTools/harvestField:positionHarvestField",
+      "rel": "call"
     },
     {
       "id": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz__domwrite__dom",
@@ -25151,6 +25216,12 @@
       "id": "dom__domread__components/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
       "source": "dom",
       "target": "components/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/creatorTools/harvestField:positionHarvestField",
+      "source": "dom",
+      "target": "components/sourceContainer/creatorTools/harvestField:positionHarvestField",
       "rel": "domread"
     },
     {
@@ -41245,8 +41316,18 @@
       "kind": "lazy"
     },
     {
+      "source": "components/sourceContainer/creatorTools/harvestField",
+      "target": "components/sourceContainer/creatorTools/combineIcon",
+      "kind": "static"
+    },
+    {
       "source": "components/sourceContainer/creatorTools/harvestNetwork",
       "target": "components/sourceContainer/creatorTools/combineIcon",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/creatorTools/harvestViz",
+      "target": "components/sourceContainer/creatorTools/harvestField",
       "kind": "static"
     },
     {

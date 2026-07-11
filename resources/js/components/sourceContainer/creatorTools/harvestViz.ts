@@ -6,6 +6,7 @@
 // (no substages, no report/nothing-to-review branch). Peer calls via `self`.
 import { trapModalFocus } from '../../../utilities/modalFocusTrap';
 import { log } from '../../../utilities/logger';
+import { HARVEST_FIELD_CSS, harvestFieldHtml, computeHarvestProgress, positionHarvestField } from './harvestField';
 
 const FILE = 'components/sourceContainer/creatorTools/harvestViz.ts';
 
@@ -24,16 +25,17 @@ export async function openHarvestVizOverlay(self: any) {
         #harvest-viz-card p      { color: #d8d8d8; margin: 0; font-family: inherit; }
         #harvest-viz-card strong { color: #ffffff; }
         #harvest-viz-card code   { color: #8fd0c6; background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 3px; }
+        ${HARVEST_FIELD_CSS}
       </style>
       <div id="harvest-viz-card" style="background: #2a2a2a; color: #fff; padding: 28px 32px; border-radius: 10px; width: min(92vw, 1100px); max-height: 86vh; overflow-y: auto;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
           <h3 style="margin: 0; color: #EF8D34; font-size: 16px;">Harvest the Knowledge Commons — live progress</h3>
           <button type="button" id="harvest-viz-close" style="background: none; border: none; color: #aaa; font-size: 22px; cursor: pointer; line-height: 1; padding: 2px 6px;">×</button>
         </div>
-        <p style="display: flex; align-items: center; gap: 9px; font-size: 13px; color: #9fc7c0; margin: 0 0 20px 0; line-height: 1.5;"><span style="font-size: 19px; line-height: 1; flex: 0 0 auto;">📚</span><span>Fetching every open-access work this book cites and importing it as a verified source text. This runs in the background — it's safe to close this window or leave the page.</span></p>
         <div id="harvest-viz">
           <p style="font-size: 13px; color: #aaa; margin: 0;">Loading harvest state…</p>
         </div>
+        <div id="harvest-field-wrap">${harvestFieldHtml()}</div>
       </div>`;
   document.body.appendChild(overlay);
 
@@ -250,4 +252,13 @@ export function renderHarvestViz(self: any, harvest: any) {
       self.renderHarvestViz(harvest);
     });
   });
+
+  // Drive the reaping field (persistent DOM, so CSS tweens between polls).
+  const fieldWrap = document.getElementById('harvest-field-wrap');
+  if (fieldWrap) {
+    const stageIds = self._harvestMap.map((s: any) => s.id);
+    const progress = computeHarvestProgress(stageIds, statusOf, harvest);
+    const running = harvest.status !== 'completed' && harvest.status !== 'failed';
+    positionHarvestField(fieldWrap, progress, running);
+  }
 }

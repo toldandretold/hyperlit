@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1638 functions in 349 modules · 10 object stores · 10 PG tables · 3311 edges
+**MarkdownDB** schema v28 · 1641 functions in 350 modules · 10 object stores · 10 PG tables · 3317 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -253,6 +253,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `wireSourceStatus` | `components/sourceContainer/checkSource` | — | — | read/write | — |
 | `combineIcon` | `components/sourceContainer/creatorTools/combineIcon` | — | — | — | — |
 | `handleDeleteBook` | `components/sourceContainer/creatorTools/deleteBook` | — | — | read/write | — |
+| `computeHarvestProgress` | `components/sourceContainer/creatorTools/harvestField` | — | — | — | — |
+| `harvestFieldHtml` | `components/sourceContainer/creatorTools/harvestField` | — | — | — | — |
+| `positionHarvestField` | `components/sourceContainer/creatorTools/harvestField` | — | — | read/write | — |
 | `handleHarvestNetwork` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | read/write | — |
 | `loadHarvestSection` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | read/write | — |
 | `pollHarvestStatus` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | read/write | — |
