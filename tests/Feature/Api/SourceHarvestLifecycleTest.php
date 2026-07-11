@@ -151,6 +151,33 @@ test('trigger creates a harvest row seeded with the root frontier and queues the
     expect($row->root_book)->toBe($book);
     expect(json_decode($row->frontier, true))->toBe([['book' => $book, 'depth' => 0]]);
     expect($row->max_works)->toBeGreaterThan(0);
+    expect((int) $row->max_depth)->toBe(1); // default when no depth given
+});
+
+test('the depth choice sets max_depth and scales the work budget', function () {
+    Queue::fake();
+    $user = $this->loginUser(['status' => 'premium']);
+
+    // Depth 1 → shallow cap.
+    $book1 = $this->makeBook($user);
+    $id1 = $this->postJson("/api/library/{$book1}/harvest/trigger", ['depth' => 1])->assertOk()->json('harvest_id');
+    $r1 = harvDb()->table('source_network_harvests')->where('id', $id1)->first();
+    expect((int) $r1->max_depth)->toBe(1);
+    expect((int) $r1->max_works)->toBe((int) config('source_harvest.max_works_per_run'));
+
+    // Depth 3 → that depth + the deeper work cap.
+    $book3 = $this->makeBook($user);
+    $id3 = $this->postJson("/api/library/{$book3}/harvest/trigger", ['depth' => 3])->assertOk()->json('harvest_id');
+    $r3 = harvDb()->table('source_network_harvests')->where('id', $id3)->first();
+    expect((int) $r3->max_depth)->toBe(3);
+    expect((int) $r3->max_works)->toBe((int) config('source_harvest.max_works_deep'));
+
+    // Unlimited → sentinel depth + deep cap.
+    $bookU = $this->makeBook($user);
+    $idU = $this->postJson("/api/library/{$bookU}/harvest/trigger", ['depth' => 'unlimited'])->assertOk()->json('harvest_id');
+    $rU = harvDb()->table('source_network_harvests')->where('id', $idU)->first();
+    expect((int) $rU->max_depth)->toBe((int) config('source_harvest.unlimited_depth'));
+    expect((int) $rU->max_works)->toBe((int) config('source_harvest.max_works_deep'));
 });
 
 test('triggering while a harvest is already running returns 409', function () {

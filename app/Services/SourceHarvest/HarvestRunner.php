@@ -153,8 +153,11 @@ class HarvestRunner
                         $harvestedBooks[] = $result['book'];
                     }
 
-                    // Recursion hook (dormant at max_depth 1): the new version
-                    // book's own bibliography becomes the next frontier level.
+                    // Recursion: at max_depth > 1 (user picks the depth at
+                    // trigger time, up to "unlimited") the new version book's
+                    // own bibliography becomes the next frontier level, so the
+                    // harvest follows the citation network outward. visited
+                    // guards cycles; the work budget bounds the total.
                     if (
                         in_array($status, ['assigned', 'assigned_existing'], true)
                         && $result['book']

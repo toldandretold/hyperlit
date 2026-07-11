@@ -31,6 +31,13 @@ export async function pollAiReviewStatus(self: any) {
     const pipeline = data.pipeline;
     if (!pipeline) return;
 
+    // Terminal states (completed / failed / paused) — the BYO ticket worker has
+    // nothing left to answer; stop its claim loop.
+    if (['completed', 'failed', 'paused'].includes(pipeline.status)) {
+      self._ticketWorker?.stop();
+      self._ticketWorker = null;
+    }
+
     if (pipeline.status === 'completed') {
       self.stopAiReviewPolling();
       // "Nothing to review" (0 bibliography entries + 0 citation footnotes):
@@ -43,7 +50,7 @@ export async function pollAiReviewStatus(self: any) {
       // Pull pipeline-created highlights into IndexedDB so they render immediately
       // (nothing to sync in the empty case).
       if (!nothingToReview) self.syncPipelineHighlights(pipeline.book);
-    } else if (pipeline.status === 'failed') {
+    } else if (pipeline.status === 'failed' || pipeline.status === 'paused') {
       self.stopAiReviewPolling();
       // Show the failure in the live viz (if open) before resetting the button
       self.renderPipelineViz(pipeline);

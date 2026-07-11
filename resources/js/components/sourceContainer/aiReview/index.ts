@@ -6,6 +6,8 @@
 import { book } from '../../../app';
 import { openDatabase } from '../../../indexedDB/index';
 import { getRecord } from '../helpers';
+import { isByoLlmActive } from '../../../aiProviders/profiles';
+import { startTicketWorker } from '../../../aiProviders/ticketWorker';
 
 export async function handleAiReviewGenerate(self: any) {
   const generateBtn = self.container.querySelector("#ai-review-generate");
@@ -16,6 +18,10 @@ export async function handleAiReviewGenerate(self: any) {
 
   try {
     const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
+    // BYO-key mode (native shell + active LLM profile): the pipeline's LLM
+    // calls park as inference tickets which THIS page answers via the ticket
+    // worker — the run needs the page to stay open.
+    const byo = await isByoLlmActive();
     const resp = await fetch('/api/citation-pipeline/trigger', {
       method: 'POST',
       headers: {
@@ -24,7 +30,11 @@ export async function handleAiReviewGenerate(self: any) {
         'X-CSRF-TOKEN': csrfToken,
       },
       credentials: 'include',
-      body: JSON.stringify({ book, force: self.container.querySelector('#ai-review-force')?.checked || false }),
+      body: JSON.stringify({
+        book,
+        force: self.container.querySelector('#ai-review-force')?.checked || false,
+        client_inference: byo,
+      }),
     });
 
     const data = await resp.json().catch(() => ({}));
@@ -52,6 +62,14 @@ export async function handleAiReviewGenerate(self: any) {
     }
 
     self._pipelineId = data.pipeline_id;
+
+    // BYO: start answering the pipeline's parked prompts. Polling stops the
+    // worker when the pipeline reaches a terminal state.
+    if (byo) {
+      self._ticketWorker?.stop();
+      self._ticketWorker = startTicketWorker({ feature: 'ai_review', contextId: data.pipeline_id });
+    }
+
     self.setAiReviewState('reviewing');
     self.startAiReviewPolling();
     // Show the live pipeline right away — the card explains the report is
@@ -217,12 +235,17 @@ export function ensureAiReviewLivePanel(self: any) {
   const aiBtn = self.container.querySelector('#ai-review-btn');
   if (!aiBtn || self.container.querySelector('#ai-review-live')) return;
 
+  // BYO runs are answered BY this page (ticket worker) — leaving pauses the run.
+  const note = self._ticketWorker?.isRunning()
+    ? 'Your own AI provider is answering this review — keep this page open until it completes (closing pauses the run; you can resume later).'
+    : 'Results will be emailed to you when complete — you can safely leave this page.';
+
   const panel = document.createElement('div');
   panel.id = 'ai-review-live';
   panel.style.cssText = 'margin-top: 8px;';
   panel.innerHTML = `
       <p style="font-size: 11px; color: var(--color-label); margin: 0 0 6px 0; line-height: 1.4;">
-        Results will be emailed to you when complete — you can safely leave this page.
+        ${note}
       </p>
       <button type="button" id="ai-review-viz-toggle" style="background: none; border: none; padding: 0; font-size: 11px; color: var(--hyperlit-aqua); text-decoration: underline; cursor: pointer;">
         See live processing pipeline ▸

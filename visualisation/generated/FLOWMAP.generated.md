@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1637 functions in 348 modules · 10 object stores · 10 PG tables · 3311 edges
+**MarkdownDB** schema v28 · 1638 functions in 349 modules · 10 object stores · 10 PG tables · 3311 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -251,6 +251,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `librarianHtml` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `sourceStatusSectionHtml` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `wireSourceStatus` | `components/sourceContainer/checkSource` | — | — | read/write | — |
+| `combineIcon` | `components/sourceContainer/creatorTools/combineIcon` | — | — | — | — |
 | `handleDeleteBook` | `components/sourceContainer/creatorTools/deleteBook` | — | — | read/write | — |
 | `handleHarvestNetwork` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | read/write | — |
 | `loadHarvestSection` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | read/write | — |

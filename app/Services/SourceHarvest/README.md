@@ -1,6 +1,6 @@
 # Source Network Harvester
 
-The Source Network Harvester ("Import Knowledge Network" in a book's creator tools) builds out the legally-pullable citation network from a starting book: it resolves the book's citations to `canonical_source` rows, then fetches and converts every eligible open-access cited work into that canonical's `auto_version_book` — so the book's citations progressively link to real, held, verified source texts instead of external cards.
+The Source Network Harvester ("Harvest the Knowledge Commons" in a book's creator tools) builds out the legally-pullable citation network from a starting book: it resolves the book's citations to `canonical_source` rows, then fetches and converts every eligible open-access cited work into that canonical's `auto_version_book` — so the book's citations progressively link to real, held, verified source texts instead of external cards.
 
 ## What one run does
 
@@ -26,7 +26,7 @@ These four stage ids (`scan`, `select`, `harvest`, `shelf`) are the telemetry st
 
 ## Frontier and depth (recursion)
 
-The design is recursion-ready but dormant. Every harvest row carries `max_depth` (config `source_harvest.max_depth`, default 1) and a `frontier` of `{book, depth}` entries seeded with the root at depth 0. When a work is assigned and `depth + 1 < max_depth`, the new auto-version book is pushed onto the frontier and gets ITS bibliography scanned on a later loop iteration — so raising `max_depth` makes the harvester walk the citation network outward with no code change. `visited_books` is the cycle guard. Mind the cost before raising it: each level multiplies OCR spend and each text's bibliography can be 100+ entries.
+Depth is a user choice at trigger time — the `POST .../harvest/trigger` body takes `depth`: `1` (only this book's citations), `2`/`3` (also the works those cite, that many hops out), or `unlimited` (follow the whole reachable open-access network). Every harvest row carries `max_depth` and a `frontier` of `{book, depth}` entries seeded with the root at depth 0. When a work is assigned and `depth + 1 < max_depth`, the new auto-version book is pushed onto the frontier and gets ITS bibliography scanned on a later loop iteration — so the harvester walks the citation network outward. `visited_books` is the cycle guard, and the per-run work budget bounds the total, so `unlimited` terminates when the frontier dries up or the budget is exhausted (it is not literally infinite). The controller maps the choice: depth 1 uses `config('source_harvest.max_works_per_run')` (default 25); deeper/unlimited use `config('source_harvest.max_works_deep')` (default 500); `unlimited` stores `config('source_harvest.unlimited_depth')` (30000, under the signed-smallint ceiling) as `max_depth`. Mind the cost on deep runs: each level multiplies OCR spend and each text's bibliography can be 100+ entries.
 
 ## The referenced_works closed pool (scan Wave 3.5)
 
@@ -46,7 +46,7 @@ Harvest state deliberately lives in its own `source_network_harvests` table with
 
 ## Frontend
 
-`resources/js/components/sourceContainer/creatorTools/harvestNetwork.ts` renders the button, runs estimate → `confirmDialog` → trigger, polls status every 10s (button text mirrors `step_detail`), and calls `refreshCitationDisplay()` on completion. No changes to `displayCitations/` were needed: matched references already resolve through `/api/canonical/{id}/best-version`, which prefers held versions including `auto_version_book`.
+`resources/js/components/sourceContainer/creatorTools/harvestNetwork.ts` renders the button (a monochrome combine-harvester icon from `combineIcon.ts` + a "?" info expandable), runs estimate → `choiceDialog` (the depth picker — this book only / one or three levels deeper / unlimited) → trigger with the chosen `depth`, polls status every 10s (button text mirrors `step_detail`), and calls `refreshCitationDisplay()` on completion. No changes to `displayCitations/` were needed: matched references already resolve through `/api/canonical/{id}/best-version`, which prefers held versions including `auto_version_book`.
 
 ## Tests
 

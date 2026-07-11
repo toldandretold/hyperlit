@@ -31,6 +31,10 @@ struct WebView: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
 
+        // hyperlit-local:// — streams locally generated audio (BYO TTS) from
+        // disk with Range support. Must be registered before the view exists.
+        config.setURLSchemeHandler(LocalAudioSchemeHandler(), forURLScheme: LocalAudioSchemeHandler.scheme)
+
         // Tell the web front end it's inside the native shell (before any page JS).
         let flag = WKUserScript(
             source: "window.__hyperlitNative = true;",

@@ -25,6 +25,21 @@ interface AlertOptions {
   okLabel?: string;
 }
 
+interface ChoiceOption {
+  /** Returned by choiceDialog when this option is picked. */
+  value: string;
+  label: string;
+  /** Optional second line under the label. */
+  description?: string;
+}
+
+interface ChoiceOptions {
+  title?: string;
+  message?: string;
+  options: ChoiceOption[];
+  cancelLabel?: string;
+}
+
 const OVERLAY_CSS =
   'position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; ' +
   'background: rgba(0,0,0,0.5); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);';
@@ -106,6 +121,66 @@ export function confirmDialog(opts: ConfirmOptions): Promise<boolean> {
     release = trapModalFocus(overlay, { onEscape: () => done(false) });
     // The trap seats the first focusable (cancel); the designed default is confirm.
     (overlay.querySelector('[data-act="confirm"]') as HTMLElement | null)?.focus();
+  });
+}
+
+/**
+ * A single-choice picker in the same trapped dialog shell: a title, optional
+ * message, and a vertical list of full-width option buttons. Resolves the
+ * chosen option's `value`, or null on cancel/escape/backdrop. Reuses the
+ * `app-dialog-overlay` surface (already focus-trapped + inventoried).
+ */
+export function choiceDialog(opts: ChoiceOptions): Promise<string | null> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'app-dialog-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.style.cssText = OVERLAY_CSS;
+
+    const optionCss =
+      'display: block; width: 100%; text-align: left; box-sizing: border-box; margin: 0 0 8px; padding: 11px 14px; ' +
+      'border-radius: 8px; cursor: pointer; font-family: inherit; ' +
+      'background: rgba(255,255,255,0.04); color: var(--color-text, #CBCCCC); ' +
+      'border: 1px solid var(--border-button, rgba(203,204,204,0.3));';
+
+    const optionsHtml = opts.options.map((o, i) => `
+        <button type="button" data-choice="${i}" style="${optionCss}">
+          <span style="display:block; font-size: 14px; font-weight: 600; color: var(--hyperlit-aqua, #4EACAE);">${escapeHtml(o.label)}</span>
+          ${o.description ? `<span style="display:block; margin-top: 3px; font-size: 12px; line-height: 1.45; color: var(--color-text-faint, #999);">${escapeHtml(o.description)}</span>` : ''}
+        </button>`).join('');
+
+    overlay.innerHTML = `
+      <div class="app-dialog-card" style="${CARD_CSS} max-width: 460px;">
+        ${opts.title ? `<h3 style="${TITLE_CSS}">${escapeHtml(opts.title)}</h3>` : ''}
+        ${opts.message ? `<p style="${MSG_CSS}">${renderMessage(opts.message)}</p>` : ''}
+        <div>${optionsHtml}</div>
+        <div style="${ROW_CSS} margin-top: 4px;">
+          <button type="button" data-act="cancel" style="${CANCEL_CSS}">${escapeHtml(opts.cancelLabel ?? 'Cancel')}</button>
+        </div>
+      </div>`;
+
+    let release: (() => void) | null = null;
+    const done = (value: string | null) => {
+      release?.();
+      release = null;
+      overlay.remove();
+      resolve(value);
+    };
+
+    overlay.addEventListener('click', (e) => {
+      const choiceEl = (e.target as HTMLElement).closest('[data-choice]');
+      if (choiceEl) {
+        const idx = Number(choiceEl.getAttribute('data-choice'));
+        done(opts.options[idx]?.value ?? null);
+        return;
+      }
+      const act = (e.target as HTMLElement).closest('[data-act]')?.getAttribute('data-act');
+      if (act === 'cancel' || e.target === overlay) done(null);
+    });
+
+    document.body.appendChild(overlay);
+    release = trapModalFocus(overlay, { onEscape: () => done(null) });
   });
 }
 

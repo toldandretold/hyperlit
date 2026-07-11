@@ -77,7 +77,66 @@ class CitationPipelineJob implements ShouldQueue
             $args['--resume'] = true;
         }
 
-        $exitCode = Artisan::call('citation:pipeline', $args);
+        // BYO (client-inference) mode is recorded on the pipeline row so resume
+        // and retry flows recover it without the client restating it. When set,
+        // route every LLM call the command chain makes through inference tickets
+        // — the singleton LlmService carries the transport through the whole
+        // in-process Artisan::call with zero changes to the citation commands.
+        $clientMode = ($db->table('citation_pipelines')
+            ->where('id', $this->pipelineId)
+            ->value('inference_mode')) === 'client';
+
+        $llmService = app(LlmService::class);
+        $rlsVarsSet = false;
+
+        if ($clientMode) {
+            $user = User::on('pgsql_admin')->find($this->userId);
+            if (!$user) {
+                throw new \RuntimeException("Client-inference pipeline {$this->pipelineId} has no user");
+            }
+
+            // Tickets live on the DEFAULT (RLS) connection; a queue worker has no
+            // HTTP session, so set BOTH session vars the way
+            // SetDatabaseSessionContext does (GenerateBookAudioJob pattern) or
+            // every ticket INSERT/SELECT silently matches zero rows.
+            DB::statement("SELECT set_config('app.current_user', ?, false)", [$user->name]);
+            DB::statement("SELECT set_config('app.current_token', ?, false)", [(string) $user->user_token]);
+            $rlsVarsSet = true;
+
+            $llmService->setTransport(new ClientTicketTransport(
+                $user->name,
+                'ai_review',
+                $this->pipelineId,
+                ttlSeconds: (int) config('services.llm.ticket_ttl_seconds', 300) * 3, // review prompts can queue behind 4-at-a-time workers
+            ));
+        }
+
+        try {
+            $exitCode = Artisan::call('citation:pipeline', $args);
+        } catch (ClientInferenceUnavailableException $e) {
+            // The client (native app) stopped answering tickets — PAUSE, don't
+            // fail: the resume endpoint + --resume step-skip + ticket dedupe
+            // replay everything already answered.
+            Log::warning('CitationPipelineJob paused — client inference unavailable', [
+                'book'       => $this->bookId,
+                'pipelineId' => $this->pipelineId,
+                'error'      => $e->getMessage(),
+            ]);
+            $db->table('citation_pipelines')
+                ->where('id', $this->pipelineId)
+                ->update([
+                    'status'     => 'paused',
+                    'error'      => 'Waiting for your AI provider — reopen the app and resume.',
+                    'updated_at' => now(),
+                ]);
+            return; // no throw ⇒ no retry burn; resume is user-driven
+        } finally {
+            $llmService->clearTransport();
+            if ($rlsVarsSet) {
+                DB::statement("SELECT set_config('app.current_user', '', false)");
+                DB::statement("SELECT set_config('app.current_token', '', false)");
+            }
+        }
 
         if ($exitCode !== 0) {
             $output = Artisan::output();

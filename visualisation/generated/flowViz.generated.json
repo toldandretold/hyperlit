@@ -2,8 +2,8 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1637,
-    "moduleCount": 348,
+    "fnCount": 1638,
+    "moduleCount": 349,
     "storeCount": 10,
     "tableCount": 10,
     "edgeCount": 3311,
@@ -2118,6 +2118,14 @@
       "stage": "components",
       "module": "components/sourceContainer/checkSource",
       "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/combineIcon:combineIcon",
+      "label": "combineIcon",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/combineIcon",
+      "leaf": true
     },
     {
       "id": "components/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
@@ -15593,6 +15601,15 @@
         "components/sourceContainer/checkSource:librarianHtml",
         "components/sourceContainer/checkSource:sourceStatusSectionHtml",
         "components/sourceContainer/checkSource:wireSourceStatus"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/combineIcon",
+      "label": "components/sourceContainer/creatorTools/combineIcon",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/creatorTools/combineIcon:combineIcon"
       ]
     },
     {
@@ -41226,6 +41243,11 @@
       "source": "components/sourceContainer/creatorTools/deleteBook",
       "target": "indexedDB/index",
       "kind": "lazy"
+    },
+    {
+      "source": "components/sourceContainer/creatorTools/harvestNetwork",
+      "target": "components/sourceContainer/creatorTools/combineIcon",
+      "kind": "static"
     },
     {
       "source": "components/sourceContainer/creatorTools/reconvert",

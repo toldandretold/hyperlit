@@ -53,8 +53,49 @@ final class Bridge: NSObject, WKScriptMessageHandler {
             Task { await aiFetch(id: id, payload: payload) }
         case "ocr.begin", "ocr.chunk", "ocr.run", "ocr.result", "ocr.end", "ocr.cancel":
             ocrCall(id: id, method: method, payload: payload)
+        case "file.writeAudio", "file.readManifest", "file.writeManifest", "file.deleteAudio", "file.audioUrl":
+            fileCall(id: id, method: method, payload: payload)
         default:
             reply(id, ok: false, code: "unsupported_method", message: method)
+        }
+    }
+
+    // ── file.*: local audio store (BYO TTS — MP3s on this Mac) ────────────────
+
+    private func fileCall(id: String, method: String, payload: [String: Any]) {
+        guard let book = payload["book"] as? String else {
+            reply(id, ok: false, code: "internal", message: "missing book"); return
+        }
+        do {
+            switch method {
+            case "file.writeAudio":
+                guard let filename = payload["filename"] as? String,
+                      let base64 = payload["base64"] as? String else {
+                    reply(id, ok: false, code: "internal", message: "missing filename/base64"); return
+                }
+                let bytes = try AudioStore.writeAudio(book: book, filename: filename, base64: base64)
+                reply(id, ok: true, result: ["ok": true, "bytes": bytes])
+            case "file.readManifest":
+                reply(id, ok: true, result: ["json": try AudioStore.readManifest(book: book) as Any])
+            case "file.writeManifest":
+                guard let json = payload["json"] else {
+                    reply(id, ok: false, code: "internal", message: "missing json"); return
+                }
+                try AudioStore.writeManifest(book: book, json: json)
+                reply(id, ok: true, result: ["ok": true])
+            case "file.deleteAudio":
+                try AudioStore.deleteAudio(book: book, filenames: payload["filenames"] as? [String])
+                reply(id, ok: true, result: ["ok": true])
+            default: // file.audioUrl
+                guard let filename = payload["filename"] as? String else {
+                    reply(id, ok: false, code: "internal", message: "missing filename"); return
+                }
+                try AudioStore.validateBook(book)
+                try AudioStore.validateFilename(filename)
+                reply(id, ok: true, result: ["url": "\(LocalAudioSchemeHandler.scheme)://audio/\(book)/\(filename)"])
+            }
+        } catch {
+            reply(id, ok: false, code: "denied", message: error.localizedDescription)
         }
     }
 

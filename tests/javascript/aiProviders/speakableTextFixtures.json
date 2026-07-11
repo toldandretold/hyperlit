@@ -1,0 +1,80 @@
+{
+  "description": "Shared parity fixtures for SpeakableText: consumed by BOTH tests/javascript/aiProviders/speakableText.test.js (TS port) and tests/Feature/Inference/SpeakableTextParityTest.php (PHP original). A change to either implementation that shifts an expectation fails CI on both sides.",
+  "cases": [
+    {
+      "name": "plain paragraph",
+      "content": "<p>Hello world.</p>",
+      "expected": "Hello world."
+    },
+    {
+      "name": "decoration unwraps",
+      "content": "<p>He said <em>very</em> <strong>clearly</strong> that <mark>this</mark> matters.</p>",
+      "expected": "He said very clearly that this matters."
+    },
+    {
+      "name": "hypercite arrow anchor verbalized",
+      "content": "<p>A cited claim<a href=\"#x\" class=\"open-icon\">↗</a> continues.</p>",
+      "expected": "A cited claim (hypercite link) continues."
+    },
+    {
+      "name": "hypercite arrow sup-in-anchor verbalized once",
+      "content": "<p>Claim<a href=\"#x\"><sup class=\"open-icon\">↗</sup></a>.</p>",
+      "expected": "Claim (hypercite link)."
+    },
+    {
+      "name": "footnote marker with fn-count-id",
+      "content": "<p>A finding<sup fn-count-id=\"3\">3</sup> was made.</p>",
+      "expected": "A finding (footnote 3) was made."
+    },
+    {
+      "name": "footnote-ref class without attribute",
+      "content": "<p>Noted<sup class=\"footnote-ref\">12</sup> here.</p>",
+      "expected": "Noted (footnote 12) here."
+    },
+    {
+      "name": "bracketed numeric citation verbalized",
+      "content": "<p>As shown [<a class=\"in-text-citation\" href=\"#c9\">9</a>] previously.</p>",
+      "expected": "As shown (citation 9) previously."
+    },
+    {
+      "name": "author-year citation reads as written",
+      "content": "<p>(e.g., Dolan and Lawless, <a class=\"in-text-citation\" href=\"#c\">2024</a>)</p>",
+      "expected": "(e.g., Dolan and Lawless, 2024)"
+    },
+    {
+      "name": "page numbers and images dropped",
+      "content": "<p>Before<span class=\"pageNumber\">p. 44</span><img src=\"x.png\" alt=\"fig\"> after.</p>",
+      "expected": "Before after."
+    },
+    {
+      "name": "inline math verbalized",
+      "content": "<p>The identity <latex data-math=\"YV4yIA==\"></latex> holds.</p>",
+      "expected": "The identity equation holds."
+    },
+    {
+      "name": "block math verbalized",
+      "content": "<p>Consider:</p><latex-block data-math=\"e30=\"></latex-block><p>above.</p>",
+      "expected": "Consider: Equation. above."
+    },
+    {
+      "name": "br and block seams become spaces",
+      "content": "<p>line one<br>line two</p><p>next para</p>",
+      "expected": "line one line two next para"
+    },
+    {
+      "name": "invisible characters stripped",
+      "content": "<p>join⁠ed and zero​width</p>",
+      "expected": "joined and zerowidth"
+    },
+    {
+      "name": "empty content",
+      "content": "",
+      "expected": ""
+    },
+    {
+      "name": "whitespace punctuation seams collapse",
+      "content": "<p>Spaced , oddly . Yes !</p>",
+      "expected": "Spaced, oddly. Yes!"
+    }
+  ]
+}

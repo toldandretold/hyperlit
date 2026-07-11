@@ -64,6 +64,24 @@ class SourceHarvestController extends Controller
 
         if ($guard = $this->rejectEncrypted($book)) return $guard;
 
+        // Depth choice: 1 = only this book's citations; N = also the works
+        // those cite, N levels deep; 'unlimited' = follow the whole reachable
+        // open-access network (bounded by the deep work cap). Default 1.
+        $request->validate([
+            'depth' => 'sometimes',
+        ]);
+        $depthInput = $request->input('depth', 1);
+        $unlimited = $depthInput === 'unlimited' || (int) $depthInput <= 0;
+        if ($unlimited) {
+            $maxDepth = (int) config('source_harvest.unlimited_depth');
+            $maxWorks = (int) config('source_harvest.max_works_deep');
+        } else {
+            $maxDepth = max(1, min((int) $depthInput, 50)); // sane ceiling
+            $maxWorks = $maxDepth > 1
+                ? (int) config('source_harvest.max_works_deep')
+                : (int) config('source_harvest.max_works_per_run');
+        }
+
         // The scan stage runs LLM metadata extraction — same cost profile as
         // the citation pipeline trigger, same balance gate.
         $user = Auth::user();
@@ -115,8 +133,8 @@ class SourceHarvestController extends Controller
                 'root_book'     => $book,
                 'user_id'       => Auth::id(),
                 'status'        => 'pending',
-                'max_depth'     => (int) config('source_harvest.max_depth'),
-                'max_works'     => (int) config('source_harvest.max_works_per_run'),
+                'max_depth'     => $maxDepth,
+                'max_works'     => $maxWorks,
                 'frontier'      => json_encode([['book' => $book, 'depth' => 0]]),
                 'visited_books' => json_encode([]),
                 'counts'        => json_encode([]),

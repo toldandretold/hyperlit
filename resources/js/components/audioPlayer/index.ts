@@ -15,6 +15,10 @@ import { log, verbose } from '../../utilities/logger';
 import { ensureCsrfToken } from '../../utilities/auth/csrf';
 import { currentLazyLoader } from '../../pageLoad/currentLazyLoaderState';
 import { isBookEncrypted } from '../../e2ee/registry';
+import { isNativeShell } from '../../utilities/nativeBridge';
+import { isByoTtsActive } from '../../aiProviders/profiles';
+import { startLocalGeneration, type LocalGenerationHandle } from '../../aiProviders/tts/localGeneration';
+import { loadLocalAudio, toPlayerManifest, localResolveSrc } from './localSource';
 import { alertDialog, confirmDialog } from '../dialog/dialog';
 import { fetchAudioManifest, staleCount, type AudioManifest } from './manifest';
 import { confirmAndGenerate, formatPrice, pollGenerationProgress, refreshStatus, requestGeneration, stopProgressPolling } from './generation';
@@ -27,6 +31,8 @@ let manifest: AudioManifest | null = null;
 let busy = false;
 let generating = false;
 let active = false; // component initialized on a reader page
+let usingLocalAudio = false; // playing MP3s from the native shell's disk store
+let localGen: LocalGenerationHandle | null = null; // in-flight local BYO narration
 
 function bookId(): string | null {
   return currentLazyLoader?.bookId ?? null;
@@ -81,6 +87,28 @@ async function handlePlayPress(): Promise<void> {
     return;
   }
 
+  // Native shell: LOCALLY generated audio (BYO voice provider, MP3s on this
+  // Mac) takes precedence over server audio. Staleness is computed locally by
+  // re-hashing the current speakable text.
+  if (isNativeShell() && !isBookEncrypted(id)) {
+    busy = true;
+    try {
+      const local = await loadLocalAudio(id);
+      if (local) {
+        manifest = await toPlayerManifest(id, local);
+        if (staleCount(manifest) > 0 && await offerLocalStaleUpdate(id, staleCount(manifest))) {
+          return; // update accepted — local generation replays when done
+        }
+        usingLocalAudio = true;
+        await startPlayback(id);
+
+        return;
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
   // Encrypted book: audio that existed at lock time was encrypted in place
   // (e2ee/audioBlobs.ts) and plays via client-side decryption. What CAN'T
   // happen is creating/updating audio (the server would need plaintext).
@@ -111,6 +139,22 @@ async function handlePlayPress(): Promise<void> {
     const hasAudio = manifest && Object.keys(manifest.nodes).length > 0;
 
     if (!hasAudio) {
+      // BYO voice provider active (native shell): narrate on THIS Mac with the
+      // user's own key — free, stored locally, no server involvement.
+      if (isNativeShell() && await isByoTtsActive()) {
+        const accepted = await confirmDialog({
+          title: 'Generate audiobook on this Mac',
+          message: 'This book will be narrated using your own voice provider (app settings, ⌘,). '
+            + 'The audio is stored only on this Mac — no credits are charged.\n\n'
+            + 'To use server generation instead, deactivate your voice provider first.',
+          confirmLabel: 'Generate locally',
+          cancelLabel: 'Cancel',
+        });
+        if (accepted) runLocalGeneration(id);
+
+        return;
+      }
+
       const status = await refreshStatus(id);
       if (!status) return;
       // Someone else's run may already be in flight — just watch it.
@@ -168,6 +212,74 @@ async function offerStaleUpdate(id: string): Promise<boolean> {
   return true;
 }
 
+/**
+ * Local flavour of offerStaleUpdate: edits since the last LOCAL narration are
+ * re-narrated with the user's own provider (free) — hash-skip means only the
+ * changed nodes are synthesized. Declining just plays the current audio.
+ */
+async function offerLocalStaleUpdate(id: string, staleNodes: number): Promise<boolean> {
+  if (!(await isByoTtsActive())) return false; // no provider — play what exists
+
+  const wantsUpdate = await confirmDialog({
+    title: 'Audio is out of date',
+    message: `${staleNodes} section(s) have been edited since this audiobook was narrated on this Mac. Update with your own voice provider (free), or listen to the current audio.`,
+    confirmLabel: 'Update locally',
+    cancelLabel: 'Listen anyway',
+  });
+  if (!wantsUpdate) return false;
+
+  runLocalGeneration(id);
+
+  return true;
+}
+
+/**
+ * Drive a local BYO narration run with pill progress, then auto-play. The
+ * pill's stop button cancels (see initAudioPlayer's onStop); the manifest
+ * checkpoint after every node means a cancelled run resumes for free.
+ */
+function runLocalGeneration(id: string): void {
+  generating = true;
+  bar?.show();
+  bar?.setGenerating(true);
+  bar?.setStatus('Narrating on this Mac…');
+
+  localGen = startLocalGeneration(id, (p) => {
+    bar?.setStatus(`Narrating ${p.doneNodes} / ${p.totalNodes}`);
+  });
+
+  void localGen.done
+    .then(async (p) => {
+      const cancelled = localGen === null; // onStop cleared it
+      localGen = null;
+      generating = false;
+      bar?.setGenerating(false);
+
+      if (cancelled) return; // pill already hidden by onStop
+
+      if (p.failedNodes.length > 0) {
+        bar?.setStatus(`${p.failedNodes.length} section(s) failed — check your voice provider`);
+      }
+
+      const local = await loadLocalAudio(id);
+      if (!local) {
+        bar?.setStatus('No audio was generated — check your voice provider (⌘,)');
+
+        return;
+      }
+      manifest = await toPlayerManifest(id, local);
+      usingLocalAudio = true;
+      await startPlayback(id);
+    })
+    .catch((e) => {
+      localGen = null;
+      generating = false;
+      bar?.setGenerating(false);
+      bar?.setStatus('Local narration failed — check your voice provider (⌘,)');
+      log.error('audioPlayer: local generation failed', '/components/audioPlayer', e);
+    });
+}
+
 async function startPlayback(id: string): Promise<void> {
   if (!manifest) return;
   if (!controller) controller = buildController(id);
@@ -182,10 +294,12 @@ async function startPlayback(id: string): Promise<void> {
 }
 
 function buildController(id: string): PlaybackController {
-  // Encrypted books: swap the src resolver for fetch-decrypt-to-blob-URL.
-  const resolveSrc = isBookEncrypted(id)
-    ? async (filename: string) => (await import('./encryptedAudio')).getDecryptedAudioUrl(id, filename)
-    : undefined;
+  // Source resolver: local disk (native shell) > encrypted-decrypt > server URL.
+  const resolveSrc = usingLocalAudio
+    ? localResolveSrc(id)
+    : isBookEncrypted(id)
+      ? async (filename: string) => (await import('./encryptedAudio')).getDecryptedAudioUrl(id, filename)
+      : undefined;
 
   return new PlaybackController(id, {
     onStateChange: (state) => bar?.setPlaying(state === 'playing'),
@@ -338,6 +452,17 @@ export function initAudioPlayer(): void {
     onPlayPause: () => void handlePlayPress(),
     onStop: () => {
       const id = bookId();
+      // Local BYO narration: cancel the loop (manifest checkpoint keeps
+      // everything already narrated — a later run resumes via hash-skip).
+      if (localGen) {
+        localGen.cancel();
+        localGen = null; // signals the .then() that this was a cancel
+        generating = false;
+        bar?.setGenerating(false);
+        bar?.hide();
+
+        return;
+      }
       if (generating && id) {
         void cancelGeneration(id);
 
@@ -369,6 +494,9 @@ export function destroyAudioPlayer(): void {
   active = false;
   syncListenButton(); // home/user share the settings panel — hide there
   stopProgressPolling();
+  localGen?.cancel(); // checkpointed after every node — nothing is lost
+  localGen = null;
+  usingLocalAudio = false;
   controller?.destroy();
   controller = null;
   manifest = null;

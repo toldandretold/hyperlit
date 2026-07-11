@@ -27,7 +27,7 @@ export async function openHarvestVizOverlay(self: any) {
       </style>
       <div id="harvest-viz-card" style="background: #2a2a2a; color: #fff; padding: 28px 32px; border-radius: 10px; width: min(92vw, 1100px); max-height: 86vh; overflow-y: auto;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-          <h3 style="margin: 0; color: #EF8D34; font-size: 16px;">Import Knowledge Network — live progress</h3>
+          <h3 style="margin: 0; color: #EF8D34; font-size: 16px;">Harvest the Knowledge Commons — live progress</h3>
           <button type="button" id="harvest-viz-close" style="background: none; border: none; color: #aaa; font-size: 22px; cursor: pointer; line-height: 1; padding: 2px 6px;">×</button>
         </div>
         <p style="display: flex; align-items: center; gap: 9px; font-size: 13px; color: #9fc7c0; margin: 0 0 20px 0; line-height: 1.5;"><span style="font-size: 19px; line-height: 1; flex: 0 0 auto;">📚</span><span>Fetching every open-access work this book cites and importing it as a verified source text. This runs in the background — it's safe to close this window or leave the page.</span></p>

@@ -5,28 +5,31 @@
 // refresh the citations display (harvested texts surface automatically as
 // canonical best-versions). Takes `self` (SourceContainerManager).
 import { book } from '../../../app';
-import { confirmDialog, alertDialog } from '../../dialog/dialog';
+import { confirmDialog, alertDialog, choiceDialog } from '../../dialog/dialog';
 import { log } from '../../../utilities/logger';
 import { getAuthContext } from '../../../utilities/auth/session';
+import { combineIcon } from './combineIcon';
 
 const FILE = 'components/sourceContainer/creatorTools/harvestNetwork.ts';
 
-const IDLE_LABEL_HTML = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="5" r="2"></circle><circle cx="5" cy="19" r="2"></circle><circle cx="19" cy="19" r="2"></circle>
-    <line x1="12" y1="7" x2="6" y2="17"></line><line x1="12" y1="7" x2="18" y2="17"></line><line x1="7" y1="19" x2="17" y2="19"></line>
-  </svg>
-  Import Knowledge Network`;
+const BUTTON_LABEL = 'Harvest the Knowledge Commons';
+const IDLE_LABEL_HTML = `${combineIcon(18)} <span>${BUTTON_LABEL}</span>`;
 
 export function loadHarvestSection(self: any) {
   const section = self.container.querySelector('#harvest-network-section');
   if (!section) return;
 
   section.innerHTML = `
-      <button type="button" id="harvest-network-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: var(--hyperlit-orange); border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+      <button type="button" id="harvest-network-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: var(--hyperlit-orange); border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
         ${IDLE_LABEL_HTML}
       </button>
-      <p style="font-size: 11px; color: var(--color-text-faint); margin-top: 6px;">Fetch and import the open-access works this book cites, as verified source texts.</p>`;
+      <p style="font-size: 11px; color: var(--color-text-faint); margin-top: 6px;">
+        Fetch and import the open-access works this book cites, as verified source texts.
+        <span class="harvest-info-toggle" tabindex="0" role="button" aria-label="What this does" aria-expanded="false" style="cursor:pointer;display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid rgba(239,141,52,0.5);font-size:10px;vertical-align:middle;margin-left:2px;color:var(--hyperlit-orange);">?</span>
+      </p>
+      <div class="harvest-info-detail" style="display:none; font-size: 11px; line-height: 1.55; color: var(--color-text-faint); margin-top: 2px; padding: 8px 10px; border-left: 2px solid rgba(239,141,52,0.4); background: rgba(239,141,52,0.05); border-radius: 3px;">
+        This reads the book's bibliography and footnotes, matches each citation to the real published work, then — for every cited work that is <strong>open access</strong> and legally fetchable — downloads it, converts it to a readable text, and adds it to the library as a verified source your citations link to. You choose how far to follow the network: just this book's citations, the works those cite, and so on — up to the whole reachable open-access web of sources. Every source it brings in is collected onto a shelf on your page. Nothing behind a paywall is ever taken.
+      </div>`;
 
   const btn = section.querySelector('#harvest-network-btn');
   if (btn) btn.addEventListener('click', (e: any) => {
@@ -34,6 +37,19 @@ export function loadHarvestSection(self: any) {
     e.stopPropagation();
     self.handleHarvestNetwork();
   });
+
+  // Info "?" expandable (same pattern as the AI-review cost info toggle).
+  const infoToggle: any = section.querySelector('.harvest-info-toggle');
+  const infoDetail: any = section.querySelector('.harvest-info-detail');
+  if (infoToggle && infoDetail) {
+    const toggle = () => {
+      const open = infoDetail.style.display !== 'none';
+      infoDetail.style.display = open ? 'none' : 'block';
+      infoToggle.setAttribute('aria-expanded', String(!open));
+    };
+    infoToggle.addEventListener('click', (e: any) => { e.stopPropagation(); toggle(); });
+    infoToggle.addEventListener('keydown', (e: any) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+  }
 
   // Restore in-progress state if a harvest is already running for this book
   // (panel reopened mid-run, or another tab kicked it off).
@@ -74,19 +90,26 @@ export async function handleHarvestNetwork(self: any) {
     }
 
     const e = est.estimate || {};
-    const lines = [
+    const context = [
       `${e.eligible ?? 0} of ${e.resolved ?? 0} resolved citations are open access and fetchable now.`,
       e.unresolved ? `${e.unresolved} unresolved entries will be scanned first and may add more.` : null,
-      e.already_harvested ? `${e.already_harvested} cited works are already in the library as verified versions.` : null,
-      `Up to ${est.max_works} works will be fetched and imported this run.`,
-    ].filter(Boolean);
+      'How far should it follow the citation network?',
+    ].filter(Boolean).join('\n\n');
 
-    const confirmed = await confirmDialog({
-      title: 'Import Knowledge Network',
-      message: lines.join('\n\n'),
-      confirmLabel: 'Start import',
+    // Depth choice: 1 = only this book's citations; 2 = also the works those
+    // cite; deeper; or unlimited (the whole reachable open-access network).
+    const depth = await choiceDialog({
+      title: BUTTON_LABEL,
+      message: context,
+      cancelLabel: 'Cancel',
+      options: [
+        { value: '1', label: 'Just this book’s sources', description: 'Pull only the open-access works cited in this article.' },
+        { value: '2', label: 'One level deeper', description: 'Also pull the open-access works cited in those articles.' },
+        { value: '3', label: 'Three levels deep', description: 'Follow the citations three hops out.' },
+        { value: 'unlimited', label: 'The whole commons', description: 'Keep following open-access citations outward until the network runs dry.' },
+      ],
     });
-    if (!confirmed) {
+    if (!depth) {
       resetHarvestButton(self);
       return;
     }
@@ -95,6 +118,7 @@ export async function handleHarvestNetwork(self: any) {
       method: 'POST',
       headers: postHeaders(),
       credentials: 'include',
+      body: JSON.stringify({ depth }),
     });
     if (!trigResp.ok) {
       const err = await trigResp.json().catch(() => ({}));
@@ -105,10 +129,10 @@ export async function handleHarvestNetwork(self: any) {
     self._harvestId = trig.harvest_id;
     setHarvestButtonRunning(self, 'Harvest queued…');
     self.startHarvestPolling();
-    log.user('Source network harvest queued', FILE, { book, harvest: trig.harvest_id });
+    log.user('Source network harvest queued', FILE, { book, harvest: trig.harvest_id, depth });
   } catch (error: any) {
     log.error('Harvest start failed', FILE, error);
-    await alertDialog({ title: 'Import Knowledge Network', message: error?.message || 'Could not start the harvest.' });
+    await alertDialog({ title: 'Harvest the Knowledge Commons', message: error?.message || 'Could not start the harvest.' });
     resetHarvestButton(self);
   }
 }
@@ -162,14 +186,14 @@ export async function pollHarvestStatus(self: any) {
         const shelf = harvest.shelf;
         if (shelf && shelf.creator) {
           const go = await confirmDialog({
-            title: 'Import Knowledge Network',
+            title: 'Harvest the Knowledge Commons',
             message: summary.join('\n\n') + '\n\nAll the harvested sources have been collected onto a shelf on your page.',
             confirmLabel: 'View shelf',
             cancelLabel: 'Close',
           });
           if (go) window.location.href = `/u/${encodeURIComponent(shelf.creator)}/shelf/${encodeURIComponent(shelf.slug)}`;
         } else {
-          await alertDialog({ title: 'Import Knowledge Network', message: summary.join('\n\n') });
+          await alertDialog({ title: 'Harvest the Knowledge Commons', message: summary.join('\n\n') });
         }
       }
 
@@ -181,7 +205,7 @@ export async function pollHarvestStatus(self: any) {
       resetHarvestButton(self);
       if (!self._harvestVizOpen) {
         await alertDialog({
-          title: 'Import Knowledge Network',
+          title: 'Harvest the Knowledge Commons',
           message: 'Harvest failed: ' + (harvest.error || 'unknown error') + '\n\nRe-running is safe — finished works are kept.',
         });
       }
