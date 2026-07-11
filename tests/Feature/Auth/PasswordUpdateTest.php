@@ -1,40 +1,22 @@
 <?php
 
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
+/**
+ * The Breeze/Fortify logged-in password-update endpoint was deliberately
+ * removed (Features::updatePasswords() is off in config/fortify.php) — a
+ * password change goes through the email reset flow (/api/password/forgot +
+ * /api/password/reset, see PasswordResetTest). Pin the removal so a
+ * re-enabled route forces a deliberate review of that decision.
+ */
 
-test('password can be updated', function () {
-    $user = User::factory()->create();
+test('the legacy web password-update endpoint stays removed', function () {
+    $user = $this->seedUser();
 
-    $response = $this
-        ->actingAs($user)
+    $this->actingAs($user)
         ->from('/profile')
         ->put('/password', [
             'current_password' => 'password',
             'password' => 'new-password',
             'password_confirmation' => 'new-password',
-        ]);
-
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect('/profile');
-
-    $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
-});
-
-test('correct password must be provided to update password', function () {
-    $user = User::factory()->create();
-
-    $response = $this
-        ->actingAs($user)
-        ->from('/profile')
-        ->put('/password', [
-            'current_password' => 'wrong-password',
-            'password' => 'new-password',
-            'password_confirmation' => 'new-password',
-        ]);
-
-    $response
-        ->assertSessionHasErrorsIn('updatePassword', 'current_password')
-        ->assertRedirect('/profile');
+        ])
+        ->assertStatus(405);
 });

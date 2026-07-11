@@ -140,7 +140,12 @@ class ImportController extends Controller
                         $fail('File must be less than 250MB.');
                     }
                 }
-            ]
+            ],
+            // Client-side OCR result (macOS app on-device OCR, Mistral-shaped JSON).
+            // Only honoured for PDF uploads; content-validated below. Max is in KB.
+            'ocr_response' => 'nullable|file|max:102400',
+            // Which client-side engine produced it (drives the provenance stamp).
+            'ocr_source' => 'nullable|string|in:client_native,client_mistral',
         ]);
 
         $bookId = preg_replace('/[^a-zA-Z0-9_-]/', '', $request->input('book'));
@@ -156,7 +161,10 @@ class ImportController extends Controller
         }
 
         // Clean stale output files from any previous import to this book ID.
-        foreach (['footnotes.json', 'footnotes.jsonl', 'nodes.json', 'nodes.jsonl', 'audit.json', 'references.json', 'intermediate.html', 'progress.json', 'notify_email.json'] as $staleFile) {
+        // ocr_response.json / ocr_charged.json are included so a re-import never
+        // replays a previous PDF's cached OCR (or its billing marker) — any cache
+        // must come from THIS request's ocr_response upload or the test header below.
+        foreach (['footnotes.json', 'footnotes.jsonl', 'nodes.json', 'nodes.jsonl', 'audit.json', 'references.json', 'intermediate.html', 'progress.json', 'notify_email.json', 'ocr_response.json', 'ocr_charged.json'] as $staleFile) {
             $staleFilePath = "{$path}/{$staleFile}";
             if (File::exists($staleFilePath)) {
                 File::delete($staleFilePath);
@@ -212,12 +220,44 @@ class ImportController extends Controller
                     return redirect()->back()->with('error', 'File validation failed. Please check the file format and content.');
                 }
 
+                // Client-side OCR (macOS app on-device OCR): a Mistral-shaped
+                // ocr_response.json uploaded with the PDF. Validated here; written
+                // into the book dir after the PDF move below, where mistral_ocr.py
+                // treats it as its cache and skips the API call entirely.
+                $clientOcrData = null;
+                if ($request->hasFile('ocr_response')) {
+                    if ($extension !== 'pdf') {
+                        Log::info('ocr_response ignored for non-PDF upload', ['book' => $bookId, 'extension' => $extension]);
+                    } else {
+                        $clientOcrData = $this->validator->parseOcrResponseFile(
+                            $request->file('ocr_response')->getRealPath()
+                        );
+                        if ($clientOcrData === null) {
+                            if ($request->expectsJson()) {
+                                return response()->json([
+                                    'success' => false,
+                                    'error' => 'OCR response validation failed. The attached OCR data is malformed.',
+                                ], 422);
+                            }
+                            return redirect()->back()->with('error', 'OCR response validation failed.');
+                        }
+                        // Never trust a client claim of a paid model — stamp provenance
+                        // server-side. Both stamps carry the 'hyperlit-' prefix that
+                        // billOcrImport's belt-and-braces check recognises as unbilled:
+                        // client_mistral means the USER paid Mistral with their own key.
+                        $clientOcrData['model'] = $request->input('ocr_source') === 'client_mistral'
+                            ? 'hyperlit-client-mistral-ocr'
+                            : 'hyperlit-native-ocr';
+                    }
+                }
+
                 // Pay-as-you-go users need positive balance (reject before queuing).
                 // Bypass the check entirely when the env-guarded X-Test-Fixture header
                 // is set, so PDF regression tests don't need to fund a test user.
+                // Client-OCR imports skip it too: no Mistral call happens, nothing is billed.
                 $isTestFixtureRequest = app()->environment(['local', 'testing'])
                     && $request->header('X-Test-Fixture');
-                if ($extension === 'pdf' && !$isTestFixtureRequest) {
+                if ($extension === 'pdf' && !$isTestFixtureRequest && $clientOcrData === null) {
                     Auth::user()?->refresh();
                     if (!$this->billing->canProceed(Auth::user())) {
                         if ($request->expectsJson()) {
@@ -234,6 +274,27 @@ class ImportController extends Controller
                 $originalFilePath = "{$path}/{$originalFilename}";
                 $file->move($path, $originalFilename);
                 chmod($originalFilePath, 0644);
+
+                if ($clientOcrData !== null) {
+                    // Seed mistral_ocr.py's cache with the client-side OCR, and write
+                    // the zero-amount billing marker billOcrImport() keys off — the
+                    // server did no OCR work, so there is nothing to charge.
+                    File::put("{$path}/ocr_response.json", json_encode($clientOcrData));
+                    File::put("{$path}/ocr_charged.json", json_encode([
+                        'book' => $bookId,
+                        'pages' => count($clientOcrData['pages']),
+                        'amount' => 0,
+                        'source' => $request->input('ocr_source') === 'client_mistral'
+                            ? 'client_mistral_ocr'
+                            : 'client_native_ocr',
+                        'charged_at' => gmdate('c'),
+                    ], JSON_PRETTY_PRINT));
+                    Log::info('Client-side OCR accepted', [
+                        'book' => $bookId,
+                        'pages' => count($clientOcrData['pages']),
+                        'model' => $clientOcrData['model'],
+                    ]);
+                }
             }
         } else {
             // No file upload — create basic markdown

@@ -1,60 +1,97 @@
 <?php
 
-use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
-use Illuminate\Support\Facades\Notification;
+/**
+ * Password reset is the app's OWN flow, not Fortify's: POST
+ * /api/password/forgot looks the user up via a SECURITY DEFINER function and
+ * stores a SHA-256 token hash through auth_create_password_reset_token
+ * (password_reset_tokens is RLS deny-all for the app role — Fortify's broker
+ * routes can never work and Features::resetPasswords() is deliberately off).
+ * The emailed link opens the app's GET /reset-password/{token} page, which
+ * posts /api/password/reset (atomic verify+update+delete via
+ * auth_execute_password_reset).
+ */
 
-test('reset password link screen can be rendered', function () {
-    $response = $this->get('/forgot-password');
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
-    $response->assertStatus(200);
+afterEach(function () {
+    DB::connection('pgsql_admin')->table('password_reset_tokens')
+        ->where('email', 'like', 'rls\_%@rlstest.local')
+        ->delete();
 });
 
-test('reset password link can be requested', function () {
-    Notification::fake();
+test('the full email reset round trip works via the API', function () {
+    // MAIL_MAILER=array: capture the real reset mail (Mail::fake cannot
+    // record view-based Mail::send) and drive the emailed link end-to-end.
+    $user = $this->seedUser();
 
-    $user = User::factory()->create();
+    $this->postJson('/api/password/forgot', ['email' => $user->email])
+        ->assertOk();
 
-    $this->post('/forgot-password', ['email' => $user->email]);
+    $messages = app('mailer')->getSymfonyTransport()->messages();
+    expect($messages)->toHaveCount(1);
 
-    Notification::assertSentTo($user, ResetPassword::class);
+    $body = $messages[0]->getOriginalMessage()->getHtmlBody()
+        ?: $messages[0]->getOriginalMessage()->getTextBody();
+    preg_match('#/reset-password/([^?\s"]+)#', $body, $m);
+    expect($m)->toHaveKey(1);
+    $plainToken = $m[1];
+
+    $this->postJson('/api/password/reset', [
+        'token' => $plainToken,
+        'email' => $user->email,
+        'password' => 'brand-new-password',
+        'password_confirmation' => 'brand-new-password',
+    ])->assertOk()->assertJsonPath('success', true);
+
+    $this->postJson('/api/login', ['email' => $user->email, 'password' => 'brand-new-password'])
+        ->assertOk();
 });
 
-test('reset password screen can be rendered', function () {
-    Notification::fake();
+test('an unknown email still returns success (no enumeration) and stores nothing', function () {
+    Mail::fake();
 
-    $user = User::factory()->create();
+    $this->postJson('/api/password/forgot', ['email' => 'rls_nobody@rlstest.local'])
+        ->assertOk();
 
-    $this->post('/forgot-password', ['email' => $user->email]);
-
-    Notification::assertSentTo($user, ResetPassword::class, function ($notification) {
-        $response = $this->get('/reset-password/'.$notification->token);
-
-        $response->assertStatus(200);
-
-        return true;
-    });
+    expect(
+        DB::connection('pgsql_admin')->table('password_reset_tokens')
+            ->where('email', 'rls_nobody@rlstest.local')->exists()
+    )->toBeFalse();
 });
 
-test('password can be reset with valid token', function () {
-    Notification::fake();
+test('the emailed reset page renders', function () {
+    $this->get('/reset-password/sometoken?email=someone%40example.org')
+        ->assertOk();
+});
 
-    $user = User::factory()->create();
+test('password can be reset with a valid token via the API', function () {
+    $user = $this->seedUser();
 
-    $this->post('/forgot-password', ['email' => $user->email]);
+    // What the email would carry: a plain token whose SHA-256 is stored.
+    $plain = 'test-plain-token-' . bin2hex(random_bytes(8));
+    DB::selectOne('SELECT auth_create_password_reset_token(?, ?)', [$user->email, hash('sha256', $plain)]);
 
-    Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user) {
-        $response = $this->post('/reset-password', [
-            'token' => $notification->token,
-            'email' => $user->email,
-            'password' => 'password',
-            'password_confirmation' => 'password',
-        ]);
+    $this->postJson('/api/password/reset', [
+        'token' => $plain,
+        'email' => $user->email,
+        'password' => 'brand-new-password',
+        'password_confirmation' => 'brand-new-password',
+    ])->assertOk()->assertJsonPath('success', true);
 
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect(route('login'));
+    // The new password authenticates (via /api/login — the web /login is
+    // Fortify with lowercase_usernames, which mixed-case seeds would miss).
+    $this->postJson('/api/login', ['email' => $user->email, 'password' => 'brand-new-password'])
+        ->assertOk();
+});
 
-        return true;
-    });
+test('an invalid token is rejected', function () {
+    $user = $this->seedUser();
+
+    $this->postJson('/api/password/reset', [
+        'token' => 'not-a-real-token',
+        'email' => $user->email,
+        'password' => 'brand-new-password',
+        'password_confirmation' => 'brand-new-password',
+    ])->assertStatus(400);
 });

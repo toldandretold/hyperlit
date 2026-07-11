@@ -174,6 +174,13 @@ export function librarianHtml(record: LibraryRecord): string {
     inner = link
       ? `Added automatically from <a href="${escapeHtml(link.url)}" target="_blank" rel="noopener" style="color: var(--hyperlit-aqua); text-decoration: underline;">${escapeHtml(provider)}</a>`
       : `Added automatically from ${escapeHtml(provider)}`;
+  } else if (creator === 'WebFetch') {
+    // WebFetch is an automated scrape fetcher, NOT a user — never link to /u/WebFetch. Point at the
+    // original URL the content was fetched from instead.
+    const url = record.url || record.canonical?.source_url || null;
+    inner = url
+      ? `Fetched automatically from <a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="color: var(--hyperlit-aqua); text-decoration: underline;">the original source</a> ↗`
+      : 'Fetched automatically from the web';
   } else if (creator) {
     inner = `Uploaded by <a href="/u/${encodeURIComponent(creator)}" style="color: var(--hyperlit-aqua); text-decoration: underline;">${escapeHtml(creator)}</a>`;
   } else {

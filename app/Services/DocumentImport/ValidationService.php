@@ -358,6 +358,97 @@ class ValidationService
     }
 
     /**
+     * Parse + validate a client-supplied OCR response (the macOS app's on-device
+     * PDF OCR, shaped like Mistral's ocr_response.json). Returns the decoded array
+     * on success, null on any failure — decode once, so the controller doesn't
+     * re-parse a potentially very large JSON just to stamp the model field.
+     *
+     * SECURITY: images[].id becomes a literal filename under the book's media/
+     * dir (save_images() in app/Python/ingestion/pdf/assembly.py joins it with no
+     * traversal guard), so the id regex here is the gate against path traversal.
+     * Image *content* is re-validated per file by PdfProcessor stage 2
+     * (validateImageFile, which deletes failures), and the markdown itself is no
+     * new trust surface — users can already upload arbitrary .md to this endpoint.
+     */
+    public function parseOcrResponseFile(string $filePath): ?array
+    {
+        $fail = function (string $reason, array $ctx = []) {
+            Log::warning("OCR response validation failed: {$reason}", $ctx);
+            return null;
+        };
+
+        if (!file_exists($filePath) || !is_readable($filePath)) {
+            return $fail('file not readable');
+        }
+        if (filesize($filePath) > 100 * 1024 * 1024) {
+            return $fail('file too large', ['size' => filesize($filePath)]);
+        }
+
+        $data = json_decode(file_get_contents($filePath), true, 32);
+        if (!is_array($data)) {
+            return $fail('not valid JSON', ['json_error' => json_last_error_msg()]);
+        }
+
+        if (isset($data['model']) && !is_string($data['model'])) {
+            return $fail('model is not a string');
+        }
+
+        $pages = $data['pages'] ?? null;
+        if (!is_array($pages) || count($pages) < 1 || count($pages) > 2000) {
+            return $fail('pages must be an array of 1-2000 entries', ['count' => is_array($pages) ? count($pages) : null]);
+        }
+
+        foreach ($pages as $i => $page) {
+            if (!is_array($page)) {
+                return $fail('page is not an object', ['page' => $i]);
+            }
+            if (!is_int($page['index'] ?? null)) {
+                return $fail('page index missing or not an integer', ['page' => $i]);
+            }
+            if (!is_string($page['markdown'] ?? null) || strlen($page['markdown']) > 2 * 1024 * 1024) {
+                return $fail('page markdown missing, not a string, or over 2MB', ['page' => $i]);
+            }
+            foreach (['header', 'footer'] as $band) {
+                if (isset($page[$band]) && (!is_string($page[$band]) || strlen($page[$band]) > 4096)) {
+                    return $fail("page {$band} not a string or over 4KB", ['page' => $i]);
+                }
+            }
+
+            $images = $page['images'] ?? [];
+            if (!is_array($images) || count($images) > 50) {
+                return $fail('page images not an array or over 50 entries', ['page' => $i]);
+            }
+            foreach ($images as $j => $img) {
+                if (!is_array($img)) {
+                    return $fail('image entry is not an object', ['page' => $i, 'image' => $j]);
+                }
+                $id = $img['id'] ?? null;
+                if (!is_string($id) || !preg_match('/^[A-Za-z0-9][A-Za-z0-9.-]{0,63}\.(jpe?g|png)$/', $id) || str_contains($id, '..')) {
+                    return $fail('image id invalid (must be a safe filename ending .jpg/.jpeg/.png)', ['page' => $i, 'image' => $j]);
+                }
+                $b64 = $img['image_base64'] ?? null;
+                if (!is_string($b64)) {
+                    return $fail('image_base64 missing or not a string', ['page' => $i, 'image' => $j]);
+                }
+                // Strip a data-URI prefix the same way save_images() does before decoding.
+                if (str_starts_with($b64, 'data:')) {
+                    $comma = strpos($b64, ',');
+                    $b64 = $comma === false ? '' : substr($b64, $comma + 1);
+                }
+                // ~10MB decoded cap (matches validateImageFile) without decoding: base64 inflates 4/3.
+                if (strlen($b64) > 14 * 1024 * 1024) {
+                    return $fail('image over 10MB decoded', ['page' => $i, 'image' => $j]);
+                }
+                if (base64_decode($b64, true) === false) {
+                    return $fail('image_base64 is not valid base64', ['page' => $i, 'image' => $j]);
+                }
+            }
+        }
+
+        return $data;
+    }
+
+    /**
      * Validate image file from path
      */
     public function validateImageFile(string $filePath): bool

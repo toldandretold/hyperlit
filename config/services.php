@@ -47,6 +47,13 @@ return [
         'extraction_model'   => 'accounts/fireworks/models/gpt-oss-120b',
         'verification_model' => 'accounts/fireworks/models/deepseek-v4-pro',
         'embedding_model'    => 'nomic-ai/nomic-embed-text-v1.5',
+
+        // BYO-key inference tickets — ClientTicketTransport defaults (callers may
+        // pass explicit values). Tests shrink these to avoid real waits.
+        'ticket_ttl_seconds'  => (int) env('LLM_TICKET_TTL', 300),
+        'ticket_wait_seconds' => (int) env('LLM_TICKET_WAIT', 300),
+        'ticket_poll_seconds' => (int) env('LLM_TICKET_POLL', 1),
+
         'pricing' => [
             // Fireworks AI — cost per 1M tokens (USD). Verified live 2026-05-27.
             'accounts/fireworks/models/deepseek-v4-pro'         => ['input' => 1.74, 'output' => 3.48],
@@ -87,6 +94,16 @@ return [
 
     'mistral_ocr' => [
         'api_key' => env('MISTRAL_OCR_API_KEY'),
+    ],
+
+    // On-device PDF OCR (Apple Vision/PDFKit via the hyperlit-ocr CLI — build
+    // with macOShyperlit/build-cli.sh). Only meaningful when the backend runs
+    // on a Mac (local dev via Herd); production Linux leaves this unset.
+    // provider: 'auto' = use the native binary when configured+executable,
+    // else Mistral; 'native' = require it; 'mistral' = never use it.
+    'native_ocr' => [
+        'binary' => env('NATIVE_OCR_BINARY'),
+        'provider' => env('OCR_PROVIDER', 'auto'),
     ],
 
     // Per-node TTS audiobook generation (GenerateBookAudioJob). Provider is

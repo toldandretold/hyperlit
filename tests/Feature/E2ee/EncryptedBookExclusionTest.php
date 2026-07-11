@@ -36,8 +36,10 @@ it('rejects plaintext node writes to an encrypted book (422) but accepts envelop
     $this->actingAs($user);
     $this->seedLibrary(encryptedBookAttrs($user, 'e2ee_guard'));
 
+    // node_id is GLOBALLY unique in the nodes table — book-prefix it so
+    // residue from any other test's committed seeds can never collide.
     $node = [
-        'book' => 'e2ee_guard', 'startLine' => 100, 'chunk_id' => 0, 'node_id' => 'n1',
+        'book' => 'e2ee_guard', 'startLine' => 100, 'chunk_id' => 0, 'node_id' => 'e2ee_guard_n1',
     ];
 
     // Plaintext content → rejected before anything is written.
@@ -87,7 +89,7 @@ it('never dispatches embedding jobs for encrypted-book node writes', function ()
     $this->seedLibrary(encryptedBookAttrs($user, 'e2ee_noembed'));
 
     $this->postJson('/api/db/nodes/targeted-upsert', ['data' => [[
-        'book' => 'e2ee_noembed', 'startLine' => 100, 'chunk_id' => 0, 'node_id' => 'n1',
+        'book' => 'e2ee_noembed', 'startLine' => 100, 'chunk_id' => 0, 'node_id' => 'e2ee_noembed_n1',
         'content' => 'hlenc.v1.aXY.'.str_repeat('Y3Q', 30),
     ]]])->assertOk();
 
@@ -110,7 +112,7 @@ it('excludes encrypted books from search while a plain private book keeps its ex
     ]);
     $this->actingAs($user);
     $this->postJson('/api/db/nodes/targeted-upsert', ['data' => [[
-        'book' => 'plain_private', 'startLine' => 100, 'chunk_id' => 0, 'node_id' => 'np1',
+        'book' => 'plain_private', 'startLine' => 100, 'chunk_id' => 0, 'node_id' => 'plain_private_np1',
         'content' => '<p>findable words</p>',
     ]]])->assertOk();
     $row = DB::table('nodes')->where('book', 'plain_private')->first();

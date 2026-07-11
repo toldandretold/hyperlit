@@ -231,6 +231,10 @@ export async function loadBibliographyToIndexedDB(db: IDBDatabase, bibliography:
       source_id: isNewFormat ? (refData.source_id || null) : null,
       canonical_source_id: isNewFormat ? (refData.canonical_source_id || null) : null,
       source_has_nodes: isNewFormat ? (refData.source_has_nodes ?? null) : null,
+      source_is_web_stub: isNewFormat ? (refData.source_is_web_stub ?? null) : null,
+      source_external_url: isNewFormat ? (refData.source_external_url ?? null) : null,
+      reference_match_method: isNewFormat ? (refData.reference_match_method ?? null) : null,
+      reference_verified_at: isNewFormat ? (refData.reference_verified_at ?? null) : null,
     });
   }
 

@@ -242,3 +242,29 @@ test('stampUserRejected marks the row reviewed without linking', function () {
     expect($row->canonical_source_id)->toBeNull();
     expect($row->human_reviewed_at)->not->toBeNull();
 });
+
+test('ingestExternal backfills missing OA fields on an existing canonical (no overwrite of curated data)', function () {
+    // Seed + read via the model (the same default connection the matcher's identifier lookup uses),
+    // so the idempotency check actually finds the existing row (a pgsql_admin seed would be invisible
+    // to the RLS'd default connection). A canonical first created WITHOUT a readable OA url.
+    $existing = \App\Models\CanonicalSource::create([
+        'title' => 'CanonV Backfill Work', 'openalex_id' => 'W_backfill_1',
+        'oa_url' => null, 'pdf_url' => null, 'work_license' => 'cc-by', // curated license stays
+        'foundation_source' => 'openalex_ingest',
+    ]);
+
+    // Re-resolving by title surfaces the same work WITH its OA locations.
+    app(CanonicalSourceMatcher::class)->ingestExternal(
+        canonvNormalisedWork([
+            'openalex_id'  => 'W_backfill_1',
+            'oa_url'       => 'https://socialistregister.com/download/5594/2492',
+            'work_license' => 'cc0', // should NOT overwrite the existing 'cc-by'
+        ]),
+        'user_verified',
+    );
+
+    $row = \App\Models\CanonicalSource::find($existing->id);
+    expect($row->oa_url)->toBe('https://socialistregister.com/download/5594/2492'); // backfilled
+    expect($row->pdf_url)->toBe('https://example.org/canonv.pdf');                  // backfilled from candidate
+    expect($row->work_license)->toBe('cc-by');                                      // curated value preserved
+});

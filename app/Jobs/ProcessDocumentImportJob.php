@@ -790,6 +790,9 @@ class ProcessDocumentImportJob implements ShouldQueue
         // *before* reaching billing and a later attempt is the one that gets here.
         // ImportController::reconvert() removes this marker only when it re-runs OCR
         // from source (fresh OCR = fair to re-bill); reconvert-from-cache keeps it.
+        // Client-side OCR (macOS app on-device OCR) is free: ImportController::store()
+        // writes this marker with amount 0 when it accepts an uploaded ocr_response,
+        // so the check below already skips billing for that path.
         $chargedMarker = "{$path}/ocr_charged.json";
         if (File::exists($chargedMarker)) {
             Log::info('OCR already billed for this book — skipping charge', ['book' => $bookId]);
@@ -802,6 +805,16 @@ class ProcessDocumentImportJob implements ShouldQueue
         }
 
         $ocrData = json_decode(File::get($ocrJson), true);
+
+        // Belt-and-braces: client-side OCR (on-device engine or the user's own
+        // Mistral key — both server-stamped with the 'hyperlit-' model prefix)
+        // is never billed, even if the zero-charge marker write was somehow
+        // lost — the server made no Mistral call for it.
+        if (str_starts_with($ocrData['model'] ?? '', 'hyperlit-')) {
+            Log::info('Client-side OCR — nothing to bill', ['book' => $bookId]);
+            return;
+        }
+
         $totalPages = count($ocrData['pages'] ?? []);
         if ($totalPages <= 0) {
             return;

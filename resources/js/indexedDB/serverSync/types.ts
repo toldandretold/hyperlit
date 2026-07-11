@@ -92,7 +92,17 @@ export interface ServerFootnotesPayload {
 
 /** One bibliography value: new format object, or legacy bare content string. */
 type ServerBibliographyValue =
-  | { content?: string; source_id?: string | number | null; canonical_source_id?: string | number | null; source_has_nodes?: boolean | null }
+  | {
+      content?: string;
+      source_id?: string | number | null;
+      canonical_source_id?: string | number | null;
+      source_has_nodes?: boolean | null;
+      // READ-only, derived server-side (see DatabaseToIndexedDBController::getBibliography).
+      source_is_web_stub?: boolean | null;
+      source_external_url?: string | null;
+      reference_match_method?: string | null;
+      reference_verified_at?: string | null;
+    }
   | string;
 /** The `bibliography` payload: a book id plus a referenceId→value map. */
 export interface ServerBibliographyPayload {

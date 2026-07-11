@@ -95,6 +95,10 @@ class BestVersionService
     {
         return DB::table('library')
             ->where('canonical_source_id', $canonical->id)
+            // WebFetch scrape stubs are pipeline artifacts, never a human-readable "version" — a
+            // canonical whose only version is a stub resolves to citation-only (null). (NULL type
+            // is a normal book, so keep it — Postgres `type != x` alone would drop NULLs.)
+            ->where(fn ($q) => $q->whereNull('type')->orWhere('type', '!=', 'web_source'))
             ->where(function ($q) use ($user, $anonymousToken) {
                 // public is enough — `listed` only governs homepage listings,
                 // and auto versions are deliberately public+unlisted.
@@ -122,10 +126,12 @@ class BestVersionService
 
         $row = DB::table('library')
             ->where('book', $book)
-            ->select('creator', 'creator_token', 'visibility', 'listed')
+            ->select('creator', 'creator_token', 'visibility', 'listed', 'type')
             ->first();
 
         if (!$row || $row->visibility === 'deleted') return false;
+        // WebFetch scrape stubs are never surfaced as a readable version (see anyVisibleLinkedVersion).
+        if ($row->type === 'web_source') return false;
 
         // public is enough — `listed` only governs homepage listings, and auto
         // versions are deliberately public+unlisted (link-accessible).

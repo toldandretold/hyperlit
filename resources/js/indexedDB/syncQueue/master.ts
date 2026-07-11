@@ -13,6 +13,10 @@ import { refreshCsrfToken } from '../../utilities/auth/index';
 import { filterFreshNodesForBook } from './freshNodeFilter';
 // Per-book sync serialization, extracted for unit testing (tests/javascript/indexedDB/bookSyncChain.test.js)
 import { runSerializedPerKey } from './bookSyncChain';
+// Lost-ACK self-conflict content check, extracted for unit testing
+// (tests/javascript/indexedDB/selfConflictContentCheck.test.js)
+import { isLostAckSelfConflict } from './selfConflictContentCheck';
+import type { ConflictNodeInput } from './selfConflictContentCheck';
 import { advanceBaseTimestamp } from '../core/library';
 import { log } from '../../utilities/logger';
 import { asBookId } from '../types';
@@ -297,18 +301,32 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
       let errorData = await res.json();
       if (errorData.error === 'STALE_DATA') {
         // ── Self-conflict recovery ──────────────────────────────────────────────
-        // If the server's current timestamp is one THIS client has ALREADY been ACKed for,
-        // the "stale" version is our OWN prior sync (a rapid earlier save advanced the server
-        // past this sync's lagging base) — NOT another device. Fast-forward our base to it and
-        // retry once, silently, instead of hard-blocking the user. A server_timestamp we've
-        // NEVER seen (> our high-water, or none recorded) could come from another device — that
-        // still blocks below, so a genuine remote edit is never clobbered.
+        // Two ways a STALE_DATA 409 is OUR OWN write, not another device — either is safe
+        // to fast-forward + retry once silently instead of hard-blocking the user:
+        //  1. ack-match (cheap, no network): the conflicting server_timestamp is one this
+        //     client was ALREADY ACKed for — a rapid earlier save advanced the server past
+        //     this sync's lagging base.
+        //  2. content-match (one read-only fetch): a NETWORK BLIP committed our write on the
+        //     server but lost the response, so our base never advanced and we were never
+        //     ACKed for this timestamp — yet the server's CURRENT content for every
+        //     conflicting node equals what we tried to write. See selfConflictContentCheck.
+        // A server_timestamp we've never seen AND whose content differs could come from
+        // another device — that still blocks below, so a genuine remote edit is never clobbered.
         const conflictTs = (errorData as { server_timestamp?: unknown }).server_timestamp;
+        const conflictTsNum = typeof conflictTs === 'number' ? conflictTs : null;
         const acked = _ackedServerTs.get(bookId);
-        if (!staleRetried && typeof conflictTs === 'number' && acked != null && conflictTs <= acked) {
+        const ackMatch = conflictTsNum != null && acked != null && conflictTsNum <= acked;
+        let contentMatch = false;
+        if (!staleRetried && conflictTsNum != null && !ackMatch) {
+          contentMatch = await isLostAckSelfConflict(
+            bookId,
+            unifiedPayload.nodes as unknown as ConflictNodeInput[],
+          );
+        }
+        if (!staleRetried && conflictTsNum != null && (ackMatch || contentMatch)) {
           staleRetried = true;
-          unifiedPayload.base_timestamp = conflictTs;
-          await advanceBaseTimestamp(bookId, conflictTs); // persist so the next drain reads the fixed base
+          unifiedPayload.base_timestamp = conflictTsNum;
+          await advanceBaseTimestamp(bookId, conflictTsNum); // persist so the next drain reads the fixed base
           res = await doFetch();
           if (res.ok) {
             const retryResult = await res.json();

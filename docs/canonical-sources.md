@@ -145,14 +145,14 @@ Queue wrapper: `App\Jobs\CanonicalizeLibraryJob` (same idiom as `CitationPipelin
 
 ## The auto-version tool — `library:create-auto-versions`
 
-`App\Console\Commands\CreateAutoVersionsCommand`.
+`App\Console\Commands\CreateAutoVersionsCommand` — a thin CLI loop around `App\Services\CanonicalVersions\AutoVersionCreator`, the per-canonical body (also driven by the Source Network Harvester job, below).
 
-For each canonical with `pdf_url IS NOT NULL AND auto_version_book IS NULL`:
+For each canonical with `pdf_url IS NOT NULL AND auto_version_book IS NULL`, `AutoVersionCreator::create()`:
 
-1. Find or create a stub library row carrying the canonical's metadata + `pdf_url`, marked `conversion_method = 'pdf_ocr_auto_raw'`, `foundation_source = 'canonical_pdf_vacuum'`, `creator = 'canonicalizer_v1'`, `listed = false`.
-2. Dispatch `citation:vacuum {newBookId}` to download the PDF.
-3. Dispatch `citation:ocr {newBookId}` to Mistral-OCR it into nodes.
-4. Only after OCR succeeds, set `canonical.auto_version_book = newBookId`.
+1. Finds or creates a stub library row carrying the canonical's metadata + `pdf_url`, marked `conversion_method = 'pdf_ocr_auto_raw'`, `foundation_source = 'canonical_pdf_vacuum'`, `creator = 'canonicalizer_v1'`, `listed = false`.
+2. Calls `ContentFetchService::fetch()` directly (the same acquisition ladder `citation:vacuum` wraps) to download the PDF or import JATS/HTML.
+3. Calls `ContentFetchService::processLocalPdf()` (what `citation:ocr` wraps) to Mistral-OCR a downloaded PDF into nodes; JATS/HTML lanes arrive already imported and skip OCR.
+4. Only after content lands (`has_nodes = true`), sets `canonical.auto_version_book = newBookId`.
 
 **Idempotent on retry.** If a stub already exists from a failed previous run, it's reused (no duplicate stubs). If the stub already has `has_nodes = true` (OCR completed elsewhere), the canonical pointer is wired and the command moves on.
 
@@ -165,6 +165,12 @@ php artisan library:create-auto-versions --limit=10         # batch
 php artisan library:create-auto-versions --skip-ocr         # vacuum only, OCR later
 php artisan library:create-auto-versions --dry-run
 ```
+
+## The Source Network Harvester — "Import Knowledge Network"
+
+The user-facing orchestrator that chains the pieces above from a single button in a book's creator tools panel (owner-only). One run: scan the book's bibliography/footnotes to canonicals (`citation:scan-bibliography`), select every reached canonical that is open access, unharvested, and fetchable (`pdf_url`/`oa_url`/`doi`), then fetch + convert each into its `auto_version_book` via `AutoVersionCreator` — most-cited first, under a hard per-run work cap. The flow is estimate → confirm → queued job → status polling; once a work is harvested, the book's citation display automatically links it as a held best-version.
+
+State lives in `source_network_harvests` (frontier + depth make it recursion-ready: raising `source_harvest.max_depth` walks the citation network outward, harvesting the harvested texts' own citations). Full design, eligibility rules, idempotency guarantees, and API surface: `app/Services/SourceHarvest/README.md`.
 
 ## Authorships & identity verification
 

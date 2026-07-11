@@ -13,7 +13,7 @@ import Combine
 struct Provider: Codable, Identifiable, Hashable {
     var id: String
     var label: String
-    var kind: String        // "llm" | "tts"
+    var kind: String        // "llm" | "tts" | "ocr"
     var baseUrl: String
     var model: String
     var voice: String?      // TTS only
@@ -23,6 +23,7 @@ final class ProviderStore: ObservableObject {
     @Published var providers: [Provider] = []
     @Published var activeLlm: String?
     @Published var activeTts: String?
+    @Published var activeOcr: String?
 
     /// Set by the WebView; fires a `providers_changed` event to the web layer.
     var onChanged: (() -> Void)?
@@ -30,6 +31,7 @@ final class ProviderStore: ObservableObject {
     private let kProviders = "hyperlit.providers.v1"
     private let kActiveLlm = "hyperlit.active.llm"
     private let kActiveTts = "hyperlit.active.tts"
+    private let kActiveOcr = "hyperlit.active.ocr"
 
     init() { load() }
 
@@ -52,7 +54,16 @@ final class ProviderStore: ObservableObject {
             },
             "activeLlm": activeLlm as Any,
             "activeTts": activeTts as Any,
+            "activeOcr": activeOcr as Any,
         ]
+    }
+
+    /// The active OCR provider, if one is selected AND has a Keychain key —
+    /// the ocr.run bridge method uses it (e.g. the user's own Mistral OCR key)
+    /// instead of the on-device engine.
+    func activeOcrProvider() -> Provider? {
+        guard let id = activeOcr, let p = provider(id: id), Keychain.exists(p.id) else { return nil }
+        return p
     }
 
     // ── Mutations (each persists + notifies) ─────────────────────────────────
@@ -68,13 +79,17 @@ final class ProviderStore: ObservableObject {
         Keychain.delete(p.id)
         if activeLlm == p.id { activeLlm = nil }
         if activeTts == p.id { activeTts = nil }
+        if activeOcr == p.id { activeOcr = nil }
         persist()
     }
 
     /// Toggle a profile as the active one for its kind (click active again ⇒ off).
     func toggleActive(_ p: Provider) {
-        if p.kind == "llm" { activeLlm = (activeLlm == p.id) ? nil : p.id }
-        else { activeTts = (activeTts == p.id) ? nil : p.id }
+        switch p.kind {
+        case "llm": activeLlm = (activeLlm == p.id) ? nil : p.id
+        case "ocr": activeOcr = (activeOcr == p.id) ? nil : p.id
+        default: activeTts = (activeTts == p.id) ? nil : p.id
+        }
         persist()
     }
 
@@ -95,6 +110,7 @@ final class ProviderStore: ObservableObject {
         defaults.set(try? JSONEncoder().encode(providers), forKey: kProviders)
         defaults.set(activeLlm, forKey: kActiveLlm)
         defaults.set(activeTts, forKey: kActiveTts)
+        defaults.set(activeOcr, forKey: kActiveOcr)
         onChanged?()
     }
 
@@ -106,5 +122,6 @@ final class ProviderStore: ObservableObject {
         }
         activeLlm = defaults.string(forKey: kActiveLlm)
         activeTts = defaults.string(forKey: kActiveTts)
+        activeOcr = defaults.string(forKey: kActiveOcr)
     }
 }

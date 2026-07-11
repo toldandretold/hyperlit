@@ -22,6 +22,7 @@ import { loadVersionHistory } from "./creatorTools/versionHistory";
 import { loadReconvertInfo, handleReconvert, _awaitReconvert } from "./creatorTools/reconvert";
 import { handleReupload } from "./creatorTools/reupload";
 import { handleDeleteBook } from "./creatorTools/deleteBook";
+import { loadHarvestSection, handleHarvestNetwork, startHarvestPolling, stopHarvestPolling, pollHarvestStatus } from "./creatorTools/harvestNetwork";
 import { loadAiReviewStatus, setAiReviewState, handleAiReviewGenerate, ensureAiReviewLivePanel } from "./aiReview/index";
 import { handleCheckSource, wireSourceStatus } from "./checkSource";
 import { startAiReviewPolling, stopAiReviewPolling, pollAiReviewStatus } from "./aiReview/polling";
@@ -256,6 +257,7 @@ export class SourceContainerManager extends (ContainerManager as any) {
     cs.bottom = '';
 
     this.stopAiReviewPolling();
+    this.stopHarvestPolling();
     this.isOpen = false;
     (window as any).activeContainer = "main-content";
     this.updateState(); // Removes .open class via parent's updateState()
@@ -297,6 +299,13 @@ export class SourceContainerManager extends (ContainerManager as any) {
   _awaitReconvert(result: any, bookId: any, progressUI: any) { return _awaitReconvert(this, result, bookId, progressUI); }
   handleReupload(file: any) { return handleReupload(this, file); }
   handleDeleteBook() { return handleDeleteBook(this); }
+
+  // harvestNetwork (Source Network Harvester)
+  loadHarvestSection() { return loadHarvestSection(this); }
+  handleHarvestNetwork() { return handleHarvestNetwork(this); }
+  startHarvestPolling(intervalMs?: any) { return startHarvestPolling(this, intervalMs); }
+  stopHarvestPolling() { return stopHarvestPolling(this); }
+  pollHarvestStatus() { return pollHarvestStatus(this); }
 
   // aiReview
   handleAiReviewGenerate() { return handleAiReviewGenerate(this); }

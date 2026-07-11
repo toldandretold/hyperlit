@@ -82,6 +82,25 @@ describe('librarianHtml', () => {
   it('anonymous when no creator', () => {
     expect(librarianHtml({ book: 'b', creator: null })).toContain('Uploaded anonymously');
   });
+
+  it('WebFetch is not a user — links to the original URL, never /u/WebFetch', () => {
+    const html = librarianHtml({ book: 'b', creator: 'WebFetch', url: 'https://progressive.international/havana' });
+    expect(html).toContain('Fetched automatically from');
+    expect(html).toContain('https://progressive.international/havana');
+    expect(html).not.toContain('/u/WebFetch');
+  });
+
+  it('WebFetch falls back to the canonical source_url when the library url is absent', () => {
+    const html = librarianHtml({ book: 'b', creator: 'WebFetch', canonical: { id: 'c', source_url: 'https://example.org/x' } });
+    expect(html).toContain('https://example.org/x');
+    expect(html).not.toContain('/u/WebFetch');
+  });
+
+  it('WebFetch with no URL → generic automated text, no profile link', () => {
+    const html = librarianHtml({ book: 'b', creator: 'WebFetch' });
+    expect(html).toContain('Fetched automatically from the web');
+    expect(html).not.toContain('/u/WebFetch');
+  });
 });
 
 describe('sourceStatusSectionHtml', () => {

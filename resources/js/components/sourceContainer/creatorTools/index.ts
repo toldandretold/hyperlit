@@ -18,6 +18,8 @@ export async function loadCreatorTools(self: any) {
 
       <div id="reconvert-section" style="margin-top: 15px; padding-top: 15px; display: none;"></div>
 
+      <div id="harvest-network-section" style="margin-top: 15px; padding-top: 15px;"></div>
+
       <div id="reupload-section" style="margin-top: 15px; padding-top: 15px;">
         <h3>Re-upload Source</h3>
         <div id="reupload-dropzone" style="border: 2px dashed rgba(136,136,136,0.4); border-radius: 6px; padding: 20px 12px; text-align: center; cursor: pointer; transition: border-color 0.2s;">
@@ -90,4 +92,5 @@ export async function loadCreatorTools(self: any) {
   // Fire off lazy API calls
   self.loadVersionHistory();
   self.loadReconvertInfo();
+  self.loadHarvestSection();
 }

@@ -36,6 +36,11 @@ dump.rdb
 !/tests/conversion/import-samples/**/*.epub
 # …except the 60 MB oversized blob — regenerate locally
 /tests/conversion/import-samples/bad/oversized.pdf
+# …and the native-OCR fixture's source PDF (small, regenerable via its generate_pdf.swift)
+!/tests/conversion/fixtures/pdf/**/source.pdf
+
+# hyperlit-ocr CLI build output (build with macOShyperlit/build-cli.sh)
+/macOShyperlit/bin/
 
 # Font extras (full package not needed)
 public/fonts/inter/info/

@@ -10,7 +10,7 @@
  */
 
 import { nativeCall } from '../utilities/nativeBridge';
-import { getProfileById } from './profiles';
+import { getProfileById, getActiveProfile } from './profiles';
 import { log } from '../utilities/logger';
 
 const FILE = '/aiProviders/execute.ts';
@@ -92,6 +92,41 @@ export async function executeChat(profileId: string, req: ChatRequest): Promise<
     | undefined;
   const content = json?.choices?.[0]?.message?.content ?? null;
   return { content, usage: json?.usage, model };
+}
+
+// ── Inference-ticket execution ───────────────────────────────────────────────
+
+/**
+ * The OpenAI-style body a parked inference ticket carries (built server-side by
+ * LlmService::assembleBody / the vibe-css generate branch).
+ */
+export interface TicketRequest {
+  model?: string | null;
+  temperature?: number;
+  max_tokens?: number;
+  messages?: Array<{ role: string; content: string }>;
+  reasoning_effort?: string;
+}
+
+/**
+ * Execute a parked ticket request against the ACTIVE LLM profile. The server's
+ * model id is deliberately ignored — the user's configured model answers (that's
+ * the whole point of BYO). Returns null when no profile is active.
+ */
+export async function executeTicketRequest(request: TicketRequest): Promise<ChatResult | null> {
+  const profile = await getActiveProfile('llm');
+  if (!profile) return null;
+
+  const system = request.messages?.find((m) => m.role === 'system')?.content ?? '';
+  const user = request.messages?.find((m) => m.role === 'user')?.content ?? '';
+
+  return executeChat(profile.id, {
+    system,
+    user,
+    temperature: request.temperature,
+    maxTokens: request.max_tokens,
+    reasoningEffort: request.reasoning_effort,
+  });
 }
 
 // ── TTS ──────────────────────────────────────────────────────────────────────

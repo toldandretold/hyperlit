@@ -38,10 +38,11 @@ const CONTENT_SEL =
 // dead-zone rule below would forward their wheel to the page — exempt them explicitly:
 // the search-results dropdown (inside .fixed-header), the newbook/import form, the glass
 // panels (TOC / user auth / source), each of which scrolls via its own inner .scroller,
-// and the shelf-preview overlay (appended to document.body). Without these the
-// capture-phase handler steals the wheel from the panel and scrolls the page behind it.
+// the citation-mode results panel (sibling of #edit-toolbar, scrolls its own result list
+// via overflow-y:auto), and the shelf-preview overlay (appended to document.body). Without
+// these the capture-phase handler steals the wheel from the panel and scrolls the page behind it.
 const SCROLLABLE_OVERLAY_SEL =
-  '#search-results-container, #newbook-container, #toc-container, #user-container, #source-container, .shelf-preview-overlay';
+  '#search-results-container, #newbook-container, #toc-container, #user-container, #source-container, #citation-toolbar-results, .shelf-preview-overlay';
 
 export function initWheelScrollForwarder(): void {
   if (wheelHandler) return; // document-delegated singleton — create once

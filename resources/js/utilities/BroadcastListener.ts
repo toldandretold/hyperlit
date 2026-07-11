@@ -6,6 +6,7 @@ import { applyHypercites, applyHighlights } from "../lazyLoader/chunkRender";
 // utility doesn't statically pull the reader-only hypercites chunk into the eager bundle.
 import { setProgrammaticUpdateInProgress } from "./operationState";
 import { openDatabase } from "../indexedDB/core/connection.js";
+import { nodePlainText } from "./nodeText";
 
 // Track recent broadcasts from THIS tab to skip self-processing
 // This prevents the re-render loop where our own broadcast triggers mutation observers
@@ -180,20 +181,9 @@ function escapeHtml(s: string): string {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
 }
 
-/**
- * Safe plain-text preview of (possibly hostile) node HTML. DOMParser documents are
- * inert — no script execution, no `<img onerror>`, no resource loads — unlike a
- * detached div's innerHTML (the stored-XSS vector noted elsewhere). We only need the
- * text the user wrote, so collapse whitespace and return it.
- */
-function lostNodePreviewText(html: string): string {
-  try {
-    const doc = new DOMParser().parseFromString(html || '', 'text/html');
-    return (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
-  } catch {
-    return '';
-  }
-}
+// Safe, whitespace-collapsed plain-text preview of (possibly hostile) node HTML.
+// Shared with the lost-ACK self-conflict check so both normalize identically.
+const lostNodePreviewText = nodePlainText;
 
 export function showStaleTabOverlay(
   message: any,

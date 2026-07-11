@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1613 functions in 345 modules · 10 object stores · 10 PG tables · 3282 edges
+**MarkdownDB** schema v28 · 1629 functions in 347 modules · 10 object stores · 10 PG tables · 3301 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -252,6 +252,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `sourceStatusSectionHtml` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `wireSourceStatus` | `components/sourceContainer/checkSource` | — | — | read/write | — |
 | `handleDeleteBook` | `components/sourceContainer/creatorTools/deleteBook` | — | — | read/write | — |
+| `handleHarvestNetwork` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | read/write | — |
+| `loadHarvestSection` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | read/write | — |
+| `pollHarvestStatus` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | read/write | — |
+| `startHarvestPolling` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | — | — |
+| `stopHarvestPolling` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | — | — |
 | `loadCreatorTools` | `components/sourceContainer/creatorTools/index` | — | — | read/write | — |
 | `_awaitReconvert` | `components/sourceContainer/creatorTools/reconvert` | — | — | — | — |
 | `handleReconvert` | `components/sourceContainer/creatorTools/reconvert` | — | — | read/write | — |
@@ -301,16 +306,19 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.handleDeleteBook` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleEditClick` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleFormSubmit` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.handleHarvestNetwork` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleReconvert` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleReupload` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.hideEditForm` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadAiReviewStatus` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadCreatorTools` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.loadHarvestSection` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadReconvertInfo` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadVersionHistory` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.openAiReviewVizOverlay` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.openContainer` | `components/sourceContainer/index` | — | — | write | — |
 | `SourceContainerManager.pollAiReviewStatus` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.pollHarvestStatus` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.populateEditForm` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.populateFieldsFromBibtex` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.rebindElements` | `components/sourceContainer/index` | — | — | — | — |
@@ -323,7 +331,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.showEditForm` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.showOptionalFieldsForType` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.startAiReviewPolling` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.startHarvestPolling` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.stopAiReviewPolling` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.stopHarvestPolling` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.syncLibraryRecordToBackend` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.syncPipelineHighlights` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.validateUrl` | `components/sourceContainer/index` | — | — | — | — |
@@ -915,8 +925,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `buildUnifiedContent` | `hyperlitContainer/contentBuild` | — | — | — | — |
 | `buildHyperciteCitationContent` | `hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation` | `library` | `library` | — | — |
 | `resolveButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation` | — | — | read/write | — |
-| `buildCitationContent` | `hyperlitContainer/contentBuilders/displayCitations/plainCitation` | `bibliography` `library` | `bibliography` `library` | — | — |
+| `buildCitationContent` | `hyperlitContainer/contentBuilders/displayCitations/plainCitation` | `bibliography` `library` | — | — | — |
 | `resolveCitationButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations/plainCitation` | — | — | read/write | — |
+| `wireReferenceVerifyButtons` | `hyperlitContainer/contentBuilders/displayCitations/plainCitation` | — | — | read/write | — |
 | `buildFootnoteContent` | `hyperlitContainer/contentBuilders/displayFootnotes` | — | — | — | — |
 | `handleHyperciteDelete` | `hyperlitContainer/contentBuilders/displayHypercites/citationPanelButtons` | — | — | read | — |
 | `handleHyperciteHealthCheck` | `hyperlitContainer/contentBuilders/displayHypercites/citationPanelButtons` | — | — | read/write | — |
@@ -1108,6 +1119,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `loadHyperlightsToIndexedDB` | `indexedDB/serverSync/loaders` | — | — | — | — |
 | `loadLibraryToIndexedDB` | `indexedDB/serverSync/loaders` | — | `library` | — | — |
 | `loadNodesToIndexedDB` | `indexedDB/serverSync/loaders` | — | — | — | — |
+| `fetchServerNodesRaw` | `indexedDB/serverSync/pull` | — | — | — | `↓route:/api/database-to-indexeddb/books/{}/data` |
 | `syncAnnotationsOnly` | `indexedDB/serverSync/pull` | — | — | — | `↓route:/api/database-to-indexeddb/books/{}/annotations` |
 | `syncBookDataFromDatabase` | `indexedDB/serverSync/pull` | — | `bibliography` `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | `↓route:/api/database-to-indexeddb/books/{}/data` |
 | `syncIndexedDBtoPostgreSQL` | `indexedDB/serverSync/push` | — | — | read | — |
@@ -1121,6 +1133,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `clearPendingSyncsForBook` | `indexedDB/syncQueue/queue` | — | — | — | — |
 | `initSyncQueueDependencies` | `indexedDB/syncQueue/queue` | — | — | — | — |
 | `queueForSync` | `indexedDB/syncQueue/queue` | — | — | — | — |
+| `isLostAckSelfConflict` | `indexedDB/syncQueue/selfConflictContentCheck` | — | — | — | — |
 | `initUnloadSyncDependencies` | `indexedDB/syncQueue/unload` | — | — | — | — |
 | `setupUnloadSync` | `indexedDB/syncQueue/unload` | — | — | read | `↑route:/api/db/sync/beacon` |
 | `asBookId` | `indexedDB/types` | — | — | — | — |
@@ -1548,6 +1561,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `FreshPageLoader.initialize` | `SPA/navigation/pathways/FreshPageLoader` | — | — | — | — |
 | `FreshPageLoader.isFreshPageLoad` | `SPA/navigation/pathways/FreshPageLoader` | `sessionStorage` | — | — | — |
 | `FreshPageLoader.setupFreshPageLoadHandling` | `SPA/navigation/pathways/FreshPageLoader` | — | — | read | — |
+| `ImportBookTransition.attachNativeOcrIfAvailable` | `SPA/navigation/pathways/ImportBookTransition` | — | — | write | — |
 | `ImportBookTransition.cleanupPreviousState` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
 | `ImportBookTransition.clearFormData` | `SPA/navigation/pathways/ImportBookTransition` | — | `localStorage` | — | — |
 | `ImportBookTransition.createImportProgressUI` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read/write | — |
@@ -1557,8 +1571,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ImportBookTransition.fetchReaderPageHtml` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
 | `ImportBookTransition.handleFormSubmissionAndTransition` | `SPA/navigation/pathways/ImportBookTransition` | — | `library` | read/write | — |
 | `ImportBookTransition.initializeImportedReader` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read | — |
+| `ImportBookTransition.offerFailureRecovery` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
 | `ImportBookTransition.pollImportProgress` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
 | `ImportBookTransition.replaceBodyContent` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read/write | — |
+| `ImportBookTransition.retryImportViaReconvert` | `SPA/navigation/pathways/ImportBookTransition` | — | — | read | — |
 | `ImportBookTransition.setupImportedBookSession` | `SPA/navigation/pathways/ImportBookTransition` | — | `sessionStorage` | — | — |
 | `ImportBookTransition.showFootnoteAuditModal` | `SPA/navigation/pathways/ImportBookTransition` | — | — | write | — |
 | `ImportBookTransition.updateUrl` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
@@ -1626,7 +1642,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 2 · dynamic cycle-breakers (debt): 2 · lazy-loads (code-split): 238
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 3 · dynamic cycle-breakers (debt): 3 · lazy-loads (code-split): 238
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1634,10 +1650,12 @@ Only *static-import* rings can crash with a TDZ "Cannot access X before initiali
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
 - (2 modules) `components/homepage/homepageDisplayUnit`, `components/shelves/shelfHeader`
 - (2 modules) `components/utilities/containerManager`, `hyperlitContainer/core`
+- (6 modules) `indexedDB/index`, `indexedDB/serverSync/loaders`, `indexedDB/serverSync/pull`, `indexedDB/syncQueue/master`, `indexedDB/syncQueue/selfConflictContentCheck`, `indexedDB/syncQueue/unload`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
 - `components/homepage/homepageDisplayUnit` → `components/shelves/shelfHeader`
 - `components/utilities/containerManager` → `hyperlitContainer/core`
+- `indexedDB/syncQueue/selfConflictContentCheck` → `indexedDB/serverSync/pull`
 
 ### Lazy-loads (code-split points)
 - `SPA/domReadiness` → `SPA/navigation/ProgressOverlayEnactor`

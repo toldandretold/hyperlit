@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\InferenceTicket;
 use App\Services\BillingService;
 use App\Services\LlmService;
 use Illuminate\Http\JsonResponse;
@@ -158,7 +159,11 @@ class VibeCSSController extends Controller
 
         $user->refresh();
 
-        if (!$billingService->canProceed($user)) {
+        // BYO-key mode: the client executes the LLM call with the user's own
+        // key, so no balance is needed and no charge is made.
+        $clientInference = $request->boolean('client_inference');
+
+        if (!$clientInference && !$billingService->canProceed($user)) {
             return response()->json(['success' => false, 'message' => 'Insufficient balance'], 402);
         }
 
@@ -170,6 +175,46 @@ class VibeCSSController extends Controller
 
         $systemPrompt = $this->buildSystemPrompt();
         $userMessage = "Theme description: {$prompt}";
+
+        // BYO-key path: park the prompt as an inference ticket and hand it to the
+        // client (202). The client runs it locally and posts the completion to
+        // /api/vibe-css/complete, which parses it with the same code below.
+        if ($clientInference) {
+            $body = [
+                'temperature' => 0.7,
+                'max_tokens'  => 2000,
+                'messages'    => [
+                    ['role' => 'system', 'content' => $systemPrompt],
+                    ['role' => 'user',   'content' => $userMessage],
+                ],
+            ];
+
+            // updateOrCreate on the dedupe key so regenerating the same prompt
+            // re-arms the existing ticket instead of hitting the unique index.
+            $ticket = InferenceTicket::updateOrCreate(
+                [
+                    'creator' => $user->name,
+                    'feature' => 'vibe_css',
+                    'context_id' => null,
+                    'request_hash' => hash('sha256', json_encode($body)),
+                ],
+                [
+                    'status' => 'pending',
+                    'request' => $body,
+                    'completion' => null,
+                    'error' => null,
+                    'expires_at' => now()->addSeconds(120),
+                    'claimed_at' => null,
+                    'completed_at' => null,
+                ]
+            );
+
+            return response()->json([
+                'needs_client_inference' => true,
+                'ticket_id' => $ticket->id,
+                'request' => $body,
+            ], 202);
+        }
 
         try {
             $llmResponse = $llmService->chat(
@@ -189,15 +234,8 @@ class VibeCSSController extends Controller
                 ], 504);
             }
 
-            // Strip <think> tags
-            $llmResponse = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $llmResponse);
-            if (str_contains($llmResponse, '<think>')) {
-                $llmResponse = preg_replace('/<think>[\s\S]*/i', '', $llmResponse);
-            }
-            $llmResponse = trim($llmResponse);
-
-            // Extract JSON from response
-            $overrides = $this->extractOverrides($llmResponse);
+            // Extract JSON from response (after stripping <think> tags)
+            $overrides = $this->extractOverrides($this->stripThinkTags($llmResponse));
 
             if (empty($overrides)) {
                 Log::warning('VibeCSS: failed to parse overrides', ['raw' => $llmResponse]);
@@ -240,6 +278,69 @@ class VibeCSSController extends Controller
                 'message' => 'Theme generation failed. Please try again.',
             ], 500);
         }
+    }
+
+    /**
+     * BYO-key second leg: the client executed the parked vibe_css ticket with the
+     * user's own key and posts the raw completion here. We mark the ticket done
+     * and run the exact same parse as the server path. No charge — the server
+     * made no LLM call.
+     */
+    public function complete(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Authentication required'], 401);
+        }
+
+        $validated = $request->validate([
+            'ticket_id' => 'required|uuid',
+            'content' => 'required|string',
+        ]);
+
+        // RLS scopes the lookup to the owner; a foreign ticket id → 404.
+        $ticket = InferenceTicket::where('id', $validated['ticket_id'])
+            ->where('feature', 'vibe_css')
+            ->first();
+        if (!$ticket) {
+            return response()->json(['success' => false, 'message' => 'Ticket not found'], 404);
+        }
+
+        $ticket->update([
+            'status' => 'completed',
+            'completion' => ['content' => $validated['content']],
+            'completed_at' => now(),
+        ]);
+
+        $overrides = $this->extractOverrides($this->stripThinkTags($validated['content']));
+
+        if (empty($overrides)) {
+            Log::warning('VibeCSS: failed to parse client-inference overrides', ['ticket' => $ticket->id]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not generate a theme. Try a different description.',
+            ], 422);
+        }
+
+        Log::info('VibeCSS: generated via client inference', [
+            'user' => $user->name,
+            'variables_count' => count($overrides),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'overrides' => $overrides,
+        ]);
+    }
+
+    /** Strip <think> reasoning tags (balanced, then any unclosed tail). */
+    private function stripThinkTags(string $response): string
+    {
+        $response = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $response);
+        if (str_contains($response, '<think>')) {
+            $response = preg_replace('/<think>[\s\S]*/i', '', $response);
+        }
+        return trim($response);
     }
 
     private function buildSystemPrompt(): string

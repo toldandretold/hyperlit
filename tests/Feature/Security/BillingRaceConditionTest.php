@@ -56,7 +56,9 @@ it('multiple simultaneous audio generations are gated by credit reservation', fu
         $this->seedNode([
             'book' => $bookId,
             'startLine' => 100,
-            'node_id' => "node_{$i}",
+            // node_id is GLOBALLY unique — book-prefix it so residue from a
+            // crashed run (admin seeds commit) can't collide with other tests.
+            'node_id' => "{$bookId}_node_{$i}",
             'content' => '<p>Some text to narrate</p>',
             'plainText' => 'Some text to narrate',
             'type' => 'p',
@@ -104,7 +106,9 @@ it('per-book lock prevents duplicate generation for the SAME book', function () 
     $this->seedNode([
         'book' => $bookId,
         'startLine' => 100,
-        'node_id' => 'n1',
+        // Book-prefixed: an unprefixed 'n1' residue row from a crashed run
+        // once broke every other test inserting node_id 'n1' (globally unique).
+        'node_id' => "{$bookId}_n1",
         'content' => '<p>Text</p>',
         'plainText' => 'Text',
         'type' => 'p',

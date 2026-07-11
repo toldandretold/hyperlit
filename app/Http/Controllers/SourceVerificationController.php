@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AnonymousSession;
+use App\Http\Controllers\Concerns\ResolvesBookOwner;
 use App\Models\PgLibrary;
 use App\Services\CanonicalSourceMatcher;
 use App\Services\OpenAlexService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -19,6 +18,8 @@ use Illuminate\Support\Facades\Log;
  */
 class SourceVerificationController extends Controller
 {
+    use ResolvesBookOwner;
+
     public function __construct(
         private readonly CanonicalSourceMatcher $matcher,
         private readonly OpenAlexService $openAlex,
@@ -27,7 +28,7 @@ class SourceVerificationController extends Controller
     /** POST /api/library/{book}/source/lookup — read-only candidate preview. */
     public function lookup(Request $request, string $book)
     {
-        [$library, $deny] = $this->authorizeEdit($request, $book);
+        [$library, $deny] = $this->authorizeBookEdit($request, $book);
         if ($deny) return $deny;
 
         try {
@@ -48,7 +49,7 @@ class SourceVerificationController extends Controller
      */
     public function verify(Request $request, string $book)
     {
-        [$library, $deny, $info] = $this->authorizeEdit($request, $book);
+        [$library, $deny, $info] = $this->authorizeBookEdit($request, $book);
         if ($deny) return $deny;
 
         $identifier = array_filter((array) $request->input('identifier', []));
@@ -92,7 +93,7 @@ class SourceVerificationController extends Controller
     /** POST /api/library/{book}/source/reject — user looked and there's no match; don't re-prompt. */
     public function reject(Request $request, string $book)
     {
-        [$library, $deny, $info] = $this->authorizeEdit($request, $book);
+        [$library, $deny, $info] = $this->authorizeBookEdit($request, $book);
         if ($deny) return $deny;
 
         $this->matcher->stampUserRejected($library, $this->matchedBy($info));
@@ -102,30 +103,6 @@ class SourceVerificationController extends Controller
     // ──────────────────────────────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────────────────────────────
-
-    /**
-     * @return array{0: ?PgLibrary, 1: ?\Illuminate\Http\JsonResponse, 2: ?array} [library, denyResponse, creatorInfo]
-     */
-    private function authorizeEdit(Request $request, string $book): array
-    {
-        $library = PgLibrary::where('book', $book)->first();
-        if (!$library) {
-            return [null, response()->json(['success' => false, 'message' => 'Book not found'], 404), null];
-        }
-
-        $info = $this->getCreatorInfo($request);
-        if (!$info['valid']) {
-            return [$library, response()->json(['success' => false, 'message' => 'Invalid session'], 401), $info];
-        }
-
-        $isOwner = ($library->creator && $library->creator === $info['creator']) ||
-                   ($library->creator_token && $library->creator_token === $info['creator_token']);
-        if (!$isOwner) {
-            return [$library, response()->json(['success' => false, 'message' => 'Forbidden'], 403), $info];
-        }
-
-        return [$library, null, $info];
-    }
 
     /** Find a previewed candidate (best / alternates / current) whose identifier matches the request. */
     private function pickByIdentifier(array $preview, array $identifier): ?array
@@ -171,39 +148,5 @@ class SourceVerificationController extends Controller
             'canonical_metadata_score' => $l->canonical_metadata_score !== null ? (float) $l->canonical_metadata_score : null,
             'human_reviewed_at'        => $l->human_reviewed_at,
         ];
-    }
-
-    private function matchedBy(?array $info): string
-    {
-        if (!empty($info['creator'])) return (string) $info['creator'];
-        return 'anon:' . substr((string) ($info['creator_token'] ?? ''), 0, 8);
-    }
-
-    // The next two mirror DbLibraryController's owner-resolution (kept local to avoid editing that
-    // large, critical controller; a shared trait is a fine future refactor).
-
-    private function getCreatorInfo(Request $request): array
-    {
-        $user = Auth::user();
-        if ($user) {
-            return ['creator' => $user->name, 'creator_token' => null, 'valid' => true];
-        }
-
-        $anonToken = $request->cookie('anon_token');
-        if (!$anonToken || !$this->isValidAnonymousToken($anonToken)) {
-            return ['creator' => null, 'creator_token' => null, 'valid' => false];
-        }
-
-        AnonymousSession::where('token', $anonToken)->update(['last_used_at' => now()]);
-        return ['creator' => null, 'creator_token' => $anonToken, 'valid' => true];
-    }
-
-    private function isValidAnonymousToken(?string $token): bool
-    {
-        if (!$token) return false;
-        // Anonymous sessions valid for 90 days (matches DbLibraryController).
-        return AnonymousSession::where('token', $token)
-            ->where('created_at', '>', now()->subDays(90))
-            ->first() !== null;
     }
 }

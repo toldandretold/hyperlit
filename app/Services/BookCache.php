@@ -404,7 +404,12 @@ class BookCache
     {
         $references = DB::table('bibliography')
             ->leftJoin('library', 'bibliography.source_id', '=', 'library.book')
-            ->select('bibliography.*', 'library.has_nodes as source_has_nodes')
+            ->select(
+                'bibliography.*',
+                'library.has_nodes as source_has_nodes',
+                'library.type as source_type',
+                'library.url as source_url',
+            )
             ->where('bibliography.book', $bookId)
             ->get();
         if ($references->isEmpty()) {
@@ -412,11 +417,17 @@ class BookCache
         }
         $data = [];
         foreach ($references as $ref) {
+            // Keep IN LOCKSTEP with DatabaseToIndexedDBController::getBibliography — see it for docs.
+            $isWebStub = ($ref->source_type ?? null) === 'web_source';
             $data[$ref->referenceId] = [
                 'content'             => $ref->content,
                 'source_id'           => $ref->source_id ?? null,
                 'canonical_source_id' => $ref->canonical_source_id ?? null,
                 'source_has_nodes'    => isset($ref->source_has_nodes) ? (bool) $ref->source_has_nodes : null,
+                'source_is_web_stub'  => $isWebStub,
+                'source_external_url' => $isWebStub ? ($ref->source_url ?? null) : null,
+                'reference_match_method' => $ref->reference_match_method ?? null,
+                'reference_verified_at'  => $ref->reference_verified_at ?? null,
             ];
         }
         return ['book' => $bookId, 'data' => $data];

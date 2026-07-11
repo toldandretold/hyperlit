@@ -82,6 +82,12 @@ export interface CanonicalMetadata {
   abstract?: string | null;
   oa_url?: string | null;
   pdf_url?: string | null;
+  /** Identifiers → the "view on OpenAlex / Open Library" link in the verified state on a fresh open. */
+  openalex_id?: string | null;
+  open_library_key?: string | null;
+  /** Original URL for a web-only canonical (no DOI/OA) — the link OUT when its only version was a
+   * suppressed WebFetch stub (best-version returns book: null). */
+  source_url?: string | null;
 }
 export interface CanonicalBestVersion {
   book: BookId | null;

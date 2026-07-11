@@ -608,6 +608,58 @@ export class ImportBookTransition {
   }
 
   /**
+   * On-device OCR inside the macOS shell: when the upload is a single PDF,
+   * run the native engine (ocr.* bridge, Apple Vision/PDFKit) and append the
+   * Mistral-shaped result as `ocr_response` — ImportController seeds it as the
+   * conversion pipeline's OCR cache, so no Mistral call happens and nothing is
+   * billed. No-op in a plain browser. If the engine fails, the user chooses
+   * between server OCR (billed per page) and aborting the import.
+   */
+  static async attachNativeOcrIfAvailable(formData: any, submitButton: any) {
+    // Leaf module, dynamically imported so non-shell visitors never fetch it.
+    const { nativeOcrAvailable, nativePdfOcr } = await import('../../../utilities/nativeOcr');
+    if (!nativeOcrAvailable()) return;
+
+    const files: File[] = [];
+    for (const [key, value] of formData.entries()) {
+      if ((key === 'markdown_file' || key === 'markdown_file[]') && value instanceof File) {
+        files.push(value);
+      }
+    }
+    const pdf = files.length === 1 ? files[0] : undefined;
+    if (!pdf || !pdf.name.toLowerCase().endsWith('.pdf')) return;
+
+    const originalText = submitButton ? submitButton.textContent : null;
+    try {
+      const result = await nativePdfOcr(pdf, (p) => {
+        if (submitButton) {
+          // totalPages is 0 while a BYO remote provider (user's Mistral key)
+          // is in flight — no page counts there, just keepalive pulses.
+          submitButton.textContent = p.totalPages > 0
+            ? `OCR page ${p.page}/${p.totalPages}…`
+            : 'OCR (your provider)…';
+        }
+      });
+      formData.append('ocr_response', result.blob, 'ocr_response.json');
+      formData.append('ocr_source', result.source === 'mistral' ? 'client_mistral' : 'client_native');
+      if (submitButton && originalText) submitButton.textContent = originalText;
+    } catch (e: any) {
+      log.error('Native OCR failed:', '/SPA/navigation/pathways/ImportBookTransition.ts', e);
+      if (submitButton && originalText) submitButton.textContent = originalText;
+      const proceed = window.confirm(
+        `On-device OCR failed (${e?.message || 'unknown error'}).\n\n` +
+        'Continue with server OCR instead? Server OCR is billed per page.'
+      );
+      if (!proceed) {
+        const cancelled: any = new Error('Import cancelled after on-device OCR failure');
+        cancelled.handledByImportFailureModal = true; // no second failure modal
+        throw cancelled;
+      }
+      // Proceed with the plain upload — the server runs (billed) Mistral OCR.
+    }
+  }
+
+  /**
    * Handle form submission and backend processing
    * This is the main entry point from newBookForm.js
    */
@@ -619,6 +671,12 @@ export class ImportBookTransition {
     try {
       // Get CSRF token
       const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
+
+      // Inside the macOS shell, OCR a single-PDF upload on-device first and
+      // attach the result — the server seeds it as the pipeline's OCR cache
+      // (no Mistral call, no charge). Falls back to server OCR on failure,
+      // but only with the user's consent (server OCR is billed per page).
+      await ImportBookTransition.attachNativeOcrIfAvailable(formData, submitButton);
 
       // Sum total bytes of File entries in the FormData so we can show an
       // accurate "X / Y MB" during upload (large PDFs can take 30s+ to upload

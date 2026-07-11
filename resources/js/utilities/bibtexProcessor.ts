@@ -1,6 +1,78 @@
 import { getCurrentUserId } from "./auth/index";
 import { log, verbose } from "./logger";
 
+const CITATION_ARTICLE_TYPES = new Set(['article', 'journal-article', 'journal article', 'proceedings-article', 'conference-paper', 'paper']);
+const CITATION_CHAPTER_TYPES = new Set(['incollection', 'book-chapter', 'chapter', 'book chapter']);
+
+/**
+ * Format a citation from plain metadata (title/author/year/journal/publisher/doi/type + optional
+ * volume/issue/pages/booktitle/chapter/editor/url). The shared core behind formatBibtexToCitation,
+ * and used directly to render a canonical_source's citation (from /best-version metadata) — e.g. the
+ * clean "Verified by author" reference and the "could this be…" candidate lines in the citation card.
+ * Pure + synchronous. `type` accepts BibTeX entry types (article/incollection/book) OR external ones
+ * (journal-article/book-chapter). Author must already be resolved (no anonymisation here).
+ */
+export function formatMetadataToCitation(meta: any): string {
+  const author = meta?.author || 'Unknown Author';
+  const title = meta?.title || 'Untitled';
+  const journal = meta?.journal || null;
+  const publisher = meta?.publisher || null;
+  const year = meta?.year ?? null;
+  const pages = meta?.pages || null;
+  const url = meta?.url || null;
+  const volume = meta?.volume || null;
+  const issue = meta?.issue || meta?.number || null;
+  const booktitle = meta?.booktitle || null;
+  const editor = meta?.editor || null;
+
+  const entryType = String(meta?.type || 'misc').toLowerCase();
+  const isArticle = CITATION_ARTICLE_TYPES.has(entryType);
+  const isChapter = CITATION_CHAPTER_TYPES.has(entryType);
+
+  // Title formatting: quotes for articles/chapters, italics for books.
+  let formattedTitle = (isArticle || isChapter) ? `"${title}"` : `<i>${title}</i>`;
+  const safeUrl = url && /^https?:\/\//i.test(url) ? url : null;
+  if (safeUrl) {
+    formattedTitle = `<a href="${safeUrl}" target="_blank">${formattedTitle}</a>`;
+  }
+
+  let citation = `${author}, ${formattedTitle}`;
+
+  if (isChapter) {
+    citation += ` in <i>${booktitle}</i>`;
+    if (volume) {
+      citation += `, vol. ${volume}`;
+      if (issue) citation += `(${issue})`;
+    }
+    const parenthetical = [];
+    if (editor) parenthetical.push(`ed. ${editor}`);
+    if (publisher) parenthetical.push(publisher);
+    if (year) parenthetical.push(year);
+    if (parenthetical.length > 0) citation += ` (${parenthetical.join(', ')})`;
+    if (pages) citation += `, ${pages}`;
+  } else if (isArticle) {
+    if (journal) citation += `, ${journal}`;
+    if (volume) {
+      citation += `, ${volume}`;
+      if (issue) citation += `(${issue})`;
+    }
+    if (year) citation += ` (${year})`;
+    if (pages) citation += `, ${pages}`;
+  } else {
+    if (publisher) {
+      citation += ` (${publisher}`;
+      if (year) citation += `, ${year}`;
+      citation += `)`;
+    } else if (year) {
+      citation += ` (${year})`;
+    }
+    if (pages) citation += `, ${pages}`;
+  }
+
+  citation += ".";
+  return citation;
+}
+
 /**
  * Converts a BibTeX entry into a formatted academic citation.
  * @param {string} bibtex - The BibTeX string.
@@ -36,75 +108,26 @@ export async function formatBibtexToCitation(bibtex: any, preResolvedUserId = nu
     author = rawAuthor || "Unknown Author";
   }
 
-  // Grab the rest of your fields with defaults
-  const title = fields.title || "Untitled";
-  const journal = fields.journal || null;
-  const publisher = fields.publisher || null;
-  const year = fields.year || "Unknown Year";
-  const pages = fields.pages || null;
-  const url = fields.url || null;
-  const volume = fields.volume || null;
-  const issue = fields.number || null; // BibTeX uses "number" for issue
-  const booktitle = fields.booktitle || null;
-  const chapter = fields.chapter || null;
-  const editor = fields.editor || null;
-
   // Parse the declared entry type from the BibTeX string (e.g. @article, @incollection)
   const typeMatch = bibtex.match(/@(\w+)\s*\{/);
   const entryType = typeMatch ? typeMatch[1].toLowerCase() : 'misc';
-  const isArticle = entryType === 'article';
-  const isChapter = entryType === 'incollection';
 
-  // Title formatting: quotes for articles/chapters, italics for books
-  let formattedTitle = (isArticle || isChapter) ? `"${title}"` : `<i>${title}</i>`;
-  const safeUrl = url && /^https?:\/\//i.test(url) ? url : null;
-  if (safeUrl) {
-    formattedTitle = `<a href="${safeUrl}" target="_blank">${formattedTitle}</a>`;
-  }
-
-  // Build the final citation
-  let citation = `${author}, ${formattedTitle}`;
-
-  if (isChapter) {
-    // Chapter in a book: Author, "Chapter Title" in *Book Title*, vol. X (ed. Editor, Publisher, Year), pages.
-    citation += ` in <i>${booktitle}</i>`;
-    if (volume) {
-      citation += `, vol. ${volume}`;
-      if (issue) citation += `(${issue})`;
-    }
-    const parenthetical = [];
-    if (editor) parenthetical.push(`ed. ${editor}`);
-    if (publisher) parenthetical.push(publisher);
-    if (year) parenthetical.push(year);
-    if (parenthetical.length > 0) {
-      citation += ` (${parenthetical.join(', ')})`;
-    }
-    if (pages) citation += `, ${pages}`;
-  } else if (isArticle) {
-    // Article: Author, "Title" Journal, vol(issue) (year), pages.
-    if (journal) citation += `, ${journal}`;
-    if (volume) {
-      citation += `, ${volume}`;
-      if (issue) citation += `(${issue})`;
-    }
-    if (year) citation += ` (${year})`;
-    if (pages) citation += `, ${pages}`;
-  } else {
-    // Book or other: Author, *Title* (Publisher, Year), pages.
-    let formattedPublisher = publisher;
-    if (formattedPublisher) {
-      citation += ` (${formattedPublisher}`;
-      if (year) citation += `, ${year}`;
-      citation += `)`;
-    } else if (year) {
-      citation += ` (${year})`;
-    }
-    if (pages) citation += `, ${pages}`;
-  }
-
-  citation += ".";
-
-  return citation;
+  // Delegate the actual formatting to the shared metadata formatter (author already resolved above;
+  // BibTeX uses "number" for issue, and keeps the "Unknown Year" fallback for missing years).
+  return formatMetadataToCitation({
+    author,
+    title: fields.title || "Untitled",
+    journal: fields.journal || null,
+    publisher: fields.publisher || null,
+    year: fields.year || "Unknown Year",
+    pages: fields.pages || null,
+    url: fields.url || null,
+    volume: fields.volume || null,
+    issue: fields.number || null,
+    booktitle: fields.booktitle || null,
+    editor: fields.editor || null,
+    type: entryType,
+  });
 }
 
 

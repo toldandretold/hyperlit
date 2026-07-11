@@ -105,3 +105,66 @@ test('the sub-book /library route exists and answers 200 library:null when missi
         ->assertStatus(200)
         ->assertJson(['success' => false, 'library' => null]);
 });
+
+// Clean node/bibliography fixtures this file seeds via pgsql_admin (cleanupApiFixtures only does library).
+afterEach(function () {
+    $admin = \Illuminate\Support\Facades\DB::connection('pgsql_admin');
+    $admin->table('nodes')->where('book', 'like', 'apitest\_%')->delete();
+    $admin->table('bibliography')->where('book', 'like', 'apitest\_%')->delete();
+});
+
+test('the bibliography payload carries web-stub + reference-decision fields (live AND cache paths)', function () {
+    $admin = \Illuminate\Support\Facades\DB::connection('pgsql_admin');
+    $book = 'apitest_' . \Illuminate\Support\Str::random(12);
+
+    $admin->table('library')->insert([
+        'book' => $book, 'title' => 'Payload Book', 'visibility' => 'public', 'timestamp' => 1000,
+        'raw_json' => json_encode(['book' => $book]), 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    // A WebFetch scrape stub the reference points at.
+    $stub = 'web_' . \Illuminate\Support\Str::random(12);
+    $admin->table('library')->insert([
+        'book' => $stub, 'title' => 'Stub', 'creator' => 'WebFetch', 'visibility' => 'public',
+        'type' => 'web_source', 'has_nodes' => true, 'url' => 'https://progressive.international/havana',
+        'raw_json' => '[]', 'timestamp' => 0, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $admin->table('nodes')->insert([
+        'book' => $book, 'startLine' => 0, 'chunk_id' => 0, 'node_id' => $book . '_n0',
+        'content' => '<p>Body</p>', 'plainText' => 'Body', 'type' => 'p',
+        'footnotes' => '[]', 'raw_json' => '{}', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    // Ref A: matched to a web stub. Ref B: author already verified the canonical match.
+    $admin->table('bibliography')->insert([
+        'book' => $book, 'referenceId' => 'refWeb', 'content' => 'Web ref.', 'source_id' => $stub,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $admin->table('bibliography')->insert([
+        'book' => $book, 'referenceId' => 'refVerified', 'content' => 'Verified ref.',
+        'canonical_source_id' => '11111111-1111-1111-1111-111111111111',
+        'reference_match_method' => 'user_verified', 'reference_verified_at' => now(),
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $assert = function () use ($book) {
+        $bib = $this->getJson("/api/database-to-indexeddb/books/{$book}/data")
+            ->assertOk()->json('bibliography.data');
+        expect($bib['refWeb']['source_is_web_stub'])->toBeTrue();
+        expect($bib['refWeb']['source_external_url'])->toBe('https://progressive.international/havana');
+        expect($bib['refVerified']['source_is_web_stub'])->toBeFalse();
+        expect($bib['refVerified']['reference_match_method'])->toBe('user_verified');
+    };
+
+    // Live path (cache cold).
+    $assert();
+    // Cache path — the two getBibliography impls must agree.
+    app(\App\Services\BookCache::class)->warm($book);
+    $assert();
+});
+
+// NOTE: the "upsertReferences doesn't clobber reference_match_method" invariant is guarded
+// structurally — DbReferencesController::upsertReferences writes an explicit column list
+// (book/referenceId/source_id/canonical_source_id/content only), so a client re-sync can't touch
+// the human decision — and the round-trip of reference_match_method through getBibliography is
+// covered above. A live POST test would deadlock the RefreshDatabase tx: the controller's
+// default-connection updateOrInsert locks the pgsql_admin-committed bibliography row, and the
+// pgsql_admin cleanup DELETE below then blocks on that lock until rollback.

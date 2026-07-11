@@ -148,6 +148,8 @@ Behavior you can rely on:
 - **Failure stats:** `vacuum_failed` (download problem — check `library.pdf_url_status` for the reason), `ocr_failed` (check `storage/logs/laravel.log` for "Mistral OCR" / "processLocalPdf"), `deferred` (OCR skipped, pointer intentionally not set).
 - **Retry a single failure:** `php artisan citation:ocr <stubBookId>` — the OCR response is cached on disk (`resources/markdown/<book>/ocr_response.json`), so retries after a save-side failure cost nothing. Then re-run `library:create-auto-versions --canonical=<id>` to wire the pointer.
 
+The per-canonical body lives in `AutoVersionCreator` (this directory): assign-first idempotency, stub mint/reuse via `SystemVersionMinter`, direct `ContentFetchService::fetch()`/`processLocalPdf()` calls (no `Artisan::call` — the vacuum/OCR commands are thin wrappers and exit codes lose the status/reason/lane detail), pointer wiring via `AutoVersionResolver`. The command is the CLI loop + reporting; the **Source Network Harvester** (`app/Services/SourceHarvest/`, the "Import Knowledge Network" button) drives the exact same class per cited work, so command and harvester can never drift apart. No-network regression coverage: `tests/Canonical/AutoVersionCreatorTest.php`.
+
 ### `library:create-ar5iv-versions` — the genuine machine version for arXiv works
 
 An arXiv work's genuine machine copy isn't an OCR'd PDF — it's **arXiv's own ar5iv/LaTeXML HTML**, which our pipeline converts cleanly (identity confirmed via arXiv-id → DOI/OpenAlex at score 1.0). So ar5iv is a system source on equal footing with `jats_fulltext`: `conversion_method='ar5iv_html'` is in `SYSTEM_CONVERSION_METHODS`.

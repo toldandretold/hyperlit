@@ -195,3 +195,54 @@ test('rejects non-uuid id with 404 (route constraint)', function () {
     $this->getJson('/api/canonical/not-a-uuid/best-version')
         ->assertStatus(404);
 });
+
+/** Seed a WebFetch scrape stub (type=web_source) linked to a canonical. */
+function bestVerSeedWebStub(string $canonicalId, string $url): string
+{
+    $book = 'book_bestver_' . Str::random(6);
+    bestVerDb()->table('library')->insert([
+        'book'                => $book,
+        'title'               => 'BestVer Stub',
+        'creator'             => 'WebFetch',
+        'visibility'          => 'public',
+        'listed'              => false,
+        'type'                => 'web_source',
+        'has_nodes'           => true,
+        'canonical_source_id' => $canonicalId,
+        'url'                 => $url,
+        'raw_json'            => '[]',
+        'timestamp'           => 0,
+    ]);
+    return $book;
+}
+
+test('a WebFetch stub is never surfaced as a version → citation-only + source_url to link out', function () {
+    $id = bestVerSeedCanonical(['title' => 'BestVer Web Only', 'source_url' => 'https://progressive.international/havana']);
+    bestVerSeedWebStub($id, 'https://progressive.international/havana');
+
+    $this->getJson("/api/canonical/{$id}/best-version")
+        ->assertOk()
+        ->assertJsonPath('book', null)              // stub excluded → no openable version
+        ->assertJsonPath('has_version', false)
+        ->assertJsonPath('metadata.source_url', 'https://progressive.international/havana');
+});
+
+test('best-version metadata exposes identifiers for the view-source link', function () {
+    $id = bestVerSeedCanonical(['title' => 'BestVer Ids', 'openalex_id' => 'W123', 'open_library_key' => '/works/OL9W']);
+
+    $this->getJson("/api/canonical/{$id}/best-version")
+        ->assertOk()
+        ->assertJsonPath('metadata.openalex_id', 'W123')
+        ->assertJsonPath('metadata.open_library_key', '/works/OL9W');
+});
+
+test('a real library version still wins even when a stub is also linked', function () {
+    $id       = bestVerSeedCanonical(['title' => 'BestVer Mixed']);
+    $realBook = bestVerSeedLibrary(['title' => 'BestVer Real Edition', 'canonical_source_id' => $id]);
+    bestVerSeedWebStub($id, 'https://example.org/scrape');
+
+    $this->getJson("/api/canonical/{$id}/best-version")
+        ->assertOk()
+        ->assertJsonPath('book', $realBook)
+        ->assertJsonPath('has_version', true);
+});

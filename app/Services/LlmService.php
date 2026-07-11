@@ -213,6 +213,13 @@ class LlmService
         ?\Closure $onRetry = null,
         ?\Closure $onFallback = null
     ): ?array {
+        // BYO transport: the client's own model answers regardless of which
+        // server model id we send, so walking the fallback chain would just
+        // re-park the same prompt N times. One attempt tells the whole story.
+        if ($this->transport !== null) {
+            $models = array_slice($models, 0, 1);
+        }
+
         foreach ($models as $i => $model) {
             $result = $this->chat(
                 $systemPrompt,

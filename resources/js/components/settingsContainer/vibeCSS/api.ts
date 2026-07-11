@@ -1,8 +1,15 @@
 /**
- * VibeCSS backend API (leaf): generation request + balance pre-check, and the
+ * VibeCSS backend API: generation request + balance pre-check, and the
  * vibes-gallery CRUD (mine/save/update/delete/public). Was the API half of
  * components/vibeCSS.js.
+ *
+ * BYO-key mode (native macOS shell with an active LLM profile): generate returns
+ * 202 + the prompt; we execute it locally via the bridge (the user's key /
+ * local model) and post the completion back — the server never calls an LLM and
+ * never charges.
  */
+import { isByoLlmActive } from '../../../aiProviders/profiles';
+import { executeTicketRequest } from '../../../aiProviders/execute';
 
 /** The `css_overrides` jsonb — a map of CSS custom-property/selector → value. */
 export type CssOverrides = Record<string, string>;
@@ -39,6 +46,8 @@ export async function submitVibeRequest(prompt: string): Promise<CssOverrides> {
   const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
   if (!csrfToken) throw new Error('No CSRF token found');
 
+  const byo = await isByoLlmActive();
+
   const response = await fetch('/api/vibe-css/generate', {
     method: 'POST',
     headers: {
@@ -47,10 +56,40 @@ export async function submitVibeRequest(prompt: string): Promise<CssOverrides> {
       'Accept': 'application/json',
     },
     credentials: 'same-origin',
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, client_inference: byo }),
   });
 
   const data = await response.json();
+
+  // BYO leg: the server parked the prompt (202) — run it with the user's own
+  // provider, then post the raw completion back for the server-side parse.
+  if (response.status === 202 && data.needs_client_inference) {
+    const result = await executeTicketRequest(data.request);
+    if (!result || result.content === null) {
+      const err: any = new Error('Your AI provider did not respond. Check your provider settings (⌘,).');
+      err.status = 502;
+      throw err;
+    }
+
+    const completeResp = await fetch('/api/vibe-css/complete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken,
+        'Accept': 'application/json',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({ ticket_id: data.ticket_id, content: result.content }),
+    });
+    const completeData = await completeResp.json();
+    if (!completeResp.ok) {
+      const err: any = new Error(completeData.message || 'Vibe generation failed');
+      err.status = completeResp.status;
+      err.data = completeData;
+      throw err;
+    }
+    return completeData.overrides;
+  }
 
   if (!response.ok) {
     const err: any = new Error(data.message || 'Vibe generation failed');

@@ -52,6 +52,7 @@ export type NativeErrorCode =
   | 'keychain'
   | 'unsupported_method'
   | 'payload_too_large'
+  | 'ocr_failed'
   | 'internal';
 
 export class NativeBridgeError extends Error {

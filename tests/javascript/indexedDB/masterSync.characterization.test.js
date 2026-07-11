@@ -255,7 +255,7 @@ describe('debouncedMasterSync (characterization)', () => {
     expect(logs.every(l => l.status === 'synced')).toBe(true);
   });
 
-  it('REAL 409 (server_timestamp beyond our high-water): blocks with overlay, no clobbering retry', async () => {
+  it('REAL 409 (never acked AND server content differs): blocks with overlay, no unified-sync retry', async () => {
     showStaleTabOverlay.mockClear();
     await seedStore('library', [{ book: 'bookReal', title: 'X', timestamp: 4000, base_timestamp: 1000 }]);
 
@@ -265,19 +265,69 @@ describe('debouncedMasterSync (characterization)', () => {
     queueForSync('nodes', 100, 'update', makeNode('bookReal', 100, 'r-100', '<p>e1</p>'), null);
     await debouncedMasterSync.flush();
 
-    // Sync #2: 409 reporting server_timestamp=9000 — a value we've NEVER acked (another
-    // device advanced the book past us). Must block, NOT retry (retrying would clobber it).
-    const callsBefore = fetchMock.mock.calls.length;
-    fetchMock.mockResolvedValueOnce({ ok: false, status: 409, json: async () => ({ error: 'STALE_DATA', message: 'stale', server_timestamp: 9000 }) });
+    // Sync #2: 409 at server_timestamp=9000 — never acked. The lost-ACK content check GETs the
+    // server's current r-101; a DIFFERENT device changed it → content differs → genuine remote
+    // edit. Must block, and must NOT retry the unified-sync POST (retrying would clobber it).
+    let posts = 0;
+    fetchMock.mockImplementation((url) => {
+      if (String(url).includes('/api/db/unified-sync')) {
+        posts++;
+        return Promise.resolve({ ok: false, status: 409, json: async () => ({ error: 'STALE_DATA', message: 'stale', server_timestamp: 9000 }) });
+      }
+      // read-only content-check endpoint: server's r-101 is the OTHER device's version.
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ nodes: [{ book: 'bookReal', startLine: 101, chunk_id: 0, node_id: 'r-101', content: '<p>OTHER DEVICE wrote this</p>' }] }) });
+    });
     await seedStore('nodes', [makeNode('bookReal', 101, 'r-101', '<p>e2</p>')]);
     queueForSync('nodes', 101, 'update', makeNode('bookReal', 101, 'r-101', '<p>e2</p>'), null);
     await debouncedMasterSync.flush();
 
-    // Exactly ONE fetch for sync #2 (no clobbering retry).
-    expect(fetchMock.mock.calls.length).toBe(callsBefore + 1);
+    // Exactly ONE unified-sync POST for sync #2 (the content-check GET is separate; no retry).
+    expect(posts).toBe(1);
     // The block overlay is shown via an async dynamic import().then() — wait for it (else the
     // assertion races the microtask, flaking under full-suite timing).
     await vi.waitFor(() => expect(showStaleTabOverlay).toHaveBeenCalled());
+  });
+
+  // The lost-ACK case (a network blip committed our write but dropped the response, so our
+  // base never advanced and the timestamp was never acked): the ack-match guard can't fire,
+  // but the server's CURRENT content for our node equals what we're writing → our own write →
+  // recover silently instead of showing the discard overlay.
+  it('LOST-ACK 409 (never acked but server content MATCHES): silently recovers, no overlay', async () => {
+    showStaleTabOverlay.mockClear();
+    await seedStore('library', [{ book: 'bookLost', title: 'X', timestamp: 4000, base_timestamp: 1000 }]);
+
+    // Sync #1 succeeds → acked = 5000.
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ success: true, server_timestamp: 5000 }) });
+    await seedStore('nodes', [makeNode('bookLost', 100, 'l-100', '<p>e1</p>')]);
+    queueForSync('nodes', 100, 'update', makeNode('bookLost', 100, 'l-100', '<p>e1</p>'), null);
+    await debouncedMasterSync.flush();
+
+    // Sync #2: 409 at 9000 (never acked). The content-check GET shows the server ALREADY holds
+    // our l-101 content (the lost-ACK write). → fast-forward base to 9000 + retry once (→ 9500).
+    let posts = 0;
+    fetchMock.mockImplementation((url) => {
+      if (String(url).includes('/api/db/unified-sync')) {
+        posts++;
+        return posts === 1
+          ? Promise.resolve({ ok: false, status: 409, json: async () => ({ error: 'STALE_DATA', message: 'stale', server_timestamp: 9000 }) })
+          : Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, server_timestamp: 9500 }) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ nodes: [{ book: 'bookLost', startLine: 101, chunk_id: 0, node_id: 'l-101', content: '<p>e2</p>' }] }) });
+    });
+    await seedStore('nodes', [makeNode('bookLost', 101, 'l-101', '<p>e2</p>')]);
+    queueForSync('nodes', 101, 'update', makeNode('bookLost', 101, 'l-101', '<p>e2</p>'), null);
+    await debouncedMasterSync.flush();
+
+    // Recovered silently: one 409 POST + one retry POST, no overlay.
+    expect(posts).toBe(2);
+    expect(showStaleTabOverlay).not.toHaveBeenCalled();
+    // The retry carried the fast-forwarded base (9000) and the base advanced to 9500.
+    const postCalls = fetchMock.mock.calls.filter(c => String(c[0]).includes('/api/db/unified-sync'));
+    expect(JSON.parse(postCalls.at(-1)[1].body).base_timestamp).toBe(9000);
+    expect((await readOne('library', 'bookLost')).base_timestamp).toBe(9500);
+    const logs = (await readAll('historyLog')).filter(l => l.bookId === 'bookLost');
+    expect(logs.length).toBeGreaterThan(0);
+    expect(logs.every(l => l.status === 'synced')).toBe(true);
   });
 
   // ── Pending new-book: exempt from the optimistic-concurrency (stale) check ──

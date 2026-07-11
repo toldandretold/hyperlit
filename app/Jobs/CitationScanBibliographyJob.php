@@ -51,10 +51,11 @@ class CitationScanBibliographyJob implements ShouldQueue
      * identity, and a wrong canonical is worse than a missing one.
      */
     private const CANONICAL_FOUNDATION_BY_METHOD = [
-        'doi'              => 'openalex_ingest',
-        'openalex'         => 'openalex_ingest',
-        'open_library'     => 'open_library_ingest',
-        'semantic_scholar' => 'semantic_scholar_ingest',
+        'doi'                 => 'openalex_ingest',
+        'openalex'            => 'openalex_ingest',
+        'openalex_referenced' => 'openalex_ingest',
+        'open_library'        => 'open_library_ingest',
+        'semantic_scholar'    => 'semantic_scholar_ingest',
     ];
 
     private string $sourceTable = 'bibliography';
@@ -599,6 +600,86 @@ class CitationScanBibliographyJob implements ShouldQueue
                         $this->removeRelatedPoolEntries($pool, $refId, $db, $localMatch['book']);
                     } elseif ($localNearMiss && $localNearMiss['score'] > ($nearMisses[$refId]['score'] ?? 0.0)) {
                         $nearMisses[$refId] = $localNearMiss;
+                    }
+                }
+            }
+
+            // ── Wave 3.5: Closed-pool match against the parent work's referenced_works ──
+            // When the scanned book is itself linked to a canonical with an
+            // openalex_id (always true for harvested auto-versions), OpenAlex
+            // already knows the closed set of works it cites. Scoring the
+            // still-unresolved entries against that pool is cheaper and more
+            // precise than open title search — especially for noisy OCR'd
+            // bibliographies. Entries the pool misses fall through to the
+            // normal waves unchanged.
+            if (!empty($pool)) {
+                $parentOpenAlexId = $this->parentWorkOpenAlexId($db);
+                $referencedIds = $parentOpenAlexId ? $openAlex->fetchReferencedWorkIds($parentOpenAlexId) : [];
+                if (!empty($referencedIds)) {
+                    Log::info('Wave 3.5: referenced_works closed pool', [
+                        'parent'     => $parentOpenAlexId,
+                        'referenced' => count($referencedIds),
+                        'remaining'  => count($pool),
+                    ]);
+                    $poolWorks = $openAlex->fetchByIdsBatch($referencedIds);
+
+                    foreach ($pool as $refId => $item) {
+                        if (!$item['searchedTitle']) {
+                            continue;
+                        }
+
+                        $bestMatch = null;
+                        $bestScore = 0.0;
+                        $bestDiagnostics = null;
+                        foreach ($poolWorks as $candidate) {
+                            if (!$openAlex->isCitableWork($candidate)) {
+                                continue;
+                            }
+                            // metadataScore's title floor rejects (and skips
+                            // logging) most of the pool cheaply per entry.
+                            $scoreResult = $item['llmMetadata']
+                                ? $openAlex->metadataScore($item['llmMetadata'], $candidate)
+                                : ['score' => $openAlex->titleSimilarity($item['searchedTitle'], $candidate['title'] ?? '')];
+                            if ($scoreResult['score'] > $bestScore) {
+                                $bestScore = $scoreResult['score'];
+                                $bestMatch = $candidate;
+                                $bestDiagnostics = $scoreResult;
+                            }
+                        }
+
+                        // Same accept gates as Wave 4 — the closed pool raises
+                        // precision, it doesn't lower the bar.
+                        if (
+                            $bestMatch && $bestScore > 0.3
+                            && $this->hasTitleConfidence($bestDiagnostics, $bestScore)
+                            && !$this->hasYearMismatchRejection($item['llmMetadata'], $bestMatch, $bestScore)
+                        ) {
+                            $result = $this->resolveWithNormalised($item, $bestMatch, 'openalex_referenced', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
+                            if ($result) {
+                                $results[] = $result;
+                                match ($result['status']) {
+                                    'newly_resolved' => $newlyResolved++,
+                                    'enriched'       => $enrichedExisting++,
+                                    default          => $failedToResolve++,
+                                };
+                                $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
+                                continue;
+                            }
+                        }
+
+                        if ($bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
+                            $nearMisses[$refId] = [
+                                'score'       => round($bestScore, 3),
+                                'title'       => $bestMatch['title'] ?? null,
+                                'author'      => $bestMatch['author'] ?? null,
+                                'year'        => $bestMatch['year'] ?? null,
+                                'source'      => 'openalex_referenced',
+                                'diagnostics' => $bestDiagnostics,
+                            ];
+                        }
+                        $waveResults[$refId]['openalex_referenced'] = $bestMatch
+                            ? 'best_score:' . round($bestScore, 3)
+                            : 'no_candidates';
                     }
                 }
             }
@@ -2081,6 +2162,23 @@ class CitationScanBibliographyJob implements ShouldQueue
         $titleScore = $diagnostics['titleScore'] ?? $score;
 
         return $titleScore >= 0.45;
+    }
+
+    /**
+     * The scanned book's own OpenAlex work id, for the Wave 3.5 closed-pool
+     * match: prefer the linked canonical's openalex_id, fall back to the
+     * library row's. Null when the book has no OpenAlex identity (the wave
+     * is skipped and everything falls through to the open-search waves).
+     */
+    private function parentWorkOpenAlexId($db): ?string
+    {
+        $row = $db->table('library as l')
+            ->leftJoin('canonical_source as cs', 'cs.id', '=', 'l.canonical_source_id')
+            ->where('l.book', $this->bookId)
+            ->select(['cs.openalex_id as canonical_openalex_id', 'l.openalex_id as library_openalex_id'])
+            ->first();
+
+        return $row?->canonical_openalex_id ?: ($row?->library_openalex_id ?: null);
     }
 
     /**

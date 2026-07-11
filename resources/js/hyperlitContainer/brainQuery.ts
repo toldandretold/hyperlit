@@ -5,6 +5,46 @@
 
 import { buildSubBookId } from '../utilities/subBookIdHelper';
 import { isLoggedIn } from '../utilities/auth/index';
+import { isByoLlmActive } from '../aiProviders/profiles';
+import { executeTicketRequest } from '../aiProviders/execute';
+import { log } from '../utilities/logger';
+
+/**
+ * BYO-key leg: the server parked an LLM prompt as an inference ticket and pushed
+ * it over the SSE stream. Execute it with the user's own provider (via the
+ * native bridge) and post the completion back so the blocked pipeline resumes.
+ * Failures are posted as {error} so the stream fails fast instead of waiting
+ * out the ticket TTL.
+ */
+async function executeInferenceTicket(parsed: any, csrfToken: string): Promise<void> {
+  const ticketId = parsed?.ticket_id;
+  if (!ticketId) return;
+
+  let body: any;
+  try {
+    const result = await executeTicketRequest(parsed.request || {});
+    body = result && result.content !== null
+      ? { content: result.content, usage: result.usage ?? null, model: result.model }
+      : { error: 'Client provider returned no content' };
+  } catch (e) {
+    body = { error: String(e) };
+  }
+
+  try {
+    await fetch(`/api/inference/${ticketId}/complete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken,
+        'Accept': 'application/json',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    log.error('BrainQuery: failed to post inference completion', '/hyperlitContainer/brainQuery.ts', e);
+  }
+}
 
 // Track whether a brain highlight is pending (created but not yet backed by a successful query).
 // Set when injectBrainInput() fires; cleared on successful API response + sub-book load.
@@ -480,6 +520,11 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
       step.appendChild(topUpBtn);
     };
 
+    // BYO-key mode (native shell + active LLM profile): the server parks its
+    // LLM calls as tickets and pushes them over this stream; we execute them
+    // locally and post completions back. No credits are charged.
+    const byoActive = await isByoLlmActive();
+
     try {
       const response: any = await fetch('/api/ai-brain/query', {
         method: 'POST',
@@ -501,6 +546,7 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
           mode,
           shelfId,
           selectionContext: selectionContext ?? null,
+          client_inference: byoActive,
         }),
       });
 
@@ -544,6 +590,10 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
               const parsed = JSON.parse(line.slice(6));
               if (eventType === 'status') {
                 steps.enqueueStep(parsed.message);
+              } else if (eventType === 'inference_request') {
+                // BYO leg — run the parked prompt with the user's own provider
+                // (async; the server keeps streaming heartbeats while it waits).
+                void executeInferenceTicket(parsed, csrfToken);
               } else if (eventType === 'error') {
                 streamError = parsed.message || 'AI query failed';
               } else if (eventType === 'result') {

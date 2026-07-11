@@ -8,6 +8,7 @@ import { generateBookIdFromMetadata, findAvailableBookId, updateBookUrlPreview }
 import { getCurrentUserInfo } from '../../../utilities/auth/index';
 import { showImportFailureModal } from '../../../conversion/bugReportModal.js';
 import { attachFilesToInput } from '../../utilities/fileImportHelpers';
+import { isNativeShell } from '../../../utilities/nativeBridge';
 
 // ─── PDF Cost Estimate ───────────────────────────────────────────────
 const MISTRAL_OCR_COST_PER_1K_PAGES = 1.00;
@@ -101,6 +102,13 @@ async function showPdfCostEstimate(file: any) {
         updateBookUrlPreview(availableId);
         bookField.dispatchEvent(new Event('input', { bubbles: true }));
       }
+    }
+
+    // Inside the macOS shell the PDF is OCR'd on-device (Apple Vision / PDFKit)
+    // and uploaded pre-converted — no Mistral call, no charge.
+    if (isNativeShell()) {
+      el.innerHTML = `PDF: ${numPages} page${numPages !== 1 ? 's' : ''} — <strong>Free — processed on this Mac</strong>`;
+      return;
     }
 
     const tier = getUserTier();

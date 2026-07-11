@@ -1,9 +1,14 @@
 <?php
 
-use App\Models\User;
+/**
+ * Password confirmation is Fortify's /user/confirm-password (the Breeze
+ * scaffold's /confirm-password POST route does not exist here — GETs to
+ * arbitrary paths render the SPA shell via the catch-all). Users are seeded
+ * via SeedsRlsFixtures; RlsUserProvider handles the credential lookup.
+ */
 
 test('confirm password screen can be rendered', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $response = $this->actingAs($user)->get('/confirm-password');
 
@@ -11,9 +16,9 @@ test('confirm password screen can be rendered', function () {
 });
 
 test('password can be confirmed', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
-    $response = $this->actingAs($user)->post('/confirm-password', [
+    $response = $this->actingAs($user)->post('/user/confirm-password', [
         'password' => 'password',
     ]);
 
@@ -22,9 +27,9 @@ test('password can be confirmed', function () {
 });
 
 test('password is not confirmed with invalid password', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
-    $response = $this->actingAs($user)->post('/confirm-password', [
+    $response = $this->actingAs($user)->post('/user/confirm-password', [
         'password' => 'wrong-password',
     ]);
 

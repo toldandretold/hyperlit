@@ -33,7 +33,8 @@ class CanonicalSourceController extends Controller
      *
      * @return JsonResponse array{book: ?string, has_version: bool, metadata: array{
      *   title: ?string, author: ?string, year: ?int, journal: ?string, publisher: ?string,
-     *   doi: ?string, abstract: ?string, oa_url: ?string, pdf_url: ?string
+     *   doi: ?string, abstract: ?string, oa_url: ?string, pdf_url: ?string,
+     *   openalex_id: ?string, open_library_key: ?string, source_url: ?string
      * }} | array{error: string}
      */
     public function bestVersion(Request $request, string $id, BestVersionService $bestVersion): JsonResponse
@@ -62,6 +63,13 @@ class CanonicalSourceController extends Controller
                 'abstract'  => $canonical->abstract,
                 'oa_url'    => $canonical->oa_url,
                 'pdf_url'   => $canonical->pdf_url,
+                // Identifiers so the client can build the "view on OpenAlex / Open Library" link in the
+                // verified state on a fresh open (mirrors the source panel's externalSourceLink).
+                'openalex_id'      => $canonical->openalex_id,
+                'open_library_key' => $canonical->open_library_key,
+                // For web-only canonicals (no DOI/OA) — the original URL to link OUT to when the
+                // only "version" was a suppressed WebFetch stub (book === null).
+                'source_url' => $canonical->source_url,
             ],
         ]);
     }

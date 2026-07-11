@@ -1,9 +1,24 @@
 <?php
 
-use App\Models\User;
+/**
+ * The Breeze profile-mutation surface (PATCH/DELETE /profile) was
+ * deliberately removed — profile and account management live in the SPA's
+ * settings flows and the API. GET /profile still renders. Pin both facts so
+ * a re-added mutation route forces a deliberate review. Users are seeded via
+ * SeedsRlsFixtures (bound inline here — this file sits outside the
+ * directories Pest.php binds it to).
+ */
+
+use Tests\Support\SeedsRlsFixtures;
+
+uses(SeedsRlsFixtures::class);
+
+afterEach(function () {
+    $this->cleanupRlsFixtures();
+});
 
 test('profile page is displayed', function () {
-    $user = User::factory()->create();
+    $user = $this->seedUser();
 
     $response = $this
         ->actingAs($user)
@@ -12,74 +27,14 @@ test('profile page is displayed', function () {
     $response->assertOk();
 });
 
-test('profile information can be updated', function () {
-    $user = User::factory()->create();
+test('the legacy profile mutation endpoints stay removed', function () {
+    $user = $this->seedUser();
 
-    $response = $this
-        ->actingAs($user)
-        ->patch('/profile', [
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+    $this->actingAs($user)
+        ->patch('/profile', ['name' => 'newname', 'email' => $user->email])
+        ->assertStatus(405);
 
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect('/profile');
-
-    $user->refresh();
-
-    $this->assertSame('Test User', $user->name);
-    $this->assertSame('test@example.com', $user->email);
-    $this->assertNull($user->email_verified_at);
-});
-
-test('email verification status is unchanged when the email address is unchanged', function () {
-    $user = User::factory()->create();
-
-    $response = $this
-        ->actingAs($user)
-        ->patch('/profile', [
-            'name' => 'Test User',
-            'email' => $user->email,
-        ]);
-
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect('/profile');
-
-    $this->assertNotNull($user->refresh()->email_verified_at);
-});
-
-test('user can delete their account', function () {
-    $user = User::factory()->create();
-
-    $response = $this
-        ->actingAs($user)
-        ->delete('/profile', [
-            'password' => 'password',
-        ]);
-
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect('/');
-
-    $this->assertGuest();
-    $this->assertNull($user->fresh());
-});
-
-test('correct password must be provided to delete account', function () {
-    $user = User::factory()->create();
-
-    $response = $this
-        ->actingAs($user)
-        ->from('/profile')
-        ->delete('/profile', [
-            'password' => 'wrong-password',
-        ]);
-
-    $response
-        ->assertSessionHasErrorsIn('userDeletion', 'password')
-        ->assertRedirect('/profile');
-
-    $this->assertNotNull($user->fresh());
+    $this->actingAs($user)
+        ->delete('/profile', ['password' => 'password'])
+        ->assertStatus(405);
 });

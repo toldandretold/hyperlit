@@ -86,6 +86,7 @@ test('no billing when shelf scope retrieval returns empty matches', function () 
                 'model'   => 'accounts/fireworks/models/deepseek-v4-pro',
             ]);
         $mock->shouldReceive('getUsageStats')->andReturn(['by_model' => []]);
+        $mock->shouldReceive("clearTransport"); // finally-cleanup of the BYO transport seam
     });
 
     // The billing assertion: charge must not be called on the empty-matches path
@@ -115,6 +116,7 @@ test('no billing when LLM router fails (all fallback models down)', function () 
     $this->mock(LlmService::class, function ($mock) {
         $mock->shouldReceive('chatWithFallback')->andReturn(null);
         $mock->shouldReceive('getUsageStats')->andReturn(['by_model' => []]);
+        $mock->shouldReceive("clearTransport"); // finally-cleanup of the BYO transport seam
     });
 
     $this->mock(BillingService::class, function ($mock) {

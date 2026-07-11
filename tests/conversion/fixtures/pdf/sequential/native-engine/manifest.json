@@ -1,0 +1,28 @@
+{
+    "name": "native-engine",
+    "description": "Output of the macOS on-device OCR engine (hyperlit-ocr) on a deterministic CoreGraphics-drawn PDF — regenerate with generate_pdf.swift + macOShyperlit/bin/hyperlit-ocr on source.pdf. Locks the engine's contract with the pipeline: [^N] superscripts, [^N]: defs, # headings, running headers stripped to the header field.",
+    "book_id": "pdf_sequential_native",
+    "citation_style": "none",
+    "footnote_strategy": "sequential",
+    "pipeline": "pdf",
+    "expected": {
+        "references_count": 0,
+        "footnotes_count": 3,
+        "audit_gaps": 0,
+        "footnote_strategy": "sequential",
+        "footnote_links": [
+            {
+                "marker": "1",
+                "content_contains": "cathedrals"
+            },
+            {
+                "marker": "2",
+                "content_contains": "bazaars"
+            },
+            {
+                "marker": "3",
+                "content_contains": "commons"
+            }
+        ]
+    }
+}

@@ -15,11 +15,16 @@
  * Endpoints involved:
  *   POST /api/db/unified-sync   — the node sync (we fulfill it with 409 / 500 / 419)
  *   GET  /api/auth/session-info — the 419 CSRF-refresh probe (we report not-authenticated)
+ *   GET  /api/database-to-indexeddb/books/<id>/data — the STALE_DATA lost-ACK content check
+ *        (on a 409, the client fetches the server's CURRENT node content to decide whether the
+ *        conflict is its OWN already-committed write; see syncQueue/selfConflictContentCheck)
  */
 import { test, expect } from '../../fixtures/navigation.fixture.js';
 
 const SYNC_URL = '**/api/db/unified-sync';
 const SESSION_URL = '**/api/auth/session-info';
+// Regex (not glob) so the trailing ?gate=… query param can't slip the match.
+const BOOK_DATA_URL = /\/api\/database-to-indexeddb\/books\/.+\/data/;
 
 /**
  * Create a fresh book (initial H1 sync runs for real), then wait for the cloud
@@ -77,6 +82,9 @@ test.describe('cloudRef red glow → save-error toast', () => {
 
     await spa.typeAtEndOfActiveEditor(page, ' stale-edit');
 
+    // On the 409 the lost-ACK content check GETs the REAL server node content (we don't stub
+    // BOOK_DATA_URL here). Since the POST was intercepted, the server never saw ' stale-edit',
+    // so its content differs from our local edit → genuine conflict → the overlay still shows.
     // Blocking overlay appears; the passive toast must NOT (overlay owns this case).
     await expect(page.locator('#stale-tab-overlay')).toBeVisible({ timeout: 12_000 });
     await expect(page.locator('#stale-tab-overlay')).toContainText(/out of date|edited elsewhere/i);
@@ -84,6 +92,62 @@ test.describe('cloudRef red glow → save-error toast', () => {
     // so target the refresh button specifically.
     await expect(page.locator('#stale-tab-refresh')).toHaveText(/refresh/i);
     await expect(page.locator('#save-error-toast')).toHaveCount(0);
+  });
+
+  test('STALE_DATA (409) whose server content MATCHES ours (lost-ACK) recovers silently', async ({ page, spa }) => {
+    test.setTimeout(60_000);
+    await freshBookSettled(page, spa);
+
+    // Simulate the lost-ACK: a network blip COMMITTED our write on the server (so the server's
+    // content now equals ours) but the response was lost, so our base_timestamp never advanced
+    // and the timestamp was never ACKed. The next sync then 409s — but because the server's
+    // content for the conflicting node matches what we're writing, the client must recognize its
+    // OWN write and recover silently (fast-forward base + retry once), NOT show the discard overlay.
+    let syncCalls = 0;
+    let sentNodes = [];
+    await page.route(SYNC_URL, async route => {
+      syncCalls += 1;
+      if (syncCalls === 1) {
+        // Capture exactly what we tried to write, then reject as a never-before-seen stale conflict.
+        const body = route.request().postDataJSON();
+        sentNodes = Array.isArray(body?.nodes) ? body.nodes : [];
+        return route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: false,
+            error: 'STALE_DATA',
+            message: 'Your book is out of date. Please refresh to get the latest version.',
+            server_timestamp: 9999999999999,
+          }),
+        });
+      }
+      // The post-recovery retry (carrying the fast-forwarded base) succeeds.
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, server_timestamp: 9999999999999 }),
+      });
+    });
+
+    // The content check GETs the server's current nodes — echo back exactly what the POST sent,
+    // i.e. the server ALREADY holds our write (the lost-ACK). content matches → silent recovery.
+    // (A fresh book is plaintext, so the echoed content needs no encryption round-trip.)
+    await page.route(BOOK_DATA_URL, route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ nodes: sentNodes }),
+    }));
+
+    await spa.typeAtEndOfActiveEditor(page, ' recovery-edit');
+
+    // Recovery ran: the 409 was followed by a retry POST (proves the silent fast-forward path).
+    await expect.poll(() => syncCalls, { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
+    // The user is NOT interrupted: no blocking overlay and no error toast.
+    await expect(page.locator('#stale-tab-overlay')).toHaveCount(0);
+    await expect(page.locator('#save-error-toast')).toHaveCount(0);
+    // The edit survives on screen (recovery re-posts our own content, it isn't discarded).
+    await expect(page.locator('body')).toContainText('recovery-edit');
   });
 
   test('transient server error (500) shows an auto-dismissing toast', async ({ page, spa }) => {

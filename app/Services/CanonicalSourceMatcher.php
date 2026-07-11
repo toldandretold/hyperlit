@@ -201,6 +201,37 @@ class CanonicalSourceMatcher
     }
 
     /**
+     * Read-only candidate preview seeded from arbitrary citation METADATA (a bibliography reference's
+     * llm_metadata) rather than a saved library row — the reference-level [check source] flow. Builds
+     * an in-memory (unsaved) PgLibrary from the metadata and runs the exact same preview() waves, so
+     * all the search/scoring/dedupe logic is reused verbatim. Never writes.
+     *
+     * @param array $meta {title, authors?: string[], author?: string, year?, journal?, publisher?, type?, doi?, url?}
+     */
+    public function previewFromMetadata(array $meta, bool $forVerify = false): array
+    {
+        $author = $meta['author'] ?? null;
+        if (!$author && !empty($meta['authors']) && is_array($meta['authors'])) {
+            $author = implode('; ', array_filter($meta['authors']));
+        }
+
+        // Unsaved row — preview() only READS these fields; nothing is persisted. canonical_source_id
+        // is deliberately left null so we always search for candidates (a re-check).
+        $library = new PgLibrary([
+            'title'     => $meta['title'] ?? null,
+            'author'    => $author,
+            'year'      => $meta['year'] ?? null,
+            'journal'   => $meta['journal'] ?? null,
+            'publisher' => $meta['publisher'] ?? null,
+            'type'      => $meta['type'] ?? null,
+            'doi'       => $meta['doi'] ?? null,
+            'url'       => $meta['url'] ?? null,
+        ]);
+
+        return $this->preview($library, $forVerify);
+    }
+
+    /**
      * Apply a user-confirmed match: upsert the canonical from the (server-resolved) normalised work,
      * link the library row to it, AND overwrite the library row's IDENTITY citation fields from the
      * canonical (the user confirmed this IS the source). Version-specific fields the canonical does
@@ -604,18 +635,20 @@ class CanonicalSourceMatcher
      */
     private function upsertCanonicalFromNormalised(array $n, string $foundationSource, bool $dryRun): CanonicalSource
     {
-        // Idempotency: re-use any existing canonical that shares an identifier
+        // Idempotency: re-use any existing canonical that shares an identifier. Backfill missing OA
+        // fields from the fresh candidate (a work first canonicalised without OA data — e.g. a
+        // DOI-only pipeline match — gains its readable oa_url/pdf_url when re-resolved by title).
         if (!empty($n['openalex_id'])) {
-            if ($existing = CanonicalSource::where('openalex_id', $n['openalex_id'])->first()) return $existing;
+            if ($existing = CanonicalSource::where('openalex_id', $n['openalex_id'])->first()) return $this->backfillOaFields($existing, $n, $dryRun);
         }
         if (!empty($n['doi'])) {
-            if ($existing = CanonicalSource::where('doi', $n['doi'])->first()) return $existing;
+            if ($existing = CanonicalSource::where('doi', $n['doi'])->first()) return $this->backfillOaFields($existing, $n, $dryRun);
         }
         if (!empty($n['open_library_key'])) {
-            if ($existing = CanonicalSource::where('open_library_key', $n['open_library_key'])->first()) return $existing;
+            if ($existing = CanonicalSource::where('open_library_key', $n['open_library_key'])->first()) return $this->backfillOaFields($existing, $n, $dryRun);
         }
         if (!empty($n['semantic_scholar_id'])) {
-            if ($existing = CanonicalSource::where('semantic_scholar_id', $n['semantic_scholar_id'])->first()) return $existing;
+            if ($existing = CanonicalSource::where('semantic_scholar_id', $n['semantic_scholar_id'])->first()) return $this->backfillOaFields($existing, $n, $dryRun);
         }
 
         $data = [
@@ -642,6 +675,30 @@ class CanonicalSourceMatcher
         ];
 
         return $dryRun ? new CanonicalSource($data) : CanonicalSource::create($data);
+    }
+
+    /**
+     * Fill in OA/full-text fields on an existing canonical that lacks them, from a fresh normalised
+     * candidate. Only writes columns that are currently null/empty — never overwrites curated data.
+     */
+    private function backfillOaFields(CanonicalSource $existing, array $n, bool $dryRun): CanonicalSource
+    {
+        if ($dryRun) return $existing;
+
+        $fill = [];
+        foreach (['oa_url', 'pdf_url', 'oa_status', 'work_license'] as $f) {
+            if (($existing->$f === null || $existing->$f === '') && !empty($n[$f])) {
+                $fill[$f] = $n[$f];
+            }
+        }
+        if ($existing->is_oa === null && array_key_exists('is_oa', $n) && $n['is_oa'] !== null) {
+            $fill['is_oa'] = $n['is_oa'];
+        }
+
+        if ($fill) {
+            $existing->forceFill($fill)->save();
+        }
+        return $existing;
     }
 
     private function linkLibraryToCanonical(

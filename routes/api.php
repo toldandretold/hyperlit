@@ -119,6 +119,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Vibe CSS
     Route::post('/vibe-css/generate', [VibeCSSController::class, 'generate']);
+    Route::post('/vibe-css/complete', [VibeCSSController::class, 'complete']);
     Route::get('/vibe-css/can-proceed', [VibeCSSController::class, 'canProceed']);
 
     // BYO-key inference tickets — the native client claims parked prompts, runs
@@ -340,6 +341,23 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     Route::post('/library/{book}/source/lookup', [\App\Http\Controllers\SourceVerificationController::class, 'lookup']);
     Route::post('/library/{book}/source/verify', [\App\Http\Controllers\SourceVerificationController::class, 'verify']);
     Route::post('/library/{book}/source/reject', [\App\Http\Controllers\SourceVerificationController::class, 'reject']);
+
+    // Reference-level (bibliography) "Check source": lookup is read-only (any valid session) so the
+    // button works for everyone; verify/reject are owner-gated writes (author confirms a picked
+    // candidate or the existing auto match). refIds are authoryear slugs (no '/'), safe as path segs.
+    Route::post('/library/{book}/reference/{refId}/source/lookup', [\App\Http\Controllers\ReferenceSourceVerificationController::class, 'lookup']);
+    Route::post('/library/{book}/reference/{refId}/source/verify', [\App\Http\Controllers\ReferenceSourceVerificationController::class, 'verify']);
+    Route::post('/library/{book}/reference/{refId}/source/reject', [\App\Http\Controllers\ReferenceSourceVerificationController::class, 'reject']);
+
+    /* ----------------  Source Network Harvester ("Import Knowledge Network")  ---------------- */
+    // Owner-gated: scan the book's bibliography, then fetch + convert every eligible open-access
+    // cited work into its canonical's auto_version_book. estimate/trigger are owner-only (writes
+    // happen via pgsql_admin in the job, so the controller check is the authorization boundary);
+    // status/running are id-scoped polls. See app/Services/SourceHarvest/README.md.
+    Route::post('/library/{book}/harvest/estimate', [\App\Http\Controllers\SourceHarvestController::class, 'estimate']);
+    Route::post('/library/{book}/harvest/trigger', [\App\Http\Controllers\SourceHarvestController::class, 'trigger']);
+    Route::get('/source-harvest/status/{harvestId}', [\App\Http\Controllers\SourceHarvestController::class, 'status']);
+    Route::get('/source-harvest/running/{book}', [\App\Http\Controllers\SourceHarvestController::class, 'running']);
 
 
     Route::post(

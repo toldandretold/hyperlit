@@ -55,16 +55,15 @@ Delivered to every handler registered via `onNativeEvent("some_event", …)`. (C
 
 ## Error codes
 
-| code | meaning |
-|---|---|
-| `timeout` | native did not reply within the call's `timeoutMs` (raised JS-side; native need not send it) |
-| `denied` | user declined a native permission prompt |
-| `not_allowed_host` | `ai.fetch` URL resolved outside the profile's registered base URL / allowlist |
-| `network` | native's outbound HTTP failed (DNS, TLS, connection) |
-| `keychain` | Keychain read/write/delete failed |
-| `unsupported_method` | unknown `method`, or not running in the shell |
-| `payload_too_large` | serialized payload exceeded 4 MB |
-| `internal` | anything else |
+- **`timeout`** — native did not reply within the call's `timeoutMs` (raised JS-side; native need not send it).
+- **`denied`** — user declined a native permission prompt.
+- **`not_allowed_host`** — `ai.fetch` URL resolved outside the profile's registered base URL / allowlist.
+- **`network`** — native's outbound HTTP failed (DNS, TLS, connection).
+- **`keychain`** — Keychain read/write/delete failed.
+- **`unsupported_method`** — unknown `method`, or not running in the shell.
+- **`payload_too_large`** — serialized payload exceeded 4 MB.
+- **`ocr_failed`** — the on-device (or BYO-provider) PDF OCR engine failed; the message carries the engine's reason.
+- **`internal`** — anything else.
 
 ## Size & time limits
 
@@ -79,22 +78,32 @@ When the user edits settings, native pushes a `providers_changed` **event** (no 
 
 ## Method namespace (v1)
 
-| method | payload | result | notes |
-|---|---|---|---|
-| `ping` | `{}` | `{ version }` | health check |
-| `providers.snapshot` | `{}` | `{ profiles: [{ id, label, kind, baseUrl, model, voice?, hasKey }], activeLlm, activeTts }` | native returns its current config. `activeLlm`/`activeTts` are profile ids or null. `hasKey` reflects Keychain. **No key values are ever included.** |
-| `ai.fetch` | `{ profileId, path, method, bodyJson?, timeoutMs? }` | `{ status, bodyJson? , bodyText? }` | native builds the URL as `profile.baseUrl + path`, rejects `not_allowed_host` if it escapes the base, injects `Authorization: Bearer <keychain[profileId]>` from Keychain, and makes the HTTPS request. **The key never crosses into JS.** |
-| `file.writeAudio` | `{ book, filename, base64 }` | `{ ok: true, bytes }` | write an MP3 to the app's per-book audio dir |
-| `file.readManifest` | `{ book }` | `{ json \| null }` | read the local audio manifest for a book |
-| `file.writeManifest` | `{ book, json }` | `{ ok: true }` | write the local audio manifest |
-| `file.deleteAudio` | `{ book, filenames? }` | `{ ok: true }` | delete some/all local audio for a book |
-| `file.audioUrl` | `{ book, filename }` | `{ url }` | a `hyperlit-local://audio/<book>/<filename>` URL served by the shell's `WKURLSchemeHandler` (with Range support) |
+- **`ping`** — payload `{}` → `{ version }`. Health check.
+- **`providers.snapshot`** — payload `{}` → `{ profiles: [{ id, label, kind, baseUrl, model, voice?, hasKey }], activeLlm, activeTts, activeOcr }`. Native returns its current config. `kind` is `llm` | `tts` | `ocr`; the `active*` fields are profile ids or null. `hasKey` reflects Keychain. **No key values are ever included.**
+- **`ai.fetch`** — payload `{ profileId, path, method, bodyJson?, timeoutMs? }` → `{ status, bodyJson?, bodyText? }`. Native builds the URL as `profile.baseUrl + path`, rejects `not_allowed_host` if it escapes the base, injects `Authorization: Bearer <keychain[profileId]>` from Keychain, and makes the HTTPS request. **The key never crosses into JS.**
+- **`file.writeAudio`** — payload `{ book, filename, base64 }` → `{ ok: true, bytes }`. Write an MP3 to the app's per-book audio dir.
+- **`file.readManifest`** — payload `{ book }` → `{ json | null }`. Read the local audio manifest for a book.
+- **`file.writeManifest`** — payload `{ book, json }` → `{ ok: true }`. Write the local audio manifest.
+- **`file.deleteAudio`** — payload `{ book, filenames? }` → `{ ok: true }`. Delete some/all local audio for a book.
+- **`file.audioUrl`** — payload `{ book, filename }` → `{ url }`. A `hyperlit-local://audio/<book>/<filename>` URL served by the shell's `WKURLSchemeHandler` (with Range support).
+
+### `ocr.*` — on-device PDF OCR
+
+The shell OCRs PDFs locally (PDFKit text layer + Apple Vision fallback; `hyperlit/PdfOcr/` in the Xcode project) and returns a JSON byte-compatible with Mistral's `ocr_response.json`, which the web layer attaches to the `/import-file` upload (field `ocr_response`, plus `ocr_source`) so the server conversion pipeline replays from it — no Mistral call, no charge. When the user activates a BYO OCR provider in Settings (e.g. their own Mistral key), `ocr.run` calls that provider instead of the on-device engine; the key stays native-side.
+
+The 4MB envelope cap means the PDF arrives and the result leaves in chunks. `chunkSize` (returned by `ocr.begin`) is the RAW byte slice per chunk — 2MB raw ≈ 2.7MB base64, under the cap in both directions.
+
+- **`ocr.begin`** — payload `{ bytesTotal, name? }` → `{ sessionId, chunkSize }`. Opens a session (temp file in the sandbox container). Sessions are garbage-collected after 30 minutes.
+- **`ocr.chunk`** — payload `{ sessionId, seq, dataBase64 }` → `{ receivedBytes }`. Sequential upload of the PDF bytes; out-of-order or over-declared chunks are rejected.
+- **`ocr.run`** — payload `{ sessionId }` → `{ accepted: true }`. Starts the engine on a background task once all declared bytes arrived. Completion arrives as an `ocr_complete` event.
+- **`ocr.result`** — payload `{ sessionId, seq }` → `{ dataBase64, last }`. Pull the result JSON back chunk by chunk after `ocr_complete`.
+- **`ocr.end` / `ocr.cancel`** — payload `{ sessionId }` → `{ ok: true }`. Cancels any live run and deletes the session + temp file. Always call this (the JS client does so in a `finally`).
 
 ### Events (native → JS, no `id`)
 
-| event | data | meaning |
-|---|---|---|
-| `providers_changed` | `{}` | the user edited AI settings; web should re-read `providers.snapshot` |
+- **`providers_changed`** — data `{}`. The user edited AI settings; web should re-read `providers.snapshot`.
+- **`ocr_progress`** — data `{ sessionId, page, totalPages, stage }`. Engine progress, throttled to ~4/s. `stage` is `text` | `vision` | `images` | `compose`, or `mistral` while a BYO remote provider is in flight (then `page`/`totalPages` are 0 — keepalive pulses for the JS stall watchdog).
+- **`ocr_complete`** — data `{ sessionId, ok, pages?, resultBytes?, chunkCount?, source?, error? }`. Terminal event for `ocr.run`; `source` is `native` | `mistral` (the web layer forwards it as the upload's `ocr_source`).
 
 ### Security invariants
 

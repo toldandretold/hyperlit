@@ -24,9 +24,15 @@ class PgReference extends Model
         'content',
         'foundation_source',
         'llm_metadata',
+        // Human decision layer on the canonical match (see the migration). Kept orthogonal to the
+        // pipeline-owned match_method so re-scans/re-syncs never clobber a reader's confirm/reject.
+        'reference_match_method',
+        'reference_verified_at',
+        'reference_verified_by',
     ];
 
     protected $casts = [
         'llm_metadata' => 'array',
+        'reference_verified_at' => 'datetime',
     ];
 }

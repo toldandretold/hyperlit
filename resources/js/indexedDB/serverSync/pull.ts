@@ -22,7 +22,7 @@ import {
   loadHypercitesToIndexedDB,
   loadLibraryToIndexedDB,
 } from './loaders';
-import type { BookDataResponse, AnnotationsResponse, PullResult } from './types';
+import type { BookDataResponse, AnnotationsResponse, PullResult, ServerNodeRow } from './types';
 
 /**
  * Sync complete book data from Laravel API to IndexedDB
@@ -146,6 +146,31 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<PullResu
       reason: 'sync_error'
     };
   }
+}
+
+/**
+ * Fetch a book's CURRENT server nodes WITHOUT touching IndexedDB.
+ *
+ * Read-only sibling of syncBookDataFromDatabase for the lost-ACK self-conflict
+ * check (syncQueue/selfConflictContentCheck): on a 409 we need the server's
+ * present content for the conflicting nodes to compare against what we tried to
+ * write — but we must NOT hydrate the stores (that would clobber the local edit
+ * before we've decided whether to keep it). So this does ONLY the fetch, mirroring
+ * the request in syncBookDataFromDatabase (same endpoint, same gate param, same
+ * sub-book id handling — the id, slashes and all, goes straight into the path).
+ *
+ * Returns raw ServerNodeRow[] (E2EE `content` still enveloped — the caller decrypts
+ * via e2ee/transform.decryptRows). Throws on network/HTTP failure so the caller can
+ * treat "couldn't verify" as "don't silently recover".
+ */
+export async function fetchServerNodesRaw(bookId: string): Promise<ServerNodeRow[]> {
+  const { appendGateParam } = await import('../../components/utilities/gateFilter');
+  const response = await fetch(appendGateParam(`/api/database-to-indexeddb/books/${bookId}/data`));
+  if (!response.ok) {
+    throw new Error(`fetchServerNodesRaw: ${response.status} ${response.statusText}`);
+  }
+  const data = await response.json() as BookDataResponse;
+  return data.nodes ?? [];
 }
 
 /**

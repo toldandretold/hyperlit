@@ -117,7 +117,12 @@ describe('only the active loader may save', () => {
 
     inst.saveScrollPosition();
 
-    expect(JSON.parse(sessionStorage.getItem('scrollPosition_bookA'))).toEqual({ elementId: '500' });
+    // The saved shape is { elementId, offset, savedAt } — savedAt is a wall-clock stamp
+    // (the "position last moved" time for the resume-vs-jump logic), so assert the stable
+    // identity fields and that savedAt is present as a number rather than pinning its value.
+    const saved = JSON.parse(sessionStorage.getItem('scrollPosition_bookA'));
+    expect(saved).toMatchObject({ elementId: '500', offset: 0 });
+    expect(typeof saved.savedAt).toBe('number');
   });
 
   it('a STALE loader (instance !== currentLazyLoader) writes NOTHING', () => {

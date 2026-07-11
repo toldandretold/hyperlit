@@ -18,7 +18,9 @@ export const citationHandler: ContentTypeHandler = {
     // Pass the container element so the resolver can target it directly, even before
     // `.open` has been applied (stacked layers defer that to rAF).
     const containerEl = ctx.options.containerEl || null;
-    const { resolveCitationButtonStatus }: any = await import('../contentBuilders/displayCitations');
+    const { resolveCitationButtonStatus, wireReferenceVerifyButtons }: any = await import('../contentBuilders/displayCitations');
     resolveCitationButtonStatus(ct, ctx.db, containerEl);
+    // Author's canonical-match confirm (Yes/No) buttons need click handlers once visible.
+    wireReferenceVerifyButtons(containerEl);
   },
 };

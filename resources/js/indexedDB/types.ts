@@ -251,6 +251,16 @@ export interface BibliographyRecord {
   canonical_source_id?: string | number | null;
   /** READ-only — derived server-side via leftJoin library.has_nodes (like library's is_owner). */
   source_has_nodes?: boolean | null;
+  /** READ-only — the cited source_id is a WebFetch scrape stub (library.type='web_source'). Such stubs
+   * are never opened as a readable source; the card links OUT to source_external_url instead. */
+  source_is_web_stub?: boolean | null;
+  /** READ-only — original URL of a WebFetch stub source (library.url), null unless source_is_web_stub. */
+  source_external_url?: string | null;
+  /** READ-only — the book author's human decision on the canonical match: 'user_verified' | 'user_rejected'.
+   * Orthogonal to the pipeline's match_* fields; written only via the reference verify endpoint. */
+  reference_match_method?: string | null;
+  /** READ-only — when the reference decision was stamped (ISO). */
+  reference_verified_at?: string | null;
   /** ISO timestamps set client-side by the citation inserter. */
   created_at?: string;
   updated_at?: string;

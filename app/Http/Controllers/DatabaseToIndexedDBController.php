@@ -427,7 +427,12 @@ class DatabaseToIndexedDBController extends Controller
     {
         $references = DB::table('bibliography')
             ->leftJoin('library', 'bibliography.source_id', '=', 'library.book')
-            ->select('bibliography.*', 'library.has_nodes as source_has_nodes')
+            ->select(
+                'bibliography.*',
+                'library.has_nodes as source_has_nodes',
+                'library.type as source_type',
+                'library.url as source_url',
+            )
             ->where('bibliography.book', $bookId)
             ->get();
 
@@ -439,6 +444,9 @@ class DatabaseToIndexedDBController extends Controller
         // for linked citations.
         $bibliographyData = [];
         foreach ($references as $reference) {
+            // A WebFetch scrape stub is never surfaced as a readable source — the card links OUT to
+            // the original URL instead (source_external_url). See displayCitations/plainCitation.ts.
+            $isWebStub = ($reference->source_type ?? null) === 'web_source';
             $bibliographyData[$reference->referenceId] = [
                 'content' => $reference->content,
                 'source_id' => $reference->source_id ?? null,
@@ -446,6 +454,11 @@ class DatabaseToIndexedDBController extends Controller
                 'source_has_nodes' => isset($reference->source_has_nodes)
                     ? (bool) $reference->source_has_nodes
                     : null, // null → treated as true (backward compat)
+                'source_is_web_stub' => $isWebStub,
+                'source_external_url' => $isWebStub ? ($reference->source_url ?? null) : null,
+                // Human confirm/reject of the canonical match (orthogonal to the pipeline's match_*).
+                'reference_match_method' => $reference->reference_match_method ?? null,
+                'reference_verified_at' => $reference->reference_verified_at ?? null,
             ];
         }
 

@@ -27,6 +27,13 @@ private let kTtsPresets: [Preset] = [
     Preset(label: "Custom", baseUrl: "", model: "", voice: ""),
 ]
 
+// PDF OCR: without a provider, PDFs are OCR'd on-device (Apple Vision/PDFKit,
+// free). Activating a Mistral OCR profile with your own key routes ocr.run to
+// Mistral's API instead — highest quality, paid directly to Mistral by you.
+private let kOcrPresets: [Preset] = [
+    Preset(label: "Mistral OCR", baseUrl: "https://api.mistral.ai", model: "mistral-ocr-latest", voice: nil),
+]
+
 struct AISettingsView: View {
     @ObservedObject var store: ProviderStore
 
@@ -36,6 +43,8 @@ struct AISettingsView: View {
                 .tabItem { Text("LLM") }
             ProviderListView(store: store, kind: "tts", presets: kTtsPresets)
                 .tabItem { Text("Voice (TTS)") }
+            ProviderListView(store: store, kind: "ocr", presets: kOcrPresets)
+                .tabItem { Text("PDF OCR") }
         }
         .frame(width: 540, height: 480)
         .padding()
@@ -48,13 +57,24 @@ struct ProviderListView: View {
     let presets: [Preset]
 
     private var items: [Provider] { store.providers.filter { $0.kind == kind } }
-    private var activeId: String? { kind == "llm" ? store.activeLlm : store.activeTts }
+    private var activeId: String? {
+        switch kind {
+        case "llm": return store.activeLlm
+        case "ocr": return store.activeOcr
+        default: return store.activeTts
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Keys are stored only on this Mac (Keychain) and never sent to Hyperlit's servers.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            if kind == "ocr" {
+                Text("Without a provider here, PDFs are OCR'd on this Mac for free (Apple Vision). Activate a Mistral OCR profile with your own key for the highest-quality conversion — billed to you by Mistral directly.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             List {
                 ForEach(items) { p in
@@ -154,7 +174,8 @@ struct ProviderRow: View {
         }
     }
 
-    /// Minimal reachability check: LLM → GET /models; TTS → a tiny synth.
+    /// Minimal reachability check: LLM → GET /models; OCR (Mistral) → GET
+    /// /v1/models; TTS → a tiny synth.
     private func runTest() {
         status = "Testing…"
         let p = draft
@@ -165,15 +186,17 @@ struct ProviderRow: View {
 
         Task {
             let isLlm = p.kind == "llm"
-            guard let url = URL(string: p.baseUrl + (isLlm ? "/models" : "")) else {
+            let isOcr = p.kind == "ocr"
+            let path = isLlm ? "/models" : (isOcr ? "/v1/models" : "")
+            guard let url = URL(string: p.baseUrl + path) else {
                 await MainActor.run { status = "Invalid URL" }; return
             }
             var r = URLRequest(url: url)
-            r.httpMethod = isLlm ? "GET" : "POST"
+            r.httpMethod = (isLlm || isOcr) ? "GET" : "POST"
             if let key = Keychain.get(p.id), !key.isEmpty {
                 r.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
             }
-            if !isLlm {
+            if !isLlm && !isOcr {
                 r.setValue("application/json", forHTTPHeaderField: "Content-Type")
                 r.httpBody = try? JSONSerialization.data(withJSONObject: [
                     "text": "test", "preset_voice": [p.voice ?? "af_bella"], "output_format": "mp3",

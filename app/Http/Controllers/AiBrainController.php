@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Helpers\SubBookIdHelper;
 use App\Services\BillingService;
 use App\Services\EmbeddingService;
+use App\Services\Llm\ClientInferenceUnavailableException;
+use App\Services\Llm\ClientTicketTransport;
 use App\Services\LlmService;
 use App\Services\RetrievalService;
+use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -110,7 +113,12 @@ class AiBrainController extends Controller
 
         $user->refresh();
 
-        if (!$billingService->canProceed($user)) {
+        // BYO-key mode: the client executes the LLM calls with the user's own
+        // key (via inference tickets), so no balance is needed and no charge is
+        // made. Server-side costs (embeddings, pennies) are waived + logged.
+        $clientInference = $request->boolean('client_inference');
+
+        if (!$clientInference && !$billingService->canProceed($user)) {
             return response()->json(['success' => false, 'message' => 'Insufficient balance'], 402);
         }
 
@@ -131,6 +139,7 @@ class AiBrainController extends Controller
                 'sourceScope'  => 'nullable|string|in:public,mine,shelf',
                 'mode'         => 'nullable|string|in:quick,archivist',
                 'shelfId'      => 'nullable|string|uuid',
+                'client_inference' => 'nullable|boolean',
 
                 // Optional selection framing (nesting chain + in-selection links) — see
                 // App\Services\AiBrain\ReadingContextFormatter. Bounded so it can't blow the
@@ -220,12 +229,37 @@ class AiBrainController extends Controller
         $modelLabel = $modelLabels[$brainModel] ?? basename($brainModel);
 
         // Stream the pipeline as SSE events
-        return response()->stream(function () use ($validated, $user, $brainModel, $modelLabel, $modelLabels, $fallbackChain, $llmService, $embeddingService, $billingService) {
+        return response()->stream(function () use ($validated, $user, $brainModel, $modelLabel, $modelLabels, $fallbackChain, $llmService, $embeddingService, $billingService, $clientInference) {
             $sendEvent = function (string $event, array $data) {
                 echo "event: {$event}\ndata: " . json_encode($data) . "\n\n";
                 if (ob_get_level()) ob_flush();
                 flush();
             };
+
+            // BYO-key mode: every LLM call inside this request parks an inference
+            // ticket; the open SSE stream is the delivery channel (the client
+            // executes the prompt with its own key and posts the completion back
+            // to /api/inference/{id}/complete while we poll the ticket row).
+            if ($clientInference) {
+                $llmService->setTransport(new ClientTicketTransport(
+                    $user->name,
+                    'ai_brain',
+                    $validated['highlightId'],
+                    onTicketCreated: function ($ticket) use ($sendEvent) {
+                        $sendEvent('inference_request', [
+                            'ticket_id' => $ticket->id,
+                            'request' => $ticket->request,
+                        ]);
+                    },
+                    onWait: function () {
+                        // SSE comment heartbeat — keeps proxies from killing the
+                        // idle stream while we wait on the client's answer.
+                        echo ": heartbeat\n\n";
+                        if (ob_get_level()) ob_flush();
+                        flush();
+                    },
+                ));
+            }
 
             try {
                 $selectedText = $validated['selectedText'];
@@ -257,7 +291,8 @@ class AiBrainController extends Controller
                         $llmService,
                         $billingService,
                         $embeddingService,
-                        $sendEvent
+                        $sendEvent,
+                        $clientInference
                     );
                     return;
                 }
@@ -449,6 +484,11 @@ class AiBrainController extends Controller
                     }
                     $llmResponse = trim($llmResponse);
 
+                    // Sanitize before this HTML is written into nodes: an LLM
+                    // completion is untrusted markup — doubly so under BYO where
+                    // the "model" is whatever the client posted back.
+                    $llmResponse = NodeHtmlSanitizer::clean($llmResponse) ?? '';
+
                     // 7. Parse citations and create hypercites
                     $processedHtml = $llmResponse;
 
@@ -558,15 +598,21 @@ class AiBrainController extends Controller
                     Log::info('AiBrain: annotations_updated_at updated', ['book' => $bookId]);
                 }
 
-                // 11. Bill user (cost already calculated in step 9b)
-                $billingService->charge(
-                    $user,
-                    $totalCost,
-                    'AI Brain: ' . Str::limit($question, 60),
-                    'ai_brain',
-                    [],
-                    ['book_id' => $bookId, 'highlight_id' => $highlightId]
-                );
+                // 11. Bill user (cost already calculated in step 9b). BYO mode:
+                // the LLM ran on the user's own key — waive the residual
+                // server-side cost (embeddings, fractions of a cent) and log it.
+                if ($clientInference) {
+                    Log::info('AiBrain: BYO client inference — charge waived', ['residual_cost' => $totalCost]);
+                } else {
+                    $billingService->charge(
+                        $user,
+                        $totalCost,
+                        'AI Brain: ' . Str::limit($question, 60),
+                        'ai_brain',
+                        [],
+                        ['book_id' => $bookId, 'highlight_id' => $highlightId]
+                    );
+                }
 
                 // Verify writes actually landed in the DB
                 $verifyNodes = DB::connection('pgsql_admin')->table('nodes')->where('book', $subBookId)->count();
@@ -612,6 +658,11 @@ class AiBrainController extends Controller
                     'tools_used'  => $toolsUsed,
                 ]);
 
+            } catch (ClientInferenceUnavailableException $e) {
+                Log::warning('AiBrainController::query - client inference unavailable', [
+                    'error' => $e->getMessage(),
+                ]);
+                $sendEvent('error', ['message' => 'Your AI provider did not answer in time. Check your provider settings (⌘,) and try again.']);
             } catch (\Exception $e) {
                 Log::error('AiBrainController::query - exception', [
                     'error' => $e->getMessage(),
@@ -619,6 +670,10 @@ class AiBrainController extends Controller
                 ]);
 
                 $sendEvent('error', ['message' => 'AI query failed']);
+            } finally {
+                // LlmService is a singleton — a lingering transport would ticketise
+                // the next request's calls (see LlmService::setTransport).
+                $llmService->clearTransport();
             }
         }, 200, [
             'Content-Type'      => 'text/event-stream',
@@ -643,7 +698,8 @@ class AiBrainController extends Controller
         LlmService $llmService,
         BillingService $billingService,
         EmbeddingService $embeddingService,
-        \Closure $sendEvent
+        \Closure $sendEvent,
+        bool $clientInference = false
     ): void {
         $selectedText = $validated['selectedText'];
         $question = $validated['question'];
@@ -726,7 +782,9 @@ PROMPT;
         if (str_contains($llmResponse, '<think>')) {
             $llmResponse = preg_replace('/<think>[\s\S]*/i', '', $llmResponse);
         }
-        $processedHtml = trim($llmResponse);
+        // Sanitize before this HTML is written into nodes (untrusted markup —
+        // doubly so under BYO where the client posted the completion).
+        $processedHtml = NodeHtmlSanitizer::clean(trim($llmResponse)) ?? '';
 
         // Library upsert
         $sendEvent('status', ['message' => 'Saving to your library']);
@@ -793,14 +851,19 @@ PROMPT;
         $nowMs = round(microtime(true) * 1000);
         DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, $nowMs]);
 
-        $billingService->charge(
-            $user,
-            $totalCost,
-            'AI Quick Chat: ' . Str::limit($question, 60),
-            'ai_brain',
-            [],
-            ['book_id' => $bookId, 'highlight_id' => $highlightId]
-        );
+        // BYO mode: the LLM ran on the user's own key — waive the residual cost.
+        if ($clientInference) {
+            Log::info('AiBrain (quick): BYO client inference — charge waived', ['residual_cost' => $totalCost]);
+        } else {
+            $billingService->charge(
+                $user,
+                $totalCost,
+                'AI Quick Chat: ' . Str::limit($question, 60),
+                'ai_brain',
+                [],
+                ['book_id' => $bookId, 'highlight_id' => $highlightId]
+            );
+        }
 
         Log::info('AiBrain (quick): complete', [
             'highlightId' => $highlightId,

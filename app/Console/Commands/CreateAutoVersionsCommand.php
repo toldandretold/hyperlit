@@ -3,17 +3,15 @@
 namespace App\Console\Commands;
 
 use App\Models\CanonicalSource;
+use App\Services\CanonicalVersions\AutoVersionCreator;
 use App\Services\CanonicalVersions\AutoVersionResolver;
-use App\Services\CanonicalVersions\SystemVersionMinter;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Artisan;
 
 /**
  * For each canonical_source with a pdf_url and no auto_version_book yet: create a stub
- * library row, run citation:vacuum + citation:ocr against it, then wire the canonical's
- * auto_version_book via AutoVersionResolver (which requires has_nodes=true — a
- * vacuumed-but-unOCR'd stub never gets the pointer, so --skip-ocr runs stay eligible
- * for a later OCR pass).
+ * library row, fetch + OCR its content, then wire the canonical's auto_version_book.
+ * The per-canonical body lives in AutoVersionCreator (shared with the Source Network
+ * Harvester job); this command is the CLI loop + reporting around it.
  *
  * See docs/canonical-sources.md and app/Services/CanonicalVersions/README.md.
  */
@@ -34,7 +32,7 @@ class CreateAutoVersionsCommand extends Command
     public const FOUNDATION_SOURCE = AutoVersionResolver::FOUNDATION_SOURCE;
     public const CONVERSION_METHOD = AutoVersionResolver::CONVERSION_METHOD;
 
-    public function handle(): int
+    public function handle(AutoVersionCreator $creator): int
     {
         $canonicalId = $this->option('canonical') ?: null;
         $limit = (int) $this->option('limit');
@@ -59,8 +57,6 @@ class CreateAutoVersionsCommand extends Command
 
         $stats = ['created' => 0, 'vacuum_failed' => 0, 'ocr_failed' => 0, 'deferred' => 0, 'skipped' => 0, 'errors' => 0];
         $errorSamples = [];
-        $resolver = new AutoVersionResolver();
-        $minter = new SystemVersionMinter();
 
         foreach ($query->cursor() as $canonical) {
             $this->line("→ {$canonical->id} | " . substr($canonical->title ?? '(untitled)', 0, 60));
@@ -72,65 +68,35 @@ class CreateAutoVersionsCommand extends Command
                 continue;
             }
 
-            try {
-                // If an eligible (already-OCR'd) version exists from a previous
-                // run, the resolver wires the pointer without any fetching.
-                if ($resolver->assign($canonical)) {
+            $result = $creator->create($canonical, $skipOcr);
+
+            switch ($result['status']) {
+                case 'assigned_existing':
                     $stats['created']++;
-                    $this->line("   <fg=green>auto_version_book set (existing OCR'd stub)</>");
-                    if ($sleep > 0) sleep($sleep);
-                    continue;
-                }
-
-                $existingStub = $minter->findExistingSystemRow($canonical, self::FOUNDATION_SOURCE);
-                if ($existingStub) {
-                    $newBookId = $existingStub->book;
-                    $this->line("   reusing existing stub: {$newBookId}");
-                } else {
-                    $newBookId = $minter->mintSystemRow($canonical, self::CONVERSION_METHOD, self::FOUNDATION_SOURCE);
-                    $this->line("   created stub library row: {$newBookId}");
-                }
-
-                // Step 1: Vacuum — download the PDF
-                $this->line("   running citation:vacuum...");
-                $vacuumExit = Artisan::call('citation:vacuum', ['bookId' => $newBookId]);
-                if ($vacuumExit !== 0) {
-                    $this->warn("   vacuum failed (exit {$vacuumExit}); leaving stub in place");
+                    $this->line("   <fg=green>auto_version_book set (existing converted stub)</>");
+                    break;
+                case 'assigned':
+                    $stats['created']++;
+                    $this->line("   <fg=green>auto_version_book set</> ({$result['book']})");
+                    break;
+                case 'fetch_failed':
                     $stats['vacuum_failed']++;
-                    continue;
-                }
-                $this->line("   vacuum ok");
-
-                // Step 2: OCR (optional)
-                if (!$skipOcr) {
-                    $this->line("   running citation:ocr...");
-                    $ocrExit = Artisan::call('citation:ocr', ['bookId' => $newBookId]);
-                    if ($ocrExit !== 0) {
-                        $this->warn("   ocr failed (exit {$ocrExit}); leaving downloaded PDF, will retry later");
-                        $stats['ocr_failed']++;
-                        continue;
-                    }
-                    $this->line("   ocr ok");
-                }
-
-                // Step 3: Wire the pointer via the resolver. It requires
-                // has_nodes=true, so with --skip-ocr the pointer stays NULL
-                // and the canonical remains eligible for a later OCR run
-                // (previously the pointer was set on a contentless stub,
-                // which silently excluded it from every future sweep).
-                if ($resolver->assign($canonical)) {
-                    $stats['created']++;
-                    $this->line("   <fg=green>auto_version_book set</>");
-                } else {
+                    $this->warn("   fetch failed: {$result['reason']}; leaving stub in place");
+                    break;
+                case 'ocr_failed':
+                    $stats['ocr_failed']++;
+                    $this->warn("   ocr failed: {$result['reason']}; leaving downloaded PDF, will retry later");
+                    break;
+                case 'deferred':
                     $stats['deferred']++;
                     $this->line("   <fg=yellow>pointer deferred — stub has no OCR'd content yet</>");
-                }
-            } catch (\Throwable $e) {
-                $stats['errors']++;
-                if (count($errorSamples) < 5) {
-                    $errorSamples[] = "{$canonical->id}: " . $e->getMessage();
-                }
-                $this->error("   error: " . $e->getMessage());
+                    break;
+                default: // error
+                    $stats['errors']++;
+                    if (count($errorSamples) < 5) {
+                        $errorSamples[] = "{$canonical->id}: " . ($result['reason'] ?? 'unknown error');
+                    }
+                    $this->error("   error: " . ($result['reason'] ?? 'unknown error'));
             }
 
             if ($sleep > 0) sleep($sleep);

@@ -105,6 +105,26 @@ describe('resolveBibliographyTarget', () => {
     });
   });
 
+  it('surfaces source_url metadata for a web-only canonical (stub excluded → citation-card)', async () => {
+    // With web stubs suppressed server-side, a web-only canonical returns book:null + a source_url
+    // to link OUT to the original (e.g. progressive.international).
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        book: null,
+        has_version: false,
+        metadata: { title: 'Havana Declaration', source_url: 'https://progressive.international/havana' },
+      }),
+    });
+
+    const result = await resolveBibliographyTarget({
+      canonical_source_id: '33333333-3333-3333-3333-333333333333',
+    });
+
+    expect(result.type).toBe('citation-card');
+    expect(result.metadata.source_url).toBe('https://progressive.international/havana');
+  });
+
   it('falls back to source_id when canonical lookup returns 404', async () => {
     fetch.mockResolvedValueOnce({ ok: false, status: 404 });
 

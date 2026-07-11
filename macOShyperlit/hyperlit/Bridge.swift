@@ -6,7 +6,8 @@
 //  docs/native-bridge-protocol.md). Receives requests posted to the "native"
 //  message handler and replies via window.__hyperlitNativeReply(...).
 //
-//  Methods handled here: ping, providers.snapshot, ai.fetch. (secret.* is
+//  Methods handled here: ping, providers.snapshot, ai.fetch, and the ocr.*
+//  family (on-device PDF OCR — sessions live in OcrBridgeHandler). (secret.* is
 //  unnecessary — the native Settings UI writes Keychain directly; file.* arrives
 //  with the local-audio phase.)
 //
@@ -16,9 +17,22 @@ import WebKit
 final class Bridge: NSObject, WKScriptMessageHandler {
     weak var webView: WKWebView?
     let store: ProviderStore
+    let ocr = OcrBridgeHandler()
 
     init(store: ProviderStore) {
         self.store = store
+        super.init()
+        ocr.emitEvent = { [weak self] event, data in
+            self?.fireEvent(event, data: data)
+        }
+        // BYO OCR (e.g. the user's own Mistral key): resolved per run from the
+        // active "ocr"-kind provider. The key is read from Keychain here and
+        // handed only to native code — it never crosses into JS.
+        ocr.byoOcrProvider = { [weak self] in
+            guard let p = self?.store.activeOcrProvider(),
+                  let key = Keychain.get(p.id), !key.isEmpty, !p.baseUrl.isEmpty else { return nil }
+            return (baseUrl: p.baseUrl, model: p.model, apiKey: key)
+        }
     }
 
     // WebKit delivers this on the main thread.
@@ -37,6 +51,8 @@ final class Bridge: NSObject, WKScriptMessageHandler {
             reply(id, ok: true, result: store.snapshot())
         case "ai.fetch":
             Task { await aiFetch(id: id, payload: payload) }
+        case "ocr.begin", "ocr.chunk", "ocr.run", "ocr.result", "ocr.end", "ocr.cancel":
+            ocrCall(id: id, method: method, payload: payload)
         default:
             reply(id, ok: false, code: "unsupported_method", message: method)
         }
@@ -45,6 +61,33 @@ final class Bridge: NSObject, WKScriptMessageHandler {
     /// Push a native-initiated event (no id) to the web layer.
     func fireProvidersChanged() {
         evaluate("window.__hyperlitNativeReply({v:1,event:'providers_changed',data:{}})")
+    }
+
+    /// Push an arbitrary event envelope (no id) to the web layer.
+    func fireEvent(_ event: String, data: [String: Any]) {
+        guard let payload = try? JSONSerialization.data(withJSONObject: ["v": 1, "event": event, "data": data]),
+              let json = String(data: payload, encoding: .utf8) else { return }
+        evaluate("window.__hyperlitNativeReply(\(json))")
+    }
+
+    // ── ocr.*: on-device PDF OCR (sessions + engine in OcrBridgeHandler) ──────
+
+    private func ocrCall(id: String, method: String, payload: [String: Any]) {
+        do {
+            let result: [String: Any]
+            switch method {
+            case "ocr.begin": result = try ocr.begin(payload: payload)
+            case "ocr.chunk": result = try ocr.chunk(payload: payload)
+            case "ocr.run": result = try ocr.run(payload: payload)
+            case "ocr.result": result = try ocr.result(payload: payload)
+            default: result = try ocr.end(payload: payload)   // ocr.end / ocr.cancel
+            }
+            reply(id, ok: true, result: result)
+        } catch let error as OcrBridgeError {
+            reply(id, ok: false, code: error.code, message: error.message)
+        } catch {
+            reply(id, ok: false, code: "ocr_failed", message: error.localizedDescription)
+        }
     }
 
     // ── ai.fetch: native makes the HTTPS call, injecting the Keychain key ─────

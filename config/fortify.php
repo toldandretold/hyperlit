@@ -145,7 +145,12 @@ return [
 
     'features' => [
         Features::registration(),
-        Features::resetPasswords(),
+        // resetPasswords() is deliberately OFF: password_reset_tokens is RLS
+        // deny-all for the app role, so Fortify's POST /forgot-password and
+        // POST /reset-password can never work. The real flow is the app's own
+        // /api/password/forgot + /api/password/reset (SECURITY DEFINER
+        // functions) plus the GET /reset-password/{token} page in web.php.
+        // Features::resetPasswords(),
         // Features::emailVerification(),
         //Features::updateProfileInformation(),
         //Features::updatePasswords(),

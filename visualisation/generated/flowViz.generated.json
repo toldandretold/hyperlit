@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1613,
-    "moduleCount": 345,
+    "fnCount": 1629,
+    "moduleCount": 347,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3282,
+    "edgeCount": 3301,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -2128,6 +2128,46 @@
       "leaf": false
     },
     {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork",
+      "label": "handleHarvestNetwork",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/harvestNetwork",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:loadHarvestSection",
+      "label": "loadHarvestSection",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/harvestNetwork",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus",
+      "label": "pollHarvestStatus",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/harvestNetwork",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:startHarvestPolling",
+      "label": "startHarvestPolling",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/harvestNetwork",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:stopHarvestPolling",
+      "label": "stopHarvestPolling",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/harvestNetwork",
+      "leaf": true
+    },
+    {
       "id": "components/sourceContainer/creatorTools/index:loadCreatorTools",
       "label": "loadCreatorTools",
       "kind": "fn",
@@ -2529,6 +2569,14 @@
       "leaf": true
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.handleHarvestNetwork",
+      "label": "SourceContainerManager.handleHarvestNetwork",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.handleReconvert",
       "label": "SourceContainerManager.handleReconvert",
       "kind": "fn",
@@ -2569,6 +2617,14 @@
       "leaf": true
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.loadHarvestSection",
+      "label": "SourceContainerManager.loadHarvestSection",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.loadReconvertInfo",
       "label": "SourceContainerManager.loadReconvertInfo",
       "kind": "fn",
@@ -2603,6 +2659,14 @@
     {
       "id": "components/sourceContainer/index:SourceContainerManager.pollAiReviewStatus",
       "label": "SourceContainerManager.pollAiReviewStatus",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.pollHarvestStatus",
+      "label": "SourceContainerManager.pollHarvestStatus",
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/index",
@@ -2705,8 +2769,24 @@
       "leaf": true
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.startHarvestPolling",
+      "label": "SourceContainerManager.startHarvestPolling",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.stopAiReviewPolling",
       "label": "SourceContainerManager.stopAiReviewPolling",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.stopHarvestPolling",
+      "label": "SourceContainerManager.stopHarvestPolling",
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/index",
@@ -8506,6 +8586,14 @@
       "leaf": false
     },
     {
+      "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:wireReferenceVerifyButtons",
+      "label": "wireReferenceVerifyButtons",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/contentBuilders/displayCitations/plainCitation",
+      "leaf": false
+    },
+    {
       "id": "hyperlitContainer/contentBuilders/displayFootnotes:buildFootnoteContent",
       "label": "buildFootnoteContent",
       "kind": "fn",
@@ -10190,6 +10278,17 @@
       ]
     },
     {
+      "id": "indexedDB/serverSync/pull:fetchServerNodesRaw",
+      "label": "fetchServerNodesRaw",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/pull",
+      "leaf": false,
+      "types": [
+        "ServerNodeRow"
+      ]
+    },
+    {
       "id": "indexedDB/serverSync/pull:syncAnnotationsOnly",
       "label": "syncAnnotationsOnly",
       "kind": "fn",
@@ -10302,6 +10401,17 @@
       "stage": "queue",
       "module": "indexedDB/syncQueue/queue",
       "leaf": true
+    },
+    {
+      "id": "indexedDB/syncQueue/selfConflictContentCheck:isLostAckSelfConflict",
+      "label": "isLostAckSelfConflict",
+      "kind": "fn",
+      "stage": "push",
+      "module": "indexedDB/syncQueue/selfConflictContentCheck",
+      "leaf": true,
+      "types": [
+        "ServerNodeRow"
+      ]
     },
     {
       "id": "indexedDB/syncQueue/unload:initUnloadSyncDependencies",
@@ -13964,6 +14074,14 @@
       "leaf": false
     },
     {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.attachNativeOcrIfAvailable",
+      "label": "ImportBookTransition.attachNativeOcrIfAvailable",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/pathways/ImportBookTransition",
+      "leaf": false
+    },
+    {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState",
       "label": "ImportBookTransition.cleanupPreviousState",
       "kind": "fn",
@@ -14036,6 +14154,14 @@
       "leaf": false
     },
     {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.offerFailureRecovery",
+      "label": "ImportBookTransition.offerFailureRecovery",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/pathways/ImportBookTransition",
+      "leaf": true
+    },
+    {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.pollImportProgress",
       "label": "ImportBookTransition.pollImportProgress",
       "kind": "fn",
@@ -14046,6 +14172,14 @@
     {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent",
       "label": "ImportBookTransition.replaceBodyContent",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/pathways/ImportBookTransition",
+      "leaf": false
+    },
+    {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.retryImportViaReconvert",
+      "label": "ImportBookTransition.retryImportViaReconvert",
       "kind": "fn",
       "stage": "SPA",
       "module": "SPA/navigation/pathways/ImportBookTransition",
@@ -15407,6 +15541,19 @@
       ]
     },
     {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork",
+      "label": "components/sourceContainer/creatorTools/harvestNetwork",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork",
+        "components/sourceContainer/creatorTools/harvestNetwork:loadHarvestSection",
+        "components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus",
+        "components/sourceContainer/creatorTools/harvestNetwork:startHarvestPolling",
+        "components/sourceContainer/creatorTools/harvestNetwork:stopHarvestPolling"
+      ]
+    },
+    {
       "id": "components/sourceContainer/creatorTools/index",
       "label": "components/sourceContainer/creatorTools/index",
       "stage": "components",
@@ -15516,16 +15663,19 @@
         "components/sourceContainer/index:SourceContainerManager.handleDeleteBook",
         "components/sourceContainer/index:SourceContainerManager.handleEditClick",
         "components/sourceContainer/index:SourceContainerManager.handleFormSubmit",
+        "components/sourceContainer/index:SourceContainerManager.handleHarvestNetwork",
         "components/sourceContainer/index:SourceContainerManager.handleReconvert",
         "components/sourceContainer/index:SourceContainerManager.handleReupload",
         "components/sourceContainer/index:SourceContainerManager.hideEditForm",
         "components/sourceContainer/index:SourceContainerManager.loadAiReviewStatus",
         "components/sourceContainer/index:SourceContainerManager.loadCreatorTools",
+        "components/sourceContainer/index:SourceContainerManager.loadHarvestSection",
         "components/sourceContainer/index:SourceContainerManager.loadReconvertInfo",
         "components/sourceContainer/index:SourceContainerManager.loadVersionHistory",
         "components/sourceContainer/index:SourceContainerManager.openAiReviewVizOverlay",
         "components/sourceContainer/index:SourceContainerManager.openContainer",
         "components/sourceContainer/index:SourceContainerManager.pollAiReviewStatus",
+        "components/sourceContainer/index:SourceContainerManager.pollHarvestStatus",
         "components/sourceContainer/index:SourceContainerManager.populateEditForm",
         "components/sourceContainer/index:SourceContainerManager.populateFieldsFromBibtex",
         "components/sourceContainer/index:SourceContainerManager.rebindElements",
@@ -15538,7 +15688,9 @@
         "components/sourceContainer/index:SourceContainerManager.showEditForm",
         "components/sourceContainer/index:SourceContainerManager.showOptionalFieldsForType",
         "components/sourceContainer/index:SourceContainerManager.startAiReviewPolling",
+        "components/sourceContainer/index:SourceContainerManager.startHarvestPolling",
         "components/sourceContainer/index:SourceContainerManager.stopAiReviewPolling",
+        "components/sourceContainer/index:SourceContainerManager.stopHarvestPolling",
         "components/sourceContainer/index:SourceContainerManager.syncLibraryRecordToBackend",
         "components/sourceContainer/index:SourceContainerManager.syncPipelineHighlights",
         "components/sourceContainer/index:SourceContainerManager.validateUrl",
@@ -16940,7 +17092,8 @@
       "band": "capture",
       "fnIds": [
         "hyperlitContainer/contentBuilders/displayCitations/plainCitation:buildCitationContent",
-        "hyperlitContainer/contentBuilders/displayCitations/plainCitation:resolveCitationButtonStatus"
+        "hyperlitContainer/contentBuilders/displayCitations/plainCitation:resolveCitationButtonStatus",
+        "hyperlitContainer/contentBuilders/displayCitations/plainCitation:wireReferenceVerifyButtons"
       ]
     },
     {
@@ -17556,6 +17709,7 @@
       "stage": "serverSync",
       "band": "sync",
       "fnIds": [
+        "indexedDB/serverSync/pull:fetchServerNodesRaw",
         "indexedDB/serverSync/pull:syncAnnotationsOnly",
         "indexedDB/serverSync/pull:syncBookDataFromDatabase"
       ]
@@ -17609,6 +17763,15 @@
         "indexedDB/syncQueue/queue:clearPendingSyncsForBook",
         "indexedDB/syncQueue/queue:initSyncQueueDependencies",
         "indexedDB/syncQueue/queue:queueForSync"
+      ]
+    },
+    {
+      "id": "indexedDB/syncQueue/selfConflictContentCheck",
+      "label": "indexedDB/syncQueue/selfConflictContentCheck",
+      "stage": "push",
+      "band": "store",
+      "fnIds": [
+        "indexedDB/syncQueue/selfConflictContentCheck:isLostAckSelfConflict"
       ]
     },
     {
@@ -18852,6 +19015,7 @@
       "stage": "SPA",
       "band": "sync",
       "fnIds": [
+        "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.attachNativeOcrIfAvailable",
         "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState",
         "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.clearFormData",
         "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.createImportProgressUI",
@@ -18861,8 +19025,10 @@
         "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.fetchReaderPageHtml",
         "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.handleFormSubmissionAndTransition",
         "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.initializeImportedReader",
+        "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.offerFailureRecovery",
         "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.pollImportProgress",
         "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent",
+        "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.retryImportViaReconvert",
         "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.setupImportedBookSession",
         "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.showFootnoteAuditModal",
         "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.updateUrl"
@@ -21432,6 +21598,24 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork__domwrite__dom",
+      "source": "components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:loadHarvestSection__domwrite__dom",
+      "source": "components/sourceContainer/creatorTools/harvestNetwork:loadHarvestSection",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus__domwrite__dom",
+      "source": "components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/sourceContainer/creatorTools/index:loadCreatorTools__domwrite__dom",
       "source": "components/sourceContainer/creatorTools/index:loadCreatorTools",
       "target": "dom",
@@ -21872,6 +22056,13 @@
       "dataPath": true
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.handleHarvestNetwork__call__components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork",
+      "source": "components/sourceContainer/index:SourceContainerManager.handleHarvestNetwork",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.handleReconvert__call__components/sourceContainer/creatorTools/reconvert:handleReconvert",
       "source": "components/sourceContainer/index:SourceContainerManager.handleReconvert",
       "target": "components/sourceContainer/creatorTools/reconvert:handleReconvert",
@@ -21903,6 +22094,13 @@
       "source": "components/sourceContainer/index:SourceContainerManager.loadCreatorTools",
       "target": "components/sourceContainer/creatorTools/index:loadCreatorTools",
       "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.loadHarvestSection__call__components/sourceContainer/creatorTools/harvestNetwork:loadHarvestSection",
+      "source": "components/sourceContainer/index:SourceContainerManager.loadHarvestSection",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:loadHarvestSection",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/sourceContainer/index:SourceContainerManager.loadReconvertInfo__call__components/sourceContainer/creatorTools/reconvert:loadReconvertInfo",
@@ -21940,6 +22138,13 @@
       "id": "components/sourceContainer/index:SourceContainerManager.pollAiReviewStatus__call__components/sourceContainer/aiReview/polling:pollAiReviewStatus",
       "source": "components/sourceContainer/index:SourceContainerManager.pollAiReviewStatus",
       "target": "components/sourceContainer/aiReview/polling:pollAiReviewStatus",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.pollHarvestStatus__call__components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus",
+      "source": "components/sourceContainer/index:SourceContainerManager.pollHarvestStatus",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus",
       "rel": "call",
       "dataPath": true
     },
@@ -22007,9 +22212,21 @@
       "rel": "call"
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.startHarvestPolling__call__components/sourceContainer/creatorTools/harvestNetwork:startHarvestPolling",
+      "source": "components/sourceContainer/index:SourceContainerManager.startHarvestPolling",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:startHarvestPolling",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.stopAiReviewPolling__call__components/sourceContainer/aiReview/polling:stopAiReviewPolling",
       "source": "components/sourceContainer/index:SourceContainerManager.stopAiReviewPolling",
       "target": "components/sourceContainer/aiReview/polling:stopAiReviewPolling",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.stopHarvestPolling__call__components/sourceContainer/creatorTools/harvestNetwork:stopHarvestPolling",
+      "source": "components/sourceContainer/index:SourceContainerManager.stopHarvestPolling",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:stopHarvestPolling",
       "rel": "call"
     },
     {
@@ -24797,6 +25014,24 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork",
+      "source": "dom",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/creatorTools/harvestNetwork:loadHarvestSection",
+      "source": "dom",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:loadHarvestSection",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus",
+      "source": "dom",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/sourceContainer/creatorTools/index:loadCreatorTools",
       "source": "dom",
       "target": "components/sourceContainer/creatorTools/index:loadCreatorTools",
@@ -26315,6 +26550,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__hyperlitContainer/contentBuilders/displayCitations/plainCitation:wireReferenceVerifyButtons",
+      "source": "dom",
+      "target": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:wireReferenceVerifyButtons",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__hyperlitContainer/contentBuilders/displayHypercites/citationPanelButtons:handleHyperciteDelete",
       "source": "dom",
       "target": "hyperlitContainer/contentBuilders/displayHypercites/citationPanelButtons:handleHyperciteDelete",
@@ -27626,6 +27867,12 @@
       "id": "dom__domread__SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent",
       "source": "dom",
       "target": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.replaceBodyContent",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.retryImportViaReconvert",
+      "source": "dom",
+      "target": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.retryImportViaReconvert",
       "rel": "domread"
     },
     {
@@ -30210,18 +30457,6 @@
       "dataPath": true
     },
     {
-      "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:buildCitationContent__write__store:bibliography",
-      "source": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:buildCitationContent",
-      "target": "store:bibliography",
-      "rel": "write"
-    },
-    {
-      "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:buildCitationContent__write__store:library",
-      "source": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:buildCitationContent",
-      "target": "store:library",
-      "rel": "write"
-    },
-    {
       "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:resolveCitationButtonStatus__call__hyperlitContainer/contentBuilders/sourceAccessButton:deletedTrashIcon",
       "source": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:resolveCitationButtonStatus",
       "target": "hyperlitContainer/contentBuilders/sourceAccessButton:deletedTrashIcon",
@@ -30255,6 +30490,24 @@
     {
       "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:resolveCitationButtonStatus__domwrite__dom",
       "source": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:resolveCitationButtonStatus",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:wireReferenceVerifyButtons__call__components/sourceContainer/checkSource:wireSourceStatus",
+      "source": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:wireReferenceVerifyButtons",
+      "target": "components/sourceContainer/checkSource:wireSourceStatus",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:wireReferenceVerifyButtons__call__hyperlitContainer/contentBuilders/displayCitations/plainCitation:wireReferenceVerifyButtons",
+      "source": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:wireReferenceVerifyButtons",
+      "target": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:wireReferenceVerifyButtons",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:wireReferenceVerifyButtons__domwrite__dom",
+      "source": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:wireReferenceVerifyButtons",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -33027,6 +33280,13 @@
       "rel": "call"
     },
     {
+      "id": "indexedDB/serverSync/pull:fetchServerNodesRaw__call__components/utilities/gateFilter:appendGateParam",
+      "source": "indexedDB/serverSync/pull:fetchServerNodesRaw",
+      "target": "components/utilities/gateFilter:appendGateParam",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__components/utilities/gateFilter:appendGateParam",
       "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
       "target": "components/utilities/gateFilter:appendGateParam",
@@ -33208,6 +33468,13 @@
       "dataPath": true
     },
     {
+      "id": "indexedDB/syncQueue/master:executeSyncPayload__call__indexedDB/syncQueue/selfConflictContentCheck:isLostAckSelfConflict",
+      "source": "indexedDB/syncQueue/master:executeSyncPayload",
+      "target": "indexedDB/syncQueue/selfConflictContentCheck:isLostAckSelfConflict",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "indexedDB/syncQueue/master:executeSyncPayload__push__route:/api/db/unified-sync",
       "source": "indexedDB/syncQueue/master:executeSyncPayload",
       "target": "route:/api/db/unified-sync",
@@ -33240,6 +33507,13 @@
       "source": "indexedDB/syncQueue/master:updateHistoryLog",
       "target": "store:historyLog",
       "rel": "write"
+    },
+    {
+      "id": "indexedDB/syncQueue/selfConflictContentCheck:isLostAckSelfConflict__call__indexedDB/serverSync/pull:fetchServerNodesRaw",
+      "source": "indexedDB/syncQueue/selfConflictContentCheck:isLostAckSelfConflict",
+      "target": "indexedDB/serverSync/pull:fetchServerNodesRaw",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/syncQueue/unload:setupUnloadSync__call__indexedDB/types:asBookId",
@@ -36261,6 +36535,13 @@
       "label": "/api/database-to-indexeddb/books/{}/data"
     },
     {
+      "id": "route:/api/database-to-indexeddb/books/{}/data__pull__indexedDB/serverSync/pull:fetchServerNodesRaw",
+      "source": "route:/api/database-to-indexeddb/books/{}/data",
+      "target": "indexedDB/serverSync/pull:fetchServerNodesRaw",
+      "rel": "pull",
+      "label": "/api/database-to-indexeddb/books/{}/data"
+    },
+    {
       "id": "route:/api/database-to-indexeddb/books/{}/data__pull__indexedDB/serverSync/pull:syncBookDataFromDatabase",
       "source": "route:/api/database-to-indexeddb/books/{}/data",
       "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
@@ -37655,6 +37936,12 @@
       "source": "SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.setupFreshPageLoadHandling",
       "target": "components/editButton/lock:checkEditPermissionsAndUpdateUI",
       "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.attachNativeOcrIfAvailable__domwrite__dom",
+      "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.attachNativeOcrIfAvailable",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.cleanupPreviousState__call__components/editButton/index:resetEditModeState",
@@ -40886,6 +41173,11 @@
     },
     {
       "source": "components/sourceContainer/index",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/index",
       "target": "components/sourceContainer/creatorTools/index",
       "kind": "static"
     },
@@ -42306,6 +42598,11 @@
     },
     {
       "source": "hyperlitContainer/contentBuilders/displayCitations/plainCitation",
+      "target": "components/sourceContainer/checkSource",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/contentBuilders/displayCitations/plainCitation",
       "target": "hyperlitContainer/contentBuilders/sourceAccessButton",
       "kind": "static"
     },
@@ -43291,6 +43588,11 @@
     },
     {
       "source": "indexedDB/syncQueue/master",
+      "target": "indexedDB/syncQueue/selfConflictContentCheck",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/syncQueue/master",
       "target": "indexedDB/types",
       "kind": "static"
     },
@@ -43298,6 +43600,11 @@
       "source": "indexedDB/syncQueue/master",
       "target": "indexedDB/hydration/rebuild",
       "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/syncQueue/selfConflictContentCheck",
+      "target": "indexedDB/serverSync/pull",
+      "kind": "breaker"
     },
     {
       "source": "indexedDB/syncQueue/unload",
@@ -44485,9 +44792,17 @@
       [
         "components/utilities/containerManager",
         "hyperlitContainer/core"
+      ],
+      [
+        "indexedDB/index",
+        "indexedDB/serverSync/loaders",
+        "indexedDB/serverSync/pull",
+        "indexedDB/syncQueue/master",
+        "indexedDB/syncQueue/selfConflictContentCheck",
+        "indexedDB/syncQueue/unload"
       ]
     ],
-    "breakerCount": 2,
+    "breakerCount": 3,
     "lazyCount": 238
   }
 }

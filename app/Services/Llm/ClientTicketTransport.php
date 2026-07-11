@@ -20,15 +20,19 @@ use Closure;
  */
 class ClientTicketTransport implements InferenceTransport
 {
+    private int $ttlSeconds;
+    private int $waitTimeoutSeconds;
+    private int $pollIntervalSeconds;
+
     /**
      * @param string       $creator          owning user (= app.current_user)
      * @param string       $feature          'vibe_css' | 'ai_brain' | 'ai_review'
      * @param string|null  $contextId        pipeline/highlight id, or null
      * @param Closure|null $onTicketCreated  fn(InferenceTicket): void — e.g. emit an SSE event
      * @param Closure|null $onWait           fn(): void — called each poll tick (e.g. SSE heartbeat)
-     * @param int          $ttlSeconds       ticket lifetime
-     * @param int          $waitTimeoutSeconds  how long execute() blocks before giving up
-     * @param int          $pollIntervalSeconds poll cadence (0 in tests)
+     * @param int|null     $ttlSeconds       ticket lifetime (null → services.llm.ticket_ttl_seconds)
+     * @param int|null     $waitTimeoutSeconds  how long execute() blocks (null → …ticket_wait_seconds)
+     * @param int|null     $pollIntervalSeconds poll cadence, 0 in tests (null → …ticket_poll_seconds)
      */
     public function __construct(
         private string $creator,
@@ -36,10 +40,13 @@ class ClientTicketTransport implements InferenceTransport
         private ?string $contextId = null,
         private ?Closure $onTicketCreated = null,
         private ?Closure $onWait = null,
-        private int $ttlSeconds = 300,
-        private int $waitTimeoutSeconds = 300,
-        private int $pollIntervalSeconds = 1,
+        ?int $ttlSeconds = null,
+        ?int $waitTimeoutSeconds = null,
+        ?int $pollIntervalSeconds = null,
     ) {
+        $this->ttlSeconds = $ttlSeconds ?? (int) config('services.llm.ticket_ttl_seconds', 300);
+        $this->waitTimeoutSeconds = $waitTimeoutSeconds ?? (int) config('services.llm.ticket_wait_seconds', 300);
+        $this->pollIntervalSeconds = $pollIntervalSeconds ?? (int) config('services.llm.ticket_poll_seconds', 1);
     }
 
     public function execute(array $body, int $timeout): ?string
