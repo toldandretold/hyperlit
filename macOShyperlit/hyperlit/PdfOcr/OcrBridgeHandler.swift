@@ -207,10 +207,13 @@ final class OcrBridgeHandler {
         return ["accepted": true]
     }
 
-    /// Produce the OCR JSON: the user's BYO provider (Mistral) when one is
-    /// active, otherwise the on-device engine. A PDF over Mistral's 50MB cap
-    /// falls back to on-device rather than failing. Returns the JSON plus its
-    /// source ("mistral" | "native") for upload provenance.
+    /// Produce the OCR JSON: the user's BYO provider when one is active —
+    /// Mistral's OCR API, or any OpenAI-compatible vision model (Ollama /
+    /// LM Studio / hosted) — otherwise the on-device engine. A PDF over
+    /// Mistral's 50MB cap falls back to on-device rather than failing.
+    /// Returns the JSON plus its source ("mistral" | "native") for upload
+    /// provenance (VLM output counts as "native": the user paid nothing or
+    /// paid their own provider directly; either way the server bills nothing).
     private nonisolated static func produceOcrJson(
         fileURL: URL,
         fileName: String,
@@ -218,7 +221,7 @@ final class OcrBridgeHandler {
         cancelFlag: CancelFlag,
         progress: @escaping (OcrProgress) -> Void
     ) async throws -> (Data, String) {
-        if let byo {
+        if let byo, byo.baseUrl.contains("mistral") || byo.model.hasPrefix("mistral-ocr") {
             // Keepalive pulse while the remote call runs (can take minutes on a
             // big book) so the web side's stall watchdog doesn't fire.
             let keepalive = Task {
@@ -237,6 +240,17 @@ final class OcrBridgeHandler {
             } catch MistralOcrError.tooLarge {
                 // fall through to on-device below
             }
+        } else if let byo {
+            // Vision-language model: per-page transcription with real progress.
+            let json = try await VlmOcrClient.run(
+                fileURL: fileURL,
+                baseUrl: byo.baseUrl,
+                model: byo.model,
+                apiKey: byo.apiKey.isEmpty ? nil : byo.apiKey,
+                isCancelled: { cancelFlag.isCancelled },
+                progress: progress
+            )
+            return (json, "native")
         }
         var engine = PdfOcrEngine()
         engine.isCancelled = { cancelFlag.isCancelled }

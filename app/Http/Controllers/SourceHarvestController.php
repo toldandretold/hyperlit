@@ -165,10 +165,74 @@ class SourceHarvestController extends Controller
                 'counts'      => json_decode($harvest->counts ?? '{}', true),
                 'telemetry'   => json_decode($harvest->telemetry ?? '[]', true),
                 'error'       => $harvest->error,
+                'shelf'       => $this->shelfPayload($harvest->shelf_id ?? null),
+                'notify_email' => (bool) ($harvest->notify_email ?? false),
                 'created_at'  => $harvest->created_at,
                 'updated_at'  => $harvest->updated_at,
             ],
         ]);
+    }
+
+    /**
+     * GET /api/source-harvest/map — the static stage chain the live
+     * visualisation renders (mirrors /api/citation-pipeline/map).
+     */
+    public function map(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'stages'  => \App\Services\SourceHarvest\HarvestMap::stages(),
+        ]);
+    }
+
+    /**
+     * POST /api/source-harvest/{harvestId}/notify — opt in to a completion
+     * email. Authenticated harvest owners only (anonymous owners have no
+     * email address to send to).
+     */
+    public function notify(string $harvestId): JsonResponse
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'You must be logged in to receive email notifications.'], 401);
+        }
+
+        $db = DB::connection('pgsql_admin');
+        $harvest = $db->table('source_network_harvests')->where('id', $harvestId)->first();
+
+        if (!$harvest) {
+            return response()->json(['success' => false, 'message' => 'Harvest not found'], 404);
+        }
+
+        if ((int) $harvest->user_id !== (int) $user->id) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        if (in_array($harvest->status, ['completed', 'failed'], true)) {
+            return response()->json(['success' => false, 'message' => 'Harvest already finished'], 422);
+        }
+
+        $db->table('source_network_harvests')
+            ->where('id', $harvestId)
+            ->update(['notify_email' => true, 'updated_at' => now()]);
+
+        return response()->json(['success' => true]);
+    }
+
+    /** Shelf link payload for the completion dialog + email (null until the shelf step ran). */
+    private function shelfPayload(?string $shelfId): ?array
+    {
+        if (!$shelfId) {
+            return null;
+        }
+
+        $shelf = DB::connection('pgsql_admin')
+            ->table('shelves')
+            ->where('id', $shelfId)
+            ->select(['id', 'name', 'slug', 'creator'])
+            ->first();
+
+        return $shelf ? (array) $shelf : null;
     }
 
     /**
@@ -181,10 +245,11 @@ class SourceHarvestController extends Controller
         return response()->json([
             'success' => true,
             'harvest' => $harvest ? [
-                'id'          => $harvest->id,
-                'status'      => $harvest->status,
-                'step'        => $harvest->step,
-                'step_detail' => $harvest->step_detail,
+                'id'           => $harvest->id,
+                'status'       => $harvest->status,
+                'step'         => $harvest->step,
+                'step_detail'  => $harvest->step_detail,
+                'notify_email' => (bool) ($harvest->notify_email ?? false),
             ] : null,
         ]);
     }

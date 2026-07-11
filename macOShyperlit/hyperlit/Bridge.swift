@@ -25,13 +25,13 @@ final class Bridge: NSObject, WKScriptMessageHandler {
         ocr.emitEvent = { [weak self] event, data in
             self?.fireEvent(event, data: data)
         }
-        // BYO OCR (e.g. the user's own Mistral key): resolved per run from the
-        // active "ocr"-kind provider. The key is read from Keychain here and
-        // handed only to native code — it never crosses into JS.
+        // BYO OCR (the user's own Mistral key, or a local/hosted vision model):
+        // resolved per run from the active "ocr"-kind provider. The key — when
+        // one exists; local VLMs are keyless — is read from Keychain here and
+        // handed only to native code, never into JS.
         ocr.byoOcrProvider = { [weak self] in
-            guard let p = self?.store.activeOcrProvider(),
-                  let key = Keychain.get(p.id), !key.isEmpty, !p.baseUrl.isEmpty else { return nil }
-            return (baseUrl: p.baseUrl, model: p.model, apiKey: key)
+            guard let p = self?.store.activeOcrProvider() else { return nil }
+            return (baseUrl: p.baseUrl, model: p.model, apiKey: Keychain.get(p.id) ?? "")
         }
     }
 

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1629,
-    "moduleCount": 347,
+    "fnCount": 1637,
+    "moduleCount": 348,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3301,
+    "edgeCount": 3311,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -2168,6 +2168,38 @@
       "leaf": true
     },
     {
+      "id": "components/sourceContainer/creatorTools/harvestViz:closeHarvestVizOverlay",
+      "label": "closeHarvestVizOverlay",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/harvestViz",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestViz:fetchHarvestMap",
+      "label": "fetchHarvestMap",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/harvestViz",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestViz:openHarvestVizOverlay",
+      "label": "openHarvestVizOverlay",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/harvestViz",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz",
+      "label": "renderHarvestViz",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/harvestViz",
+      "leaf": false
+    },
+    {
       "id": "components/sourceContainer/creatorTools/index:loadCreatorTools",
       "label": "loadCreatorTools",
       "kind": "fn",
@@ -2481,6 +2513,14 @@
       "leaf": false
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.closeHarvestVizOverlay",
+      "label": "SourceContainerManager.closeHarvestVizOverlay",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.closeOnOverlayClick",
       "label": "SourceContainerManager.closeOnOverlayClick",
       "kind": "fn",
@@ -2515,6 +2555,14 @@
     {
       "id": "components/sourceContainer/index:SourceContainerManager.expandForEditForm",
       "label": "SourceContainerManager.expandForEditForm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.fetchHarvestMap",
+      "label": "SourceContainerManager.fetchHarvestMap",
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/index",
@@ -2657,6 +2705,14 @@
       "leaf": false
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.openHarvestVizOverlay",
+      "label": "SourceContainerManager.openHarvestVizOverlay",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.pollAiReviewStatus",
       "label": "SourceContainerManager.pollAiReviewStatus",
       "kind": "fn",
@@ -2699,6 +2755,14 @@
     {
       "id": "components/sourceContainer/index:SourceContainerManager.refreshCitationDisplay",
       "label": "SourceContainerManager.refreshCitationDisplay",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.renderHarvestViz",
+      "label": "SourceContainerManager.renderHarvestViz",
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/index",
@@ -15554,6 +15618,18 @@
       ]
     },
     {
+      "id": "components/sourceContainer/creatorTools/harvestViz",
+      "label": "components/sourceContainer/creatorTools/harvestViz",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/creatorTools/harvestViz:closeHarvestVizOverlay",
+        "components/sourceContainer/creatorTools/harvestViz:fetchHarvestMap",
+        "components/sourceContainer/creatorTools/harvestViz:openHarvestVizOverlay",
+        "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz"
+      ]
+    },
+    {
       "id": "components/sourceContainer/creatorTools/index",
       "label": "components/sourceContainer/creatorTools/index",
       "stage": "components",
@@ -15652,11 +15728,13 @@
         "components/sourceContainer/index:SourceContainerManager.cleanUrl",
         "components/sourceContainer/index:SourceContainerManager.closeAiReviewVizOverlay",
         "components/sourceContainer/index:SourceContainerManager.closeContainer",
+        "components/sourceContainer/index:SourceContainerManager.closeHarvestVizOverlay",
         "components/sourceContainer/index:SourceContainerManager.closeOnOverlayClick",
         "components/sourceContainer/index:SourceContainerManager.collectFormData",
         "components/sourceContainer/index:SourceContainerManager.constructor",
         "components/sourceContainer/index:SourceContainerManager.ensureAiReviewLivePanel",
         "components/sourceContainer/index:SourceContainerManager.expandForEditForm",
+        "components/sourceContainer/index:SourceContainerManager.fetchHarvestMap",
         "components/sourceContainer/index:SourceContainerManager.fetchPipelineMap",
         "components/sourceContainer/index:SourceContainerManager.handleAiReviewGenerate",
         "components/sourceContainer/index:SourceContainerManager.handleCheckSource",
@@ -15674,12 +15752,14 @@
         "components/sourceContainer/index:SourceContainerManager.loadVersionHistory",
         "components/sourceContainer/index:SourceContainerManager.openAiReviewVizOverlay",
         "components/sourceContainer/index:SourceContainerManager.openContainer",
+        "components/sourceContainer/index:SourceContainerManager.openHarvestVizOverlay",
         "components/sourceContainer/index:SourceContainerManager.pollAiReviewStatus",
         "components/sourceContainer/index:SourceContainerManager.pollHarvestStatus",
         "components/sourceContainer/index:SourceContainerManager.populateEditForm",
         "components/sourceContainer/index:SourceContainerManager.populateFieldsFromBibtex",
         "components/sourceContainer/index:SourceContainerManager.rebindElements",
         "components/sourceContainer/index:SourceContainerManager.refreshCitationDisplay",
+        "components/sourceContainer/index:SourceContainerManager.renderHarvestViz",
         "components/sourceContainer/index:SourceContainerManager.renderPipelineViz",
         "components/sourceContainer/index:SourceContainerManager.saveEditForm",
         "components/sourceContainer/index:SourceContainerManager.setAiReviewState",
@@ -21616,6 +21696,24 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/creatorTools/harvestViz:closeHarvestVizOverlay__domwrite__dom",
+      "source": "components/sourceContainer/creatorTools/harvestViz:closeHarvestVizOverlay",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestViz:openHarvestVizOverlay__domwrite__dom",
+      "source": "components/sourceContainer/creatorTools/harvestViz:openHarvestVizOverlay",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz__domwrite__dom",
+      "source": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/sourceContainer/creatorTools/index:loadCreatorTools__domwrite__dom",
       "source": "components/sourceContainer/creatorTools/index:loadCreatorTools",
       "target": "dom",
@@ -21997,6 +22095,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.closeHarvestVizOverlay__call__components/sourceContainer/creatorTools/harvestViz:closeHarvestVizOverlay",
+      "source": "components/sourceContainer/index:SourceContainerManager.closeHarvestVizOverlay",
+      "target": "components/sourceContainer/creatorTools/harvestViz:closeHarvestVizOverlay",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.collectFormData__call__components/sourceContainer/editForm:collectFormData",
       "source": "components/sourceContainer/index:SourceContainerManager.collectFormData",
       "target": "components/sourceContainer/editForm:collectFormData",
@@ -22013,6 +22117,13 @@
       "source": "components/sourceContainer/index:SourceContainerManager.expandForEditForm",
       "target": "components/sourceContainer/editForm:expandForEditForm",
       "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.fetchHarvestMap__call__components/sourceContainer/creatorTools/harvestViz:fetchHarvestMap",
+      "source": "components/sourceContainer/index:SourceContainerManager.fetchHarvestMap",
+      "target": "components/sourceContainer/creatorTools/harvestViz:fetchHarvestMap",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/sourceContainer/index:SourceContainerManager.fetchPipelineMap__call__components/sourceContainer/aiReview/pipelineViz:fetchPipelineMap",
@@ -22135,6 +22246,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.openHarvestVizOverlay__call__components/sourceContainer/creatorTools/harvestViz:openHarvestVizOverlay",
+      "source": "components/sourceContainer/index:SourceContainerManager.openHarvestVizOverlay",
+      "target": "components/sourceContainer/creatorTools/harvestViz:openHarvestVizOverlay",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.pollAiReviewStatus__call__components/sourceContainer/aiReview/polling:pollAiReviewStatus",
       "source": "components/sourceContainer/index:SourceContainerManager.pollAiReviewStatus",
       "target": "components/sourceContainer/aiReview/polling:pollAiReviewStatus",
@@ -22166,6 +22283,12 @@
       "target": "components/sourceContainer/editForm:refreshCitationDisplay",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.renderHarvestViz__call__components/sourceContainer/creatorTools/harvestViz:renderHarvestViz",
+      "source": "components/sourceContainer/index:SourceContainerManager.renderHarvestViz",
+      "target": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz",
+      "rel": "call"
     },
     {
       "id": "components/sourceContainer/index:SourceContainerManager.renderPipelineViz__call__components/sourceContainer/aiReview/pipelineViz:renderPipelineViz",
@@ -25029,6 +25152,24 @@
       "id": "dom__domread__components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus",
       "source": "dom",
       "target": "components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/creatorTools/harvestViz:closeHarvestVizOverlay",
+      "source": "dom",
+      "target": "components/sourceContainer/creatorTools/harvestViz:closeHarvestVizOverlay",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/creatorTools/harvestViz:openHarvestVizOverlay",
+      "source": "dom",
+      "target": "components/sourceContainer/creatorTools/harvestViz:openHarvestVizOverlay",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/creatorTools/harvestViz:renderHarvestViz",
+      "source": "dom",
+      "target": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz",
       "rel": "domread"
     },
     {
@@ -41174,6 +41315,11 @@
     {
       "source": "components/sourceContainer/index",
       "target": "components/sourceContainer/creatorTools/harvestNetwork",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/index",
+      "target": "components/sourceContainer/creatorTools/harvestViz",
       "kind": "static"
     },
     {

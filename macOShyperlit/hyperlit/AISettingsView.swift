@@ -28,10 +28,15 @@ private let kTtsPresets: [Preset] = [
 ]
 
 // PDF OCR: without a provider, PDFs are OCR'd on-device (Apple Vision/PDFKit,
-// free). Activating a Mistral OCR profile with your own key routes ocr.run to
-// Mistral's API instead — highest quality, paid directly to Mistral by you.
+// free — fast, but geometric heuristics only). Activating a provider routes
+// ocr.run through a model that READS the page: Mistral's OCR API (your key),
+// or a local vision model via Ollama / LM Studio (free, slower, needs a
+// vision-capable model pulled — e.g. `ollama pull qwen2.5vl`).
 private let kOcrPresets: [Preset] = [
     Preset(label: "Mistral OCR", baseUrl: "https://api.mistral.ai", model: "mistral-ocr-latest", voice: nil),
+    Preset(label: "Ollama vision (local)", baseUrl: "http://localhost:11434/v1", model: "qwen2.5vl", voice: nil),
+    Preset(label: "LM Studio vision (local)", baseUrl: "http://localhost:1234/v1", model: "local-model", voice: nil),
+    Preset(label: "Custom (OpenAI-compatible)", baseUrl: "", model: "", voice: nil),
 ]
 
 struct AISettingsView: View {
@@ -71,7 +76,7 @@ struct ProviderListView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if kind == "ocr" {
-                Text("Without a provider here, PDFs are OCR'd on this Mac for free (Apple Vision). Activate a Mistral OCR profile with your own key for the highest-quality conversion — billed to you by Mistral directly.")
+                Text("Without a provider here, PDFs are OCR'd on this Mac for free (Apple Vision — fast, best for clean digital PDFs). For scanned books, activate a model that reads the page: Mistral OCR (your key, billed by Mistral) or a local vision model via Ollama/LM Studio (free, slower — pull a vision model like qwen2.5vl first).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

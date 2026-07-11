@@ -30,6 +30,7 @@ class HarvestRunner
     public function __construct(
         private AutoVersionCreator $creator,
         private HarvestEligibility $eligibility,
+        private HarvestShelf $shelf,
     ) {
     }
 
@@ -70,6 +71,8 @@ class HarvestRunner
             ], $extra));
         };
 
+        $harvestedBooks = []; // assigned this run — collected onto the harvest shelf at the end
+
         while (($entry = array_shift($frontier)) !== null) {
             $book = $entry['book'] ?? null;
             $depth = (int) ($entry['depth'] ?? 0);
@@ -90,10 +93,13 @@ class HarvestRunner
             $telemetry->emit('scan', 'completed');
 
             // ---- Stage 2: pick eligible canonicals under the remaining budget ----
+            $persist(['step' => 'select', 'step_detail' => 'Choosing fetchable open-access works']);
+            $telemetry->emit('select', 'started', 'Choosing fetchable open-access works');
+
             $budget = $maxWorks - $counts['attempted'];
             if ($budget <= 0) {
                 $counts['capped']++;
-                $telemetry->emit('harvest', 'skipped', 'work budget exhausted before this book');
+                $telemetry->emit('select', 'skipped', 'work budget exhausted before this book');
                 $persist();
                 continue;
             }
@@ -104,9 +110,14 @@ class HarvestRunner
             if ($eligible->count() > $budget) {
                 // Most-cited-first ordering means the cap drops the tail.
                 $counts['capped'] += $eligible->count() - $budget;
-                $telemetry->emit('harvest', 'progress', ($eligible->count() - $budget) . ' eligible works over budget, dropped');
+                $telemetry->emit('select', 'progress', ($eligible->count() - $budget) . ' eligible works over budget, dropped');
                 $eligible = $eligible->take($budget);
             }
+
+            $telemetry->emit('select', 'completed', "{$eligible->count()} works selected", [
+                'eligible' => $eligible->count(),
+                'capped'   => $counts['capped'],
+            ]);
 
             $telemetry->emit('harvest', 'started', "{$eligible->count()} eligible open-access works", [
                 'eligible' => $eligible->count(),
@@ -137,6 +148,10 @@ class HarvestRunner
                         "{$label} — {$status}" . ($result['reason'] ? " ({$result['reason']})" : ''),
                         array_filter(['lane' => $result['lane']])
                     );
+
+                    if (in_array($status, ['assigned', 'assigned_existing'], true) && $result['book']) {
+                        $harvestedBooks[] = $result['book'];
+                    }
 
                     // Recursion hook (dormant at max_depth 1): the new version
                     // book's own bibliography becomes the next frontier level.
@@ -171,6 +186,40 @@ class HarvestRunner
                 'attempted' => $counts['attempted'],
             ]);
             $persist();
+        }
+
+        // ---- Shelf: collect this run's sources onto the harvest shelf.
+        // Runs when anything was assigned this run, or a shelf from a prior
+        // run already exists (keeps the pointer fresh on continue-runs).
+        if (!empty($harvestedBooks) || !empty($harvest->shelf_id)) {
+            $persist(['step' => 'shelf', 'step_detail' => 'Collecting sources onto your shelf']);
+            $telemetry->emit('shelf', 'started', 'Collecting sources onto your shelf');
+            try {
+                $shelfInfo = $this->shelf->ensureShelfFor($harvest->root_book);
+                if ($shelfInfo) {
+                    $this->shelf->addBooks($shelfInfo->id, $harvestedBooks);
+                    $db->table('source_network_harvests')
+                        ->where('id', $harvestId)
+                        ->update(['shelf_id' => $shelfInfo->id, 'updated_at' => now()]);
+                    $telemetry->emit('shelf', 'completed', count($harvestedBooks) . " source(s) on \"{$shelfInfo->name}\"", [
+                        'books' => count($harvestedBooks),
+                    ]);
+                } else {
+                    $telemetry->emit('shelf', 'skipped', 'no shelf owner resolvable for the root book');
+                }
+            } catch (\Throwable $e) {
+                // A shelf failure must never fail the harvest itself.
+                $telemetry->emit('shelf', 'failed', $e->getMessage());
+                Log::warning('Harvest shelf step failed', [
+                    'harvest' => $harvestId,
+                    'error'   => $e->getMessage(),
+                ]);
+            }
+        } else {
+            // Nothing to shelve (no sources imported, no prior shelf). Emit a
+            // terminal 'skipped' so the viz shows the stage as done-skipped
+            // rather than leaving it stuck at 'pending' after the run finishes.
+            $telemetry->emit('shelf', 'skipped', 'no new sources to collect');
         }
 
         // Bump annotations_updated_at so the frontend re-syncs bibliography

@@ -20,7 +20,7 @@ import { verbose } from '../utilities/logger';
 
 const FILE = '/aiProviders/profiles.ts';
 
-export type ProviderKind = 'llm' | 'tts';
+export type ProviderKind = 'llm' | 'tts' | 'ocr';
 
 export interface ProviderProfile {
   id: string;
@@ -41,9 +41,11 @@ export interface ProviderSnapshot {
   activeLlm: string | null;
   /** id of the active TTS profile, or null. */
   activeTts: string | null;
+  /** id of the active OCR profile, or null (OCR routing itself happens Swift-side). */
+  activeOcr: string | null;
 }
 
-const EMPTY: ProviderSnapshot = { profiles: [], activeLlm: null, activeTts: null };
+const EMPTY: ProviderSnapshot = { profiles: [], activeLlm: null, activeTts: null, activeOcr: null };
 
 // ── Cached snapshot (invalidated by the native `providers_changed` event) ─────
 
@@ -83,6 +85,7 @@ function normalize(snap: unknown): ProviderSnapshot {
     profiles: Array.isArray(s.profiles) ? s.profiles : [],
     activeLlm: typeof s.activeLlm === 'string' ? s.activeLlm : null,
     activeTts: typeof s.activeTts === 'string' ? s.activeTts : null,
+    activeOcr: typeof s.activeOcr === 'string' ? s.activeOcr : null,
   };
 }
 
@@ -98,7 +101,7 @@ export async function getProfileById(id: string): Promise<ProviderProfile | unde
 
 export async function getActiveProfile(kind: ProviderKind): Promise<ProviderProfile | undefined> {
   const snap = await getSnapshot();
-  const id = kind === 'llm' ? snap.activeLlm : snap.activeTts;
+  const id = kind === 'llm' ? snap.activeLlm : (kind === 'tts' ? snap.activeTts : snap.activeOcr);
   if (!id) return undefined;
   return snap.profiles.find((p) => p.id === id);
 }

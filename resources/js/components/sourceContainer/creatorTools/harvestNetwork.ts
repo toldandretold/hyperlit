@@ -7,6 +7,7 @@
 import { book } from '../../../app';
 import { confirmDialog, alertDialog } from '../../dialog/dialog';
 import { log } from '../../../utilities/logger';
+import { getAuthContext } from '../../../utilities/auth/session';
 
 const FILE = 'components/sourceContainer/creatorTools/harvestNetwork.ts';
 
@@ -138,6 +139,9 @@ export async function pollHarvestStatus(self: any) {
     const harvest = data.harvest;
     if (!harvest) return;
 
+    // Keep an open viz overlay live on every poll.
+    if (self._harvestVizOpen) self.renderHarvestViz(harvest);
+
     if (harvest.status === 'completed') {
       self.stopHarvestPolling();
       self._harvestId = null;
@@ -152,7 +156,22 @@ export async function pollHarvestStatus(self: any) {
         imported === 0 && !c.eligible ? 'No open-access fetchable works were found in the citations.' : null,
       ].filter(Boolean);
 
-      await alertDialog({ title: 'Import Knowledge Network', message: summary.join('\n\n') });
+      // If the viz overlay is open it already shows the completion banner +
+      // shelf link — don't stack a dialog on top of it.
+      if (!self._harvestVizOpen) {
+        const shelf = harvest.shelf;
+        if (shelf && shelf.creator) {
+          const go = await confirmDialog({
+            title: 'Import Knowledge Network',
+            message: summary.join('\n\n') + '\n\nAll the harvested sources have been collected onto a shelf on your page.',
+            confirmLabel: 'View shelf',
+            cancelLabel: 'Close',
+          });
+          if (go) window.location.href = `/u/${encodeURIComponent(shelf.creator)}/shelf/${encodeURIComponent(shelf.slug)}`;
+        } else {
+          await alertDialog({ title: 'Import Knowledge Network', message: summary.join('\n\n') });
+        }
+      }
 
       // New canonical links + versions exist — re-render the citations panel.
       self.refreshCitationDisplay?.();
@@ -160,12 +179,14 @@ export async function pollHarvestStatus(self: any) {
       self.stopHarvestPolling();
       self._harvestId = null;
       resetHarvestButton(self);
-      await alertDialog({
-        title: 'Import Knowledge Network',
-        message: 'Harvest failed: ' + (harvest.error || 'unknown error') + '\n\nRe-running is safe — finished works are kept.',
-      });
+      if (!self._harvestVizOpen) {
+        await alertDialog({
+          title: 'Import Knowledge Network',
+          message: 'Harvest failed: ' + (harvest.error || 'unknown error') + '\n\nRe-running is safe — finished works are kept.',
+        });
+      }
     } else {
-      setHarvestButtonRunning(self, harvest.step_detail || 'Harvest in progress…');
+      setHarvestButtonRunning(self, harvest.step_detail || 'Harvest in progress…', harvest);
     }
   } catch (err: any) {
     // Transient poll misses are fine; the next tick retries.
@@ -173,12 +194,13 @@ export async function pollHarvestStatus(self: any) {
   }
 }
 
-function setHarvestButtonRunning(self: any, detail: string) {
+function setHarvestButtonRunning(self: any, detail: string, harvest?: any) {
   const btn = self.container.querySelector('#harvest-network-btn');
   if (!btn) return;
   btn.disabled = true;
   btn.style.cursor = 'default';
   btn.textContent = detail;
+  ensureHarvestRunningRow(self, harvest);
 }
 
 function resetHarvestButton(self: any) {
@@ -187,6 +209,70 @@ function resetHarvestButton(self: any) {
   btn.disabled = false;
   btn.style.cursor = 'pointer';
   btn.innerHTML = IDLE_LABEL_HTML;
+  self.container.querySelector('#harvest-running-row')?.remove();
+}
+
+/**
+ * The running-state row under the button: a "See live progress" toggle that
+ * opens the viz overlay, plus (for logged-in users) an "Email me when done"
+ * opt-in. Idempotent — created once, wired once (mirrors ensureAiReviewLivePanel).
+ */
+function ensureHarvestRunningRow(self: any, harvest?: any) {
+  const section = self.container.querySelector('#harvest-network-section');
+  if (!section || section.querySelector('#harvest-running-row')) return;
+
+  const row = document.createElement('div');
+  row.id = 'harvest-running-row';
+  row.style.cssText = 'margin-top: 8px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 12px;';
+  row.innerHTML = `
+      <button type="button" id="harvest-viz-toggle" style="background: none; border: none; color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; cursor: pointer; padding: 0; font-size: 12px;">See live progress ▸</button>
+      <span id="harvest-notify-slot"></span>`;
+  section.appendChild(row);
+
+  row.querySelector('#harvest-viz-toggle')?.addEventListener('click', (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    self.openHarvestVizOverlay();
+  });
+
+  // "Email me when done" — logged-in owners only (anonymous users have no
+  // email). Hide it entirely if this harvest already opted in.
+  const slot = row.querySelector('#harvest-notify-slot');
+  if (slot) {
+    if (harvest?.notify_email) {
+      slot.textContent = "We'll email you when it's done.";
+      (slot as HTMLElement).style.color = 'var(--color-text-faint)';
+    } else {
+      getAuthContext().then((ctx) => {
+        if (!ctx?.isLoggedIn || !self._harvestId) return;
+        // Guard against a late resolve after the row was torn down.
+        if (!self.container.querySelector('#harvest-notify-slot')) return;
+        slot.innerHTML = `<button type="button" id="harvest-notify-btn" style="background: none; border: none; color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; cursor: pointer; padding: 0; font-size: 12px;">Email me when done</button>`;
+        slot.querySelector('#harvest-notify-btn')?.addEventListener('click', (e: any) => {
+          e.preventDefault();
+          e.stopPropagation();
+          requestHarvestEmail(self, slot as HTMLElement);
+        });
+      }).catch(() => { /* leave the toggle only */ });
+    }
+  }
+}
+
+async function requestHarvestEmail(self: any, slot: HTMLElement) {
+  slot.textContent = 'Requesting…';
+  try {
+    const resp = await fetch(`/api/source-harvest/${encodeURIComponent(self._harvestId)}/notify`, {
+      method: 'POST',
+      headers: postHeaders(),
+      credentials: 'include',
+    });
+    slot.textContent = resp.ok
+      ? "We'll email you when done. You can close this tab."
+      : ((await resp.json().catch(() => ({}))).message || 'Could not set up the email.');
+  } catch {
+    slot.textContent = 'Could not set up the email.';
+  }
+  slot.style.color = 'var(--color-text-faint)';
 }
 
 function postHeaders(): Record<string, string> {

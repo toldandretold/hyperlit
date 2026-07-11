@@ -144,6 +144,7 @@ class CitationScannerController extends Controller
         $request->validate([
             'book'  => 'required|string',
             'force' => 'sometimes|boolean',
+            'client_inference' => 'sometimes|boolean',
         ]);
 
         $user = Auth::user();
@@ -154,6 +155,9 @@ class CitationScannerController extends Controller
             ], 401);
         }
 
+        // NOTE: canProceed is checked even in BYO (client_inference) mode — the
+        // LLM calls run on the user's key, but server-side OCR page costs during
+        // source verification are still billed.
         $user->refresh();
         if (!app(BillingService::class)->canProceed($user)) {
             return response()->json([
@@ -164,6 +168,7 @@ class CitationScannerController extends Controller
 
         $bookId = $request->input('book');
         $force  = $request->boolean('force', false);
+        $clientInference = $request->boolean('client_inference', false);
         $db = DB::connection('pgsql_admin');
 
         // F2: serialise the running-pipeline check and the insert (see scan()).
@@ -206,12 +211,13 @@ class CitationScannerController extends Controller
             // Create a pipeline record so the frontend can poll immediately
             $pipelineId = (string) Str::uuid();
             $db->table('citation_pipelines')->insert([
-                'id'         => $pipelineId,
-                'book'       => $bookId,
-                'user_id'    => Auth::id(),
-                'status'     => 'pending',
-                'created_at' => now(),
-                'updated_at' => now(),
+                'id'             => $pipelineId,
+                'book'           => $bookId,
+                'user_id'        => Auth::id(),
+                'status'         => 'pending',
+                'inference_mode' => $clientInference ? 'client' : 'server',
+                'created_at'     => now(),
+                'updated_at'     => now(),
             ]);
 
             CitationPipelineJob::dispatch($bookId, $pipelineId, $force, $user->id);
@@ -331,10 +337,13 @@ class CitationScannerController extends Controller
 
         $pipeline = $this->autoFailStalePipeline($pipeline);
 
-        if ($pipeline->status !== 'failed') {
+        // 'paused' = a BYO (client-inference) run whose ticket wait timed out —
+        // the client went away mid-run; resuming replays completed steps +
+        // already-answered tickets instantly (dedupe) and continues.
+        if (!in_array($pipeline->status, ['failed', 'paused'], true)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Only failed pipelines can be resumed.',
+                'message' => 'Only failed or paused pipelines can be resumed.',
             ], 422);
         }
 

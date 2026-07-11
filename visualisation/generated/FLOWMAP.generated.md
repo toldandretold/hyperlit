@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1629 functions in 347 modules · 10 object stores · 10 PG tables · 3301 edges
+**MarkdownDB** schema v28 · 1637 functions in 348 modules · 10 object stores · 10 PG tables · 3311 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -257,6 +257,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `pollHarvestStatus` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | read/write | — |
 | `startHarvestPolling` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | — | — |
 | `stopHarvestPolling` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | — | — |
+| `closeHarvestVizOverlay` | `components/sourceContainer/creatorTools/harvestViz` | — | — | read/write | — |
+| `fetchHarvestMap` | `components/sourceContainer/creatorTools/harvestViz` | — | — | — | — |
+| `openHarvestVizOverlay` | `components/sourceContainer/creatorTools/harvestViz` | — | — | read/write | — |
+| `renderHarvestViz` | `components/sourceContainer/creatorTools/harvestViz` | — | — | read/write | — |
 | `loadCreatorTools` | `components/sourceContainer/creatorTools/index` | — | — | read/write | — |
 | `_awaitReconvert` | `components/sourceContainer/creatorTools/reconvert` | — | — | — | — |
 | `handleReconvert` | `components/sourceContainer/creatorTools/reconvert` | — | — | read/write | — |
@@ -295,11 +299,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.cleanUrl` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.closeAiReviewVizOverlay` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.closeContainer` | `components/sourceContainer/index` | — | — | write | — |
+| `SourceContainerManager.closeHarvestVizOverlay` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.closeOnOverlayClick` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.collectFormData` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.constructor` | `components/sourceContainer/index` | — | — | read | — |
 | `SourceContainerManager.ensureAiReviewLivePanel` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.expandForEditForm` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.fetchHarvestMap` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.fetchPipelineMap` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleAiReviewGenerate` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleCheckSource` | `components/sourceContainer/index` | — | — | — | — |
@@ -317,12 +323,14 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.loadVersionHistory` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.openAiReviewVizOverlay` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.openContainer` | `components/sourceContainer/index` | — | — | write | — |
+| `SourceContainerManager.openHarvestVizOverlay` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.pollAiReviewStatus` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.pollHarvestStatus` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.populateEditForm` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.populateFieldsFromBibtex` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.rebindElements` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.refreshCitationDisplay` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.renderHarvestViz` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.renderPipelineViz` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.saveEditForm` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.setAiReviewState` | `components/sourceContainer/index` | — | — | — | — |

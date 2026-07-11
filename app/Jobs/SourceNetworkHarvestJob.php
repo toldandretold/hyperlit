@@ -2,6 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Mail\HarvestCompleteMail;
+use App\Mail\HarvestFailedMail;
+use App\Models\User;
 use App\Services\SourceHarvest\HarvestRunner;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -10,6 +13,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Source Network Harvester orchestrator: one job per run, driving
@@ -53,6 +57,8 @@ class SourceNetworkHarvestJob implements ShouldQueue
             ->where('id', $this->harvestId)
             ->update(['status' => 'completed', 'updated_at' => now()]);
 
+        $this->sendNotificationEmail(completed: true);
+
         Log::info('SourceNetworkHarvestJob completed', ['harvest' => $this->harvestId]);
     }
 
@@ -71,5 +77,60 @@ class SourceNetworkHarvestJob implements ShouldQueue
                 'error'      => $e->getMessage(),
                 'updated_at' => now(),
             ]);
+
+        $this->sendNotificationEmail(completed: false, error: $e->getMessage());
+    }
+
+    /**
+     * "Email me when done" opt-in: send the completion/failure mail when the
+     * harvest row's notify_email flag was set by an authenticated owner.
+     * Best-effort — a mail failure must never fail (or retry) the job.
+     */
+    private function sendNotificationEmail(bool $completed, ?string $error = null): void
+    {
+        try {
+            $db = DB::connection('pgsql_admin');
+            $harvest = $db->table('source_network_harvests')->where('id', $this->harvestId)->first();
+            if (!$harvest || !$harvest->notify_email || !$harvest->user_id) {
+                return;
+            }
+
+            $user = User::on('pgsql_admin')->find($harvest->user_id);
+            if (!$user?->email) {
+                return;
+            }
+
+            $title = $db->table('library')->where('book', $harvest->root_book)->value('title')
+                ?: $harvest->root_book;
+
+            if ($completed) {
+                $shelf = $harvest->shelf_id
+                    ? (array) $db->table('shelves')->where('id', $harvest->shelf_id)
+                        ->select(['name', 'slug', 'creator'])->first()
+                    : null;
+
+                Mail::send(new HarvestCompleteMail(
+                    $user->email,
+                    $title,
+                    $harvest->root_book,
+                    json_decode($harvest->counts ?? '{}', true) ?: [],
+                    $shelf ?: null,
+                ));
+            } else {
+                Mail::send(new HarvestFailedMail(
+                    $user->email,
+                    $title,
+                    $harvest->root_book,
+                    $error ?? 'unknown error',
+                ));
+            }
+
+            Log::info('Harvest notification email sent', ['harvest' => $this->harvestId, 'to' => $user->email]);
+        } catch (\Throwable $mailErr) {
+            Log::warning('Failed to send harvest notification email', [
+                'harvest' => $this->harvestId,
+                'error'   => $mailErr->getMessage(),
+            ]);
+        }
     }
 }

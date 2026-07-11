@@ -60,7 +60,7 @@ describe('outside the native shell', () => {
     bridge.isNativeShell.mockReturnValue(false);
     bridge.fireChanged(); // invalidate cache
     const snap = await getSnapshot();
-    expect(snap).toEqual({ profiles: [], activeLlm: null, activeTts: null });
+    expect(snap).toEqual({ profiles: [], activeLlm: null, activeTts: null, activeOcr: null });
     expect(await isByoLlmActive()).toBe(false);
     expect(bridge.nativeCall).not.toHaveBeenCalled();
   });

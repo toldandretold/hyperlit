@@ -27,36 +27,12 @@ class ShelfController extends Controller
 {
     /**
      * Generate a unique slug for a shelf, scoped to the creator.
-     * Appends -2, -3 etc. if a collision exists.
+     * Delegates to ShelfSlug — shared with HarvestShelf (the Source Network
+     * Harvester's server-side shelf creation) so the algorithm can't drift.
      */
     private function generateUniqueSlug(string $name, string $creator, ?string $excludeId = null): string
     {
-        $baseSlug = Str::slug($name);
-        if ($baseSlug === '') {
-            $baseSlug = 'shelf';
-        }
-
-        $slug = $baseSlug;
-        $counter = 2;
-
-        while (true) {
-            $query = DB::table('shelves')
-                ->where('creator', $creator)
-                ->where('slug', $slug);
-
-            if ($excludeId) {
-                $query->where('id', '!=', $excludeId);
-            }
-
-            if (!$query->exists()) {
-                break;
-            }
-
-            $slug = $baseSlug . '-' . $counter;
-            $counter++;
-        }
-
-        return $slug;
+        return \App\Services\ShelfSlug::unique($name, $creator, $excludeId);
     }
 
     /**

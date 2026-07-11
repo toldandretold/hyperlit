@@ -170,7 +170,7 @@ php artisan library:create-auto-versions --dry-run
 
 The user-facing orchestrator that chains the pieces above from a single button in a book's creator tools panel (owner-only). One run: scan the book's bibliography/footnotes to canonicals (`citation:scan-bibliography`), select every reached canonical that is open access, unharvested, and fetchable (`pdf_url`/`oa_url`/`doi`), then fetch + convert each into its `auto_version_book` via `AutoVersionCreator` — most-cited first, under a hard per-run work cap. The flow is estimate → confirm → queued job → status polling; once a work is harvested, the book's citation display automatically links it as a held best-version.
 
-State lives in `source_network_harvests` (frontier + depth make it recursion-ready: raising `source_harvest.max_depth` walks the citation network outward, harvesting the harvested texts' own citations). Full design, eligibility rules, idempotency guarantees, and API surface: `app/Services/SourceHarvest/README.md`.
+State lives in `source_network_harvests` (frontier + depth make it recursion-ready: raising `source_harvest.max_depth` walks the citation network outward, harvesting the harvested texts' own citations). A live-progress overlay renders the four-stage chain (scan → select → harvest → shelf) from the run's telemetry, an opt-in emails the owner when it finishes, and every imported source is collected onto a per-book "Harvested from: <Title>" shelf on the owner's page. Full design, eligibility rules, idempotency guarantees, and API surface: `app/Services/SourceHarvest/README.md`.
 
 ## Authorships & identity verification
 

@@ -29,6 +29,7 @@ swiftc -O \
     hyperlit/PdfOcr/MarkdownComposer.swift \
     hyperlit/PdfOcr/VisionPageOcr.swift \
     hyperlit/PdfOcr/ImageExtractor.swift \
-    hyperlit/PdfOcr/PdfOcrEngine.swift
+    hyperlit/PdfOcr/PdfOcrEngine.swift \
+    hyperlit/PdfOcr/VlmOcrClient.swift
 
 echo "built: $(pwd)/bin/hyperlit-ocr"

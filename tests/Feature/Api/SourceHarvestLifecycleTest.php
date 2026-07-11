@@ -71,6 +71,7 @@ afterEach(function () {
     harvDb()->table('source_network_harvests')->where('root_book', 'like', 'apitest\_%')->delete();
     harvDb()->table('bibliography')->where('book', 'like', 'apitest\_%')->delete();
     harvDb()->table('canonical_source')->where('title', 'like', 'HarvTest %')->delete();
+    harvDb()->table('shelves')->where('name', 'like', 'Harvested from: APITEST%')->delete();
     $this->cleanupApiFixtures();
 });
 
@@ -223,6 +224,93 @@ test('running endpoint reports the active harvest for panel-reopen restore', fun
         ->assertOk()
         ->assertJsonPath('harvest.id', $id)
         ->assertJsonPath('harvest.step_detail', 'Scanning bibliography (depth 0)');
+});
+
+// ── Map + shelf payload ────────────────────────────────────────────
+
+test('the map endpoint returns the harvest stage chain', function () {
+    $this->loginUser();
+
+    $stages = $this->getJson('/api/source-harvest/map')->assertOk()->json('stages');
+    expect(array_column($stages, 'id'))->toBe(['scan', 'select', 'harvest', 'shelf']);
+    foreach ($stages as $stage) {
+        expect($stage['plain'])->not->toBeEmpty();
+        expect($stage['code_ref'])->not->toBeEmpty();
+    }
+});
+
+test('status carries the shelf link once the shelf step has run', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user);
+
+    $shelfId = (string) Str::uuid();
+    harvDb()->table('shelves')->insert([
+        'id'           => $shelfId,
+        'creator'      => $user->name,
+        'name'         => 'Harvested from: APITEST Root',
+        'slug'         => 'harvested-from-apitest-root',
+        'visibility'   => 'private',
+        'default_sort' => 'recent',
+        'created_at'   => now(),
+        'updated_at'   => now(),
+    ]);
+    $id = harvSeedHarvest($book, ['status' => 'completed', 'shelf_id' => $shelfId]);
+
+    $this->getJson("/api/source-harvest/status/{$id}")
+        ->assertOk()
+        ->assertJsonPath('harvest.shelf.slug', 'harvested-from-apitest-root')
+        ->assertJsonPath('harvest.shelf.creator', $user->name);
+});
+
+test('status shelf is null before the shelf step runs', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user);
+    $id = harvSeedHarvest($book);
+
+    $this->getJson("/api/source-harvest/status/{$id}")
+        ->assertOk()
+        ->assertJsonPath('harvest.shelf', null);
+});
+
+// ── Email-when-done notify endpoint ────────────────────────────────
+
+test('notify requires authentication', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user);
+    $id = harvSeedHarvest($book);
+
+    // Fresh guest session
+    app('auth')->guard('web')->logout();
+    $this->post("/api/source-harvest/{$id}/notify")->assertStatus(401);
+});
+
+test('notify is 403 for a non-owner and 200 (sets the flag) for the owner', function () {
+    $owner = $this->loginUser();
+    $book = $this->makeBook($owner);
+    $id = harvSeedHarvest($book, ['user_id' => $owner->id]);
+
+    // Someone else
+    $this->loginUser();
+    $this->postJson("/api/source-harvest/{$id}/notify")->assertStatus(403);
+    expect((bool) harvDb()->table('source_network_harvests')->where('id', $id)->value('notify_email'))->toBeFalse();
+
+    // The owner
+    $this->actingAs($owner);
+    $this->postJson("/api/source-harvest/{$id}/notify")->assertOk();
+    expect((bool) harvDb()->table('source_network_harvests')->where('id', $id)->value('notify_email'))->toBeTrue();
+});
+
+test('notify is 422 once the harvest has finished', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user);
+    $id = harvSeedHarvest($book, ['user_id' => $user->id, 'status' => 'completed']);
+
+    $this->postJson("/api/source-harvest/{$id}/notify")->assertStatus(422);
+});
+
+test('notify is 404 for an unknown harvest', function () {
+    $this->loginUser();
+    $this->postJson('/api/source-harvest/' . Str::uuid() . '/notify')->assertStatus(404);
 });
 
 // ── Stale auto-fail ────────────────────────────────────────────────

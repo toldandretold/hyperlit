@@ -110,6 +110,7 @@ nonisolated enum OcrProgressStage: String {
     case images
     case compose
     case mistral   // BYO-key remote OCR in flight (keepalive pulses, no page counts)
+    case vlm       // vision-language-model transcription (real per-page counts)
 }
 
 nonisolated struct OcrProgress {

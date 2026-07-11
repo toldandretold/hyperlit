@@ -356,8 +356,11 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     // status/running are id-scoped polls. See app/Services/SourceHarvest/README.md.
     Route::post('/library/{book}/harvest/estimate', [\App\Http\Controllers\SourceHarvestController::class, 'estimate']);
     Route::post('/library/{book}/harvest/trigger', [\App\Http\Controllers\SourceHarvestController::class, 'trigger']);
+    Route::get('/source-harvest/map', [\App\Http\Controllers\SourceHarvestController::class, 'map']);
     Route::get('/source-harvest/status/{harvestId}', [\App\Http\Controllers\SourceHarvestController::class, 'status']);
     Route::get('/source-harvest/running/{book}', [\App\Http\Controllers\SourceHarvestController::class, 'running']);
+    Route::post('/source-harvest/{harvestId}/notify', [\App\Http\Controllers\SourceHarvestController::class, 'notify'])
+        ->middleware('throttle:10,1');
 
 
     Route::post(

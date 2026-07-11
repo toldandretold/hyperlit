@@ -58,11 +58,12 @@ final class ProviderStore: ObservableObject {
         ]
     }
 
-    /// The active OCR provider, if one is selected AND has a Keychain key —
-    /// the ocr.run bridge method uses it (e.g. the user's own Mistral OCR key)
-    /// instead of the on-device engine.
+    /// The active OCR provider, if one is selected — the ocr.run bridge method
+    /// uses it (the user's own Mistral key, or a local/hosted vision model)
+    /// instead of the on-device engine. No key required: local VLM endpoints
+    /// (Ollama, LM Studio) are keyless.
     func activeOcrProvider() -> Provider? {
-        guard let id = activeOcr, let p = provider(id: id), Keychain.exists(p.id) else { return nil }
+        guard let id = activeOcr, let p = provider(id: id), !p.baseUrl.isEmpty else { return nil }
         return p
     }
 

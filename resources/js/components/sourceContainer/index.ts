@@ -23,6 +23,7 @@ import { loadReconvertInfo, handleReconvert, _awaitReconvert } from "./creatorTo
 import { handleReupload } from "./creatorTools/reupload";
 import { handleDeleteBook } from "./creatorTools/deleteBook";
 import { loadHarvestSection, handleHarvestNetwork, startHarvestPolling, stopHarvestPolling, pollHarvestStatus } from "./creatorTools/harvestNetwork";
+import { openHarvestVizOverlay, closeHarvestVizOverlay, fetchHarvestMap, renderHarvestViz } from "./creatorTools/harvestViz";
 import { loadAiReviewStatus, setAiReviewState, handleAiReviewGenerate, ensureAiReviewLivePanel } from "./aiReview/index";
 import { handleCheckSource, wireSourceStatus } from "./checkSource";
 import { startAiReviewPolling, stopAiReviewPolling, pollAiReviewStatus } from "./aiReview/polling";
@@ -258,6 +259,7 @@ export class SourceContainerManager extends (ContainerManager as any) {
 
     this.stopAiReviewPolling();
     this.stopHarvestPolling();
+    this.closeHarvestVizOverlay();
     this.isOpen = false;
     (window as any).activeContainer = "main-content";
     this.updateState(); // Removes .open class via parent's updateState()
@@ -306,6 +308,10 @@ export class SourceContainerManager extends (ContainerManager as any) {
   startHarvestPolling(intervalMs?: any) { return startHarvestPolling(this, intervalMs); }
   stopHarvestPolling() { return stopHarvestPolling(this); }
   pollHarvestStatus() { return pollHarvestStatus(this); }
+  openHarvestVizOverlay() { return openHarvestVizOverlay(this); }
+  closeHarvestVizOverlay() { return closeHarvestVizOverlay(this); }
+  fetchHarvestMap() { return fetchHarvestMap(this); }
+  renderHarvestViz(harvest: any) { return renderHarvestViz(this, harvest); }
 
   // aiReview
   handleAiReviewGenerate() { return handleAiReviewGenerate(this); }

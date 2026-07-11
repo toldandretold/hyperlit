@@ -22,6 +22,7 @@
     "hyperlit-overlay": { "module": "resources/js/hyperlitContainer/stack.ts (.hyperlit-overlay-stacked)", "wiring": "deferred:history-driven-close + edit-mode keyboard semantics need own design" },
     "stale-tab-overlay": { "module": "resources/js/utilities/BroadcastListener.ts", "wiring": "deferred:cross-tab warning overlay — wire trapModalFocus when next touched" },
     "ai-review-viz-overlay": { "module": "resources/js/components/sourceContainer/aiReview/pipelineViz.ts", "wiring": "deferred:AI-review viz — wire trapModalFocus when next touched" },
+    "harvest-viz-overlay": { "module": "resources/js/components/sourceContainer/creatorTools/harvestViz.ts", "wiring": "trapModalFocus" },
     "conversion-modal": { "module": "resources/js/paste/ui/modalManager.ts", "wiring": "deferred:paste conversion progress — wire when next touched" },
     "import-failure-modal": { "module": "resources/js/conversion/bugReportModal.js", "wiring": "deferred:import failure report — wire when next touched (also still .js)" },
     "novel-vacuum-overlay": { "module": "resources/js/paste/handlers/novelVacuumHandler.ts", "wiring": "deferred:paste novel-vacuum flow — wire when next touched" },

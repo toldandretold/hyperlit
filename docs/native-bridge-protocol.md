@@ -89,7 +89,7 @@ When the user edits settings, native pushes a `providers_changed` **event** (no 
 
 ### `ocr.*` — on-device PDF OCR
 
-The shell OCRs PDFs locally (PDFKit text layer + Apple Vision fallback; `hyperlit/PdfOcr/` in the Xcode project) and returns a JSON byte-compatible with Mistral's `ocr_response.json`, which the web layer attaches to the `/import-file` upload (field `ocr_response`, plus `ocr_source`) so the server conversion pipeline replays from it — no Mistral call, no charge. When the user activates a BYO OCR provider in Settings (e.g. their own Mistral key), `ocr.run` calls that provider instead of the on-device engine; the key stays native-side.
+The shell OCRs PDFs locally (PDFKit text layer + Apple Vision fallback; `hyperlit/PdfOcr/` in the Xcode project) and returns a JSON byte-compatible with Mistral's `ocr_response.json`, which the web layer attaches to the `/import-file` upload (field `ocr_response`, plus `ocr_source`) so the server conversion pipeline replays from it — no Mistral call, no charge. When the user activates a BYO OCR provider in Settings, `ocr.run` routes there instead of the on-device engine: Mistral's OCR API (detected by base URL/model), or any OpenAI-compatible vision model — Ollama / LM Studio locally, or a hosted endpoint — which transcribes each rendered page to markdown. Keys (when any; local VLMs are keyless) stay native-side.
 
 The 4MB envelope cap means the PDF arrives and the result leaves in chunks. `chunkSize` (returned by `ocr.begin`) is the RAW byte slice per chunk — 2MB raw ≈ 2.7MB base64, under the cap in both directions.
 
