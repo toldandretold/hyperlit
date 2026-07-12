@@ -359,6 +359,7 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     Route::get('/source-harvest/map', [\App\Http\Controllers\SourceHarvestController::class, 'map']);
     Route::get('/source-harvest/status/{harvestId}', [\App\Http\Controllers\SourceHarvestController::class, 'status']);
     Route::get('/source-harvest/running/{book}', [\App\Http\Controllers\SourceHarvestController::class, 'running']);
+    Route::get('/source-harvest/latest/{book}', [\App\Http\Controllers\SourceHarvestController::class, 'latest']);
     Route::post('/source-harvest/{harvestId}/notify', [\App\Http\Controllers\SourceHarvestController::class, 'notify'])
         ->middleware('throttle:10,1');
     Route::post('/source-harvest/{harvestId}/cancel', [\App\Http\Controllers\SourceHarvestController::class, 'cancel'])

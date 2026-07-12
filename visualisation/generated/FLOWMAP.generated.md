@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1643 functions in 350 modules · 10 object stores · 10 PG tables · 3321 edges
+**MarkdownDB** schema v28 · 1652 functions in 353 modules · 10 object stores · 10 PG tables · 3337 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -243,6 +243,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `pollAiReviewStatus` | `components/sourceContainer/aiReview/polling` | — | — | read/write | — |
 | `startAiReviewPolling` | `components/sourceContainer/aiReview/polling` | — | — | — | — |
 | `stopAiReviewPolling` | `components/sourceContainer/aiReview/polling` | — | — | — | — |
+| `aiReviewSectionHtml` | `components/sourceContainer/aiReview/section` | — | — | — | — |
 | `buildSourceHtml` | `components/sourceContainer/buildSourceHtml` | — | `library` | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `externalSourceLink` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `handleCheckSource` | `components/sourceContainer/checkSource` | — | — | read/write | — |
@@ -251,6 +252,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `librarianHtml` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `sourceStatusSectionHtml` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `wireSourceStatus` | `components/sourceContainer/checkSource` | — | — | read/write | — |
+| `commonsFeedbackNoteHtml` | `components/sourceContainer/commonsFeedback` | — | — | — | — |
+| `handleCommonsFeedback` | `components/sourceContainer/commonsFeedback` | — | — | read | — |
+| `hideCommonsHarvestToast` | `components/sourceContainer/commonsFeedback` | — | — | read/write | — |
+| `showCommonsHarvestToast` | `components/sourceContainer/commonsFeedback` | — | — | read/write | — |
 | `combineIcon` | `components/sourceContainer/creatorTools/combineIcon` | — | — | — | — |
 | `handleDeleteBook` | `components/sourceContainer/creatorTools/deleteBook` | — | — | read/write | — |
 | `computeHarvestProgress` | `components/sourceContainer/creatorTools/harvestField` | — | — | — | — |
@@ -324,6 +329,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.loadCreatorTools` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadHarvestSection` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadReconvertInfo` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.loadResearchWorkflows` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadVersionHistory` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.openAiReviewVizOverlay` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.openContainer` | `components/sourceContainer/index` | — | — | write | — |
@@ -349,6 +355,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.syncLibraryRecordToBackend` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.syncPipelineHighlights` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.validateUrl` | `components/sourceContainer/index` | — | — | — | — |
+| `isCommonsBook` | `components/sourceContainer/researchWorkflows` | — | — | — | — |
+| `loadResearchWorkflows` | `components/sourceContainer/researchWorkflows` | — | — | read | — |
+| `researchWorkflowsSectionHtml` | `components/sourceContainer/researchWorkflows` | — | — | — | — |
 | `applyVisibilityState` | `components/sourceContainer/visibilityControl` | — | `library` | read/write | — |
 | `attachVisibilityControlListeners` | `components/sourceContainer/visibilityControl` | — | — | read/write | — |
 | `buildVisibilityControlHtml` | `components/sourceContainer/visibilityControl` | — | — | — | — |

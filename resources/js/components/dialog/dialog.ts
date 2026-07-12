@@ -286,6 +286,89 @@ export function formDialog(opts: FormDialogOptions): Promise<FormDialogResult | 
   });
 }
 
+interface ChecklistItem {
+  value: string;
+  label: string;
+}
+
+interface ChecklistOptions {
+  title?: string;
+  message?: string;
+  items: ChecklistItem[];
+  /** Optional free-text box below the checkboxes. */
+  comment?: { label?: string; placeholder?: string };
+  confirmLabel?: string;
+  cancelLabel?: string;
+}
+
+export interface ChecklistResult {
+  selected: string[];
+  comment: string;
+}
+
+/**
+ * A multi-select checkbox list (+ optional comment) in the trapped dialog
+ * shell. Resolves { selected, comment } on confirm, or null on cancel/escape/
+ * backdrop. Reuses `app-dialog-overlay` (already focus-trapped + inventoried).
+ */
+export function checklistDialog(opts: ChecklistOptions): Promise<ChecklistResult | null> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'app-dialog-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.style.cssText = OVERLAY_CSS;
+
+    const rowCss =
+      'display: flex; align-items: flex-start; gap: 9px; width: 100%; box-sizing: border-box; margin: 0 0 6px; padding: 9px 11px; ' +
+      'border-radius: 8px; cursor: pointer; background: rgba(255,255,255,0.04); ' +
+      'border: 1px solid var(--border-button, rgba(203,204,204,0.3)); font-size: 13px; color: var(--color-text, #CBCCCC);';
+    const itemsHtml = opts.items.map((it) => `
+        <label style="${rowCss}">
+          <input type="checkbox" name="cl-item" value="${escapeHtml(it.value)}" style="margin-top: 2px; accent-color: var(--hyperlit-aqua, #4EACAE);">
+          <span>${escapeHtml(it.label)}</span>
+        </label>`).join('');
+
+    const commentHtml = opts.comment ? `
+        <label for="cl-comment" style="display:block; margin: 12px 0 5px; font-size: 13px; color: var(--color-text, #CBCCCC);">${escapeHtml(opts.comment.label ?? 'Anything to add?')}</label>
+        <textarea id="cl-comment" rows="3" placeholder="${escapeHtml(opts.comment.placeholder ?? '')}"
+          style="width:100%; box-sizing:border-box; padding: 8px 10px; border-radius: 6px; font-family: inherit; font-size: 13px; resize: vertical; background: rgba(255,255,255,0.04); color: var(--color-text, #CBCCCC); border: 1px solid var(--border-button, rgba(203,204,204,0.3));"></textarea>` : '';
+
+    overlay.innerHTML = `
+      <div class="app-dialog-card" style="${CARD_CSS} max-width: 460px;">
+        ${opts.title ? `<h3 style="${TITLE_CSS}">${escapeHtml(opts.title)}</h3>` : ''}
+        ${opts.message ? `<p style="${MSG_CSS}">${renderMessage(opts.message)}</p>` : ''}
+        <div>${itemsHtml}</div>
+        ${commentHtml}
+        <div style="${ROW_CSS} margin-top: 16px;">
+          <button type="button" data-act="cancel" style="${CANCEL_CSS}">${escapeHtml(opts.cancelLabel ?? 'Cancel')}</button>
+          <button type="button" data-act="confirm" style="${confirmCss(false)}">${escapeHtml(opts.confirmLabel ?? 'Send')}</button>
+        </div>
+      </div>`;
+
+    let release: (() => void) | null = null;
+    const collect = (): ChecklistResult => ({
+      selected: Array.from(overlay.querySelectorAll('input[name="cl-item"]:checked')).map((el) => (el as HTMLInputElement).value),
+      comment: (overlay.querySelector('#cl-comment') as HTMLTextAreaElement | null)?.value ?? '',
+    });
+    const done = (result: ChecklistResult | null) => {
+      release?.();
+      release = null;
+      overlay.remove();
+      resolve(result);
+    };
+
+    overlay.addEventListener('click', (e) => {
+      const act = (e.target as HTMLElement).closest('[data-act]')?.getAttribute('data-act');
+      if (act === 'confirm') done(collect());
+      else if (act === 'cancel' || e.target === overlay) done(null);
+    });
+
+    document.body.appendChild(overlay);
+    release = trapModalFocus(overlay, { onEscape: () => done(null) });
+  });
+}
+
 /** Styled replacement for window.alert — resolves when dismissed. */
 export function alertDialog(opts: AlertOptions): Promise<void> {
   return new Promise((resolve) => {

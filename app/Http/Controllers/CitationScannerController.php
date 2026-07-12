@@ -11,10 +11,13 @@ use App\Jobs\CitationScanBibliographyJob;
 use App\Jobs\CitationPipelineJob;
 use App\Services\BillingService;
 use App\Services\CitationPipeline\PipelineMap;
+use App\Http\Controllers\Concerns\ResolvesBookOwner;
 use Illuminate\Support\Facades\Auth;
 
 class CitationScannerController extends Controller
 {
+    use ResolvesBookOwner;
+
     /**
      * Trigger a citation scan for a book's bibliography.
      * POST /api/citation-scanner/scan
@@ -167,6 +170,14 @@ class CitationScannerController extends Controller
         }
 
         $bookId = $request->input('book');
+
+        // Authorization: the owner (their own book) OR any logged-in user on an
+        // owner-less COMMONS book — requester-pays, everyone benefits. Uses the
+        // RLS default connection, so it also stops triggering on a private book
+        // the caller can't see (the old admin-connection existence check leaked).
+        [, $deny] = $this->authorizeCommonsWorkflow($request, $bookId);
+        if ($deny) return $deny;
+
         $force  = $request->boolean('force', false);
         $clientInference = $request->boolean('client_inference', false);
         $db = DB::connection('pgsql_admin');
@@ -181,15 +192,6 @@ class CitationScannerController extends Controller
         }
 
         try {
-            // Check that the book exists
-            $bookExists = $db->table('library')->where('book', $bookId)->exists();
-            if (!$bookExists) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Book not found',
-                ], 404);
-            }
-
             // Check no existing running pipeline for this book
             $existing = $db->table('citation_pipelines')
                 ->where('book', $bookId)

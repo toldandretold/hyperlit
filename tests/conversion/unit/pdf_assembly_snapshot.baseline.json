@@ -474,6 +474,30 @@
       "trailing_page_number_offset": null
     }
   },
+  "tests/conversion/fixtures-local/pdf/sequential/d4c0b31e-3c47-4abc-8e2a-d24851bfda1e/ocr_response.json": {
+    "classification": "none",
+    "confidence": 1.0,
+    "md_len": 28468,
+    "md_sha256": "f696f71782b0d47d35a91ea544bf944578a78c7db748cb9eeacb49b8f0f36e52",
+    "segments": [],
+    "signals": {
+      "co_location_ratio": 0.0,
+      "def_clustering_ratio": 0.1667,
+      "max_ref_number": 0,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 0,
+      "pages_with_both": 0,
+      "pages_with_defs": 1,
+      "pages_with_refs": 0,
+      "ref_number_max_page_spread": 0,
+      "reset_count": 0,
+      "reset_frequency": 0.0,
+      "total_pages": 6,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
   "tests/conversion/fixtures-local/pdf/whole_document/whole_document_example/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,

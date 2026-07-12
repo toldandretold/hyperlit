@@ -43,6 +43,61 @@ trait ResolvesBookOwner
         return [$library, null, $info];
     }
 
+    /**
+     * Authorize a "research workflow" (AI citation review, source harvest) that
+     * ANY logged-in user may run on an owner-less COMMONS book (requester-pays,
+     * everyone benefits — like the audio feature), while still allowing the
+     * owner to run it on their own book (user OR anonymous token, unchanged).
+     *
+     * Visibility is enforced by the default-connection RLS read (a private book
+     * not owned by the caller returns null → 404). A logged-in non-owner is
+     * allowed only when the book is a commons book; a guest is refused on
+     * commons books (workflows charge + are attributed to a real account).
+     *
+     * @return array{0: ?PgLibrary, 1: ?\Illuminate\Http\JsonResponse, 2: ?array} [library, denyResponse, creatorInfo]
+     */
+    protected function authorizeCommonsWorkflow(Request $request, string $book): array
+    {
+        $library = PgLibrary::where('book', $book)->first();
+        if (!$library) {
+            return [null, response()->json(['success' => false, 'message' => 'Book not found'], 404), null];
+        }
+
+        $info = $this->getCreatorInfo($request);
+
+        // Owner (logged-in user OR valid anonymous token) — unchanged behaviour.
+        $isOwner = $info['valid'] && (
+            ($library->creator && $library->creator === $info['creator']) ||
+            ($library->creator_token && $library->creator_token === $info['creator_token'])
+        );
+        if ($isOwner) {
+            return [$library, null, $info];
+        }
+
+        // Non-owner: allowed ONLY on commons books, and only for a real account.
+        if ($this->isCommonsBook($library)) {
+            if (!Auth::check()) {
+                return [$library, response()->json(['success' => false, 'message' => 'Log in to run this on a commons book.'], 401), $info];
+            }
+            return [$library, null, ['creator' => Auth::user()->name, 'creator_token' => null, 'valid' => true]];
+        }
+
+        return [$library, response()->json(['success' => false, 'message' => 'This workflow is available on your own books and on open-access commons books.'], 403), $info];
+    }
+
+    /** A commons book = a system-owned auto-version (no user owner). */
+    protected function isCommonsBook(PgLibrary $library): bool
+    {
+        if ($library->creator === \App\Services\CanonicalVersions\AutoVersionResolver::CREATOR) {
+            return true;
+        }
+        return in_array(
+            $library->conversion_method ?? '',
+            \App\Services\CanonicalVersions\AutoVersionResolver::SYSTEM_CONVERSION_METHODS,
+            true,
+        );
+    }
+
     protected function getCreatorInfo(Request $request): array
     {
         $user = Auth::user();

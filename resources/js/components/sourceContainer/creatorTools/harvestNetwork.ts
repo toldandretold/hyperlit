@@ -12,8 +12,8 @@ import { combineIcon } from './combineIcon';
 
 const FILE = 'components/sourceContainer/creatorTools/harvestNetwork.ts';
 
-const BUTTON_LABEL = 'Harvest the Knowledge Commons';
-const IDLE_LABEL_HTML = `${combineIcon(18)} <span>${BUTTON_LABEL}</span>`;
+const BUTTON_LABEL = 'Knowledge Commons Harvester';
+const IDLE_LABEL_HTML = `${combineIcon(14)} <span>${BUTTON_LABEL}</span>`;
 
 export function loadHarvestSection(self: any) {
   const section = self.container.querySelector('#harvest-network-section');
@@ -28,8 +28,9 @@ export function loadHarvestSection(self: any) {
         <span class="harvest-info-toggle" tabindex="0" role="button" aria-label="What this does" aria-expanded="false" style="cursor:pointer;display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid rgba(239,141,52,0.5);font-size:10px;vertical-align:middle;margin-left:2px;color:var(--hyperlit-orange);">?</span>
       </p>
       <div class="harvest-info-detail" style="display:none; font-size: 11px; line-height: 1.55; color: var(--color-text-faint); margin-top: 2px; padding: 8px 10px; border-left: 2px solid rgba(239,141,52,0.4); background: rgba(239,141,52,0.05); border-radius: 3px;">
-        This reads the book's bibliography and footnotes, matches each citation to the real published work, then — for every cited work that is <strong>open access</strong> and legally fetchable — downloads it, converts it to a readable text, and adds it to the library as a verified source your citations link to. You choose how far to follow the network: just this book's citations, the works those cite, and so on — up to the whole reachable open-access web of sources. Every source it brings in is collected onto a shelf on your page. Nothing behind a paywall is ever taken.
-      </div>`;
+        This reads the book's bibliography and footnotes, matches each citation to the real published work, then — for every cited work that is <strong>open access</strong> and legally fetchable — downloads it, converts it to a readable text, and adds it to the library as a verified source your citations link to. You choose how far to follow the network: just this book's citations, the works those cite, and so on — up to the whole reachable open-access web of sources. Every source it brings in is collected onto a shelf. Nothing behind a paywall is ever taken.
+      </div>
+      <div id="harvest-report-link" style="margin-top: 8px;"></div>`;
 
   const btn = section.querySelector('#harvest-network-btn');
   if (btn) btn.addEventListener('click', (e: any) => {
@@ -63,6 +64,30 @@ export function loadHarvestSection(self: any) {
       }
     })
     .catch(() => { /* section stays idle; the trigger path re-checks server-side */ });
+
+  // Persistent "See the yield report →" link for the book's latest finished
+  // harvest (shared per book) — mirrors AI Review's "See Review" affordance.
+  renderHarvestReportLink(self);
+}
+
+/** Fetch the book's latest finished harvest report + shelf and render a link. */
+async function renderHarvestReportLink(self: any) {
+  try {
+    const resp = await fetch(`/api/source-harvest/latest/${encodeURIComponent(book)}`, { credentials: 'include' });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const h = data?.harvest;
+    const slot = self.container.querySelector('#harvest-report-link');
+    if (!h?.report_book || !slot) return;
+
+    const reportUrl = `/${encodeURIComponent(h.report_book)}`;
+    const shelf = h.shelf;
+    const shelfUrl = (shelf && shelf.creator)
+      ? `/u/${encodeURIComponent(shelf.creator)}/shelf/${encodeURIComponent(shelf.slug)}`
+      : null;
+    slot.innerHTML = `<a href="${reportUrl}" style="color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; font-size: 12px;">See the yield report →</a>`
+      + (shelfUrl ? ` <a href="${shelfUrl}" style="color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; font-size: 12px; margin-left: 10px;">View the shelf</a>` : '');
+  } catch { /* best-effort */ }
 }
 
 export async function handleHarvestNetwork(self: any) {
@@ -155,7 +180,7 @@ export async function handleHarvestNetwork(self: any) {
     log.user('Source network harvest queued', FILE, { book, harvest: trig.harvest_id, depth });
   } catch (error: any) {
     log.error('Harvest start failed', FILE, error);
-    await alertDialog({ title: 'Harvest the Knowledge Commons', message: error?.message || 'Could not start the harvest.' });
+    await alertDialog({ title: BUTTON_LABEL, message: error?.message || 'Could not start the harvest.' });
     resetHarvestButton(self);
   }
 }
@@ -223,7 +248,7 @@ export async function pollHarvestStatus(self: any) {
           if (reportUrl) options.push({ value: 'report', label: 'Read the yield report', description: 'What came home, and what to chase by hand.' });
           if (shelfUrl) options.push({ value: 'shelf', label: 'View the shelf', description: 'The harvested sources on your page.' });
           const choice = await choiceDialog({
-            title: 'Harvest the Knowledge Commons',
+            title: BUTTON_LABEL,
             message: summary.join('\n\n'),
             options,
             cancelLabel: 'Close',
@@ -231,7 +256,7 @@ export async function pollHarvestStatus(self: any) {
           if (choice === 'report' && reportUrl) window.location.href = reportUrl;
           else if (choice === 'shelf' && shelfUrl) window.location.href = shelfUrl;
         } else {
-          await alertDialog({ title: 'Harvest the Knowledge Commons', message: summary.join('\n\n') });
+          await alertDialog({ title: BUTTON_LABEL, message: summary.join('\n\n') });
         }
       }
 
@@ -243,7 +268,7 @@ export async function pollHarvestStatus(self: any) {
       resetHarvestButton(self);
       if (!self._harvestVizOpen) {
         await alertDialog({
-          title: 'Harvest the Knowledge Commons',
+          title: BUTTON_LABEL,
           message: 'Harvest failed: ' + (harvest.error || 'unknown error') + '\n\nRe-running is safe — finished works are kept.',
         });
       }

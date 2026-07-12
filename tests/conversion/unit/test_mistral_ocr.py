@@ -385,3 +385,28 @@ def test_renumber_chunk_still_offsets_a_real_ref_restart():
     assert offs and offs[1] > 0, f"real ref restart was not offset: {offs}"
     # Paper two's [^1] became [^9] (offset by paper one's running max 8).
     assert '[^9]' in rd['pages'][1]['markdown']
+
+
+# ---------------------------------------------------------------------------
+# expand_latex_superscripts — COMMA-SEPARATED LaTeX superscript marker groups.
+# "Wan Wang$^{1,2}$" (author affiliations) must split into [^1][^2], or the marker
+# renders as literal "1,2" and never links to its [^1]:/[^2]: defs (book d4c0b31e).
+# ---------------------------------------------------------------------------
+def test_expand_latex_superscript_single():
+    assert M.expand_latex_superscripts('mass$^{5}$ energy') == 'mass[^5] energy'
+    assert M.expand_latex_superscripts('x$^7$ y') == 'x[^7] y'
+
+
+def test_expand_latex_superscript_comma_group_with_defs():
+    # A comma group splits ONLY when a matching footnote definition is present (author affiliations).
+    aff = 'Wan Wang$^{1,2}$\n\n$^{1}$ School of Government\n$^{2}$ School of IR'
+    assert M.expand_latex_superscripts(aff).startswith('Wan Wang[^1][^2]')
+    defs = '\n[^3]: a\n[^4]: b\n[^5]: c'
+    assert M.expand_latex_superscripts('name$^{3,4,5}$' + defs).startswith('name[^3][^4][^5]')
+
+
+def test_comma_superscript_without_defs_stays_math():
+    # A science-paper Vancouver citation (no footnote defs) must NOT become literal [^N] text — it
+    # stays a $...$ math superscript so the reader renders it as a superscript.
+    assert M.expand_latex_superscripts('built environments$^{1,2,4}$.') == 'built environments$^{1,2,4}$.'
+    assert M.normalize_all_footnote_refs('cells$^{13,14}$.') == 'cells$^{13,14}$.'

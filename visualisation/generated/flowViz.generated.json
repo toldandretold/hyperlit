@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1643,
-    "moduleCount": 350,
+    "fnCount": 1652,
+    "moduleCount": 353,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3321,
+    "edgeCount": 3337,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -2035,6 +2035,14 @@
       "leaf": true
     },
     {
+      "id": "components/sourceContainer/aiReview/section:aiReviewSectionHtml",
+      "label": "aiReviewSectionHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/aiReview/section",
+      "leaf": true
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
       "label": "buildSourceHtml",
       "kind": "fn",
@@ -2117,6 +2125,38 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/checkSource",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/commonsFeedback:commonsFeedbackNoteHtml",
+      "label": "commonsFeedbackNoteHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/commonsFeedback",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/commonsFeedback:handleCommonsFeedback",
+      "label": "handleCommonsFeedback",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/commonsFeedback",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/commonsFeedback:hideCommonsHarvestToast",
+      "label": "hideCommonsHarvestToast",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/commonsFeedback",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast",
+      "label": "showCommonsHarvestToast",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/commonsFeedback",
       "leaf": false
     },
     {
@@ -2713,6 +2753,14 @@
       "leaf": true
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.loadResearchWorkflows",
+      "label": "SourceContainerManager.loadResearchWorkflows",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.loadVersionHistory",
       "label": "SourceContainerManager.loadVersionHistory",
       "kind": "fn",
@@ -2910,6 +2958,30 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/researchWorkflows:isCommonsBook",
+      "label": "isCommonsBook",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/researchWorkflows",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/researchWorkflows:loadResearchWorkflows",
+      "label": "loadResearchWorkflows",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/researchWorkflows",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/researchWorkflows:researchWorkflowsSectionHtml",
+      "label": "researchWorkflowsSectionHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/researchWorkflows",
       "leaf": true
     },
     {
@@ -15626,6 +15698,15 @@
       ]
     },
     {
+      "id": "components/sourceContainer/aiReview/section",
+      "label": "components/sourceContainer/aiReview/section",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/aiReview/section:aiReviewSectionHtml"
+      ]
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml",
       "label": "components/sourceContainer/buildSourceHtml",
       "stage": "components",
@@ -15647,6 +15728,18 @@
         "components/sourceContainer/checkSource:librarianHtml",
         "components/sourceContainer/checkSource:sourceStatusSectionHtml",
         "components/sourceContainer/checkSource:wireSourceStatus"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/commonsFeedback",
+      "label": "components/sourceContainer/commonsFeedback",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/commonsFeedback:commonsFeedbackNoteHtml",
+        "components/sourceContainer/commonsFeedback:handleCommonsFeedback",
+        "components/sourceContainer/commonsFeedback:hideCommonsHarvestToast",
+        "components/sourceContainer/commonsFeedback:showCommonsHarvestToast"
       ]
     },
     {
@@ -15823,6 +15916,7 @@
         "components/sourceContainer/index:SourceContainerManager.loadCreatorTools",
         "components/sourceContainer/index:SourceContainerManager.loadHarvestSection",
         "components/sourceContainer/index:SourceContainerManager.loadReconvertInfo",
+        "components/sourceContainer/index:SourceContainerManager.loadResearchWorkflows",
         "components/sourceContainer/index:SourceContainerManager.loadVersionHistory",
         "components/sourceContainer/index:SourceContainerManager.openAiReviewVizOverlay",
         "components/sourceContainer/index:SourceContainerManager.openContainer",
@@ -15849,6 +15943,17 @@
         "components/sourceContainer/index:SourceContainerManager.syncPipelineHighlights",
         "components/sourceContainer/index:SourceContainerManager.validateUrl",
         "components/sourceContainer/index:destroySourceManager"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/researchWorkflows",
+      "label": "components/sourceContainer/researchWorkflows",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/researchWorkflows:isCommonsBook",
+        "components/sourceContainer/researchWorkflows:loadResearchWorkflows",
+        "components/sourceContainer/researchWorkflows:researchWorkflowsSectionHtml"
       ]
     },
     {
@@ -21619,6 +21724,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/aiReview/section:aiReviewSectionHtml",
+      "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "components/sourceContainer/aiReview/section:aiReviewSectionHtml",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/checkSource:sourceStatusSectionHtml",
       "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
       "target": "components/sourceContainer/checkSource:sourceStatusSectionHtml",
@@ -21634,6 +21745,12 @@
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/helpers:isSyntheticBook",
       "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
       "target": "components/sourceContainer/helpers:isSyntheticBook",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/researchWorkflows:researchWorkflowsSectionHtml",
+      "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "components/sourceContainer/researchWorkflows:researchWorkflowsSectionHtml",
       "rel": "call"
     },
     {
@@ -21711,6 +21828,12 @@
       "rel": "call"
     },
     {
+      "id": "components/sourceContainer/checkSource:librarianHtml__call__components/sourceContainer/commonsFeedback:commonsFeedbackNoteHtml",
+      "source": "components/sourceContainer/checkSource:librarianHtml",
+      "target": "components/sourceContainer/commonsFeedback:commonsFeedbackNoteHtml",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/checkSource:sourceStatusSectionHtml__call__components/sourceContainer/checkSource:externalSourceLink",
       "source": "components/sourceContainer/checkSource:sourceStatusSectionHtml",
       "target": "components/sourceContainer/checkSource:externalSourceLink",
@@ -21737,6 +21860,37 @@
     {
       "id": "components/sourceContainer/checkSource:wireSourceStatus__domwrite__dom",
       "source": "components/sourceContainer/checkSource:wireSourceStatus",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/commonsFeedback:commonsFeedbackNoteHtml__call__components/sourceContainer/researchWorkflows:isCommonsBook",
+      "source": "components/sourceContainer/commonsFeedback:commonsFeedbackNoteHtml",
+      "target": "components/sourceContainer/researchWorkflows:isCommonsBook",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/commonsFeedback:hideCommonsHarvestToast__domwrite__dom",
+      "source": "components/sourceContainer/commonsFeedback:hideCommonsHarvestToast",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast__call__components/sourceContainer/commonsFeedback:handleCommonsFeedback",
+      "source": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast",
+      "target": "components/sourceContainer/commonsFeedback:handleCommonsFeedback",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast__call__components/sourceContainer/commonsFeedback:hideCommonsHarvestToast",
+      "source": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast",
+      "target": "components/sourceContainer/commonsFeedback:hideCommonsHarvestToast",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast__domwrite__dom",
+      "source": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -22143,6 +22297,13 @@
       "rel": "call"
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/sourceContainer/commonsFeedback:handleCommonsFeedback",
+      "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "target": "components/sourceContainer/commonsFeedback:handleCommonsFeedback",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/sourceContainer/downloads:downloadAllForBook",
       "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
       "target": "components/sourceContainer/downloads:downloadAllForBook",
@@ -22327,6 +22488,12 @@
       "dataPath": true
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.loadResearchWorkflows__call__components/sourceContainer/researchWorkflows:loadResearchWorkflows",
+      "source": "components/sourceContainer/index:SourceContainerManager.loadResearchWorkflows",
+      "target": "components/sourceContainer/researchWorkflows:loadResearchWorkflows",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.loadVersionHistory__call__components/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
       "source": "components/sourceContainer/index:SourceContainerManager.loadVersionHistory",
       "target": "components/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
@@ -22476,6 +22643,18 @@
       "id": "components/sourceContainer/index:SourceContainerManager.validateUrl__call__components/sourceContainer/editForm:validateUrl",
       "source": "components/sourceContainer/index:SourceContainerManager.validateUrl",
       "target": "components/sourceContainer/editForm:validateUrl",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/researchWorkflows:researchWorkflowsSectionHtml__call__components/sourceContainer/aiReview/section:aiReviewSectionHtml",
+      "source": "components/sourceContainer/researchWorkflows:researchWorkflowsSectionHtml",
+      "target": "components/sourceContainer/aiReview/section:aiReviewSectionHtml",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/researchWorkflows:researchWorkflowsSectionHtml__call__components/sourceContainer/researchWorkflows:isCommonsBook",
+      "source": "components/sourceContainer/researchWorkflows:researchWorkflowsSectionHtml",
+      "target": "components/sourceContainer/researchWorkflows:isCommonsBook",
       "rel": "call"
     },
     {
@@ -25237,6 +25416,24 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/sourceContainer/commonsFeedback:handleCommonsFeedback",
+      "source": "dom",
+      "target": "components/sourceContainer/commonsFeedback:handleCommonsFeedback",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/commonsFeedback:hideCommonsHarvestToast",
+      "source": "dom",
+      "target": "components/sourceContainer/commonsFeedback:hideCommonsHarvestToast",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/commonsFeedback:showCommonsHarvestToast",
+      "source": "dom",
+      "target": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
       "source": "dom",
       "target": "components/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
@@ -25390,6 +25587,12 @@
       "id": "dom__domread__components/sourceContainer/index:SourceContainerManager.constructor",
       "source": "dom",
       "target": "components/sourceContainer/index:SourceContainerManager.constructor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/researchWorkflows:loadResearchWorkflows",
+      "source": "dom",
+      "target": "components/sourceContainer/researchWorkflows:loadResearchWorkflows",
       "rel": "domread"
     },
     {
@@ -41332,12 +41535,22 @@
     },
     {
       "source": "components/sourceContainer/buildSourceHtml",
+      "target": "components/sourceContainer/aiReview/section",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/buildSourceHtml",
       "target": "components/sourceContainer/checkSource",
       "kind": "static"
     },
     {
       "source": "components/sourceContainer/buildSourceHtml",
       "target": "components/sourceContainer/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/buildSourceHtml",
+      "target": "components/sourceContainer/researchWorkflows",
       "kind": "static"
     },
     {
@@ -41352,12 +41565,22 @@
     },
     {
       "source": "components/sourceContainer/checkSource",
+      "target": "components/sourceContainer/commonsFeedback",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/checkSource",
       "target": "components/sourceContainer/helpers",
       "kind": "static"
     },
     {
       "source": "components/sourceContainer/checkSource",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/commonsFeedback",
+      "target": "components/sourceContainer/researchWorkflows",
       "kind": "static"
     },
     {
@@ -41462,6 +41685,11 @@
     },
     {
       "source": "components/sourceContainer/index",
+      "target": "components/sourceContainer/commonsFeedback",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/index",
       "target": "components/sourceContainer/creatorTools/deleteBook",
       "kind": "static"
     },
@@ -41507,12 +41735,22 @@
     },
     {
       "source": "components/sourceContainer/index",
+      "target": "components/sourceContainer/researchWorkflows",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/index",
       "target": "components/sourceContainer/visibilityControl",
       "kind": "static"
     },
     {
       "source": "components/sourceContainer/index",
       "target": "components/utilities/containerManager",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/researchWorkflows",
+      "target": "components/sourceContainer/aiReview/section",
       "kind": "static"
     },
     {

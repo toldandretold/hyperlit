@@ -23,6 +23,8 @@ import { loadReconvertInfo, handleReconvert, _awaitReconvert } from "./creatorTo
 import { handleReupload } from "./creatorTools/reupload";
 import { handleDeleteBook } from "./creatorTools/deleteBook";
 import { loadHarvestSection, handleHarvestNetwork, startHarvestPolling, stopHarvestPolling, pollHarvestStatus } from "./creatorTools/harvestNetwork";
+import { loadResearchWorkflows } from "./researchWorkflows";
+import { handleCommonsFeedback } from "./commonsFeedback";
 import { openHarvestVizOverlay, closeHarvestVizOverlay, fetchHarvestMap, renderHarvestViz } from "./creatorTools/harvestViz";
 import { loadAiReviewStatus, setAiReviewState, handleAiReviewGenerate, ensureAiReviewLivePanel } from "./aiReview/index";
 import { handleCheckSource, wireSourceStatus } from "./checkSource";
@@ -128,6 +130,22 @@ export class SourceContainerManager extends (ContainerManager as any) {
       });
     }
 
+    // Research Workflows (commons books) — a plain always-visible section, so
+    // build its harvest tool now. The AI-review elements inside are wired by the
+    // shared #ai-review-* handlers below.
+    this.loadResearchWorkflows();
+
+    // Commons conversion-feedback note ("Report an issue"), in the Librarian section.
+    const feedbackBtn = this.container.querySelector("#commons-feedback-btn");
+    if (feedbackBtn && !feedbackBtn._listenerAttached) {
+      feedbackBtn._listenerAttached = true;
+      feedbackBtn.addEventListener("click", (e: any) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleCommonsFeedback();
+      });
+    }
+
     const aiReviewBtn = this.container.querySelector("#ai-review-btn");
     if (aiReviewBtn && !aiReviewBtn.disabled && !aiReviewBtn._listenerAttached) {
       aiReviewBtn._listenerAttached = true;
@@ -214,6 +232,7 @@ export class SourceContainerManager extends (ContainerManager as any) {
     this.isAnimating = true;
 
     this._creatorToolsLoaded = false;
+    this._researchWorkflowsLoaded = false;
 
     const html = await buildSourceHtml(book);
     this.container.innerHTML = html;
@@ -304,6 +323,7 @@ export class SourceContainerManager extends (ContainerManager as any) {
 
   // harvestNetwork (Source Network Harvester)
   loadHarvestSection() { return loadHarvestSection(this); }
+  loadResearchWorkflows() { return loadResearchWorkflows(this); }
   handleHarvestNetwork() { return handleHarvestNetwork(this); }
   startHarvestPolling(intervalMs?: any) { return startHarvestPolling(this, intervalMs); }
   stopHarvestPolling() { return stopHarvestPolling(this); }

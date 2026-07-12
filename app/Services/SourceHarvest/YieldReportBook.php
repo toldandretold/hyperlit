@@ -44,11 +44,24 @@ class YieldReportBook
             return null;
         }
 
-        $successes = array_values(array_filter($results, fn ($r) => in_array($r['status'] ?? '', self::SUCCESS, true)));
+        $bookId = 'source-yield-report-' . $rootBook;
+
+        // CUMULATIVE union of per-work outcomes across ALL runs on this book,
+        // keyed by canonical_source_id and stored on the report row's raw_json.
+        // A later (possibly smaller/cheaper) run only ADDS or UPGRADES entries
+        // and never clobbers an earlier, fuller report: a run's `results` only
+        // contains works still eligible at run time (eligibility excludes
+        // already-harvested canonicals), so merging with success>failure>skip
+        // precedence moves a Failed→Harvested and leaves prior successes intact.
+        // Runs are sequential (the controller 409s a concurrent harvest), so
+        // there's no read-modify-write race here.
+        $union = $this->mergeResults($this->readUnion($db, $bookId), $results);
+
+        $successes = array_values(array_filter($union, fn ($r) => in_array($r['status'] ?? '', self::SUCCESS, true)));
         // Works never attempted because the spend cap was reached — their own
         // section (they aren't failures, just deferred for a top-up + rerun).
-        $overBudget = array_values(array_filter($results, fn ($r) => ($r['status'] ?? '') === 'skipped_over_budget'));
-        $failures = array_values(array_filter($results, fn ($r) =>
+        $overBudget = array_values(array_filter($union, fn ($r) => ($r['status'] ?? '') === 'skipped_over_budget'));
+        $failures = array_values(array_filter($union, fn ($r) =>
             !in_array($r['status'] ?? '', self::SUCCESS, true) && ($r['status'] ?? '') !== 'skipped_over_budget'));
 
         $bookId = $this->findOrMintReportRow($db, $creator, $rootBook, $rootTitle);
@@ -58,18 +71,68 @@ class YieldReportBook
         // shelf self-heals to exactly one living report.
         $this->purgeStaleReports($db, $rootBook, $bookId);
 
-        // Rebuild the nodes from scratch (living report).
+        // Rebuild the nodes from the full union (not just this run).
         $db->table('nodes')->where('book', $bookId)->delete();
         $blocks = $this->buildBlocks($rootBook, $rootTitle, $failures, $successes, $overBudget);
         $this->insertNodes($db, $bookId, $blocks);
 
+        // Persist the union back onto the report row so the next run accumulates.
+        $this->writeUnion($db, $bookId, $rootBook, $union);
+
+        return $bookId;
+    }
+
+    /** The cumulative union of prior runs, read from the report row's raw_json. */
+    private function readUnion($db, string $bookId): array
+    {
+        $raw = $db->table('library')->where('book', $bookId)->value('raw_json');
+        if (!$raw) {
+            return [];
+        }
+        $data = json_decode($raw, true);
+        return is_array($data['cumulative_results'] ?? null) ? $data['cumulative_results'] : [];
+    }
+
+    /**
+     * Merge a run's results into the running union, keyed by canonical_source_id.
+     * A higher-rank status (success > failure > skipped_over_budget) is never
+     * replaced by a lower one; on equal rank the fresher (new) entry wins.
+     */
+    private function mergeResults(array $existing, array $new): array
+    {
+        $rank = fn ($r) => in_array($r['status'] ?? '', self::SUCCESS, true) ? 3
+            : (($r['status'] ?? '') === 'skipped_over_budget' ? 1 : 2);
+
+        $byKey = [];
+        foreach ([$existing, $new] as $i => $set) {
+            foreach ($set as $r) {
+                $k = $r['canonical_source_id'] ?? ($r['title'] ?? null);
+                if ($k === null) {
+                    $byKey[] = $r; // no stable key — keep as-is
+                    continue;
+                }
+                if (!isset($byKey[$k]) || $rank($r) >= $rank($byKey[$k])) {
+                    $byKey[$k] = $r;
+                }
+            }
+        }
+        return array_values($byKey);
+    }
+
+    /** Persist the union + flip has_nodes, preserving the row's other raw_json keys. */
+    private function writeUnion($db, string $bookId, string $rootBook, array $union): void
+    {
+        $raw = $db->table('library')->where('book', $bookId)->value('raw_json');
+        $data = is_array(json_decode($raw ?? '', true)) ? json_decode($raw, true) : [];
+        $data['cumulative_results'] = array_values($union);
+        $data['report_of'] = $rootBook;
+
         $db->table('library')->where('book', $bookId)->update([
             'has_nodes'  => true,
+            'raw_json'   => json_encode($data),
             'timestamp'  => round(microtime(true) * 1000),
             'updated_at' => now(),
         ]);
-
-        return $bookId;
     }
 
     /** Remove any report book for this root other than the canonical one (nodes + shelf items + row). */
@@ -98,6 +161,10 @@ class YieldReportBook
             return $bookId;
         }
 
+        // A commons book's report is a shared public artifact (no user owner);
+        // a normal user's report stays private to them.
+        $isCommons = $creator === \App\Services\CanonicalVersions\AutoVersionResolver::CREATOR;
+
         $title = 'Source Yield Report — ' . Str::limit($rootTitle, 120, '…');
         $db->table('library')->insert([
             'book'          => $bookId,
@@ -105,7 +172,7 @@ class YieldReportBook
             'author'        => 'Hyperlit',
             'creator'       => $creator,
             'creator_token' => null,
-            'visibility'    => 'private',
+            'visibility'    => $isCommons ? 'public' : 'private',
             'listed'        => false,
             'has_nodes'     => false, // flipped true after nodes land
             'type'          => 'report',

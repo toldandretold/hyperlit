@@ -339,7 +339,7 @@ def renumber_chunk_footnotes(response_dict, chunk_boundary_indices=None):
             # shifting, otherwise non-[^N] forms slip through unchanged and
             # collide with the un-shifted IDs from earlier pages.
             md = convert_footnotes(md)
-            md = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', md)
+            md = expand_latex_superscripts(md)
 
             # Renumber [^N] (refs and defs alike)
             def _shift_footnote_ref(m, _off=off):

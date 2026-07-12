@@ -37,7 +37,7 @@ class SourceHarvestController extends Controller
      */
     public function estimate(Request $request, string $book): JsonResponse
     {
-        [, $deny] = $this->authorizeBookEdit($request, $book);
+        [, $deny] = $this->authorizeCommonsWorkflow($request, $book);
         if ($deny) return $deny;
 
         if ($guard = $this->rejectEncrypted($book)) return $guard;
@@ -88,7 +88,7 @@ class SourceHarvestController extends Controller
      */
     public function trigger(Request $request, string $book): JsonResponse
     {
-        [, $deny] = $this->authorizeBookEdit($request, $book);
+        [, $deny] = $this->authorizeCommonsWorkflow($request, $book);
         if ($deny) return $deny;
 
         if ($guard = $this->rejectEncrypted($book)) return $guard;
@@ -346,6 +346,34 @@ class SourceHarvestController extends Controller
                 'step'         => $harvest->step,
                 'step_detail'  => $harvest->step_detail,
                 'notify_email' => (bool) ($harvest->notify_email ?? false),
+            ] : null,
+        ]);
+    }
+
+    /**
+     * GET /api/source-harvest/latest/{book} — the book's most-recent FINISHED
+     * harvest that produced a yield report, so the source panel can show a
+     * persistent "See the yield report →" link (mirrors AI Review's "See
+     * Review"). Book-scoped (not per-viewer): the commons report is shared.
+     */
+    public function latest(string $book): JsonResponse
+    {
+        $harvest = DB::connection('pgsql_admin')
+            ->table('source_network_harvests')
+            ->where('root_book', $book)
+            ->whereIn('status', ['completed', 'cancelled'])
+            ->whereNotNull('report_book')
+            ->orderByDesc('updated_at')
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'harvest' => $harvest ? [
+                'id'          => $harvest->id,
+                'status'      => $harvest->status,
+                'report_book' => $harvest->report_book,
+                'shelf'       => $this->shelfPayload($harvest->shelf_id ?? null),
+                'counts'      => json_decode($harvest->counts ?? '{}', true),
             ] : null,
         ]);
     }

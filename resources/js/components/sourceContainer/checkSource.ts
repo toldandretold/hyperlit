@@ -12,6 +12,7 @@ import { lookupSource } from '../../sourceVerify/lookup';
 import { verifySource } from '../../sourceVerify/verify';
 import { renderSourceMatchList } from '../../sourceVerify/prompt';
 import { getRecord } from './helpers';
+import { commonsFeedbackNoteHtml } from './commonsFeedback';
 import type { LibraryRecord } from '../../indexedDB/types';
 import type { SourceCandidate } from '../../sourceVerify/types';
 
@@ -189,7 +190,8 @@ export function librarianHtml(record: LibraryRecord): string {
 
   return `
     <h3>Librarian</h3>
-    <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0;">${inner}</p>`;
+    <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0;">${inner}</p>
+    ${commonsFeedbackNoteHtml(record)}`;
 }
 
 /** The inner content of the source-status section (pills/button + Librarian) — also used on re-render. */

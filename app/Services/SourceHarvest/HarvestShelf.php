@@ -60,6 +60,11 @@ class HarvestShelf
         $id = (string) Str::uuid();
         $slug = ShelfSlug::unique($name, $root->creator);
 
+        // A commons book (system creator) has no user owner, so its harvest
+        // shelf is a shared public artifact anyone can browse; a normal user's
+        // harvest shelf stays private to them (unchanged).
+        $isCommons = $root->creator === \App\Services\CanonicalVersions\AutoVersionResolver::CREATOR;
+
         $db->table('shelves')->insert([
             'id'            => $id,
             'creator'       => $root->creator,
@@ -67,7 +72,7 @@ class HarvestShelf
             'name'          => $name,
             'slug'          => $slug,
             'description'   => 'Open-access sources cited by ' . ($root->title ?: $rootBook) . ', imported by the Source Network Harvester.',
-            'visibility'    => 'private',
+            'visibility'    => $isCommons ? 'public' : 'private',
             'default_sort'  => 'recent',
             'created_at'    => now(),
             'updated_at'    => now(),

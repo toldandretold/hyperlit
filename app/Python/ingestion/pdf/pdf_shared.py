@@ -27,6 +27,37 @@ def convert_footnotes(text):
     return re.sub(r'[\u2070\u00b9\u00b2\u00b3\u2074-\u2079]+', replace_fn, text)
 
 
+# A LaTeX superscript group of footnote numbers \u2014 the OCR's rendering of a superscript marker.
+# Handles a COMMA-SEPARATED list ($^{1,2}$, common on author-affiliation markers like "Wan Wang^{1,2}")
+# as well as the single-number case ($^{5}$ / $^5$). A single-number regex left $^{1,2}$ untouched, so
+# the marker rendered as literal "1,2" and never linked to its [^1]:/[^2]: definitions.
+_LATEX_SUP_RE = re.compile(r'\$\^\{?(\d+(?:\s*,\s*\d+)*)\}?\$')
+
+
+def expand_latex_superscripts(text):
+    """$^{5}$ -> [^5] (always). $^{1,2}$ -> [^1][^2] ONLY when the text carries a footnote DEFINITION
+    for one of those numbers.
+
+    A single superscript was already converted historically. A COMMA group is ambiguous: on an
+    author line it's an affiliation-footnote marker ("Wan Wang$^{1,2}$" with "$^{1}$ School of…"
+    defs → expand + link, book d4c0b31e), but in a science paper it's a Vancouver citation
+    ("built environments$^{1,2,4}$" with NO footnote defs) that must stay a rendered math
+    superscript, not become literal "[^1][^2][^4]" text. So we only split a comma group when a
+    matching definition is present in the same text."""
+    # Definition forms: an already-[^N]: def, or a line-start single superscript "$^{1}$ School…".
+    def_nums = set(re.findall(r'(?m)^\s*\[\^(\d+)\]:', text))
+    def_nums |= set(re.findall(r'(?m)^\s*\$\^\{?(\d+)\}?\$\s', text))
+
+    def repl(m):
+        nums = re.findall(r'\d+', m.group(1))
+        if len(nums) == 1:
+            return f'[^{nums[0]}]'
+        if any(n in def_nums for n in nums):
+            return ''.join(f'[^{n}]' for n in nums)
+        return m.group(0)   # comma group with no matching def → leave as a math superscript
+    return _LATEX_SUP_RE.sub(repl, text)
+
+
 def convert_inline_footnote_markers(md, strip_italic_brackets=False):
     """The PER-PAGE inline footnote-MARKER converter, shared by the page_bottom / chapter_endnotes /
     document_endnotes assemblers (it was copy-pasted verbatim in all three). Turns OCR's varied marker
@@ -40,7 +71,7 @@ def convert_inline_footnote_markers(md, strip_italic_brackets=False):
     which sequence-validates each candidate against every known [^N]. `strip_italic_brackets` unwraps
     *[2]* \u2192 [2] first (the document_endnotes variant)."""
     md = convert_footnotes(md)
-    md = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', md)
+    md = expand_latex_superscripts(md)
     if strip_italic_brackets:
         md = re.sub(r'\*\[(\d{1,3})\]\*', r'[\1]', md)
 
@@ -77,8 +108,8 @@ def normalize_all_footnote_refs(text):
     # Step 1: Convert Unicode superscripts (already reliable)
     text = convert_footnotes(text)
 
-    # Step 2: Convert LaTeX superscripts: $^{5}$ or $^5$ → [^5]
-    text = re.sub(r'\$\^\{?(\d+)\}?\$', r'[^\1]', text)
+    # Step 2: Convert LaTeX superscripts: $^{5}$ or $^5$ → [^5]; $^{1,2}$ → [^1][^2]
+    text = expand_latex_superscripts(text)
 
     # Step 3: Collect known [^N] positions
     known = [(m.start(), int(m.group(1))) for m in re.finditer(r'\[\^(\d+)\]', text)]

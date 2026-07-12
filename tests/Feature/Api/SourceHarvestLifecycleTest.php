@@ -67,11 +67,32 @@ function harvSeedHarvest(string $book, array $opts = []): string
     return $id;
 }
 
+/** A commons book: system-owned auto-version, no user owner, public. */
+function harvSeedCommonsBook(): string
+{
+    $book = 'apitest_commons_' . Str::random(8);
+    harvDb()->table('library')->insert([
+        'book'              => $book,
+        'title'            => 'HarvTest Commons Work',
+        'creator'          => \App\Services\CanonicalVersions\AutoVersionResolver::CREATOR,
+        'creator_token'    => null,
+        'visibility'       => 'public',
+        'listed'           => false,
+        'conversion_method' => 'pdf_ocr_auto_raw',
+        'has_nodes'        => true,
+        'raw_json'         => json_encode(['book' => $book]),
+        'created_at'       => now(),
+        'updated_at'       => now(),
+    ]);
+    return $book;
+}
+
 afterEach(function () {
     harvDb()->table('source_network_harvests')->where('root_book', 'like', 'apitest\_%')->delete();
     harvDb()->table('bibliography')->where('book', 'like', 'apitest\_%')->delete();
     harvDb()->table('canonical_source')->where('title', 'like', 'HarvTest %')->delete();
     harvDb()->table('shelves')->where('name', 'like', 'Harvested from: APITEST%')->delete();
+    harvDb()->table('library')->where('book', 'like', 'apitest\_commons\_%')->delete();
     $this->cleanupApiFixtures();
 });
 
@@ -98,6 +119,29 @@ test('a private book is invisible (404) to a non-owner — RLS hides it before t
     $this->loginUser();
 
     $this->assertApiError($this->postJson("/api/library/{$book}/harvest/estimate"), 404);
+});
+
+// ── Commons-book workflow access (requester-pays, everyone benefits) ─
+
+test('any logged-in user (non-owner) can estimate + trigger on a commons book', function () {
+    Queue::fake();
+    $book = harvSeedCommonsBook(); // owner = canonicalizer_v1 (no user)
+
+    // A random logged-in user — not the owner (premium so the balance gate passes).
+    $this->loginUser(['status' => 'premium']);
+
+    $this->postJson("/api/library/{$book}/harvest/estimate")->assertOk();
+    $id = $this->postJson("/api/library/{$book}/harvest/trigger", ['depth' => 1])->assertOk()->json('harvest_id');
+    expect($id)->not->toBeNull();
+    // The harvest is attributed to the requester, not the system.
+    expect((int) harvDb()->table('source_network_harvests')->where('id', $id)->value('user_id'))->toBe((int) auth()->id());
+    Queue::assertPushed(SourceNetworkHarvestJob::class);
+});
+
+test('a guest cannot run a workflow on a commons book (401)', function () {
+    $book = harvSeedCommonsBook();
+    // No login.
+    $this->assertApiError($this->postJson("/api/library/{$book}/harvest/estimate"), 401);
 });
 
 test('estimate 404s for an unknown book', function () {

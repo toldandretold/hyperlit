@@ -29,7 +29,7 @@ export async function openHarvestVizOverlay(self: any) {
       </style>
       <div id="harvest-viz-card" style="background: #2a2a2a; color: #fff; padding: 28px 32px; border-radius: 10px; width: min(92vw, 1100px); max-height: 86vh; overflow-y: auto;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-          <h3 style="margin: 0; color: #EF8D34; font-size: 16px;">Harvest the Knowledge Commons — live progress</h3>
+          <h3 style="margin: 0; color: #EF8D34; font-size: 16px;">Knowledge Commons Harvester — live progress</h3>
           <button type="button" id="harvest-viz-close" style="background: none; border: none; color: #aaa; font-size: 22px; cursor: pointer; line-height: 1; padding: 2px 6px;">×</button>
         </div>
         <div id="harvest-viz">

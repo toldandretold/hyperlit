@@ -131,6 +131,11 @@ import {
   destroyLockedCardTitles
 } from '../../e2ee/ui/lockedCardTitles';
 
+import {
+  initCommonsHarvestNotice,
+  destroyCommonsHarvestNotice
+} from '../commonsHarvestNotice/commonsHarvestNotice';
+
 import { verbose } from "../../utilities/logger";
 
 /**
@@ -314,6 +319,17 @@ export function registerAllComponents() {
   });
 
   let footnoteTapExtenderHandle: any = null;
+
+  // Commons-book reader notice: a one-time toast that this text was
+  // auto-converted (owner-less harvested book). Inert on non-commons books.
+  buttonRegistry.register({
+    name: 'commonsHarvestNotice',
+    initFn: initCommonsHarvestNotice,
+    destroyFn: destroyCommonsHarvestNotice,
+    pages: ['reader'],
+    dependencies: [],
+    required: false
+  });
 
   buttonRegistry.register({
     name: 'footnoteTapExtender',

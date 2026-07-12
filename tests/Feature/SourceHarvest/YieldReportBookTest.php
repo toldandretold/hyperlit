@@ -109,23 +109,52 @@ test('lists failures as formatted citations + links above the harvested section'
     expect($failPos)->toBeLessThan($gotPos);
 });
 
-test('re-running regenerates the SAME book in place (no duplicate report)', function () {
+test('re-running accumulates into the SAME living report (a later run never clobbers an earlier one)', function () {
     $root = yrSeedBook(['title' => 'YRTest Rerun', 'creator' => 'yrtest_user']);
     $svc = app(YieldReportBook::class);
 
+    // First run: 1 success + 2 non-successes (a cloudflare failure + a deferred).
     $first = $svc->generate($root, 'YRTest Rerun', yrResults());
-    $firstNodeCount = yrDb()->table('nodes')->where('book', $first)->count();
 
-    // Re-run with fewer failures (one now succeeded).
-    $second = $svc->generate($root, 'YRTest Rerun', [yrResults()[2]]); // only the success
+    // A second, SMALLER run brings home ONE new work (a different canonical) —
+    // it must MERGE in, not replace: the first run's failures + success survive.
+    $newWork = ['canonical_source_id' => (string) \Illuminate\Support\Str::uuid(), 'title' => 'A Newly Harvested Work', 'author' => 'New, Author', 'year' => 2021, 'type' => 'book', 'status' => 'assigned', 'reason' => null, 'via' => 'from arxiv.org', 'book' => 'yrtest_new_book'];
+    $second = $svc->generate($root, 'YRTest Rerun', [$newWork]);
     expect($second)->toBe($first); // same living report book
 
     // Exactly one report row for this root.
     expect(yrDb()->table('library')->where('creator', 'yrtest_user')->whereRaw("raw_json->>'report_of' = ?", [$root])->count())->toBe(1);
-    // Nodes were replaced, not appended.
+
+    // The union carries BOTH runs: the original failure section stays, and the
+    // new success is added alongside the original success.
     $plain = yrDb()->table('nodes')->where('book', $first)->orderBy('startLine')->pluck('plainText')->implode("\n");
-    expect($plain)->not->toContain('Failed to Harvest');
+    expect($plain)->toContain('Failed to Harvest');   // first run's failures preserved
     expect($plain)->toContain('Harvested');
+    expect($plain)->toContain('A Newly Harvested Work'); // second run merged in
+    expect($plain)->toContain('Accumulation on a World Scale'); // first run's success still there
+});
+
+test('a later run UPGRADES a previously-failed canonical to harvested', function () {
+    $root = yrSeedBook(['title' => 'YRTest Upgrade', 'creator' => 'yrtest_user']);
+    $svc = app(YieldReportBook::class);
+
+    $cid = (string) \Illuminate\Support\Str::uuid();
+    // First run: this canonical FAILED (cloudflare).
+    $svc->generate($root, 'YRTest Upgrade', [
+        ['canonical_source_id' => $cid, 'title' => 'The Upgraded Text', 'author' => 'X', 'year' => 2019, 'type' => 'journal-article', 'status' => 'fetch_failed', 'reason' => 'cloudflare_block', 'via' => null, 'book' => null],
+    ]);
+    // Second run: SAME canonical now succeeds → moves Failed → Harvested.
+    $book = $svc->generate($root, 'YRTest Upgrade', [
+        ['canonical_source_id' => $cid, 'title' => 'The Upgraded Text', 'author' => 'X', 'year' => 2019, 'type' => 'journal-article', 'status' => 'assigned', 'reason' => null, 'via' => 'from europepmc.org', 'book' => 'yrtest_upgraded'],
+    ]);
+
+    $html = yrDb()->table('nodes')->where('book', $book)->orderBy('startLine')->pluck('content')->implode("\n");
+    // It is now a harvested citation linking to the held version, not a failure.
+    expect($html)->toContain('href="/yrtest_upgraded"');
+    // The union has exactly one entry for that canonical (not duplicated).
+    $union = json_decode(yrDb()->table('library')->where('book', $book)->value('raw_json'), true)['cumulative_results'];
+    expect(collect($union)->where('canonical_source_id', $cid)->count())->toBe(1);
+    expect(collect($union)->firstWhere('canonical_source_id', $cid)['status'])->toBe('assigned');
 });
 
 test('purges a stale old-convention report for the same root', function () {
