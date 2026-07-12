@@ -6,6 +6,7 @@ use App\Models\BillingLedger;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
 class BillingService
@@ -65,6 +66,90 @@ class BillingService
         $this->refreshAccountBook($user->name);
 
         return $entry;
+    }
+
+    /**
+     * Charge a user for the Mistral OCR of a book's PDF, exactly once. Shared
+     * by the document-import job and the source harvester so both bill
+     * identically.
+     *
+     * Idempotent via the ocr_charged.json marker (a job retry / reconvert-from-
+     * cache never double-charges). FREE — returns 0.0 without charging — when:
+     * the marker already exists; there's no ocr_response.json (a non-OCR lane,
+     * e.g. JATS/HTML); or the OCR was client-side/native (model prefixed
+     * 'hyperlit-' — the user's own key or the on-device engine, no Mistral call).
+     *
+     * RLS: charge() re-reads the user on the DEFAULT connection whose
+     * users_select_policy needs BOTH app.current_user AND app.current_token. In
+     * an HTTP request the middleware sets them; in a QUEUE WORKER the caller
+     * must set both first (see GenerateBookAudioJob::chargeFor / HarvestRunner)
+     * or the charge silently matches zero rows.
+     *
+     * @return float dollars actually debited (post-multiplier), or 0.0 if free.
+     */
+    public function billOcrForBook(User $user, string $bookId, string $markdownPath, ?string $description = null): float
+    {
+        $chargedMarker = "{$markdownPath}/ocr_charged.json";
+        if (File::exists($chargedMarker)) {
+            Log::info('OCR already billed for this book — skipping charge', ['book' => $bookId]);
+            return 0.0;
+        }
+
+        $ocrJson = "{$markdownPath}/ocr_response.json";
+        if (!File::exists($ocrJson)) {
+            return 0.0;
+        }
+
+        $ocrData = json_decode(File::get($ocrJson), true);
+
+        // Belt-and-braces: client-side OCR (on-device engine or the user's own
+        // Mistral key — both server-stamped with the 'hyperlit-' model prefix)
+        // is never billed, even if the zero-charge marker write was somehow lost.
+        if (str_starts_with($ocrData['model'] ?? '', 'hyperlit-')) {
+            Log::info('Client-side OCR — nothing to bill', ['book' => $bookId]);
+            return 0.0;
+        }
+
+        $totalPages = count($ocrData['pages'] ?? []);
+        if ($totalPages <= 0) {
+            return 0.0;
+        }
+
+        $pricing = config('services.llm.pricing.mistral-ocr-latest', []);
+        $perKPages = $pricing['per_1k_pages'] ?? null;
+        if (!$perKPages) {
+            return 0.0;
+        }
+
+        $cost = $totalPages / 1000 * $perKPages;
+
+        $entry = $this->charge(
+            $user,
+            round($cost, 4),
+            $description ?: "PDF Import: {$bookId}",
+            'ocr',
+            [[
+                'label' => "OCR ({$totalPages} pages)",
+                'category' => 'ocr',
+                'quantity' => $totalPages,
+                'unit' => 'pages',
+                'unit_cost' => $perKPages / 1000,
+                'amount' => round($cost, 4),
+            ]],
+            ['book' => $bookId],
+        );
+
+        // Record that this OCR was billed so a job retry (or a reconvert-from-
+        // cache, which re-uses ocr_response.json without a fresh OCR) never
+        // double-charges.
+        File::put($chargedMarker, json_encode([
+            'book' => $bookId,
+            'pages' => $totalPages,
+            'amount' => round($cost, 4),
+            'charged_at' => gmdate('c'),
+        ], JSON_PRETTY_PRINT));
+
+        return (float) $entry->amount;
     }
 
     /**

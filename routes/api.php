@@ -361,6 +361,8 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     Route::get('/source-harvest/running/{book}', [\App\Http\Controllers\SourceHarvestController::class, 'running']);
     Route::post('/source-harvest/{harvestId}/notify', [\App\Http\Controllers\SourceHarvestController::class, 'notify'])
         ->middleware('throttle:10,1');
+    Route::post('/source-harvest/{harvestId}/cancel', [\App\Http\Controllers\SourceHarvestController::class, 'cancel'])
+        ->middleware('throttle:10,1');
 
 
     Route::post(

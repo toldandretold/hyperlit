@@ -357,15 +357,13 @@
   "tests/conversion/fixtures-local/pdf/sequential/1ee13ed9-49e7-4c42-aefd-ce04107064a1/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.6,
-    "md_len": 135792,
-    "md_sha256": "09d452bbcac91c521cdfc439a2545ceea8980a09ff3b00eb1c427865239cdc99",
-    "segments": [
-      57
-    ],
+    "md_len": 135816,
+    "md_sha256": "9ae55b40cbfd1b307c3c3dcf8bbc2caff52876f6c9287a5af0dd4bd52cdcefa0",
+    "segments": [],
     "signals": {
       "co_location_ratio": 0.4286,
       "def_clustering_ratio": 0.4426,
-      "max_ref_number": 324,
+      "max_ref_number": 147,
       "notes_page_count": 0,
       "notes_page_indices": [],
       "numbers_on_multiple_pages": 0,
@@ -424,6 +422,30 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 16,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
+  "tests/conversion/fixtures-local/pdf/sequential/9045b32e-33f4-4793-92d2-0e3efb7e31c4/ocr_response.json": {
+    "classification": "unknown",
+    "confidence": 0.0,
+    "md_len": 72206,
+    "md_sha256": "1405cbc26524046e9992491d277fecc7842b519fcc5314c96436ee90a8be966b",
+    "segments": [],
+    "signals": {
+      "co_location_ratio": 0.0,
+      "def_clustering_ratio": 0.3043,
+      "max_ref_number": 61,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 0,
+      "pages_with_both": 0,
+      "pages_with_defs": 7,
+      "pages_with_refs": 6,
+      "ref_number_max_page_spread": 1,
+      "reset_count": 0,
+      "reset_frequency": 0.0,
+      "total_pages": 23,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }

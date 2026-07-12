@@ -132,6 +132,44 @@ test('estimate counts resolved, unresolved, eligible and already-harvested citat
     expect($resp->json('running'))->toBeNull();
 });
 
+test('estimate returns a rough OCR cost, priced with the caller tier', function () {
+    config(['services.llm.pricing.mistral-ocr-latest.per_1k_pages' => 20]);
+    config(['source_harvest.avg_pages_per_work' => 20]);
+
+    // Pay-as-you-go: eligible × avg_pages/1000 × per_1k × multiplier, > 0.
+    $user = $this->loginUser(['status' => 'budget']); // 1.5× multiplier
+    $book = $this->makeBook($user);
+    harvSeedBibEntry($book, ['canonical_source_id' => harvSeedCanonical()]);
+
+    $resp = $this->postJson("/api/library/{$book}/harvest/estimate")->assertOk();
+    expect($resp->json('cost.is_premium'))->toBeFalse();
+    // 1 eligible × 20/1000 × 20 × 1.5 = 0.60
+    expect($resp->json('cost.estimated_user'))->toBe(0.6);
+
+    // Premium: included (no per-use charge).
+    $prem = $this->loginUser(['status' => 'premium']);
+    $book2 = $this->makeBook($prem);
+    harvSeedBibEntry($book2, ['canonical_source_id' => harvSeedCanonical()]);
+    $resp2 = $this->postJson("/api/library/{$book2}/harvest/estimate")->assertOk();
+    expect($resp2->json('cost.is_premium'))->toBeTrue();
+    expect((float) $resp2->json('cost.estimated_user'))->toBe(0.0);
+});
+
+test('trigger stores the optional max_spend cap on the harvest row', function () {
+    Queue::fake();
+    $user = $this->loginUser(['status' => 'premium']);
+    $book = $this->makeBook($user);
+
+    $id = $this->postJson("/api/library/{$book}/harvest/trigger", ['depth' => 1, 'max_spend' => 3.50])
+        ->assertOk()->json('harvest_id');
+    expect((float) harvDb()->table('source_network_harvests')->where('id', $id)->value('max_spend'))->toBe(3.5);
+
+    // Omitted → null (no cap).
+    $book2 = $this->makeBook($user);
+    $id2 = $this->postJson("/api/library/{$book2}/harvest/trigger", ['depth' => 1])->assertOk()->json('harvest_id');
+    expect(harvDb()->table('source_network_harvests')->where('id', $id2)->value('max_spend'))->toBeNull();
+});
+
 // ── Trigger ────────────────────────────────────────────────────────
 
 test('trigger creates a harvest row seeded with the root frontier and queues the job', function () {
@@ -354,6 +392,46 @@ test('notify is 422 once the harvest has finished', function () {
 test('notify is 404 for an unknown harvest', function () {
     $this->loginUser();
     $this->postJson('/api/source-harvest/' . Str::uuid() . '/notify')->assertStatus(404);
+});
+
+// ── Cancel endpoint ────────────────────────────────────────────────
+
+test('cancel requires authentication', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user);
+    $id = harvSeedHarvest($book, ['user_id' => $user->id]);
+
+    app('auth')->guard('web')->logout();
+    $this->post("/api/source-harvest/{$id}/cancel")->assertStatus(401);
+});
+
+test('cancel is 403 for a non-owner and 200 (sets cancel_requested) for the owner', function () {
+    $owner = $this->loginUser();
+    $book = $this->makeBook($owner);
+    $id = harvSeedHarvest($book, ['user_id' => $owner->id, 'status' => 'running']);
+
+    // Someone else cannot cancel.
+    $this->loginUser();
+    $this->postJson("/api/source-harvest/{$id}/cancel")->assertStatus(403);
+    expect((bool) harvDb()->table('source_network_harvests')->where('id', $id)->value('cancel_requested'))->toBeFalse();
+
+    // The owner can.
+    $this->actingAs($owner);
+    $this->postJson("/api/source-harvest/{$id}/cancel")->assertOk();
+    expect((bool) harvDb()->table('source_network_harvests')->where('id', $id)->value('cancel_requested'))->toBeTrue();
+});
+
+test('cancel is 422 once the harvest has finished', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user);
+    $id = harvSeedHarvest($book, ['user_id' => $user->id, 'status' => 'completed']);
+
+    $this->postJson("/api/source-harvest/{$id}/cancel")->assertStatus(422);
+});
+
+test('cancel is 404 for an unknown harvest', function () {
+    $this->loginUser();
+    $this->postJson('/api/source-harvest/' . Str::uuid() . '/cancel')->assertStatus(404);
 });
 
 // ── Stale auto-fail ────────────────────────────────────────────────

@@ -348,3 +348,40 @@ def test_footer_helper_gate_direct():
     assert M._footer_footnote_defs('6 plain note') == ''
     assert M._footer_footnote_defs('509') == ''
     assert M._footer_footnote_defs('') == ''
+
+
+# ---------------------------------------------------------------------------
+# renumber_chunk_footnotes — the >50MB anthology-split offset. Must fire on a REF
+# restart (a new paper's body) but NOT on a definition-only ENDNOTES restart, or it
+# offsets the note list away from its in-text markers (book 9045b32e).
+# ---------------------------------------------------------------------------
+def _pages(*mds):
+    return {'pages': [{'markdown': m} for m in mds]}
+
+
+def test_renumber_chunk_does_not_offset_a_documentendnotes_restart():
+    # Body refs climb to 10; a trailing NOTES page whose DEFINITIONS restart at 1 must NOT be
+    # treated as a new paper — the defs are the targets of the body refs and keep their numbers.
+    rd = _pages(
+        'Body text a claim.[^1] another.[^2] third.[^8] fourth.[^10]',
+        'NOTES\n\n1. First note text here.\n2. Second note text.\n10. Tenth note text.',
+    )
+    M.renumber_chunk_footnotes(rd)
+    assert rd.get('_footnote_renumber_page_offsets') in (None, [0, 0]), \
+        f"endnotes restart wrongly offset: {rd.get('_footnote_renumber_page_offsets')}"
+    # The note definitions still read [^1]/[^2]/[^10] (unshifted), matching their markers.
+    assert '1. First note text here.' in rd['pages'][1]['markdown'] or '[^1]:' in rd['pages'][1]['markdown']
+
+
+def test_renumber_chunk_still_offsets_a_real_ref_restart():
+    # A genuine new-paper page whose IN-TEXT refs restart at 1 (anthology) still gets offset so the
+    # merged document has globally-unique numbers.
+    rd = _pages(
+        'Paper one claim.[^1] more.[^2] and.[^7] end.[^8]',
+        'Paper two opens.[^1] with.[^2] its own.[^3] refs.',
+    )
+    M.renumber_chunk_footnotes(rd)
+    offs = rd.get('_footnote_renumber_page_offsets')
+    assert offs and offs[1] > 0, f"real ref restart was not offset: {offs}"
+    # Paper two's [^1] became [^9] (offset by paper one's running max 8).
+    assert '[^9]' in rd['pages'][1]['markdown']

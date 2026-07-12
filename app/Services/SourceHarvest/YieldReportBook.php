@@ -44,8 +44,12 @@ class YieldReportBook
             return null;
         }
 
-        $failures = array_values(array_filter($results, fn ($r) => !in_array($r['status'] ?? '', self::SUCCESS, true)));
         $successes = array_values(array_filter($results, fn ($r) => in_array($r['status'] ?? '', self::SUCCESS, true)));
+        // Works never attempted because the spend cap was reached — their own
+        // section (they aren't failures, just deferred for a top-up + rerun).
+        $overBudget = array_values(array_filter($results, fn ($r) => ($r['status'] ?? '') === 'skipped_over_budget'));
+        $failures = array_values(array_filter($results, fn ($r) =>
+            !in_array($r['status'] ?? '', self::SUCCESS, true) && ($r['status'] ?? '') !== 'skipped_over_budget'));
 
         $bookId = $this->findOrMintReportRow($db, $creator, $rootBook, $rootTitle);
 
@@ -56,7 +60,7 @@ class YieldReportBook
 
         // Rebuild the nodes from scratch (living report).
         $db->table('nodes')->where('book', $bookId)->delete();
-        $blocks = $this->buildBlocks($rootBook, $rootTitle, count($results), $failures, $successes);
+        $blocks = $this->buildBlocks($rootBook, $rootTitle, $failures, $successes, $overBudget);
         $this->insertNodes($db, $bookId, $blocks);
 
         $db->table('library')->where('book', $bookId)->update([
@@ -125,10 +129,12 @@ class YieldReportBook
      *
      * @return array<int, array{0: string, 1: string}>
      */
-    private function buildBlocks(string $rootBook, string $rootTitle, int $tried, array $failures, array $successes): array
+    private function buildBlocks(string $rootBook, string $rootTitle, array $failures, array $successes, array $overBudget = []): array
     {
         $got = count($successes);
         $lost = count($failures);
+        $deferred = count($overBudget);
+        $tried = $got + $lost; // over-budget works were never attempted
         $blocks = [];
 
         $blocks[] = ['h1', 'Source Yield Report'];
@@ -139,6 +145,10 @@ class YieldReportBook
         $intro = 'Harvesting the knowledge commons cited by <strong>' . $this->e($rootTitle) . '</strong> ' . $backLink . '. '
             . 'The harvester tried ' . $tried . ' open-access ' . $this->plural($tried, 'text')
             . ' — ' . $got . ' came home, ' . $lost . ' it could not pull.';
+        if ($deferred > 0) {
+            $intro .= ' A further ' . $deferred . ' ' . $this->plural($deferred, 'text')
+                . ' went untried when the spending limit was reached.';
+        }
         $blocks[] = ['p', $intro];
 
         if ($lost > 0) {
@@ -172,7 +182,19 @@ class YieldReportBook
             }
         }
 
-        if ($tried === 0) {
+        if ($deferred > 0) {
+            $blocks[] = ['h2', 'Not yet harvested (spending limit reached)'];
+            $blocks[] = ['p',
+                'The harvest stopped at your spending limit before reaching these open-access works. Raise the '
+                . 'limit (or top up credits) and run the harvest again to pull them — no work is repeated, so a '
+                . 'rerun picks up exactly here.'
+            ];
+            foreach ($overBudget as $r) {
+                $blocks[] = ['p', $this->formatCitation($r, $this->bestLink($r))];
+            }
+        }
+
+        if ($tried === 0 && $deferred === 0) {
             $blocks[] = ['p', 'No open-access works were eligible to fetch from this book\'s citations.'];
         }
 

@@ -5,7 +5,7 @@
 // refresh the citations display (harvested texts surface automatically as
 // canonical best-versions). Takes `self` (SourceContainerManager).
 import { book } from '../../../app';
-import { alertDialog, choiceDialog } from '../../dialog/dialog';
+import { alertDialog, choiceDialog, formDialog } from '../../dialog/dialog';
 import { log } from '../../../utilities/logger';
 import { getAuthContext } from '../../../utilities/auth/session';
 import { combineIcon } from './combineIcon';
@@ -90,35 +90,58 @@ export async function handleHarvestNetwork(self: any) {
     }
 
     const e = est.estimate || {};
+    const cost = est.cost || {};
+    const isPremium = !!cost.is_premium;
+    const estUser = Number(cost.estimated_user || 0);
+    const perWork = Number(cost.per_work || 0);
+
     const context = [
       `${e.eligible ?? 0} of ${e.resolved ?? 0} resolved citations are open access and fetchable now.`,
       e.unresolved ? `${e.unresolved} unresolved entries will be scanned first and may add more.` : null,
+      isPremium
+        ? 'Each fetched work is OCR’d from its PDF — included in your plan.'
+        : `Each fetched work is OCR’d from its PDF (~$${perWork.toFixed(2)} per work). Rough estimate for this run: ~$${estUser.toFixed(2)} — the real cost depends on page counts, so set a limit below.`,
       'How far should it follow the citation network?',
     ].filter(Boolean).join('\n\n');
 
     // Depth choice: 1 = only this book's citations; 2 = also the works those
-    // cite; deeper; or unlimited (the whole reachable open-access network).
-    const depth = await choiceDialog({
+    // cite; deeper; or unlimited. Plus, for pay-as-you-go users, an optional
+    // hard spend cap (the harvest stops gracefully once reached).
+    const result = await formDialog({
       title: BUTTON_LABEL,
       message: context,
+      confirmLabel: 'Start harvest',
       cancelLabel: 'Cancel',
-      options: [
-        { value: '1', label: 'Just this book’s sources', description: 'Pull only the open-access works cited in this article.' },
-        { value: '2', label: 'One level deeper', description: 'Also pull the open-access works cited in those articles.' },
-        { value: '3', label: 'Three levels deep', description: 'Follow the citations three hops out.' },
-        { value: 'unlimited', label: 'The whole commons', description: 'Keep following open-access citations outward until the network runs dry.' },
-      ],
+      radios: {
+        selected: '1',
+        options: [
+          { value: '1', label: 'Just this book’s sources', description: 'Pull only the open-access works cited in this article.' },
+          { value: '2', label: 'One level deeper', description: 'Also pull the open-access works cited in those articles.' },
+          { value: '3', label: 'Three levels deep', description: 'Follow the citations three hops out.' },
+          { value: 'unlimited', label: 'The whole commons', description: 'Keep following open-access citations outward until the network runs dry.' },
+        ],
+      },
+      numberField: isPremium ? undefined : {
+        label: 'Stop if spending reaches',
+        prefix: '$',
+        value: estUser > 0 ? estUser.toFixed(2) : '',
+        placeholder: 'no limit',
+        hint: 'Leave blank for no limit (your balance still applies). It stops once spending reaches this and lists any it didn’t get in the Source Yield Report — raise it and rerun to continue.',
+      },
     });
-    if (!depth) {
+    if (!result || !result.radio) {
       resetHarvestButton(self);
       return;
     }
+    const depth = result.radio;
+    const maxSpendRaw = (result.number || '').trim();
+    const max_spend = maxSpendRaw === '' ? null : Math.max(0, Number(maxSpendRaw) || 0);
 
     const trigResp = await fetch(`/api/library/${encodeURIComponent(book)}/harvest/trigger`, {
       method: 'POST',
       headers: postHeaders(),
       credentials: 'include',
-      body: JSON.stringify({ depth }),
+      body: JSON.stringify({ depth, max_spend }),
     });
     if (!trigResp.ok) {
       const err = await trigResp.json().catch(() => ({}));
@@ -166,7 +189,7 @@ export async function pollHarvestStatus(self: any) {
     // Keep an open viz overlay live on every poll.
     if (self._harvestVizOpen) self.renderHarvestViz(harvest);
 
-    if (harvest.status === 'completed') {
+    if (harvest.status === 'completed' || harvest.status === 'cancelled') {
       self.stopHarvestPolling();
       self._harvestId = null;
       resetHarvestButton(self);
@@ -174,9 +197,14 @@ export async function pollHarvestStatus(self: any) {
       const c = harvest.counts || {};
       const imported = (c.assigned || 0) + (c.assigned_existing || 0);
       const failed = harvest.failed_count || 0;
+      const overBudget = c.skipped_over_budget || 0;
+      const spent = Number(harvest.spend || 0);
       const summary = [
+        harvest.status === 'cancelled' ? 'Harvest cancelled — here’s what completed first.' : null,
         `${imported} cited work${imported === 1 ? '' : 's'} imported as verified source texts.`,
+        spent > 0 ? `Spent $${spent.toFixed(2)} on OCR this run.` : null,
         failed ? `${failed} couldn't be fetched — the Source Yield Report lists them so you can chase them by hand.` : null,
+        overBudget ? `${overBudget} work${overBudget === 1 ? '' : 's'} went untried at your spending limit — raise it and run again to continue.` : null,
         c.capped ? `${c.capped} eligible works were over this run's limit — run again to continue.` : null,
         imported === 0 && !c.eligible ? 'No open-access fetchable works were found in the citations.' : null,
       ].filter(Boolean);
@@ -260,13 +288,20 @@ function ensureHarvestRunningRow(self: any, harvest?: any) {
   row.style.cssText = 'margin-top: 8px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 12px;';
   row.innerHTML = `
       <button type="button" id="harvest-viz-toggle" style="background: none; border: none; color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; cursor: pointer; padding: 0; font-size: 12px;">See live progress ▸</button>
-      <span id="harvest-notify-slot"></span>`;
+      <span id="harvest-notify-slot"></span>
+      <button type="button" id="harvest-cancel-btn" style="background: none; border: none; color: var(--hyperlit-orange, #EF8D34); text-decoration: underline; cursor: pointer; padding: 0; font-size: 12px;">Cancel harvest</button>`;
   section.appendChild(row);
 
   row.querySelector('#harvest-viz-toggle')?.addEventListener('click', (e: any) => {
     e.preventDefault();
     e.stopPropagation();
     self.openHarvestVizOverlay();
+  });
+
+  row.querySelector('#harvest-cancel-btn')?.addEventListener('click', (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    cancelHarvest(self, row);
   });
 
   // "Email me when done" — logged-in owners only (anonymous users have no
@@ -289,6 +324,31 @@ function ensureHarvestRunningRow(self: any, harvest?: any) {
         });
       }).catch(() => { /* leave the toggle only */ });
     }
+  }
+}
+
+async function cancelHarvest(self: any, row: HTMLElement) {
+  const btn = row.querySelector('#harvest-cancel-btn') as HTMLButtonElement | null;
+  if (!self._harvestId) return;
+  if (btn) { btn.textContent = 'Cancelling…'; btn.disabled = true; btn.style.cursor = 'default'; }
+  try {
+    const resp = await fetch(`/api/source-harvest/${encodeURIComponent(self._harvestId)}/cancel`, {
+      method: 'POST',
+      headers: postHeaders(),
+      credentials: 'include',
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      log.error('Harvest cancel failed', FILE, err);
+      if (btn) { btn.textContent = 'Cancel harvest'; btn.disabled = false; btn.style.cursor = 'pointer'; }
+      return;
+    }
+    // The runner stops at the next work boundary and finalizes; polling picks
+    // up the 'cancelled' status and closes out the UI.
+    if (btn) btn.textContent = 'Cancelling — finishing current work…';
+  } catch (err: any) {
+    log.error('Harvest cancel failed', FILE, err);
+    if (btn) { btn.textContent = 'Cancel harvest'; btn.disabled = false; btn.style.cursor = 'pointer'; }
   }
 }
 

@@ -50,16 +50,24 @@ class SourceNetworkHarvestJob implements ShouldQueue
             ->where('id', $this->harvestId)
             ->update(['status' => 'running', 'error' => null, 'updated_at' => now()]);
 
-        $runner->run($this->harvestId);
+        // The runner returns 'cancelled' when the user cancelled mid-run (it
+        // still finalized the shelf + yield report for the partial run) or
+        // 'completed' otherwise — a budget stop finalizes normally as completed.
+        $outcome = $runner->run($this->harvestId);
 
         DB::connection('pgsql_admin')
             ->table('source_network_harvests')
             ->where('id', $this->harvestId)
-            ->update(['status' => 'completed', 'updated_at' => now()]);
+            ->update([
+                'status'     => $outcome === 'cancelled' ? 'cancelled' : 'completed',
+                'updated_at' => now(),
+            ]);
 
+        // Either way the run finalized (partial results shelved) — send the
+        // opt-in completion mail.
         $this->sendNotificationEmail(completed: true);
 
-        Log::info('SourceNetworkHarvestJob completed', ['harvest' => $this->harvestId]);
+        Log::info('SourceNetworkHarvestJob finished', ['harvest' => $this->harvestId, 'outcome' => $outcome]);
     }
 
     public function failed(\Throwable $e): void

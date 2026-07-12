@@ -782,76 +782,14 @@ class ProcessDocumentImportJob implements ShouldQueue
 
     private function billOcrImport(User $user, string $bookId, string $path, BillingService $billing): void
     {
-        // Idempotency guard. This runs inside handle(), which re-runs on every job
-        // retry ($tries > 1), and BillingService::charge() has no idempotency of its
-        // own — so without this marker a retry would charge the user again for the
-        // same OCR. Keyed on the book (NOT $this->attempts()): it must bill exactly
-        // once whenever OCR actually succeeded, even when an earlier attempt failed
-        // *before* reaching billing and a later attempt is the one that gets here.
-        // ImportController::reconvert() removes this marker only when it re-runs OCR
-        // from source (fresh OCR = fair to re-bill); reconvert-from-cache keeps it.
-        // Client-side OCR (macOS app on-device OCR) is free: ImportController::store()
-        // writes this marker with amount 0 when it accepts an uploaded ocr_response,
-        // so the check below already skips billing for that path.
-        $chargedMarker = "{$path}/ocr_charged.json";
-        if (File::exists($chargedMarker)) {
-            Log::info('OCR already billed for this book — skipping charge', ['book' => $bookId]);
-            return;
-        }
-
-        $ocrJson = "{$path}/ocr_response.json";
-        if (!File::exists($ocrJson)) {
-            return;
-        }
-
-        $ocrData = json_decode(File::get($ocrJson), true);
-
-        // Belt-and-braces: client-side OCR (on-device engine or the user's own
-        // Mistral key — both server-stamped with the 'hyperlit-' model prefix)
-        // is never billed, even if the zero-charge marker write was somehow
-        // lost — the server made no Mistral call for it.
-        if (str_starts_with($ocrData['model'] ?? '', 'hyperlit-')) {
-            Log::info('Client-side OCR — nothing to bill', ['book' => $bookId]);
-            return;
-        }
-
-        $totalPages = count($ocrData['pages'] ?? []);
-        if ($totalPages <= 0) {
-            return;
-        }
-
-        $pricing = config('services.llm.pricing.mistral-ocr-latest', []);
-        $perKPages = $pricing['per_1k_pages'] ?? null;
-        if (!$perKPages) {
-            return;
-        }
-
-        $cost = $totalPages / 1000 * $perKPages;
-
-        $billing->charge(
-            $user,
-            round($cost, 4),
-            "PDF Import: {$bookId}",
-            'ocr',
-            [[
-                'label' => "OCR ({$totalPages} pages)",
-                'category' => 'ocr',
-                'quantity' => $totalPages,
-                'unit' => 'pages',
-                'unit_cost' => $perKPages / 1000,
-                'amount' => round($cost, 4),
-            ]],
-            ['book' => $bookId],
-        );
-
-        // Record that this OCR was billed so a job retry (or a reconvert-from-cache,
-        // which re-uses ocr_response.json without a fresh OCR) never double-charges.
-        File::put($chargedMarker, json_encode([
-            'book' => $bookId,
-            'pages' => $totalPages,
-            'amount' => round($cost, 4),
-            'charged_at' => gmdate('c'),
-        ], JSON_PRETTY_PRINT));
+        // Shared with the source harvester — see BillingService::billOcrForBook.
+        // It owns the idempotency marker (ocr_charged.json), the client-side/
+        // native free-path skip, and the per-page pricing. This job runs inside
+        // handle(), which re-runs on every retry ($tries > 1); the marker keeps
+        // billing to exactly once. ImportController::reconvert() removes the
+        // marker only when it re-runs OCR from source (fresh OCR = fair to
+        // re-bill); reconvert-from-cache keeps it.
+        $billing->billOcrForBook($user, $bookId, $path);
     }
 
     private function updateLibraryMetadata(string $path, MetadataExtractor $extractor): void

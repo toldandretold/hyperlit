@@ -3,6 +3,8 @@
 namespace App\Services\SourceHarvest;
 
 use App\Models\CanonicalSource;
+use App\Models\User;
+use App\Services\BillingService;
 use App\Services\CanonicalVersions\AutoVersionCreator;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +37,8 @@ class HarvestRunner
     ) {
     }
 
-    public function run(string $harvestId): void
+    /** @return string terminal outcome: 'completed' | 'cancelled' */
+    public function run(string $harvestId): string
     {
         $db = DB::connection('pgsql_admin');
         $harvest = $db->table('source_network_harvests')->where('id', $harvestId)->first();
@@ -48,20 +51,68 @@ class HarvestRunner
         $frontier = json_decode($harvest->frontier, true) ?: [];
         $visited = json_decode($harvest->visited_books, true) ?: [];
         $counts = array_merge([
-            'eligible'          => 0,
-            'attempted'         => 0,
-            'assigned'          => 0,
-            'assigned_existing' => 0,
-            'fetch_failed'      => 0,
-            'ocr_failed'        => 0,
-            'deferred'          => 0,
-            'errors'            => 0,
-            'capped'            => 0,
+            'eligible'            => 0,
+            'attempted'           => 0,
+            'assigned'            => 0,
+            'assigned_existing'   => 0,
+            'fetch_failed'        => 0,
+            'ocr_failed'          => 0,
+            'deferred'            => 0,
+            'errors'              => 0,
+            'capped'              => 0,
+            'skipped_over_budget' => 0,
+            'spend'               => 0,
         ], json_decode($harvest->counts, true) ?: []);
 
         $maxDepth = (int) $harvest->max_depth;
         $maxWorks = (int) $harvest->max_works;
         $sleep = (int) config('source_harvest.sleep_between_works', 2);
+
+        // Billing: the harvest owner pays per-work OCR (pay-as-you-go) up to an
+        // optional max_spend cap. Load the owner via the admin connection (the
+        // worker has no HTTP session); a null owner (anonymous harvest) is never
+        // billed and has no cap. `$spend` is the running total of dollars
+        // actually charged this run — the cap check and the completion display
+        // read it; it's derivable from billing_ledger, so it's not persisted.
+        $user = $harvest->user_id ? User::on('pgsql_admin')->find($harvest->user_id) : null;
+        $maxSpend = $harvest->max_spend !== null ? (float) $harvest->max_spend : null;
+        $spend = (float) ($counts['spend'] ?? 0);
+
+        // Canonical metadata for a results row (success/error/skipped all share it).
+        $metaFromRow = fn ($row) => [
+            'canonical_source_id' => $row->id,
+            'title'       => $row->title ?? null,
+            'author'      => $row->author ?? null,
+            'year'        => $row->year ?? null,
+            'journal'     => $row->journal ?? null,
+            'publisher'   => $row->publisher ?? null,
+            'type'        => $row->type ?? null,
+            'doi'         => $row->doi ?? null,
+            'openalex_id' => $row->openalex_id ?? null,
+            'oa_url'      => $row->oa_url ?? null,
+            'pdf_url'     => $row->pdf_url ?? null,
+        ];
+
+        // Stop-condition probe, checked at each work boundary. Returns a reason
+        // ('cancelled' | 'over_budget') or null. Premium owners have no spend
+        // ceiling (they aren't per-use billed) — only the cancel flag stops them.
+        $shouldStop = function () use ($db, $harvestId, $user, $maxSpend, &$spend): ?string {
+            if ($db->table('source_network_harvests')->where('id', $harvestId)->value('cancel_requested')) {
+                return 'cancelled';
+            }
+            if ($user && $user->status !== 'premium') {
+                if ($maxSpend !== null && $spend >= $maxSpend) {
+                    return 'over_budget';
+                }
+                $user->refresh();
+                if (!app(BillingService::class)->canProceed($user)) {
+                    return 'over_budget';
+                }
+            }
+            return null;
+        };
+
+        $stopReason = null;
 
         // Per-work outcomes (canonical metadata + result) for the Source Yield
         // Report. Uncapped (unlike telemetry) — we want every failure.
@@ -86,6 +137,12 @@ class HarvestRunner
                 continue;
             }
             $visited[] = $book;
+
+            // Stop between books (cancel is the case that matters here; the
+            // spend cap is enforced per-work below). Break to the finalize step.
+            if ($stopReason = $shouldStop()) {
+                break;
+            }
 
             // ---- Stage 1: resolve this book's citations to canonicals ----
             $persist(['step' => 'scan', 'step_detail' => "Scanning bibliography (depth {$depth})"]);
@@ -131,6 +188,26 @@ class HarvestRunner
 
             // ---- Stage 3: fetch + convert each work ----
             foreach ($eligible->values() as $i => $row) {
+                // Stop BEFORE attempting the work: cancelled, or the spend cap /
+                // balance is reached. On a budget stop, record this batch's
+                // remainder as skipped_over_budget so the yield report lists what
+                // a top-up + rerun would fetch (a cancel just stops cleanly).
+                if ($stopReason = $shouldStop()) {
+                    if ($stopReason === 'over_budget') {
+                        foreach ($eligible->values()->slice($i) as $skip) {
+                            $counts['skipped_over_budget']++;
+                            $results[] = $metaFromRow($skip) + [
+                                'status' => 'skipped_over_budget',
+                                'reason' => 'spending limit reached',
+                                'via'    => null,
+                                'book'   => null,
+                            ];
+                        }
+                    }
+                    $persist();
+                    break;
+                }
+
                 $label = ($i + 1) . '/' . $eligible->count() . ': ' . mb_substr($row->title ?? '(untitled)', 0, 60);
                 $persist(['step' => 'harvest', 'step_detail' => "Importing work {$label}"]);
 
@@ -166,24 +243,24 @@ class HarvestRunner
                         $harvestedBooks[] = $result['book'];
                     }
 
+                    // Bill the OCR for a FRESHLY imported work. 'assigned' = a new
+                    // fetch+convert this run; 'assigned_existing' wired an already-
+                    // converted stub (no new OCR, no charge). billOcrForBook returns
+                    // 0 for native/BYO OCR and non-OCR lanes (JATS/HTML). The cap is
+                    // enforced at the NEXT work's boundary — a PDF's page count is
+                    // unknowable pre-OCR, so the work crossing the cap may tip over.
+                    if ($status === 'assigned' && $result['book']) {
+                        $spend += $this->chargeWorkOcr($user, $result['book']);
+                        $counts['spend'] = round($spend, 2);
+                    }
+
                     // Record the per-work outcome for the yield report — the
                     // canonical metadata (from the eligible row) plus how it went.
-                    $results[] = [
-                        'canonical_source_id' => $row->id,
-                        'title'       => $row->title ?? null,
-                        'author'      => $row->author ?? null,
-                        'year'        => $row->year ?? null,
-                        'journal'     => $row->journal ?? null,
-                        'publisher'   => $row->publisher ?? null,
-                        'type'        => $row->type ?? null,
-                        'doi'         => $row->doi ?? null,
-                        'openalex_id' => $row->openalex_id ?? null,
-                        'oa_url'      => $row->oa_url ?? null,
-                        'pdf_url'     => $row->pdf_url ?? null,
-                        'status'      => $status,
-                        'reason'      => $result['reason'] ?? null,
-                        'via'         => $via,
-                        'book'        => $result['book'] ?? null,
+                    $results[] = $metaFromRow($row) + [
+                        'status' => $status,
+                        'reason' => $result['reason'] ?? null,
+                        'via'    => $via,
+                        'book'   => $result['book'] ?? null,
                     ];
 
                     // Recursion: at max_depth > 1 (user picks the depth at
@@ -203,20 +280,11 @@ class HarvestRunner
                     // One bad PDF must never kill the run.
                     $counts['errors']++;
                     $telemetry->emit('harvest', 'skipped', "{$label} — error ({$e->getMessage()})");
-                    $results[] = [
-                        'canonical_source_id' => $row->id,
-                        'title'   => $row->title ?? null,
-                        'author'  => $row->author ?? null,
-                        'year'    => $row->year ?? null,
-                        'journal' => $row->journal ?? null,
-                        'type'    => $row->type ?? null,
-                        'doi'     => $row->doi ?? null,
-                        'oa_url'  => $row->oa_url ?? null,
-                        'pdf_url' => $row->pdf_url ?? null,
-                        'status'  => 'error',
-                        'reason'  => $e->getMessage(),
-                        'via'     => null,
-                        'book'    => null,
+                    $results[] = $metaFromRow($row) + [
+                        'status' => 'error',
+                        'reason' => $e->getMessage(),
+                        'via'    => null,
+                        'book'   => null,
                     ];
                     Log::warning('Harvest work failed', [
                         'harvest'   => $harvestId,
@@ -237,6 +305,17 @@ class HarvestRunner
                 'attempted' => $counts['attempted'],
             ]);
             $persist();
+
+            if ($stopReason) {
+                break; // budget/cancel stop mid-batch — go straight to finalize
+            }
+        }
+
+        if ($stopReason === 'over_budget') {
+            $telemetry->emit('harvest', 'progress',
+                "Spending limit reached — stopped with {$counts['skipped_over_budget']} work(s) left for a rerun");
+        } elseif ($stopReason === 'cancelled') {
+            $telemetry->emit('harvest', 'skipped', 'Harvest cancelled');
         }
 
         // ---- Shelf + yield report: collect this run's sources onto the
@@ -294,5 +373,37 @@ class HarvestRunner
             ->update(['annotations_updated_at' => round(microtime(true) * 1000)]);
 
         $persist(['step' => null, 'step_detail' => null]);
+
+        return $stopReason === 'cancelled' ? 'cancelled' : 'completed';
+    }
+
+    /**
+     * Charge the harvest owner for one work's Mistral OCR, returning the dollars
+     * debited (0 for anonymous owners, native/BYO OCR, and non-OCR lanes).
+     *
+     * Mirrors GenerateBookAudioJob::chargeFor: charge() re-reads the user on the
+     * DEFAULT connection whose users_select_policy needs BOTH app.current_user
+     * AND app.current_token, but only sets the former. In a queue worker (no HTTP
+     * session) we must set both — or the charge silently matches zero rows.
+     */
+    private function chargeWorkOcr(?User $user, string $bookId): float
+    {
+        if (!$user) {
+            return 0.0;
+        }
+
+        DB::statement("SELECT set_config('app.current_user', ?, false)", [$user->name]);
+        DB::statement("SELECT set_config('app.current_token', ?, false)", [(string) $user->user_token]);
+        try {
+            return app(BillingService::class)->billOcrForBook(
+                $user,
+                $bookId,
+                resource_path("markdown/{$bookId}"),
+                "Harvest OCR: {$bookId}",
+            );
+        } finally {
+            DB::statement("SELECT set_config('app.current_user', '', false)");
+            DB::statement("SELECT set_config('app.current_token', '', false)");
+        }
     }
 }

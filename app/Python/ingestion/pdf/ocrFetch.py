@@ -298,17 +298,18 @@ def renumber_chunk_footnotes(response_dict, chunk_boundary_indices=None):
     for i, (refs, defs) in enumerate(per_page):
         if not refs and not defs:
             continue
-        page_min = min(refs) if refs else (min(defs) if defs else None)
         page_max = max(refs + defs) if (refs or defs) else 0
 
-        # Detect reset: page_min == 1 AND running_max sufficiently above 1 AND
-        # either the boundary_hint matches OR running_max is large enough that
-        # an organic restart is implausible without a real document break.
-        is_reset = (
-            page_min == 1
-            and running_max >= 5
-            and (i in boundary_hint or running_max >= 5)
-        )
+        # A reset (offset everything after it, to keep numbers globally unique) marks a NEW-PAPER
+        # boundary in an anthology — where the in-text REFS restart at 1. A page that only carries
+        # DEFINITIONS dropping to 1 is the document/chapter ENDNOTES section: those defs are the
+        # targets of earlier in-text refs and MUST keep their original numbers, or every ref→def link
+        # breaks. (Book 9045b32e: the single "NOTES" section restarting at 1 was read as a new paper
+        # and offset +45/+51, so marker 51 bound to the renumbered note 51 — Chase-Dunn — instead of
+        # its real definition.) Known chunk boundaries (from the >50MB OCR split) still reset
+        # unconditionally; the heuristic path now requires a genuine REF restart.
+        ref_restart = bool(refs) and min(refs) == 1
+        is_reset = running_max >= 5 and (i in boundary_hint or ref_restart)
         if is_reset:
             total_offset += running_max
             reset_boundaries.append((i, total_offset))

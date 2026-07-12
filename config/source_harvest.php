@@ -25,4 +25,10 @@ return [
 
     // Politeness gap between per-work fetch+convert cycles (seconds).
     'sleep_between_works' => env('SOURCE_HARVEST_SLEEP', 2),
+
+    // Rough average pages per fetched work, used ONLY for the pre-run cost
+    // estimate on the approve form (a real page count is unknowable until each
+    // PDF is fetched + OCR'd). The spend cap — not this guess — is the actual
+    // protection. Billing charges the true page count post-OCR.
+    'avg_pages_per_work' => env('SOURCE_HARVEST_AVG_PAGES', 20),
 ];

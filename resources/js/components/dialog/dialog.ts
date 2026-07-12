@@ -184,6 +184,108 @@ export function choiceDialog(opts: ChoiceOptions): Promise<string | null> {
   });
 }
 
+interface FormRadioOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+interface FormDialogOptions {
+  title?: string;
+  message?: string;
+  /** A single radio group; the picked value comes back as `radio`. */
+  radios?: { options: FormRadioOption[]; selected?: string };
+  /** An optional numeric input; its raw string comes back as `number`. */
+  numberField?: { label: string; prefix?: string; value?: string; placeholder?: string; hint?: string };
+  confirmLabel?: string;
+  cancelLabel?: string;
+}
+
+export interface FormDialogResult {
+  radio: string | null;
+  number: string;
+}
+
+/**
+ * A form in the same trapped dialog shell: a radio group and/or a numeric
+ * field, with confirm/cancel. Resolves { radio, number } on confirm, or null on
+ * cancel/escape/backdrop. Reuses the `app-dialog-overlay` surface (already
+ * focus-trapped + inventoried) so it adds no new overlay to the drift gate.
+ */
+export function formDialog(opts: FormDialogOptions): Promise<FormDialogResult | null> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'app-dialog-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.style.cssText = OVERLAY_CSS;
+
+    const radioRowCss =
+      'display: flex; align-items: flex-start; gap: 9px; width: 100%; box-sizing: border-box; margin: 0 0 7px; padding: 10px 12px; ' +
+      'border-radius: 8px; cursor: pointer; background: rgba(255,255,255,0.04); ' +
+      'border: 1px solid var(--border-button, rgba(203,204,204,0.3));';
+    const sel = opts.radios?.selected ?? opts.radios?.options[0]?.value;
+    const radiosHtml = opts.radios ? opts.radios.options.map((o) => `
+        <label style="${radioRowCss}">
+          <input type="radio" name="fd-radio" value="${escapeHtml(o.value)}" ${o.value === sel ? 'checked' : ''} style="margin-top: 2px; accent-color: var(--hyperlit-aqua, #4EACAE);">
+          <span style="display:block;">
+            <span style="display:block; font-size: 14px; font-weight: 600; color: var(--hyperlit-aqua, #4EACAE);">${escapeHtml(o.label)}</span>
+            ${o.description ? `<span style="display:block; margin-top: 2px; font-size: 12px; line-height: 1.45; color: var(--color-text-faint, #999);">${escapeHtml(o.description)}</span>` : ''}
+          </span>
+        </label>`).join('') : '';
+
+    const nf = opts.numberField;
+    const numberHtml = nf ? `
+        <label for="fd-number" style="display:block; margin: 12px 0 5px; font-size: 13px; color: var(--color-text, #CBCCCC);">${escapeHtml(nf.label)}</label>
+        <div style="display:flex; align-items:center; gap:6px;">
+          ${nf.prefix ? `<span style="font-size:14px; color: var(--color-text-faint,#999);">${escapeHtml(nf.prefix)}</span>` : ''}
+          <input type="number" id="fd-number" min="0" step="0.01" value="${escapeHtml(nf.value ?? '')}" placeholder="${escapeHtml(nf.placeholder ?? '')}"
+            style="flex:1; min-width:0; box-sizing:border-box; padding: 8px 10px; border-radius: 6px; font-family: inherit; font-size: 13px; background: rgba(255,255,255,0.04); color: var(--color-text, #CBCCCC); border: 1px solid var(--border-button, rgba(203,204,204,0.3));">
+        </div>
+        ${nf.hint ? `<p style="margin: 6px 0 0; font-size: 11px; line-height: 1.45; color: var(--color-text-faint, #999);">${escapeHtml(nf.hint)}</p>` : ''}` : '';
+
+    overlay.innerHTML = `
+      <div class="app-dialog-card" style="${CARD_CSS} max-width: 460px;">
+        ${opts.title ? `<h3 style="${TITLE_CSS}">${escapeHtml(opts.title)}</h3>` : ''}
+        ${opts.message ? `<p style="${MSG_CSS}">${renderMessage(opts.message)}</p>` : ''}
+        <div>${radiosHtml}</div>
+        ${numberHtml}
+        <div style="${ROW_CSS} margin-top: 16px;">
+          <button type="button" data-act="cancel" style="${CANCEL_CSS}">${escapeHtml(opts.cancelLabel ?? 'Cancel')}</button>
+          <button type="button" data-act="confirm" style="${confirmCss(false)}">${escapeHtml(opts.confirmLabel ?? 'Start')}</button>
+        </div>
+      </div>`;
+
+    let release: (() => void) | null = null;
+    const collect = (): FormDialogResult => ({
+      radio: (overlay.querySelector('input[name="fd-radio"]:checked') as HTMLInputElement | null)?.value ?? null,
+      number: (overlay.querySelector('#fd-number') as HTMLInputElement | null)?.value ?? '',
+    });
+    const done = (result: FormDialogResult | null) => {
+      document.removeEventListener('keydown', onKey, true);
+      release?.();
+      release = null;
+      overlay.remove();
+      resolve(result);
+    };
+    // Enter = confirm (Escape is owned by the focus trap → done(null)).
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(collect()); }
+    };
+
+    overlay.addEventListener('click', (e) => {
+      const act = (e.target as HTMLElement).closest('[data-act]')?.getAttribute('data-act');
+      if (act === 'confirm') done(collect());
+      else if (act === 'cancel' || e.target === overlay) done(null);
+    });
+    document.addEventListener('keydown', onKey, true);
+
+    document.body.appendChild(overlay);
+    release = trapModalFocus(overlay, { onEscape: () => done(null) });
+    (overlay.querySelector('[data-act="confirm"]') as HTMLElement | null)?.focus();
+  });
+}
+
 /** Styled replacement for window.alert — resolves when dismissed. */
 export function alertDialog(opts: AlertOptions): Promise<void> {
   return new Promise((resolve) => {

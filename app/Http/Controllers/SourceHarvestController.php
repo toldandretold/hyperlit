@@ -43,13 +43,42 @@ class SourceHarvestController extends Controller
         if ($guard = $this->rejectEncrypted($book)) return $guard;
 
         $running = $this->activeHarvestFor($book);
+        $estimate = $this->eligibility->estimateFor($book);
 
         return response()->json([
             'success'   => true,
-            'estimate'  => $this->eligibility->estimateFor($book),
+            'estimate'  => $estimate,
             'max_works' => (int) config('source_harvest.max_works_per_run'),
+            'cost'      => $this->estimateCost((int) ($estimate['eligible'] ?? 0)),
             'running'   => $running ? ['id' => $running->id, 'status' => $running->status] : null,
         ]);
+    }
+
+    /**
+     * Rough per-run cost estimate for the approve form. A real page count is
+     * unknowable until each PDF is fetched + OCR'd, so this is eligible works ×
+     * an assumed average page count × the Mistral OCR rate × the caller's tier
+     * multiplier — deliberately approximate. The spend cap, not this number, is
+     * the real protection. Premium users pay nothing per-use.
+     *
+     * @return array{estimated_user: float, is_premium: bool, per_work: float, avg_pages: int}
+     */
+    private function estimateCost(int $eligible): array
+    {
+        $user = Auth::user();
+        $isPremium = $user && $user->status === 'premium';
+        $multiplier = $user ? (float) $user->getBillingMultiplier() : 1.0;
+
+        $avgPages = (int) config('source_harvest.avg_pages_per_work', 20);
+        $perKPages = (float) (config('services.llm.pricing.mistral-ocr-latest.per_1k_pages') ?? 0);
+        $perWorkRaw = $avgPages / 1000 * $perKPages;
+
+        return [
+            'estimated_user' => $isPremium ? 0.0 : round($eligible * $perWorkRaw * $multiplier, 2),
+            'per_work'       => $isPremium ? 0.0 : round($perWorkRaw * $multiplier, 2),
+            'is_premium'     => $isPremium,
+            'avg_pages'      => $avgPages,
+        ];
     }
 
     /**
@@ -68,8 +97,13 @@ class SourceHarvestController extends Controller
         // those cite, N levels deep; 'unlimited' = follow the whole reachable
         // open-access network (bounded by the deep work cap). Default 1.
         $request->validate([
-            'depth' => 'sometimes',
+            'depth'     => 'sometimes',
+            'max_spend' => 'sometimes|nullable|numeric|min:0',
         ]);
+        // Optional hard spend ceiling (dollars the user will pay). Null = no cap,
+        // balance is the only limit. The runner stops gracefully once reached.
+        $maxSpendInput = $request->input('max_spend');
+        $maxSpend = ($maxSpendInput === null || $maxSpendInput === '') ? null : round((float) $maxSpendInput, 2);
         $depthInput = $request->input('depth', 1);
         $unlimited = $depthInput === 'unlimited' || (int) $depthInput <= 0;
         if ($unlimited) {
@@ -135,6 +169,7 @@ class SourceHarvestController extends Controller
                 'status'        => 'pending',
                 'max_depth'     => $maxDepth,
                 'max_works'     => $maxWorks,
+                'max_spend'     => $maxSpend,
                 'frontier'      => json_encode([['book' => $book, 'depth' => 0]]),
                 'visited_books' => json_encode([]),
                 'counts'        => json_encode([]),
@@ -183,6 +218,8 @@ class SourceHarvestController extends Controller
                 'step'        => $harvest->step,
                 'step_detail' => $harvest->step_detail,
                 'max_works'   => $harvest->max_works,
+                'max_spend'   => $harvest->max_spend !== null ? (float) $harvest->max_spend : null,
+                'spend'       => round((float) ($counts['spend'] ?? 0), 2),
                 'counts'      => $counts,
                 'telemetry'   => json_decode($harvest->telemetry ?? '[]', true),
                 'error'       => $harvest->error,
@@ -231,7 +268,7 @@ class SourceHarvestController extends Controller
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
-        if (in_array($harvest->status, ['completed', 'failed'], true)) {
+        if (in_array($harvest->status, ['completed', 'failed', 'cancelled'], true)) {
             return response()->json(['success' => false, 'message' => 'Harvest already finished'], 422);
         }
 
@@ -240,6 +277,42 @@ class SourceHarvestController extends Controller
             ->update(['notify_email' => true, 'updated_at' => now()]);
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * POST /api/source-harvest/{harvestId}/cancel — request a graceful stop.
+     * Authenticated harvest owner only. Sets cancel_requested; the runner polls
+     * it at each work boundary, stops, and still finalizes the shelf + yield
+     * report for whatever completed (status becomes 'cancelled'). 422 if the
+     * harvest already finished.
+     */
+    public function cancel(string $harvestId): JsonResponse
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'You must be logged in to cancel a harvest.'], 401);
+        }
+
+        $db = DB::connection('pgsql_admin');
+        $harvest = $db->table('source_network_harvests')->where('id', $harvestId)->first();
+
+        if (!$harvest) {
+            return response()->json(['success' => false, 'message' => 'Harvest not found'], 404);
+        }
+
+        if ((int) $harvest->user_id !== (int) $user->id) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        if (in_array($harvest->status, ['completed', 'failed', 'cancelled'], true)) {
+            return response()->json(['success' => false, 'message' => 'Harvest already finished'], 422);
+        }
+
+        $db->table('source_network_harvests')
+            ->where('id', $harvestId)
+            ->update(['cancel_requested' => true, 'updated_at' => now()]);
+
+        return response()->json(['success' => true, 'message' => 'Cancellation requested — the harvest will stop shortly.']);
     }
 
     /** Shelf link payload for the completion dialog + email (null until the shelf step ran). */
