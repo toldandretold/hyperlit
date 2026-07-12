@@ -25,9 +25,17 @@ class ContentFetchService
     /**
      * Trace of the last fetch()'s OA-candidate loop, for telemetry:
      * how many OA copies were tried and which host/source finally won.
-     * @var array{candidates: int, won_host: ?string, won_source: ?string}
+     * @var array{candidates: int, won_host: ?string, won_source: ?string, session: ?string, proxy: ?string}
      */
-    private array $lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null];
+    private array $lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'session' => null, 'proxy' => null];
+
+    /**
+     * Per-work sticky-proxy session id. Set once at the top of fetch() so every
+     * sub-request for one work (the CF-challenge solve AND the PDF download)
+     * shares a single residential IP — cf_clearance is IP-bound. Null = no
+     * sticky session (plain rotating proxy, or no proxy).
+     */
+    private ?string $currentSession = null;
 
     public function __construct(FileHelpers $fileHelpers, HtmlProcessor $htmlProcessor, PdfProcessor $pdfProcessor, LlmService $llmService)
     {
@@ -37,7 +45,7 @@ class ContentFetchService
         $this->llmService = $llmService;
     }
 
-    /** @return array{candidates: int, won_host: ?string, won_source: ?string} */
+    /** @return array{candidates: int, won_host: ?string, won_source: ?string, session: ?string, proxy: ?string} */
     public function lastFetchTrace(): array
     {
         return $this->lastFetchTrace;
@@ -129,7 +137,20 @@ class ContentFetchService
         $doi = $libraryRecord->doi ?? null;
 
         $lastFailure = null;
-        $this->lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null];
+        $this->lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'session' => null, 'proxy' => null];
+
+        // One sticky-proxy session per work: the CF solve and the PDF download
+        // then share an IP (cf_clearance is IP-bound). Different works get
+        // different sessions → still effectively rotating across works.
+        $this->currentSession = Str::random(12);
+        $this->lastFetchTrace['session'] = $this->currentSession;
+        if (($proxyUrl = self::stickyProxy($this->currentSession)) !== null) {
+            $this->lastFetchTrace['proxy'] = self::maskProxy($proxyUrl);
+            Log::info('ContentFetchService fetch start', [
+                'book' => $bookId, 'session' => $this->currentSession,
+                'proxy' => self::maskProxy($proxyUrl),
+            ]);
+        }
 
         // Strategy 0: JATS / NLM full text (authoritative + structured +
         // cheap, no OCR). The publisher's own marked-up text — body and
@@ -325,10 +346,10 @@ class ContentFetchService
     {
         try {
             $proc = new \Symfony\Component\Process\Process(['node', base_path('scripts/fetch-html.mjs')], base_path());
-            $proc->setInput(json_encode(['url' => $url]));
-            // Must exceed the script's HARD_TIMEOUT (44s) — up to 2 attempts,
-            // each with an ~18s Cloudflare wait.
-            $proc->setTimeout(50);
+            $proc->setInput(json_encode(['url' => $url, 'proxy' => $this->sessionProxyUrl()]));
+            // Must exceed the script's HARD_TIMEOUT — patchright's headed CF
+            // solve can take ~25s; give generous headroom.
+            $proc->setTimeout(70);
             $proc->run();
         } catch (\Throwable $e) {
             Log::warning('Browser HTML fetch unavailable', ['url' => $url, 'error' => $e->getMessage()]);
@@ -355,8 +376,12 @@ class ContentFetchService
 
         try {
             $process = new \Symfony\Component\Process\Process(['node', base_path('scripts/fetch-pdf.mjs')], base_path());
-            $process->setInput(json_encode(['url' => $url, 'dest' => $dest, 'landing' => $landing]));
-            $process->setTimeout(25); // script's own hard timeout ~20s + headroom
+            $process->setInput(json_encode([
+                'url' => $url, 'dest' => $dest, 'landing' => $landing,
+                'proxy' => $this->sessionProxyUrl(),
+            ]));
+            // patchright headed CF solve (~25s) + PDF capture; generous headroom.
+            $process->setTimeout(75);
             $process->run();
         } catch (\Throwable $e) {
             // Don't setPdfUrlStatus here — fetch()'s exhaustion path records it
@@ -372,9 +397,14 @@ class ContentFetchService
             @chmod($dest, 0644);
             $this->setPdfUrlStatus($bookId, 'downloaded');
             $size = number_format(File::size($dest));
+            Log::info('ContentFetchService browser PDF fetch won', [
+                'book' => $bookId, 'session' => $this->currentSession,
+                'strategy' => $result['strategy'] ?? '?', 'channel' => $result['channel'] ?? '?',
+                'bytes' => $result['bytes'] ?? null, 'proxy' => $this->lastFetchTrace['proxy'] ?? 'none',
+            ]);
             return [
                 'status' => 'downloaded',
-                'reason' => "PDF saved via headless browser ({$size} bytes) — ready for OCR",
+                'reason' => "PDF saved via browser ({$size} bytes) — ready for OCR",
             ];
         }
 
@@ -484,7 +514,10 @@ class ContentFetchService
     private function downloadPdf(string $pdfUrl, string $bookId, ?string $doi = null, array $extraCookies = [], ?string $userAgentOverride = null): array
     {
         $path = resource_path("markdown/{$bookId}");
-        $proxy = self::fetchProxy();
+        // Sticky session proxy so this download shares the IP the browser used
+        // to clear Cloudflare (cf_clearance is IP-bound). Falls back to the
+        // plain proxy / no proxy when no session is active.
+        $proxy = $this->sessionProxyOption();
 
         try {
             // Step 1: If we have a DOI, resolve it first to get the landing page URL.
@@ -591,6 +624,70 @@ class ContentFetchService
     {
         $proxy = config('services.source_fetch.proxy') ?: env('SOURCE_FETCH_PROXY');
         return $proxy ? ['proxy' => $proxy] : [];
+    }
+
+    /**
+     * Build a session-STICKY proxy URL for one work: the CF-challenge solve and
+     * the PDF download must share a single residential IP because `cf_clearance`
+     * is IP-bound (rotating IPs invalidate it every request). Injects the
+     * per-work `$sessionId` into the configured sticky-suffix template
+     * (`services.source_fetch.sticky_suffix`, `{id}` placeholder), appended to
+     * the proxy PASSWORD — IPRoyal's (and most providers') sticky format.
+     *
+     * Returns the plain (rotating) proxy when no session id / no suffix is set,
+     * and null when no proxy is configured at all.
+     */
+    public static function stickyProxy(?string $sessionId = null): ?string
+    {
+        $proxy = config('services.source_fetch.proxy') ?: env('SOURCE_FETCH_PROXY');
+        if (!$proxy) {
+            return null;
+        }
+
+        $suffix = config('services.source_fetch.sticky_suffix');
+        if (!$sessionId || !$suffix) {
+            return $proxy;
+        }
+
+        // Parse user:pass@host:port so we can rewrite just the password.
+        $parts = parse_url($proxy);
+        if (empty($parts['user']) || !isset($parts['host'])) {
+            return $proxy; // not a credentialed proxy — can't do sticky, use as-is
+        }
+
+        $scheme = $parts['scheme'] ?? 'http';
+        $user   = $parts['user'];
+        $pass   = ($parts['pass'] ?? '') . str_replace('{id}', $sessionId, $suffix);
+        $host   = $parts['host'];
+        $port   = isset($parts['port']) ? ':' . $parts['port'] : '';
+
+        return "{$scheme}://{$user}:" . rawurlencode($pass) . "@{$host}{$port}";
+    }
+
+    /** The sticky proxy URL for the CURRENT work's session (null = none). */
+    private function sessionProxyUrl(): ?string
+    {
+        return self::stickyProxy($this->currentSession);
+    }
+
+    /** Guzzle `withOptions` proxy array for the current sticky session ([] = none). */
+    private function sessionProxyOption(): array
+    {
+        $url = $this->sessionProxyUrl();
+        return $url ? ['proxy' => $url] : [];
+    }
+
+    /** Redact credentials from a proxy URL for logging: user:***@host:port. */
+    public static function maskProxy(string $proxyUrl): string
+    {
+        $p = parse_url($proxyUrl);
+        if (!$p || !isset($p['host'])) {
+            return '(set)';
+        }
+        $scheme = $p['scheme'] ?? 'http';
+        $user = isset($p['user']) ? ($p['user'] . ':***@') : '';
+        $port = isset($p['port']) ? ':' . $p['port'] : '';
+        return "{$scheme}://{$user}{$p['host']}{$port}";
     }
 
     /**
@@ -1650,17 +1747,21 @@ class ContentFetchService
     private function saveReferencesToDatabase(string $path, string $bookId): void
     {
         $referencesPath = "{$path}/references.json";
+        // File ABSENT → the conversion never emitted it (likely errored) → leave existing rows alone.
+        // File PRESENT but empty → the conversion ran and found NO bibliography → still clear, so a
+        // re-conversion that legitimately drops to zero references (e.g. a footnote-cited paper whose
+        // earlier run mis-extracted one junk entry) doesn't leave the stale row behind.
         if (!File::exists($referencesPath)) {
             return;
         }
-        $referencesData = json_decode(File::get($referencesPath), true);
-        if (empty($referencesData)) {
-            return;
-        }
+        $referencesData = json_decode(File::get($referencesPath), true) ?: [];
 
         $db = DB::connection('pgsql_admin');
         // Replace wholesale so a re-conversion that drops references doesn't leave stale rows.
         $db->table('bibliography')->where('book', $bookId)->delete();
+        if (empty($referencesData)) {
+            return;
+        }
 
         $now = now();
         $deduped = [];

@@ -49,3 +49,31 @@ def test_normalize_unicode_name(name, expected):
 ])
 def test_is_likely_reference(soup, text, expected):
     assert is_likely_reference(soup(f"<p>{text}</p>").p) is expected
+
+
+def test_ref_id_is_surname_not_given_name_first_last_format():
+    # "First Last" bibliography format: keys[0] (the canonical id) must be the SURNAME, not the
+    # given name. Regression: a set's arbitrary order used to hand the id to the all-authors
+    # concatenation ("leobreiman2001") or the given name ("leo2001").
+    keys = generate_ref_keys("Leo Breiman (2001). Random Forests. Machine Learning 45.")
+    assert keys[0] == "breiman2001"
+
+
+def test_ref_id_is_surname_comma_first_format():
+    # "Surname, Initials" format: surname is the first token.
+    keys = generate_ref_keys("Breiman, L. (2001). Random Forests.")
+    assert keys[0] == "breiman2001"
+
+
+def test_ref_id_multi_author_is_first_surname_not_concatenation():
+    # The id must be the FIRST author's surname, never the giant all-authors concatenation.
+    keys = generate_ref_keys("Tianqi Chen and Carlos Guestrin (2016). XGBoost. KDD.")
+    assert keys[0] == "chen2016"
+    # …but the concatenated form still exists as a MATCH key so a fully-spelled citation resolves.
+    assert any("chen" in k and "guestrin" in k for k in keys)
+
+
+def test_ref_keys_first_element_is_stable_and_short():
+    # keys[0] is a single-surname key, never a 40+ char concatenation.
+    keys = generate_ref_keys("Albathan, Albishre, Khaled, Mubarak, Yuefeng (2015). A Method.")
+    assert len(keys[0]) < 25 and keys[0].endswith("2015")

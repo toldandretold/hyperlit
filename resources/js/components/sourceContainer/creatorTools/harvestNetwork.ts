@@ -5,7 +5,7 @@
 // refresh the citations display (harvested texts surface automatically as
 // canonical best-versions). Takes `self` (SourceContainerManager).
 import { book } from '../../../app';
-import { confirmDialog, alertDialog, choiceDialog } from '../../dialog/dialog';
+import { alertDialog, choiceDialog } from '../../dialog/dialog';
 import { log } from '../../../utilities/logger';
 import { getAuthContext } from '../../../utilities/auth/session';
 import { combineIcon } from './combineIcon';
@@ -173,25 +173,35 @@ export async function pollHarvestStatus(self: any) {
 
       const c = harvest.counts || {};
       const imported = (c.assigned || 0) + (c.assigned_existing || 0);
+      const failed = harvest.failed_count || 0;
       const summary = [
         `${imported} cited work${imported === 1 ? '' : 's'} imported as verified source texts.`,
-        c.fetch_failed || c.ocr_failed ? `${(c.fetch_failed || 0) + (c.ocr_failed || 0)} could not be fetched or converted.` : null,
+        failed ? `${failed} couldn't be fetched — the Source Yield Report lists them so you can chase them by hand.` : null,
         c.capped ? `${c.capped} eligible works were over this run's limit — run again to continue.` : null,
         imported === 0 && !c.eligible ? 'No open-access fetchable works were found in the citations.' : null,
       ].filter(Boolean);
 
       // If the viz overlay is open it already shows the completion banner +
-      // shelf link — don't stack a dialog on top of it.
+      // shelf/report links — don't stack a dialog on top of it.
       if (!self._harvestVizOpen) {
         const shelf = harvest.shelf;
-        if (shelf && shelf.creator) {
-          const go = await confirmDialog({
+        const shelfUrl = (shelf && shelf.creator)
+          ? `/u/${encodeURIComponent(shelf.creator)}/shelf/${encodeURIComponent(shelf.slug)}`
+          : null;
+        const reportUrl = harvest.report_book ? `/${encodeURIComponent(harvest.report_book)}` : null;
+
+        if (reportUrl || shelfUrl) {
+          const options = [];
+          if (reportUrl) options.push({ value: 'report', label: 'Read the yield report', description: 'What came home, and what to chase by hand.' });
+          if (shelfUrl) options.push({ value: 'shelf', label: 'View the shelf', description: 'The harvested sources on your page.' });
+          const choice = await choiceDialog({
             title: 'Harvest the Knowledge Commons',
-            message: summary.join('\n\n') + '\n\nAll the harvested sources have been collected onto a shelf on your page.',
-            confirmLabel: 'View shelf',
+            message: summary.join('\n\n'),
+            options,
             cancelLabel: 'Close',
           });
-          if (go) window.location.href = `/u/${encodeURIComponent(shelf.creator)}/shelf/${encodeURIComponent(shelf.slug)}`;
+          if (choice === 'report' && reportUrl) window.location.href = reportUrl;
+          else if (choice === 'shelf' && shelfUrl) window.location.href = shelfUrl;
         } else {
           await alertDialog({ title: 'Harvest the Knowledge Commons', message: summary.join('\n\n') });
         }

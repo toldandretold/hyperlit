@@ -8,6 +8,7 @@ renumbering (page_bottom docs restart at [^1] every page), body/footnote splitti
 page-break paragraph rejoining, and OCR-mojibake detection.
 """
 
+import re
 import mistral_ocr as M
 
 
@@ -95,6 +96,32 @@ def test_renumber_detects_bottom_definition():
     out, counter = M.renumber_page_footnotes(page, 1)
     assert '[^1]: The footnote definition text.' in out
     assert counter == 2
+
+
+def test_renumber_converts_ascending_block_despite_missing_refs():
+    # A page-bottom def block where only SOME numbers are referenced on this page (79, 81) — the
+    # rest (78, 80) have their in-text ref on an adjacent page. The old "stop at the first number
+    # not referenced here" rule leaked 78 and 80 as body prose; the ascending-run rule converts the
+    # whole block. (Numbers are then remapped to global sequential — assert on content, not number.)
+    page = ('Body text refers to two notes[^79] and[^81].\n\n'
+            '78 Penn Central Transportation Co. v New York City, 438 U.S. 104 (1977).\n'
+            '79 Whatever the precise origins.\n'
+            "80 Wild (n 61) 10.\n"
+            "81 Sir John Fischer Williams, 'International Law'.")
+    out, _ = M.renumber_page_footnotes(page, 1)
+    for text in ('Penn Central Transportation', 'Whatever the precise origins',
+                 'Wild (n 61) 10', 'Sir John Fischer Williams'):
+        assert re.search(r'\[\^\d+\]: [^\n]*' + re.escape(text), out), f'{text!r} not a definition'
+    # No plain "N text" definition lines should remain in the block.
+    assert not re.search(r'(?m)^\d{1,3} [A-Z]', out)
+
+
+def test_renumber_does_not_convert_lone_numbered_list_without_refs():
+    # A trailing numbered list with NO matching footnote refs must stay prose (no false defs).
+    page = ('Some prose with no footnote markers at all.\n\n'
+            '1 First list item.\n2 Second list item.\n3 Third list item.')
+    out, _ = M.renumber_page_footnotes(page, 1)
+    assert '[^1]:' not in out and '[^2]:' not in out
 
 
 # ---------------------------------------------------------------------------

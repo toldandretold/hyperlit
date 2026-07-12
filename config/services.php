@@ -149,6 +149,14 @@ return [
     // is often the actual fix. Unset = fetch from the server's own IP.
     'source_fetch' => [
         'proxy' => env('SOURCE_FETCH_PROXY'),
+        // Per-work sticky-session suffix appended to the proxy password so the
+        // Cloudflare solve and the PDF download share ONE residential IP
+        // (cf_clearance is IP-bound). `{id}` is replaced with a per-work random
+        // token. IPRoyal's format; empty = plain rotating proxy (unchanged).
+        'sticky_suffix' => env('SOURCE_FETCH_STICKY_SUFFIX', '_session-{id}_lifetime-10m'),
+        // Run the challenge-solving browser headed (headless loses managed
+        // challenges — proven by the Phase 0 spike). On Linux, wrap in xvfb.
+        'headful' => env('SOURCE_FETCH_HEADFUL', true),
     ],
 
     'stripe' => [

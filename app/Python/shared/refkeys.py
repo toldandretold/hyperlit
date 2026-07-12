@@ -48,7 +48,16 @@ def generate_ref_keys(text, context_text=""):
         author_block_end = re.search(r'(?<=[a-z]{2})\.\s+[A-Z]', authors_part)
         if author_block_end:
             authors_part = authors_part[:author_block_end.start()]
-    keys = set()
+    # ORDERED-unique, not a set: keys[0] is used downstream as the reference's canonical id
+    # (bibliography.py: base_entry_id = keys[0]). A set's arbitrary iteration order let the ugly
+    # all-authors-concatenated key win the id for multi-author entries
+    # ("albathanalbishreeffectivekhaledlimubarakyuefeng2015"). We add the clean first-author key
+    # FIRST so it is always keys[0]; the concatenated/group variants stay in the list as MATCH keys
+    # (bibliography_map) so a citation that spells out every author still resolves.
+    keys = []
+    def _add(k):
+        if k not in keys:
+            keys.append(k)
     # Check for any letter (including Unicode) in authors_part
     has_author = re.search(r'[a-zA-ZÀ-ÿßẞ]', authors_part)
     author_source = authors_part if has_author else context_text
@@ -74,11 +83,8 @@ def generate_ref_keys(text, context_text=""):
         # Normalize Unicode and remove apostrophe-s for key generation
         surnames = [normalize_unicode_name(s.replace("'s", "")).lower() for s in surnames if s not in excluded and len(s) > 1]
         if surnames:
-            keys.add(surnames[0] + year)
-            surnames.sort()
-            keys.add("".join(surnames) + year)
-            # Also generate keys using last-word-of-each-author-group as surnames
-            # (handles "FirstName LastName and FirstName LastName" bibliography patterns)
+            # Last-word-of-each-author-group as surnames (handles "FirstName LastName and
+            # FirstName LastName" bibliography patterns).
             groups = re.split(r'\s+and\s+|,\s*and\s+|,\s+(?=[A-Z])', author_source)
             group_surnames = []
             for group in groups:
@@ -86,15 +92,23 @@ def generate_ref_keys(text, context_text=""):
                 words = [w for w in words if w not in excluded and len(w) > 1]
                 if words:
                     group_surnames.append(normalize_unicode_name(words[-1].replace("'s", "")).lower())
+            # Canonical id (keys[0]) = the FIRST AUTHOR'S SURNAME. "Surname, Initials…" → the surname
+            # is the first token (surnames[0]); "First Last" (no leading comma) → it's the LAST token
+            # of the first author group (group_surnames[0]). Without this the id keys on a given name
+            # ("leo2001" for "Leo Breiman"). All other forms below stay as MATCH keys.
+            comma_first = bool(re.match(r"^\s*[A-ZÀ-ÖØ-Þ][a-zA-ZÀ-ÿßẞ'’-]+\s*,", author_source))
+            primary = surnames[0] if (comma_first or not group_surnames) else group_surnames[0]
+            _add(primary + year)
+            _add(surnames[0] + year)
+            _add("".join(sorted(surnames)) + year)
             if group_surnames and set(group_surnames) != set(surnames):
-                keys.add(group_surnames[0] + year)
-                group_surnames.sort()
-                keys.add("".join(group_surnames) + year)
+                _add(group_surnames[0] + year)
+                _add("".join(sorted(group_surnames)) + year)
 
     acronyms = re.findall(r'\b[A-Z]{2,}\b', author_source)
-    for acronym in acronyms: keys.add(acronym.lower() + year)
-    if "United Nations General Assembly" in text: keys.add("un" + year)
-    return list(keys)
+    for acronym in acronyms: _add(acronym.lower() + year)
+    if "United Nations General Assembly" in text: _add("un" + year)
+    return keys
 
 
 def is_likely_reference(p_tag):

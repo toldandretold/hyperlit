@@ -171,6 +171,9 @@ class SourceHarvestController extends Controller
 
         $harvest = $this->autoFailStaleHarvest($harvest);
 
+        $counts = json_decode($harvest->counts ?? '{}', true) ?: [];
+        $failed = max(0, ($counts['attempted'] ?? 0) - ($counts['assigned'] ?? 0) - ($counts['assigned_existing'] ?? 0));
+
         return response()->json([
             'success' => true,
             'harvest' => [
@@ -180,10 +183,12 @@ class SourceHarvestController extends Controller
                 'step'        => $harvest->step,
                 'step_detail' => $harvest->step_detail,
                 'max_works'   => $harvest->max_works,
-                'counts'      => json_decode($harvest->counts ?? '{}', true),
+                'counts'      => $counts,
                 'telemetry'   => json_decode($harvest->telemetry ?? '[]', true),
                 'error'       => $harvest->error,
                 'shelf'       => $this->shelfPayload($harvest->shelf_id ?? null),
+                'report_book' => $harvest->report_book ?? null,
+                'failed_count' => $failed,
                 'notify_email' => (bool) ($harvest->notify_email ?? false),
                 'created_at'  => $harvest->created_at,
                 'updated_at'  => $harvest->updated_at,

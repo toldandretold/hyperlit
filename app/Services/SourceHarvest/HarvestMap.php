@@ -58,10 +58,10 @@ final class HarvestMap
             [
                 'id'       => 'shelf',
                 'title'    => 'Collecting onto your shelf',
-                'plain'    => 'Puts every source harvested from this book onto a shelf on your page — named "Harvested from" the book title — so the whole collection is one click away. Re-running the harvest adds new finds to the same shelf.',
-                'dev'      => 'HarvestShelf::ensureShelfFor + addBooks — find-or-create by (creator, name), shelf_items upsert, ShelfCacheInvalidator flush. A shelf failure is logged but never fails the harvest.',
+                'plain'    => 'Puts every source harvested from this book onto a shelf on your page — named "Harvested from" the book title — so the whole collection is one click away, and writes a Source Yield Report listing (as formatted citations, with links) the open-access texts it could NOT pull so you can chase them by hand. Re-running the harvest updates the same shelf and report.',
+                'dev'      => 'HarvestShelf::ensureShelfFor + addBooks + YieldReportBook::generate (one living report per root, regenerated in place). Shelf/report failures are logged but never fail the harvest.',
                 'code_ref' => 'app/Services/SourceHarvest/HarvestShelf.php',
-                'signals'  => ['books'],
+                'signals'  => ['books', 'failed'],
             ],
         ];
     }

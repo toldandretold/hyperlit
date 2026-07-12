@@ -138,8 +138,8 @@
   "tests/conversion/corpus/towards_a_new_international_economic_order_pour_/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.8,
-    "md_len": 772722,
-    "md_sha256": "45e5efcce53fee35ad0db3a8bf1fff68f89b4d2d96ec2e428bea6444540f8604",
+    "md_len": 772727,
+    "md_sha256": "4108198ba1726297e2e984c6f77d16a36b50d605e414cd2ef376de83f96c7701",
     "segments": [
       29,
       189
@@ -282,30 +282,6 @@
       "trailing_page_number_offset": null
     }
   },
-  "tests/conversion/fixtures-local/pdf/bibliography_only/9be2e71d-0b0c-497b-95ea-740036836fe3/ocr_response.json": {
-    "classification": "document_endnotes",
-    "confidence": 0.7,
-    "md_len": 56848,
-    "md_sha256": "bfd27f73d36691eddd173f4ea4f6bbbeb5a8ee99b2a7caa5438e576f85ed8fd5",
-    "segments": [],
-    "signals": {
-      "co_location_ratio": 0.0,
-      "def_clustering_ratio": 0.0556,
-      "max_ref_number": 13,
-      "notes_page_count": 0,
-      "notes_page_indices": [],
-      "numbers_on_multiple_pages": 0,
-      "pages_with_both": 0,
-      "pages_with_defs": 1,
-      "pages_with_refs": 5,
-      "ref_number_max_page_spread": 1,
-      "reset_count": 0,
-      "reset_frequency": 0.0,
-      "total_pages": 18,
-      "trailing_page_number_consistency": 0.0,
-      "trailing_page_number_offset": null
-    }
-  },
   "tests/conversion/fixtures-local/pdf/no_footnotes/37344d6e-7d43-42bf-83da-989c1818894e/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
@@ -357,8 +333,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/1abb31d5-9f74-4451-80c8-aea19c135b1a/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.75,
-    "md_len": 73202,
-    "md_sha256": "69a2a383f969f4267592b18f649d631fa29550f95c2df92c51c177ef9a89c9e0",
+    "md_len": 73258,
+    "md_sha256": "aa9074fa94677cb29fae466638461d7fcf7720f4dcd4d5390cb0517c017f9dba",
     "segments": [],
     "signals": {
       "co_location_ratio": 1.0,
@@ -381,8 +357,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/1ee13ed9-49e7-4c42-aefd-ce04107064a1/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.6,
-    "md_len": 135752,
-    "md_sha256": "e1d406e4fe8833f37e28d5b09f4308595a055769aec805475ff91a64ac6f4a58",
+    "md_len": 135792,
+    "md_sha256": "09d452bbcac91c521cdfc439a2545ceea8980a09ff3b00eb1c427865239cdc99",
     "segments": [
       57
     ],

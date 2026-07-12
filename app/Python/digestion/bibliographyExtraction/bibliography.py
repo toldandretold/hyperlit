@@ -14,6 +14,33 @@ from shared.refkeys import generate_ref_keys, is_likely_reference
 # Common reference section headers (module-level: shared by the heading scan + the reverse-scan tail).
 REFERENCE_HEADERS = ["references", "bibliography", "works cited", "sources", "literature cited", "reference list"]
 
+# A HEADING-LESS reverse-scan bibliography is believed only if it is a DENSE block (this many
+# entries) OR carries genuine reference STRUCTURE (below). is_likely_reference is loose by design (a
+# paragraph that starts with a capital and contains a year passes rule #5), so a footnote-cited paper
+# with NO reference list otherwise yields ONE junk "reference" from its last sentence ("Nor should we
+# ... 1990."), littering the bibliography and driving a phantom "0/N citations" stat. (The
+# heading-anchored path is untouched — an explicit "References" heading is trusted at any length.)
+_MIN_REVERSE_SCAN_ENTRIES = 3
+
+# Structural signals that a paragraph is REALLY a reference — anchored to the START, because a
+# reference declares its shape up front ("Marcuse, H. 1964…", "Ostrom, Elinor (1990)…", "[1] …").
+# Prose that merely CONTAINS a buried "(2001)" or "Smith, J." mid-sentence must NOT qualify, or a
+# footnote-cited paper's closing sentence sneaks back in as a junk reference.
+_REF_STRUCTURE_RE = re.compile(
+    r"^\s*[A-Z][a-zA-Z'’-]+,\s+(?:[A-Z]\.|[A-Z][a-z])"   # "Marcuse, H." / "Ostrom, Elinor"
+    r"|^\s*[A-Z][a-zA-Z'’-]+.{0,40}?\(\d{4}[a-z]?\)"       # "Author … (2001)" author-year, near start
+)
+# ...or a numbered "[1]" / bracket-year "[2023]" / em-dash repeat-author / noble-particle OPENER.
+_REF_STRUCTURE_START_RE = re.compile(
+    r"^\s*(?:\[\d+\]|\[\d{4}\]"
+    r"|[—–‒―-]{1,3}[.,\s]"
+    r"|(?:von|van|de|du|da|del|della|le|la|los|las|den|der|het|ten|ter)\s+[A-Z])",
+    re.IGNORECASE)
+
+
+def _has_reference_structure(text):
+    return bool(_REF_STRUCTURE_RE.match(text) or _REF_STRUCTURE_START_RE.match(text))
+
 
 def _find_reference_paragraphs(soup):
     """Locate the bibliography entries. PRIMARY: a 'References'/'Bibliography' heading, collecting
@@ -86,6 +113,19 @@ def _find_reference_paragraphs(soup):
                     reference_p_tags.insert(0, p)
                     print(f"  \U0001F4D6 Found references header: '{header_text}'")
                 break
+
+        # A SHORT heading-less run is only a bibliography if it carries real reference structure — a
+        # dense block (>= threshold) is trusted, and so is any run with a structured entry
+        # ("Marcuse, H. 1964…"), but a lone/paired prose sentence that merely passed rule #5 ("Nor
+        # should we … 1990.") is discarded so we emit neither a junk entry nor a phantom citation
+        # count. A real header at the top of the run is always trusted.
+        found_header = bool(reference_p_tags) and \
+            reference_p_tags[0].get_text(strip=True).lower() in REFERENCE_HEADERS
+        structured = any(_has_reference_structure(p.get_text(" ", strip=True)) for p in reference_p_tags)
+        if not found_header and not structured and 0 < len(reference_p_tags) < _MIN_REVERSE_SCAN_ENTRIES:
+            print(f"  🚫 Discarding {len(reference_p_tags)} reverse-scan paragraph(s) — short and "
+                  f"unstructured (looks like body prose, not a heading-less bibliography)")
+            reference_p_tags = []
 
     print(f"\U0001F4DA Found {len(reference_p_tags)} reference paragraphs")
     return reference_p_tags, used_reverse_scan

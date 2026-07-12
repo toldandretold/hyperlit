@@ -160,14 +160,23 @@ export function renderHarvestViz(self: any, harvest: any) {
   if (done) {
     const c = harvest.counts || {};
     const imported = (c.assigned || 0) + (c.assigned_existing || 0);
+    const failed = harvest.failed_count || 0;
     const shelf = harvest.shelf;
     const shelfLink = (shelf && shelf.creator)
       ? `<a href="/u/${encodeURIComponent(shelf.creator)}/shelf/${encodeURIComponent(shelf.slug)}" style="font-size: 14px; color: #8fd0c6; text-decoration: underline;">View the sources on your shelf →</a>`
       : '';
+    const reportLink = harvest.report_book
+      ? `<a href="/${encodeURIComponent(harvest.report_book)}" style="font-size: 14px; color: #8fd0c6; text-decoration: underline;">Read the yield report →</a>`
+      : '';
+    const failedNote = failed > 0
+      ? `<span style="font-size: 14px; color: #c4a24a;">${failed} couldn't be fetched.</span>`
+      : '';
     doneBanner = `<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
            <span style="font-size: 16px; color: #27ae60; font-weight: bold;">✓ Harvest complete</span>
            <span style="font-size: 14px; color: #c4c4c4;">${imported} source${imported === 1 ? '' : 's'} imported.</span>
+           ${failedNote}
            ${shelfLink}
+           ${reportLink}
          </div>`;
   }
 

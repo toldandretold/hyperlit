@@ -31,6 +31,7 @@ class HarvestRunner
         private AutoVersionCreator $creator,
         private HarvestEligibility $eligibility,
         private HarvestShelf $shelf,
+        private YieldReportBook $report,
     ) {
     }
 
@@ -62,11 +63,16 @@ class HarvestRunner
         $maxWorks = (int) $harvest->max_works;
         $sleep = (int) config('source_harvest.sleep_between_works', 2);
 
-        $persist = function (array $extra = []) use ($db, $harvestId, &$frontier, &$visited, &$counts) {
+        // Per-work outcomes (canonical metadata + result) for the Source Yield
+        // Report. Uncapped (unlike telemetry) — we want every failure.
+        $results = json_decode($harvest->results ?? '[]', true) ?: [];
+
+        $persist = function (array $extra = []) use ($db, $harvestId, &$frontier, &$visited, &$counts, &$results) {
             $db->table('source_network_harvests')->where('id', $harvestId)->update(array_merge([
                 'frontier'      => json_encode(array_values($frontier)),
                 'visited_books' => json_encode(array_values($visited)),
                 'counts'        => json_encode($counts),
+                'results'       => json_encode(array_values($results)),
                 'updated_at'    => now(),
             ], $extra));
         };
@@ -160,6 +166,26 @@ class HarvestRunner
                         $harvestedBooks[] = $result['book'];
                     }
 
+                    // Record the per-work outcome for the yield report — the
+                    // canonical metadata (from the eligible row) plus how it went.
+                    $results[] = [
+                        'canonical_source_id' => $row->id,
+                        'title'       => $row->title ?? null,
+                        'author'      => $row->author ?? null,
+                        'year'        => $row->year ?? null,
+                        'journal'     => $row->journal ?? null,
+                        'publisher'   => $row->publisher ?? null,
+                        'type'        => $row->type ?? null,
+                        'doi'         => $row->doi ?? null,
+                        'openalex_id' => $row->openalex_id ?? null,
+                        'oa_url'      => $row->oa_url ?? null,
+                        'pdf_url'     => $row->pdf_url ?? null,
+                        'status'      => $status,
+                        'reason'      => $result['reason'] ?? null,
+                        'via'         => $via,
+                        'book'        => $result['book'] ?? null,
+                    ];
+
                     // Recursion: at max_depth > 1 (user picks the depth at
                     // trigger time, up to "unlimited") the new version book's
                     // own bibliography becomes the next frontier level, so the
@@ -177,6 +203,21 @@ class HarvestRunner
                     // One bad PDF must never kill the run.
                     $counts['errors']++;
                     $telemetry->emit('harvest', 'skipped', "{$label} — error ({$e->getMessage()})");
+                    $results[] = [
+                        'canonical_source_id' => $row->id,
+                        'title'   => $row->title ?? null,
+                        'author'  => $row->author ?? null,
+                        'year'    => $row->year ?? null,
+                        'journal' => $row->journal ?? null,
+                        'type'    => $row->type ?? null,
+                        'doi'     => $row->doi ?? null,
+                        'oa_url'  => $row->oa_url ?? null,
+                        'pdf_url' => $row->pdf_url ?? null,
+                        'status'  => 'error',
+                        'reason'  => $e->getMessage(),
+                        'via'     => null,
+                        'book'    => null,
+                    ];
                     Log::warning('Harvest work failed', [
                         'harvest'   => $harvestId,
                         'canonical' => $row->id,
@@ -198,38 +239,51 @@ class HarvestRunner
             $persist();
         }
 
-        // ---- Shelf: collect this run's sources onto the harvest shelf.
-        // Runs when anything was assigned this run, or a shelf from a prior
-        // run already exists (keeps the pointer fresh on continue-runs).
-        if (!empty($harvestedBooks) || !empty($harvest->shelf_id)) {
-            $persist(['step' => 'shelf', 'step_detail' => 'Collecting sources onto your shelf']);
+        // ---- Shelf + yield report: collect this run's sources onto the
+        // harvest shelf AND write the Source Yield Report (what we could and
+        // couldn't pull). Runs whenever ANY work was attempted — so even a
+        // 0-import run still produces a shelf carrying a useful report — or
+        // when a shelf from a prior run already exists.
+        if (!empty($results) || !empty($harvest->shelf_id)) {
+            $persist(['step' => 'shelf', 'step_detail' => 'Collecting sources + writing the yield report']);
             $telemetry->emit('shelf', 'started', 'Collecting sources onto your shelf');
             try {
                 $shelfInfo = $this->shelf->ensureShelfFor($harvest->root_book);
                 if ($shelfInfo) {
-                    $this->shelf->addBooks($shelfInfo->id, $harvestedBooks);
+                    $rootTitle = $db->table('library')->where('book', $harvest->root_book)->value('title')
+                        ?: $harvest->root_book;
+
+                    // Write the yield report and shelve it alongside the sources.
+                    $reportBook = $this->report->generate($harvest->root_book, $rootTitle, $results);
+                    $shelfBooks = array_values(array_filter(array_merge($harvestedBooks, [$reportBook])));
+                    $this->shelf->addBooks($shelfInfo->id, $shelfBooks);
+
                     $db->table('source_network_harvests')
                         ->where('id', $harvestId)
-                        ->update(['shelf_id' => $shelfInfo->id, 'updated_at' => now()]);
-                    $telemetry->emit('shelf', 'completed', count($harvestedBooks) . " source(s) on \"{$shelfInfo->name}\"", [
-                        'books' => count($harvestedBooks),
-                    ]);
+                        ->update(['shelf_id' => $shelfInfo->id, 'report_book' => $reportBook, 'updated_at' => now()]);
+
+                    $failed = max(0, $counts['attempted'] - $counts['assigned'] - $counts['assigned_existing']);
+                    $telemetry->emit(
+                        'shelf',
+                        'completed',
+                        count($harvestedBooks) . " source(s) shelved + yield report ({$failed} couldn't be fetched)",
+                        ['books' => count($harvestedBooks), 'failed' => $failed]
+                    );
                 } else {
                     $telemetry->emit('shelf', 'skipped', 'no shelf owner resolvable for the root book');
                 }
             } catch (\Throwable $e) {
-                // A shelf failure must never fail the harvest itself.
+                // A shelf/report failure must never fail the harvest itself.
                 $telemetry->emit('shelf', 'failed', $e->getMessage());
-                Log::warning('Harvest shelf step failed', [
+                Log::warning('Harvest shelf/report step failed', [
                     'harvest' => $harvestId,
                     'error'   => $e->getMessage(),
                 ]);
             }
         } else {
-            // Nothing to shelve (no sources imported, no prior shelf). Emit a
-            // terminal 'skipped' so the viz shows the stage as done-skipped
-            // rather than leaving it stuck at 'pending' after the run finishes.
-            $telemetry->emit('shelf', 'skipped', 'no new sources to collect');
+            // Nothing attempted at all — emit a terminal 'skipped' so the viz
+            // shows the stage done-skipped, not stuck at 'pending'.
+            $telemetry->emit('shelf', 'skipped', 'no citations were eligible to fetch');
         }
 
         // Bump annotations_updated_at so the frontend re-syncs bibliography

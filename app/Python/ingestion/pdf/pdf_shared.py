@@ -229,32 +229,61 @@ def renumber_page_footnotes(page_md, global_counter):
     # Convert OCR's varied footnote-marker renderings to [^N] — shared per-page converter
     page_md = convert_inline_footnote_markers(page_md)
 
-    # Convert N. / N text definitions at page bottom matching known refs.
-    # Two guards: (1) number must match a ref on this page,
-    # (2) must be in the trailing section — scan stops at first non-match.
+    # Convert "N. text" / "N Text" definitions at the page bottom into "[^N]: text".
     ref_nums = set(int(m.group(1)) for m in re.finditer(r'\[\^(\d+)\]', page_md))
-    if ref_nums:
-        lines = page_md.split('\n')
-        i = len(lines) - 1
-        while i >= 0:
-            stripped = lines[i].strip()
-            # Skip blank lines and page-number anchors
-            if not stripped or re.match(r'^<a class="pageNumber"', stripped):
-                i -= 1
-                continue
-            # Match "N. text" or "N Text" (uppercase/quote start)
-            m = re.match(r'^(\d{1,3})\.?\s+([\S].+)', stripped)
-            if m and int(m.group(1)) in ref_nums:
-                num = m.group(1)
-                rest = m.group(2)
-                has_period = stripped[len(num)] == '.'
-                if has_period or re.match(r'[A-Z\u2018\u201c\'"]', rest):
-                    leading = len(lines[i]) - len(lines[i].lstrip())
-                    lines[i] = ' ' * leading + f'[^{num}]: {rest}'
-                    i -= 1
-                    continue
+    lines = page_md.split('\n')
+
+    def _def_candidate(stripped):
+        """(int_num, num_str, rest) if the line opens a footnote definition, else None."""
+        m = re.match(r'^(\d{1,3})\.?\s+(\S.+)', stripped)
+        if not m:
+            return None
+        num, rest = m.group(1), m.group(2)
+        has_period = stripped[len(num)] == '.'
+        if has_period or re.match(r'[A-Z‘“\'"]', rest):
+            return int(num), num, rest
+        return None
+
+    # Collect the trailing contiguous block of definition candidates (skip blank lines /
+    # page-number anchors), bottom-up, then flip to page order.
+    block = []
+    i = len(lines) - 1
+    while i >= 0:
+        stripped = lines[i].strip()
+        if not stripped or re.match(r'^<a class="pageNumber"', stripped):
+            i -= 1
+            continue
+        cand = _def_candidate(stripped)
+        if cand is None:
             break
-        page_md = '\n'.join(lines)
+        block.append((i, *cand))
+        i -= 1
+    block.reverse()
+
+    # A trailing run of STRICTLY ASCENDING numbers that overlaps this page's in-text refs is
+    # unambiguously a page-bottom footnote block -- convert the WHOLE run, even numbers whose own
+    # ref sits on the previous/next page (the OCR routinely splits a ref from its def across the
+    # page turn; the old "stop at the first number not referenced on THIS page" rule dropped every
+    # def above that break -- a 78-87 block where only 79/81/83/84/86 were referenced here leaked
+    # all ten as body paragraphs). The ascending run + a ref overlap keeps a stray numbered list
+    # (no matching footnote refs) from being mistaken for definitions.
+    nums = [b[1] for b in block]
+    ascending = len(nums) >= 2 and all(nums[k] < nums[k + 1] for k in range(len(nums) - 1))
+    convert_all = ascending and any(n in ref_nums for n in nums)
+
+    if convert_all:
+        for idx, _n, num_str, rest in block:
+            leading = len(lines[idx]) - len(lines[idx].lstrip())
+            lines[idx] = ' ' * leading + f'[^{num_str}]: {rest}'
+    elif ref_nums:
+        # Conservative fallback (original behaviour): bottom-up, convert only numbers referenced
+        # on this page, stopping at the first that isn't.
+        for idx, n, num_str, rest in reversed(block):
+            if n not in ref_nums:
+                break
+            leading = len(lines[idx]) - len(lines[idx].lstrip())
+            lines[idx] = ' ' * leading + f'[^{num_str}]: {rest}'
+    page_md = '\n'.join(lines)
 
     # Collect unique local footnote numbers in order of first appearance
     seen = set()

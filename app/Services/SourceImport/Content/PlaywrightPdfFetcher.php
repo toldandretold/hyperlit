@@ -19,10 +19,10 @@ use Symfony\Component\Process\Process;
  */
 class PlaywrightPdfFetcher implements ContentFetcher
 {
-    /** Symfony Process wall-clock. Node script's own hard timeout is ~20s; we add headroom. */
-    // Must exceed the script's HARD_TIMEOUT (34s) so PHP doesn't kill the
-    // browser mid-challenge — the CF wait alone is up to ~18s now.
-    private const WALL_CLOCK_SECONDS = 42;
+    /** Symfony Process wall-clock. Must exceed the script's HARD_TIMEOUT (68s)
+     *  so PHP doesn't kill the browser mid-challenge — a headed patchright
+     *  Cloudflare solve alone can take ~25-30s. */
+    private const WALL_CLOCK_SECONDS = 75;
 
     public function supports(Identifier $id, SourceMetadata $metadata): bool
     {

@@ -137,3 +137,40 @@ def test_seam_skips_non_reference_paragraph_under_the_heading(soup):
     collected = [t.get_text(' ', strip=True) for t in tags]
     assert any('Ostrom' in c for c in collected)
     assert not any('appendix' in c for c in collected)
+
+
+def test_reverse_scan_ignores_lone_trailing_prose_as_junk_reference(soup):
+    # A footnote-cited paper has NO references heading. Its last sentence starts with a capital and
+    # contains a year, so is_likely_reference (rule #5) matches — the reverse scan used to emit ONE
+    # junk "reference" from it (and a phantom "0/N citations"). Below the run threshold → discard.
+    s = _doc(soup,
+             '<p>The doctrine developed through the 1970s and beyond.</p>'
+             '<p>Nor should we have much confidence in the manner it was applied after 1990.</p>')
+    tags, used_reverse = _find_reference_paragraphs(s)
+    assert used_reverse is True
+    assert tags == []
+
+
+def test_reverse_scan_keeps_a_real_headingless_bibliography_run(soup):
+    # A genuine heading-less reference list (a RUN of entries) must still be collected.
+    s = _doc(soup,
+             '<p>Some concluding body text about the topic.</p>'
+             '<p>Ostrom, E. (1990). Governing the Commons. CUP.</p>'
+             '<p>Hardin, G. (1968). The Tragedy of the Commons. Science.</p>'
+             '<p>Olson, M. (1965). The Logic of Collective Action. Harvard.</p>')
+    tags, used_reverse = _find_reference_paragraphs(s)
+    assert used_reverse is True
+    collected = [t.get_text(' ', strip=True) for t in tags]
+    assert len(collected) == 3
+    assert any('Ostrom' in c for c in collected) and any('Olson' in c for c in collected)
+    assert not any('concluding body text' in c for c in collected)
+
+
+def test_headingless_footnote_paper_yields_no_bibliography(soup):
+    # End-to-end: extract_bibliography on such a doc returns an EMPTY reference set (no junk entry).
+    s = _doc(soup,
+             '<p>A body paragraph discussing investment law since 2001.</p>'
+             '<p>Nor should we have much confidence in the outcome after 1990.</p>')
+    bib, data = extract_bibliography(s)
+    assert data == []
+    assert bib == {}

@@ -299,6 +299,22 @@ test('status shelf is null before the shelf step runs', function () {
         ->assertJsonPath('harvest.shelf', null);
 });
 
+test('status exposes the yield report book and the failed count', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user);
+    $id = harvSeedHarvest($book, [
+        'status'      => 'completed',
+        'report_book' => 'apitest_report_book',
+        // attempted 5, 2 imported → 3 couldn't be fetched.
+        'counts'      => json_encode(['attempted' => 5, 'assigned' => 1, 'assigned_existing' => 1]),
+    ]);
+
+    $this->getJson("/api/source-harvest/status/{$id}")
+        ->assertOk()
+        ->assertJsonPath('harvest.report_book', 'apitest_report_book')
+        ->assertJsonPath('harvest.failed_count', 3);
+});
+
 // ── Email-when-done notify endpoint ────────────────────────────────
 
 test('notify requires authentication', function () {

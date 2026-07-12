@@ -190,15 +190,36 @@ test('reference save replaces existing rows and skips overlong / id-less entries
     }
 });
 
-test('reference save is a no-op (no crash) when references.json is absent or empty', function () {
-    $book = canonvSeedLibrary(['title' => 'CanonV Ref Missing', 'has_nodes' => false]);
+test('reference save leaves rows untouched when references.json is ABSENT (conversion error)', function () {
+    // No references.json on disk → the conversion never emitted it → don't wipe a good prior set.
+    $book = canonvSeedLibrary(['title' => 'CanonV Ref Absent', 'has_nodes' => false]);
     $dir = canonvWorkDir($book);
+    canonvDb()->table('bibliography')->insert([
+        'book' => $book, 'referenceId' => 'keep2001', 'content' => '<p>keep</p>',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
 
     try {
         canonvInvoke('saveReferencesToDatabase', $dir, $book);
-        expect(canonvDb()->table('bibliography')->where('book', $book)->count())->toBe(0);
+        expect(canonvDb()->table('bibliography')->where('book', $book)->pluck('referenceId')->all())->toBe(['keep2001']);
+    } finally {
+        canonvDb()->table('bibliography')->where('book', $book)->delete();
+        File::deleteDirectory($dir);
+    }
+});
 
-        File::put("{$dir}/references.json", json_encode([]));
+test('reference save CLEARS stale rows when references.json exists but is empty (reconvert to zero)', function () {
+    // A footnote-cited paper whose earlier run mis-extracted one junk entry re-converts to ZERO
+    // references. references.json exists (conversion ran) but is `[]` → the stale junk must go.
+    $book = canonvSeedLibrary(['title' => 'CanonV Ref Empty', 'has_nodes' => false]);
+    $dir = canonvWorkDir($book);
+    canonvDb()->table('bibliography')->insert([
+        'book' => $book, 'referenceId' => 'nor1990s', 'content' => '<p>Nor should we ...</p>',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    File::put("{$dir}/references.json", json_encode([]));
+
+    try {
         canonvInvoke('saveReferencesToDatabase', $dir, $book);
         expect(canonvDb()->table('bibliography')->where('book', $book)->count())->toBe(0);
     } finally {
