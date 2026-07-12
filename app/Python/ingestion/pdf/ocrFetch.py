@@ -55,17 +55,19 @@ def _get_signed_url_with_retry(client, file_id, expiry=1, attempts=6):
     raise last_err
 
 
-def _run_ocr(client, document, model="mistral-ocr-latest"):
+def _run_ocr(client, document, model="mistral-ocr-2512"):
     """Run Mistral OCR on an already-resolved document reference and return the dict.
 
     `document` is either an inline base64 data-URL or a signed URL — both take the
     same {"type": "document_url", "document_url": ...} shape, so the OCR call and
     its options live here once for both delivery paths.
 
-    `model` defaults to the production alias `mistral-ocr-latest`; the version-
-    comparison harness overrides it with a pinned dated id (e.g. mistral-ocr-2503).
-    (OCR 4's structural `blocks` are NOT reachable through this SDK's typed
-    `process()` — the harness probes those via a raw /v1/ocr POST instead.)
+    `model` defaults to the pinned production model `mistral-ocr-2512` (OCR 3);
+    production passes it explicitly via mistral_ocr.py's --ocr-model (from
+    services.mistral_ocr.model), and the version-comparison harness overrides it with
+    other pinned ids. NEVER default to the `-latest` alias — it silently became OCR 4
+    and doubled cost. (OCR 4's structural `blocks` are NOT reachable through this SDK's
+    typed `process()` — the harness probes those via a raw /v1/ocr POST instead.)
     """
     ocr_response = client.ocr.process(
         document=document,
@@ -108,7 +110,7 @@ def _upload_and_get_signed_url(client, pdf_path, upload_attempts=2):
     raise last_err
 
 
-def fetch_ocr(pdf_path, api_key, model="mistral-ocr-latest"):
+def fetch_ocr(pdf_path, api_key, model="mistral-ocr-2512"):
     """Send a PDF to Mistral OCR and return the raw response dict.
 
     Small PDFs (<= INLINE_MAX_BYTES) are sent inline as a base64 data-URL, skipping
@@ -188,7 +190,7 @@ def split_pdf_into_chunks(pdf_path, target_bytes, work_dir):
     return chunk_paths
 
 
-def fetch_ocr_chunked(pdf_path, api_key, work_dir, model="mistral-ocr-latest"):
+def fetch_ocr_chunked(pdf_path, api_key, work_dir, model="mistral-ocr-2512"):
     """For PDFs over Mistral's 50MB limit: split, OCR each chunk, merge responses.
 
     Image IDs are namespaced per chunk (e.g. c0-img-0.jpeg) to prevent collisions

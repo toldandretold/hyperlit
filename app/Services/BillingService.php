@@ -87,6 +87,24 @@ class BillingService
      *
      * @return float dollars actually debited (post-multiplier), or 0.0 if free.
      */
+    /**
+     * RAW per-1K-pages OCR cost (USD) for a served model id, BEFORE any tier multiplier.
+     *
+     * Keyed by the model recorded in ocr_response.json (services.llm.pricing) so each book is
+     * billed at what its OCR actually cost — not a stale flat rate. Falls back to the configured
+     * production model (services.mistral_ocr.model) when no served id is available (cost estimates,
+     * pre-OCR previews). Never returns "free"; returns null only if pricing is entirely unset.
+     */
+    public static function ocrPricePerKPages(?string $servedModel): ?float
+    {
+        $pricing = config('services.llm.pricing', []);
+        if ($servedModel !== null && isset($pricing[$servedModel]['per_1k_pages'])) {
+            return (float) $pricing[$servedModel]['per_1k_pages'];
+        }
+        $default = config('services.mistral_ocr.model', 'mistral-ocr-2512');
+        return isset($pricing[$default]['per_1k_pages']) ? (float) $pricing[$default]['per_1k_pages'] : null;
+    }
+
     public function billOcrForBook(User $user, string $bookId, string $markdownPath, ?string $description = null): float
     {
         $chargedMarker = "{$markdownPath}/ocr_charged.json";
@@ -115,8 +133,9 @@ class BillingService
             return 0.0;
         }
 
-        $pricing = config('services.llm.pricing.mistral-ocr-latest', []);
-        $perKPages = $pricing['per_1k_pages'] ?? null;
+        // Bill at what THIS book's OCR actually cost — keyed by the served model recorded in
+        // ocr_response.json (falls back to the configured production model if absent).
+        $perKPages = self::ocrPricePerKPages($ocrData['model'] ?? null);
         if (!$perKPages) {
             return 0.0;
         }

@@ -70,7 +70,8 @@ class SourceHarvestController extends Controller
         $multiplier = $user ? (float) $user->getBillingMultiplier() : 1.0;
 
         $avgPages = (int) config('source_harvest.avg_pages_per_work', 20);
-        $perKPages = (float) (config('services.llm.pricing.mistral-ocr-latest.per_1k_pages') ?? 0);
+        // Pre-OCR estimate — no served model yet, so price at the configured production model.
+        $perKPages = (float) (BillingService::ocrPricePerKPages(null) ?? 0);
         $perWorkRaw = $avgPages / 1000 * $perKPages;
 
         return [

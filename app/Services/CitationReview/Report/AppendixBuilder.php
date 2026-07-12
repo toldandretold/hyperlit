@@ -2,6 +2,7 @@
 
 namespace App\Services\CitationReview\Report;
 
+use App\Services\BillingService;
 use App\Services\CitationReview\Support\DurationFormatter;
 
 /**
@@ -266,10 +267,10 @@ final class AppendixBuilder
         // --- OCR Cost ---
         $ocrTotalPages = $stepTimings['ocr']['total_pages'] ?? null;
         if ($ocrTotalPages !== null && $ocrTotalPages > 0) {
-            $ocrPricing = $pricing['mistral-ocr-latest'] ?? null;
+            $ocrPerK = BillingService::ocrPricePerKPages($stepTimings['ocr']['model'] ?? null);
             $ocrCostStr = '—';
-            if ($ocrPricing && isset($ocrPricing['per_1k_pages'])) {
-                $ocrCost = $ocrTotalPages / 1000 * $ocrPricing['per_1k_pages'];
+            if ($ocrPerK) {
+                $ocrCost = $ocrTotalPages / 1000 * $ocrPerK;
                 $ocrCostStr = '$' . number_format($ocrCost, 2);
             }
 
@@ -292,7 +293,8 @@ final class AppendixBuilder
         $md .= "| Claim extraction | {$extractionModel} |\n";
         $md .= "| Verification | {$verificationModel} |\n";
         if (config('services.mistral_ocr.api_key')) {
-            $md .= "| OCR | mistral-ocr-latest |\n";
+            $ocrModel = config('services.mistral_ocr.model', 'mistral-ocr-2512');
+            $md .= "| OCR | {$ocrModel} |\n";
         }
         $md .= "| Provider | {$provider} |\n";
         $md .= "\n";

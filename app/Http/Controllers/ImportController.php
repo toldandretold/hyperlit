@@ -828,8 +828,7 @@ class ImportController extends Controller
                 return;
             }
 
-            $pricing = config('services.llm.pricing.mistral-ocr-latest', []);
-            $perKPages = $pricing['per_1k_pages'] ?? null;
+            $perKPages = BillingService::ocrPricePerKPages($ocrData['model'] ?? null);
 
             if (!$perKPages) {
                 return;

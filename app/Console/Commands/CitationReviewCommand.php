@@ -339,16 +339,16 @@ class CitationReviewCommand extends Command
             }
 
             if ($ocrTotalPages > 0) {
-                $ocrPricing = $pricing['mistral-ocr-latest'] ?? null;
-                if ($ocrPricing && isset($ocrPricing['per_1k_pages'])) {
-                    $ocrCost = $ocrTotalPages / 1000 * $ocrPricing['per_1k_pages'];
+                $ocrPerK = BillingService::ocrPricePerKPages($stepTimings['ocr']['model'] ?? null);
+                if ($ocrPerK) {
+                    $ocrCost = $ocrTotalPages / 1000 * $ocrPerK;
                     $totalCost += $ocrCost;
                     $lineItems[] = [
                         'label'     => "OCR ({$ocrTotalPages} pages)",
                         'category'  => 'ocr',
                         'quantity'  => $ocrTotalPages,
                         'unit'      => 'pages',
-                        'unit_cost' => $ocrPricing['per_1k_pages'] / 1000,
+                        'unit_cost' => $ocrPerK / 1000,
                         'amount'    => round($ocrCost, 4),
                     ];
                 }

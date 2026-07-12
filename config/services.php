@@ -68,8 +68,15 @@ return [
             'accounts/fireworks/models/llama-v3p3-70b-instruct' => ['input' => 0.90, 'output' => 0.90],
             'accounts/fireworks/models/minimax-m2p5'            => ['input' => 0.30, 'output' => 1.20],
             'nomic-ai/nomic-embed-text-v1.5'                   => ['input' => 0.008, 'output' => 0.0],
-            // Mistral OCR — cost per 1K pages (USD)
-            'mistral-ocr-latest' => ['per_1k_pages' => 1.00],
+            // Mistral OCR — RAW cost per 1K pages (USD) we pay Mistral (the tier multiplier in
+            // billing_tiers stacks on top). Keyed by the SERVED model id recorded in
+            // ocr_response.json, so a book is billed at what its OCR actually cost. Prices are
+            // Mistral list rates for the synchronous /v1/ocr endpoint (Batch would be ~half).
+            // Verified 2026-07-12. `latest` currently resolves to OCR 4 — kept at the OCR-4 rate for
+            // historical ledger rows stamped `mistral-ocr-latest` before the pin to 2512.
+            'mistral-ocr-2512'   => ['per_1k_pages' => 2.00],   // OCR 3 — the pinned production model
+            'mistral-ocr-4-0'    => ['per_1k_pages' => 4.00],   // OCR 4
+            'mistral-ocr-latest' => ['per_1k_pages' => 4.00],   // alias → OCR 4 (historical rows only)
         ],
         // Models Fireworks no longer serves (404 on chat/completions). A model
         // moves here when it leaves /v1/models; no configured role or fallback
@@ -94,6 +101,12 @@ return [
 
     'mistral_ocr' => [
         'api_key' => env('MISTRAL_OCR_API_KEY'),
+        // Single source of truth for the OCR model we run. Pinned to OCR 3 (mistral-ocr-2512):
+        // best footnote coverage (with the footer-fold) at half OCR 4's cost, and reproducible
+        // (NOT the moving `-latest` alias, which silently became OCR 4 and doubled cost). Passed to
+        // the Python pipeline via PdfProcessor's --ocr-model and used as the pricing fallback when a
+        // served-model id isn't available (estimates / pre-OCR previews).
+        'model' => env('MISTRAL_OCR_MODEL', 'mistral-ocr-2512'),
     ],
 
     // On-device PDF OCR (Apple Vision/PDFKit via the hyperlit-ocr CLI — build

@@ -12,7 +12,11 @@ import { isNativeShell } from '../../../utilities/nativeBridge';
 import { sanitizeYearForAutofill, sanitizeTitleForAutofill } from './autofillRules';
 
 // ─── PDF Cost Estimate ───────────────────────────────────────────────
-const MISTRAL_OCR_COST_PER_1K_PAGES = 1.00;
+// RAW $/1K pages for the pinned production OCR model (OCR 3 = mistral-ocr-2512).
+// MUST stay in sync with config/services.php `services.llm.pricing.<model>.per_1k_pages`
+// for whatever `services.mistral_ocr.model` is pinned to (server-side billing is the
+// source of truth; this is only the pre-upload preview). Bump to 4.00 if pinned to OCR 4.
+const MISTRAL_OCR_COST_PER_1K_PAGES = 2.00;
 
 const BILLING_TIERS: any = {
   premium:    { multiplier: 1.0, label: 'Premium' },

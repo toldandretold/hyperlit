@@ -79,6 +79,9 @@ class PdfProcessor implements ProcessorInterface
         if (!empty($apiKey)) {
             $args = array_merge($args, ['--api-key', $apiKey]);
         }
+        // Pin the OCR model from config (single source of truth) rather than the moving
+        // `-latest` alias. Billing prices per the served model recorded in ocr_response.json.
+        $args = array_merge($args, ['--ocr-model', config('services.mistral_ocr.model', 'mistral-ocr-2512')]);
         $process = new Process($args);
         $process->setTimeout(900);
         $this->runWithProgress($process, $this->onProgress);

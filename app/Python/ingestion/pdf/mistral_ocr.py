@@ -84,10 +84,14 @@ def main():
     parser.add_argument("pdf_path", help="Path to the PDF file")
     parser.add_argument("output_dir", help="Directory for output files")
     parser.add_argument("--api-key", help="Mistral API key (or set MISTRAL_OCR_API_KEY env var)")
+    parser.add_argument("--ocr-model", default="mistral-ocr-2512",
+                        help="Mistral OCR model id (default: mistral-ocr-2512 = OCR 3). "
+                             "The billing side prices per served model recorded in ocr_response.json.")
     parser.add_argument("--no-cache", action="store_true", help="Force re-download from Mistral")
     args = parser.parse_args()
 
     api_key = args.api_key or os.environ.get("MISTRAL_OCR_API_KEY")
+    ocr_model = args.ocr_model
 
     pdf_path = Path(args.pdf_path)
     output_dir = Path(args.output_dir)
@@ -114,9 +118,9 @@ def main():
         cache_was_loaded = True
     else:
         if pdf_path.stat().st_size > CHUNK_TARGET_BYTES:
-            response_dict = fetch_ocr_chunked(pdf_path, api_key, output_dir)
+            response_dict = fetch_ocr_chunked(pdf_path, api_key, output_dir, model=ocr_model)
         else:
-            response_dict = fetch_ocr(pdf_path, api_key)
+            response_dict = fetch_ocr(pdf_path, api_key, model=ocr_model)
         json_cache.write_text(json.dumps(response_dict), encoding="utf-8")
         print(f"Cached raw response to: {json_cache}")
 
