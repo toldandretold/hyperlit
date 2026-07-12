@@ -88,14 +88,17 @@ class AutoVersionCreator
             // complete a 'downloaded' row from that earlier run.
             $alreadyFetched = !$record->oa_url && ($record->pdf_url_status ?? null);
 
+            $fetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null];
             if (!$alreadyFetched) {
                 $result = $this->fetcher->fetch($record);
+                $fetchTrace = $this->fetcher->lastFetchTrace();
                 if (($result['status'] ?? null) === 'failed') {
                     return [
                         'status' => 'fetch_failed',
                         'book'   => $bookId,
                         'lane'   => null,
                         'reason' => $result['reason'] ?? 'fetch failed',
+                        'via'    => $fetchTrace['candidates'] > 0 ? "tried {$fetchTrace['candidates']} OA locations" : null,
                     ];
                 }
             }
@@ -140,6 +143,7 @@ class AutoVersionCreator
                     'book'   => $book,
                     'lane'   => $this->conversionMethodOf($book),
                     'reason' => null,
+                    'via'    => $fetchTrace['won_host'] ? "from {$fetchTrace['won_host']}" : null,
                 ];
             }
 

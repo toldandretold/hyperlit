@@ -6,6 +6,7 @@ import { asBookId } from "../types";
 
 import { openDatabase } from '../core/connection';
 import { syncReferencesToPostgreSQL } from './syncReferencesToPostgreSQL';
+import { verbose } from '../../utilities/logger';
 import type { BibliographyRecord, BookId } from '../types';
 
 interface ReferencesDeps {
@@ -43,14 +44,25 @@ export async function saveAllReferencesToIndexedDB(references: BibliographyRecor
           `✅ ${references.length} references successfully saved to IndexedDB for book: ${bookId}`
         );
 
-        // --- ADDED: Trigger the sync to PostgreSQL ---
-        try {
-          // syncReferencesToPostgreSQL already imported statically
-          await syncReferencesToPostgreSQL(bookId, references);
-        } catch (err) {
-          console.warn("⚠️ Reference sync to PostgreSQL failed:", err);
+        // --- Trigger the sync to PostgreSQL ---
+        // BUT NOT during a paste into a fresh book: the eager sync fires from this
+        // tx.oncomplete before the book's `library` row exists server-side (the
+        // bulk-create POST is still in flight), so the bibliography RLS insert policy
+        // rejects it with a 500. paste/index.ts:syncPasteToPostgreSQL pushes references
+        // AFTER the initial book-creation sync resolves, so skipping here is safe and
+        // avoids the doomed request + console-error noise. See §"paste-subbook-rls".
+        const { isPasteInProgress } = await import('../../utilities/operationState');
+        if (isPasteInProgress()) {
+          verbose.content('Skipping eager reference sync during paste — syncPasteToPostgreSQL will push it', 'indexedDB/bibliography');
+        } else {
+          try {
+            // syncReferencesToPostgreSQL already imported statically
+            await syncReferencesToPostgreSQL(bookId, references);
+          } catch (err) {
+            console.warn("⚠️ Reference sync to PostgreSQL failed:", err);
+          }
         }
-        // --- END ADDED ---
+        // --- END ---
 
         resolve();
       };
@@ -59,6 +71,25 @@ export async function saveAllReferencesToIndexedDB(references: BibliographyRecor
         reject(tx.error);
       };
     });
+  });
+}
+
+/**
+ * Read every bibliography/reference row for a book from IndexedDB.
+ *
+ * The store is keyed `[book, referenceId]`, so a book's rows are the contiguous
+ * range `[book] … [book, "￿"]`. Used by the post-paste sync to push
+ * paste-seeded references once the book exists server-side.
+ */
+export async function getAllReferencesForBook(bookId: BookId): Promise<BibliographyRecord[]> {
+  const db = await openDatabase();
+  return new Promise<BibliographyRecord[]>((resolve, reject) => {
+    const tx = db.transaction("bibliography", "readonly");
+    const store = tx.objectStore("bibliography");
+    const range = IDBKeyRange.bound([bookId], [bookId, "￿"]);
+    const request = store.getAll(range);
+    request.onsuccess = () => resolve((request.result as BibliographyRecord[]) || []);
+    request.onerror = () => reject(request.error);
   });
 }
 

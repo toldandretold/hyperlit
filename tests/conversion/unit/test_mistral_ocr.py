@@ -256,3 +256,68 @@ def test_unknown_classification_margin_is_loud_fallthrough():
     assert 'FALL-THROUGH' in margin
     assert 'fell through' in rationale
     assert {c['option'] for c in considered} == set(M._PDF_CLASSES) - {'unknown'}
+
+
+# ---------------------------------------------------------------------------
+# Footer footnote-definition recovery — assemble_markdown must pull page-bottom
+# definitions the OCR split into the `footer` field back into the body. Dropping
+# them was the Calvo-Clause bug: 58 defs collapsed to 5, every marker unmatched.
+# ---------------------------------------------------------------------------
+import re as _re
+
+
+def _assemble(pages, classification='unknown'):
+    return M.assemble_markdown({'pages': pages}, classification=classification,
+                               footnote_meta=None, pdf_path=None)
+
+
+def test_footer_superscript_defs_recovered_into_body():
+    pages = [
+        {'index': 0, 'markdown': 'A claim.[^1] Another claim.[^2]', 'footer': '', 'header': ''},
+        {'index': 1, 'markdown': 'More prose.[^3]',
+         'footer': '¹ First note.\n² Second note.\n³ Third note.', 'header': ''},
+    ]
+    md = _assemble(pages)
+    assert _re.findall(r'^\[\^(\d+)\]:', md, _re.M) == ['1', '2', '3']
+    assert 'First note.' in md
+
+
+def test_footer_latex_defs_recovered():
+    pages = [{'index': 0, 'markdown': 'Body.[^25]',
+              'footer': '$^{25}$ Hackworth, Digest, pp. 501-526.', 'header': ''}]
+    md = _assemble(pages)
+    assert '[^25]: Hackworth' in md
+
+
+def test_plain_number_footer_not_pulled_in():
+    # "6 Engels…" is ambiguous with list items / page numbers; the normaliser leaves it as
+    # prose, so we must NOT pull it in (else it becomes an unlinked paragraph). This is the
+    # soviet_marxism case that a broader gate wrongly injected.
+    pages = [{'index': 0, 'markdown': 'Body text here.',
+              'footer': '6 Engels, Letter to Franz Mehring, July 14, 1893.', 'header': ''}]
+    md = _assemble(pages)
+    assert '[^6]:' not in md
+    assert 'Engels, Letter to Franz Mehring' not in md
+
+
+def test_pure_chrome_footer_ignored():
+    pages = [{'index': 0, 'markdown': 'Body.', 'footer': 'Journal of Something  •  509', 'header': ''}]
+    md = _assemble(pages)
+    assert 'Journal of Something' not in md
+
+
+def test_chapter_endnotes_skips_footer_recovery():
+    # chapter_endnotes applies a per-chapter offset; a stray page-bottom def would be re-keyed
+    # to the wrong note (a confident wrong link), so footer recovery is intentionally skipped.
+    pages = [{'index': 0, 'markdown': 'Body.[^1]', 'footer': '¹ A page-bottom note.', 'header': ''}]
+    md = _assemble(pages, classification='chapter_endnotes')
+    assert 'A page-bottom note.' not in md
+
+
+def test_footer_helper_gate_direct():
+    assert M._footer_footnote_defs('¹ note') == '¹ note'
+    assert M._footer_footnote_defs('$^{7}$ note') == '$^{7}$ note'
+    assert M._footer_footnote_defs('[^7] note') == '[^7] note'
+    assert M._footer_footnote_defs('6 plain note') == ''
+    assert M._footer_footnote_defs('509') == ''
+    assert M._footer_footnote_defs('') == ''

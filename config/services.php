@@ -131,6 +131,26 @@ return [
         'api_key' => env('SEMANTIC_SCHOLAR_API_KEY'),
     ],
 
+    // Unpaywall — free green-OA index (richest source of repository PDFs).
+    // Keyless, but the API requires a contact email query param.
+    'unpaywall' => [
+        'email' => env('UNPAYWALL_EMAIL'),
+    ],
+
+    // FlareSolverr — self-hosted Cloudflare-challenge solver. Unset = the
+    // Cloudflare-solver fetch strategy no-ops. See deploy/oa-fetch-hardening.md.
+    'flaresolverr' => [
+        'url'         => env('FLARESOLVERR_URL'),
+        'max_timeout' => env('FLARESOLVERR_MAX_TIMEOUT', 60000), // ms
+    ],
+
+    // Optional residential/rotating proxy for OA fetches + the browser scripts.
+    // Cloudflare hard-blocks datacenter IPs by reputation; a residential egress
+    // is often the actual fix. Unset = fetch from the server's own IP.
+    'source_fetch' => [
+        'proxy' => env('SOURCE_FETCH_PROXY'),
+    ],
+
     'stripe' => [
         'key'            => env('STRIPE_KEY'),
         'secret'         => env('STRIPE_SECRET'),

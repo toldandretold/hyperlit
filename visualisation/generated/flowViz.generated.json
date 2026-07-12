@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1641,
+    "fnCount": 1643,
     "moduleCount": 350,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3317,
+    "edgeCount": 3321,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -9501,6 +9501,17 @@
       "leaf": false
     },
     {
+      "id": "indexedDB/bibliography/index:getAllReferencesForBook",
+      "label": "getAllReferencesForBook",
+      "kind": "fn",
+      "stage": "domain",
+      "module": "indexedDB/bibliography/index",
+      "leaf": false,
+      "types": [
+        "BibliographyRecord"
+      ]
+    },
+    {
       "id": "indexedDB/bibliography/index:initReferencesDependencies",
       "label": "initReferencesDependencies",
       "kind": "fn",
@@ -9799,6 +9810,17 @@
       "types": [
         "NodeRecord",
         "PublicNode"
+      ]
+    },
+    {
+      "id": "indexedDB/footnotes/index:getAllFootnotesForBook",
+      "label": "getAllFootnotesForBook",
+      "kind": "fn",
+      "stage": "domain",
+      "module": "indexedDB/footnotes/index",
+      "leaf": false,
+      "types": [
+        "FootnoteRecord"
       ]
     },
     {
@@ -17519,6 +17541,7 @@
       "stage": "domain",
       "band": "sync",
       "fnIds": [
+        "indexedDB/bibliography/index:getAllReferencesForBook",
         "indexedDB/bibliography/index:initReferencesDependencies",
         "indexedDB/bibliography/index:resolveBibliographyTarget",
         "indexedDB/bibliography/index:saveAllReferencesToIndexedDB"
@@ -17607,6 +17630,7 @@
       "stage": "domain",
       "band": "store",
       "fnIds": [
+        "indexedDB/footnotes/index:getAllFootnotesForBook",
         "indexedDB/footnotes/index:initFootnotesDependencies",
         "indexedDB/footnotes/index:saveAllFootnotesToIndexedDB"
       ]
@@ -32273,6 +32297,13 @@
       "rel": "domwrite"
     },
     {
+      "id": "indexedDB/bibliography/index:getAllReferencesForBook__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/bibliography/index:getAllReferencesForBook",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "indexedDB/bibliography/index:resolveBibliographyTarget__call__indexedDB/types:asBookId",
       "source": "indexedDB/bibliography/index:resolveBibliographyTarget",
       "target": "indexedDB/types:asBookId",
@@ -32589,6 +32620,13 @@
       "source": "indexedDB/core/utilities:createNodeKey",
       "target": "indexedDB/core/utilities:parseNodeId",
       "rel": "call"
+    },
+    {
+      "id": "indexedDB/footnotes/index:getAllFootnotesForBook__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/footnotes/index:getAllFootnotesForBook",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/footnotes/index:saveAllFootnotesToIndexedDB__call__indexedDB/core/connection:openDatabase",
@@ -39080,6 +39118,12 @@
       "rel": "read"
     },
     {
+      "id": "store:bibliography__read__indexedDB/bibliography/index:getAllReferencesForBook",
+      "source": "store:bibliography",
+      "target": "indexedDB/bibliography/index:getAllReferencesForBook",
+      "rel": "read"
+    },
+    {
       "id": "store:bibliography__read__indexedDB/core/connection:openDatabase",
       "source": "store:bibliography",
       "target": "indexedDB/core/connection:openDatabase",
@@ -39119,6 +39163,12 @@
       "id": "store:footnotes__read__hyperlitContainer/core:savePreviewNodes",
       "source": "store:footnotes",
       "target": "hyperlitContainer/core:savePreviewNodes",
+      "rel": "read"
+    },
+    {
+      "id": "store:footnotes__read__indexedDB/footnotes/index:getAllFootnotesForBook",
+      "source": "store:footnotes",
+      "target": "indexedDB/footnotes/index:getAllFootnotesForBook",
       "rel": "read"
     },
     {
@@ -44812,7 +44862,17 @@
     },
     {
       "source": "paste/index",
+      "target": "indexedDB/bibliography/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "paste/index",
       "target": "indexedDB/core/connection",
+      "kind": "lazy"
+    },
+    {
+      "source": "paste/index",
+      "target": "indexedDB/footnotes/index",
       "kind": "lazy"
     },
     {
@@ -45052,6 +45112,6 @@
       ]
     ],
     "breakerCount": 3,
-    "lazyCount": 238
+    "lazyCount": 240
   }
 }

@@ -5,6 +5,7 @@
 
 import { openDatabase } from '../core/connection';
 import { syncFootnotesToPostgreSQL } from './syncFootnotesToPostgreSQL';
+import { verbose } from '../../utilities/logger';
 import type { BookId, FootnoteRecord } from '../types';
 
 interface FootnotesDeps {
@@ -45,15 +46,26 @@ export async function saveAllFootnotesToIndexedDB(footnotes: FootnoteRecord[], b
           `✅ ${footnotes.length} footnotes successfully saved to IndexedDB for book: ${bookId}`
         );
 
-        // --- ADDED: Trigger the sync to PostgreSQL ---
-        try {
-          // syncFootnotesToPostgreSQL already imported statically
-          await syncFootnotesToPostgreSQL(bookId, footnotes);
-        } catch (err) {
-          // Log the error but don't reject the promise, as the local save was successful.
-          console.warn("⚠️ Footnote sync to PostgreSQL failed:", err);
+        // --- Trigger the sync to PostgreSQL ---
+        // BUT NOT during a paste into a fresh book: the eager sync fires from this
+        // tx.oncomplete before the book's `library` row exists server-side (the
+        // bulk-create POST is still in flight), so the footnotes RLS insert policy
+        // rejects it with a 500. paste/index.ts:syncPasteToPostgreSQL pushes footnotes
+        // AFTER the initial book-creation sync resolves, so skipping here is safe and
+        // avoids the doomed request + console-error noise. See §"paste-subbook-rls".
+        const { isPasteInProgress } = await import('../../utilities/operationState');
+        if (isPasteInProgress()) {
+          verbose.content('Skipping eager footnote sync during paste — syncPasteToPostgreSQL will push it', 'indexedDB/footnotes');
+        } else {
+          try {
+            // syncFootnotesToPostgreSQL already imported statically
+            await syncFootnotesToPostgreSQL(bookId, footnotes);
+          } catch (err) {
+            // Log the error but don't reject the promise, as the local save was successful.
+            console.warn("⚠️ Footnote sync to PostgreSQL failed:", err);
+          }
         }
-        // --- END ADDED ---
+        // --- END ---
 
         resolve();
       };
@@ -62,6 +74,25 @@ export async function saveAllFootnotesToIndexedDB(footnotes: FootnoteRecord[], b
         reject(tx.error);
       };
     });
+  });
+}
+
+/**
+ * Read every footnote row for a book from IndexedDB.
+ *
+ * The store is keyed `[book, footnoteId]`, so a book's rows are the contiguous
+ * range `[book] … [book, "￿"]`. Used by the post-paste sync to push
+ * paste-seeded footnotes once the book exists server-side.
+ */
+export async function getAllFootnotesForBook(bookId: BookId): Promise<FootnoteRecord[]> {
+  const db = await openDatabase();
+  return new Promise<FootnoteRecord[]>((resolve, reject) => {
+    const tx = db.transaction("footnotes", "readonly");
+    const store = tx.objectStore("footnotes");
+    const range = IDBKeyRange.bound([bookId], [bookId, "￿"]);
+    const request = store.getAll(range);
+    request.onsuccess = () => resolve((request.result as FootnoteRecord[]) || []);
+    request.onerror = () => reject(request.error);
   });
 }
 

@@ -50,6 +50,58 @@
       "trailing_page_number_offset": null
     }
   },
+  "tests/conversion/corpus/class_and_nation_historically_and_in_the_current/ocr_response.json": {
+    "classification": "none",
+    "confidence": 1.0,
+    "md_len": 627454,
+    "md_sha256": "f7f842eb21f3e063aa8b023b3572c605cf144a1ae0260d893bdcc4284e3a4433",
+    "segments": [
+      275
+    ],
+    "signals": {
+      "co_location_ratio": 0.0,
+      "def_clustering_ratio": 0.5929,
+      "max_ref_number": 0,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 0,
+      "pages_with_both": 0,
+      "pages_with_defs": 185,
+      "pages_with_refs": 0,
+      "ref_number_max_page_spread": 0,
+      "reset_count": 0,
+      "reset_frequency": 0.0,
+      "total_pages": 312,
+      "trailing_page_number_consistency": 1.0,
+      "trailing_page_number_offset": -15
+    }
+  },
+  "tests/conversion/corpus/production_power_and_world_order_social_forces_i/ocr_response.json": {
+    "classification": "chapter_endnotes",
+    "confidence": 1.0,
+    "md_len": 1234507,
+    "md_sha256": "f2a8193a128ba60118521cce5af82cdb74979aa49195f18c6ce35e4a0c70b0c2",
+    "segments": [],
+    "signals": {
+      "co_location_ratio": 0.0,
+      "def_clustering_ratio": 0.1243,
+      "max_ref_number": 85,
+      "notes_page_count": 1,
+      "notes_page_indices": [
+        418
+      ],
+      "numbers_on_multiple_pages": 69,
+      "pages_with_both": 0,
+      "pages_with_defs": 64,
+      "pages_with_refs": 243,
+      "ref_number_max_page_spread": 13,
+      "reset_count": 15,
+      "reset_frequency": 0.0617,
+      "total_pages": 515,
+      "trailing_page_number_consistency": 1.0,
+      "trailing_page_number_offset": 484
+    }
+  },
   "tests/conversion/corpus/soviet_marxism_a_critical_analysis_herbert_marcu/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.95,
@@ -81,6 +133,105 @@
       "total_pages": 280,
       "trailing_page_number_consistency": 1.0,
       "trailing_page_number_offset": 264
+    }
+  },
+  "tests/conversion/corpus/towards_a_new_international_economic_order_pour_/ocr_response.json": {
+    "classification": "page_bottom",
+    "confidence": 0.8,
+    "md_len": 772722,
+    "md_sha256": "45e5efcce53fee35ad0db3a8bf1fff68f89b4d2d96ec2e428bea6444540f8604",
+    "segments": [
+      29,
+      189
+    ],
+    "signals": {
+      "co_location_ratio": 0.988,
+      "def_clustering_ratio": 0.5828,
+      "max_ref_number": 155,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 18,
+      "pages_with_both": 165,
+      "pages_with_defs": 169,
+      "pages_with_refs": 167,
+      "ref_number_max_page_spread": 78,
+      "reset_count": 162,
+      "reset_frequency": 0.9701,
+      "total_pages": 290,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
+  "tests/conversion/fixtures-local/pdf/author_year_bracket/128ad69a-b2a5-471e-84bd-2037e02b3791/ocr_response.json": {
+    "classification": "document_endnotes",
+    "confidence": 0.8,
+    "md_len": 34493,
+    "md_sha256": "2a8734964dbeab2cf21eb80715760109014cbb1d5de0d9c72dde777ed9eea664",
+    "segments": [],
+    "signals": {
+      "co_location_ratio": 0.0,
+      "def_clustering_ratio": 0.0,
+      "max_ref_number": 35,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 20,
+      "pages_with_both": 0,
+      "pages_with_defs": 0,
+      "pages_with_refs": 5,
+      "ref_number_max_page_spread": 3,
+      "reset_count": 2,
+      "reset_frequency": 0.4,
+      "total_pages": 6,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
+  "tests/conversion/fixtures-local/pdf/author_year_bracket/433d423b-9a1c-487a-ba86-39657bf34509/ocr_response.json": {
+    "classification": "chapter_endnotes",
+    "confidence": 0.5,
+    "md_len": 60646,
+    "md_sha256": "9cf09c9a5c0da7598e926e93bb2ada608e76260e40af0582c42b7ae48c228e49",
+    "segments": [],
+    "signals": {
+      "co_location_ratio": 0.0,
+      "def_clustering_ratio": 0.2143,
+      "max_ref_number": 28,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 26,
+      "pages_with_both": 0,
+      "pages_with_defs": 3,
+      "pages_with_refs": 9,
+      "ref_number_max_page_spread": 4,
+      "reset_count": 5,
+      "reset_frequency": 0.5556,
+      "total_pages": 14,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
+  "tests/conversion/fixtures-local/pdf/author_year_bracket/78516d0d-be54-4aa3-abbb-26b69e9d6433/ocr_response.json": {
+    "classification": "none",
+    "confidence": 1.0,
+    "md_len": 24099,
+    "md_sha256": "e75e36c4df48be496d4ec1b34e2f8417fc8bd0a00941592abc855e6ad82b4ba5",
+    "segments": [],
+    "signals": {
+      "co_location_ratio": 0.0,
+      "def_clustering_ratio": 0.1667,
+      "max_ref_number": 0,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 0,
+      "pages_with_both": 0,
+      "pages_with_defs": 1,
+      "pages_with_refs": 0,
+      "ref_number_max_page_spread": 0,
+      "reset_count": 0,
+      "reset_frequency": 0.0,
+      "total_pages": 6,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
     }
   },
   "tests/conversion/fixtures-local/pdf/author_year_bracket/whereneoliberalismcomefrom/ocr_response.json": {
@@ -179,6 +330,80 @@
       "trailing_page_number_offset": null
     }
   },
+  "tests/conversion/fixtures-local/pdf/sequential/013dfc18-cfc5-4eb1-b79a-b3886fbc544d/ocr_response.json": {
+    "classification": "unknown",
+    "confidence": 0.0,
+    "md_len": 51357,
+    "md_sha256": "845f428a84bbc309a77901e7b24cb13a13a207831ca1587fb7d6c8499d962abe",
+    "segments": [],
+    "signals": {
+      "co_location_ratio": 0.1667,
+      "def_clustering_ratio": 0.375,
+      "max_ref_number": 58,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 1,
+      "pages_with_both": 1,
+      "pages_with_defs": 3,
+      "pages_with_refs": 6,
+      "ref_number_max_page_spread": 2,
+      "reset_count": 1,
+      "reset_frequency": 0.1667,
+      "total_pages": 8,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
+  "tests/conversion/fixtures-local/pdf/sequential/1abb31d5-9f74-4451-80c8-aea19c135b1a/ocr_response.json": {
+    "classification": "page_bottom",
+    "confidence": 0.75,
+    "md_len": 73202,
+    "md_sha256": "69a2a383f969f4267592b18f649d631fa29550f95c2df92c51c177ef9a89c9e0",
+    "segments": [],
+    "signals": {
+      "co_location_ratio": 1.0,
+      "def_clustering_ratio": 0.8571,
+      "max_ref_number": 145,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 0,
+      "pages_with_both": 15,
+      "pages_with_defs": 18,
+      "pages_with_refs": 15,
+      "ref_number_max_page_spread": 1,
+      "reset_count": 0,
+      "reset_frequency": 0.0,
+      "total_pages": 21,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
+  "tests/conversion/fixtures-local/pdf/sequential/1ee13ed9-49e7-4c42-aefd-ce04107064a1/ocr_response.json": {
+    "classification": "page_bottom",
+    "confidence": 0.6,
+    "md_len": 135752,
+    "md_sha256": "e1d406e4fe8833f37e28d5b09f4308595a055769aec805475ff91a64ac6f4a58",
+    "segments": [
+      57
+    ],
+    "signals": {
+      "co_location_ratio": 0.4286,
+      "def_clustering_ratio": 0.4426,
+      "max_ref_number": 324,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 0,
+      "pages_with_both": 18,
+      "pages_with_defs": 27,
+      "pages_with_refs": 42,
+      "ref_number_max_page_spread": 1,
+      "reset_count": 0,
+      "reset_frequency": 0.0,
+      "total_pages": 61,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
   "tests/conversion/fixtures-local/pdf/sequential/218d6d3d-cd86-44e1-ac3a-c4d970e7d6ab/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
@@ -199,6 +424,54 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 46,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
+  "tests/conversion/fixtures-local/pdf/sequential/79394f2a-f063-46fa-a140-76ef22c650af/ocr_response.json": {
+    "classification": "unknown",
+    "confidence": 0.0,
+    "md_len": 41348,
+    "md_sha256": "12250dcc822e04efaaa93c5eab9d570c8040e8035457fd3b6b63b865c46fa977",
+    "segments": [],
+    "signals": {
+      "co_location_ratio": 0.1667,
+      "def_clustering_ratio": 0.0625,
+      "max_ref_number": 67,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 0,
+      "pages_with_both": 1,
+      "pages_with_defs": 1,
+      "pages_with_refs": 6,
+      "ref_number_max_page_spread": 1,
+      "reset_count": 0,
+      "reset_frequency": 0.0,
+      "total_pages": 16,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
+  "tests/conversion/fixtures-local/pdf/sequential/cox-socialist-realism/ocr_response.json": {
+    "classification": "unknown",
+    "confidence": 0.0,
+    "md_len": 71943,
+    "md_sha256": "0d6de81383b621c2a4515a910c9e840b98031dc51aab09bbea92ee75d4cab268",
+    "segments": [],
+    "signals": {
+      "co_location_ratio": 0.0,
+      "def_clustering_ratio": 0.16,
+      "max_ref_number": 39,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 0,
+      "pages_with_both": 0,
+      "pages_with_defs": 4,
+      "pages_with_refs": 5,
+      "ref_number_max_page_spread": 1,
+      "reset_count": 0,
+      "reset_frequency": 0.0,
+      "total_pages": 25,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -295,6 +568,30 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 1,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
+  "tests/conversion/fixtures/pdf/sequential/native-engine/ocr_response.json": {
+    "classification": "unknown",
+    "confidence": 0.0,
+    "md_len": 673,
+    "md_sha256": "ea80c7c3dd2faaa36da71b08db33e9ef8d5683a7bee39cdee7ef86e33b01332e",
+    "segments": [],
+    "signals": {
+      "co_location_ratio": 1.0,
+      "def_clustering_ratio": 0.6667,
+      "max_ref_number": 3,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 0,
+      "pages_with_both": 2,
+      "pages_with_defs": 2,
+      "pages_with_refs": 2,
+      "ref_number_max_page_spread": 1,
+      "reset_count": 0,
+      "reset_frequency": 0.0,
+      "total_pages": 3,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }

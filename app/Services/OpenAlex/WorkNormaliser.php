@@ -88,6 +88,28 @@ class WorkNormaliser
                 ? $url
                 : null;
 
+        // Every OA copy OpenAlex knows about (green/repository AND publisher),
+        // for the OA-location resolver's ranked fetch. host_type distinguishes
+        // repository (usually not Cloudflare-walled) from publisher copies.
+        $oaLocations = [];
+        foreach ($work['locations'] ?? [] as $loc) {
+            if (!($loc['is_oa'] ?? false)) {
+                continue;
+            }
+            $locPdf     = $sanitiseUrl($loc['pdf_url'] ?? null);
+            $locLanding = $sanitiseUrl($loc['landing_page_url'] ?? null);
+            if (!$locPdf && !$locLanding) {
+                continue;
+            }
+            $oaLocations[] = [
+                'pdf_url'          => $locPdf,
+                'landing_page_url' => $locLanding,
+                'host_type'        => $loc['source']['type'] ?? ($loc['host_type'] ?? null), // 'repository' | 'journal' | ...
+                'version'          => $loc['version'] ?? null,
+                'license'          => $loc['license'] ?? null,
+            ];
+        }
+
         return [
             'book'           => null,
             'title'          => $work['title'] ?? null,
@@ -113,6 +135,7 @@ class WorkNormaliser
             'bibtex'         => $this->generateBibtex($work),
             'abstract'       => self::reconstructAbstract($work['abstract_inverted_index'] ?? null),
             'authorships'    => $structuredAuthorships,
+            'oa_locations'   => $oaLocations,
         ];
     }
 

@@ -55,6 +55,12 @@ class OpenAlexService
         return $this->works->fetchByDoi($doi);
     }
 
+    /** @see WorksApi::fetchByOpenAlexId() */
+    public function fetchByOpenAlexId(string $openalexId): ?array
+    {
+        return $this->works->fetchByOpenAlexId($openalexId);
+    }
+
     /** @see WorksApi::fetchByDoiBatch() */
     public function fetchByDoiBatch(array $dois): array
     {

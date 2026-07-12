@@ -9,13 +9,34 @@
 // Stdout protocol (JSON): { ok: true, html, finalUrl, title, httpStatus }
 //                      or { ok: false, reason, detail?, httpStatus?, finalUrl? }
 
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
-const HARD_TIMEOUT_MS = 34_000;
-const NAV_TIMEOUT_MS = 13_000;
+// Full anti-fingerprint stealth — clears most Cloudflare JS challenges. The
+// real fix for a datacenter server IP is SOURCE_FETCH_PROXY (residential egress).
+chromium.use(StealthPlugin());
+
+const HARD_TIMEOUT_MS = 44_000;
+const NAV_TIMEOUT_MS = 20_000;
+const CF_WAIT_MS = 18_000;
 const MAX_ATTEMPTS = 2; // Cloudflare 403s are intermittent — a fresh attempt often clears.
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+// Optional residential/rotating proxy (SOURCE_FETCH_PROXY, e.g. http://user:pass@host:port).
+function proxyOption() {
+    const raw = process.env.SOURCE_FETCH_PROXY;
+    if (!raw) return undefined;
+    try {
+        const u = new URL(raw);
+        const opt = { server: `${u.protocol}//${u.host}` };
+        if (u.username) opt.username = decodeURIComponent(u.username);
+        if (u.password) opt.password = decodeURIComponent(u.password);
+        return opt;
+    } catch {
+        return undefined;
+    }
+}
 
 let finished = false;
 function output(payload, code) {
@@ -36,14 +57,16 @@ async function readStdin() {
     return raw;
 }
 
-// Cloudflare's "Just a moment..." interstitial sets a clearance cookie after
-// its JS challenge. Wait for it to redirect to real content before scraping.
-async function waitOutCloudflare(page, budgetMs = 8000) {
+// Cloudflare's "Just a moment..." interstitial sets a cf_clearance cookie
+// after its JS challenge. Wait for the title to clear OR the cookie to appear.
+async function waitOutCloudflare(page, context, budgetMs = CF_WAIT_MS) {
     const start = Date.now();
     while (Date.now() - start < budgetMs) {
         const title = await page.title().catch(() => '');
         if (!/just a moment|attention required|cloudflare|checking your browser/i.test(title)) return;
-        await page.waitForTimeout(400);
+        const cookies = await context.cookies().catch(() => []);
+        if (cookies.some((c) => c.name === 'cf_clearance')) return;
+        await page.waitForTimeout(500);
     }
 }
 
@@ -70,6 +93,7 @@ async function main() {
         browser = await chromium.launch({
             channel: 'chromium',
             headless: true,
+            proxy: proxyOption(),
             args: [
                 '--disable-blink-features=AutomationControlled',
                 '--disable-features=IsolateOrigins,site-per-process',
@@ -85,14 +109,6 @@ async function main() {
         locale: 'en-US',
         timezoneId: 'America/New_York',
         extraHTTPHeaders: { 'Accept-Language': 'en-US,en;q=0.9' },
-    });
-
-    // Minimal stealth — hide the obvious headless tells before CF's checks fire.
-    await context.addInitScript(() => {
-        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-        Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-        window.chrome = { runtime: {} };
     });
 
     const page = await context.newPage();
@@ -116,7 +132,7 @@ async function main() {
 
             const httpStatus = resp ? resp.status() : null;
 
-            await waitOutCloudflare(page);
+            await waitOutCloudflare(page, context);
             // Small settle for late-rendered article bodies (SPA shells, lazy refs).
             await page.waitForTimeout(1500);
 

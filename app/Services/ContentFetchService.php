@@ -6,6 +6,9 @@ use App\Helpers\SubBookIdHelper;
 use App\Services\DocumentImport\FileHelpers;
 use App\Services\DocumentImport\Processors\HtmlProcessor;
 use App\Services\DocumentImport\Processors\PdfProcessor;
+use App\Services\SourceImport\Content\FlareSolverrClient;
+use App\Services\SourceImport\Content\LandingPagePdfLocator;
+use App\Services\SourceImport\Content\OaLocationResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
@@ -19,12 +22,25 @@ class ContentFetchService
     private PdfProcessor $pdfProcessor;
     private LlmService $llmService;
 
+    /**
+     * Trace of the last fetch()'s OA-candidate loop, for telemetry:
+     * how many OA copies were tried and which host/source finally won.
+     * @var array{candidates: int, won_host: ?string, won_source: ?string}
+     */
+    private array $lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null];
+
     public function __construct(FileHelpers $fileHelpers, HtmlProcessor $htmlProcessor, PdfProcessor $pdfProcessor, LlmService $llmService)
     {
         $this->fileHelpers = $fileHelpers;
         $this->htmlProcessor = $htmlProcessor;
         $this->pdfProcessor = $pdfProcessor;
         $this->llmService = $llmService;
+    }
+
+    /** @return array{candidates: int, won_host: ?string, won_source: ?string} */
+    public function lastFetchTrace(): array
+    {
+        return $this->lastFetchTrace;
     }
 
     /**
@@ -113,6 +129,7 @@ class ContentFetchService
         $doi = $libraryRecord->doi ?? null;
 
         $lastFailure = null;
+        $this->lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null];
 
         // Strategy 0: JATS / NLM full text (authoritative + structured +
         // cheap, no OCR). The publisher's own marked-up text — body and
@@ -128,18 +145,40 @@ class ContentFetchService
             // the cheaper-than-PDF probe just didn't apply.
         }
 
-        // Strategy 1: oa_url looks like a PDF → downloadPdf
-        if ($oaUrl && $this->looksLikePdf($oaUrl)) {
-            $result = $this->downloadPdf($oaUrl, $bookId, $doi);
+        // Strategy 1: ranked OA-candidate loop. Instead of trying one oa_url +
+        // one pdf_url, gather EVERY known open-access copy (OpenAlex locations,
+        // Unpaywall, Semantic Scholar, Crossref) and try them cleanest-host-
+        // first — a green/repository PDF (arXiv, PMC, Zenodo, a DSpace) before
+        // a Cloudflare-walled publisher copy. This is where most legitimately-
+        // open works that used to "cloudflare_block" now succeed.
+        $candidates = app(OaLocationResolver::class)->resolve($libraryRecord);
+        $this->lastFetchTrace['candidates'] = count($candidates);
+        $triedPdf = [];
+        foreach ($candidates as $cand) {
+            // Resolve to a concrete PDF: direct, or discovered on the landing page.
+            $pdfTarget = $cand['kind'] === 'pdf'
+                ? $cand['url']
+                : $this->locatePdfOnLanding($cand['url'], $doi);
+            if (!$pdfTarget || isset($triedPdf[$pdfTarget])) {
+                continue; // landing had no discoverable PDF (HTML strategies handle it later)
+            }
+            $triedPdf[$pdfTarget] = true;
+
+            $result = $this->downloadPdf($pdfTarget, $bookId, $doi);
             if ($result['status'] !== 'failed') {
+                // Persist the winning URL for provenance/retries.
+                DB::connection('pgsql_admin')->table('library')
+                    ->where('book', $bookId)
+                    ->update(['pdf_url' => $pdfTarget, 'updated_at' => now()]);
+                $this->lastFetchTrace['won_host'] = $cand['host'];
+                $this->lastFetchTrace['won_source'] = $cand['source'];
                 return $result;
             }
             $lastFailure = $result['reason'];
-            // Reset pdf_url_status so later strategies aren't blocked
-            $this->setPdfUrlStatus($bookId, null);
+            $this->setPdfUrlStatus($bookId, null); // unblock later strategies
         }
 
-        // Strategy 2: oa_url as HTML
+        // Strategy 2: oa_url as HTML — kept for HTML-native articles (no PDF).
         if ($oaUrl && !$this->looksLikePdf($oaUrl)) {
             $result = $this->fetchHtml($oaUrl, $bookId);
             if ($result['status'] !== 'failed') {
@@ -148,59 +187,7 @@ class ContentFetchService
             $lastFailure = $result['reason'];
         }
 
-        // Strategy 3: pdf_url (if different from oa_url)
-        if ($pdfUrl && $pdfUrl !== $oaUrl) {
-            $result = $this->downloadPdf($pdfUrl, $bookId, $doi);
-            if ($result['status'] !== 'failed') {
-                return $result;
-            }
-            $lastFailure = $result['reason'];
-            // Reset pdf_url_status so DOI strategy isn't blocked
-            $this->setPdfUrlStatus($bookId, null);
-        }
-
-        // Strategy 4: Semantic Scholar open-access PDF discovery by DOI.
-        // Catches legal repository copies (PubMed Central etc.) that
-        // OpenAlex's OA snapshot misses — those serve to a plain HTTP client,
-        // where publisher landing pages (strategy 5) sit behind bot walls.
-        if ($doi) {
-            $s2Pdf = app(SemanticScholarService::class)->openAccessPdfByDoi($doi);
-            if ($s2Pdf && $s2Pdf !== $pdfUrl && $s2Pdf !== $oaUrl) {
-                $result = $this->downloadPdf($s2Pdf, $bookId, $doi);
-                if ($result['status'] !== 'failed') {
-                    // Persist the discovered URL so retries/provenance see it
-                    DB::connection('pgsql_admin')->table('library')
-                        ->where('book', $bookId)
-                        ->update(['pdf_url' => $s2Pdf, 'updated_at' => now()]);
-                    return $result;
-                }
-                $lastFailure = $result['reason'];
-                $this->setPdfUrlStatus($bookId, null);
-            }
-        }
-
-        // Strategy 5: Crossref-deposited full-text links (publisher TDM /
-        // syndication deposits). Often CDN-hosted and fetchable even when the
-        // landing page is walled — though some publishers (MIT Press) wall
-        // these too; each is just one cheap attempt.
-        if ($doi) {
-            foreach ($this->crossrefPdfLinks($doi) as $crUrl) {
-                if ($crUrl === $pdfUrl || $crUrl === $oaUrl) {
-                    continue;
-                }
-                $result = $this->downloadPdf($crUrl, $bookId, $doi);
-                if ($result['status'] !== 'failed') {
-                    DB::connection('pgsql_admin')->table('library')
-                        ->where('book', $bookId)
-                        ->update(['pdf_url' => $crUrl, 'updated_at' => now()]);
-                    return $result;
-                }
-                $lastFailure = $result['reason'];
-                $this->setPdfUrlStatus($bookId, null);
-            }
-        }
-
-        // Strategy 6: DOI resolution as HTML
+        // Strategy 3: DOI resolution as HTML
         if ($doi) {
             $doiUrl = 'https://doi.org/' . $doi;
             $result = $this->fetchHtml($doiUrl, $bookId);
@@ -210,7 +197,7 @@ class ContentFetchService
             $lastFailure = $result['reason'];
         }
 
-        // Strategy 7: headless browser (Playwright) — the same machinery the
+        // Strategy 4: headless browser (Playwright) — the same machinery the
         // URL-import pathway uses (scripts/fetch-pdf.mjs): clears JS
         // challenges, scrapes citation_pdf_url from the landing page, carries
         // session cookies. True last resort — a browser per source is the
@@ -227,7 +214,7 @@ class ContentFetchService
             $lastFailure = $result['reason'];
         }
 
-        // Strategy 8: browser-fetch the article HTML PAGE → paste engine.
+        // Strategy 5: browser-fetch the article HTML PAGE → paste engine.
         // The publisher's reading view often clears the bot wall its PDF
         // endpoint doesn't (proven: direct.mit.edu HTML 200 vs PDF 403). The
         // paste engine — purpose-built for journal HTML — converts it to
@@ -238,6 +225,19 @@ class ContentFetchService
             $html = $this->fetchHtmlViaBrowser($pageUrl);
             if ($html !== null) {
                 $result = $this->importViaPasteEngine($html, $bookId, $pageUrl);
+                if ($result['status'] !== 'failed') {
+                    return $result;
+                }
+                $lastFailure = $result['reason'];
+            }
+        }
+
+        // Strategy 6: FlareSolverr — a real-browser Cloudflare solver (self-
+        // hosted, opt-in). Only fires when an earlier attempt was Cloudflare-
+        // blocked AND FLARESOLVERR_URL is configured; otherwise a no-op.
+        if ($this->looksLikeCloudflareBlock($lastFailure) && ($doi || $pdfUrl || $oaUrl)) {
+            $result = $this->fetchViaFlareSolverr($libraryRecord, $bookId);
+            if ($result !== null) {
                 if ($result['status'] !== 'failed') {
                     return $result;
                 }
@@ -326,7 +326,9 @@ class ContentFetchService
         try {
             $proc = new \Symfony\Component\Process\Process(['node', base_path('scripts/fetch-html.mjs')], base_path());
             $proc->setInput(json_encode(['url' => $url]));
-            $proc->setTimeout(30);
+            // Must exceed the script's HARD_TIMEOUT (44s) — up to 2 attempts,
+            // each with an ~18s Cloudflare wait.
+            $proc->setTimeout(50);
             $proc->run();
         } catch (\Throwable $e) {
             Log::warning('Browser HTML fetch unavailable', ['url' => $url, 'error' => $e->getMessage()]);
@@ -381,8 +383,71 @@ class ContentFetchService
     }
 
     /**
+     * Find the actual PDF on a repository/handle landing page (DSpace,
+     * EPrints, hdl.handle.net, publisher article page): citation_pdf_url meta
+     * tag, then repository URL patterns. Delegates to LandingPagePdfLocator.
+     * Returns an absolute PDF URL or null. (Phase B of the OA-fetch hardening.)
+     */
+    private function locatePdfOnLanding(string $landingUrl, ?string $doi): ?string
+    {
+        // A landing URL that already looks like a PDF endpoint: use it directly.
+        if ($this->looksLikePdf($landingUrl)) {
+            return $landingUrl;
+        }
+        return app(LandingPagePdfLocator::class)->locate($landingUrl);
+    }
+
+    /** Does a fetch-failure reason look like a Cloudflare / bot-wall block? */
+    private function looksLikeCloudflareBlock(?string $reason): bool
+    {
+        if (!$reason) {
+            return false;
+        }
+        return (bool) preg_match('/cloudflare|just a moment|HTTP 40[13]\b|\b40[13]\b/i', $reason);
+    }
+
+    /**
+     * Cloudflare solver fallback (Phase D): route the work's best target
+     * through a self-hosted FlareSolverr, then re-download the PDF with the
+     * solved clearance cookies. Returns null when the solver isn't configured
+     * (no-op) so dev without the container is unaffected.
+     */
+    private function fetchViaFlareSolverr(object $libraryRecord, string $bookId): ?array
+    {
+        $client = app(FlareSolverrClient::class);
+        if (!$client->isConfigured()) {
+            return null;
+        }
+
+        $doi    = $libraryRecord->doi ?? null;
+        $pdfUrl = $libraryRecord->pdf_url ?? null;
+        $oaUrl  = $libraryRecord->oa_url ?? null;
+        $target = $pdfUrl ?: ($oaUrl ?: ($doi ? 'https://doi.org/' . $doi : null));
+        if (!$target) {
+            return null;
+        }
+
+        $solved = $client->solve($target);
+        if (!$solved) {
+            return ['status' => 'failed', 'reason' => 'FlareSolverr could not clear the challenge'];
+        }
+
+        // If the solved page is an article landing, find its PDF link.
+        $pdfTarget = $this->looksLikePdf($target) ? $target : null;
+        if (!$pdfTarget && !empty($solved['html'])) {
+            $meta = $this->extractScholarlyMetaTags($solved['html']);
+            $pdfTarget = $meta['citation_pdf_url'] ?? null;
+        }
+        $pdfTarget = $pdfTarget ?: $target;
+
+        // Re-download carrying the solved cookies + user-agent.
+        return $this->downloadPdf($pdfTarget, $bookId, $doi, $solved['cookies'] ?? [], $solved['user_agent'] ?? null);
+    }
+
+    /**
      * PDF links the publisher deposited with Crossref (TDM / syndication).
      * Returns possibly-empty list of candidate URLs.
+     * (Now also assembled inside OaLocationResolver; kept for any direct use.)
      */
     private function crossrefPdfLinks(string $doi): array
     {
@@ -416,9 +481,10 @@ class ContentFetchService
      * Download a PDF and save to disk (no OCR). Sets pdf_url_status accordingly.
      * Uses browser-like headers and DOI-first referer to avoid publisher blocks.
      */
-    private function downloadPdf(string $pdfUrl, string $bookId, ?string $doi = null): array
+    private function downloadPdf(string $pdfUrl, string $bookId, ?string $doi = null, array $extraCookies = [], ?string $userAgentOverride = null): array
     {
         $path = resource_path("markdown/{$bookId}");
+        $proxy = self::fetchProxy();
 
         try {
             // Step 1: If we have a DOI, resolve it first to get the landing page URL.
@@ -427,7 +493,7 @@ class ContentFetchService
             if ($doi) {
                 $doiUrl = 'https://doi.org/' . $doi;
                 $doiResponse = Http::withHeaders(self::browserHeaders())
-                    ->withOptions(['allow_redirects' => ['max' => 5, 'track_redirects' => true]])
+                    ->withOptions(array_merge(['allow_redirects' => ['max' => 5, 'track_redirects' => true]], $proxy))
                     ->timeout(15)
                     ->get($doiUrl);
 
@@ -438,14 +504,23 @@ class ContentFetchService
                 }
             }
 
-            // Step 2: Download the PDF with browser-like headers
+            // Step 2: Download the PDF with browser-like headers (plus any
+            // FlareSolverr-solved clearance cookies / user-agent).
             $headers = self::browserHeaders();
             $headers['Accept'] = 'application/pdf, */*';
             if ($referer) {
                 $headers['Referer'] = $referer;
             }
+            if ($userAgentOverride) {
+                $headers['User-Agent'] = $userAgentOverride;
+            }
+            if (!empty($extraCookies)) {
+                $headers['Cookie'] = collect($extraCookies)
+                    ->map(fn($v, $k) => is_array($v) ? ($v['name'] . '=' . $v['value']) : ($k . '=' . $v))
+                    ->implode('; ');
+            }
 
-            $response = Http::withHeaders($headers)->timeout(60)->get($pdfUrl);
+            $response = Http::withHeaders($headers)->withOptions($proxy)->timeout(60)->get($pdfUrl);
 
             if (!$response->successful()) {
                 $reason = "HTTP {$response->status()} fetching {$pdfUrl}";
@@ -504,6 +579,18 @@ class ContentFetchService
                 'reason' => Str::limit($e->getMessage(), 200),
             ];
         }
+    }
+
+    /**
+     * Guzzle proxy option from SOURCE_FETCH_PROXY (env, unset by default).
+     * Cloudflare hard-blocks datacenter IPs by reputation, so routing fetches
+     * through a residential/rotating proxy is often the actual fix. Returns
+     * `['proxy' => url]` or an empty array (no proxy).
+     */
+    public static function fetchProxy(): array
+    {
+        $proxy = config('services.source_fetch.proxy') ?: env('SOURCE_FETCH_PROXY');
+        return $proxy ? ['proxy' => $proxy] : [];
     }
 
     /**
@@ -923,6 +1010,13 @@ class ContentFetchService
 
             // 5. Save footnotes to DB
             $this->saveFootnotesToDatabase($path, $bookId);
+
+            // 5b. Save references to the bibliography table. process_document emits
+            // references.json (the linked bibliography) but this OCR lane historically
+            // only persisted nodes + footnotes, so every auto-versioned PDF rendered
+            // "Reference not found: <id>" for its in-text citations — the reference row
+            // was never written. The JATS/HTML lane (persistArticle) always saved them.
+            $this->saveReferencesToDatabase($path, $bookId);
 
             // 6. Update library record (don't touch creator — it's an auth field).
             // conversion_method: this path always produces machine-OCR'd content,
@@ -1440,6 +1534,16 @@ class ContentFetchService
             return;
         }
 
+        // Replace wholesale: a RE-conversion (re-OCR / re-fetch) generates fresh footnote ids, so a
+        // per-id upsert would leave every PRIOR footnote sub-book orphaned — no in-text marker points
+        // at it, yet it lingers in footnotes/nodes/library forever. Clear this book's footnote rows
+        // and their sub-books first (mirrors ReconvertSystemVersionCommand::clearBookContent), then
+        // insert the fresh set below. Guarded by the empty-data early return above, so a footnote-less
+        // conversion never wipes a good prior set.
+        $db->table('footnotes')->where('book', $bookId)->delete();
+        $db->table('nodes')->where('book', 'LIKE', "{$bookId}/%")->delete();
+        $db->table('library')->where('book', 'LIKE', "{$bookId}/%")->where('type', 'sub_book')->delete();
+
         $upsertedCount = 0;
         $enrichedForJson = [];
 
@@ -1532,5 +1636,62 @@ class ContentFetchService
         // Enriched footnotes.json artifact (preview_nodes included), like the import path
         File::put($jsonPath, json_encode($enrichedForJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         Log::info("ContentFetchService saved {$upsertedCount} footnotes", ['book' => $bookId]);
+    }
+
+    /**
+     * Persist references.json (the linked bibliography process_document emits) into the
+     * `bibliography` table so in-text citations resolve at read time. The PDF-OCR lane
+     * (processLocalPdf) previously skipped this, so auto-versioned PDFs rendered
+     * "Reference not found: <id>" for every citation. Mirrors ConversionArtifactSaver's
+     * dedup + clamp semantics, but writes via pgsql_admin (BYPASSRLS) like the sibling
+     * node/footnote savers in this flow — the harvest runner has no HTTP session, so the
+     * RLS-gated default connection would reject the insert.
+     */
+    private function saveReferencesToDatabase(string $path, string $bookId): void
+    {
+        $referencesPath = "{$path}/references.json";
+        if (!File::exists($referencesPath)) {
+            return;
+        }
+        $referencesData = json_decode(File::get($referencesPath), true);
+        if (empty($referencesData)) {
+            return;
+        }
+
+        $db = DB::connection('pgsql_admin');
+        // Replace wholesale so a re-conversion that drops references doesn't leave stale rows.
+        $db->table('bibliography')->where('book', $bookId)->delete();
+
+        $now = now();
+        $deduped = [];
+        $skippedLong = 0;
+        foreach ($referencesData as $ref) {
+            $referenceId = $ref['referenceId'] ?? null;
+            if (!$referenceId) {
+                continue;
+            }
+            // `referenceId` / `source_id` are varchar(255). A malformed key (bibliography
+            // over-extraction concatenating a paragraph into one id) overflows the column and
+            // fails the whole batch — skip it so the valid refs still save.
+            if (strlen($referenceId) > 255 || strlen($ref['source_id'] ?? '') > 255) {
+                $skippedLong++;
+                continue;
+            }
+            $deduped[$referenceId] = [
+                'book' => $bookId,
+                'referenceId' => $referenceId,
+                'source_id' => $ref['source_id'] ?? null,
+                'content' => $ref['content'] ?? '',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        foreach (array_chunk(array_values($deduped), 500) as $batch) {
+            $db->table('bibliography')->insert($batch);
+        }
+        Log::info('ContentFetchService saved references', [
+            'book' => $bookId, 'count' => count($deduped), 'skipped_overlong' => $skippedLong,
+        ]);
     }
 }

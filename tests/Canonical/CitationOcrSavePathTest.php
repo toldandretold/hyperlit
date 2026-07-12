@@ -83,6 +83,41 @@ test('footnote save accepts the pipeline footnotes.jsonl format', function () {
     }
 });
 
+test('footnote save clears stale sub-books from a prior conversion (no orphans)', function () {
+    $book = canonvSeedLibrary(['title' => 'CanonV Footnote Reconvert', 'has_nodes' => false]);
+    $dir = canonvWorkDir($book);
+
+    // Simulate a PRIOR conversion's footnote sub-book with an old id that a re-OCR will not reuse.
+    $staleSub = $book . '/oldFn_stale';
+    canonvDb()->table('footnotes')->insert([
+        'book' => $book, 'footnoteId' => 'oldFn_stale', 'content' => '<p>stale</p>',
+        'sub_book_id' => $staleSub, 'preview_nodes' => json_encode([]),
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    canonvDb()->table('library')->insert([
+        'book' => $staleSub, 'type' => 'sub_book', 'title' => 'Annotation: oldFn_stale',
+        'has_nodes' => true, 'raw_json' => json_encode([]), 'timestamp' => 1,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    File::put("{$dir}/footnotes.jsonl",
+        json_encode(['footnoteId' => 'newFn_1', 'content' => '<p>a fresh footnote</p>']) . "\n"
+    );
+
+    try {
+        canonvInvoke('saveFootnotesToDatabase', $dir, $book);
+
+        // The fresh footnote is present; the stale one and its sub-book are GONE.
+        $rows = canonvDb()->table('footnotes')->where('book', $book)->pluck('footnoteId')->all();
+        expect($rows)->toBe(['newFn_1']);
+        expect(canonvDb()->table('library')->where('book', $staleSub)->exists())->toBeFalse();
+    } finally {
+        canonvDb()->table('footnotes')->where('book', $book)->delete();
+        canonvDb()->table('library')->where('book', 'LIKE', $book . '/%')->delete();
+        File::deleteDirectory($dir);
+    }
+});
+
 test('node save is a no-op (no crash) when nodes.jsonl is absent', function () {
     $book = canonvSeedLibrary(['title' => 'CanonV Missing Jsonl', 'has_nodes' => false]);
     $dir = canonvWorkDir($book);
@@ -91,6 +126,83 @@ test('node save is a no-op (no crash) when nodes.jsonl is absent', function () {
         canonvInvoke('saveNodesToDatabase', $dir, $book);
         expect(canonvDb()->table('nodes')->where('book', $book)->count())->toBe(0);
     } finally {
+        File::deleteDirectory($dir);
+    }
+});
+
+/**
+ * Regression: the PDF-OCR lane (processLocalPdf) used to save nodes + footnotes but
+ * NEVER references.json, so every auto-versioned PDF rendered "Reference not found:
+ * <id>" in the reader — the bibliography row backing each in-text citation was never
+ * written. The JATS/HTML lane always saved them. saveReferencesToDatabase closes the gap.
+ */
+test('reference save persists references.json into the bibliography table', function () {
+    $book = canonvSeedLibrary(['title' => 'CanonV References', 'has_nodes' => false]);
+    $dir = canonvWorkDir($book);
+
+    File::put("{$dir}/references.json", json_encode([
+        ['referenceId' => 'krippendorff1980', 'content' => '<p><a class="bib-entry" id="krippendorff1980"></a>Krippendorff, K. (1980).</p>'],
+        ['referenceId' => 'berelson1952', 'content' => '<p>Berelson, B. (1952).</p>', 'source_id' => 'S123'],
+    ]));
+
+    try {
+        canonvInvoke('saveReferencesToDatabase', $dir, $book);
+
+        expect(canonvDb()->table('bibliography')->where('book', $book)->count())->toBe(2);
+        $krip = canonvDb()->table('bibliography')
+            ->where('book', $book)->where('referenceId', 'krippendorff1980')->first();
+        expect($krip)->not->toBeNull();
+        expect($krip->content)->toContain('Krippendorff');
+    } finally {
+        canonvDb()->table('bibliography')->where('book', $book)->delete();
+        File::deleteDirectory($dir);
+    }
+});
+
+test('reference save replaces existing rows and skips overlong / id-less entries', function () {
+    $book = canonvSeedLibrary(['title' => 'CanonV Ref Replace', 'has_nodes' => false]);
+    $dir = canonvWorkDir($book);
+
+    // A stale row that a re-conversion must clear.
+    canonvDb()->table('bibliography')->insert([
+        'book' => $book, 'referenceId' => 'stale1999', 'content' => '<p>stale</p>',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    File::put("{$dir}/references.json", json_encode([
+        ['referenceId' => 'good2001', 'content' => '<p>keeps</p>'],
+        ['content' => '<p>no id — skipped</p>'],
+        ['referenceId' => str_repeat('x', 300), 'content' => '<p>overlong id — skipped</p>'],
+        ['referenceId' => 'good2001', 'content' => '<p>dup — deduped</p>'],
+    ]));
+
+    try {
+        canonvInvoke('saveReferencesToDatabase', $dir, $book);
+
+        $rows = canonvDb()->table('bibliography')->where('book', $book)->get();
+        expect($rows)->toHaveCount(1);
+        expect($rows->first()->referenceId)->toBe('good2001');
+        // Stale row gone (delete-then-insert), and the overlong-id row didn't blow up the batch.
+        expect(canonvDb()->table('bibliography')->where('book', $book)->where('referenceId', 'stale1999')->exists())->toBeFalse();
+    } finally {
+        canonvDb()->table('bibliography')->where('book', $book)->delete();
+        File::deleteDirectory($dir);
+    }
+});
+
+test('reference save is a no-op (no crash) when references.json is absent or empty', function () {
+    $book = canonvSeedLibrary(['title' => 'CanonV Ref Missing', 'has_nodes' => false]);
+    $dir = canonvWorkDir($book);
+
+    try {
+        canonvInvoke('saveReferencesToDatabase', $dir, $book);
+        expect(canonvDb()->table('bibliography')->where('book', $book)->count())->toBe(0);
+
+        File::put("{$dir}/references.json", json_encode([]));
+        canonvInvoke('saveReferencesToDatabase', $dir, $book);
+        expect(canonvDb()->table('bibliography')->where('book', $book)->count())->toBe(0);
+    } finally {
+        canonvDb()->table('bibliography')->where('book', $book)->delete();
         File::deleteDirectory($dir);
     }
 });

@@ -7,12 +7,41 @@
 // Stdout protocol (JSON): { ok: true, bytes, strategy, finalUrl }
 //                      or { ok: false, reason, detail?, httpStatus?, finalUrl? }
 
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { writeFile } from 'node:fs/promises';
 
-const HARD_TIMEOUT_MS = 20_000;
-const NAV_TIMEOUT_MS = 14_000;
-const REQ_TIMEOUT_MS = 14_000;
+// Full anti-fingerprint stealth (webdriver, plugins, chrome runtime, WebGL,
+// permissions, …) — far more thorough than hand-rolled navigator overrides,
+// and enough to clear most Cloudflare JS challenges. Note: the REAL blocker
+// for a datacenter server IP is IP reputation, fixed by SOURCE_FETCH_PROXY.
+chromium.use(StealthPlugin());
+
+const HARD_TIMEOUT_MS = 34_000;
+const NAV_TIMEOUT_MS = 20_000;
+const REQ_TIMEOUT_MS = 16_000;
+
+// A Cloudflare interstitial can take a good few seconds to run its JS and set
+// the clearance cookie; give it real time before giving up.
+const CF_WAIT_MS = 18_000;
+
+// Optional residential/rotating proxy — the actual fix for datacenter-IP CF
+// blocks. Parsed from SOURCE_FETCH_PROXY (e.g. http://user:pass@host:port).
+function proxyOption() {
+    const raw = process.env.SOURCE_FETCH_PROXY;
+    if (!raw) return undefined;
+    try {
+        const u = new URL(raw);
+        const opt = { server: `${u.protocol}//${u.host}` };
+        if (u.username) opt.username = decodeURIComponent(u.username);
+        if (u.password) opt.password = decodeURIComponent(u.password);
+        return opt;
+    } catch {
+        return undefined;
+    }
+}
+
+const rand = (min, max) => min + Math.floor(Math.random() * (max - min));
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
@@ -49,16 +78,21 @@ async function writeProgress(file, stage, detail, percent) {
     }
 }
 
-// Cloudflare's "Just a moment..." interstitial sets a clearance cookie after
-// running its JS challenge. The first page load lands on the challenge; we
-// have to wait for it to redirect to the real content before scraping.
-async function waitOutCloudflare(page, budgetMs = 6000) {
+// Cloudflare's "Just a moment..." interstitial sets a cf_clearance cookie
+// after running its JS challenge, then redirects to the real content. Wait
+// for EITHER the challenge to clear from the title OR the clearance cookie to
+// appear — polling patiently, since a managed challenge can take 5–15s.
+async function waitOutCloudflare(page, context, budgetMs = CF_WAIT_MS) {
     const start = Date.now();
     while (Date.now() - start < budgetMs) {
         const title = await page.title().catch(() => '');
-        if (!/just a moment|attention required|cloudflare/i.test(title)) return;
-        await page.waitForTimeout(400);
+        const challenged = /just a moment|attention required|cloudflare|checking your browser/i.test(title);
+        if (!challenged) return true;
+        const cookies = await context.cookies().catch(() => []);
+        if (cookies.some((c) => c.name === 'cf_clearance')) return true;
+        await page.waitForTimeout(500);
     }
+    return false;
 }
 
 async function main() {
@@ -81,9 +115,11 @@ async function main() {
     try {
         // channel: 'chromium' uses the full Chromium binary (not headless-shell),
         // which is much harder for Cloudflare to fingerprint as a headless bot.
+        // The stealth plugin (chromium.use above) patches the rest.
         browser = await chromium.launch({
             channel: 'chromium',
             headless: true,
+            proxy: proxyOption(),
             args: [
                 '--disable-blink-features=AutomationControlled',
                 '--disable-features=IsolateOrigins,site-per-process',
@@ -100,15 +136,6 @@ async function main() {
         locale: 'en-US',
         timezoneId: 'America/New_York',
         extraHTTPHeaders: { 'Accept-Language': 'en-US,en;q=0.9' },
-    });
-
-    // Minimal stealth: hide the most obvious headless tells. Cloudflare's challenge
-    // runs in the page context, so init scripts override these before its checks fire.
-    await context.addInitScript(() => {
-        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-        Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-        window.chrome = { runtime: {} };
     });
 
     const page = await context.newPage();
@@ -151,7 +178,12 @@ async function main() {
                 return fail('navigation_failed', { detail: e.message });
             }
 
-            await waitOutCloudflare(page);
+            await waitOutCloudflare(page, context);
+
+            // A brief human-like pause + scroll before scraping — lets late CF
+            // redirects and lazy content settle, and looks less robotic.
+            await page.waitForTimeout(rand(600, 1400));
+            await page.mouse.wheel(0, rand(200, 600)).catch(() => {});
 
             const pdfLink = await page.evaluate(() => {
                 const meta = document.querySelector('meta[name="citation_pdf_url"]');

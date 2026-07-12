@@ -15,6 +15,36 @@ from ingestion.pdf.recovery import (  # noqa: F401
     fix_mangled_urls, extract_pypdf_footnote_defs, recover_missing_defs,
 )
 
+# A footer line that opens a footnote DEFINITION, restricted to the marker shapes the shared
+# normaliser (normalize_all_footnote_refs → the `^[^N] text` → `[^N]:` rule) reliably turns into a
+# definition: unicode superscript (⁹), LaTeX ($^{25}$), or bracket ([^9] / [9]). A PLAIN leading
+# number ("6 Engels…") is deliberately EXCLUDED — it is ambiguous with list items / page numbers and
+# the normaliser leaves it as prose, so pulling it in would only inject an unlinked paragraph
+# (page-bottom-plain-number defs stay the province of the notes-page conversion + pypdf recovery).
+_FOOTER_FN_DEF_SIGNAL = re.compile(
+    r'(?m)^\s*(?:'
+    r'[¹²³⁰-⁹]'            # unicode superscript digit
+    r'|\$\^\{?\d+\}?\$'                             # $^{N}$
+    r'|\[\^?\d+\]'                                  # [^N] or [N]
+    r')'
+)
+
+
+def _footer_footnote_defs(footer):
+    """Return the footer's text when it carries page-bottom footnote DEFINITIONS, else ''.
+
+    Mistral OCR is called with extract_footer=True, so it splits page-bottom footnotes into
+    each page's `footer` field. assemble_markdown historically read only `markdown`, silently
+    dropping every footnote whose definition landed in the footer — the Calvo-Clause bug
+    (58 defs collapsed to the 5 that happened to land inline, so every in-text marker rendered
+    unmatched). We pull the footer back into the page body IN PAGE ORDER, so the definitions
+    ascend into a single section that the sequential linker can match. Gated on a real def
+    signal so pure page-chrome footers (page numbers, running journal lines) are left alone."""
+    if not footer or not footer.strip():
+        return ''
+    return footer.strip() if _FOOTER_FN_DEF_SIGNAL.search(footer) else ''
+
+
 class DefaultAssembler(FootnoteAssembler):
     """Generic / unknown path: per-page keeps the body (base), post-combine normalizes refs + defs."""
     plain = ('No special layout — generic cleanup. Normalises whatever footnote refs/defs it finds and '
@@ -388,6 +418,20 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
             md = re.sub(r'^(\d{1,3}) ([A-Z\u2018\u201c\'"])', r'[^\1]: \2', md, flags=re.MULTILINE)
             # Also handle [N] text format — bracket-wrapped definitions
             md = re.sub(r'^\[(\d{1,3})\] (.+)', r'[^\1]: \2', md, flags=re.MULTILINE)
+
+        # Page-bottom footnote DEFINITIONS the OCR split into `footer` (extract_footer=True).
+        # Without this they are dropped entirely (assembly reads only `markdown`); append them to
+        # the page body so per_page + post_combine normalise them like inline footnotes. Page order
+        # keeps the [^N] ascending → one def section that matches the single ref section, instead of
+        # relying on the pypdf fallback (which needs the original PDF and so never runs on replay).
+        # Skipped for chapter_endnotes / wackSTEM: those apply a per-chapter/per-section number
+        # OFFSET, so a stray page-bottom def would be re-keyed to the wrong note (a confident wrong
+        # link). Their own assemblers + the pypdf pass own definition recovery.
+        if classification not in ("chapter_endnotes", "wackSTEMbibliographyNotes"):
+            footer_defs = _footer_footnote_defs(page.get("footer") or "")
+            if footer_defs:
+                md = f"{md}\n\n{footer_defs}" if md_stripped else footer_defs
+                md_stripped = md.strip()
 
         # Per-classification per-page footnote handling (renumber / convert / offset + append).
         assembler.per_page(ctx, i, page, md, md_stripped)

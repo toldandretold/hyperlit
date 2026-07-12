@@ -20,7 +20,9 @@ use Symfony\Component\Process\Process;
 class PlaywrightPdfFetcher implements ContentFetcher
 {
     /** Symfony Process wall-clock. Node script's own hard timeout is ~20s; we add headroom. */
-    private const WALL_CLOCK_SECONDS = 22;
+    // Must exceed the script's HARD_TIMEOUT (34s) so PHP doesn't kill the
+    // browser mid-challenge — the CF wait alone is up to ~18s now.
+    private const WALL_CLOCK_SECONDS = 42;
 
     public function supports(Identifier $id, SourceMetadata $metadata): bool
     {

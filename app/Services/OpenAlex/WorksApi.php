@@ -114,6 +114,28 @@ class WorksApi
     }
 
     /**
+     * Fetch a single work by its OpenAlex id (e.g. "W2126853606").
+     * Returns a normalised work array (incl. oa_locations), or null.
+     */
+    public function fetchByOpenAlexId(string $openalexId): ?array
+    {
+        $response = $this->http->retryableGet(OpenAlexHttpClient::BASE_URL . '/works/' . $openalexId, [
+            'select' => OpenAlexHttpClient::SELECT_FIELDS,
+        ]);
+
+        if (!$response->successful()) {
+            return null;
+        }
+
+        $work = $response->json();
+        if (empty($work) || empty($work['id'])) {
+            return null;
+        }
+
+        return $this->normaliser->normaliseWork($work);
+    }
+
+    /**
      * Fetch multiple works by DOI concurrently via the pooled batch loop.
      *
      * @param array $dois Keyed by referenceId: ['ref1' => '10.xxx/yyy', ...]

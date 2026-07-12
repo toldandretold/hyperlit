@@ -21,10 +21,19 @@ beforeEach(function () {
 
 function avcCreator(?ContentFetchService $fetcher = null): AutoVersionCreator
 {
+    $fetcher = $fetcher ?? Mockery::mock(ContentFetchService::class);
+    // AutoVersionCreator reads the fetch trace (winning OA host / candidate
+    // count) after every fetch — stub it permissively so tests only need to
+    // express the fetch() behaviour they care about.
+    if ($fetcher instanceof \Mockery\MockInterface) {
+        $fetcher->shouldReceive('lastFetchTrace')
+            ->andReturn(['candidates' => 0, 'won_host' => null, 'won_source' => null])
+            ->byDefault();
+    }
     return new AutoVersionCreator(
         new AutoVersionResolver(),
         new SystemVersionMinter(),
-        $fetcher ?? Mockery::mock(ContentFetchService::class)
+        $fetcher
     );
 }
 

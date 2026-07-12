@@ -142,10 +142,17 @@ class HarvestRunner
                     $counts[$status === 'error' ? 'errors' : $status] =
                         ($counts[$status === 'error' ? 'errors' : $status] ?? 0) + 1;
 
+                    // Surface which OA copy won / how many were tried (Phase E
+                    // of the OA-fetch hardening) so a run's telemetry shows
+                    // "imported from europepmc.org" vs "tried 4, all walled".
+                    $via = $result['via'] ?? null;
+                    $detail = "{$label} — {$status}"
+                        . ($via ? " {$via}" : '')
+                        . ($result['reason'] ? " ({$result['reason']})" : '');
                     $telemetry->emit(
                         'harvest',
                         in_array($status, ['assigned', 'assigned_existing'], true) ? 'progress' : 'skipped',
-                        "{$label} — {$status}" . ($result['reason'] ? " ({$result['reason']})" : ''),
+                        $detail,
                         array_filter(['lane' => $result['lane']])
                     );
 

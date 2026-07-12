@@ -19,7 +19,7 @@ class OpenAlexHttpClient
 {
     public const BASE_URL = 'https://api.openalex.org';
     public const USER_AGENT = 'Hyperlit/1.0 (mailto:sam@hyperlit.io)';
-    public const SELECT_FIELDS = 'id,title,authorships,publication_year,primary_location,best_oa_location,doi,biblio,open_access,type,language,cited_by_count,abstract_inverted_index';
+    public const SELECT_FIELDS = 'id,title,authorships,publication_year,primary_location,best_oa_location,locations,doi,biblio,open_access,type,language,cited_by_count,abstract_inverted_index';
 
     /**
      * Make an HTTP GET request with retry logic for 429 rate limiting.

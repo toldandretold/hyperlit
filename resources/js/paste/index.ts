@@ -197,6 +197,29 @@ async function syncPasteToPostgreSQL(bookId: BookId) {
 
     await response.json();
 
+    // Push paste-seeded footnotes + references now. Their eager per-store syncs are
+    // SKIPPED while a paste is in progress (see indexedDB/footnotes & bibliography):
+    // during a paste into a fresh book those fire before the `library` row exists
+    // server-side and get rejected 500 by the footnotes/bibliography RLS insert policy.
+    // We're past getInitialBookSyncPromise() here, so the book row is guaranteed to
+    // exist and the inserts pass. Non-fatal — nodes are the primary payload.
+    try {
+      const [{ getAllFootnotesForBook, syncFootnotesToPostgreSQL }, { getAllReferencesForBook, syncReferencesToPostgreSQL }] = await Promise.all([
+        import('../indexedDB/footnotes/index'),
+        import('../indexedDB/bibliography/index'),
+      ]);
+      const footnotes = await getAllFootnotesForBook(bookId);
+      if (footnotes.length > 0) {
+        await syncFootnotesToPostgreSQL(bookId, footnotes);
+      }
+      const references = await getAllReferencesForBook(bookId);
+      if (references.length > 0) {
+        await syncReferencesToPostgreSQL(bookId, references);
+      }
+    } catch (fnRefErr) {
+      log.error('Post-paste footnote/reference sync failed', '/paste/index.ts', fnRefErr);
+    }
+
     // Show green tick when sync completes
     glowCloudGreen();
 

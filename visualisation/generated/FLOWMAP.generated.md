@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1641 functions in 350 modules · 10 object stores · 10 PG tables · 3317 edges
+**MarkdownDB** schema v28 · 1643 functions in 350 modules · 10 object stores · 10 PG tables · 3321 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1041,6 +1041,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `fetchLibraryFromServer` | `hyperlitContainer/utils` | — | — | read | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `formatRelativeTime` | `hyperlitContainer/utils` | — | — | — | — |
 | `scrollFocusedElementIntoView` | `hyperlitContainer/utils` | — | — | read | — |
+| `getAllReferencesForBook` | `indexedDB/bibliography/index` | `bibliography` | — | — | — |
 | `initReferencesDependencies` | `indexedDB/bibliography/index` | — | — | — | — |
 | `resolveBibliographyTarget` | `indexedDB/bibliography/index` | — | — | — | `↑route:/api/canonical` |
 | `saveAllReferencesToIndexedDB` | `indexedDB/bibliography/index` | — | `bibliography` | — | — |
@@ -1073,6 +1074,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getLocalStorageKey` | `indexedDB/core/utilities` | — | — | — | — |
 | `parseNodeId` | `indexedDB/core/utilities` | — | — | — | — |
 | `toPublicNode` | `indexedDB/core/utilities` | — | — | — | — |
+| `getAllFootnotesForBook` | `indexedDB/footnotes/index` | `footnotes` | — | — | — |
 | `initFootnotesDependencies` | `indexedDB/footnotes/index` | — | — | — | — |
 | `saveAllFootnotesToIndexedDB` | `indexedDB/footnotes/index` | — | `footnotes` | — | — |
 | `syncFootnotesToPostgreSQL` | `indexedDB/footnotes/syncFootnotesToPostgreSQL` | — | — | read | `↑route:/api/db/footnotes/upsert` |
@@ -1654,7 +1656,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 3 · dynamic cycle-breakers (debt): 3 · lazy-loads (code-split): 238
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 3 · dynamic cycle-breakers (debt): 3 · lazy-loads (code-split): 240
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1861,7 +1863,9 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `paste/handlers/novelVacuumHandler` → `indexedDB/index`
 - `paste/index` → `divEditor/index`
 - `paste/index` → `footnotes/FootnoteNumberingService`
+- `paste/index` → `indexedDB/bibliography/index`
 - `paste/index` → `indexedDB/core/connection`
+- `paste/index` → `indexedDB/footnotes/index`
 - `paste/index` → `indexedDB/index`
 - `scrolling/internalNav` → `SPA/navigation/resolveTargetChunk`
 - `scrolling/internalNav` → `components/toast/toast`

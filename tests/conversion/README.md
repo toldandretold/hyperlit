@@ -181,6 +181,23 @@ python3 tests/conversion/run_regression.py --update-golden --fixture <case>
 - **Committed fixtures are 100% synthetic** (no copyrighted content). Real harvested books live
   in the git-ignored `fixtures-local/` (still discovered + run locally, tagged `[local]`).
 
+### 3a. Getting MORE real fixtures (`fixtures-local/`)
+
+When you go to improve conversion, you want a big pile of *real* books to test against — not just the synthetic ones. Everything ever imported lives in `resources/markdown/<book>/` with its raw input (`ocr_response.json` for PDFs, `epub_original/` for epubs, `original.html`/`.md`/`input.docx` otherwise) and its conversion output. These three tools turn that corpus into runnable fixtures under the git-ignored `fixtures-local/` (proprietary content never enters the committed tree). Each captures the source + a golden snapshot + a manifest, then **re-runs the suite on the new fixture and rolls it back if it can't pass** — so a captured fixture is always green on capture.
+
+- **`harvest_auto_versions.py` — the auto-versioned canonical PDF corpus.** Pulls every `library` row stamped `canonical_match_method = 'auto_version_creation'` (the OA canonicals the source-network harvester mints, see `app/Services/SourceHarvest`) that still has replayable PDF raw on disk. This is the fast way to grow the *PDF* corpus from real scholarly articles. It queries Postgres itself (creds from `.env`, via `psql` — no extra deps) and REPORTS the rows it skips (html-scrape / failed-fetch / missing raw) so nothing is silently dropped. `--dry-run` to classify + report only; `--refresh` to re-capture existing (e.g. after a pipeline change, to refreeze goldens); `--books UUID1,UUID2` for an explicit subset. Captures land in `fixtures-local/pdf/<pathway>/<uuid>/` (each carries `ocr_response.json`, `source.pdf`, `golden/`, and a `manifest.json` with a `source{}` provenance block).
+
+```sh
+python3 tests/conversion/harvest_auto_versions.py --dry-run   # see the corpus, write nothing
+python3 tests/conversion/harvest_auto_versions.py             # capture + verify all PDF ones
+```
+
+- **`harvest.py` — one fixture per UNCOVERED pathway, swept from the whole local corpus.** Dedups `resources/markdown/` by content, classifies each distinct source through the current pipeline, and captures a fixture for every pathway not yet covered — plus it FLAGS faulty conversions (audit gaps / unmatched refs) as candidate bugs. Use this to widen *pathway* coverage across all filetypes (pdf/epub/html/md/docx), not to bulk-import a specific set. `--dry-run` to classify + report; `--capture-faulty` to also capture the faulty ones (locks current output as a baseline to improve against).
+
+- **`add_fixture.py` — one specific book, by directory.** Point it at any `resources/markdown/<book>/` (or any dir with an `ocr_response.json` / `debug_converted.html`) and give it a `--name` + `--description`. Use this when you have a single book that reproduces a bug you want to pin.
+
+A "shit conversion" you spot in the reader becomes a regression fixture this way: find its book id (it's the URL slug, e.g. `hyperlit.test/<book>`), capture it, then strengthen its `manifest.json` `expected{}` (add the `footnote_links`/`references_count`/`max_unmatched_defs` that SHOULD hold) so the suite fails until the pipeline is fixed. Note the goldens freeze *current* output — they catch drift, not latent wrongness; the manifest assertions are where you encode "correct".
+
 ## 4. Unit tests (`unit/`, pytest)
 
 ```sh
