@@ -4,6 +4,7 @@
 // setupBibtexModeAutoReveal / checkBibtexAndReveal of newBookForm.js.
 import { $, qs } from './dom';
 import { generateBookIdFromMetadata, findAvailableBookId, updateBookUrlPreview } from './bookId';
+import { sanitizeYearForAutofill, sanitizeTitleForAutofill } from './autofillRules';
 
 export function populateFieldsFromBibtex() {
   const bibtexField = $('bibtex');
@@ -43,6 +44,14 @@ export function populateFieldsFromBibtex() {
         if (field === 'url' && newVal && !newVal.match(/^https?:\/\//i)) {
           newVal = `https://${newVal}`;
         }
+
+        // Never autofill a value the form's own rules reject (an out-of-range
+        // year leaves the submit blocked by native min/max validation).
+        if (field === 'year') {
+          newVal = sanitizeYearForAutofill(newVal);
+          if (!newVal) return;
+        }
+        if (field === 'title') newVal = sanitizeTitleForAutofill(newVal);
 
         if (element.value !== newVal) {
           element.value = newVal;

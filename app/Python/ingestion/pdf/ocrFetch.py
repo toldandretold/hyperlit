@@ -55,16 +55,21 @@ def _get_signed_url_with_retry(client, file_id, expiry=1, attempts=6):
     raise last_err
 
 
-def _run_ocr(client, document):
+def _run_ocr(client, document, model="mistral-ocr-latest"):
     """Run Mistral OCR on an already-resolved document reference and return the dict.
 
     `document` is either an inline base64 data-URL or a signed URL — both take the
     same {"type": "document_url", "document_url": ...} shape, so the OCR call and
     its options live here once for both delivery paths.
+
+    `model` defaults to the production alias `mistral-ocr-latest`; the version-
+    comparison harness overrides it with a pinned dated id (e.g. mistral-ocr-2503).
+    (OCR 4's structural `blocks` are NOT reachable through this SDK's typed
+    `process()` — the harness probes those via a raw /v1/ocr POST instead.)
     """
     ocr_response = client.ocr.process(
         document=document,
-        model="mistral-ocr-latest",
+        model=model,
         include_image_base64=True,
         extract_header=True,
         extract_footer=True,
@@ -103,7 +108,7 @@ def _upload_and_get_signed_url(client, pdf_path, upload_attempts=2):
     raise last_err
 
 
-def fetch_ocr(pdf_path, api_key):
+def fetch_ocr(pdf_path, api_key, model="mistral-ocr-latest"):
     """Send a PDF to Mistral OCR and return the raw response dict.
 
     Small PDFs (<= INLINE_MAX_BYTES) are sent inline as a base64 data-URL, skipping
@@ -111,6 +116,9 @@ def fetch_ocr(pdf_path, api_key):
     the "No file matches the given query" 404 (see INLINE_MAX_BYTES). Larger files
     must upload (base64 would exceed the request-size limit); that path re-uploads on
     a persistent 404 via `_upload_and_get_signed_url`.
+
+    `model` passes straight through to `_run_ocr` (default keeps production
+    behaviour; the version-comparison harness overrides it with a pinned version).
     """
     client = Mistral(api_key=api_key)
 
@@ -120,12 +128,12 @@ def fetch_ocr(pdf_path, api_key):
         b64 = base64.b64encode(pdf_path.read_bytes()).decode()
         document = {"type": "document_url", "document_url": f"data:application/pdf;base64,{b64}"}
         print("Running OCR... (this may take a few minutes)")
-        return _run_ocr(client, document)
+        return _run_ocr(client, document, model=model)
 
     print(f"Uploading {pdf_path.name} ({file_size / 1024 / 1024:.1f}MB)...")
     signed_url = _upload_and_get_signed_url(client, pdf_path)
     print("Running OCR... (this may take a few minutes)")
-    return _run_ocr(client, {"type": "document_url", "document_url": signed_url.url})
+    return _run_ocr(client, {"type": "document_url", "document_url": signed_url.url}, model=model)
 
 
 def split_pdf_into_chunks(pdf_path, target_bytes, work_dir):
@@ -180,12 +188,15 @@ def split_pdf_into_chunks(pdf_path, target_bytes, work_dir):
     return chunk_paths
 
 
-def fetch_ocr_chunked(pdf_path, api_key, work_dir):
+def fetch_ocr_chunked(pdf_path, api_key, work_dir, model="mistral-ocr-latest"):
     """For PDFs over Mistral's 50MB limit: split, OCR each chunk, merge responses.
 
     Image IDs are namespaced per chunk (e.g. c0-img-0.jpeg) to prevent collisions
     when save_images() writes them to media/. Markdown image refs in each page are
     rewritten to match.
+
+    `model` passes through to each chunk's `fetch_ocr` call (default keeps
+    production behaviour; the harness overrides it with a pinned version).
     """
     file_mb = pdf_path.stat().st_size / 1024 / 1024
     emit_progress(
@@ -205,7 +216,7 @@ def fetch_ocr_chunked(pdf_path, api_key, work_dir):
             percent, "ocr_chunk",
             f"Running OCR on chunk {i + 1} of {n} (each chunk takes around 30-60 seconds)..."
         )
-        chunk_response = fetch_ocr(chunk_path, api_key)
+        chunk_response = fetch_ocr(chunk_path, api_key, model=model)
 
         if i > 0:
             chunk_boundary_indices.append(len(merged_pages))

@@ -124,7 +124,14 @@ export async function _awaitReconvert(self: any, result: any, bookId: any, progr
       (audit.unmatched_defs?.length || 0) +
       (audit.duplicates?.length || 0) > 0;
     if (hasIssues) {
+      // The reconvert blocking overlay sits at z-index 2147483646; the audit modal
+      // (.custom-alert-overlay) is z-index 9999, so it renders BEHIND the opaque overlay —
+      // the user sees "Import complete! 100%" with an invisible, unclickable modal and the
+      // await never resolves (the reconvert-from-cache hang). Drop the overlay while the modal
+      // is up, then restore it before the IDB clear + reload continue behind it.
+      hideReconvertOverlay();
       await showFootnoteAuditModal(audit, bookId, { mode: 'reconvert' });
+      showReconvertOverlay('Finishing…');
     }
   }
 

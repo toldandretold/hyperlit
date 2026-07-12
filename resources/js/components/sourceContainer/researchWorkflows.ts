@@ -24,25 +24,46 @@ export function isCommonsBook(record: any): boolean {
 }
 
 /**
- * The Research Workflows section HTML — only for commons books. A plain heading
- * (like the other source-container sections), not a dropdown. Logged-in viewers
- * get the AI-review + harvest tools; guests get a log-in prompt. Returns '' for
- * non-commons books (owners keep their normal tools).
+ * The Research Workflows section HTML — only for commons books. A collapsible
+ * heading (styled like the standard source-container headings, with a chevron),
+ * open by default. Logged-in viewers get the AI-review + harvest tools, each
+ * under its own heading; guests get a log-in prompt. Returns '' for non-commons
+ * books (owners keep their normal tools).
  */
-export function researchWorkflowsSectionHtml(record: any): string {
-  if (!isCommonsBook(record)) return '';
+export function researchWorkflowsSectionHtml(record: any, canEdit = false): string {
+  const commons = isCommonsBook(record);
+  // Shown to the book's owner (their own book) OR any viewer of a commons book.
+  if (!commons && !canEdit) return '';
 
   const isLoggedIn = getAuthContextSync()?.isLoggedIn;
 
-  const inner = isLoggedIn
-    ? `${aiReviewSectionHtml(record)}
-       <div id="harvest-network-section" style="margin-top: 15px;"></div>`
-    : `<p style="font-size: 12px; color: var(--color-text-faint); margin: 6px 0 0;">Log in to run these on this commons text.</p>`;
+  // Always render both tools (each under its own heading). When logged out the
+  // buttons render dimmed and a click routes to login — the same behaviour as
+  // trying to import a PDF while anonymous.
+  const loginHint = isLoggedIn ? '' :
+    `<p style="font-size: 12px; color: var(--color-text-faint); margin: 6px 0 0;">Log in to run these on this commons text.</p>`;
+  const inner = `${aiReviewSectionHtml(record)}
+       <h3 style="margin-top: 15px;">Knowledge Commons Harvester</h3>
+       <div id="harvest-network-section"></div>
+       ${loginHint}`;
+
+  // Intro reflects the two contexts. Commons: anyone can enrich it. Owned book:
+  // the owner enriches their own text (results still benefit every reader).
+  const intro = commons
+    ? 'These tools use AI-integrated data pipelines to review this text’s citations and fetch its cited sources. They rely on external services, so they are not free — but because this book is part of the digital commons, the results are cumulative and benefit everyone. Please report any issues to fml@hyperlit.io'
+    : 'These tools use AI-integrated data pipelines to review this book’s citations and harvest its open-access cited sources. They rely on external services, so they are not free — the source texts they bring in benefit every reader.';
 
   return `<div id="research-workflows-section" style="margin-top: 15px; padding-top: 15px;">
-    <h3>Research Workflows</h3>
-    <p style="font-size: 11px; color: var(--color-text-faint); margin: 0 0 6px; line-height: 1.5;">This is an open-access commons text — nobody owns it. Anyone can enrich it; the results benefit every reader, and you only pay for works not already fetched.</p>
-    ${inner}
+    <button type="button" id="research-workflows-toggle" aria-expanded="false">
+      <span>Research Workflows</span>
+      <svg class="research-workflows-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"></polyline>
+      </svg>
+    </button>
+    <div id="research-workflows-content" style="display: none;">
+      <p style="font-size: 11px; color: var(--color-text-faint); margin: 0 0 6px; line-height: 1.5;">${intro}</p>
+      ${inner}
+    </div>
   </div>`;
 }
 

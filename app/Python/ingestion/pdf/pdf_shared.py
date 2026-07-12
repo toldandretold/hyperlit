@@ -58,6 +58,34 @@ def expand_latex_superscripts(text):
     return _LATEX_SUP_RE.sub(repl, text)
 
 
+# A bare-caret footnote marker/def — Mistral sometimes OCRs a superscript as a literal "^24" instead
+# of ²⁴ / $^{24}$ (Barro 1974 fn 23/24: "proceeds^24—", "^23 This analysis…"). It is AMBIGUOUS with a
+# math exponent ("(1-r)^2", "A^o"), so we convert ONLY when the digits are followed by a NON-alphanumeric
+# boundary (space / dash / punctuation / EOL) — an exponent is followed by a letter/variable or the
+# expression continues — and the caret is preceded by a word char or sentence punctuation (not "{"/"_",
+# which sit inside maths). Math inside $…$ / $$…$$ is masked out first so exponents there are untouched.
+_MATH_SPAN_RE = re.compile(r'\$\$.+?\$\$|\$(?!\$).+?(?<!\$)\$', re.DOTALL)
+_BARE_CARET_FN_RE = re.compile(r'(?<=[A-Za-z0-9.,;:!?)\'"’”])\^(\d{1,3})(?![A-Za-z0-9])')
+
+
+def convert_bare_caret_footnotes(text):
+    """"word^24" / line-start "^24 Text" → "[^24]" — outside maths only."""
+    spans = []
+
+    def _mask(m):
+        spans.append(m.group(0))
+        return f'\x00CARETMATH{len(spans) - 1}\x00'
+
+    masked = _MATH_SPAN_RE.sub(_mask, text)
+    # inline markers (preceded by a word/punct)
+    masked = _BARE_CARET_FN_RE.sub(lambda m: f'[^{m.group(1)}]', masked)
+    # line-start definition form "^24 Text"
+    masked = re.sub(r'(?m)^(\s*)\^(\d{1,3})(?=\s)', r'\1[^\2]', masked)
+    for i, s in enumerate(spans):
+        masked = masked.replace(f'\x00CARETMATH{i}\x00', s)
+    return masked
+
+
 def convert_inline_footnote_markers(md, strip_italic_brackets=False):
     """The PER-PAGE inline footnote-MARKER converter, shared by the page_bottom / chapter_endnotes /
     document_endnotes assemblers (it was copy-pasted verbatim in all three). Turns OCR's varied marker
@@ -72,6 +100,7 @@ def convert_inline_footnote_markers(md, strip_italic_brackets=False):
     *[2]* \u2192 [2] first (the document_endnotes variant)."""
     md = convert_footnotes(md)
     md = expand_latex_superscripts(md)
+    md = convert_bare_caret_footnotes(md)
     if strip_italic_brackets:
         md = re.sub(r'\*\[(\d{1,3})\]\*', r'[\1]', md)
 
@@ -111,12 +140,22 @@ def normalize_all_footnote_refs(text):
     # Step 2: Convert LaTeX superscripts: $^{5}$ or $^5$ → [^5]; $^{1,2}$ → [^1][^2]
     text = expand_latex_superscripts(text)
 
-    # Step 3: Collect known [^N] positions
-    known = [(m.start(), int(m.group(1))) for m in re.finditer(r'\[\^(\d+)\]', text)]
-    if not known:
-        return text
+    # Step 2b: bare-caret superscripts Mistral left as "^24" (footnote refs/defs, not math exponents)
+    text = convert_bare_caret_footnotes(text)
 
-    max_known = max(n for _, n in known)
+    # Step 3: Collect known [^N] positions — IN-TEXT REFS ONLY for the positional sequence.
+    # A line-start [^N] is a DEFINITION line; definitions now live in one trailing block (the
+    # assemblers defer them to the document end), so letting them anchor position-validation makes
+    # every late-body candidate see next_known = 1 (the def block's first line) and get rejected —
+    # Barro's final "…capital formation.29" stayed literal text. Defs still count toward max_known
+    # (the plausible-number ceiling).
+    all_marks = [(m.start(), int(m.group(1))) for m in re.finditer(r'\[\^(\d+)\]', text)]
+    if not all_marks:
+        return text
+    known = [(pos, num) for pos, num in all_marks
+             if not (pos == 0 or text[pos - 1] == '\n')]
+
+    max_known = max(n for _, n in all_marks)
 
     # Step 4: Collect candidates
 
@@ -597,6 +636,9 @@ class AssemblyContext:
         self.seen_sections = set()
         self.global_fn_counter = 1          # for page_bottom renumbering
         self.fn_defs_parts = []             # collected footnote definitions for page_bottom
+        self.deferred_defs_parts = []       # defs deferred to doc end: inline splits + footer recoveries (Default path)
+        self.open_def_continuation = False  # a deferred def was cut mid-sentence at the page turn (Default path)
+        self.footer_bare_candidates = {}     # {num: text} bare-number footer defs, injected only if [^N] is orphaned
         self.def_heavy_pages = set()
         self.chapter_fn_offsets = None
         self.notes_transition_pages = {}    # page_idx → (threshold, old_offset, new_offset)

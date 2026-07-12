@@ -66,6 +66,10 @@ tests/conversion/corpus/*
 !tests/conversion/corpus/README.md
 tests/conversion/vibe_eval_report.json
 tests/conversion/vibe_eval_report.md
+# OCR version-comparison harness: drop input PDFs in -in/, generated caches +
+# REPORT.md land in -out/ (base64-heavy, real book content). The script itself IS tracked.
+tests/conversion/ocr-compare-in/
+tests/conversion/ocr-compare-out/
 .css-cascade-snapshots/
 .css-style-parity/
 

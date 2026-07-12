@@ -70,6 +70,21 @@ def test_page_bottom_classifier_both_gates():
     assert M.PageBottomClassifier().matches(_sig(co_location_ratio=0.1)) is False
 
 
+def test_page_bottom_classifier_ocr_diluted_coloc_gate():
+    # Bedjaoui "Towards a NIEO": page-bottom footnotes, but messy OCR dropped defs on many ref pages
+    # so overall co-location reads LOW (0.29). The defs that survived sit WITH their refs
+    # (31/33 def-pages carry refs → def_coloc 0.94), numbering restarts (rf 0.98), no notes section.
+    # page_bottom is checked before chapter_endnotes → it must claim this instead of mis-routing to
+    # chapter_endnotes (which found no notes pages and extracted 0 footnotes).
+    bedjaoui = _sig(co_location_ratio=0.29, pages_with_refs=107, pages_with_defs=33,
+                    pages_with_both=31, reset_frequency=0.98, notes_page_count=0, max_ref_number=5)
+    assert M.PageBottomClassifier().matches(bedjaoui) is True
+    # Guard: genuine separated endnotes (def pages are ref-FREE → def_coloc low) must NOT be claimed.
+    separated = _sig(co_location_ratio=0.1, pages_with_refs=100, pages_with_defs=10,
+                     pages_with_both=1, reset_frequency=0.9, notes_page_count=0)
+    assert M.PageBottomClassifier().matches(separated) is False
+
+
 def test_chapter_endnotes_classifier_gates():
     notes = _sig(notes_page_count=2, co_location_ratio=0.0)
     assert M.ChapterEndnotesClassifier().matches(notes) is True

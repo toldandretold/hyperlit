@@ -3,6 +3,7 @@
 // behavior is wired by citeForm/index.ts (initializeCitationFormListeners).
 import { getImportEncryptIntent } from '../encryptIntent';
 import { encryptedLockSvg } from '../../../e2ee/ui/lockIcon';
+import { YEAR_MIN, yearMax } from './autofillRules';
 
 export function getCiteFormHTML(): string {
   // Get the CSRF token from the meta tag.
@@ -159,7 +160,7 @@ export function getCiteFormHTML(): string {
             <input type="text" id="author" name="author" placeholder="Author name">
 
             <label for="year">Year</label>
-            <input type="number" id="year" name="year" min="1000" max="${new Date().getFullYear() + 10}" placeholder="Publication year">
+            <input type="number" id="year" name="year" min="${YEAR_MIN}" max="${yearMax()}" placeholder="Publication year">
 
             <label for="url">URL</label>
             <input type="url" id="url" name="url" placeholder="https://...">

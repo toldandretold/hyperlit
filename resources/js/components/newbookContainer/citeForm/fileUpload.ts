@@ -9,6 +9,7 @@ import { getCurrentUserInfo } from '../../../utilities/auth/index';
 import { showImportFailureModal } from '../../../conversion/bugReportModal.js';
 import { attachFilesToInput } from '../../utilities/fileImportHelpers';
 import { isNativeShell } from '../../../utilities/nativeBridge';
+import { sanitizeYearForAutofill, sanitizeTitleForAutofill } from './autofillRules';
 
 // ─── PDF Cost Estimate ───────────────────────────────────────────────
 const MISTRAL_OCR_COST_PER_1K_PAGES = 1.00;
@@ -69,12 +70,14 @@ async function showPdfCostEstimate(file: any) {
     try {
       const meta = await pdf.getMetadata();
       const info = meta?.info || {};
-      pdfTitle = (info.Title || '').trim();
+      pdfTitle = sanitizeTitleForAutofill(info.Title);
       pdfAuthor = (info.Author || '').trim();
       // PDF dates are typically "D:YYYYMMDDHHmmSS" or similar
       const creationDate = info.CreationDate || '';
       const yearMatch = creationDate.match(/D:(\d{4})/) || creationDate.match(/(\d{4})/);
-      if (yearMatch) pdfYear = yearMatch[1];
+      // Garbage CreationDates (e.g. "D:0000...") must not autofill an
+      // out-of-range year the form's min/max would reject.
+      if (yearMatch) pdfYear = sanitizeYearForAutofill(yearMatch[1]);
     } catch (metaErr) {
       console.warn('PDF metadata extraction failed (non-fatal):', metaErr);
     }
@@ -238,14 +241,16 @@ export async function handleFileMetadataExtraction(fileInput: any) {
         el.dispatchEvent(new Event('input', { bubbles: true }));
       }
     };
-    setIfEmpty('title', meta.title);
+    const metaTitle = sanitizeTitleForAutofill(meta.title);
+    const metaYear = sanitizeYearForAutofill(meta.year);
+    setIfEmpty('title', metaTitle);
     setIfEmpty('author', meta.author);
-    setIfEmpty('year', meta.year);
+    setIfEmpty('year', metaYear);
 
     // Auto-generate book ID if empty
     const bookField = $('book');
-    if (bookField && !bookField.value.trim() && (meta.title || meta.author)) {
-      const generatedId = generateBookIdFromMetadata(null, meta.title, meta.author, meta.year);
+    if (bookField && !bookField.value.trim() && (metaTitle || meta.author)) {
+      const generatedId = generateBookIdFromMetadata(null, metaTitle, meta.author, metaYear);
       if (generatedId) {
         const availableId = await findAvailableBookId(generatedId);
         bookField.value = availableId;

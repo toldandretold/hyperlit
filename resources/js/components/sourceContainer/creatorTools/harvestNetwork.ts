@@ -7,7 +7,10 @@
 import { book } from '../../../app';
 import { alertDialog, choiceDialog, formDialog } from '../../dialog/dialog';
 import { log } from '../../../utilities/logger';
-import { getAuthContext } from '../../../utilities/auth/session';
+import { getAuthContext, getAuthContextSync } from '../../../utilities/auth/session';
+import { isLoggedIn } from '../../../utilities/auth/index';
+import { promptLogin } from '../../../utilities/auth/promptLogin';
+import { offerTopUp } from '../../../utilities/billing/topUp';
 import { combineIcon } from './combineIcon';
 
 const FILE = 'components/sourceContainer/creatorTools/harvestNetwork.ts';
@@ -19,12 +22,14 @@ export function loadHarvestSection(self: any) {
   const section = self.container.querySelector('#harvest-network-section');
   if (!section) return;
 
+  // Logged out → dim the button; a click routes to login (like the import flow).
+  const dim = getAuthContextSync()?.isLoggedIn ? '' : ' opacity: 0.5;';
   section.innerHTML = `
-      <button type="button" id="harvest-network-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: var(--hyperlit-orange); border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+      <button type="button" id="harvest-network-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: var(--hyperlit-orange); border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;${dim}">
         ${IDLE_LABEL_HTML}
       </button>
       <p style="font-size: 11px; color: var(--color-text-faint); margin-top: 6px;">
-        Fetch and import the open-access works this book cites, as verified source texts.
+        Fetch and import the open-access works that this text cites, and then repeat the process on those texts.
         <span class="harvest-info-toggle" tabindex="0" role="button" aria-label="What this does" aria-expanded="false" style="cursor:pointer;display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid rgba(239,141,52,0.5);font-size:10px;vertical-align:middle;margin-left:2px;color:var(--hyperlit-orange);">?</span>
       </p>
       <div class="harvest-info-detail" style="display:none; font-size: 11px; line-height: 1.55; color: var(--color-text-faint); margin-top: 2px; padding: 8px 10px; border-left: 2px solid rgba(239,141,52,0.4); background: rgba(239,141,52,0.05); border-radius: 3px;">
@@ -91,6 +96,13 @@ async function renderHarvestReportLink(self: any) {
 }
 
 export async function handleHarvestNetwork(self: any) {
+  // Anonymous click → route to login (like the import flow), not a silent fail.
+  if (!(await isLoggedIn())) {
+    await self.closeContainer?.();
+    await promptLogin();
+    return;
+  }
+
   const btn = self.container.querySelector('#harvest-network-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Checking citations…'; }
 
@@ -114,15 +126,12 @@ export async function handleHarvestNetwork(self: any) {
       return;
     }
 
-    const e = est.estimate || {};
     const cost = est.cost || {};
     const isPremium = !!cost.is_premium;
     const estUser = Number(cost.estimated_user || 0);
     const perWork = Number(cost.per_work || 0);
 
     const context = [
-      `${e.eligible ?? 0} of ${e.resolved ?? 0} resolved citations are open access and fetchable now.`,
-      e.unresolved ? `${e.unresolved} unresolved entries will be scanned first and may add more.` : null,
       isPremium
         ? 'Each fetched work is OCR’d from its PDF — included in your plan.'
         : `Each fetched work is OCR’d from its PDF (~$${perWork.toFixed(2)} per work). Rough estimate for this run: ~$${estUser.toFixed(2)} — the real cost depends on page counts, so set a limit below.`,
@@ -169,6 +178,12 @@ export async function handleHarvestNetwork(self: any) {
       body: JSON.stringify({ depth, max_spend }),
     });
     if (!trigResp.ok) {
+      if (trigResp.status === 402) {
+        // Out of funds → offer a Stripe top-up instead of a dead error.
+        resetHarvestButton(self);
+        await offerTopUp('Insufficient balance to harvest. Top up $5 to continue?');
+        return;
+      }
       const err = await trigResp.json().catch(() => ({}));
       throw new Error(err.message || `Trigger failed: ${trigResp.status}`);
     }

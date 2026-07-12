@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Jobs\ProcessDocumentImportJob;
 use App\Services\CanonicalVersions\AutoVersionResolver;
+use App\Services\ContentFetchService;
 use App\Services\SourceImport\Content\Ar5ivFetcher;
 use App\Services\SourceImport\Identifier\ArxivId;
 use App\Services\SourceImport\Metadata\SourceMetadata;
@@ -31,7 +32,7 @@ class ReconvertSystemVersionCommand extends Command
                             {--canonical= : Resolve the system version from this canonical id}
                             {--refetch : Re-fetch ar5iv HTML before converting (default reuses on-disk original.html)}';
 
-    protected $description = 'Reconvert a system-owned auto-version (e.g. an ar5iv version) in place, preserving its book id and canonical pointer.';
+    protected $description = 'Reconvert a system-owned auto-version (ar5iv HTML or an OCR-harvested PDF) in place, preserving its book id and canonical pointer. PDF versions REPLAY the cached OCR — no API cost.';
 
     public function handle(): int
     {
@@ -81,6 +82,31 @@ class ReconvertSystemVersionCommand extends Command
                 $this->error("ar5iv re-fetch failed ({$fetch->reason}).");
                 return 1;
             }
+        }
+
+        // PDF-OCR system versions (canonical_pdf_vacuum / pdf_ocr_auto_raw): reconvert by REPLAYING
+        // the cached ocr_response.json through the current pipeline — FREE (no Mistral OCR call) and
+        // in-place. processLocalPdf clears stale artifacts, re-runs the pipeline, and saves nodes +
+        // footnotes + references, bumping the content timestamp so open readers re-sync. Preferred
+        // even if an original.html also exists on disk — the canonical content is the OCR'd PDF.
+        $ocrCache = "{$path}/ocr_response.json";
+        $pdfPath  = "{$path}/original.pdf";
+        $isPdfOcr = str_starts_with((string) ($row->conversion_method ?? ''), 'pdf_ocr')
+            || (File::exists($ocrCache) && File::exists($pdfPath));
+        if ($isPdfOcr) {
+            if (!File::exists($ocrCache) || !File::exists($pdfPath)) {
+                $this->error("PDF-OCR book but missing ocr_response.json or original.pdf on disk for {$bookId}.");
+                return 1;
+            }
+            $this->line("Replaying cached OCR for {$bookId} (no API cost)...");
+            $result = app(ContentFetchService::class)->processLocalPdf($pdfPath, $bookId);
+            if (($result['status'] ?? null) === 'imported') {
+                $this->info("Reconverted PDF-OCR system version {$bookId}: {$result['reason']} "
+                    . "({$result['node_count']} nodes). Canonical pointer preserved.");
+                return 0;
+            }
+            $this->error("PDF-OCR reconvert failed for {$bookId}: " . ($result['reason'] ?? 'unknown'));
+            return 1;
         }
 
         if (!File::exists("{$path}/original.html")) {

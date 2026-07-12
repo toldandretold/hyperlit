@@ -66,6 +66,61 @@ def test_two_defs_in_one_paragraph_loses_second():
 
 
 # ---------------------------------------------------------------------------
+# Interleaved BODY between definitions (the Barro 1974 bug) must NOT be absorbed
+# ---------------------------------------------------------------------------
+def test_body_paragraph_between_definitions_not_absorbed():
+    # A LONG, capital-initial body paragraph physically sandwiched between a COMPLETE footnote def and
+    # a following def is interleaved body (a page-spanning-footnote leftover), not a continuation — it
+    # must NOT pollute the footnote and must remain a separate body node. (Barro 1974 shape.)
+    body = ('The first part of this paper deals with the effect of government bond issue on the calculus '
+            'of individual wealth in an overlapping-generations economy where individuals have finite lives.')
+    _, data = _whole(
+        '<p>[^1]: Of course, most analyses do not defend this. Used by Mundell (1971).</p>'
+        f'<p>{body}</p>'
+        '<p>[^2]: Note two.</p>'
+        '<p>[^3]: Note three.</p>'
+    )
+    assert [d['content'] for d in data] == [
+        'Of course, most analyses do not defend this. Used by Mundell (1971).',
+        'Note two.', 'Note three.']
+    assert all('The first part of this paper' not in d['content'] for d in data)
+
+
+def test_body_split_out_even_when_def_ends_with_a_ref_marker():
+    # The def's own text ends with a trailing "[^3]" ref; stripping it still reads as a complete
+    # sentence, so the following long body paragraph is split out.
+    body = ('A' + 'x' * 130 + '.')  # long, capital-initial
+    _, data = _whole(
+        '<p>[^1]: Complete sentence ending in a cross-reference.[^3]</p>'
+        f'<p>{body}</p>'
+        '<p>[^2]: Note two.</p>'
+    )
+    assert data[0]['content'] == 'Complete sentence ending in a cross-reference.[^3]'
+    assert body not in data[0]['content']
+
+
+def test_short_continuation_still_absorbed_despite_later_def():
+    # A SHORT continuation (<=120 chars) after a complete def is a genuine multi-paragraph footnote
+    # continuation even when a later def follows — the length gate keeps it absorbed.
+    _, data = _whole(
+        '<p>[^1]: A complete first sentence.</p>'
+        '<p>A short second para of the note.</p>'
+        '<p>[^2]: Note two.</p>'
+    )
+    assert data[0]['content'] == 'A complete first sentence.<br><br>A short second para of the note.'
+
+
+def test_long_continuation_of_last_footnote_still_absorbed():
+    # A long paragraph after the LAST footnote (no later def) is treated as a genuine continuation —
+    # the def-run-interruption gate means we only split BODY that is sandwiched between definitions.
+    long_cont = ('This continuation of the final footnote runs well past the length threshold used to '
+                 'detect interleaved body and keeps going for a while longer still.')
+    _, data = _whole('<p>[^1]: Note one.</p>' f'<p>{long_cont}</p>')
+    assert len(data) == 1
+    assert long_cont in data[0]['content']
+
+
+# ---------------------------------------------------------------------------
 # Bibliography-heading exclusion (defs under a References heading are NOT footnotes)
 # ---------------------------------------------------------------------------
 def test_bracket_defs_under_bibliography_heading_excluded():

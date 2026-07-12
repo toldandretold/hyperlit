@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1652 functions in 353 modules · 10 object stores · 10 PG tables · 3337 edges
+**MarkdownDB** schema v28 · 1658 functions in 354 modules · 10 object stores · 10 PG tables · 3350 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -95,6 +95,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `resetAnimationState` | `components/newbookContainer/animation` | — | — | — | — |
 | `restoreOriginalContent` | `components/newbookContainer/buttonView` | — | — | read/write | — |
 | `setupButtonListeners` | `components/newbookContainer/buttonView` | — | `sessionStorage` | read/write | — |
+| `isValidYear` | `components/newbookContainer/citeForm/autofillRules` | — | — | — | — |
+| `sanitizeTitleForAutofill` | `components/newbookContainer/citeForm/autofillRules` | — | — | — | — |
+| `sanitizeYearForAutofill` | `components/newbookContainer/citeForm/autofillRules` | — | — | — | — |
+| `yearMax` | `components/newbookContainer/citeForm/autofillRules` | — | — | — | — |
 | `checkBibtexAndReveal` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
 | `populateFieldsFromBibtex` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
 | `setupBibtexModeAutoReveal` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
@@ -231,8 +235,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `invalidateShelfCache` | `components/shelves/shelfTabs` | — | — | — | — |
 | `openShelf` | `components/shelves/shelfTabs` | — | `localStorage` | read/write | `↓route:/api/shelves` |
 | `ensureAiReviewLivePanel` | `components/sourceContainer/aiReview/index` | — | — | read/write | — |
-| `handleAiReviewGenerate` | `components/sourceContainer/aiReview/index` | — | — | read/write | — |
+| `handleAiReviewGenerate` | `components/sourceContainer/aiReview/index` | — | — | read | — |
 | `loadAiReviewStatus` | `components/sourceContainer/aiReview/index` | — | — | read | — |
+| `openAiReviewConfirm` | `components/sourceContainer/aiReview/index` | — | — | — | — |
 | `setAiReviewState` | `components/sourceContainer/aiReview/index` | — | — | read/write | — |
 | `pipelineNothingToReview` | `components/sourceContainer/aiReview/pipelineState` | — | — | — | — |
 | `closeAiReviewVizOverlay` | `components/sourceContainer/aiReview/pipelineViz` | — | — | read/write | — |
@@ -331,6 +336,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.loadReconvertInfo` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadResearchWorkflows` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadVersionHistory` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.openAiReviewConfirm` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.openAiReviewVizOverlay` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.openContainer` | `components/sourceContainer/index` | — | — | write | — |
 | `SourceContainerManager.openHarvestVizOverlay` | `components/sourceContainer/index` | — | — | — | — |

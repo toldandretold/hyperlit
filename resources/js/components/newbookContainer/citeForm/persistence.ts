@@ -103,13 +103,11 @@ export function loadFormData() {
           title.dispatchEvent(new Event('blur', { bubbles: true }));
         }
 
-        // Kick citation validators (server check runs once on blur if value exists)
-        // @ts-expect-error `citation` is undefined here — pre-existing bug, preserved verbatim
-        if (citation) {
-          // @ts-expect-error see above
-          citation.dispatchEvent(new Event('input', { bubbles: true }));
-          // @ts-expect-error see above
-          citation.dispatchEvent(new Event('blur', { bubbles: true }));
+        // Kick citation-id validators (server check runs once on blur if value exists)
+        const bookField = $('book');
+        if (bookField) {
+          bookField.dispatchEvent(new Event('input', { bubbles: true }));
+          bookField.dispatchEvent(new Event('blur', { bubbles: true }));
         }
 
         // Show file validation message (will indicate reselect if empty)

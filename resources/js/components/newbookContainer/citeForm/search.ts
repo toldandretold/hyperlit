@@ -11,6 +11,7 @@ import { searchCacheGet, searchCacheSet } from '../../../search/searchResultCach
 import { generateBookIdFromMetadata, findAvailableBookId, updateBookUrlPreview } from './bookId';
 import { populateFieldsFromBibtex } from './bibtex';
 import { showFieldsForType } from './fields';
+import { sanitizeYearForAutofill, sanitizeTitleForAutofill } from './autofillRules';
 
 export function setupImportSearch() {
   const input = $('import-search-input');
@@ -296,9 +297,9 @@ async function fillFormFromSelection(bibtex: any, title: any, author: any, year:
   } else {
     // Set fields directly from metadata
     const setVal = (id: string, val: any) => { const el = $(id); if (el && val) el.value = val; };
-    setVal('title', title);
+    setVal('title', sanitizeTitleForAutofill(title));
     setVal('author', author);
-    setVal('year', year);
+    setVal('year', sanitizeYearForAutofill(year));
     setVal('journal', journal);
     setVal('url', resultUrl);
   }

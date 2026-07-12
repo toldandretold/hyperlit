@@ -275,40 +275,8 @@
 }
 
 /* Creator Tools toggle button */
-#creator-tools-toggle {
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--color-label);
-  border: 1px solid var(--border-button);
-  background: transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-family: inherit;
-  transition: color 0.2s, border-color 0.2s;
-}
-
-/* Hover + active/open: invert — fill with text colour, flip label + SVGs
-   (currentColor) to the background colour. */
-#creator-tools-toggle:hover,
-#creator-tools-toggle.expanded {
-  background: var(--color-text);
-  color: var(--color-background);
-  border-color: var(--color-text);
-}
-
-#creator-tools-toggle .creator-tools-chevron {
-  margin-left: auto;
-  transition: transform 0.2s ease;
-}
-
-#creator-tools-toggle.expanded .creator-tools-chevron {
-  transform: rotate(180deg);
-}
+/* #creator-tools-toggle now shares the collapsible-heading style with
+   #research-workflows-toggle (defined below, near #source-container h3). */
 /* SOURCE CONTAINER FORM STYLING - Make it match newbook-container */
 
 #source-container input,
@@ -403,6 +371,43 @@
   margin: 0 0 8px 0;
   border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 8px;
+}
+
+/* Collapsible section headings (Research Workflows + Creator Tools): styled to
+   match the <h3> headings (uppercase, 13px, underlined) but carrying a chevron
+   that toggles their content. Scoped under #source-container to outrank
+   `#source-container button` (16px). Both use the identical dropdown style. */
+#source-container #research-workflows-toggle,
+#source-container #creator-tools-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--color-label);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 0 8px 0;
+  margin: 0 0 10px 0;
+}
+
+#source-container #research-workflows-toggle .research-workflows-chevron,
+#source-container #creator-tools-toggle .creator-tools-chevron {
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+#source-container #research-workflows-toggle.expanded .research-workflows-chevron,
+#source-container #creator-tools-toggle.expanded .creator-tools-chevron {
+  transform: rotate(180deg);
 }
 
 /* Form structure and validation styles */

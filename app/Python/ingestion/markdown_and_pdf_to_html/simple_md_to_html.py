@@ -51,6 +51,19 @@ def process_inline_formatting(text):
     math_placeholders = {}
     math_counter = [0]
 
+    # Protect DISPLAY math ($$…$$) FIRST — the inline-$ rule below deliberately skips it (its (?!\$)
+    # guards), so an UNprotected $$…$$ falls through to the italic/underscore pass, which mangles the
+    # LaTeX subscripts ("A_1^o" → "A<em>1^o"). Display equations routinely sit INLINE mid-paragraph in
+    # maths papers, not only alone on a line (the line-level $$ handler already covers that case).
+    def replace_display_math(m):
+        latex = html.unescape(m.group(1)).strip()
+        key = f'\x00MATH{math_counter[0]}\x00'
+        math_placeholders[key] = f'<latex-block data-math="{encode_math(latex)}"></latex-block>'
+        math_counter[0] += 1
+        return key
+
+    text = re.sub(r'\$\$(.+?)\$\$', replace_display_math, text, flags=re.DOTALL)
+
     def replace_inline_math(m):
         latex = html.unescape(m.group(1))
         key = f'\x00MATH{math_counter[0]}\x00'

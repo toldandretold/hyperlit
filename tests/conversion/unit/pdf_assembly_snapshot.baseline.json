@@ -53,8 +53,8 @@
   "tests/conversion/corpus/class_and_nation_historically_and_in_the_current/ocr_response.json": {
     "classification": "none",
     "confidence": 1.0,
-    "md_len": 627454,
-    "md_sha256": "f7f842eb21f3e063aa8b023b3572c605cf144a1ae0260d893bdcc4284e3a4433",
+    "md_len": 627447,
+    "md_sha256": "98bf3bc16b730487121ca2aa61f2d540865e3bb094ad2af142e41ddc01bae6dd",
     "segments": [
       275
     ],
@@ -237,8 +237,8 @@
   "tests/conversion/fixtures-local/pdf/author_year_bracket/whereneoliberalismcomefrom/ocr_response.json": {
     "classification": "none",
     "confidence": 1.0,
-    "md_len": 80631,
-    "md_sha256": "ec08ad908a2170c97738834dc5cfbf52ae486332fb5d8b95af9a5d357a0be025",
+    "md_len": 80620,
+    "md_sha256": "a21f10388509bcca4a5d9f46077c91d39c8a2fda289ccdc0f83d467172c35691",
     "segments": [],
     "signals": {
       "co_location_ratio": 0.0,
@@ -261,8 +261,8 @@
   "tests/conversion/fixtures-local/pdf/bibliography/stem_bibliography_example/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 141801,
-    "md_sha256": "e30eaf546dc34f76606c803ade26dfa26c86eeeca4d200ea3df7133459af726b",
+    "md_len": 141798,
+    "md_sha256": "a08b6fac6479295dc0a517541502a13dfd17807dcf7df533ac2a3f13273abfc2",
     "segments": [],
     "signals": {
       "co_location_ratio": 0.0,
@@ -285,8 +285,8 @@
   "tests/conversion/fixtures-local/pdf/no_footnotes/37344d6e-7d43-42bf-83da-989c1818894e/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 54749,
-    "md_sha256": "5f2cdf28b532fb802443bba9e6d41f12a885cb05c77918d51b20eaa56d432f59",
+    "md_len": 54728,
+    "md_sha256": "16023a6a1bb5b7e5d8d0fc6db835e7070006730b73279f79d593e54b3e92ea1f",
     "segments": [],
     "signals": {
       "co_location_ratio": 0.25,
@@ -309,8 +309,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/013dfc18-cfc5-4eb1-b79a-b3886fbc544d/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 51357,
-    "md_sha256": "845f428a84bbc309a77901e7b24cb13a13a207831ca1587fb7d6c8499d962abe",
+    "md_len": 51338,
+    "md_sha256": "27b8358401591a03302baf83f83210247d14d02828c0ea49519644034de7b12e",
     "segments": [],
     "signals": {
       "co_location_ratio": 0.1667,
@@ -381,8 +381,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/218d6d3d-cd86-44e1-ac3a-c4d970e7d6ab/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 107218,
-    "md_sha256": "f9f75b830c4604df2dfba2a425f0fcaabef5c2418c43172b85b9f8b9ffed5726",
+    "md_len": 107219,
+    "md_sha256": "9756047ced2de0b66e8a4c3498d8b499dceb8a692f5da406cf626ba8b9b66c29",
     "segments": [],
     "signals": {
       "co_location_ratio": 0.0,
@@ -402,11 +402,35 @@
       "trailing_page_number_offset": null
     }
   },
+  "tests/conversion/fixtures-local/pdf/sequential/514e27a5-4028-4599-9ac4-5c88ba1d25db/ocr_response.json": {
+    "classification": "unknown",
+    "confidence": 0.0,
+    "md_len": 69423,
+    "md_sha256": "07f4b02528478ad2bdaf2def348b5a14864260ddf60acf543dc8e64a03840673",
+    "segments": [],
+    "signals": {
+      "co_location_ratio": 0.3333,
+      "def_clustering_ratio": 0.0833,
+      "max_ref_number": 26,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 0,
+      "pages_with_both": 1,
+      "pages_with_defs": 2,
+      "pages_with_refs": 3,
+      "ref_number_max_page_spread": 1,
+      "reset_count": 0,
+      "reset_frequency": 0.0,
+      "total_pages": 24,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
   "tests/conversion/fixtures-local/pdf/sequential/79394f2a-f063-46fa-a140-76ef22c650af/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 41348,
-    "md_sha256": "12250dcc822e04efaaa93c5eab9d570c8040e8035457fd3b6b63b865c46fa977",
+    "md_len": 42411,
+    "md_sha256": "8b780d3fbe8a9bcb4c8410542a95aa49820ebde87326fadef35d4fc4f9025712",
     "segments": [],
     "signals": {
       "co_location_ratio": 0.1667,
@@ -478,7 +502,7 @@
     "classification": "none",
     "confidence": 1.0,
     "md_len": 28468,
-    "md_sha256": "f696f71782b0d47d35a91ea544bf944578a78c7db748cb9eeacb49b8f0f36e52",
+    "md_sha256": "17326e854c98b6b462f0bc7f0daa2ebc8a374299295e39e531e57299957c0481",
     "segments": [],
     "signals": {
       "co_location_ratio": 0.0,
@@ -501,8 +525,8 @@
   "tests/conversion/fixtures-local/pdf/whole_document/whole_document_example/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 107218,
-    "md_sha256": "f9f75b830c4604df2dfba2a425f0fcaabef5c2418c43172b85b9f8b9ffed5726",
+    "md_len": 107219,
+    "md_sha256": "9756047ced2de0b66e8a4c3498d8b499dceb8a692f5da406cf626ba8b9b66c29",
     "segments": [],
     "signals": {
       "co_location_ratio": 0.0,
@@ -525,8 +549,8 @@
   "tests/conversion/fixtures/pdf/author_year_bracket/synthetic/ocr_response.json": {
     "classification": "none",
     "confidence": 1.0,
-    "md_len": 336,
-    "md_sha256": "0c67cb510df8a9c422d1289fcc35d2d235bb6705f70c5eee69671cdf12fa882d",
+    "md_len": 335,
+    "md_sha256": "a670d68211cb2b26925c373d5184522980b3d3b4d9c128e1cc8c42fec69f3e91",
     "segments": [],
     "signals": {
       "co_location_ratio": 0.0,
@@ -549,8 +573,8 @@
   "tests/conversion/fixtures/pdf/bibliography_only/synthetic/ocr_response.json": {
     "classification": "none",
     "confidence": 1.0,
-    "md_len": 517,
-    "md_sha256": "603d0d756ceac52db213c4dc83ee893c0c009f1ae3c1d9cfdb0f062f50c0f236",
+    "md_len": 515,
+    "md_sha256": "61e2fe0bb8bed20097098c7376da325da8be2f83c0b34e7780c05f2aa5cfa258",
     "segments": [],
     "signals": {
       "co_location_ratio": 0.0,
@@ -573,8 +597,8 @@
   "tests/conversion/fixtures/pdf/no_footnotes/synthetic/ocr_response.json": {
     "classification": "none",
     "confidence": 1.0,
-    "md_len": 281,
-    "md_sha256": "bb8456419eb946d795db2577ed37f03238456a3beadc6c195e94929ecf4ebb04",
+    "md_len": 280,
+    "md_sha256": "c9a074b4772a84be20c93c5db4eea83e425c3de3db31c75f7b1743fe6d89fac7",
     "segments": [],
     "signals": {
       "co_location_ratio": 0.0,
@@ -598,7 +622,7 @@
     "classification": "unknown",
     "confidence": 0.0,
     "md_len": 673,
-    "md_sha256": "ea80c7c3dd2faaa36da71b08db33e9ef8d5683a7bee39cdee7ef86e33b01332e",
+    "md_sha256": "e8d8f777d8310cbaf508fb51ae0f13fae3eff73f87f419410db19378afa824b9",
     "segments": [],
     "signals": {
       "co_location_ratio": 1.0,
@@ -621,8 +645,8 @@
   "tests/conversion/fixtures/pdf/sequential/synthetic/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 272,
-    "md_sha256": "637366935b7ee9a7aeda0f0c96eab84852a998a28cc8406f094d933d5547ff3a",
+    "md_len": 271,
+    "md_sha256": "17928b504340c78a8ea1f1027eebb168aabe5f631560268c733da793f7f47829",
     "segments": [],
     "signals": {
       "co_location_ratio": 1.0,

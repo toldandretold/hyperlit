@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1652,
-    "moduleCount": 353,
+    "fnCount": 1658,
+    "moduleCount": 354,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3337,
+    "edgeCount": 3350,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -830,6 +830,38 @@
       "stage": "components",
       "module": "components/newbookContainer/buttonView",
       "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillRules:isValidYear",
+      "label": "isValidYear",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/autofillRules",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillRules:sanitizeTitleForAutofill",
+      "label": "sanitizeTitleForAutofill",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/autofillRules",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillRules:sanitizeYearForAutofill",
+      "label": "sanitizeYearForAutofill",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/autofillRules",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillRules:yearMax",
+      "label": "yearMax",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/autofillRules",
+      "leaf": true
     },
     {
       "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
@@ -1955,6 +1987,14 @@
       "leaf": false
     },
     {
+      "id": "components/sourceContainer/aiReview/index:openAiReviewConfirm",
+      "label": "openAiReviewConfirm",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/aiReview/index",
+      "leaf": true
+    },
+    {
       "id": "components/sourceContainer/aiReview/index:setAiReviewState",
       "label": "setAiReviewState",
       "kind": "fn",
@@ -2763,6 +2803,14 @@
     {
       "id": "components/sourceContainer/index:SourceContainerManager.loadVersionHistory",
       "label": "SourceContainerManager.loadVersionHistory",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.openAiReviewConfirm",
+      "label": "SourceContainerManager.openAiReviewConfirm",
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/index",
@@ -15190,6 +15238,18 @@
       ]
     },
     {
+      "id": "components/newbookContainer/citeForm/autofillRules",
+      "label": "components/newbookContainer/citeForm/autofillRules",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/newbookContainer/citeForm/autofillRules:isValidYear",
+        "components/newbookContainer/citeForm/autofillRules:sanitizeTitleForAutofill",
+        "components/newbookContainer/citeForm/autofillRules:sanitizeYearForAutofill",
+        "components/newbookContainer/citeForm/autofillRules:yearMax"
+      ]
+    },
+    {
       "id": "components/newbookContainer/citeForm/bibtex",
       "label": "components/newbookContainer/citeForm/bibtex",
       "stage": "components",
@@ -15661,6 +15721,7 @@
         "components/sourceContainer/aiReview/index:ensureAiReviewLivePanel",
         "components/sourceContainer/aiReview/index:handleAiReviewGenerate",
         "components/sourceContainer/aiReview/index:loadAiReviewStatus",
+        "components/sourceContainer/aiReview/index:openAiReviewConfirm",
         "components/sourceContainer/aiReview/index:setAiReviewState"
       ]
     },
@@ -15918,6 +15979,7 @@
         "components/sourceContainer/index:SourceContainerManager.loadReconvertInfo",
         "components/sourceContainer/index:SourceContainerManager.loadResearchWorkflows",
         "components/sourceContainer/index:SourceContainerManager.loadVersionHistory",
+        "components/sourceContainer/index:SourceContainerManager.openAiReviewConfirm",
         "components/sourceContainer/index:SourceContainerManager.openAiReviewVizOverlay",
         "components/sourceContainer/index:SourceContainerManager.openContainer",
         "components/sourceContainer/index:SourceContainerManager.openHarvestVizOverlay",
@@ -20030,6 +20092,18 @@
       "rel": "write"
     },
     {
+      "id": "components/newbookContainer/citeForm/autofillRules:isValidYear__call__components/newbookContainer/citeForm/autofillRules:yearMax",
+      "source": "components/newbookContainer/citeForm/autofillRules:isValidYear",
+      "target": "components/newbookContainer/citeForm/autofillRules:yearMax",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillRules:sanitizeYearForAutofill__call__components/newbookContainer/citeForm/autofillRules:isValidYear",
+      "source": "components/newbookContainer/citeForm/autofillRules:sanitizeYearForAutofill",
+      "target": "components/newbookContainer/citeForm/autofillRules:isValidYear",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal__call__components/newbookContainer/citeForm/bookId:findAvailableBookId",
       "source": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
       "target": "components/newbookContainer/citeForm/bookId:findAvailableBookId",
@@ -20058,6 +20132,18 @@
       "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal__call__components/newbookContainer/citeForm/dom:qs",
       "source": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
       "target": "components/newbookContainer/citeForm/dom:qs",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex__call__components/newbookContainer/citeForm/autofillRules:sanitizeTitleForAutofill",
+      "source": "components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex",
+      "target": "components/newbookContainer/citeForm/autofillRules:sanitizeTitleForAutofill",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex__call__components/newbookContainer/citeForm/autofillRules:sanitizeYearForAutofill",
+      "source": "components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex",
+      "target": "components/newbookContainer/citeForm/autofillRules:sanitizeYearForAutofill",
       "rel": "call"
     },
     {
@@ -20140,6 +20226,18 @@
       "rel": "call"
     },
     {
+      "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction__call__components/newbookContainer/citeForm/autofillRules:sanitizeTitleForAutofill",
+      "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "target": "components/newbookContainer/citeForm/autofillRules:sanitizeTitleForAutofill",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction__call__components/newbookContainer/citeForm/autofillRules:sanitizeYearForAutofill",
+      "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "target": "components/newbookContainer/citeForm/autofillRules:sanitizeYearForAutofill",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction__call__components/newbookContainer/citeForm/bookId:findAvailableBookId",
       "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
       "target": "components/newbookContainer/citeForm/bookId:findAvailableBookId",
@@ -20181,6 +20279,18 @@
       "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate__call__components/newbookContainer/citeForm/autofillRules:sanitizeTitleForAutofill",
+      "source": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
+      "target": "components/newbookContainer/citeForm/autofillRules:sanitizeTitleForAutofill",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate__call__components/newbookContainer/citeForm/autofillRules:sanitizeYearForAutofill",
+      "source": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
+      "target": "components/newbookContainer/citeForm/autofillRules:sanitizeYearForAutofill",
+      "rel": "call"
     },
     {
       "id": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate__call__components/newbookContainer/citeForm/bookId:findAvailableBookId",
@@ -20552,6 +20662,18 @@
       "rel": "call"
     },
     {
+      "id": "components/newbookContainer/citeForm/search:setupImportSearch__call__components/newbookContainer/citeForm/autofillRules:sanitizeTitleForAutofill",
+      "source": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "target": "components/newbookContainer/citeForm/autofillRules:sanitizeTitleForAutofill",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/search:setupImportSearch__call__components/newbookContainer/citeForm/autofillRules:sanitizeYearForAutofill",
+      "source": "components/newbookContainer/citeForm/search:setupImportSearch",
+      "target": "components/newbookContainer/citeForm/autofillRules:sanitizeYearForAutofill",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/citeForm/search:setupImportSearch__call__components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex",
       "source": "components/newbookContainer/citeForm/search:setupImportSearch",
       "target": "components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex",
@@ -20691,6 +20813,12 @@
       "rel": "write"
     },
     {
+      "id": "components/newbookContainer/citeForm/template:getCiteFormHTML__call__components/newbookContainer/citeForm/autofillRules:yearMax",
+      "source": "components/newbookContainer/citeForm/template:getCiteFormHTML",
+      "target": "components/newbookContainer/citeForm/autofillRules:yearMax",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/citeForm/template:getCiteFormHTML__call__components/newbookContainer/encryptIntent:getImportEncryptIntent",
       "source": "components/newbookContainer/citeForm/template:getCiteFormHTML",
       "target": "components/newbookContainer/encryptIntent:getImportEncryptIntent",
@@ -20719,6 +20847,18 @@
       "source": "components/newbookContainer/citeForm/urlImport:setupUrlImport",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/validation:setupRealTimeValidation__call__components/newbookContainer/citeForm/autofillRules:isValidYear",
+      "source": "components/newbookContainer/citeForm/validation:setupRealTimeValidation",
+      "target": "components/newbookContainer/citeForm/autofillRules:isValidYear",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/validation:setupRealTimeValidation__call__components/newbookContainer/citeForm/autofillRules:yearMax",
+      "source": "components/newbookContainer/citeForm/validation:setupRealTimeValidation",
+      "target": "components/newbookContainer/citeForm/autofillRules:yearMax",
+      "rel": "call"
     },
     {
       "id": "components/newbookContainer/citeForm/validation:setupRealTimeValidation__call__components/newbookContainer/citeForm/dom:$",
@@ -21635,12 +21775,6 @@
       "rel": "domwrite"
     },
     {
-      "id": "components/sourceContainer/aiReview/index:handleAiReviewGenerate__domwrite__dom",
-      "source": "components/sourceContainer/aiReview/index:handleAiReviewGenerate",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
       "id": "components/sourceContainer/aiReview/index:loadAiReviewStatus__call__components/sourceContainer/helpers:getRecord",
       "source": "components/sourceContainer/aiReview/index:loadAiReviewStatus",
       "target": "components/sourceContainer/helpers:getRecord",
@@ -21650,6 +21784,13 @@
       "id": "components/sourceContainer/aiReview/index:loadAiReviewStatus__call__indexedDB/core/connection:openDatabase",
       "source": "components/sourceContainer/aiReview/index:loadAiReviewStatus",
       "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/aiReview/index:openAiReviewConfirm__call__components/sourceContainer/aiReview/index:handleAiReviewGenerate",
+      "source": "components/sourceContainer/aiReview/index:openAiReviewConfirm",
+      "target": "components/sourceContainer/aiReview/index:handleAiReviewGenerate",
       "rel": "call",
       "dataPath": true
     },
@@ -21722,12 +21863,6 @@
       "source": "components/sourceContainer/aiReview/polling:pollAiReviewStatus",
       "target": "dom",
       "rel": "domwrite"
-    },
-    {
-      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/aiReview/section:aiReviewSectionHtml",
-      "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
-      "target": "components/sourceContainer/aiReview/section:aiReviewSectionHtml",
-      "rel": "call"
     },
     {
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/checkSource:sourceStatusSectionHtml",
@@ -22498,6 +22633,13 @@
       "source": "components/sourceContainer/index:SourceContainerManager.loadVersionHistory",
       "target": "components/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
       "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.openAiReviewConfirm__call__components/sourceContainer/aiReview/index:openAiReviewConfirm",
+      "source": "components/sourceContainer/index:SourceContainerManager.openAiReviewConfirm",
+      "target": "components/sourceContainer/aiReview/index:openAiReviewConfirm",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/sourceContainer/index:SourceContainerManager.openAiReviewVizOverlay__call__components/sourceContainer/aiReview/pipelineViz:openAiReviewVizOverlay",
@@ -41040,6 +41182,11 @@
     },
     {
       "source": "components/newbookContainer/citeForm/bibtex",
+      "target": "components/newbookContainer/citeForm/autofillRules",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/bibtex",
       "target": "components/newbookContainer/citeForm/bookId",
       "kind": "static"
     },
@@ -41056,6 +41203,11 @@
     {
       "source": "components/newbookContainer/citeForm/fields",
       "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/fileUpload",
+      "target": "components/newbookContainer/citeForm/autofillRules",
       "kind": "static"
     },
     {
@@ -41195,6 +41347,11 @@
     },
     {
       "source": "components/newbookContainer/citeForm/search",
+      "target": "components/newbookContainer/citeForm/autofillRules",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/search",
       "target": "components/newbookContainer/citeForm/bibtex",
       "kind": "static"
     },
@@ -41270,6 +41427,11 @@
     },
     {
       "source": "components/newbookContainer/citeForm/template",
+      "target": "components/newbookContainer/citeForm/autofillRules",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/template",
       "target": "components/newbookContainer/encryptIntent",
       "kind": "static"
     },
@@ -41287,6 +41449,11 @@
       "source": "components/newbookContainer/citeForm/urlImport",
       "target": "components/userButton/userButton",
       "kind": "lazy"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/validation",
+      "target": "components/newbookContainer/citeForm/autofillRules",
+      "kind": "static"
     },
     {
       "source": "components/newbookContainer/citeForm/validation",
@@ -41531,11 +41698,6 @@
     {
       "source": "components/sourceContainer/aiReview/polling",
       "target": "components/sourceContainer/aiReview/pipelineState",
-      "kind": "static"
-    },
-    {
-      "source": "components/sourceContainer/buildSourceHtml",
-      "target": "components/sourceContainer/aiReview/section",
       "kind": "static"
     },
     {

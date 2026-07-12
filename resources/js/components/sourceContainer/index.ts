@@ -26,7 +26,7 @@ import { loadHarvestSection, handleHarvestNetwork, startHarvestPolling, stopHarv
 import { loadResearchWorkflows } from "./researchWorkflows";
 import { handleCommonsFeedback } from "./commonsFeedback";
 import { openHarvestVizOverlay, closeHarvestVizOverlay, fetchHarvestMap, renderHarvestViz } from "./creatorTools/harvestViz";
-import { loadAiReviewStatus, setAiReviewState, handleAiReviewGenerate, ensureAiReviewLivePanel } from "./aiReview/index";
+import { loadAiReviewStatus, setAiReviewState, handleAiReviewGenerate, openAiReviewConfirm, ensureAiReviewLivePanel } from "./aiReview/index";
 import { handleCheckSource, wireSourceStatus } from "./checkSource";
 import { startAiReviewPolling, stopAiReviewPolling, pollAiReviewStatus } from "./aiReview/polling";
 import { openAiReviewVizOverlay, closeAiReviewVizOverlay, fetchPipelineMap, renderPipelineViz, syncPipelineHighlights } from "./aiReview/pipelineViz";
@@ -130,10 +130,27 @@ export class SourceContainerManager extends (ContainerManager as any) {
       });
     }
 
-    // Research Workflows (commons books) — a plain always-visible section, so
-    // build its harvest tool now. The AI-review elements inside are wired by the
-    // shared #ai-review-* handlers below.
-    this.loadResearchWorkflows();
+    // Research Workflows (commons books) — collapsed by default; lazy-build its
+    // harvest tool on first expand (the AI-review elements inside are wired by
+    // the shared #ai-review-* handlers below regardless of expand state).
+    const researchToggle = this.container.querySelector("#research-workflows-toggle");
+    if (researchToggle && !researchToggle._listenerAttached) {
+      researchToggle._listenerAttached = true;
+      researchToggle.addEventListener("click", (e: any) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const content = this.container.querySelector("#research-workflows-content");
+        if (!content) return;
+        const isExpanded = content.style.display !== 'none';
+        content.style.display = isExpanded ? 'none' : 'block';
+        researchToggle.classList.toggle('expanded', !isExpanded);
+        researchToggle.setAttribute('aria-expanded', String(!isExpanded));
+        if (!isExpanded) {
+          this.loadResearchWorkflows();
+          setTimeout(() => { content.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 50);
+        }
+      });
+    }
 
     // Commons conversion-feedback note ("Report an issue"), in the Librarian section.
     const feedbackBtn = this.container.querySelector("#commons-feedback-btn");
@@ -146,38 +163,30 @@ export class SourceContainerManager extends (ContainerManager as any) {
       });
     }
 
+    // Idle AI-review button → open the confirm popup (pricing + rescan), the
+    // same shape as the harvester. Completed/reviewing states rebind/disable it.
     const aiReviewBtn = this.container.querySelector("#ai-review-btn");
     if (aiReviewBtn && !aiReviewBtn.disabled && !aiReviewBtn._listenerAttached) {
       aiReviewBtn._listenerAttached = true;
       aiReviewBtn.addEventListener("click", (e: any) => {
         e.preventDefault();
         e.stopPropagation();
-        const infoPanel = this.container.querySelector("#ai-review-info");
-        if (infoPanel) {
-          infoPanel.style.display = infoPanel.style.display === 'none' ? 'block' : 'none';
-        }
+        this.openAiReviewConfirm();
       });
     }
 
-    const aiCostToggle = this.container.querySelector('.ai-review-cost-info-toggle');
-    if (aiCostToggle && !aiCostToggle._listenerAttached) {
-      aiCostToggle._listenerAttached = true;
-      const detail = this.container.querySelector('.ai-review-cost-info-detail');
-      if (detail) {
-        const toggle = () => { detail.style.display = detail.style.display === 'none' ? 'inline' : 'none'; };
-        aiCostToggle.addEventListener('click', toggle);
-        aiCostToggle.addEventListener('keydown', (e: any) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
-      }
-    }
-
-    const aiReviewGenerate = this.container.querySelector("#ai-review-generate");
-    if (aiReviewGenerate && !aiReviewGenerate._listenerAttached) {
-      aiReviewGenerate._listenerAttached = true;
-      aiReviewGenerate.addEventListener("click", (e: any) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.handleAiReviewGenerate();
-      });
+    // The "?" about-toggle (mirrors the harvester's).
+    const aiInfoToggle: any = this.container.querySelector('.ai-review-info-toggle');
+    const aiInfoDetail: any = this.container.querySelector('.ai-review-info-detail');
+    if (aiInfoToggle && aiInfoDetail && !aiInfoToggle._listenerAttached) {
+      aiInfoToggle._listenerAttached = true;
+      const toggle = () => {
+        const open = aiInfoDetail.style.display !== 'none';
+        aiInfoDetail.style.display = open ? 'none' : 'block';
+        aiInfoToggle.setAttribute('aria-expanded', String(!open));
+      };
+      aiInfoToggle.addEventListener('click', (e: any) => { e.stopPropagation(); toggle(); });
+      aiInfoToggle.addEventListener('keydown', (e: any) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
     }
 
     const checkSourceBtn = this.container.querySelector("#check-source-btn");
@@ -334,7 +343,8 @@ export class SourceContainerManager extends (ContainerManager as any) {
   renderHarvestViz(harvest: any) { return renderHarvestViz(this, harvest); }
 
   // aiReview
-  handleAiReviewGenerate() { return handleAiReviewGenerate(this); }
+  handleAiReviewGenerate(force?: boolean) { return handleAiReviewGenerate(this, force); }
+  openAiReviewConfirm() { return openAiReviewConfirm(this); }
   loadAiReviewStatus() { return loadAiReviewStatus(this); }
   setAiReviewState(state: any, currentStep?: any, opts?: any) { return setAiReviewState(this, state, currentStep, opts); }
   ensureAiReviewLivePanel() { return ensureAiReviewLivePanel(this); }

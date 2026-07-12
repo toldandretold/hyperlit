@@ -410,3 +410,113 @@ def test_comma_superscript_without_defs_stays_math():
     # stays a $...$ math superscript so the reader renders it as a superscript.
     assert M.expand_latex_superscripts('built environments$^{1,2,4}$.') == 'built environments$^{1,2,4}$.'
     assert M.normalize_all_footnote_refs('cells$^{13,14}$.') == 'cells$^{13,14}$.'
+
+
+# ---------------------------------------------------------------------------
+# Footer-recovered defs deferred to doc end (generic assembler) — a page-bottom
+# footnote must not wedge between a body sentence and its next-page continuation
+# and get body glued onto it (Barro 1974 fn 1).
+# ---------------------------------------------------------------------------
+def test_footer_def_deferred_keeps_body_contiguous_generic_assembler():
+    rd = {'pages': [
+        {'markdown': 'One type of argument supposes that', 'footer': '¹ The footnote definition text here.'},
+        {'markdown': 'the horizon will be shorter than that for the interest payments.'},
+    ]}
+    md = M.assemble_markdown(rd, classification='unknown', footnote_meta=None, pdf_path=None)
+    flat = md.replace('\n', ' ')
+    # body sentence rejoins across the page break, unbroken by the footnote def
+    assert 'supposes that the horizon will be shorter' in flat
+    # the footnote def is deferred to the END (after the body), not wedged mid-body
+    assert md.rfind('[^1]') > md.rfind('the horizon will be shorter')
+    # and the body did NOT get glued onto the footnote def
+    assert 'supposes that' not in md.split('[^1]')[-1]
+
+
+# ---------------------------------------------------------------------------
+# convert_bare_caret_footnotes — Mistral sometimes OCRs a superscript as a literal "^24"
+# (Barro 1974 fn 23/24). Convert to [^24] ONLY where it's a footnote, never a math exponent.
+# ---------------------------------------------------------------------------
+def test_bare_caret_footnote_marker_and_def_converted():
+    assert M.convert_bare_caret_footnotes('proceeds^24—that is') == 'proceeds[^24]—that is'
+    assert M.convert_bare_caret_footnotes('the lump sum.^23 Suppose then') == 'the lump sum.[^23] Suppose then'
+    assert M.convert_bare_caret_footnotes('^24 If the fractions differ') == '[^24] If the fractions differ'
+
+
+def test_bare_caret_math_exponent_not_converted():
+    # ^2 followed by a letter/variable, ^o, and anything inside $…$/$$…$$ are exponents — leave them.
+    assert M.convert_bare_caret_footnotes('(1 - r)^2A_2^o here') == '(1 - r)^2A_2^o here'
+    assert M.convert_bare_caret_footnotes('the value A^o rises') == 'the value A^o rises'
+    assert M.convert_bare_caret_footnotes(r'$$w + (1-r)^2A_2^o$$ where') == r'$$w + (1-r)^2A_2^o$$ where'
+    assert M.convert_bare_caret_footnotes(r'inline $x^2 + y^2$ eq') == r'inline $x^2 + y^2$ eq'
+
+
+# ---------------------------------------------------------------------------
+# Default assembler: definition paragraphs are split OUT of the body and deferred to one
+# contiguous block at the document end (unified with page_bottom's model). Body must never
+# sit BETWEEN two definitions, and page-spanning body sentences must rejoin cleanly.
+# ---------------------------------------------------------------------------
+def test_default_assembler_moves_inline_defs_to_end_block():
+    rd = {'pages': [
+        {'markdown': 'Body text with a claim.[^1] More prose here.\n\n[^1]: The definition text.\n\nBody resumes after the def.'},
+        {'markdown': 'Second page body.[^2]\n\n[^2]: Second definition.'},
+    ]}
+    md = M.assemble_markdown(rd, classification='unknown', footnote_meta=None, pdf_path=None)
+    lines = [l for l in md.split('\n') if l.strip()]
+    def_idx = [i for i, l in enumerate(lines) if l.startswith('[^')]
+    body_idx = [i for i, l in enumerate(lines) if not l.startswith('[^')]
+    # every def line comes AFTER every body line (one contiguous end block)
+    assert def_idx and body_idx and min(def_idx) > max(body_idx), md
+    # defs stayed in page order → numbering ascending
+    assert md.find('[^1]:') < md.find('[^2]:')
+    # body that followed a def on the page is still in the body, before the def block
+    assert 'Body resumes after the def.' in '\n'.join(lines[:min(def_idx)])
+
+
+def test_default_assembler_split_does_not_move_bibliography_bracket_lines():
+    # Plain "[N] text" at line start is as often a bibliography entry — it must STAY in body so the
+    # extraction stage's References-heading exclusion still sees it in context.
+    rd = {'pages': [{'markdown': 'Prose.\n\n# Bibliography\n\n[26] Miller, William; something 1990.'}]}
+    md = M.assemble_markdown(rd, classification='unknown', footnote_meta=None, pdf_path=None)
+    assert md.index('[26]') > md.index('Bibliography')  # still under its heading
+
+
+def test_default_assembler_body_between_defs_never_sandwiched():
+    # A body paragraph physically between two defs on the page ends up OUTSIDE the def block.
+    rd = {'pages': [{'markdown':
+        'Claim one.[^1] and claim two.[^2]\n\n[^1]: First note.\n\nInterleaved body paragraph that '
+        'should stay in the main flow of the document.\n\n[^2]: Second note.'}]}
+    md = M.assemble_markdown(rd, classification='unknown', footnote_meta=None, pdf_path=None)
+    i1, ib, i2 = md.find('[^1]: First'), md.find('Interleaved body'), md.find('[^2]: Second')
+    assert ib < i1 and ib < i2, md   # body precedes the contiguous def block
+
+
+# ---------------------------------------------------------------------------
+# Bare-number FOOTER defs (Barro fn 27/28: "27 I am ignoring…") are recovered ONLY when an
+# in-text marker [^N] is orphaned — never injected blind (would strand soviet_marxism's
+# markerless "6 Engels…"). Plus the trailing "N Text" body-paragraph recovery + ref unglue.
+# ---------------------------------------------------------------------------
+def test_bare_number_footer_def_recovered_when_marker_orphaned():
+    # marker [^27] in body (validated by the preceding [^26]), its def only in the page footer as
+    # bare "27 …" → recovered + linked. The footer def for 26 uses the recognised [^N] form.
+    pages = [{'index': 0, 'header': '',
+              'markdown': 'First point.[^26] A sentence about tax liabilities.27 Another clause here.',
+              'footer': '[^26]: A recognised footer definition sentence.\n27 I am ignoring here effects '
+                        'which relate to the maturity structure of the debt.'}]
+    md = M.assemble_markdown({'pages': pages}, classification='unknown', footnote_meta=None, pdf_path=None)
+    assert '[^27]: I am ignoring here effects' in md
+
+
+def test_bare_number_footer_def_dropped_when_no_marker():
+    # soviet_marxism: "6 Engels…" footer with NO in-text [^6] marker → must NOT be pulled in.
+    pages = [{'index': 0, 'header': '', 'markdown': 'Body text with no footnote markers at all.',
+              'footer': '6 Engels, Letter to Franz Mehring, July 14, 1893.'}]
+    md = M.assemble_markdown({'pages': pages}, classification='unknown', footnote_meta=None, pdf_path=None)
+    assert '[^6]:' not in md and 'Engels, Letter to Franz Mehring' not in md
+
+
+def test_glued_reference_entries_are_split():
+    pages = [{'index': 0, 'header': '', 'footer': '',
+              'markdown': '# References\n\nBecker, G. S. Interactions. 1974: 1063-93.Blinder, A. S., and Solow, R. M. Does Fiscal Policy Matter. 1973.'}]
+    md = M.assemble_markdown({'pages': pages}, classification='unknown', footnote_meta=None, pdf_path=None)
+    assert '1063-93.Blinder' not in md          # seam split
+    assert re.search(r'(?m)^Blinder, A\. S\., and Solow', md)

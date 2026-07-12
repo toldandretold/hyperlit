@@ -38,6 +38,15 @@ def test_currency_dollars_not_treated_as_math():
     assert '<latex' not in out
 
 
+def test_inline_display_math_becomes_latex_block_and_is_not_italicised():
+    # A $$…$$ display equation sitting INLINE mid-paragraph (common in maths papers) must render as a
+    # latex-block, and its "_" subscripts must NOT be eaten by the italic pass (A_1^o → A<em>1^o).
+    out = process_inline_formatting(r'$$w + (1-r)A_1^o - B$$ where $A_1^o$ is the bequest.')
+    assert '<latex-block data-math="' in out
+    assert '<em>' not in out
+    assert '$$' not in out
+
+
 # ---------------------------------------------------------------------------
 # Block elements
 # ---------------------------------------------------------------------------

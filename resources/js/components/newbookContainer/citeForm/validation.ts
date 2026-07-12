@@ -6,6 +6,7 @@ import { $, qs } from './dom';
 import { getAllowedResubmitBookId } from './state';
 import { hideInsufficientBalanceBanner, handleFileMetadataExtraction } from './fileUpload';
 import { escapeHtml } from '../../../paste/utils/normalizer';
+import { YEAR_MIN, yearMax, isValidYear, TITLE_MAX_LENGTH } from './autofillRules';
 
 export function setupRealTimeValidation() {
   // Validation functions
@@ -76,7 +77,7 @@ export function setupRealTimeValidation() {
     },
 
     validateTitle: (value: any) => {
-      if (value && value.length > 255) return { valid: false, message: 'Title must be less than 255 characters' };
+      if (value && value.length > TITLE_MAX_LENGTH) return { valid: false, message: `Title must be less than ${TITLE_MAX_LENGTH} characters` };
       return { valid: true, message: '' };
     },
 
@@ -104,10 +105,8 @@ export function setupRealTimeValidation() {
 
     validateYear: (value: any) => {
       if (!value) return { valid: true, message: '' }; // Optional field
-      const year = parseInt(value);
-      const currentYear = new Date().getFullYear();
-      if (year < 1000 || year > currentYear + 10) {
-        return { valid: false, message: `Year must be between 1000 and ${currentYear + 10}` };
+      if (!isValidYear(value)) {
+        return { valid: false, message: `Year must be between ${YEAR_MIN} and ${yearMax()}` };
       }
       return { valid: true, message: 'Valid year' };
     },

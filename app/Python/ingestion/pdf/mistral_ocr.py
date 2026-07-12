@@ -126,6 +126,21 @@ def main():
     print(f"Footnote classification: {footnote_meta['classification']} "
           f"(confidence: {footnote_meta['confidence']:.2f})")
 
+    # Normalise OCR-4-style responses to the OCR-3 shape BEFORE renumbering: OCR 4 lifts page-bottom
+    # footnote defs into each page's `footer` field (page-locally numbered), but renumber below
+    # rewrites the in-text ref to a GLOBAL number — so a footer def linked later no longer matches
+    # its ref (OCR 4 measured ~22% def coverage vs OCR 3's ~92%; folding restores it to ~89%).
+    # STRICTLY page_bottom only: that is the sole layout where extract_footer yields page-bottom
+    # DEFINITIONS. For other layouts a populated `footer` is references / numbered lists / chrome, and
+    # folding it corrupts them (measured regressions: author-year-bracket refs 16→3, a 'none' book
+    # 86→138). Re-classify on the richer markdown after folding.
+    if footnote_meta['classification'] == "page_bottom":
+        folded = fold_footer_defs_into_markdown(response_dict)
+        if folded:
+            footnote_meta = classify_footnotes(response_dict)
+            print(f"Folded page-bottom footer defs on {folded} page(s); re-classified: "
+                  f"{footnote_meta['classification']} (confidence: {footnote_meta['confidence']:.2f})")
+
     # Renumber footnote IDs across chunk and multi-paper resets — skip for
     # chapter_endnotes (existing chapter_fn_offsets handles those). Idempotent
     # via the marker on response_dict.

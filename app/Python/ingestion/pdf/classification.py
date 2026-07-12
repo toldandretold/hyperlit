@@ -92,8 +92,17 @@ class PageBottomClassifier(PdfClassifier):
 
     def matches(self, sig):
         co = sig['co_location_ratio']; rf = sig['reset_frequency']
+        pd = sig['pages_with_defs']
+        # both/defs: of the pages that HAVE a definition, how many also carry a ref. High → the
+        # surviving defs sit WITH their markers (page-bottom), even if overall co-location looks low.
+        def_coloc = (sig['pages_with_both'] / pd) if pd else 0.0
         return ((co > 0.4 and sig['pages_with_both'] >= 3 and rf < 0.1 and sig['max_ref_number'] > 10)
-                or (co > 0.5 and rf > 0.4))
+                or (co > 0.5 and rf > 0.4)
+                # Page-bottom whose OVERALL co-location is dragged down by messy OCR dropping defs on
+                # many ref pages: the defs that survived are co-located (def_coloc high), numbering
+                # restarts, and there is NO clustered notes section (else it'd be chapter/doc endnotes).
+                # Bedjaoui "Towards a NIEO": co 0.29 but 31/33 def-pages carry refs, rf 0.98, notes 0.
+                or (pd >= 5 and def_coloc > 0.7 and rf > 0.4 and sig['notes_page_count'] == 0))
 
     def confidence(self, sig):
         co = sig['co_location_ratio']; rf = sig['reset_frequency']

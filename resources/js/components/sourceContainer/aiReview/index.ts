@@ -8,13 +8,46 @@ import { openDatabase } from '../../../indexedDB/index';
 import { getRecord } from '../helpers';
 import { isByoLlmActive } from '../../../aiProviders/profiles';
 import { startTicketWorker } from '../../../aiProviders/ticketWorker';
+import { getAuthContextSync } from '../../../utilities/auth/session';
+import { isLoggedIn } from '../../../utilities/auth/index';
+import { promptLogin } from '../../../utilities/auth/promptLogin';
+import { offerTopUp } from '../../../utilities/billing/topUp';
+import { checklistDialog, alertDialog } from '../../dialog/dialog';
+import { log } from '../../../utilities/logger';
 
-export async function handleAiReviewGenerate(self: any) {
-  const generateBtn = self.container.querySelector("#ai-review-generate");
-  if (generateBtn) {
-    generateBtn.disabled = true;
-    generateBtn.textContent = 'Submitting...';
+const FILE = 'components/sourceContainer/aiReview/index.ts';
+
+/**
+ * Open the confirm popup (pricing + a "rescan" option), then trigger the review
+ * — the same shape as the harvester's confirm, replacing the old inline panel
+ * the button used to expand. An anonymous click routes to login first.
+ */
+export async function openAiReviewConfirm(self: any) {
+  if (!(await isLoggedIn())) {
+    await self.closeContainer?.();
+    await promptLogin();
+    return;
   }
+
+  const isPremium = getAuthContextSync()?.user?.status === 'premium';
+  const price = isPremium
+    ? 'Cost: included with Premium.'
+    : 'Estimated cost: around $1.00 (varies by book length) — it runs an external OCR + several LLMs to check each citation\'s truth claim against available sources. Results are published as both in-text hyperlights and a report.';
+
+  const result = await checklistDialog({
+    title: 'AI Citation Review',
+    message: `Review this text's citations — takes 10–15 minutes, and you're emailed on completion.\n\n${price}`,
+    items: [{ value: 'force', label: 'Rescan all sources from scratch' }],
+    confirmLabel: 'Generate review',
+  });
+  if (!result) return; // cancelled
+  await handleAiReviewGenerate(self, result.selected.includes('force'));
+}
+
+export async function handleAiReviewGenerate(self: any, force = false) {
+  const aiBtn = self.container.querySelector('#ai-review-btn');
+  if (aiBtn) { aiBtn.disabled = true; aiBtn.style.cursor = 'wait'; }
+  const restoreBtn = () => { if (aiBtn) { aiBtn.disabled = false; aiBtn.style.cursor = 'pointer'; } };
 
   try {
     const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
@@ -30,32 +63,15 @@ export async function handleAiReviewGenerate(self: any) {
         'X-CSRF-TOKEN': csrfToken,
       },
       credentials: 'include',
-      body: JSON.stringify({
-        book,
-        force: self.container.querySelector('#ai-review-force')?.checked || false,
-        client_inference: byo,
-      }),
+      body: JSON.stringify({ book, force, client_inference: byo }),
     });
 
     const data = await resp.json().catch(() => ({}));
 
     if (!resp.ok) {
+      restoreBtn();
       if (resp.status === 402) {
-        const infoPanel = self.container.querySelector('#ai-review-info');
-        if (infoPanel) {
-          let banner = infoPanel.querySelector('.ai-review-balance-error');
-          if (!banner) {
-            banner = document.createElement('p');
-            banner.className = 'ai-review-balance-error';
-            banner.style.cssText = 'font-size: 12px; color: var(--hyperlit-orange); margin: 0 0 10px 0; line-height: 1.5;';
-            infoPanel.insertBefore(banner, generateBtn);
-          }
-          banner.innerHTML = 'Insufficient balance. <a href="#" onclick="event.preventDefault(); fetch(\'/api/billing/checkout\', { method: \'POST\', headers: { \'Content-Type\': \'application/json\', \'Accept\': \'application/json\', \'X-XSRF-TOKEN\': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || \'\') }, credentials: \'include\', body: JSON.stringify({ amount: 5, return_url: window.location.href }) }).then(r => r.json()).then(d => { if (d.checkout_url) window.location.href = d.checkout_url; })" style="color: var(--hyperlit-aqua); text-decoration: underline;">Top Up Balance</a>';
-        }
-        if (generateBtn) {
-          generateBtn.disabled = false;
-          generateBtn.textContent = 'Generate Review';
-        }
+        await offerTopUp('Insufficient balance to run the review. Top up $5 to continue?');
         return;
       }
       throw new Error(data.message || `Request failed: ${resp.status}`);
@@ -76,12 +92,9 @@ export async function handleAiReviewGenerate(self: any) {
     // emailed on completion, so users know they can close it / leave.
     self.openAiReviewVizOverlay();
   } catch (error: any) {
-    console.error('AI Review trigger failed:', error);
-    alert('Failed to start AI Citation Review: ' + error.message);
-    if (generateBtn) {
-      generateBtn.disabled = false;
-      generateBtn.textContent = 'Generate Review';
-    }
+    log.error('AI Review trigger failed', FILE, error);
+    restoreBtn();
+    await alertDialog({ title: 'AI Citation Review', message: 'Failed to start AI Citation Review: ' + (error?.message || 'unknown error') });
   }
 }
 
@@ -215,8 +228,7 @@ export function setAiReviewState(self: any, state: any, currentStep?: any, opts?
           freshBtn.addEventListener('click', (ev: any) => {
             ev.preventDefault();
             ev.stopPropagation();
-            const panel = self.container.querySelector('#ai-review-info');
-            if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            self.openAiReviewConfirm();
           });
         }
         regenLink.remove();

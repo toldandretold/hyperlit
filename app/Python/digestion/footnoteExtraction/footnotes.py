@@ -42,7 +42,40 @@ def _is_footnote_definition(text):
     return bool(_FOOTNOTE_DEFINITION_RE.search((text or '').strip()))
 
 
-def _record_extraction_fork(strategy, code_ref, def_candidates, defs_extracted, excluded_in_bib):
+_TERMINAL_PUNCT = ('.', '!', '?', '"', "'", '”', '’', ')')
+
+
+def _footnote_reads_complete(fragment):
+    """Does the footnote's accumulated content (`fragment`, HTML) end a sentence? Strip a trailing
+    footnote-ref marker first (a literal `[^N]` at extraction time, or a defensive `<sup>N</sup>`),
+    then any remaining tags, so "…Mundell (1971).[^3]" reads as complete."""
+    t = re.sub(r'(?:\[\^\d+\]|<sup\b[^>]*>\s*\d+\s*</sup>)\s*$', '', fragment or '').rstrip()
+    t = re.sub(r'<[^>]+>', '', t).rstrip()
+    return t.endswith(_TERMINAL_PUNCT)
+
+
+def _continuation_is_body(text, footnote_complete, has_later_def):
+    """Is this continuation paragraph actually interleaved BODY text, not a footnote continuation?
+
+    A footnote def's content is collected up to the NEXT def, so a body paragraph that got physically
+    sandwiched between two footnote definitions (OCR/assembly interleaving of a page-spanning footnote —
+    e.g. Barro 1974: `[^1]` → intro-body → `[^2]` → `[^3]`) is wrongly absorbed and both pollutes the
+    footnote and vanishes from the main flow. We treat a candidate as body ONLY when all three hold:
+      1. the def run is INTERRUPTED — a later definition follows this footnote (`has_later_def`);
+      2. the footnote already reads as a COMPLETE sentence (`footnote_complete`); and
+      3. the candidate is an INDEPENDENT body paragraph — long (>120 chars) and capital/quote-initial.
+    Genuine multi-paragraph footnotes survive: a short continuation fails (3); a continuation of the
+    LAST footnote in a section fails (1)."""
+    if not (has_later_def and footnote_complete):
+        return False
+    t = (text or '').strip()
+    if len(t) <= 120:
+        return False
+    return t[0].isupper() or t[0] in '"“‘\''
+
+
+def _record_extraction_fork(strategy, code_ref, def_candidates, defs_extracted, excluded_in_bib,
+                            body_boundaries=0):
     """Emit the footnote-extraction decision-trace fork (a SUSPICION signal, never a verdict — see
     README §0). Counts every line that LOOKED like a footnote definition (`def_candidates`), how many
     became definitions, and how many were deliberately excluded under a Bibliography heading. The
@@ -69,7 +102,7 @@ def _record_extraction_fork(strategy, code_ref, def_candidates, defs_extracted, 
                   'are excluded as citations, not footnotes',
         evidence={'strategy': strategy, 'def_candidates': def_candidates,
                   'defs_extracted': defs_extracted, 'excluded_under_bibliography': excluded_in_bib,
-                  'dropped': dropped},
+                  'dropped': dropped, 'body_paragraphs_split_out': body_boundaries},
         question='Which lines are footnote definitions (vs prose / bibliography entries)?',
         considered=([{'option': 'treat the dropped definition-shaped lines as footnotes',
                       'rejected_because': 'they matched the definition opener but not the number+content '
@@ -102,6 +135,7 @@ def process_whole_document_footnotes(soup, book_id):
     footnote_starts = []
     def_candidates = 0      # elements whose text OPENS a footnote definition (before bibliography exclusion)
     excluded_in_bib = 0     # of those, deliberately skipped because under a Bibliography/References heading
+    body_boundaries = 0     # continuation paragraphs rejected as interleaved BODY (auditable fork signal)
     in_bibliography = False
     for i, element in enumerate(all_elements):
         if element.name in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
@@ -139,12 +173,19 @@ def process_whole_document_footnotes(soup, book_id):
 
         # Collect content from all elements for this footnote
         content_parts = [first_content] if first_content else []
+        has_later_def = j + 1 < len(footnote_starts)
 
         # Add continuation elements (elements between this footnote and the next)
         # Stop at headings or horizontal rules
         for elem in all_elements[start_idx + 1:end_idx]:
             # Stop if we hit a heading or hr (section boundary)
             if elem.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr']:
+                break
+            # Stop before absorbing an interleaved BODY paragraph sandwiched between two definitions.
+            if _continuation_is_body(elem.get_text(),
+                                     bool(content_parts) and _footnote_reads_complete(content_parts[-1]),
+                                     has_later_def):
+                body_boundaries += 1
                 break
             elem_content = get_element_html_content(elem)
             if elem_content and elem_content.strip():
@@ -174,7 +215,7 @@ def process_whole_document_footnotes(soup, book_id):
 
     print(f"Found {len(footnote_map)} footnote definitions in whole-document mode")
     _record_extraction_fork('whole_document', 'footnotes.py:process_whole_document_footnotes',
-                            def_candidates, len(footnote_map), excluded_in_bib)
+                            def_candidates, len(footnote_map), excluded_in_bib, body_boundaries)
     return footnote_map, footnotes_data
 
 
@@ -196,6 +237,7 @@ def process_sequential_footnotes(soup, book_id):
     sequential_footnote_map = {}  # section_number -> {identifier -> footnote_data}
     all_footnotes_data = []
     def_candidates = 0  # elements opening a footnote definition across all sections (for the fork)
+    body_boundaries = 0  # continuation paragraphs rejected as interleaved BODY (auditable fork signal)
 
     for marker_idx, marker in enumerate(def_markers):
         section_number = marker.get('id', '').replace('fnDefSection_', '')
@@ -236,11 +278,18 @@ def process_sequential_footnotes(soup, book_id):
             first_content = html_match.group(2).strip() if html_match else number_match.group(4).strip()
 
             content_parts = [first_content] if first_content else []
+            has_later_def = j + 1 < len(footnote_starts)
             for elem in range_elements[start_idx + 1:end_idx]:
                 if elem.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr']:
                     break
                 if elem.name == 'a':
                     continue
+                # Stop before absorbing an interleaved BODY paragraph sandwiched between two definitions.
+                if _continuation_is_body(elem.get_text(),
+                                         bool(content_parts) and _footnote_reads_complete(content_parts[-1]),
+                                         has_later_def):
+                    body_boundaries += 1
+                    break
                 elem_content = get_element_html_content(elem)
                 if elem_content and elem_content.strip():
                     content_parts.append(elem_content.strip())
@@ -270,7 +319,7 @@ def process_sequential_footnotes(soup, book_id):
     total = sum(len(s) for s in sequential_footnote_map.values())
     print(f"Found {total} footnote definitions in sequential mode across {len(sequential_footnote_map)} sections")
     _record_extraction_fork('sequential', 'footnotes.py:process_sequential_footnotes',
-                            def_candidates, total, 0)
+                            def_candidates, total, 0, body_boundaries)
     return sequential_footnote_map, all_footnotes_data
 
 

@@ -29,6 +29,24 @@ _FOOTER_FN_DEF_SIGNAL = re.compile(
     r')'
 )
 
+# The number-period-sentence footer form ("1. Abdellatif Ghissassi…") — how Mistral OCR 4 (and the
+# OCR-4 aliases 2503/2505/-latest) emits page-bottom footnote defs into extract_footer's `footer`
+# field. Deliberately KEPT SEPARATE from _FOOTER_FN_DEF_SIGNAL so it feeds ONLY the early fold
+# (fold_footer_defs_into_markdown), never the legacy assemble-time append — that append runs AFTER
+# renumber, where a page-local "1." no longer matches its already-globalised ref, so recognising `N.`
+# there would inject unlinked prose (and drift the assembly snapshot). The fold runs BEFORE renumber,
+# so the def travels the exact OCR-3 inline path and links. The `.` + sentence-case, inside the
+# footer note-area, disambiguates from a bare "6 Engels…" list item; a stray numbered LIST folded in
+# stays harmlessly unlinked (its 1,2,3 won't match the page's globalised ref numbers).
+_FOOTER_NUMDOT_DEF_SIGNAL = re.compile(r'(?m)^\s*\d{1,3}\.[ \t]+(?=[A-Z‘“"\'])')
+
+# A page-bottom footnote def Mistral emitted as a BARE number: "27 I am ignoring here…" (Barro
+# fn 27/28). Only in a FOOTER is a line-start "N Sentence" unambiguously a footnote (the footer IS
+# the page-bottom note area — not body, where a bare number is a list/citation). Require sentence
+# case after the number ("27 There…", "27 I am…") so an ALL-CAPS running header ("27 THE JOURNAL
+# OF…") or a lone page number is left alone.
+_FOOTER_BARE_NUM_DEF = re.compile(r'(?m)^([ \t]*)(\d{1,3})[ \t]+(?=[A-Z][a-z]|[A-Z][ \t]+[a-z])')
+
 
 def _footer_footnote_defs(footer):
     """Return the footer's text when it carries page-bottom footnote DEFINITIONS, else ''.
@@ -45,10 +63,230 @@ def _footer_footnote_defs(footer):
     return footer.strip() if _FOOTER_FN_DEF_SIGNAL.search(footer) else ''
 
 
+def fold_footer_defs_into_markdown(response_dict):
+    """Normalise an OCR-4-style response to the OCR-3 shape: fold each page's `footer` field
+    (when it carries page-bottom footnote DEFINITIONS) onto the END of that page's `markdown`.
+
+    Why early, not at assemble time: OCR 4 (extract_footer=True) lifts each definition OUT of the
+    markdown into the `footer` field, still page-locally numbered ("1. Abdellatif …"). But for
+    page_bottom books `renumber_chunk_footnotes` rewrites the IN-TEXT ref to a GLOBAL number
+    ([^132]) before assembly — so a footer def appended later (still "1.") no longer matches its
+    ref and the linker drops it (OCR 4 fell to ~22% def coverage vs OCR 3's ~92%). Folding the
+    footer INTO the markdown before any renumbering means the def travels through the exact same
+    passes as an OCR-3 inline def, so the whole downstream pipeline stays model-agnostic and OCR 4
+    recovers to ~89%.
+
+    Graceful + non-blocking: a no-op when `footer` is empty (OCR 3 leaves defs inline) or carries
+    no def signal (pure page chrome). Clears the folded footer so the assemble-time footer append
+    can't double it. Idempotent via `_footer_folded`. Returns the number of pages folded.
+
+    Caller MUST gate to classification == 'page_bottom' — the ONLY layout where extract_footer yields
+    page-bottom DEFINITIONS. For other layouts (none / author-year-bracket / endnotes) a populated
+    `footer` is references / numbered lists / chrome, and folding it corrupts them (measured
+    regressions when ungated: author-year-bracket references 16→3, a 'none' book footnotes 86→138).
+    Re-classify on the richer markdown after folding."""
+    if response_dict.get("_footer_folded"):
+        return 0
+    folded = 0
+    for page in response_dict.get("pages", []):
+        footer = page.get("footer") or ""
+        if not footer.strip():
+            continue
+        # Fold when the footer opens a def in ANY recognised shape — the legacy signals
+        # (superscript / LaTeX / [^N]) OR OCR 4's number-period form ("1. Abdellatif …").
+        if not (_FOOTER_FN_DEF_SIGNAL.search(footer) or _FOOTER_NUMDOT_DEF_SIGNAL.search(footer)):
+            continue
+        md = page.get("markdown", "") or ""
+        defs = footer.strip()
+        page["markdown"] = f"{md}\n\n{defs}" if md.strip() else defs
+        page["footer"] = ""  # folded — prevent the assemble-time append from re-adding it
+        folded += 1
+    response_dict["_footer_folded"] = 1
+    return folded
+
+
+def _footer_bare_num_defs(footer):
+    """Extract page-bottom footnote defs Mistral emitted as a BARE number ("27 I am ignoring…")
+    as {num: text}. A bare number is ambiguous (list item / page number / citation), so — unlike
+    the [^N]/superscript defs above — these are only CANDIDATES: the caller injects one solely when
+    an in-text marker [^N] is orphaned for that number (Barro fn 27/28 have markers; soviet_marxism's
+    "6 Engels, Letter to Franz Mehring…" has none, so it must stay out — it can't be linked)."""
+    out = {}
+    if not footer or not footer.strip():
+        return out
+    for m in _FOOTER_BARE_NUM_DEF.finditer(footer):
+        start = m.start()
+        nl = footer.find('\n', m.end())
+        line = footer[start:(nl if nl != -1 else len(footer))]
+        num = m.group(2)
+        out[num] = re.sub(r'^[ \t]*' + num + r'[ \t]+', '', line).strip()
+    return out
+
+
+# A paragraph that unambiguously OPENS a footnote definition, judged by its first line:
+# caret-bracket ([^N]: / [^N] text), a line-start unicode superscript (¹ text), a line-start LaTeX
+# superscript ($^{1}$ text), or a line-start bare caret (^23 text). Deliberately NOT the plain
+# bracket form "[N] text" — at line start that is just as often a bibliography entry, and moving
+# those away from their References heading would break the extraction stage's bibliography exclusion.
+_DEF_PARAGRAPH_OPENER_RE = re.compile(
+    r'^\s*(?:'
+    r'\[\^\d+\][:.]?(?:\s|$)'          # [^N]: text / [^N] text
+    r'|[¹²³⁰-⁹]+\s'         # ¹ text
+    r'|\$\^\{?\d+(?:\s*,\s*\d+)*\}?\$\s'                # $^{1}$ text / $^{1,2}$ text
+    r'|\^\d{1,3}\s'                                     # ^23 text
+    r')'
+)
+
+
+_DEF_TRAILING_REF_RE = re.compile(r'(?:\s*\[\^\d+\])+\s*$')
+_DEF_TERMINAL_PUNCT = ('.', '!', '?', ':', ';', '"', "'", '”', '’', ')', ']')
+
+
+def _ends_mid_sentence(paragraph):
+    """Does this (def) paragraph end mid-sentence — i.e. its note continues on the next page?
+
+    True only when it ends in a LOWERCASE WORD with no terminal punctuation (Cox fn 12: "…of some
+    major"). A trailing digit is NOT mid-sentence — citations routinely end in bare page/year
+    numbers ("H. W. Briggs, Op.Cit. pp. 505-507"), and reading those as open made the gate absorb
+    the next page's lowercase BODY continuation into the footnote (Calvo Clause)."""
+    t = _DEF_TRAILING_REF_RE.sub('', (paragraph or '').strip()).rstrip()
+    t = re.sub(r'<[^>]+>', '', t).rstrip()
+    if not t or t.endswith(_DEF_TERMINAL_PUNCT):
+        return False
+    return bool(re.search(r'[a-z]{2,}$', t))
+
+
+def _split_out_definition_paragraphs(md, open_tail=False):
+    """Partition a page's markdown into (body, defs, still_open) at PARAGRAPH granularity.
+
+    Any blank-line-separated paragraph whose first line is an unambiguous footnote-definition
+    opener goes to `defs`; everything else stays in `body`, order preserved. Unlike
+    split_body_and_footnotes (page_bottom's trailing-block split at the FIRST def line), this
+    tolerates defs scattered mid-page and body text resuming after them — the 'unknown' layout
+    makes no bottom-of-page promise.
+
+    A page-spanning footnote (cut mid-sentence at the page turn, continuation opening the next
+    page in lowercase — Cox 'Real Socialism' fn 12: "…of some major" / "capitalist countries…")
+    must keep its continuation: while the def stream's tail ends MID-SENTENCE, a following
+    lowercase-initial paragraph is routed to defs too. `open_tail` carries that state in from
+    the previous page; `still_open` carries it out. A def that ends with terminal punctuation
+    followed by lowercase body (Barro fn 1: "…tax liability.'" / "the relevant horizon…") is
+    NOT continued — the completeness gate is what separates the two shapes."""
+    body_parts, def_parts = [], []
+    tail_open = open_tail       # the last def routed to `defs` ends mid-sentence
+    after_def = open_tail       # the previous paragraph was routed to `defs`
+    for para in re.split(r'\n\s*\n', md):
+        p = para.strip()
+        if not p:
+            continue
+        if _DEF_PARAGRAPH_OPENER_RE.match(p):
+            def_parts.append(para.strip('\n'))
+            after_def, tail_open = True, _ends_mid_sentence(p)
+        elif after_def and tail_open and p[:1].islower():
+            def_parts.append(para.strip('\n'))          # page/paragraph-spanning continuation
+            tail_open = _ends_mid_sentence(p)
+        else:
+            body_parts.append(para.strip('\n'))
+            after_def = tail_open = False
+    return '\n\n'.join(body_parts), '\n\n'.join(def_parts), (after_def and tail_open)
+
+
+# A paragraph that opens like a BIBLIOGRAPHY entry, not a footnote — author-first ("Pimm SL,
+# Russell GJ", "Bailey, M. J.") or carrying an "(1995)" author-year cite near the front. Such a
+# paragraph must never be pulled out as a "recovered" footnote def.
+_BIB_OPENER_RE = re.compile(
+    r"^[A-Z][A-Za-z'’-]+,\s+[A-Z]\.?"          # Bailey, M. J.
+    r"|^[A-Z][a-z]+\s+[A-Z]{1,3},"             # Pimm SL,   Russell GJ,
+)
+
+
+def _looks_like_bibliography_entry(text):
+    head = text[:90]
+    return bool(_BIB_OPENER_RE.match(text) or re.search(r'\(\d{4}[a-z]?\)', head))
+
+
+def _recover_orphan_plain_defs(combined, footer_candidates=None):
+    """Recover footnote defs for ORPHANED in-text markers [^N] (a ref with no [^N]: definition).
+
+    Two sources, both keyed on the orphan set so an unlinkable def is never injected:
+      1. A bare-number FOOTER def candidate {N: text} the caller collected — a page-bottom note
+         Mistral emitted as "27 I am ignoring…" (Barro fn 27/28). Injected only when [^N] is
+         orphaned, so soviet_marxism's markerless "6 Engels, Letter…" stays out.
+      2. A plain "N Text…" PARAGRAPH stranded in the body (Barro's "29 The usual fiscal analysis…"
+         OCR'd into the References). A plain leading number is otherwise too ambiguous (numbered
+         lists / Vancouver bibliographies), so this is gated hard: leading-number paragraphs must
+         be RARE (a numbered biblio has many), the paragraph long PROSE, not author/'(year)'-shaped.
+    """
+    refs, defs = set(), set()
+    for m in re.finditer(r'\[\^(\d+)\]', combined):
+        (defs if (m.start() == 0 or combined[m.start() - 1] == '\n') else refs).add(m.group(1))
+    orphans = refs - defs
+    if not orphans:
+        return combined
+    recovered = []
+    # Source 1: bare-number footer candidates for orphaned markers.
+    for n in sorted(orphans, key=int):
+        txt = (footer_candidates or {}).get(n)
+        if txt:
+            recovered.append(f'[^{n}]: ' + txt)
+    still_orphan = orphans - {n for n in orphans if (footer_candidates or {}).get(n)}
+    # Source 2: a plain "N Text…" body paragraph — only when numbers aren't a structural device
+    # here (Barro's References are author-first → leading-number paragraphs stay ~1).
+    leading_num_paras = len(re.findall(r'(?m)^\d{1,3}\.?\s+[A-Z‘“"\'(]', combined))
+    if still_orphan and leading_num_paras <= max(len(defs), 3):
+        for n in sorted(still_orphan, key=int):
+            m = re.search(r'(?m)^' + n + r'\.?\s+[A-Z‘“"\'(].*(?:\n(?![ \t]*\n).*)*', combined)
+            if not m:
+                continue
+            body = re.sub(r'^' + n + r'\.?\s+', '', m.group(0).strip())
+            if len(body) < 150 or _looks_like_bibliography_entry(body):
+                continue                                # short list item / address / biblio entry
+            combined = combined[:m.start()] + combined[m.end():]
+            recovered.append(f'[^{n}]: ' + body)
+    if recovered:
+        combined = combined.rstrip() + '\n\n' + '\n\n'.join(recovered)
+    return combined
+
+
+# Two reference entries the OCR glued together with no separator: a sentence-ending period (or a
+# closing paren) followed IMMEDIATELY by "Surname, I." — the canonical author-first bibliography
+# opener ("…1063-93.Blinder, A. S., and Solow…"). Only applied inside the References section.
+_GLUED_REF_SEAM_RE = re.compile(r"(?<=[.)])(?=[A-Z][A-Za-z'’-]+, [A-Z]\.)")
+
+
+def _unglue_reference_entries(combined):
+    """Split OCR-glued bibliography entries inside the References/Bibliography section so each
+    entry is its own paragraph (the reader renders them separately, and bibliography extraction
+    can key each entry instead of swallowing a glued block as one)."""
+    m = re.search(r'(?m)^#{1,6}\s*(References|Bibliography|Works Cited)\s*$', combined, re.IGNORECASE)
+    if not m:
+        return combined
+    head, tail = combined[:m.end()], combined[m.end():]
+    nxt = re.search(r'(?m)^#{1,6}\s', tail)
+    section, rest = (tail[:nxt.start()], tail[nxt.start():]) if nxt else (tail, '')
+    section = _GLUED_REF_SEAM_RE.sub('\n', section)
+    return head + section + rest
+
+
 class DefaultAssembler(FootnoteAssembler):
-    """Generic / unknown path: per-page keeps the body (base), post-combine normalizes refs + defs."""
-    plain = ('No special layout — generic cleanup. Normalises whatever footnote refs/defs it finds and '
-             'stitches page-break splits. Used for "none" (no footnotes) and "unknown" (nothing matched).')
+    """Generic / unknown path: per-page SPLITS definition paragraphs out of the body (deferred to a
+    contiguous block at the document end, page order), post-combine normalizes refs + defs."""
+    plain = ('No special layout — generic cleanup. Pulls unambiguous footnote-definition paragraphs '
+             'out of each page into one block at the end (so body text never sits BETWEEN two '
+             'definitions and page-spanning sentences rejoin cleanly), normalises whatever footnote '
+             'refs/defs it finds, and stitches page-break splits. Used for "none" (no footnotes) and '
+             '"unknown" (nothing matched).')
+
+    def per_page(self, ctx, i, page, md, md_stripped):
+        if not md_stripped:
+            return
+        body, defs, still_open = _split_out_definition_paragraphs(
+            md, getattr(ctx, 'open_def_continuation', False))
+        if body.strip():
+            ctx.md_parts.append(body)
+        if defs.strip():
+            ctx.deferred_defs_parts.append(defs)
+        ctx.open_def_continuation = still_open
 
     def post_combine(self, ctx, combined):
         combined = normalize_all_footnote_refs(combined)
@@ -56,6 +294,11 @@ class DefaultAssembler(FootnoteAssembler):
         # Fix footnote definitions: OCR produces [^N] Text but markdown expects [^N]: Text
         # Only at start of line (definitions), not inline references
         combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)
+        # An orphaned in-text ref whose def the OCR left as a plain "N Text…" paragraph (often
+        # stranded mid-References) or dropped into a bare-number page footer → recover the def.
+        combined = _recover_orphan_plain_defs(combined, ctx.footer_bare_candidates)
+        # Reference entries the OCR glued together → one paragraph per entry.
+        combined = _unglue_reference_entries(combined)
         combined = rejoin_page_breaks(combined)
         return combined
 
@@ -427,16 +670,41 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         # Skipped for chapter_endnotes / wackSTEM: those apply a per-chapter/per-section number
         # OFFSET, so a stray page-bottom def would be re-keyed to the wrong note (a confident wrong
         # link). Their own assemblers + the pypdf pass own definition recovery.
+        footer_defs = ''
         if classification not in ("chapter_endnotes", "wackSTEMbibliographyNotes"):
             footer_defs = _footer_footnote_defs(page.get("footer") or "")
-            if footer_defs:
+            if footer_defs and assembler is not _DEFAULT_ASSEMBLER:
                 md = f"{md}\n\n{footer_defs}" if md_stripped else footer_defs
                 md_stripped = md.strip()
 
         # Per-classification per-page footnote handling (renumber / convert / offset + append).
         assembler.per_page(ctx, i, page, md, md_stripped)
 
+        # Default path: footnote defs never sit inline in the body. per_page has already split this
+        # page's inline definition paragraphs into ctx.deferred_defs_parts; the footer-recovered defs
+        # (physically the very bottom of the page) follow them, so [^N] numbering stays ascending and
+        # a page-spanning body sentence is never wedged apart by a definition (Barro 1974 fn 1 —
+        # rejoin_page_breaks used to glue the next page's body onto the def, rendering it inside the
+        # footnote popup).
+        if footer_defs and assembler is _DEFAULT_ASSEMBLER:
+            ctx.deferred_defs_parts.append(footer_defs)
+            # A page-bottom note cut at the page turn continues at the TOP of the next page's
+            # markdown — hand the open-tail state to the next page's split so the lowercase
+            # continuation follows its def into the deferred block instead of stranding in body.
+            last_para = re.split(r'\n\s*\n', footer_defs.strip())[-1]
+            ctx.open_def_continuation = _ends_mid_sentence(last_para)
+
+        # Collect BARE-number footer defs ("27 I am ignoring…") as candidates — injected in
+        # post_combine only where an in-text marker [^N] is orphaned (Default path only).
+        if assembler is _DEFAULT_ASSEMBLER and classification not in ("chapter_endnotes", "wackSTEMbibliographyNotes"):
+            for num, txt in _footer_bare_num_defs(page.get("footer") or "").items():
+                ctx.footer_bare_candidates.setdefault(num, txt)
+
     combined = "\n\n".join(ctx.md_parts)
+    # Append every deferred def (inline splits + footer recoveries, page order) as ONE contiguous
+    # block at the end, BEFORE post_combine so its ref/def normalisation still runs over them.
+    if ctx.deferred_defs_parts:
+        combined = combined + "\n\n" + "\n\n".join(ctx.deferred_defs_parts)
     combined = assembler.post_combine(ctx, combined)
 
     # --- Fix mangled URLs from OCR ---
