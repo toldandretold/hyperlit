@@ -8,7 +8,24 @@
   height: auto; /* Grow to fit content */
   max-height: calc(100vh - 2em); /* Don't exceed viewport */
   width: 300px; /* Fixed width, narrower than hyperlit */
-  font-size: 14px; /* Base size — everything inside scales from this */
+  /* Panel type tracks the reader's --font-size-base setting on a curve (not a
+     flat ratio): --sc-base EQUALS the body size at its 14px minimum and grows at
+     40% of the reading increase above that (reading 28px -> ~19.6px, 48px ->
+     ~27.6px), so it's always <= the body and never shrinks below it. Every tier
+     below is the old px hierarchy re-expressed as a ratio of the 14px design
+     base, so proportions are preserved exactly — only the anchor now scales.
+     Slope 0.4 is the one tunable knob. */
+  --sc-base: calc(14px + (var(--font-size-base, 28px) - 14px) * 0.4);
+  --sc-10: calc(var(--sc-base) * 0.714); /* 10/14 */
+  --sc-11: calc(var(--sc-base) * 0.786); /* 11/14 */
+  --sc-12: calc(var(--sc-base) * 0.857); /* 12/14 */
+  --sc-13: calc(var(--sc-base) * 0.929); /* 13/14 */
+  --sc-14: var(--sc-base);               /* 14/14 = base */
+  --sc-15: calc(var(--sc-base) * 1.071); /* 15/14 */
+  --sc-16: calc(var(--sc-base) * 1.143); /* 16/14 */
+  --sc-18: calc(var(--sc-base) * 1.286); /* 18/14 */
+  --sc-22: calc(var(--sc-base) * 1.571); /* 22/14 */
+  font-size: var(--sc-14); /* base size — everything inside scales from this */
   background-color: var(--container-glass-bg); /* Use theme-aware glass background */
   -webkit-backdrop-filter: var(--container-glass-blur);
   backdrop-filter: var(--container-glass-blur);
@@ -219,7 +236,7 @@
   cursor: pointer;
   color: var(--color-text-secondary);
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--sc-13);
   transition: background 0.15s ease, color 0.15s ease;
 }
 
@@ -283,13 +300,13 @@
 #source-container textarea,
 #source-container label,
 #source-container button {
-  font-size: 16px;
+  font-size: var(--sc-16);
   font-family: inherit;
 }
 
 /* CRITICAL: Override browser default button styling - ONLY FOR FORM BUTTONS WITH .formButton CLASS */
 #source-container .formButton {
-  font-size: 16px;
+  font-size: var(--sc-16);
   font-family: inherit;
   border: none !important;
   background: transparent !important;
@@ -359,12 +376,12 @@
 }
 
 #source-container h2 {
-  font-size: 18px;
+  font-size: var(--sc-18);
   margin-bottom: 0.5em;
 }
 
 #source-container h3 {
-  font-size: 13px;
+  font-size: var(--sc-13);
   color: var(--color-label);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -390,7 +407,7 @@
   border-radius: 0;
   cursor: pointer;
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--sc-13);
   font-weight: bold;
   color: var(--color-label);
   text-transform: uppercase;
@@ -422,7 +439,7 @@
 }
 
 #source-container .form-subtitle {
-  font-size: 12px;
+  font-size: var(--sc-12);
   color: var(--color-text);
   opacity: 0.7;
   margin: 0.2em 0;
@@ -449,7 +466,7 @@
 
 /* Field hints */
 #source-container .field-hint {
-  font-size: 10px;
+  font-size: var(--sc-10);
   color: var(--color-text);
   opacity: 0.6;
   margin-top: 0.1em;
@@ -459,7 +476,7 @@
 
 /* Validation messages */
 #source-container .validation-message {
-  font-size: 12px;
+  font-size: var(--sc-12);
   margin-top: 0.25em;
   display: none;
 }
@@ -485,14 +502,14 @@
 #source-container .validation-summary h4 {
   color: #EE4A95;
   margin: 0 0 0.5em 0;
-  font-size: 14px;
+  font-size: var(--sc-14);
 }
 
 #source-container .validation-summary ul {
   margin: 0;
   padding-left: 1.5em;
   color: #EE4A95;
-  font-size: 12px;
+  font-size: var(--sc-12);
 }
 
 /* Input field states */

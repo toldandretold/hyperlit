@@ -126,12 +126,12 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
   let licenseHtml = '';
 
   if (licenseInfo.url) {
-    licenseHtml = `<p class="license-line" style="font-size: 12px; color: var(--color-label); margin-top: 10px;">📄 <a href="${licenseInfo.url}" target="_blank" style="color: var(--color-label); text-decoration: underline;">${licenseInfo.short}</a></p>`;
+    licenseHtml = `<p class="license-line" style="font-size: var(--sc-12); color: var(--color-label); margin-top: 10px;">📄 <a href="${licenseInfo.url}" target="_blank" style="color: var(--color-label); text-decoration: underline;">${licenseInfo.short}</a></p>`;
   } else if (license === 'custom' && record?.custom_license_text) {
     const escapedText = record.custom_license_text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    licenseHtml = `<p class="license-line" style="font-size: 12px; color: var(--color-label); margin-top: 10px; cursor: help;" title="${escapedText}">📄 ${licenseInfo.short}</p>`;
+    licenseHtml = `<p class="license-line" style="font-size: var(--sc-12); color: var(--color-label); margin-top: 10px; cursor: help;" title="${escapedText}">📄 ${licenseInfo.short}</p>`;
   } else {
-    licenseHtml = `<p class="license-line" style="font-size: 12px; color: var(--color-label); margin-top: 10px;">📄 ${licenseInfo.short}</p>`;
+    licenseHtml = `<p class="license-line" style="font-size: var(--sc-12); color: var(--color-label); margin-top: 10px;">📄 ${licenseInfo.short}</p>`;
   }
 
   return `

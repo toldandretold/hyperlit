@@ -41,7 +41,7 @@ export function researchWorkflowsSectionHtml(record: any, canEdit = false): stri
   // buttons render dimmed and a click routes to login — the same behaviour as
   // trying to import a PDF while anonymous.
   const loginHint = isLoggedIn ? '' :
-    `<p style="font-size: 12px; color: var(--color-text-faint); margin: 6px 0 0;">Log in to run these on this commons text.</p>`;
+    `<p style="font-size: var(--sc-12); color: var(--color-text-faint); margin: 6px 0 0;">Log in to run these on this commons text.</p>`;
   const inner = `${aiReviewSectionHtml(record)}
        <h3 style="margin-top: 15px;">Knowledge Commons Harvester</h3>
        <div id="harvest-network-section"></div>
@@ -61,7 +61,7 @@ export function researchWorkflowsSectionHtml(record: any, canEdit = false): stri
       </svg>
     </button>
     <div id="research-workflows-content" style="display: none;">
-      <p style="font-size: 11px; color: var(--color-text-faint); margin: 0 0 6px; line-height: 1.5;">${intro}</p>
+      <p style="font-size: var(--sc-11); color: var(--color-text-faint); margin: 0 0 6px; line-height: 1.5;">${intro}</p>
       ${inner}
     </div>
   </div>`;

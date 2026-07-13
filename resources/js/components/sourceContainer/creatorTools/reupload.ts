@@ -41,7 +41,7 @@ export async function handleReupload(self: any, file: any) {
   if (dropzone) {
     dropzone.style.pointerEvents = 'none';
     dropzone.style.opacity = '0.5';
-    dropzone.innerHTML = '<p style="font-size: 13px; color: var(--hyperlit-orange); margin: 0;">Uploading &amp; converting...</p>';
+    dropzone.innerHTML = '<p style="font-size: var(--sc-13); color: var(--hyperlit-orange); margin: 0;">Uploading &amp; converting...</p>';
   }
 
   try {
@@ -69,7 +69,7 @@ export async function handleReupload(self: any, file: any) {
       update(pct: any, msg: any) {
         if (dropzone) {
           const label = pct != null ? `${msg || 'Converting'}… ${Math.round(pct)}%` : (msg || 'Converting…');
-          dropzone.innerHTML = `<p style="font-size: 13px; color: var(--hyperlit-orange); margin: 0;">${label}</p>`;
+          dropzone.innerHTML = `<p style="font-size: var(--sc-13); color: var(--hyperlit-orange); margin: 0;">${label}</p>`;
         }
       },
       showError() {},
@@ -89,8 +89,8 @@ export async function handleReupload(self: any, file: any) {
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0 0 4px 0;">Drag & drop a file or click to select</p>
-          <p style="font-size: 11px; color: var(--color-text-faint); margin: 0;">md, doc, docx, epub, html, pdf</p>`;
+          <p style="font-size: var(--sc-12); color: var(--color-text-secondary); margin: 0 0 4px 0;">Drag & drop a file or click to select</p>
+          <p style="font-size: var(--sc-11); color: var(--color-text-faint); margin: 0;">md, doc, docx, epub, html, pdf</p>`;
     }
   }
 }

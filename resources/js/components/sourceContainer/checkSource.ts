@@ -23,8 +23,8 @@ const LINK_SVG =
 const BOOK_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>';
 
-const PILL_BASE = 'font-size: 12px; color: var(--hyperlit-aqua); display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid color-mix(in srgb, var(--hyperlit-aqua) 35%, transparent); border-radius: 999px;';
-const DETAIL_STYLE = 'font-size: 12px; color: var(--color-text-secondary); margin-top: 8px; line-height: 1.5;';
+const PILL_BASE = 'font-size: var(--sc-12); color: var(--hyperlit-aqua); display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid color-mix(in srgb, var(--hyperlit-aqua) 35%, transparent); border-radius: 999px;';
+const DETAIL_STYLE = 'font-size: var(--sc-12); color: var(--color-text-secondary); margin-top: 8px; line-height: 1.5;';
 const INLINE_LINK = 'color: var(--hyperlit-aqua); text-decoration: underline;';
 
 function escapeHtml(s: string): string {
@@ -159,7 +159,7 @@ export function wireSourceStatus(section: HTMLElement): void {
 function checkButtonHtml(): string {
   return `
     <div id="source-categories">
-      <button type="button" id="check-source-btn" style="padding: 6px 12px; font-size: 12px; color: var(--hyperlit-aqua); border: 1px solid color-mix(in srgb, var(--hyperlit-aqua) 40%, transparent); background: transparent; border-radius: 4px; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px;">
+      <button type="button" id="check-source-btn" style="padding: 6px 12px; font-size: var(--sc-12); color: var(--hyperlit-aqua); border: 1px solid color-mix(in srgb, var(--hyperlit-aqua) 40%, transparent); background: transparent; border-radius: 4px; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px;">
         ${LINK_SVG} Check source
       </button>
     </div>`;
@@ -190,7 +190,7 @@ export function librarianHtml(record: LibraryRecord): string {
 
   return `
     <h3>Librarian</h3>
-    <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0;">${inner}</p>
+    <p style="font-size: var(--sc-12); color: var(--color-text-secondary); margin: 0;">${inner}</p>
     ${commonsFeedbackNoteHtml(record)}`;
 }
 
@@ -222,7 +222,7 @@ function setMessage(section: HTMLElement, message: string): void {
   if (!note) {
     note = document.createElement('p');
     note.id = 'check-source-note';
-    note.style.cssText = 'font-size: 12px; color: var(--color-label); margin: 8px 0 0 0;';
+    note.style.cssText = 'font-size: var(--sc-12); color: var(--color-label); margin: 8px 0 0 0;';
     section.appendChild(note);
   }
   note.textContent = message;
@@ -284,7 +284,7 @@ export async function handleCheckSource(self: any): Promise<void> {
     shortlist,
     {
       onSelect: async (candidate) => {
-        mount.innerHTML = '<p style="font-size: 12px; color: var(--color-label); margin: 8px 0 0 0;">Linking…</p>';
+        mount.innerHTML = '<p style="font-size: var(--sc-12); color: var(--color-label); margin: 8px 0 0 0;">Linking…</p>';
         const verified = await verifySource(book, candidate);
         if (verified.success) {
           // Re-render the section from the now-linked record (verifySource merged it into IDB).

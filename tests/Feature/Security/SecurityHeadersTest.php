@@ -133,17 +133,18 @@ test('Content-Security-Policy header should be implemented', function () {
 // STRICT-TRANSPORT-SECURITY (HSTS)
 // =============================================================================
 
-test('HSTS header should be present in production', function () {
-    // HSTS is typically only set in production with HTTPS
-    // This test documents the expected behavior
+test('HSTS header matches the environment contract', function () {
     $response = $this->get('/');
-
     $hsts = $response->headers->get('Strict-Transport-Security');
 
-    // In development, HSTS might not be set
-    // In production, it should be: max-age=31536000; includeSubDomains
     if (config('app.env') === 'production') {
+        // Prod (HTTPS): HSTS must be present and carry a max-age.
         expect($hsts)->not->toBeNull();
+        expect($hsts)->toContain('max-age');
+    } else {
+        // Non-prod: either absent (the common case) or, if set, still well-formed —
+        // never a malformed value. Always asserts.
+        expect($hsts === null || str_contains($hsts, 'max-age'))->toBeTrue();
     }
 });
 
@@ -197,14 +198,10 @@ test('error responses do not leak stack traces', function () {
         ->not->toContain('stack trace');
 });
 
-test('500 errors return generic message', function () {
-    // This would require triggering an actual 500 error
-    // which is difficult in test environment
-    // Document the expected behavior
-
-    // In production, 500 errors should show generic message
-    // Never expose: file paths, class names, SQL queries, config values
-});
+// Genuinely unimplemented — tracked as a TODO instead of masquerading as a passing
+// (assertion-free) security test. Needs a deterministic 500 trigger to assert that prod
+// error responses carry no stack trace / file path / SQL / config leak.
+test('500 errors return generic message in production')->todo();
 
 // =============================================================================
 // API VERSION/SERVER HEADERS
@@ -213,14 +210,13 @@ test('500 errors return generic message', function () {
 test('server header does not reveal technology stack', function () {
     $response = $this->get('/');
 
-    $server = $response->headers->get('Server');
+    $server = (string) $response->headers->get('Server');
 
-    // Should not reveal specific versions
-    if ($server) {
-        expect(strtolower($server))->not->toContain('php/')
-            ->not->toContain('apache/')
-            ->not->toContain('nginx/');
-    }
+    // A missing Server header is fine (nothing leaked); if present it must not reveal a
+    // version-bearing tech string. Always asserts (no version substrings either way).
+    expect(strtolower($server))->not->toContain('php/')
+        ->not->toContain('apache/')
+        ->not->toContain('nginx/');
 });
 
 test('X-Powered-By header is removed', function () {
@@ -238,14 +234,15 @@ test('X-Powered-By header is removed', function () {
 test('Permissions-Policy restricts browser features', function () {
     $response = $this->get('/');
 
-    // Permissions-Policy (formerly Feature-Policy) should restrict:
-    // - camera, microphone, geolocation, etc.
     $permissionsPolicy = $response->headers->get('Permissions-Policy');
 
-    // Document if not implemented
     if (!$permissionsPolicy) {
-        $this->markTestIncomplete('Permissions-Policy header is not implemented');
+        // Not yet implemented — track honestly rather than silently no-op.
+        $this->markTestSkipped('Permissions-Policy header is not implemented');
     }
+
+    // When present it must actually restrict at least one sensitive feature.
+    expect(strtolower($permissionsPolicy))->toMatch('/camera|microphone|geolocation|payment|usb|fullscreen/');
 });
 
 // =============================================================================
@@ -287,17 +284,9 @@ test('security headers present on authenticated routes', function () {
 // CSRF TOKEN VALIDATION
 // =============================================================================
 
-test('CSRF token is required for state-changing requests', function () {
-    $user = $this->seedUser();
-
-    // Try to make POST without CSRF token (outside of API route)
-    // API routes use Sanctum instead of CSRF
-});
-
-test('CSRF token mismatch is rejected', function () {
-    // Web routes should reject requests with invalid CSRF tokens
-    // API routes should require Sanctum authentication
-});
+// Unimplemented — API routes use Sanctum (covered by the auth suites), not CSRF tokens;
+// asserting the web-route CSRF (419) contract needs a state-changing web route to target.
+test('CSRF/Sanctum is required for state-changing requests')->todo();
 
 // =============================================================================
 // CONTENT-TYPE ENFORCEMENT
@@ -321,7 +310,6 @@ test('API only accepts application/json content type', function () {
 // DOWNLOAD HEADERS FOR MEDIA
 // =============================================================================
 
-test('media downloads have correct disposition headers', function () {
-    // Test that served files have appropriate headers
-    // to prevent XSS through content-type sniffing
-});
+// Unimplemented — needs a seeded media/book_images asset to fetch and assert its
+// Content-Disposition + X-Content-Type-Options (nosniff) prevent content-type-sniffing XSS.
+test('media downloads have correct disposition headers')->todo();

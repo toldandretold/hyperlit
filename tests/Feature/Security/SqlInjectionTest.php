@@ -141,6 +141,10 @@ test('library upsert book id is sanitized', function (string $payload) {
 test('library title field uses parameterized queries', function () {
     $user = $this->seedUser();
 
+    // Seed the target book (update-only upsert) AND a canary the injection would delete.
+    $this->seedLibrary(['book' => 'sql-test-title', 'title' => 'Seed', 'creator' => $user->name, 'creator_token' => $user->user_token, 'visibility' => 'public']);
+    $this->seedLibrary(['book' => 'sql-canary', 'title' => 'Canary', 'creator' => $user->name, 'creator_token' => $user->user_token, 'visibility' => 'public']);
+
     $payload = "Test'; DELETE FROM library;--";
 
     $response = $this->actingAs($user)
@@ -151,14 +155,17 @@ test('library title field uses parameterized queries', function () {
             ],
         ]);
 
-    // The title should be stored literally, not executed as SQL
-    if ($response->status() === 200) {
-        $library = PgLibrary::where('book', 'sql-test-title')->first();
-        if ($library) {
-            expect($library->title)->toBe($payload);
-            $library->delete();
-        }
-    }
+    // The write succeeded and the payload was stored as a LITERAL string (parameterized —
+    // never executed): the title round-trips verbatim and the canary row still exists (the
+    // `DELETE FROM library` never ran). Read via admin (BYPASSRLS) for the ground truth.
+    $response->assertOk();
+    expect($response->json('library.title'))->toBe($payload);
+    expect(PgLibrary::on('pgsql_admin')->where('book', 'sql-canary')->exists())->toBeTrue();
+
+    // NB: do NOT admin-delete these here — the request UPDATE'd sql-test-title inside the
+    // still-open RefreshDatabase transaction, so a cross-connection admin DELETE would block
+    // on that row lock forever. The seeded books are tracked; SeedsRlsFixtures::afterEach
+    // cleans them with a lock_timeout guard.
 });
 
 // =============================================================================

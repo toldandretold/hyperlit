@@ -32,9 +32,9 @@ function postHeaders(): Record<string, string> {
 /** Persistent note + report button for the Librarian section (commons books only). */
 export function commonsFeedbackNoteHtml(record: any): string {
   if (!isCommonsBook(record)) return '';
-  return `<p id="commons-feedback-note" style="font-size: 11px; color: var(--color-text-faint); margin: 8px 0 0; line-height: 1.5;">
+  return `<p id="commons-feedback-note" style="font-size: var(--sc-11); color: var(--color-text-faint); margin: 8px 0 0; line-height: 1.5;">
       Converted automatically by the Knowledge Commons Harvester. Spot a problem — footnotes, citations, headings?
-      <button type="button" id="commons-feedback-btn" style="background: none; border: none; color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; cursor: pointer; padding: 0; font-size: 11px;">Report an issue</button>
+      <button type="button" id="commons-feedback-btn" style="background: none; border: none; color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; cursor: pointer; padding: 0; font-size: var(--sc-11);">Report an issue</button>
     </p>`;
 }
 

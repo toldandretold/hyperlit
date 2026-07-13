@@ -23,7 +23,7 @@ export async function loadReconvertInfo(self: any) {
 
     section.style.display = '';
     section.innerHTML = `
-        <button type="button" id="reconvert-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: var(--hyperlit-orange); border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <button type="button" id="reconvert-btn" style="width: 100%; padding: 8px 12px; font-size: var(--sc-13); color: var(--hyperlit-orange); border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="1 4 1 10 7 10"></polyline>
             <polyline points="23 20 23 14 17 14"></polyline>
@@ -31,7 +31,7 @@ export async function loadReconvertInfo(self: any) {
           </svg>
           ${label}
         </button>
-        <p style="font-size: 11px; color: var(--color-text-faint); margin-top: 6px;">Re-process from source files. Existing content will be replaced.</p>`;
+        <p style="font-size: var(--sc-11); color: var(--color-text-faint); margin-top: 6px;">Re-process from source files. Existing content will be replaced.</p>`;
 
     // Attach listener to the newly created button
     const btn = section.querySelector("#reconvert-btn");

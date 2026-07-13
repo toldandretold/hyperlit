@@ -26,7 +26,7 @@ type VisState = 'public' | 'private' | 'encrypted';
 function makeStatusEl(control: HTMLElement): HTMLElement {
   const el = document.createElement('div');
   el.className = 'visibility-encrypt-status';
-  el.style.cssText = 'font-size:11px; color: var(--color-label); margin-top:6px; text-align:center;';
+  el.style.cssText = 'font-size:var(--sc-11); color: var(--color-label); margin-top:6px; text-align:center;';
   control.appendChild(el);
   return el;
 }

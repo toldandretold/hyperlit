@@ -3,8 +3,22 @@
 /**
  * Security Tests: XSS (Cross-Site Scripting) Validation
  *
- * Tests for XSS prevention in user input fields.
- * Documents vulnerabilities in fields missing SafeString validation.
+ * Proves the write-path sanitizer (App\Services\Security\NodeHtmlSanitizer, applied in
+ * DbLibraryController::sanitizeMetadata and DbNodeController on content) strips executable
+ * XSS from every stored user-text field, across a broad payload matrix.
+ *
+ * These tests were previously RISKY (no assertions): they posted to an update-only upsert
+ * WITHOUT first seeding the book, so `firstOrFail` 404'd and the sole assertion — nested
+ * inside `if (status === 200) { if (row) … }` — never ran; the node test posted the wrong
+ * payload key (`nodes` vs the controller's `data`) and 422'd the same way. A security test
+ * that asserts nothing is worse than a red one. Every test here now seeds an owned book and
+ * asserts UNCONDITIONALLY on the stored/returned value.
+ *
+ * Contract asserted: the sanitizer keeps INERT structure (e.g. an empty `<svg></svg>`) but
+ * strips every EXECUTABLE vector — `<script>`, event handlers (`on*=`), and the dangerous
+ * embedding/navigation tags (`iframe`/`object`/`embed`/`meta`/`base`/`link`). A bare
+ * `javascript:` in a plain-text field is inert (rendered as text, never an href) and is NOT
+ * flagged, matching the field's actual render context.
  */
 
 use App\Models\User;
@@ -40,138 +54,58 @@ dataset('xss_payloads', [
     'template_xss' => '<template><script>alert(1)</script></template>',
 ]);
 
+/**
+ * The security invariant: no EXECUTABLE XSS vector survives in a stored/returned value.
+ * Targets script/embedding/navigation tags + any inline event handler; deliberately does
+ * NOT flag inert structural tags (svg/math/table the sanitizer keeps, stripped of handlers)
+ * nor a bare `javascript:` token in a text field (never lands in an href).
+ */
+function assertNoExecutableXss($value): void
+{
+    expect((string) $value)->not->toMatch('/<\s*(script|iframe|object|embed|meta|base|link)\b|\bon[a-z]+\s*=/i');
+}
+
+/** Set the RLS session context so an in-request write is readable back on the default connection. */
+function xssActAs(User $user): void
+{
+    DB::statement("SELECT set_config('app.current_user', ?, true)", [$user->name]);
+    DB::statement("SELECT set_config('app.current_token', ?, true)", [(string) $user->user_token]);
+}
+
 // =============================================================================
-// LIBRARY METADATA XSS TESTS (VULNERABILITY: Missing SafeString validation)
+// LIBRARY METADATA XSS TESTS — sanitize-on-write across every text field
 // =============================================================================
 
-test('library upsert should reject xss in title field', function (string $payload) {
-    $user = $this->seedUser();
+/**
+ * POST an XSS payload into one library field of an already-seeded owned book, then assert the
+ * stored+echoed value carries no executable XSS. Seeding stays in the test closure (protected
+ * trait methods need $this); this does the POST + assertion (public TestCase methods).
+ */
+function upsertLibraryFieldAndAssertClean(object $t, User $user, string $book, string $field, string $payload): void
+{
+    /** @var \Tests\TestCase $t */
+    $response = $t->actingAs($user)->postJson('/api/db/library/upsert', [
+        'data' => ['book' => $book, 'title' => 'Safe Title', $field => $payload],
+    ]);
 
-    $response = $this->actingAs($user)
-        ->postJson('/api/db/library/upsert', [
-            'data' => [
-                'book' => 'xss-title-' . md5($payload),
-                'title' => $payload,
-            ],
+    // The write path ran (not a 404/422/500 that would make the assertion vacuous)…
+    $response->assertOk();
+    // …and the value it stored + echoed back carries no executable XSS.
+    assertNoExecutableXss($response->json("library.{$field}"));
+}
+
+foreach (['title', 'author', 'journal', 'publisher', 'school', 'note'] as $libField) {
+    test("library upsert sanitizes xss in {$libField} field", function (string $payload) use ($libField) {
+        $user = $this->seedUser();
+        $book = "xss-{$libField}-" . md5($payload);
+        // Update-only upsert requires the book to exist AND be owned by the caller.
+        $this->seedLibrary([
+            'book' => $book, 'title' => 'Seed', 'creator' => $user->name,
+            'creator_token' => $user->user_token, 'visibility' => 'public',
         ]);
-
-    // VULNERABILITY: Currently this passes (422 or 200)
-    // After adding SafeString rule: Should return 422 for dangerous content
-    if ($response->status() === 200 || $response->status() === 201) {
-        $library = PgLibrary::where('book', 'xss-title-' . md5($payload))->first();
-        if ($library) {
-            // Dangerous content was stored - this is the vulnerability
-            expect($library->title)->not->toMatch('/<script|onerror|onload|onclick/i'); // bare "javascript:" in a plain-text field isn't executable (href-javascript: IS sanitized)
-            // Clean up
-            $library->delete();
-        }
-    }
-})->with('xss_payloads');
-
-test('library upsert should reject xss in author field', function (string $payload) {
-    $user = $this->seedUser();
-
-    $response = $this->actingAs($user)
-        ->postJson('/api/db/library/upsert', [
-            'data' => [
-                'book' => 'xss-author-' . md5($payload),
-                'title' => 'Safe Title',
-                'author' => $payload,
-            ],
-        ]);
-
-    if ($response->status() === 200 || $response->status() === 201) {
-        $library = PgLibrary::where('book', 'xss-author-' . md5($payload))->first();
-        if ($library) {
-            expect($library->author)->not->toMatch('/<script|onerror|onload|onclick/i'); // bare "javascript:" in a plain-text field isn't executable (href-javascript: IS sanitized)
-            $library->delete();
-        }
-    }
-})->with('xss_payloads');
-
-test('library upsert should reject xss in journal field', function (string $payload) {
-    $user = $this->seedUser();
-
-    $response = $this->actingAs($user)
-        ->postJson('/api/db/library/upsert', [
-            'data' => [
-                'book' => 'xss-journal-' . md5($payload),
-                'title' => 'Safe Title',
-                'journal' => $payload,
-            ],
-        ]);
-
-    if ($response->status() === 200 || $response->status() === 201) {
-        $library = PgLibrary::where('book', 'xss-journal-' . md5($payload))->first();
-        if ($library) {
-            expect($library->journal)->not->toMatch('/<script|onerror|onload|onclick/i'); // bare "javascript:" in a plain-text field isn't executable (href-javascript: IS sanitized)
-            $library->delete();
-        }
-    }
-})->with('xss_payloads');
-
-test('library upsert should reject xss in publisher field', function (string $payload) {
-    $user = $this->seedUser();
-
-    $response = $this->actingAs($user)
-        ->postJson('/api/db/library/upsert', [
-            'data' => [
-                'book' => 'xss-publisher-' . md5($payload),
-                'title' => 'Safe Title',
-                'publisher' => $payload,
-            ],
-        ]);
-
-    if ($response->status() === 200 || $response->status() === 201) {
-        $library = PgLibrary::where('book', 'xss-publisher-' . md5($payload))->first();
-        if ($library) {
-            expect($library->publisher)->not->toMatch('/<script|onerror|onload|onclick/i'); // bare "javascript:" in a plain-text field isn't executable (href-javascript: IS sanitized)
-            $library->delete();
-        }
-    }
-})->with('xss_payloads');
-
-test('library upsert should reject xss in school field', function (string $payload) {
-    $user = $this->seedUser();
-
-    $response = $this->actingAs($user)
-        ->postJson('/api/db/library/upsert', [
-            'data' => [
-                'book' => 'xss-school-' . md5($payload),
-                'title' => 'Safe Title',
-                'school' => $payload,
-            ],
-        ]);
-
-    if ($response->status() === 200 || $response->status() === 201) {
-        $library = PgLibrary::where('book', 'xss-school-' . md5($payload))->first();
-        if ($library) {
-            expect($library->school)->not->toMatch('/<script|onerror|onload|onclick/i'); // bare "javascript:" in a plain-text field isn't executable (href-javascript: IS sanitized)
-            $library->delete();
-        }
-    }
-})->with('xss_payloads');
-
-test('library upsert should reject xss in note field', function (string $payload) {
-    $user = $this->seedUser();
-
-    $response = $this->actingAs($user)
-        ->postJson('/api/db/library/upsert', [
-            'data' => [
-                'book' => 'xss-note-' . md5($payload),
-                'title' => 'Safe Title',
-                'note' => $payload,
-            ],
-        ]);
-
-    if ($response->status() === 200 || $response->status() === 201) {
-        $library = PgLibrary::where('book', 'xss-note-' . md5($payload))->first();
-        if ($library) {
-            expect($library->note)->not->toMatch('/<script|onerror|onload|onclick/i'); // bare "javascript:" in a plain-text field isn't executable (href-javascript: IS sanitized)
-            $library->delete();
-        }
-    }
-})->with('xss_payloads');
+        upsertLibraryFieldAndAssertClean($this, $user, $book, $libField, $payload);
+    })->with('xss_payloads');
+}
 
 // =============================================================================
 // HYPERLIGHT (HIGHLIGHT) XSS TESTS
@@ -237,36 +171,37 @@ test('hyperlight annotation field validates with SafeString', function (string $
 })->with('xss_payloads');
 
 // =============================================================================
-// NODE CHUNK XSS TESTS (VULNERABILITY: No SafeString on content field)
+// NODE CONTENT XSS TESTS — content is sanitized on write (NodeHtmlSanitizer)
 // =============================================================================
 
-test('node chunk content field should be sanitized', function (string $payload) {
+test('node content field is sanitized on write', function (string $payload) {
     $user = $this->seedUser();
+    $book = 'xss-node-' . md5($payload);
+    $this->seedLibrary([
+        'book' => $book, 'title' => 'Test Book', 'creator' => $user->name,
+        'creator_token' => $user->user_token, 'visibility' => 'public',
+    ]);
+    $nodeId = 'xss-node-id-' . md5($payload);
 
-    $this->seedLibrary(['book' => 'xss-nodechunk-test', 'title' => 'Test Book', 'creator' => $user->name, 'visibility' => 'public']);
-
+    // The node upsert reads the `data` array (NOT `nodes`) and returns only {success},
+    // so read the stored content back in-request with the RLS context set.
     $response = $this->actingAs($user)
         ->postJson('/api/db/nodes/upsert', [
-            'book' => 'xss-nodechunk-test',
-            'nodes' => [[
-                'node_id' => 'xss-node-' . md5($payload),
+            'book' => $book,
+            'data' => [[
+                'node_id' => $nodeId,
                 'startLine' => 100,
                 'content' => $payload,
                 'plainText' => 'plain text version',
             ]],
         ]);
 
-    // VULNERABILITY: NodeUpsertRequest doesn't validate content with SafeString
-    if ($response->status() === 200 || $response->status() === 201) {
-        $chunk = PgNode::where('node_id', 'xss-node-' . md5($payload))->first();
-        if ($chunk) {
-            // Documents vulnerability: dangerous content may be stored
-            expect($chunk->content)->not->toMatch('/<script|onerror|onload|onclick/i'); // bare "javascript:" in a plain-text field isn't executable (href-javascript: IS sanitized)
-            $chunk->delete();
-        }
-    }
+    $response->assertOk();
 
-    PgLibrary::where('book', 'xss-nodechunk-test')->delete();
+    xssActAs($user);
+    $stored = DB::table('nodes')->where('book', $book)->where('node_id', $nodeId)->value('content');
+    expect($stored)->not->toBeNull(); // the write actually landed — assertion isn't vacuous
+    assertNoExecutableXss($stored);
 })->with('xss_payloads');
 
 // =============================================================================
@@ -314,30 +249,27 @@ test('xss detection handles unicode encoding bypass attempts', function () {
     $user = $this->seedUser();
 
     $unicodePayloads = [
-        "\u003cscript\u003ealert(1)\u003c/script\u003e",
+        "<script>alert(1)</script>",
         "&#60;script&#62;alert(1)&#60;/script&#62;",
         "&#x3C;script&#x3E;alert(1)&#x3C;/script&#x3E;",
         "\x3cscript\x3ealert(1)\x3c/script\x3e",
     ];
 
-    foreach ($unicodePayloads as $payload) {
-        $response = $this->actingAs($user)
-            ->postJson('/api/db/library/upsert', [
-                'data' => [
-                    'book' => 'xss-unicode-' . md5($payload),
-                    'title' => $payload,
-                ],
-            ]);
+    foreach ($unicodePayloads as $i => $payload) {
+        $book = 'xss-unicode-' . md5($payload . $i);
+        $this->seedLibrary([
+            'book' => $book, 'title' => 'Seed', 'creator' => $user->name,
+            'creator_token' => $user->user_token, 'visibility' => 'public',
+        ]);
 
-        if ($response->status() === 200) {
-            $library = PgLibrary::where('book', 'xss-unicode-' . md5($payload))->first();
-            if ($library) {
-                // After decoding, should not contain script
-                $decoded = html_entity_decode($library->title);
-                expect(strtolower($decoded))->not->toContain('<script');
-                $library->delete();
-            }
-        }
+        $response = $this->actingAs($user)
+            ->postJson('/api/db/library/upsert', ['data' => ['book' => $book, 'title' => $payload]]);
+
+        // A literal `<script>` (incl. the \x3c byte-escape form, which IS a real `<`) is
+        // stripped; entity-escaped forms (&#60;, <-as-text) are inert in a text field.
+        // Either way, no EXECUTABLE tag survives.
+        $response->assertOk();
+        assertNoExecutableXss($response->json('library.title'));
     }
 });
 
@@ -352,24 +284,19 @@ test('xss detection handles case variation bypass attempts', function () {
         '<iMg OnErRoR=alert(1) sRc=x>',
     ];
 
-    foreach ($casePayloads as $payload) {
-        $response = $this->actingAs($user)
-            ->postJson('/api/db/library/upsert', [
-                'data' => [
-                    'book' => 'xss-case-' . md5($payload),
-                    'title' => $payload,
-                ],
-            ]);
+    foreach ($casePayloads as $i => $payload) {
+        $book = 'xss-case-' . md5($payload . $i);
+        $this->seedLibrary([
+            'book' => $book, 'title' => 'Seed', 'creator' => $user->name,
+            'creator_token' => $user->user_token, 'visibility' => 'public',
+        ]);
 
-        // SafeString patterns use /i flag for case-insensitive matching
-        // But these fields don't use SafeString (vulnerability)
-        if ($response->status() === 200) {
-            $library = PgLibrary::where('book', 'xss-case-' . md5($payload))->first();
-            if ($library) {
-                expect($library->title)->not->toMatch('/<script|onerror|onload|onclick/i'); // bare "javascript:" in a plain-text field isn't executable (href-javascript: IS sanitized)
-                $library->delete();
-            }
-        }
+        $response = $this->actingAs($user)
+            ->postJson('/api/db/library/upsert', ['data' => ['book' => $book, 'title' => $payload]]);
+
+        // Sanitizer matching is case-insensitive — mixed-case script/onerror are stripped.
+        $response->assertOk();
+        assertNoExecutableXss($response->json('library.title'));
     }
 });
 
@@ -382,21 +309,19 @@ test('xss detection handles null byte injection', function () {
         "<img src=x\x00 onerror=alert(1)>",
     ];
 
-    foreach ($nullBytePayloads as $payload) {
-        $response = $this->actingAs($user)
-            ->postJson('/api/db/library/upsert', [
-                'data' => [
-                    'book' => 'xss-null-' . md5($payload),
-                    'title' => $payload,
-                ],
-            ]);
+    foreach ($nullBytePayloads as $i => $payload) {
+        $book = 'xss-null-' . md5($payload . $i);
+        $this->seedLibrary([
+            'book' => $book, 'title' => 'Seed', 'creator' => $user->name,
+            'creator_token' => $user->user_token, 'visibility' => 'public',
+        ]);
 
-        if ($response->status() === 200) {
-            $library = PgLibrary::where('book', 'xss-null-' . md5($payload))->first();
-            if ($library) {
-                $library->delete();
-            }
-        }
+        $response = $this->actingAs($user)
+            ->postJson('/api/db/library/upsert', ['data' => ['book' => $book, 'title' => $payload]]);
+
+        // A null byte must not smuggle a tag past the sanitizer.
+        $response->assertOk();
+        assertNoExecutableXss($response->json('library.title'));
     }
 });
 

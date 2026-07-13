@@ -209,7 +209,7 @@ export function setAiReviewState(self: any, state: any, currentStep?: any, opts?
       regenLink.id = 'ai-review-regenerate';
       regenLink.href = '#';
       regenLink.textContent = 'Regenerate';
-      regenLink.style.cssText = 'display: block; font-size: 11px; color: var(--color-label); margin-top: 6px; text-decoration: underline; cursor: pointer;';
+      regenLink.style.cssText = 'display: block; font-size: var(--sc-11); color: var(--color-label); margin-top: 6px; text-decoration: underline; cursor: pointer;';
       regenLink.addEventListener('click', (e: any) => {
         e.preventDefault();
         e.stopPropagation();
@@ -256,10 +256,10 @@ export function ensureAiReviewLivePanel(self: any) {
   panel.id = 'ai-review-live';
   panel.style.cssText = 'margin-top: 8px;';
   panel.innerHTML = `
-      <p style="font-size: 11px; color: var(--color-label); margin: 0 0 6px 0; line-height: 1.4;">
+      <p style="font-size: var(--sc-11); color: var(--color-label); margin: 0 0 6px 0; line-height: 1.4;">
         ${note}
       </p>
-      <button type="button" id="ai-review-viz-toggle" style="background: none; border: none; padding: 0; font-size: 11px; color: var(--hyperlit-aqua); text-decoration: underline; cursor: pointer;">
+      <button type="button" id="ai-review-viz-toggle" style="background: none; border: none; padding: 0; font-size: var(--sc-11); color: var(--hyperlit-aqua); text-decoration: underline; cursor: pointer;">
         See live processing pipeline ▸
       </button>
     `;

@@ -17,14 +17,14 @@ export function aiReviewSectionHtml(record: any): string {
 
   return `<div id="ai-review-section" data-lib-timestamp="${record?.timestamp || 0}" style="margin-top: 15px; padding-top: 15px;">
     <h3>AI Citation Review</h3>
-    <button type="button" id="ai-review-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: var(--hyperlit-orange); border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;${dim}">
+    <button type="button" id="ai-review-btn" style="width: 100%; padding: 8px 12px; font-size: var(--sc-13); color: var(--hyperlit-orange); border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;${dim}">
       ${BRAIN_SVG} <span>AI Citation Review</span>
     </button>
-    <p style="font-size: 11px; color: var(--color-text-faint); margin-top: 6px;">
+    <p style="font-size: var(--sc-11); color: var(--color-text-faint); margin-top: 6px;">
       Check every citation against open databases to verify truth claims against available source material.
-      <span class="ai-review-info-toggle" tabindex="0" role="button" aria-label="What this does" aria-expanded="false" style="cursor:pointer;display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid rgba(239,141,52,0.5);font-size:10px;vertical-align:middle;margin-left:2px;color:var(--hyperlit-orange);">?</span>
+      <span class="ai-review-info-toggle" tabindex="0" role="button" aria-label="What this does" aria-expanded="false" style="cursor:pointer;display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid rgba(239,141,52,0.5);font-size:var(--sc-10);vertical-align:middle;margin-left:2px;color:var(--hyperlit-orange);">?</span>
     </p>
-    <div class="ai-review-info-detail" style="display:none; font-size: 11px; line-height: 1.55; color: var(--color-text-faint); margin-top: 2px; padding: 8px 10px; border-left: 2px solid rgba(239,141,52,0.4); background: rgba(239,141,52,0.05); border-radius: 3px;">
+    <div class="ai-review-info-detail" style="display:none; font-size: var(--sc-11); line-height: 1.55; color: var(--color-text-faint); margin-top: 2px; padding: 8px 10px; border-left: 2px solid rgba(239,141,52,0.4); background: rgba(239,141,52,0.05); border-radius: 3px;">
       AI Citation Review compares every citation in this text to open databases, pulls whatever data exists, then checks each citation's claim against the source material. It takes 10–15 minutes and you're emailed when it's done. The results open as a companion <em>AI review</em> book.
     </div>
   </div>`;

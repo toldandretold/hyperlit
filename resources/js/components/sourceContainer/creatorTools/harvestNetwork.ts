@@ -25,14 +25,14 @@ export function loadHarvestSection(self: any) {
   // Logged out → dim the button; a click routes to login (like the import flow).
   const dim = getAuthContextSync()?.isLoggedIn ? '' : ' opacity: 0.5;';
   section.innerHTML = `
-      <button type="button" id="harvest-network-btn" style="width: 100%; padding: 8px 12px; font-size: 13px; color: var(--hyperlit-orange); border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;${dim}">
+      <button type="button" id="harvest-network-btn" style="width: 100%; padding: 8px 12px; font-size: var(--sc-13); color: var(--hyperlit-orange); border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;${dim}">
         ${IDLE_LABEL_HTML}
       </button>
-      <p style="font-size: 11px; color: var(--color-text-faint); margin-top: 6px;">
+      <p style="font-size: var(--sc-11); color: var(--color-text-faint); margin-top: 6px;">
         Fetch and import the open-access works that this text cites, and then repeat the process on those texts.
-        <span class="harvest-info-toggle" tabindex="0" role="button" aria-label="What this does" aria-expanded="false" style="cursor:pointer;display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid rgba(239,141,52,0.5);font-size:10px;vertical-align:middle;margin-left:2px;color:var(--hyperlit-orange);">?</span>
+        <span class="harvest-info-toggle" tabindex="0" role="button" aria-label="What this does" aria-expanded="false" style="cursor:pointer;display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid rgba(239,141,52,0.5);font-size:var(--sc-10);vertical-align:middle;margin-left:2px;color:var(--hyperlit-orange);">?</span>
       </p>
-      <div class="harvest-info-detail" style="display:none; font-size: 11px; line-height: 1.55; color: var(--color-text-faint); margin-top: 2px; padding: 8px 10px; border-left: 2px solid rgba(239,141,52,0.4); background: rgba(239,141,52,0.05); border-radius: 3px;">
+      <div class="harvest-info-detail" style="display:none; font-size: var(--sc-11); line-height: 1.55; color: var(--color-text-faint); margin-top: 2px; padding: 8px 10px; border-left: 2px solid rgba(239,141,52,0.4); background: rgba(239,141,52,0.05); border-radius: 3px;">
         This reads the book's bibliography and footnotes, matches each citation to the real published work, then — for every cited work that is <strong>open access</strong> and legally fetchable — downloads it, converts it to a readable text, and adds it to the library as a verified source your citations link to. You choose how far to follow the network: just this book's citations, the works those cite, and so on — up to the whole reachable open-access web of sources. Every source it brings in is collected onto a shelf. Nothing behind a paywall is ever taken.
       </div>
       <div id="harvest-report-link" style="margin-top: 8px;"></div>`;
@@ -90,8 +90,8 @@ async function renderHarvestReportLink(self: any) {
     const shelfUrl = (shelf && shelf.creator)
       ? `/u/${encodeURIComponent(shelf.creator)}/shelf/${encodeURIComponent(shelf.slug)}`
       : null;
-    slot.innerHTML = `<a href="${reportUrl}" style="color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; font-size: 12px;">See the yield report →</a>`
-      + (shelfUrl ? ` <a href="${shelfUrl}" style="color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; font-size: 12px; margin-left: 10px;">View the shelf</a>` : '');
+    slot.innerHTML = `<a href="${reportUrl}" style="color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; font-size: var(--sc-12);">See the yield report →</a>`
+      + (shelfUrl ? ` <a href="${shelfUrl}" style="color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; font-size: var(--sc-12); margin-left: 10px;">View the shelf</a>` : '');
   } catch { /* best-effort */ }
 }
 
@@ -325,11 +325,11 @@ function ensureHarvestRunningRow(self: any, harvest?: any) {
 
   const row = document.createElement('div');
   row.id = 'harvest-running-row';
-  row.style.cssText = 'margin-top: 8px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 12px;';
+  row.style.cssText = 'margin-top: 8px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: var(--sc-12);';
   row.innerHTML = `
-      <button type="button" id="harvest-viz-toggle" style="background: none; border: none; color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; cursor: pointer; padding: 0; font-size: 12px;">See live progress ▸</button>
+      <button type="button" id="harvest-viz-toggle" style="background: none; border: none; color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; cursor: pointer; padding: 0; font-size: var(--sc-12);">See live progress ▸</button>
       <span id="harvest-notify-slot"></span>
-      <button type="button" id="harvest-cancel-btn" style="background: none; border: none; color: var(--hyperlit-orange, #EF8D34); text-decoration: underline; cursor: pointer; padding: 0; font-size: 12px;">Cancel harvest</button>`;
+      <button type="button" id="harvest-cancel-btn" style="background: none; border: none; color: var(--hyperlit-orange, #EF8D34); text-decoration: underline; cursor: pointer; padding: 0; font-size: var(--sc-12);">Cancel harvest</button>`;
   section.appendChild(row);
 
   row.querySelector('#harvest-viz-toggle')?.addEventListener('click', (e: any) => {
@@ -356,7 +356,7 @@ function ensureHarvestRunningRow(self: any, harvest?: any) {
         if (!ctx?.isLoggedIn || !self._harvestId) return;
         // Guard against a late resolve after the row was torn down.
         if (!self.container.querySelector('#harvest-notify-slot')) return;
-        slot.innerHTML = `<button type="button" id="harvest-notify-btn" style="background: none; border: none; color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; cursor: pointer; padding: 0; font-size: 12px;">Email me when done</button>`;
+        slot.innerHTML = `<button type="button" id="harvest-notify-btn" style="background: none; border: none; color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; cursor: pointer; padding: 0; font-size: var(--sc-12);">Email me when done</button>`;
         slot.querySelector('#harvest-notify-btn')?.addEventListener('click', (e: any) => {
           e.preventDefault();
           e.stopPropagation();

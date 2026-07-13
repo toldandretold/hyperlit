@@ -311,10 +311,16 @@ test('expired anonymous tokens cannot be used for association', function () {
             'anonymous_token' => $expiredToken,
         ]);
 
-    // Should ideally reject expired tokens
-    // Note: Current implementation may still allow this
+    // Security contract: an expired anon token cannot CLAIM content. The request is rejected
+    // (validate_anonymous_token enforces the 90-day window; the exact code is 400 for expiry or
+    // 403 if the encrypted-cookie guard trips first — both are hard rejections) and, crucially,
+    // the book's ownership is UNCHANGED — never transferred to the user.
+    expect($response->status())->toBeGreaterThanOrEqual(400)->toBeLessThan(500);
     $library = PgLibrary::on('pgsql_admin')->where('book', 'expired-token-book')->first();
+    expect($library)->not->toBeNull();
+    expect($library->creator)->toBeNull();                 // never claimed by the user
+    expect($library->creator_token)->toBe($expiredToken);  // still owned by the (expired) anon token
 
-    // Clean up
-    PgLibrary::where('book', 'expired-token-book')->delete();
+    // Cleanup is handled by SeedsRlsFixtures::afterEach (tracked book, lock_timeout-guarded);
+    // an explicit admin DELETE here could block on a cross-connection row lock.
 });
