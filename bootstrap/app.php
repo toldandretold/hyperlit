@@ -19,9 +19,26 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Trust Cloudflare and other proxies to get real client IP
-        // Required for proper IP detection when behind a CDN/proxy
-        $middleware->trustProxies(at: '*');
+        // Trust the fronting proxy so $request->ip() is the REAL client IP behind a CDN.
+        // SECURITY: `at: '*'` blanket-trusts every hop, so an attacker could spoof
+        // X-Forwarded-For and mint a fresh per-IP rate-limit bucket on every request —
+        // bypassing all per-IP throttles (RateLimitingTest). Trust ONLY the fronting proxy:
+        // Cloudflare's published ranges by default, overridable via TRUSTED_PROXIES
+        // (comma-separated IPs/CIDRs, or the literal '*' if you terminate behind your own
+        // trusted LB). Anything else's X-Forwarded-For is ignored → the true socket IP is used.
+        $trustedProxies = env('TRUSTED_PROXIES');
+        $middleware->trustProxies(at: $trustedProxies === null
+            ? [
+                // Cloudflare IPv4 — https://www.cloudflare.com/ips/
+                '173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22',
+                '141.101.64.0/18', '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20',
+                '197.234.240.0/22', '198.41.128.0/17', '162.158.0.0/15', '104.16.0.0/13',
+                '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22',
+                // Cloudflare IPv6
+                '2400:cb00::/32', '2606:4700::/32', '2803:f800::/32', '2405:b500::/32',
+                '2405:8100::/32', '2a06:98c0::/29', '2c0f:f248::/32',
+            ]
+            : ($trustedProxies === '*' ? '*' : array_map('trim', explode(',', $trustedProxies))));
 
         // Add RLS context middleware to set PostgreSQL session variables
         // This must run after session starts but before any database queries

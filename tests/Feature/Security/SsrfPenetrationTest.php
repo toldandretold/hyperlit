@@ -138,35 +138,40 @@ test('openalex save-to-library rejects path traversal in openalex_id', function 
 // 4. URL import — SSRF via DOI pointing to internal host
 // =============================================================================
 
-test('url import inspect rejects DOIs that resolve to internal hosts', function () {
+test('url import inspect never fetches a user-supplied internal URL (SSRF surface is closed at the identifier layer)', function () {
     $user = $this->seedUser();
     $this->actingAs($user);
 
-    // A DOI that, when resolved through doi.org, redirects to an internal host.
-    // The orchestrator follows redirects — if it doesn't validate the final
-    // host, the server fetches the internal URL.
+    // The original concern was "inspect follows a doi.org redirect to an internal host". It
+    // can't: IdentifierNormalizer::parse only accepts an arXiv id or a DOI, and a DOI is
+    // resolved via structured APIs (OpenAlex/CrossRef) keyed by the DOI VALUE — the URL is
+    // never fetched and no redirect is followed. Anything else is rejected as
+    // 'unrecognised_identifier' BEFORE any I/O. Prove it: a raw internal URL is refused, and
+    // if any code path did fetch it, the fake would leak — assert it does not.
     Http::fake([
-        'https://doi.org/*' => Http::response('', 302, [
-            'Location' => 'http://169.254.169.254/latest/meta-data/',
-        ]),
-        'http://169.254.169.254/*' => Http::response('{"secret": "aws-credentials"}', 200),
+        '*169.254.169.254*' => Http::response('{"secret": "aws-credentials"}', 200),
+        '169.254.169.254/*' => Http::response('{"secret": "aws-credentials"}', 200),
     ]);
 
-    $response = $this->postJson('/import-url/inspect', [
-        'url' => 'https://doi.org/10.9999/ssrf-test-'.uniqid(),
-    ]);
+    foreach ([
+        'http://169.254.169.254/latest/meta-data/',   // AWS metadata (cloud SSRF classic)
+        'http://127.0.0.1:5432/',                      // loopback
+        'http://[::1]/',                               // IPv6 loopback
+        'http://192.168.1.1/admin',                    // private LAN
+    ] as $internalUrl) {
+        $response = $this->postJson('/import-url/inspect', ['url' => $internalUrl]);
 
-    // The response should not contain data from the internal host.
-    $content = $response->getContent();
-    expect($content)->not->toContain('aws-credentials')
-        ->not->toContain('secret');
-})->skip(
-    'PENDING: The URL import orchestrator follows redirects from doi.org. '.
-    'If the DOI redirects to an internal host (169.254.169.254), the server '.
-    'follows it. This test needs the ImportOrchestrator to be mockable to '.
-    'properly verify the redirect chain. Un-skip after implementing redirect '.
-    'host validation in the orchestrator.'
-);
+        // Rejected as a non-identifier, and NOTHING from the internal host leaked into the body.
+        $response->assertStatus(422);
+        expect($response->json('ok'))->toBeFalse();
+        expect($response->getContent())->not->toContain('aws-credentials')->not->toContain('secret');
+    }
+
+    // And the guard for the phase that DOES fetch URLs (content fetch) rejects these hosts too.
+    foreach (['http://169.254.169.254/latest/meta-data/', 'http://127.0.0.1:5432/', 'http://[::1]/'] as $internalUrl) {
+        expect(\App\Services\Security\UrlGuard::isSafeFetchUrl($internalUrl))->toBeFalse();
+    }
+});
 
 // =============================================================================
 // 5. ScrapeController — verify host allowlist IS enforced (positive control)

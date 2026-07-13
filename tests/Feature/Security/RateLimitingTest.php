@@ -175,13 +175,11 @@ test('rate limiting cannot be bypassed with X-Forwarded-For header', function ()
 
     // CORRECT security property: spoofing X-Forwarded-For must NOT create a fresh per-IP bucket, so
     // the per-IP limit should still trip → rateLimitedCount > 0.
+    // FIXED: bootstrap/app.php no longer trusts every proxy (`at: '*'`) — it trusts only the
+    // Cloudflare ranges (TRUSTED_PROXIES-overridable), so a spoofed X-Forwarded-For from a
+    // non-proxy is ignored and $request->ip() is the true socket IP → one shared bucket → throttled.
     expect($rateLimitedCount)->toBeGreaterThan(0);
-})->skip(
-    "REAL FINDING (not a test bug): bootstrap/app.php sets trustProxies(at: '*'), so the app honours a " .
-    "client-supplied X-Forwarded-For — \$request->ip() returns the spoofed value, giving each fake IP its " .
-    "own throttle bucket → per-IP rate limits are bypassable. Restrict trustProxies to the real LB/" .
-    "Cloudflare ranges (or key the limiter on CF-Connecting-IP), then un-skip this."
-);
+});
 
 test('password reset is rate limited', function () {
     $user = $this->seedUser([

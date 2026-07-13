@@ -108,26 +108,27 @@ test('cookies have SameSite attribute', function () {
 });
 
 // =============================================================================
-// CONTENT SECURITY POLICY (CSP) - CURRENTLY MISSING
+// CONTENT SECURITY POLICY (CSP)
 // =============================================================================
 
-test('Content-Security-Policy header should be implemented', function () {
+test('Content-Security-Policy locks down the injection-defence directives', function () {
     $response = $this->get('/');
 
-    // This test documents that CSP is NOT currently implemented
-    // After implementing CSP, update this test
     $csp = $response->headers->get('Content-Security-Policy');
+    expect($csp)->not->toBeNull();
 
-    // Mark as incomplete until CSP is implemented
-    if (!$csp) {
-        $this->markTestIncomplete('Content-Security-Policy header is not implemented yet');
-    }
-
-    // When implemented, CSP should include these directives:
-    // expect($csp)->toContain("default-src 'self'");
-    // expect($csp)->toContain("script-src");
-    // expect($csp)->toContain("style-src");
+    // The deliberate partial policy (SecurityHeaders middleware): the directives that add real
+    // defence without breaking the inline-script SPA / Vite HMR. Per-request nonce script-src
+    // hardening is a separate tracked pass — see tests/security-redteam.
+    expect($csp)->toContain("frame-ancestors 'none'")   // clickjacking (complements X-Frame-Options)
+        ->toContain("base-uri 'self'")                  // blocks injected <base> hijacking relative URLs
+        ->toContain("object-src 'none'")                // kills <object>/<embed> plugin XSS
+        ->toContain("form-action 'self'");              // injected forms can't exfiltrate off-site
 });
+
+// Tracked next step: per-request nonce script-src/style-src (would force removing inline
+// scripts/styles from the SPA + Vite HMR). Tracked, not silently passing.
+test('CSP tightens script-src with per-request nonces')->todo();
 
 // =============================================================================
 // STRICT-TRANSPORT-SECURITY (HSTS)
