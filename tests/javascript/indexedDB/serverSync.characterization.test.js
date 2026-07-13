@@ -41,7 +41,6 @@ describe('loadNodesToIndexedDB', () => {
         hyperlights: '[{"hyperlight_id":"HL_1","is_user_highlight":true}]',
         footnotes: '["Fn1"]',
         hypercites: null,
-        raw_json: null,
       },
     ]);
 

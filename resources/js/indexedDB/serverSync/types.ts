@@ -33,9 +33,6 @@ export interface ServerNodeRow {
   hyperlights?: JsonColumn<unknown[]>;
   hypercites?: JsonColumn<unknown[]>;
   footnotes?: JsonColumn<unknown[]>;
-  /** @deprecated Denormalized copy slated for removal from the DB — do not add
-   *  new readers. Tracked here so the phase-out can follow the type. */
-  raw_json?: JsonColumn<object>;
 }
 
 /**

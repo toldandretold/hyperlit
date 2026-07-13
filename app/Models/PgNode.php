@@ -17,7 +17,6 @@ class PgNode extends Model
         'footnotes',
         'plainText',
         'type',
-        'raw_json'
     ];
 
     // WARNING: Columns cast to 'array' are auto-encoded by Eloquent.
@@ -27,7 +26,6 @@ class PgNode extends Model
         'chunk_id' => 'float',
         'startLine' => 'float',
         'footnotes' => 'array',
-        'raw_json' => 'array'
     ];
 
     /**

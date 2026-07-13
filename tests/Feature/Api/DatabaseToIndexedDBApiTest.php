@@ -131,7 +131,7 @@ test('the bibliography payload carries web-stub + reference-decision fields (liv
     $admin->table('nodes')->insert([
         'book' => $book, 'startLine' => 0, 'chunk_id' => 0, 'node_id' => $book . '_n0',
         'content' => '<p>Body</p>', 'plainText' => 'Body', 'type' => 'p',
-        'footnotes' => '[]', 'raw_json' => '{}', 'created_at' => now(), 'updated_at' => now(),
+        'footnotes' => '[]', 'created_at' => now(), 'updated_at' => now(),
     ]);
     // Ref A: matched to a web stub. Ref B: author already verified the canonical match.
     $admin->table('bibliography')->insert([

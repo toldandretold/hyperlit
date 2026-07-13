@@ -158,7 +158,6 @@ class NodeHistoryController extends Controller
                     content,
                     "plainText",
                     type,
-                    raw_json,
                     footnotes,
                     created_at,
                     updated_at,
@@ -181,7 +180,6 @@ class NodeHistoryController extends Controller
                     content,
                     "plainText",
                     type,
-                    raw_json,
                     footnotes,
                     created_at,
                     updated_at,
@@ -244,7 +242,6 @@ class NodeHistoryController extends Controller
                     content,
                     "plainText",
                     type,
-                    raw_json,
                     footnotes,
                     created_at,
                     updated_at,
@@ -267,7 +264,6 @@ class NodeHistoryController extends Controller
                     content,
                     "plainText",
                     type,
-                    raw_json,
                     footnotes,
                     created_at,
                     updated_at,
@@ -328,7 +324,7 @@ class NodeHistoryController extends Controller
                 -- Current nodes that existed at that time
                 SELECT
                     id, book, node_id, \"startLine\", chunk_id, content,
-                    \"plainText\", type, raw_json, footnotes, created_at, updated_at,
+                    \"plainText\", type, footnotes, created_at, updated_at,
                     true as is_current
                 FROM nodes
                 WHERE book = ?
@@ -339,7 +335,7 @@ class NodeHistoryController extends Controller
                 -- Historical nodes that were active at that time
                 SELECT
                     id, book, node_id, \"startLine\", chunk_id, content,
-                    \"plainText\", type, raw_json, footnotes, created_at, updated_at,
+                    \"plainText\", type, footnotes, created_at, updated_at,
                     false as is_current
                 FROM nodes_history
                 WHERE book = ?
@@ -484,9 +480,6 @@ class NodeHistoryController extends Controller
                     'content' => NodeHtmlSanitizer::clean($historicalNode->content), // re-scrub on restore; old history may predate the sanitizer
                     'plainText' => $historicalNode->plainText,
                     'type' => $historicalNode->type,
-                    'raw_json' => is_string($historicalNode->raw_json)
-                        ? json_decode($historicalNode->raw_json, true)
-                        : $historicalNode->raw_json,
                     'footnotes' => is_string($historicalNode->footnotes)
                         ? json_decode($historicalNode->footnotes, true)
                         : $historicalNode->footnotes,
@@ -504,9 +497,6 @@ class NodeHistoryController extends Controller
                     'content' => NodeHtmlSanitizer::clean($historicalNode->content), // re-scrub on restore; old history may predate the sanitizer
                     'plainText' => $historicalNode->plainText,
                     'type' => $historicalNode->type,
-                    'raw_json' => is_string($historicalNode->raw_json)
-                        ? json_decode($historicalNode->raw_json, true)
-                        : $historicalNode->raw_json,
                     'footnotes' => is_string($historicalNode->footnotes)
                         ? json_decode($historicalNode->footnotes, true)
                         : $historicalNode->footnotes,
@@ -577,7 +567,7 @@ class NodeHistoryController extends Controller
             $nodes = DB::select("
                 SELECT
                     id, book, node_id, \"startLine\", chunk_id, content,
-                    \"plainText\", type, raw_json, footnotes, created_at, updated_at
+                    \"plainText\", type, footnotes, created_at, updated_at
                 FROM nodes
                 WHERE book = ?
                 AND sys_period @> (?::timestamptz - interval '1 microsecond')
@@ -586,7 +576,7 @@ class NodeHistoryController extends Controller
 
                 SELECT
                     id, book, node_id, \"startLine\", chunk_id, content,
-                    \"plainText\", type, raw_json, footnotes, created_at, updated_at
+                    \"plainText\", type, footnotes, created_at, updated_at
                 FROM nodes_history
                 WHERE book = ?
                 AND sys_period @> (?::timestamptz - interval '1 microsecond')
@@ -614,7 +604,6 @@ class NodeHistoryController extends Controller
                     'footnotes' => $node->footnotes,
                     'hypercites' => [],
                     'hyperlights' => [],
-                    'raw_json' => $node->raw_json,
                 ];
             }, $nodes);
 

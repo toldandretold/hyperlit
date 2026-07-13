@@ -38,7 +38,7 @@ function seedPrerenderBook(object $test): string
         $admin->table('nodes')->insert([
             'book' => $book, 'startLine' => $sl, 'chunk_id' => $cid, 'node_id' => $book . '_n' . $sl,
             'content' => "<p>{$txt}</p>", 'plainText' => $txt, 'type' => 'p',
-            'footnotes' => json_encode([]), 'raw_json' => json_encode([]),
+            'footnotes' => json_encode([]),
             'created_at' => now(), 'updated_at' => now(),
         ]);
     }

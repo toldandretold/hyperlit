@@ -100,6 +100,7 @@ final class ReportSubBookImporter
             }
         }
         $insertData = [];
+        $artifactRows = []; // full node shape for the nodes.json artifact (was nodes.raw_json)
         $now = now();
         $nodesPerChunk = 100;
 
@@ -109,11 +110,12 @@ final class ReportSubBookImporter
             $nodeId = $this->helpers->generateNodeId($subBookId);
             $content = $this->helpers->ensureNodeIdInContent($chunk['content'] ?? '', $startLine, $nodeId);
 
-            $rawJson = $chunk;
-            $rawJson['startLine'] = $startLine;
-            $rawJson['chunk_id'] = $chunkId;
-            $rawJson['node_id'] = $nodeId;
-            $rawJson['content'] = $content;
+            $artifactRow = $chunk;
+            $artifactRow['startLine'] = $startLine;
+            $artifactRow['chunk_id'] = $chunkId;
+            $artifactRow['node_id'] = $nodeId;
+            $artifactRow['content'] = $content;
+            $artifactRows[] = $artifactRow;
 
             $insertData[] = [
                 'book'       => $subBookId,
@@ -124,7 +126,6 @@ final class ReportSubBookImporter
                 'footnotes'  => json_encode($chunk['footnotes'] ?? []),
                 'plainText'  => $chunk['plainText'] ?? strip_tags($content),
                 'type'       => $chunk['type'] ?? 'p',
-                'raw_json'   => json_encode($rawJson),
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
@@ -137,8 +138,7 @@ final class ReportSubBookImporter
 
         // Write the renumbered nodes.json artifact (kept alongside nodes.jsonl —
         // the editor saver reads nodes.json)
-        $renumbered = array_map(fn($r) => json_decode($r['raw_json'], true), $insertData);
-        File::put("{$path}/nodes.json", json_encode($renumbered, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        File::put("{$path}/nodes.json", json_encode($artifactRows, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         Log::info("Imported AI review sub-book", [
             'subBookId' => $subBookId,

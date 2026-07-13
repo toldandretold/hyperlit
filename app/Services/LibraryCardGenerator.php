@@ -23,7 +23,6 @@ class LibraryCardGenerator
 
             $emptyNodeId = $bookName . '_empty_card';
             return [
-                'raw_json' => json_encode(['original_book' => null, 'position_type' => 'user_home', 'position_id' => 1, 'empty' => true]),
                 'book' => $bookName, 'chunk_id' => 0, 'startLine' => 1, 'node_id' => $emptyNodeId,
                 'footnotes' => null,
                 'content' => '<p class="libraryCard" id="1" data-node-id="' . $emptyNodeId . '">' . $emptyMessage . '</p>',
@@ -35,10 +34,6 @@ class LibraryCardGenerator
         $content = $this->generateLibraryCardHtml($record, $positionId, $isOwner, $nodeId, $locked, $isPrivate);
 
         return [
-            'raw_json' => json_encode([
-                'original_book' => $record->book, 'position_type' => 'user_home', 'position_id' => $positionId,
-                'bibtex' => $record->bibtex ?? null, 'title' => $record->title ?? null, 'author' => $record->author ?? null, 'year' => $record->year ?? null,
-            ]),
             'book' => $bookName,
             'chunk_id' => ($index < 0) ? 0 : floor($index / 100),
             'startLine' => $positionId,

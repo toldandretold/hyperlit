@@ -37,7 +37,7 @@ function sfSeedBook(array $footnotes): string
     sfDb()->table('nodes')->insert([
         'book' => $book, 'node_id' => $book . '_n1', 'chunk_id' => 1, 'startLine' => 1,
         'content' => '<p>body</p>', 'plainText' => 'body', 'type' => 'p',
-        'raw_json' => '{}', 'footnotes' => json_encode($markerJson),
+        'footnotes' => json_encode($markerJson),
         'created_at' => now(), 'updated_at' => now(),
     ]);
 

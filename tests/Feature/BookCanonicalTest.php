@@ -35,7 +35,7 @@ function seedCanonicalBook(object $test, ?string $slug = null): string
     $admin->table('nodes')->insert([
         'book' => $book, 'startLine' => 0, 'chunk_id' => 0, 'node_id' => $book . '_n0',
         'content' => '<p>Canonical body</p>', 'plainText' => 'Canonical body', 'type' => 'p',
-        'footnotes' => json_encode([]), 'raw_json' => json_encode([]),
+        'footnotes' => json_encode([]),
         'created_at' => now(), 'updated_at' => now(),
     ]);
 

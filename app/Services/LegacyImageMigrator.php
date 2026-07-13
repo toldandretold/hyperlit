@@ -85,9 +85,9 @@ class LegacyImageMigrator
 
     /**
      * Replace `/storage/books/{book}/images/` with `/{book}/media/` in the
-     * book's nodes + nodes_history (content + raw_json), so current and
-     * version-history renders point at the canonical media route. Returns the
-     * number of rows touched.
+     * book's nodes + nodes_history content, so current and version-history
+     * renders point at the canonical media route. Returns the number of rows
+     * touched.
      */
     private function rewriteSrcs(string $book, bool $dryRun): int
     {
@@ -99,11 +99,8 @@ class LegacyImageMigrator
         foreach (['nodes', 'nodes_history'] as $table) {
             $rows = $admin->table($table)
                 ->where('book', $book)
-                ->where(function ($q) use ($from) {
-                    $q->where('content', 'like', "%{$from}%")
-                        ->orWhere('raw_json', 'like', "%{$from}%");
-                })
-                ->get(['content', 'raw_json', $table === 'nodes' ? 'startLine' : 'history_id']);
+                ->where('content', 'like', "%{$from}%")
+                ->get(['content', $table === 'nodes' ? 'startLine' : 'history_id']);
 
             foreach ($rows as $row) {
                 if ($dryRun) {
@@ -117,7 +114,6 @@ class LegacyImageMigrator
 
                 $admin->table($table)->where($key)->update([
                     'content' => $row->content !== null ? str_replace($from, $to, $row->content) : null,
-                    'raw_json' => $row->raw_json !== null ? str_replace($from, $to, $row->raw_json) : null,
                 ]);
                 $touched++;
             }

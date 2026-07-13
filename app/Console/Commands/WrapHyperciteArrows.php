@@ -57,14 +57,6 @@ class WrapHyperciteArrows extends Command
                     $this->line("  After:  " . substr($newContent, 0, 200) . '...');
                 } else {
                     $node->content = $newContent;
-
-                    // Also update raw_json if it contains content
-                    if ($node->raw_json && isset($node->raw_json['content'])) {
-                        $rawJson = $node->raw_json;
-                        $rawJson['content'] = $newContent;
-                        $node->raw_json = $rawJson;
-                    }
-
                     $node->save();
                 }
                 $updated++;

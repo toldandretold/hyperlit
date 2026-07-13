@@ -224,15 +224,6 @@ class HomePageServerController extends Controller
 
             // Create the chunk entry
             $chunks[] = [
-                'raw_json' => json_encode([
-                    'original_book' => $record->book,
-                    'position_type' => $bookName,
-                    'position_id' => $positionId,
-                    'bibtex' => $record->bibtex,
-                    'title' => $record->title ?? null,
-                    'author' => $record->author ?? null,
-                    'year' => $record->year ?? null
-                ]),
                 'book' => $bookName,
                 'chunk_id' => $chunkId,
                 'startLine' => $positionId,

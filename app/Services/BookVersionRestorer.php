@@ -28,12 +28,12 @@ class BookVersionRestorer
             // plus archived rows whose closed range contained it.
             $historicalNodes = DB::select("
                 SELECT id, book, node_id, \"startLine\", chunk_id, content,
-                       \"plainText\", type, raw_json, footnotes
+                       \"plainText\", type, footnotes
                 FROM nodes
                 WHERE book = ? AND sys_period @> (?::timestamptz - interval '1 microsecond')
                 UNION ALL
                 SELECT id, book, node_id, \"startLine\", chunk_id, content,
-                       \"plainText\", type, raw_json, footnotes
+                       \"plainText\", type, footnotes
                 FROM nodes_history
                 WHERE book = ? AND sys_period @> (?::timestamptz - interval '1 microsecond')
             ", [$bookId, $timestamp, $bookId, $timestamp]);
@@ -56,8 +56,6 @@ class BookVersionRestorer
                     'content' => $node->content,
                     'plainText' => $node->plainText,
                     'type' => $node->type,
-                    'raw_json' => is_string($node->raw_json)
-                        ? json_decode($node->raw_json, true) : $node->raw_json,
                     'footnotes' => is_string($node->footnotes)
                         ? json_decode($node->footnotes, true) : $node->footnotes,
                 ]);

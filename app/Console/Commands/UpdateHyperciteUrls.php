@@ -32,7 +32,7 @@ use App\Models\PgNode;
  * 2. Replaces https://libzen.io with https://hyperlit.io
  * 3. Replaces https://libzen.com with https://hyperlit.io
  * 4. Preserves all paths, fragments, and query params after the domain
- * 5. Updates both content and raw_json columns
+ * 5. Updates the content column
  * 6. Shows progress bar during operation
  */
 class UpdateHyperciteUrls extends Command
@@ -137,19 +137,6 @@ class UpdateHyperciteUrls extends Command
                 // Replace URLs in content
                 $updatedContent = str_replace('https://libzen.io', 'https://hyperlit.io', $chunk->content);
                 $updatedContent = str_replace('https://libzen.com', 'https://hyperlit.io', $updatedContent);
-
-                // Also update raw_json if it exists
-                if ($chunk->raw_json) {
-                    $rawJson = is_string($chunk->raw_json)
-                        ? json_decode($chunk->raw_json, true)
-                        : $chunk->raw_json;
-
-                    if (isset($rawJson['content'])) {
-                        $rawJson['content'] = str_replace('https://libzen.io', 'https://hyperlit.io', $rawJson['content']);
-                        $rawJson['content'] = str_replace('https://libzen.com', 'https://hyperlit.io', $rawJson['content']);
-                        $chunk->raw_json = $rawJson;
-                    }
-                }
 
                 $chunk->content = $updatedContent;
                 $chunk->save();

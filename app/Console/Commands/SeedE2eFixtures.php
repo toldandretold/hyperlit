@@ -93,7 +93,6 @@ class SeedE2eFixtures extends Command
             'type' => $type,
             'content' => $content,
             'plainText' => trim(strip_tags($content)),
-            'raw_json' => json_encode(['book' => $book, 'startLine' => $startLine, 'node_id' => $nodeId]),
             'created_at' => now(),
             'updated_at' => now(),
         ];

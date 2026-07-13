@@ -65,7 +65,7 @@ function frrSeed(array $fx): array
     frrDb()->table('nodes')->insert([
         'book' => $book, 'node_id' => $book . '_n1', 'chunk_id' => 1, 'startLine' => 1,
         'content' => '<p>body</p>', 'plainText' => 'body', 'type' => 'p',
-        'raw_json' => '{}', 'footnotes' => json_encode($markers),
+        'footnotes' => json_encode($markers),
         'created_at' => now(), 'updated_at' => now(),
     ]);
     foreach ($fx['bibliography'] as $bibRow) {

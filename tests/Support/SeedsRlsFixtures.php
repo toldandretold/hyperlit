@@ -116,8 +116,7 @@ trait SeedsRlsFixtures
     /** Seed a `nodes` row via the admin connection (same attrs as PgNode::create). */
     protected function seedNode(array $attrs): void
     {
-        // raw_json is NOT NULL on nodes; this is a RAW insert (no model casts), so json-encode it.
-        $row = array_merge(['chunk_id' => 0, 'raw_json' => json_encode($attrs), 'created_at' => now(), 'updated_at' => now()], $attrs);
+        $row = array_merge(['chunk_id' => 0, 'created_at' => now(), 'updated_at' => now()], $attrs);
         // updateOrInsert by the [book, startLine] primary key so leftover residue is overwritten.
         if (isset($attrs['book'], $attrs['startLine'])) {
             DB::connection('pgsql_admin')->table('nodes')

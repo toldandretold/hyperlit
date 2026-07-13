@@ -35,7 +35,7 @@ export const FIELD_SPECS: Record<string, FieldSpec> = {
     strings: ['content'],
     // Embedded render views (hyperlights[].annotation, citations[].text,
     // footnote markers) are user content too — envelope the whole array.
-    json: ['hyperlights', 'hypercites', 'footnotes', 'citations', 'raw_json'],
+    json: ['hyperlights', 'hypercites', 'footnotes', 'citations'],
   },
   hyperlights: {
     strings: ['annotation', 'highlightedText', 'highlightedHTML'],

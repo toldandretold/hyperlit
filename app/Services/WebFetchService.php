@@ -375,7 +375,6 @@ class WebFetchService
                 'plainText' => $chunk,
                 'type' => 'p',
                 'footnotes' => json_encode([]),
-                'raw_json' => json_encode([]),
                 'created_at' => $now,
                 'updated_at' => $now,
             ];

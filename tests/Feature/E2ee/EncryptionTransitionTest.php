@@ -55,7 +55,6 @@ it('encrypt forces private/unlisted/null-slug, cascades to sub-books, and scrubs
     DB::connection('pgsql_admin')->table('nodes_history')->insert([
         'book' => 'e2ee_lock', 'chunk_id' => 0, 'startLine' => 100, 'history_id' => 999999901,
         'content' => '<p>old plaintext version</p>', 'plainText' => 'old plaintext version',
-        'raw_json' => json_encode([]),
     ]);
     $artifactDir = resource_path('markdown/e2ee_lock');
     @mkdir($artifactDir, 0755, true);

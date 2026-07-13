@@ -156,7 +156,6 @@ test('sorted variants are invalidated for both visibilities', function () {
             'content' => '<p>marker</p>',
             'plainText' => 'marker',
             'type' => 'p',
-            'raw_json' => '{}',
             'created_at' => now(),
             'updated_at' => now(),
         ]);

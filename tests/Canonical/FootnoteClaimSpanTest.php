@@ -54,7 +54,7 @@ test('each footnote in a multi-footnote run gets only the clause BEFORE its mark
     fcsDb()->table('nodes')->insert([
         'book' => $book, 'node_id' => $book . '_n1', 'chunk_id' => 1, 'startLine' => 1,
         'content' => $html, 'plainText' => strip_tags($html), 'type' => 'p',
-        'raw_json' => '{}', 'created_at' => now(), 'updated_at' => now(),
+        'created_at' => now(), 'updated_at' => now(),
     ]);
 
     try {
@@ -102,7 +102,7 @@ test('inline author-date citations keep the sentence-around-the-marker span', fu
     fcsDb()->table('nodes')->insert([
         'book' => $book, 'node_id' => $book . '_n1', 'chunk_id' => 1, 'startLine' => 1,
         'content' => $html, 'plainText' => strip_tags($html), 'type' => 'p',
-        'raw_json' => '{}', 'created_at' => now(), 'updated_at' => now(),
+        'created_at' => now(), 'updated_at' => now(),
     ]);
 
     try {

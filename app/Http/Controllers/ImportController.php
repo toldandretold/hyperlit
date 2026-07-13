@@ -579,6 +579,7 @@ class ImportController extends Controller
 
             // Prepare data for bulk insert with proper numbering
             $insertData = [];
+            $artifactRows = []; // full node shape for the nodes.json artifact (was nodes.raw_json)
             $now = now();
             $nodesPerChunk = 100;
 
@@ -589,11 +590,12 @@ class ImportController extends Controller
                 $nodeId = $this->helpers->generateNodeId($bookId);
                 $content = $this->helpers->ensureNodeIdInContent($chunk['content'], $newStartLine, $nodeId);
 
-                $rawJson = $chunk;
-                $rawJson['startLine'] = $newStartLine;
-                $rawJson['chunk_id'] = $newChunkId;
-                $rawJson['node_id'] = $nodeId;
-                $rawJson['content'] = $content;
+                $artifactRow = $chunk;
+                $artifactRow['startLine'] = $newStartLine;
+                $artifactRow['chunk_id'] = $newChunkId;
+                $artifactRow['node_id'] = $nodeId;
+                $artifactRow['content'] = $content;
+                $artifactRows[] = $artifactRow;
 
                 $insertData[] = [
                     'book' => $bookId,
@@ -604,7 +606,6 @@ class ImportController extends Controller
                     'footnotes' => json_encode($chunk['footnotes'] ?? []),
                     'plainText' => $chunk['plainText'] ?? '',
                     'type' => $chunk['type'] ?? 'p',
-                    'raw_json' => json_encode($rawJson),
                     'created_at' => $now,
                     'updated_at' => $now
                 ];
@@ -624,11 +625,7 @@ class ImportController extends Controller
             \App\Jobs\QueueBookEmbeddings::dispatch($bookId);
 
             // Update JSON file with renumbered values
-            $renumberedJson = [];
-            foreach ($insertData as $record) {
-                $renumberedJson[] = json_decode($record['raw_json'], true);
-            }
-            File::put($nodesPath, json_encode($renumberedJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            File::put($nodesPath, json_encode($artifactRows, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         } catch (\Exception $e) {
             Log::error('Failed to save nodes to database', [
@@ -915,7 +912,6 @@ class ImportController extends Controller
                         'startLine'  => 1,
                         'content'    => $nodeHtml,
                         'plainText'  => $plainText,
-                        'raw_json'   => json_encode([]),
                     ]
                 );
 

@@ -43,8 +43,7 @@ function backendNode(chunkId, startLine) {
     footnotes: [],
     hypercites: [],
     hyperlights: [],
-    raw_json: {},
-  };
+     };
 }
 
 /** Mirror the loader's grouping idiom (lazyLoader/index.ts:778 distinct chunk_ids + :947 filter):

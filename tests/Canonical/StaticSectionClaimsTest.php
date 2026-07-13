@@ -31,7 +31,7 @@ test('claims come from body nodes, never from static footnote/bibliography secti
     $mk = fn($nodeId, $line, $html) => [
         'book' => $book, 'node_id' => $nodeId, 'chunk_id' => 1, 'startLine' => $line,
         'content' => $html, 'plainText' => strip_tags($html), 'type' => 'p',
-        'raw_json' => '{}', 'created_at' => now(), 'updated_at' => now(),
+        'created_at' => now(), 'updated_at' => now(),
     ];
     sscDb()->table('nodes')->insert([
         $mk($book . '_body', 1, '<p id="10" data-node-id="' . $book . '_body">Copyright reform stalled across member states <a href="#westkamp2022" class="in-text-citation">2022</a>.</p>'),

@@ -89,7 +89,6 @@
                 "footnotes",
                 "node_id",
                 "plainText",
-                "raw_json",
                 "startLine",
                 "type"
             ],
@@ -117,7 +116,6 @@
                 "footnotes",
                 "node_id",
                 "plainText",
-                "raw_json",
                 "startLine",
                 "type"
             ],
@@ -228,7 +226,6 @@
                 "footnotes",
                 "node_id",
                 "plainText",
-                "raw_json",
                 "startLine",
                 "type"
             ],
@@ -272,7 +269,6 @@
                 "footnotes",
                 "node_id",
                 "plainText",
-                "raw_json",
                 "startLine",
                 "type"
             ],
@@ -335,7 +331,6 @@
                 "footnotes",
                 "node_id",
                 "plainText",
-                "raw_json",
                 "startLine",
                 "type"
             ],
@@ -366,7 +361,6 @@
                 "footnotes",
                 "node_id",
                 "plainText",
-                "raw_json",
                 "startLine",
                 "type"
             ],
@@ -910,7 +904,6 @@
                 "footnotes",
                 "node_id",
                 "plainText",
-                "raw_json",
                 "startLine",
                 "type",
                 "updated_at"
@@ -961,7 +954,6 @@
                 "footnotes",
                 "node_id",
                 "plainText",
-                "raw_json",
                 "startLine",
                 "type"
             ],

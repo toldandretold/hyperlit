@@ -50,10 +50,10 @@ The plain-English version:
 
 On your Mac in dev you don't need any of this — macOS already has a real screen, so headed Chrome just opens a (briefly visible) window. xvfb is **only** for the screenless Linux server.
 
-**The one thing to change on the droplet.** The harvest fetch happens inside the `citation-pipeline` queue worker (Supervisor program `hyperlit-citation`), so that worker is what must run under xvfb. Install xvfb, then prefix that program's `command` with `xvfb-run -a`:
+**The one thing to change on the droplet.** The harvest fetch happens inside the `citation-pipeline` queue worker (Supervisor program `hyperlit-citation`), so that worker is what must run under xvfb. Install xvfb **and `xauth`** (`xvfb-run` shells out to `xauth` to mint the display cookie — without it every headed launch dies with `xvfb-run: error: xauth command not found`, surfacing as `browser_launch_failed` in harvest), then prefix that program's `command` with `xvfb-run -a`:
 
 ```bash
-sudo apt install -y xvfb
+sudo apt install -y xvfb xauth
 ```
 
 Edit `deploy/supervisor/hyperlit-citation.conf` — the `command=` line, adding `xvfb-run -a` at the front:
@@ -105,16 +105,20 @@ Leave `FLARESOLVERR_URL` unset and the solver strategy simply no-ops — the app
 
 Cloudflare's IP-reputation WAF 403s fire before any JS challenge — only egressing from a residential IP clears those. AND, because `cf_clearance` is IP-bound, the proxy must support **sticky sessions** (the same IP held for the length of one fetch). IPRoyal, Bright Data, Oxylabs et al. all do this via a per-session token appended to the password.
 
+**There is exactly ONE line you set here** — `SOURCE_FETCH_PROXY`, with the real host/port/credentials your proxy provider gave you (the value below is a placeholder; do not paste it verbatim):
+
 ```bash
-# in .env — residential, sticky-capable proxy (IPRoyal shown)
+# in .env — residential, sticky-capable proxy (replace with YOUR provider's creds)
 SOURCE_FETCH_PROXY=http://user:pass@geo.iproyal.com:12321
-# per-work sticky suffix appended to the password; {id} is replaced per work.
-# This is IPRoyal's format — adjust for your provider. Default is this value.
-SOURCE_FETCH_STICKY_SUFFIX=_session-{id}_lifetime-10m
 sudo -u www-data php artisan config:cache
 ```
 
-`ContentFetchService::stickyProxy()` rewrites the password to `pass{suffix}` per work, so the headed browser solve and the PDF download share one IP. Set `SOURCE_FETCH_STICKY_SUFFIX=` (empty) to disable sticky and use the plain rotating proxy (managed challenges will then be a coin-flip). Left `SOURCE_FETCH_PROXY` unset entirely, fetches go out from the server's own IP — best effort, and most Cloudflare publishers will hard-block.
+That's it. `SOURCE_FETCH_STICKY_SUFFIX` is **NOT a line you add** — it already defaults to IPRoyal's format (`_session-{id}_lifetime-10m`) in `config/services.php`, so on IPRoyal you set nothing and sticky sessions just work. Only touch it to *override* the default:
+
+- **Different provider** whose sticky-token format differs → `SOURCE_FETCH_STICKY_SUFFIX=<their format, with {id} where the per-work token goes>`.
+- **Disable sticky** (use a plain rotating proxy; managed challenges then become a coin-flip) → `SOURCE_FETCH_STICKY_SUFFIX=` (empty).
+
+`ContentFetchService::stickyProxy()` rewrites the password to `pass{suffix}` per work, so the headed browser solve and the PDF download share one IP. Left `SOURCE_FETCH_PROXY` unset entirely, fetches go out from the server's own IP — best effort, and most Cloudflare publishers will hard-block (degrading to `cloudflare_block` in the Source Yield Report, not an error).
 
 ## Deploy checklist
 
