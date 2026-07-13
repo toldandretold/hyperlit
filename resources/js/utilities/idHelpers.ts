@@ -477,36 +477,41 @@ export function generateInsertedLineId(referenceNode: any, insertAfter = true) {
 
 
 export function getNextDecimalForBase(base: any) {
-  // Get all elements with this base in the current chunk
-  const chunk = document.querySelector('.chunk');
-  if (!chunk) return `${base}.1`;
-  
-  const baseElements = Array.from(chunk.querySelectorAll(`[id^="${base}."], [id="${base}"]`));
-  
-  // If no elements with this base exist, start with .1
-  if (baseElements.length === 0) return `${base}.1`;
-  
-  // Sort by DOM order (visual order)
-  baseElements.sort((a, b) => {
-    const position = a.compareDocumentPosition(b);
-    return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
-  });
-  
-  // Find the last element in DOM order
-  const lastElement = baseElements[baseElements.length - 1];
-  
-  // If the last element is the base itself (no decimal), use .1
-  if (lastElement!.id === base) return `${base}.1`;
-  
-  // Otherwise, increment the last decimal
-  const match = lastElement!.id.match(/^(\d+)\.(\d+)$/);
-  if (match) {
-    const lastSuffix = parseInt(match[2]!, 10);
-    return `${base}.${lastSuffix + 1}`;
+  // Scan the WHOLE document for this base, NOT just the first `.chunk`.
+  //
+  // The old first-chunk-only scan (`document.querySelector('.chunk')`) returned a
+  // naive `${base}.1` whenever the base's nodes lived outside that one chunk — e.g.
+  // broken-image wrappers minted during render, or any node in chunk 1+. Two siblings
+  // could then both be handed `${base}.1`, producing a duplicate id that trips the
+  // integrity verifier (the Taylor & Francis paste `duplicateIds` failure). Node ids
+  // must be unique across the whole document anyway — that is exactly the invariant
+  // isDuplicateId/isIdInUse already enforce with `document.querySelector*` — so the
+  // "next free decimal" has to be computed against the same document-wide scope.
+  const baseElements = Array.from(
+    document.querySelectorAll(`[id^="${base}."], [id="${base}"]`)
+  );
+
+  // Highest decimal suffix already in use for this base (0 = only the bare base, or
+  // nothing, exists). Computed by numeric suffix rather than DOM order, because DOM
+  // order need not match id order (a later-inserted node can sort before an earlier
+  // one), which would otherwise let us hand back an id that already exists.
+  let maxSuffix = 0;
+  for (const el of baseElements) {
+    if (el.id === base) continue; // the bare base has no decimal suffix
+    const m = el.id.match(/^(\d+)\.(\d+)$/);
+    if (m) maxSuffix = Math.max(maxSuffix, parseInt(m[2]!, 10));
   }
-  
-  // Fallback
-  return `${base}.1`;
+
+  // `base.(maxSuffix + 1)` is higher than every existing suffix, so it cannot collide.
+  // Keep a defensive uniqueness loop anyway (multi-level decimals, non-standard ids in
+  // the scan, etc.) so this helper can NEVER return an id already present in the DOM.
+  let candidate = `${base}.${maxSuffix + 1}`;
+  let guard = 0;
+  while (isIdInUse(candidate) && guard++ < 10000) {
+    const m = candidate.match(/^(\d+)\.(\d+)$/);
+    candidate = m ? `${m[1]}.${parseInt(m[2]!, 10) + 1}` : `${candidate}1`;
+  }
+  return candidate;
 }
 
 export function getNextIntegerId(id: any) {

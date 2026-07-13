@@ -135,4 +135,87 @@ describe('ensureNodeHasValidId — no-id branch never commits a colliding id', (
     expect(document.querySelectorAll('#4').length).toBe(1);
     expect(document.querySelectorAll('#5').length).toBe(1);
   });
+
+  // Regression: the Taylor & Francis paste minted TWO broken-image wrappers with the
+  // same id="1.1". Root cause was getNextDecimalForBase scanning only the FIRST `.chunk`;
+  // when the base's existing decimal lived in a LATER chunk, the scan came back empty and
+  // returned a naive `${base}.1` for every caller → a duplicate id that tripped the
+  // integrity verifier. getNextDecimalForBase now scans document-wide.
+  //
+  // The wrappers mirror the real DOM: deeply nested inside <a> with NO numeric siblings,
+  // so id resolution falls through to base "1" (generateIdBetween(null, null)) and reaches
+  // getNextDecimalForBase — the exact path that produced the collision. A numeric sibling
+  // would instead route through generateIdBetween and never hit the buggy scan.
+  const nest = (chunk) => {
+    const p = document.createElement('p');
+    p.id = String(100 + chunk.children.length * 100); // numeric block node (never inspected)
+    const a = document.createElement('a');            // non-numeric, no numeric siblings
+    const node = document.createElement('div');       // the broken-image wrapper
+    a.appendChild(node);
+    p.appendChild(a);
+    chunk.appendChild(p);
+    return node;
+  };
+
+  it('does NOT re-mint a base-1 decimal that already lives in a LATER chunk', () => {
+    document.body.innerHTML = '';
+
+    // First chunk holds only the genuine node "1" — NO "1.x" decimals here.
+    const firstChunk = document.createElement('div');
+    firstChunk.className = 'chunk';
+    firstChunk.setAttribute('data-chunk-id', '0');
+    const genuine = document.createElement('p');
+    genuine.id = '1';
+    genuine.textContent = 'genuine first node';
+    firstChunk.appendChild(genuine);
+    document.body.appendChild(firstChunk);
+
+    // A SECOND chunk already owns "1.1" (the case the old first-chunk-only scan missed).
+    const secondChunk = document.createElement('div');
+    secondChunk.className = 'chunk';
+    secondChunk.setAttribute('data-chunk-id', '1');
+    document.body.appendChild(secondChunk);
+    const existing = nest(secondChunk);
+    existing.id = '1.1';
+
+    // Fresh wrapper, same nesting, no numeric neighbours → resolves to base "1"; it must
+    // NOT collide with the "1.1" already living in the second chunk.
+    const fresh = nest(secondChunk);
+    ensureNodeHasValidId(fresh);
+
+    expect(fresh.id).not.toBe('1');
+    expect(fresh.id).not.toBe('1.1');                        // the actual bug: no re-mint
+    expect(NUMERICAL_ID_PATTERN.test(fresh.id)).toBe(true);
+    expect(document.querySelectorAll('#1').length).toBe(1);  // genuine node untouched
+    expect(document.querySelectorAll('[id="1.1"]').length).toBe(1); // no duplicate
+  });
+
+  // Two consecutive assignments in a later chunk must land on DISTINCT ids — the
+  // wrapper-A / wrapper-B pairing that produced the duplicate. The FIRST assignment lands
+  // in the second chunk, which the old first-chunk-only scan then couldn't see when
+  // resolving the SECOND, so both got "1.1".
+  it('assigns distinct base-1 decimals to two consecutive no-neighbour nodes in a later chunk', () => {
+    document.body.innerHTML = '';
+    const firstChunk = document.createElement('div');
+    firstChunk.className = 'chunk';
+    firstChunk.setAttribute('data-chunk-id', '0');
+    const genuine = document.createElement('p');
+    genuine.id = '1';
+    firstChunk.appendChild(genuine);
+    document.body.appendChild(firstChunk);
+
+    const secondChunk = document.createElement('div');
+    secondChunk.className = 'chunk';
+    secondChunk.setAttribute('data-chunk-id', '1');
+    document.body.appendChild(secondChunk);
+
+    const a = nest(secondChunk);
+    ensureNodeHasValidId(a);
+    const b = nest(secondChunk);
+    ensureNodeHasValidId(b);
+
+    expect(a.id).not.toBe(b.id);
+    expect(document.querySelectorAll(`[id="${a.id}"]`).length).toBe(1);
+    expect(document.querySelectorAll(`[id="${b.id}"]`).length).toBe(1);
+  });
 });

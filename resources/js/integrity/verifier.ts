@@ -443,8 +443,8 @@ export async function healDuplicateIds(bookId: any): Promise<string[]> {
       const baseMatch = id.match(/^(\d+)/);
       let newId = baseMatch ? getNextDecimalForBase(baseMatch[1]!) : generateUniqueId();
       el.id = newId;
-      // getNextDecimalForBase only scans the first chunk — defend against a
-      // residual collision across chunks before committing.
+      // getNextDecimalForBase now scans document-wide and cannot return an in-use
+      // id, but keep this as a last-resort backstop before committing.
       if (isDuplicateId(newId)) {
         newId = generateUniqueId();
         el.id = newId;
