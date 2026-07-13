@@ -3,8 +3,6 @@
 namespace App\Jobs;
 
 use App\Mail\VibeOutcomeMail;
-use App\Models\User;
-use App\Services\BillingService;
 use App\Services\ConversionArtifactSaver;
 use App\Services\VibePatchApplier;
 use Illuminate\Support\Facades\Cache;
@@ -23,7 +21,8 @@ use Symfony\Component\Process\Process;
  * Background "✨ Vibe convert" — runs the bounded retry loop on the queue worker so the user
  * can close the toast and (optionally) be emailed when done. Writes vibe_progress.json (the
  * toast polls it), honours vibe_cancel (the Cancel button), opens a GitHub issue on an unfixed
- * run, emails fml@hyperlit.io (and the user, if requested), and bills only on a real result.
+ * run, and emails fml@hyperlit.io (and the user, if requested). FREE — never billed (see the
+ * outcome block in handle(): experimental dead end, charging removed 2026-07-12).
  *
  * The patch is applied ONLY in a throwaway sandbox during the loop — production code is never
  * touched. "Use this conversion" (the accept step) is a separate explicit action.
@@ -118,15 +117,12 @@ class VibeConversionJob implements ShouldQueue
             $report = json_decode(File::get($reportPath), true);
         }
 
-        // Bill only when there was a usable result (clean or improved) — fair for an opt-in action.
+        // FREE — deliberately unbilled. Vibe convert is an experimental dead end
+        // (it rarely produces a fix); charging for it was removed 2026-07-12.
+        // The canProceed() gate in VibeConvertController stays (it still costs
+        // hyperlit real LLM money, so zero-balance accounts can't spam it). If
+        // it ever earns its keep, restore a charge() here keyed on $outcome.
         $outcome = $report['outcome'] ?? 'unknown';
-        if (in_array($outcome, ['clean', 'improved'], true) && $this->userId) {
-            $user = User::find($this->userId);
-            if ($user) {
-                app(BillingService::class)->charge($user, 0.05, 'Vibe conversion: ' . $this->bookId,
-                    'vibe_conversion', [], ['book_id' => $this->bookId]);
-            }
-        }
 
         // AUTO-APPLY a clean/improved fix to the LIVE book, then leave a review marker so the reader can
         // surface a Keep/Revert toast (on the success poll OR on any later book load). The original

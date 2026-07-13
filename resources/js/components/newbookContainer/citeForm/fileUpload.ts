@@ -136,7 +136,7 @@ async function showPdfCostEstimate(file: any) {
       : `PDF: ${numPages} page${numPages !== 1 ? 's' : ''} — Estimated cost: <strong>$${userCost.toFixed(2)}</strong>`
         + ` <span style="opacity:0.7">(${tier.multiplier}x ${tier.label})</span>`
         + ` <span class="pdf-cost-info-toggle" tabindex="0" role="button" aria-label="Pricing info" style="cursor:pointer;display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid rgba(0,188,212,0.5);font-size:10px;vertical-align:middle;margin-left:4px;">?</span>`
-        + `<span class="pdf-cost-info-detail" style="display:none;"> Mistral OCR costs $1.00/1k pages, multiplied by your tier: ${tierList}. For no markup, <a href="https://github.com/toldandretold/hyperlit" target="_blank" style="color:inherit;text-decoration:underline;">clone Hyperlit from GitHub</a> (it's free software) and use your own API key.</span>`;
+        + `<span class="pdf-cost-info-detail" style="display:none;"> Mistral OCR costs $${MISTRAL_OCR_COST_PER_1K_PAGES.toFixed(2)}/1k pages, multiplied by your tier: ${tierList}. For no markup, <a href="https://github.com/toldandretold/hyperlit" target="_blank" style="color:inherit;text-decoration:underline;">clone Hyperlit from GitHub</a> (it's free software) and use your own API key.</span>`;
 
     const toggle = el.querySelector('.pdf-cost-info-toggle');
     const detail = el.querySelector('.pdf-cost-info-detail');

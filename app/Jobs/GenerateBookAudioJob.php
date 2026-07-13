@@ -44,6 +44,10 @@ class GenerateBookAudioJob implements ShouldQueue
         private string $bookId,
         private ?int $userId,
         private string $voice,
+        // The reserveCredits() hold the generate endpoint placed (null for
+        // premium / zero-estimate). Released in handle()'s finally + failed()
+        // — the actual chargeFor() replaces the estimate.
+        private ?string $reservationId = null,
     ) {
         // OWN queue — mirrors VibeConversionJob→'vibe': a full-book synthesis
         // holds a worker for minutes and must not head-of-line-block imports.
@@ -57,6 +61,7 @@ class GenerateBookAudioJob implements ShouldQueue
         try {
             $this->generate($store, $tts);
         } finally {
+            $this->releaseReservation();
             $this->releaseLock();
         }
     }
@@ -346,6 +351,31 @@ class GenerateBookAudioJob implements ShouldQueue
         ], JSON_PRETTY_PRINT));
     }
 
+    /**
+     * Give back the credit hold the generate endpoint reserved. Idempotent
+     * (releaseReservation no-ops on a missing row), so both handle()'s finally
+     * and failed() can call it. Same worker-RLS dance as chargeFor().
+     */
+    private function releaseReservation(): void
+    {
+        if (! $this->reservationId || ! $this->userId) {
+            return;
+        }
+        $user = User::on('pgsql_admin')->find($this->userId);
+        if (! $user) {
+            return;
+        }
+
+        DB::statement("SELECT set_config('app.current_user', ?, false)", [$user->name]);
+        DB::statement("SELECT set_config('app.current_token', ?, false)", [(string) $user->user_token]);
+        try {
+            app(BillingService::class)->releaseReservation($user, $this->reservationId);
+        } finally {
+            DB::statement("SELECT set_config('app.current_user', '', false)");
+            DB::statement("SELECT set_config('app.current_token', '', false)");
+        }
+    }
+
     /** Release the per-book lock the generate endpoint acquired. */
     private function releaseLock(): void
     {
@@ -354,6 +384,7 @@ class GenerateBookAudioJob implements ShouldQueue
 
     public function failed(\Throwable $e): void
     {
+        $this->releaseReservation();
         $this->releaseLock();
         try {
             $store = app(BookAudioStore::class);

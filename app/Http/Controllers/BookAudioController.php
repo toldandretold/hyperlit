@@ -113,6 +113,7 @@ class BookAudioController extends Controller
         // increments debits under a row lock; the actual charge happens in the job.
         $estimatedCost = $this->estimateAudioCost($book, $user);
 
+        $reservation = null;
         if ($user->status === 'premium') {
             // Premium users bypass the balance check entirely.
         } elseif (! $billingService->canProceed($user)) {
@@ -144,12 +145,16 @@ class BookAudioController extends Controller
         // release it, or every later attempt 409s against a run that doesn't
         // exist until the TTL expires (a stale config-cache 500 did exactly
         // this in prod: the client then polls a progress file that will never
-        // appear).
+        // appear). Same for the credit reservation — a leaked hold debits the
+        // user for a job that never ran.
         try {
             File::delete(app(BookAudioStore::class)->progressPath($book));
-            GenerateBookAudioJob::dispatch($book, $user->id, $voice);
+            // The job releases the reservation hold when it finishes (success,
+            // failure, or cancel) — the ACTUAL charge replaces the estimate.
+            GenerateBookAudioJob::dispatch($book, $user->id, $voice, $reservation?->id);
         } catch (\Throwable $e) {
             $lock->forceRelease();
+            $billingService->releaseReservation($user, $reservation?->id);
             throw $e;
         }
 

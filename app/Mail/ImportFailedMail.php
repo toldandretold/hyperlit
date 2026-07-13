@@ -15,6 +15,10 @@ class ImportFailedMail extends Mailable
         private string $title,
         private string $bookId,
         private string $errorMessage,
+        // Dollars billed for the OCR that ran before the failure — 0.0 unless
+        // BILLING_CHARGE_OCR_ON_FAILED_IMPORT is on. Drives the "you were not
+        // charged" / "OCR was charged" line in the template.
+        private float $ocrCharge = 0.0,
     ) {}
 
     public function build()
@@ -25,6 +29,7 @@ class ImportFailedMail extends Mailable
                 'title' => $this->title,
                 'bookId' => $this->bookId,
                 'errorMessage' => $this->errorMessage,
+                'ocrCharge' => $this->ocrCharge,
             ]);
     }
 }

@@ -231,6 +231,34 @@ test('an unchanged visit does NOT regenerate the account book', function () {
     expect(abNodeFingerprint($user->name))->toBe($fpBefore);
 });
 
+test('a REAL owner visit to /u/{username} runs the guard, and the reader pull API serves the fresh book', function () {
+    // The last hop the other tests trust but don't assert: (1) the browser's
+    // actual user-page route (not a reflection call) triggers the freshness
+    // guard for the owner, and (2) the endpoint the reader's loading path
+    // fetches (loadHyperText → serverSync/pull.ts → /api/database-to-indexeddb/
+    // books/{book}/data) returns the regenerated content, RLS-gated as the owner.
+    $user = abSeedUser(credits: 5);
+    app(UserHomeServerController::class)->generateAccountBook($user->name);
+    $fpBefore = abNodeFingerprint($user->name);
+
+    // Drift: a missed eager regen — a ledger row newer than the book.
+    abSeedLedger($user->id, 'credit', 5, createdAt: now()->addSeconds(5), desc: 'visit guard top up');
+
+    // Real HTTP GET to the page the browser loads (user.blade.php).
+    $this->actingAs(abUserModel($user->name))->get('/u/' . $user->name)->assertOk();
+
+    // show() ran the guard: the account book was rebuilt with the new entry.
+    expect(abNodeFingerprint($user->name))->not->toBe($fpBefore);
+
+    // And the reader's pull endpoint serves that fresh content to the client.
+    $resp = $this->actingAs(abUserModel($user->name))
+        ->getJson('/api/database-to-indexeddb/books/' . abAccountBook($user->name) . '/data');
+    $resp->assertOk();
+    $payload = json_encode($resp->json());
+    expect($payload)->toContain('visit guard top up');
+    expect($payload)->toContain('Balance: $5.00');
+});
+
 test('charge() regenerates the account book after the billing transaction', function () {
     $user = abSeedUserOnDefault(credits: 10);
     $spy = $this->spy(UserHomeServerController::class);

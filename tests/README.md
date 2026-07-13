@@ -1,140 +1,100 @@
 # Tests
 
-This directory holds every kind of test in the project. Each subfolder uses a
-different runner — read the per-folder section below to know which command to
-run and what each test covers.
+Everything under `tests/` — but it is several separate worlds, one per runner/language, and no single command runs them all. Knowing which runner owns a suite is the whole game: a PHP test never runs under an `npm` command, and an `npm` command never runs a PHP test. This file is the map; most subfolders also have their own README with the detail.
+
+## The runners at a glance
+
+- **Pest / PHPUnit (PHP)** — server logic: controllers, jobs, services, RLS, billing, auth. Run with `php artisan test`. Suites: `Unit`, `Feature`, `Canonical`. NOT in any `npm` command.
+- **vitest (JavaScript, no browser)** — front-end unit tests + architecture guardrails. Run with `npm run test:run`. Scans `tests/javascript/` and `tests/paste/`.
+- **Playwright (JavaScript, real browser)** — end-to-end user flows. Run with `npm run test:e2e`. Lives in `tests/e2e/`. Manual (not CI); some specs `test.skip` themselves without preconditions.
+- **Python** — the PDF/OCR conversion pipeline regression. Run with its own Python runner in `tests/conversion/`. NOT in any `npm` command.
+- **Plain PHP over HTTP** — the offensive red-team harness in `tests/security-redteam/`, run against a LIVE server. Not Pest; not CI.
+
+Two traps worth stating up front: "in the `tests/e2e` directory" is NOT the same as "runs under `npm run test:e2e`" — the Stripe and security e2e specs have their own Playwright configs and only run when you name them (below). And use `npm run test:run`, never bare `npm test` — the latter is `vitest` in WATCH mode, which never exits and leaves orphaned CPU-spinning worker forks when killed non-interactively.
+
+## PHP — Pest / PHPUnit (`php artisan test`)
+
+The largest world: ~160 test files across three testsuites (defined in `phpunit.xml`), each hitting the real Laravel stack + a Postgres test DB with Row-Level Security enforced. `Pest.php` + `TestCase.php` are the shared bootstrap.
+
+- **Run all three** — `php artisan test`
+- **One suite** — `php artisan test --testsuite=Feature` (or `Unit` / `Canonical`)
+- **One folder / file** — `php artisan test tests/Feature/Billing` or a single `…Test.php`
+
+### The suites
+
+- **Feature** (`tests/Feature/`, ~114 files) — HTTP endpoints, queued jobs, services, end-to-end through routes + DB. Subfolders: `AiBrain`, `Api`, `Auth`, `Billing`, `BookAudio`, `BookImages`, `CitationPipeline`, `Citations`, `E2ee`, `Import`, `Inference`, `Security`, `SourceHarvest`. Full run ~90s.
+- **Unit** (`tests/Unit/`, ~25 files) — pure logic, no HTTP/DB. Seconds.
+- **Canonical** (`tests/Canonical/`, ~21 files) — the canonical-source / version-control suite, kept as its own testsuite so it can run in isolation.
+
+### The RLS gotcha (read before writing a PHP test that seeds data)
+
+A bare `User::factory()->create()` is REJECTED by Postgres RLS — the `users` INSERT policy's `RETURNING` triggers the SELECT policy, which needs `app.current_user` set (unset during seeding). Seed through the BYPASSRLS `pgsql_admin` connection instead, via the `Tests\Support\SeedsRlsFixtures` trait (`seedUser` / `seedLibrary` / `seedNode`), which also cleans up its admin-committed rows in `afterEach`. The trait is bound to the seeding-heavy folders in `tests/Pest.php` — add a new folder to that list if it needs it. A charge/read that runs inside a test reads the ledger on the DEFAULT connection with the RLS session vars set, because the mutation lives inside the test's `RefreshDatabase` transaction and is invisible to `pgsql_admin`.
+
+### `Feature/Security/` vs `security-redteam/`
+
+The former is assertion-based, white-box, in-process, CI-safe — it proves a specific defense holds against a test DB. The latter (below) is black-box over real HTTP against a live server and REPORTS what it found. Run both; they catch different things.
+
+## JavaScript unit — vitest (`npm run test:run`)
+
+Front-end logic + architectural invariants, no browser. ~157 files in `tests/javascript/` (its own [README](javascript/README.md)) plus the paste engine's ~22 in `tests/paste/` (its own [README](paste/README.md)).
+
+- **Run once** — `npm run test:run` (NEVER `npm test` — watch mode, see above).
+- **Watch / visual** — `npm run test` / `npm run test:ui` (interactive dev only).
+- **TDZ prod-bundle probe** — `npm run test:tdz` (`vite build` + `tests/build/tdzProbe.mjs`); catches circular-import crashes visible ONLY in the rollup prod bundle. Run before shipping front-end import restructures.
+
+Beyond ordinary unit tests, `tests/javascript/architecture/` holds the RATCHET guardrails that keep the front-end honest: no new raw `console.*`, no new `: any` in tightened folders, interactive components go through `ButtonRegistry`, overlay surfaces declare focus wiring, the reading-position accessor is used, and the IndexedDB flow-map stays fresh. These READ `resources/js` source (the tests do not live there) and fail on a regression — see the review-gate sections in the root `CLAUDE.md`.
+
+## Browser end-to-end — Playwright (`tests/e2e/`)
+
+Real Chromium driving real user gestures. Manual, not part of CI — treat a green run with care (several specs `test.skip` when preconditions like a footnote-bearing seed book are absent, so "passed" can mean "never executed"). Full detail in [`e2e/README.md`](e2e/README.md).
+
+- **Default suite** — `npm run test:e2e` (uses `playwright.config.js`, `testDir: ./specs`). Headed: `npm run test:e2e:headed`. One spec: `npm run test:e2e -- specs/workflows/authoring-workflow.spec.js`.
+- **Accessibility** — `npm run test:a11y` (default config, `specs/a11y` + report merge).
+- **Stripe billing** — its OWN config: `npx playwright test --config tests/e2e/playwright.stripe.config.js` (self-signs webhooks with the `.env` secret; `--grep @stripe-ui` drives the real hosted checkout; `RUN_LIVE_SPEND=1 … spend-live` bills your provider). NOT run by `npm run test:e2e`.
+- **Security** — its own config: `tests/e2e/playwright.security.config.js`.
+
+Always use the `npm` script for the default suite — a bare `npx playwright test` from the project root silently picks the wrong config (no `baseURL`, no auth setup) and fails with "Cannot navigate to invalid URL". Spec folders under `tests/e2e/specs/`: `a11y`, `ai-brain`, `audio`, `citations`, `divEditor`, `e2ee`, `footnotes`, `offline`, `performance`, `reader`, `regression`, `save-status`, `security`, `smoke`, `stripe`, `transitions`, `workflows`.
+
+## Python — conversion pipeline (`tests/conversion/`)
+
+The PDF/EPUB/HTML → markdown → nodes regression, run by its own Python harness (never `npm`, never Pest). It replays cached fixture OCR responses through `mistral_ocr.py` + `process_document.py` and asserts the ref/def/footnote/gap counts in each fixture's `manifest.json`. Full detail in [`conversion/README.md`](conversion/README.md).
+
+- **All fixtures** — `python3 tests/conversion/run_regression.py`
+- **One fixture** — `… --fixture <name>` · **verbose** — `… --verbose` · **machine-readable** — `… --json`
+- **Rebless goldens** — `… --update-golden`
+- **Vibe / co-evolution eval** — `python3 tests/conversion/vibe_eval.py`
+
+Fixtures live in `tests/conversion/fixtures/<filetype>/<pathway>/` (e.g. `epub/basic_footnotes/`), each with a `manifest.json` of expected counts plus a cached `ocr_response.json` or `input.html`. `fixtures-local/` holds git-ignored local-only fixtures. Add one with `add_fixture.py` or by copying an existing folder and editing its manifest. Unit-level Python tests also live under `tests/conversion/unit/` (e.g. the byte-level PDF assembly snapshot).
+
+## Offensive red-team — plain PHP over HTTP (`tests/security-redteam/`)
+
+A black-box pen-test harness that registers throwaway accounts and actively attacks a RUNNING server (SQLi, IDOR, auth bypass, privesc, SSRF, DoS), writing a timestamped findings report. The "try to break in" counterpart to `Feature/Security/`. Not Pest, not CI. Its own [README](security-redteam/README.md).
+
+- **Run** — `php tests/security-redteam/run.php --target=http://hyperlit.test`
+
+## Support & fixtures (shared, not suites themselves)
+
+- **`tests/Support/`** — PHP test helpers: `SeedsRlsFixtures` (RLS seeding, above) and `MakesWebAuthnCredentials` (E2EE passkey forging). Wired in `tests/Pest.php`.
+- **`tests/fixtures/`** — shared input fixtures (citations, footnotes, JATS) for conversion/citation tests.
+- **`tests/load/`**, **`tests/performance/`** — load/memory probes and perf baselines (e.g. `bundle-baseline.json`), not general suites.
+
+## What is NOT a test suite
+
+Two folders at the REPO ROOT (outside `tests/`) look test-related but hold no tests: `test-files/` (sample input documents used as fixtures) and `test-results/` (Playwright's per-run output artifacts — traces, screenshots).
+
+## Same feature, tested in two worlds — on purpose
+
+Many features have BOTH a PHP folder and an e2e spec folder (`ai-brain`, `audio`, `citations`, `e2ee`, `security`, billing). This is deliberate, not duplication: the PHP Feature tests prove the server logic deterministically against a real DB (fast, CI-friendly), while the Playwright specs prove the browser actually drives it end to end (manual, slow, catches SPA-lifecycle breakage nothing else does). Billing is the worked example — ledger math, RLS worker-context, regeneration, and the reader's pull endpoint are PHP (`tests/Feature/Billing`, `tests/Feature/AccountBookTest`), while Stripe checkout UI + webhook signing are Playwright (`tests/e2e/specs/stripe`, own config). When you touch a feature, check for its twin in the other world and update both; if a change spans layers, run all of them.
 
 ## Quick reference
 
-| Folder | Runner | Command | Purpose |
-|---|---|---|---|
-| `Unit/` | [Pest](https://pestphp.com/) (PHP) | `php artisan test --testsuite=Unit` | Pure-PHP unit tests (currently sparse — example test only). |
-| `Feature/` | Pest (PHP) | `php artisan test --testsuite=Feature` | Server-side feature tests: auth, security, file-upload validation, import pipeline. Hits Laravel HTTP layer with a fresh test DB. |
-| `javascript/` | [Vitest](https://vitest.dev/) | `npm test` | JS unit tests (jsdom). Targets `divEditor/`, `editToolbar/`, paste utilities, `IDfunctions`, etc. — anything testable without a real browser. |
-| `paste/` | Vitest (via `tests/javascript`) | `npm test paste` | Paste-flow processors and normalizers (Cambridge journal format, HTML→markdown, etc.). Has its own README. |
-| `conversion/` | Plain Python | `python3 tests/conversion/run_regression.py` | Regression suite for the PDF/HTML→nodes conversion pipeline. Runs `mistral_ocr.py` + `process_document.py` against fixture OCR responses and asserts ref/def/footnote counts. |
-| `e2e/` | [Playwright](https://playwright.dev/) | `npm run test:e2e` | Browser-driven end-to-end tests against a real local dev server + Postgres. Has its own [README](e2e/README.md). |
-| `security-redteam/` | Plain PHP (curl) | `php tests/security-redteam/run.php --target=http://hyperlit.test` | **Offensive** black-box pen-test harness: registers throwaway accounts and actively attacks a *running* server (SQLi, IDOR, auth bypass, privesc, SSRF, DoS), writing a timestamped findings report. The "try to break in" counterpart to `Feature/Security/`. Has its own [README](security-redteam/README.md). |
-
-`Pest.php` and `TestCase.php` are the shared bootstrap files Pest uses.
-
-> **`Feature/Security/` vs `security-redteam/`:** the former is assertion-based, white-box, in-process, and CI-safe (proves a specific defense holds against a test DB). The latter is black-box over real HTTP against a live server and *reports* what it found. Run both; they catch different things.
-
-## When to use which
-
-- **Pure JS logic, no DOM coupling** → `tests/javascript/` (fast, no server needed).
-- **Server endpoint / model / validation** → `tests/Feature/` (Laravel test DB, fast).
-- **Conversion-pipeline change** (anything in `app/Python/mistral_ocr.py`, `process_document.py`) → `tests/conversion/` regression suite. Add a fixture if you fix a bug worth pinning.
-- **UI interaction across the SPA** (button click, navigation, drag-drop, edit-mode toggle, save flow) → `tests/e2e/` Playwright. Slow but catches real-world breakage.
-
-If a change affects multiple layers, run all of them — the e2e suite is the only one that catches regressions involving the SPA navigation lifecycle.
-
----
-
-## `Unit/` (PHP unit tests, Pest)
-
-Currently just `ExampleTest.php`. Add unit tests here when you have small,
-pure-PHP functions or classes that are testable in isolation.
-
-```bash
-php artisan test --testsuite=Unit
-# or just one file:
-php artisan test tests/Unit/ExampleTest.php
-```
-
-## `Feature/` (PHP feature tests, Pest)
-
-Server-side tests that boot a Laravel app instance and hit HTTP endpoints,
-models, and middleware against a fresh in-memory or test-DB.
-
-```bash
-# All feature tests
-php artisan test --testsuite=Feature
-
-# A subset
-php artisan test tests/Feature/Security/
-```
-
-Sub-folders:
-
-- **`Api/`** — JSON contract tests for endpoints the SPA depends on. Currently `AuthApiContractTest.php` pins the response shape of `/api/auth-check`, `/api/auth/session-info`, and `/api/anonymous-session`. Asserts status code + JSON structure, not full controller behaviour — the goal is to fail loudly if a refactor renames a key the frontend reads.
-- **`Auth/`** — login/registration flows, session management, password reset.
-- **`Import/`** — file-upload pipeline (`ImportPipelineTest.php`): validates the controller accepts/rejects file types, runs the conversion, and produces expected output.
-- **`Security/`** — XSS validation (`XssValidationTest.php`), SQL-injection war games (`SqlInjectionWarGameTest.php`), file-upload size/type guards (`FileUploadTest.php`), anonymous-content association rules (`AnonymousContentAssociationTest.php`).
-
-Other top-level files: `ExampleTest.php`, `ProfileTest.php`.
-
-## `javascript/` (Vitest, JS unit tests)
-
-Has its own [README](javascript/README.md) — read that first. Briefly:
-
-```bash
-npm test                 # run once
-npm test -- --watch      # watch mode
-npm run test:ui          # visual UI
-```
-
-Covers:
-- `editToolbar/` — `blockFormatter`, `selectionManager`, `toolbarDOMUtils`.
-- `indexedDB/` — pure helpers extracted from `batch.js` (`resolveBookIdForBatch`) and `master.js` (`filterFreshNodesForBook`). These pin the sub-book attribution and cross-book sync-filter logic so the bugs they were extracted from can never silently come back.
-- `security/` — `sanitizeConfig` rules.
-- `setup/` — shared test setup (jsdom, mock IDB, etc.).
-- `hyperCites.test.js` — hypercite-link generation logic.
-
-## `paste/` (Vitest, paste-flow tests)
-
-Has its own [README](paste/README.md). These run via the same Vitest runner
-as `javascript/`. Covers:
-- `format-processors/` — per-publisher format converters (e.g. `cambridge-processor.test.js`).
-- `utils/` — content estimator, normalizer, etc.
-
-## `conversion/` (Python regression, no test runner)
-
-Single script that drives the conversion pipeline against fixture OCR
-responses and asserts `conversion_stats.json` / `audit.json` counts match
-the expected values stored in each fixture's `manifest.json`.
-
-```bash
-# Run all fixtures
-python3 tests/conversion/run_regression.py
-
-# One fixture
-python3 tests/conversion/run_regression.py --fixture whole_document_example
-
-# Verbose output (shows pipeline stdout/stderr on failure)
-python3 tests/conversion/run_regression.py --verbose
-
-# Machine-readable output (CI integration)
-python3 tests/conversion/run_regression.py --json
-```
-
-Fixtures live in `tests/conversion/fixtures/<name>/`. Each contains:
-- `manifest.json` — expected counts (`references_count`, `citations_linked`, `footnotes_count`, `audit_gaps`).
-- Either `ocr_response.json` (full pipeline) or `input.html` (HTML-only pipeline).
-- Optional supporting files (`footnote_meta.json` etc.).
-
-To add a new fixture, use `add_fixture.py` or copy an existing one and edit
-the manifest. `import-samples/` holds raw source samples used to generate
-fixtures.
-
-Current fixtures (May 2026):
-
-| Fixture | Pipeline | Purpose |
-|---|---|---|
-| `peerreview2027` | html-only | Bracket `[Author, Year]` citations, no footnotes, 40 refs, garbled OCR prefixes — guards the bibliography parser against OCR noise. |
-| `stem_bibliography_example` | full | `wackSTEMbibliographyNotes` classification — STEM-style numbered citations with bibliography. |
-| `whole_document_example` | full | `document_endnotes` classification, sequential footnote strategy, 243 refs, 2 footnotes — the largest end-to-end smoke test. |
-
-## `e2e/` (Playwright, end-to-end browser tests)
-
-See [`e2e/README.md`](e2e/README.md) for full details. The short version:
-
-```bash
-npm run test:e2e                                                    # all
-npm run test:e2e -- specs/workflows/authoring-workflow.spec.js      # one
-npm run test:e2e:headed                                             # watch the browser
-```
-
-**Always use the npm script** — `npx playwright test` from the project root
-silently uses the wrong config (no `baseURL`, no auth setup) and fails with
-"Cannot navigate to invalid URL".
+- **All PHP** — `php artisan test`
+- **PHP, one area** — `php artisan test tests/Feature/<Area>`
+- **JS unit** — `npm run test:run` (never `npm test`)
+- **JS TDZ prod-bundle probe** — `npm run test:tdz`
+- **Browser e2e (default)** — `npm run test:e2e`
+- **Accessibility e2e** — `npm run test:a11y`
+- **Stripe e2e** — `npx playwright test --config tests/e2e/playwright.stripe.config.js`
+- **Security e2e** — `npx playwright test --config tests/e2e/playwright.security.config.js`
+- **Conversion regression (Python)** — `python3 tests/conversion/run_regression.py`
+- **Red-team (live server)** — `php tests/security-redteam/run.php --target=<url>`

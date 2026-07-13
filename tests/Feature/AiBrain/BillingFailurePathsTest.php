@@ -25,10 +25,10 @@ function billingAdminConn()
     return DB::connection('pgsql_admin');
 }
 
-function makeBillingUser(string $name): User
+function makeBillingUser(string $name, array $attrs = []): User
 {
     $unique = $name . '_' . Str::random(8);
-    $id = billingAdminConn()->table('users')->insertGetId([
+    $id = billingAdminConn()->table('users')->insertGetId(array_merge([
         'name'       => $unique,
         'email'      => $unique . '@billingtest.test',
         'password'   => bcrypt('x'),
@@ -36,7 +36,7 @@ function makeBillingUser(string $name): User
         'status'     => 'premium',  // bypass billing pre-flight; the question is about charge() after that
         'created_at' => now(),
         'updated_at' => now(),
-    ]);
+    ], $attrs));
     return User::on('pgsql_admin')->find($id);
 }
 
@@ -145,6 +145,53 @@ test('no billing when validation rejects the request', function () {
         ->postJson('/api/ai-brain/query', billingBasePayload(['sourceScope' => 'all']));
 
     $response->assertStatus(422);
+});
+
+test('a SUCCESSFUL quick chat charges the real LLM cost × tier and writes the ledger row', function () {
+    // The happy-path counterpart to the no-charge tests above: real
+    // BillingService, mocked LLM. 1M prompt + 1M completion tokens on
+    // gpt-oss-120b = $0.15 + $0.60 = $0.75 raw → × budget 1.5 = $1.125.
+    $user = makeBillingUser('billing_quick_success', ['status' => 'budget', 'credits' => 10]);
+
+    $this->mock(LlmService::class, function ($mock) {
+        $mock->shouldReceive('chatWithFallback')->andReturn([
+            'content' => '<p>Here is a considered answer.</p>',
+            'model'   => 'accounts/fireworks/models/gpt-oss-120b',
+        ]);
+        $mock->shouldReceive('getUsageStats')->andReturn([
+            'by_model' => [
+                'accounts/fireworks/models/gpt-oss-120b' => [
+                    'prompt_tokens'     => 1_000_000,
+                    'completion_tokens' => 1_000_000,
+                ],
+            ],
+        ]);
+        $mock->shouldReceive('clearTransport');
+    });
+
+    $payload = billingBasePayload(['mode' => 'quick']);
+    $response = $this->actingAs($user)->postJson('/api/ai-brain/query', $payload);
+
+    $response->assertStatus(200);
+    $body = $response->streamedContent();
+    expect($body)->toContain('"success":true');
+
+    // Ledger row (default connection — the charge ran inside this test's
+    // transaction; RLS context so the row is visible).
+    DB::statement("SELECT set_config('app.current_user', ?, false)", [$user->name]);
+    DB::statement("SELECT set_config('app.current_token', ?, false)", [(string) $user->user_token]);
+    $rows = DB::table('billing_ledger')
+        ->where('user_id', $user->id)->where('category', 'ai_brain')->get();
+    expect($rows)->toHaveCount(1);
+    expect((float) $rows[0]->amount)->toEqualWithDelta(0.75 * 1.5, 0.0001);
+    expect((float) User::find($user->id)->debits)->toEqualWithDelta(0.75 * 1.5, 0.0001);
+
+    // The quick chat's sub-book/highlight writes went through pgsql_admin
+    // (committed) — remove them so reruns start clean.
+    $subBookId = \App\Helpers\SubBookIdHelper::build($payload['bookId'], $payload['highlightId']);
+    billingAdminConn()->table('nodes')->where('book', $subBookId)->delete();
+    billingAdminConn()->table('library')->where('book', $subBookId)->delete();
+    billingAdminConn()->table('hyperlights')->where('book', $payload['bookId'])->delete();
 });
 
 test('no billing when shelfId belongs to another user', function () {

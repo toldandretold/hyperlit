@@ -195,6 +195,11 @@ class BillingService
      * returned. The actual charge happens later via charge() — the reservation
      * is a temporary hold that ensures only one operation proceeds at a time.
      *
+     * The hold is NOT the charge: whoever runs the reserved operation MUST call
+     * releaseReservation() when it finishes (success, failure, or cancel) —
+     * otherwise the user stays debited for the estimate ON TOP of the real
+     * charge (the pre-2026-07 audiobook double-debit bug).
+     *
      * Returns a BillingLedger entry on success, or null if insufficient balance.
      */
     public function reserveCredits(User $user, float $estimatedCost, string $description): ?BillingLedger
@@ -246,6 +251,59 @@ class BillingService
             ]);
 
             return null;
+        }
+    }
+
+    /**
+     * Release a reservation hold created by reserveCredits(): give the debits
+     * back and delete the hold's ledger row (a hold is a transient lock, not a
+     * transaction — the REAL charge gets its own ledger entry via charge()).
+     *
+     * MUST be called once the reserved operation finishes, succeeds OR fails —
+     * a leaked hold double-debits the user (hold + actual charge) forever.
+     * Idempotent: a second call (or a bogus id) is a no-op. Only rows whose
+     * metadata carries reservation=true are touched, so a real debit can never
+     * be reversed through this path.
+     *
+     * RLS: same queue-worker caveat as charge() — the caller must have BOTH
+     * app.current_user and app.current_token set or the row reads match nothing.
+     */
+    public function releaseReservation(User $user, ?string $reservationId): void
+    {
+        if (! $reservationId) {
+            return;
+        }
+
+        try {
+            $released = DB::transaction(function () use ($user, $reservationId) {
+                DB::statement("SELECT set_config('app.current_user', ?, true)", [$user->name]);
+
+                $locked = User::lockForUpdate()->find($user->id);
+                $hold = BillingLedger::where('id', $reservationId)
+                    ->where('user_id', $user->id)
+                    ->where('type', 'debit')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $locked || ! $hold || ! ($hold->metadata['reservation'] ?? false)) {
+                    return false;
+                }
+
+                $locked->decrement('debits', (float) $hold->amount);
+                $hold->delete();
+
+                return true;
+            });
+
+            if ($released) {
+                $this->refreshAccountBook($user->name);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Reservation release failed', [
+                'user' => $user->name,
+                'reservation_id' => $reservationId,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 

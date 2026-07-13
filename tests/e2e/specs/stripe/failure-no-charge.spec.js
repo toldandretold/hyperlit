@@ -81,7 +81,8 @@ test('vibe convert: a start that fails (missing book) does not deduct the fixed 
     expect((await getBalance(page)).balance).toBe(10);
 
     // Valid id format passes validation + balance gate, then the missing working
-    // dir aborts the start — the $0.05 fee is only charged on a clean/improved job.
+    // dir aborts the start. (Vibe convert is FREE since 2026-07 — experimental
+    // dead end, never billed — but the gate + no-debit contract still holds.)
     const resp = await rawPost(page, '/api/vibe-convert/start', { bookId: 'rt_nonexistent_book' });
     expect([400, 404, 409, 422, 500]).toContain(resp.status()); // some failure, not a charged success
 

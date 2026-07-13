@@ -50,8 +50,8 @@ export function researchWorkflowsSectionHtml(record: any, canEdit = false): stri
   // Intro reflects the two contexts. Commons: anyone can enrich it. Owned book:
   // the owner enriches their own text (results still benefit every reader).
   const intro = commons
-    ? 'These tools use AI-integrated data pipelines to review this text’s citations and fetch its cited sources. They rely on external services, so they are not free — but because this book is part of the digital commons, the results are cumulative and benefit everyone. Please report any issues to fml@hyperlit.io'
-    : 'These tools use AI-integrated data pipelines to review this book’s citations and harvest its open-access cited sources. They rely on external services, so they are not free — the source texts they bring in benefit every reader.';
+    ? 'These tools use AI-integrated data pipelines to certify and import sources. They rely on external services, so are not free. But because this open-access book is part of the digital commons, the results are cumulative and benefit everyone. Please report any issues to fml@hyperlit.io'
+    : 'These tools use AI-integrated data pipelines to certify and import sources. They rely on external services, so are not free.';
 
   return `<div id="research-workflows-section" style="margin-top: 15px; padding-top: 15px;">
     <button type="button" id="research-workflows-toggle" aria-expanded="false">

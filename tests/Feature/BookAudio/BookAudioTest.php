@@ -279,6 +279,58 @@ it('generates per-node audio, charges once for synthesized chars, and re-running
     $store->purgeBook($book);
 });
 
+it('releases the reservation hold when the job finishes — only the ACTUAL cost stays debited', function () {
+    // Regression: the generate endpoint's reserveCredits() hold was never
+    // released, so pay-as-you-go users were debited the estimate ON TOP of the
+    // real charge, forever, on every audiobook run.
+    $book = audioBook();
+    $owner = $this->seedUser(['credits' => 10, 'status' => 'budget']);
+    $this->seedLibrary(['book' => $book, 'creator' => $owner->name, 'creator_token' => $owner->user_token, 'visibility' => 'public']);
+    $this->seedNode(['book' => $book, 'startLine' => 1, 'node_id' => $book.'_n1', 'content' => '<p>Hold and release.</p>', 'plainText' => 'Hold and release.', 'type' => 'text']);
+
+    actAsBillingUser($owner);
+    $hold = app(\App\Services\BillingService::class)
+        ->reserveCredits($owner, 1.00, "Audio generation reservation: {$book}");
+    expect($hold)->not->toBeNull();
+    expect((float) \App\Models\User::find($owner->id)->debits)->toEqualWithDelta(1.50, 0.0001); // 1.00 × budget 1.5
+
+    $store = app(BookAudioStore::class);
+    (new GenerateBookAudioJob($book, $owner->id, 'af_heart', $hold->id))->handle($store, fakeTts());
+
+    // The hold is gone; only the real per-char charge remains on debits.
+    actAsBillingUser($owner);
+    expect(DB::table('billing_ledger')
+        ->where('user_id', $owner->id)->where('category', 'tts_reservation')->count())->toBe(0);
+    $tts = DB::table('billing_ledger')
+        ->where('user_id', $owner->id)->where('category', 'tts')->get();
+    expect($tts)->toHaveCount(1);
+    $expected = mb_strlen('Hold and release.') / 1_000_000
+        * (float) config('services.tts.pricing.billed_per_million_chars')
+        * $owner->getBillingMultiplier();
+    expect((float) \App\Models\User::find($owner->id)->debits)->toEqualWithDelta($expected, 0.0001);
+
+    $store->purgeBook($book);
+});
+
+it('releases the reservation hold when the job FAILS (failed handler)', function () {
+    $book = audioBook();
+    $owner = $this->seedUser(['credits' => 10, 'status' => 'budget']);
+    $this->seedLibrary(['book' => $book, 'creator' => $owner->name, 'creator_token' => $owner->user_token, 'visibility' => 'public']);
+
+    actAsBillingUser($owner);
+    $hold = app(\App\Services\BillingService::class)
+        ->reserveCredits($owner, 2.00, "Audio generation reservation: {$book}");
+    expect($hold)->not->toBeNull();
+
+    (new GenerateBookAudioJob($book, $owner->id, 'af_heart', $hold->id))
+        ->failed(new RuntimeException('provider down'));
+
+    actAsBillingUser($owner);
+    expect((float) \App\Models\User::find($owner->id)->debits)->toEqualWithDelta(0.0, 0.0001);
+    expect(DB::table('billing_ledger')
+        ->where('user_id', $owner->id)->where('category', 'tts_reservation')->count())->toBe(0);
+});
+
 it('regenerates ONLY the edited node and bills only the gap', function () {
     $book = audioBook();
     $owner = $this->seedUser(['credits' => 10]);

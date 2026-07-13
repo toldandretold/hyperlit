@@ -35,6 +35,17 @@
                         </td>
                     </tr>
 
+                    <!-- Billing status -->
+                    <tr>
+                        <td style="padding: 0 40px 20px; color: #CBCCCC; font-size: 13px; line-height: 1.5;">
+                            @if (($ocrCharge ?? 0) > 0)
+                                The text-recognition (OCR) stage completed before the failure, so it was charged: <strong style="color: #ffffff;">${{ number_format($ocrCharge, 2) }}</strong>. The full details are in the Account tab on your profile.
+                            @else
+                                You were <strong style="color: #ffffff;">not charged</strong> for this import.
+                            @endif
+                        </td>
+                    </tr>
+
                     <!-- Suggestion -->
                     <tr>
                         <td style="padding: 0 40px 40px; color: #888888; font-size: 13px; line-height: 1.5;">

@@ -177,7 +177,11 @@ test('estimate counts resolved, unresolved, eligible and already-harvested citat
 });
 
 test('estimate returns a rough OCR cost, priced with the caller tier', function () {
-    config(['services.llm.pricing.mistral-ocr-latest.per_1k_pages' => 20]);
+    // Pre-OCR estimates price at the PINNED production model (no served id yet)
+    // via BillingService::ocrPricePerKPages(null) — pin both here so the math
+    // is self-contained.
+    config(['services.mistral_ocr.model' => 'mistral-ocr-2512']);
+    config(['services.llm.pricing.mistral-ocr-2512.per_1k_pages' => 20]);
     config(['source_harvest.avg_pages_per_work' => 20]);
 
     // Pay-as-you-go: eligible × avg_pages/1000 × per_1k × multiplier, > 0.

@@ -267,14 +267,18 @@ class CitationReviewCommand extends Command
         $this->info("AI Review sub-book: {$subBookId}");
         $this->info("View at: " . config('app.url') . "/{$bookId}/AIreview");
 
-        // Bill the requesting user (passed from controller via --user-id) or the book creator
+        // Bill the requesting user (passed from controller via --user-id) or the book creator.
+        // ADMIN reads: this command usually runs inside CitationPipelineJob on a queue
+        // worker, where the default connection has no RLS session vars — a default-conn
+        // User::find matches zero rows and billing silently never happens (the same
+        // silent-no-op class as ProcessDocumentImportJob's, fixed 2026-07).
         $billingUser = null;
         if ($this->option('user-id')) {
-            $billingUser = \App\Models\User::find($this->option('user-id'));
+            $billingUser = \App\Models\User::on('pgsql_admin')->find($this->option('user-id'));
         }
         // Fallback: book creator (manual artisan runs)
         if (!$billingUser) {
-            $billingUser = \App\Models\User::where('name', $book->creator)->first();
+            $billingUser = \App\Models\User::on('pgsql_admin')->where('name', $book->creator)->first();
         }
 
         if ($billingUser) {
@@ -325,6 +329,7 @@ class CitationReviewCommand extends Command
             // OCR line item — get page count from pipeline step_timings
             $pipelineId = $stats['pipeline_id'] ?? null;
             $ocrTotalPages = 0;
+            $isClientInference = false;
 
             if ($pipelineId) {
                 $pipeline = DB::connection('pgsql_admin')
@@ -336,6 +341,12 @@ class CitationReviewCommand extends Command
                     $stepTimings = json_decode($pipeline->step_timings, true);
                     $ocrTotalPages = $stepTimings['ocr']['total_pages'] ?? 0;
                 }
+                // BYO mode: every LLM call ran through inference tickets on the
+                // user's OWN key — they already paid their provider for the
+                // tokens, so we must not bill them again (matches AiBrain's
+                // client-inference waiver). Server-side OCR still bills: the
+                // sources were OCR'd with OUR Mistral key regardless of mode.
+                $isClientInference = ($pipeline->inference_mode ?? null) === 'client';
             }
 
             if ($ocrTotalPages > 0) {
@@ -354,9 +365,9 @@ class CitationReviewCommand extends Command
                 }
             }
 
-            // LLM line items — per-model breakdown
+            // LLM line items — per-model breakdown (skipped under BYO, see above)
             $llmUsage = $stats['llm_usage'] ?? null;
-            if ($llmUsage && !empty($llmUsage['by_model'])) {
+            if ($llmUsage && !$isClientInference && !empty($llmUsage['by_model'])) {
                 foreach ($llmUsage['by_model'] as $model => $usage) {
                     $prompt = $usage['prompt_tokens'] ?? 0;
                     $completion = $usage['completion_tokens'] ?? 0;
@@ -390,14 +401,29 @@ class CitationReviewCommand extends Command
                 return;
             }
 
-            $billing->charge(
-                $user,
-                round($totalCost, 4),
-                "Citation Review: {$bookTitle}",
-                'ai_review',
-                $lineItems,
-                ['book' => $bookId, 'pipeline_id' => $pipelineId],
+            // charge() re-reads the user on the DEFAULT connection, whose
+            // users_select_policy needs BOTH app.current_user AND app.current_token.
+            // In a queue worker neither is set (server-inference mode) — set them for
+            // the charge and RESTORE the previous values after (this command can also
+            // run inside an HTTP request or a BYO pipeline that already set them).
+            $prev = DB::selectOne(
+                "SELECT current_setting('app.current_user', true) AS u, current_setting('app.current_token', true) AS t"
             );
+            DB::statement("SELECT set_config('app.current_user', ?, false)", [$user->name]);
+            DB::statement("SELECT set_config('app.current_token', ?, false)", [(string) $user->user_token]);
+            try {
+                $billing->charge(
+                    $user,
+                    round($totalCost, 4),
+                    "Citation Review: {$bookTitle}",
+                    'ai_review',
+                    $lineItems,
+                    ['book' => $bookId, 'pipeline_id' => $pipelineId, 'inference_mode' => $isClientInference ? 'client' : 'server'],
+                );
+            } finally {
+                DB::statement("SELECT set_config('app.current_user', ?, false)", [$prev->u ?? '']);
+                DB::statement("SELECT set_config('app.current_token', ?, false)", [$prev->t ?? '']);
+            }
 
             $this->info("Billed \$" . number_format($totalCost, 2) . " to {$user->name}");
         } catch (\Throwable $e) {

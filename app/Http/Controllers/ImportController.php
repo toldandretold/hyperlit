@@ -243,8 +243,8 @@ class ImportController extends Controller
                         }
                         // Never trust a client claim of a paid model — stamp provenance
                         // server-side. Both stamps carry the 'hyperlit-' prefix that
-                        // billOcrImport's belt-and-braces check recognises as unbilled:
-                        // client_mistral means the USER paid Mistral with their own key.
+                        // BillingService::billOcrForBook's belt-and-braces check recognises
+                        // as unbilled: client_mistral means the USER paid Mistral directly.
                         $clientOcrData['model'] = $request->input('ocr_source') === 'client_mistral'
                             ? 'hyperlit-client-mistral-ocr'
                             : 'hyperlit-native-ocr';
@@ -277,8 +277,8 @@ class ImportController extends Controller
 
                 if ($clientOcrData !== null) {
                     // Seed mistral_ocr.py's cache with the client-side OCR, and write
-                    // the zero-amount billing marker billOcrImport() keys off — the
-                    // server did no OCR work, so there is nothing to charge.
+                    // the zero-amount billing marker BillingService::billOcrForBook keys
+                    // off — the server did no OCR work, so there is nothing to charge.
                     File::put("{$path}/ocr_response.json", json_encode($clientOcrData));
                     File::put("{$path}/ocr_charged.json", json_encode([
                         'book' => $bookId,
@@ -804,60 +804,6 @@ class ImportController extends Controller
             'bookId'  => $book,
             'status'  => 'processing',
         ]);
-    }
-
-    /**
-     * Bill the user for OCR pages after a PDF import/reconvert.
-     */
-    private function billOcrImport(?\App\Models\User $user, string $bookId, string $path): void
-    {
-        if (!$user) {
-            return;
-        }
-
-        try {
-            $ocrJson = "{$path}/ocr_response.json";
-            if (!File::exists($ocrJson)) {
-                return;
-            }
-
-            $ocrData = json_decode(File::get($ocrJson), true);
-            $totalPages = count($ocrData['pages'] ?? []);
-
-            if ($totalPages <= 0) {
-                return;
-            }
-
-            $perKPages = BillingService::ocrPricePerKPages($ocrData['model'] ?? null);
-
-            if (!$perKPages) {
-                return;
-            }
-
-            $cost = $totalPages / 1000 * $perKPages;
-
-            $this->billing->charge(
-                $user,
-                round($cost, 4),
-                "PDF Import: {$bookId}",
-                'ocr',
-                [[
-                    'label'     => "OCR ({$totalPages} pages)",
-                    'category'  => 'ocr',
-                    'quantity'  => $totalPages,
-                    'unit'      => 'pages',
-                    'unit_cost' => $perKPages / 1000,
-                    'amount'    => round($cost, 4),
-                ]],
-                ['book' => $bookId],
-            );
-        } catch (\Throwable $e) {
-            Log::error('Failed to bill OCR import', [
-                'book'  => $bookId,
-                'user'  => $user->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
     }
 
     private function clearBookContent(string $bookId): void

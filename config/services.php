@@ -99,6 +99,16 @@ return [
         'capitalist' => ['multiplier' => 5.0,  'label' => 'Honest Capitalist'],   // institutional
     ],
 
+    'billing' => [
+        // When ON, a FAILED PDF import still bills the OCR that actually ran
+        // before the crash (the Mistral call is a real cost even when a later
+        // stage dies). Default OFF: failed imports cost the user nothing and
+        // hyperlit eats the OCR spend. Wired in ProcessDocumentImportJob::failed();
+        // the failure email tells the user which way it went. billOcrForBook's
+        // marker + no-ocr_response.json guards make it safe either way.
+        'charge_ocr_on_failed_import' => (bool) env('BILLING_CHARGE_OCR_ON_FAILED_IMPORT', false),
+    ],
+
     'mistral_ocr' => [
         'api_key' => env('MISTRAL_OCR_API_KEY'),
         // Single source of truth for the OCR model we run. Pinned to OCR 3 (mistral-ocr-2512):

@@ -108,10 +108,12 @@ class ProcessDocumentImportJob implements ShouldQueue
                         'error' => $error['message'],
                     ]);
 
-                    // Best-effort email if user requested it
+                    // Best-effort email if user requested it. Admin read — the
+                    // worker has no RLS session vars, a default-connection find
+                    // returns null (see billOcrAsWorker).
                     if ($userId && file_exists("{$path}/notify_email.json")) {
                         try {
-                            $user = \App\Models\User::find($userId);
+                            $user = \App\Models\User::on('pgsql_admin')->find($userId);
                             if ($user?->email) {
                                 \Illuminate\Support\Facades\Mail::send(new \App\Mail\ImportFailedMail(
                                     $user->email,
@@ -228,12 +230,7 @@ class ProcessDocumentImportJob implements ShouldQueue
                 ->syncForBook($this->bookId);
 
             // Bill OCR cost for PDF imports
-            if ($this->extension === 'pdf' && $this->userId) {
-                $user = User::find($this->userId);
-                if ($user) {
-                    $this->billOcrImport($user, $this->bookId, $path, $billing);
-                }
-            }
+            $this->billOcrAsWorker($path, $billing);
 
             // Build the result data
             // Stream-read audit.json to extract summary counts without loading the
@@ -365,8 +362,25 @@ class ProcessDocumentImportJob implements ShouldQueue
         $path = resource_path("markdown/{$this->bookId}");
         $this->writeProgress($path, 'failed', 0, 'error', $exception->getMessage());
 
+        // Default OFF: a failed import costs the user nothing (hyperlit eats the
+        // Mistral cost). Flip BILLING_CHARGE_OCR_ON_FAILED_IMPORT to bill the OCR
+        // that DID run before the crash — billOcrForBook no-ops when OCR never
+        // happened (no ocr_response.json) and is marker-idempotent, so it can
+        // never charge for work that wasn't done. The failure email tells the
+        // user which way it went.
+        $ocrCharge = 0.0;
+        if (config('services.billing.charge_ocr_on_failed_import', false)) {
+            try {
+                $ocrCharge = $this->billOcrAsWorker($path, app(BillingService::class));
+            } catch (\Throwable $billErr) {
+                Log::error('Failed-import OCR billing failed', [
+                    'book' => $this->bookId, 'error' => $billErr->getMessage(),
+                ]);
+            }
+        }
+
         if ($this->shouldSendEmail($path) && $this->userId) {
-            $user = User::find($this->userId);
+            $user = User::on('pgsql_admin')->find($this->userId);
             if ($user?->email) {
                 try {
                     Mail::send(new ImportFailedMail(
@@ -374,6 +388,7 @@ class ProcessDocumentImportJob implements ShouldQueue
                         $this->formData['title'] ?? $this->bookId,
                         $this->bookId,
                         $exception->getMessage(),
+                        $ocrCharge,
                     ));
                     Log::info('Import failure email sent (failed handler)', ['book' => $this->bookId, 'to' => $user->email]);
                 } catch (\Throwable $mailErr) {
@@ -780,16 +795,49 @@ class ProcessDocumentImportJob implements ShouldQueue
         }
     }
 
-    private function billOcrImport(User $user, string $bookId, string $path, BillingService $billing): void
+    /**
+     * Bill the PDF's OCR from QUEUE-WORKER context. Returns dollars charged.
+     *
+     * The user MUST be read on pgsql_admin and BOTH RLS session vars set before
+     * charging: this job runs in a worker with no HTTP session, so a default-
+     * connection User::find matches ZERO rows under users_select_policy (it
+     * requires app.current_user AND app.current_token) — billing then silently
+     * never happens. That was live until 2026-07: every async PDF import went
+     * unbilled. Same pattern as GenerateBookAudioJob::chargeFor and
+     * HarvestRunner::chargeWorkOcr.
+     *
+     * BillingService::billOcrForBook owns the idempotency marker
+     * (ocr_charged.json), the client-side/native free-path skip, and the
+     * per-served-model pricing — a job retry or reconvert-from-cache never
+     * double-charges. ImportController::reconvert() clears the marker only when
+     * a NEW source file will be OCR'd fresh (fair to re-bill).
+     */
+    private function billOcrAsWorker(string $path, BillingService $billing): float
     {
-        // Shared with the source harvester — see BillingService::billOcrForBook.
-        // It owns the idempotency marker (ocr_charged.json), the client-side/
-        // native free-path skip, and the per-page pricing. This job runs inside
-        // handle(), which re-runs on every retry ($tries > 1); the marker keeps
-        // billing to exactly once. ImportController::reconvert() removes the
-        // marker only when it re-runs OCR from source (fresh OCR = fair to
-        // re-bill); reconvert-from-cache keeps it.
-        $billing->billOcrForBook($user, $bookId, $path);
+        if ($this->extension !== 'pdf' || ! $this->userId) {
+            return 0.0;
+        }
+
+        $user = User::on('pgsql_admin')->find($this->userId);
+        if (! $user) {
+            return 0.0;
+        }
+
+        // RESTORE (not clear) the previous vars afterwards: unlike the audio/
+        // harvest jobs this one also runs SYNCHRONOUSLY inside an HTTP request
+        // (QUEUE_CONNECTION=sync, tests) — blanking the vars there would strip
+        // the request's own RLS context for everything after the billing step.
+        $prev = DB::selectOne(
+            "SELECT current_setting('app.current_user', true) AS u, current_setting('app.current_token', true) AS t"
+        );
+        DB::statement("SELECT set_config('app.current_user', ?, false)", [$user->name]);
+        DB::statement("SELECT set_config('app.current_token', ?, false)", [(string) $user->user_token]);
+        try {
+            return $billing->billOcrForBook($user, $this->bookId, $path);
+        } finally {
+            DB::statement("SELECT set_config('app.current_user', ?, false)", [$prev->u ?? '']);
+            DB::statement("SELECT set_config('app.current_token', ?, false)", [$prev->t ?? '']);
+        }
     }
 
     private function updateLibraryMetadata(string $path, MetadataExtractor $extractor): void
