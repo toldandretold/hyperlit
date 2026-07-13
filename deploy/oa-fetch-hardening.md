@@ -34,7 +34,14 @@ Install patchright and its browser, and make sure real Google Chrome is present 
 ```bash
 cd /var/www/hyperlit && git pull
 npm ci                          # brings in patchright, drops the stealth plugins
-npx patchright install chromium # patchright's browser
+# Install the browser into a FIXED, HOME-independent path (NOT the default
+# per-user ~/.cache). patchright resolves the browser via $HOME/.cache/ms-playwright,
+# and supervisor does not reliably set $HOME for the worker — so a per-user install
+# gives `browserType.launchPersistentContext: Executable doesn't exist …` from inside
+# the worker even though it launches fine from your login shell. /opt/ms-playwright
+# is the path the supervisor conf pins via environment=PLAYWRIGHT_BROWSERS_PATH.
+sudo PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright npx patchright install chromium
+sudo chmod -R a+rX /opt/ms-playwright
 # and install real Chrome for channel:'chrome' (Debian/Ubuntu):
 #   wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
 #   sudo apt install -y ./google-chrome-stable_current_amd64.deb
@@ -50,20 +57,13 @@ The plain-English version:
 
 On your Mac in dev you don't need any of this — macOS already has a real screen, so headed Chrome just opens a (briefly visible) window. xvfb is **only** for the screenless Linux server.
 
-**The one thing to change on the droplet.** The harvest fetch happens inside the `citation-pipeline` queue worker (Supervisor program `hyperlit-citation`), so that worker is what must run under xvfb. Install xvfb **and `xauth`** (`xvfb-run` shells out to `xauth` to mint the display cookie — without it every headed launch dies with `xvfb-run: error: xauth command not found`, surfacing as `browser_launch_failed` in harvest), then prefix that program's `command` with `xvfb-run -a`:
+**The one thing to change on the droplet.** The harvest fetch happens inside the `citation-pipeline` queue worker (Supervisor program `hyperlit-citation`), so that worker is what must run under xvfb. Install xvfb **and `xauth`** (`xvfb-run` shells out to `xauth` to mint the display cookie — without it every headed launch dies with `xvfb-run: error: xauth command not found`, surfacing as `browser_launch_failed` in harvest):
 
 ```bash
 sudo apt install -y xvfb xauth
 ```
 
-Edit `deploy/supervisor/hyperlit-citation.conf` — the `command=` line, adding `xvfb-run -a` at the front:
-
-```ini
-; before:
-command=php /var/www/hyperlit/artisan queue:work --queue=citation-pipeline --sleep=3 --tries=1 --timeout=7200 --max-jobs=10
-; after:
-command=xvfb-run -a php /var/www/hyperlit/artisan queue:work --queue=citation-pipeline --sleep=3 --tries=1 --timeout=7200 --max-jobs=10
-```
+The committed `deploy/supervisor/hyperlit-citation.conf` **already** carries the `xvfb-run -a` command prefix and the `environment=PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"` line — so you don't hand-edit anything; a plain `cp` installs the correct version. (For reference, the two lines that matter are `command=xvfb-run -a php … queue:work …` and `environment=PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"`.)
 
 Then apply it the same way that conf documents:
 
@@ -125,19 +125,23 @@ That's it. `SOURCE_FETCH_STICKY_SUFFIX` is **NOT a line you add** — it already
 ```bash
 cd /var/www/hyperlit && git pull
 npm ci                                        # patchright in, stealth plugins out
-npx patchright install chromium               # patchright's browser
+sudo PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright npx patchright install chromium  # shared path (see above)
+sudo chmod -R a+rX /opt/ms-playwright
+sudo apt install -y xvfb xauth                # headed display + its auth-cookie helper
 npm run build
 sudo -u www-data php artisan migrate         # routine
 sudo -u www-data php artisan config:cache     # picks up UNPAYWALL_EMAIL / SOURCE_FETCH_PROXY / SOURCE_FETCH_STICKY_SUFFIX
-./deploy/supervisor/workers.sh restart        # citation-pipeline worker MUST be wrapped in xvfb-run (see above)
+sudo cp deploy/supervisor/hyperlit-citation.conf /etc/supervisor/conf.d/  # carries xvfb-run + PLAYWRIGHT_BROWSERS_PATH
+sudo supervisorctl reread && sudo supervisorctl update
+php artisan queue:restart
 ```
 
-Smoke test the whole ladder on one URL with `harvest:test-fetch` (creates a throwaway book, runs the real `fetch()`, prints a trace of sticky session + proxy + winning lane, then cleans up):
+Smoke test the whole ladder on one URL with `harvest:test-fetch` (creates a throwaway book, runs the real `fetch()`, prints a trace of sticky session + proxy + winning lane, then cleans up). Run it **exactly as the worker runs** — as the worker user (`marx`, not `www-data` — which has no browser and no display), under `xvfb-run`, with the pinned browser path:
 
 ```bash
-sudo -u www-data php artisan harvest:test-fetch \
+cd /var/www/hyperlit && PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright xvfb-run -a php artisan harvest:test-fetch \
   'https://www.tandfonline.com/doi/pdf/10.1080/14747731.2019.1651529?needAccess=true' \
   --doi=10.1080/14747731.2019.1651529
 ```
 
-Expect the trace to show a sticky session, the masked proxy, and `Status: imported` with a real `%PDF-` on disk. This is also the **canary when bumping patchright** — re-run it after `npm update patchright`. Re-running a Source Network Harvester on a citation-heavy book should show more `assigned` and fewer `fetch_failed (cloudflare_block)`, with per-work detail like "imported … from europepmc.org". With no proxy / headless, a managed-challenge publisher degrades gracefully to `cloudflare_block` (never an error) and lands in the Source Yield Report for a human.
+Expect the trace to show a sticky session, the masked proxy, and `Status: downloaded` (753,117 bytes for this URL) with a real `%PDF-` on disk. If it fails `browser_launch_failed`, isolate the launch with this one-liner (prints the real error the harvest UI swallows): `PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright xvfb-run -a node -e 'import("./scripts/lib/cfBrowser.mjs").then(async m=>{try{const r=await m.launchStealthContext(m.proxyFromInput({}));console.log("OK",r.channel);process.exit(0)}catch(e){console.error("FAILED:",e.message);process.exit(1)}})'` — `xauth command not found` ⇒ install xauth; `Executable doesn't exist` ⇒ the browser isn't at the pinned path (re-run the install). This is also the **canary when bumping patchright** — re-run it after `npm update patchright`. Re-running a Source Network Harvester on a citation-heavy book should show more `assigned` and fewer `fetch_failed (cloudflare_block)`, with per-work detail like "imported … from europepmc.org". With no proxy / headless, a managed-challenge publisher degrades gracefully to `cloudflare_block` (never an error) and lands in the Source Yield Report for a human.
