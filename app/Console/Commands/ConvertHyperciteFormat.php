@@ -51,20 +51,11 @@ class ConvertHyperciteFormat extends Command
                     $this->line("  After:  " . substr($content, 0, 300));
                     $this->line("");
                 } else {
-                    // Update raw_json if it contains content
-                    $rawJson = json_decode($node->raw_json, true);
-                    $updatedRawJson = $node->raw_json;
-                    if ($rawJson && is_array($rawJson) && isset($rawJson['content'])) {
-                        $rawJson['content'] = $content;
-                        $updatedRawJson = json_encode($rawJson);
-                    }
-
                     // Use raw UPDATE with admin connection to bypass RLS
                     DB::connection('pgsql_admin')->statement(
-                        'UPDATE nodes SET content = ?, raw_json = ?::jsonb, updated_at = ? WHERE book = ? AND "startLine" = ?',
+                        'UPDATE nodes SET content = ?, updated_at = ? WHERE book = ? AND "startLine" = ?',
                         [
                             $content,
-                            $updatedRawJson,
                             now(),
                             $node->book,
                             $node->startLine,

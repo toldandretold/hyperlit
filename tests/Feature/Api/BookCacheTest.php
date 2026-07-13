@@ -60,7 +60,6 @@ function seedCachedBook(object $test): string
             'plainText' => strip_tags($content),
             'type'      => 'p',
             'footnotes' => json_encode($footnotes),
-            'raw_json'  => json_encode(['node_id' => $nodeId]),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -273,13 +272,13 @@ test('warm INDEXES heading anchor ids (kills the content-scan), but NOT inline i
         'book' => $book, 'startLine' => 0, 'chunk_id' => 0, 'node_id' => $book . '_h',
         'content' => '<h2 id="sec-3" data-node-id="' . $book . '_h">Section 3</h2>',
         'plainText' => 'Section 3', 'type' => 'h2', 'footnotes' => json_encode([]),
-        'raw_json' => json_encode([]), 'created_at' => now(), 'updated_at' => now(),
+        'created_at' => now(), 'updated_at' => now(),
     ]);
     $admin->table('nodes')->insert([
         'book' => $book, 'startLine' => 1, 'chunk_id' => 0, 'node_id' => $book . '_p',
         'content' => '<p id="inline-thing">body <span id="x9">w</span></p>',
         'plainText' => 'body w', 'type' => 'p', 'footnotes' => json_encode([]),
-        'raw_json' => json_encode([]), 'created_at' => now(), 'updated_at' => now(),
+        'created_at' => now(), 'updated_at' => now(),
     ]);
 
     app(BookCache::class)->warm($book);

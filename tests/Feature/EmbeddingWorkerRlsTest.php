@@ -36,7 +36,6 @@ function makePrivateBookWithNode(): array
         'node_id' => $book.'_n1',
         'content' => '<p>private text long enough to be worth embedding for search</p>',
         'plainText' => 'private text long enough to be worth embedding for search',
-        'raw_json' => json_encode([]),
         'created_at' => now(), 'updated_at' => now(),
     ]);
     $nodeId = $admin->table('nodes')->where('book', $book)->value('id');

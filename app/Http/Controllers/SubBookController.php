@@ -97,7 +97,6 @@ class SubBookController extends Controller
                     'node_id'    => $nodeId,
                     'content'    => $initialContent,
                     'plainText'  => $previewText,
-                    'raw_json'   => json_encode([]),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

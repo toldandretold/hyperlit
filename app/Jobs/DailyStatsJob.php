@@ -562,11 +562,6 @@ class DailyStatsJob implements ShouldQueue
             'plainText' => strip_tags($content),
             'type' => $type,
             'footnotes' => json_encode([]),
-            'raw_json' => json_encode([
-                'startLine' => $startLine,
-                'content' => $content,
-                'type' => $type,
-            ]),
             'created_at' => now(),
             'updated_at' => now(),
         ];

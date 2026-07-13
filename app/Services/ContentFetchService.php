@@ -1550,6 +1550,7 @@ class ContentFetchService
         $db->table('nodes')->where('book', $bookId)->delete();
 
         $insertData = [];
+        $artifactRows = []; // full node shape for the nodes.json artifact (was nodes.raw_json)
         $now = now();
         $nodesPerChunk = 100;
 
@@ -1560,11 +1561,12 @@ class ContentFetchService
             $nodeId = $this->fileHelpers->generateNodeId($bookId);
             $content = $this->fileHelpers->ensureNodeIdInContent($chunk['content'], $newStartLine, $nodeId);
 
-            $rawJson = $chunk;
-            $rawJson['startLine'] = $newStartLine;
-            $rawJson['chunk_id'] = $newChunkId;
-            $rawJson['node_id'] = $nodeId;
-            $rawJson['content'] = $content;
+            $artifactRow = $chunk;
+            $artifactRow['startLine'] = $newStartLine;
+            $artifactRow['chunk_id'] = $newChunkId;
+            $artifactRow['node_id'] = $nodeId;
+            $artifactRow['content'] = $content;
+            $artifactRows[] = $artifactRow;
 
             $insertData[] = [
                 'book' => $bookId,
@@ -1575,7 +1577,6 @@ class ContentFetchService
                 'footnotes' => json_encode($chunk['footnotes'] ?? []),
                 'plainText' => $chunk['plainText'] ?? '',
                 'type' => $chunk['type'] ?? 'p',
-                'raw_json' => json_encode($rawJson),
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
@@ -1588,8 +1589,7 @@ class ContentFetchService
 
         // Write the renumbered nodes.json artifact (kept alongside nodes.jsonl —
         // the editor saver reads nodes.json)
-        $renumberedJson = array_map(fn($r) => json_decode($r['raw_json'], true), $insertData);
-        File::put("{$path}/nodes.json", json_encode($renumberedJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        File::put("{$path}/nodes.json", json_encode($artifactRows, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         Log::info('ContentFetchService saved nodes to database', [
             'book' => $bookId,
@@ -1716,7 +1716,6 @@ class ContentFetchService
                     'startLine'  => 1,
                     'content'    => $nodeHtml,
                     'plainText'  => $plainText,
-                    'raw_json'   => json_encode([]),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]

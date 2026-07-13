@@ -506,7 +506,7 @@ class ProcessDocumentImportJob implements ShouldQueue
 
             $this->writeProgress(resource_path("markdown/{$bookId}"), 'processing', 89, 'db_write', "Inserting {$totalNodes} nodes");
 
-            $columns = ['book', 'startLine', 'chunk_id', 'node_id', 'content', 'footnotes', 'plainText', 'type', 'raw_json', 'created_at', 'updated_at'];
+            $columns = ['book', 'startLine', 'chunk_id', 'node_id', 'content', 'footnotes', 'plainText', 'type', 'created_at', 'updated_at'];
             $now = (string) now();
             $nodesPerChunk = 100;
             $batch = [];
@@ -541,7 +541,6 @@ class ProcessDocumentImportJob implements ShouldQueue
                     'footnotes' => json_encode($chunk['footnotes'] ?? []),
                     'plainText' => $chunk['plainText'] ?? '',
                     'type' => $chunk['type'] ?? 'p',
-                    'raw_json' => json_encode($chunk),
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -700,7 +699,6 @@ class ProcessDocumentImportJob implements ShouldQueue
                     'startLine' => 1,
                     'content' => $nodeHtml,
                     'plainText' => $plainText,
-                    'raw_json' => json_encode([]),
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];

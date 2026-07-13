@@ -727,7 +727,6 @@ test('WAR GAME E4: attacker cannot access nodes of private book via direct query
         'node_id' => 'wartest-node-e4',
         'content' => '<p>Secret content</p>',
         'plainText' => 'Secret content',
-        'raw_json' => json_encode(['content' => '<p>Secret content</p>']),
         'created_at' => now(),
         'updated_at' => now(),
     ]);

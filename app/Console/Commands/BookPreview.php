@@ -53,7 +53,7 @@ class BookPreview extends Command
         $nodes = DB::select("
             -- Current nodes that existed at that time
             SELECT
-                node_id, \"startLine\", type, raw_json,
+                node_id, \"startLine\", type,
                 LEFT(content, 100) as content_preview,
                 'current' as source
             FROM nodes
@@ -64,7 +64,7 @@ class BookPreview extends Command
 
             -- Historical nodes that were active at that time
             SELECT
-                node_id, \"startLine\", type, raw_json,
+                node_id, \"startLine\", type,
                 LEFT(content, 100) as content_preview,
                 'history' as source
             FROM nodes_history
@@ -213,21 +213,12 @@ class BookPreview extends Command
     }
 
     /**
-     * Get node type from column or raw_json fallback
+     * Get node type from column
      */
     private function getNodeType($node): string
     {
-        // Try column first
         if (!empty($node->type)) {
             return $node->type;
-        }
-
-        // Try raw_json
-        if (!empty($node->raw_json)) {
-            $json = is_string($node->raw_json) ? json_decode($node->raw_json, true) : $node->raw_json;
-            if (!empty($json['type'])) {
-                return $json['type'];
-            }
         }
 
         return 'p'; // Default

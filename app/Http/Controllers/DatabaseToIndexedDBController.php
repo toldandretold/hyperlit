@@ -325,7 +325,6 @@ class DatabaseToIndexedDBController extends Controller
             'plainText' => $row->plainText,
             'type' => $row->type,
             'footnotes' => json_decode($row->footnotes ?? '[]', true),
-            'raw_json' => json_decode($row->raw_json ?? '{}', true),
         ];
     }
 

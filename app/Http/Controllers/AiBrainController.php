@@ -1458,7 +1458,6 @@ PROMPT;
                 'node_id'    => $nodeId,
                 'content'    => $paragraph,
                 'plainText'  => $plainText,
-                'raw_json'   => json_encode([]),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);

@@ -105,11 +105,14 @@ function hbInsertBook(string $username, string $bookId, string $visibility, stri
  */
 function hbCardsIn(string $homeBookName): array
 {
+    // The book a card links to lives in its content's `data-book="..."` attribute
+    // (LibraryCardGenerator) — the old raw_json.original_book copy was removed with
+    // the nodes.raw_json column. Empty cards carry no data-book and are excluded.
     return hbAdmin()->table('nodes')
         ->where('book', $homeBookName)
         ->where('node_id', '!=', $homeBookName . '_empty_card')
-        ->pluck('raw_json')
-        ->map(fn ($json) => json_decode($json, true)['original_book'] ?? null)
+        ->pluck('content')
+        ->map(fn ($html) => preg_match('/data-book="([^"]+)"/', (string) $html, $m) ? $m[1] : null)
         ->filter()
         ->values()
         ->all();

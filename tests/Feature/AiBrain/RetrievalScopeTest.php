@@ -59,8 +59,7 @@ function seedBook(array $opts): string
         'node_id'   => $book . '_node_1',
         'content'   => '<p>' . ($opts['text'] ?? 'monetarism inflation') . '</p>',
         'plainText' => $opts['text'] ?? 'monetarism inflation',
-        'raw_json'  => '[]',
-        'embedding' => ($opts['withEmbedding'] ?? true) ? adminDb()->raw("'{$vector}'::vector") : null,
+        'embedding' =>($opts['withEmbedding'] ?? true) ? adminDb()->raw("'{$vector}'::vector") : null,
         'created_at' => now(),
         'updated_at' => now(),
     ]);

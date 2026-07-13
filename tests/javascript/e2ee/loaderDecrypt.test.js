@@ -58,7 +58,6 @@ describe('decrypt-on-download', () => {
       node_id: 'n1',
       content: await env('<p>SECRET body</p>'),
       footnotes: wrapJsonEnvelope(await env([{ id: 'fn1', marker: '1' }])),
-      raw_json: wrapJsonEnvelope(await env({ content: '<p>SECRET body</p>' })),
       // Server "rebuilt" these from ciphertext charData — garbage by construction
       hyperlights: [{ highlightID: 'hl1', annotation: 'hlenc.v1.AAAA.BBBB', charStart: null, charEnd: null }],
       hypercites: [],
@@ -69,7 +68,6 @@ describe('decrypt-on-download', () => {
     const stored = await readOne('nodes', [ENC, 100]);
     expect(stored.content).toBe('<p>SECRET body</p>');
     expect(stored.footnotes).toEqual([{ id: 'fn1', marker: '1' }]);
-    expect(stored.raw_json).toEqual({ content: '<p>SECRET body</p>' });
     // Broken server views dropped (local rebuild owns these arrays)
     expect(stored.hyperlights).toEqual([]);
     expect(stored.hypercites).toEqual([]);
@@ -85,7 +83,6 @@ describe('decrypt-on-download', () => {
       footnotes: null,
       hyperlights: [],
       hypercites: [],
-      raw_json: null,
     }]);
 
     const stored = await readOne('nodes', [ENC, 200]);
@@ -183,7 +180,6 @@ describe('decrypt-on-download', () => {
       footnotes: null,
       hyperlights: [{ highlightID: 'h', annotation: 'note', charStart: 0, charEnd: 2 }],
       hypercites: [],
-      raw_json: null,
     }]);
 
     const stored = await readOne('nodes', ['public-book', 1]);

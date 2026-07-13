@@ -284,7 +284,6 @@ class YieldReportBook
                 'plainText'  => strip_tags($inner),
                 'type'       => $tag,
                 'footnotes'  => null,
-                'raw_json'   => json_encode(['book' => $bookId, 'startLine' => $line, 'type' => $tag]),
                 'created_at' => $now,
                 'updated_at' => $now,
             ];

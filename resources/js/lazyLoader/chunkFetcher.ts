@@ -45,9 +45,6 @@ export async function storeSingleChunkToIndexedDB(nodes: any[]): Promise<void> {
         hyperlights: typeof chunk.hyperlights === 'string'
             ? (chunk.hyperlights ? JSON.parse(chunk.hyperlights) : null)
             : chunk.hyperlights,
-        raw_json: typeof chunk.raw_json === 'string'
-            ? (chunk.raw_json ? JSON.parse(chunk.raw_json) : null)
-            : chunk.raw_json,
     }));
 
     // E2EE seam (docs/e2ee.md): decrypt BEFORE opening the write transaction

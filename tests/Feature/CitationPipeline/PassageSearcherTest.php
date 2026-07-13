@@ -26,7 +26,6 @@ function psSeedNode(string $book, string $nodeId, int $line, string $plain): voi
         'content'    => "<p>{$plain}</p>",
         'plainText'  => $plain,
         'type'       => 'p',
-        'raw_json'   => '{}',
         'created_at' => now(),
         'updated_at' => now(),
     ]);

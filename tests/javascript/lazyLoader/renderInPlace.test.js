@@ -32,7 +32,7 @@ import { createChunkElement } from '../../../resources/js/lazyLoader/chunkRender
 const citeNode = () => ({
   book: 'bookA', chunk_id: 200, startLine: 20100, node_id: 'bookA_n20100',
   content: 'Hello world', plainText: 'Hello world', type: null,
-  footnotes: [], raw_json: {},
+  footnotes: [],
   // A hypercite on chars 0–5 ("Hello"), and NO highlights — the exact shape the old path dropped.
   hypercites: [{ charStart: 0, charEnd: 5, hyperciteId: 'hypercite_ftx8pxb', relationshipStatus: 'single' }],
   hyperlights: [],

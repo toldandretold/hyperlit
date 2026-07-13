@@ -654,14 +654,9 @@ class UserHomeServerController extends Controller
             $newContent = (new LibraryCardGenerator())->generateLibraryCardHtml(
                 $bookRecord, $allChunk->startLine, $isOwner, $allNodeId, false, $isPrivate
             );
-            $newRawJson = json_encode([
-                'original_book' => $bookRecord->book, 'position_type' => 'user_home', 'position_id' => $allChunk->startLine,
-                'bibtex' => $bookRecord->bibtex, 'title' => $bookRecord->title ?? null, 'author' => $bookRecord->author ?? null, 'year' => $bookRecord->year ?? null,
-            ]);
             $newPlainText = strip_tags($this->generateCitationHtml($bookRecord));
             $admin->table('nodes')->where('id', $allChunk->id)->update([
                 'content' => $newContent,
-                'raw_json' => $newRawJson,
                 'plainText' => $newPlainText,
                 'updated_at' => now(),
             ]);
@@ -700,15 +695,10 @@ class UserHomeServerController extends Controller
         if ($chunkToUpdate) {
             $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
             $newContent = $this->generateLibraryCardHtml($bookRecord, $chunkToUpdate->startLine, $isOwner, $expectedNodeId);
-            $newRawJson = json_encode([
-                'original_book' => $bookRecord->book, 'position_type' => 'user_home', 'position_id' => $chunkToUpdate->startLine,
-                'bibtex' => $bookRecord->bibtex, 'title' => $bookRecord->title ?? null, 'author' => $bookRecord->author ?? null, 'year' => $bookRecord->year ?? null,
-            ]);
             $newPlainText = strip_tags($this->generateCitationHtml($bookRecord));
 
             DB::connection('pgsql_admin')->table('nodes')->where('id', $chunkToUpdate->id)->update([
                 'content' => $newContent,
-                'raw_json' => $newRawJson,
                 'plainText' => $newPlainText,
                 'updated_at' => now(),
             ]);
@@ -730,15 +720,10 @@ class UserHomeServerController extends Controller
             $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
             $isPrivate = ($bookRecord->visibility === 'private');
             $newContent = (new LibraryCardGenerator())->generateLibraryCardHtml($bookRecord, $allChunk->startLine, $isOwner, $allNodeId, false, $isPrivate);
-            $newRawJson = json_encode([
-                'original_book' => $bookRecord->book, 'position_type' => 'user_home', 'position_id' => $allChunk->startLine,
-                'bibtex' => $bookRecord->bibtex, 'title' => $bookRecord->title ?? null, 'author' => $bookRecord->author ?? null, 'year' => $bookRecord->year ?? null,
-            ]);
             $newPlainText = strip_tags($this->generateCitationHtml($bookRecord));
 
             DB::connection('pgsql_admin')->table('nodes')->where('id', $allChunk->id)->update([
                 'content' => $newContent,
-                'raw_json' => $newRawJson,
                 'plainText' => $newPlainText,
                 'updated_at' => now(),
             ]);
@@ -811,7 +796,6 @@ class UserHomeServerController extends Controller
         $debitsFormatted = number_format($debits, 2);
         $balanceNodeId = $bookName . '_balance_card';
         $chunks[] = [
-            'raw_json' => json_encode(['position_type' => 'user_account', 'position_id' => $positionId, 'card' => 'balance']),
             'book' => $bookName, 'chunk_id' => 0, 'startLine' => $positionId, 'node_id' => $balanceNodeId, 'footnotes' => null,
             'content' => '<p class="totalCredit' . ($balance < 0 ? ' totalCredit-negative' : '') . '" id="' . $positionId . '" data-node-id="' . $balanceNodeId . '">'
                 . '<strong class="' . $balanceClass . '">Balance: ' . $balanceSign . '$' . $balanceFormatted . '</strong>'
@@ -845,7 +829,6 @@ class UserHomeServerController extends Controller
         if ($ledgerEntries->isEmpty()) {
             $emptyNodeId = $bookName . '_empty_ledger';
             $chunks[] = [
-                'raw_json' => json_encode(['position_type' => 'user_account', 'position_id' => $positionId, 'card' => 'empty']),
                 'book' => $bookName, 'chunk_id' => 0, 'startLine' => $positionId, 'node_id' => $emptyNodeId, 'footnotes' => null,
                 'content' => '<p class="ledgerEntry" id="' . $positionId . '" data-node-id="' . $emptyNodeId . '"><em>No transactions yet.</em></p>',
                 'plainText' => 'No transactions yet.', 'type' => 'p', 'created_at' => $now, 'updated_at' => $now,
@@ -861,7 +844,6 @@ class UserHomeServerController extends Controller
                 $entryNodeId = $bookName . '_' . $entry->id;
 
                 $chunks[] = [
-                    'raw_json' => json_encode(['position_type' => 'user_account', 'position_id' => $positionId, 'ledger_id' => $entry->id]),
                     'book' => $bookName, 'chunk_id' => floor(count($chunks) / 100), 'startLine' => $positionId, 'node_id' => $entryNodeId, 'footnotes' => null,
                     'content' => '<p class="ledgerEntry" id="' . $positionId . '" data-node-id="' . $entryNodeId . '">'
                         . '<span>' . $sign . '$' . $amt . '</span>'

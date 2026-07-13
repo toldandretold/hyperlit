@@ -157,7 +157,6 @@ class BackfillHyperlightSubBooks extends Command
                     'node_id'    => $uuid,
                     'content'    => $content,
                     'plainText'  => $plainText,
-                    'raw_json'   => json_encode([]),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

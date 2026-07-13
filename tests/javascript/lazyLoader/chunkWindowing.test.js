@@ -91,7 +91,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 const node = (chunkId, startLine, id) => ({
   book: 'bookA', chunk_id: chunkId, startLine, node_id: id,
   content: `c${startLine}`, plainText: `c${startLine}`, type: null,
-  footnotes: [], hyperlights: [], hypercites: [], raw_json: {},
+  footnotes: [], hyperlights: [], hypercites: [],
 });
 // Five chunks (0..4), 2 nodes each — fully loaded (no manifest), so loads come from instance.nodes.
 const NODES = [];

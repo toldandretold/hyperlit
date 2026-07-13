@@ -74,12 +74,9 @@ class BeaconSyncController extends Controller
 
                 if (!empty($updates['nodes'])) {
                     foreach ($updates['nodes'] as $chunk) {
-                        // ✅ FIX: Add 'raw_json' to the data being saved
-                        $chunkData = array_merge($chunk, ['raw_json' => json_encode($chunk)]);
-                        
                         PgNode::updateOrCreate(
                             ['book' => $bookId, 'startLine' => $chunk['startLine']],
-                            $chunkData // Use the new array that includes raw_json
+                            $chunk
                         );
                     }
                 }

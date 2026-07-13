@@ -189,7 +189,7 @@ class DbNodeController extends Controller
         $values = [];
         $bindings = [];
         foreach ($records as $r) {
-            $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
             $bindings[] = $r['book'] ?? null;
             $bindings[] = $r['node_id'] ?? null;
             $bindings[] = $r['startLine'] ?? null;
@@ -198,13 +198,12 @@ class DbNodeController extends Controller
             $bindings[] = $r['footnotes'] ?? json_encode([]);
             $bindings[] = $r['plainText'] ?? null;
             $bindings[] = $r['type'] ?? null;
-            $bindings[] = $r['raw_json'] ?? null;
             $bindings[] = $r['created_at'] ?? now();
             $bindings[] = $r['updated_at'] ?? now();
         }
 
         $sql = '
-            INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, raw_json, created_at, updated_at)
+            INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, created_at, updated_at)
             VALUES '.implode(', ', $values).'
             ON CONFLICT (book, node_id) WHERE node_id IS NOT NULL
             DO UPDATE SET
@@ -214,7 +213,6 @@ class DbNodeController extends Controller
                 footnotes = EXCLUDED.footnotes,
                 "plainText" = EXCLUDED."plainText",
                 type = EXCLUDED.type,
-                raw_json = EXCLUDED.raw_json,
                 updated_at = EXCLUDED.updated_at
         ';
         \DB::statement($sql, $bindings);
@@ -262,7 +260,6 @@ class DbNodeController extends Controller
                         // 'hypercites' and 'hyperlights' columns intentionally omitted
                         'plainText' => EncryptedBookGuard::plainTextFor($bookId, $content, $item['plainText'] ?? null),
                         'type' => $item['type'] ?? null,
-                        'raw_json' => json_encode($this->cleanItemForStorage($item)),
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
@@ -367,7 +364,6 @@ class DbNodeController extends Controller
                         'footnotes' => json_encode($item['footnotes'] ?? []),
                         'plainText' => EncryptedBookGuard::plainTextFor($book, $content, $item['plainText'] ?? null),
                         'type' => $item['type'] ?? null,
-                        'raw_json' => json_encode($this->cleanItemForStorage($item)),
                     ];
                 }
 
@@ -378,7 +374,7 @@ class DbNodeController extends Controller
                         $values = [];
                         $bindings = [];
                         foreach ($chunk as $record) {
-                            $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+                            $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
                             $bindings[] = $record['book'];
                             $bindings[] = $record['node_id'];
                             $bindings[] = $record['startLine'];
@@ -387,13 +383,12 @@ class DbNodeController extends Controller
                             $bindings[] = $record['footnotes'];
                             $bindings[] = $record['plainText'];
                             $bindings[] = $record['type'];
-                            $bindings[] = $record['raw_json'];
                             $bindings[] = $now;
                             $bindings[] = $now;
                         }
 
                         $sql = '
-                            INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, raw_json, created_at, updated_at)
+                            INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, created_at, updated_at)
                             VALUES '.implode(', ', $values).'
                             ON CONFLICT (book, node_id) WHERE node_id IS NOT NULL
                             DO UPDATE SET
@@ -403,7 +398,6 @@ class DbNodeController extends Controller
                                 footnotes = EXCLUDED.footnotes,
                                 "plainText" = EXCLUDED."plainText",
                                 type = EXCLUDED.type,
-                                raw_json = EXCLUDED.raw_json,
                                 updated_at = EXCLUDED.updated_at
                         ';
                         \DB::statement($sql, $bindings);
@@ -618,24 +612,6 @@ class DbNodeController extends Controller
                     // 🔄 NEW SYSTEM: Don't touch hypercites column - leave existing data intact
                     // 'hypercites' intentionally not added to $updateData
 
-                    // Rebuild the raw_json field with the most up-to-date, merged data.
-                    $rawJson = $existingChunk->raw_json ?? $this->cleanItemForStorage($item);
-
-                    // Ensure $rawJson is an array (in case cast didn't work or old data exists)
-                    if (is_string($rawJson)) {
-                        $rawJson = json_decode($rawJson, true) ?? [];
-                    }
-                    if (! is_array($rawJson)) {
-                        $rawJson = [];
-                    }
-
-                    // Overwrite the raw_json fields with our authoritative, merged data.
-                    // array_merge will combine the base data with our specific updates.
-                    $rawJson = array_merge($rawJson, $updateData);
-
-                    // Assign the final PHP array for raw_json. Eloquent will handle encoding.
-                    $updateData['raw_json'] = $this->cleanItemForStorage($rawJson);
-
                     // --- END REVISED LOGIC ---
 
                     $updateData['updated_at'] = now();
@@ -678,7 +654,7 @@ class DbNodeController extends Controller
                             // and node_chunks_node_id_unique is NOT deferrable, so the second create()
                             // 23505s. The row now exists (same node, same paste); reconcile by updating
                             // it by its stable (book, node_id) identity. Keeps the genuine-update path
-                            // above (with its raw_json merge) untouched.
+                            // above untouched.
                             $result = ! empty($item['node_id'])
                                 ? PgNode::where('book', $item['book'])->where('node_id', $item['node_id'])->first()
                                 : null;
@@ -777,29 +753,6 @@ class DbNodeController extends Controller
         }
 
         return $hiddenHighlights;
-    }
-
-    private function cleanItemForStorage($item)
-    {
-        // Create a copy to avoid modifying the original
-        $cleanItem = $item;
-
-        // Remove the raw_json field to prevent recursive nesting
-        unset($cleanItem['raw_json']);
-
-        // Also remove any other potentially problematic nested fields
-        if (isset($cleanItem['full_library_array'])) {
-            unset($cleanItem['full_library_array']);
-        }
-
-        // 🔒 raw_json is a denormalised copy of the node returned by the read API,
-        // so its HTML must be sanitised too — otherwise an XSS payload survives in
-        // raw_json even though the `content` column is clean.
-        if (isset($cleanItem['content'])) {
-            $cleanItem['content'] = NodeHtmlSanitizer::clean($cleanItem['content']);
-        }
-
-        return $cleanItem;
     }
 
     /**
@@ -1100,7 +1053,7 @@ class DbNodeController extends Controller
 
         foreach ($items as $item) {
             $content = NodeHtmlSanitizer::clean($item['content'] ?? null);
-            $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
             $bindings[] = $bookId;
             $bindings[] = $item['node_id'];
             $bindings[] = $item['startLine'] ?? null;
@@ -1112,13 +1065,12 @@ class DbNodeController extends Controller
             // (E2EE: NULL for encrypted books — see EncryptedBookGuard.)
             $bindings[] = EncryptedBookGuard::plainTextFor($bookId, $content, $item['plainText'] ?? null);
             $bindings[] = $item['type'] ?? null;
-            $bindings[] = json_encode($this->cleanItemForStorage($item));
             $bindings[] = $now;
             $bindings[] = $now;
         }
 
         $sql = '
-            INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, raw_json, created_at, updated_at)
+            INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, created_at, updated_at)
             VALUES '.implode(', ', $values).'
             ON CONFLICT (book, node_id) WHERE node_id IS NOT NULL
             DO UPDATE SET
@@ -1128,7 +1080,6 @@ class DbNodeController extends Controller
                 footnotes = EXCLUDED.footnotes,
                 "plainText" = EXCLUDED."plainText",
                 type = EXCLUDED.type,
-                raw_json = EXCLUDED.raw_json,
                 updated_at = EXCLUDED.updated_at
         ';
 
@@ -1154,7 +1105,7 @@ class DbNodeController extends Controller
 
         foreach ($items as $item) {
             $content = NodeHtmlSanitizer::clean($item['content'] ?? null);
-            $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
             $bindings[] = $bookId;
             $bindings[] = $item['node_id'] ?? null;
             $bindings[] = $item['startLine'] ?? null;
@@ -1166,13 +1117,12 @@ class DbNodeController extends Controller
             // (E2EE: NULL for encrypted books — see EncryptedBookGuard.)
             $bindings[] = EncryptedBookGuard::plainTextFor($bookId, $content, $item['plainText'] ?? null);
             $bindings[] = $item['type'] ?? null;
-            $bindings[] = json_encode($this->cleanItemForStorage($item));
             $bindings[] = $now;
             $bindings[] = $now;
         }
 
         $sql = '
-            INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, raw_json, created_at, updated_at)
+            INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, created_at, updated_at)
             VALUES '.implode(', ', $values).'
             ON CONFLICT (book, "startLine")
             DO UPDATE SET
@@ -1182,7 +1132,6 @@ class DbNodeController extends Controller
                 footnotes = EXCLUDED.footnotes,
                 "plainText" = EXCLUDED."plainText",
                 type = EXCLUDED.type,
-                raw_json = EXCLUDED.raw_json,
                 updated_at = EXCLUDED.updated_at
         ';
 

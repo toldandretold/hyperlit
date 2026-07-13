@@ -67,7 +67,7 @@ class BookRestore extends Command
         $historicalNodes = collect(DB::select("
             -- Current nodes that existed at that time
             SELECT
-                id, raw_json, book, chunk_id, \"startLine\", footnotes,
+                id, book, chunk_id, \"startLine\", footnotes,
                 content, \"plainText\", type, created_at, updated_at,
                 node_id, sys_period
             FROM nodes
@@ -78,7 +78,7 @@ class BookRestore extends Command
 
             -- Historical nodes that were active at that time
             SELECT
-                id, raw_json, book, chunk_id, \"startLine\", footnotes,
+                id, book, chunk_id, \"startLine\", footnotes,
                 content, \"plainText\", type, created_at, updated_at,
                 node_id, sys_period
             FROM nodes_history
@@ -200,7 +200,6 @@ class BookRestore extends Command
                         'content' => $historical->content,
                         'plainText' => $historical->plainText,
                         'type' => $historical->type,
-                        'raw_json' => $historical->raw_json,
                         'footnotes' => $historical->footnotes,
                         'updated_at' => now(),
                     ]);
@@ -212,9 +211,6 @@ class BookRestore extends Command
                 $historical = $historicalNodes->get($nodeId);
 
                 // Parse JSON fields if needed
-                $rawJson = is_string($historical->raw_json)
-                    ? $historical->raw_json
-                    : json_encode($historical->raw_json);
                 $footnotes = is_string($historical->footnotes)
                     ? $historical->footnotes
                     : json_encode($historical->footnotes ?? []);
@@ -227,7 +223,6 @@ class BookRestore extends Command
                     'content' => $historical->content,
                     'plainText' => $historical->plainText,
                     'type' => $historical->type,
-                    'raw_json' => $rawJson,
                     'footnotes' => $footnotes,
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -323,21 +318,12 @@ class BookRestore extends Command
     }
 
     /**
-     * Get node type from column or raw_json fallback
+     * Get node type from column
      */
     private function getNodeType($node): string
     {
-        // Try column first
         if (!empty($node->type)) {
             return $node->type;
-        }
-
-        // Try raw_json
-        if (!empty($node->raw_json)) {
-            $json = is_string($node->raw_json) ? json_decode($node->raw_json, true) : $node->raw_json;
-            if (!empty($json['type'])) {
-                return $json['type'];
-            }
         }
 
         return 'p'; // Default

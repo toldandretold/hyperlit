@@ -77,7 +77,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 const node = (chunkId, startLine, id) => ({
   book: 'bookA', chunk_id: chunkId, startLine, node_id: id,
   content: `c${startLine}`, plainText: `c${startLine}`, type: null,
-  footnotes: [], hyperlights: [], hypercites: [], raw_json: {},
+  footnotes: [], hyperlights: [], hypercites: [],
 });
 // chunk 0 (lines 0,1) + chunk 1 (line 2), fully loaded (no manifest).
 const NODES = [node(0, 0, 'N0'), node(0, 1, 'N1'), node(1, 2, 'N2')];

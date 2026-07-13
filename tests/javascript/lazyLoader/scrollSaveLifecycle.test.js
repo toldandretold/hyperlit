@@ -65,7 +65,7 @@ function makeLoader(bookId) {
   document.body.appendChild(wrapper);
   const inst = createLazyLoader({
     // non-empty nodes (createLazyLoader returns null for []); scrollableParent explicit for the test env
-    nodes: [{ book: bookId, chunk_id: 0, startLine: 100, node_id: 'n1', content: 'x', footnotes: [], hyperlights: [], hypercites: [], raw_json: {} }],
+    nodes: [{ book: bookId, chunk_id: 0, startLine: 100, node_id: 'n1', content: 'x', footnotes: [], hyperlights: [], hypercites: [] }],
     chunkManifest: null,
     loadNextChunk: vi.fn(), loadPreviousChunk: vi.fn(),
     attachMarkListeners: vi.fn(), attachUnderlineClickListeners: vi.fn(),

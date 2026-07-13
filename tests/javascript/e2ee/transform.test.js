@@ -41,7 +41,6 @@ function sampleNode() {
     hypercites: [{ hyperciteId: 'hc1', relationshipStatus: 'single', citedIN: [], charStart: 0, charEnd: 2 }],
     footnotes: [{ id: 'fn1', marker: '1' }],
     citations: [{ referenceId: 'ref1', text: 'SECRET citation' }],
-    raw_json: { content: '<p>SECRET body</p>' },
     plainText: 'SECRET body',
   };
 }
@@ -61,7 +60,6 @@ describe('encryptRecordForStore via encryptNodes', () => {
     expect(isJsonEnvelope(enc.hypercites)).toBe(true);
     expect(isJsonEnvelope(enc.footnotes)).toBe(true);
     expect(isJsonEnvelope(enc.citations)).toBe(true);
-    expect(isJsonEnvelope(enc.raw_json)).toBe(true);
     expect('plainText' in enc).toBe(false);
 
     expect(enc.book).toBe(BOOK);

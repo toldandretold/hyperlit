@@ -84,33 +84,21 @@ class BookMigrationService
             // Ensure HTML has the data-node-id attribute (add if missing)
             $updatedContent = $this->addNodeIdToHtml($chunk->content, $nodeId);
 
-            // Update raw_json
-            $rawJson = json_decode($chunk->raw_json, true);
-            if ($rawJson && is_array($rawJson)) {
-                $rawJson['content'] = $updatedContent;
-                $rawJson['node_id'] = $nodeId;
-                $updatedRawJson = json_encode($rawJson);
-            } else {
-                $updatedRawJson = $chunk->raw_json;
-            }
-
             $toUpdate[] = [
                 'book' => $chunk->book,
                 'startLine' => $chunk->startLine,
                 'node_id' => $nodeId,
                 'content' => $updatedContent,
-                'raw_json' => $updatedRawJson,
             ];
         }
 
         // Update nodes using parameterized queries (admin connection to bypass RLS)
         foreach ($toUpdate as $update) {
             DB::connection('pgsql_admin')->statement(
-                'UPDATE nodes SET node_id = ?, content = ?, raw_json = ?::jsonb, updated_at = ? WHERE book = ? AND "startLine" = ?',
+                'UPDATE nodes SET node_id = ?, content = ?, updated_at = ? WHERE book = ? AND "startLine" = ?',
                 [
                     $update['node_id'],
                     $update['content'],
-                    $update['raw_json'],
                     now(),
                     $update['book'],
                     $update['startLine']
@@ -166,18 +154,6 @@ class BookMigrationService
             // Update content's id and data-node-id to match new startLine
             $updatedContent = $this->updateContentId($chunk->content, $newStartLine, $nodeId);
 
-            // Update raw_json
-            $rawJson = json_decode($chunk->raw_json, true);
-            if ($rawJson && is_array($rawJson)) {
-                $rawJson['content'] = $updatedContent;
-                $rawJson['node_id'] = $nodeId;
-                $rawJson['startLine'] = $newStartLine;
-                $rawJson['chunk_id'] = $newChunkId;
-                $updatedRawJson = json_encode($rawJson);
-            } else {
-                $updatedRawJson = $chunk->raw_json;
-            }
-
             $updates[] = [
                 'old_startLine' => $chunk->startLine,
                 'temp_startLine' => -($index + 1),  // Temporary negative value
@@ -188,7 +164,6 @@ class BookMigrationService
                 'plainText' => $chunk->plainText ?? null,
                 'type' => $chunk->type ?? null,
                 'footnotes' => $chunk->footnotes ?? '[]',
-                'raw_json' => $updatedRawJson,
             ];
         }
 
@@ -215,7 +190,6 @@ class BookMigrationService
                             'plainText' => $update['plainText'],
                             'type' => $update['type'],
                             'footnotes' => $update['footnotes'],
-                            'raw_json' => $update['raw_json'],
                             'updated_at' => now(),
                         ]);
                 }

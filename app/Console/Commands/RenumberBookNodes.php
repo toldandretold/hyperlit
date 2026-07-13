@@ -79,17 +79,6 @@ class RenumberBookNodes extends Command
                 $chunk->content
             );
 
-            // Update raw_json
-            $rawJson = json_decode($chunk->raw_json, true);
-            if ($rawJson && is_array($rawJson)) {
-                $rawJson['content'] = $updatedContent;
-                $rawJson['startLine'] = $newStartLine;
-                $rawJson['chunk_id'] = $newChunkId;
-                $updatedRawJson = json_encode($rawJson);
-            } else {
-                $updatedRawJson = $chunk->raw_json;
-            }
-
             $updates[] = [
                 'book' => $chunk->book,
                 'old_startLine' => $chunk->startLine,
@@ -98,7 +87,6 @@ class RenumberBookNodes extends Command
                 'new_chunk_id' => $newChunkId,
                 'node_id' => $chunk->node_id,
                 'content' => $updatedContent,
-                'raw_json' => $updatedRawJson,
                 // Preserve all other columns
                 'hyperlights' => $chunk->hyperlights,
                 'hypercites' => $chunk->hypercites,
@@ -140,12 +128,11 @@ class RenumberBookNodes extends Command
             foreach ($updates as $update) {
                 // 🔒 SECURITY: Use parameterized query instead of string concatenation
                 DB::statement(
-                    'UPDATE nodes SET "startLine" = ?, chunk_id = ?, content = ?, raw_json = ?::jsonb, updated_at = ? WHERE book = ? AND "startLine" = ?',
+                    'UPDATE nodes SET "startLine" = ?, chunk_id = ?, content = ?, updated_at = ? WHERE book = ? AND "startLine" = ?',
                     [
                         $update['new_startLine'],
                         $update['new_chunk_id'],
                         $update['content'],
-                        $update['raw_json'],
                         now(),
                         $update['book'],
                         $update['old_startLine']

@@ -115,8 +115,6 @@ export async function loadNodesToIndexedDB(db: IDBDatabase, nodes: ServerNodeRow
       hypercites: (typeof chunk.hypercites === 'string' ?
         (chunk.hypercites ? JSON.parse(chunk.hypercites) : null) : chunk.hypercites) ?? [],
       hyperlights: (parsedHyperlights ?? []) as NodeHyperlightView[],
-      raw_json: typeof chunk.raw_json === 'string' ?
-        (chunk.raw_json ? JSON.parse(chunk.raw_json) : null) : chunk.raw_json
     };
   }
 

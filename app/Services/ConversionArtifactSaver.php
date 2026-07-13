@@ -107,6 +107,7 @@ class ConversionArtifactSaver
             PgNode::where('book', $bookId)->delete();
 
             $insertData = [];
+            $artifactRows = []; // full node shape for the nodes.json artifact (was nodes.raw_json)
             $now = now();
             $nodesPerChunk = 100;
 
@@ -117,11 +118,12 @@ class ConversionArtifactSaver
                 $nodeId = $this->helpers->generateNodeId($bookId);
                 $content = $this->helpers->ensureNodeIdInContent($chunk['content'], $newStartLine, $nodeId);
 
-                $rawJson = $chunk;
-                $rawJson['startLine'] = $newStartLine;
-                $rawJson['chunk_id'] = $newChunkId;
-                $rawJson['node_id'] = $nodeId;
-                $rawJson['content'] = $content;
+                $artifactRow = $chunk;
+                $artifactRow['startLine'] = $newStartLine;
+                $artifactRow['chunk_id'] = $newChunkId;
+                $artifactRow['node_id'] = $nodeId;
+                $artifactRow['content'] = $content;
+                $artifactRows[] = $artifactRow;
 
                 $insertData[] = [
                     'book' => $bookId,
@@ -132,7 +134,6 @@ class ConversionArtifactSaver
                     'footnotes' => json_encode($chunk['footnotes'] ?? []),
                     'plainText' => $chunk['plainText'] ?? '',
                     'type' => $chunk['type'] ?? 'p',
-                    'raw_json' => json_encode($rawJson),
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -145,8 +146,7 @@ class ConversionArtifactSaver
             QueueBookEmbeddings::dispatch($bookId);
 
             // Rewrite nodes.json with the renumbered values (matches import behaviour).
-            $renumberedJson = array_map(fn ($r) => json_decode($r['raw_json'], true), $insertData);
-            File::put($nodesPath, json_encode($renumberedJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            File::put($nodesPath, json_encode($artifactRows, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
             Log::info('ConversionArtifactSaver: saved nodes', ['book' => $bookId, 'count' => count($insertData)]);
         } catch (\Exception $e) {
@@ -228,7 +228,7 @@ class ConversionArtifactSaver
                 PgNode::updateOrCreate(
                     ['book' => $subBookId, 'startLine' => 1],   // one node per sub-book — match the UNIQUE key,
                     ['chunk_id' => 0, 'node_id' => $uuid,        // not a fresh uuid (which never matched → dup insert)
-                     'content' => $nodeHtml, 'plainText' => $plainText, 'raw_json' => json_encode([])]
+                     'content' => $nodeHtml, 'plainText' => $plainText]
                 );
 
                 $enrichedForJson[] = [

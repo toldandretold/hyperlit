@@ -169,7 +169,7 @@ test('purges a stale old-convention report for the same root', function () {
         'raw_json' => json_encode(['type' => 'report', 'report_of' => $root]),
         'created_at' => now(), 'updated_at' => now(),
     ]);
-    yrDb()->table('nodes')->insert(['book' => $oldId, 'startLine' => 1, 'chunk_id' => 0, 'node_id' => $oldId . '_r1', 'content' => '<p>old</p>', 'plainText' => 'old', 'type' => 'p', 'raw_json' => '{}', 'created_at' => now(), 'updated_at' => now()]);
+    yrDb()->table('nodes')->insert(['book' => $oldId, 'startLine' => 1, 'chunk_id' => 0, 'node_id' => $oldId . '_r1', 'content' => '<p>old</p>', 'plainText' => 'old', 'type' => 'p', 'created_at' => now(), 'updated_at' => now()]);
     $shelfId = (string) Str::uuid();
     yrDb()->table('shelves')->insert(['id' => $shelfId, 'creator' => 'yrtest_user', 'name' => 'YRTest Shelf', 'slug' => 'yrtest-shelf-' . Str::random(6), 'visibility' => 'private', 'default_sort' => 'recent', 'created_at' => now(), 'updated_at' => now()]);
     yrDb()->table('shelf_items')->insert(['shelf_id' => $shelfId, 'book' => $oldId, 'added_at' => now()]);

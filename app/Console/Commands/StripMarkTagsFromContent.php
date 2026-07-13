@@ -10,7 +10,7 @@ use App\Models\PgNode;
  * Strip <mark> Tags from nodes Content
  *
  * PURPOSE:
- * Removes <mark> tags from the content and raw_json columns in the nodes table.
+ * Removes <mark> tags from the content column in the nodes table.
  * Highlights should be dynamically injected on page load from the hyperlights array data,
  * not persisted in the content itself.
  *
@@ -32,9 +32,8 @@ use App\Models\PgNode;
  * WHAT IT DOES:
  * 1. Finds all nodes with <mark> tags in content
  * 2. Strips both opening <mark> tags (with any attributes) and closing </mark> tags
- * 3. Also cleans raw_json column if it exists
- * 4. Shows progress bar during operation
- * 5. After cleaning, users should refresh their browser to see clean content
+ * 3. Shows progress bar during operation
+ * 4. After cleaning, users should refresh their browser to see clean content
  *    (highlights will be re-injected from hyperlights data)
  */
 class StripMarkTagsFromContent extends Command
@@ -124,19 +123,6 @@ class StripMarkTagsFromContent extends Command
 
                 // Strip closing </mark> tags
                 $cleanedContent = str_replace('</mark>', '', $cleanedContent);
-
-                // Also clean raw_json if it exists
-                if ($chunk->raw_json) {
-                    $rawJson = is_string($chunk->raw_json)
-                        ? json_decode($chunk->raw_json, true)
-                        : $chunk->raw_json;
-
-                    if (isset($rawJson['content'])) {
-                        $rawJson['content'] = preg_replace('/<mark[^>]*>/', '', $rawJson['content']);
-                        $rawJson['content'] = str_replace('</mark>', '', $rawJson['content']);
-                        $chunk->raw_json = $rawJson;
-                    }
-                }
 
                 $chunk->content = $cleanedContent;
                 $chunk->save();
