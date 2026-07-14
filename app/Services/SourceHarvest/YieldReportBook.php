@@ -37,8 +37,13 @@ class YieldReportBook
      * @param string|null $note crash-path warning (HarvestRunner::finalize) —
      *   rendered at the top of the report but NOT persisted into the union, so
      *   the next successful run regenerates the report without it.
+     * @param array<int, array<string, mixed>> $harvestedNetwork the DURABLE set
+     *   of works harvested for this book (HarvestEligibility::harvestedNetworkFor)
+     *   — the single source of truth for the "Harvested" section. Independent of
+     *   any run's bookkeeping, so the report shows what HAS been harvested even
+     *   across crashes / re-runs. Empty only for a genuinely-nothing-harvested book.
      */
-    public function generate(string $rootBook, string $rootTitle, array $results, ?string $note = null): ?string
+    public function generate(string $rootBook, string $rootTitle, array $results, ?string $note = null, array $harvestedNetwork = []): ?string
     {
         $db = DB::connection('pgsql_admin');
 
@@ -51,21 +56,53 @@ class YieldReportBook
 
         // CUMULATIVE union of per-work outcomes across ALL runs on this book,
         // keyed by canonical_source_id and stored on the report row's raw_json.
-        // A later (possibly smaller/cheaper) run only ADDS or UPGRADES entries
-        // and never clobbers an earlier, fuller report: a run's `results` only
-        // contains works still eligible at run time (eligibility excludes
-        // already-harvested canonicals), so merging with success>failure>skip
-        // precedence moves a Failed→Harvested and leaves prior successes intact.
-        // Runs are sequential (the controller 409s a concurrent harvest), so
-        // there's no read-modify-write race here.
+        // The union is now the record of FAILURES + over-budget only — a failed
+        // fetch (Cloudflare wall, unverifiable copy) leaves no durable trace, so
+        // the accumulated results are its sole memory. SUCCESSES no longer come
+        // from here: they're read from durable state ($harvestedNetwork) so the
+        // report reflects what the database actually holds, not what a run that
+        // may have crashed happened to record.
         $union = $this->mergeResults($this->readUnion($db, $bookId), $results);
 
-        $successes = array_values(array_filter($union, fn ($r) => in_array($r['status'] ?? '', self::SUCCESS, true)));
+        // SUCCESSES: the durable harvested set is authoritative.
+        $successes = array_values($harvestedNetwork);
+        $harvestedIds = [];
+        foreach ($successes as $r) {
+            if (isset($r['canonical_source_id'])) {
+                $harvestedIds[$r['canonical_source_id']] = true;
+            }
+        }
+        // Enrich durable successes with any per-work detail the union captured
+        // this run (e.g. which OA copy won — `via`); durable defines membership.
+        $unionByKey = [];
+        foreach ($union as $u) {
+            $k = $u['canonical_source_id'] ?? null;
+            if ($k !== null) {
+                $unionByKey[$k] = $u;
+            }
+        }
+        foreach ($successes as &$s) {
+            $k = $s['canonical_source_id'] ?? null;
+            if ($k !== null && isset($unionByKey[$k]['via']) && empty($s['via'])) {
+                $s['via'] = $unionByKey[$k]['via'];
+            }
+        }
+        unset($s);
+
         // Works never attempted because the spend cap was reached — their own
         // section (they aren't failures, just deferred for a top-up + rerun).
-        $overBudget = array_values(array_filter($union, fn ($r) => ($r['status'] ?? '') === 'skipped_over_budget'));
+        // A work now durably harvested is never over-budget/failed any more.
+        $overBudget = array_values(array_filter($union, fn ($r) =>
+            ($r['status'] ?? '') === 'skipped_over_budget'
+            && !isset($harvestedIds[$r['canonical_source_id'] ?? ''])));
         $failures = array_values(array_filter($union, fn ($r) =>
-            !in_array($r['status'] ?? '', self::SUCCESS, true) && ($r['status'] ?? '') !== 'skipped_over_budget'));
+            !in_array($r['status'] ?? '', self::SUCCESS, true)
+            && ($r['status'] ?? '') !== 'skipped_over_budget'
+            && !isset($harvestedIds[$r['canonical_source_id'] ?? ''])));
+
+        // Network viz = durable successes (with lineage) + the union's still-
+        // unharvested failures/over-budget. One row per node, deduped by id.
+        $networkNodes = array_merge($successes, $failures, $overBudget);
 
         $bookId = $this->findOrMintReportRow($db, $creator, $rootBook, $rootTitle);
 
@@ -74,9 +111,9 @@ class YieldReportBook
         // shelf self-heals to exactly one living report.
         $this->purgeStaleReports($db, $rootBook, $bookId);
 
-        // Rebuild the nodes from the full union (not just this run).
+        // Rebuild the nodes: durable successes + union failures/over-budget.
         $db->table('nodes')->where('book', $bookId)->delete();
-        $blocks = $this->buildBlocks($rootBook, $rootTitle, $failures, $successes, $overBudget, $union, $note);
+        $blocks = $this->buildBlocks($rootBook, $rootTitle, $failures, $successes, $overBudget, $networkNodes, $note);
         $this->insertNodes($db, $bookId, $blocks);
 
         // Persist the union back onto the report row so the next run accumulates.
@@ -199,7 +236,7 @@ class YieldReportBook
      *
      * @return array<int, array{0: string, 1: string}>
      */
-    private function buildBlocks(string $rootBook, string $rootTitle, array $failures, array $successes, array $overBudget = [], array $union = [], ?string $note = null): array
+    private function buildBlocks(string $rootBook, string $rootTitle, array $failures, array $successes, array $overBudget = [], array $networkNodes = [], ?string $note = null): array
     {
         $got = count($successes);
         $lost = count($failures);
@@ -236,9 +273,9 @@ class YieldReportBook
         // data-chart marker and swaps the table for a rendered SVG — the same
         // pattern as the citation-review report's charts. If JS never runs,
         // the table itself is a legible fallback.
-        if ($union !== []) {
+        if ($networkNodes !== []) {
             $blocks[] = ['h2', 'Knowledge Network'];
-            $blocks[] = ['table', $this->networkTableInner($rootBook, $rootTitle, $union),
+            $blocks[] = ['table', $this->networkTableInner($rootBook, $rootTitle, $networkNodes),
                 'data-chart="harvest-network"', 'Harvest knowledge network'];
             // /3d/{root} is the book's corner of the docuverse — the harvest
             // just confirmed it into a network. All layers preset: a fresh
@@ -400,7 +437,7 @@ class YieldReportBook
      * per union entry. Legacy entries (pre-lineage harvests) default to
      * depth 1 / parent = root — a correct 1-level fan.
      */
-    private function networkTableInner(string $rootBook, string $rootTitle, array $union): string
+    private function networkTableInner(string $rootBook, string $rootTitle, array $networkNodes): string
     {
         $cells = fn (array $c) => '<tr>' . implode('', array_map(
             fn ($v) => '<td>' . $this->e((string) ($v ?? '')) . '</td>', $c)) . '</tr>';
@@ -412,7 +449,7 @@ class YieldReportBook
             . '</tr></thead>';
 
         $rows = [$cells([$rootBook, '', 0, 'root', $rootTitle, '', $rootBook, '', '', '', '', '', '', ''])];
-        foreach ($union as $r) {
+        foreach ($networkNodes as $r) {
             $id = $r['canonical_source_id'] ?? ($r['title'] ?? null);
             if ($id === null) {
                 continue; // no stable identity — can't be a graph node

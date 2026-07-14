@@ -452,16 +452,26 @@ class HarvestRunner
         $results = json_decode($harvest->results ?? '[]', true) ?: [];
         $counts = json_decode($harvest->counts ?? '{}', true) ?: [];
 
-        // Books assigned across ALL slices of this run, derived from the
-        // persisted per-work outcomes. addBooks() upserts, so re-shelving a
-        // prior slice's books on each finalize is harmless.
-        $harvestedBooks = array_values(array_unique(array_filter(array_map(
-            fn ($r) => in_array($r['status'] ?? '', ['assigned', 'assigned_existing'], true)
-                ? ($r['book'] ?? null) : null,
-            $results
+        // The DURABLE harvested set for this book — every work reachable from it
+        // that now carries an auto_version_book, straight from the database. This
+        // is the single source of truth for what HAS been harvested, so the
+        // report is correct regardless of which run pulled what or whether an
+        // earlier run crashed before finalizing. See HarvestEligibility.
+        $harvestedNetwork = $this->eligibility->harvestedNetworkFor($harvest->root_book);
+
+        // Books to shelve: the durable harvested version books, unioned with any
+        // assigned this run (belt-and-braces — the durable set already contains
+        // them). addBooks() upserts, so re-shelving across finalizes is harmless.
+        $harvestedBooks = array_values(array_unique(array_filter(array_merge(
+            array_map(fn ($r) => $r['book'] ?? null, $harvestedNetwork),
+            array_map(
+                fn ($r) => in_array($r['status'] ?? '', ['assigned', 'assigned_existing'], true)
+                    ? ($r['book'] ?? null) : null,
+                $results
+            )
         ))));
 
-        if (!empty($results) || !empty($harvest->shelf_id)) {
+        if (!empty($results) || !empty($harvestedNetwork) || !empty($harvest->shelf_id)) {
             $db->table('source_network_harvests')->where('id', $harvestId)->update([
                 'step'        => 'shelf',
                 'step_detail' => 'Collecting sources + writing the yield report',
@@ -474,8 +484,9 @@ class HarvestRunner
                     $rootTitle = $db->table('library')->where('book', $harvest->root_book)->value('title')
                         ?: $harvest->root_book;
 
-                    // Write the yield report and shelve it alongside the sources.
-                    $reportBook = $this->report->generate($harvest->root_book, $rootTitle, $results, $failureNote);
+                    // Write the yield report (successes from the durable set) and
+                    // shelve every harvested source alongside it.
+                    $reportBook = $this->report->generate($harvest->root_book, $rootTitle, $results, $failureNote, $harvestedNetwork);
                     $shelfBooks = array_values(array_filter(array_merge($harvestedBooks, [$reportBook])));
                     $this->shelf->addBooks($shelfInfo->id, $shelfBooks);
 

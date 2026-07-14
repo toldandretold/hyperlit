@@ -125,7 +125,10 @@ test('a resume slice continues the parked batch without re-scanning and finalize
     ]);
 
     Artisan::shouldReceive('call')->never(); // resume must not re-run the bibliography scan
-    $this->mock(HarvestEligibility::class, fn ($m) => $m->shouldReceive('eligibleCanonicalsFor')->andReturn($eligible));
+    $this->mock(HarvestEligibility::class, function ($m) use ($eligible) {
+        $m->shouldReceive('eligibleCanonicalsFor')->andReturn($eligible);
+        $m->shouldReceive('harvestedNetworkFor')->andReturn([]); // finalize's durable query
+    });
     $this->mock(AutoVersionCreator::class, fn ($m) => $m->shouldReceive('create')->twice()->andReturn([
         'status' => 'assigned', 'book' => 'apitest_hslc_v' . Str::random(5), 'reason' => null, 'via' => null, 'lane' => null,
     ]));
@@ -157,7 +160,10 @@ test('a finish request stops before any work, still finalizes, and returns compl
     ]);
 
     // The finish check fires at the frontier top — no scan, no work, no charge.
-    $this->mock(HarvestEligibility::class, fn ($m) => $m->shouldReceive('eligibleCanonicalsFor')->never());
+    $this->mock(HarvestEligibility::class, function ($m) {
+        $m->shouldReceive('eligibleCanonicalsFor')->never();
+        $m->shouldReceive('harvestedNetworkFor')->andReturn([]); // finalize's durable query
+    });
     $this->mock(BillingService::class, fn ($m) => $m->shouldReceive('billOcrForBook')->never());
     // But the shelf + report finalize DOES run (results exist).
     $this->mock(HarvestShelf::class, fn ($m) => $m->shouldReceive('ensureShelfFor')->once()->andReturnNull());

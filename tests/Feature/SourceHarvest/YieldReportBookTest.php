@@ -2,9 +2,12 @@
 
 /**
  * YieldReportBook — the readable "Source Yield Report" the harvest writes onto
- * the shelf, listing what it couldn't pull (BibTeX + links) above what it did.
- * No-network: called directly against admin-seeded rows + a canned results
- * array. Admin writes commit, so everything is cleaned in afterEach.
+ * the shelf. Its "Harvested" section now reflects DURABLE state (the 5th arg,
+ * HarvestEligibility::harvestedNetworkFor), so the report shows what HAS been
+ * harvested regardless of which run pulled it or whether a run crashed. The
+ * "Failed to Harvest" section still comes from the accumulated results union
+ * (a failed fetch leaves no durable trace). No-network: called directly against
+ * admin-seeded rows. Admin writes commit, so everything is cleaned in afterEach.
  */
 
 use App\Services\SourceHarvest\YieldReportBook;
@@ -31,21 +34,50 @@ function yrSeedBook(array $opts = []): string
 }
 
 /**
- * Canned per-work outcomes. With $parent set, entries carry the lineage fields
- * the runner now persists (depth/parent_book/cited_by_count); without it they
- * are the LEGACY pre-lineage shape (old cumulative unions still have these).
+ * Canned FAILURE outcomes (the `results` / union input): a Cloudflare block +
+ * an unverifiable deferred. With $parent set they carry lineage fields.
  */
-function yrResults(?string $parent = null): array
+function yrFailures(?string $parent = null): array
 {
     $lineage = $parent ? ['depth' => 1, 'parent_book' => $parent, 'cited_by_count' => 42] : [];
     return [
-        // A Cloudflare failure with a DOI.
         ['canonical_source_id' => (string) Str::uuid(), 'title' => 'The Rational Kernel', 'author' => 'Amin, Samir', 'year' => 1985, 'journal' => 'Review', 'type' => 'journal-article', 'doi' => '10.1111/rational', 'oa_url' => null, 'pdf_url' => null, 'status' => 'fetch_failed', 'reason' => 'Browser fetch failed: cloudflare_block', 'via' => null, 'book' => null] + $lineage,
-        // A deferred (unverifiable) failure with an oa_url.
         ['canonical_source_id' => (string) Str::uuid(), 'title' => 'A Moment of Possibility', 'author' => 'Doe, Jane', 'year' => 2020, 'type' => 'book', 'doi' => null, 'oa_url' => 'https://hdl.handle.net/2440/123', 'pdf_url' => null, 'status' => 'deferred', 'reason' => 'stub has no converted content yet', 'via' => null, 'book' => null] + $lineage,
-        // A success with a held book.
-        ['canonical_source_id' => (string) Str::uuid(), 'title' => 'Accumulation on a World Scale', 'author' => 'Amin, Samir', 'year' => 1974, 'type' => 'book', 'doi' => '10.2307/accum', 'status' => 'assigned', 'reason' => null, 'via' => 'from europepmc.org', 'book' => 'yrtest_held_book'] + $lineage,
     ];
+}
+
+/**
+ * A DURABLE harvested entry (as HarvestEligibility::harvestedNetworkFor would
+ * return it): a canonical with an auto_version_book, shaped for the report.
+ */
+function yrHarvested(string $book = 'yrtest_held_book', array $opts = []): array
+{
+    return array_merge([
+        'canonical_source_id' => (string) Str::uuid(),
+        'title'          => 'Accumulation on a World Scale',
+        'author'         => 'Amin, Samir',
+        'year'           => 1974,
+        'journal'        => null,
+        'publisher'      => null,
+        'type'           => 'book',
+        'doi'            => '10.2307/accum',
+        'openalex_id'    => null,
+        'oa_url'         => null,
+        'pdf_url'        => null,
+        'cited_by_count' => 42,
+        'status'         => 'assigned',
+        'reason'         => null,
+        'via'            => 'from europepmc.org',
+        'book'           => $book,
+        'parent_book'    => null,
+        'depth'          => 1,
+    ], $opts);
+}
+
+/** Failures + a durable success, for tests that don't care about the split. */
+function yrResults(?string $parent = null): array
+{
+    return array_merge(yrFailures($parent), [yrHarvested()]);
 }
 
 afterEach(function () {
@@ -65,7 +97,7 @@ afterEach(function () {
 test('generates a readable report book owned by the root creator', function () {
     $root = yrSeedBook(['title' => 'YRTest Neoliberalism', 'creator' => 'yrtest_user']);
 
-    $bookId = app(YieldReportBook::class)->generate($root, 'YRTest Neoliberalism', yrResults());
+    $bookId = app(YieldReportBook::class)->generate($root, 'YRTest Neoliberalism', yrFailures(), null, [yrHarvested()]);
 
     expect($bookId)->not->toBeNull();
     // Deterministic, readable id tied to the harvested book.
@@ -81,7 +113,8 @@ test('generates a readable report book owned by the root creator', function () {
 
 test('lists failures as formatted citations + links above the harvested section', function () {
     $root = yrSeedBook(['title' => 'YRTest Yield', 'creator' => 'yrtest_user']);
-    $bookId = app(YieldReportBook::class)->generate($root, 'YRTest Yield', yrResults());
+    // Failures via the results union; the success via the DURABLE harvested set.
+    $bookId = app(YieldReportBook::class)->generate($root, 'YRTest Yield', yrFailures(), null, [yrHarvested()]);
 
     $nodes = yrDb()->table('nodes')->where('book', $bookId)->orderBy('startLine')->get();
     $html = $nodes->pluck('content')->implode("\n");
@@ -106,7 +139,7 @@ test('lists failures as formatted citations + links above the harvested section'
     // The deferred one is explained honestly.
     expect($html)->toContain("couldn't verify");
 
-    // The success is a citation whose title links to the held book.
+    // The success (durable) is a citation whose title links to the held book.
     expect($html)->toContain('href="/yrtest_held_book"');
 
     // Failures come before the harvested section.
@@ -125,71 +158,105 @@ test('lists failures as formatted citations + links above the harvested section'
     }
 });
 
-test('re-running accumulates into the SAME living report (a later run never clobbers an earlier one)', function () {
+test('the Harvested section reflects DURABLE state even when the run results are empty', function () {
+    // The user's exact scenario: a prior run imported works then crashed before
+    // finalizing, so nothing is in the union. A later report with an EMPTY
+    // results array still lists everything durably harvested — the report asks
+    // the database what exists, not what a run recorded.
+    $root = yrSeedBook(['title' => 'YRTest Durable', 'creator' => 'yrtest_user']);
+
+    $durable = [
+        yrHarvested('yrtest_book_a', ['canonical_source_id' => (string) Str::uuid(), 'title' => 'Durable Work A']),
+        yrHarvested('yrtest_book_b', ['canonical_source_id' => (string) Str::uuid(), 'title' => 'Durable Work B']),
+    ];
+
+    $bookId = app(YieldReportBook::class)->generate($root, 'YRTest Durable', [], null, $durable);
+
+    $nodes = yrDb()->table('nodes')->where('book', $bookId)->orderBy('startLine')->get();
+    $plain = $nodes->pluck('plainText')->implode("\n");
+    $html = $nodes->pluck('content')->implode("\n");
+
+    expect($plain)->toContain('Harvested');
+    expect($html)->toContain('Durable Work A');
+    expect($html)->toContain('Durable Work B');
+    expect($html)->toContain('href="/yrtest_book_a"');
+    expect($html)->toContain('href="/yrtest_book_b"');
+    // No failures at all (empty union) — no "Failed to Harvest" section.
+    expect($plain)->not->toContain('Failed to Harvest');
+});
+
+test('failures accumulate in the union across runs while successes come from durable state', function () {
     $root = yrSeedBook(['title' => 'YRTest Rerun', 'creator' => 'yrtest_user']);
     $svc = app(YieldReportBook::class);
 
-    // First run: 1 success + 2 non-successes (a cloudflare failure + a deferred).
-    $first = $svc->generate($root, 'YRTest Rerun', yrResults());
+    $success1 = yrHarvested('yrtest_held_book', ['title' => 'Accumulation on a World Scale']);
 
-    // A second, SMALLER run brings home ONE new work (a different canonical) —
-    // it must MERGE in, not replace: the first run's failures + success survive.
-    $newWork = ['canonical_source_id' => (string) \Illuminate\Support\Str::uuid(), 'title' => 'A Newly Harvested Work', 'author' => 'New, Author', 'year' => 2021, 'type' => 'book', 'status' => 'assigned', 'reason' => null, 'via' => 'from arxiv.org', 'book' => 'yrtest_new_book'];
-    $second = $svc->generate($root, 'YRTest Rerun', [$newWork]);
+    // First run: 2 failures (union) + 1 durable success.
+    $first = $svc->generate($root, 'YRTest Rerun', yrFailures(), null, [$success1]);
+
+    // Second run brings home ONE more work; the durable set now holds BOTH.
+    // Its own results are empty (no NEW failures this run).
+    $success2 = yrHarvested('yrtest_new_book', ['title' => 'A Newly Harvested Work', 'author' => 'New, Author']);
+    $second = $svc->generate($root, 'YRTest Rerun', [], null, [$success1, $success2]);
     expect($second)->toBe($first); // same living report book
 
     // Exactly one report row for this root.
     expect(yrDb()->table('library')->where('creator', 'yrtest_user')->whereRaw("raw_json->>'report_of' = ?", [$root])->count())->toBe(1);
 
-    // The union carries BOTH runs: the original failure section stays, and the
-    // new success is added alongside the original success.
     $plain = yrDb()->table('nodes')->where('book', $first)->orderBy('startLine')->pluck('plainText')->implode("\n");
-    expect($plain)->toContain('Failed to Harvest');   // first run's failures preserved
+    expect($plain)->toContain('Failed to Harvest');            // run 1's failures preserved in the union
     expect($plain)->toContain('Harvested');
-    expect($plain)->toContain('A Newly Harvested Work'); // second run merged in
-    expect($plain)->toContain('Accumulation on a World Scale'); // first run's success still there
+    expect($plain)->toContain('A Newly Harvested Work');        // second durable success
+    expect($plain)->toContain('Accumulation on a World Scale'); // first durable success still shown
+    expect($plain)->toContain('The Rational Kernel');           // run 1's failure still listed
 });
 
-test('a later run UPGRADES a previously-failed canonical to harvested', function () {
+test('a durably-harvested work overrides a stale union failure (Failed → Harvested)', function () {
     $root = yrSeedBook(['title' => 'YRTest Upgrade', 'creator' => 'yrtest_user']);
     $svc = app(YieldReportBook::class);
 
-    $cid = (string) \Illuminate\Support\Str::uuid();
-    // First run: this canonical FAILED (cloudflare).
+    $cid = (string) Str::uuid();
+    // First run: this canonical FAILED (cloudflare) — recorded in the union.
     $svc->generate($root, 'YRTest Upgrade', [
         ['canonical_source_id' => $cid, 'title' => 'The Upgraded Text', 'author' => 'X', 'year' => 2019, 'type' => 'journal-article', 'status' => 'fetch_failed', 'reason' => 'cloudflare_block', 'via' => null, 'book' => null],
-    ]);
-    // Second run: SAME canonical now succeeds → moves Failed → Harvested.
-    $book = $svc->generate($root, 'YRTest Upgrade', [
-        ['canonical_source_id' => $cid, 'title' => 'The Upgraded Text', 'author' => 'X', 'year' => 2019, 'type' => 'journal-article', 'status' => 'assigned', 'reason' => null, 'via' => 'from europepmc.org', 'book' => 'yrtest_upgraded'],
+    ], null, []);
+
+    // Later: it's now durably harvested. Even though the union still records the
+    // failure and this call's results are empty, the report lists it as Harvested
+    // and drops it from Failed — durable truth wins.
+    $book = $svc->generate($root, 'YRTest Upgrade', [], null, [
+        yrHarvested('yrtest_upgraded', ['canonical_source_id' => $cid, 'title' => 'The Upgraded Text', 'author' => 'X', 'year' => 2019, 'type' => 'journal-article']),
     ]);
 
-    $html = yrDb()->table('nodes')->where('book', $book)->orderBy('startLine')->pluck('content')->implode("\n");
-    // It is now a harvested citation linking to the held version, not a failure.
+    $nodes = yrDb()->table('nodes')->where('book', $book)->orderBy('startLine')->get();
+    $html = $nodes->pluck('content')->implode("\n");
+    $plain = $nodes->pluck('plainText')->implode("\n");
+
+    // Now a harvested citation linking to the held version.
     expect($html)->toContain('href="/yrtest_upgraded"');
-    // The union has exactly one entry for that canonical (not duplicated).
+    // And it is NOT in a Failed section (the stale union failure is suppressed).
+    expect($plain)->not->toContain('Failed to Harvest');
+    // The union still physically carries the failure entry (durable state is the
+    // display authority, not a rewrite of history).
     $union = json_decode(yrDb()->table('library')->where('book', $book)->value('raw_json'), true)['cumulative_results'];
-    expect(collect($union)->where('canonical_source_id', $cid)->count())->toBe(1);
-    expect(collect($union)->firstWhere('canonical_source_id', $cid)['status'])->toBe('assigned');
+    expect(collect($union)->firstWhere('canonical_source_id', $cid)['status'])->toBe('fetch_failed');
 });
 
 test('a second failure REFRESHES the reason (latest attempt wins on equal rank)', function () {
     $root = yrSeedBook(['title' => 'YRTest Refresh', 'creator' => 'yrtest_user']);
     $svc = app(YieldReportBook::class);
 
-    $cid = (string) \Illuminate\Support\Str::uuid();
-    // First run: this canonical fails with reason X (a cloudflare wall), and the
-    // only link we had was a DOI.
+    $cid = (string) Str::uuid();
+    // First run: this canonical fails with reason X (a cloudflare wall), DOI-only.
     $svc->generate($root, 'YRTest Refresh', [
         ['canonical_source_id' => $cid, 'title' => 'The Stubborn Text', 'author' => 'X', 'year' => 2019, 'type' => 'journal-article', 'status' => 'fetch_failed', 'reason' => 'cloudflare_block', 'doi' => '10.1111/stubborn', 'oa_url' => null, 'pdf_url' => null, 'via' => null, 'book' => null],
     ]);
-    // Second run: SAME canonical fails AGAIN, but for a different reason Y and
-    // with a fresh open-access link discovered this time.
+    // Second run: SAME canonical fails AGAIN, different reason + a fresh OA link.
     $book = $svc->generate($root, 'YRTest Refresh', [
         ['canonical_source_id' => $cid, 'title' => 'The Stubborn Text', 'author' => 'X', 'year' => 2019, 'type' => 'journal-article', 'status' => 'deferred', 'reason' => 'found a copy but the file was corrupt', 'doi' => '10.1111/stubborn', 'oa_url' => 'https://repo.example/stubborn', 'pdf_url' => null, 'via' => null, 'book' => null],
     ]);
 
-    // The union carries exactly one entry for that canonical, and it reflects the
+    // The union carries exactly one entry for that canonical, reflecting the
     // SECOND attempt — status, reason and links all refreshed to the latest run.
     $union = json_decode(yrDb()->table('library')->where('book', $book)->value('raw_json'), true)['cumulative_results'];
     expect(collect($union)->where('canonical_source_id', $cid)->count())->toBe(1);
@@ -207,9 +274,10 @@ test('a second failure REFRESHES the reason (latest attempt wins on equal rank)'
 
 test('embeds the knowledge-network data table + 3D expand link', function () {
     $root = yrSeedBook(['title' => 'YRTest Network', 'creator' => 'yrtest_user']);
-    $results = yrResults($root); // modern shape, lineage fields present
+    $failures = yrFailures($root);                                   // union failures, with lineage
+    $success = yrHarvested('yrtest_held_book', ['parent_book' => $root, 'depth' => 1]); // durable success
 
-    $book = app(YieldReportBook::class)->generate($root, 'YRTest Network', $results);
+    $book = app(YieldReportBook::class)->generate($root, 'YRTest Network', $failures, null, [$success]);
     $nodes = yrDb()->table('nodes')->where('book', $book)->orderBy('startLine')->get();
 
     // The network node: a table carrying the data-chart marker the client
@@ -223,8 +291,8 @@ test('embeds the knowledge-network data table + 3D expand link', function () {
 
     // First body row is the ROOT (depth 0, status root, root title).
     expect($tableNode->content)->toMatch('/<tbody><tr><td>' . preg_quote($root, '/') . '<\/td><td><\/td><td>0<\/td><td>root<\/td><td>YRTest Network<\/td>/');
-    // One row per union entry, carrying its lineage + status + cited_by.
-    foreach ($results as $r) {
+    // One row per node (durable success + union failures), lineage + status.
+    foreach (array_merge([$success], $failures) as $r) {
         expect($tableNode->content)->toContain('<td>' . $r['canonical_source_id'] . '</td>'
             . '<td>' . $root . '</td><td>1</td><td>' . $r['status'] . '</td>');
     }
@@ -236,22 +304,20 @@ test('embeds the knowledge-network data table + 3D expand link', function () {
 
     // The expand link to the standalone 3D page.
     $html = $nodes->pluck('content')->implode("\n");
-    // Links to the book's corner of the docuverse with ALL layers preset
-    // (fresh harvest links are auto-matched citations).
     expect($html)->toContain('href="/3d/' . $root . '?layers=hypercite,citation_verified,citation_auto"');
 });
 
-test('legacy union entries without lineage still land in the network table (defaults)', function () {
+test('legacy union failures without lineage still land in the network table (defaults)', function () {
     $root = yrSeedBook(['title' => 'YRTest Legacy', 'creator' => 'yrtest_user']);
-    // Legacy shape: no depth / parent_book / cited_by_count (pre-lineage harvests).
-    $results = yrResults();
+    // Legacy shape: no depth / parent_book (pre-lineage harvests) on the failures.
+    $failures = yrFailures();
 
-    $book = app(YieldReportBook::class)->generate($root, 'YRTest Legacy', $results);
+    $book = app(YieldReportBook::class)->generate($root, 'YRTest Legacy', $failures, null, [yrHarvested()]);
     $tableNode = yrDb()->table('nodes')->where('book', $book)->where('type', 'table')->first();
 
     expect($tableNode)->not->toBeNull();
-    // Every entry defaults to depth 1, parented to the root — a 1-level fan.
-    foreach ($results as $r) {
+    // Every failure defaults to depth 1, parented to the root — a 1-level fan.
+    foreach ($failures as $r) {
         expect($tableNode->content)->toContain('<td>' . $r['canonical_source_id'] . '</td>'
             . '<td>' . $root . '</td><td>1</td>');
     }
@@ -274,7 +340,7 @@ test('purges a stale old-convention report for the same root', function () {
     yrDb()->table('shelves')->insert(['id' => $shelfId, 'creator' => 'yrtest_user', 'name' => 'YRTest Shelf', 'slug' => 'yrtest-shelf-' . Str::random(6), 'visibility' => 'private', 'default_sort' => 'recent', 'created_at' => now(), 'updated_at' => now()]);
     yrDb()->table('shelf_items')->insert(['shelf_id' => $shelfId, 'book' => $oldId, 'added_at' => now()]);
 
-    $newId = app(YieldReportBook::class)->generate($root, 'YRTest Purge', yrResults());
+    $newId = app(YieldReportBook::class)->generate($root, 'YRTest Purge', yrFailures(), null, [yrHarvested()]);
 
     expect($newId)->toBe('source-yield-report-' . $root);
     // The old report — row, nodes, and shelf item — is gone.

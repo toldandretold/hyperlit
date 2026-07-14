@@ -57,6 +57,85 @@ class HarvestEligibility
     }
 
     /**
+     * The DURABLE harvested network for a root book: every canonical reachable
+     * from the book's citations (recursively, through the version books it has
+     * already imported) that now carries an auto_version_book — i.e. everything
+     * that HAS been harvested, straight from the source of truth, independent of
+     * any run's bookkeeping. This is what the yield report lists as "Harvested":
+     * it self-heals across crashes and re-runs because it asks the database what
+     * exists, not what a run happened to record.
+     *
+     * A BFS mirror of the harvester's own frontier walk, but over durable state:
+     * book → its reached canonicals (harvested ones) → each one's version book →
+     * that book's reached canonicals → … The visited-book set guards cycles;
+     * walking until the frontier dries naturally respects the depth actually
+     * scanned (a depth-1 harvest never scanned its version books, so they cite
+     * nothing here and the walk stops). A hard cap bounds pathological networks.
+     *
+     * Each entry is shaped like a results-success row so the report renders it
+     * with no special-casing: canonical metadata + status 'assigned' +
+     * book (the version book) + parent_book + depth (BFS level, root = 0).
+     *
+     * @return array<int, array<string, mixed>> one entry per harvested canonical
+     */
+    public function harvestedNetworkFor(string $rootBook, int $maxBooks = 5000): array
+    {
+        $db = DB::connection('pgsql_admin');
+
+        $entries = [];        // canonical_source_id => entry (dedup: first/shallowest wins)
+        $visitedBooks = [$rootBook => true];
+        $frontier = [['book' => $rootBook, 'depth' => 0]];
+        $booksWalked = 0;
+
+        while ($frontier && $booksWalked < $maxBooks) {
+            $next = [];
+            foreach ($frontier as $node) {
+                $booksWalked++;
+                $harvested = $db->table('canonical_source as cs')
+                    ->whereIn('cs.id', $this->reachedCanonicalIdsSubquery($node['book']))
+                    ->whereNotNull('cs.auto_version_book')
+                    ->where('cs.auto_version_book', '!=', '')
+                    ->select('cs.*')
+                    ->get();
+
+                foreach ($harvested as $cs) {
+                    if (!isset($entries[$cs->id])) {
+                        $entries[$cs->id] = [
+                            'canonical_source_id' => $cs->id,
+                            'title'          => $cs->title ?? null,
+                            'author'         => $cs->author ?? null,
+                            'year'           => $cs->year ?? null,
+                            'journal'        => $cs->journal ?? null,
+                            'publisher'      => $cs->publisher ?? null,
+                            'type'           => $cs->type ?? null,
+                            'doi'            => $cs->doi ?? null,
+                            'openalex_id'    => $cs->openalex_id ?? null,
+                            'oa_url'         => $cs->oa_url ?? null,
+                            'pdf_url'        => $cs->pdf_url ?? null,
+                            'cited_by_count' => $cs->cited_by_count ?? null,
+                            'status'         => 'assigned',
+                            'reason'         => null,
+                            'via'            => null,
+                            'book'           => $cs->auto_version_book,
+                            'parent_book'    => $node['book'],
+                            'depth'          => $node['depth'] + 1,
+                        ];
+                    }
+                    // Descend into the version book's own citations (deeper harvest levels).
+                    $versionBook = $cs->auto_version_book;
+                    if ($versionBook && !isset($visitedBooks[$versionBook])) {
+                        $visitedBooks[$versionBook] = true;
+                        $next[] = ['book' => $versionBook, 'depth' => $node['depth'] + 1];
+                    }
+                }
+            }
+            $frontier = $next;
+        }
+
+        return array_values($entries);
+    }
+
+    /**
      * Pure-SQL estimate for the confirm dialog. Before the first scan has
      * run, most entries are unresolved — the dialog copy must say so rather
      * than promising a number.

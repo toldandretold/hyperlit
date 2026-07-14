@@ -81,7 +81,10 @@ test('charges each imported work and stops gracefully at the spend cap', functio
 
     // Scan is a no-op; eligibility hands back our three canonicals.
     Artisan::shouldReceive('call')->andReturn(0);
-    $this->mock(HarvestEligibility::class, fn ($m) => $m->shouldReceive('eligibleCanonicalsFor')->andReturn($eligible));
+    $this->mock(HarvestEligibility::class, function ($m) use ($eligible) {
+        $m->shouldReceive('eligibleCanonicalsFor')->andReturn($eligible);
+        $m->shouldReceive('harvestedNetworkFor')->andReturn([]); // finalize's durable query
+    });
     $this->mock(AutoVersionCreator::class, fn ($m) => $m->shouldReceive('create')->andReturn([
         'status' => 'assigned', 'book' => 'apitest_hrun_v' . Str::random(5), 'reason' => null, 'via' => null, 'lane' => null,
     ]));
@@ -110,7 +113,10 @@ test('a cancel request stops the run before any work and returns cancelled', fun
 
     // The cancel check fires at the frontier top, before scan/select — so the
     // eligibility scan and any charge must never run.
-    $this->mock(HarvestEligibility::class, fn ($m) => $m->shouldReceive('eligibleCanonicalsFor')->never());
+    $this->mock(HarvestEligibility::class, function ($m) {
+        $m->shouldReceive('eligibleCanonicalsFor')->never();
+        $m->shouldReceive('harvestedNetworkFor')->andReturn([]); // finalize's durable query
+    });
     $this->mock(BillingService::class, fn ($m) => $m->shouldReceive('billOcrForBook')->never());
     $this->mock(HarvestShelf::class, fn ($m) => $m->shouldReceive('ensureShelfFor')->andReturnNull());
 
