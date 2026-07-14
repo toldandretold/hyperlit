@@ -23,9 +23,15 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Idempotent: dev DBs restored from a dump may already carry these
+        // columns without this migration being recorded as run.
         Schema::table('library', function (Blueprint $table) {
-            $table->string('completeness', 20)->nullable()->after('work_license');
-            $table->text('completeness_reason')->nullable()->after('completeness');
+            if (!Schema::hasColumn('library', 'completeness')) {
+                $table->string('completeness', 20)->nullable()->after('work_license');
+            }
+            if (!Schema::hasColumn('library', 'completeness_reason')) {
+                $table->text('completeness_reason')->nullable()->after('completeness');
+            }
         });
     }
 

@@ -29,28 +29,26 @@ use Illuminate\Support\Facades\Mail;
  * so an explicit user re-trigger beats automatic retries against
  * rate-limited publishers.
  *
- * timeout = 0 (UNBOUNDED): a full commons harvest walks dozens–hundreds of
- * works, each needing an OA fetch (the Cloudflare ladder alone can burn minutes
- * per work) + OCR + politeness sleeps, and it repeatedly DEFERS works whose
- * conversion hasn't landed yet — so a run legitimately spans many hours. Any
- * fixed cap (was 7200s/2h) eventually SIGALRM-kills a healthy run mid-frontier.
- * The job's own timeout overrides the worker's --timeout, so this is exempt
- * without weakening the 7200s cap on the CitationPipelineJobs sharing the queue.
+ * SLICED EXECUTION — a harvest can run indefinitely, but no single JOB does:
+ * the runner works until its slice budget (source_harvest.slice_seconds,
+ * default 900s) elapses, persists a bookmark on the harvest row and returns
+ * 'sliced'; handle() then re-dispatches this job to continue. So a full
+ * commons harvest (dozens–hundreds of works, each an OA fetch + OCR) is a
+ * CHAIN of short queue jobs — deploy-friendly (`queue:restart` waits ≤ one
+ * slice, never hours) and safely under the DB queue's retry_after=7500s
+ * (a slice only outlives 900s by the one in-flight work).
  *
- * WHY 0 IS SAFE HERE (no double-run despite retry_after=7500s): the DB queue's
- * retry_after only bites when a SECOND worker re-reserves a job the first is
- * still running. `citation-pipeline` has exactly one consumer — the dedicated
- * hyperlit-citation Supervisor program at numprocs=1 — and a serial worker
- * cannot re-poll the job it's blocked inside handle() on. ⚠️ If you ever raise
- * that worker's numprocs (or add another consumer of this queue), you MUST also
- * raise config/queue.php `retry_after` above the longest expected harvest, or a
- * parallel worker will re-reserve the live run and tries=1 will mark it failed.
+ * $timeout below is therefore a PER-SLICE backstop, not a harvest ceiling: it
+ * only fires when a single work pathologically outruns the whole 2 h budget.
+ * If it (or any crash) kills a slice, failed() still finalizes the shelf +
+ * yield report from the row's persisted state, marked partial — and a user
+ * re-trigger resumes from the bookmark, upgrading the report in place.
  */
 class SourceNetworkHarvestJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $timeout = 0; // unbounded — see class docblock (multi-hour harvests)
+    public int $timeout = 7200; // per-SLICE backstop, not the whole harvest — see docblock
     public int $tries = 1;
 
     public function __construct(private string $harvestId)
@@ -68,9 +66,20 @@ class SourceNetworkHarvestJob implements ShouldQueue
             ->update(['status' => 'running', 'error' => null, 'updated_at' => now()]);
 
         // The runner returns 'cancelled' when the user cancelled mid-run (it
-        // still finalized the shelf + yield report for the partial run) or
-        // 'completed' otherwise — a budget stop finalizes normally as completed.
+        // still finalized the shelf + yield report for the partial run),
+        // 'sliced' when the slice budget elapsed with frontier work remaining,
+        // or 'completed' otherwise — a budget stop finalizes normally as completed.
         $outcome = $runner->run($this->harvestId);
+
+        if ($outcome === 'sliced') {
+            // Chain the next slice: the row keeps status 'running' (the live
+            // progress panel keeps polling seamlessly) and no mail is sent —
+            // only the LAST slice reaches the terminal path below.
+            Log::info('SourceNetworkHarvestJob slice done — chaining next slice', ['harvest' => $this->harvestId]);
+            self::dispatch($this->harvestId);
+
+            return;
+        }
 
         DB::connection('pgsql_admin')
             ->table('source_network_harvests')
@@ -93,6 +102,23 @@ class SourceNetworkHarvestJob implements ShouldQueue
             'harvest' => $this->harvestId,
             'error'   => $e->getMessage(),
         ]);
+
+        // Ship the report for whatever the run DID gather before dying:
+        // results persist per-work, so finalize() rebuilds shelf + yield
+        // report from the row alone, marked partial. A re-run then resumes
+        // from the bookmark and upgrades the report in place. Best-effort —
+        // a finalize error must never mask the original failure.
+        try {
+            app(HarvestRunner::class)->finalize(
+                $this->harvestId,
+                'This harvest run died partway (' . $e->getMessage() . ').',
+            );
+        } catch (\Throwable $finalizeErr) {
+            Log::warning('Harvest crash-finalize failed', [
+                'harvest' => $this->harvestId,
+                'error'   => $finalizeErr->getMessage(),
+            ]);
+        }
 
         DB::connection('pgsql_admin')
             ->table('source_network_harvests')

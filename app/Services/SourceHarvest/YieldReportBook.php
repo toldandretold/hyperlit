@@ -34,8 +34,11 @@ class YieldReportBook
      * live on — same rule as the shelf).
      *
      * @param array<int, array<string, mixed>> $results per-work outcomes
+     * @param string|null $note crash-path warning (HarvestRunner::finalize) —
+     *   rendered at the top of the report but NOT persisted into the union, so
+     *   the next successful run regenerates the report without it.
      */
-    public function generate(string $rootBook, string $rootTitle, array $results): ?string
+    public function generate(string $rootBook, string $rootTitle, array $results, ?string $note = null): ?string
     {
         $db = DB::connection('pgsql_admin');
 
@@ -73,7 +76,7 @@ class YieldReportBook
 
         // Rebuild the nodes from the full union (not just this run).
         $db->table('nodes')->where('book', $bookId)->delete();
-        $blocks = $this->buildBlocks($rootBook, $rootTitle, $failures, $successes, $overBudget, $union);
+        $blocks = $this->buildBlocks($rootBook, $rootTitle, $failures, $successes, $overBudget, $union, $note);
         $this->insertNodes($db, $bookId, $blocks);
 
         // Persist the union back onto the report row so the next run accumulates.
@@ -196,7 +199,7 @@ class YieldReportBook
      *
      * @return array<int, array{0: string, 1: string}>
      */
-    private function buildBlocks(string $rootBook, string $rootTitle, array $failures, array $successes, array $overBudget = [], array $union = []): array
+    private function buildBlocks(string $rootBook, string $rootTitle, array $failures, array $successes, array $overBudget = [], array $union = [], ?string $note = null): array
     {
         $got = count($successes);
         $lost = count($failures);
@@ -217,6 +220,15 @@ class YieldReportBook
                 . ' went untried when the spending limit was reached.';
         }
         $blocks[] = ['p', $intro];
+
+        // Crash-path warning (see generate()): the harvest died partway, but
+        // everything gathered up to that point is recorded below. Transient by
+        // design — the next run rebuilds the blocks without it.
+        if ($note !== null && $note !== '') {
+            $blocks[] = ['p', '<strong>⚠️ Partial harvest:</strong> ' . $this->e($note)
+                . ' Everything gathered before the interruption is recorded below — '
+                . 'run the harvest again and it will pick up where it left off; this report updates in place.'];
+        }
 
         // The knowledge network the harvest built, as a fork tree. Stored as a
         // plain data table (the sanitizer blocks <svg> in node content); the

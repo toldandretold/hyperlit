@@ -24,6 +24,15 @@ use Illuminate\Support\Facades\Log;
  * excludes already-versioned canonicals and AutoVersionCreator wires
  * pointers from prior partial runs without fetching.
  *
+ * SLICED EXECUTION: run() works until the frontier drains OR the slice budget
+ * (source_harvest.slice_seconds) elapses, then persists a bookmark — the
+ * remaining frontier, with the current book's un-attempted works parked as a
+ * `resume_ids` entry at the front — and returns 'sliced'. The job re-dispatches
+ * itself, so an arbitrarily long harvest is a chain of short queue jobs; only
+ * the LAST slice finalizes (shelf + yield report). finalize() rebuilds wholly
+ * from the row's persisted state, so the job's failed() hook can also ship a
+ * partial-marked report after a crash.
+ *
  * All writes go through pgsql_admin (queue-worker RLS posture); the HTTP
  * controller's owner check is the authorization boundary.
  */
@@ -37,7 +46,7 @@ class HarvestRunner
     ) {
     }
 
-    /** @return string terminal outcome: 'completed' | 'cancelled' */
+    /** @return string outcome: 'completed' | 'cancelled' (terminal) | 'sliced' (re-dispatch to continue) */
     public function run(string $harvestId): string
     {
         $db = DB::connection('pgsql_admin');
@@ -67,6 +76,18 @@ class HarvestRunner
         $maxDepth = (int) $harvest->max_depth;
         $maxWorks = (int) $harvest->max_works;
         $sleep = (int) config('source_harvest.sleep_between_works', 2);
+
+        // Slice budget — see the class docblock. $didWork is the progress
+        // guard: a slice may only end after at least one unit of real work
+        // (a bibliography scan or a work attempt), so the slice chain always
+        // advances even when a single unit outruns the deadline.
+        $sliceSeconds = (float) config('source_harvest.slice_seconds', 900);
+        $sliceDeadline = $sliceSeconds > 0 ? microtime(true) + $sliceSeconds : null;
+        $didWork = false;
+        $sliced = false;
+        $sliceDue = function () use ($sliceDeadline, &$didWork): bool {
+            return $sliceDeadline !== null && $didWork && microtime(true) >= $sliceDeadline;
+        };
 
         // Billing: the harvest owner pays per-work OCR (pay-as-you-go) up to an
         // optional max_spend cap. Load the owner via the admin connection (the
@@ -131,15 +152,28 @@ class HarvestRunner
             ], $extra));
         };
 
-        $harvestedBooks = []; // assigned this run — collected onto the harvest shelf at the end
-
         while (($entry = array_shift($frontier)) !== null) {
             $book = $entry['book'] ?? null;
             $depth = (int) ($entry['depth'] ?? 0);
-            if (!$book || in_array($book, $visited, true)) {
+            // A resume entry re-enters a book whose work batch a previous slice
+            // left unfinished: bypass the visited guard and skip the
+            // (already-done) bibliography scan, processing only the parked ids.
+            $resumeIds = $entry['resume_ids'] ?? null;
+            if (!$book || ($resumeIds === null && in_array($book, $visited, true))) {
                 continue;
             }
-            $visited[] = $book;
+
+            // Slice boundary between books: park this entry back at the front
+            // untouched and hand off to the next slice.
+            if ($sliceDue()) {
+                array_unshift($frontier, $entry);
+                $sliced = true;
+                break;
+            }
+
+            if (!in_array($book, $visited, true)) {
+                $visited[] = $book;
+            }
 
             // Stop between books (cancel is the case that matters here; the
             // spend cap is enforced per-work below). Break to the finalize step.
@@ -147,16 +181,19 @@ class HarvestRunner
                 break;
             }
 
-            // ---- Stage 1: resolve this book's citations to canonicals ----
-            $persist(['step' => 'scan', 'step_detail' => "Scanning bibliography (depth {$depth})"]);
-            $telemetry->emit('scan', 'started', "Scanning bibliography of {$book} (depth {$depth})");
+            if ($resumeIds === null) {
+                // ---- Stage 1: resolve this book's citations to canonicals ----
+                $persist(['step' => 'scan', 'step_detail' => "Scanning bibliography (depth {$depth})"]);
+                $telemetry->emit('scan', 'started', "Scanning bibliography of {$book} (depth {$depth})");
 
-            $exit = Artisan::call('citation:scan-bibliography', ['target' => $book]);
-            if ($exit !== 0) {
-                $telemetry->emit('scan', 'failed', "citation:scan-bibliography exited {$exit}");
-                throw new \RuntimeException("citation:scan-bibliography exited {$exit} for {$book}");
+                $exit = Artisan::call('citation:scan-bibliography', ['target' => $book]);
+                if ($exit !== 0) {
+                    $telemetry->emit('scan', 'failed', "citation:scan-bibliography exited {$exit}");
+                    throw new \RuntimeException("citation:scan-bibliography exited {$exit} for {$book}");
+                }
+                $telemetry->emit('scan', 'completed');
+                $didWork = true;
             }
-            $telemetry->emit('scan', 'completed');
 
             // ---- Stage 2: pick eligible canonicals under the remaining budget ----
             $persist(['step' => 'select', 'step_detail' => 'Choosing fetchable open-access works']);
@@ -171,7 +208,15 @@ class HarvestRunner
             }
 
             $eligible = $this->eligibility->eligibleCanonicalsFor($book);
-            $counts['eligible'] += $eligible->count();
+            if ($resumeIds !== null) {
+                // Resume: only the parked, still-eligible works (a work that
+                // got versioned between slices drops out here). Counted as
+                // eligible by the slice that first selected them.
+                $eligible = $eligible->whereIn('id', $resumeIds)->values();
+                $telemetry->emit('select', 'progress', 'resuming ' . $eligible->count() . ' work(s) parked by the previous slice');
+            } else {
+                $counts['eligible'] += $eligible->count();
+            }
 
             if ($eligible->count() > $budget) {
                 // Most-cited-first ordering means the cap drops the tail.
@@ -191,6 +236,20 @@ class HarvestRunner
 
             // ---- Stage 3: fetch + convert each work ----
             foreach ($eligible->values() as $i => $row) {
+                // Slice boundary BEFORE attempting the work: park the
+                // un-attempted remainder of this batch as a resume entry at
+                // the frontier front, so the next slice continues exactly here
+                // (no re-scan, no double-attempt).
+                if ($sliceDue()) {
+                    array_unshift($frontier, [
+                        'book'       => $book,
+                        'depth'      => $depth,
+                        'resume_ids' => $eligible->values()->slice($i)->pluck('id')->all(),
+                    ]);
+                    $sliced = true;
+                    break;
+                }
+
                 // Stop BEFORE attempting the work: cancelled, or the spend cap /
                 // balance is reached. On a budget stop, record this batch's
                 // remainder as skipped_over_budget so the yield report lists what
@@ -220,6 +279,7 @@ class HarvestRunner
                 $persist(['step' => 'harvest', 'step_detail' => "Importing work {$label}"]);
 
                 $counts['attempted']++;
+                $didWork = true;
 
                 try {
                     $canonical = CanonicalSource::find($row->id);
@@ -247,9 +307,9 @@ class HarvestRunner
                         array_filter(['lane' => $result['lane']])
                     );
 
-                    if (in_array($status, ['assigned', 'assigned_existing'], true) && $result['book']) {
-                        $harvestedBooks[] = $result['book'];
-                    }
+                    // (Shelving no longer tracks an in-memory list — finalize()
+                    // derives the assigned books from the persisted results, so
+                    // a crash or slice boundary loses nothing.)
 
                     // Bill the OCR for a FRESHLY imported work. 'assigned' = a new
                     // fetch+convert this run; 'assigned_existing' wired an already-
@@ -314,6 +374,10 @@ class HarvestRunner
                 }
             }
 
+            if ($sliced) {
+                break; // mid-batch slice — bookmark is on the frontier, exit to the slice return
+            }
+
             $telemetry->emit('harvest', 'completed', null, [
                 'assigned' => $counts['assigned'] + $counts['assigned_existing'],
                 'attempted' => $counts['attempted'],
@@ -325,6 +389,16 @@ class HarvestRunner
             }
         }
 
+        if ($sliced) {
+            // Not a terminal outcome: flush the bookmark and hand back to the
+            // job, which re-dispatches a fresh slice. Finalize (shelf + yield
+            // report) is deliberately skipped — the LAST slice runs it, and a
+            // crash between slices still ships a report via the job's
+            // failed() → finalize().
+            $persist(['step' => 'sliced', 'step_detail' => 'Pausing — continuing in a fresh worker slice']);
+            return 'sliced';
+        }
+
         if ($stopReason === 'over_budget') {
             $telemetry->emit('harvest', 'progress',
                 "Spending limit reached — stopped with {$counts['skipped_over_budget']} work(s) left for a rerun");
@@ -332,13 +406,56 @@ class HarvestRunner
             $telemetry->emit('harvest', 'skipped', 'Harvest cancelled');
         }
 
-        // ---- Shelf + yield report: collect this run's sources onto the
-        // harvest shelf AND write the Source Yield Report (what we could and
-        // couldn't pull). Runs whenever ANY work was attempted — so even a
-        // 0-import run still produces a shelf carrying a useful report — or
-        // when a shelf from a prior run already exists.
+        // Flush the loop's final state so finalize() (which reads only the
+        // row) sees everything, then finalize and clear the step marker.
+        $persist();
+        $this->finalize($harvestId);
+        $persist(['step' => null, 'step_detail' => null]);
+
+        return $stopReason === 'cancelled' ? 'cancelled' : 'completed';
+    }
+
+    /**
+     * Shelf + yield report finalization, rebuilt ENTIRELY from the harvest
+     * row's persisted state (results/counts are flushed after every work), so
+     * it serves two callers: the natural end of a run, and the job's failed()
+     * hook after a crash — the "always ship a report for whatever we got"
+     * guarantee. $failureNote (crash path) renders as a warning at the top of
+     * the report; a later successful re-run regenerates the report in place
+     * and clears it. Never throws: a shelf/report failure must not fail (or
+     * mask the failure of) the harvest itself.
+     *
+     * Runs whenever ANY work was attempted — so even a 0-import run still
+     * produces a shelf carrying a useful report — or when a shelf from a
+     * prior run already exists.
+     */
+    public function finalize(string $harvestId, ?string $failureNote = null): void
+    {
+        $db = DB::connection('pgsql_admin');
+        $harvest = $db->table('source_network_harvests')->where('id', $harvestId)->first();
+        if (!$harvest) {
+            return;
+        }
+
+        $telemetry = new HarvestTelemetry($harvestId);
+        $results = json_decode($harvest->results ?? '[]', true) ?: [];
+        $counts = json_decode($harvest->counts ?? '{}', true) ?: [];
+
+        // Books assigned across ALL slices of this run, derived from the
+        // persisted per-work outcomes. addBooks() upserts, so re-shelving a
+        // prior slice's books on each finalize is harmless.
+        $harvestedBooks = array_values(array_unique(array_filter(array_map(
+            fn ($r) => in_array($r['status'] ?? '', ['assigned', 'assigned_existing'], true)
+                ? ($r['book'] ?? null) : null,
+            $results
+        ))));
+
         if (!empty($results) || !empty($harvest->shelf_id)) {
-            $persist(['step' => 'shelf', 'step_detail' => 'Collecting sources + writing the yield report']);
+            $db->table('source_network_harvests')->where('id', $harvestId)->update([
+                'step'        => 'shelf',
+                'step_detail' => 'Collecting sources + writing the yield report',
+                'updated_at'  => now(),
+            ]);
             $telemetry->emit('shelf', 'started', 'Collecting sources onto your shelf');
             try {
                 $shelfInfo = $this->shelf->ensureShelfFor($harvest->root_book);
@@ -347,7 +464,7 @@ class HarvestRunner
                         ?: $harvest->root_book;
 
                     // Write the yield report and shelve it alongside the sources.
-                    $reportBook = $this->report->generate($harvest->root_book, $rootTitle, $results);
+                    $reportBook = $this->report->generate($harvest->root_book, $rootTitle, $results, $failureNote);
                     $shelfBooks = array_values(array_filter(array_merge($harvestedBooks, [$reportBook])));
                     $this->shelf->addBooks($shelfInfo->id, $shelfBooks);
 
@@ -355,7 +472,8 @@ class HarvestRunner
                         ->where('id', $harvestId)
                         ->update(['shelf_id' => $shelfInfo->id, 'report_book' => $reportBook, 'updated_at' => now()]);
 
-                    $failed = max(0, $counts['attempted'] - $counts['assigned'] - $counts['assigned_existing']);
+                    $failed = max(0, (int) ($counts['attempted'] ?? 0)
+                        - (int) ($counts['assigned'] ?? 0) - (int) ($counts['assigned_existing'] ?? 0));
                     $telemetry->emit(
                         'shelf',
                         'completed',
@@ -385,10 +503,6 @@ class HarvestRunner
         $db->table('library')
             ->where('book', $harvest->root_book)
             ->update(['annotations_updated_at' => round(microtime(true) * 1000)]);
-
-        $persist(['step' => null, 'step_detail' => null]);
-
-        return $stopReason === 'cancelled' ? 'cancelled' : 'completed';
     }
 
     /**

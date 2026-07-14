@@ -26,6 +26,14 @@ return [
     // Politeness gap between per-work fetch+convert cycles (seconds).
     'sleep_between_works' => env('SOURCE_HARVEST_SLEEP', 2),
 
+    // Slice budget (seconds): HarvestRunner::run() stops at the first work
+    // boundary past this and returns 'sliced'; the job re-dispatches itself to
+    // continue from the persisted bookmark. Keeps every queue job short
+    // (deploy-friendly — queue:restart waits one slice, not hours) while the
+    // harvest as a whole can run indefinitely. <= 0 disables slicing (one
+    // unbounded run). Read as a float so tests can use sub-second slices.
+    'slice_seconds' => env('SOURCE_HARVEST_SLICE_SECONDS', 900),
+
     // Rough average pages per fetched work, used ONLY for the pre-run cost
     // estimate on the approve form (a real page count is unknowable until each
     // PDF is fetched + OCR'd). The spend cap — not this guess — is the actual
