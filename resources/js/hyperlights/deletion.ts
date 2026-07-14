@@ -316,16 +316,19 @@ export async function reprocessHighlightsForNodes(bookId: BookId, affectedIDnume
         if (nodeHighlights.length === 0) {
           // No highlights left - remove all marks. Use unwrapMark (preserves children), NOT a
           // mark→textContent replace: a <mark> may WRAP a hypercite <u>, and flattening to text
-          // would drop the cite. Then re-apply any hypercites so a cite-bearing node keeps its
-          // <u> when its last highlight is deleted (deep-links to that cite must still resolve).
+          // would drop the cite. Then rebuild the hypercite <u>s from the FRESH data: unwrap
+          // the existing ones UNCONDITIONALLY (a cite removed by a gate change / re-sync must
+          // disappear — the old length>0 guard left stale underlines until reload) and re-apply
+          // whatever the current arrays say (applyHypercites gate-filters internally, so a
+          // cite-bearing node still keeps its <u> when its last highlight is deleted).
           const nodeHypercites = nodeData.hypercites || [];
           nodeElement.querySelectorAll('mark[class*="HL_"]').forEach(mark => {
             unwrapMark(mark);
             mark.parentNode?.normalize();
           });
+          nodeElement.querySelectorAll('u[id^="hypercite_"]').forEach(u => unwrapElement(u));
+          nodeElement.normalize();
           if (nodeHypercites.length > 0) {
-            nodeElement.querySelectorAll('u[id^="hypercite_"]').forEach(u => unwrapElement(u));
-            nodeElement.normalize();
             const { applyHypercites } = await import('../lazyLoader/index');
             nodeElement.innerHTML = applyHypercites(nodeElement.innerHTML, nodeHypercites);
           }

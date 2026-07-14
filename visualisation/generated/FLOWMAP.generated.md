@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1665 functions in 356 modules · 10 object stores · 10 PG tables · 3372 edges
+**MarkdownDB** schema v28 · 1668 functions in 356 modules · 10 object stores · 10 PG tables · 3377 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -531,10 +531,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `extractFileMetadata` | `components/utilities/fileMetadataExtractor` | — | — | read | — |
 | `appendGateParam` | `components/utilities/gateFilter` | — | — | — | — |
 | `applyGateFilter` | `components/utilities/gateFilter` | `sessionStorage` | — | — | — |
+| `clearPinnedHypercites` | `components/utilities/gateFilter` | — | `sessionStorage` | — | — |
 | `gateQueryParam` | `components/utilities/gateFilter` | `localStorage` | — | — | — |
 | `getBookGateDefaults` | `components/utilities/gateFilter` | — | — | — | — |
 | `getGateSettings` | `components/utilities/gateFilter` | `localStorage` | — | — | — |
 | `getPinnedHyperciteIds` | `components/utilities/gateFilter` | `sessionStorage` | — | — | — |
+| `isAiCreator` | `components/utilities/gateFilter` | — | — | — | — |
+| `normalizeGateFlags` | `components/utilities/gateFilter` | — | — | — | — |
 | `pinHypercite` | `components/utilities/gateFilter` | `sessionStorage` | `sessionStorage` | — | — |
 | `pinnedQueryParam` | `components/utilities/gateFilter` | `sessionStorage` | — | — | — |
 | `reapplyAnnotationsWithGate` | `components/utilities/gateFilter` | — | — | read | — |

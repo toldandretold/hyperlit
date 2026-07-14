@@ -542,18 +542,27 @@ class DatabaseToIndexedDBController extends Controller
         // Pinned exemption only applies to hypercites (deep-link targets navigated by id).
         $pinned = ($type === 'hypercite') ? $pinnedIds : [];
 
+        // Co-author escape (hypercites only): the AI Archivist stamps its cites
+        // creator='AIarchivist' with the ASKING user in access_granted as co-author —
+        // those are "the user's own" for every always-show rule.
+        $coAuthor = ($type === 'hypercite' && $user) ? $user->name : null;
+
         // "hideAll" — exclude everything except the user's own rows (and pinned deep-link targets)
         if ($gate['mode'] === 'hideAll') {
-            $query->where(function ($q) use ($user, $anonToken, $pinned) {
+            $query->where(function ($q) use ($user, $anonToken, $pinned, $coAuthor) {
                 $q->whereRaw('1 = 0'); // exclude everything...
                 if ($user) $q->orWhere('creator', $user->name);
                 if ($anonToken) $q->orWhere('creator_token', $anonToken);
+                if ($coAuthor) $q->orWhereRaw('"access_granted" ->> ? IS NOT NULL', [$coAuthor]);
                 if (!empty($pinned)) $q->orWhereIn('hyperciteId', $pinned);
             });
             return;
         }
 
-        // Determine which restrictions to apply
+        // Determine which restrictions to apply — flags are PER-TYPE (the settings panel
+        // has a Highlights column and a Hypercites column). normalizeGateFlags() accepts
+        // both the nested shape ({hyperlight:{...}, hypercite:{...}}) and the legacy flat
+        // shape ({hideAI,...} → applies to both types).
         $hideAI = false;
         $hideAnonymous = false;
         $hideNoAnnotation = false;
@@ -562,37 +571,49 @@ class DatabaseToIndexedDBController extends Controller
             // Prefer client-provided bookDefaults (avoids race with async DB save)
             $effectiveDefaults = $gate['bookDefaults'] ?? $bookGateDefaults;
             if ($effectiveDefaults !== null) {
-                // Book creator has set custom defaults — apply to both types
-                $hideAI = $effectiveDefaults['hideAI'] ?? false;
-                $hideAnonymous = $effectiveDefaults['hideAnonymous'] ?? false;
-                $hideNoAnnotation = $effectiveDefaults['hideNoAnnotation'] ?? false;
+                $flags = $this->normalizeGateFlags($effectiveDefaults, $type);
             } else {
-                // Global default: hide AI for BOTH types; hide empty-annotation for hyperlights
-                // only (hideNoAnnotation is type-guarded below — hypercites have no annotation).
-                $hideAI = true;
-                $hideNoAnnotation = true;
+                // Global default DIFFERS per type: hyperlights hide AI + empty-annotation;
+                // hypercites hide AI + ANONYMOUS — an anonymous cite is a navigation funnel
+                // (it can lead readers to spam/trash books), unlike an anonymous highlight
+                // which is just an in-place mark. (See also the always-on singles/citedIN
+                // rules in getHypercites.)
+                $flags = $type === 'hypercite'
+                    ? ['hideAI' => true, 'hideAnonymous' => true, 'hideNoAnnotation' => false]
+                    : ['hideAI' => true, 'hideAnonymous' => false, 'hideNoAnnotation' => true];
             }
+            $hideAI = $flags['hideAI'];
+            $hideAnonymous = $flags['hideAnonymous'];
+            $hideNoAnnotation = $flags['hideNoAnnotation'];
         } elseif ($gate['mode'] === 'custom') {
-            $hideAI = $gate['custom']['hideAI'] ?? false;
-            $hideAnonymous = $gate['custom']['hideAnonymous'] ?? false;
-            $hideNoAnnotation = $gate['custom']['hideNoAnnotation'] ?? false;
+            $flags = $this->normalizeGateFlags($gate['custom'] ?? [], $type);
+            $hideAI = $flags['hideAI'];
+            $hideAnonymous = $flags['hideAnonymous'];
+            $hideNoAnnotation = $flags['hideNoAnnotation'];
         }
 
         if ($hideAI) {
-            $query->where(function ($q) use ($user, $anonToken, $pinned) {
-                $q->where('creator', 'NOT LIKE', 'AIreview:%');
+            // AI creators: 'AIreview:%' (citation review — highlights) and 'AIarchivist%'
+            // (the AI Archivist — the one that mints hypercites).
+            $query->where(function ($q) use ($user, $anonToken, $pinned, $coAuthor) {
+                $q->where(function ($notAi) {
+                    $notAi->where('creator', 'NOT LIKE', 'AIreview:%')
+                          ->where('creator', 'NOT LIKE', 'AIarchivist%');
+                });
                 $q->orWhereNull('creator');
                 if ($user) $q->orWhere('creator', $user->name);
                 if ($anonToken) $q->orWhere('creator_token', $anonToken);
+                if ($coAuthor) $q->orWhereRaw('"access_granted" ->> ? IS NOT NULL', [$coAuthor]);
                 if (!empty($pinned)) $q->orWhereIn('hyperciteId', $pinned);
             });
         }
 
         if ($hideAnonymous) {
-            $query->where(function ($q) use ($user, $anonToken, $pinned) {
+            $query->where(function ($q) use ($user, $anonToken, $pinned, $coAuthor) {
                 $q->whereNotNull('creator');
                 if ($user) $q->orWhere('creator', $user->name);
                 if ($anonToken) $q->orWhere('creator_token', $anonToken);
+                if ($coAuthor) $q->orWhereRaw('"access_granted" ->> ? IS NOT NULL', [$coAuthor]);
                 if (!empty($pinned)) $q->orWhereIn('hyperciteId', $pinned);
             });
         }
@@ -613,6 +634,29 @@ class DatabaseToIndexedDBController extends Controller
                 if ($anonToken) $q->orWhere('creator_token', $anonToken);
             });
         }
+    }
+
+    /**
+     * Normalize a gate flag object to the {hideAI, hideAnonymous, hideNoAnnotation} triple
+     * for ONE annotation type. Accepts the nested per-type shape the two-column settings
+     * panel writes ({hyperlight: {...}, hypercite: {...}}) AND the legacy flat shape
+     * ({hideAI, ...} — pre-split settings/gate_defaults, applied to both types).
+     */
+    private function normalizeGateFlags($flags, string $type): array
+    {
+        $empty = ['hideAI' => false, 'hideAnonymous' => false, 'hideNoAnnotation' => false];
+        if (!is_array($flags)) return $empty;
+
+        if (array_key_exists('hyperlight', $flags) || array_key_exists('hypercite', $flags)) {
+            $flags = $flags[$type] ?? [];
+            if (!is_array($flags)) return $empty;
+        }
+
+        return [
+            'hideAI' => (bool) ($flags['hideAI'] ?? false),
+            'hideAnonymous' => (bool) ($flags['hideAnonymous'] ?? false),
+            'hideNoAnnotation' => (bool) ($flags['hideNoAnnotation'] ?? false),
+        ];
     }
 
     /**
@@ -800,7 +844,11 @@ class DatabaseToIndexedDBController extends Controller
         $query->where(function ($q) use ($user, $anonymousToken, $pinned) {
             $q->whereNull('relationshipStatus')
               ->orWhere('relationshipStatus', '!=', 'single');
-            if ($user) $q->orWhere('creator', $user->name);
+            if ($user) {
+                $q->orWhere('creator', $user->name);
+                // co-author grant (e.g. the AI Archivist cites on the asking user's behalf)
+                $q->orWhereRaw('"access_granted" ->> ? IS NOT NULL', [$user->name]);
+            }
             if ($anonymousToken) $q->orWhere('creator_token', $anonymousToken);
             if (!empty($pinned)) $q->orWhereIn('hyperciteId', $pinned);
         });
@@ -815,6 +863,14 @@ class DatabaseToIndexedDBController extends Controller
                     $isUserHypercite = $user && $hypercite->creator === $user->name;
                 } elseif ($hypercite->creator_token ?? null) {
                     $isUserHypercite = $anonymousToken && $hypercite->creator_token === $anonymousToken;
+                }
+                // Co-author grant counts as ownership: the AI Archivist mints cites with
+                // creator='AIarchivist' + access_granted={askingUser: 'co-author'} — every
+                // always-show escape (gate, singles, citedIN pass, client mirror) keys off
+                // is_user_hypercite, so the grant flows through them all.
+                if (!$isUserHypercite && $user) {
+                    $granted = json_decode($hypercite->access_granted ?? 'null', true);
+                    $isUserHypercite = is_array($granted) && array_key_exists($user->name, $granted);
                 }
 
                 return [
@@ -835,7 +891,112 @@ class DatabaseToIndexedDBController extends Controller
             })
             ->toArray();
 
-        return $hypercites;
+        // ALWAYS-ON citedIN privacy pass: entries pointing at books this viewer cannot
+        // see are stripped (they leak private/deleted book ids and navigate to a 403);
+        // a cite whose EVERY citation is invisible is effectively a 'single' for this
+        // viewer and is dropped entirely (owner + pinned escapes, as above).
+        return $this->sanitizeCitedInForViewer($hypercites, $user, $anonymousToken, $pinned);
+    }
+
+    /**
+     * Per-viewer citedIN sanitize (see getHypercites). For each non-owned, non-pinned row:
+     * keep only citedIN entries whose citing book the viewer may see — the most SPECIFIC
+     * library row wins (a sub-book citing location like "book_x/Fn2" is judged by its own
+     * row when one exists, else by its root book's row); entries with no surviving library
+     * row at all are dead citations and are stripped. Rows left with zero visible citations
+     * are removed; kept rows get their DISPLAY relationshipStatus downgraded to the visible
+     * count (poly with one visible citer reads as couple) and their raw_json copy scrubbed.
+     *
+     * Visibility is computed in PHP from a BYPASSRLS lookup (RLS would make "private row"
+     * and "no row" indistinguishable): public ⇒ visible; private ⇒ visible only to its
+     * creator (user name or anon token).
+     */
+    private function sanitizeCitedInForViewer(array $hypercites, $user, ?string $anonToken, array $pinned): array
+    {
+        // Collect candidate citing-book ids (full path + root segment) from rows that need the pass.
+        $candidates = [];
+        foreach ($hypercites as $hc) {
+            if ($hc['is_user_hypercite'] || in_array($hc['hyperciteId'], $pinned, true)) continue;
+            foreach ((array) ($hc['citedIN'] ?? []) as $entry) {
+                $fullId = $this->citedInBookId($entry);
+                if ($fullId === null) continue;
+                $candidates[$fullId] = true;
+                $root = explode('/', $fullId, 2)[0];
+                if ($root !== '' && $root !== $fullId) $candidates[$root] = true;
+            }
+        }
+
+        $rowsById = [];
+        if (!empty($candidates)) {
+            $rows = DB::connection('pgsql_admin')->table('library')
+                ->whereIn('book', array_keys($candidates))
+                ->select('book', 'visibility', 'creator', 'creator_token')
+                ->get();
+            foreach ($rows as $row) {
+                $rowsById[$row->book] = $row;
+            }
+        }
+
+        $viewerCanSee = function (?object $row) use ($user, $anonToken): bool {
+            if (!$row || $row->visibility === 'deleted') return false;
+            if ($row->visibility === 'public') return true;
+            if ($user && $row->creator === $user->name) return true;
+            if ($anonToken && $row->creator_token === $anonToken) return true;
+            return false;
+        };
+
+        $out = [];
+        foreach ($hypercites as $hc) {
+            if ($hc['is_user_hypercite'] || in_array($hc['hyperciteId'], $pinned, true)) {
+                $out[] = $hc;
+                continue;
+            }
+            $cited = (array) ($hc['citedIN'] ?? []);
+            if (empty($cited)) { // stored singles/legacy rows — already handled by the SQL filter
+                $out[] = $hc;
+                continue;
+            }
+            $kept = array_values(array_filter($cited, function ($entry) use ($rowsById, $viewerCanSee) {
+                $fullId = $this->citedInBookId($entry);
+                if ($fullId === null) return false;
+                // Most specific row wins; fall back to the root book only when the full
+                // path has NO row of its own (citing location formats vary).
+                if (isset($rowsById[$fullId])) return $viewerCanSee($rowsById[$fullId]);
+                $root = explode('/', $fullId, 2)[0];
+                if ($root !== $fullId && isset($rowsById[$root])) return $viewerCanSee($rowsById[$root]);
+                return false; // no library row anywhere — citing book deleted
+            }));
+
+            if (empty($kept)) continue; // every citation invisible → effectively single → drop
+
+            if (count($kept) !== count($cited)) {
+                $hc['citedIN'] = $kept;
+                if (in_array($hc['relationshipStatus'], ['couple', 'poly'], true)) {
+                    $hc['relationshipStatus'] = count($kept) >= 2 ? 'poly' : 'couple';
+                }
+                if (is_array($hc['raw_json'] ?? null) && isset($hc['raw_json']['citedIN'])) {
+                    $hc['raw_json']['citedIN'] = $kept;
+                }
+            }
+            $out[] = $hc;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Extract the citing book id from a citedIN entry ("/{book}#{hyperciteId}", possibly
+     * with a sub-book path or a stale absolute origin). Returns null when unparseable.
+     */
+    private function citedInBookId($entry): ?string
+    {
+        if (!is_string($entry) || $entry === '') return null;
+        $path = explode('#', $entry, 2)[0];
+        if (preg_match('#^https?://#i', $path)) {
+            $path = (string) (parse_url($path, PHP_URL_PATH) ?? '');
+        }
+        $path = rawurldecode(ltrim($path, '/'));
+        return $path === '' ? null : $path;
     }
 
     /**

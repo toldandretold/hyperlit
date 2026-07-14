@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1665,
+    "fnCount": 1668,
     "moduleCount": 356,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3372,
+    "edgeCount": 3377,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -4369,6 +4369,14 @@
       "leaf": false
     },
     {
+      "id": "components/utilities/gateFilter:clearPinnedHypercites",
+      "label": "clearPinnedHypercites",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": false
+    },
+    {
       "id": "components/utilities/gateFilter:gateQueryParam",
       "label": "gateQueryParam",
       "kind": "fn",
@@ -4399,6 +4407,22 @@
       "stage": "components",
       "module": "components/utilities/gateFilter",
       "leaf": false
+    },
+    {
+      "id": "components/utilities/gateFilter:isAiCreator",
+      "label": "isAiCreator",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": true
+    },
+    {
+      "id": "components/utilities/gateFilter:normalizeGateFlags",
+      "label": "normalizeGateFlags",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": true
     },
     {
       "id": "components/utilities/gateFilter:pinHypercite",
@@ -16459,10 +16483,13 @@
       "fnIds": [
         "components/utilities/gateFilter:appendGateParam",
         "components/utilities/gateFilter:applyGateFilter",
+        "components/utilities/gateFilter:clearPinnedHypercites",
         "components/utilities/gateFilter:gateQueryParam",
         "components/utilities/gateFilter:getBookGateDefaults",
         "components/utilities/gateFilter:getGateSettings",
         "components/utilities/gateFilter:getPinnedHyperciteIds",
+        "components/utilities/gateFilter:isAiCreator",
+        "components/utilities/gateFilter:normalizeGateFlags",
         "components/utilities/gateFilter:pinHypercite",
         "components/utilities/gateFilter:pinnedQueryParam",
         "components/utilities/gateFilter:reapplyAnnotationsWithGate",
@@ -21177,6 +21204,13 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/settingsContainer/gate:_openGatePanel__call__components/utilities/gateFilter:clearPinnedHypercites",
+      "source": "components/settingsContainer/gate:_openGatePanel",
+      "target": "components/utilities/gateFilter:clearPinnedHypercites",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/settingsContainer/gate:_openGatePanel__call__components/utilities/gateFilter:getBookGateDefaults",
       "source": "components/settingsContainer/gate:_openGatePanel",
       "target": "components/utilities/gateFilter:getBookGateDefaults",
@@ -21188,6 +21222,12 @@
       "target": "components/utilities/gateFilter:getGateSettings",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "components/settingsContainer/gate:_openGatePanel__call__components/utilities/gateFilter:normalizeGateFlags",
+      "source": "components/settingsContainer/gate:_openGatePanel",
+      "target": "components/utilities/gateFilter:normalizeGateFlags",
+      "rel": "call"
     },
     {
       "id": "components/settingsContainer/gate:_openGatePanel__call__components/utilities/gateFilter:reapplyAnnotationsWithGate",
@@ -23852,6 +23892,24 @@
       "target": "components/utilities/gateFilter:getGateSettings",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "components/utilities/gateFilter:applyGateFilter__call__components/utilities/gateFilter:isAiCreator",
+      "source": "components/utilities/gateFilter:applyGateFilter",
+      "target": "components/utilities/gateFilter:isAiCreator",
+      "rel": "call"
+    },
+    {
+      "id": "components/utilities/gateFilter:applyGateFilter__call__components/utilities/gateFilter:normalizeGateFlags",
+      "source": "components/utilities/gateFilter:applyGateFilter",
+      "target": "components/utilities/gateFilter:normalizeGateFlags",
+      "rel": "call"
+    },
+    {
+      "id": "components/utilities/gateFilter:clearPinnedHypercites__write__store:sessionStorage",
+      "source": "components/utilities/gateFilter:clearPinnedHypercites",
+      "target": "store:sessionStorage",
+      "rel": "write"
     },
     {
       "id": "components/utilities/gateFilter:pinHypercite__write__store:sessionStorage",

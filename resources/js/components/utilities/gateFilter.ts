@@ -2,11 +2,11 @@
  * gateFilter.ts — annotation filter logic (gate query params + client-side filter).
  * The gate settings panel UI now lives in settingsContainer/gate.ts.
  *
- * Gate modes:
- *   "default" — hide AI annotations (both types) + empty-annotation highlights
+ * Gate modes (flags are PER-TYPE — Highlights column vs Hypercites column):
+ *   "default" — highlights: hide AI + empty-annotation; hypercites: hide AI + anonymous
  *   "all"     — show everything
  *   "hideAll" — hide everything except the user's own annotations
- *   "custom"  — user picks restrictions (apply to both hyperlights and hypercites)
+ *   "custom"  — user picks restrictions per type (legacy flat shape = both types)
  *
  * Critical rules:
  *   - A user's own highlights/hypercites ALWAYS pass through the gate.
@@ -28,8 +28,50 @@ const STORAGE_KEY = 'hyperlit_gate_filter';
 
 const DEFAULT_SETTINGS = {
   mode: 'default',
-  custom: { hideAI: false, hideAnonymous: false, hideNoAnnotation: false },
+  custom: {
+    hyperlight: { hideAI: false, hideAnonymous: false, hideNoAnnotation: false },
+    hypercite: { hideAI: false, hideAnonymous: false },
+  },
 };
+
+// ─── Per-type gate flags ────────────────────────────────────────────────
+// The settings panel has a Highlights column and a Hypercites column; flags are
+// stored per type. The legacy FLAT shape ({hideAI,...} — pre-split localStorage /
+// users.preferences / library.gate_defaults) is still honored: it applies to both
+// types. Server mirror: DatabaseToIndexedDBController::normalizeGateFlags().
+
+export type GateFlags = { hideAI: boolean; hideAnonymous: boolean; hideNoAnnotation: boolean };
+export type GateType = 'hyperlight' | 'hypercite';
+
+/** What "Default" means globally, per type. Hypercites hide ANONYMOUS by default —
+ *  an anonymous cite is a navigation funnel (can lead readers to spam books),
+ *  unlike an anonymous highlight which is just an in-place mark. */
+export const GLOBAL_DEFAULT_FLAGS: Record<GateType, GateFlags> = {
+  hyperlight: { hideAI: true, hideAnonymous: false, hideNoAnnotation: true },
+  hypercite: { hideAI: true, hideAnonymous: true, hideNoAnnotation: false },
+};
+
+/** AI creators: 'AIreview:*' = citation review (highlights); 'AIarchivist' = the AI
+ *  Archivist (the one that mints hypercites). Server mirror in applyGateFilters(). */
+export function isAiCreator(creator: unknown): boolean {
+  return typeof creator === 'string'
+    && (creator.startsWith('AIreview:') || creator.startsWith('AIarchivist'));
+}
+
+/** Normalize a nested-per-type OR legacy-flat flag object to one type's triple. */
+export function normalizeGateFlags(flags: any, type: GateType): GateFlags {
+  const empty: GateFlags = { hideAI: false, hideAnonymous: false, hideNoAnnotation: false };
+  if (!flags || typeof flags !== 'object') return empty;
+  if ('hyperlight' in flags || 'hypercite' in flags) {
+    flags = flags[type] || {};
+    if (typeof flags !== 'object') return empty;
+  }
+  return {
+    hideAI: !!flags.hideAI,
+    hideAnonymous: !!flags.hideAnonymous,
+    hideNoAnnotation: !!flags.hideNoAnnotation,
+  };
+}
 
 // ─── Pinned hypercite ids (deep-link targets, session-scoped) ───────────
 // Any #hypercite_ id the user navigates to gets pinned here so it survives the
@@ -72,6 +114,20 @@ export function getPinnedHyperciteIds(): string[] {
   return [...loadPinned()];
 }
 
+/**
+ * Clear every pinned deep-link exemption. Called when the user APPLIES gate settings:
+ * a pin encodes "I followed a link here" intent, but an explicit gate change is more
+ * recent intent and must win — otherwise Hide All can never hide a once-visited cite
+ * (it would re-exempt itself via pinned= on every fetch until the cache is cleared).
+ * Re-following a link simply pins it again.
+ */
+export function clearPinnedHypercites(): void {
+  _pinned = [];
+  try {
+    sessionStorage.removeItem(PINNED_KEY);
+  } catch { /* storage unavailable — in-memory clear still applies */ }
+}
+
 function isPinnedHypercite(id: unknown): boolean {
   return typeof id === 'string' && loadPinned().includes(id);
 }
@@ -94,7 +150,7 @@ export function getGateSettings() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch { /* corrupt — fall through */ }
-  return { ...DEFAULT_SETTINGS, custom: { ...DEFAULT_SETTINGS.custom } };
+  return structuredClone(DEFAULT_SETTINGS);
 }
 
 function saveGateSettings(settings: any) {
@@ -192,47 +248,24 @@ export function applyGateFilter(items: any, type: any) {
 
     if (dropForeignSingle(item)) return false;
 
+    // default and custom both resolve to a per-type flag triple (mirrors the server:
+    // book defaults > global per-type defaults; nested and legacy-flat shapes accepted)
+    let flags: GateFlags | null = null;
     if (settings.mode === 'default') {
-      if (_bookGateDefaults) {
-        // Book creator has set custom defaults — apply to both types
-        const { hideAI, hideAnonymous, hideNoAnnotation } = _bookGateDefaults;
-        if (hideAI && item.creator?.startsWith('AIreview:')) return false;
-        if (hideAnonymous && !item.creator) return false;
-        if (hideNoAnnotation && type === 'hyperlight') {
-          const hasContent = (item.annotation && item.annotation !== '') || hasPreviewContent(item.preview_nodes);
-          if (!hasContent) return false;
-        }
-        return true;
-      }
-
-      // Global default: hide AI for BOTH types (parity with server applyGateFilters)
-      if (item.creator?.startsWith('AIreview:')) return false;
-
-      // Empty-annotation check is hyperlight-only (hypercites have no annotation)
-      if (type === 'hyperlight') {
-        const hasContentDefault = (item.annotation && item.annotation !== '') || hasPreviewContent(item.preview_nodes);
-        if (!hasContentDefault) return false;
-      }
-
-      return true;
+      flags = _bookGateDefaults
+        ? normalizeGateFlags(_bookGateDefaults, type as GateType)
+        : GLOBAL_DEFAULT_FLAGS[type as GateType];
+    } else if (settings.mode === 'custom') {
+      flags = normalizeGateFlags(settings.custom, type as GateType);
     }
-
-    // Custom mode — apply user-selected restrictions to both types
-    if (settings.mode === 'custom') {
-      const { hideAI, hideAnonymous, hideNoAnnotation } = settings.custom;
-
-      if (hideAI && item.creator?.startsWith('AIreview:')) return false;
-      if (hideAnonymous && !item.creator) return false;
-      if (hideNoAnnotation) {
-        // For hyperlights, check annotation field + parse preview_nodes for real text
-        if (type === 'hyperlight') {
-          const hasContent = (item.annotation && item.annotation !== '') || hasPreviewContent(item.preview_nodes);
-          if (!hasContent) return false;
-        }
-        // For hypercites, no annotation field — skip this check
+    if (flags) {
+      if (flags.hideAI && isAiCreator(item.creator)) return false;
+      if (flags.hideAnonymous && !item.creator) return false;
+      // Empty-annotation check is hyperlight-only (hypercites have no annotation)
+      if (flags.hideNoAnnotation && type === 'hyperlight') {
+        const hasContent = (item.annotation && item.annotation !== '') || hasPreviewContent(item.preview_nodes);
+        if (!hasContent) return false;
       }
-
-      return true;
     }
 
     return true;

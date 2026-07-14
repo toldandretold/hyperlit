@@ -29,9 +29,11 @@ afterEach(function () {
 /**
  * Seed a public book with one node and a standard cast of hypercites:
  *  - hypercite_single  : foreign 'single' (owned by $other)
- *  - hypercite_couple  : foreign 'couple' (owned by $other)
- * Returns [bookId, nodeId]. Bound to the test case so the protected
- * InteractsWithApi/SeedsRlsFixtures helpers are callable.
+ *  - hypercite_couple  : foreign 'couple' (owned by $other, cited by a REAL public book —
+ *    the always-on citedIN privacy pass strips citations to missing/private books, so a
+ *    couple citing a nonexistent book would be dropped as effectively-single)
+ * Returns [bookId, nodeId, citedIn] where citedIn is a valid public citation entry for
+ * reuse in extra seeds. Bound to the test case so the protected helpers are callable.
  */
 function seedHyperciteBook($test, $other): array
 {
@@ -39,6 +41,10 @@ function seedHyperciteBook($test, $other): array
         $book = 'apitest_' . Str::random(12);
         $nodeId = "{$book}_n1";
         $this->makeBook($other, ['book' => $book, 'visibility' => 'public']);
+        // The citing book must EXIST and be public for its citations to survive the pass.
+        $citer = 'apitest_' . Str::random(12);
+        $this->makeBook($other, ['book' => $citer, 'visibility' => 'public']);
+        $citedIn = "/{$citer}#hypercite_backref1";
         $this->seedNode([
             'book' => $book, 'startLine' => 100, 'chunk_id' => 0, 'node_id' => $nodeId,
             'content' => '<p>hello hypercite world</p>', 'plainText' => 'hello hypercite world', 'type' => 'p',
@@ -51,11 +57,11 @@ function seedHyperciteBook($test, $other): array
         ]);
         $this->seedHypercite([
             'book' => $book, 'hyperciteId' => 'hypercite_couple', 'node_id' => [$nodeId],
-            'charData' => $charData, 'citedIN' => ['/somebook#hypercite_x'], 'relationshipStatus' => 'couple',
+            'charData' => $charData, 'citedIN' => [$citedIn], 'relationshipStatus' => 'couple',
             'creator' => $other->name, 'hypercitedText' => 'hello',
         ]);
 
-        return [$book, $nodeId];
+        return [$book, $nodeId, $citedIn];
     }, $test, get_class($test));
 
     return $fn($other);
@@ -220,11 +226,11 @@ test('pinned is capped at 20 ids — an id beyond the cap gets no exemption', fu
 
 test('global default mode now hides AI hypercites (parity with hyperlights)', function () {
     $other = $this->apiUser();
-    [$book, $nodeId] = seedHyperciteBook($this, $other);
+    [$book, $nodeId, $citedIn] = seedHyperciteBook($this, $other);
     $this->seedHypercite([
         'book' => $book, 'hyperciteId' => 'hypercite_ai', 'node_id' => [$nodeId],
         'charData' => [$nodeId => ['charStart' => 0, 'charEnd' => 5]],
-        'citedIN' => ['/x#hypercite_y'], 'relationshipStatus' => 'couple', 'creator' => 'AIreview:gpt',
+        'citedIN' => [$citedIn], 'relationshipStatus' => 'couple', 'creator' => 'AIreview:gpt',
     ]);
 
     // No gate param, guest → global default
@@ -235,11 +241,11 @@ test('global default mode now hides AI hypercites (parity with hyperlights)', fu
 
 test('book gate_defaults hideAI:false overrides the global default (AI cite shows)', function () {
     $other = $this->apiUser();
-    [$book, $nodeId] = seedHyperciteBook($this, $other);
+    [$book, $nodeId, $citedIn] = seedHyperciteBook($this, $other);
     $this->seedHypercite([
         'book' => $book, 'hyperciteId' => 'hypercite_ai', 'node_id' => [$nodeId],
         'charData' => [$nodeId => ['charStart' => 0, 'charEnd' => 5]],
-        'citedIN' => ['/x#hypercite_y'], 'relationshipStatus' => 'couple', 'creator' => 'AIreview:gpt',
+        'citedIN' => [$citedIn], 'relationshipStatus' => 'couple', 'creator' => 'AIreview:gpt',
     ]);
     Illuminate\Support\Facades\DB::connection('pgsql_admin')->table('library')
         ->where('book', $book)
@@ -252,11 +258,11 @@ test('book gate_defaults hideAI:false overrides the global default (AI cite show
 
 test('custom hideAnonymous filters null-creator hypercites', function () {
     $other = $this->apiUser();
-    [$book, $nodeId] = seedHyperciteBook($this, $other);
+    [$book, $nodeId, $citedIn] = seedHyperciteBook($this, $other);
     $this->seedHypercite([
         'book' => $book, 'hyperciteId' => 'hypercite_anon', 'node_id' => [$nodeId],
         'charData' => [$nodeId => ['charStart' => 0, 'charEnd' => 5]],
-        'citedIN' => ['/x#hypercite_y'], 'relationshipStatus' => 'couple',
+        'citedIN' => [$citedIn], 'relationshipStatus' => 'couple',
         'creator' => null, 'creator_token' => Str::uuid()->toString(),
     ]);
 
@@ -268,16 +274,16 @@ test('custom hideAnonymous filters null-creator hypercites', function () {
 
 test('mode=all shows AI + anonymous hypercites but STILL not foreign singles', function () {
     $other = $this->apiUser();
-    [$book, $nodeId] = seedHyperciteBook($this, $other);
+    [$book, $nodeId, $citedIn] = seedHyperciteBook($this, $other);
     $this->seedHypercite([
         'book' => $book, 'hyperciteId' => 'hypercite_ai', 'node_id' => [$nodeId],
         'charData' => [$nodeId => ['charStart' => 0, 'charEnd' => 5]],
-        'citedIN' => ['/x#hypercite_y'], 'relationshipStatus' => 'couple', 'creator' => 'AIreview:gpt',
+        'citedIN' => [$citedIn], 'relationshipStatus' => 'couple', 'creator' => 'AIreview:gpt',
     ]);
     $this->seedHypercite([
         'book' => $book, 'hyperciteId' => 'hypercite_anon', 'node_id' => [$nodeId],
         'charData' => [$nodeId => ['charStart' => 0, 'charEnd' => 5]],
-        'citedIN' => ['/x#hypercite_y'], 'relationshipStatus' => 'couple',
+        'citedIN' => [$citedIn], 'relationshipStatus' => 'couple',
         'creator' => null, 'creator_token' => Str::uuid()->toString(),
     ]);
 
@@ -287,6 +293,155 @@ test('mode=all shows AI + anonymous hypercites but STILL not foreign singles', f
     expect($ids)->toContain('hypercite_ai')
         ->and($ids)->toContain('hypercite_anon')
         ->and($ids)->not->toContain('hypercite_single'); // singles filter is NOT gate-wired
+});
+
+/* ─── per-type defaults + nested/legacy gate shapes ───────────────────── */
+
+test('default mode hides ANONYMOUS hypercites but NOT anonymous hyperlights', function () {
+    $other = $this->apiUser();
+    [$book, $nodeId, $citedIn] = seedHyperciteBook($this, $other);
+    $anonTok = Str::uuid()->toString();
+    $this->seedHypercite([
+        'book' => $book, 'hyperciteId' => 'hypercite_anon', 'node_id' => [$nodeId],
+        'charData' => [$nodeId => ['charStart' => 0, 'charEnd' => 5]],
+        'citedIN' => [$citedIn], 'relationshipStatus' => 'couple',
+        'creator' => null, 'creator_token' => $anonTok,
+    ]);
+    // Anonymous hyperlight WITH annotation content (so hideNoAnnotation doesn't drop it)
+    $this->seedHyperlight([
+        'book' => $book, 'hyperlight_id' => 'HL_anon1', 'node_id' => [$nodeId],
+        'charData' => [$nodeId => ['charStart' => 0, 'charEnd' => 5]],
+        'annotation' => 'an actual note', 'hidden' => false,
+        'creator' => null, 'creator_token' => $anonTok,
+    ]);
+
+    // Guest, no gate param → global default (per-type: HC hides anonymous, HL does not)
+    $json = $this->getJson("/api/database-to-indexeddb/books/{$book}/annotations")
+        ->assertStatus(200)->json();
+    $hcIds = array_column($json['hypercites'] ?? [], 'hyperciteId');
+    $hlIds = array_column($json['hyperlights'] ?? [], 'hyperlight_id');
+    expect($hcIds)->not->toContain('hypercite_anon')
+        ->and($hlIds)->toContain('HL_anon1');
+});
+
+test('nested per-type custom gate applies flags independently per type', function () {
+    $other = $this->apiUser();
+    [$book, $nodeId, $citedIn] = seedHyperciteBook($this, $other);
+    $this->seedHypercite([
+        'book' => $book, 'hyperciteId' => 'hypercite_ai', 'node_id' => [$nodeId],
+        'charData' => [$nodeId => ['charStart' => 0, 'charEnd' => 5]],
+        'citedIN' => [$citedIn], 'relationshipStatus' => 'couple', 'creator' => 'AIreview:gpt',
+    ]);
+
+    // hypercite.hideAI=true → AI cite dropped
+    $gate = urlencode(json_encode(['mode' => 'custom', 'custom' => [
+        'hyperlight' => ['hideAI' => false],
+        'hypercite' => ['hideAI' => true],
+    ]]));
+    $ids = array_column($this->getJson("/api/database-to-indexeddb/books/{$book}/annotations?gate={$gate}")
+        ->assertStatus(200)->json('hypercites') ?? [], 'hyperciteId');
+    expect($ids)->not->toContain('hypercite_ai');
+
+    // hypercite.hideAI=false (hyperlight.hideAI=true must NOT bleed over) → AI cite kept
+    $gate = urlencode(json_encode(['mode' => 'custom', 'custom' => [
+        'hyperlight' => ['hideAI' => true],
+        'hypercite' => ['hideAI' => false],
+    ]]));
+    $ids = array_column($this->getJson("/api/database-to-indexeddb/books/{$book}/annotations?gate={$gate}")
+        ->assertStatus(200)->json('hypercites') ?? [], 'hyperciteId');
+    expect($ids)->toContain('hypercite_ai');
+});
+
+test('AIarchivist hypercites are gated as AI, but always visible to the co-author asking user', function () {
+    $other = $this->apiUser();
+    $asker = $this->apiUser();
+    [$book, $nodeId, $citedIn] = seedHyperciteBook($this, $other);
+    // The AI Archivist stamps creator='AIarchivist' (NOT 'AIreview:%') and grants the
+    // asking user co-authorship via access_granted.
+    $this->seedHypercite([
+        'book' => $book, 'hyperciteId' => 'hypercite_archivist', 'node_id' => [$nodeId],
+        'charData' => [$nodeId => ['charStart' => 0, 'charEnd' => 5]],
+        'citedIN' => [$citedIn], 'relationshipStatus' => 'couple', 'creator' => 'AIarchivist',
+    ]);
+    // access_granted isn't in the model's $fillable — set it directly.
+    Illuminate\Support\Facades\DB::connection('pgsql_admin')->table('hypercites')
+        ->where('book', $book)->where('hyperciteId', 'hypercite_archivist')
+        ->update(['access_granted' => json_encode([$asker->name => 'co-author'])]);
+
+    // Guest, default mode → hidden (the AI clause must match AIarchivist, not just AIreview:%)
+    $ids = array_column($this->getJson("/api/database-to-indexeddb/books/{$book}/annotations")
+        ->assertStatus(200)->json('hypercites') ?? [], 'hyperciteId');
+    expect($ids)->not->toContain('hypercite_archivist');
+
+    // Guest, mode=all → shown (it's gate-hidden, not privacy-hidden)
+    $gate = urlencode(json_encode(['mode' => 'all']));
+    $ids = array_column($this->getJson("/api/database-to-indexeddb/books/{$book}/annotations?gate={$gate}")
+        ->assertStatus(200)->json('hypercites') ?? [], 'hyperciteId');
+    expect($ids)->toContain('hypercite_archivist');
+
+    // The asking user (co-author) sees it in default mode, flagged as their own…
+    $this->actingAs($asker);
+    $json = $this->getJson("/api/database-to-indexeddb/books/{$book}/annotations")->assertStatus(200)->json();
+    $mine = collect($json['hypercites'])->firstWhere('hyperciteId', 'hypercite_archivist');
+    expect($mine)->not->toBeNull()->and($mine['is_user_hypercite'])->toBeTrue();
+
+    // …and even under hideAll (co-author = ownership for every always-show escape)
+    $gate = urlencode(json_encode(['mode' => 'hideAll']));
+    $ids = array_column($this->getJson("/api/database-to-indexeddb/books/{$book}/annotations?gate={$gate}")
+        ->assertStatus(200)->json('hypercites') ?? [], 'hyperciteId');
+    expect($ids)->toContain('hypercite_archivist');
+});
+
+/* ─── the always-on citedIN privacy pass ──────────────────────────────── */
+
+test('a couple citing ONLY a private book is hidden from guests but full for its creator', function () {
+    $other = $this->apiUser();
+    $citerOwner = $this->apiUser();
+    [$book, $nodeId] = seedHyperciteBook($this, $other);
+    $privateCiter = $this->makeBook($citerOwner, ['visibility' => 'private']);
+    $this->seedHypercite([
+        'book' => $book, 'hyperciteId' => 'hypercite_privcite', 'node_id' => [$nodeId],
+        'charData' => [$nodeId => ['charStart' => 0, 'charEnd' => 5]],
+        'citedIN' => ["/{$privateCiter}#hypercite_p1"], 'relationshipStatus' => 'couple',
+        'creator' => $other->name,
+    ]);
+
+    // Guest: the only citation points at a private book → effectively single → dropped,
+    // and the private book id never appears anywhere in the payload.
+    $res = $this->getJson("/api/database-to-indexeddb/books/{$book}/annotations")->assertStatus(200);
+    $ids = array_column($res->json('hypercites') ?? [], 'hyperciteId');
+    expect($ids)->not->toContain('hypercite_privcite');
+    expect($res->getContent())->not->toContain($privateCiter);
+
+    // The cite's creator still gets it, citedIN intact (owner escape skips the pass)
+    $this->actingAs($other);
+    $json = $this->getJson("/api/database-to-indexeddb/books/{$book}/annotations")->assertStatus(200)->json();
+    $mine = collect($json['hypercites'])->firstWhere('hyperciteId', 'hypercite_privcite');
+    expect($mine)->not->toBeNull()
+        ->and($mine['citedIN'])->toBe(["/{$privateCiter}#hypercite_p1"]);
+});
+
+test('mixed public+private citedIN: private entries stripped (raw_json too) and status downgraded', function () {
+    $other = $this->apiUser();
+    $citerOwner = $this->apiUser();
+    [$book, $nodeId, $publicCitedIn] = seedHyperciteBook($this, $other);
+    $privateCiter = $this->makeBook($citerOwner, ['visibility' => 'private']);
+    $privateEntry = "/{$privateCiter}#hypercite_p1";
+    $deadEntry = '/apitest_gone_' . Str::random(8) . '#hypercite_d1'; // no library row = dead citation
+    $this->seedHypercite([
+        'book' => $book, 'hyperciteId' => 'hypercite_mixed', 'node_id' => [$nodeId],
+        'charData' => [$nodeId => ['charStart' => 0, 'charEnd' => 5]],
+        'citedIN' => [$publicCitedIn, $privateEntry, $deadEntry], 'relationshipStatus' => 'poly',
+        'creator' => $other->name,
+    ]);
+
+    $res = $this->getJson("/api/database-to-indexeddb/books/{$book}/annotations")->assertStatus(200);
+    $mixed = collect($res->json('hypercites'))->firstWhere('hyperciteId', 'hypercite_mixed');
+    expect($mixed)->not->toBeNull()
+        ->and($mixed['citedIN'])->toBe([$publicCitedIn])               // private + dead stripped
+        ->and($mixed['relationshipStatus'])->toBe('couple')            // poly → couple (1 visible)
+        ->and($mixed['raw_json']['citedIN'] ?? [$publicCitedIn])->toBe([$publicCitedIn]); // copy scrubbed
+    expect($res->getContent())->not->toContain($privateCiter);
 });
 
 test('mode=hideAll with pinned= returns only the pinned hypercite', function () {

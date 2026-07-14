@@ -52,6 +52,20 @@ describe('pinned set semantics', () => {
     expect(gf.getPinnedHyperciteIds()).toEqual([]);
   });
 
+  it('clearPinnedHypercites wipes the set + sessionStorage (gate Apply outranks pins)', async () => {
+    const gf = await freshGateFilter();
+    gf.pinHypercite('hypercite_deep1');
+    localStorage.setItem('hyperlit_gate_filter', JSON.stringify({ mode: 'hideAll' }));
+    // Pinned survives hideAll…
+    expect(gf.applyGateFilter([couple({ hyperciteId: 'hypercite_deep1' })], 'hypercite')).toHaveLength(1);
+    // …until the user applies gate settings, which clears pins: hideAll now really hides all
+    gf.clearPinnedHypercites();
+    expect(gf.getPinnedHyperciteIds()).toEqual([]);
+    expect(sessionStorage.getItem('hyperlit_pinned_hypercites')).toBeNull();
+    expect(gf.applyGateFilter([couple({ hyperciteId: 'hypercite_deep1' })], 'hypercite')).toHaveLength(0);
+    expect(gf.appendGateParam('/api/x')).not.toContain('pinned=');
+  });
+
   it('FIFO-caps at 20 and re-pinning moves an id to the freshest slot', async () => {
     const gf = await freshGateFilter();
     for (let i = 1; i <= 20; i++) gf.pinHypercite(`hypercite_n${i}`);
@@ -115,7 +129,7 @@ describe('applyGateFilter: pinned bypass of gate modes', () => {
   });
 });
 
-describe('applyGateFilter: global-default parity', () => {
+describe('applyGateFilter: global-default parity (per-type defaults)', () => {
   it('global default hides AI hypercites (parity with hyperlights) but keeps normal couples', async () => {
     const gf = await freshGateFilter();
     localStorage.setItem('hyperlit_gate_filter', JSON.stringify({ mode: 'default', custom: {} }));
@@ -124,12 +138,59 @@ describe('applyGateFilter: global-default parity', () => {
     expect(out.map((h) => h.hyperciteId)).toEqual(['hypercite_c1']);
   });
 
+  it('global default hides AIarchivist hypercites (the Archivist ≠ AIreview: prefix)', async () => {
+    const gf = await freshGateFilter();
+    localStorage.setItem('hyperlit_gate_filter', JSON.stringify({ mode: 'default', custom: {} }));
+    const archivist = couple({ hyperciteId: 'hypercite_arch', creator: 'AIarchivist' });
+    expect(gf.applyGateFilter([archivist], 'hypercite')).toHaveLength(0);
+    // …but a server-flagged co-author copy (is_user_hypercite true) always passes
+    const mine = couple({ hyperciteId: 'hypercite_arch2', creator: 'AIarchivist', is_user_hypercite: true });
+    expect(gf.applyGateFilter([mine], 'hypercite')).toHaveLength(1);
+  });
+
+  it('global default hides ANONYMOUS hypercites but NOT anonymous hyperlights', async () => {
+    const gf = await freshGateFilter();
+    localStorage.setItem('hyperlit_gate_filter', JSON.stringify({ mode: 'default', custom: {} }));
+    const anonCite = couple({ hyperciteId: 'hypercite_anon', creator: null });
+    expect(gf.applyGateFilter([anonCite], 'hypercite')).toHaveLength(0);
+    // Anonymous hyperlight WITH an annotation survives the default (hideAnonymous is
+    // hypercite-only in the global default; the HL default is hideAI + hideNoAnnotation)
+    const anonHl = { highlightID: 'HL_anon', creator: null, annotation: 'a real note', is_user_highlight: false };
+    expect(gf.applyGateFilter([anonHl], 'hyperlight')).toHaveLength(1);
+  });
+
   it('the empty-annotation default check stays hyperlight-only (hypercites have no annotation)', async () => {
     const gf = await freshGateFilter();
     localStorage.setItem('hyperlit_gate_filter', JSON.stringify({ mode: 'default', custom: {} }));
     // A couple with no annotation field must NOT be dropped by the hideNoAnnotation default
     const out = gf.applyGateFilter([couple()], 'hypercite');
     expect(out).toHaveLength(1);
+  });
+});
+
+describe('applyGateFilter: nested per-type custom shape', () => {
+  it('applies flags independently per type (hyperlight flags never bleed into hypercites)', async () => {
+    const gf = await freshGateFilter();
+    localStorage.setItem('hyperlit_gate_filter', JSON.stringify({
+      mode: 'custom',
+      custom: { hyperlight: { hideAI: true }, hypercite: { hideAI: false } },
+    }));
+    const aiCite = couple({ hyperciteId: 'hypercite_ai', creator: 'AIreview:gpt' });
+    expect(gf.applyGateFilter([aiCite], 'hypercite')).toHaveLength(1); // hypercite col says keep
+    const aiHl = { highlightID: 'HL_ai', creator: 'AIreview:gpt', annotation: 'x', is_user_highlight: false };
+    expect(gf.applyGateFilter([aiHl], 'hyperlight')).toHaveLength(0); // hyperlight col says hide
+  });
+
+  it('legacy FLAT custom shape still applies to both types', async () => {
+    const gf = await freshGateFilter();
+    localStorage.setItem('hyperlit_gate_filter', JSON.stringify({
+      mode: 'custom',
+      custom: { hideAnonymous: true },
+    }));
+    const anonCite = couple({ hyperciteId: 'hypercite_anon', creator: null });
+    const anonHl = { highlightID: 'HL_anon', creator: null, annotation: 'x', is_user_highlight: false };
+    expect(gf.applyGateFilter([anonCite], 'hypercite')).toHaveLength(0);
+    expect(gf.applyGateFilter([anonHl], 'hyperlight')).toHaveLength(0);
   });
 });
 

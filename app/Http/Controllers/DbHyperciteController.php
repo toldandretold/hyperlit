@@ -488,12 +488,18 @@ class DbHyperciteController extends Controller
             return response()->json(['error' => 'Hypercite not found.'], 404);
         }
 
-        // Ownership (same prioritised creator > token logic as getHypercites())
+        // Ownership (same prioritised creator > token > co-author logic as getHypercites())
         $isUserHypercite = false;
         if ($hypercite->creator) {
             $isUserHypercite = $user && $hypercite->creator === $user->name;
         } elseif ($hypercite->creator_token) {
             $isUserHypercite = $anonToken && $hypercite->creator_token === $anonToken;
+        }
+        if (!$isUserHypercite && $user) {
+            // access_granted co-author grant (AI Archivist cites on the asking user's behalf)
+            $granted = $hypercite->access_granted;
+            if (is_string($granted)) $granted = json_decode($granted, true);
+            $isUserHypercite = is_array($granted) && array_key_exists($user->name, $granted);
         }
 
         // Explicit wire shape — creator_token intentionally never sent (security sensitive),
