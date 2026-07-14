@@ -143,6 +143,32 @@ test('a resume slice continues the parked batch without re-scanning and finalize
     expect($counts['eligible'])->toBe(3);       // NOT re-counted on resume
 });
 
+test('a finish request stops before any work, still finalizes, and returns completed', function () {
+    $user = $this->loginUser(['status' => 'budget']);
+    $book = $this->makeBook($user);
+    $id = hslcSeedHarvest($book, $user->id, [
+        'finish_requested' => true,
+        // A prior work's outcome is already persisted — finalize must still run.
+        'results' => json_encode([[
+            'canonical_source_id' => (string) Str::uuid(),
+            'title' => 'HSlc Done Earlier', 'status' => 'assigned',
+            'book' => 'apitest_hslc_prior', 'depth' => 1, 'parent_book' => $book,
+        ]]),
+    ]);
+
+    // The finish check fires at the frontier top — no scan, no work, no charge.
+    $this->mock(HarvestEligibility::class, fn ($m) => $m->shouldReceive('eligibleCanonicalsFor')->never());
+    $this->mock(BillingService::class, fn ($m) => $m->shouldReceive('billOcrForBook')->never());
+    // But the shelf + report finalize DOES run (results exist).
+    $this->mock(HarvestShelf::class, fn ($m) => $m->shouldReceive('ensureShelfFor')->once()->andReturnNull());
+
+    $outcome = app(HarvestRunner::class)->run($id);
+
+    expect($outcome)->toBe('completed'); // finish = deliberately shortened, not cancelled
+    $counts = json_decode(hslcDb()->table('source_network_harvests')->where('id', $id)->value('counts'), true);
+    expect($counts['attempted'] ?? 0)->toBe(0);
+});
+
 test('the job re-dispatches itself when a slice ends with work remaining', function () {
     Queue::fake();
     $user = $this->loginUser(['status' => 'budget']);

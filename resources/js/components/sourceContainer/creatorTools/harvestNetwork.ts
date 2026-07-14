@@ -232,6 +232,8 @@ export async function pollHarvestStatus(self: any) {
     if (harvest.status === 'completed' || harvest.status === 'cancelled') {
       self.stopHarvestPolling();
       self._harvestId = null;
+      self._harvestStopRequested = null;
+      self._harvestStopPending = null;
       resetHarvestButton(self);
 
       const c = harvest.counts || {};
@@ -280,6 +282,8 @@ export async function pollHarvestStatus(self: any) {
     } else if (harvest.status === 'failed') {
       self.stopHarvestPolling();
       self._harvestId = null;
+      self._harvestStopRequested = null;
+      self._harvestStopPending = null;
       resetHarvestButton(self);
       if (!self._harvestVizOpen) {
         await alertDialog({
@@ -329,6 +333,7 @@ function ensureHarvestRunningRow(self: any, harvest?: any) {
   row.innerHTML = `
       <button type="button" id="harvest-viz-toggle" style="background: none; border: none; color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; cursor: pointer; padding: 0; font-size: var(--sc-12);">See live progress ▸</button>
       <span id="harvest-notify-slot"></span>
+      <button type="button" id="harvest-finish-btn" style="background: none; border: none; color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; cursor: pointer; padding: 0; font-size: var(--sc-12);">Finish &amp; write report</button>
       <button type="button" id="harvest-cancel-btn" style="background: none; border: none; color: var(--hyperlit-orange, #EF8D34); text-decoration: underline; cursor: pointer; padding: 0; font-size: var(--sc-12);">Cancel harvest</button>`;
   section.appendChild(row);
 
@@ -338,10 +343,16 @@ function ensureHarvestRunningRow(self: any, harvest?: any) {
     self.openHarvestVizOverlay();
   });
 
+  row.querySelector('#harvest-finish-btn')?.addEventListener('click', (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    requestHarvestStop(self, 'finish');
+  });
+
   row.querySelector('#harvest-cancel-btn')?.addEventListener('click', (e: any) => {
     e.preventDefault();
     e.stopPropagation();
-    cancelHarvest(self, row);
+    requestHarvestStop(self, 'cancel');
   });
 
   // "Email me when done" — logged-in owners only (anonymous users have no
@@ -367,28 +378,62 @@ function ensureHarvestRunningRow(self: any, harvest?: any) {
   }
 }
 
-async function cancelHarvest(self: any, row: HTMLElement) {
-  const btn = row.querySelector('#harvest-cancel-btn') as HTMLButtonElement | null;
-  if (!self._harvestId) return;
-  if (btn) { btn.textContent = 'Cancelling…'; btn.disabled = true; btn.style.cursor = 'default'; }
+/** Button copy for the two stop modes, shared by the running row and the viz overlay. */
+const STOP_LABELS: Record<'finish' | 'cancel', { idle: string; busy: string; sent: string }> = {
+  finish: { idle: 'Finish & write report', busy: 'Finishing…', sent: 'Finishing — wrapping up current work…' },
+  cancel: { idle: 'Cancel harvest', busy: 'Cancelling…', sent: 'Cancelling — finishing current work…' },
+};
+
+/**
+ * Request a graceful stop. Both modes stop the runner at the next work
+ * boundary and both still finalize the shelf + yield report with everything
+ * gathered — 'finish' stamps the run completed (a deliberately shortened
+ * harvest), 'cancel' stamps it cancelled. The runner picks the flag up at the
+ * next boundary; polling then closes out the UI as usual.
+ */
+export async function requestHarvestStop(self: any, mode: 'cancel' | 'finish') {
+  if (!self._harvestId || self._harvestStopPending || self._harvestStopRequested) return;
+  self._harvestStopPending = mode;
+  syncHarvestStopButtons(self);
   try {
-    const resp = await fetch(`/api/source-harvest/${encodeURIComponent(self._harvestId)}/cancel`, {
+    const resp = await fetch(`/api/source-harvest/${encodeURIComponent(self._harvestId)}/${mode}`, {
       method: 'POST',
       headers: postHeaders(),
       credentials: 'include',
     });
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      log.error('Harvest cancel failed', FILE, err);
-      if (btn) { btn.textContent = 'Cancel harvest'; btn.disabled = false; btn.style.cursor = 'pointer'; }
-      return;
+    if (resp.ok) {
+      self._harvestStopRequested = mode;
+    } else {
+      log.error('Harvest stop failed', FILE, await resp.json().catch(() => ({})));
     }
-    // The runner stops at the next work boundary and finalizes; polling picks
-    // up the 'cancelled' status and closes out the UI.
-    if (btn) btn.textContent = 'Cancelling — finishing current work…';
   } catch (err: any) {
-    log.error('Harvest cancel failed', FILE, err);
-    if (btn) { btn.textContent = 'Cancel harvest'; btn.disabled = false; btn.style.cursor = 'pointer'; }
+    log.error('Harvest stop failed', FILE, err);
+  }
+  self._harvestStopPending = null;
+  syncHarvestStopButtons(self);
+}
+
+/**
+ * Reflect the stop-request state onto every live stop button — the running
+ * row's pair AND the viz overlay's pair (the overlay re-renders each poll, so
+ * it calls this after rebuilding its DOM). While a request is pending or sent,
+ * both buttons disable; the chosen one shows its busy/sent copy.
+ */
+export function syncHarvestStopButtons(self: any) {
+  const active: 'finish' | 'cancel' | null = self._harvestStopPending || self._harvestStopRequested || null;
+  const pairs: Array<['finish' | 'cancel', string]> = [
+    ['finish', 'harvest-finish-btn'], ['finish', 'harvest-viz-finish'],
+    ['cancel', 'harvest-cancel-btn'], ['cancel', 'harvest-viz-cancel'],
+  ];
+  for (const [mode, id] of pairs) {
+    const btn = document.getElementById(id) as HTMLButtonElement | null;
+    if (!btn) continue;
+    const l = STOP_LABELS[mode];
+    btn.disabled = !!active;
+    btn.style.cursor = active ? 'default' : 'pointer';
+    btn.textContent = active === mode
+      ? (self._harvestStopPending === mode ? l.busy : l.sent)
+      : l.idle;
   }
 }
 

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1668,
+    "fnCount": 1670,
     "moduleCount": 356,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3377,
+    "edgeCount": 3386,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -2264,6 +2264,14 @@
       "leaf": false
     },
     {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:requestHarvestStop",
+      "label": "requestHarvestStop",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/harvestNetwork",
+      "leaf": false
+    },
+    {
       "id": "components/sourceContainer/creatorTools/harvestNetwork:startHarvestPolling",
       "label": "startHarvestPolling",
       "kind": "fn",
@@ -2278,6 +2286,14 @@
       "stage": "components",
       "module": "components/sourceContainer/creatorTools/harvestNetwork",
       "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:syncHarvestStopButtons",
+      "label": "syncHarvestStopButtons",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/harvestNetwork",
+      "leaf": false
     },
     {
       "id": "components/sourceContainer/creatorTools/harvestViz:closeHarvestVizOverlay",
@@ -15933,8 +15949,10 @@
         "components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork",
         "components/sourceContainer/creatorTools/harvestNetwork:loadHarvestSection",
         "components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus",
+        "components/sourceContainer/creatorTools/harvestNetwork:requestHarvestStop",
         "components/sourceContainer/creatorTools/harvestNetwork:startHarvestPolling",
-        "components/sourceContainer/creatorTools/harvestNetwork:stopHarvestPolling"
+        "components/sourceContainer/creatorTools/harvestNetwork:stopHarvestPolling",
+        "components/sourceContainer/creatorTools/harvestNetwork:syncHarvestStopButtons"
       ]
     },
     {
@@ -22192,10 +22210,24 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork__call__components/sourceContainer/creatorTools/harvestNetwork:requestHarvestStop",
+      "source": "components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:requestHarvestStop",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork__domwrite__dom",
       "source": "components/sourceContainer/creatorTools/harvestNetwork:handleHarvestNetwork",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:loadHarvestSection__call__components/sourceContainer/creatorTools/harvestNetwork:requestHarvestStop",
+      "source": "components/sourceContainer/creatorTools/harvestNetwork:loadHarvestSection",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:requestHarvestStop",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/sourceContainer/creatorTools/harvestNetwork:loadHarvestSection__domwrite__dom",
@@ -22204,8 +22236,27 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus__call__components/sourceContainer/creatorTools/harvestNetwork:requestHarvestStop",
+      "source": "components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:requestHarvestStop",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus__domwrite__dom",
       "source": "components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:requestHarvestStop__call__components/sourceContainer/creatorTools/harvestNetwork:syncHarvestStopButtons",
+      "source": "components/sourceContainer/creatorTools/harvestNetwork:requestHarvestStop",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:syncHarvestStopButtons",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestNetwork:syncHarvestStopButtons__domwrite__dom",
+      "source": "components/sourceContainer/creatorTools/harvestNetwork:syncHarvestStopButtons",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -22237,6 +22288,19 @@
       "id": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz__call__components/sourceContainer/creatorTools/harvestField:positionHarvestField",
       "source": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz",
       "target": "components/sourceContainer/creatorTools/harvestField:positionHarvestField",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz__call__components/sourceContainer/creatorTools/harvestNetwork:requestHarvestStop",
+      "source": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:requestHarvestStop",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz__call__components/sourceContainer/creatorTools/harvestNetwork:syncHarvestStopButtons",
+      "source": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:syncHarvestStopButtons",
       "rel": "call"
     },
     {
@@ -22840,7 +22904,8 @@
       "id": "components/sourceContainer/index:SourceContainerManager.renderHarvestViz__call__components/sourceContainer/creatorTools/harvestViz:renderHarvestViz",
       "source": "components/sourceContainer/index:SourceContainerManager.renderHarvestViz",
       "target": "components/sourceContainer/creatorTools/harvestViz:renderHarvestViz",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/sourceContainer/index:SourceContainerManager.renderPipelineViz__call__components/sourceContainer/aiReview/pipelineViz:renderPipelineViz",
@@ -25771,6 +25836,18 @@
       "id": "dom__domread__components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus",
       "source": "dom",
       "target": "components/sourceContainer/creatorTools/harvestNetwork:pollHarvestStatus",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/creatorTools/harvestNetwork:requestHarvestStop",
+      "source": "dom",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:requestHarvestStop",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/creatorTools/harvestNetwork:syncHarvestStopButtons",
+      "source": "dom",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork:syncHarvestStopButtons",
       "rel": "domread"
     },
     {
@@ -42061,6 +42138,11 @@
     {
       "source": "components/sourceContainer/creatorTools/harvestViz",
       "target": "components/sourceContainer/creatorTools/harvestField",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/creatorTools/harvestViz",
+      "target": "components/sourceContainer/creatorTools/harvestNetwork",
       "kind": "static"
     },
     {

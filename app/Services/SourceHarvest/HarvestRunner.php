@@ -118,11 +118,19 @@ class HarvestRunner
         ];
 
         // Stop-condition probe, checked at each work boundary. Returns a reason
-        // ('cancelled' | 'over_budget') or null. Premium owners have no spend
-        // ceiling (they aren't per-use billed) — only the cancel flag stops them.
+        // ('cancelled' | 'finished' | 'over_budget') or null. cancel and finish
+        // both stop gracefully and still finalize — the difference is the
+        // stamped outcome: finish is a deliberately shortened run ('completed'),
+        // cancel is abandoned ('cancelled'). Premium owners have no spend
+        // ceiling (they aren't per-use billed) — only the stop flags stop them.
         $shouldStop = function () use ($db, $harvestId, $user, $maxSpend, &$spend): ?string {
-            if ($db->table('source_network_harvests')->where('id', $harvestId)->value('cancel_requested')) {
+            $flags = $db->table('source_network_harvests')->where('id', $harvestId)
+                ->select(['cancel_requested', 'finish_requested'])->first();
+            if ($flags?->cancel_requested) {
                 return 'cancelled';
+            }
+            if ($flags?->finish_requested) {
+                return 'finished';
             }
             if ($user && $user->status !== 'premium') {
                 if ($maxSpend !== null && $spend >= $maxSpend) {
@@ -404,6 +412,9 @@ class HarvestRunner
                 "Spending limit reached — stopped with {$counts['skipped_over_budget']} work(s) left for a rerun");
         } elseif ($stopReason === 'cancelled') {
             $telemetry->emit('harvest', 'skipped', 'Harvest cancelled');
+        } elseif ($stopReason === 'finished') {
+            $telemetry->emit('harvest', 'progress',
+                'Finished early by request — writing the report for everything gathered');
         }
 
         // Flush the loop's final state so finalize() (which reads only the

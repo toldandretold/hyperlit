@@ -7,6 +7,7 @@
 import { trapModalFocus } from '../../../utilities/modalFocusTrap';
 import { log } from '../../../utilities/logger';
 import { HARVEST_FIELD_CSS, harvestFieldHtml, computeHarvestProgress, positionHarvestField } from './harvestField';
+import { requestHarvestStop, syncHarvestStopButtons } from './harvestNetwork';
 
 const FILE = 'components/sourceContainer/creatorTools/harvestViz.ts';
 
@@ -250,7 +251,26 @@ export function renderHarvestViz(self: any, harvest: any) {
         ${expanded}`;
   }
 
-  viz.innerHTML = body;
+  // Stop controls while the run is live: "Finish & write report" (stop at the
+  // next work boundary, keep + report everything, stamp completed) and
+  // "Cancel harvest" (same stop + report, stamped cancelled). Rebuilt on every
+  // poll render, so syncHarvestStopButtons reapplies the pending/sent state.
+  const live = harvest.status === 'pending' || harvest.status === 'running';
+  const actions = live
+    ? `<div style="margin-top: 22px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.12); display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
+         <button type="button" id="harvest-viz-finish" style="background: none; border: 1px solid #4EACAE; color: #4EACAE; border-radius: 5px; padding: 6px 14px; cursor: pointer; font-size: 13px;">Finish & write report</button>
+         <button type="button" id="harvest-viz-cancel" style="background: none; border: 1px solid #EF8D34; color: #EF8D34; border-radius: 5px; padding: 6px 14px; cursor: pointer; font-size: 13px;">Cancel harvest</button>
+         <span style="font-size: 12px; color: #888;">Either way, everything already harvested is kept and written into the yield report.</span>
+       </div>`
+    : '';
+
+  viz.innerHTML = body + actions;
+
+  if (live) {
+    viz.querySelector('#harvest-viz-finish')?.addEventListener('click', () => requestHarvestStop(self, 'finish'));
+    viz.querySelector('#harvest-viz-cancel')?.addEventListener('click', () => requestHarvestStop(self, 'cancel'));
+    syncHarvestStopButtons(self);
+  }
 
   viz.querySelectorAll('.harvest-pipe-stage').forEach((btn: any) => {
     btn.addEventListener('click', (e: any) => {

@@ -289,9 +289,28 @@ class SourceHarvestController extends Controller
      */
     public function cancel(string $harvestId): JsonResponse
     {
+        return $this->requestStop($harvestId, 'cancel_requested',
+            'Cancellation requested — the harvest will stop shortly.');
+    }
+
+    /**
+     * POST /api/source-harvest/{harvestId}/finish — cancel's graceful sibling:
+     * stop at the next work boundary and still finalize the shelf + yield
+     * report, but stamp the run 'completed' (a deliberately shortened harvest)
+     * instead of 'cancelled'. Same guards as cancel.
+     */
+    public function finish(string $harvestId): JsonResponse
+    {
+        return $this->requestStop($harvestId, 'finish_requested',
+            'Finishing — the harvest will wrap up and write the yield report shortly.');
+    }
+
+    /** Shared owner-gated stop-flag setter behind cancel/finish. */
+    private function requestStop(string $harvestId, string $flag, string $message): JsonResponse
+    {
         $user = Auth::user();
         if (!$user) {
-            return response()->json(['success' => false, 'message' => 'You must be logged in to cancel a harvest.'], 401);
+            return response()->json(['success' => false, 'message' => 'You must be logged in to stop a harvest.'], 401);
         }
 
         $db = DB::connection('pgsql_admin');
@@ -311,9 +330,9 @@ class SourceHarvestController extends Controller
 
         $db->table('source_network_harvests')
             ->where('id', $harvestId)
-            ->update(['cancel_requested' => true, 'updated_at' => now()]);
+            ->update([$flag => true, 'updated_at' => now()]);
 
-        return response()->json(['success' => true, 'message' => 'Cancellation requested — the harvest will stop shortly.']);
+        return response()->json(['success' => true, 'message' => $message]);
     }
 
     /** Shelf link payload for the completion dialog + email (null until the shelf step ran). */

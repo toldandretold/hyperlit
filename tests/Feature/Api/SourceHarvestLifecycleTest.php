@@ -477,6 +477,28 @@ test('cancel is 422 once the harvest has finished', function () {
     $this->postJson("/api/source-harvest/{$id}/cancel")->assertStatus(422);
 });
 
+test('finish is owner-gated, sets finish_requested, and 422s once finished', function () {
+    $owner = $this->loginUser();
+    $book = $this->makeBook($owner);
+    $id = harvSeedHarvest($book, ['user_id' => $owner->id, 'status' => 'running']);
+
+    // Unauthenticated and non-owner are rejected, flag untouched.
+    app('auth')->guard('web')->logout();
+    $this->post("/api/source-harvest/{$id}/finish")->assertStatus(401);
+    $this->loginUser();
+    $this->postJson("/api/source-harvest/{$id}/finish")->assertStatus(403);
+    expect((bool) harvDb()->table('source_network_harvests')->where('id', $id)->value('finish_requested'))->toBeFalse();
+
+    // The owner can finish early.
+    $this->actingAs($owner);
+    $this->postJson("/api/source-harvest/{$id}/finish")->assertOk();
+    expect((bool) harvDb()->table('source_network_harvests')->where('id', $id)->value('finish_requested'))->toBeTrue();
+
+    // Once terminal, finish is a 422 like cancel.
+    harvDb()->table('source_network_harvests')->where('id', $id)->update(['status' => 'completed']);
+    $this->postJson("/api/source-harvest/{$id}/finish")->assertStatus(422);
+});
+
 test('cancel is 404 for an unknown harvest', function () {
     $this->loginUser();
     $this->postJson('/api/source-harvest/' . Str::uuid() . '/cancel')->assertStatus(404);

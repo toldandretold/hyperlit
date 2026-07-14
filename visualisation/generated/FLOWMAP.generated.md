@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1668 functions in 356 modules · 10 object stores · 10 PG tables · 3377 edges
+**MarkdownDB** schema v28 · 1670 functions in 356 modules · 10 object stores · 10 PG tables · 3386 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -269,8 +269,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleHarvestNetwork` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | read/write | — |
 | `loadHarvestSection` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | read/write | — |
 | `pollHarvestStatus` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | read/write | — |
+| `requestHarvestStop` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | read | — |
 | `startHarvestPolling` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | — | — |
 | `stopHarvestPolling` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | — | — |
+| `syncHarvestStopButtons` | `components/sourceContainer/creatorTools/harvestNetwork` | — | — | read/write | — |
 | `closeHarvestVizOverlay` | `components/sourceContainer/creatorTools/harvestViz` | — | — | read/write | — |
 | `fetchHarvestMap` | `components/sourceContainer/creatorTools/harvestViz` | — | — | — | — |
 | `openHarvestVizOverlay` | `components/sourceContainer/creatorTools/harvestViz` | — | — | read/write | — |
