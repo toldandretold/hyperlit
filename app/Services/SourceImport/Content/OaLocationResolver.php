@@ -5,6 +5,7 @@ namespace App\Services\SourceImport\Content;
 use App\Services\OpenAlexService;
 use App\Services\SemanticScholarService;
 use App\Services\UnpaywallService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -51,17 +52,59 @@ class OaLocationResolver
     ];
 
     /**
+     * @param bool $forceRefresh Bypass the persisted cache and re-pull from the
+     *                           free APIs (the only path that re-queries them).
      * @return array<int, array{url: string, kind: string, host: string, host_class: string, source: string}>
      */
-    public function resolve(object $libraryRecord): array
+    public function resolve(object $libraryRecord, bool $forceRefresh = false): array
+    {
+        $canonicalId = $libraryRecord->canonical_source_id ?? null;
+
+        // The library row's own already-known URLs (from the scan / stub). This
+        // is per-VERSION, so it is always taken live from the record and merged
+        // in fresh — never cached (it's free, and can differ between versions).
+        $librarySeed = [
+            'pdf_url'          => $libraryRecord->pdf_url ?? null,
+            'landing_page_url' => $libraryRecord->oa_url ?? null,
+            'host_type'        => null,
+            'source'           => 'library',
+        ];
+
+        // Cache HIT: the expensive work-level gather was persisted on the canonical
+        // last time. Reuse it — ZERO external API calls. (An empty list is a valid
+        // hit: we looked and found no extra copies. Only SQL NULL is a miss.) We
+        // still re-rank with the current library seed so per-version URLs count.
+        if (!$forceRefresh && $canonicalId !== null) {
+            $cached = $this->loadCachedLocations($canonicalId);
+            if ($cached !== null) {
+                return $this->rankAndDedupe(array_merge([$librarySeed], $cached));
+            }
+        }
+
+        // Cache MISS (or forced): gather every OA copy from the four free APIs and
+        // persist the work-level result on the canonical for next time.
+        $workLevel = $this->gatherWorkLevelRaw($libraryRecord);
+
+        if ($canonicalId !== null) {
+            $this->persistLocations($canonicalId, $workLevel);
+        }
+
+        return $this->rankAndDedupe(array_merge([$librarySeed], $workLevel));
+    }
+
+    /**
+     * The four free-API gather — OpenAlex locations[], Unpaywall, Semantic
+     * Scholar, Crossref — WITHOUT the per-version library seed. This is the slow
+     * part we cache on the canonical (see resolve()).
+     *
+     * @return array<int, array{pdf_url?: ?string, landing_page_url?: ?string, host_type?: ?string, source: string}>
+     */
+    private function gatherWorkLevelRaw(object $libraryRecord): array
     {
         $doi        = $libraryRecord->doi ?? null;
         $openalexId = $libraryRecord->openalex_id ?? null;
 
         $raw = [];
-
-        // 0. The library row's own already-known URLs (from the scan / stub).
-        $raw[] = ['pdf_url' => $libraryRecord->pdf_url ?? null, 'landing_page_url' => $libraryRecord->oa_url ?? null, 'host_type' => null, 'source' => 'library'];
 
         // 1. OpenAlex full locations[] — every green + publisher OA copy.
         try {
@@ -97,7 +140,51 @@ class OaLocationResolver
             }
         }
 
-        return $this->rankAndDedupe($raw);
+        return $raw;
+    }
+
+    /**
+     * The persisted work-level candidate list for a canonical, or null when the
+     * canonical was never resolved (SQL NULL / no row). An empty array is a
+     * deliberate HIT ("resolved, no extra copies") — not a miss.
+     *
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function loadCachedLocations(string $canonicalId): ?array
+    {
+        $stored = DB::connection('pgsql_admin')
+            ->table('canonical_source')
+            ->where('id', $canonicalId)
+            ->value('oa_locations');
+
+        if ($stored === null) {
+            return null; // never resolved (or no such row) → cache miss
+        }
+        if (is_array($stored)) {
+            return $stored; // some drivers pre-decode jsonb
+        }
+
+        $decoded = json_decode((string) $stored, true);
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * Persist the work-level gather on the canonical. Uses pgsql_admin (BYPASSRLS)
+     * to mirror the rest of this write path — canonical_source has no RLS, and the
+     * queue worker has no HTTP session, so the admin connection is the safe one.
+     *
+     * @param array<int, array<string, mixed>> $workLevel
+     */
+    private function persistLocations(string $canonicalId, array $workLevel): void
+    {
+        DB::connection('pgsql_admin')
+            ->table('canonical_source')
+            ->where('id', $canonicalId)
+            ->update([
+                'oa_locations'            => json_encode(array_values($workLevel)),
+                'oa_locations_fetched_at' => now(),
+                'updated_at'              => now(),
+            ]);
     }
 
     /**
@@ -105,7 +192,7 @@ class OaLocationResolver
      * the least-likely-to-be-walled copy comes first.
      *
      * @param array<int, array{pdf_url?: ?string, landing_page_url?: ?string, host_type?: ?string, source: string}> $raw
-     * @return array<int, array{url: string, kind: string, host: string, host_class: string, source: string}>
+     * @return array<int, array{url: string, kind: string, host: string, host_class: string, source: string, version: ?string, license: ?string}>
      */
     public function rankAndDedupe(array $raw): array
     {
@@ -130,19 +217,49 @@ class OaLocationResolver
                     'host'       => $host,
                     'host_class' => $this->classifyHost($host, $loc['host_type'] ?? null),
                     'source'     => $loc['source'],
+                    // Carried through for ranking AND so the fetch ladder can record
+                    // the license/version of the copy it actually imported.
+                    'version'    => $loc['version'] ?? null,
+                    'license'    => $loc['license'] ?? null,
                 ];
             }
         }
 
-        // Rank: cleaner host first, then a direct PDF before a landing page.
+        // Rank: cleaner host first (repository dodges Cloudflare), then a direct
+        // PDF before a landing page, then — as tie-breakers WITHIN a host/kind —
+        // the more authoritative version and the more open license. Sub-scores are
+        // deliberately smaller than the host (100) and kind (10) gaps so they only
+        // reorder otherwise-equal copies, never override the anti-Cloudflare order.
         $classScore = ['repository' => 200, 'unknown' => 100, 'publisher' => 0];
-        usort($candidates, function ($a, $b) use ($classScore) {
-            $sa = $classScore[$a['host_class']] + ($a['kind'] === 'pdf' ? 10 : 0);
-            $sb = $classScore[$b['host_class']] + ($b['kind'] === 'pdf' ? 10 : 0);
-            return $sb <=> $sa;
-        });
+        $score = fn (array $c): int =>
+            $classScore[$c['host_class']]
+            + ($c['kind'] === 'pdf' ? 10 : 0)
+            + $this->versionScore($c['version'] ?? null)
+            + $this->licenseScore($c['license'] ?? null);
+        usort($candidates, fn ($a, $b) => $score($b) <=> $score($a));
 
         return $candidates;
+    }
+
+    /** publishedVersion (version of record) > accepted > unknown > submitted (preprint). Range 0-6. */
+    private function versionScore(?string $version): int
+    {
+        $v = strtolower((string) $version);
+        if (str_contains($v, 'published')) return 6;
+        if (str_contains($v, 'accepted')) return 4;
+        if ($v === '') return 2;                 // unknown sits between accepted and submitted
+        if (str_contains($v, 'submitted')) return 1;
+        return 2;
+    }
+
+    /** Open CC/public-domain > publisher-specific OA > none. Range 0-3. */
+    private function licenseScore(?string $license): int
+    {
+        $l = strtolower((string) $license);
+        if ($l === '') return 0;
+        if (str_starts_with($l, 'cc') || str_contains($l, 'public-domain') || $l === 'pd') return 3;
+        if (str_contains($l, 'publisher-specific')) return 1;
+        return 1; // other-oa / unknown-but-present
     }
 
     private function classifyHost(string $host, ?string $openAlexHostType): string

@@ -67,6 +67,9 @@ describe('hydration/rebuild.js (characterization)', () => {
       relationshipStatus: 'single',
       citedIN: [],
       time_since: 456,
+      // creator/is_user_hypercite ride along for the gate's ownership bypass
+      // (rebuild.ts ~L225); unset here → null / undefined-dropped.
+      creator: null,
     }]);
     // Footnotes are re-extracted from the HTML content (href="#..Fn..")
     expect(nodes[0].footnotes).toEqual(['bookA_Fn3']);

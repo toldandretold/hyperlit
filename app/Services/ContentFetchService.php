@@ -25,9 +25,9 @@ class ContentFetchService
     /**
      * Trace of the last fetch()'s OA-candidate loop, for telemetry:
      * how many OA copies were tried and which host/source finally won.
-     * @var array{candidates: int, won_host: ?string, won_source: ?string, session: ?string, proxy: ?string}
+     * @var array{candidates: int, won_host: ?string, won_source: ?string, won_license: ?string, won_version: ?string, completeness: ?string, completeness_reason: ?string, session: ?string, proxy: ?string}
      */
-    private array $lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'session' => null, 'proxy' => null];
+    private array $lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null];
 
     /**
      * Per-work sticky-proxy session id. Set once at the top of fetch() so every
@@ -45,7 +45,7 @@ class ContentFetchService
         $this->llmService = $llmService;
     }
 
-    /** @return array{candidates: int, won_host: ?string, won_source: ?string, session: ?string, proxy: ?string} */
+    /** @return array{candidates: int, won_host: ?string, won_source: ?string, won_license: ?string, won_version: ?string, completeness: ?string, completeness_reason: ?string, session: ?string, proxy: ?string} */
     public function lastFetchTrace(): array
     {
         return $this->lastFetchTrace;
@@ -137,7 +137,7 @@ class ContentFetchService
         $doi = $libraryRecord->doi ?? null;
 
         $lastFailure = null;
-        $this->lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'session' => null, 'proxy' => null];
+        $this->lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null];
 
         // One sticky-proxy session per work: the CF solve and the PDF download
         // then share an IP (cf_clearance is IP-bound). Different works get
@@ -160,6 +160,9 @@ class ContentFetchService
         if ($doi) {
             $result = $this->fetchJatsFullText($doi, $bookId);
             if ($result['status'] !== 'failed') {
+                // JATS is the full-text article XML (already gated against empty
+                // bodies), so this lane always yields the complete work.
+                $this->lastFetchTrace['completeness'] = 'verified_full';
                 return $result;
             }
             // Soft miss (no OA JATS) — don't record as the failure reason,
@@ -175,6 +178,7 @@ class ContentFetchService
         $candidates = app(OaLocationResolver::class)->resolve($libraryRecord);
         $this->lastFetchTrace['candidates'] = count($candidates);
         $triedPdf = [];
+        $partialFallback = null; // best-ranked partial copy, KEPT only if no fuller one exists
         foreach ($candidates as $cand) {
             // Resolve to a concrete PDF: direct, or discovered on the landing page.
             $pdfTarget = $cand['kind'] === 'pdf'
@@ -186,17 +190,41 @@ class ContentFetchService
             $triedPdf[$pdfTarget] = true;
 
             $result = $this->downloadPdf($pdfTarget, $bookId, $doi);
+            if ($result['status'] === 'failed') {
+                $lastFailure = $result['reason'];
+                $this->setPdfUrlStatus($bookId, null); // unblock later strategies
+                continue;
+            }
+
+            // Classify completeness — don't discard. A `partial` copy (chapter /
+            // front-matter / bronze-book teaser) is real content worth keeping, but
+            // we first keep looking for a fuller copy and only fall back to the
+            // best-ranked partial if none exists. Full/unverified copies are taken
+            // immediately (they're already ranked most-trustworthy-first).
+            $assess = $this->assessCompleteness(resource_path("markdown/{$bookId}/original.pdf"), $libraryRecord);
+            if ($assess['status'] === 'partial') {
+                if ($partialFallback === null) {
+                    $partialFallback = ['url' => $pdfTarget, 'cand' => $cand, 'reason' => $assess['reason']];
+                }
+                $this->setPdfUrlStatus($bookId, null); // keep looking for a fuller copy
+                continue;
+            }
+            return $this->acceptPdfCandidate($bookId, $pdfTarget, $cand, $assess, $result);
+        }
+
+        // No full/unverified copy — keep the best partial we saw, flagged `partial`.
+        if ($partialFallback !== null) {
+            $result = $this->downloadPdf($partialFallback['url'], $bookId, $doi);
             if ($result['status'] !== 'failed') {
-                // Persist the winning URL for provenance/retries.
-                DB::connection('pgsql_admin')->table('library')
-                    ->where('book', $bookId)
-                    ->update(['pdf_url' => $pdfTarget, 'updated_at' => now()]);
-                $this->lastFetchTrace['won_host'] = $cand['host'];
-                $this->lastFetchTrace['won_source'] = $cand['source'];
-                return $result;
+                return $this->acceptPdfCandidate(
+                    $bookId,
+                    $partialFallback['url'],
+                    $partialFallback['cand'],
+                    ['status' => 'partial', 'reason' => $partialFallback['reason']],
+                    $result
+                );
             }
             $lastFailure = $result['reason'];
-            $this->setPdfUrlStatus($bookId, null); // unblock later strategies
         }
 
         // Strategy 2: oa_url as HTML — kept for HTML-native articles (no PDF).
@@ -615,6 +643,120 @@ class ContentFetchService
     }
 
     /**
+     * Classify a downloaded PDF's completeness — WITHOUT discarding it. A partial
+     * copy (chapter / front-matter / bronze-book teaser) is still useful; the point
+     * is to flag it so citation review never treats it as the whole work.
+     *
+     *   partial       — a strong incompleteness signal (bronze book; PDF far
+     *                    shorter than the work's known page span; a tiny book PDF).
+     *   verified_full — a known page span and the PDF plausibly covers it.
+     *   unverified    — no usable signal (no page range, unparseable, big file).
+     *
+     * @return array{status: 'verified_full'|'partial'|'unverified', reason: ?string}
+     */
+    private function assessCompleteness(string $pdfPath, object $libraryRecord): array
+    {
+        $oaStatus = strtolower((string) ($libraryRecord->oa_status ?? ''));
+        $type = strtolower((string) ($libraryRecord->type ?? ''));
+
+        // Strong prior: a bronze BOOK's free PDF is a front-matter/chapter teaser
+        // (the real book is paywalled). Flag it regardless of page count.
+        if ($oaStatus === 'bronze' && $type === 'book') {
+            return ['status' => 'partial', 'reason' => 'bronze book — likely a single chapter / front-matter, not the whole book'];
+        }
+
+        if (!File::exists($pdfPath) || File::size($pdfPath) > 8 * 1024 * 1024) {
+            return ['status' => 'unverified', 'reason' => null]; // too big to cheaply page-count
+        }
+        $pageCount = $this->pdfPageCount($pdfPath);
+        if ($pageCount === null) {
+            return ['status' => 'unverified', 'reason' => null];
+        }
+
+        [$firstPage, $lastPage] = $this->expectedExtent($libraryRecord);
+
+        // Known page span (OpenAlex biblio): a real full text is at least ~40% of
+        // it (allow for front/back matter, OCR page merges, loose metadata).
+        if ($firstPage !== null && $lastPage !== null && $lastPage >= $firstPage) {
+            $expected = $lastPage - $firstPage + 1;
+            if ($expected >= 4) {
+                return $pageCount < max(2, (int) ceil($expected * 0.4))
+                    ? ['status' => 'partial', 'reason' => "only {$pageCount}pp vs ~{$expected}pp expected"]
+                    : ['status' => 'verified_full', 'reason' => null];
+            }
+            return ['status' => 'unverified', 'reason' => null]; // span too small to judge
+        }
+
+        // No page range — for BOOKS a handful of pages is almost always
+        // front-matter/intro (books run dozens to hundreds of pages).
+        if ($type === 'book' && $pageCount < 10) {
+            return ['status' => 'partial', 'reason' => "{$pageCount}pp book — likely front-matter only"];
+        }
+
+        return ['status' => 'unverified', 'reason' => null];
+    }
+
+    /**
+     * Accept a downloaded PDF candidate: persist the winning URL and record the
+     * winning copy's provenance (host/source/license/version) + completeness on
+     * the trace, for AutoVersionCreator to stamp onto the version.
+     *
+     * @param array{status: string, reason: ?string} $assess
+     */
+    private function acceptPdfCandidate(string $bookId, string $pdfTarget, array $cand, array $assess, array $result): array
+    {
+        DB::connection('pgsql_admin')->table('library')
+            ->where('book', $bookId)
+            ->update(['pdf_url' => $pdfTarget, 'updated_at' => now()]);
+        $this->lastFetchTrace['won_host'] = $cand['host'];
+        $this->lastFetchTrace['won_source'] = $cand['source'];
+        $this->lastFetchTrace['won_license'] = $cand['license'] ?? null;
+        $this->lastFetchTrace['won_version'] = $cand['version'] ?? null;
+        $this->lastFetchTrace['completeness'] = $assess['status'];
+        $this->lastFetchTrace['completeness_reason'] = $assess['reason'] ?? null;
+        return $result;
+    }
+
+    /** PDF page count via smalot/pdfparser; null if the file can't be parsed. */
+    private function pdfPageCount(string $pdfPath): ?int
+    {
+        try {
+            $pdf = (new \Smalot\PdfParser\Parser())->parseFile($pdfPath);
+            $count = count($pdf->getPages());
+            return $count > 0 ? $count : null;
+        } catch (\Throwable $e) {
+            Log::warning('ContentFetchService::pdfPageCount parse failed', [
+                'path' => $pdfPath, 'error' => Str::limit($e->getMessage(), 200),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * The work's OpenAlex page range off the linked canonical (books/articles that
+     * carry a biblio range).
+     *
+     * @return array{0: ?int, 1: ?int} [firstPage, lastPage]
+     */
+    private function expectedExtent(object $libraryRecord): array
+    {
+        $canonicalId = $libraryRecord->canonical_source_id ?? null;
+        if (!$canonicalId) {
+            return [null, null];
+        }
+        $c = DB::connection('pgsql_admin')->table('canonical_source')
+            ->where('id', $canonicalId)
+            ->first(['first_page', 'last_page']);
+        if (!$c) {
+            return [null, null];
+        }
+        return [
+            $c->first_page !== null ? (int) $c->first_page : null,
+            $c->last_page !== null ? (int) $c->last_page : null,
+        ];
+    }
+
+    /**
      * Guzzle proxy option from SOURCE_FETCH_PROXY (env, unset by default).
      * Cloudflare hard-blocks datacenter IPs by reputation, so routing fetches
      * through a residential/rotating proxy is often the actual fix. Returns
@@ -898,6 +1040,21 @@ class ContentFetchService
         }
     }
 
+    /** Total body-text length across nodes.jsonl (the streamed OCR output). */
+    private function plainTextLengthFromJsonl(string $nodesPath): int
+    {
+        $total = 0;
+        foreach (file($nodesPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $node = json_decode($line, true);
+            if (!is_array($node)) {
+                continue;
+            }
+            $text = $node['plainText'] ?? (isset($node['content']) ? strip_tags((string) $node['content']) : '');
+            $total += strlen(trim((string) $text));
+        }
+        return $total;
+    }
+
     /**
      * Count paragraphs in nodes.json with >100 chars of plainText.
      */
@@ -1098,6 +1255,19 @@ class ContentFetchService
 
             if (!File::exists($nodesPath)) {
                 $reason = 'Timed out waiting for nodes.jsonl after PdfProcessor';
+                $this->setPdfUrlStatus($bookId, $reason);
+                return ['status' => 'failed', 'reason' => $reason];
+            }
+
+            // 3b. Partial/empty-content backstop: if OCR yielded almost no body
+            // text, this isn't the source (an image-only table of contents, a
+            // near-blank scan) — reject BEFORE committing nodes rather than
+            // importing an empty "source". Mirrors the JATS lane's <500-char
+            // full-text floor; the page-count gate already caught the obvious
+            // partials pre-OCR, this covers the ones that slipped through.
+            $textLen = $this->plainTextLengthFromJsonl($nodesPath);
+            if ($textLen < 500) {
+                $reason = "partial_text: only {$textLen} chars of body text OCR'd";
                 $this->setPdfUrlStatus($bookId, $reason);
                 return ['status' => 'failed', 'reason' => $reason];
             }

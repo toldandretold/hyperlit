@@ -166,6 +166,8 @@
                 "canonical_metadata_score",
                 "canonical_source_id",
                 "chapter",
+                "completeness",
+                "completeness_reason",
                 "conversion_method",
                 "creator",
                 "custom_license_text",
@@ -391,6 +393,8 @@
                 "canonical_metadata_score",
                 "canonical_source_id",
                 "chapter",
+                "completeness",
+                "completeness_reason",
                 "conversion_method",
                 "creator",
                 "custom_license_text",
@@ -514,8 +518,17 @@
             ],
             "shape": [
                 "book",
-                "hypercite",
-                "user"
+                "charData",
+                "citedIN",
+                "creator",
+                "hyperciteId",
+                "hypercitedHTML",
+                "hypercitedText",
+                "is_user_hypercite",
+                "node_id",
+                "raw_json",
+                "relationshipStatus",
+                "time_since"
             ],
             "endpoints": [
                 "/api/db/hypercites/find/{}/{}"

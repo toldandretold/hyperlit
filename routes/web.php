@@ -327,6 +327,12 @@ Route::get('/q/{parentBook}/{subId}/data', [QuantizerController::class, 'subBook
     ->where('subId', '.+')
     ->name('quantizer.sub-book-data');
 
+// Harvest knowledge-network 3D view — standalone non-SPA page expanding the
+// yield report's embedded fork tree (must precede the /{identifier} catch-all).
+Route::get('/harvest-network/{rootBook}', [\App\Http\Controllers\HarvestNetworkController::class, 'show'])
+    ->where('rootBook', '[A-Za-z0-9_-]+')
+    ->name('harvest-network.show');
+
 // Time machine route (must come before /{book}/edit catch)
 Route::get('/{book}/timemachine', [TextController::class, 'showTimeMachine'])
     ->where('book', '[A-Za-z0-9_-]+')

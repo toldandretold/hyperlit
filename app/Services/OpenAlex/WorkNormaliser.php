@@ -132,6 +132,10 @@ class WorkNormaliser
             'volume'         => $work['biblio']['volume'] ?? null,
             'issue'          => $work['biblio']['issue'] ?? null,
             'pages'          => ($firstPage && $lastPage) ? $firstPage . '–' . $lastPage : null,
+            // Numeric page range persisted on canonical_source for the harvester's
+            // partial-PDF gate (a PDF far shorter than this span is a ToC/teaser).
+            'first_page'     => is_numeric($firstPage) ? (int) $firstPage : null,
+            'last_page'      => is_numeric($lastPage) ? (int) $lastPage : null,
             'bibtex'         => $this->generateBibtex($work),
             'abstract'       => self::reconstructAbstract($work['abstract_inverted_index'] ?? null),
             'authorships'    => $structuredAuthorships,

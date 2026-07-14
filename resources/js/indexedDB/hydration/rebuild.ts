@@ -221,7 +221,9 @@ function buildHypercitesForNode(node: NodeRecord, allHypercites: HyperciteRecord
         return null;
       }
 
-      // Build hypercite object in the format expected by renderer
+      // Build hypercite object in the format expected by renderer.
+      // creator/is_user_hypercite ride along — the client gate's ownership bypass
+      // + singles mirror read them off the embedded view at render.
       return {
         hyperciteId: hc.hyperciteId,
         charStart: charData.charStart,
@@ -229,6 +231,8 @@ function buildHypercitesForNode(node: NodeRecord, allHypercites: HyperciteRecord
         relationshipStatus: hc.relationshipStatus,
         citedIN: hc.citedIN || [],
         time_since: hc.time_since,
+        creator: hc.creator ?? null,
+        is_user_hypercite: hc.is_user_hypercite,
       };
     })
     .filter((hc): hc is NodeHyperciteView => hc !== null); // Remove nulls from missing charData

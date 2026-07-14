@@ -48,6 +48,10 @@ class CanonicalSource extends Model
         'commons_version_book',
         'auto_version_book',
         'authorships',
+        'oa_locations',
+        'oa_locations_fetched_at',
+        'first_page',
+        'last_page',
     ];
 
     protected $casts = [
@@ -57,6 +61,10 @@ class CanonicalSource extends Model
         'verified_by_publisher' => 'boolean',
         'commons_endorsements' => 'integer',
         'authorships' => 'array',
+        'oa_locations' => 'array',
+        'oa_locations_fetched_at' => 'datetime',
+        'first_page' => 'integer',
+        'last_page' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

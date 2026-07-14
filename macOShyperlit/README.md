@@ -34,6 +34,8 @@ bin/hyperlit-ocr <pdf> <out.json> [--progress] [--no-images]
 
 Point the Laravel backend at it in `.env` (`NATIVE_OCR_BINARY=/path/to/bin/hyperlit-ocr`, `OCR_PROVIDER=auto`); `PdfProcessor.php` then produces the OCR cache locally and skips Mistral. `--progress` prints `PROGRESS:{…}` lines in the pipeline's `emit_progress` format so the import UI shows live page counts. The CLI also doubles as a fixture/debug generator — run it on any PDF and inspect the JSON.
 
+> For step-by-step setup of the local vision-model OCR path (installing Ollama, pulling `qwen2.5vl`, wiring the preset, disk/RAM sizing, troubleshooting), see **[`VISION-MODEL-SETUP.md`](VISION-MODEL-SETUP.md)**.
+
 ## Building the app
 
 - Open `hyperlit.xcodeproj` in Xcode (deployment target macOS 15.7; the project uses a filesystem-synchronized group, so new files under `hyperlit/` are picked up automatically — no pbxproj editing).

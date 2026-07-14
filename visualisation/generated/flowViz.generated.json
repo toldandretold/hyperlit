@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1658,
-    "moduleCount": 354,
+    "fnCount": 1665,
+    "moduleCount": 356,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3350,
+    "edgeCount": 3372,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -3009,6 +3009,14 @@
       "leaf": true
     },
     {
+      "id": "components/sourceContainer/licenseInfo:licenseInfoFor",
+      "label": "licenseInfoFor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/licenseInfo",
+      "leaf": true
+    },
+    {
       "id": "components/sourceContainer/researchWorkflows:isCommonsBook",
       "label": "isCommonsBook",
       "kind": "fn",
@@ -4358,7 +4366,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/utilities/gateFilter",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/utilities/gateFilter:gateQueryParam",
@@ -4379,6 +4387,30 @@
     {
       "id": "components/utilities/gateFilter:getGateSettings",
       "label": "getGateSettings",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/gateFilter:getPinnedHyperciteIds",
+      "label": "getPinnedHyperciteIds",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/gateFilter:pinHypercite",
+      "label": "pinHypercite",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/gateFilter:pinnedQueryParam",
+      "label": "pinnedQueryParam",
       "kind": "fn",
       "stage": "components",
       "module": "components/utilities/gateFilter",
@@ -4710,6 +4742,8 @@
         "canonical_metadata_score",
         "canonical_source_id",
         "chapter",
+        "completeness",
+        "completeness_reason",
         "conversion_method",
         "creator",
         "custom_license_text",
@@ -4952,6 +4986,8 @@
         "canonical_metadata_score",
         "canonical_source_id",
         "chapter",
+        "completeness",
+        "completeness_reason",
         "conversion_method",
         "creator",
         "custom_license_text",
@@ -5067,8 +5103,17 @@
       ],
       "shape": [
         "book",
-        "hypercite",
-        "user"
+        "charData",
+        "citedIN",
+        "creator",
+        "hyperciteId",
+        "hypercitedHTML",
+        "hypercitedText",
+        "is_user_hypercite",
+        "node_id",
+        "raw_json",
+        "relationshipStatus",
+        "time_since"
       ],
       "types": [
         "NodeHyperciteView",
@@ -10007,6 +10052,29 @@
       ]
     },
     {
+      "id": "indexedDB/hypercites/helpers:fetchAndPinHypercite",
+      "label": "fetchAndPinHypercite",
+      "kind": "fn",
+      "stage": "domain",
+      "module": "indexedDB/hypercites/helpers",
+      "leaf": true,
+      "types": [
+        "HyperciteRecord",
+        "NodeRecord"
+      ]
+    },
+    {
+      "id": "indexedDB/hypercites/helpers:fetchHyperciteRecord",
+      "label": "fetchHyperciteRecord",
+      "kind": "fn",
+      "stage": "domain",
+      "module": "indexedDB/hypercites/helpers",
+      "leaf": false,
+      "types": [
+        "HyperciteRecord"
+      ]
+    },
+    {
       "id": "indexedDB/hypercites/helpers:resolveHypercite",
       "label": "resolveHypercite",
       "kind": "fn",
@@ -10858,6 +10926,14 @@
       "kind": "fn",
       "stage": "lazyLoader",
       "module": "lazyLoader/footnoteSelfHeal",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/graphRenderer:renderHarvestNetworks",
+      "label": "renderHarvestNetworks",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/graphRenderer",
       "leaf": false
     },
     {
@@ -16000,6 +16076,15 @@
       ]
     },
     {
+      "id": "components/sourceContainer/licenseInfo",
+      "label": "components/sourceContainer/licenseInfo",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/licenseInfo:licenseInfoFor"
+      ]
+    },
+    {
       "id": "components/sourceContainer/researchWorkflows",
       "label": "components/sourceContainer/researchWorkflows",
       "stage": "components",
@@ -16377,6 +16462,9 @@
         "components/utilities/gateFilter:gateQueryParam",
         "components/utilities/gateFilter:getBookGateDefaults",
         "components/utilities/gateFilter:getGateSettings",
+        "components/utilities/gateFilter:getPinnedHyperciteIds",
+        "components/utilities/gateFilter:pinHypercite",
+        "components/utilities/gateFilter:pinnedQueryParam",
         "components/utilities/gateFilter:reapplyAnnotationsWithGate",
         "components/utilities/gateFilter:setBookGateDefaults"
       ]
@@ -17829,6 +17917,8 @@
       "stage": "domain",
       "band": "sync",
       "fnIds": [
+        "indexedDB/hypercites/helpers:fetchAndPinHypercite",
+        "indexedDB/hypercites/helpers:fetchHyperciteRecord",
         "indexedDB/hypercites/helpers:resolveHypercite"
       ]
     },
@@ -18185,6 +18275,15 @@
       "band": "capture",
       "fnIds": [
         "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers"
+      ]
+    },
+    {
+      "id": "lazyLoader/graphRenderer",
+      "label": "lazyLoader/graphRenderer",
+      "stage": "lazyLoader",
+      "band": "capture",
+      "fnIds": [
+        "lazyLoader/graphRenderer:renderHarvestNetworks"
       ]
     },
     {
@@ -21875,6 +21974,12 @@
       "rel": "call"
     },
     {
+      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/licenseInfo:licenseInfoFor",
+      "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "components/sourceContainer/licenseInfo:licenseInfoFor",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/researchWorkflows:researchWorkflowsSectionHtml",
       "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
       "target": "components/sourceContainer/researchWorkflows:researchWorkflowsSectionHtml",
@@ -23735,11 +23840,24 @@
       "dataPath": true
     },
     {
+      "id": "components/utilities/gateFilter:appendGateParam__call__components/utilities/gateFilter:pinnedQueryParam",
+      "source": "components/utilities/gateFilter:appendGateParam",
+      "target": "components/utilities/gateFilter:pinnedQueryParam",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/utilities/gateFilter:applyGateFilter__call__components/utilities/gateFilter:getGateSettings",
       "source": "components/utilities/gateFilter:applyGateFilter",
       "target": "components/utilities/gateFilter:getGateSettings",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "components/utilities/gateFilter:pinHypercite__write__store:sessionStorage",
+      "source": "components/utilities/gateFilter:pinHypercite",
+      "target": "store:sessionStorage",
+      "rel": "write"
     },
     {
       "id": "components/utilities/gateFilter:reapplyAnnotationsWithGate__call__hyperlights/deletion:reprocessHighlightsForNodes",
@@ -27602,6 +27720,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__lazyLoader/graphRenderer:renderHarvestNetworks",
+      "source": "dom",
+      "target": "lazyLoader/graphRenderer:renderHarvestNetworks",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__lazyLoader/imageState:handleBrokenImages",
       "source": "dom",
       "target": "lazyLoader/imageState:handleBrokenImages",
@@ -30995,6 +31119,13 @@
       "dataPath": true
     },
     {
+      "id": "hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation:buildHyperciteCitationContent__call__indexedDB/hypercites/helpers:fetchHyperciteRecord",
+      "source": "hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation:buildHyperciteCitationContent",
+      "target": "indexedDB/hypercites/helpers:fetchHyperciteRecord",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation:buildHyperciteCitationContent__call__indexedDB/hypercites/read:getHyperciteFromIndexedDB",
       "source": "hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation:buildHyperciteCitationContent",
       "target": "indexedDB/hypercites/read:getHyperciteFromIndexedDB",
@@ -31006,6 +31137,13 @@
       "source": "hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation:buildHyperciteCitationContent",
       "target": "store:library",
       "rel": "write"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation:resolveButtonStatus__call__hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation:resolveButtonStatus",
+      "source": "hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation:resolveButtonStatus",
+      "target": "hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation:resolveButtonStatus",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation:resolveButtonStatus__call__hyperlitContainer/contentBuilders/sourceAccessButton:enableButtonEl",
@@ -33034,6 +33172,47 @@
       "rel": "write"
     },
     {
+      "id": "indexedDB/hypercites/helpers:fetchAndPinHypercite__call__components/utilities/gateFilter:pinHypercite",
+      "source": "indexedDB/hypercites/helpers:fetchAndPinHypercite",
+      "target": "components/utilities/gateFilter:pinHypercite",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/hypercites/helpers:fetchAndPinHypercite__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "indexedDB/hypercites/helpers:fetchAndPinHypercite",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/hypercites/helpers:fetchAndPinHypercite__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "indexedDB/hypercites/helpers:fetchAndPinHypercite",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/hypercites/helpers:fetchAndPinHypercite__call__indexedDB/hypercites/helpers:fetchHyperciteRecord",
+      "source": "indexedDB/hypercites/helpers:fetchAndPinHypercite",
+      "target": "indexedDB/hypercites/helpers:fetchHyperciteRecord",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/hypercites/helpers:fetchHyperciteRecord__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/hypercites/helpers:fetchHyperciteRecord",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/hypercites/helpers:fetchHyperciteRecord__write__store:hypercites",
+      "source": "indexedDB/hypercites/helpers:fetchHyperciteRecord",
+      "target": "store:hypercites",
+      "rel": "write"
+    },
+    {
       "id": "indexedDB/hypercites/helpers:resolveHypercite__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/hypercites/helpers:resolveHypercite",
       "target": "indexedDB/core/connection:openDatabase",
@@ -34384,6 +34563,12 @@
       "rel": "call"
     },
     {
+      "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/graphRenderer:renderHarvestNetworks",
+      "source": "lazyLoader/chunkRender:createChunkElement",
+      "target": "lazyLoader/graphRenderer:renderHarvestNetworks",
+      "rel": "call"
+    },
+    {
       "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/imageState:handleBrokenImages",
       "source": "lazyLoader/chunkRender:createChunkElement",
       "target": "lazyLoader/imageState:handleBrokenImages",
@@ -34441,6 +34626,12 @@
     {
       "id": "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers__domwrite__dom",
       "source": "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/graphRenderer:renderHarvestNetworks__domwrite__dom",
+      "source": "lazyLoader/graphRenderer:renderHarvestNetworks",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -34949,6 +35140,20 @@
       "id": "pageLoad/initialChunk:fetchInitialChunk__call__components/utilities/gateFilter:gateQueryParam",
       "source": "pageLoad/initialChunk:fetchInitialChunk",
       "target": "components/utilities/gateFilter:gateQueryParam",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__components/utilities/gateFilter:getPinnedHyperciteIds",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "components/utilities/gateFilter:getPinnedHyperciteIds",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__components/utilities/gateFilter:pinHypercite",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "components/utilities/gateFilter:pinHypercite",
       "rel": "call",
       "dataPath": true
     },
@@ -37235,6 +37440,13 @@
       "rel": "push"
     },
     {
+      "id": "route:/api/db/hypercites/find__pull__indexedDB/hypercites/helpers:fetchHyperciteRecord",
+      "source": "route:/api/db/hypercites/find",
+      "target": "indexedDB/hypercites/helpers:fetchHyperciteRecord",
+      "rel": "pull",
+      "label": "/api/db/hypercites/find/{}/{}"
+    },
+    {
       "id": "route:/api/db/hypercites/find__pull__indexedDB/hypercites/helpers:resolveHypercite",
       "source": "route:/api/db/hypercites/find",
       "target": "indexedDB/hypercites/helpers:resolveHypercite",
@@ -37455,6 +37667,13 @@
       "source": "scrolling/internalNav:navigateToInternalId",
       "target": "indexedDB/core/utilities:getLocalStorageKey",
       "rel": "call"
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__indexedDB/hypercites/helpers:fetchAndPinHypercite",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "indexedDB/hypercites/helpers:fetchAndPinHypercite",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "scrolling/internalNav:navigateToInternalId__call__indexedDB/nodes/read:getNodesFromIndexedDB",
@@ -40199,6 +40418,30 @@
       "rel": "read"
     },
     {
+      "id": "store:sessionStorage__read__components/utilities/gateFilter:applyGateFilter",
+      "source": "store:sessionStorage",
+      "target": "components/utilities/gateFilter:applyGateFilter",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__components/utilities/gateFilter:getPinnedHyperciteIds",
+      "source": "store:sessionStorage",
+      "target": "components/utilities/gateFilter:getPinnedHyperciteIds",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__components/utilities/gateFilter:pinHypercite",
+      "source": "store:sessionStorage",
+      "target": "components/utilities/gateFilter:pinHypercite",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__components/utilities/gateFilter:pinnedQueryParam",
+      "source": "store:sessionStorage",
+      "target": "components/utilities/gateFilter:pinnedQueryParam",
+      "rel": "read"
+    },
+    {
       "id": "store:sessionStorage__read__divEditor/domUtilities:ensureMinimumDocumentStructure",
       "source": "store:sessionStorage",
       "target": "divEditor/domUtilities:ensureMinimumDocumentStructure",
@@ -41700,6 +41943,11 @@
     {
       "source": "components/sourceContainer/buildSourceHtml",
       "target": "components/sourceContainer/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/buildSourceHtml",
+      "target": "components/sourceContainer/licenseInfo",
       "kind": "static"
     },
     {
@@ -43274,6 +43522,11 @@
     },
     {
       "source": "hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation",
+      "target": "indexedDB/hypercites/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation",
       "target": "indexedDB/hypercites/index",
       "kind": "static"
     },
@@ -43899,6 +44152,16 @@
     },
     {
       "source": "indexedDB/hypercites/helpers",
+      "target": "components/utilities/gateFilter",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/hypercites/helpers",
+      "target": "indexedDB/hydration/rebuild",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/hypercites/helpers",
       "target": "indexedDB/nodes/read",
       "kind": "lazy"
     },
@@ -44350,6 +44613,11 @@
     {
       "source": "lazyLoader/chunkRender",
       "target": "lazyLoader/footnoteSelfHeal",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/chunkRender",
+      "target": "lazyLoader/graphRenderer",
       "kind": "static"
     },
     {
@@ -45364,7 +45632,17 @@
     },
     {
       "source": "scrolling/internalNav",
+      "target": "components/utilities/gateFilter",
+      "kind": "lazy"
+    },
+    {
+      "source": "scrolling/internalNav",
       "target": "hypercites/animations",
+      "kind": "lazy"
+    },
+    {
+      "source": "scrolling/internalNav",
+      "target": "indexedDB/hypercites/helpers",
       "kind": "lazy"
     },
     {
@@ -45504,6 +45782,6 @@
       ]
     ],
     "breakerCount": 3,
-    "lazyCount": 240
+    "lazyCount": 244
   }
 }

@@ -3,12 +3,20 @@
  * The gate settings panel UI now lives in settingsContainer/gate.ts.
  *
  * Gate modes:
- *   "default" — hide AI highlights + empty-annotation highlights (hypercites unfiltered)
+ *   "default" — hide AI annotations (both types) + empty-annotation highlights
  *   "all"     — show everything
  *   "hideAll" — hide everything except the user's own annotations
  *   "custom"  — user picks restrictions (apply to both hyperlights and hypercites)
  *
- * Critical rule: a user's own highlights/hypercites ALWAYS pass through the gate.
+ * Critical rules:
+ *   - A user's own highlights/hypercites ALWAYS pass through the gate.
+ *   - PINNED hypercite ids (deep-link targets, session-scoped) ALWAYS pass — the server
+ *     mirrors this via the `pinned=` query param so a gated/'single' target still arrives,
+ *     renders and glows when someone follows a #hypercite_ link.
+ *   - Foreign `relationshipStatus === 'single'` hypercites are dropped (mirror of the
+ *     server's always-on singles filter) — but ONLY when `is_user_hypercite === false`
+ *     explicitly; `undefined` (local/legacy records) is kept so a creator's fresh copy
+ *     never vanishes.
  */
 
 // ─── Book-level gate defaults (set by book creator) ─────────────────────
@@ -22,6 +30,62 @@ const DEFAULT_SETTINGS = {
   mode: 'default',
   custom: { hideAI: false, hideAnonymous: false, hideNoAnnotation: false },
 };
+
+// ─── Pinned hypercite ids (deep-link targets, session-scoped) ───────────
+// Any #hypercite_ id the user navigates to gets pinned here so it survives the
+// client gate AND rides every bulk fetch as `pinned=` (server exempts it from
+// gate + singles filtering). FIFO-capped; sessionStorage so a tab's deep-link
+// targets survive SPA nav + reloads but don't leak across sessions.
+
+const PINNED_KEY = 'hyperlit_pinned_hypercites';
+const PINNED_CAP = 20;
+const HYPERCITE_ID_RE = /^hypercite_[A-Za-z0-9]+$/;
+
+let _pinned: string[] | null = null;
+
+function loadPinned(): string[] {
+  if (_pinned) return _pinned;
+  try {
+    const raw = sessionStorage.getItem(PINNED_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    _pinned = Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string' && HYPERCITE_ID_RE.test(id)) : [];
+  } catch {
+    _pinned = [];
+  }
+  return _pinned;
+}
+
+/** Pin a deep-link hypercite target so gate/singles filtering never strips it this session. */
+export function pinHypercite(id: string): void {
+  if (!HYPERCITE_ID_RE.test(id)) return;
+  const pinned = loadPinned();
+  const existing = pinned.indexOf(id);
+  if (existing !== -1) pinned.splice(existing, 1); // re-pin moves to freshest slot
+  pinned.push(id);
+  while (pinned.length > PINNED_CAP) pinned.shift(); // FIFO cap
+  try {
+    sessionStorage.setItem(PINNED_KEY, JSON.stringify(pinned));
+  } catch { /* storage full/unavailable — in-memory pin still works this page */ }
+}
+
+export function getPinnedHyperciteIds(): string[] {
+  return [...loadPinned()];
+}
+
+function isPinnedHypercite(id: unknown): boolean {
+  return typeof id === 'string' && loadPinned().includes(id);
+}
+
+/**
+ * Return the pinned ids as a URL query fragment (no leading ? or &), or '' when none.
+ * Emitted INDEPENDENTLY of gate settings — fresh users have no stored gate but a
+ * followed deep link must still ride every refetch.
+ */
+export function pinnedQueryParam(): string {
+  const pinned = loadPinned();
+  if (pinned.length === 0) return '';
+  return `pinned=${encodeURIComponent(pinned.join(','))}`;
+}
 
 // ─── Settings persistence ───────────────────────────────────────────────
 
@@ -57,13 +121,14 @@ export function gateQueryParam() {
 }
 
 /**
- * Append gate filter query param to a URL string.
- * Handles URLs with or without existing query params.
+ * Append gate filter + pinned-hypercite query params to a URL string.
+ * Handles URLs with or without existing query params. Each param is
+ * independently optional (a fresh user with no gate setting still sends pinned).
  */
 export function appendGateParam(url: any) {
-  const param = gateQueryParam();
-  if (!param) return url;
-  return url + (url.includes('?') ? '&' : '?') + param;
+  const params = [gateQueryParam(), pinnedQueryParam()].filter(Boolean);
+  if (params.length === 0) return url;
+  return url + (url.includes('?') ? '&' : '?') + params.join('&');
 }
 
 // ─── Client-side filter ─────────────────────────────────────────────────
@@ -96,13 +161,24 @@ export function applyGateFilter(items: any, type: any) {
 
   const settings = getGateSettings();
 
-  // "all" mode — nothing filtered
-  if (settings.mode === 'all') return items;
+  // Singles mirror (defense-in-depth for stale IDB — the server is the primary filter):
+  // a foreign 'single' hypercite is never shown. EXPLICIT `=== false` only — records with
+  // `undefined` ownership (locally created, legacy embedded) are kept, so a creator's own
+  // fresh copy can never vanish. Pinned deep-link targets are exempt.
+  const dropForeignSingle = (item: any) =>
+    type === 'hypercite' &&
+    item.relationshipStatus === 'single' &&
+    item.is_user_hypercite === false &&
+    !isPinnedHypercite(item.hyperciteId);
 
-  // "hideAll" mode — only the user's own annotations pass
+  // "all" mode — nothing gate-filtered (singles rule still applies: it is not gate-wired)
+  if (settings.mode === 'all') return items.filter((item: any) => !dropForeignSingle(item));
+
+  // "hideAll" mode — only the user's own annotations (and pinned deep-link targets) pass
   if (settings.mode === 'hideAll') return items.filter((item: any) => {
     if (type === 'hyperlight' && item.is_user_highlight) return true;
     if (type === 'hypercite' && item.is_user_hypercite) return true;
+    if (type === 'hypercite' && isPinnedHypercite(item.hyperciteId)) return true;
     return false;
   });
 
@@ -110,6 +186,11 @@ export function applyGateFilter(items: any, type: any) {
     // User's own annotations always pass
     if (type === 'hyperlight' && item.is_user_highlight) return true;
     if (type === 'hypercite' && item.is_user_hypercite) return true;
+
+    // Pinned deep-link targets always pass
+    if (type === 'hypercite' && isPinnedHypercite(item.hyperciteId)) return true;
+
+    if (dropForeignSingle(item)) return false;
 
     if (settings.mode === 'default') {
       if (_bookGateDefaults) {
@@ -124,15 +205,14 @@ export function applyGateFilter(items: any, type: any) {
         return true;
       }
 
-      // Global default: filter hyperlights only; hypercites pass
-      if (type === 'hypercite') return true;
-
-      // Hide AI-generated highlights
+      // Global default: hide AI for BOTH types (parity with server applyGateFilters)
       if (item.creator?.startsWith('AIreview:')) return false;
 
-      // Hide highlights with no annotation content (parse preview_nodes for real text)
-      const hasContentDefault = (item.annotation && item.annotation !== '') || hasPreviewContent(item.preview_nodes);
-      if (!hasContentDefault) return false;
+      // Empty-annotation check is hyperlight-only (hypercites have no annotation)
+      if (type === 'hyperlight') {
+        const hasContentDefault = (item.annotation && item.annotation !== '') || hasPreviewContent(item.preview_nodes);
+        if (!hasContentDefault) return false;
+      }
 
       return true;
     }

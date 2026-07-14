@@ -23,7 +23,7 @@ const CHUNKMAP = path.join(BUILD, 'chunkmap.json');
 
 // The reader page loads the most — its eager closure is the superset to guard.
 const ENTRIES = [
-  'resources/js/app.js',
+  'resources/js/app.ts',
   'resources/js/components/utilities/containerCustomization.ts',
   'resources/js/pageLoad/readerEntry.ts',
 ];

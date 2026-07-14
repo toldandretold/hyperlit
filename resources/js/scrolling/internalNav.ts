@@ -230,6 +230,14 @@ export function navigateToInternalId(targetId: string, lazyLoader: any, showOver
     return Promise.reject(new Error("Lazy loader instance not provided"));
   }
   targetId = toScrollTargetId(targetId);
+  // Pin hypercite deep-link targets: the pinned set exempts them from the client gate and
+  // rides every bulk fetch as `pinned=` so later re-syncs can't strip the record either.
+  // (Harmless for ordinary couple/poly targets; essential for gated/'single' ones.)
+  if (targetId.startsWith('hypercite_')) {
+    void import('../components/utilities/gateFilter')
+      .then(m => m.pinHypercite(targetId))
+      .catch(() => { /* non-fatal — fetch-on-demand still pins later */ });
+  }
   // Where to land the target's top, in px from the scroll container's top edge. Deep-link targets
   // (hypercite / highlight / footnote) use the 192px header offset so they clear the sticky header.
   // A reading-position RESUME passes the saved sub-node offset so refresh lands on the exact pixel
@@ -448,6 +456,41 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
         `Retry resolver result for "${targetId}": chunk=${resolution.chunkId}, resolved=${resolution.resolved}, reason=${resolution.reason}`,
         'scrolling/internalNav'
       );
+    }
+
+    // 🔗 Fetch-on-demand: a hypercite target absent from the bulk sync (gate-filtered, or a
+    // foreign 'single' — e.g. an externally-pasted link that hasn't been cited yet) is not in
+    // IDB at all. Pull just that record (scope=record), pin it, rebuild its nodes' embedded
+    // arrays, and re-resolve so the normal render/scroll/glow path runs. A truly-deleted cite
+    // still falls through to the existing toast fallback below.
+    if (!resolution.resolved && targetId.startsWith('hypercite_')) {
+      if (progressIndicator) {
+        progressIndicator.updateProgress(45, "Fetching citation target...");
+      }
+      const { fetchAndPinHypercite } = await import('../indexedDB/hypercites/helpers');
+      const fetched = await fetchAndPinHypercite(lazyLoader.bookId, targetId);
+      if (fetched) {
+        const freshNodes = await getNodesFromIndexedDB(lazyLoader.bookId);
+        if (freshNodes && freshNodes.length > 0) {
+          lazyLoader.nodes = freshNodes;
+          (window as any).nodes = freshNodes;
+        }
+        resolution = await resolveTargetChunkId(lazyLoader.bookId, targetId, {
+          chunkManifest: lazyLoader.chunkManifest,
+          nodes: lazyLoader.nodes,
+        });
+        // The containing chunk may already be rendered WITHOUT the cite (it arrived before
+        // the record did) — evict it so the loader re-renders with the fresh embedded array.
+        if (resolution.resolved && lazyLoader.currentlyLoadedChunks?.has?.(resolution.chunkId) && !findRenderedTarget(lazyLoader.container, targetId)) {
+          lazyLoader.container.querySelector(`[data-chunk-id="${resolution.chunkId}"]`)?.remove();
+          lazyLoader.currentlyLoadedChunks.delete(resolution.chunkId);
+        }
+        recordNavDecision({ phase: 'nav-fetch-on-demand', targetId, resolved: resolution.resolved, reason: resolution.reason, chunkId: resolution.chunkId });
+        verbose.nav(
+          `Fetch-on-demand for "${targetId}": resolved=${resolution.resolved}, chunk=${resolution.chunkId}`,
+          'scrolling/internalNav'
+        );
+      }
     }
 
     // If the primary target couldn't be resolved, show fallback UI

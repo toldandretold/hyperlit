@@ -5,6 +5,7 @@ import { sanitizeHtml } from '../utilities/sanitizeConfig';
 import { applyGateFilter } from "../components/utilities/gateFilter";
 import { isNewlyCreatedHighlight } from "../utilities/operationState";
 import { renderCharts } from './chartRenderer';
+import { renderHarvestNetworks } from './graphRenderer';
 import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements';
 import { applyDynamicFootnoteNumbers } from './footnoteSelfHeal';
 import { handleBrokenImages } from './imageState';
@@ -266,6 +267,7 @@ export function createChunkElement(nodes: NodeRecord[], instance: any) {
     // 📐 MATH RENDERING: Render LaTeX math via KaTeX
     renderMathElements(temp);
     renderCharts(temp);
+    renderHarvestNetworks(temp);
     handleBrokenImages(temp);
     // E2EE (docs/e2ee.md): for an encrypted book, swap each media <img> src to a
     // decrypted blob URL on the LIVE nodes (same objects attached to the page).

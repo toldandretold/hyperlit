@@ -439,10 +439,15 @@ class DbHyperciteController extends Controller
     }
 
     /**
-     * Finds a single hypercite + ALL node chunks for its book — the citation-card resolution endpoint
-     * (frontend caller: resources/js/indexedDB/hypercites/helpers.ts:resolveHypercite). Returns the raw
-     * PgHypercite (→ TS `HyperciteRecord`) + the book's PgNode rows (→ `NodeRecord[]`):
-     *   { hypercite: array{...HyperciteRecord...}, nodes: array<int, array{...node chunk...}> } | { error: string }
+     * Finds a single hypercite — the citation-card / fetch-on-demand resolution endpoint
+     * (frontend callers: resources/js/indexedDB/hypercites/helpers.ts resolveHypercite +
+     * fetchHyperciteRecord). Two variants:
+     *   default        → { hypercite: {...HyperciteRecord...}, nodes: array<int, {...node chunk...}> }
+     *   ?scope=record  → { hypercite: {...HyperciteRecord...} }  (skips the all-nodes payload —
+     *                    used by deep-link fetch-on-demand where the book is already hydrated)
+     * The hypercite is SANITIZED: `creator_token` is never sent (top-level nor inside raw_json);
+     * only the computed `is_user_hypercite` boolean is exposed (mirrors
+     * DatabaseToIndexedDBController::getHypercites()).
      * SECURITY: enforces book visibility/ownership before returning data.
      *
      * @param Request $request
@@ -454,14 +459,14 @@ class DbHyperciteController extends Controller
     {
         Log::info("Hypercite lookup for book: {$bookId}, hypercite: {$hyperciteId}");
 
+        $user = Auth::user();
+        $anonToken = $request->cookie('anon_token');
+
         // SECURITY: Check if user has access to this book
         $library = PgLibrary::where('book', $bookId)->first();
 
         if ($library && $library->visibility !== 'public') {
             // Private book - check ownership
-            $user = Auth::user();
-            $anonToken = $request->cookie('anon_token');
-
             $isOwner = ($user && $library->creator === $user->name) ||
                        ($anonToken && $library->creator_token === $anonToken);
 
@@ -483,7 +488,38 @@ class DbHyperciteController extends Controller
             return response()->json(['error' => 'Hypercite not found.'], 404);
         }
 
-        // Fetch ALL nodes for the entire book.
+        // Ownership (same prioritised creator > token logic as getHypercites())
+        $isUserHypercite = false;
+        if ($hypercite->creator) {
+            $isUserHypercite = $user && $hypercite->creator === $user->name;
+        } elseif ($hypercite->creator_token) {
+            $isUserHypercite = $anonToken && $hypercite->creator_token === $anonToken;
+        }
+
+        // Explicit wire shape — creator_token intentionally never sent (security sensitive),
+        // and stripped from the raw_json copy too.
+        $rawJson = $hypercite->raw_json ?? [];
+        unset($rawJson['creator_token']);
+        $sanitized = [
+            'book' => $hypercite->book,
+            'hyperciteId' => $hypercite->hyperciteId,
+            'node_id' => $hypercite->node_id ?? [],
+            'charData' => $hypercite->charData ?? (object) [],
+            'citedIN' => $hypercite->citedIN ?? [],
+            'hypercitedHTML' => $hypercite->hypercitedHTML,
+            'hypercitedText' => $hypercite->hypercitedText,
+            'relationshipStatus' => $hypercite->relationshipStatus,
+            'time_since' => $hypercite->time_since,
+            'raw_json' => $rawJson,
+            'creator' => $hypercite->creator,
+            'is_user_hypercite' => $isUserHypercite,
+        ];
+
+        if ($request->query('scope') === 'record') {
+            return response()->json(['hypercite' => $sanitized]);
+        }
+
+        // Fetch ALL nodes for the entire book (legacy full variant for resolveHypercite).
         $allNodes = PgNode::where('book', $bookId)->get();
 
         if ($allNodes->isEmpty()) {
@@ -495,7 +531,7 @@ class DbHyperciteController extends Controller
         Log::info("Hypercite and all " . $allNodes->count() . " parent nodes found for: {$hyperciteId}");
 
         return response()->json([
-            'hypercite' => $hypercite,
+            'hypercite' => $sanitized,
             'nodes' => $allNodes,
         ]);
     }

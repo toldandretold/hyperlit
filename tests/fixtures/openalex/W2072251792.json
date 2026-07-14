@@ -1,0 +1,1050 @@
+{
+    "id": "https://openalex.org/W2072251792",
+    "doi": "https://doi.org/10.2307/220904",
+    "title": "The History of Development: From Western Origins to Global Faith",
+    "display_name": "The History of Development: From Western Origins to Global Faith",
+    "publication_year": 1998,
+    "publication_date": "1998-01-01",
+    "ids": {
+        "openalex": "https://openalex.org/W2072251792",
+        "doi": "https://doi.org/10.2307/220904",
+        "mag": "2072251792"
+    },
+    "language": "en",
+    "primary_location": {
+        "id": "doi:10.2307/220904",
+        "is_oa": false,
+        "landing_page_url": "https://doi.org/10.2307/220904",
+        "pdf_url": null,
+        "source": {
+            "id": "https://openalex.org/S169569900",
+            "display_name": "The International Journal of African Historical Studies",
+            "issn_l": "0361-7882",
+            "issn": [
+                "0361-7882",
+                "2326-3016"
+            ],
+            "is_oa": false,
+            "is_in_doaj": false,
+            "is_core": false,
+            "host_organization": "https://openalex.org/P4310315938",
+            "host_organization_name": "Boston University",
+            "host_organization_lineage": [
+                "https://openalex.org/P4310315938"
+            ],
+            "host_organization_lineage_names": [
+                "Boston University"
+            ],
+            "type": "journal"
+        },
+        "license": null,
+        "license_id": null,
+        "version": "publishedVersion",
+        "is_accepted": true,
+        "is_published": true,
+        "raw_source_name": "The International Journal of African Historical Studies",
+        "raw_type": "journal-article"
+    },
+    "type": "article",
+    "indexed_in": [
+        "crossref"
+    ],
+    "open_access": {
+        "is_oa": true,
+        "oa_status": "green",
+        "oa_url": "http://www.ub.unibas.ch/tox/IDSLUZ/000980604/PDF",
+        "any_repository_has_fulltext": true
+    },
+    "authorships": [
+        {
+            "author_position": "first",
+            "author": {
+                "id": "https://openalex.org/A5065401092",
+                "display_name": "Peter de Valk",
+                "orcid": null
+            },
+            "institutions": [],
+            "countries": [],
+            "is_corresponding": false,
+            "raw_author_name": "Peter De Valk",
+            "raw_affiliation_strings": [],
+            "raw_orcid": null,
+            "affiliations": []
+        },
+        {
+            "author_position": "last",
+            "author": {
+                "id": "https://openalex.org/A5044116762",
+                "display_name": "Gilbert Rist",
+                "orcid": null
+            },
+            "institutions": [],
+            "countries": [],
+            "is_corresponding": false,
+            "raw_author_name": "Gilbert Rist",
+            "raw_affiliation_strings": [],
+            "raw_orcid": null,
+            "affiliations": []
+        }
+    ],
+    "institutions": [],
+    "countries_distinct_count": 0,
+    "institutions_distinct_count": 0,
+    "corresponding_author_ids": [],
+    "corresponding_institution_ids": [],
+    "apc_list": null,
+    "apc_paid": null,
+    "fwci": 20.3068,
+    "has_fulltext": false,
+    "cited_by_count": 1173,
+    "citation_normalized_percentile": {
+        "value": 0.98997494,
+        "is_in_top_1_percent": false,
+        "is_in_top_10_percent": true
+    },
+    "cited_by_percentile_year": {
+        "min": 99,
+        "max": 100
+    },
+    "biblio": {
+        "volume": "31",
+        "issue": "1",
+        "first_page": "141",
+        "last_page": "141"
+    },
+    "is_retracted": false,
+    "is_paratext": false,
+    "is_xpac": false,
+    "primary_topic": {
+        "id": "https://openalex.org/T11168",
+        "display_name": "International Development and Aid",
+        "score": 0.6319000124931335,
+        "subfield": {
+            "id": "https://openalex.org/subfields/3303",
+            "display_name": "Development"
+        },
+        "field": {
+            "id": "https://openalex.org/fields/33",
+            "display_name": "Social Sciences"
+        },
+        "domain": {
+            "id": "https://openalex.org/domains/2",
+            "display_name": "Social Sciences"
+        }
+    },
+    "topics": [
+        {
+            "id": "https://openalex.org/T11168",
+            "display_name": "International Development and Aid",
+            "score": 0.6319000124931335,
+            "subfield": {
+                "id": "https://openalex.org/subfields/3303",
+                "display_name": "Development"
+            },
+            "field": {
+                "id": "https://openalex.org/fields/33",
+                "display_name": "Social Sciences"
+            },
+            "domain": {
+                "id": "https://openalex.org/domains/2",
+                "display_name": "Social Sciences"
+            }
+        }
+    ],
+    "keywords": [
+        {
+            "id": "https://openalex.org/keywords/faith",
+            "display_name": "Faith",
+            "score": 0.7551262974739075
+        },
+        {
+            "id": "https://openalex.org/keywords/history",
+            "display_name": "History",
+            "score": 0.492274671792984
+        },
+        {
+            "id": "https://openalex.org/keywords/political-science",
+            "display_name": "Political science",
+            "score": 0.36344674229621887
+        },
+        {
+            "id": "https://openalex.org/keywords/philosophy",
+            "display_name": "Philosophy",
+            "score": 0.23808780312538147
+        },
+        {
+            "id": "https://openalex.org/keywords/theology",
+            "display_name": "Theology",
+            "score": 0.13092324137687683
+        }
+    ],
+    "concepts": [
+        {
+            "id": "https://openalex.org/C2778692574",
+            "wikidata": "https://www.wikidata.org/wiki/Q5410500",
+            "display_name": "Faith",
+            "level": 2,
+            "score": 0.7551262974739075
+        },
+        {
+            "id": "https://openalex.org/C95457728",
+            "wikidata": "https://www.wikidata.org/wiki/Q309",
+            "display_name": "History",
+            "level": 0,
+            "score": 0.492274671792984
+        },
+        {
+            "id": "https://openalex.org/C17744445",
+            "wikidata": "https://www.wikidata.org/wiki/Q36442",
+            "display_name": "Political science",
+            "level": 0,
+            "score": 0.36344674229621887
+        },
+        {
+            "id": "https://openalex.org/C138885662",
+            "wikidata": "https://www.wikidata.org/wiki/Q5891",
+            "display_name": "Philosophy",
+            "level": 0,
+            "score": 0.23808780312538147
+        },
+        {
+            "id": "https://openalex.org/C27206212",
+            "wikidata": "https://www.wikidata.org/wiki/Q34178",
+            "display_name": "Theology",
+            "level": 1,
+            "score": 0.13092324137687683
+        }
+    ],
+    "mesh": [],
+    "locations_count": 15,
+    "locations": [
+        {
+            "id": "doi:10.2307/220904",
+            "is_oa": false,
+            "landing_page_url": "https://doi.org/10.2307/220904",
+            "pdf_url": null,
+            "source": {
+                "id": "https://openalex.org/S169569900",
+                "display_name": "The International Journal of African Historical Studies",
+                "issn_l": "0361-7882",
+                "issn": [
+                    "0361-7882",
+                    "2326-3016"
+                ],
+                "is_oa": false,
+                "is_in_doaj": false,
+                "is_core": false,
+                "host_organization": "https://openalex.org/P4310315938",
+                "host_organization_name": "Boston University",
+                "host_organization_lineage": [
+                    "https://openalex.org/P4310315938"
+                ],
+                "host_organization_lineage_names": [
+                    "Boston University"
+                ],
+                "type": "journal"
+            },
+            "license": null,
+            "license_id": null,
+            "version": "publishedVersion",
+            "is_accepted": true,
+            "is_published": true,
+            "raw_source_name": "The International Journal of African Historical Studies",
+            "raw_type": "journal-article"
+        },
+        {
+            "id": "pmh:oai:repository.graduateinstitute.ch:313425",
+            "is_oa": true,
+            "landing_page_url": "http://repository.graduateinstitute.ch/record/313425",
+            "pdf_url": "http://www.ub.unibas.ch/tox/IDSLUZ/000980604/PDF",
+            "source": {
+                "id": "https://openalex.org/S4306402451",
+                "display_name": "Graduate Institute Geneva Institutional Repository (Graduate Institute of International and Development Studies)",
+                "issn_l": null,
+                "issn": null,
+                "is_oa": false,
+                "is_in_doaj": false,
+                "is_core": false,
+                "host_organization": "https://openalex.org/I951315",
+                "host_organization_name": "Graduate Institute of International and Development Studies",
+                "host_organization_lineage": [
+                    "https://openalex.org/I951315"
+                ],
+                "host_organization_lineage_names": [],
+                "type": "repository"
+            },
+            "license": null,
+            "license_id": null,
+            "version": "submittedVersion",
+            "is_accepted": false,
+            "is_published": false,
+            "raw_source_name": "http://repository.graduateinstitute.ch/record/313425",
+            "raw_type": "Text"
+        },
+        {
+            "id": "pmh:oai:aleph.bib-bvb.de:BVB01-009899210",
+            "is_oa": false,
+            "landing_page_url": "http://bvbr.bib-bvb.de:8991/F?func=service&amp;doc_library=BVB01&amp;local_base=BVB01&amp;doc_number=009899210&amp;sequence=000002&amp;line_number=0001&amp;func_code=DB_RECORDS&amp;service_type=MEDIA",
+            "pdf_url": null,
+            "source": null,
+            "license": null,
+            "license_id": null,
+            "version": "submittedVersion",
+            "is_accepted": false,
+            "is_published": false,
+            "raw_source_name": "",
+            "raw_type": "text"
+        },
+        {
+            "id": "pmh:oai:aleph.bib-bvb.de:BVB01-017314781",
+            "is_oa": false,
+            "landing_page_url": "http://bvbr.bib-bvb.de:8991/F?func=service&amp;doc_library=BVB01&amp;local_base=BVB01&amp;doc_number=017314781&amp;sequence=000002&amp;line_number=0001&amp;func_code=DB_RECORDS&amp;service_type=MEDIA",
+            "pdf_url": null,
+            "source": null,
+            "license": null,
+            "license_id": null,
+            "version": "submittedVersion",
+            "is_accepted": false,
+            "is_published": false,
+            "raw_source_name": "",
+            "raw_type": "text"
+        },
+        {
+            "id": "pmh:oai:aleph.bib-bvb.de:BVB01-027260912",
+            "is_oa": false,
+            "landing_page_url": "http://bvbr.bib-bvb.de:8991/F?func=service&amp;doc_library=BVB01&amp;local_base=BVB01&amp;doc_number=027260912&amp;sequence=000002&amp;line_number=0001&amp;func_code=DB_RECORDS&amp;service_type=MEDIA",
+            "pdf_url": null,
+            "source": null,
+            "license": null,
+            "license_id": null,
+            "version": "submittedVersion",
+            "is_accepted": false,
+            "is_published": false,
+            "raw_source_name": "",
+            "raw_type": "text"
+        },
+        {
+            "id": "pmh:oai:aleph.bib-bvb.de:BVB01-032256384",
+            "is_oa": false,
+            "landing_page_url": null,
+            "pdf_url": null,
+            "source": null,
+            "license": null,
+            "license_id": null,
+            "version": "submittedVersion",
+            "is_accepted": false,
+            "is_published": false,
+            "raw_source_name": "",
+            "raw_type": "text"
+        },
+        {
+            "id": "pmh:oai:repository.graduateinstitute.ch:10081",
+            "is_oa": false,
+            "landing_page_url": "http://repository.graduateinstitute.ch/record/10081",
+            "pdf_url": null,
+            "source": {
+                "id": "https://openalex.org/S4306402451",
+                "display_name": "Graduate Institute Geneva Institutional Repository (Graduate Institute of International and Development Studies)",
+                "issn_l": null,
+                "issn": null,
+                "is_oa": false,
+                "is_in_doaj": false,
+                "is_core": false,
+                "host_organization": "https://openalex.org/I951315",
+                "host_organization_name": "Graduate Institute of International and Development Studies",
+                "host_organization_lineage": [
+                    "https://openalex.org/I951315"
+                ],
+                "host_organization_lineage_names": [],
+                "type": "repository"
+            },
+            "license": null,
+            "license_id": null,
+            "version": "submittedVersion",
+            "is_accepted": false,
+            "is_published": false,
+            "raw_source_name": "http://repository.graduateinstitute.ch/record/10081",
+            "raw_type": "Text"
+        },
+        {
+            "id": "pmh:oai:repository.graduateinstitute.ch:10477",
+            "is_oa": false,
+            "landing_page_url": "http://repository.graduateinstitute.ch/record/10477",
+            "pdf_url": null,
+            "source": {
+                "id": "https://openalex.org/S4306402451",
+                "display_name": "Graduate Institute Geneva Institutional Repository (Graduate Institute of International and Development Studies)",
+                "issn_l": null,
+                "issn": null,
+                "is_oa": false,
+                "is_in_doaj": false,
+                "is_core": false,
+                "host_organization": "https://openalex.org/I951315",
+                "host_organization_name": "Graduate Institute of International and Development Studies",
+                "host_organization_lineage": [
+                    "https://openalex.org/I951315"
+                ],
+                "host_organization_lineage_names": [],
+                "type": "repository"
+            },
+            "license": null,
+            "license_id": null,
+            "version": "submittedVersion",
+            "is_accepted": false,
+            "is_published": false,
+            "raw_source_name": "http://repository.graduateinstitute.ch/record/10477",
+            "raw_type": "Text"
+        },
+        {
+            "id": "pmh:oai:repository.graduateinstitute.ch:285697",
+            "is_oa": false,
+            "landing_page_url": "http://repository.graduateinstitute.ch/record/285697",
+            "pdf_url": null,
+            "source": {
+                "id": "https://openalex.org/S4306402451",
+                "display_name": "Graduate Institute Geneva Institutional Repository (Graduate Institute of International and Development Studies)",
+                "issn_l": null,
+                "issn": null,
+                "is_oa": false,
+                "is_in_doaj": false,
+                "is_core": false,
+                "host_organization": "https://openalex.org/I951315",
+                "host_organization_name": "Graduate Institute of International and Development Studies",
+                "host_organization_lineage": [
+                    "https://openalex.org/I951315"
+                ],
+                "host_organization_lineage_names": [],
+                "type": "repository"
+            },
+            "license": null,
+            "license_id": null,
+            "version": "submittedVersion",
+            "is_accepted": false,
+            "is_published": false,
+            "raw_source_name": "http://repository.graduateinstitute.ch/record/285697",
+            "raw_type": "Text"
+        },
+        {
+            "id": "pmh:oai:repository.graduateinstitute.ch:305905",
+            "is_oa": false,
+            "landing_page_url": "http://repository.graduateinstitute.ch/record/305905",
+            "pdf_url": null,
+            "source": {
+                "id": "https://openalex.org/S4306402451",
+                "display_name": "Graduate Institute Geneva Institutional Repository (Graduate Institute of International and Development Studies)",
+                "issn_l": null,
+                "issn": null,
+                "is_oa": false,
+                "is_in_doaj": false,
+                "is_core": false,
+                "host_organization": "https://openalex.org/I951315",
+                "host_organization_name": "Graduate Institute of International and Development Studies",
+                "host_organization_lineage": [
+                    "https://openalex.org/I951315"
+                ],
+                "host_organization_lineage_names": [],
+                "type": "repository"
+            },
+            "license": null,
+            "license_id": null,
+            "version": "submittedVersion",
+            "is_accepted": false,
+            "is_published": false,
+            "raw_source_name": "http://repository.graduateinstitute.ch/record/305905",
+            "raw_type": "Text"
+        },
+        {
+            "id": "pmh:oai:repository.graduateinstitute.ch:305980",
+            "is_oa": false,
+            "landing_page_url": "http://repository.graduateinstitute.ch/record/305980",
+            "pdf_url": null,
+            "source": {
+                "id": "https://openalex.org/S4306402451",
+                "display_name": "Graduate Institute Geneva Institutional Repository (Graduate Institute of International and Development Studies)",
+                "issn_l": null,
+                "issn": null,
+                "is_oa": false,
+                "is_in_doaj": false,
+                "is_core": false,
+                "host_organization": "https://openalex.org/I951315",
+                "host_organization_name": "Graduate Institute of International and Development Studies",
+                "host_organization_lineage": [
+                    "https://openalex.org/I951315"
+                ],
+                "host_organization_lineage_names": [],
+                "type": "repository"
+            },
+            "license": null,
+            "license_id": null,
+            "version": "submittedVersion",
+            "is_accepted": false,
+            "is_published": false,
+            "raw_source_name": "http://repository.graduateinstitute.ch/record/305980",
+            "raw_type": "Text"
+        },
+        {
+            "id": "pmh:oai:repository.graduateinstitute.ch:308544",
+            "is_oa": false,
+            "landing_page_url": "http://repository.graduateinstitute.ch/record/308544",
+            "pdf_url": null,
+            "source": {
+                "id": "https://openalex.org/S4306402451",
+                "display_name": "Graduate Institute Geneva Institutional Repository (Graduate Institute of International and Development Studies)",
+                "issn_l": null,
+                "issn": null,
+                "is_oa": false,
+                "is_in_doaj": false,
+                "is_core": false,
+                "host_organization": "https://openalex.org/I951315",
+                "host_organization_name": "Graduate Institute of International and Development Studies",
+                "host_organization_lineage": [
+                    "https://openalex.org/I951315"
+                ],
+                "host_organization_lineage_names": [],
+                "type": "repository"
+            },
+            "license": null,
+            "license_id": null,
+            "version": "submittedVersion",
+            "is_accepted": false,
+            "is_published": false,
+            "raw_source_name": "http://repository.graduateinstitute.ch/record/308544",
+            "raw_type": "Text"
+        },
+        {
+            "id": "pmh:oai:repository.graduateinstitute.ch:316668",
+            "is_oa": false,
+            "landing_page_url": "http://repository.graduateinstitute.ch/record/316668",
+            "pdf_url": null,
+            "source": {
+                "id": "https://openalex.org/S4306402451",
+                "display_name": "Graduate Institute Geneva Institutional Repository (Graduate Institute of International and Development Studies)",
+                "issn_l": null,
+                "issn": null,
+                "is_oa": false,
+                "is_in_doaj": false,
+                "is_core": false,
+                "host_organization": "https://openalex.org/I951315",
+                "host_organization_name": "Graduate Institute of International and Development Studies",
+                "host_organization_lineage": [
+                    "https://openalex.org/I951315"
+                ],
+                "host_organization_lineage_names": [],
+                "type": "repository"
+            },
+            "license": null,
+            "license_id": null,
+            "version": "submittedVersion",
+            "is_accepted": false,
+            "is_published": false,
+            "raw_source_name": "http://repository.graduateinstitute.ch/record/316668",
+            "raw_type": "Text"
+        },
+        {
+            "id": "pmh:oai:repository.graduateinstitute.ch:318105",
+            "is_oa": false,
+            "landing_page_url": "http://repository.graduateinstitute.ch/record/318105",
+            "pdf_url": null,
+            "source": {
+                "id": "https://openalex.org/S4306402451",
+                "display_name": "Graduate Institute Geneva Institutional Repository (Graduate Institute of International and Development Studies)",
+                "issn_l": null,
+                "issn": null,
+                "is_oa": false,
+                "is_in_doaj": false,
+                "is_core": false,
+                "host_organization": "https://openalex.org/I951315",
+                "host_organization_name": "Graduate Institute of International and Development Studies",
+                "host_organization_lineage": [
+                    "https://openalex.org/I951315"
+                ],
+                "host_organization_lineage_names": [],
+                "type": "repository"
+            },
+            "license": null,
+            "license_id": null,
+            "version": "submittedVersion",
+            "is_accepted": false,
+            "is_published": false,
+            "raw_source_name": "http://repository.graduateinstitute.ch/record/318105",
+            "raw_type": "Text"
+        },
+        {
+            "id": "pmh:oai:repository.graduateinstitute.ch:3830",
+            "is_oa": false,
+            "landing_page_url": "http://repository.graduateinstitute.ch/record/3830",
+            "pdf_url": null,
+            "source": {
+                "id": "https://openalex.org/S4306402451",
+                "display_name": "Graduate Institute Geneva Institutional Repository (Graduate Institute of International and Development Studies)",
+                "issn_l": null,
+                "issn": null,
+                "is_oa": false,
+                "is_in_doaj": false,
+                "is_core": false,
+                "host_organization": "https://openalex.org/I951315",
+                "host_organization_name": "Graduate Institute of International and Development Studies",
+                "host_organization_lineage": [
+                    "https://openalex.org/I951315"
+                ],
+                "host_organization_lineage_names": [],
+                "type": "repository"
+            },
+            "license": null,
+            "license_id": null,
+            "version": "submittedVersion",
+            "is_accepted": false,
+            "is_published": false,
+            "raw_source_name": "http://repository.graduateinstitute.ch/record/3830",
+            "raw_type": "Text"
+        }
+    ],
+    "best_oa_location": {
+        "id": "pmh:oai:repository.graduateinstitute.ch:313425",
+        "is_oa": true,
+        "landing_page_url": "http://repository.graduateinstitute.ch/record/313425",
+        "pdf_url": "http://www.ub.unibas.ch/tox/IDSLUZ/000980604/PDF",
+        "source": {
+            "id": "https://openalex.org/S4306402451",
+            "display_name": "Graduate Institute Geneva Institutional Repository (Graduate Institute of International and Development Studies)",
+            "issn_l": null,
+            "issn": null,
+            "is_oa": false,
+            "is_in_doaj": false,
+            "is_core": false,
+            "host_organization": "https://openalex.org/I951315",
+            "host_organization_name": "Graduate Institute of International and Development Studies",
+            "host_organization_lineage": [
+                "https://openalex.org/I951315"
+            ],
+            "host_organization_lineage_names": [],
+            "type": "repository"
+        },
+        "license": null,
+        "license_id": null,
+        "version": "submittedVersion",
+        "is_accepted": false,
+        "is_published": false,
+        "raw_source_name": "http://repository.graduateinstitute.ch/record/313425",
+        "raw_type": "Text"
+    },
+    "sustainable_development_goals": [
+        {
+            "display_name": "Partnerships for the goals",
+            "score": 0.46000000834465027,
+            "id": "https://metadata.un.org/sdg/17"
+        }
+    ],
+    "awards": [],
+    "funders": [],
+    "has_content": {
+        "grobid_xml": true,
+        "pdf": true
+    },
+    "content_urls": {
+        "pdf": "https://content.openalex.org/works/W2072251792.pdf",
+        "grobid_xml": "https://content.openalex.org/works/W2072251792.grobid-xml"
+    },
+    "referenced_works_count": 0,
+    "referenced_works": [],
+    "related_works": [
+        "https://openalex.org/W2899084033",
+        "https://openalex.org/W2748952813",
+        "https://openalex.org/W2793046292",
+        "https://openalex.org/W2390706742",
+        "https://openalex.org/W367609971",
+        "https://openalex.org/W2350316686",
+        "https://openalex.org/W2355620296",
+        "https://openalex.org/W567436302",
+        "https://openalex.org/W2324992312",
+        "https://openalex.org/W599784036"
+    ],
+    "abstract_inverted_index": {
+        "In": [
+            0,
+            64
+        ],
+        "\"The": [
+            1
+        ],
+        "History": [
+            2
+        ],
+        "of": [
+            3,
+            13,
+            17,
+            33,
+            39,
+            45,
+            51,
+            113,
+            132
+        ],
+        "Development\"": [
+            4
+        ],
+        "Gilbert": [
+            5
+        ],
+        "Rist": [
+            6,
+            77
+        ],
+        "provides": [
+            7
+        ],
+        "a": [
+            8,
+            96
+        ],
+        "complete": [
+            9
+        ],
+        "and": [
+            10,
+            62,
+            74,
+            117,
+            130
+        ],
+        "powerful": [
+            11
+        ],
+        "overview": [
+            12
+        ],
+        "what": [
+            14
+        ],
+        "the": [
+            15,
+            30,
+            36,
+            40,
+            43,
+            48,
+            52,
+            60,
+            70,
+            79,
+            110
+        ],
+        "idea": [
+            16
+        ],
+        "development": [
+            18,
+            90
+        ],
+        "has": [
+            19,
+            91,
+            102
+        ],
+        "meant": [
+            20
+        ],
+        "throughout": [
+            21
+        ],
+        "history.": [
+            22
+        ],
+        "He": [
+            23
+        ],
+        "traces": [
+            24
+        ],
+        "it": [
+            25
+        ],
+        "from": [
+            26
+        ],
+        "its": [
+            27,
+            114
+        ],
+        "origins": [
+            28
+        ],
+        "in": [
+            29,
+            100,
+            105
+        ],
+        "Western": [
+            31
+        ],
+        "view": [
+            32
+        ],
+        "history,": [
+            34
+        ],
+        "through": [
+            35,
+            55
+        ],
+        "early": [
+            37
+        ],
+        "stages": [
+            38
+        ],
+        "world": [
+            41
+        ],
+        "system,": [
+            42
+        ],
+        "rise": [
+            44
+        ],
+        "US": [
+            46
+        ],
+        "hegemony,": [
+            47
+        ],
+        "supposed": [
+            49
+        ],
+        "triumph": [
+            50
+        ],
+        "third": [
+            53
+        ],
+        "world,": [
+            54
+        ],
+        "to": [
+            56,
+            83
+        ],
+        "new": [
+            57,
+            67,
+            121
+        ],
+        "concerns": [
+            58
+        ],
+        "about": [
+            59
+        ],
+        "environment": [
+            61
+        ],
+        "globalization.": [
+            63
+        ],
+        "two": [
+            65
+        ],
+        "completely": [
+            66,
+            81
+        ],
+        "chapters": [
+            68
+        ],
+        "on": [
+            69
+        ],
+        "Millennium": [
+            71
+        ],
+        "Development": [
+            72
+        ],
+        "Goals": [
+            73
+        ],
+        "post-development": [
+            75
+        ],
+        "thinking,": [
+            76
+        ],
+        "brings": [
+            78
+        ],
+        "book": [
+            80
+        ],
+        "up": [
+            82
+        ],
+        "date.": [
+            84
+        ],
+        "Throughout,": [
+            85
+        ],
+        "he": [
+            86
+        ],
+        "argues": [
+            87
+        ],
+        "persuasively": [
+            88
+        ],
+        "that": [
+            89
+        ],
+        "been": [
+            92
+        ],
+        "no": [
+            93
+        ],
+        "more": [
+            94,
+            124
+        ],
+        "than": [
+            95,
+            126
+        ],
+        "collective": [
+            97
+        ],
+        "delusion,": [
+            98
+        ],
+        "which": [
+            99
+        ],
+        "reality": [
+            101
+        ],
+        "only": [
+            103
+        ],
+        "resulted": [
+            104
+        ],
+        "widening": [
+            106
+        ],
+        "market": [
+            107
+        ],
+        "relations,": [
+            108
+        ],
+        "despite": [
+            109
+        ],
+        "good": [
+            111
+        ],
+        "intentions": [
+            112
+        ],
+        "advocates.": [
+            115
+        ],
+        "Lucidly": [
+            116
+        ],
+        "powerfully": [
+            118
+        ],
+        "written,": [
+            119
+        ],
+        "this": [
+            120
+        ],
+        "edition": [
+            122
+        ],
+        "is": [
+            123
+        ],
+        "essential": [
+            125
+        ],
+        "ever": [
+            127
+        ],
+        "for": [
+            128
+        ],
+        "students": [
+            129
+        ],
+        "practitioners": [
+            131
+        ],
+        "development.": [
+            133
+        ]
+    },
+    "counts_by_year": [
+        {
+            "year": 2025,
+            "cited_by_count": 21
+        },
+        {
+            "year": 2024,
+            "cited_by_count": 40
+        },
+        {
+            "year": 2023,
+            "cited_by_count": 44
+        },
+        {
+            "year": 2022,
+            "cited_by_count": 43
+        },
+        {
+            "year": 2021,
+            "cited_by_count": 42
+        },
+        {
+            "year": 2020,
+            "cited_by_count": 84
+        },
+        {
+            "year": 2019,
+            "cited_by_count": 60
+        },
+        {
+            "year": 2018,
+            "cited_by_count": 72
+        },
+        {
+            "year": 2017,
+            "cited_by_count": 85
+        },
+        {
+            "year": 2016,
+            "cited_by_count": 72
+        },
+        {
+            "year": 2015,
+            "cited_by_count": 79
+        },
+        {
+            "year": 2014,
+            "cited_by_count": 77
+        },
+        {
+            "year": 2013,
+            "cited_by_count": 65
+        },
+        {
+            "year": 2012,
+            "cited_by_count": 61
+        }
+    ],
+    "updated_date": "2026-07-02T09:51:11.867554",
+    "created_date": "2025-10-10T00:00:00"
+}

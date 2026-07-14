@@ -18,6 +18,7 @@
         "league/commonmark": "^2.5",
         "league/html-to-markdown": "^5.1",
         "resend/resend-laravel": "^1.4",
+        "smalot/pdfparser": "^2.12",
         "stripe/stripe-php": "^20.0",
         "symfony/process": "^7.1",
         "web-auth/webauthn-lib": "^5.3"

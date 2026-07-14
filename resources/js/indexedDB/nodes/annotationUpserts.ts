@@ -270,6 +270,9 @@ export function updateHyperciteRecords(
           citedIN: [],
           relationshipStatus: "single",
           time_since: hypercite.time_since || Math.floor(Date.now() / 1000),
+          // Locally created ⇒ the user's own (keeps the gate's singles mirror from
+          // hiding a fresh 'single' from its creator; server recomputes on pull).
+          is_user_hypercite: true,
           // ✅ NEW: Initialize NEW schema fields
           node_id: dataNodeID ? [dataNodeID] : [],
           charData: dataNodeID ? {

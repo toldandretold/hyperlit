@@ -12,6 +12,7 @@ import { getRecord, isSyntheticBook } from './helpers';
 import { sourceStatusSectionHtml } from './checkSource';
 import { buildVisibilityControlHtml } from './visibilityControl';
 import { researchWorkflowsSectionHtml } from './researchWorkflows';
+import { licenseInfoFor } from './licenseInfo';
 import type { LibraryRecord } from '../../indexedDB/types';
 
 /**
@@ -111,18 +112,9 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
   // toggle guards). Encryption row is omitted for sub-books inside the builder.
   const visibilityControlHtml = buildVisibilityControlHtml(record, canEdit, accessDenied);
 
-  // Get license info
+  // Get license info (shared vocabulary — covers harvested-source licenses too)
   const license = record?.license || 'CC-BY-SA-4.0-NO-AI';
-  const LICENSE_INFO: any = {
-    'CC-BY-SA-4.0-NO-AI': { short: 'CC BY-SA 4.0 (No AI)', url: '/license2025content' },
-    'CC-BY-4.0': { short: 'CC BY 4.0', url: 'https://creativecommons.org/licenses/by/4.0/' },
-    'CC-BY-NC-SA-4.0': { short: 'CC BY-NC-SA 4.0', url: 'https://creativecommons.org/licenses/by-nc-sa/4.0/' },
-    'CC0': { short: 'CC0', url: 'https://creativecommons.org/publicdomain/zero/1.0/' },
-    'All-Rights-Reserved': { short: 'All Rights Reserved', url: null },
-    'custom': { short: 'Custom License', url: null }
-  };
-
-  const licenseInfo = LICENSE_INFO[license] || LICENSE_INFO['CC-BY-SA-4.0-NO-AI'];
+  const licenseInfo = licenseInfoFor(license);
   let licenseHtml = '';
 
   if (licenseInfo.url) {
@@ -134,11 +126,25 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     licenseHtml = `<p class="license-line" style="font-size: var(--sc-12); color: var(--color-label); margin-top: 10px;">📄 ${licenseInfo.short}</p>`;
   }
 
+  // Completeness badge: a harvested source can be a chapter/excerpt (partial) or
+  // of unknown extent (unverified). Flag it so a reader — and citation review —
+  // never mistake a teaser for the full work. Normal books have no flag (null).
+  const completeness = record?.completeness;
+  let completenessHtml = '';
+  if (completeness === 'partial') {
+    const reason = (record?.completeness_reason || 'This copy may be a chapter or excerpt, not the full work.')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    completenessHtml = `<p class="completeness-line completeness-partial" style="font-size: var(--sc-12); color: var(--color-warning, #b45309); margin-top: 6px; cursor: help;" title="${reason}">⚠️ Partial copy — may be a chapter or excerpt, not the full text</p>`;
+  } else if (completeness === 'unverified') {
+    completenessHtml = `<p class="completeness-line completeness-unverified" style="font-size: var(--sc-11); color: var(--color-label); opacity: 0.7; margin-top: 6px;">Completeness unverified</p>`;
+  }
+
   return `
     <div class="resize-edge resize-left" title="Resize width"></div>
     <div class="scroller" id="source-content">
     <p class="citation" style="padding-bottom: 5px">${citation}</p>
     ${licenseHtml}
+    ${completenessHtml}
     ${sourceStatusSectionHtml(record, canEdit, accessDenied)}
 
     <div style="margin-top: 15px; padding-top: 15px;">

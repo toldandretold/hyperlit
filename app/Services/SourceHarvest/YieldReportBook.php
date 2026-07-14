@@ -73,7 +73,7 @@ class YieldReportBook
 
         // Rebuild the nodes from the full union (not just this run).
         $db->table('nodes')->where('book', $bookId)->delete();
-        $blocks = $this->buildBlocks($rootBook, $rootTitle, $failures, $successes, $overBudget);
+        $blocks = $this->buildBlocks($rootBook, $rootTitle, $failures, $successes, $overBudget, $union);
         $this->insertNodes($db, $bookId, $blocks);
 
         // Persist the union back onto the report row so the next run accumulates.
@@ -196,7 +196,7 @@ class YieldReportBook
      *
      * @return array<int, array{0: string, 1: string}>
      */
-    private function buildBlocks(string $rootBook, string $rootTitle, array $failures, array $successes, array $overBudget = []): array
+    private function buildBlocks(string $rootBook, string $rootTitle, array $failures, array $successes, array $overBudget = [], array $union = []): array
     {
         $got = count($successes);
         $lost = count($failures);
@@ -217,6 +217,23 @@ class YieldReportBook
                 . ' went untried when the spending limit was reached.';
         }
         $blocks[] = ['p', $intro];
+
+        // The knowledge network the harvest built, as a fork tree. Stored as a
+        // plain data table (the sanitizer blocks <svg> in node content); the
+        // client-side graph renderer (lazyLoader/graphRenderer.ts) finds the
+        // data-chart marker and swaps the table for a rendered SVG — the same
+        // pattern as the citation-review report's charts. If JS never runs,
+        // the table itself is a legible fallback.
+        if ($union !== []) {
+            $blocks[] = ['h2', 'Knowledge Network'];
+            $blocks[] = ['table', $this->networkTableInner($rootBook, $rootTitle, $union),
+                'data-chart="harvest-network"', 'Harvest knowledge network'];
+            // target="_blank": the 3D page is standalone (non-SPA) — a same-tab
+            // click would be intercepted by LinkNavigationHandler and misread
+            // as a book id (it also skips _blank links now, belt-and-braces).
+            $blocks[] = ['p', '<a href="/harvest-network/' . $this->e(rawurlencode($rootBook)) . '"'
+                . ' target="_blank" rel="noopener">Explore the knowledge network in 3D →</a>'];
+        }
 
         if ($lost > 0) {
             $blocks[] = ['p',
@@ -268,20 +285,36 @@ class YieldReportBook
         return $blocks;
     }
 
-    /** Insert the blocks as node rows (raw, pgsql_admin — no embedding jobs). */
+    /**
+     * Insert the blocks as node rows (raw, pgsql_admin — no embedding jobs).
+     *
+     * A block is [tag, innerHtml] with two optional extras:
+     * [2] a pre-escaped attribute string baked into the opening tag (e.g. the
+     *     data-chart marker the client-side graph renderer looks for), and
+     * [3] a plainText override (the network table's plainText would otherwise
+     *     be every cell id smashed together by strip_tags).
+     */
     private function insertNodes($db, string $bookId, array $blocks): void
     {
         $now = now();
         $rows = [];
-        foreach ($blocks as $i => [$tag, $inner]) {
+        foreach ($blocks as $i => $block) {
+            [$tag, $inner] = $block;
+            $attrs = isset($block[2]) ? ' ' . $block[2] : '';
             $line = $i + 1;
+            $nodeId = $bookId . '_r' . $line;
+            // Bake id="<startLine>" + data-node-id into the opening tag, the same
+            // convention as converted books / LibraryCardGenerator. The TOC heading
+            // scanner (tocContainer) and the /headings endpoint both require a
+            // literal id="…" in the stored content to recognise a heading — without
+            // it the report's <h2>s never reach the table of contents.
             $rows[] = [
                 'book'       => $bookId,
                 'startLine'  => $line,
                 'chunk_id'   => floor($i / 100),
-                'node_id'    => $bookId . '_r' . $line,
-                'content'    => "<{$tag}>{$inner}</{$tag}>",
-                'plainText'  => strip_tags($inner),
+                'node_id'    => $nodeId,
+                'content'    => "<{$tag} id=\"{$line}\" data-node-id=\"{$nodeId}\"{$attrs}>{$inner}</{$tag}>",
+                'plainText'  => $block[3] ?? strip_tags($inner),
                 'type'       => $tag,
                 'footnotes'  => null,
                 'created_at' => $now,
@@ -334,6 +367,58 @@ class YieldReportBook
         }
 
         return $citation . '.';
+    }
+
+    /**
+     * The harvest network encoded as sanitizer-safe table rows for the
+     * client-side fork-tree renderer (lazyLoader/graphRenderer.ts).
+     *
+     * COLUMN ORDER IS THE RENDERER CONTRACT (keep in sync with graphRenderer):
+     * id | parent | depth | status | title | year | book | cited_by | link |
+     * author | journal | publisher | type | reason
+     * (the last five feed the hover citation card; APPEND new columns only —
+     * the renderer indexes by position and tolerates short legacy rows).
+     *
+     * First body row is the ROOT book (depth 0, status "root"); then one row
+     * per union entry. Legacy entries (pre-lineage harvests) default to
+     * depth 1 / parent = root — a correct 1-level fan.
+     */
+    private function networkTableInner(string $rootBook, string $rootTitle, array $union): string
+    {
+        $cells = fn (array $c) => '<tr>' . implode('', array_map(
+            fn ($v) => '<td>' . $this->e((string) ($v ?? '')) . '</td>', $c)) . '</tr>';
+
+        $head = '<thead><tr>'
+            . implode('', array_map(fn ($h) => "<th>{$h}</th>",
+                ['id', 'parent', 'depth', 'status', 'title', 'year', 'book', 'cited_by', 'link',
+                 'author', 'journal', 'publisher', 'type', 'reason']))
+            . '</tr></thead>';
+
+        $rows = [$cells([$rootBook, '', 0, 'root', $rootTitle, '', $rootBook, '', '', '', '', '', '', ''])];
+        foreach ($union as $r) {
+            $id = $r['canonical_source_id'] ?? ($r['title'] ?? null);
+            if ($id === null) {
+                continue; // no stable identity — can't be a graph node
+            }
+            $rows[] = $cells([
+                $id,
+                $r['parent_book'] ?? $rootBook,
+                $r['depth'] ?? 1,
+                $r['status'] ?? 'error',
+                $r['title'] ?? 'Untitled',
+                $r['year'] ?? '',
+                $r['book'] ?? '',
+                $r['cited_by_count'] ?? '',
+                $this->bestLink($r) ?? '',
+                $r['author'] ?? '',
+                $r['journal'] ?? '',
+                $r['publisher'] ?? '',
+                $r['type'] ?? '',
+                $r['reason'] ?? '',
+            ]);
+        }
+
+        return $head . '<tbody>' . implode('', $rows) . '</tbody>';
     }
 
     /** The best single source URL for a work (used as the title link). */

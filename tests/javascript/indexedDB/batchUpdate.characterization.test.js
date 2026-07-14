@@ -124,6 +124,9 @@ describe('batchUpdateIndexedDBRecords (characterization)', () => {
       citedIN: [],
       relationshipStatus: 'single',
       time_since: expect.any(Number),
+      // Locally created ⇒ flagged as the user's own (gate bypass + singles
+      // mirror key off it; server recomputes on pull — see indexedDB/types.ts).
+      is_user_hypercite: true,
       node_id: ['bookA-n300'],
       charData: { 'bookA-n300': { charStart: 17, charEnd: 22 } },
     });

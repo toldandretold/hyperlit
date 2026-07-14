@@ -134,6 +134,10 @@ export interface NodeHyperciteView extends CharRange {
   relationshipStatus: RelationshipStatus;
   citedIN: string[];
   time_since?: number;
+  creator?: string | null;
+  /** Ownership flag the client gate's bypass + singles mirror key off. Server-computed on
+   *  pull; set `true` at local creation. `undefined` = unknown (legacy) — treated as "keep". */
+  is_user_hypercite?: boolean;
 }
 
 /** A row in the `nodes` store. Key: [book, startLine]. */
@@ -317,6 +321,9 @@ export interface LibraryRecord {
   wrapped_dek?: string | null;
   license?: string | null;
   custom_license_text?: string | null;
+  /** Content completeness of this version: 'verified_full' | 'partial' | 'unverified' | null. */
+  completeness?: string | null;
+  completeness_reason?: string | null;
   gate_defaults?: GateDefaults | null;
   /** Server-computed ownership flag — present on LOAD, never sent on save. */
   is_owner?: boolean;

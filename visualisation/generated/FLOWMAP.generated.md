@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1658 functions in 354 modules · 10 object stores · 10 PG tables · 3350 edges
+**MarkdownDB** schema v28 · 1665 functions in 356 modules · 10 object stores · 10 PG tables · 3372 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -361,6 +361,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.syncLibraryRecordToBackend` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.syncPipelineHighlights` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.validateUrl` | `components/sourceContainer/index` | — | — | — | — |
+| `licenseInfoFor` | `components/sourceContainer/licenseInfo` | — | — | — | — |
 | `isCommonsBook` | `components/sourceContainer/researchWorkflows` | — | — | — | — |
 | `loadResearchWorkflows` | `components/sourceContainer/researchWorkflows` | — | — | read | — |
 | `researchWorkflowsSectionHtml` | `components/sourceContainer/researchWorkflows` | — | — | — | — |
@@ -529,10 +530,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `isAcceptableImportExt` | `components/utilities/fileImportHelpers` | — | — | — | — |
 | `extractFileMetadata` | `components/utilities/fileMetadataExtractor` | — | — | read | — |
 | `appendGateParam` | `components/utilities/gateFilter` | — | — | — | — |
-| `applyGateFilter` | `components/utilities/gateFilter` | — | — | — | — |
+| `applyGateFilter` | `components/utilities/gateFilter` | `sessionStorage` | — | — | — |
 | `gateQueryParam` | `components/utilities/gateFilter` | `localStorage` | — | — | — |
 | `getBookGateDefaults` | `components/utilities/gateFilter` | — | — | — | — |
 | `getGateSettings` | `components/utilities/gateFilter` | `localStorage` | — | — | — |
+| `getPinnedHyperciteIds` | `components/utilities/gateFilter` | `sessionStorage` | — | — | — |
+| `pinHypercite` | `components/utilities/gateFilter` | `sessionStorage` | `sessionStorage` | — | — |
+| `pinnedQueryParam` | `components/utilities/gateFilter` | `sessionStorage` | — | — | — |
 | `reapplyAnnotationsWithGate` | `components/utilities/gateFilter` | — | — | read | — |
 | `setBookGateDefaults` | `components/utilities/gateFilter` | — | — | — | — |
 | `KeyboardManager.adjustHyperlitContainerHeight` | `components/utilities/keyboardManager` | — | — | read | — |
@@ -1097,6 +1101,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `syncHyperlightToPostgreSQL` | `indexedDB/highlights/syncHighlightsToPostgreSQL` | — | — | read | `↑route:/api/db/hyperlights/upsert` |
 | `getNodesByDataNodeIDs` | `indexedDB/hydration/rebuild` | `nodes` | — | — | — |
 | `rebuildNodeArrays` | `indexedDB/hydration/rebuild` | `hypercites` `hyperlights` | `nodes` | — | — |
+| `fetchAndPinHypercite` | `indexedDB/hypercites/helpers` | — | — | — | — |
+| `fetchHyperciteRecord` | `indexedDB/hypercites/helpers` | — | `hypercites` | — | `↓route:/api/db/hypercites/find` |
 | `resolveHypercite` | `indexedDB/hypercites/helpers` | — | `hypercites` `nodes` | read | `↓route:/api/db/hypercites/find` |
 | `addCitationToHypercite` | `indexedDB/hypercites/index` | `nodes` | `nodes` | — | — |
 | `initHypercitesDependencies` | `indexedDB/hypercites/index` | — | — | — | — |
@@ -1189,6 +1195,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hydrateEncryptedImages` | `lazyLoader/encryptedImages` | — | — | read/write | — |
 | `restoreCanonicalImageSrcs` | `lazyLoader/encryptedImages` | — | — | — | — |
 | `applyDynamicFootnoteNumbers` | `lazyLoader/footnoteSelfHeal` | — | — | read/write | — |
+| `renderHarvestNetworks` | `lazyLoader/graphRenderer` | — | — | read/write | — |
 | `handleBrokenImages` | `lazyLoader/imageState` | — | — | read/write | — |
 | `createLazyLoader` | `lazyLoader/index` | `library` `localStorage` `sessionStorage` | `localStorage` `sessionStorage` | read/write | — |
 | `getLastChunkId` | `lazyLoader/index` | — | — | read | — |
@@ -1671,7 +1678,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 3 · dynamic cycle-breakers (debt): 3 · lazy-loads (code-split): 240
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 3 · dynamic cycle-breakers (debt): 3 · lazy-loads (code-split): 244
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1832,6 +1839,8 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/subBookLoader` → `hyperlights/index`
 - `hyperlitContainer/subBookLoader` → `indexedDB/core/library`
 - `hyperlitContainer/subBookLoader` → `indexedDB/hydration/rebuild`
+- `indexedDB/hypercites/helpers` → `components/utilities/gateFilter`
+- `indexedDB/hypercites/helpers` → `indexedDB/hydration/rebuild`
 - `indexedDB/hypercites/helpers` → `indexedDB/nodes/read`
 - `indexedDB/hypercites/index` → `indexedDB/hydration/rebuild`
 - `indexedDB/nodes/batch` → `footnotes/FootnoteNumberingService`
@@ -1884,7 +1893,9 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `paste/index` → `indexedDB/index`
 - `scrolling/internalNav` → `SPA/navigation/resolveTargetChunk`
 - `scrolling/internalNav` → `components/toast/toast`
+- `scrolling/internalNav` → `components/utilities/gateFilter`
 - `scrolling/internalNav` → `hypercites/animations`
+- `scrolling/internalNav` → `indexedDB/hypercites/helpers`
 - `scrolling/internalNav` → `lazyLoader/utilities/fillViewport`
 - `scrolling/internalNav` → `pageLoad/backgroundDownload`
 

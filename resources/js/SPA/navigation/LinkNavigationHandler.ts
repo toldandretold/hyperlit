@@ -178,12 +178,22 @@ export class LinkNavigationHandler {
     // Skip blob URLs (downloads)
     const isBlobUrl = linkUrl.protocol === 'blob:';
 
+    // Skip target="_blank" links — the author asked for a NEW TAB; SPA-routing
+    // one in-place hijacks that. (The yield report's "Explore in 3D" link is
+    // the canonical case: /harvest-network/… is a standalone non-SPA page that
+    // book-to-book transition would misread as a book id.)
+    const isNewTab = link.getAttribute('target') === '_blank';
+
+    // Skip standalone non-SPA pages by path — they have no reader shell to
+    // transition into, so even a same-tab click must be a full page load.
+    const isStandalonePage = linkUrl.pathname.startsWith('/harvest-network/');
+
     // Skip the accessibility skip-to-content link (layout.blade.php): native
     // fragment navigation must handle it — routing it through SPA nav builds
     // a `/${book}` path, which on home (book=null) rewrote the URL to /null.
     const isSkipLink = link.classList.contains('skip-link');
 
-    if (isHypercite || isTocLink || isDeleteButton || isBookActions || isStripeTopup || isTierSelector || isTierOption || isBlobUrl || isFootnoteLink || isSkipLink) {
+    if (isHypercite || isTocLink || isDeleteButton || isBookActions || isStripeTopup || isTierSelector || isTierOption || isBlobUrl || isFootnoteLink || isSkipLink || isNewTab || isStandalonePage) {
       return true;
     }
 

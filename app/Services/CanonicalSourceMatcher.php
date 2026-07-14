@@ -668,6 +668,8 @@ class CanonicalSourceMatcher
             'oa_url'              => $n['oa_url'] ?? null,
             'pdf_url'             => $n['pdf_url'] ?? null,
             'work_license'        => $n['work_license'] ?? null,
+            'first_page'          => $n['first_page'] ?? null,
+            'last_page'           => $n['last_page'] ?? null,
             'cited_by_count'      => $n['cited_by_count'] ?? null,
             'semantic_scholar_id' => $n['semantic_scholar_id'] ?? null,
             'authorships'         => !empty($n['authorships']) ? $n['authorships'] : null,

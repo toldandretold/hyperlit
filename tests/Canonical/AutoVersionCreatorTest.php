@@ -134,6 +134,33 @@ test('skip-ocr leaves the pointer deferred so the canonical stays eligible', fun
     expect($stub->creator)->toBe(AutoVersionResolver::CREATOR);
 });
 
+test('stamps the imported copy completeness + real licence onto the version', function () {
+    $id = canonvSeedCanonical([
+        'title'     => 'CanonV AVC Completeness',
+        'pdf_url'   => 'https://example.org/canonv-avc-complete.pdf',
+        'oa_status' => 'bronze',
+        'type'      => 'book',
+    ]);
+
+    $fetcher = Mockery::mock(ContentFetchService::class);
+    $fetcher->shouldReceive('fetch')->once()->andReturn(['status' => 'downloaded', 'reason' => 'PDF saved']);
+    $fetcher->shouldReceive('lastFetchTrace')->andReturn([
+        'candidates' => 1, 'won_host' => 'cambridge.org', 'won_source' => 'openalex',
+        'won_license' => null, 'won_version' => 'publishedVersion',
+        'completeness' => 'partial', 'completeness_reason' => 'bronze book — likely a single chapter',
+    ]);
+    $fetcher->shouldNotReceive('processLocalPdf');
+
+    avcCreator($fetcher)->create(CanonicalSource::findOrFail($id), skipOcr: true);
+
+    $stub = canonvDb()->table('library')->where('canonical_source_id', $id)->first();
+    // Completeness flagged (kept, not rejected) so citation review won't treat the chapter as the whole book.
+    expect($stub->completeness)->toBe('partial');
+    expect($stub->completeness_reason)->toContain('chapter');
+    // Real licence stamped, NOT the site default: bronze / no-licence => All Rights Reserved.
+    expect($stub->license)->toBe('All-Rights-Reserved');
+});
+
 test('a prior pdf_url_status on a non-oa_url stub skips re-fetching (the vacuum guard)', function () {
     $id = canonvSeedCanonical([
         'title'   => 'CanonV AVC PriorStatus',

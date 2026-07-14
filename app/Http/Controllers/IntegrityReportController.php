@@ -171,34 +171,49 @@ class IntegrityReportController extends Controller
         $data['userId'] = $user?->id;
         $data['userName'] = $user?->name ?? 'anonymous';
         $data['artifactPath'] = resource_path("markdown/{$data['bookId']}");
-        $data['laravelLogs'] = $this->grepLaravelLog($data['bookId'], 20);
+        $data['laravelLogs'] = null;
+        $data['assessment'] = null;
 
-        // Surface the pipeline's decision-trace (assessment.json) inline in the email so
-        // the reviewer (and, later, the LLM triage) can see WHAT was decided, in which
-        // MODULE, and why — without opening the attachment.
-        $assessmentPath = "{$data['artifactPath']}/assessment.json";
-        $data['assessment'] = file_exists($assessmentPath)
-            ? (json_decode(file_get_contents($assessmentPath), true)['records'] ?? null)
-            : null;
+        // Best-effort enrichment + regression-consent write. NONE of this may fail
+        // the request: a user's bug report must never itself 500 (a missing log
+        // file, an unreadable assessment.json, or an unwritable markdown dir on
+        // prod would otherwise throw). Log and continue — the email still goes out.
+        try {
+            $data['laravelLogs'] = $this->grepLaravelLog($data['bookId'], 20);
+
+            // Surface the pipeline's decision-trace (assessment.json) inline in the email so
+            // the reviewer (and, later, the LLM triage) can see WHAT was decided, in which
+            // MODULE, and why — without opening the attachment.
+            $assessmentPath = "{$data['artifactPath']}/assessment.json";
+            if (file_exists($assessmentPath)) {
+                $data['assessment'] = json_decode(file_get_contents($assessmentPath), true)['records'] ?? null;
+            }
+
+            // Mark this book as user-consented for regression test usage (dev only —
+            // the markdown/ corpus dir doesn't exist on prod, so this is skipped there).
+            $bookDir = $data['artifactPath'];
+            if (is_dir($bookDir)) {
+                $consent = [
+                    'rating' => $data['rating'],
+                    'issueTypes' => $data['issueTypes'] ?? [],
+                    'comment' => $data['comment'] ?? null,
+                    'userId' => $data['userId'],
+                    'userName' => $data['userName'],
+                    'timestamp' => $data['timestamp'] ?? now()->toISOString(),
+                ];
+                file_put_contents("{$bookDir}/feedback_consented.json", json_encode($consent, JSON_PRETTY_PRINT));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Conversion feedback enrichment failed (continuing)', [
+                'bookId' => $data['bookId'],
+                'error'  => $e->getMessage(),
+            ]);
+        }
 
         Log::info('Conversion feedback received', [
             'bookId' => $data['bookId'],
             'rating' => $data['rating'],
         ]);
-
-        // Mark this book as user-consented for regression test usage
-        $bookDir = resource_path("markdown/{$data['bookId']}");
-        if (is_dir($bookDir)) {
-            $consent = [
-                'rating' => $data['rating'],
-                'issueTypes' => $data['issueTypes'] ?? [],
-                'comment' => $data['comment'] ?? null,
-                'userId' => $data['userId'],
-                'userName' => $data['userName'],
-                'timestamp' => $data['timestamp'] ?? now()->toISOString(),
-            ];
-            file_put_contents("{$bookDir}/feedback_consented.json", json_encode($consent, JSON_PRETTY_PRINT));
-        }
 
         try {
             Mail::send(new ConversionFeedbackMail($data));

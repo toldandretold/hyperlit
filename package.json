@@ -55,10 +55,12 @@
     "vitest": "^4.0.5"
   },
   "dependencies": {
+    "@types/three": "^0.185.1",
     "dompurify": "^3.2.6",
     "katex": "^0.16.38",
     "marked": "^15.0.12",
     "patchright": "^1.61.1",
-    "playwright": "^1.60.0"
+    "playwright": "^1.60.0",
+    "three": "^0.185.1"
   }
 }

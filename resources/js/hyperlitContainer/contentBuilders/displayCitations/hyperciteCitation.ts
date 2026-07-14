@@ -8,6 +8,8 @@
 import { openDatabase } from '../../../indexedDB/index';
 import { formatBibtexToCitation } from "../../../utilities/bibtexProcessor";
 import { getHyperciteFromIndexedDB } from '../../../indexedDB/hypercites/index';
+import { fetchHyperciteRecord } from '../../../indexedDB/hypercites/helpers';
+import { verbose } from '../../../utilities/logger';
 import { privateLockIcon, deletedTrashIcon, MUTED_BTN_STYLE, BTN_SPINNER_HTML, enableButtonEl } from '../sourceAccessButton';
 
 /**
@@ -83,14 +85,30 @@ export async function buildHyperciteCitationContent(contentType: any, db: any = 
       }
     }
 
-    // Check for ghost/dead status — IndexedDB-only lookup (instant, no server calls)
-    // Full resolveHypercite (which fetches nodes) is deferred to post-open
+    // Check for ghost/dead status — IndexedDB first (instant); on a MISS fall back to a
+    // single-record server fetch (scope=record) so the status is real, not undefined.
+    // The old IDB-only check silently treated "not cached" as "alive", which is the
+    // "container info does not always work" bug class.
     let isGhost = false;
     let isDead = false;
+    let isMissing = false; // record no longer exists server-side (deleted with no tombstone)
     let ghostCitedText = '';
     let hyperciteBook = null;
     try {
-      const hyperciteData: any = await getHyperciteFromIndexedDB(targetBook, targetHyperciteId);
+      let hyperciteData: any = await getHyperciteFromIndexedDB(targetBook, targetHyperciteId);
+      if (!hyperciteData) {
+        const fetched = await fetchHyperciteRecord(targetBook, targetHyperciteId);
+        if (fetched.status === 'ok') {
+          hyperciteData = fetched.record;
+        } else if (fetched.status === 'not_found') {
+          isMissing = true;
+        } else {
+          // forbidden → the library-visibility private path below handles messaging;
+          // error → proceed neutral-alive (never claim dead/ghost without data)
+          verbose.content(`Hypercite status fallback: ${targetHyperciteId} → ${fetched.status}`, 'hyperlitContainer/hyperciteCitation');
+        }
+      }
+      // Undefined relationshipStatus → treated as alive (defensive: never claim dead/ghost)
       if (hyperciteData?.relationshipStatus === 'ghost') {
         isGhost = true;
         ghostCitedText = hyperciteData.hypercitedText || '';
@@ -149,6 +167,10 @@ export async function buildHyperciteCitationContent(contentType: any, db: any = 
       buttonText = 'source deleted';
       buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
       buttonAttrs = `data-deleted="true" data-book-id="${targetBook}"`;
+    } else if (isMissing) {
+      buttonText = 'Citation record missing';
+      buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
+      buttonAttrs = `data-missing="true"`;
     } else if (isDead) {
       buttonText = 'Source text removed';
       buttonStyle += ' opacity: 0.6; cursor: not-allowed;';
@@ -201,6 +223,7 @@ export async function buildHyperciteCitationContent(contentType: any, db: any = 
           ${statusIcon}${locationLabel ? `<span class="location-label">${locationLabel}</span><blockquote>${formattedCitation}</blockquote>` : formattedCitation}
         </div>
         ${isGhost ? `<div style="color: #EF8D34; font-size: 13px; margin-top: 1em; padding: 8px 10px; border-radius: 4px; background: rgba(239, 141, 52, 0.08); border: 1px solid rgba(239, 141, 52, 0.25);">Cited text deleted</div>` : ''}
+        ${isMissing ? `<div style="color: #d73a49; font-size: 13px; margin-top: 1em; padding: 8px 10px; border-radius: 4px; background: rgba(215, 58, 73, 0.08); border: 1px solid rgba(215, 58, 73, 0.25);">This citation record no longer exists</div>` : ''}
         ${deadBannerHtml}
         ${deadNavLink}
         <div style="margin-top: ${isGhost || isDead ? '0.5em' : '1em'};">
@@ -230,22 +253,28 @@ export async function buildHyperciteCitationContent(contentType: any, db: any = 
  * @param db - Optional reused database connection
  */
 export async function resolveButtonStatus(contentType: any, db: any, container: any = null) {
+  const { targetBook, targetHyperciteId } = contentType;
+
+  // Prefer caller-provided container so we don't depend on `.open` having been
+  // applied yet (stacked layers add it via double rAF after this runs).
+  // Fall back to the legacy query for callers that don't pass one.
+  const root = container
+    || document.querySelector('#hyperlit-container.open, .hyperlit-container-stacked.open');
+  if (!root || !document.body.contains(root)) return;
+
+  // The two post-open checks are INDEPENDENT — a failure in one must not strand the
+  // other, and neither may leave the button stuck in the muted+spinner state.
+
+  // Handle access check for private books (8s timeout + tap-to-retry on failure)
   try {
-    const { targetBook, targetHyperciteId } = contentType;
-
-    // Prefer caller-provided container so we don't depend on `.open` having been
-    // applied yet (stacked layers add it via double rAF after this runs).
-    // Fall back to the legacy query for callers that don't pass one.
-    const root = container
-      || document.querySelector('#hyperlit-container.open, .hyperlit-container-stacked.open');
-    if (!root || !document.body.contains(root)) return;
-
-    // Handle access check for private books
     const accessCheckBtn = root.querySelector('.see-in-source-btn[data-needs-access-check="true"]');
     if (accessCheckBtn) {
       const { canUserEditBook }: any = await import('../../../utilities/auth/index');
       const bookId = accessCheckBtn.getAttribute('data-book-id');
-      const hasAccess: any = await canUserEditBook(bookId);
+      const hasAccess: any = await Promise.race([
+        canUserEditBook(bookId),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('access check timed out')), 8000)),
+      ]);
 
       accessCheckBtn.removeAttribute('data-needs-access-check');
       const spinner = accessCheckBtn.querySelector('.btn-spinner');
@@ -270,8 +299,33 @@ export async function resolveButtonStatus(contentType: any, db: any, container: 
         });
       }
     }
+  } catch (accessError) {
+    // Timeout / network failure: swap the spinner for an explicit one-shot retry state
+    // instead of leaving the button muted+spinning forever.
+    verbose.content('Access check failed — showing retry state', 'hyperlitContainer/hyperciteCitation', accessError);
+    const btn = root.querySelector('.see-in-source-btn[data-needs-access-check="true"]');
+    if (btn) {
+      btn.querySelector('.btn-spinner')?.remove();
+      btn.setAttribute('data-access', 'error');
+      btn.style.pointerEvents = '';
+      btn.style.cursor = 'pointer';
+      btn.childNodes.forEach((node: any) => {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+          node.textContent = "couldn't verify access — tap to retry ";
+        }
+      });
+      btn.addEventListener('click', (e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        btn.removeAttribute('data-access');
+        btn.insertAdjacentHTML('beforeend', BTN_SPINNER_HTML);
+        void resolveButtonStatus(contentType, db, root);
+      }, { once: true });
+    }
+  }
 
-    // Handle ancestor check for dead books
+  // Handle ancestor check for dead books (graceful degradation: banner stays, link is a bonus)
+  try {
     const ancestorCheckEl = root.querySelector('[data-needs-ancestor-check="true"]');
     if (ancestorCheckEl) {
       const hyperciteBook = ancestorCheckEl.getAttribute('data-hypercite-book');
@@ -284,8 +338,8 @@ export async function resolveButtonStatus(contentType: any, db: any, container: 
       }
       ancestorCheckEl.removeAttribute('data-needs-ancestor-check');
     }
-
-  } catch (error) {
-    console.warn('resolveButtonStatus error:', error);
+  } catch (ancestorError) {
+    verbose.content('Ancestor check failed — leaving dead banner without link', 'hyperlitContainer/hyperciteCitation', ancestorError);
+    root.querySelector('[data-needs-ancestor-check="true"]')?.removeAttribute('data-needs-ancestor-check');
   }
 }

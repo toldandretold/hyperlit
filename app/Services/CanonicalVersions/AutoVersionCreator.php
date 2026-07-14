@@ -4,6 +4,7 @@ namespace App\Services\CanonicalVersions;
 
 use App\Models\CanonicalSource;
 use App\Services\ContentFetchService;
+use App\Services\SourceHarvest\OaLicenseMapper;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
@@ -134,6 +135,21 @@ class AutoVersionCreator
                 }
             }
 
+            // Stamp the harvested source with its REAL license — the license of
+            // the copy we actually imported — so source-container shows the true
+            // licence (e.g. "CC BY 4.0", or "All Rights Reserved" for a bronze
+            // free-to-read copy) instead of the site default the stub was minted
+            // with. Flows through the existing library.license display + edit path.
+            $this->applyOaLicense($bookId, $canonical, $fetchTrace);
+
+            // Flag how COMPLETE this imported copy is (verified_full / partial /
+            // unverified), so citation review never treats a chapter or teaser as
+            // the whole work. Only when this run actually fetched — an already-
+            // fetched row keeps the completeness a prior run assigned.
+            if (!$alreadyFetched) {
+                $this->applyCompleteness($bookId, $fetchTrace);
+            }
+
             // ---- Wire the pointer. Requires has_nodes=true, so a skip-ocr /
             // contentless stub stays 'deferred' (pointer NULL) and the canonical
             // remains eligible for a later OCR pass. ----
@@ -161,6 +177,46 @@ class AutoVersionCreator
                 'reason' => $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Map the imported copy's OpenAlex license onto the auto-version library row's
+     * `license` (+ `custom_license_text`). Prefers the license of the winning OA
+     * candidate (what we actually downloaded), falling back to the work's
+     * primary-location license; the no-license case is decided by OA status.
+     *
+     * @param array{won_license?: ?string} $fetchTrace
+     */
+    private function applyOaLicense(string $bookId, CanonicalSource $canonical, array $fetchTrace): void
+    {
+        $slug = $fetchTrace['won_license'] ?? $canonical->work_license;
+        $mapped = OaLicenseMapper::toLibraryLicense($slug, $canonical->oa_status);
+
+        DB::connection('pgsql_admin')->table('library')
+            ->where('book', $bookId)
+            ->update([
+                'license'             => $mapped['license'],
+                'custom_license_text' => $mapped['custom_license_text'],
+                'updated_at'          => now(),
+            ]);
+    }
+
+    /**
+     * Stamp the imported copy's completeness (from the fetch trace) onto the
+     * version. Defaults to 'unverified' — we imported content but the lane gave no
+     * fullness signal (HTML / browser / small-span PDF).
+     *
+     * @param array{completeness?: ?string, completeness_reason?: ?string} $fetchTrace
+     */
+    private function applyCompleteness(string $bookId, array $fetchTrace): void
+    {
+        DB::connection('pgsql_admin')->table('library')
+            ->where('book', $bookId)
+            ->update([
+                'completeness'        => $fetchTrace['completeness'] ?? 'unverified',
+                'completeness_reason' => $fetchTrace['completeness_reason'] ?? null,
+                'updated_at'          => now(),
+            ]);
     }
 
     private function loadRecord(string $bookId): ?object

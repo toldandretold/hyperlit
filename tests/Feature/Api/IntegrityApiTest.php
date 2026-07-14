@@ -39,3 +39,18 @@ test('POST /api/integrity/conversion-feedback 422s without bookId + rating', fun
     $this->loginUser();
     $this->assertApiError($this->postJson('/api/integrity/conversion-feedback', []), 422);
 });
+
+test('POST /api/integrity/conversion-feedback accepts a report and never 500s', function () {
+    // Regression: enrichment (log grep / assessment read / consent write) must be
+    // best-effort — a bug report must never itself throw. Here the book has no
+    // markdown/ corpus dir (as on prod), so the consent-write branch is skipped and
+    // the whole thing still returns 200.
+    Mail::fake();
+    $this->loginUser();
+    $this->postJson('/api/integrity/conversion-feedback', [
+        'bookId'     => 'apitest_book',
+        'rating'     => 'bad',
+        'issueTypes' => ['citations_not_matched'],
+        'comment'    => 'the harvested source is just a table of contents',
+    ])->assertStatus(200)->assertJson(['status' => 'received']);
+});

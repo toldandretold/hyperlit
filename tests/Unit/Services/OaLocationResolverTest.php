@@ -52,6 +52,31 @@ test('classifies known clean hosts as repository and .edu DSpace too', function 
     expect($ranked['onlinelibrary.wiley.com']['host_class'])->toBe('publisher');
 });
 
+test('breaks ties by version (published>submitted) then license (CC>none) within a host class', function () use ($resolver) {
+    // Two repository PDFs on equal-class hosts: the published + CC-BY copy must
+    // outrank the submitted-preprint + no-license copy.
+    $raw = [
+        ['pdf_url' => 'https://repo-a.edu/preprint.pdf', 'landing_page_url' => null, 'host_type' => 'repository', 'version' => 'submittedVersion', 'license' => null, 'source' => 'openalex'],
+        ['pdf_url' => 'https://repo-b.edu/published.pdf', 'landing_page_url' => null, 'host_type' => 'repository', 'version' => 'publishedVersion', 'license' => 'cc-by', 'source' => 'unpaywall'],
+    ];
+    $ranked = $resolver()->rankAndDedupe($raw);
+    expect($ranked[0]['host'])->toBe('repo-b.edu');           // published + CC first
+    expect($ranked[0]['version'])->toBe('publishedVersion');  // version carried through
+    expect($ranked[0]['license'])->toBe('cc-by');             // license carried through
+});
+
+test('version/license tie-breaks never override the repository-before-publisher order', function () use ($resolver) {
+    // A published+CC PUBLISHER copy must still rank BELOW a submitted+no-license
+    // REPOSITORY copy — host class dominates (anti-Cloudflare) over the tie-breaks.
+    $raw = [
+        ['pdf_url' => 'https://direct.mit.edu/published.pdf', 'landing_page_url' => null, 'host_type' => 'journal', 'version' => 'publishedVersion', 'license' => 'cc-by', 'source' => 'openalex'],
+        ['pdf_url' => 'https://arxiv.org/pdf/2101.00001', 'landing_page_url' => null, 'host_type' => null, 'version' => 'submittedVersion', 'license' => null, 'source' => 'openalex'],
+    ];
+    $ranked = $resolver()->rankAndDedupe($raw);
+    expect($ranked[0]['host'])->toBe('arxiv.org');          // repository still first
+    expect($ranked[array_key_last($ranked)]['host'])->toBe('direct.mit.edu');
+});
+
 test('resolve() gathers OpenAlex locations[] and ranks green copies first', function () use ($resolver) {
     Http::fake([
         'api.openalex.org/works/W555*' => Http::response([

@@ -35,6 +35,12 @@ class HarvestEligibility
             ->whereIn('cs.id', $this->reachedCanonicalIdsSubquery($book))
             ->whereNull('cs.auto_version_book')
             ->where('cs.is_oa', true)
+            // NOTE: we deliberately do NOT exclude by OA colour. A bronze book
+            // (a chapter / front-matter teaser) is still worth keeping — the fetch
+            // ladder imports it and flags the version `partial` (see
+            // ContentFetchService::assessCompleteness / AutoVersionCreator) so
+            // citation review never treats it as the whole work. Only genuinely-
+            // empty content is dropped (the post-OCR text floor).
             ->where(function ($q) {
                 $q->where(fn ($q2) => $q2->whereNotNull('cs.pdf_url')->where('cs.pdf_url', '!=', ''))
                   ->orWhere(fn ($q2) => $q2->whereNotNull('cs.oa_url')->where('cs.oa_url', '!=', ''))

@@ -30,15 +30,21 @@ function yrSeedBook(array $opts = []): string
     return $book;
 }
 
-function yrResults(): array
+/**
+ * Canned per-work outcomes. With $parent set, entries carry the lineage fields
+ * the runner now persists (depth/parent_book/cited_by_count); without it they
+ * are the LEGACY pre-lineage shape (old cumulative unions still have these).
+ */
+function yrResults(?string $parent = null): array
 {
+    $lineage = $parent ? ['depth' => 1, 'parent_book' => $parent, 'cited_by_count' => 42] : [];
     return [
         // A Cloudflare failure with a DOI.
-        ['canonical_source_id' => (string) Str::uuid(), 'title' => 'The Rational Kernel', 'author' => 'Amin, Samir', 'year' => 1985, 'journal' => 'Review', 'type' => 'journal-article', 'doi' => '10.1111/rational', 'oa_url' => null, 'pdf_url' => null, 'status' => 'fetch_failed', 'reason' => 'Browser fetch failed: cloudflare_block', 'via' => null, 'book' => null],
+        ['canonical_source_id' => (string) Str::uuid(), 'title' => 'The Rational Kernel', 'author' => 'Amin, Samir', 'year' => 1985, 'journal' => 'Review', 'type' => 'journal-article', 'doi' => '10.1111/rational', 'oa_url' => null, 'pdf_url' => null, 'status' => 'fetch_failed', 'reason' => 'Browser fetch failed: cloudflare_block', 'via' => null, 'book' => null] + $lineage,
         // A deferred (unverifiable) failure with an oa_url.
-        ['canonical_source_id' => (string) Str::uuid(), 'title' => 'A Moment of Possibility', 'author' => 'Doe, Jane', 'year' => 2020, 'type' => 'book', 'doi' => null, 'oa_url' => 'https://hdl.handle.net/2440/123', 'pdf_url' => null, 'status' => 'deferred', 'reason' => 'stub has no converted content yet', 'via' => null, 'book' => null],
+        ['canonical_source_id' => (string) Str::uuid(), 'title' => 'A Moment of Possibility', 'author' => 'Doe, Jane', 'year' => 2020, 'type' => 'book', 'doi' => null, 'oa_url' => 'https://hdl.handle.net/2440/123', 'pdf_url' => null, 'status' => 'deferred', 'reason' => 'stub has no converted content yet', 'via' => null, 'book' => null] + $lineage,
         // A success with a held book.
-        ['canonical_source_id' => (string) Str::uuid(), 'title' => 'Accumulation on a World Scale', 'author' => 'Amin, Samir', 'year' => 1974, 'type' => 'book', 'doi' => '10.2307/accum', 'status' => 'assigned', 'reason' => null, 'via' => 'from europepmc.org', 'book' => 'yrtest_held_book'],
+        ['canonical_source_id' => (string) Str::uuid(), 'title' => 'Accumulation on a World Scale', 'author' => 'Amin, Samir', 'year' => 1974, 'type' => 'book', 'doi' => '10.2307/accum', 'status' => 'assigned', 'reason' => null, 'via' => 'from europepmc.org', 'book' => 'yrtest_held_book'] + $lineage,
     ];
 }
 
@@ -107,6 +113,16 @@ test('lists failures as formatted citations + links above the harvested section'
     $failPos = strpos($plain, 'Failed to Harvest');
     $gotPos = strpos($plain, "\nHarvested");
     expect($failPos)->toBeLessThan($gotPos);
+
+    // Headings must carry a literal id="<startLine>" in their STORED content —
+    // the TOC scanner (tocContainer) and /headings endpoint both require it to
+    // recognise a heading, else the report's sections never reach the table of
+    // contents. The h2s below the intro must each match the heading regex.
+    $headingRows = $nodes->filter(fn ($n) => in_array($n->type, ['h1', 'h2'], true));
+    expect($headingRows)->not->toBeEmpty();
+    foreach ($headingRows as $h) {
+        expect($h->content)->toMatch('/^<h[1-6][^>]*\sid="' . $h->startLine . '"/');
+    }
 });
 
 test('re-running accumulates into the SAME living report (a later run never clobbers an earlier one)', function () {
@@ -155,6 +171,88 @@ test('a later run UPGRADES a previously-failed canonical to harvested', function
     $union = json_decode(yrDb()->table('library')->where('book', $book)->value('raw_json'), true)['cumulative_results'];
     expect(collect($union)->where('canonical_source_id', $cid)->count())->toBe(1);
     expect(collect($union)->firstWhere('canonical_source_id', $cid)['status'])->toBe('assigned');
+});
+
+test('a second failure REFRESHES the reason (latest attempt wins on equal rank)', function () {
+    $root = yrSeedBook(['title' => 'YRTest Refresh', 'creator' => 'yrtest_user']);
+    $svc = app(YieldReportBook::class);
+
+    $cid = (string) \Illuminate\Support\Str::uuid();
+    // First run: this canonical fails with reason X (a cloudflare wall), and the
+    // only link we had was a DOI.
+    $svc->generate($root, 'YRTest Refresh', [
+        ['canonical_source_id' => $cid, 'title' => 'The Stubborn Text', 'author' => 'X', 'year' => 2019, 'type' => 'journal-article', 'status' => 'fetch_failed', 'reason' => 'cloudflare_block', 'doi' => '10.1111/stubborn', 'oa_url' => null, 'pdf_url' => null, 'via' => null, 'book' => null],
+    ]);
+    // Second run: SAME canonical fails AGAIN, but for a different reason Y and
+    // with a fresh open-access link discovered this time.
+    $book = $svc->generate($root, 'YRTest Refresh', [
+        ['canonical_source_id' => $cid, 'title' => 'The Stubborn Text', 'author' => 'X', 'year' => 2019, 'type' => 'journal-article', 'status' => 'deferred', 'reason' => 'found a copy but the file was corrupt', 'doi' => '10.1111/stubborn', 'oa_url' => 'https://repo.example/stubborn', 'pdf_url' => null, 'via' => null, 'book' => null],
+    ]);
+
+    // The union carries exactly one entry for that canonical, and it reflects the
+    // SECOND attempt — status, reason and links all refreshed to the latest run.
+    $union = json_decode(yrDb()->table('library')->where('book', $book)->value('raw_json'), true)['cumulative_results'];
+    expect(collect($union)->where('canonical_source_id', $cid)->count())->toBe(1);
+    $entry = collect($union)->firstWhere('canonical_source_id', $cid);
+    expect($entry['status'])->toBe('deferred');
+    expect($entry['reason'])->toBe('found a copy but the file was corrupt');
+    expect($entry['oa_url'])->toBe('https://repo.example/stubborn'); // fresh link from run 2
+
+    // And the rendered report shows the latest reason, not the stale one.
+    $html = yrDb()->table('nodes')->where('book', $book)->orderBy('startLine')->pluck('content')->implode("\n");
+    expect($html)->toContain("couldn't verify"); // 'deferred' is humanised to this
+    expect($html)->not->toContain('blocked by the publisher'); // run 1's humanised reason is gone
+    expect($html)->toContain('href="https://repo.example/stubborn"'); // fresh link surfaced
+});
+
+test('embeds the knowledge-network data table + 3D expand link', function () {
+    $root = yrSeedBook(['title' => 'YRTest Network', 'creator' => 'yrtest_user']);
+    $results = yrResults($root); // modern shape, lineage fields present
+
+    $book = app(YieldReportBook::class)->generate($root, 'YRTest Network', $results);
+    $nodes = yrDb()->table('nodes')->where('book', $book)->orderBy('startLine')->get();
+
+    // The network node: a table carrying the data-chart marker the client
+    // graph renderer looks for, under a "Knowledge Network" heading.
+    $tableNode = $nodes->firstWhere('type', 'table');
+    expect($tableNode)->not->toBeNull();
+    expect($tableNode->content)->toContain('data-chart="harvest-network"');
+    expect($nodes->pluck('plainText')->implode("\n"))->toContain('Knowledge Network');
+    // plainText override: the table's plainText is NOT the smashed cell values.
+    expect($tableNode->plainText)->toBe('Harvest knowledge network');
+
+    // First body row is the ROOT (depth 0, status root, root title).
+    expect($tableNode->content)->toMatch('/<tbody><tr><td>' . preg_quote($root, '/') . '<\/td><td><\/td><td>0<\/td><td>root<\/td><td>YRTest Network<\/td>/');
+    // One row per union entry, carrying its lineage + status + cited_by.
+    foreach ($results as $r) {
+        expect($tableNode->content)->toContain('<td>' . $r['canonical_source_id'] . '</td>'
+            . '<td>' . $root . '</td><td>1</td><td>' . $r['status'] . '</td>');
+    }
+    expect($tableNode->content)->toContain('<td>42</td>'); // cited_by_count survives
+    // Citation details for the hover card ride along (author / journal / reason).
+    expect($tableNode->content)->toContain('<td>Amin, Samir</td>');
+    expect($tableNode->content)->toContain('<td>Review</td>');
+    expect($tableNode->content)->toContain('<td>Browser fetch failed: cloudflare_block</td>');
+
+    // The expand link to the standalone 3D page.
+    $html = $nodes->pluck('content')->implode("\n");
+    expect($html)->toContain('href="/harvest-network/' . $root . '"');
+});
+
+test('legacy union entries without lineage still land in the network table (defaults)', function () {
+    $root = yrSeedBook(['title' => 'YRTest Legacy', 'creator' => 'yrtest_user']);
+    // Legacy shape: no depth / parent_book / cited_by_count (pre-lineage harvests).
+    $results = yrResults();
+
+    $book = app(YieldReportBook::class)->generate($root, 'YRTest Legacy', $results);
+    $tableNode = yrDb()->table('nodes')->where('book', $book)->where('type', 'table')->first();
+
+    expect($tableNode)->not->toBeNull();
+    // Every entry defaults to depth 1, parented to the root — a 1-level fan.
+    foreach ($results as $r) {
+        expect($tableNode->content)->toContain('<td>' . $r['canonical_source_id'] . '</td>'
+            . '<td>' . $root . '</td><td>1</td>');
+    }
 });
 
 test('purges a stale old-convention report for the same root', function () {

@@ -91,6 +91,9 @@ class HarvestRunner
             'openalex_id' => $row->openalex_id ?? null,
             'oa_url'      => $row->oa_url ?? null,
             'pdf_url'     => $row->pdf_url ?? null,
+            // For the yield report's network viz (node sizing) — on every
+            // eligible row because eligibility selects cs.*.
+            'cited_by_count' => $row->cited_by_count ?? null,
         ];
 
         // Stop-condition probe, checked at each work boundary. Returns a reason
@@ -201,6 +204,11 @@ class HarvestRunner
                                 'reason' => 'spending limit reached',
                                 'via'    => null,
                                 'book'   => null,
+                                // Citation lineage for the yield report's network
+                                // viz: this work is cited BY $book, one level below
+                                // it (root book = depth 0, never itself an entry).
+                                'depth'       => $depth + 1,
+                                'parent_book' => $book,
                             ];
                         }
                     }
@@ -261,6 +269,9 @@ class HarvestRunner
                         'reason' => $result['reason'] ?? null,
                         'via'    => $via,
                         'book'   => $result['book'] ?? null,
+                        // Citation lineage (see the skipped_over_budget site).
+                        'depth'       => $depth + 1,
+                        'parent_book' => $book,
                     ];
 
                     // Recursion: at max_depth > 1 (user picks the depth at
@@ -285,6 +296,9 @@ class HarvestRunner
                         'reason' => $e->getMessage(),
                         'via'    => null,
                         'book'   => null,
+                        // Citation lineage (see the skipped_over_budget site).
+                        'depth'       => $depth + 1,
+                        'parent_book' => $book,
                     ];
                     Log::warning('Harvest work failed', [
                         'harvest'   => $harvestId,

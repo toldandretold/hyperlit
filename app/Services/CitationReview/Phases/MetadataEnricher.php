@@ -69,7 +69,7 @@ final class MetadataEnricher
         if (!empty($sourceBookIds)) {
             $libraryRecords = $db->table('library')
                 ->whereIn('book', array_keys($sourceBookIds))
-                ->select(['book', 'title', 'author', 'year', 'openalex_id', 'open_library_key', 'abstract', 'has_nodes', 'type', 'url', 'doi', 'oa_url', 'canonical_source_id', 'conversion_method'])
+                ->select(['book', 'title', 'author', 'year', 'openalex_id', 'open_library_key', 'abstract', 'has_nodes', 'type', 'url', 'doi', 'oa_url', 'canonical_source_id', 'conversion_method', 'completeness', 'completeness_reason'])
                 ->get()
                 ->keyBy('book');
         }
@@ -147,6 +147,10 @@ final class MetadataEnricher
             $contentBook = $resolvedSource;
             $hasContent  = (bool) ($lib->has_nodes ?? false);
             $provenance  = $hasContent ? 'foundation' : null;
+            // Completeness of the copy we'll actually check claims against — so a
+            // chapter/excerpt (partial) isn't treated as the whole work.
+            $sourceCompleteness = $hasContent ? ($lib->completeness ?? null) : null;
+            $sourceCompletenessReason = $hasContent ? ($lib->completeness_reason ?? null) : null;
 
             if ($canonical && ($best = $this->bestVersions->bestPublicContentVersion($canonical))) {
                 $contentBook = $best['book'];
@@ -154,6 +158,11 @@ final class MetadataEnricher
                 $provenance  = $best['pointer']
                     ? str_replace('_book', '', $best['pointer'])   // e.g. auto_version
                     : 'linked_version';
+                $sourceCompleteness = $best['completeness'] ?? null;
+                // The reason lives on the chosen version; only the foundation row's
+                // reason is loaded here, so keep it only when the content book is
+                // that same foundation row.
+                $sourceCompletenessReason = ($best['book'] === $resolvedSource) ? $sourceCompletenessReason : null;
             }
 
             $citationMeta[$refId] = [
@@ -164,6 +173,8 @@ final class MetadataEnricher
                 'verified'            => $tier !== 'unverified',
                 'source_book_id'      => $contentBook,
                 'has_source_content'  => $hasContent,
+                'source_completeness'        => $sourceCompleteness,
+                'source_completeness_reason' => $sourceCompletenessReason,
                 'bib_citation'        => $bib->content ?? null,
                 'source_type'         => $lib->type ?? $canonical?->type,
                 'url'                 => $lib->url ?? null,

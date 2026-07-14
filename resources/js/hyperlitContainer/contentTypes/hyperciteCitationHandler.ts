@@ -5,6 +5,7 @@
  */
 import type { ContentTypeHandler, BuildCtx, PostOpenCtx } from './types';
 import { buildHyperciteCitationContent } from '../contentBuilders/displayCitations';
+import { log } from '../../utilities/logger';
 
 export const hyperciteCitationHandler: ContentTypeHandler = {
   type: 'hypercite-citation',
@@ -19,6 +20,9 @@ export const hyperciteCitationHandler: ContentTypeHandler = {
     // even before `.open` has been applied (stacked layers defer that to rAF).
     const containerEl = ctx.options.containerEl || null;
     const { resolveButtonStatus }: any = await import('../contentBuilders/displayCitations');
-    resolveButtonStatus(ct, ctx.db, containerEl);
+    // Belt-and-braces: resolveButtonStatus handles its own per-section failures, but a
+    // fire-and-forget rejection here must never surface as an unhandled promise.
+    Promise.resolve(resolveButtonStatus(ct, ctx.db, containerEl))
+      .catch((err: unknown) => log.error('resolveButtonStatus failed', 'hyperlitContainer/hyperciteCitationHandler.ts', err));
   },
 };

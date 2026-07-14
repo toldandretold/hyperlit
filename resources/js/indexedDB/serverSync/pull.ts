@@ -228,8 +228,10 @@ export async function syncAnnotationsOnly(bookId: string): Promise<PullResult> {
     }
 
     // 5. Update embedded hyperlights/hypercites within nodes store
-    // This is critical because lazyLoader renders using node.hyperlights, not standalone store
-    // We use the standalone hyperlights (data.hyperlights) because they're unfiltered
+    // This is critical because lazyLoader renders using node.hyperlights, not standalone store.
+    // data.hyperlights/hypercites arrive GATE-FILTERED server-side (getHyperlights/getHypercites
+    // apply gate + singles filtering; pinned deep-link targets ride the pinned= param), so the
+    // embedded rebuild here inherits exactly the filtered set.
     await updateEmbeddedAnnotationsInNodes(db, bookId, data.hyperlights, data.hypercites);
 
     verbose.content('Annotations-only sync completed', 'serverSync/pull');

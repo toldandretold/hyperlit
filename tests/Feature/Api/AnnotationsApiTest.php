@@ -74,5 +74,14 @@ test('POST /api/db/references/upsert 422s without book + data', function () {
 /* ─── hypercite find: auth ────────────────────────────────────────── */
 
 test('GET /api/db/hypercites/find/{book}/{id} requires an author', function () {
-    $this->assertApiError($this->getJson('/api/db/hypercites/find/apitest_x/HC_missing'), 401);
+    // The id must be hypercite-shaped to match the route (constrained so the greedy
+    // sub-book {book} pattern knows where the book id ends — see routes/api.php).
+    $this->assertApiError($this->getJson('/api/db/hypercites/find/apitest_x/hypercite_missing'), 401);
+});
+
+test('GET /api/db/hypercites/find rejects non-hypercite-shaped ids at the router', function () {
+    // Router-level 404 (no route match), by design: {hyperciteId} is constrained to
+    // hypercite_[A-Za-z0-9]+ so {book} can be greedy for sub-book ids with slashes.
+    $this->loginUser();
+    $this->getJson('/api/db/hypercites/find/apitest_x/HC_missing')->assertStatus(404);
 });

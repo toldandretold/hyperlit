@@ -1,0 +1,925 @@
+{
+    "id": "https://openalex.org/W4254999268",
+    "doi": "https://doi.org/10.1017/9781316717493",
+    "title": "Oil Revolution",
+    "display_name": "Oil Revolution",
+    "publication_year": 2017,
+    "publication_date": "2017-06-16",
+    "ids": {
+        "openalex": "https://openalex.org/W4254999268",
+        "doi": "https://doi.org/10.1017/9781316717493"
+    },
+    "language": "en",
+    "primary_location": {
+        "id": "doi:10.1017/9781316717493",
+        "is_oa": true,
+        "landing_page_url": "https://doi.org/10.1017/9781316717493",
+        "pdf_url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/2E50255FD944D8CC599A76FAF716A33C/9781316717493c1_p26-60_CBO.pdf/one_periphery.pdf",
+        "source": {
+            "id": "https://openalex.org/S4306462995",
+            "display_name": "Cambridge University Press eBooks",
+            "issn_l": null,
+            "issn": null,
+            "is_oa": false,
+            "is_in_doaj": false,
+            "is_core": false,
+            "host_organization": "https://openalex.org/P4310311721",
+            "host_organization_name": "Cambridge University Press",
+            "host_organization_lineage": [
+                "https://openalex.org/P4310311721",
+                "https://openalex.org/P4310311702"
+            ],
+            "host_organization_lineage_names": [
+                "Cambridge University Press",
+                "University of Cambridge"
+            ],
+            "type": "ebook platform"
+        },
+        "license": null,
+        "license_id": null,
+        "version": "publishedVersion",
+        "is_accepted": true,
+        "is_published": true,
+        "raw_source_name": null,
+        "raw_type": "monograph"
+    },
+    "type": "book",
+    "indexed_in": [
+        "crossref"
+    ],
+    "open_access": {
+        "is_oa": true,
+        "oa_status": "bronze",
+        "oa_url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/2E50255FD944D8CC599A76FAF716A33C/9781316717493c1_p26-60_CBO.pdf/one_periphery.pdf",
+        "any_repository_has_fulltext": false
+    },
+    "authorships": [
+        {
+            "author_position": "first",
+            "author": {
+                "id": "https://openalex.org/A5028427113",
+                "display_name": "Christopher R. W. Dietrich",
+                "orcid": "https://orcid.org/0000-0001-8171-9284"
+            },
+            "institutions": [
+                {
+                    "id": "https://openalex.org/I164389053",
+                    "display_name": "Fordham University",
+                    "ror": "https://ror.org/03qnxaf80",
+                    "country_code": "US",
+                    "type": "education",
+                    "lineage": [
+                        "https://openalex.org/I164389053"
+                    ]
+                }
+            ],
+            "countries": [
+                "US"
+            ],
+            "is_corresponding": true,
+            "raw_author_name": "Christopher R. W. Dietrich",
+            "raw_affiliation_strings": [
+                "Fordham University, New York"
+            ],
+            "raw_orcid": null,
+            "affiliations": [
+                {
+                    "raw_affiliation_string": "Fordham University, New York",
+                    "institution_ids": [
+                        "https://openalex.org/I164389053"
+                    ]
+                }
+            ]
+        }
+    ],
+    "institutions": [],
+    "countries_distinct_count": 1,
+    "institutions_distinct_count": 1,
+    "corresponding_author_ids": [
+        "https://openalex.org/A5028427113"
+    ],
+    "corresponding_institution_ids": [
+        "https://openalex.org/I164389053"
+    ],
+    "apc_list": null,
+    "apc_paid": null,
+    "fwci": 7.3554,
+    "has_fulltext": true,
+    "cited_by_count": 84,
+    "citation_normalized_percentile": {
+        "value": 0.97408829,
+        "is_in_top_1_percent": false,
+        "is_in_top_10_percent": true
+    },
+    "cited_by_percentile_year": {
+        "min": 90,
+        "max": 100
+    },
+    "biblio": {
+        "volume": null,
+        "issue": null,
+        "first_page": null,
+        "last_page": null
+    },
+    "is_retracted": false,
+    "is_paratext": false,
+    "is_xpac": false,
+    "primary_topic": {
+        "id": "https://openalex.org/T11823",
+        "display_name": "Natural Resources and Economic Development",
+        "score": 0.9380000233650208,
+        "subfield": {
+            "id": "https://openalex.org/subfields/2000",
+            "display_name": "General Economics, Econometrics and Finance"
+        },
+        "field": {
+            "id": "https://openalex.org/fields/20",
+            "display_name": "Economics, Econometrics and Finance"
+        },
+        "domain": {
+            "id": "https://openalex.org/domains/2",
+            "display_name": "Social Sciences"
+        }
+    },
+    "topics": [
+        {
+            "id": "https://openalex.org/T11823",
+            "display_name": "Natural Resources and Economic Development",
+            "score": 0.9380000233650208,
+            "subfield": {
+                "id": "https://openalex.org/subfields/2000",
+                "display_name": "General Economics, Econometrics and Finance"
+            },
+            "field": {
+                "id": "https://openalex.org/fields/20",
+                "display_name": "Economics, Econometrics and Finance"
+            },
+            "domain": {
+                "id": "https://openalex.org/domains/2",
+                "display_name": "Social Sciences"
+            }
+        }
+    ],
+    "keywords": [
+        {
+            "id": "https://openalex.org/keywords/expansive",
+            "display_name": "Expansive",
+            "score": 0.7418597936630249
+        },
+        {
+            "id": "https://openalex.org/keywords/petroleum-industry",
+            "display_name": "Petroleum industry",
+            "score": 0.58949875831604
+        },
+        {
+            "id": "https://openalex.org/keywords/political-science",
+            "display_name": "Political science",
+            "score": 0.5575162172317505
+        },
+        {
+            "id": "https://openalex.org/keywords/colonialism",
+            "display_name": "Colonialism",
+            "score": 0.5125699043273926
+        },
+        {
+            "id": "https://openalex.org/keywords/work",
+            "display_name": "Work (physics)",
+            "score": 0.49111124873161316
+        },
+        {
+            "id": "https://openalex.org/keywords/oil-reserves",
+            "display_name": "Oil reserves",
+            "score": 0.4822433888912201
+        },
+        {
+            "id": "https://openalex.org/keywords/declaration",
+            "display_name": "Declaration",
+            "score": 0.47381392121315
+        },
+        {
+            "id": "https://openalex.org/keywords/natural-resource",
+            "display_name": "Natural resource",
+            "score": 0.4625835418701172
+        },
+        {
+            "id": "https://openalex.org/keywords/league",
+            "display_name": "League",
+            "score": 0.4438386559486389
+        },
+        {
+            "id": "https://openalex.org/keywords/international-community",
+            "display_name": "International community",
+            "score": 0.4338568449020386
+        },
+        {
+            "id": "https://openalex.org/keywords/economy",
+            "display_name": "Economy",
+            "score": 0.42854470014572144
+        },
+        {
+            "id": "https://openalex.org/keywords/petroleum",
+            "display_name": "Petroleum",
+            "score": 0.4149423837661743
+        },
+        {
+            "id": "https://openalex.org/keywords/economic-history",
+            "display_name": "Economic history",
+            "score": 0.4112517237663269
+        },
+        {
+            "id": "https://openalex.org/keywords/engineering",
+            "display_name": "Engineering",
+            "score": 0.19983616471290588
+        },
+        {
+            "id": "https://openalex.org/keywords/law",
+            "display_name": "Law",
+            "score": 0.1675063967704773
+        },
+        {
+            "id": "https://openalex.org/keywords/history",
+            "display_name": "History",
+            "score": 0.13340485095977783
+        },
+        {
+            "id": "https://openalex.org/keywords/economics",
+            "display_name": "Economics",
+            "score": 0.10662925243377686
+        },
+        {
+            "id": "https://openalex.org/keywords/politics",
+            "display_name": "Politics",
+            "score": 0.10380548238754272
+        }
+    ],
+    "concepts": [
+        {
+            "id": "https://openalex.org/C2780502288",
+            "wikidata": "https://www.wikidata.org/wiki/Q28838156",
+            "display_name": "Expansive",
+            "level": 3,
+            "score": 0.7418597936630249
+        },
+        {
+            "id": "https://openalex.org/C526740375",
+            "wikidata": "https://www.wikidata.org/wiki/Q862571",
+            "display_name": "Petroleum industry",
+            "level": 2,
+            "score": 0.58949875831604
+        },
+        {
+            "id": "https://openalex.org/C17744445",
+            "wikidata": "https://www.wikidata.org/wiki/Q36442",
+            "display_name": "Political science",
+            "level": 0,
+            "score": 0.5575162172317505
+        },
+        {
+            "id": "https://openalex.org/C531593650",
+            "wikidata": "https://www.wikidata.org/wiki/Q7167",
+            "display_name": "Colonialism",
+            "level": 2,
+            "score": 0.5125699043273926
+        },
+        {
+            "id": "https://openalex.org/C18762648",
+            "wikidata": "https://www.wikidata.org/wiki/Q42213",
+            "display_name": "Work (physics)",
+            "level": 2,
+            "score": 0.49111124873161316
+        },
+        {
+            "id": "https://openalex.org/C177987515",
+            "wikidata": "https://www.wikidata.org/wiki/Q13218212",
+            "display_name": "Oil reserves",
+            "level": 3,
+            "score": 0.4822433888912201
+        },
+        {
+            "id": "https://openalex.org/C138147947",
+            "wikidata": "https://www.wikidata.org/wiki/Q1183659",
+            "display_name": "Declaration",
+            "level": 2,
+            "score": 0.47381392121315
+        },
+        {
+            "id": "https://openalex.org/C29985473",
+            "wikidata": "https://www.wikidata.org/wiki/Q188460",
+            "display_name": "Natural resource",
+            "level": 2,
+            "score": 0.4625835418701172
+        },
+        {
+            "id": "https://openalex.org/C207456731",
+            "wikidata": "https://www.wikidata.org/wiki/Q660818",
+            "display_name": "League",
+            "level": 2,
+            "score": 0.4438386559486389
+        },
+        {
+            "id": "https://openalex.org/C2779872411",
+            "wikidata": "https://www.wikidata.org/wiki/Q1774161",
+            "display_name": "International community",
+            "level": 3,
+            "score": 0.4338568449020386
+        },
+        {
+            "id": "https://openalex.org/C136264566",
+            "wikidata": "https://www.wikidata.org/wiki/Q159810",
+            "display_name": "Economy",
+            "level": 1,
+            "score": 0.42854470014572144
+        },
+        {
+            "id": "https://openalex.org/C548895740",
+            "wikidata": "https://www.wikidata.org/wiki/Q22656",
+            "display_name": "Petroleum",
+            "level": 2,
+            "score": 0.4149423837661743
+        },
+        {
+            "id": "https://openalex.org/C6303427",
+            "wikidata": "https://www.wikidata.org/wiki/Q47398",
+            "display_name": "Economic history",
+            "level": 1,
+            "score": 0.4112517237663269
+        },
+        {
+            "id": "https://openalex.org/C127413603",
+            "wikidata": "https://www.wikidata.org/wiki/Q11023",
+            "display_name": "Engineering",
+            "level": 0,
+            "score": 0.19983616471290588
+        },
+        {
+            "id": "https://openalex.org/C199539241",
+            "wikidata": "https://www.wikidata.org/wiki/Q7748",
+            "display_name": "Law",
+            "level": 1,
+            "score": 0.1675063967704773
+        },
+        {
+            "id": "https://openalex.org/C95457728",
+            "wikidata": "https://www.wikidata.org/wiki/Q309",
+            "display_name": "History",
+            "level": 0,
+            "score": 0.13340485095977783
+        },
+        {
+            "id": "https://openalex.org/C162324750",
+            "wikidata": "https://www.wikidata.org/wiki/Q8134",
+            "display_name": "Economics",
+            "level": 0,
+            "score": 0.10662925243377686
+        },
+        {
+            "id": "https://openalex.org/C94625758",
+            "wikidata": "https://www.wikidata.org/wiki/Q7163",
+            "display_name": "Politics",
+            "level": 2,
+            "score": 0.10380548238754272
+        },
+        {
+            "id": "https://openalex.org/C151730666",
+            "wikidata": "https://www.wikidata.org/wiki/Q7205",
+            "display_name": "Paleontology",
+            "level": 1,
+            "score": 0.0
+        },
+        {
+            "id": "https://openalex.org/C78519656",
+            "wikidata": "https://www.wikidata.org/wiki/Q101333",
+            "display_name": "Mechanical engineering",
+            "level": 1,
+            "score": 0.0
+        },
+        {
+            "id": "https://openalex.org/C1276947",
+            "wikidata": "https://www.wikidata.org/wiki/Q333",
+            "display_name": "Astronomy",
+            "level": 1,
+            "score": 0.0
+        },
+        {
+            "id": "https://openalex.org/C121332964",
+            "wikidata": "https://www.wikidata.org/wiki/Q413",
+            "display_name": "Physics",
+            "level": 0,
+            "score": 0.0
+        },
+        {
+            "id": "https://openalex.org/C192562407",
+            "wikidata": "https://www.wikidata.org/wiki/Q228736",
+            "display_name": "Materials science",
+            "level": 0,
+            "score": 0.0
+        },
+        {
+            "id": "https://openalex.org/C30407753",
+            "wikidata": "https://www.wikidata.org/wiki/Q186191",
+            "display_name": "Compressive strength",
+            "level": 2,
+            "score": 0.0
+        },
+        {
+            "id": "https://openalex.org/C86803240",
+            "wikidata": "https://www.wikidata.org/wiki/Q420",
+            "display_name": "Biology",
+            "level": 0,
+            "score": 0.0
+        },
+        {
+            "id": "https://openalex.org/C159985019",
+            "wikidata": "https://www.wikidata.org/wiki/Q181790",
+            "display_name": "Composite material",
+            "level": 1,
+            "score": 0.0
+        },
+        {
+            "id": "https://openalex.org/C87717796",
+            "wikidata": "https://www.wikidata.org/wiki/Q146326",
+            "display_name": "Environmental engineering",
+            "level": 1,
+            "score": 0.0
+        }
+    ],
+    "mesh": [],
+    "locations_count": 1,
+    "locations": [
+        {
+            "id": "doi:10.1017/9781316717493",
+            "is_oa": true,
+            "landing_page_url": "https://doi.org/10.1017/9781316717493",
+            "pdf_url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/2E50255FD944D8CC599A76FAF716A33C/9781316717493c1_p26-60_CBO.pdf/one_periphery.pdf",
+            "source": {
+                "id": "https://openalex.org/S4306462995",
+                "display_name": "Cambridge University Press eBooks",
+                "issn_l": null,
+                "issn": null,
+                "is_oa": false,
+                "is_in_doaj": false,
+                "is_core": false,
+                "host_organization": "https://openalex.org/P4310311721",
+                "host_organization_name": "Cambridge University Press",
+                "host_organization_lineage": [
+                    "https://openalex.org/P4310311721",
+                    "https://openalex.org/P4310311702"
+                ],
+                "host_organization_lineage_names": [
+                    "Cambridge University Press",
+                    "University of Cambridge"
+                ],
+                "type": "ebook platform"
+            },
+            "license": null,
+            "license_id": null,
+            "version": "publishedVersion",
+            "is_accepted": true,
+            "is_published": true,
+            "raw_source_name": null,
+            "raw_type": "monograph"
+        }
+    ],
+    "best_oa_location": {
+        "id": "doi:10.1017/9781316717493",
+        "is_oa": true,
+        "landing_page_url": "https://doi.org/10.1017/9781316717493",
+        "pdf_url": "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/2E50255FD944D8CC599A76FAF716A33C/9781316717493c1_p26-60_CBO.pdf/one_periphery.pdf",
+        "source": {
+            "id": "https://openalex.org/S4306462995",
+            "display_name": "Cambridge University Press eBooks",
+            "issn_l": null,
+            "issn": null,
+            "is_oa": false,
+            "is_in_doaj": false,
+            "is_core": false,
+            "host_organization": "https://openalex.org/P4310311721",
+            "host_organization_name": "Cambridge University Press",
+            "host_organization_lineage": [
+                "https://openalex.org/P4310311721",
+                "https://openalex.org/P4310311702"
+            ],
+            "host_organization_lineage_names": [
+                "Cambridge University Press",
+                "University of Cambridge"
+            ],
+            "type": "ebook platform"
+        },
+        "license": null,
+        "license_id": null,
+        "version": "publishedVersion",
+        "is_accepted": true,
+        "is_published": true,
+        "raw_source_name": null,
+        "raw_type": "monograph"
+    },
+    "sustainable_development_goals": [],
+    "awards": [],
+    "funders": [],
+    "has_content": {
+        "grobid_xml": true,
+        "pdf": true
+    },
+    "content_urls": {
+        "pdf": "https://content.openalex.org/works/W4254999268.pdf",
+        "grobid_xml": "https://content.openalex.org/works/W4254999268.grobid-xml"
+    },
+    "referenced_works_count": 29,
+    "referenced_works": [
+        "https://openalex.org/W213588501",
+        "https://openalex.org/W584498256",
+        "https://openalex.org/W1484364725",
+        "https://openalex.org/W1490995146",
+        "https://openalex.org/W1828546990",
+        "https://openalex.org/W1946139813",
+        "https://openalex.org/W1978406363",
+        "https://openalex.org/W1987683694",
+        "https://openalex.org/W1988046268",
+        "https://openalex.org/W2005021851",
+        "https://openalex.org/W2006867035",
+        "https://openalex.org/W2011790012",
+        "https://openalex.org/W2164009903",
+        "https://openalex.org/W2288221026",
+        "https://openalex.org/W2315803285",
+        "https://openalex.org/W2320036569",
+        "https://openalex.org/W2335318754",
+        "https://openalex.org/W2795872907",
+        "https://openalex.org/W2797842744",
+        "https://openalex.org/W2899009236",
+        "https://openalex.org/W3022346498",
+        "https://openalex.org/W3122039176",
+        "https://openalex.org/W4210573743",
+        "https://openalex.org/W4244393789",
+        "https://openalex.org/W4298026091",
+        "https://openalex.org/W4298186420",
+        "https://openalex.org/W4300452779",
+        "https://openalex.org/W4300769793",
+        "https://openalex.org/W4300824572"
+    ],
+    "related_works": [
+        "https://openalex.org/W4293222683",
+        "https://openalex.org/W1997023952",
+        "https://openalex.org/W2016691926",
+        "https://openalex.org/W2621036059",
+        "https://openalex.org/W2570796210",
+        "https://openalex.org/W277812353",
+        "https://openalex.org/W3037347428",
+        "https://openalex.org/W2047160297",
+        "https://openalex.org/W1277861054",
+        "https://openalex.org/W4254999268"
+    ],
+    "abstract_inverted_index": {
+        "Through": [
+            0
+        ],
+        "innovative": [
+            1
+        ],
+        "and": [
+            2,
+            11,
+            40,
+            47,
+            56,
+            78,
+            85,
+            109
+        ],
+        "expansive": [
+            3
+        ],
+        "research,": [
+            4
+        ],
+        "Oil": [
+            5
+        ],
+        "Revolution": [
+            6
+        ],
+        "analyzes": [
+            7
+        ],
+        "the": [
+            8,
+            19,
+            50,
+            53,
+            57,
+            66,
+            75,
+            81,
+            87,
+            97,
+            117,
+            123
+        ],
+        "tensions": [
+            9
+        ],
+        "faced": [
+            10
+        ],
+        "networks": [
+            12
+        ],
+        "created": [
+            13
+        ],
+        "by": [
+            14
+        ],
+        "anti-colonial": [
+            15
+        ],
+        "oil": [
+            16,
+            68
+        ],
+        "elites": [
+            17,
+            31,
+            64,
+            107
+        ],
+        "during": [
+            18
+        ],
+        "age": [
+            20
+        ],
+        "of": [
+            21,
+            30,
+            59,
+            90,
+            122
+        ],
+        "decolonization": [
+            22
+        ],
+        "following": [
+            23
+        ],
+        "World": [
+            24
+        ],
+        "War": [
+            25
+        ],
+        "II.": [
+            26
+        ],
+        "This": [
+            27
+        ],
+        "new": [
+            28
+        ],
+        "community": [
+            29
+        ],
+        "stretched": [
+            32
+        ],
+        "across": [
+            33
+        ],
+        "Iran,": [
+            34
+        ],
+        "Iraq,": [
+            35
+        ],
+        "Saudi": [
+            36
+        ],
+        "Arabia,": [
+            37
+        ],
+        "Venezuela,": [
+            38
+        ],
+        "Algeria,": [
+            39
+        ],
+        "Libya.": [
+            41
+        ],
+        "First": [
+            42
+        ],
+        "through": [
+            43
+        ],
+        "their": [
+            44,
+            111
+        ],
+        "western": [
+            45
+        ],
+        "educations": [
+            46
+        ],
+        "then": [
+            48
+        ],
+        "in": [
+            49,
+            74,
+            80,
+            86,
+            96
+        ],
+        "United": [
+            51,
+            98
+        ],
+        "Nations,": [
+            52
+        ],
+        "Arab": [
+            54
+        ],
+        "League,": [
+            55
+        ],
+        "Organization": [
+            58
+        ],
+        "Petroleum": [
+            60
+        ],
+        "Exporting": [
+            61
+        ],
+        "Countries,": [
+            62
+        ],
+        "these": [
+            63,
+            106
+        ],
+        "transformed": [
+            65
+        ],
+        "global": [
+            67
+        ],
+        "industry.": [
+            69
+        ],
+        "Their": [
+            70
+        ],
+        "transnational": [
+            71
+        ],
+        "work": [
+            72
+        ],
+        "began": [
+            73
+        ],
+        "early": [
+            76
+        ],
+        "1950s": [
+            77
+        ],
+        "culminated": [
+            79
+        ],
+        "1973\u20134": [
+            82
+        ],
+        "energy": [
+            83
+        ],
+        "crisis": [
+            84
+        ],
+        "1974": [
+            88
+        ],
+        "declaration": [
+            89
+        ],
+        "a": [
+            91
+        ],
+        "New": [
+            92
+        ],
+        "International": [
+            93
+        ],
+        "Economic": [
+            94
+        ],
+        "Order": [
+            95
+        ],
+        "Nations.": [
+            99
+        ],
+        "Christopher": [
+            100
+        ],
+        "R.": [
+            101
+        ],
+        "W.": [
+            102
+        ],
+        "Dietrich": [
+            103
+        ],
+        "examines": [
+            104
+        ],
+        "how": [
+            105
+        ],
+        "brokered": [
+            108
+        ],
+        "balanced": [
+            110
+        ],
+        "ambitions": [
+            112
+        ],
+        "via": [
+            113
+        ],
+        "access": [
+            114
+        ],
+        "to": [
+            115
+        ],
+        "oil,": [
+            116
+        ],
+        "most": [
+            118
+        ],
+        "important": [
+            119
+        ],
+        "natural": [
+            120
+        ],
+        "resource": [
+            121
+        ],
+        "modern": [
+            124
+        ],
+        "era.": [
+            125
+        ]
+    },
+    "counts_by_year": [
+        {
+            "year": 2026,
+            "cited_by_count": 5
+        },
+        {
+            "year": 2025,
+            "cited_by_count": 9
+        },
+        {
+            "year": 2024,
+            "cited_by_count": 14
+        },
+        {
+            "year": 2023,
+            "cited_by_count": 10
+        },
+        {
+            "year": 2022,
+            "cited_by_count": 4
+        },
+        {
+            "year": 2021,
+            "cited_by_count": 2
+        },
+        {
+            "year": 2020,
+            "cited_by_count": 33
+        },
+        {
+            "year": 2019,
+            "cited_by_count": 6
+        },
+        {
+            "year": 2018,
+            "cited_by_count": 1
+        }
+    ],
+    "updated_date": "2026-06-12T08:23:45.883708",
+    "created_date": "2022-05-12T00:00:00"
+}

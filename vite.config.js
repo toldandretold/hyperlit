@@ -137,6 +137,11 @@ export default defineConfig({
                 // Quantizer view
                 'resources/css/pages/quantizer.css',
                 'resources/js/quantizer/index.js',
+
+                // Harvest knowledge-network 3D view (standalone, non-SPA —
+                // three.js lives ONLY in this entry's chunk graph, never the reader)
+                'resources/css/pages/harvest-network.css',
+                'resources/js/harvestNetwork3d/main.ts',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],

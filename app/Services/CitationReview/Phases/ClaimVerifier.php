@@ -125,6 +125,18 @@ final class ClaimVerifier
                 }
             }
 
+            // The available copy may be only PART of the work (a chapter / excerpt /
+            // bronze-book teaser). Absence of a claim in a partial copy is NOT
+            // evidence against it — the claim may sit in the pages we don't have.
+            // Warn the verifier so it never REJECTS a claim on a partial source.
+            $completeness = $claim['source_completeness'] ?? null;
+            if (($hasPassages || $hasAbstract) && in_array($completeness, ['partial', 'unverified'], true)) {
+                $note = $completeness === 'partial'
+                    ? 'WARNING: The text above is only a PARTIAL copy of the source (e.g. a single chapter, excerpt, or front-matter — not the whole work). If the claim is NOT found here, that is INCONCLUSIVE, not a refutation — it may appear in the parts of the work not available. Do NOT mark the claim rejected on absence alone.'
+                    : 'NOTE: It is unverified whether the text above is the COMPLETE work. If the claim is not found, treat that as inconclusive rather than a refutation.';
+                $sourceMaterial .= "{$note}\n\n";
+            }
+
             $claim['source_material_sent'] = trim($sourceMaterial) ?: null;
 
             $verifyKeyMap[] = $i;

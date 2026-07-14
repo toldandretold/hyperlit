@@ -280,7 +280,10 @@ export async function NewHyperciteIndexedDB(book: BookId, hyperciteId: string, b
     console.log(`📊 Hypercite ${hyperciteId} affects ${nodeIdArray.length} nodes:`, nodeIdArray);
     console.log(`📊 CharData:`, charDataByNode);
 
-    // Build the initial hypercite record for the main hypercites store
+    // Build the initial hypercite record for the main hypercites store.
+    // is_user_hypercite: locally created ⇒ definitionally the user's own (the client
+    // gate's singles mirror would otherwise hide this fresh 'single' from its creator);
+    // the server recomputes it on every pull so there is no drift risk.
     const hyperciteEntry = {
       book: book,
       hyperciteId: hyperciteId,
@@ -290,7 +293,8 @@ export async function NewHyperciteIndexedDB(book: BookId, hyperciteId: string, b
       hypercitedHTML: hypercitedHTML,
       relationshipStatus: "single",
       citedIN: [] as string[],
-      time_since: Math.floor(Date.now() / 1000)
+      time_since: Math.floor(Date.now() / 1000),
+      is_user_hypercite: true
     };
 
     console.log("Hypercite record to add (main store):", hyperciteEntry);

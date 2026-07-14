@@ -261,6 +261,11 @@ class DatabaseToIndexedDBController extends Controller
      * Each entry is the EMBEDDED per-node view (TS `NodeHyperciteView`), here carrying the extra
      * creator/is_user_hypercite the processed path has on hand.
      *
+     * INVARIANT: the embedded arrays MUST derive from getHypercites() output — that method is the
+     * single filter seam (gate filters + the always-on singles filter + pinned exemptions). The
+     * renderer consumes these embedded copies, so a direct DB::table('hypercites') query here would
+     * split the filter and leak gated/single hypercites into node payloads. Never bypass it.
+     *
      * @param  array<int, array<string, mixed>> $hypercites  output of getHypercites()
      * @return array<string, array<int, array{
      *   hyperciteId: string, charStart: int, charEnd: int, relationshipStatus: string,
@@ -527,17 +532,23 @@ class DatabaseToIndexedDBController extends Controller
      * @param mixed  $user          Auth::user() or null
      * @param string|null $anonToken Anonymous token cookie
      * @param array|null $bookGateDefaults Book-level default overrides (from library.gate_defaults)
+     * @param array  $pinnedIds     Deep-link target hypercite ids that bypass every gate clause
+     *                              (explicit navigation intent — see getPinnedHyperciteIds()).
      */
-    private function applyGateFilters($query, array $gate, string $type, $user, ?string $anonToken, ?array $bookGateDefaults = null): void
+    private function applyGateFilters($query, array $gate, string $type, $user, ?string $anonToken, ?array $bookGateDefaults = null, array $pinnedIds = []): void
     {
         if ($gate['mode'] === 'all') return;
 
-        // "hideAll" — exclude everything except the user's own rows
+        // Pinned exemption only applies to hypercites (deep-link targets navigated by id).
+        $pinned = ($type === 'hypercite') ? $pinnedIds : [];
+
+        // "hideAll" — exclude everything except the user's own rows (and pinned deep-link targets)
         if ($gate['mode'] === 'hideAll') {
-            $query->where(function ($q) use ($user, $anonToken) {
+            $query->where(function ($q) use ($user, $anonToken, $pinned) {
                 $q->whereRaw('1 = 0'); // exclude everything...
                 if ($user) $q->orWhere('creator', $user->name);
                 if ($anonToken) $q->orWhere('creator_token', $anonToken);
+                if (!empty($pinned)) $q->orWhereIn('hyperciteId', $pinned);
             });
             return;
         }
@@ -556,8 +567,8 @@ class DatabaseToIndexedDBController extends Controller
                 $hideAnonymous = $effectiveDefaults['hideAnonymous'] ?? false;
                 $hideNoAnnotation = $effectiveDefaults['hideNoAnnotation'] ?? false;
             } else {
-                // Global default: only filter hyperlights — hide AI + empty annotation
-                if ($type === 'hypercite') return;
+                // Global default: hide AI for BOTH types; hide empty-annotation for hyperlights
+                // only (hideNoAnnotation is type-guarded below — hypercites have no annotation).
                 $hideAI = true;
                 $hideNoAnnotation = true;
             }
@@ -568,19 +579,21 @@ class DatabaseToIndexedDBController extends Controller
         }
 
         if ($hideAI) {
-            $query->where(function ($q) use ($user, $anonToken) {
+            $query->where(function ($q) use ($user, $anonToken, $pinned) {
                 $q->where('creator', 'NOT LIKE', 'AIreview:%');
                 $q->orWhereNull('creator');
                 if ($user) $q->orWhere('creator', $user->name);
                 if ($anonToken) $q->orWhere('creator_token', $anonToken);
+                if (!empty($pinned)) $q->orWhereIn('hyperciteId', $pinned);
             });
         }
 
         if ($hideAnonymous) {
-            $query->where(function ($q) use ($user, $anonToken) {
+            $query->where(function ($q) use ($user, $anonToken, $pinned) {
                 $q->whereNotNull('creator');
                 if ($user) $q->orWhere('creator', $user->name);
                 if ($anonToken) $q->orWhere('creator_token', $anonToken);
+                if (!empty($pinned)) $q->orWhereIn('hyperciteId', $pinned);
             });
         }
 
@@ -755,6 +768,8 @@ class DatabaseToIndexedDBController extends Controller
      *
      * MUST stay in sync with the TS wire type `ServerHyperciteRow` (→ `HyperciteRecord`). Gate-filtered
      * server-side; `creator_token` is intentionally never sent (only `is_user_hypercite` is exposed).
+     * Foreign `relationshipStatus='single'` rows are always excluded (owner/pinned escapes apply) —
+     * see the singles filter below and getPinnedHyperciteIds().
      *
      * @return array<int, array{
      *   book: string, hyperciteId: string, node_id: string[], charData: array<string, array{charStart: int, charEnd: int}>,
@@ -766,6 +781,7 @@ class DatabaseToIndexedDBController extends Controller
     {
         $user = Auth::user();
         $anonymousToken = request()->cookie('anon_token');
+        $pinned = $this->getPinnedHyperciteIds();
 
         $query = DB::table('hypercites')
             ->where('book', $bookId);
@@ -773,7 +789,21 @@ class DatabaseToIndexedDBController extends Controller
         // Server-side gate filter
         $gate = $this->getGatePreferences();
         $bookGateDefaults = $this->getBookGateDefaults($bookId);
-        $this->applyGateFilters($query, $gate, 'hypercite', $user, $anonymousToken, $bookGateDefaults);
+        $this->applyGateFilters($query, $gate, 'hypercite', $user, $anonymousToken, $bookGateDefaults, $pinned);
+
+        // ALWAYS-ON singles filter (not gate-wired): a relationshipStatus='single' hypercite has
+        // zero inbound citations — for anyone but its creator it is operational residue of a copy
+        // event, so it is never sent unless (a) the requester created it, or (b) it is a pinned
+        // deep-link target (an externally-pasted #hypercite_ link can point at a still-'single'
+        // cite that must render and glow). NULL statuses are legacy rows and stay visible — a bare
+        // `!= 'single'` would silently drop them in Postgres.
+        $query->where(function ($q) use ($user, $anonymousToken, $pinned) {
+            $q->whereNull('relationshipStatus')
+              ->orWhere('relationshipStatus', '!=', 'single');
+            if ($user) $q->orWhere('creator', $user->name);
+            if ($anonymousToken) $q->orWhere('creator_token', $anonymousToken);
+            if (!empty($pinned)) $q->orWhereIn('hyperciteId', $pinned);
+        });
 
         $hypercites = $query
             ->orderBy('hyperciteId')
@@ -806,6 +836,36 @@ class DatabaseToIndexedDBController extends Controller
             ->toArray();
 
         return $hypercites;
+    }
+
+    /**
+     * Parse the deep-link exemption ids from the request: the `pinned` query param (comma-separated,
+     * sent by the client's gateFilter pinned set) merged with the `target` param when it is
+     * hypercite-shaped (the /initial deep-link target). Ids are shape-validated and capped so the
+     * param cannot be abused as a bulk unfilter.
+     *
+     * @return string[]
+     */
+    private function getPinnedHyperciteIds(): array
+    {
+        $candidates = [];
+
+        $pinnedParam = request()->query('pinned');
+        if (is_string($pinnedParam) && $pinnedParam !== '') {
+            $candidates = explode(',', $pinnedParam);
+        }
+
+        $target = request()->query('target');
+        if (is_string($target) && $target !== '') {
+            $candidates[] = $target;
+        }
+
+        $valid = array_values(array_unique(array_filter(
+            array_map('trim', $candidates),
+            fn ($id) => is_string($id) && preg_match('/^hypercite_[A-Za-z0-9]+$/', $id) === 1
+        )));
+
+        return array_slice($valid, 0, 20);
     }
 
     /**
@@ -929,6 +989,12 @@ class DatabaseToIndexedDBController extends Controller
             'listed' => $library->listed ?? true,
             'license' => $library->license ?? null,
             'custom_license_text' => $library->custom_license_text ?? null,
+            // Content completeness of THIS version (verified_full / partial /
+            // unverified) — drives the source-panel "partial copy" badge and is
+            // read by citation review so a chapter/teaser isn't treated as the
+            // whole work. Set by the harvester (AutoVersionCreator).
+            'completeness' => $library->completeness ?? null,
+            'completeness_reason' => $library->completeness_reason ?? null,
             'gate_defaults' => $library->gate_defaults ? json_decode($library->gate_defaults, true) : null,
             // E2EE (docs/e2ee.md): MUST round-trip — the client registry + the
             // upload seam key off `encrypted`, and the DEK cache is bootstrapped

@@ -195,6 +195,11 @@ final class ClaimMarkdownFormatter
             if (!empty($claim['has_source_content']) && !empty($claim['content_provenance'])) {
                 $line .= ' — content from '
                       . ($provenanceLabels[$claim['content_provenance']] ?? $claim['content_provenance']);
+                // Honesty flag: the available copy is only part of the work, so a
+                // reader (and the verdict) shouldn't read it as the whole source.
+                if (($claim['source_completeness'] ?? null) === 'partial') {
+                    $line .= ' ⚠️ (a **partial copy** — a chapter/excerpt, not the full work)';
+                }
             }
 
             return $line . "\n";

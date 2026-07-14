@@ -68,6 +68,8 @@ class PgLibrary extends Model
         'pdf_url',
         'pdf_url_status',
         'work_license',
+        'completeness',
+        'completeness_reason',
         'cited_by_count',
         'language',
         'foundation_source',

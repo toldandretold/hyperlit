@@ -113,7 +113,8 @@ export async function updateEmbeddedAnnotationsInNodes(
         const nodeCharData: { charStart?: number; charEnd?: number } = charData[nodeId] || {};
 
         // Create node-specific hypercite entry — the canonical NodeHyperciteView (same shape the
-        // rebuild produces; the renderer applyHypercites only reads id/charStart/charEnd/status).
+        // rebuild produces). creator/is_user_hypercite MUST ride along: the client gate's
+        // ownership bypass + singles mirror read them off the embedded view at render.
         const nodeHypercite: NodeHyperciteView = {
           hyperciteId: hc.hyperciteId,
           charStart: nodeCharData.charStart ?? 0,
@@ -121,6 +122,8 @@ export async function updateEmbeddedAnnotationsInNodes(
           relationshipStatus: hc.relationshipStatus ?? 'single',
           citedIN: Array.isArray(hc.citedIN) ? hc.citedIN : [],
           time_since: hc.time_since,
+          creator: hc.creator ?? null,
+          is_user_hypercite: hc.is_user_hypercite ?? false,
         };
 
         if (!hypercitesByNodeId.has(nodeId)) {

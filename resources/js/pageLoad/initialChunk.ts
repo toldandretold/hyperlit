@@ -9,7 +9,7 @@ import {
 } from '../indexedDB/serverSync/index';
 import { log, verbose } from '../utilities/logger';
 import { OpenHyperlightID, OpenFootnoteID } from '../app';
-import { gateQueryParam } from '../components/utilities/gateFilter';
+import { gateQueryParam, getPinnedHyperciteIds, pinHypercite } from '../components/utilities/gateFilter';
 import type { ReadingPosition } from '../scrolling/readingPosition';
 
 /**
@@ -135,6 +135,9 @@ function buildInitialChunkParams() {
         (window as any)._pendingChunkFallbackTarget = null;
         if (spaTarget.startsWith('hypercite_') || spaTarget.startsWith('HL_') || spaTarget.startsWith('Fn') || spaTarget.includes('_Fn')) {
             params.set('target', spaTarget);
+            // Pin hypercite deep-link targets so the target-exempted record (server
+            // sends it even if gated/'single') also survives the CLIENT gate at render.
+            if (spaTarget.startsWith('hypercite_')) pinHypercite(spaTarget);
             if (spaFallback) {
                 params.set('fallback_target', spaFallback);
             }
@@ -153,6 +156,8 @@ function buildInitialChunkParams() {
     if (hash) {
         if (hash.startsWith('hypercite_') || hash.startsWith('HL_') || hash.startsWith('Fn') || hash.includes('_Fn')) {
             params.set('target', hash);
+            // Pin hypercite deep-link targets (see SPA branch above)
+            if (hash.startsWith('hypercite_')) pinHypercite(hash);
             // If hash took priority but a hyperlight/footnote exists from the path,
             // send it as fallback so the backend loads the right chunk if hash target is stale
             if (OpenHyperlightID) {
@@ -187,7 +192,9 @@ function buildInitialChunkParams() {
 }
 
 /**
- * Inject gate filter param into a URLSearchParams (mutates in place).
+ * Inject gate filter + pinned-hypercite params into a URLSearchParams (mutates in place).
+ * Pinned rides independently of gate settings (fresh users have no stored gate but a
+ * followed deep link must still be exempted server-side).
  */
 function injectGateParam(params: URLSearchParams) {
     const gp = gateQueryParam();
@@ -195,6 +202,10 @@ function injectGateParam(params: URLSearchParams) {
         // gp is "gate=..." — extract the value part
         const val = gp.substring(5); // skip "gate="
         params.set('gate', decodeURIComponent(val));
+    }
+    const pinned = getPinnedHyperciteIds();
+    if (pinned.length > 0) {
+        params.set('pinned', pinned.join(','));
     }
     return params;
 }

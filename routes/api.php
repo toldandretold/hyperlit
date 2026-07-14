@@ -418,10 +418,12 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         ->where('filename', '[a-zA-Z0-9\-_.]+\.mp3')
         ->withoutMiddleware('throttle:120,1')->middleware('throttle:blob-swap');
 
+     // {book} is greedy ('.+') so sub-book ids containing '/' (book_x/Fn1) route; the
+     // strictly-constrained trailing {hyperciteId} anchors where the book id ends.
      Route::get(
         '/db/hypercites/find/{book}/{hyperciteId}',
         [DbHyperciteController::class, 'find']
-    );
+    )->where('book', '.+')->where('hyperciteId', 'hypercite_[A-Za-z0-9]+');
 
     Route::post('/db/footnotes/upsert', [DbFootnoteController::class, 'upsert']);
     Route::post('/db/references/upsert', [DbReferencesController::class, 'upsertReferences']);
@@ -490,6 +492,13 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
 
 // Snapshots endpoint — outside author middleware so public book readers can see version history
 Route::get('/books/{book}/snapshots', [NodeHistoryController::class, 'getSnapshots']);
+
+// Harvest knowledge-network graph data (standalone 3D page) — outside author
+// middleware so a PUBLIC commons yield report is viewable by anyone; the
+// controller 404s on private/missing reports (check_book_visibility).
+Route::get('/harvest-network/{rootBook}/data', [\App\Http\Controllers\HarvestNetworkController::class, 'data'])
+    ->where('rootBook', '[A-Za-z0-9_-]+')
+    ->middleware('throttle:60,1');
 
 // Chain resolution for SPA cross-book navigation (level 3+ sub-books)
 Route::get('resolve-chain/{book}/{rest}', [\App\Http\Controllers\TextController::class, 'resolveChainApi'])

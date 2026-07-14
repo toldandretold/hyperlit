@@ -71,24 +71,28 @@ class BestVersionService
             if (!$candidate) {
                 continue;
             }
-            $eligible = $db->table('library')
+            $row = $db->table('library')
                 ->where('book', $candidate)
                 ->where('visibility', 'public')
                 ->where('has_nodes', true)
-                ->exists();
-            if ($eligible) {
-                return ['book' => $candidate, 'pointer' => $column];
+                ->first(['book', 'completeness']);
+            if ($row) {
+                return ['book' => $candidate, 'pointer' => $column, 'completeness' => $row->completeness ?? null];
             }
         }
 
-        $book = $db->table('library')
+        // No precedence pointer resolved — take any public linked version with
+        // content, preferring a verified_full copy over a partial one.
+        $row = $db->table('library')
             ->where('canonical_source_id', $canonical->id)
             ->where('visibility', 'public')
             ->where('has_nodes', true)
+            ->orderByRaw("(completeness = 'verified_full') DESC")
+            ->orderByRaw("(completeness = 'partial') ASC")
             ->orderBy('created_at')
-            ->value('book');
+            ->first(['book', 'completeness']);
 
-        return $book ? ['book' => $book, 'pointer' => null] : null;
+        return $row ? ['book' => $row->book, 'pointer' => null, 'completeness' => $row->completeness ?? null] : null;
     }
 
     private function anyVisibleLinkedVersion(CanonicalSource $canonical, ?object $user, ?string $anonymousToken): ?string
