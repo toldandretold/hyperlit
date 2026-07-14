@@ -27,9 +27,9 @@ export async function loadCreatorTools(self: any) {
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
           <p style="font-size: var(--sc-12); color: var(--color-text-secondary); margin: 0 0 4px 0;">Drag & drop a file or click to select</p>
-          <p style="font-size: var(--sc-11); color: var(--color-text-faint); margin: 0;">md, doc, docx, epub, html, pdf</p>
+          <p style="font-size: var(--sc-11); color: var(--color-text-faint); margin: 0;">md, doc, docx, odt, rtf, epub, html, pdf</p>
         </div>
-        <input type="file" id="reupload-file-input" accept=".md,.doc,.docx,.epub,.html,.pdf" style="display: none;">
+        <input type="file" id="reupload-file-input" accept=".md,.doc,.docx,.odt,.rtf,.epub,.html,.pdf" style="display: none;">
         <p id="reupload-status" style="font-size: var(--sc-12); color: var(--color-danger); margin-top: 6px; display: none;"></p>
       </div>
 

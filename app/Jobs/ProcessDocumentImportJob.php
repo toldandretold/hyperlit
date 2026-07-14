@@ -144,9 +144,11 @@ class ProcessDocumentImportJob implements ShouldQueue
             // Run the appropriate processor
             $this->writeProgress($path, 'processing', 2, 'starting', 'Starting document processing');
 
-            // For docx, run PandocConversionJob synchronously to avoid queue deadlock
-            // (dispatching a child job from a running job blocks if there's one worker)
-            if (in_array($this->extension, ['doc', 'docx'])) {
+            // For docx (and .doc/.odt/.rtf, which PandocConversionJob first normalizes
+            // to .docx via LibreOffice), run PandocConversionJob synchronously to avoid
+            // queue deadlock (dispatching a child job from a running job blocks if
+            // there's one worker)
+            if (in_array($this->extension, ['doc', 'docx', 'odt', 'rtf'])) {
                 $this->writeProgress($path, 'processing', 10, 'docx_converting', 'Converting document with Pandoc...');
                 PandocConversionJob::dispatchSync($this->bookId, $inputPath);
             } else {

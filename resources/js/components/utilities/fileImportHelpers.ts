@@ -14,7 +14,7 @@
 // Mirrors the form input's `accept` attribute (newBookButton.js around line 305)
 // and the server-side allowed list (ImportController.php).
 export const ALLOWED_IMPORT_EXTENSIONS = Object.freeze([
-  'md', 'epub', 'doc', 'docx', 'html',
+  'md', 'epub', 'doc', 'docx', 'odt', 'rtf', 'html',
   'pdf',
   'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg',
 ]);

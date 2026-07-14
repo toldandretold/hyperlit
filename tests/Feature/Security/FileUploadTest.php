@@ -420,7 +420,7 @@ test('only accepts whitelisted mime types', function () {
                 'markdown_file' => [$file],
             ]);
 
-        // Whitelist: text/markdown, text/plain, application/msword, docx, epub, html, zip
+        // Whitelist: text/markdown, text/plain, application/msword, docx, odt, rtf, epub, html, zip
         expect($response->status())->toBeIn([400, 422]);
     }
 });

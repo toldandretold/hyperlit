@@ -28,12 +28,29 @@ use Illuminate\Support\Facades\Mail;
  * excludes already-versioned canonicals, pointers wire from partial runs),
  * so an explicit user re-trigger beats automatic retries against
  * rate-limited publishers.
+ *
+ * timeout = 0 (UNBOUNDED): a full commons harvest walks dozens–hundreds of
+ * works, each needing an OA fetch (the Cloudflare ladder alone can burn minutes
+ * per work) + OCR + politeness sleeps, and it repeatedly DEFERS works whose
+ * conversion hasn't landed yet — so a run legitimately spans many hours. Any
+ * fixed cap (was 7200s/2h) eventually SIGALRM-kills a healthy run mid-frontier.
+ * The job's own timeout overrides the worker's --timeout, so this is exempt
+ * without weakening the 7200s cap on the CitationPipelineJobs sharing the queue.
+ *
+ * WHY 0 IS SAFE HERE (no double-run despite retry_after=7500s): the DB queue's
+ * retry_after only bites when a SECOND worker re-reserves a job the first is
+ * still running. `citation-pipeline` has exactly one consumer — the dedicated
+ * hyperlit-citation Supervisor program at numprocs=1 — and a serial worker
+ * cannot re-poll the job it's blocked inside handle() on. ⚠️ If you ever raise
+ * that worker's numprocs (or add another consumer of this queue), you MUST also
+ * raise config/queue.php `retry_after` above the longest expected harvest, or a
+ * parallel worker will re-reserve the live run and tries=1 will mark it failed.
  */
 class SourceNetworkHarvestJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $timeout = 7200; // fetch + OCR across dozens of works is slow
+    public int $timeout = 0; // unbounded — see class docblock (multi-hour harvests)
     public int $tries = 1;
 
     public function __construct(private string $harvestId)

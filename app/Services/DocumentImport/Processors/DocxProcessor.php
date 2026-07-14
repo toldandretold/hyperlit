@@ -9,7 +9,9 @@ class DocxProcessor implements ProcessorInterface
 {
     public function supportedExtensions(): array
     {
-        return ['doc', 'docx'];
+        // .doc/.odt/.rtf are normalized to .docx by PandocConversionJob (headless
+        // LibreOffice) before the pandoc conversion runs.
+        return ['doc', 'docx', 'odt', 'rtf'];
     }
 
     public function supports(string $extension): bool

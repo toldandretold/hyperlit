@@ -27,6 +27,9 @@ class ValidationService
             'text/plain',
             'application/msword',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.oasis.opendocument.text',
+            'application/rtf',
+            'text/rtf',
             'application/epub+zip',
             'text/html',
             'application/zip',
@@ -50,6 +53,8 @@ class ValidationService
                 return $this->validateEpubFile($file);
             case 'docx':
             case 'doc':
+            case 'odt':
+            case 'rtf':
                 return $this->validateDocFile($file);
             case 'md':
                 return $this->validateMarkdownFile($file);
@@ -118,7 +123,7 @@ class ValidationService
             return $hasWordDoc;
         }
 
-        return true; // For .doc files, basic MIME check is sufficient
+        return true; // For .doc/.odt/.rtf, the MIME check above is sufficient
     }
 
     /**

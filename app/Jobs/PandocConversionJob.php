@@ -47,8 +47,17 @@ class PandocConversionJob implements ShouldQueue
         Log::info("PandocConversionJob started for citation_id: {$this->citation_id}");
 
         try {
-            // Step 0: Strip metadata from DOCX for privacy/security
+            // Step 0a: Normalize LibreOffice-family formats (.doc/.odt/.rtf) to .docx.
+            // Pandoc has NO reader for these — it can only read .docx — so we first run
+            // a headless LibreOffice to convert them, then the standard .docx path
+            // (metadata strip + pandoc) below takes over completely unchanged.
             $inputExtension = strtolower(pathinfo($this->inputFilePath, PATHINFO_EXTENSION));
+            if (in_array($inputExtension, ['doc', 'odt', 'rtf'], true)) {
+                $this->inputFilePath = $this->normalizeToDocx($this->inputFilePath, $basePath);
+                $inputExtension = 'docx';
+            }
+
+            // Step 0b: Strip metadata from DOCX for privacy/security
             if ($inputExtension === 'docx') {
                 $this->stripDocxMetadata($metadataStripScript, $this->inputFilePath);
             }
@@ -111,6 +120,11 @@ class PandocConversionJob implements ShouldQueue
                 'stdout' => $exception->getProcess()->getOutput(),
                 'stderr' => $exception->getProcess()->getErrorOutput(),
             ]);
+            // Re-throw: a failed conversion must FAIL the job. Swallowing it here let the
+            // caller (ProcessDocumentImportJob, dispatchSync) fall through and wait for a
+            // nodes.jsonl that never appears, masking the real cause behind a generic
+            // "nodes.jsonl was not created" error.
+            throw $exception;
         } finally {
             // Step 3: Clean up the intermediate HTML file
             if (File::exists($htmlOutputPath)) {
@@ -118,6 +132,99 @@ class PandocConversionJob implements ShouldQueue
                 Log::info("Cleaned up intermediate file: {$htmlOutputPath}");
             }
         }
+    }
+
+    /**
+     * Convert a LibreOffice-readable document (.doc/.odt/.rtf) to .docx using a
+     * headless LibreOffice, so the standard pandoc path can process it. Pandoc has
+     * no reader for these formats. Requires the `soffice` binary on the host
+     * (install `libreoffice-writer`); throws a clear error if it is missing.
+     *
+     * @return string absolute path to the produced .docx
+     */
+    private function normalizeToDocx(string $inputPath, string $basePath): string
+    {
+        $soffice = $this->findSoffice();
+        if ($soffice === null) {
+            throw new \RuntimeException(
+                'Cannot convert this document: LibreOffice (soffice) is not installed on the server. '
+                . 'Install it (e.g. apt-get install libreoffice-writer) or upload a .docx instead.'
+            );
+        }
+
+        // Give LibreOffice a writable, isolated user profile — under the queue
+        // worker's user (e.g. www-data) there is often no usable $HOME, and without
+        // a writable profile dir soffice silently exits non-zero.
+        $profileDir = "{$basePath}/.lo_profile";
+
+        Log::info('Normalizing document to docx via LibreOffice', [
+            'soffice' => $soffice,
+            'input' => $inputPath,
+        ]);
+
+        $process = new Process([
+            $soffice,
+            '--headless',
+            '--nologo',
+            '--nofirststartwizard',
+            '-env:UserInstallation=file://' . $profileDir,
+            '--convert-to', 'docx:MS Word 2007 XML',
+            '--outdir', $basePath,
+            $inputPath,
+        ]);
+        $process->setTimeout(300); // 5 minutes
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            throw new ProcessFailedException($process);
+        }
+
+        // soffice writes <inputBasename>.docx into --outdir.
+        $producedPath = $basePath . '/' . pathinfo($inputPath, PATHINFO_FILENAME) . '.docx';
+        if (!File::exists($producedPath)) {
+            throw new \RuntimeException(
+                "LibreOffice reported success but produced no .docx at {$producedPath}"
+            );
+        }
+
+        Log::info('LibreOffice normalization succeeded', [
+            'input' => $inputPath,
+            'output' => $producedPath,
+        ]);
+
+        return $producedPath;
+    }
+
+    /**
+     * Locate the headless LibreOffice binary, or null if not installed.
+     */
+    private function findSoffice(): ?string
+    {
+        foreach (['soffice', 'libreoffice'] as $bin) {
+            $which = new Process(['which', $bin]);
+            $which->run();
+            if ($which->isSuccessful()) {
+                $path = trim($which->getOutput());
+                if ($path !== '') {
+                    return $path;
+                }
+            }
+        }
+
+        // Common absolute locations (Linux package/opt installs + macOS bundle).
+        $candidates = [
+            '/usr/bin/soffice',
+            '/usr/local/bin/soffice',
+            '/opt/libreoffice/program/soffice',
+            '/Applications/LibreOffice.app/Contents/MacOS/soffice',
+        ];
+        foreach ($candidates as $candidate) {
+            if (is_executable($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 
     /**

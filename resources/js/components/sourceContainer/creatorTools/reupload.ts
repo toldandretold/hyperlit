@@ -18,7 +18,7 @@ export async function handleReupload(self: any, file: any) {
 
   // Validate extension
   const ext = file.name.split('.').pop().toLowerCase();
-  const allowed = ['md', 'doc', 'docx', 'epub', 'html', 'pdf'];
+  const allowed = ['md', 'doc', 'docx', 'odt', 'rtf', 'epub', 'html', 'pdf'];
   if (!allowed.includes(ext)) {
     showError(`Unsupported file type ".${ext}". Allowed: ${allowed.join(', ')}`);
     return;

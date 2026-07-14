@@ -113,7 +113,7 @@ export function getCiteFormHTML(): string {
         <!-- File Upload Section - always visible -->
         <div class="form-section">
           <label for="markdown_file" class="required">File <span class="required-indicator">*</span></label>
-          <input type="file" id="markdown_file" name="markdown_file[]" accept=".md,.epub,.doc,.docx,.html,.jpg,.jpeg,.png,.gif,.webp,.svg,text/markdown,application/epub+zip,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/html,image/*${pdfAccept}" ${isMobile || /firefox/i.test(navigator.userAgent) || /chrome/i.test(navigator.userAgent) ? '' : 'webkitdirectory'} multiple>
+          <input type="file" id="markdown_file" name="markdown_file[]" accept=".md,.epub,.doc,.docx,.odt,.rtf,.html,.jpg,.jpeg,.png,.gif,.webp,.svg,text/markdown,application/epub+zip,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,application/rtf,text/html,image/*${pdfAccept}" ${isMobile || /firefox/i.test(navigator.userAgent) || /chrome/i.test(navigator.userAgent) ? '' : 'webkitdirectory'} multiple>
           <div id="markdown-file-dropzone" tabindex="0" role="button" aria-label="Drop a file here or click to choose"
                style="margin-top:10px; padding:18px 12px; border:2px dashed rgba(136,136,136,0.4); border-radius:8px; text-align:center; cursor:pointer; transition:border-color 0.15s ease, background-color 0.15s ease;">
             <div class="markdown-file-dropzone-icon" style="font-size:24px; line-height:1; color:#888; margin-bottom:6px;">⤓</div>

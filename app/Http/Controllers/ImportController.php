@@ -129,10 +129,10 @@ class ImportController extends Controller
                     }
 
                     $extension = strtolower($value->getClientOriginalExtension());
-                    $allowedExtensions = ['md', 'doc', 'docx', 'epub', 'html', 'zip', 'pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+                    $allowedExtensions = ['md', 'doc', 'docx', 'odt', 'rtf', 'epub', 'html', 'zip', 'pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
 
                     if (!in_array($extension, $allowedExtensions)) {
-                        $fail('File must be .md, .doc, .docx, .epub, .html, .zip, .pdf, or image file.');
+                        $fail('File must be .md, .doc, .docx, .odt, .rtf, .epub, .html, .zip, .pdf, or image file.');
                         return;
                     }
 
@@ -547,6 +547,8 @@ class ImportController extends Controller
 
             case 'doc':
             case 'docx':
+            case 'odt':
+            case 'rtf':
                 $this->docxProcessor->process($filePath, $outputPath, $bookId);
                 return true;
 
@@ -648,6 +650,8 @@ class ImportController extends Controller
         elseif (File::exists("{$path}/original.docx"))   $sourceType = 'docx';
         elseif (File::exists("{$path}/original.epub"))   $sourceType = 'epub';
         elseif (File::exists("{$path}/original.doc"))    $sourceType = 'doc';
+        elseif (File::exists("{$path}/original.odt"))    $sourceType = 'odt';
+        elseif (File::exists("{$path}/original.rtf"))    $sourceType = 'rtf';
         elseif (File::exists("{$path}/main-text.md"))    $sourceType = 'md';
 
         return response()->json([
@@ -685,8 +689,8 @@ class ImportController extends Controller
             $file = $request->file('file');
             $ext = strtolower($file->getClientOriginalExtension());
 
-            if (!in_array($ext, ['md', 'doc', 'docx', 'epub', 'html', 'pdf'])) {
-                return response()->json(['success' => false, 'message' => 'Unsupported file type. Allowed: md, doc, docx, epub, html, pdf'], 422);
+            if (!in_array($ext, ['md', 'doc', 'docx', 'odt', 'rtf', 'epub', 'html', 'pdf'])) {
+                return response()->json(['success' => false, 'message' => 'Unsupported file type. Allowed: md, doc, docx, odt, rtf, epub, html, pdf'], 422);
             }
 
             if ($ext === 'pdf') {
@@ -724,7 +728,7 @@ class ImportController extends Controller
         $sourceType = null;
         $inputFile  = null;
 
-        foreach (['pdf', 'md', 'html', 'docx', 'epub', 'doc'] as $ext) {
+        foreach (['pdf', 'md', 'html', 'docx', 'epub', 'doc', 'odt', 'rtf'] as $ext) {
             if (File::exists("{$path}/original.{$ext}")) {
                 $sourceType = $ext;
                 $inputFile  = "{$path}/original.{$ext}";
