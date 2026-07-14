@@ -1,0 +1,499 @@
+/* The Docuverse — standalone non-SPA 3D map (docuverse.blade.php).
+   Entry-only file: @vite'd by the blade, never an @import target (cssStructure gate 3).
+   Theme parity with the reader: same variables + theme files, switched by the
+   same body.theme-* classes (persisted under the reader's storage key). */
+
+@import url('../theme/variables.css');
+@import url('../theme/light-theme.css');
+@import url('../theme/sepia-theme.css');
+
+body {
+  /* The scene palette — read by docuverse3d/scene.ts via getComputedStyle,
+     and by the legend/panel dots via var(). Brand colors, so the theme files'
+     per-theme brand adjustments (darker pink on light, etc.) cascade into the
+     WebGL scene too. Recolour the whole page from RIGHT HERE. */
+  --dv-node-held: var(--hyperlit-aqua);      /* canonical with a readable held version */
+  --dv-node-book: var(--hyperlit-pink);      /* independent library record */
+  --dv-node-canonical: var(--hyperlit-orange); /* citation identity — not yet held */
+  --dv-edge-verified: var(--hyperlit-aqua);
+  --dv-edge-auto: var(--color-text-faint, #666);
+  /* Hypercite edges render the brand spectrum (pink → orange → aqua → pink),
+     the same ramp as the reader's hypercite underline — stops live in scene.ts. */
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-background, #221f20);
+  color: var(--color-text, #cbcccc);
+  font-family: sans-serif;
+  /* Kill iOS double-tap zoom everywhere — an accidental double tap zoomed
+     the page and wrecked the fixed UI. (Flight controls + canvas go further
+     with touch-action: none.) */
+  touch-action: manipulation;
+}
+
+#dv-stage canvas {
+  touch-action: none; /* OrbitControls sets this inline too — belt & braces */
+}
+
+#dv-stage {
+  position: fixed;
+  inset: 0;
+}
+
+#dv-stage canvas {
+  display: block;
+}
+
+.dv-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: baseline;
+  gap: 1em;
+  padding: 0.75em 1em;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--color-background) 65%, transparent), transparent);
+  pointer-events: none;
+}
+
+.dv-header a,
+.dv-header h1 {
+  pointer-events: auto;
+}
+
+.dv-header h1 {
+  margin: 0;
+  font-size: 1.05em;
+  font-weight: 600;
+}
+
+.dv-header .dv-header-sub {
+  opacity: 0.6;
+  font-size: 0.9em;
+  font-style: italic;
+}
+
+.dv-header a {
+  color: var(--color-text, #cbcccc);
+  opacity: 0.75;
+  text-decoration: none;
+  font-size: 0.9em;
+}
+
+.dv-header a:hover,
+.dv-header a:focus-visible {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* Shared glass surface (layer control, theme picker, view controls, panel) */
+.dv-glass {
+  border: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-background) 62%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Connection-layer control (top-right) */
+.dv-layers {
+  position: fixed;
+  top: 3.2em;
+  right: 1em;
+  z-index: 2;
+  padding: 0.6em 0.9em 0.7em;
+  font-size: 0.85em;
+  line-height: 1.9;
+}
+
+.dv-layers legend {
+  padding: 0 0.4em;
+  opacity: 0.75;
+  font-size: 0.9em;
+}
+
+.dv-layers label {
+  display: block;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dv-layers input {
+  margin-right: 0.45em;
+}
+
+.dv-layers .swatch {
+  display: inline-block;
+  width: 1.1em;
+  height: 3px;
+  border-radius: 2px;
+  margin-right: 0.45em;
+  vertical-align: middle;
+}
+
+.dv-legend {
+  position: fixed;
+  bottom: 1em;
+  right: 1em;
+  z-index: 2;
+  font-size: 0.8em;
+  line-height: 1.7;
+  opacity: 0.9;
+  padding: 0.5em 0.9em;
+}
+
+.dv-legend-sub {
+  opacity: 0.65;
+  font-size: 0.92em;
+}
+
+/* Legend + "Connected by" shrink to their title (▸) and expand on demand */
+.dv-collapse-toggle {
+  background: none;
+  border: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.95em;
+  opacity: 0.8;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dv-collapse-toggle:hover {
+  opacity: 1;
+}
+
+.dv-collapse-toggle::after {
+  content: ' ▾';
+  opacity: 0.7;
+}
+
+.dv-collapse-toggle[aria-expanded='false']::after {
+  content: ' ▸';
+}
+
+@media (max-width: 700px) {
+  /* Phone: legend lives top-left (collapsed to just "Legend" by default) */
+  .dv-legend {
+    top: 3.2em;
+    left: 1em;
+    right: auto;
+    bottom: auto;
+  }
+}
+
+.dv-legend .dot {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 50%;
+  margin-right: 0.45em;
+  vertical-align: baseline;
+}
+
+.dv-axis-note {
+  margin-top: 0.6em;
+  opacity: 0.65;
+  font-style: italic;
+}
+
+/* Theme picker (bottom-left) — same three themes as the reader */
+.dv-theme {
+  position: fixed;
+  bottom: 1em;
+  left: 1em;
+  z-index: 2;
+}
+
+.dv-theme-toggle {
+  width: 2.4em;
+  height: 2.4em;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  background: color-mix(in srgb, var(--color-background) 62%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--color-text);
+  font-size: 1em;
+  cursor: pointer;
+}
+
+.dv-theme-toggle:hover {
+  border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+
+.dv-theme-picker {
+  position: absolute;
+  bottom: 3em;
+  left: 0;
+  padding: 0.35em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+}
+
+/* display:flex would defeat the hidden attribute's UA display:none */
+.dv-theme-picker[hidden] {
+  display: none;
+}
+
+.dv-theme-picker button {
+  border: none;
+  background: none;
+  color: var(--color-text);
+  font-size: 0.85em;
+  text-align: left;
+  padding: 0.35em 0.9em;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dv-theme-picker button:hover,
+.dv-theme-picker button[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+
+/* View controls (centre-bottom): zoom / reset + the how-to hint */
+.dv-controls {
+  position: fixed;
+  bottom: 1em;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+  padding: 0.3em 0.5em;
+}
+
+.dv-controls button {
+  width: 2.1em;
+  height: 2.1em;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--color-text);
+  font-size: 1em;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.dv-controls button:hover {
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+
+.dv-controls .dv-controls-hint {
+  margin-left: 0.6em;
+  padding-right: 0.4em;
+  font-size: 0.75em;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .dv-controls .dv-controls-hint {
+    display: none;
+  }
+}
+
+/* Touch flight deck — visible only in fly mode on coarse pointers (scene.ts
+   toggles hidden). touch-action:none: these ARE the gestures. */
+.dv-fly-touch button,
+.dv-fly-touch .dv-joystick {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.dv-fly-touch-left {
+  position: fixed;
+  bottom: 5.6em;
+  left: 1.2em;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7em;
+}
+
+#dv-touch-thrust {
+  width: 5.4em;
+  height: 5.4em;
+  border-radius: 50%;
+  color: var(--color-text);
+  font-size: 0.85em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+#dv-touch-boost {
+  width: 3.6em;
+  height: 3.6em;
+  border-radius: 50%;
+  color: var(--hyperlit-orange);
+  font-size: 0.7em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+#dv-touch-thrust:active,
+#dv-touch-boost:active {
+  background: color-mix(in srgb, var(--color-text) 20%, transparent);
+}
+
+#dv-touch-exit {
+  position: fixed;
+  top: 0.85em; /* header line, right side — the legend owns top-LEFT on phones */
+  right: 1em;
+  z-index: 3;
+  width: 2.4em;
+  height: 2.4em;
+  border-radius: 50%;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.dv-joystick {
+  position: fixed;
+  bottom: 5.6em;
+  right: 1.2em;
+  z-index: 3;
+  width: 8.5em;
+  height: 8.5em;
+  border-radius: 50%;
+}
+
+.dv-joystick .dv-joystick-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3.2em;
+  height: 3.2em;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: color-mix(in srgb, var(--color-text) 35%, transparent);
+  pointer-events: none;
+}
+
+/* Selected work: citation details + links (click a sphere) — sits above the
+   theme button in the bottom-left corner */
+.dv-panel {
+  position: fixed;
+  bottom: 4.4em;
+  left: 1em;
+  z-index: 2;
+  max-width: 26em;
+  padding: 0.9em 1.1em;
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
+.dv-panel .dv-panel-citation {
+  margin-bottom: 0.4em;
+}
+
+.dv-panel .dv-panel-status {
+  font-size: 0.85em;
+  opacity: 0.8;
+  margin-bottom: 0.6em;
+}
+
+.dv-panel .dv-panel-status .dot {
+  display: inline-block;
+  width: 0.65em;
+  height: 0.65em;
+  border-radius: 50%;
+  margin-right: 0.4em;
+}
+
+.dv-panel .dv-panel-links {
+  display: flex;
+  gap: 1.2em;
+}
+
+.dv-panel .dv-panel-links a {
+  color: var(--color-link, var(--hyperlit-aqua));
+  text-decoration: none;
+}
+
+.dv-panel .dv-panel-links a:hover,
+.dv-panel .dv-panel-links a:focus-visible {
+  text-decoration: underline;
+}
+
+/* A multi-version canonical: touching the sphere lists every held version */
+.dv-panel .dv-panel-versions-title {
+  font-size: 0.85em;
+  opacity: 0.75;
+  margin-bottom: 0.25em;
+}
+
+.dv-panel .dv-panel-versions a {
+  display: block;
+  color: var(--color-link, var(--hyperlit-aqua));
+  text-decoration: none;
+  padding: 0.12em 0;
+}
+
+.dv-panel .dv-panel-versions a:hover,
+.dv-panel .dv-panel-versions a:focus-visible {
+  text-decoration: underline;
+}
+
+.dv-panel .dv-panel-close {
+  position: absolute;
+  top: 0.3em;
+  right: 0.55em;
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.6;
+  font-size: 1.1em;
+  cursor: pointer;
+}
+
+.dv-panel .dv-panel-close:hover {
+  opacity: 1;
+}
+
+.dv-tooltip {
+  position: fixed;
+  z-index: 3;
+  max-width: 22em;
+  padding: 0.5em 0.7em;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-background) 88%, var(--color-text));
+  font-size: 0.85em;
+  line-height: 1.4;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.dv-tooltip .dv-tooltip-title {
+  font-weight: 600;
+}
+
+.dv-tooltip .dv-tooltip-meta {
+  opacity: 0.75;
+}
+
+.dv-status {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  font-size: 1em;
+  opacity: 0.8;
+  pointer-events: none;
+}

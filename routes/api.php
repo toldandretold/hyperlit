@@ -493,12 +493,11 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
 // Snapshots endpoint — outside author middleware so public book readers can see version history
 Route::get('/books/{book}/snapshots', [NodeHistoryController::class, 'getSnapshots']);
 
-// Harvest knowledge-network graph data (standalone 3D page) — outside author
-// middleware so a PUBLIC commons yield report is viewable by anyone; the
-// controller 404s on private/missing reports (check_book_visibility).
-Route::get('/harvest-network/{rootBook}/data', [\App\Http\Controllers\HarvestNetworkController::class, 'data'])
-    ->where('rootBook', '[A-Za-z0-9_-]+')
-    ->middleware('throttle:60,1');
+// Docuverse graph data (?layers=…&focus={bookId} for one book's connected
+// component) — outside author middleware (guests see the public docuverse);
+// RLS on the default connection scopes rows to the caller.
+Route::get('/docuverse/data', [\App\Http\Controllers\DocuverseController::class, 'data'])
+    ->middleware('throttle:30,1');
 
 // Chain resolution for SPA cross-book navigation (level 3+ sub-books)
 Route::get('resolve-chain/{book}/{rest}', [\App\Http\Controllers\TextController::class, 'resolveChainApi'])

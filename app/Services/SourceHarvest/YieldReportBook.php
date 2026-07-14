@@ -228,11 +228,16 @@ class YieldReportBook
             $blocks[] = ['h2', 'Knowledge Network'];
             $blocks[] = ['table', $this->networkTableInner($rootBook, $rootTitle, $union),
                 'data-chart="harvest-network"', 'Harvest knowledge network'];
+            // /3d/{root} is the book's corner of the docuverse — the harvest
+            // just confirmed it into a network. All layers preset: a fresh
+            // harvest's links are AUTO-matched citations, so the default
+            // hypercite+verified view would land empty.
             // target="_blank": the 3D page is standalone (non-SPA) — a same-tab
             // click would be intercepted by LinkNavigationHandler and misread
-            // as a book id (it also skips _blank links now, belt-and-braces).
-            $blocks[] = ['p', '<a href="/harvest-network/' . $this->e(rawurlencode($rootBook)) . '"'
-                . ' target="_blank" rel="noopener">Explore the knowledge network in 3D →</a>'];
+            // as a book id (it also skips _blank + /3d/ links, belt-and-braces).
+            $blocks[] = ['p', '<a href="/3d/' . $this->e(rawurlencode($rootBook))
+                . '?layers=hypercite,citation_verified,citation_auto"'
+                . ' target="_blank" rel="noopener">This book now lives in a knowledge network — explore it in 3D →</a>'];
         }
 
         if ($lost > 0) {

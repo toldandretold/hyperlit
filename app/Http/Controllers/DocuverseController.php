@@ -1,0 +1,235 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * The docuverse — a standalone (non-SPA) 3D map of every work in the database
+ * that is CONNECTED to another work, wired by three edge layers the viewer
+ * toggles (a fresh fetch per change — the graph is built server-side per
+ * selection, so the client never downloads layers it isn't showing):
+ *
+ *   hypercite          — reader-made text↔text links (hypercites.citedIN);
+ *                        human by construction, always trustworthy
+ *   citation_verified  — bibliography rows whose canonical match the author
+ *                        confirmed (reference_verified_at)
+ *   citation_auto      — canonically RESOLVED but unconfirmed matches
+ *
+ * A node is a WORK: a canonical_source (merged with its held versions) or an
+ * independent library record with no canonical identity. Anything with no
+ * edge in the selected layers is NOT on the map.
+ *
+ * FOCUS mode (/3d/{bookId}, ?focus=): the same graph scoped to the connected
+ * component CONTAINING that book — "this book's corner of the docuverse".
+ * The yield report links here: the harvest confirmed the book into a network.
+ *
+ * Visibility: library/bibliography/hypercites are read on the DEFAULT
+ * connection, so RLS filters rows to exactly what this caller may see
+ * (public + their own). canonical_source is public citation metadata.
+ */
+class DocuverseController extends Controller
+{
+    private const LAYERS = ['hypercite', 'citation_verified', 'citation_auto'];
+
+    public function show(Request $request, ?string $rootBook = null)
+    {
+        $focusTitle = null;
+        if ($rootBook !== null) {
+            // RLS-visible or the page doesn't exist for this caller.
+            $row = DB::table('library')->where('book', $rootBook)->first(['title']);
+            if (!$row) {
+                abort(404);
+            }
+            $focusTitle = strip_tags($row->title ?? $rootBook);
+        }
+
+        return view('docuverse', ['focusBook' => $rootBook, 'focusTitle' => $focusTitle]);
+    }
+
+    public function data(Request $request): JsonResponse
+    {
+        $layers = array_values(array_intersect(
+            self::LAYERS,
+            array_filter(explode(',', (string) $request->query('layers', 'hypercite,citation_verified')))
+        ));
+        if ($layers === []) {
+            return response()->json(['nodes' => [], 'edges' => [], 'layers' => []]);
+        }
+
+        // RLS-filtered (default connection): only books this caller may see.
+        // Sub-books (book_x/Fn…) are folded into their root work.
+        $books = DB::table('library')
+            ->whereRaw("book NOT LIKE '%/%'")
+            ->get(['book', 'title', 'author', 'year', 'canonical_source_id', 'cited_by_count', 'doi', 'oa_url']);
+        $bookRows = $books->keyBy('book');
+
+        // book id → graph node id (its canonical when linked, else itself).
+        $nodeIdForBook = fn (string $book): ?string => ($row = $bookRows->get($book))
+            ? ($row->canonical_source_id ?: $book)
+            : null;
+
+        $edges = [];
+        $addEdge = function (?string $source, ?string $target, string $kind) use (&$edges): void {
+            if (!$source || !$target || $source === $target) {
+                return;
+            }
+            $edges["{$source}→{$target}:{$kind}"] = ['source' => $source, 'target' => $target, 'kind' => $kind];
+        };
+
+        // ── Citation layers ──
+        $wantVerified = in_array('citation_verified', $layers, true);
+        $wantAuto = in_array('citation_auto', $layers, true);
+        if ($wantVerified || $wantAuto) {
+            // Direct canonical link + the foundation-source stub pathway
+            // (both RLS-filtered; l.canonical_source_id resolves a stub to its
+            // canonical, else the stub book itself is the target work).
+            $bib = DB::table('bibliography as b')
+                ->leftJoin('library as l', 'l.book', '=', 'b.foundation_source')
+                ->where(function ($q) {
+                    $q->whereNotNull('b.canonical_source_id')->orWhereNotNull('b.foundation_source');
+                })
+                ->get(['b.book', 'b.canonical_source_id', 'b.foundation_source', 'b.reference_verified_at', 'l.canonical_source_id as stub_canonical']);
+
+            foreach ($bib as $r) {
+                $kind = $r->reference_verified_at ? 'citation_verified' : 'citation_auto';
+                if (($kind === 'citation_verified' && !$wantVerified) || ($kind === 'citation_auto' && !$wantAuto)) {
+                    continue;
+                }
+                $target = $r->canonical_source_id
+                    ?: ($r->stub_canonical ?: ($r->foundation_source && $bookRows->has($r->foundation_source) ? $r->foundation_source : null));
+                $addEdge($nodeIdForBook($this->rootBook($r->book)), $target, $kind);
+            }
+        }
+
+        // ── Hypercite layer ──
+        if (in_array('hypercite', $layers, true)) {
+            $rows = DB::table('hypercites')
+                ->whereRaw('"citedIN" IS NOT NULL AND "citedIN"::text NOT IN (\'[]\', \'null\')')
+                ->get(['book', 'citedIN']);
+            foreach ($rows as $r) {
+                $targets = json_decode($r->citedIN, true);
+                if (!is_array($targets)) {
+                    continue;
+                }
+                $source = $nodeIdForBook($this->rootBook($r->book));
+                foreach ($targets as $url) {
+                    // Entries look like "/book_123…#hypercite_abc" (sub-book paths fold to root).
+                    $path = parse_url((string) $url, PHP_URL_PATH) ?: '';
+                    $targetBook = $this->rootBook(ltrim($path, '/'));
+                    if ($targetBook === '') {
+                        continue;
+                    }
+                    // RLS already hid invisible books from $bookRows → edge drops.
+                    $addEdge($source, $nodeIdForBook($targetBook), 'hypercite');
+                }
+            }
+        }
+
+        $edges = array_values($edges);
+
+        // ── Focus: scope to the connected component containing one book ──
+        $focusNodeId = null;
+        if (($focusBook = (string) $request->query('focus', '')) !== '') {
+            $focusBook = $this->rootBook($focusBook);
+            if (!$bookRows->has($focusBook)) {
+                abort(404); // invisible or nonexistent — don't leak
+            }
+            $focusNodeId = $nodeIdForBook($focusBook);
+            $edges = $this->componentEdges($edges, $focusNodeId);
+        }
+
+        // ── Connected-only node set ──
+        $nodeIds = [];
+        foreach ($edges as $e) {
+            $nodeIds[$e['source']] = true;
+            $nodeIds[$e['target']] = true;
+        }
+
+        // Canonical metadata for canonical-backed nodes (public metadata; the
+        // held-version pointer makes the node openable in the library).
+        $canonicalIds = array_values(array_filter(array_keys($nodeIds), fn ($id) => !$bookRows->has($id)));
+        $canonicals = $canonicalIds === [] ? collect() : DB::connection('pgsql_admin')
+            ->table('canonical_source')->whereIn('id', $canonicalIds)
+            ->get()->keyBy('id');
+
+        // A canonical is ONE sphere no matter how many versions the library
+        // holds — the panel lists them all. Caller-visible versions only
+        // (RLS-filtered); the canonical's version pointers are the fallback.
+        $versionsByCanonical = $books->whereNotNull('canonical_source_id')->groupBy('canonical_source_id');
+
+        $nodes = [];
+        foreach (array_keys($nodeIds) as $id) {
+            if ($bookRows->has($id)) {
+                $b = $bookRows->get($id);
+                $nodes[] = [
+                    'id' => $id, 'kind' => 'book',
+                    'title' => strip_tags($b->title ?? $id), 'author' => $b->author,
+                    'year' => $b->year, 'cited_by_count' => $b->cited_by_count,
+                    'book' => $id,
+                    'versions' => [],
+                    'url' => $b->doi ? ('https://doi.org/' . $b->doi) : $b->oa_url,
+                ];
+            } elseif ($c = $canonicals->get($id)) {
+                $versions = ($versionsByCanonical->get($id) ?? collect())
+                    ->map(fn ($b) => ['book' => $b->book, 'title' => strip_tags($b->title ?? $b->book)])
+                    ->values()->all();
+                $held = $versions[0]['book']
+                    ?? ($c->commons_version_book ?: ($c->author_version_book ?: ($c->publisher_version_book ?: $c->auto_version_book)));
+                $nodes[] = [
+                    'id' => $id, 'kind' => $held ? 'held' : 'canonical',
+                    'title' => strip_tags($c->title ?? 'Untitled'), 'author' => $c->author,
+                    'year' => $c->year, 'cited_by_count' => $c->cited_by_count,
+                    'book' => $held,
+                    'versions' => $versions,
+                    'url' => $c->doi ? ('https://doi.org/' . $c->doi) : ($c->oa_url ?: $c->pdf_url),
+                ];
+            }
+            // else: an edge endpoint that resolved to nothing readable — its
+            // edges get dropped client-side by the missing-node guard.
+        }
+
+        return response()->json([
+            'nodes' => $nodes,
+            'edges' => $edges,
+            'layers' => $layers,
+            'focus' => $focusNodeId,
+        ]);
+    }
+
+    /** BFS the undirected connected component around one node; its edges only. */
+    private function componentEdges(array $edges, string $start): array
+    {
+        $adjacent = [];
+        foreach ($edges as $i => $e) {
+            $adjacent[$e['source']][] = $i;
+            $adjacent[$e['target']][] = $i;
+        }
+
+        $seen = [$start => true];
+        $queue = [$start];
+        $keep = [];
+        while ($queue !== []) {
+            $node = array_shift($queue);
+            foreach ($adjacent[$node] ?? [] as $i) {
+                $keep[$i] = true;
+                foreach ([$edges[$i]['source'], $edges[$i]['target']] as $next) {
+                    if (!isset($seen[$next])) {
+                        $seen[$next] = true;
+                        $queue[] = $next;
+                    }
+                }
+            }
+        }
+
+        return array_values(array_intersect_key($edges, $keep));
+    }
+
+    /** Fold a sub-book path (book_x/Fn1/…) onto its root work. */
+    private function rootBook(string $book): string
+    {
+        return explode('/', $book)[0];
+    }
+}

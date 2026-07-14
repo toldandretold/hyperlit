@@ -191,7 +191,9 @@ describe('clipboard fixtures — baselines', () => {
         if (baseline.footnoteMarkers != null) {
           expect(markers.footnoteMarkers).toBe(baseline.footnoteMarkers);
         }
-      });
+        // Same 20s as the extract test above: the big fixtures re-run the full
+        // processor here and blow the 5s default under CPU load — a load flake.
+      }, 20_000);
     });
   }
 });

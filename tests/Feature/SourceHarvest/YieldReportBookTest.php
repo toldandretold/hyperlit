@@ -236,7 +236,9 @@ test('embeds the knowledge-network data table + 3D expand link', function () {
 
     // The expand link to the standalone 3D page.
     $html = $nodes->pluck('content')->implode("\n");
-    expect($html)->toContain('href="/harvest-network/' . $root . '"');
+    // Links to the book's corner of the docuverse with ALL layers preset
+    // (fresh harvest links are auto-matched citations).
+    expect($html)->toContain('href="/3d/' . $root . '?layers=hypercite,citation_verified,citation_auto"');
 });
 
 test('legacy union entries without lineage still land in the network table (defaults)', function () {

@@ -327,11 +327,19 @@ Route::get('/q/{parentBook}/{subId}/data', [QuantizerController::class, 'subBook
     ->where('subId', '.+')
     ->name('quantizer.sub-book-data');
 
-// Harvest knowledge-network 3D view — standalone non-SPA page expanding the
-// yield report's embedded fork tree (must precede the /{identifier} catch-all).
-Route::get('/harvest-network/{rootBook}', [\App\Http\Controllers\HarvestNetworkController::class, 'show'])
+// /3d/* — the reserved namespace for standalone non-SPA 3D views. Prefixed so
+// no user book id can ever shadow (or be shadowed by) a viz route — a book
+// named "docuverse" stays reachable at /docuverse. Must precede the
+// /{identifier} and /{book}/{rest} catch-alls.
+// The full map is declared FIRST: a book literally named "docuverse" forfeits
+// its focused-3D URL (tiny blast radius, deliberate).
+Route::get('/3d/docuverse', [\App\Http\Controllers\DocuverseController::class, 'show'])
+    ->name('docuverse.show');
+// One book's corner of the docuverse — the connected component around it
+// (the yield report links here: the harvest confirmed it into a network).
+Route::get('/3d/{rootBook}', [\App\Http\Controllers\DocuverseController::class, 'show'])
     ->where('rootBook', '[A-Za-z0-9_-]+')
-    ->name('harvest-network.show');
+    ->name('docuverse.focus');
 
 // Time machine route (must come before /{book}/edit catch)
 Route::get('/{book}/timemachine', [TextController::class, 'showTimeMachine'])

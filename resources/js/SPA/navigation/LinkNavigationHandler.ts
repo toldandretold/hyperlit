@@ -180,13 +180,14 @@ export class LinkNavigationHandler {
 
     // Skip target="_blank" links — the author asked for a NEW TAB; SPA-routing
     // one in-place hijacks that. (The yield report's "Explore in 3D" link is
-    // the canonical case: /harvest-network/… is a standalone non-SPA page that
+    // the canonical case: /3d/… is a standalone non-SPA page that
     // book-to-book transition would misread as a book id.)
     const isNewTab = link.getAttribute('target') === '_blank';
 
-    // Skip standalone non-SPA pages by path — they have no reader shell to
+    // Skip standalone non-SPA pages by path — /3d/* is the reserved namespace
+    // for them (docuverse, harvest networks); they have no reader shell to
     // transition into, so even a same-tab click must be a full page load.
-    const isStandalonePage = linkUrl.pathname.startsWith('/harvest-network/');
+    const isStandalonePage = linkUrl.pathname.startsWith('/3d/');
 
     // Skip the accessibility skip-to-content link (layout.blade.php): native
     // fragment navigation must handle it — routing it through SPA nav builds
