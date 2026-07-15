@@ -229,15 +229,15 @@ test('the page route renders the standalone view', function () {
     // to the /{identifier} catch-all (a user page / book named "docuverse").
 });
 
-test('focus scopes the graph to the connected component containing one book', function () {
+test('focus scopes the graph to the book\'s own network (directed reach + direct citers)', function () {
     $owner = $this->loginUser();
-    // Component 1: a → b → c (chain).
+    // a → b → c (chain): everything a transitively draws on.
     $a = $this->makeBook($owner, ['visibility' => 'public']);
     $b = $this->makeBook($owner, ['visibility' => 'public']);
     $c = $this->makeBook($owner, ['visibility' => 'public']);
     dvSeedHypercite($a, ["/{$b}#hypercite_x"]);
     dvSeedHypercite($b, ["/{$c}#hypercite_y"]);
-    // Component 2: d → e, disjoint from 1.
+    // d → e, disjoint.
     $d = $this->makeBook($owner, ['visibility' => 'public']);
     $e = $this->makeBook($owner, ['visibility' => 'public']);
     dvSeedHypercite($d, ["/{$e}#hypercite_z"]);
@@ -252,6 +252,31 @@ test('focus scopes the graph to the connected component containing one book', fu
     // Without focus, both components are on the map.
     $all = $this->getJson('/api/docuverse/data?layers=hypercite')->assertOk();
     expect(collect($all->json('nodes')))->toHaveCount(5);
+});
+
+test('focus excludes a co-citing stranger book (no giant-component bleed) but keeps direct citers', function () {
+    $owner = $this->loginUser();
+    $root = $this->makeBook($owner, ['visibility' => 'public', 'title' => 'Dv Focus Root']);
+    $stranger = $this->makeBook($owner, ['visibility' => 'public', 'title' => 'Dv Stranger']);
+    $citer = $this->makeBook($owner, ['visibility' => 'public', 'title' => 'Dv Direct Citer']);
+    $shared = dvSeedCanonical(['title' => 'Dv Shared Work']);
+    $strangersOwn = dvSeedCanonical(['title' => 'Dv Strangers Own Work']);
+
+    // Both root and the stranger cite the SHARED work — under the old
+    // component scoping that merged them into one blob ("focus shows the
+    // whole docuverse"). The stranger's own citations must never appear.
+    dvSeedBib($root, ['canonical_source_id' => $shared]);
+    dvSeedBib($stranger, ['canonical_source_id' => $shared]);
+    dvSeedBib($stranger, ['canonical_source_id' => $strangersOwn]);
+    // A book that cites INTO the root (hypercite) — a direct citer, kept.
+    dvSeedHypercite($citer, ["/{$root}#hypercite_q"]);
+
+    $resp = $this->getJson("/api/docuverse/data?layers=hypercite,citation_auto&focus={$root}")->assertOk();
+    $ids = collect($resp->json('nodes'))->pluck('id');
+    expect($ids)->toContain($shared);        // what the root draws on
+    expect($ids)->toContain($citer);         // who cites the root
+    expect($ids)->not->toContain($stranger); // co-citing stranger stays out
+    expect($ids)->not->toContain($strangersOwn);
 });
 
 test('focus on an unconnected book returns an empty graph, not a 404', function () {

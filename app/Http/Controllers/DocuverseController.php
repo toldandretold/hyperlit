@@ -26,8 +26,10 @@ use Illuminate\Support\Facades\DB;
  * independent library record with no canonical identity. Anything with no
  * edge in the selected layers is NOT on the map.
  *
- * FOCUS mode (/3d/{bookId}, ?focus=): the same graph scoped to the connected
- * component CONTAINING that book — "this book's corner of the docuverse".
+ * FOCUS mode (/3d/{bookId}, ?focus=): the same graph scoped to THAT BOOK'S
+ * network — the works it draws on transitively (directed reachability, the
+ * harvest-tree shape) plus its direct citers. See focusEdges() for why it is
+ * NOT the connected component (giant-component degeneration).
  * The yield report links here: the harvest confirmed the book into a network.
  *
  * Visibility: library/bibliography/hypercites are read on the DEFAULT
@@ -159,7 +161,7 @@ class DocuverseController extends Controller
 
         $edges = array_values($edges);
 
-        // ── Focus: scope to the connected component containing one book ──
+        // ── Focus: scope to THIS BOOK'S network, not its whole component ──
         $focusNodeId = null;
         if (($focusBook = (string) $request->query('focus', '')) !== '') {
             $focusBook = $this->rootBook($focusBook);
@@ -167,7 +169,7 @@ class DocuverseController extends Controller
                 abort(404); // invisible or nonexistent — don't leak
             }
             $focusNodeId = $nodeIdForBook($focusBook);
-            $edges = $this->componentEdges($edges, $focusNodeId);
+            $edges = $this->focusEdges($edges, $focusNodeId);
         }
 
         // ── Connected-only node set ──
@@ -228,13 +230,19 @@ class DocuverseController extends Controller
         ]);
     }
 
-    /** BFS the undirected connected component around one node; its edges only. */
-    private function componentEdges(array $edges, string $start): array
+    /**
+     * The focus book's OWN network: everything it draws on, transitively
+     * (directed source→target reachability — the same shape as the harvest /
+     * yield-report tree), plus every edge pointing directly AT it (who cites
+     * this book). NOT the undirected connected component: with auto-matched
+     * citations on, any shared cited work merges components, so "the component
+     * containing this book" degenerates into the entire docuverse.
+     */
+    private function focusEdges(array $edges, string $start): array
     {
-        $adjacent = [];
+        $bySource = [];
         foreach ($edges as $i => $e) {
-            $adjacent[$e['source']][] = $i;
-            $adjacent[$e['target']][] = $i;
+            $bySource[$e['source']][] = $i;
         }
 
         $seen = [$start => true];
@@ -242,14 +250,20 @@ class DocuverseController extends Controller
         $keep = [];
         while ($queue !== []) {
             $node = array_shift($queue);
-            foreach ($adjacent[$node] ?? [] as $i) {
+            foreach ($bySource[$node] ?? [] as $i) {
                 $keep[$i] = true;
-                foreach ([$edges[$i]['source'], $edges[$i]['target']] as $next) {
-                    if (!isset($seen[$next])) {
-                        $seen[$next] = true;
-                        $queue[] = $next;
-                    }
+                $target = $edges[$i]['target'];
+                if (!isset($seen[$target])) {
+                    $seen[$target] = true;
+                    $queue[] = $target;
                 }
+            }
+        }
+
+        // Direct citers: one hop INTO the focus (readers arriving at this book).
+        foreach ($edges as $i => $e) {
+            if ($e['target'] === $start) {
+                $keep[$i] = true;
             }
         }
 
