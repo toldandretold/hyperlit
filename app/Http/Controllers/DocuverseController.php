@@ -68,6 +68,14 @@ class DocuverseController extends Controller
             return response()->json(['nodes' => [], 'edges' => [], 'layers' => []]);
         }
 
+        // Focus mode builds ALL kinds regardless of the selected layers: the
+        // book's network MEMBERSHIP is a property of the graph, not of what
+        // the viewer chose to display (hypercites-only must still know which
+        // works are in the citation network). Selected layers filter the
+        // RESPONSE at the end; the global view still builds selected-only.
+        $focusRequested = (string) $request->query('focus', '') !== '';
+        $build = $focusRequested ? self::LAYERS : $layers;
+
         // RLS-filtered (default connection): only books this caller may see.
         // Sub-books (book_x/Fn…) are folded into their root work.
         $books = DB::table('library')
@@ -89,8 +97,8 @@ class DocuverseController extends Controller
         };
 
         // ── Citation layers ──
-        $wantVerified = in_array('citation_verified', $layers, true);
-        $wantAuto = in_array('citation_auto', $layers, true);
+        $wantVerified = in_array('citation_verified', $build, true);
+        $wantAuto = in_array('citation_auto', $build, true);
         if ($wantVerified || $wantAuto) {
             // Direct canonical link + the foundation-source stub pathway
             // (both RLS-filtered; l.canonical_source_id resolves a stub to its
@@ -136,7 +144,7 @@ class DocuverseController extends Controller
         }
 
         // ── Hypercite layer ──
-        if (in_array('hypercite', $layers, true)) {
+        if (in_array('hypercite', $build, true)) {
             $rows = DB::table('hypercites')
                 ->whereRaw('"citedIN" IS NOT NULL AND "citedIN"::text NOT IN (\'[]\', \'null\')')
                 ->get(['book', 'citedIN']);
@@ -170,6 +178,12 @@ class DocuverseController extends Controller
             }
             $focusNodeId = $nodeIdForBook($focusBook);
             $edges = $this->focusEdges($edges, $focusNodeId);
+            // Membership was computed over ALL kinds; the viewer only gets
+            // the layers they selected.
+            $edges = array_values(array_filter(
+                $edges,
+                fn (array $e) => in_array($e['kind'], $layers, true),
+            ));
         }
 
         // ── Connected-only node set ──
@@ -231,43 +245,56 @@ class DocuverseController extends Controller
     }
 
     /**
-     * The focus book's OWN network: everything it draws on, transitively
-     * (directed source→target reachability — the same shape as the harvest /
-     * yield-report tree), plus every edge pointing directly AT it (who cites
-     * this book). NOT the undirected connected component: with auto-matched
-     * citations on, any shared cited work merges components, so "the component
-     * containing this book" degenerates into the entire docuverse.
+     * The focus book's OWN network. Membership:
+     *   1. transitive DRAWS-ON reach over CITATION edges only (source→target
+     *      — the harvest / yield-report tree shape);
+     *   2. plus everything touching the focus directly, either direction, any
+     *      kind (direct citers, the book's own hypercite partners).
+     * Kept edges: those with BOTH endpoints in the membership — hypercites
+     * between network members display; they never EXTEND the network.
+     *
+     * Two degenerations this shape exists to prevent: the undirected connected
+     * component (any co-cited work merges components → the whole docuverse),
+     * and hypercite traversal (hypercite edges point cited→citing — the
+     * REVERSE of citation edges — so walking them lets the reach escape
+     * through any hypercited work and pull the docuverse back in).
      */
     private function focusEdges(array $edges, string $start): array
     {
-        $bySource = [];
-        foreach ($edges as $i => $e) {
-            $bySource[$e['source']][] = $i;
+        // 1. Citation-directed transitive reach.
+        $citesFrom = [];
+        foreach ($edges as $e) {
+            if ($e['kind'] !== 'hypercite') {
+                $citesFrom[$e['source']][] = $e['target'];
+            }
         }
-
-        $seen = [$start => true];
+        $members = [$start => true];
         $queue = [$start];
-        $keep = [];
         while ($queue !== []) {
             $node = array_shift($queue);
-            foreach ($bySource[$node] ?? [] as $i) {
-                $keep[$i] = true;
-                $target = $edges[$i]['target'];
-                if (!isset($seen[$target])) {
-                    $seen[$target] = true;
+            foreach ($citesFrom[$node] ?? [] as $target) {
+                if (!isset($members[$target])) {
+                    $members[$target] = true;
                     $queue[] = $target;
                 }
             }
         }
 
-        // Direct citers: one hop INTO the focus (readers arriving at this book).
-        foreach ($edges as $i => $e) {
+        // 2. One hop around the focus itself, any kind, either direction.
+        foreach ($edges as $e) {
+            if ($e['source'] === $start) {
+                $members[$e['target']] = true;
+            }
             if ($e['target'] === $start) {
-                $keep[$i] = true;
+                $members[$e['source']] = true;
             }
         }
 
-        return array_values(array_intersect_key($edges, $keep));
+        // 3. Only edges INSIDE the membership.
+        return array_values(array_filter(
+            $edges,
+            fn (array $e) => isset($members[$e['source']]) && isset($members[$e['target']]),
+        ));
     }
 
     /** Fold a sub-book path (book_x/Fn1/…) onto its root work. */

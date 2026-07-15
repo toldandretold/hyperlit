@@ -229,9 +229,11 @@ test('the page route renders the standalone view', function () {
     // to the /{identifier} catch-all (a user page / book named "docuverse").
 });
 
-test('focus scopes the graph to the book\'s own network (directed reach + direct citers)', function () {
+test('focus keeps the book\'s own hypercite partners but hypercites never EXTEND the network', function () {
     $owner = $this->loginUser();
-    // a → b → c (chain): everything a transitively draws on.
+    // a → b → c hypercite chain: b is a's direct partner (kept); c is only
+    // reachable BY WALKING a hypercite (dropped — hypercite edges point
+    // cited→citing, so traversing them lets focus escape into the docuverse).
     $a = $this->makeBook($owner, ['visibility' => 'public']);
     $b = $this->makeBook($owner, ['visibility' => 'public']);
     $c = $this->makeBook($owner, ['visibility' => 'public']);
@@ -244,14 +246,54 @@ test('focus scopes the graph to the book\'s own network (directed reach + direct
 
     $resp = $this->getJson("/api/docuverse/data?layers=hypercite&focus={$a}")->assertOk();
     $ids = collect($resp->json('nodes'))->pluck('id');
-    expect($ids->sort()->values()->all())->toBe(collect([$a, $b, $c])->sort()->values()->all());
+    expect($ids->sort()->values()->all())->toBe(collect([$a, $b])->sort()->values()->all());
+    expect($ids)->not->toContain($c);
     expect($ids)->not->toContain($d);
     expect($resp->json('focus'))->toBe($a); // independent record → its own node id
-    expect(collect($resp->json('edges')))->toHaveCount(2);
+    expect(collect($resp->json('edges')))->toHaveCount(1);
 
-    // Without focus, both components are on the map.
+    // Without focus, everything is on the map.
     $all = $this->getJson('/api/docuverse/data?layers=hypercite')->assertOk();
     expect(collect($all->json('nodes')))->toHaveCount(5);
+});
+
+test('focus membership is layer-independent: hypercites-only still shows the citation network\'s hypercites', function () {
+    $owner = $this->loginUser();
+    $root = $this->makeBook($owner, ['visibility' => 'public', 'title' => 'Dv LI Root']);
+    // root cites C; V is a held version of C; V hypercites into W (a book the
+    // root ALSO cites via canonical CW held by W... keep simple: V ↔ another
+    // network member). Seed: root cites C (held by V) and C2 (held by V2);
+    // V hypercites V2 — a hypercite BETWEEN network members.
+    $c1 = dvSeedCanonical(['title' => 'Dv LI Work One']);
+    $c2 = dvSeedCanonical(['title' => 'Dv LI Work Two']);
+    $v1 = $this->makeBook($owner, ['visibility' => 'public', 'title' => 'Dv LI Held One']);
+    $v2 = $this->makeBook($owner, ['visibility' => 'public', 'title' => 'Dv LI Held Two']);
+    dvDb()->table('library')->where('book', $v1)->update(['canonical_source_id' => $c1]);
+    dvDb()->table('library')->where('book', $v2)->update(['canonical_source_id' => $c2]);
+    dvSeedBib($root, ['canonical_source_id' => $c1]);
+    dvSeedBib($root, ['canonical_source_id' => $c2]);
+    dvSeedHypercite($v1, ["/{$v2}#hypercite_li"]);
+    // An unrelated hypercite pair — must NOT appear in focus even though the
+    // hypercite layer is on (the old bug: focus showed the docuverse's
+    // hypercites once any citation network was in view).
+    $x = $this->makeBook($owner, ['visibility' => 'public']);
+    $y = $this->makeBook($owner, ['visibility' => 'public']);
+    dvSeedHypercite($x, ["/{$y}#hypercite_xy"]);
+
+    // Hypercites-only: the citation edges aren't RETURNED, but membership is
+    // still computed from them — the network's internal hypercite shows.
+    $resp = $this->getJson("/api/docuverse/data?layers=hypercite&focus={$root}")->assertOk();
+    $edges = collect($resp->json('edges'));
+    expect($edges)->toHaveCount(1);
+    expect($edges[0])->toMatchArray(['source' => $c1, 'target' => $c2, 'kind' => 'hypercite']);
+    expect(collect($resp->json('nodes'))->pluck('id'))->not->toContain($x);
+
+    // All layers: citations + the member hypercite, still no x→y.
+    $resp = $this->getJson("/api/docuverse/data?layers=hypercite,citation_verified,citation_auto&focus={$root}")->assertOk();
+    $kinds = collect($resp->json('edges'))->countBy('kind');
+    expect($kinds['citation_auto'])->toBe(2);
+    expect($kinds['hypercite'])->toBe(1);
+    expect(collect($resp->json('nodes'))->pluck('id'))->not->toContain($x);
 });
 
 test('focus excludes a co-citing stranger book (no giant-component bleed) but keeps direct citers', function () {
