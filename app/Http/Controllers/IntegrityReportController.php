@@ -101,6 +101,7 @@ class IntegrityReportController extends Controller
         $data = $request->validate([
             'bookId'              => 'required|string|max:500|regex:/^[A-Za-z0-9_\/-]+$/',
             'conversionSummary'   => 'nullable|array',
+            'comment'             => 'nullable|string|max:2000',
             'recentLogs'          => 'nullable|array|max:50',
             'recentLogs.*.level'  => 'nullable|string|max:10',
             'recentLogs.*.ts'     => 'nullable|numeric',

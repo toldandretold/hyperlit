@@ -28,15 +28,19 @@ export async function openHarvestVizOverlay(self: any) {
         #harvest-viz-card code   { color: #8fd0c6; background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 3px; }
         ${HARVEST_FIELD_CSS}
       </style>
-      <div id="harvest-viz-card" style="background: #2a2a2a; color: #fff; padding: 28px 32px; border-radius: 10px; width: min(92vw, 1100px); max-height: 86vh; overflow-y: auto;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+      <div id="harvest-viz-card" style="background: #2a2a2a; color: #fff; border-radius: 10px; width: min(92vw, 1100px); max-height: 86vh; display: flex; flex-direction: column; overflow: hidden;">
+        <div style="flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 24px 32px 16px;">
           <h3 style="margin: 0; color: #EF8D34; font-size: 16px;">Knowledge Commons Harvester — live progress</h3>
-          <button type="button" id="harvest-viz-close" style="background: none; border: none; color: #aaa; font-size: 22px; cursor: pointer; line-height: 1; padding: 2px 6px;">×</button>
+          <button type="button" id="harvest-viz-close" title="Close (the harvest keeps running)" aria-label="Close" style="background: none; border: none; color: #aaa; font-size: 22px; cursor: pointer; line-height: 1; padding: 2px 6px;">×</button>
         </div>
-        <div id="harvest-viz">
-          <p style="font-size: 13px; color: #aaa; margin: 0;">Loading harvest state…</p>
+        <div id="harvest-viz-scroll" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 32px 8px;">
+          <div id="harvest-viz">
+            <p style="font-size: 13px; color: #aaa; margin: 0;">Loading harvest state…</p>
+          </div>
         </div>
-        <div id="harvest-field-wrap">${harvestFieldHtml()}</div>
+        <!-- Reaping field: PINNED (flex-none), always visible while the stages scroll above it. -->
+        <div id="harvest-field-wrap" style="flex: 0 0 auto; padding: 0 32px 14px; background: #2a2a2a;">${harvestFieldHtml()}</div>
+        <div id="harvest-viz-actions" style="flex: 0 0 auto;"></div>
       </div>`;
   document.body.appendChild(overlay);
 
@@ -251,25 +255,31 @@ export function renderHarvestViz(self: any, harvest: any) {
         ${expanded}`;
   }
 
-  // Stop controls while the run is live: "Finish & write report" (stop at the
-  // next work boundary, keep + report everything, stamp completed) and
-  // "Cancel harvest" (same stop + report, stamped cancelled). Rebuilt on every
-  // poll render, so syncHarvestStopButtons reapplies the pending/sent state.
-  const live = harvest.status === 'pending' || harvest.status === 'running';
-  const actions = live
-    ? `<div style="margin-top: 22px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.12); display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
-         <button type="button" id="harvest-viz-finish" style="background: none; border: 1px solid #4EACAE; color: #4EACAE; border-radius: 5px; padding: 6px 14px; cursor: pointer; font-size: 13px;">Finish & write report</button>
-         <button type="button" id="harvest-viz-cancel" style="background: none; border: 1px solid #EF8D34; color: #EF8D34; border-radius: 5px; padding: 6px 14px; cursor: pointer; font-size: 13px;">Cancel harvest</button>
-         <span style="font-size: 12px; color: #888;">Either way, everything already harvested is kept and written into the yield report.</span>
-       </div>`
-    : '';
+  viz.innerHTML = body;
 
-  viz.innerHTML = body + actions;
-
-  if (live) {
-    viz.querySelector('#harvest-viz-finish')?.addEventListener('click', () => requestHarvestStop(self, 'finish'));
-    viz.querySelector('#harvest-viz-cancel')?.addEventListener('click', () => requestHarvestStop(self, 'cancel'));
-    syncHarvestStopButtons(self);
+  // Stop controls live in a PINNED footer (a card-level sibling of the scroll
+  // body), not in the scrolling content — so they're always visible, never
+  // land mid-scroll over the reader, and stay clearly separate from the header
+  // × (which only closes the overlay; the harvest keeps running). "Finish &
+  // write report" stops at the next work boundary keeping + reporting
+  // everything (stamped completed); "Cancel harvest" is the same stop + report,
+  // stamped cancelled. Rebuilt each poll render → syncHarvestStopButtons
+  // reapplies the pending/sent state.
+  const actionsEl = document.getElementById('harvest-viz-actions');
+  if (actionsEl) {
+    const live = harvest.status === 'pending' || harvest.status === 'running';
+    actionsEl.innerHTML = live
+      ? `<div style="padding: 14px 32px; border-top: 1px solid rgba(255,255,255,0.12); background: #2a2a2a; display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
+           <button type="button" id="harvest-viz-finish" style="background: none; border: 1px solid #4EACAE; color: #4EACAE; border-radius: 5px; padding: 6px 14px; cursor: pointer; font-size: 13px;">Finish & write report</button>
+           <button type="button" id="harvest-viz-cancel" style="background: none; border: 1px solid #EF8D34; color: #EF8D34; border-radius: 5px; padding: 6px 14px; cursor: pointer; font-size: 13px;">Cancel harvest</button>
+           <span style="font-size: 12px; color: #888; flex: 1 1 180px; min-width: 160px;">Either way, everything already harvested is kept and written into the yield report.</span>
+         </div>`
+      : '';
+    if (live) {
+      actionsEl.querySelector('#harvest-viz-finish')?.addEventListener('click', () => requestHarvestStop(self, 'finish'));
+      actionsEl.querySelector('#harvest-viz-cancel')?.addEventListener('click', () => requestHarvestStop(self, 'cancel'));
+      syncHarvestStopButtons(self);
+    }
   }
 
   viz.querySelectorAll('.harvest-pipe-stage').forEach((btn: any) => {

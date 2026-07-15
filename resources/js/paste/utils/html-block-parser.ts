@@ -69,7 +69,10 @@ export function parseHtmlToBlocks(htmlContent: any) {
 
       // Check if this element contains multiple <br> separated entries (common in bibliographies)
       const innerHTML = child.innerHTML;
-      const brSeparatedParts = innerHTML.split(/<br\s*\/?>/i);
+      // Split on <br> in all forms, INCLUDING attribute-bearing tags like
+      // <br data-dl-uid="1" style="…"> (DeepL/rich-text paste). \b after `br`
+      // matches `<br>`/`<br/>`/`<br …attrs…>` but not <break>-style tags.
+      const brSeparatedParts = innerHTML.split(/<br\b[^>]*>/i);
 
       if (nodeIndex < 10) {
         console.log(`  Processing node ${nodeIndex} (${child.tagName}): brParts=${brSeparatedParts.length}, innerHTML="${innerHTML.substring(0, 60)}..."`);

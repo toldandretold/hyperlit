@@ -41,7 +41,7 @@ export function estimatePasteNodeCount(content: any) {
     let inlineHTML = '';
     tempDiv.childNodes.forEach((node: any) => {
       if (node.nodeType === Node.ELEMENT_NODE && blockTags.has(node.tagName)) {
-        const brParts = node.innerHTML.split(/<br\s*\/?>/i);
+        const brParts = node.innerHTML.split(/<br\b[^>]*>/i);
         if (brParts.length > 1) {
           const nonEmptyParts = brParts.filter((p: any) => p.trim()).length;
           if (nonEmptyParts > 1) {
@@ -58,7 +58,7 @@ export function estimatePasteNodeCount(content: any) {
     // For top-level non-block content (inline elements + <br> tags, like Safari paste),
     // split on <br> and count non-empty text segments
     if (inlineHTML.trim()) {
-      const segments = inlineHTML.split(/<br\s*\/?>/i).filter((s: any) => s.trim());
+      const segments = inlineHTML.split(/<br\b[^>]*>/i).filter((s: any) => s.trim());
       count += segments.length;
     }
 

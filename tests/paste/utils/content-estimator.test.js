@@ -30,6 +30,12 @@ describe('estimatePasteNodeCount', () => {
     expect(count).toBe(3); // 1 p + 2 br
   });
 
+  it('should count attribute-bearing br tags as nodes (DeepL paste)', () => {
+    const html = '<p>Text<br data-dl-uid="1" style="x">More<br data-dl-uid="2">Even more</p>';
+    const count = estimatePasteNodeCount(html);
+    expect(count).toBe(3); // 1 p + 2 attribute-bearing br
+  });
+
   it('should return 1 for empty content', () => {
     expect(estimatePasteNodeCount('')).toBe(1);
     expect(estimatePasteNodeCount('   ')).toBe(1);

@@ -49,6 +49,15 @@ describe('normalizeSpaces', () => {
     const expected = 'Text   more';
     expect(normalizeSpaces(input)).toBe(expected);
   });
+
+  it('should collapse space-corrupted double-escaped nbsp (&amp; nbsp;)', () => {
+    // A source page with a broken &nbsp; serializes to visible "&amp; nbsp;" on paste.
+    expect(normalizeSpaces('Huichun&amp; nbsp;Hall')).toBe('Huichun Hall');
+  });
+
+  it('should collapse un-spaced double-escaped nbsp (&amp;nbsp;)', () => {
+    expect(normalizeSpaces('Huichun&amp;nbsp;Hall')).toBe('Huichun Hall');
+  });
 });
 
 describe('normalizeContent', () => {

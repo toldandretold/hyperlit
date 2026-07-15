@@ -33,6 +33,9 @@ export function normalizeSpaces(html: any) {
   return html
     .replace(/<span class="Apple-converted-space">\s*&nbsp;\s*<\/span>/g, ' ')
     .replace(/<span class="Apple-converted-space">\s*<\/span>/g, ' ')
+    // Double-escaped / space-corrupted nbsp that arrives as visible text
+    // (source pages with a broken &nbsp; serialize to "&amp; nbsp;" on paste).
+    .replace(/&amp;\s*nbsp;/gi, ' ')
     .replace(/&nbsp;/g, ' ');
 }
 

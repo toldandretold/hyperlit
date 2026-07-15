@@ -15,6 +15,11 @@
         <tr><td style="padding:4px 12px 4px 0; color:#888;">Timestamp</td><td>{{ $timestamp ?? '' }}</td></tr>
     </table>
 
+    @if(!empty($comment))
+    <h3 style="color:#22c55e;">User comment</h3>
+    <div style="padding:12px; background:#1a1a1a; border-radius:6px; margin-bottom:20px; white-space:pre-wrap; word-break:break-word;">{{ $comment }}</div>
+    @endif
+
     @if(!empty($conversionSummary))
     <h3 style="color:#4EACAE;">Conversion Summary</h3>
     <table style="border-collapse:collapse; width:100%; margin-bottom:20px;">

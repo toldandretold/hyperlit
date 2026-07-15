@@ -133,7 +133,7 @@ function renderInitialState(toast: any, onUndo: any, cs: any) {
   reportBtn.textContent = 'Report Conversion Glitch';
   applyBtnStyle(reportBtn);
   reportBtn.addEventListener('click', () => {
-    sendGlitchReport(toast, onUndo, cs);
+    renderCommentState(toast, onUndo, cs);
   });
 
   btnRow.appendChild(undoBtn);
@@ -144,8 +144,61 @@ function renderInitialState(toast: any, onUndo: any, cs: any) {
   toast.appendChild(btnRow);
 }
 
+/* ── comment state: ask what went wrong, then send ────────── */
+function renderCommentState(toast: any, onUndo: any, cs: any) {
+  toast.innerHTML = '';
+
+  const label = document.createElement('span');
+  label.textContent = 'What went wrong? (optional)';
+  label.style.lineHeight = '1.4';
+
+  const textarea = document.createElement('textarea');
+  textarea.maxLength = 2000;
+  textarea.rows = 3;
+  textarea.placeholder = 'Describe the glitch — e.g. paragraphs merged, weird characters, missing footnotes…';
+  Object.assign(textarea.style, {
+    width: '100%',
+    boxSizing: 'border-box',
+    background: 'rgba(0,0,0,0.25)',
+    color: '#e0e0e0',
+    border: '1px solid rgba(255,255,255,0.2)',
+    borderRadius: '4px',
+    padding: '8px',
+    fontSize: '13px',
+    fontFamily: 'inherit',
+    resize: 'vertical',
+  });
+
+  const btnRow = document.createElement('div');
+  Object.assign(btnRow.style, { display: 'flex', gap: '8px', flexWrap: 'wrap' });
+
+  // Send report
+  const sendBtn = document.createElement('button');
+  sendBtn.textContent = 'Send report';
+  applyBtnStyle(sendBtn);
+  sendBtn.addEventListener('click', () => {
+    sendGlitchReport(toast, onUndo, cs, textarea.value.trim());
+  });
+
+  // Back
+  const backBtn = document.createElement('button');
+  backBtn.textContent = 'Back';
+  applyBtnStyle(backBtn);
+  backBtn.addEventListener('click', () => {
+    renderInitialState(toast, onUndo, cs);
+  });
+
+  btnRow.appendChild(sendBtn);
+  btnRow.appendChild(backBtn);
+
+  toast.appendChild(label);
+  toast.appendChild(textarea);
+  toast.appendChild(btnRow);
+  textarea.focus();
+}
+
 /* ── send glitch report, then show thank-you state ────────── */
-async function sendGlitchReport(toast: any, onUndo: any, cs: any) {
+async function sendGlitchReport(toast: any, onUndo: any, cs: any, comment = '') {
   // Disable buttons while sending
   toast.querySelectorAll('button').forEach((b: any) => { b.disabled = true; b.style.opacity = '0.5'; });
 
@@ -154,6 +207,7 @@ async function sendGlitchReport(toast: any, onUndo: any, cs: any) {
   const payload = {
     bookId: cs.bookId || 'unknown',
     conversionSummary: cleanSummary,
+    comment: comment || '',
     recentLogs: getRecentLogs(),
     pasteLogs: getPasteLogs(),
     pastedContent: pastedContent ?? '',

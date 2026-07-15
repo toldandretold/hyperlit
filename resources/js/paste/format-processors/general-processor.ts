@@ -268,10 +268,10 @@ export class GeneralProcessor extends BaseFormatProcessor {
       const extracted: any[] = [];
       const html = p.innerHTML;
 
-      // Check if paragraph contains <br> tags
-      if (/<br\s*\/?>/i.test(html)) {
+      // Check if paragraph contains <br> tags (incl. attribute-bearing, e.g. DeepL <br data-dl-uid="1">)
+      if (/<br\b[^>]*>/i.test(html)) {
         // Split on <br> tags
-        const parts = html.split(/<br\s*\/?>/i).map((s: any) => s.trim()).filter((s: any) => s);
+        const parts = html.split(/<br\b[^>]*>/i).map((s: any) => s.trim()).filter((s: any) => s);
 
         // Check if multiple parts look like separate references
         const refLikeParts = parts.filter((part: any) => {

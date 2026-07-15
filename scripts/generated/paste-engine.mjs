@@ -5,7 +5,7 @@ function normalizeQuotes(text) {
 }
 function normalizeSpaces(html) {
   if (!html) return html;
-  return html.replace(/<span class="Apple-converted-space">\s*&nbsp;\s*<\/span>/g, " ").replace(/<span class="Apple-converted-space">\s*<\/span>/g, " ").replace(/&nbsp;/g, " ");
+  return html.replace(/<span class="Apple-converted-space">\s*&nbsp;\s*<\/span>/g, " ").replace(/<span class="Apple-converted-space">\s*<\/span>/g, " ").replace(/&amp;\s*nbsp;/gi, " ").replace(/&nbsp;/g, " ");
 }
 function normalizeContent(text, isHtml = false) {
   if (!text) return text;
@@ -1245,8 +1245,8 @@ var GeneralProcessor = class extends BaseFormatProcessor {
     const extractRefsFromParagraph = (p, isInRefSection2) => {
       const extracted = [];
       const html = p.innerHTML;
-      if (/<br\s*\/?>/i.test(html)) {
-        const parts = html.split(/<br\s*\/?>/i).map((s) => s.trim()).filter((s) => s);
+      if (/<br\b[^>]*>/i.test(html)) {
+        const parts = html.split(/<br\b[^>]*>/i).map((s) => s.trim()).filter((s) => s);
         const refLikeParts = parts.filter((part) => {
           const temp = document.createElement("div");
           temp.innerHTML = part;
