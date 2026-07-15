@@ -16,7 +16,11 @@ use Illuminate\Support\Facades\DB;
  *                        human by construction, always trustworthy
  *   citation_verified  — bibliography rows whose canonical match the author
  *                        confirmed (reference_verified_at)
- *   citation_auto      — canonically RESOLVED but unconfirmed matches
+ *   citation_auto      — canonically RESOLVED but unconfirmed matches, from
+ *                        BOTH bibliography rows AND footnote-borne citations
+ *                        (footnotes.foundation_source → canonical; academic
+ *                        footnote-cited books keep their references here, not
+ *                        in bibliography)
  *
  * A node is a WORK: a canonical_source (merged with its held versions) or an
  * independent library record with no canonical identity. Anything with no
@@ -101,6 +105,28 @@ class DocuverseController extends Controller
                 $target = $r->canonical_source_id
                     ?: ($r->stub_canonical ?: ($r->foundation_source && $bookRows->has($r->foundation_source) ? $r->foundation_source : null));
                 $addEdge($nodeIdForBook($this->rootBook($r->book)), $target, $kind);
+            }
+
+            // Footnote-borne citations — academic footnote texts (Publishing
+            // Beyond the Market et al.) carry their references here, NOT in
+            // `bibliography`, resolving to a canonical via the foundation_source
+            // stub exactly like the bib branch. Omitting this made footnote-cited
+            // books show ZERO citation edges (only hypercites) despite a full
+            // harvest. Footnotes carry no verified marker → always auto; this
+            // mirrors HarvestEligibility::reachedCanonicalIdsSubquery so the
+            // docuverse and the harvest agree on what "connected" means.
+            if ($wantAuto) {
+                $fn = DB::table('footnotes as f')
+                    ->leftJoin('library as l', 'l.book', '=', 'f.foundation_source')
+                    ->where('f.is_citation', true)
+                    ->whereNotNull('f.foundation_source')
+                    ->get(['f.book', 'f.foundation_source', 'l.canonical_source_id as stub_canonical']);
+
+                foreach ($fn as $r) {
+                    $target = $r->stub_canonical
+                        ?: ($bookRows->has($r->foundation_source) ? $r->foundation_source : null);
+                    $addEdge($nodeIdForBook($this->rootBook($r->book)), $target, 'citation_auto');
+                }
             }
         }
 

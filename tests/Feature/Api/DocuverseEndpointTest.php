@@ -43,6 +43,18 @@ function dvSeedBib(string $book, array $opts = []): void
     ], $opts));
 }
 
+function dvSeedFootnote(string $book, array $opts = []): void
+{
+    dvDb()->table('footnotes')->insert(array_merge([
+        'book' => $book,
+        'footnoteId' => 'dvfn' . Str::random(8),
+        'content' => 'DvTest footnote citation',
+        'is_citation' => true,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ], $opts));
+}
+
 function dvSeedHypercite(string $book, array $citedIn): void
 {
     $id = 'hypercite_dv' . Str::random(8);
@@ -60,6 +72,7 @@ function dvSeedHypercite(string $book, array $citedIn): void
 afterEach(function () {
     dvDb()->table('hypercites')->where('hyperciteId', 'like', 'hypercite\_dv%')->delete();
     dvDb()->table('bibliography')->where('referenceId', 'like', 'dv%')->delete();
+    dvDb()->table('footnotes')->where('footnoteId', 'like', 'dvfn%')->delete();
     dvDb()->table('canonical_source')->where('openalex_id', 'like', 'W\_DVTEST\_%')->delete();
     $this->cleanupApiFixtures();
 });
@@ -105,6 +118,41 @@ test('citation layers split on verification, and the layer param filters them', 
     $resp = $this->getJson('/api/docuverse/data?layers=citation_verified,citation_auto')->assertOk();
     $kinds = collect($resp->json('edges'))->pluck('kind')->sort()->values()->all();
     expect($kinds)->toBe(['citation_auto', 'citation_verified']);
+});
+
+test('footnote-borne citations become auto edges (academic footnote-cited books)', function () {
+    // A book whose references live in FOOTNOTES, not `bibliography` — the
+    // footnote resolves to a canonical via its foundation_source stub. This is
+    // the class that showed ZERO citations in the docuverse (only hypercites)
+    // despite a full harvest, because the endpoint only read `bibliography`.
+    $owner = $this->loginUser();
+    $a = $this->makeBook($owner, ['visibility' => 'public', 'title' => 'Dv Footnote Citer']);
+    $stub = $this->makeBook($owner, ['visibility' => 'public', 'title' => 'Dv Footnote Stub']);
+    $c = dvSeedCanonical(['title' => 'Dv Footnote Cited Work']);
+    dvDb()->table('library')->where('book', $stub)->update(['canonical_source_id' => $c]);
+    dvSeedFootnote($a, ['foundation_source' => $stub]);
+
+    // Auto layer surfaces the footnote citation as an edge a → canonical.
+    $resp = $this->getJson('/api/docuverse/data?layers=citation_auto')->assertOk();
+    $edges = collect($resp->json('edges'));
+    expect($edges)->toHaveCount(1);
+    expect($edges[0])->toMatchArray(['source' => $a, 'target' => $c, 'kind' => 'citation_auto']);
+
+    // Footnotes carry no verified marker → invisible under verified-only.
+    $verified = $this->getJson('/api/docuverse/data?layers=citation_verified')->assertOk();
+    expect($verified->json('edges'))->toBe([]);
+});
+
+test('a footnote citation with is_citation false is not an edge', function () {
+    $owner = $this->loginUser();
+    $a = $this->makeBook($owner, ['visibility' => 'public']);
+    $stub = $this->makeBook($owner, ['visibility' => 'public']);
+    $c = dvSeedCanonical();
+    dvDb()->table('library')->where('book', $stub)->update(['canonical_source_id' => $c]);
+    dvSeedFootnote($a, ['foundation_source' => $stub, 'is_citation' => false]);
+
+    $resp = $this->getJson('/api/docuverse/data?layers=citation_auto')->assertOk();
+    expect($resp->json('edges'))->toBe([]);
 });
 
 test('default layers are hypercite + verified citations (auto stays hidden)', function () {

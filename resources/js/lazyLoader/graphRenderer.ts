@@ -1,8 +1,13 @@
 /**
- * Render the harvest knowledge-network fork tree from the data table the
- * yield report stores (YieldReportBook::networkTableInner — the sanitizer
- * blocks <svg> in node content, so the SVG is built here at render time).
- * Same contract as chartRenderer: find marker tables, replace with SVG.
+ * Render the harvest knowledge-network tree from the data table the yield
+ * report stores (YieldReportBook::networkTableInner — the sanitizer blocks
+ * <svg> in node content, so the SVG is built here at render time). Same
+ * contract as chartRenderer: find marker tables, replace with SVG.
+ *
+ * The tree grows LEFT → RIGHT: depth is a column, and a work's imported
+ * sources stack DOWNWARD in the next column (a book with 90 sources is one
+ * tall column). Vertical overflow just scrolls; the old horizontal fan
+ * squashed every leaf into a fixed 900px and became an unreadable dot-sea.
  *
  * COLUMN ORDER IS THE BACKEND CONTRACT (keep in sync with YieldReportBook):
  * id | parent | depth | status | title | year | book | cited_by | link |
@@ -44,9 +49,15 @@ const STATUS_COLORS: Record<string, string> = {
 };
 const FAIL_COLOR = '#e74c3c';
 
-const COLUMN_WIDTH = 44;
-const ROW_HEIGHT = 78;
-const LABEL_MAX_NODES = 30;
+// The tree grows LEFT → RIGHT: each depth level is a vertical COLUMN, and a
+// work's imported sources stack DOWNWARD in the next column. A book with 90
+// sources is one tall column (the report just scrolls — vertical overflow is
+// fine; the old horizontal fan squashed 90 dots into 900px and was unreadable).
+const COLUMN_WIDTH = 190; // horizontal gap between depth levels (room for a leaf's title)
+const NODE_GAP = 22; // vertical gap between stacked siblings / leaves
+const LABEL_MAX_NODES = 400; // above this, drop inline titles (DOM weight) — hover still works
+const LABEL_CHARS = 30; // inline title truncation
+const LABEL_ROOM = 150; // width reserved to the right for the last column's titles
 const PAD = 24;
 
 function parseRows(table: Element): { root: HarvestNode | null; nodes: HarvestNode[] } {
@@ -107,24 +118,25 @@ function buildTree(root: HarvestNode, nodes: HarvestNode[]): void {
 }
 
 /**
- * Layered tidy tree: leaves get sequential x slots, parents center over
- * their children, y = tree depth. No crossings by construction.
- * Returns the number of leaf slots used (the tree's width in columns).
+ * Layered tidy tree, rotated: depth → x column, leaves get sequential y slots
+ * (stacked downward), parents center vertically over their children. No
+ * crossings by construction. Returns the number of leaf slots used (the tree's
+ * HEIGHT in rows) — the tree grows downward, not rightward.
  */
 function layoutTree(root: HarvestNode): number {
   let nextSlot = 0;
   const place = (node: HarvestNode, depth: number): void => {
-    node.y = PAD + depth * ROW_HEIGHT;
+    node.x = PAD + depth * COLUMN_WIDTH;
     node.r = Math.min(12, 4 + 2 * Math.log10(1 + node.cited));
     if (node.children.length === 0) {
-      node.x = PAD + nextSlot * COLUMN_WIDTH;
+      node.y = PAD + nextSlot * NODE_GAP;
       nextSlot += 1;
       return;
     }
     node.children.forEach((c) => place(c, depth + 1));
     const first = node.children[0]!; // length checked above
     const last = node.children[node.children.length - 1]!;
-    node.x = (first.x + last.x) / 2;
+    node.y = (first.y + last.y) / 2;
   };
   place(root, 0);
   return nextSlot;
@@ -302,10 +314,14 @@ function attachHoverCard(svg: SVGSVGElement, byCircle: Map<Element, HarvestNode>
 }
 
 function buildForkTreeSvg(root: HarvestNode, nodes: HarvestNode[]): SVGSVGElement {
-  const slots = layoutTree(root);
-  const depthMax = Math.max(0, ...nodes.map((n) => n.y));
-  const width = Math.max(slots - 1, 0) * COLUMN_WIDTH + PAD * 2;
-  const height = depthMax + ROW_HEIGHT / 2 + PAD;
+  layoutTree(root);
+  const all = [root, ...nodes];
+  const showLabels = all.length <= LABEL_MAX_NODES;
+
+  const depthMaxX = Math.max(0, ...all.map((n) => n.x));
+  const yMax = Math.max(0, ...all.map((n) => n.y));
+  const width = depthMaxX + (showLabels ? LABEL_ROOM : PAD) + PAD;
+  const height = yMax + PAD;
 
   const svg = svgEl('svg', {
     viewBox: `0 0 ${width} ${height}`,
@@ -314,21 +330,20 @@ function buildForkTreeSvg(root: HarvestNode, nodes: HarvestNode[]): SVGSVGElemen
   });
   svg.style.display = 'block';
   svg.style.width = '100%';
-  svg.style.maxWidth = `${Math.min(width * 1.5, 900)}px`;
+  svg.style.maxWidth = `${Math.min(width, 960)}px`;
   svg.style.height = 'auto';
   svg.style.margin = '0.5em auto';
 
-  const all = [root, ...nodes];
-  const showLabels = all.length <= LABEL_MAX_NODES;
   const byCircle = new Map<Element, HarvestNode>(); // hover-card lookup
 
-  // Edges first (under the nodes): parent-bottom → child-top beziers.
+  // Edges first (under the nodes): parent-right → child-left beziers, so the
+  // network reads as a left-to-right cascade.
   const walkEdges = (parent: HarvestNode): void => {
     parent.children.forEach((child) => {
-      const midY = (parent.y + child.y) / 2;
+      const midX = (parent.x + child.x) / 2;
       svg.appendChild(
         svgEl('path', {
-          d: `M ${parent.x} ${parent.y + parent.r} C ${parent.x} ${midY}, ${child.x} ${midY}, ${child.x} ${child.y - child.r}`,
+          d: `M ${parent.x + parent.r} ${parent.y} C ${midX} ${parent.y}, ${midX} ${child.y}, ${child.x - child.r} ${child.y}`,
           fill: 'none',
           stroke: 'var(--color-text-faint, #666)',
           'stroke-width': '1',
@@ -367,18 +382,24 @@ function buildForkTreeSvg(root: HarvestNode, nodes: HarvestNode[]): SVGSVGElemen
     }
     svg.appendChild(mount);
 
+    // Titles read inline (no click needed): leaves label to the RIGHT (their
+    // column has open space there); the root labels ABOVE (nothing to its
+    // left). Internal nodes are covered by their children's column + hover.
     if (showLabels && node.title) {
-      const label = svgEl('text', {
-        x: String(node.x),
-        y: String(node.y + node.r + 12),
-        'text-anchor': 'middle',
-        fill: 'var(--color-text, #e0e0e0)',
-        'font-size': '9',
-        'font-family': 'sans-serif',
-      });
-      label.textContent =
-        node.title.length > 18 ? node.title.slice(0, 17) + '…' : node.title;
-      svg.appendChild(label);
+      const isLeaf = node.children.length === 0;
+      if (isLeaf || node === root) {
+        const label = svgEl('text', {
+          x: String(isLeaf ? node.x + node.r + 6 : node.x - node.r),
+          y: String(isLeaf ? node.y + 3 : node.y - node.r - 5),
+          'text-anchor': 'start',
+          fill: 'var(--color-text, #e0e0e0)',
+          'font-size': isLeaf ? '9' : '11',
+          'font-family': 'sans-serif',
+        });
+        label.textContent =
+          node.title.length > LABEL_CHARS ? node.title.slice(0, LABEL_CHARS - 1) + '…' : node.title;
+        svg.appendChild(label);
+      }
     }
   });
 

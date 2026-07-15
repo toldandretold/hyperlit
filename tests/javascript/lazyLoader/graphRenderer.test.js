@@ -79,11 +79,11 @@ describe('renderHarvestNetworks', () => {
     const one = byTitle('Level One');
     const two = byTitle('Level Two');
 
-    // Layered depth: each level one row lower.
-    expect(Number(one.getAttribute('cy'))).toBeGreaterThan(Number(root.getAttribute('cy')));
-    expect(Number(two.getAttribute('cy'))).toBeGreaterThan(Number(one.getAttribute('cy')));
-    // A single chain: parent centered over its only child → same x.
-    expect(two.getAttribute('cx')).toBe(one.getAttribute('cx'));
+    // Rotated layout: each depth level is one COLUMN to the right.
+    expect(Number(one.getAttribute('cx'))).toBeGreaterThan(Number(root.getAttribute('cx')));
+    expect(Number(two.getAttribute('cx'))).toBeGreaterThan(Number(one.getAttribute('cx')));
+    // A single chain: parent centered over its only child → same y.
+    expect(two.getAttribute('cy')).toBe(one.getAttribute('cy'));
   });
 
   it('reparents an unresolvable parent to the root and tolerates legacy rows', () => {
