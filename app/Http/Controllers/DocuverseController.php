@@ -55,9 +55,12 @@ class DocuverseController extends Controller
 
     public function data(Request $request): JsonResponse
     {
+        // All three layers default ON. Verification is a rare manual act —
+        // near-every citation is auto-matched, so a default that excluded
+        // citation_auto rendered NO citations at all on a default view.
         $layers = array_values(array_intersect(
             self::LAYERS,
-            array_filter(explode(',', (string) $request->query('layers', 'hypercite,citation_verified')))
+            array_filter(explode(',', (string) $request->query('layers', 'hypercite,citation_verified,citation_auto')))
         ));
         if ($layers === []) {
             return response()->json(['nodes' => [], 'edges' => [], 'layers' => []]);

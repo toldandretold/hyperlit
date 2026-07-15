@@ -42,10 +42,12 @@
         <div id="dv-layers-body">
             <label><input type="checkbox" value="hypercite" checked>
                 <span class="swatch" style="background:linear-gradient(to right, var(--hyperlit-pink), var(--hyperlit-orange), var(--hyperlit-aqua))"></span>Hypercites</label>
-            <label><input type="checkbox" value="citation_verified" checked>
-                <span class="swatch" style="background:var(--dv-edge-verified)"></span>Citations &mdash; verified</label>
-            <label><input type="checkbox" value="citation_auto">
-                <span class="swatch" style="background:var(--dv-edge-auto)"></span>Citations &mdash; auto-matched</label>
+            {{-- ONE citations layer: the API's verified/auto split is not a
+                 user-facing distinction (verification is a rare manual act —
+                 splitting them made citations look absent). The compound value
+                 requests both kinds; main.ts splits on ','. --}}
+            <label><input type="checkbox" value="citation_verified,citation_auto" checked>
+                <span class="swatch" style="background:var(--dv-edge-citation)"></span>Citations</label>
         </div>
     </fieldset>
 

@@ -233,9 +233,13 @@ export function startScene(stage: HTMLElement, payload: DocuversePayload): () =>
       new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9 }),
     ));
   }
+  // Both citation kinds draw identically — the verified/auto split is an API
+  // detail, not a visual one (the old faint-grey auto edge was invisible on
+  // sepia, and users read "citation" as one thing).
+  const citationStyle = { color: cssColor('--dv-edge-citation', '#4EACAE'), opacity: 0.55 };
   const FLAT_STYLE: Record<string, { color: THREE.Color; opacity: number }> = {
-    citation_verified: { color: cssColor('--dv-edge-verified', '#4EACAE'), opacity: 0.55 },
-    citation_auto: { color: cssColor('--dv-edge-auto', '#666666'), opacity: 0.3 },
+    citation_verified: citationStyle,
+    citation_auto: citationStyle,
   };
   flat.forEach((verts, kind) => {
     const style = FLAT_STYLE[kind] ?? { color: textColor, opacity: 0.4 };

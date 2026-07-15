@@ -155,15 +155,20 @@ test('a footnote citation with is_citation false is not an edge', function () {
     expect($resp->json('edges'))->toBe([]);
 });
 
-test('default layers are hypercite + verified citations (auto stays hidden)', function () {
+test('default layers are ALL THREE — auto-matched citations render out of the box', function () {
+    // Verification is a rare manual act, so near-every citation is
+    // auto-matched. A default that excluded citation_auto meant the default
+    // view showed NO citations at all, ever — the map looked broken.
     $owner = $this->loginUser();
     $a = $this->makeBook($owner, ['visibility' => 'public']);
-    dvSeedBib($a, ['canonical_source_id' => dvSeedCanonical()]); // auto-matched only
+    $c = dvSeedCanonical();
+    dvSeedBib($a, ['canonical_source_id' => $c]); // auto-matched only
 
     $resp = $this->getJson('/api/docuverse/data')->assertOk();
-    expect($resp->json('layers'))->toBe(['hypercite', 'citation_verified']);
-    expect($resp->json('edges'))->toBe([]);
-    expect($resp->json('nodes'))->toBe([]); // connected-only: nothing qualifies
+    expect($resp->json('layers'))->toBe(['hypercite', 'citation_verified', 'citation_auto']);
+    $edges = collect($resp->json('edges'));
+    expect($edges)->toHaveCount(1);
+    expect($edges[0])->toMatchArray(['source' => $a, 'target' => $c, 'kind' => 'citation_auto']);
 });
 
 test('a held canonical is ONE sphere carrying ALL its visible versions', function () {

@@ -79,17 +79,19 @@ function wireThemePicker(): void {
 // ?layers=… presets the checkboxes (the yield report links here with all
 // layers on — a fresh harvest's links are auto-matched citations, so the
 // default hypercite+verified view would land empty).
+// A checkbox may carry a COMPOUND value ("citation_verified,citation_auto" —
+// the single Citations toggle requests both API kinds), so always split on ','.
 const presetLayers = new URLSearchParams(window.location.search).get('layers');
 if (presetLayers) {
   const wanted = new Set(presetLayers.split(','));
   document.querySelectorAll<HTMLInputElement>('.dv-layers input[type="checkbox"]').forEach((el) => {
-    el.checked = wanted.has(el.value);
+    el.checked = el.value.split(',').some((v) => wanted.has(v));
   });
 }
 
 function selectedLayers(): string[] {
   return [...document.querySelectorAll<HTMLInputElement>('.dv-layers input[type="checkbox"]:checked')]
-    .map((el) => el.value);
+    .flatMap((el) => el.value.split(','));
 }
 
 function setStatus(text: string | null): void {

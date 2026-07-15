@@ -15,8 +15,10 @@ body {
   --dv-node-held: var(--hyperlit-aqua);      /* canonical with a readable held version */
   --dv-node-book: var(--hyperlit-pink);      /* independent library record */
   --dv-node-canonical: var(--hyperlit-orange); /* citation identity — not yet held */
-  --dv-edge-verified: var(--hyperlit-aqua);
-  --dv-edge-auto: var(--color-text-faint, #666);
+  /* One citation colour — verified vs auto is not a user-facing distinction.
+     Brand aqua reads on all three themes (the old faint-grey auto edge was
+     invisible on sepia). */
+  --dv-edge-citation: var(--hyperlit-aqua);
   /* Hypercite edges render the brand spectrum (pink → orange → aqua → pink),
      the same ramp as the reader's hypercite underline — stops live in scene.ts. */
 }
