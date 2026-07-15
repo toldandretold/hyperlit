@@ -17,7 +17,9 @@ interface InteractionDeps {
 
 const KIND_LABELS: Record<DocNode['kind'], string> = {
   held: 'Canonical source — verified on an external database',
-  book: 'Source — original to the hyperlit docuverse',
+  // The pink bucket = ANY readable library row with no canonical link: user
+  // originals, unlinked uploads, old web-fetched text. Don't claim more.
+  book: 'Source — in hyperlit, not linked to an external record',
   canonical: 'Citation — no source material yet',
 };
 

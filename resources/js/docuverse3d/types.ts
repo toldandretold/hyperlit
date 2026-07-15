@@ -11,7 +11,8 @@ export interface DocNode {
    * held      = CANONICAL SOURCE: verified on an external database, with
    *             source material in the library (one sphere even when many
    *             versions exist — `versions` lists them all)
-   * book      = SOURCE: original to the hyperlit docuverse (no canonical id)
+   * book      = SOURCE: readable in hyperlit, no canonical link (user
+   *             originals, unlinked uploads, legacy web-fetched text)
    * canonical = CITATION: verified citation with no source material yet
    */
   kind: 'book' | 'held' | 'canonical';

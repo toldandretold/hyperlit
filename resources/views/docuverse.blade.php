@@ -58,7 +58,7 @@
                 <div><span class="dot" style="background:var(--color-text)"></span>This book</div>
             @endif
             <div><span class="dot" style="background:var(--dv-node-held)"></span>Canonical source <span class="dv-legend-sub">&mdash; verified on an external database</span></div>
-            <div><span class="dot" style="background:var(--dv-node-book)"></span>Source <span class="dv-legend-sub">&mdash; original to the hyperlit docuverse</span></div>
+            <div><span class="dot" style="background:var(--dv-node-book)"></span>Source <span class="dv-legend-sub">&mdash; in hyperlit, not linked to an external record</span></div>
             <div><span class="dot" style="background:var(--dv-node-canonical)"></span>Citation <span class="dv-legend-sub">&mdash; no source material yet</span></div>
             <div class="dv-axis-note">&#8592; x: year &middot; y: connectedness &#8594;</div>
         </div>
