@@ -5,7 +5,7 @@
  * link — YieldReportBook::networkTableInner); this renderer swaps it for a
  * client-built SVG. These tests pin the contract from the table side.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderHarvestNetworks } from '../../../resources/js/lazyLoader/graphRenderer';
 
 const ROOT = 'book_root_1';
@@ -223,6 +223,51 @@ describe('renderHarvestNetworks', () => {
     circle.dispatchEvent(click);
 
     expect(click.defaultPrevented).toBe(false); // anchor navigation untouched
+    container.remove();
+  });
+
+  it('renders an action row: expand button + 3D link (both content-tabindex -1)', () => {
+    const container = tableWith([
+      rootRow,
+      row(['c1', ROOT, 1, 'assigned', 'Some Work', 2001, 'book_held_1', 5, '']),
+    ]);
+    renderHarvestNetworks(container);
+
+    const expand = [...container.querySelectorAll('button')]
+      .find((b) => b.textContent.includes('Expand diagram'));
+    expect(expand).toBeDefined();
+    expect(expand.getAttribute('tabindex')).toBe('-1');
+
+    const threeD = [...container.querySelectorAll('a')]
+      .find((a) => a.textContent.includes('See in 3D network'));
+    expect(threeD).toBeDefined();
+    expect(threeD.getAttribute('href'))
+      .toBe(`/3d/${ROOT}?layers=hypercite,citation_verified,citation_auto`);
+    expect(threeD.getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('clicking Expand opens the figure viewer with the network SVG', async () => {
+    const container = tableWith([
+      rootRow,
+      row(['c1', ROOT, 1, 'assigned', 'Some Work', 2001, 'book_held_1', 5, '']),
+    ]);
+    document.body.appendChild(container);
+    renderHarvestNetworks(container);
+
+    [...container.querySelectorAll('button')]
+      .find((b) => b.textContent.includes('Expand diagram'))
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    // The viewer loads via dynamic import — wait for it to land.
+    await vi.waitFor(() => {
+      expect(document.getElementById('figure-viewer-overlay')).not.toBeNull();
+    });
+
+    const view = document.getElementById('figure-viewer-overlay');
+    expect(view.querySelector('svg')).not.toBeNull();
+    expect(view.textContent).toContain('Knowledge network — Root Title');
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(document.getElementById('figure-viewer-overlay')).toBeNull();
     container.remove();
   });
 

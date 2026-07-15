@@ -407,6 +407,64 @@ function buildForkTreeSvg(root: HarvestNode, nodes: HarvestNode[]): SVGSVGElemen
   return svg;
 }
 
+/** Button-styled action (real button or link) for the row under the network SVG. */
+function networkAction(label: string, ariaLabel: string, href?: string): HTMLElement {
+  const node = document.createElement(href ? 'a' : 'button');
+  Object.assign(node.style, {
+    font: '0.85rem/1 sans-serif',
+    padding: '0.5em 0.9em',
+    border: '1px solid var(--color-text-faint, #666)',
+    borderRadius: '6px',
+    background: 'transparent',
+    color: 'var(--color-text, #e0e0e0)',
+    textDecoration: 'none',
+    cursor: 'pointer',
+  } satisfies Partial<CSSStyleDeclaration>);
+  node.textContent = label;
+  node.setAttribute('aria-label', ariaLabel);
+  // Content keyboard model: Tab never enters content (same as the SVG anchors).
+  node.setAttribute('tabindex', '-1');
+  if (node instanceof HTMLAnchorElement && href) node.href = href;
+  if (node instanceof HTMLButtonElement) node.type = 'button';
+  return node;
+}
+
+/** The SVG + its action row (expand / 3D), swapped in for the marker table. */
+function networkFigure(root: HarvestNode, nodes: HarvestNode[]): HTMLElement {
+  const wrap = document.createElement('div');
+  const svg = buildForkTreeSvg(root, nodes);
+  wrap.appendChild(svg);
+
+  const actions = document.createElement('div');
+  Object.assign(actions.style, {
+    display: 'flex',
+    gap: '10px',
+    justifyContent: 'center',
+    margin: '0.25em 0 0.75em',
+  } satisfies Partial<CSSStyleDeclaration>);
+
+  const expand = networkAction('⤢ Expand diagram', 'Expand the knowledge-network diagram');
+  expand.addEventListener('click', () => {
+    // Lazy: the viewer only loads if someone actually expands a figure.
+    void import('../utilities/figureViewer').then(({ openFigureViewer }) => {
+      openFigureViewer(svg, {
+        title: `Knowledge network — ${root.title}`,
+        downloadName: `knowledge-network-${root.id}.svg`,
+      });
+    });
+  });
+  actions.appendChild(expand);
+
+  actions.appendChild(networkAction(
+    'See in 3D network →',
+    'Open this knowledge network in the 3D docuverse',
+    `/3d/${encodeURIComponent(root.id)}?layers=hypercite,citation_verified,citation_auto`,
+  ));
+
+  wrap.appendChild(actions);
+  return wrap;
+}
+
 /** Find harvest-network tables in a rendered chunk and swap each for its SVG. */
 export function renderHarvestNetworks(container: Element): void {
   const tables = container.querySelectorAll('table[data-chart="harvest-network"]');
@@ -419,6 +477,6 @@ export function renderHarvestNetworks(container: Element): void {
     }
     buildTree(root, nodes);
     verbose.content(`rendering harvest network: ${nodes.length + 1} nodes`, 'graphRenderer');
-    table.replaceWith(buildForkTreeSvg(root, nodes));
+    table.replaceWith(networkFigure(root, nodes));
   });
 }
