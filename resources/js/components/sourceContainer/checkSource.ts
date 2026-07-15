@@ -165,11 +165,23 @@ function checkButtonHtml(): string {
     </div>`;
 }
 
+/**
+ * Ingest pseudo-librarians — automated writers, NOT users. LibraryStubWriter
+ * stamps `creator = ucfirst(source)` on citation stubs ('Openlibrary',
+ * 'Openalex', …); linking those to /u/<name> lands on a user page that does
+ * not exist. They get the "added automatically from <provider>" treatment,
+ * linking to the work's page on the provider's own site.
+ */
+const AUTOMATED_LIBRARIANS = new Set([
+  'canonicalizer_v1', 'openalex', 'openlibrary', 'open_library',
+  'semantic_scholar', 'canonical', 'unknown',
+]);
+
 export function librarianHtml(record: LibraryRecord): string {
   const creator = record.creator || null;
   let inner: string;
 
-  if (creator === 'canonicalizer_v1') {
+  if (creator && AUTOMATED_LIBRARIANS.has(creator.toLowerCase())) {
     const link = externalSourceLink(record);
     const provider = link?.label || providerFromFoundation(record.canonical?.foundation_source || record.foundation_source) || 'an automated process';
     inner = link

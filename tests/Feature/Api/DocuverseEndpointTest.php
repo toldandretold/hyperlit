@@ -199,6 +199,52 @@ test('a held canonical is ONE sphere carrying ALL its visible versions', functio
     expect(collect($node['versions']))->toHaveCount(2);
 });
 
+test('an ingest stub is a citation identity, never a readable version (empty-book bug)', function () {
+    $owner = $this->loginUser();
+    $a = $this->makeBook($owner, ['visibility' => 'public']);
+    $c = dvSeedCanonical(['title' => 'Dv Stub Backed Work']);
+    // The Open Library-style stub: metadata-only library row, creator stamped
+    // by LibraryStubWriter, linked to the canonical — but NO content.
+    $stub = $this->makeBook(null, [
+        'visibility' => 'public', 'title' => 'Dv OL Stub',
+        'creator' => 'Openlibrary', 'canonical_source_id' => $c,
+    ]);
+    dvSeedBib($a, ['canonical_source_id' => $c]);
+
+    $resp = $this->getJson('/api/docuverse/data?layers=citation_auto')->assertOk();
+    $node = collect($resp->json('nodes'))->firstWhere('id', $c);
+    // The stub must not make the canonical "held": clicking through would
+    // open an empty book. It stays an orange citation identity.
+    expect($node['kind'])->toBe('canonical');
+    expect($node['book'])->toBeNull();
+    expect($node['versions'])->toBe([]);
+
+    // A REAL version alongside the stub: held again, stub still not listed.
+    $real = $this->makeBook($owner, ['visibility' => 'public', 'title' => 'Dv Real Version']);
+    dvDb()->table('library')->where('book', $real)->update(['canonical_source_id' => $c]);
+    $resp = $this->getJson('/api/docuverse/data?layers=citation_auto')->assertOk();
+    $node = collect($resp->json('nodes'))->firstWhere('id', $c);
+    expect($node['kind'])->toBe('held');
+    expect($node['book'])->toBe($real);
+    expect(collect($node['versions'])->pluck('book'))->not->toContain($stub);
+});
+
+test('a stub cited directly (no canonical) renders as a citation identity, not an openable book', function () {
+    $owner = $this->loginUser();
+    $a = $this->makeBook($owner, ['visibility' => 'public']);
+    // foundation_source stub with NO canonical link: the stub book itself is
+    // the edge target.
+    $stub = $this->makeBook(null, [
+        'visibility' => 'public', 'title' => 'Dv Unlinked Stub', 'creator' => 'Openalex',
+    ]);
+    dvSeedBib($a, ['foundation_source' => $stub]);
+
+    $resp = $this->getJson('/api/docuverse/data?layers=citation_auto')->assertOk();
+    $node = collect($resp->json('nodes'))->firstWhere('id', $stub);
+    expect($node['kind'])->toBe('canonical');
+    expect($node['book'])->toBeNull();
+});
+
 test('visibility: a stranger and a guest never see edges into a private book', function () {
     $owner = $this->loginUser();
     $a = $this->makeBook($owner, ['visibility' => 'public']);

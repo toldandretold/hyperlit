@@ -83,6 +83,25 @@ describe('librarianHtml', () => {
     expect(librarianHtml({ book: 'b', creator: null })).toContain('Uploaded anonymously');
   });
 
+  it('ingest pseudo-librarians (Openlibrary/OpenAlex stubs) link to the provider, never /u/<name>', () => {
+    // LibraryStubWriter stamps creator = ucfirst(source) on citation stubs;
+    // /u/Openlibrary is a user page that does not exist.
+    const ol = librarianHtml({ book: 'b', creator: 'Openlibrary', open_library_key: '/works/OL2647694W' });
+    expect(ol).toContain('Added automatically from');
+    expect(ol).toContain('https://openlibrary.org/works/OL2647694W');
+    expect(ol).toContain('Open Library');
+    expect(ol).not.toContain('/u/Openlibrary');
+
+    const oa = librarianHtml({ book: 'b', creator: 'Openalex', canonical: { id: 'c', openalex_id: 'W9' } });
+    expect(oa).toContain('https://openalex.org/W9');
+    expect(oa).not.toContain('/u/Openalex');
+
+    // No resolvable provider link → generic text, still no profile link.
+    const bare = librarianHtml({ book: 'b', creator: 'Semantic_scholar' });
+    expect(bare).toContain('Added automatically from');
+    expect(bare).not.toContain('/u/');
+  });
+
   it('WebFetch is not a user — links to the original URL, never /u/WebFetch', () => {
     const html = librarianHtml({ book: 'b', creator: 'WebFetch', url: 'https://progressive.international/havana' });
     expect(html).toContain('Fetched automatically from');

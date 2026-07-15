@@ -80,8 +80,16 @@ class DocuverseController extends Controller
         // Sub-books (book_x/Fn…) are folded into their root work.
         $books = DB::table('library')
             ->whereRaw("book NOT LIKE '%/%'")
-            ->get(['book', 'title', 'author', 'year', 'canonical_source_id', 'cited_by_count', 'doi', 'oa_url']);
+            ->get(['book', 'title', 'author', 'year', 'canonical_source_id', 'cited_by_count', 'doi', 'oa_url', 'creator']);
         $bookRows = $books->keyBy('book');
+
+        // Ingest citation STUBS: metadata-only library rows written by
+        // LibraryStubWriter (creator = ucfirst(source)) with NO readable
+        // content. They must never present as a held/openable version — that
+        // sends the reader to an empty book. (Real books have a user creator,
+        // 'WebFetch', or 'canonicalizer_v1' — all content-bearing writers.)
+        $stubCreators = ['openalex', 'openlibrary', 'open_library', 'semantic_scholar', 'canonical', 'unknown'];
+        $isStub = fn (object $row): bool => in_array(strtolower((string) $row->creator), $stubCreators, true);
 
         // book id → graph node id (its canonical when linked, else itself).
         $nodeIdForBook = fn (string $book): ?string => ($row = $bookRows->get($book))
@@ -209,16 +217,22 @@ class DocuverseController extends Controller
         foreach (array_keys($nodeIds) as $id) {
             if ($bookRows->has($id)) {
                 $b = $bookRows->get($id);
+                // A stub is a citation identity, not a readable source: no
+                // open-in-hyperlit pointer, 'canonical' kind (orange, "no
+                // source material yet"), external link only.
+                $stub = $isStub($b);
                 $nodes[] = [
-                    'id' => $id, 'kind' => 'book',
+                    'id' => $id, 'kind' => $stub ? 'canonical' : 'book',
                     'title' => strip_tags($b->title ?? $id), 'author' => $b->author,
                     'year' => $b->year, 'cited_by_count' => $b->cited_by_count,
-                    'book' => $id,
+                    'book' => $stub ? null : $id,
                     'versions' => [],
                     'url' => $b->doi ? ('https://doi.org/' . $b->doi) : $b->oa_url,
                 ];
             } elseif ($c = $canonicals->get($id)) {
+                // Stub rows never count as readable versions.
                 $versions = ($versionsByCanonical->get($id) ?? collect())
+                    ->reject($isStub)
                     ->map(fn ($b) => ['book' => $b->book, 'title' => strip_tags($b->title ?? $b->book)])
                     ->values()->all();
                 $held = $versions[0]['book']
