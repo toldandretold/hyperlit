@@ -80,16 +80,16 @@ class DocuverseController extends Controller
         // Sub-books (book_x/Fn…) are folded into their root work.
         $books = DB::table('library')
             ->whereRaw("book NOT LIKE '%/%'")
-            ->get(['book', 'title', 'author', 'year', 'canonical_source_id', 'cited_by_count', 'doi', 'oa_url', 'creator']);
+            ->get(['book', 'title', 'author', 'year', 'canonical_source_id', 'cited_by_count', 'doi', 'oa_url', 'has_nodes']);
         $bookRows = $books->keyBy('book');
 
-        // Ingest citation STUBS: metadata-only library rows written by
-        // LibraryStubWriter (creator = ucfirst(source)) with NO readable
-        // content. They must never present as a held/openable version — that
-        // sends the reader to an empty book. (Real books have a user creator,
-        // 'WebFetch', or 'canonicalizer_v1' — all content-bearing writers.)
-        $stubCreators = ['openalex', 'openlibrary', 'open_library', 'semantic_scholar', 'canonical', 'unknown'];
-        $isStub = fn (object $row): bool => in_array(strtolower((string) $row->creator), $stubCreators, true);
+        // `has_nodes` is the system-wide "readable content exists" flag: every
+        // stub writer (LibraryStubWriter, OpenLibrary/SemanticScholar ingest,
+        // SystemVersionMinter, the yield report) inserts false and content
+        // flows flip it true once nodes land. A metadata-only stub must never
+        // present as a held/openable version — that sends the reader to an
+        // empty book (the Open Library / WebFetch stub bug).
+        $isStub = fn (object $row): bool => !$row->has_nodes;
 
         // book id → graph node id (its canonical when linked, else itself).
         $nodeIdForBook = fn (string $book): ?string => ($row = $bookRows->get($book))

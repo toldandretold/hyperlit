@@ -189,7 +189,11 @@ class WebFetchService
         try {
             $now = now()->toDateTimeString();
 
-            // Create library stub with has_nodes = true
+            // has_nodes starts FALSE — the system-wide convention is that it
+            // flips true only AFTER content lands (every other stub writer
+            // follows it). Stamping true up front left permanently-lying rows
+            // whenever createNodes produced nothing: metadata-only web stubs
+            // presenting as readable books (empty "Read in Hyperlit").
             $db->table('library')->insert([
                 'book' => $bookId,
                 'title' => $title ?: 'Web Source',
@@ -198,7 +202,7 @@ class WebFetchService
                 'abstract' => Str::limit($text, 2000, '...'),
                 'url' => $url,
                 'type' => 'web_source',
-                'has_nodes' => true,
+                'has_nodes' => false,
                 'creator' => 'WebFetch',
                 'visibility' => 'public',
                 'listed' => false,
@@ -212,9 +216,13 @@ class WebFetchService
                 'updated_at' => $now,
             ]);
 
-            // Chunk text into paragraphs and create nodes
+            // Chunk text into paragraphs and create nodes; only then does the
+            // row earn its has_nodes = true.
             $chunks = $this->chunkText($text);
-            $this->createNodes($db, $bookId, $chunks);
+            if ($chunks !== []) {
+                $this->createNodes($db, $bookId, $chunks);
+                $db->table('library')->where('book', $bookId)->update(['has_nodes' => true]);
+            }
 
             return $bookId;
         } catch (\Exception $e) {

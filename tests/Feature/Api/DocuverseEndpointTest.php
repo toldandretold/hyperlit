@@ -203,11 +203,12 @@ test('an ingest stub is a citation identity, never a readable version (empty-boo
     $owner = $this->loginUser();
     $a = $this->makeBook($owner, ['visibility' => 'public']);
     $c = dvSeedCanonical(['title' => 'Dv Stub Backed Work']);
-    // The Open Library-style stub: metadata-only library row, creator stamped
-    // by LibraryStubWriter, linked to the canonical — but NO content.
+    // The Open Library-style stub: metadata-only library row linked to the
+    // canonical — has_nodes=false is the system-wide "no content" marker
+    // every stub writer sets (content flows flip it true when nodes land).
     $stub = $this->makeBook(null, [
         'visibility' => 'public', 'title' => 'Dv OL Stub',
-        'creator' => 'Openlibrary', 'canonical_source_id' => $c,
+        'creator' => 'Openlibrary', 'canonical_source_id' => $c, 'has_nodes' => false,
     ]);
     dvSeedBib($a, ['canonical_source_id' => $c]);
 
@@ -232,10 +233,11 @@ test('an ingest stub is a citation identity, never a readable version (empty-boo
 test('a stub cited directly (no canonical) renders as a citation identity, not an openable book', function () {
     $owner = $this->loginUser();
     $a = $this->makeBook($owner, ['visibility' => 'public']);
-    // foundation_source stub with NO canonical link: the stub book itself is
-    // the edge target.
+    // foundation_source stub with NO canonical link (the WebFetch `web_…`
+    // shape): the stub book itself is the edge target.
     $stub = $this->makeBook(null, [
-        'visibility' => 'public', 'title' => 'Dv Unlinked Stub', 'creator' => 'Openalex',
+        'visibility' => 'public', 'title' => 'Dv Unlinked Stub',
+        'creator' => 'WebFetch', 'has_nodes' => false,
     ]);
     dvSeedBib($a, ['foundation_source' => $stub]);
 
