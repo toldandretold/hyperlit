@@ -58,6 +58,14 @@ function loadedChunkIdsSorted(instance: any): number[] {
 /**
  * Is the chunk div entirely above the scrollport top OR entirely below its bottom, by > margin?
  * `scrollableParent` is either `window` or a scrollable element (`.reader-content-wrapper`).
+ *
+ * PAGINATED MODE NOTE: this test is deliberately vertical-only. In paginated mode
+ * (instance.pagingMode, horizontal multicol layout) every chunk's bounding box spans the
+ * full page-height band, so no chunk ever reads "fully off-screen" — trimWindow is
+ * harmlessly INERT while paginated and the DOM window grows for the session. That is the
+ * accepted tradeoff (a horizontal trim would shift page geometry); if reflow jank ever
+ * shows past ~15 loaded chunks, add a paginator-side horizontal trim instead of widening
+ * this test.
  */
 function isChunkFullyOffscreen(chunkEl: HTMLElement, scrollableParent: any): boolean {
   const r = chunkEl.getBoundingClientRect();

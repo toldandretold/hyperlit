@@ -41,6 +41,22 @@
       </button>
     </div>
 
+    <!-- Reading mode: continuous scroll vs fixed pages (paginated engages on the
+         reader page only; the preference itself is global) -->
+    <div class="settings-row settings-reading-mode-row">
+      <button type="button" id="scrollModeButton" class="settings-button">Scroll</button>
+      <button type="button" id="paginatedModeButton" class="settings-button">Pages<sup class="settings-pages-asterisk" aria-hidden="true">*</sup></button>
+    </div>
+
+    <!-- Honest heads-up shown while Pages mode is active (dismissable, once per
+         user via localStorage). Pages mode uses a CSS multi-column layout where
+         native text selection & performance are degraded across browsers — see
+         scrolling/paginatedSelectionBand.ts. Toggled by settingsContainer/index.ts. -->
+    <div id="pagesModeWarning" class="settings-pages-warning" role="note" hidden>
+      <button type="button" id="pagesModeWarningClose" class="settings-pages-warning-close" aria-label="Dismiss this notice">&times;</button>
+      <p>* <strong>Pages mode is rough.</strong> Text selection &amp; performance are sketchy, especially on mobile. Fine for reading, but not great for highlighting, or any text selection 😢. For optimised features, use <strong>Scroll</strong>. Working on it. Apologies, comrades &#9994;.</p>
+    </div>
+
     <!-- Text-size + column-width steppers. Each pair stays glued together; the two
          pairs share one row and only reflow onto separate lines when very narrow. -->
     <div class="settings-row settings-adjust-row">

@@ -2,6 +2,7 @@ import { book, bookSlug, OpenHyperlightID, OpenFootnoteID } from '../app';
 import { asBookId, type BookId } from '../indexedDB/types';
 import { log, verbose } from '../utilities/logger';
 import type { ReadingPosition } from '../scrolling/readingPosition';
+import { maybePaginatorReveal } from '../scrolling/paginator';
 import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier';
 
 import {
@@ -402,7 +403,11 @@ function navigateToElement(elementId: string) {
   const element = document.getElementById(elementId);
   if (element) {
     verbose.content(`Navigating to element: ${elementId}`, '/pageLoad/loadHyperText.ts');
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Paginated mode: flip to the element's page (a native scrollIntoView
+    // would scroll the overflow:hidden wrapper and corrupt page geometry).
+    if (!maybePaginatorReveal(element)) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   } else {
     verbose.content(`Element not found: ${elementId}, will try loading more content`, '/pageLoad/loadHyperText.ts');
   }

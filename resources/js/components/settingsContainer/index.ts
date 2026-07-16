@@ -7,11 +7,16 @@
 import { ContainerManager } from "../utilities/containerManager";
 import { verbose } from "../../utilities/logger";
 import { switchTheme, getCurrentTheme, THEMES } from "./themeSwitcher";
+import { switchReadingMode, getReadingMode, READING_MODES } from "./readingModeSwitcher";
 import { openSearchToolbar } from "../../search/inTextSearch/searchToolbar";
 import { openAudioPlayer, syncListenButton } from "../audioPlayer/index";
 import { handleVibeClick, _openVibeGallery, _openVibeUI } from "./vibe";
 import { _openGatePanel } from "./gate";
 import { applyTextAdjustments, syncControlsUI, stepTextSize, stepWidth, _debounceResize, reconcileViewportWidth } from "./textControls";
+
+// Persisted flag: once the user dismisses the Pages-mode caveat note, never
+// auto-show it again ("once per user").
+const PAGES_WARNING_DISMISSED_KEY = "hyperlit_pages_warning_dismissed";
 
 /**
  * SettingsContainerManager - Extends ContainerManager with event delegation
@@ -41,6 +46,7 @@ export class SettingsContainerManager extends (ContainerManager as any) {
   setupSettingsListeners() {
     document.addEventListener("click", this.boundClickHandler);
     window.addEventListener('themechange', this.boundThemeChangeHandler);
+    window.addEventListener('readingmodechange', this.boundThemeChangeHandler);
     // Reconcile the content-width inline artifacts when the viewport crosses the
     // width-control breakpoint (live resize / rotate) — keeps a saved wide-screen
     // width from lingering as a too-narrow column below WIDTH_HIDE_BP.
@@ -100,6 +106,31 @@ export class SettingsContainerManager extends (ContainerManager as any) {
       e.stopPropagation();
       verbose.init('Vibe CSS clicked via delegation', '/components/settingsContainer/index.ts');
       this.handleVibeClick();
+      return;
+    }
+
+    // Reading-mode buttons (scroll vs paginated)
+    if (e.target.closest("#scrollModeButton")) {
+      e.preventDefault();
+      e.stopPropagation();
+      verbose.init('Scroll mode clicked via delegation', '/components/settingsContainer/index.ts');
+      switchReadingMode(READING_MODES.SCROLL);
+      this.syncPagesWarning(false);
+      return;
+    }
+    if (e.target.closest("#paginatedModeButton")) {
+      e.preventDefault();
+      e.stopPropagation();
+      verbose.init('Paginated mode clicked via delegation', '/components/settingsContainer/index.ts');
+      switchReadingMode(READING_MODES.PAGINATED);
+      this.syncPagesWarning(true);
+      return;
+    }
+    // Dismiss the Pages-mode caveat (once per user — persisted).
+    if (e.target.closest("#pagesModeWarningClose")) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.dismissPagesWarning();
       return;
     }
 
@@ -212,6 +243,33 @@ export class SettingsContainerManager extends (ContainerManager as any) {
     // Gate is a neutral action button (like search / listen), NOT a theme toggle —
     // it never gets `.active`, so it inherits each theme's plain settings-button
     // wash and stays visually identical to the other action pills.
+
+    // Reading-mode toggle pair
+    const readingMode = getReadingMode();
+    document.getElementById("scrollModeButton")?.classList.toggle("active", readingMode === READING_MODES.SCROLL);
+    document.getElementById("paginatedModeButton")?.classList.toggle("active", readingMode === READING_MODES.PAGINATED);
+    // Show the Pages-mode caveat whenever pages mode is the active preference
+    // (parent's innerHTML reset restores it hidden each open; re-evaluate here).
+    this.syncPagesWarning(readingMode === READING_MODES.PAGINATED);
+  }
+
+  /**
+   * Show/hide the honest Pages-mode caveat note. Never shows once the user has
+   * dismissed it (persisted) — "once per user". `hidden` is toggled rather than
+   * removed so the parent's innerHTML reset restores a clean default each open.
+   */
+  syncPagesWarning(show: boolean) {
+    const note = document.getElementById("pagesModeWarning");
+    if (!note) return;
+    const dismissed = localStorage.getItem(PAGES_WARNING_DISMISSED_KEY) === "1";
+    (note as HTMLElement).hidden = !show || dismissed;
+  }
+
+  /** User closed the caveat — hide it now and never auto-show it again. */
+  dismissPagesWarning() {
+    localStorage.setItem(PAGES_WARNING_DISMISSED_KEY, "1");
+    const note = document.getElementById("pagesModeWarning");
+    if (note) (note as HTMLElement).hidden = true;
   }
 
   /**
@@ -243,6 +301,7 @@ export class SettingsContainerManager extends (ContainerManager as any) {
   destroy() {
     document.removeEventListener("click", this.boundClickHandler);
     window.removeEventListener('themechange', this.boundThemeChangeHandler);
+    window.removeEventListener('readingmodechange', this.boundThemeChangeHandler);
     window.removeEventListener('resize', this.boundViewportResizeHandler);
     if (this._resizeDebounce) clearTimeout(this._resizeDebounce);
     if (this._widthReconcileDebounce) clearTimeout(this._widthReconcileDebounce);

@@ -8,6 +8,7 @@ import { destroyAllSubBooks } from './subBookActions';
 import { log, verbose } from '../utilities/logger';
 import { ProgressOverlayConductor } from '../SPA/navigation/ProgressOverlayConductor.js';
 import { clearCascadeOriginId } from '../scrolling/index';
+import { freezePaginator, unfreezePaginator } from '../scrolling/paginator';
 import { flushPendingEdits } from '../utilities/pendingEditsRegistry';
 // Note: cleanupContainerListeners and cleanupFootnoteListeners are imported dynamically
 // to avoid circular dependency (index.js imports from core.js)
@@ -163,6 +164,9 @@ export function openHyperlitContainer(content: any, isBackNavigation: any = fals
   container.style.pointerEvents = '';
 
   // 🔒 SAVE scroll position FIRST, before any DOM changes
+  // (Paginated reading mode: scrollTop is pinned at 0 by the paginator, so
+  // this save/restore round-trips 0→0 — harmless, and re-zeroing is exactly
+  // the paginator's own invariant. No guard needed.)
   const scrollContainer = document.querySelector('.reader-content-wrapper')
     || document.querySelector('.main-content')
     || document.querySelector('main');
@@ -170,6 +174,9 @@ export function openHyperlitContainer(content: any, isBackNavigation: any = fals
 
   // Lock body scroll BEFORE opening container to prevent scroll during animation
   document.body.classList.add('hyperlit-container-open');
+  // Paginated mode: freeze the pager so the keyboard resize + highlight-mark
+  // insertion don't slide the pages under the user (unfrozen on close).
+  freezePaginator();
   // Scoped manual scroll restoration: while a container is open, stop the browser
   // from restoring scroll on the close-back's popstate — it would snap to the URL
   // fragment (e.g. #hypercite_X) or a stale captured pixel, away from where the
@@ -254,6 +261,9 @@ export function prepareHyperlitContainer(content: any, isBackNavigation: any = f
   }
 
   // 🔒 SAVE scroll position FIRST, before any DOM changes
+  // (Paginated reading mode: scrollTop is pinned at 0 by the paginator, so
+  // this save/restore round-trips 0→0 — harmless, and re-zeroing is exactly
+  // the paginator's own invariant. No guard needed.)
   const scrollContainer = document.querySelector('.reader-content-wrapper')
     || document.querySelector('.main-content')
     || document.querySelector('main');
@@ -261,6 +271,9 @@ export function prepareHyperlitContainer(content: any, isBackNavigation: any = f
 
   // Lock body scroll BEFORE opening container to prevent scroll during animation
   document.body.classList.add('hyperlit-container-open');
+  // Paginated mode: freeze the pager so the keyboard resize + highlight-mark
+  // insertion don't slide the pages under the user (unfrozen on close).
+  freezePaginator();
   // Scoped manual scroll restoration — see openHyperlitContainer for rationale.
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
@@ -625,6 +638,9 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
     isClosingContainer = false;
     // ALWAYS deactivate overlay + unlock scroll, even if cleanup threw or hyperlitManager was null
     document.body.classList.remove('hyperlit-container-open');
+    // Paginated mode: re-sync the pager to the (possibly mark-mutated) DOM and
+    // the restored viewport, re-anchoring to the current page.
+    unfreezePaginator();
 
     // Remove cascade-origin glow from ALL base mark segments (the glow is
     // applied to every mark of the highlight's group, not just one element)

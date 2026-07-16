@@ -8,6 +8,7 @@ import { navigateToInternalId } from "../../scrolling/internalNav";
 import { cancelPendingNavigationCleanup } from "../../scrolling/userScrollDetection";
 import { getNodesFromIndexedDB } from "../../indexedDB/nodes/read";
 import { getFreshAnchor } from "../../scrolling/readingAnchor";
+import { maybePaginatorReveal } from "../../scrolling/paginator";
 import { currentLazyLoader } from "../../pageLoad/currentLazyLoaderState"; // zero-import leaf (not the pageLoad barrel) → no cycle
 import { buildSearchIndex, searchIndex } from "./searchEngine";
 import {
@@ -357,7 +358,11 @@ class SearchToolbarManager {
     const markEl = document.getElementById(`search-match-${this.currentMatchIndex}`);
     if (markEl) {
       markEl.classList.add('current');
-      markEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      // Paginated mode: flip to the match's page (a native scrollIntoView
+      // would scroll the overflow:hidden wrapper and corrupt page geometry).
+      if (!maybePaginatorReveal(markEl)) {
+        markEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
     }
   }
 

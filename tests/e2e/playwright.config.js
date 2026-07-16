@@ -22,6 +22,10 @@ try {
 
 export default defineConfig({
   testDir: './specs',
+  // Pages-mode sweep hygiene: when E2E_READING_MODE=paginated, clear the
+  // uploaded reading_mode preference from the shared e2e user afterwards.
+  // No-ops on normal runs (the teardown checks the env var itself).
+  globalTeardown: resolve(import.meta.dirname, 'fixtures/readingMode.teardown.js'),
   fullyParallel: false,        // SPA tests are stateful — run serially
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

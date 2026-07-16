@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1670 functions in 356 modules · 10 object stores · 10 PG tables · 3386 edges
+**MarkdownDB** schema v28 · 1692 functions in 359 modules · 10 object stores · 10 PG tables · 3431 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -190,6 +190,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SettingsContainerManager.stepWidth` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.syncControlsUI` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.updateButtonStates` | `components/settingsContainer/index` | — | — | read/write | — |
+| `getReadingMode` | `components/settingsContainer/readingModeSwitcher` | — | — | — | — |
+| `initializeReadingMode` | `components/settingsContainer/readingModeSwitcher` | `localStorage` | — | write | — |
+| `switchReadingMode` | `components/settingsContainer/readingModeSwitcher` | — | `localStorage` | write | — |
 | `_debounceResize` | `components/settingsContainer/textControls` | — | — | — | — |
 | `applyTextAdjustments` | `components/settingsContainer/textControls` | `localStorage` | — | — | — |
 | `reconcileViewportWidth` | `components/settingsContainer/textControls` | `localStorage` | — | read/write | — |
@@ -1410,6 +1413,25 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `showNavigationLoading` | `scrolling/navOverlay` | — | — | — | — |
 | `getNavigatedAt` | `scrolling/navStamp` | `localStorage` | — | — | — |
 | `recordNavigatedAt` | `scrolling/navStamp` | `localStorage` | `localStorage` | — | — |
+| `destroyPaginatedSelectionBand` | `scrolling/paginatedSelectionBand` | — | — | — | — |
+| `initPaginatedSelectionBand` | `scrolling/paginatedSelectionBand` | — | — | — | — |
+| `disengageSilently` | `scrolling/paginator` | — | — | read | — |
+| `enterPaginatedMode` | `scrolling/paginator` | — | — | read/write | — |
+| `exitPaginatedMode` | `scrolling/paginator` | — | — | read/write | — |
+| `freezePaginator` | `scrolling/paginator` | — | — | — | — |
+| `getPageInfo` | `scrolling/paginator` | — | — | — | — |
+| `goToElement` | `scrolling/paginator` | — | — | read | — |
+| `isPaginatorEngaged` | `scrolling/paginator` | — | — | — | — |
+| `maybePaginatorReveal` | `scrolling/paginator` | — | — | — | — |
+| `nextPage` | `scrolling/paginator` | — | — | read | — |
+| `pageFromOffsets` | `scrolling/paginator` | — | — | — | — |
+| `prevPage` | `scrolling/paginator` | — | — | read | — |
+| `remeasure` | `scrolling/paginator` | — | — | read | — |
+| `resumeAfterEdit` | `scrolling/paginator` | — | — | — | — |
+| `setPaginatorNavTarget` | `scrolling/paginator` | — | — | read | — |
+| `suspendForEdit` | `scrolling/paginator` | — | — | — | — |
+| `syncEngagement` | `scrolling/paginator` | — | — | read | — |
+| `unfreezePaginator` | `scrolling/paginator` | — | — | read | — |
 | `getFreshAnchor` | `scrolling/readingAnchor` | — | — | — | — |
 | `getSavedAnchor` | `scrolling/readingAnchor` | — | — | — | — |
 | `debouncedServerSave` | `scrolling/readingPosition` | — | — | read | `↑route:/api/database-to-indexeddb/books/{}/reading-position` |

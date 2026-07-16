@@ -117,6 +117,22 @@ mark.cascade-origin:hover {
     transition: filter var(--transition-fast);
 }
 
+/* Paginated (multicol) mode: a CSS `filter` on an inline <mark> promotes it to
+   its own compositing layer, which forces WebKit to re-fragment the column —
+   on iOS that momentarily BLANKS the mark and the surrounding text when you tap
+   a highlight (touch-hover + group-hover + cascade-origin all apply brightness).
+   Drop the filter here; the background-intensity boost (cascade-origin still
+   sets --highlight-intensity) keeps the hover/navigation cue without a layer, so
+   no relayout flash. Scroll mode is untouched (filter there repaints cheaply).
+   NOTE: keep in sync with the filter rules above. */
+.paginated-active mark:hover,
+.paginated-active mark.hl-group-hover,
+.paginated-active mark.cascade-origin,
+.paginated-active mark.cascade-origin:hover {
+    filter: none !important;
+    transition: none !important;
+}
+
 
 
 

@@ -33,6 +33,9 @@ function visibleStack(page) {
 
 test.describe('container restore scroll — big book, deep anchor', () => {
   test('back/forward restoring an open container scrolls a big book back to its DEEP anchor', async ({ page, spa }) => {
+    // scrollTop-based preconditions + assertions — the wrapper never
+    // scrolls in paginated mode.
+    test.skip(process.env.E2E_READING_MODE === 'paginated', 'asserts scroll-mode scrollTop mechanics');
     test.setTimeout(300_000);
     await page.addInitScript(() => { try { localStorage.setItem('hyperlit_verbose_logs', 'true'); } catch (e) {} });
     const navLog = [];

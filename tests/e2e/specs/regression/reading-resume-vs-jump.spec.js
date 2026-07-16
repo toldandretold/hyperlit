@@ -95,6 +95,11 @@ test.describe('reading position: resume vs jump', () => {
   });
 
   test('navigate then READ PAST → RESUME on reload (not yanked back to the target)', async ({ page, spa }) => {
+    // Precondition machinery is scrollTop-based ("scrolled well past the
+    // target") — impossible in paginated mode where the wrapper never
+    // scrolls. The resume-vs-jump causal invariant itself (savedAt vs
+    // navigatedAt) is mode-independent and stays covered by normal runs.
+    test.skip(process.env.E2E_READING_MODE === 'paginated', 'asserts scroll-mode scrollTop mechanics');
     test.setTimeout(120_000);
     await buildScrollableBook(page, spa);
     const bookId = await spa.getCurrentBookId(page);

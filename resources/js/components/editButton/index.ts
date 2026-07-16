@@ -13,6 +13,10 @@ import {
   doesContentExceedViewport, getLastContentElement,
 } from './cursor';
 import { replaceEditButtonWithLock, updateEditButtonVisibility } from './lock';
+// Paginated reading mode round-trip: editing always happens in the scroll flow
+// (contenteditable inside CSS columns is a browser-bug minefield), so the edit
+// button suspends pagination at the current anchor and exiting edit re-engages.
+import { suspendForEdit, resumeAfterEdit } from '../../scrolling/paginator';
 
 // Re-export the lock/permission API so external importers keep one entry point.
 export { updateEditButtonVisibility, checkEditPermissionsAndUpdateUI } from './lock';
@@ -128,6 +132,11 @@ export async function enableEditMode(targetElementId: string | null = null, isNe
 
     setTimeout(async () => {
       try {
+        // Drop out of paginated mode FIRST (anchored at the current page's top
+        // node) — the saved anchor then also feeds the caret-placement fallback
+        // via getSavedScrollElementId below.
+        suspendForEdit();
+
         (window as any).isEditing = true;
         verbose.init('Edit mode entered via edit button', '/components/editButton/index.ts');
         if (editBtn) editBtn.classList.add("inverted");
@@ -263,6 +272,10 @@ export function disableEditMode({ skipPersistence = false }: DisableEditModeOpti
 
   enforceEditableState();
   editableDiv.contentEditable = "false";
+
+  // Re-engage paginated mode if the preference still says so (no-op otherwise;
+  // also clears the suspended flag when the user changed the preference mid-edit).
+  resumeAfterEdit();
 
   // ✅ Dynamically import edit modules (they should already be loaded if we were editing)
   Promise.all([

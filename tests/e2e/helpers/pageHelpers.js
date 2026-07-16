@@ -513,15 +513,46 @@ export async function pasteHyperciteContent(page, htmlContent, textContent, opts
 }
 
 /**
+ * Click reader CONTENT reliably in BOTH reading modes.
+ *
+ * In paginated mode the book body is a CSS multicol layout, and Chromium's
+ * CDP DOM.getContentQuads returns broken coordinates for content in multicol
+ * overflow columns (verified: getBoundingClientRect says (842,167) while the
+ * quad says (-695,738)). Playwright's locator.click() targets by quads, so it
+ * retries "element is outside of the viewport" forever on any element past
+ * the first column. This helper reveals the element (native scrollIntoView —
+ * the paginator snaps it to a page), then fires a REAL mouse click at the
+ * JS-computed rect center: same input fidelity, correct coordinates.
+ * In scroll mode it's a plain locator.click() — byte-identical behavior.
+ */
+export async function clickReaderContent(page, locator) {
+  const paginated = await page.evaluate(() => !!document.querySelector('.reader-content-wrapper.paginated-active'));
+  if (!paginated) {
+    await locator.click();
+    return;
+  }
+  const handle = await locator.elementHandle();
+  await handle.evaluate((el) => el.scrollIntoView({ block: 'nearest' }));
+  await page.waitForTimeout(650); // let the paginator's settle-snap land (450ms debounce)
+  const point = await handle.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.click(point.x, point.y);
+  await handle.dispose();
+}
+
+/**
  * Navigate reader→reader via a hypercite link.
  * Clicks a hypercite open-icon (↗) or underlined .couple text to open the
  * hyperlit container, then clicks the citation-link inside it to navigate
  * to the linked book.
  */
 export async function navigateViaHypercite(page) {
-  // Click the first hypercite arrow link or underlined coupled text
+  // Click the first hypercite arrow link or underlined coupled text (pages-mode
+  // safe — CDP quads are broken for multicol fragments, see clickReaderContent)
   const hyperciteLink = page.locator('a.open-icon[id^="hypercite_"], u.couple[id^="hypercite_"]').first();
-  await hyperciteLink.click();
+  await clickReaderContent(page, hyperciteLink);
 
   // Wait for the hyperlit container to open and the "See in source text" button to appear
   await page.waitForSelector('#hyperlit-container a.see-in-source-btn', { timeout: 10000 });

@@ -15,6 +15,7 @@ import { navTimers } from './navState';
 import { recordNavigatedAt } from './navStamp';
 import { showNavigationLoading, hideNavigationLoading, NavigationProgressIndicator } from './navOverlay';
 import { scrollElementWithConsistentMethod, scrollElementIntoMainContent } from './scrollHelpers';
+import { isPaginatorEngaged } from './paginator';
 import { shouldSkipScrollRestoration } from './userScrollDetection';
 import { nextScrollReason, recordScrollWrite, recordNavDecision } from './scrollTrace';
 // Static, downward import from a zero-import leaf (no cycle). pendingFirstChunkLoadedPromise is a
@@ -244,6 +245,11 @@ export function navigateToInternalId(targetId: string, lazyLoader: any, showOver
   // the reader was at (see restoreScrollPosition + forceSavePosition). null → default header offset.
   const landingOffset = (scrollOffset === null || Number.isNaN(scrollOffset)) ? 192 : scrollOffset;
   (lazyLoader as any)._pendingLandingOffset = landingOffset;
+  // Paginated-mode resume: the saved offset is a PAGE count into a multi-page
+  // node (forceSavePosition's pages branch), not a pixel offset. A deep-link
+  // JUMP (scrollOffset null) carries no page offset — target its first page.
+  (lazyLoader as any)._pendingPageOffset =
+    (scrollOffset !== null && Number.isFinite(scrollOffset)) ? scrollOffset : 0;
   verbose.nav(`Initiating navigation to internal ID: ${targetId}`, 'scrolling/internalNav');
 
   // 🚀 Return a Promise that resolves when navigation is truly complete
@@ -762,14 +768,32 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
     const isInContainer = elementRect.top >= containerRect.top &&
                          elementRect.bottom <= containerRect.bottom;
 
-    // Element is truly visible if it's both in viewport AND container
-    const isAlreadyVisible = isInViewport && isInContainer;
+    // Element is truly visible if it's both in viewport AND container.
+    // PAGINATED MODE: this check is vertical-only and lies — an element on a
+    // DIFFERENT page can pass it (same vertical band, off-screen horizontally
+    // via the column layout's union rects), which would skip the scroll and
+    // strand the reader on the wrong page. Always delegate when paginated:
+    // scrollElementWithConsistentMethod hands off to the paginator, whose
+    // goToElement is idempotent (already on the right page = no-op).
+    const isPaginated = isPaginatorEngaged()
+      && scrollableParent !== window
+      && scrollableParent?.classList?.contains('paginated-active');
+    const isAlreadyVisible = !isPaginated && isInViewport && isInContainer;
     const isReasonablyPositioned = currentPosition >= 0 && currentPosition <= 300; // Within first 300px of container
 
-    verbose.nav(`Element visibility: inViewport=${isInViewport}, inContainer=${isInContainer}, visible=${isAlreadyVisible}, position=${currentPosition}px`, 'scrolling/internalNav');
+    verbose.nav(`Element visibility: inViewport=${isInViewport}, inContainer=${isInContainer}, visible=${isAlreadyVisible}, paginated=${isPaginated}, position=${currentPosition}px`, 'scrolling/internalNav');
 
-    // Only scroll if element is not visible or poorly positioned
-    if (!isAlreadyVisible || !isReasonablyPositioned) {
+    // Paginated mode: pin the paginator's sticky anchor to the EXACT target id
+    // (e.g. the hypercite marker), NOT the containing node. A node longer than
+    // a page has its first line pages before a mid-paragraph marker — scrolling
+    // the node lands on the wrong page. The id is pinned even if the marker
+    // renders a beat later (fetch-on-demand for a gate-filtered hypercite): the
+    // paginator's remeasure re-resolves it and snaps to its page on render.
+    if (isPaginated) {
+      const { setPaginatorNavTarget } = await import('./paginator');
+      setPaginatorNavTarget(targetId, (lazyLoader as any)._pendingPageOffset || 0);
+    } else if (!isAlreadyVisible || !isReasonablyPositioned) {
+      // Only scroll if element is not visible or poorly positioned
       if (scrollableParent && scrollableParent !== window) {
         verbose.nav(`Using consistent scroll for container: ${scrollableParent.className}`, 'scrolling/internalNav');
         scrollElementWithConsistentMethod(targetElement, scrollableParent, (lazyLoader as any)._pendingLandingOffset ?? 192);

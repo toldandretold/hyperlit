@@ -1,0 +1,160 @@
+/* Paginated reading mode — engaged by scrolling/paginator.ts, which adds
+   .paginated-active to .reader-content-wrapper and maintains the --pg-* vars.
+   The browser's multicol engine does the page-fitting: column width = the
+   wrapper's content width, column height = the visible band, and each page is
+   a horizontal translate of one column stride (--pg-x). */
+
+body[data-page="reader"] .reader-content-wrapper.paginated-active {
+  overflow: hidden;
+  overscroll-behavior-x: contain;
+}
+
+body[data-page="reader"] .reader-content-wrapper.paginated-active .main-content {
+  column-width: var(--pg-col-width);
+  column-gap: var(--pg-col-gap, 80px);
+  column-fill: auto; /* REQUIRED: fill each column fully, never balance */
+  height: var(--pg-page-height);
+  min-height: 0;     /* beat layout.css's reader min-height: 100% */
+  /* foundation.css gives .main-content overflow-x:hidden, which makes it its
+     own clip box and PAINTS ONLY THE FIRST COLUMN (rects still lay out — the
+     blank-page-2 bug). The overflow columns must stay visible on main; the
+     wrapper's overflow:hidden does the clipping. */
+  overflow: visible;
+  /* NO transform-based paging: Chromium's CDP getContentQuads returns broken
+     coordinates for transform-translated multicol fragments, which breaks
+     every CDP-driven click (Playwright, some assistive tooling). Pages are
+     turned by scrolling the wrapper programmatically (scrolling/paginator.ts
+     applyPage) — smooth animation comes from scrollTo behavior:'smooth'. */
+}
+
+/* Native iOS selection painting is broken inside multicol (a WebKit limitation
+   — the transform-paging experiment confirmed it's the columns, not the scroll),
+   so we DRAW the selection band ourselves (scrolling/paginatedSelectionBand.ts)
+   and make the native selection TRANSPARENT here so the flaky native paint can
+   never double-band over our deterministic one. color:inherit keeps glyphs
+   legible. This is the overlay-from-getClientRects technique foliate-js/epub.js
+   use for the same reason. */
+.paginated-active .main-content ::selection,
+.paginated-active .main-content::selection {
+  background-color: transparent;
+  color: inherit;
+}
+.paginated-active .main-content ::-moz-selection,
+.paginated-active .main-content::-moz-selection {
+  background-color: transparent;
+  color: inherit;
+}
+
+/* The JS-drawn selection band (scrolling/paginatedSelectionBand.ts). One
+   viewport-fixed layer holds one .pg-sel-band per selection client-rect;
+   getClientRects() are viewport coords so fixed positioning needs no scroll
+   math. pointer-events:none so it never intercepts the selection gesture; z
+   below the perimeter chrome (page-nav 999) and the selection toolbar (9999). */
+#pg-selection-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+}
+.pg-sel-band {
+  position: absolute;
+  background-color: var(--pg-selection, rgba(0, 120, 255, 0.35));
+  pointer-events: none;
+}
+
+/* Belt-and-suspenders: the global `* { -webkit-user-select: none }` reset is
+   re-enabled app-wide for reading text, but pin it explicitly on the paginated
+   main so a stray reset can't leave the column layout unselectable. */
+.paginated-active .main-content {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Fragmentation mitigations: keep media/blocks from being sliced across a
+   column break; clamp media that would exceed the page band. A block TALLER
+   than a whole page still gets clipped at the column edge — the same known
+   limitation as every CSS-column reader (Epub.js, Readium). */
+.paginated-active .main-content :is(img, figure, iframe, video, table, pre, .katex-display) {
+  break-inside: avoid;
+}
+
+.paginated-active .main-content img {
+  max-height: calc(var(--pg-page-height) - 6em);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+/* Page-turn buttons: fixed at the vertical center of each side, shown only
+   while the paginator is engaged (pageNav.ts toggles [hidden]). */
+.page-nav-btn {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 999;
+  width: 44px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--color-text, #ccc);
+  opacity: 0.45;
+  cursor: pointer;
+  font-size: 28px;
+  line-height: 1;
+  padding: 0;
+  transition: opacity 120ms ease;
+}
+
+.page-nav-btn:hover,
+.page-nav-btn:focus-visible {
+  opacity: 1;
+}
+
+.page-nav-btn[aria-disabled="true"] {
+  opacity: 0.15;
+  cursor: default;
+}
+
+.page-nav-btn[hidden] {
+  display: none;
+}
+
+#pageNavPrev { left: 4px; }
+#pageNavNext { right: 4px; }
+
+/* Percent-through-book indicator — shown in BOTH scroll and paginated modes
+   (pageNav.ts drives it). Page numbers would be window-relative and
+   font-size-dependent; percent is stable and honest. Full --color-text, no
+   opacity wash: a translucent version failed the WCAG AA color-contrast axe
+   gate (#pageNavPercent was the "reader" surface regression) — subtlety comes
+   from the small size, not from reduced contrast.
+   `[hidden]` = no data / not reading. The `.perimeter-hidden` class (toggled
+   by togglePerimeterButtons when the reader taps chrome away) fades it to 0 —
+   the transition here makes that fade smooth in both directions. */
+.page-nav-percent {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  font-size: 12px;
+  color: var(--color-text, #ccc);
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  /* Glassy pill so body text scrolling behind it stays legible (matches the
+     audio player bar's frosted treatment). */
+  padding: 3px 10px;
+  background: color-mix(in srgb, var(--icon-background) 96%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 0.5px solid color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+}
+
+.page-nav-percent[hidden] {
+  display: none;
+}

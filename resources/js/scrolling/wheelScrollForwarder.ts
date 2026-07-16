@@ -51,6 +51,10 @@ export function initWheelScrollForwarder(): void {
     if (document.body.classList.contains('hyperlit-container-open')) return;
     const wrapper = document.querySelector<HTMLElement>(WRAPPER_SEL);
     if (!wrapper) return;
+    // Paginated reading mode: the wrapper is overflow:hidden and a scrollTop
+    // write would corrupt the page geometry. Don't forward — pageNav's own
+    // wheel handler (components/pageNav) turns pages instead, dead zones included.
+    if (wrapper.classList.contains('paginated-active')) return;
     const target = e.target instanceof Element ? e.target : null;
     // scrollable overlay inside the fixed header (search results) → let it scroll natively
     if (target && target.closest(SCROLLABLE_OVERLAY_SEL)) return;

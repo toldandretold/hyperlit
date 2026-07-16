@@ -43,6 +43,9 @@ const NAV_LINE = /\[NAV\]|Resolver result|CONTAINER CLEAR \(navigation\)|Navigat
 
 test.describe('container restore scroll', () => {
   test('back/forward restoring an open container scrolls the reader back to its anchor', async ({ page, spa }) => {
+    // scrollTop-based preconditions + assertions ("reader is scrolled
+    // down") — the wrapper never scrolls in paginated mode.
+    test.skip(process.env.E2E_READING_MODE === 'paginated', 'asserts scroll-mode scrollTop mechanics');
     test.setTimeout(120_000);
 
     // Verbose nav logs so the decisive lines are emitted, captured below.

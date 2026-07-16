@@ -169,6 +169,12 @@
 
 <div id="word-count-display" style="display: none;"></div>
 
+  {{-- Paginated reading mode page-turn buttons — [hidden] until the paginator
+       engages (components/pageNav/pageNav.ts toggles visibility) --}}
+  <button type="button" id="pageNavPrev" class="page-nav-btn" aria-label="Previous page" hidden>&#8249;</button>
+  <button type="button" id="pageNavNext" class="page-nav-btn" aria-label="Next page" hidden>&#8250;</button>
+  <div id="pageNavPercent" class="page-nav-percent" aria-live="polite" hidden></div>
+
   <div id="bottom-left-buttons" class="loading"> <!-- bottom left buttons -->
       <button type="button" id="settingsButton" aria-label="Settings">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="50" height="50">

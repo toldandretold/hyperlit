@@ -15,6 +15,7 @@ const UNIVERSAL_KEYS = {
   vibe_css:  'hyperlit_vibe_css',
   full_width:'hyperlit_full_width',
   gate_filter: 'hyperlit_gate_filter',
+  reading_mode: 'hyperlit_reading_mode',
 };
 
 const DEVICE_KEYS = {
@@ -131,7 +132,17 @@ function uploadMissingPreferences(serverPrefs: any) {
   }
 
   if (Object.keys(missing).length > 0) {
-    postPreferences(missing);
+    // Defer: this runs at module-init, in the middle of the boot network
+    // storm, and a mutation POST fired there can sit pending for MINUTES
+    // (observed: the pages-mode e2e sweep's networkidle hang — the request is
+    // sent but never completes). This is a non-urgent background
+    // reconciliation; send it once the load storm is over.
+    const send = () => postPreferences(missing);
+    if (document.readyState === 'complete') {
+      setTimeout(send, 1500);
+    } else {
+      window.addEventListener('load', () => setTimeout(send, 1500), { once: true });
+    }
   }
 }
 

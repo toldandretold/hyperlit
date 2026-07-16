@@ -53,3 +53,5 @@
 /* — remainder of the blade list — */
 @import url('../components/alert.css');
 @import url('../base/layout.css');
+/* After layout.css: paginated reading mode overrides the wrapper/main layout */
+@import url('../components/paginator.css');

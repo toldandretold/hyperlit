@@ -20,6 +20,8 @@ import {
   scheduleAutoClear
 } from "./utilities/chunkLoadingState";
 import { setupUserScrollDetection, shouldSkipScrollRestoration, isActivelyScrollingForLinkBlock, setNavigatingState, getCascadeOriginId } from '../scrolling/index';
+// Zero-import leaf (no cycle) — read by the scroll-save listener's navigation guard.
+import { userScrollState } from '../scrolling/navState';
 import { scrollElementIntoMainContent } from "../scrolling/index";
 // Zero-import leaf (no cycle) — used to ensure only the ACTIVE reader loader saves its position.
 import { currentLazyLoader } from '../pageLoad/currentLazyLoaderState';
@@ -154,8 +156,11 @@ export function createLazyLoader(config: any) {
     const link = event.target.closest('a');
     if (!link || !link.href) return;
 
-    // 🛑 PREVENT LINK CLICKS DURING ACTIVE SCROLLING
+    // 🛑 PREVENT LINK CLICKS DURING ACTIVE SCROLLING (gesture-recent only —
+    // see isActivelyScrollingForLinkBlock). Log it: this branch silently
+    // swallowing clicks is exactly how the home→reader dead-click bug hid.
     if (isActivelyScrollingForLinkBlock()) {
+      verbose.nav(`Blocked link click during active scroll gesture: ${link.getAttribute('href')}`, 'lazyLoaderFactory.js');
       event.preventDefault();
       event.stopPropagation();
       return;
@@ -316,24 +321,49 @@ export function createLazyLoader(config: any) {
       ? { top: 0 } // Viewport top is always 0
       : instance.scrollableParent.getBoundingClientRect();
 
-    // Find the node the reader is actually IN: prefer the element whose box
-    // CONTAINS the container's top edge (a long paragraph read half-way has
-    // its top ABOVE the edge — picking the first element BELOW the edge, as
-    // this used to, skipped it and restore landed one node too far down).
-    // Fallback: the first element at/below the edge (old behaviour).
+    // Find the node the reader is actually IN.
+    //
+    // PAGINATED branch: in paginated mode content flows in horizontal columns
+    // and the wrapper never scrolls — "topmost visible" is meaningless. The
+    // anchor is the first node (doc order) whose box horizontally intersects
+    // the wrapper's client rect, i.e. the first node on the current page.
+    // Same storage format below, offset 0 — positions round-trip cleanly into
+    // scroll mode. This branch lives HERE so there is still exactly ONE
+    // reading-position detector (the scrollPositionAccessor gate).
+    //
+    // SCROLL branch: prefer the element whose box CONTAINS the container's
+    // top edge (a long paragraph read half-way has its top ABOVE the edge —
+    // picking the first element BELOW the edge, as this used to, skipped it
+    // and restore landed one node too far down). Fallback: the first element
+    // at/below the edge (old behaviour).
     let topVisible = null;
-    let straddler = null; // last element starting above the edge, in doc order
-    for (const el of elements) {
-      if (!/^\d+(\.\d+)?$/.test(el.id)) continue; // only node-id elements
-      const rect = el.getBoundingClientRect();
-      if (rect.top >= scrollSourceRect.top) {
-        topVisible = el;
-        break;
+    if (instance.pagingMode) {
+      const wrapRect = instance.scrollableParent === window
+        ? { left: 0, right: window.innerWidth }
+        : instance.scrollableParent.getBoundingClientRect();
+      for (const el of elements) {
+        if (!/^\d+(\.\d+)?$/.test(el.id)) continue; // only node-id elements
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) continue;
+        if (rect.right > wrapRect.left + 1 && rect.left < wrapRect.right - 1) {
+          topVisible = el;
+          break;
+        }
       }
-      straddler = { el, rect };
-    }
-    if (straddler && straddler.rect.bottom > scrollSourceRect.top) {
-      topVisible = straddler.el;
+    } else {
+      let straddler = null; // last element starting above the edge, in doc order
+      for (const el of elements) {
+        if (!/^\d+(\.\d+)?$/.test(el.id)) continue; // only node-id elements
+        const rect = el.getBoundingClientRect();
+        if (rect.top >= scrollSourceRect.top) {
+          topVisible = el;
+          break;
+        }
+        straddler = { el, rect };
+      }
+      if (straddler && straddler.rect.bottom > scrollSourceRect.top) {
+        topVisible = straddler.el;
+      }
     }
 
     if (topVisible) {
@@ -352,7 +382,26 @@ export function createLazyLoader(config: any) {
         // resume, restoreScrollPosition replays this offset so refresh lands on the EXACT pixel the
         // reader was at, instead of snapping the node's top to the 192px deep-link header offset
         // (which left refresh ~a header-height too high — the hash-survives-scrollaway failure).
-        const offset = Math.round(instance._scrollAnchor.offsetFromContainer);
+        // Paginated mode: store the PAGE INDEX within the anchor node instead of a pixel offset.
+        // A node longer than one column spans several pages under one id (pages 14/15/16 all
+        // anchor to the same node), so the node id alone can't restore which page the reader was
+        // on — resume would snap to the node's FIRST page (the "#hypercite in a long paragraph
+        // resumes two pages early" bug). pageInNode = strides from the node's first fragment to the
+        // current page's left edge; restore replays it via paginator.setPaginatorNavTarget. The
+        // [0,8] read-side clamp keeps a stale scroll-mode PIXEL offset from being misread as pages.
+        let offset: number;
+        if (instance.pagingMode) {
+          const wrapRect = instance.scrollableParent === window
+            ? { left: 0, right: window.innerWidth }
+            : instance.scrollableParent.getBoundingClientRect();
+          const strideW = Math.max(1, wrapRect.right - wrapRect.left);
+          const firstFrag = topVisible.getClientRects()[0];
+          offset = firstFrag
+            ? Math.max(0, Math.round((wrapRect.left - firstFrag.left) / strideW))
+            : 0;
+        } else {
+          offset = Math.round(instance._scrollAnchor.offsetFromContainer);
+        }
         const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
 
         // Only write when the position IDENTITY (elementId + offset) actually changed. `savedAt`
@@ -410,7 +459,17 @@ export function createLazyLoader(config: any) {
   // Store the handler + its target on the instance so disconnect() can REMOVE it — otherwise
   // every visited book's listener leaks onto the shared scrollableParent and fires during the
   // NEXT book's navigation churn, saving the wrong book's position (the reading-position corruption).
-  instance._scrollSaveHandler = throttle(instance.saveScrollPosition, 250);
+  // Navigation guard: skip while a programmatic navigation is mid-flight. In paginated mode
+  // page positioning really SCROLLS the wrapper (scrollLeft), so this listener now fires for
+  // programmatic moves too — saving those mid-nav positions re-stamps savedAt and flips
+  // restore's resume-vs-jump arbitration against a URL hash (the cold-deep-link bug).
+  // Deliberate post-landing saves still happen via the direct saveScrollPosition() calls.
+  instance._scrollSaveHandler = throttle(() => {
+    if (instance.isNavigatingToInternalId || userScrollState.isNavigating) {
+      return;
+    }
+    instance.saveScrollPosition();
+  }, 250);
   instance._scrollSaveTarget = instance.scrollableParent === window ? window : instance.scrollableParent;
   instance._scrollSaveTarget.addEventListener("scroll", instance._scrollSaveHandler, { passive: true });
 
@@ -444,6 +503,10 @@ export function createLazyLoader(config: any) {
   window.addEventListener('beforeunload', instance._beforeUnloadHandler);
 
   instance.restoreScrollPositionAfterResize = async () => {
+    // Paginated mode: the paginator owns resize re-anchoring (horizontal geometry).
+    if (instance.pagingMode) {
+      return;
+    }
     // Check if user is currently scrolling
     if (shouldSkipScrollRestoration("instance restoreScrollPositionAfterResize")) {
       return;
@@ -593,6 +656,11 @@ export function createLazyLoader(config: any) {
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
+      // Paginated mode: the paginator's own ResizeObserver re-anchors horizontally;
+      // a vertical anchor replay here would scroll the overflow:hidden wrapper.
+      if (instance.pagingMode) {
+        return;
+      }
       if (instance._scrollAnchor?.element?.isConnected) {
         restoreScrollAnchor(instance.scrollableParent, instance._scrollAnchor);
       }
@@ -630,8 +698,12 @@ export function createLazyLoader(config: any) {
   // logging here (it flooded the console under verbose mode). Log only when a
   // chunk actually loads.
   const observer = new IntersectionObserver((entries) => {
-    // 🔒 CHECK SCROLL LOCK: Don't trigger lazy loading during navigation or chunk deletion
-    if (instance.scrollLocked || instance.isNavigatingToInternalId) {
+    // 🔒 CHECK SCROLL LOCK: Don't trigger lazy loading during navigation or chunk deletion.
+    // pagingMode: in paginated (multicol) layout the sentinels sit in the horizontal column
+    // flow and intersection is meaningless — the paginator drives chunk loading from page
+    // turns instead. The observer stays connected (a flag survives every re-observe) and
+    // resumes instantly when the mode exits.
+    if (instance.scrollLocked || instance.isNavigatingToInternalId || instance.pagingMode) {
       return;
     }
 
@@ -1139,8 +1211,11 @@ export async function loadPreviousChunkFixed(currentFirstChunkId: any, instance:
     const newHeight = chunkElement.getBoundingClientRect().height;
 
 
-    // 🚨 SCROLL LOCK PROTECTION: Don't adjust scroll if locked or navigation is in progress
-    if (instance.scrollLocked || instance.isNavigatingToInternalId) {
+    // 🚨 SCROLL LOCK PROTECTION: Don't adjust scroll if locked or navigation is in progress.
+    // pagingMode: prepend compensation is a VERTICAL-scroll concept; in paginated mode the
+    // paginator re-anchors horizontally after the reflow (a scrollTop write here would shift
+    // the overflow:hidden wrapper and corrupt the page geometry).
+    if (instance.scrollLocked || instance.isNavigatingToInternalId || instance.pagingMode) {
       // Skip scroll adjustment during navigation
     } else {
       instance.scrollableParent.scrollTop = prevScrollTop + newHeight; // <<< Use scrollableParent

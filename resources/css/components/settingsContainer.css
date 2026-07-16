@@ -157,6 +157,65 @@ body.hyperlit-container-open .reader-content-wrapper {
   width: 100%;
 }
 
+/* Superscript asterisk on the Pages button → flags the caveat (see the warning
+   note below). Small + slightly dimmed so it reads as a footnote marker. */
+.settings-pages-asterisk {
+  font-size: 0.7em;
+  opacity: 0.8;
+  margin-left: 1px;
+}
+
+/* Honest caveat shown while Pages mode is active (settingsContainer/index.ts
+   toggles [hidden]). A dismissable in-sheet callout — constrained to the same
+   column width as the rows, distinct glassy card, with a corner close (×). */
+.settings-pages-warning {
+  position: relative;
+  width: 100%;
+  max-width: 32ch;
+  box-sizing: border-box;
+  margin: 0.2em auto 0;
+  padding: 0.7em 2.2em 0.7em 0.9em;
+  background-color: var(--container-glass-bg, rgba(34, 31, 32, 0.6));
+  border: 1px solid color-mix(in srgb, var(--color-text, #ccc) 22%, transparent);
+  border-radius: 0.8em;
+  color: var(--color-text, #ddd);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.settings-pages-warning[hidden] {
+  display: none;
+}
+
+.settings-pages-warning p {
+  margin: 0;
+}
+
+.settings-pages-warning-close {
+  position: absolute;
+  top: 0.3em;
+  right: 0.3em;
+  width: 1.6em;
+  height: 1.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text, #ccc);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.7;
+  border-radius: 50%;
+}
+
+.settings-pages-warning-close:hover,
+.settings-pages-warning-close:focus-visible {
+  opacity: 1;
+}
+
 /* Adjust row holds two stepper pairs (text size + column width). The two pairs
    sit on one line and only reflow to separate lines when the row is too narrow. */
 .settings-adjust-row {

@@ -258,7 +258,9 @@ test.describe('Cross-book hypercite stress tour', () => {
 
       const pasted = page.locator('.main-content a.open-icon[id^="hypercite_"]').first();
       await pasted.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
-      await pasted.click();
+      // Paginated-mode-safe content click (CDP quads are broken for multicol
+      // fragments — see clickReaderContent). Plain locator.click() in scroll mode.
+      await spa.clickReaderContent(page, pasted);
 
       await page.waitForFunction(() => {
         const c = document.getElementById('hyperlit-container');

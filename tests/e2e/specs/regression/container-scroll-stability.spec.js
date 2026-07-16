@@ -52,6 +52,11 @@ function visibleStack(page) {
 
 test.describe('container scroll stability', () => {
   test('opening + closing a hyperlit container does not move the reader scroll', async ({ page, spa }) => {
+    // Asserts scroll-mode MECHANICS (scrollTop preconditions + stability). In
+    // paginated mode the wrapper never scrolls (scrollTop pinned ~0), so the
+    // precondition can't be met; the pages-mode equivalent (page index stable
+    // across container open/close) is covered by paginated-reading smoke.
+    test.skip(process.env.E2E_READING_MODE === 'paginated', 'asserts scroll-mode scrollTop mechanics');
     test.setTimeout(90_000);
 
     // Small viewport so modest content overflows → real scroll room, and the

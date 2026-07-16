@@ -111,6 +111,10 @@ async function scrollNodeToTop(page, id) {
 
 test.describe('reading position save', () => {
   test('saved node id tracks the reader position, updates on scroll, and persists', async ({ page, spa }) => {
+    // Asserts scroll-mode MECHANICS (saved node follows scrollTop; wheel now
+    // TURNS PAGES in paginated mode, so "scroll then check node" is a
+    // different feature there — covered by the paginator smoke).
+    test.skip(process.env.E2E_READING_MODE === 'paginated', 'asserts scroll-mode scrollTop mechanics');
     test.setTimeout(120_000);
 
     await buildScrollableBook(page, spa);

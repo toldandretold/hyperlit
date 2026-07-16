@@ -37,6 +37,7 @@ import {
   clickFirstBookLink,
   openHomeFeed,
   navigateViaHypercite,
+  clickReaderContent,
   selectTextInElement,
   waitForEditMode,
   getCurrentBookId,
@@ -114,11 +115,29 @@ export const test = base.extend({
     await page.addInitScript(restorationSpyScript);
     await page.addInitScript(integrityCaptureScript);
 
+    // Pages-mode sweep: E2E_READING_MODE=paginated runs the whole suite with
+    // the paginated reading preference set (npm run test:e2e:pages). The
+    // fixtures/readingMode.teardown.js global teardown clears the pref from
+    // the shared e2e user afterwards (seedFromServer would otherwise upload
+    // it and leak pages mode into later normal runs). Specs that assert
+    // scroll-mode MECHANICS should self-skip via
+    // `test.skip(process.env.E2E_READING_MODE === 'paginated', 'asserts scroll-mode mechanics')`.
+    if (process.env.E2E_READING_MODE === 'paginated') {
+      await page.addInitScript(() => {
+        localStorage.setItem('hyperlit_reading_mode', 'paginated');
+      });
+    }
+
+
     // Capture console errors (existing gates read page.consoleErrors).
     const consoleErrors = [];
     page.on('console', msg => {
       if (msg.type() === 'error') {
         consoleErrors.push(msg.text());
+        // Triage aid: E2E_CONSOLE_DEBUG=1 streams page errors to the runner's
+        // stdout live (the consoleErrors gate only surfaces them at assert time,
+        // and a test that dies earlier otherwise hides what the page logged).
+        if (process.env.E2E_CONSOLE_DEBUG) console.log('[page-err]', msg.text().slice(0, 400));
       }
     });
 
@@ -214,6 +233,7 @@ export const test = base.extend({
       clickFirstBookLink,
       openHomeFeed,
       navigateViaHypercite,
+      clickReaderContent,
       selectTextInElement,
       waitForEditMode,
       getCurrentBookId,

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1670,
-    "moduleCount": 356,
+    "fnCount": 1692,
+    "moduleCount": 359,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3386,
+    "edgeCount": 3431,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -1589,6 +1589,30 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/settingsContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/readingModeSwitcher:getReadingMode",
+      "label": "getReadingMode",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/readingModeSwitcher",
+      "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/readingModeSwitcher:initializeReadingMode",
+      "label": "initializeReadingMode",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/readingModeSwitcher",
+      "leaf": false
+    },
+    {
+      "id": "components/settingsContainer/readingModeSwitcher:switchReadingMode",
+      "label": "switchReadingMode",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/readingModeSwitcher",
       "leaf": false
     },
     {
@@ -12881,6 +12905,158 @@
       "leaf": false
     },
     {
+      "id": "scrolling/paginatedSelectionBand:destroyPaginatedSelectionBand",
+      "label": "destroyPaginatedSelectionBand",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginatedSelectionBand",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/paginatedSelectionBand:initPaginatedSelectionBand",
+      "label": "initPaginatedSelectionBand",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginatedSelectionBand",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/paginator:disengageSilently",
+      "label": "disengageSilently",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/paginator:enterPaginatedMode",
+      "label": "enterPaginatedMode",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/paginator:exitPaginatedMode",
+      "label": "exitPaginatedMode",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/paginator:freezePaginator",
+      "label": "freezePaginator",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/paginator:getPageInfo",
+      "label": "getPageInfo",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/paginator:goToElement",
+      "label": "goToElement",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/paginator:isPaginatorEngaged",
+      "label": "isPaginatorEngaged",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/paginator:maybePaginatorReveal",
+      "label": "maybePaginatorReveal",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/paginator:nextPage",
+      "label": "nextPage",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/paginator:pageFromOffsets",
+      "label": "pageFromOffsets",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/paginator:prevPage",
+      "label": "prevPage",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/paginator:remeasure",
+      "label": "remeasure",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/paginator:resumeAfterEdit",
+      "label": "resumeAfterEdit",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/paginator:setPaginatorNavTarget",
+      "label": "setPaginatorNavTarget",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/paginator:suspendForEdit",
+      "label": "suspendForEdit",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/paginator:syncEngagement",
+      "label": "syncEngagement",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/paginator:unfreezePaginator",
+      "label": "unfreezePaginator",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/paginator",
+      "leaf": false
+    },
+    {
       "id": "scrolling/readingAnchor:getFreshAnchor",
       "label": "getFreshAnchor",
       "kind": "fn",
@@ -15670,6 +15846,17 @@
         "components/settingsContainer/index:SettingsContainerManager.stepWidth",
         "components/settingsContainer/index:SettingsContainerManager.syncControlsUI",
         "components/settingsContainer/index:SettingsContainerManager.updateButtonStates"
+      ]
+    },
+    {
+      "id": "components/settingsContainer/readingModeSwitcher",
+      "label": "components/settingsContainer/readingModeSwitcher",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/settingsContainer/readingModeSwitcher:getReadingMode",
+        "components/settingsContainer/readingModeSwitcher:initializeReadingMode",
+        "components/settingsContainer/readingModeSwitcher:switchReadingMode"
       ]
     },
     {
@@ -19061,6 +19248,41 @@
       ]
     },
     {
+      "id": "scrolling/paginatedSelectionBand",
+      "label": "scrolling/paginatedSelectionBand",
+      "stage": "scrolling",
+      "band": "store",
+      "fnIds": [
+        "scrolling/paginatedSelectionBand:destroyPaginatedSelectionBand",
+        "scrolling/paginatedSelectionBand:initPaginatedSelectionBand"
+      ]
+    },
+    {
+      "id": "scrolling/paginator",
+      "label": "scrolling/paginator",
+      "stage": "scrolling",
+      "band": "capture",
+      "fnIds": [
+        "scrolling/paginator:disengageSilently",
+        "scrolling/paginator:enterPaginatedMode",
+        "scrolling/paginator:exitPaginatedMode",
+        "scrolling/paginator:freezePaginator",
+        "scrolling/paginator:getPageInfo",
+        "scrolling/paginator:goToElement",
+        "scrolling/paginator:isPaginatorEngaged",
+        "scrolling/paginator:maybePaginatorReveal",
+        "scrolling/paginator:nextPage",
+        "scrolling/paginator:pageFromOffsets",
+        "scrolling/paginator:prevPage",
+        "scrolling/paginator:remeasure",
+        "scrolling/paginator:resumeAfterEdit",
+        "scrolling/paginator:setPaginatorNavTarget",
+        "scrolling/paginator:suspendForEdit",
+        "scrolling/paginator:syncEngagement",
+        "scrolling/paginator:unfreezePaginator"
+      ]
+    },
+    {
       "id": "scrolling/readingAnchor",
       "label": "scrolling/readingAnchor",
       "stage": "scrolling",
@@ -19785,6 +20007,12 @@
       "dataPath": true
     },
     {
+      "id": "components/editButton/index:disableEditMode__call__scrolling/paginator:resumeAfterEdit",
+      "source": "components/editButton/index:disableEditMode",
+      "target": "scrolling/paginator:resumeAfterEdit",
+      "rel": "call"
+    },
+    {
       "id": "components/editButton/index:disableEditMode__domwrite__dom",
       "source": "components/editButton/index:disableEditMode",
       "target": "dom",
@@ -19869,6 +20097,12 @@
       "id": "components/editButton/index:enableEditMode__call__paste/index:addPasteListener",
       "source": "components/editButton/index:enableEditMode",
       "target": "paste/index:addPasteListener",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__scrolling/paginator:suspendForEdit",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "scrolling/paginator:suspendForEdit",
       "rel": "call"
     },
     {
@@ -21340,6 +21574,13 @@
       "dataPath": true
     },
     {
+      "id": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick__call__components/settingsContainer/readingModeSwitcher:switchReadingMode",
+      "source": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
+      "target": "components/settingsContainer/readingModeSwitcher:switchReadingMode",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick__call__components/settingsContainer/themeSwitcher:switchTheme",
       "source": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
       "target": "components/settingsContainer/themeSwitcher:switchTheme",
@@ -21381,6 +21622,12 @@
       "dataPath": true
     },
     {
+      "id": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates__call__components/settingsContainer/readingModeSwitcher:getReadingMode",
+      "source": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates",
+      "target": "components/settingsContainer/readingModeSwitcher:getReadingMode",
+      "rel": "call"
+    },
+    {
       "id": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates__call__components/settingsContainer/themeSwitcher:getCurrentTheme",
       "source": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates",
       "target": "components/settingsContainer/themeSwitcher:getCurrentTheme",
@@ -21391,6 +21638,24 @@
       "source": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/readingModeSwitcher:initializeReadingMode__domwrite__dom",
+      "source": "components/settingsContainer/readingModeSwitcher:initializeReadingMode",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/readingModeSwitcher:switchReadingMode__domwrite__dom",
+      "source": "components/settingsContainer/readingModeSwitcher:switchReadingMode",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/settingsContainer/readingModeSwitcher:switchReadingMode__write__store:localStorage",
+      "source": "components/settingsContainer/readingModeSwitcher:switchReadingMode",
+      "target": "store:localStorage",
+      "rel": "write"
     },
     {
       "id": "components/settingsContainer/textControls:applyTextAdjustments__call__components/settingsContainer/textControls:reconcileViewportWidth",
@@ -28443,6 +28708,66 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__scrolling/paginator:disengageSilently",
+      "source": "dom",
+      "target": "scrolling/paginator:disengageSilently",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/paginator:enterPaginatedMode",
+      "source": "dom",
+      "target": "scrolling/paginator:enterPaginatedMode",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/paginator:exitPaginatedMode",
+      "source": "dom",
+      "target": "scrolling/paginator:exitPaginatedMode",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/paginator:goToElement",
+      "source": "dom",
+      "target": "scrolling/paginator:goToElement",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/paginator:nextPage",
+      "source": "dom",
+      "target": "scrolling/paginator:nextPage",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/paginator:prevPage",
+      "source": "dom",
+      "target": "scrolling/paginator:prevPage",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/paginator:remeasure",
+      "source": "dom",
+      "target": "scrolling/paginator:remeasure",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/paginator:setPaginatorNavTarget",
+      "source": "dom",
+      "target": "scrolling/paginator:setPaginatorNavTarget",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/paginator:syncEngagement",
+      "source": "dom",
+      "target": "scrolling/paginator:syncEngagement",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/paginator:unfreezePaginator",
+      "source": "dom",
+      "target": "scrolling/paginator:unfreezePaginator",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__scrolling/readingPosition:debouncedServerSave",
       "source": "dom",
       "target": "scrolling/readingPosition:debouncedServerSave",
@@ -30264,6 +30589,12 @@
       "dataPath": true
     },
     {
+      "id": "hypercites/navigation:navigateToFootnoteTarget__call__scrolling/paginator:maybePaginatorReveal",
+      "source": "hypercites/navigation:navigateToFootnoteTarget",
+      "target": "scrolling/paginator:maybePaginatorReveal",
+      "rel": "call"
+    },
+    {
       "id": "hypercites/navigation:navigateToFootnoteTarget__call__SPA/domReadiness:waitForElementReady",
       "source": "hypercites/navigation:navigateToFootnoteTarget",
       "target": "SPA/domReadiness:waitForElementReady",
@@ -30311,6 +30642,12 @@
       "target": "scrolling/internalNav:navigateToInternalId",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "hypercites/navigation:navigateToHyperciteTarget__call__scrolling/paginator:maybePaginatorReveal",
+      "source": "hypercites/navigation:navigateToHyperciteTarget",
+      "target": "scrolling/paginator:maybePaginatorReveal",
+      "rel": "call"
     },
     {
       "id": "hypercites/navigation:navigateToHyperciteTarget__call__SPA/domReadiness:waitForElementReady",
@@ -31580,6 +31917,12 @@
       "rel": "call"
     },
     {
+      "id": "hyperlitContainer/core:closeHyperlitContainer__call__scrolling/paginator:unfreezePaginator",
+      "source": "hyperlitContainer/core:closeHyperlitContainer",
+      "target": "scrolling/paginator:unfreezePaginator",
+      "rel": "call"
+    },
+    {
       "id": "hyperlitContainer/core:closeHyperlitContainer__call__SPA/navigation/cascadeOriginState:clearCascadeOriginId",
       "source": "hyperlitContainer/core:closeHyperlitContainer",
       "target": "SPA/navigation/cascadeOriginState:clearCascadeOriginId",
@@ -31595,6 +31938,12 @@
       "id": "hyperlitContainer/core:openHyperlitContainer__call__hyperlitContainer/core:initializeHyperlitManager",
       "source": "hyperlitContainer/core:openHyperlitContainer",
       "target": "hyperlitContainer/core:initializeHyperlitManager",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/core:openHyperlitContainer__call__scrolling/paginator:freezePaginator",
+      "source": "hyperlitContainer/core:openHyperlitContainer",
+      "target": "scrolling/paginator:freezePaginator",
       "rel": "call"
     },
     {
@@ -31614,6 +31963,12 @@
       "id": "hyperlitContainer/core:prepareHyperlitContainer__call__hyperlitContainer/core:initializeHyperlitManager",
       "source": "hyperlitContainer/core:prepareHyperlitContainer",
       "target": "hyperlitContainer/core:initializeHyperlitManager",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/core:prepareHyperlitContainer__call__scrolling/paginator:freezePaginator",
+      "source": "hyperlitContainer/core:prepareHyperlitContainer",
+      "target": "scrolling/paginator:freezePaginator",
       "rel": "call"
     },
     {
@@ -37856,6 +38211,18 @@
       "dataPath": true
     },
     {
+      "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/paginator:isPaginatorEngaged",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "scrolling/paginator:isPaginatorEngaged",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/paginator:setPaginatorNavTarget",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "scrolling/paginator:setPaginatorNavTarget",
+      "rel": "call"
+    },
+    {
       "id": "scrolling/internalNav:navigateToInternalId__call__scrolling/scrollHelpers:scrollElementWithConsistentMethod",
       "source": "scrolling/internalNav:navigateToInternalId",
       "target": "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
@@ -37931,6 +38298,108 @@
       "source": "scrolling/navStamp:recordNavigatedAt",
       "target": "store:localStorage",
       "rel": "write"
+    },
+    {
+      "id": "scrolling/paginator:enterPaginatedMode__call__scrolling/paginator:pageFromOffsets",
+      "source": "scrolling/paginator:enterPaginatedMode",
+      "target": "scrolling/paginator:pageFromOffsets",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/paginator:enterPaginatedMode__call__scrolling/paginator:remeasure",
+      "source": "scrolling/paginator:enterPaginatedMode",
+      "target": "scrolling/paginator:remeasure",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/paginator:enterPaginatedMode__call__scrolling/readingAnchor:getSavedAnchor",
+      "source": "scrolling/paginator:enterPaginatedMode",
+      "target": "scrolling/readingAnchor:getSavedAnchor",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/paginator:enterPaginatedMode__domwrite__dom",
+      "source": "scrolling/paginator:enterPaginatedMode",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "scrolling/paginator:exitPaginatedMode__domwrite__dom",
+      "source": "scrolling/paginator:exitPaginatedMode",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "scrolling/paginator:goToElement__call__scrolling/paginator:pageFromOffsets",
+      "source": "scrolling/paginator:goToElement",
+      "target": "scrolling/paginator:pageFromOffsets",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/paginator:maybePaginatorReveal__call__scrolling/paginator:goToElement",
+      "source": "scrolling/paginator:maybePaginatorReveal",
+      "target": "scrolling/paginator:goToElement",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/paginator:nextPage__call__scrolling/paginator:pageFromOffsets",
+      "source": "scrolling/paginator:nextPage",
+      "target": "scrolling/paginator:pageFromOffsets",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/paginator:prevPage__call__scrolling/paginator:remeasure",
+      "source": "scrolling/paginator:prevPage",
+      "target": "scrolling/paginator:remeasure",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/paginator:remeasure__call__scrolling/paginator:pageFromOffsets",
+      "source": "scrolling/paginator:remeasure",
+      "target": "scrolling/paginator:pageFromOffsets",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/paginator:resumeAfterEdit__call__scrolling/paginator:syncEngagement",
+      "source": "scrolling/paginator:resumeAfterEdit",
+      "target": "scrolling/paginator:syncEngagement",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/paginator:setPaginatorNavTarget__call__scrolling/paginator:pageFromOffsets",
+      "source": "scrolling/paginator:setPaginatorNavTarget",
+      "target": "scrolling/paginator:pageFromOffsets",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/paginator:suspendForEdit__call__scrolling/paginator:exitPaginatedMode",
+      "source": "scrolling/paginator:suspendForEdit",
+      "target": "scrolling/paginator:exitPaginatedMode",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/paginator:syncEngagement__call__components/settingsContainer/readingModeSwitcher:getReadingMode",
+      "source": "scrolling/paginator:syncEngagement",
+      "target": "components/settingsContainer/readingModeSwitcher:getReadingMode",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/paginator:syncEngagement__call__scrolling/paginator:enterPaginatedMode",
+      "source": "scrolling/paginator:syncEngagement",
+      "target": "scrolling/paginator:enterPaginatedMode",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/paginator:syncEngagement__call__scrolling/paginator:exitPaginatedMode",
+      "source": "scrolling/paginator:syncEngagement",
+      "target": "scrolling/paginator:exitPaginatedMode",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/paginator:unfreezePaginator__call__scrolling/paginator:pageFromOffsets",
+      "source": "scrolling/paginator:unfreezePaginator",
+      "target": "scrolling/paginator:pageFromOffsets",
+      "rel": "call"
     },
     {
       "id": "scrolling/readingAnchor:getFreshAnchor__call__scrolling/readingAnchor:getSavedAnchor",
@@ -38028,6 +38497,18 @@
       "target": "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "scrolling/scrollHelpers:scrollElementWithConsistentMethod__call__scrolling/paginator:goToElement",
+      "source": "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
+      "target": "scrolling/paginator:goToElement",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/scrollHelpers:scrollElementWithConsistentMethod__call__scrolling/paginator:isPaginatorEngaged",
+      "source": "scrolling/scrollHelpers:scrollElementWithConsistentMethod",
+      "target": "scrolling/paginator:isPaginatorEngaged",
+      "rel": "call"
     },
     {
       "id": "scrolling/scrollHelpers:scrollElementWithConsistentMethod__call__scrolling/scrollTrace:nextScrollReason",
@@ -38218,6 +38699,12 @@
       "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.hidePerimeterButtons",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.highlightCurrentMatch__call__scrolling/paginator:maybePaginatorReveal",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.highlightCurrentMatch",
+      "target": "scrolling/paginator:maybePaginatorReveal",
+      "rel": "call"
     },
     {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.highlightCurrentMatch__domwrite__dom",
@@ -40199,6 +40686,12 @@
       "rel": "read"
     },
     {
+      "id": "store:localStorage__read__components/settingsContainer/readingModeSwitcher:initializeReadingMode",
+      "source": "store:localStorage",
+      "target": "components/settingsContainer/readingModeSwitcher:initializeReadingMode",
+      "rel": "read"
+    },
+    {
       "id": "store:localStorage__read__components/settingsContainer/textControls:applyTextAdjustments",
       "source": "store:localStorage",
       "target": "components/settingsContainer/textControls:applyTextAdjustments",
@@ -41452,6 +41945,11 @@
     },
     {
       "source": "components/editButton/index",
+      "target": "scrolling/paginator",
+      "kind": "static"
+    },
+    {
+      "source": "components/editButton/index",
       "target": "divEditor/index",
       "kind": "lazy"
     },
@@ -41918,6 +42416,11 @@
     {
       "source": "components/settingsContainer/index",
       "target": "components/settingsContainer/gate",
+      "kind": "static"
+    },
+    {
+      "source": "components/settingsContainer/index",
+      "target": "components/settingsContainer/readingModeSwitcher",
       "kind": "static"
     },
     {
@@ -42598,6 +43101,11 @@
     {
       "source": "components/utilities/registerComponents",
       "target": "hyperlitContainer/footnotesCitations",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "scrolling/paginatedSelectionBand",
       "kind": "static"
     },
     {
@@ -43316,6 +43824,11 @@
       "kind": "static"
     },
     {
+      "source": "hypercites/navigation",
+      "target": "scrolling/paginator",
+      "kind": "static"
+    },
+    {
       "source": "hyperlights/annotationPaste",
       "target": "hypercites/listeners",
       "kind": "static"
@@ -43778,6 +44291,11 @@
     {
       "source": "hyperlitContainer/core",
       "target": "hyperlitContainer/subBookActions",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/core",
+      "target": "scrolling/paginator",
       "kind": "static"
     },
     {
@@ -45057,6 +45575,11 @@
     },
     {
       "source": "pageLoad/loadHyperText",
+      "target": "scrolling/paginator",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
       "target": "SPA/navigation/resolveTargetChunk",
       "kind": "lazy"
     },
@@ -45747,6 +46270,11 @@
     },
     {
       "source": "scrolling/internalNav",
+      "target": "scrolling/paginator",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/internalNav",
       "target": "scrolling/scrollHelpers",
       "kind": "static"
     },
@@ -45801,6 +46329,26 @@
       "kind": "static"
     },
     {
+      "source": "scrolling/paginatedSelectionBand",
+      "target": "scrolling/paginator",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/paginator",
+      "target": "components/settingsContainer/readingModeSwitcher",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/paginator",
+      "target": "pageLoad/currentLazyLoaderState",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/paginator",
+      "target": "scrolling/readingAnchor",
+      "kind": "static"
+    },
+    {
       "source": "scrolling/readingAnchor",
       "target": "pageLoad/currentLazyLoaderState",
       "kind": "static"
@@ -45852,6 +46400,11 @@
     },
     {
       "source": "scrolling/scrollHelpers",
+      "target": "scrolling/paginator",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/scrollHelpers",
       "target": "scrolling/scrollTrace",
       "kind": "static"
     },
@@ -45873,6 +46426,11 @@
     {
       "source": "search/inTextSearch/searchToolbar",
       "target": "scrolling/internalNav",
+      "kind": "static"
+    },
+    {
+      "source": "search/inTextSearch/searchToolbar",
+      "target": "scrolling/paginator",
       "kind": "static"
     },
     {

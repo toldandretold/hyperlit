@@ -7,6 +7,7 @@
  */
 
 import { navigateToInternalId } from '../scrolling/index';
+import { maybePaginatorReveal } from '../scrolling/paginator';
 import { waitForElementReady } from '../SPA/domReadiness';
 import { getLocalStorageKey } from '../indexedDB/index';
 import { highlightTargetHypercite, revealGhostIfTombstone } from './animations';
@@ -63,11 +64,13 @@ export async function navigateToHyperciteTarget(highlightId: string, internalId:
         // Scroll within the hyperlit container
         const scroller = currentContainer!.querySelector('.scroller');
         if (scroller) {
-          hyperciteInContainer.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'nearest'
-          });
+          if (!maybePaginatorReveal(hyperciteInContainer)) {
+            hyperciteInContainer.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+              inline: 'nearest'
+            });
+          }
           // Check if this is a ghost tombstone — reveal instead of highlight
           if (!revealGhostIfTombstone(internalId)) {
             highlightTargetHypercite(internalId);
@@ -145,9 +148,13 @@ export async function navigateToFootnoteTarget(footnoteId: string, internalId: s
     };
     footnoteElement.addEventListener('animationend', handleEnd);
 
-    // Scroll to the footnote marker in the document
+    // Scroll to the footnote marker in the document. In paginated mode a
+    // native scrollIntoView would scroll the overflow:hidden wrapper and
+    // corrupt the page geometry — flip to the footnote's page instead.
     console.log(`📍 Scrolling to footnote element: ${footnoteId}`);
-    footnoteElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!maybePaginatorReveal(footnoteElement)) {
+      footnoteElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 
     // Wait a moment for scroll to complete, then trigger the container to open
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -165,11 +172,13 @@ export async function navigateToFootnoteTarget(footnoteId: string, internalId: s
           const hyperciteInContainer = fnContainer?.querySelector(`#${internalId}`);
           if (hyperciteInContainer) {
             console.log(`🎯 Found hypercite ${internalId} inside hyperlit container, scrolling to it`);
-            hyperciteInContainer.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',
-              inline: 'nearest'
-            });
+            if (!maybePaginatorReveal(hyperciteInContainer)) {
+              hyperciteInContainer.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'nearest'
+              });
+            }
             // Check if this is a ghost tombstone — reveal instead of highlight
             if (!revealGhostIfTombstone(internalId)) {
               highlightTargetHypercite(internalId);

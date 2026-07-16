@@ -3,12 +3,16 @@ import { log, verbose } from './utilities/logger';
 import { asBookId, type BookId } from './indexedDB/types';
 import { seedFromServer } from './utilities/preferences';
 import { initializeTheme } from './components/settingsContainer/themeSwitcher';
+import { initializeReadingMode } from './components/settingsContainer/readingModeSwitcher';
 
 // Seed localStorage from server-injected preferences before theme init
 seedFromServer();
 
 // Initialize theme as early as possible to prevent flash
 initializeTheme();
+
+// Reading-mode preference (scroll vs paginated) — body class before first paint
+initializeReadingMode();
 
 // Load navigation health check in development
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {

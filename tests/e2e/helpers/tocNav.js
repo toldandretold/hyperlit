@@ -151,6 +151,9 @@ export async function clickTocEntry(page, predicate) {
 /**
  * Return whether the heading element with id matching the TOC entry's hash is
  * within the upper half of the viewport (a successful scroll-to-heading).
+ * Paginated reading mode: navigation flips to the heading's PAGE — vertical
+ * position within the page band is wherever the column layout put it, so the
+ * equivalent assertion is horizontal (heading box intersects the visible page).
  */
 export async function isHeadingInViewportForHref(page, href) {
   const targetId = (href || '').replace(/^#/, '');
@@ -160,6 +163,11 @@ export async function isHeadingInViewportForHref(page, href) {
     const el = document.querySelector(`[id="${id}"]`);
     if (!el) return false;
     const rect = el.getBoundingClientRect();
+    const wrapper = document.querySelector('.reader-content-wrapper.paginated-active');
+    if (wrapper) {
+      const c = wrapper.getBoundingClientRect();
+      return rect.right > c.left + 1 && rect.left < c.right - 1;
+    }
     return rect.top >= -10 && rect.top < window.innerHeight * 0.6;
   }, targetId);
 }

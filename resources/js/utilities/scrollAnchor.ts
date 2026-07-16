@@ -45,6 +45,10 @@ export function captureScrollAnchor(scrollableParent: any) {
  */
 export function restoreScrollAnchor(scrollableParent: any, anchor: any) {
   if (!scrollableParent || !anchor?.element?.isConnected) return;
+  // Paginated reading mode: the wrapper is overflow:hidden and vertical drift
+  // math is meaningless — the paginator re-anchors horizontally itself. A
+  // scrollTop write here would corrupt the page geometry.
+  if (scrollableParent.classList?.contains('paginated-active')) return;
 
   const containerRect = scrollableParent.getBoundingClientRect();
   const currentOffset = anchor.element.getBoundingClientRect().top - containerRect.top;

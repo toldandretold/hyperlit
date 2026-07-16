@@ -422,10 +422,20 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
 
      // {book} is greedy ('.+') so sub-book ids containing '/' (book_x/Fn1) route; the
      // strictly-constrained trailing {hyperciteId} anchors where the book id ends.
+     //
+     // withoutMiddleware('author'): this is a READ used by fetch-on-demand when an
+     // anonymous reader deep-links to a #hypercite_ that was gate-filtered out of the
+     // book's bulk sync (open a PUBLIC book, then paste its own hypercite link — the
+     // marker never appeared because this 401'd in a fresh window with no anon_token).
+     // The controller's find() already enforces visibility/ownership (public → anyone,
+     // private → owner only, non-owner → 403), so RequireAuthor is redundant here and
+     // its blanket 401 pre-empts the public-book allowance. Matches the public bulk
+     // data endpoint (canAccessBookContent). Throttle from the group is retained.
      Route::get(
         '/db/hypercites/find/{book}/{hyperciteId}',
         [DbHyperciteController::class, 'find']
-    )->where('book', '.+')->where('hyperciteId', 'hypercite_[A-Za-z0-9]+');
+    )->where('book', '.+')->where('hyperciteId', 'hypercite_[A-Za-z0-9]+')
+     ->withoutMiddleware('author');
 
     Route::post('/db/footnotes/upsert', [DbFootnoteController::class, 'upsert']);
     Route::post('/db/references/upsert', [DbReferencesController::class, 'upsertReferences']);

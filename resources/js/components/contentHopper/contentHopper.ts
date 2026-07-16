@@ -24,6 +24,7 @@
 
 import { isAnyModalOpen } from '../../utilities/modalState';
 import { verbose } from '../../utilities/logger';
+import { maybePaginatorReveal } from '../../scrolling/paginator';
 
 // One entry per interactable kind. Footnote sups match before their inner <a>
 // (the dedupe below skips anchors already inside a matched sup).
@@ -96,7 +97,10 @@ function hop(direction: 1 | -1): void {
   if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
   target.focus({ preventScroll: true });
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-  target.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+  // Paginated mode: flip to the annotation's page instead of scrolling.
+  if (!maybePaginatorReveal(target)) {
+    target.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+  }
 }
 
 function activateCurrent(): boolean {

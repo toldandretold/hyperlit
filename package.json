@@ -26,6 +26,7 @@
     "test:tdz": "vite build && node tests/build/tdzProbe.mjs",
     "verify": "bash scripts/verify.sh",
     "test:e2e": "npx playwright test --config tests/e2e/playwright.config.js",
+    "test:e2e:pages": "E2E_READING_MODE=paginated npx playwright test --config tests/e2e/playwright.config.js",
     "test:e2e:headed": "npx playwright test --config tests/e2e/playwright.config.js --headed",
     "test:a11y": "npx playwright test --config tests/e2e/playwright.config.js specs/a11y; node tests/e2e/scripts/merge-a11y-report.mjs",
     "build:paste-engine": "node scripts/bundle-paste-engine.mjs"

@@ -30,6 +30,12 @@ async function readerScrollTop(page) {
 
 test.describe('hash survives scroll-away', () => {
   test('scrolling away keeps the deep-link hash in the URL (back/forward still target it)', async ({ page, spa }) => {
+    // Asserts scroll-mode MECHANICS ("deep-link scrolls the reader down",
+    // scroll-away via scrollTop): in paginated mode the wrapper never
+    // scrolls — deep links flip pages instead, and "scroll away" is a page
+    // turn. The hash-persistence invariant itself is mode-independent and
+    // still covered by this spec in normal runs.
+    test.skip(process.env.E2E_READING_MODE === 'paginated', 'asserts scroll-mode scrollTop mechanics');
     test.setTimeout(120_000);
     await page.setViewportSize({ width: 600, height: 500 });
 

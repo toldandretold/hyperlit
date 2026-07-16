@@ -92,7 +92,18 @@ test.describe('File import via drag-and-drop (SPA flow)', () => {
       null,
       { timeout: 120_000 }
     );
-    await spa.waitForTransition(page);
+    // The import DOES drive #initial-navigation-overlay after all (the comment
+    // above is half-right: ImportBookTransition renders "Import complete!"
+    // through that overlay, then hides it at the END of its book-open execute —
+    // chunk render + enter-edit-mode). data-page flips to reader EARLY in that
+    // execute, so the overlay lingers AFTER the wait above. Under full-suite
+    // load (embeddings worker + accumulated jobs contending for CPU/DB) that
+    // tail exceeds waitForTransition's default 15s ceiling — reproduced 4/5 as
+    // a `waitForFunction: Timeout 15000ms` here with the reader fully rendered
+    // behind a still-visible "Import complete!" overlay. Give it an
+    // import-pathway ceiling (solo it hides in <1s, so this never slows a
+    // healthy run; it only absorbs the loaded-server tail).
+    await spa.waitForTransition(page, { timeout: 60_000 });
     expect(await spa.getStructure(page)).toBe('reader');
 
     const importedBookId = await spa.getCurrentBookId(page);

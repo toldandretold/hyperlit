@@ -7,6 +7,10 @@ import { verbose } from '../utilities/logger';
 import { userScrollState } from './navState';
 import { shouldSkipScrollRestoration } from './userScrollDetection';
 import { nextScrollReason } from './scrollTrace';
+// Paginated-mode delegate: when the reader wrapper is in paginated (multicol)
+// layout, "scroll this element into view" means "flip to its page". One-way
+// import — paginator never imports scrollHelpers (keeps the graph acyclic).
+import { isPaginatorEngaged, goToElement as paginatorGoToElement } from './paginator';
 
 // Reusable scroll correction — recalculates offsetTop and snaps if the element drifted
 function correctScrollPosition(targetElement: any, scrollableContainer: any, headerOffset: number): void {
@@ -23,6 +27,9 @@ function correctScrollPosition(targetElement: any, scrollableContainer: any, hea
     targetElement = live;
   }
   if (targetElement.offsetParent === null) return; // not laid out (detached subtree / display:none ancestor)
+  // Paginated mode: vertical corrections are meaningless (and a scrollTo would
+  // shift the overflow:hidden wrapper). The paginator owns positioning.
+  if (isPaginatorEngaged() && scrollableContainer?.classList?.contains('paginated-active')) return;
 
   let elementOffset = 0;
   let el = targetElement;
@@ -46,6 +53,14 @@ function correctScrollPosition(targetElement: any, scrollableContainer: any, hea
 export function scrollElementWithConsistentMethod(targetElement: any, scrollableContainer: any, headerOffset = 192): number | undefined {
   if (!targetElement || !scrollableContainer) {
     console.error("Missing target element or scrollable container for consistent scroll");
+    return;
+  }
+
+  // Paginated mode: this ONE seam covers every navigation path (internalNav's
+  // final positioning, restore-resume, footnote/hypercite/hash links, search
+  // results, audio follow) — flip to the target's page instead of scrolling.
+  if (isPaginatorEngaged() && scrollableContainer?.classList?.contains('paginated-active')) {
+    paginatorGoToElement(targetElement);
     return;
   }
 

@@ -30,6 +30,10 @@ function lastChunkEl(container: any): Element | null {
 }
 
 export async function fillViewport(instance: any, maxIterations = 100): Promise<void> {
+  // Paginated mode: isWithinViewport() only tests VERTICAL offsets, and in a horizontal
+  // column layout every sentinel reads as "in view" forever — this loop would runaway-load
+  // up to maxIterations chunks. The paginator does its own filling from page-turn logic.
+  if (instance?.pagingMode) return;
   // Re-entrancy guard: the observer fires repeatedly; only one fill loop at a time.
   if (!instance || !instance.container || instance._fillingViewport) return;
   instance._fillingViewport = true;

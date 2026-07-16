@@ -68,6 +68,11 @@ function savedElementId(page, bookId) {
 
 test.describe('audio start position', () => {
   test('Listen starts at the current reading position, not the top of the book', async ({ page, spa }) => {
+    // scrollTop-based precondition ("reader is scrolled down") — the wrapper
+    // never scrolls in paginated mode. The start-at-current-position invariant
+    // itself is mode-independent (getFreshAnchor has a paginated branch) and
+    // stays covered by normal runs + the paginator browser smoke.
+    test.skip(process.env.E2E_READING_MODE === 'paginated', 'asserts scroll-mode scrollTop mechanics');
     test.setTimeout(120_000);
 
     await buildScrollableBook(page, spa);

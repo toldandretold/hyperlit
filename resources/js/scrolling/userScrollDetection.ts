@@ -42,6 +42,15 @@ function detectUserScrollStart(event?: any): void {
   userScrollState.isScrolling = true;
   userScrollState.lastUserScrollTime = Date.now();
 
+  // Intent gestures only (wheel / touchmove-past-threshold): the link-click
+  // block keys off THESE, not bare `scroll` events — the browser scrolling a
+  // clicked link into view fires `scroll` right before the click lands, and
+  // blocking on that made deliberate clicks silently dead. (touchstart
+  // returned above; a `scroll` event has no gesture semantics.)
+  if (event && (event.type === 'wheel' || event.type === 'touchmove')) {
+    userScrollState.lastGestureScrollTime = Date.now();
+  }
+
   // Clear any existing timeout
   if (userScrollState.scrollTimeout) {
     clearTimeout(userScrollState.scrollTimeout);
@@ -64,11 +73,14 @@ export function isUserCurrentlyScrolling(): boolean {
 // Separate check for blocking link clicks - MUCH tighter timing
 // Allows: scroll → stop → immediately click
 export function isActivelyScrollingForLinkBlock(): boolean {
-  // Only block if we're in an active scroll RIGHT NOW
-  // The isScrolling flag gets cleared after 1 second of no scroll events
-  // Plus a tiny 200ms buffer to catch the tail end of momentum scrolling
-  const timeSinceLastScroll = Date.now() - userScrollState.lastUserScrollTime;
-  return userScrollState.isScrolling && timeSinceLastScroll < 200;
+  // Only block if the user GESTURED a scroll (wheel / touchmove) right now —
+  // the accidental-tap-during-momentum case this guard exists for. Bare
+  // `scroll` events deliberately don't count: the browser scrolling a click
+  // target into view fires one immediately before the click, and blocking on
+  // it made deliberate clicks on below-the-fold links silently dead (the
+  // home→reader card-click e2e failure). 200ms buffer catches momentum tail.
+  const timeSinceGesture = Date.now() - userScrollState.lastGestureScrollTime;
+  return userScrollState.isScrolling && timeSinceGesture < 200;
 }
 
 export function shouldSkipScrollRestoration(reason = "user scrolling"): boolean {

@@ -70,6 +70,11 @@ import {
 } from '../contentHopper/contentHopper';
 
 import {
+  initPageNav,
+  destroyPageNav
+} from '../pageNav/pageNav';
+
+import {
   initializeHomepageSearch,
   destroyHomepageSearch
 } from '../../search/postgreSQLsearch/homepageSearch';
@@ -110,6 +115,11 @@ import {
   initSelectionAutoScroll,
   destroySelectionAutoScroll
 } from '../../scrolling/selectionAutoScroll';
+
+import {
+  initPaginatedSelectionBand,
+  destroyPaginatedSelectionBand
+} from '../../scrolling/paginatedSelectionBand';
 
 import {
   initLavaLampBackground,
@@ -169,6 +179,18 @@ export function registerAllComponents() {
     required: false
   });
 
+  // Paginated reading mode page-turn controls (buttons + keys) + the
+  // engagement re-sync on every reader entry. Document-delegated singleton:
+  // create-once init, per-entry syncEngagement.
+  buttonRegistry.register({
+    name: 'pageNav',
+    initFn: initPageNav,
+    destroyFn: destroyPageNav,
+    pages: ['reader'],
+    dependencies: [],
+    required: false
+  });
+
   buttonRegistry.register({
     name: 'userContainer',
     initFn: initializeUserContainer,
@@ -198,6 +220,9 @@ export function registerAllComponents() {
             "logoNavWrapper",
             "topRightContainer",
             "userButtonContainer",
+            // Reading-progress % (both scroll + paginated modes) is reading
+            // chrome — tap-to-hide the perimeter buttons fades it too.
+            "pageNavPercent",
           ],
           tapThreshold: 15,
         });
@@ -313,6 +338,19 @@ export function registerAllComponents() {
     name: 'selectionAutoScroll',
     initFn: initSelectionAutoScroll,
     destroyFn: destroySelectionAutoScroll,
+    pages: ['reader'],
+    dependencies: [],
+    required: false
+  });
+
+  // Draws the text-selection band ourselves in paginated mode — iOS Safari doesn't
+  // reliably PAINT the native selection over scrolled multicol content, though the
+  // selection geometry (getClientRects) is correct. Document-level listeners →
+  // session singleton, re-init just clears stale bands. Inert in scroll mode.
+  buttonRegistry.register({
+    name: 'paginatedSelectionBand',
+    initFn: initPaginatedSelectionBand,
+    destroyFn: destroyPaginatedSelectionBand,
     pages: ['reader'],
     dependencies: [],
     required: false

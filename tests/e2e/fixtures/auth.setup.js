@@ -73,6 +73,41 @@ setup('authenticate', async ({ page }) => {
   // Give the app time to settle after login
   await page.waitForTimeout(1000);
 
-  // Save storage state for reuse
+  // Normalize reading_mode on the SERVER for the shared e2e user at the start
+  // of EVERY run — setup is a dependency of every project, so this is the one
+  // place guaranteed to run first. This is self-healing: a pages-mode sweep
+  // that was interrupted before readingMode.teardown.js could clear the pref
+  // (Ctrl-C, a non-200 clear, an ad-hoc single-spec pages run) would otherwise
+  // leave `reading_mode=paginated` on the server, and because seedFromServer
+  // makes "backend wins" (utilities/preferences.ts), the NEXT normal run would
+  // silently come up in pages mode and fail every scroll-mechanics spec as a
+  // phantom regression. Clearing on normal runs (and seeding on pages runs)
+  // makes the reading mode deterministic no matter what a prior run left behind.
+  //
+  // On pages runs we also want it PRE-seeded so no spec's page boot fires the
+  // seedFromServer → uploadMissingPreferences POST at module-init (a boot-time
+  // mutation there can stall and break networkidle waits).
+  const desiredMode = process.env.E2E_READING_MODE === 'paginated' ? 'paginated' : null;
+  const status = await page.evaluate(async (mode) => {
+    const token = document.querySelector('meta[name="csrf-token"]')?.content;
+    if (!token) return 'no-csrf-token';
+    const res = await fetch('/api/user/preferences', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'Accept': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ reading_mode: mode }),
+    });
+    // Sync THIS page's localStorage to the normalized value before storageState
+    // is saved below — seedFromServer may have already set it from a dirty
+    // server during this page's own boot, and a stale `paginated` baked into
+    // .auth-state.json would re-seed pages mode into every spec that reuses it.
+    if (mode) localStorage.setItem('hyperlit_reading_mode', mode);
+    else localStorage.removeItem('hyperlit_reading_mode');
+    return res.status;
+  }, desiredMode);
+  console.log(`[auth.setup] normalized reading_mode=${desiredMode ?? 'null (scroll)'} on the server (${status})`);
+
+  // Save storage state for reuse — AFTER the normalization POST above so the
+  // persisted session reflects the cleared/seeded server pref.
   await page.context().storageState({ path: authFile });
 });
