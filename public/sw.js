@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v25'; // reading_mode now device-scoped (per mobile/desktop) — force-refresh
+const CACHE_VERSION = 'v26'; // scroll<->pages toggle keeps reading position (fresh anchor) — force-refresh
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 

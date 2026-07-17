@@ -30,7 +30,7 @@
 import { verbose } from '../utilities/logger';
 import { currentLazyLoader } from '../pageLoad/currentLazyLoaderState';
 import { userScrollState } from './navState';
-import { getSavedAnchor } from './readingAnchor';
+import { getFreshAnchor } from './readingAnchor';
 import { getReadingMode, READING_MODES } from '../components/settingsContainer/readingModeSwitcher';
 
 /** The slice of the lazyLoader instance the paginator drives. */
@@ -472,6 +472,16 @@ export function enterPaginatedMode(opts: { deferToRestore?: boolean } = {}): voi
   const candidate = resolveReaderLoader();
   if (!candidate) return;
 
+  // Capture the CURRENT reading anchor while the layout is STILL vertical (scroll
+  // mode). getFreshAnchor re-runs the position detector synchronously — but it
+  // MUST run BEFORE we flip to columns (pagingMode/paginated-active reset
+  // scrollLeft to 0), else the detector reads the first node of page 0 instead of
+  // where the reader actually is, and the Scroll→Pages toggle jumps to the top.
+  // Skipped on the boot path — restoreScrollPosition owns positioning there.
+  const enterAnchorId = opts.deferToRestore
+    ? null
+    : getFreshAnchor(candidate.bookId)?.elementId ?? null;
+
   loader = candidate;
   wrapper = candidate.scrollableParent as HTMLElement;
   main = candidate.container;
@@ -498,11 +508,12 @@ export function enterPaginatedMode(opts: { deferToRestore?: boolean } = {}): voi
     navTargetId = null;
     navPageOffset = 0;
   } else {
-    // Mid-session engagement (settings toggle, exiting edit mode): no restore
-    // is coming — position from the SAVED anchor. Deliberately NOT a fresh
-    // detector run; the saved value is at most one 250ms throttle tick stale,
-    // and the user just spent longer than that in the settings panel.
-    const savedEl = latestAnchorElement();
+    // Mid-session engagement (settings toggle, exiting edit mode): no restore is
+    // coming — open the page holding the reader's CURRENT position, captured
+    // fresh above while the layout was still vertical.
+    const savedEl = enterAnchorId
+      ? main.querySelector<HTMLElement>(`[id="${CSS.escape(enterAnchorId)}"]`)
+      : null;
     if (savedEl) {
       setPage(pageOfElement(savedEl), true);
       currentAnchorId = savedEl.id;
@@ -558,19 +569,6 @@ export function enterPaginatedMode(opts: { deferToRestore?: boolean } = {}): voi
   // and in the mid-restore case a save here would stomp the bookmark.
   emitState();
   verbose.nav(`Paginated mode engaged (${pageCount} pages in window)`, '/scrolling/paginator.ts');
-}
-
-/**
- * The element for the most recently saved reading anchor, if it's in the
- * loaded window. The caller just ran the detector (saveScrollPosition), so
- * the accessor read is fresh — and going through readingAnchor keeps the
- * one-accessor rule intact.
- */
-function latestAnchorElement(): HTMLElement | null {
-  if (!loader || !main) return null;
-  const elementId = getSavedAnchor(loader.bookId)?.elementId;
-  if (!elementId) return null;
-  return main.querySelector<HTMLElement>(`[id="${CSS.escape(elementId)}"]`);
 }
 
 export function exitPaginatedMode(): HTMLElement | null {

@@ -296,4 +296,83 @@ test.describe('paginated reading mode', () => {
     const { left: end } = await geom(page);
     expect(end - start, 'one bumpy gesture = one page').toBe(stride);
   });
+
+  test('reading position survives a Scroll <-> Pages round-trip mid-book', async ({ page }) => {
+    // Toggling reading mode must keep your place. The paginator captures the
+    // CURRENT anchor (getFreshAnchor, before the layout flips) on Scroll->Pages
+    // and firstElementOnCurrentPage on Pages->Scroll — a jump to the top means
+    // that handoff broke.
+    test.setTimeout(120_000);
+    await page.goto(`/${BOOK}`);
+    await page.waitForSelector('.chunk [id]', { timeout: 20000 });
+    await page.waitForTimeout(1500);
+
+    // Start in SCROLL mode (the shared e2e user's saved pref may be paginated).
+    const startedPaginated = await page.evaluate(() =>
+      !!document.querySelector('.reader-content-wrapper')?.classList.contains('paginated-active'));
+    if (startedPaginated) {
+      await page.click('#settingsButton');
+      await page.waitForSelector('#scrollModeButton', { state: 'visible' });
+      await page.click('#scrollModeButton');
+      await page.waitForTimeout(500);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(400);
+    }
+
+    // Scroll several screens deep so we are clearly NOT at the top.
+    const scrolled = await page.evaluate(() => {
+      const w = document.querySelector('.reader-content-wrapper');
+      const target = Math.min(w.scrollHeight - w.clientHeight - 1, w.clientHeight * 3);
+      w.scrollTop = target;
+      return { target: Math.round(target), max: Math.round(w.scrollHeight - w.clientHeight) };
+    });
+    // Book too short to have a meaningful mid-book position → nothing to assert.
+    test.skip(scrolled.target < 200, 'book too short to scroll mid-way');
+    await page.waitForTimeout(700); // 250ms save throttle + settle
+
+    // The node at the top of the viewport (below the 192px header band) is the
+    // reading anchor we expect to survive the round-trip.
+    const anchorId = await page.evaluate(() => {
+      const w = document.querySelector('.reader-content-wrapper');
+      const c = w.getBoundingClientRect();
+      for (const el of document.querySelectorAll('.chunk > [id]')) {
+        if (!/^\d+(\.\d+)?$/.test(el.id)) continue;
+        const r = el.getBoundingClientRect();
+        if (r.bottom > c.top + 193 && (r.width || r.height)) return el.id;
+      }
+      return null;
+    });
+    expect(anchorId, 'found a mid-book reading anchor').toBeTruthy();
+
+    // Scroll -> Pages: the shown page MUST contain the anchor (not jump to top).
+    await page.click('#settingsButton');
+    await page.waitForSelector('#paginatedModeButton', { state: 'visible' });
+    await page.click('#paginatedModeButton');
+    await page.waitForTimeout(800);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+
+    const onPage = await targetOnCurrentPage(page, anchorId);
+    expect(onPage.ok, `anchor on the page after Scroll->Pages, not jumped to top (${onPage.why})`).toBe(true);
+
+    // Pages -> Scroll: the anchor must be visible again.
+    await page.click('#settingsButton');
+    await page.waitForSelector('#scrollModeButton', { state: 'visible' });
+    await page.click('#scrollModeButton');
+    await page.waitForTimeout(800);
+    await page.keyboard.press('Escape');
+
+    const back = await page.evaluate((id) => {
+      const w = document.querySelector('.reader-content-wrapper');
+      const el = document.getElementById(id);
+      const c = w.getBoundingClientRect();
+      const r = el?.getBoundingClientRect();
+      return {
+        engaged: w.classList.contains('paginated-active'),
+        visible: !!r && r.bottom > c.top && r.top < c.bottom,
+      };
+    }, anchorId);
+    expect(back.engaged, 'scroll mode restored').toBe(false);
+    expect(back.visible, 'anchor visible again after Pages->Scroll').toBe(true);
+  });
 });

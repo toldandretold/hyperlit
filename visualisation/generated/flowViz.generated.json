@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1692,
+    "fnCount": 1694,
     "moduleCount": 359,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3431,
+    "edgeCount": 3435,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -1520,6 +1520,14 @@
       "leaf": true
     },
     {
+      "id": "components/settingsContainer/index:SettingsContainerManager.dismissPagesWarning",
+      "label": "SettingsContainerManager.dismissPagesWarning",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": false
+    },
+    {
       "id": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
       "label": "SettingsContainerManager.handleDocumentClick",
       "kind": "fn",
@@ -1582,6 +1590,14 @@
       "stage": "components",
       "module": "components/settingsContainer/index",
       "leaf": true
+    },
+    {
+      "id": "components/settingsContainer/index:SettingsContainerManager.syncPagesWarning",
+      "label": "SettingsContainerManager.syncPagesWarning",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/settingsContainer/index",
+      "leaf": false
     },
     {
       "id": "components/settingsContainer/index:SettingsContainerManager.updateButtonStates",
@@ -15837,6 +15853,7 @@
         "components/settingsContainer/index:SettingsContainerManager.applyTextAdjustments",
         "components/settingsContainer/index:SettingsContainerManager.constructor",
         "components/settingsContainer/index:SettingsContainerManager.destroy",
+        "components/settingsContainer/index:SettingsContainerManager.dismissPagesWarning",
         "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
         "components/settingsContainer/index:SettingsContainerManager.handleVibeClick",
         "components/settingsContainer/index:SettingsContainerManager.openContainer",
@@ -15845,6 +15862,7 @@
         "components/settingsContainer/index:SettingsContainerManager.stepTextSize",
         "components/settingsContainer/index:SettingsContainerManager.stepWidth",
         "components/settingsContainer/index:SettingsContainerManager.syncControlsUI",
+        "components/settingsContainer/index:SettingsContainerManager.syncPagesWarning",
         "components/settingsContainer/index:SettingsContainerManager.updateButtonStates"
       ]
     },
@@ -21574,6 +21592,12 @@
       "dataPath": true
     },
     {
+      "id": "components/settingsContainer/index:SettingsContainerManager.dismissPagesWarning__write__store:localStorage",
+      "source": "components/settingsContainer/index:SettingsContainerManager.dismissPagesWarning",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick__call__components/settingsContainer/readingModeSwitcher:switchReadingMode",
       "source": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
       "target": "components/settingsContainer/readingModeSwitcher:switchReadingMode",
@@ -25810,9 +25834,21 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/settingsContainer/index:SettingsContainerManager.dismissPagesWarning",
+      "source": "dom",
+      "target": "components/settingsContainer/index:SettingsContainerManager.dismissPagesWarning",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
       "source": "dom",
       "target": "components/settingsContainer/index:SettingsContainerManager.handleDocumentClick",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/settingsContainer/index:SettingsContainerManager.syncPagesWarning",
+      "source": "dom",
+      "target": "components/settingsContainer/index:SettingsContainerManager.syncPagesWarning",
       "rel": "domread"
     },
     {
@@ -38312,9 +38348,9 @@
       "rel": "call"
     },
     {
-      "id": "scrolling/paginator:enterPaginatedMode__call__scrolling/readingAnchor:getSavedAnchor",
+      "id": "scrolling/paginator:enterPaginatedMode__call__scrolling/readingAnchor:getFreshAnchor",
       "source": "scrolling/paginator:enterPaginatedMode",
-      "target": "scrolling/readingAnchor:getSavedAnchor",
+      "target": "scrolling/readingAnchor:getFreshAnchor",
       "rel": "call"
     },
     {
@@ -40683,6 +40719,12 @@
       "id": "store:localStorage__read__components/newbookContainer/debugLog:updateDebugPanel",
       "source": "store:localStorage",
       "target": "components/newbookContainer/debugLog:updateDebugPanel",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/settingsContainer/index:SettingsContainerManager.syncPagesWarning",
+      "source": "store:localStorage",
+      "target": "components/settingsContainer/index:SettingsContainerManager.syncPagesWarning",
       "rel": "read"
     },
     {

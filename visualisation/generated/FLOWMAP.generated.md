@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1692 functions in 359 modules · 10 object stores · 10 PG tables · 3431 edges
+**MarkdownDB** schema v28 · 1694 functions in 359 modules · 10 object stores · 10 PG tables · 3435 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -181,6 +181,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SettingsContainerManager.applyTextAdjustments` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.constructor` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.destroy` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.dismissPagesWarning` | `components/settingsContainer/index` | — | `localStorage` | read | — |
 | `SettingsContainerManager.handleDocumentClick` | `components/settingsContainer/index` | — | — | read | — |
 | `SettingsContainerManager.handleVibeClick` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.openContainer` | `components/settingsContainer/index` | — | — | — | — |
@@ -189,6 +190,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SettingsContainerManager.stepTextSize` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.stepWidth` | `components/settingsContainer/index` | — | — | — | — |
 | `SettingsContainerManager.syncControlsUI` | `components/settingsContainer/index` | — | — | — | — |
+| `SettingsContainerManager.syncPagesWarning` | `components/settingsContainer/index` | `localStorage` | — | read | — |
 | `SettingsContainerManager.updateButtonStates` | `components/settingsContainer/index` | — | — | read/write | — |
 | `getReadingMode` | `components/settingsContainer/readingModeSwitcher` | — | — | — | — |
 | `initializeReadingMode` | `components/settingsContainer/readingModeSwitcher` | `localStorage` | — | write | — |
