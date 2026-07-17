@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v22'; // pages-mode mark-tap repaint flash fix (drop filter on marks) — force-refresh
+const CACHE_VERSION = 'v25'; // reading_mode now device-scoped (per mobile/desktop) — force-refresh
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 

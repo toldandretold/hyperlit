@@ -70,6 +70,23 @@ body[data-page="reader"] .reader-content-wrapper.paginated-active .main-content 
   user-select: text;
 }
 
+/* Last-page trailing runway. The final multicol column has NO column-gap after
+   it, so wrapper.scrollWidth falls ~one padding-width short of pageCount*stride.
+   Scrolling the last page to page*stride then gets CLAMPED by the browser to the
+   (short) max scrollLeft, which leaves the final column shoved right with empty
+   space on the left (the "last page is shifted across" bug). A forced trailing
+   column adds a full stride of scroll room so the last page lands flush-left.
+   It's a ::after pseudo-element — never a node or sentinel — so it can't be
+   counted as a page (computePageCount reads real nodes / the sentinel, both
+   BEFORE this box). -webkit-column-break-before is the iOS-reliable spelling. */
+.paginated-active .main-content::after {
+  content: "";
+  display: block;
+  -webkit-column-break-before: always;
+  break-before: column;
+  block-size: 1px;
+}
+
 /* Fragmentation mitigations: keep media/blocks from being sliced across a
    column break; clamp media that would exceed the page band. A block TALLER
    than a whole page still gets clipped at the column edge — the same known

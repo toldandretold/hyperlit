@@ -4,7 +4,9 @@
  * Server-injected `(window as any).__userPreferences` seeds localStorage on page load.
  * Changes are fire-and-forget POSTed back to the backend.
  *
- * Font size and content width are device-scoped (mobile vs desktop).
+ * Font size, content width, and reading mode are device-scoped (mobile vs
+ * desktop) — pages mode is worth having on a wide screen but poor on a phone,
+ * so Pages/Scroll must NOT sync across devices, exactly like text size.
  * Theme, vibe_css, and full_width are universal across devices.
  */
 
@@ -15,12 +17,12 @@ const UNIVERSAL_KEYS = {
   vibe_css:  'hyperlit_vibe_css',
   full_width:'hyperlit_full_width',
   gate_filter: 'hyperlit_gate_filter',
-  reading_mode: 'hyperlit_reading_mode',
 };
 
 const DEVICE_KEYS = {
   text_size:     'hyperlit_text_size',
   content_width: 'hyperlit_content_width',
+  reading_mode:  'hyperlit_reading_mode',
 };
 
 // Queue to prevent concurrent POSTs from overwriting each other
@@ -127,8 +129,10 @@ function uploadMissingPreferences(serverPrefs: any) {
     const localValue = localStorage.getItem(lsKey);
     if (localValue === null) continue;
 
+    // text_size / content_width are numeric; reading_mode is a string
+    // ('scroll' | 'paginated') — upload it verbatim rather than dropping it.
     const num = parseInt(localValue, 10);
-    if (!isNaN(num)) missing[deviceKey] = num;
+    missing[deviceKey] = String(num) === localValue ? num : localValue;
   }
 
   if (Object.keys(missing).length > 0) {

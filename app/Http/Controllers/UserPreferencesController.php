@@ -10,10 +10,12 @@ use Illuminate\Support\Facades\Log;
 class UserPreferencesController extends Controller
 {
     private const ALLOWED_KEYS = [
-        'theme', 'vibe_css', 'full_width', 'gate_filter', 'reading_mode',
+        'theme', 'vibe_css', 'full_width', 'gate_filter',
+        'reading_mode',                                  // legacy (pre device-scoping)
         'text_size', 'content_width',                    // legacy
         'text_size_mobile', 'text_size_desktop',
         'content_width_mobile', 'content_width_desktop',
+        'reading_mode_mobile', 'reading_mode_desktop',
     ];
 
     public function show(Request $request): JsonResponse

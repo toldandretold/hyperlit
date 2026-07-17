@@ -39,7 +39,10 @@ export default async function readingModeTeardown() {
           'Accept': 'application/json',
         },
         credentials: 'same-origin',
-        body: JSON.stringify({ reading_mode: null }),
+        // reading_mode is now device-scoped (preferences.ts DEVICE_KEYS): a sweep
+        // writes reading_mode_desktop/_mobile, so clear the legacy key AND both
+        // device variants or the leak this teardown guards against returns.
+        body: JSON.stringify({ reading_mode: null, reading_mode_mobile: null, reading_mode_desktop: null }),
       });
       return res.status;
     });

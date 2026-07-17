@@ -34,11 +34,7 @@ body {
 }
 
 /* Only use flexbox on reader page */
-body[data-page="reader"] #app-container {
-  display: flex;
-  flex-direction: column;
-}
-
+body[data-page="reader"] #app-container,
 body[data-page="timemachine"] #app-container {
   display: flex;
   flex-direction: column;
