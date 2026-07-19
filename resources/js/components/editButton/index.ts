@@ -386,6 +386,14 @@ export function disableEditMode({ skipPersistence = false }: DisableEditModeOpti
     }
     } // end if (!skipPersistence)
 
+    // Re-ensure hyperlight marks are clickable after editing — a contenteditable
+    // paragraph merge can clone <mark> elements, dropping their per-element
+    // listeners. attachMarkListeners is idempotent; sweep the whole document so
+    // sub-book containers are covered too.
+    import('../../hyperlights/index')
+      .then(({ attachMarkListeners }) => attachMarkListeners())
+      .catch(() => { /* hyperlights chunk unavailable — nothing to reattach */ });
+
     // Check if renumbering is needed (only when decimals are deeply nested)
     const MAX_DECIMAL_DEPTH = 3;
     const needsRenumbering = Array.from(

@@ -9,6 +9,21 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <script>
+        // Kill iOS Safari's auto-zoom on focusing a text field with font-size
+        // under 16px. iOS ignores maximum-scale for USER pinch gestures (since
+        // iOS 10), so pinch-zoom accessibility (WCAG 1.4.4) stays intact.
+        // iOS-only: Android Chrome WOULD honour the cap and lose pinch-zoom,
+        // so it must not get it. (MacIntel + maxTouchPoints catches iPadOS,
+        // which masquerades as desktop Safari.)
+        if (/iPad|iPhone|iPod/.test(navigator.userAgent)
+            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+            var viewportMeta = document.querySelector('meta[name="viewport"]');
+            if (viewportMeta) {
+                viewportMeta.setAttribute('content', viewportMeta.getAttribute('content') + ', maximum-scale=1.0');
+            }
+        }
+    </script>
     <title>{{ $pageTitle ?? 'Hyperlit' }}</title>
     <meta name="description" content="{{ $pageDescription ?? 'Read, write and publish hypertext literature' }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">

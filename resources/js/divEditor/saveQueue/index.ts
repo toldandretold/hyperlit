@@ -160,6 +160,43 @@ export class SaveQueue implements IntegritySurface {
   }
 
   /**
+   * Resolve a pending node to its live DOM element, scoping by book container
+   * first so a sub-book node isn't shadowed by a parent node with the same id.
+   */
+  findNodeElement(node: PendingNode): HTMLElement | null {
+    const effectiveBookId = node.bookId || this.bookId;
+    if (effectiveBookId) {
+      const container = document.querySelector(`[data-book-id="${effectiveBookId}"]`)
+        || document.getElementById(effectiveBookId);
+      const scoped = container?.querySelector(`[id="${node.id}"]`) as HTMLElement | null;
+      if (scoped) return scoped;
+    }
+    return document.getElementById(node.id);
+  }
+
+  /**
+   * Re-attach hyperlight <mark> click/hover listeners on just-saved nodes.
+   * A contenteditable merge (Backspace at a paragraph boundary) can CLONE the
+   * mark elements instead of moving them, silently dropping their per-element
+   * listeners — the mark looks fine but is dead to clicks. attachMarkListeners
+   * is idempotent (remove-then-add of named handlers), so re-running it scoped
+   * to each edited node is safe. Dynamic import keeps hyperlights UI lazy.
+   */
+  reattachMarkListeners(records: PendingNode[]): void {
+    const withMarks = records
+      .map(record => this.findNodeElement(record))
+      .filter((el): el is HTMLElement => !!el && !!el.querySelector('mark'));
+    if (withMarks.length === 0) return;
+    import('../../hyperlights/index')
+      .then(({ attachMarkListeners }) => {
+        for (const el of withMarks) {
+          if (el.isConnected) attachMarkListeners(el);
+        }
+      })
+      .catch(() => { /* hyperlights chunk unavailable — nothing to reattach */ });
+  }
+
+  /**
    * Save queued nodes to database
    */
   async saveNodeToDatabase(): Promise<void> {
@@ -203,16 +240,7 @@ export class SaveQueue implements IntegritySurface {
     this.currentSavePromise = (async () => {
       try {
         const recordsToUpdate = [...updates, ...additions].filter(node => {
-          let element: HTMLElement | null = null;
-          const effectiveBookId = node.bookId || this.bookId;
-          if (effectiveBookId) {
-            const container = document.querySelector(`[data-book-id="${effectiveBookId}"]`)
-              || document.getElementById(effectiveBookId);
-            element = container?.querySelector(`[id="${node.id}"]`) as HTMLElement | null;
-          }
-          if (!element) {
-            element = document.getElementById(node.id);
-          }
+          const element = this.findNodeElement(node);
           if (!element) {
             console.warn(`⚠️ Skipping save for node ${node.id} - element not found in DOM`);
             return false;
@@ -265,6 +293,8 @@ export class SaveQueue implements IntegritySurface {
           }
           // Non-blocking integrity verification after successful save
           this.integrity.verifyAfterSave(recordsByBookId);
+          // Re-ensure hyperlight marks in the saved nodes are clickable
+          this.reattachMarkListeners(recordsToUpdate);
         } else {
           verbose.content('saveNodeToDatabase: no records to update (elements not found in DOM)', 'divEditor/saveQueue/index.ts');
         }

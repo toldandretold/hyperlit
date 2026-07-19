@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1699,
+    "fnCount": 1701,
     "moduleCount": 360,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3444,
+    "edgeCount": 3445,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -6264,6 +6264,14 @@
       "leaf": true
     },
     {
+      "id": "divEditor/saveQueue/index:SaveQueue.findNodeElement",
+      "label": "SaveQueue.findNodeElement",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue/index",
+      "leaf": false
+    },
+    {
       "id": "divEditor/saveQueue/index:SaveQueue.flush",
       "label": "SaveQueue.flush",
       "kind": "fn",
@@ -6296,6 +6304,14 @@
       "leaf": true
     },
     {
+      "id": "divEditor/saveQueue/index:SaveQueue.reattachMarkListeners",
+      "label": "SaveQueue.reattachMarkListeners",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/saveQueue/index",
+      "leaf": false
+    },
+    {
       "id": "divEditor/saveQueue/index:SaveQueue.recordInputEvent",
       "label": "SaveQueue.recordInputEvent",
       "kind": "fn",
@@ -6309,7 +6325,7 @@
       "kind": "fn",
       "stage": "divEditor",
       "module": "divEditor/saveQueue/index",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "divEditor/saveQueue/index:SaveQueue.startMonitoring",
@@ -16983,10 +16999,12 @@
       "fnIds": [
         "divEditor/saveQueue/index:SaveQueue.constructor",
         "divEditor/saveQueue/index:SaveQueue.destroy",
+        "divEditor/saveQueue/index:SaveQueue.findNodeElement",
         "divEditor/saveQueue/index:SaveQueue.flush",
         "divEditor/saveQueue/index:SaveQueue.processBatchDeletions",
         "divEditor/saveQueue/index:SaveQueue.queueDeletion",
         "divEditor/saveQueue/index:SaveQueue.queueNode",
+        "divEditor/saveQueue/index:SaveQueue.reattachMarkListeners",
         "divEditor/saveQueue/index:SaveQueue.recordInputEvent",
         "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
         "divEditor/saveQueue/index:SaveQueue.startMonitoring",
@@ -26883,15 +26901,21 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__divEditor/saveQueue/index:SaveQueue.findNodeElement",
+      "source": "dom",
+      "target": "divEditor/saveQueue/index:SaveQueue.findNodeElement",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__divEditor/saveQueue/index:SaveQueue.queueDeletion",
       "source": "dom",
       "target": "divEditor/saveQueue/index:SaveQueue.queueDeletion",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
+      "id": "dom__domread__divEditor/saveQueue/index:SaveQueue.reattachMarkListeners",
       "source": "dom",
-      "target": "divEditor/saveQueue/index:SaveQueue.saveNodeToDatabase",
+      "target": "divEditor/saveQueue/index:SaveQueue.reattachMarkListeners",
       "rel": "domread"
     },
     {
@@ -42112,6 +42136,11 @@
     },
     {
       "source": "components/editButton/index",
+      "target": "hyperlights/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/editButton/index",
       "target": "indexedDB/index",
       "kind": "lazy"
     },
@@ -43554,6 +43583,11 @@
       "source": "divEditor/saveQueue/index",
       "target": "search/inTextSearch/searchToolbar",
       "kind": "static"
+    },
+    {
+      "source": "divEditor/saveQueue/index",
+      "target": "hyperlights/index",
+      "kind": "lazy"
     },
     {
       "source": "divEditor/selectionDelete",
@@ -46642,6 +46676,6 @@
       ]
     ],
     "breakerCount": 3,
-    "lazyCount": 244
+    "lazyCount": 246
   }
 }
