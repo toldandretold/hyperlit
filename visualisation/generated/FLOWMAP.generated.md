@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1694 functions in 359 modules · 10 object stores · 10 PG tables · 3435 edges
+**MarkdownDB** schema v28 · 1699 functions in 360 modules · 10 object stores · 10 PG tables · 3444 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1179,6 +1179,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initSyncQueueDependencies` | `indexedDB/syncQueue/queue` | — | — | — | — |
 | `queueForSync` | `indexedDB/syncQueue/queue` | — | — | — | — |
 | `isLostAckSelfConflict` | `indexedDB/syncQueue/selfConflictContentCheck` | — | — | — | — |
+| `__clearSentSyncTokensForTests` | `indexedDB/syncQueue/sentSyncTokens` | — | `localStorage` | — | — |
+| `generateSyncToken` | `indexedDB/syncQueue/sentSyncTokens` | — | — | — | — |
+| `hasSentSyncToken` | `indexedDB/syncQueue/sentSyncTokens` | `localStorage` | — | — | — |
+| `recordSentSyncToken` | `indexedDB/syncQueue/sentSyncTokens` | `localStorage` | `localStorage` | — | — |
+| `__resetUnloadOnceGuardForTests` | `indexedDB/syncQueue/unload` | — | — | — | — |
 | `initUnloadSyncDependencies` | `indexedDB/syncQueue/unload` | — | — | — | — |
 | `setupUnloadSync` | `indexedDB/syncQueue/unload` | — | — | read | `↑route:/api/db/sync/beacon` |
 | `asBookId` | `indexedDB/types` | — | — | — | — |

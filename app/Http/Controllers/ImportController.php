@@ -451,7 +451,15 @@ class ImportController extends Controller
             return response()->json(['status' => 'not_found'], 404);
         }
 
-        return response()->json(json_decode(File::get($path), true));
+        $progress = json_decode(File::get($path), true) ?: [];
+        // "Paused for maintenance": a FRESH queued/processing marker means the
+        // book's content is mid-rewrite (reconvert) — clients can keep their
+        // cached copy and show a wait state instead of syncing into an empty book.
+        $updatedAt = isset($progress['updated_at']) ? strtotime($progress['updated_at']) : 0;
+        $progress['maintenance'] = in_array($progress['status'] ?? '', ['queued', 'processing'], true)
+            && $updatedAt && (time() - $updatedAt) < 1800;
+
+        return response()->json($progress);
     }
 
     /**
@@ -654,10 +662,23 @@ class ImportController extends Controller
         elseif (File::exists("{$path}/original.rtf"))    $sourceType = 'rtf';
         elseif (File::exists("{$path}/main-text.md"))    $sourceType = 'md';
 
+        // Mid-reconvert? (fresh queued/processing progress marker)
+        $maintenance = false;
+        if (File::exists("{$path}/progress.json")) {
+            $progress = json_decode(File::get("{$path}/progress.json"), true) ?: [];
+            $updatedAt = isset($progress['updated_at']) ? strtotime($progress['updated_at']) : 0;
+            $maintenance = in_array($progress['status'] ?? '', ['queued', 'processing'], true)
+                && $updatedAt && (time() - $updatedAt) < 1800;
+        }
+
         return response()->json([
             'canReconvert' => $sourceType !== null,
             'hasOcrCache'  => File::exists("{$path}/ocr_response.json"),
             'sourceType'   => $sourceType,
+            'maintenance'  => $maintenance,
+            // Maintainer loop: admins may reconvert ANY book (the reconvert
+            // endpoint enforces the same bypass server-side).
+            'canAdminReconvert' => Auth::user()?->is_admin === true,
         ]);
     }
 
@@ -678,8 +699,14 @@ class ImportController extends Controller
 
         $isOwner = ($creatorInfo['creator'] && $record->creator === $creatorInfo['creator'])
                 || ($creatorInfo['creator_token'] && $record->creator_token === $creatorInfo['creator_token']);
-        if (!$isOwner) {
+        // Maintainer bypass: an admin may reconvert ANY book (the bad-conversion
+        // queue's fix-and-reconvert loop — flagged auto-imports are system-owned).
+        $isAdmin = Auth::user()?->is_admin === true;
+        if (!$isOwner && !$isAdmin) {
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+        if (!$isOwner && $isAdmin) {
+            Log::info('Admin reconvert (non-owner)', ['book' => $book, 'admin' => Auth::user()->name]);
         }
 
         // 2. Handle optional file upload (replace source file)
@@ -769,7 +796,18 @@ class ImportController extends Controller
                 if (File::exists($f)) File::delete($f);
             }
 
-            // 5. Clear content from PostgreSQL (keeps library record + hypercites + highlights)
+            // 5. Snapshot annotation anchor text, THEN clear content from
+            //    PostgreSQL (keeps library record + hypercites + highlights;
+            //    the snapshot lets the import job re-anchor them to the new
+            //    nodes — see AnnotationReattachmentService).
+            try {
+                app(\App\Services\Annotations\AnnotationSnapshotService::class)
+                    ->snapshot($book, \DB::connection('pgsql_admin'));
+            } catch (\Throwable $e) {
+                Log::warning('Annotation snapshot failed (reconvert continues)', [
+                    'book' => $book, 'error' => $e->getMessage(),
+                ]);
+            }
             $this->clearBookContent($book);
 
             // 6. Mark queued. The job (dispatched below) writes progress.json; the
@@ -796,10 +834,12 @@ class ImportController extends Controller
 
         Log::info('Reconvert job dispatched', ['book' => $book, 'sourceType' => $sourceType]);
 
-        // 7. Bump the library timestamp and return immediately.
-        $record->timestamp = round(microtime(true) * 1000);
-        $record->save();
-
+        // 7. Return immediately. Deliberately NO library timestamp bump here:
+        // the import job bumps it AFTER the new content (and reattached
+        // annotations) land. Bumping at dispatch time invalidated other open
+        // readers' caches against a book that was momentarily EMPTY — they
+        // re-synced into nothing. The triggering client is driven by
+        // progress polling + reconvertHandoff, not the timestamp.
         return response()->json([
             'success' => true,
             'bookId'  => $book,
@@ -809,15 +849,14 @@ class ImportController extends Controller
 
     private function clearBookContent(string $bookId): void
     {
-        PgNode::where('book', $bookId)->delete();
-        PgFootnote::where('book', $bookId)->delete();
-        \DB::table('bibliography')->where('book', $bookId)->delete();
-
-        // Delete sub-book nodes and library records (footnote sub-books: "{bookId}/Fn...")
-        PgNode::where('book', 'LIKE', "{$bookId}/%")->delete();
-        PgLibrary::where('book', 'LIKE', "{$bookId}/%")
-            ->where('type', 'sub_book')
-            ->delete();
+        // Shared clearer: preserves hyperlight ANNOTATION sub-books (which
+        // nothing regenerates — deleting them was a data-loss bug) while
+        // clearing footnote sub-books as before. Via pgsql_admin: ownership
+        // (or admin) was verified by the caller, and an ADMIN reconverting a
+        // book they don't own has no RLS right to the owner's rows on the
+        // default connection — the delete would silently no-op and the old
+        // content would duplicate under the new import.
+        app(\App\Services\Import\BookContentClearer::class)->clear($bookId, \DB::connection('pgsql_admin'));
     }
 
     /**

@@ -185,6 +185,67 @@ test('POST /api/db/unified-sync succeeds when base_timestamp matches the server 
         ->assertJsonPath('server_timestamp', 2500); // max(existing 2000, sent 2500), returned for the client to re-base
 });
 
+/* ─── lost-ACK self-conflict tokens (sync_token / server_sync_token) ── */
+
+test('POST /api/db/unified-sync stores sync_token on the library write and echoes it in the stale 409', function () {
+    // The client stamps every POST with a write id. When the sync sets the library
+    // timestamp, the id is stored (library.last_sync_token); a later stale 409 echoes
+    // it back so the client can prove the "conflicting" version is its OWN write whose
+    // response was lost (the network-blip discard-overlay bug).
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+
+    $this->postJson('/api/db/unified-sync', [
+        'book'       => $book,
+        'sync_token' => 'tok-lost-write',
+        'library'    => ['book' => $book, 'timestamp' => 2000],
+    ])->assertStatus(200);
+
+    expect(\Illuminate\Support\Facades\DB::table('library')->where('book', $book)->value('last_sync_token'))
+        ->toBe('tok-lost-write');
+
+    $nodeId = $book.'_100_aaaa';
+    $this->postJson('/api/db/unified-sync', [
+        'book'           => $book,
+        'sync_token'     => 'tok-retry',
+        'base_timestamp' => 1000, // lagging base — the lost write's response never advanced it
+        'library'        => ['book' => $book, 'timestamp' => 9999],
+        'nodes'          => [[
+            'book' => $book, 'startLine' => 1, 'chunk_id' => 0, 'node_id' => $nodeId,
+            'content' => '<p data-node-id="'.$nodeId.'">edit after the lost write</p>',
+            'hyperlights' => [], 'hypercites' => [], 'footnotes' => [],
+        ]],
+    ])
+        ->assertStatus(409)
+        ->assertJson(['error' => 'STALE_DATA'])
+        ->assertJsonPath('server_sync_token', 'tok-lost-write');
+});
+
+test('POST /api/db/unified-sync does NOT re-stamp the token when the existing timestamp is newer', function () {
+    // The library upsert never downgrades a newer existing timestamp. The token must
+    // only ever label a timestamp the write actually produced — stamping it on someone
+    // else's newer version would let a later 409 wrongly self-recover and clobber it.
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+
+    $this->postJson('/api/db/unified-sync', [
+        'book'       => $book,
+        'sync_token' => 'tok-current-version',
+        'library'    => ['book' => $book, 'timestamp' => 2000],
+    ])->assertStatus(200);
+
+    // A lagging write (older timestamp) is preserved-over, so its token must not stick.
+    $this->postJson('/api/db/unified-sync', [
+        'book'       => $book,
+        'sync_token' => 'tok-lagging-write',
+        'library'    => ['book' => $book, 'timestamp' => 1000],
+    ])->assertStatus(200);
+
+    $row = \Illuminate\Support\Facades\DB::table('library')->where('book', $book)->first();
+    expect($row->timestamp)->toBe(2000);
+    expect($row->last_sync_token)->toBe('tok-current-version');
+});
+
 /* ─── footnote upsert ─────────────────────────────────────────────── */
 
 test('POST /api/db/footnotes/upsert registers sub-book library rows (paste import path)', function () {
@@ -214,6 +275,34 @@ test('POST /api/db/footnotes/upsert registers sub-book library rows (paste impor
 });
 
 /* ─── beacon sync ─────────────────────────────────────────────────── */
+
+test('POST /api/db/sync/beacon stamps sync_token only when its timestamp becomes the clock', function () {
+    // The beacon never sees its response, so its library write MUST be token-labelled
+    // for the next session's 409 to self-recover — but only when the beacon's timestamp
+    // actually won (the preserved-newer branch must not steal the label).
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+
+    $beacon = fn (int $ts, string $token) => $this->postJson('/api/db/sync/beacon', [
+        'book'       => $book,
+        'sync_token' => $token,
+        'updates'    => [
+            'nodes' => [], 'hyperlights' => [], 'hypercites' => [],
+            'library' => ['book' => $book, 'timestamp' => $ts],
+        ],
+        'deletions'  => ['nodes' => [], 'hyperlights' => []],
+    ]);
+
+    $beacon(2000, 'tok-beacon-write')->assertStatus(204); // beacon replies no-content
+    expect(\Illuminate\Support\Facades\DB::table('library')->where('book', $book)->value('last_sync_token'))
+        ->toBe('tok-beacon-write');
+
+    // Older timestamp → preserved-over → the current version keeps its own label.
+    $beacon(1000, 'tok-lagging-beacon')->assertStatus(204);
+    $row = \Illuminate\Support\Facades\DB::table('library')->where('book', $book)->first();
+    expect($row->timestamp)->toBe(2000);
+    expect($row->last_sync_token)->toBe('tok-beacon-write');
+});
 
 test('POST /api/db/sync/beacon requires an author', function () {
     $this->assertApiError($this->postJson('/api/db/sync/beacon', ['book' => 'x']), 401);

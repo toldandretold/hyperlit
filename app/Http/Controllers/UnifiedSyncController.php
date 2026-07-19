@@ -36,6 +36,14 @@ class UnifiedSyncController extends Controller
                 ], 400);
             }
 
+            // Client-generated write id for lost-ACK self-conflict detection: stored on
+            // the library row when this sync advances its timestamp, and echoed back in
+            // a STALE_DATA 409 (server_sync_token) so the client can recognize that the
+            // "conflicting" server version is its OWN write whose response was lost.
+            $syncToken = isset($data['sync_token']) && is_string($data['sync_token'])
+                ? substr($data['sync_token'], 0, 64)
+                : null;
+
             Log::info('Unified sync started', [
                 'book' => $bookId,
                 'nodes_count' => isset($data['nodes']) ? count($data['nodes']) : 0,
@@ -116,13 +124,16 @@ class UnifiedSyncController extends Controller
                             'error' => 'STALE_DATA',
                             'message' => 'Your book is out of date. Please refresh to get the latest version.',
                             'server_timestamp' => $currentLibrary->timestamp,
+                            // Which write produced the server's current timestamp — lets the
+                            // client prove a self-conflict (its own lost-response write).
+                            'server_sync_token' => $currentLibrary->last_sync_token,
                         ], 409);
                     }
                 }
             }
 
             // Wrap everything in a transaction for atomicity
-            $result = DB::transaction(function () use ($request, $data, $bookId) {
+            $result = DB::transaction(function () use ($request, $data, $bookId, $syncToken) {
                 $results = [
                     'nodes' => null,
                     'hypercites' => null,
@@ -315,6 +326,21 @@ class UnifiedSyncController extends Controller
 
                     if (! ($results['library']['success'] ?? false)) {
                         throw new \Exception('Library sync failed: '.($results['library']['message'] ?? 'Unknown error'));
+                    }
+
+                    // Stamp the write id on the row whose timestamp this sync just set —
+                    // the stale check reads it back as server_sync_token on a future 409.
+                    // Guarded by timestamp equality: the upsert never downgrades a newer
+                    // existing timestamp (and non-owners can't set one at all), and the
+                    // token must only ever label a timestamp THIS write produced —
+                    // otherwise a later 409 against someone else's newer version would
+                    // wrongly self-recover and clobber it.
+                    $sentLibraryTs = $data['library']['timestamp'] ?? null;
+                    if ($syncToken && $sentLibraryTs !== null) {
+                        DB::table('library')
+                            ->where('book', $data['library']['book'] ?? $bookId)
+                            ->where('timestamp', $sentLibraryTs)
+                            ->update(['last_sync_token' => $syncToken]);
                     }
                 }
 

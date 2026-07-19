@@ -15,10 +15,13 @@ use Illuminate\Support\Str;
 // STANDARD SECURITY HEADERS
 // =============================================================================
 
-test('X-Frame-Options header prevents clickjacking', function () {
+test('X-Frame-Options header prevents cross-origin clickjacking', function () {
+    // SAMEORIGIN, not DENY: the /maintainer triage page frames the reader
+    // (same-origin). The clickjacking threat — an ATTACKER page framing us —
+    // is cross-origin and remains blocked.
     $response = $this->get('/');
 
-    $response->assertHeader('X-Frame-Options', 'DENY');
+    $response->assertHeader('X-Frame-Options', 'SAMEORIGIN');
 });
 
 test('X-Content-Type-Options prevents MIME sniffing', function () {
@@ -120,7 +123,7 @@ test('Content-Security-Policy locks down the injection-defence directives', func
     // The deliberate partial policy (SecurityHeaders middleware): the directives that add real
     // defence without breaking the inline-script SPA / Vite HMR. Per-request nonce script-src
     // hardening is a separate tracked pass — see tests/security-redteam.
-    expect($csp)->toContain("frame-ancestors 'none'")   // clickjacking (complements X-Frame-Options)
+    expect($csp)->toContain("frame-ancestors 'self'")   // cross-origin clickjacking ('self': /maintainer frames the reader)
         ->toContain("base-uri 'self'")                  // blocks injected <base> hijacking relative URLs
         ->toContain("object-src 'none'")                // kills <object>/<embed> plugin XSS
         ->toContain("form-action 'self'");              // injected forms can't exfiltrate off-site

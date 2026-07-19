@@ -1285,6 +1285,19 @@ class ContentFetchService
             // was never written. The JATS/HTML lane (persistArticle) always saved them.
             $this->saveReferencesToDatabase($path, $bookId);
 
+            // 5c. Reconvert path: re-anchor hyperlights/hypercites onto the new
+            // nodes from the pre-clear snapshot (written by
+            // ReconvertSystemVersionCommand; fresh auto-version imports have no
+            // snapshot → no-op). Before the library timestamp bump below so
+            // invalidating clients pull already-reattached anchors. Best-effort.
+            try {
+                app(\App\Services\Annotations\AnnotationReattachmentService::class)->reattach($bookId);
+            } catch (\Throwable $e) {
+                Log::warning('Annotation reattachment failed (import continues)', [
+                    'book' => $bookId, 'error' => $e->getMessage(),
+                ]);
+            }
+
             // 6. Update library record (don't touch creator — it's an auth field).
             // conversion_method: this path always produces machine-OCR'd content,
             // which is what makes the row eligible as a canonical auto-version.

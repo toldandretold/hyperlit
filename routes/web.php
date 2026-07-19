@@ -55,6 +55,11 @@ Route::get('/{book}/AIreview', function (Request $request, $book) {
 Route::get('/dev/conversion-tests', [App\Http\Controllers\ConversionTestController::class, 'dashboard'])
     ->name('conversion-tests.dashboard');
 
+// Maintainer triage page (admin-only — checked in controller, non-admins 404).
+// Flagged books | live reader iframe | original PDF, side by side.
+Route::get('/maintainer', [App\Http\Controllers\MaintainerController::class, 'show'])
+    ->name('maintainer.show');
+
 // File import route - requires authentication (logged in or valid anonymous session)
 Route::post('/import-file', [App\Http\Controllers\ImportController::class, 'store'])
     ->middleware('author')

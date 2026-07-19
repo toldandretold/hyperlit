@@ -43,6 +43,10 @@ class BeaconSyncController extends Controller
 
         $validator = Validator::make($request->all(), [
             'book' => 'required|string',
+            // Client write id for lost-ACK self-conflict detection (the beacon never
+            // sees a response, so this is the ONLY way its library write can later be
+            // recognized as the client's own). See UnifiedSyncController.
+            'sync_token' => 'sometimes|nullable|string|max:64',
             'updates' => 'present|array',
             'updates.nodes' => 'present|array',
             'updates.hyperlights' => 'present|array',
@@ -142,6 +146,18 @@ class BeaconSyncController extends Controller
                         ['book' => $bookId],
                         $libraryData
                     );
+
+                    // Stamp the write id ONLY when the beacon's timestamp actually became
+                    // the row's clock (not the preserved-newer branch): the token must
+                    // never label a timestamp someone else's write produced, or a later
+                    // 409 against their version would wrongly self-recover. See
+                    // UnifiedSyncController for the unified-sync twin of this stamp.
+                    $sentTs = $updates['library']['timestamp'] ?? null;
+                    if (!empty($payload['sync_token']) && $sentTs !== null && ($libraryData['timestamp'] ?? null) == $sentTs) {
+                        DB::table('library')
+                            ->where('book', $bookId)
+                            ->update(['last_sync_token' => $payload['sync_token']]);
+                    }
                 }
 
                 // --- 2. Process Deletions ---

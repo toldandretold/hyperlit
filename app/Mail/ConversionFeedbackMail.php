@@ -23,11 +23,14 @@ class ConversionFeedbackMail extends Mailable implements ShouldQueue
         $rating = $this->data['rating'] ?? 'unknown';
         $bookId = $this->data['bookId'] ?? 'unknown';
 
+        // A bad rating also lands on the reconvert queue (conversion_flags),
+        // so the email carries the triage deep-link.
         $subject = $rating === 'bad'
-            ? "Conversion Issue: {$bookId}"
+            ? "[flagged] Conversion Issue: {$bookId}"
             : "Conversion OK: {$bookId}";
+        $this->data['maintainerUrl'] = rtrim(config('app.url'), '/') . '/maintainer?book=' . $bookId;
 
-        $mail = $this->to('fml@hyperlit.io')
+        $mail = $this->to(config('mail.maintainer_alert'))
                      ->subject($subject)
                      ->view('emails.conversion-feedback', $this->data);
 

@@ -17,6 +17,10 @@ import { runSerializedPerKey } from './bookSyncChain';
 // (tests/javascript/indexedDB/selfConflictContentCheck.test.js)
 import { isLostAckSelfConflict } from './selfConflictContentCheck';
 import type { ConflictNodeInput } from './selfConflictContentCheck';
+// Sent sync-token ledger: proves a STALE_DATA 409 is our own committed-but-lost write
+// even when local content kept changing after it (where the content check can't).
+// Tests: tests/javascript/indexedDB/sentSyncTokens.test.js
+import { generateSyncToken, recordSentSyncToken, hasSentSyncToken } from './sentSyncTokens';
 import { advanceBaseTimestamp } from '../core/library';
 import { log } from '../../utilities/logger';
 import { asBookId } from '../types';
@@ -195,6 +199,9 @@ interface UnifiedSyncPayload {
   library: LibraryRecord | null;
   /** Optimistic-concurrency token the server checks against (see SyncPayloadInput). */
   base_timestamp?: number;
+  /** Client-generated write id, stored on the library row (last_sync_token) and echoed
+   *  in a STALE_DATA 409 so the client can recognize its own committed-but-lost write. */
+  sync_token?: string;
 }
 
 export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Record<string, unknown>> {
@@ -254,6 +261,14 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
     ? await (await import('../../e2ee/transform')).encryptUnifiedPayload(unifiedPayload)
     : unifiedPayload;
 
+  // Stamp this POST with a write id and remember it BEFORE sending — if the network
+  // drops the response after the server commits, the next sync's 409 will echo this
+  // token back (server_sync_token) and we can prove the "conflict" is our own write.
+  // Set on wirePayload (after the E2EE transform) so it rides outside the ciphertext.
+  const syncToken = generateSyncToken();
+  recordSentSyncToken(syncToken);
+  wirePayload.sync_token = syncToken;
+
   // Helper: perform the fetch with a fresh CSRF token + a per-call abort timeout (so a hung
   // POST can't stall the per-book chain). The controller/timer are per call because doFetch
   // may run twice (419 retry).
@@ -306,26 +321,39 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
         //  1. ack-match (cheap, no network): the conflicting server_timestamp is one this
         //     client was ALREADY ACKed for — a rapid earlier save advanced the server past
         //     this sync's lagging base.
-        //  2. content-match (one read-only fetch): a NETWORK BLIP committed our write on the
+        //  2. token-match (free): the server echoes the sync_token that produced its
+        //     current timestamp (library.last_sync_token). If it's in our sent ledger,
+        //     that version is provably OUR committed-but-lost write — even when local
+        //     content has drifted PAST it (rapid paste-flow saves), which defeats the
+        //     content check below. See sentSyncTokens.
+        //  3. content-match (one read-only fetch): a NETWORK BLIP committed our write on the
         //     server but lost the response, so our base never advanced and we were never
         //     ACKed for this timestamp — yet the server's CURRENT content for every
         //     conflicting node equals what we tried to write. See selfConflictContentCheck.
-        // A server_timestamp we've never seen AND whose content differs could come from
-        // another device — that still blocks below, so a genuine remote edit is never clobbered.
+        // A server_timestamp we've never seen, whose token isn't ours AND whose content
+        // differs could come from another device — that still blocks below, so a genuine
+        // remote edit is never clobbered.
         const conflictTs = (errorData as { server_timestamp?: unknown }).server_timestamp;
         const conflictTsNum = typeof conflictTs === 'number' ? conflictTs : null;
         const acked = _ackedServerTs.get(bookId);
         const ackMatch = conflictTsNum != null && acked != null && conflictTsNum <= acked;
+        const serverToken = (errorData as { server_sync_token?: unknown }).server_sync_token;
+        const tokenMatch = typeof serverToken === 'string' && serverToken.length > 0
+          && hasSentSyncToken(serverToken);
         let contentMatch = false;
-        if (!staleRetried && conflictTsNum != null && !ackMatch) {
+        if (!staleRetried && conflictTsNum != null && !ackMatch && !tokenMatch) {
           contentMatch = await isLostAckSelfConflict(
             bookId,
             unifiedPayload.nodes as unknown as ConflictNodeInput[],
           );
         }
-        if (!staleRetried && conflictTsNum != null && (ackMatch || contentMatch)) {
+        if (!staleRetried && conflictTsNum != null && (ackMatch || tokenMatch || contentMatch)) {
           staleRetried = true;
+          // Fast-forward the base on the WIRE object — for an E2EE book wirePayload is a
+          // different object than unifiedPayload, and doFetch serializes wirePayload, so
+          // writing only unifiedPayload would silently re-send the stale base.
           unifiedPayload.base_timestamp = conflictTsNum;
+          wirePayload.base_timestamp = conflictTsNum;
           await advanceBaseTimestamp(bookId, conflictTsNum); // persist so the next drain reads the fixed base
           res = await doFetch();
           if (res.ok) {

@@ -18,7 +18,20 @@ export async function loadReconvertInfo(self: any) {
     if (!info.canReconvert) return;
 
     const label = info.hasOcrCache ? 'Reconvert from OCR cache' : 'Reconvert from source';
-    const section = self.container.querySelector("#reconvert-section");
+    let section = self.container.querySelector("#reconvert-section");
+    if (!section && info.canAdminReconvert) {
+      // Maintainer loop: Creator Tools render only for the OWNER, but an
+      // admin may reconvert ANY book (the endpoint enforces the same bypass
+      // server-side) — give admins a standalone section under the source
+      // status block so flagged auto-imports can be fixed from the reader.
+      const host = self.container.querySelector('#check-source-section');
+      if (host) {
+        section = document.createElement('div');
+        section.id = 'reconvert-section';
+        section.style.cssText = 'margin-top: 15px; padding-top: 15px;';
+        host.appendChild(section);
+      }
+    }
     if (!section) return;
 
     section.style.display = '';

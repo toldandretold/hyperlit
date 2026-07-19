@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1694,
-    "moduleCount": 359,
+    "fnCount": 1699,
+    "moduleCount": 360,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3435,
+    "edgeCount": 3444,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -10792,6 +10792,46 @@
       ]
     },
     {
+      "id": "indexedDB/syncQueue/sentSyncTokens:__clearSentSyncTokensForTests",
+      "label": "__clearSentSyncTokensForTests",
+      "kind": "fn",
+      "stage": "push",
+      "module": "indexedDB/syncQueue/sentSyncTokens",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/syncQueue/sentSyncTokens:generateSyncToken",
+      "label": "generateSyncToken",
+      "kind": "fn",
+      "stage": "push",
+      "module": "indexedDB/syncQueue/sentSyncTokens",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/syncQueue/sentSyncTokens:hasSentSyncToken",
+      "label": "hasSentSyncToken",
+      "kind": "fn",
+      "stage": "push",
+      "module": "indexedDB/syncQueue/sentSyncTokens",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/syncQueue/sentSyncTokens:recordSentSyncToken",
+      "label": "recordSentSyncToken",
+      "kind": "fn",
+      "stage": "push",
+      "module": "indexedDB/syncQueue/sentSyncTokens",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/syncQueue/unload:__resetUnloadOnceGuardForTests",
+      "label": "__resetUnloadOnceGuardForTests",
+      "kind": "fn",
+      "stage": "push",
+      "module": "indexedDB/syncQueue/unload",
+      "leaf": true
+    },
+    {
       "id": "indexedDB/syncQueue/unload:initUnloadSyncDependencies",
       "label": "initUnloadSyncDependencies",
       "kind": "fn",
@@ -18430,11 +18470,24 @@
       ]
     },
     {
+      "id": "indexedDB/syncQueue/sentSyncTokens",
+      "label": "indexedDB/syncQueue/sentSyncTokens",
+      "stage": "push",
+      "band": "store",
+      "fnIds": [
+        "indexedDB/syncQueue/sentSyncTokens:__clearSentSyncTokensForTests",
+        "indexedDB/syncQueue/sentSyncTokens:generateSyncToken",
+        "indexedDB/syncQueue/sentSyncTokens:hasSentSyncToken",
+        "indexedDB/syncQueue/sentSyncTokens:recordSentSyncToken"
+      ]
+    },
+    {
       "id": "indexedDB/syncQueue/unload",
       "label": "indexedDB/syncQueue/unload",
       "stage": "push",
       "band": "sync",
       "fnIds": [
+        "indexedDB/syncQueue/unload:__resetUnloadOnceGuardForTests",
         "indexedDB/syncQueue/unload:initUnloadSyncDependencies",
         "indexedDB/syncQueue/unload:setupUnloadSync"
       ]
@@ -34784,6 +34837,26 @@
       "dataPath": true
     },
     {
+      "id": "indexedDB/syncQueue/master:executeSyncPayload__call__indexedDB/syncQueue/sentSyncTokens:generateSyncToken",
+      "source": "indexedDB/syncQueue/master:executeSyncPayload",
+      "target": "indexedDB/syncQueue/sentSyncTokens:generateSyncToken",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/syncQueue/master:executeSyncPayload__call__indexedDB/syncQueue/sentSyncTokens:hasSentSyncToken",
+      "source": "indexedDB/syncQueue/master:executeSyncPayload",
+      "target": "indexedDB/syncQueue/sentSyncTokens:hasSentSyncToken",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/syncQueue/master:executeSyncPayload__call__indexedDB/syncQueue/sentSyncTokens:recordSentSyncToken",
+      "source": "indexedDB/syncQueue/master:executeSyncPayload",
+      "target": "indexedDB/syncQueue/sentSyncTokens:recordSentSyncToken",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "indexedDB/syncQueue/master:executeSyncPayload__push__route:/api/db/unified-sync",
       "source": "indexedDB/syncQueue/master:executeSyncPayload",
       "target": "route:/api/db/unified-sync",
@@ -34821,6 +34894,31 @@
       "id": "indexedDB/syncQueue/selfConflictContentCheck:isLostAckSelfConflict__call__indexedDB/serverSync/pull:fetchServerNodesRaw",
       "source": "indexedDB/syncQueue/selfConflictContentCheck:isLostAckSelfConflict",
       "target": "indexedDB/serverSync/pull:fetchServerNodesRaw",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/syncQueue/sentSyncTokens:__clearSentSyncTokensForTests__write__store:localStorage",
+      "source": "indexedDB/syncQueue/sentSyncTokens:__clearSentSyncTokensForTests",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/syncQueue/sentSyncTokens:recordSentSyncToken__write__store:localStorage",
+      "source": "indexedDB/syncQueue/sentSyncTokens:recordSentSyncToken",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "indexedDB/syncQueue/unload:setupUnloadSync__call__indexedDB/syncQueue/sentSyncTokens:generateSyncToken",
+      "source": "indexedDB/syncQueue/unload:setupUnloadSync",
+      "target": "indexedDB/syncQueue/sentSyncTokens:generateSyncToken",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/syncQueue/unload:setupUnloadSync__call__indexedDB/syncQueue/sentSyncTokens:recordSentSyncToken",
+      "source": "indexedDB/syncQueue/unload:setupUnloadSync",
+      "target": "indexedDB/syncQueue/sentSyncTokens:recordSentSyncToken",
       "rel": "call",
       "dataPath": true
     },
@@ -40860,6 +40958,18 @@
       "rel": "read"
     },
     {
+      "id": "store:localStorage__read__indexedDB/syncQueue/sentSyncTokens:hasSentSyncToken",
+      "source": "store:localStorage",
+      "target": "indexedDB/syncQueue/sentSyncTokens:hasSentSyncToken",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__indexedDB/syncQueue/sentSyncTokens:recordSentSyncToken",
+      "source": "store:localStorage",
+      "target": "indexedDB/syncQueue/sentSyncTokens:recordSentSyncToken",
+      "rel": "read"
+    },
+    {
       "id": "store:localStorage__read__lazyLoader/index:createLazyLoader",
       "source": "store:localStorage",
       "target": "lazyLoader/index:createLazyLoader",
@@ -45247,6 +45357,11 @@
     },
     {
       "source": "indexedDB/syncQueue/master",
+      "target": "indexedDB/syncQueue/sentSyncTokens",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/syncQueue/master",
       "target": "indexedDB/types",
       "kind": "static"
     },
@@ -45268,6 +45383,11 @@
     {
       "source": "indexedDB/syncQueue/unload",
       "target": "indexedDB/syncQueue/queue",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/syncQueue/unload",
+      "target": "indexedDB/syncQueue/sentSyncTokens",
       "kind": "static"
     },
     {

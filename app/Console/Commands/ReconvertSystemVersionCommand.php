@@ -99,6 +99,9 @@ class ReconvertSystemVersionCommand extends Command
                 return 1;
             }
             $this->line("Replaying cached OCR for {$bookId} (no API cost)...");
+            // Snapshot annotation anchor text BEFORE the pipeline replaces the
+            // nodes — processLocalPdf re-anchors hyperlights/hypercites from it.
+            app(\App\Services\Annotations\AnnotationSnapshotService::class)->snapshot($bookId, $admin);
             $result = app(ContentFetchService::class)->processLocalPdf($pdfPath, $bookId);
             if (($result['status'] ?? null) === 'imported') {
                 $this->info("Reconverted PDF-OCR system version {$bookId}: {$result['reason']} "
@@ -118,6 +121,9 @@ class ReconvertSystemVersionCommand extends Command
         foreach (['footnotes.json', 'footnotes.jsonl', 'nodes.json', 'nodes.jsonl', 'audit.json', 'references.json', 'intermediate.html'] as $stale) {
             File::delete("{$path}/{$stale}");
         }
+        // Snapshot annotation anchor text BEFORE clearing — the import job
+        // re-anchors hyperlights/hypercites onto the new nodes from it.
+        app(\App\Services\Annotations\AnnotationSnapshotService::class)->snapshot($bookId, $admin);
         $this->clearBookContent($admin, $bookId);
 
         ProcessDocumentImportJob::dispatch(
@@ -133,18 +139,14 @@ class ReconvertSystemVersionCommand extends Command
     }
 
     /**
-     * Delete the book's content (nodes/footnotes/bibliography) + footnote sub-books,
-     * via the BYPASSRLS admin connection (console has no RLS session). The library
-     * row itself, its canonical link, and conversion_method are left intact so the
-     * pointer stays valid through the rewrite.
+     * Delete the book's content via the shared clearer (BYPASSRLS admin
+     * connection — console has no RLS session). Library row, canonical link,
+     * conversion_method, hyperlights/hypercites, and annotation sub-books all
+     * survive; see App\Services\Import\BookContentClearer.
      */
     private function clearBookContent($admin, string $bookId): void
     {
-        $admin->table('nodes')->where('book', $bookId)->delete();
-        $admin->table('footnotes')->where('book', $bookId)->delete();
-        $admin->table('bibliography')->where('book', $bookId)->delete();
-        $admin->table('nodes')->where('book', 'LIKE', "{$bookId}/%")->delete();
-        $admin->table('library')->where('book', 'LIKE', "{$bookId}/%")->where('type', 'sub_book')->delete();
+        app(\App\Services\Import\BookContentClearer::class)->clear($bookId, $admin);
     }
 
     private function arxivIdFromDoi(?string $doi): ?string

@@ -113,4 +113,17 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Maintainer Alert Address
+    |--------------------------------------------------------------------------
+    |
+    | Where conversion-quality alerts land: user "report an issue" feedback
+    | (ConversionFeedbackMail) and the library:flag-sweep summary
+    | (SweepFlagsRaisedMail), both linking to the /maintainer triage page.
+    |
+    */
+
+    'maintainer_alert' => env('MAINTAINER_ALERT_EMAIL', 'fml@hyperlit.io'),
+
 ];

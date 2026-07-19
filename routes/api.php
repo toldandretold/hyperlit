@@ -500,6 +500,18 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->middleware('throttle:5,1');
     Route::post('/conversion-tests/upload-fixture', [\App\Http\Controllers\ConversionTestController::class, 'uploadFixture'])
         ->middleware('throttle:5,1');
+
+    // Maintainer triage page API (/maintainer): the bad-conversion queue,
+    // the original source file for the side-by-side view, the dev case
+    // bundle, and flag resolution.
+    Route::get('/maintainer/flags', [\App\Http\Controllers\MaintainerController::class, 'flags']);
+    Route::post('/maintainer/flags/{book}/resolve', [\App\Http\Controllers\MaintainerController::class, 'resolve'])
+        ->where('book', '[A-Za-z0-9_-]+');
+    Route::get('/maintainer/original/{book}', [\App\Http\Controllers\MaintainerController::class, 'original'])
+        ->where('book', '[A-Za-z0-9_-]+');
+    Route::get('/maintainer/export/{book}', [\App\Http\Controllers\MaintainerController::class, 'export'])
+        ->where('book', '[A-Za-z0-9_-]+')
+        ->middleware('throttle:10,1');
 });
 
 // Snapshots endpoint — outside author middleware so public book readers can see version history

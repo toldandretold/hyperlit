@@ -12,6 +12,11 @@ import { asBookId, type BookId, type SyncQueueItem, type SyncRecordData } from '
 // and stay queued rather than ever leaving as plaintext.
 import { isBookEncrypted } from '../../e2ee/registry';
 import { getBeaconCiphertext, discardBeaconCiphertext } from '../../e2ee/outbox';
+// The beacon is fire-and-forget: when it commits a library timestamp server-side, the
+// base can NEVER advance from a response — so the NEXT session's first sync 409s against
+// our own beacon write. Stamping the beacon with a ledgered sync_token (localStorage,
+// survives the session boundary) lets that 409 self-recover. See sentSyncTokens.
+import { generateSyncToken, recordSentSyncToken } from './sentSyncTokens';
 
 // Dependencies
 let book: BookId | null | undefined;
@@ -24,10 +29,19 @@ export function initUnloadSyncDependencies(deps: { book: BookId | null | undefin
 // Track whether we're currently syncing on unload
 let isSyncingOnUnload = false;
 
+/** Test-only: re-arm the once-per-page unload guard (mirrors
+ *  master.ts __resetSyncConcurrencyStateForTests). No production callers. */
+export function __resetUnloadOnceGuardForTests(): void {
+  isSyncingOnUnload = false;
+}
+
 interface BeaconPayload {
   book: BookId;
   /** Optimistic-concurrency base (the server version this client last knew). */
   base_timestamp?: number;
+  /** Ledgered write id (see sentSyncTokens) so a later 409 against this
+   *  response-less write can be recognized as our own. */
+  sync_token?: string;
   updates: {
     nodes: SyncRecordData[];
     hypercites: SyncRecordData[];
@@ -146,6 +160,14 @@ function syncOnUnload(): string | undefined {
             break;
         }
       }
+    }
+
+    // Only a library-bearing beacon can advance the server's staleness clock —
+    // that's the only case a future 409 could point back at this write.
+    if (payload.updates.library) {
+      const syncToken = generateSyncToken();
+      recordSentSyncToken(syncToken);
+      payload.sync_token = syncToken;
     }
 
     const blob = new Blob([JSON.stringify(payload)], {

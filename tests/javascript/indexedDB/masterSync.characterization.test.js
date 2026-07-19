@@ -32,6 +32,7 @@ import {
   initMasterSyncDependencies,
   __resetSyncConcurrencyStateForTests,
 } from '../../../resources/js/indexedDB/syncQueue/master';
+import { __clearSentSyncTokensForTests } from '../../../resources/js/indexedDB/syncQueue/sentSyncTokens';
 import {
   queueForSync,
   pendingSyncs,
@@ -61,6 +62,7 @@ describe('debouncedMasterSync (characterization)', () => {
     installFreshIndexedDB();
     pendingSyncs.clear();
     __resetSyncConcurrencyStateForTests();
+    __clearSentSyncTokensForTests();
     sessionStorage.removeItem('pending_new_book_sync');
     document.head.innerHTML = '<meta name="csrf-token" content="test-csrf-token">';
     document.body.innerHTML = '<div class="main-content" id="bookA"></div>';
@@ -136,6 +138,10 @@ describe('debouncedMasterSync (characterization)', () => {
       bibliography: [],
       bibliographyDeletions: [],
       library: null,
+      // Client-generated write id for lost-ACK self-conflict detection: the server
+      // stores it beside the library timestamp it produces and echoes it back in a
+      // STALE_DATA 409 as server_sync_token. See syncQueue/sentSyncTokens.ts.
+      sync_token: expect.any(String),
     });
 
     // historyLog bookkeeping: queued (not re-read) state as update, original as deletion
@@ -328,6 +334,78 @@ describe('debouncedMasterSync (characterization)', () => {
     const logs = (await readAll('historyLog')).filter(l => l.bookId === 'bookLost');
     expect(logs.length).toBeGreaterThan(0);
     expect(logs.every(l => l.status === 'synced')).toBe(true);
+  });
+
+  // The lost-ACK case the CONTENT check cannot rescue (the 2026-07 paste incident): a
+  // network blip commits batch N server-side and drops the response, and the paste flow
+  // keeps mutating the same node — so batch N+1 carries NEWER content than the committed
+  // snapshot and the content compare correctly refuses to vouch for it. The sync token
+  // still proves it: the 409 echoes the server_sync_token stored by batch N's library
+  // write, and that token is in this client's sent ledger → own write → recover silently.
+  it('LOST-ACK 409 with drifted content but OUR sync token: silently recovers, no overlay', async () => {
+    showStaleTabOverlay.mockClear();
+    await seedStore('library', [{ book: 'bookTok', title: 'X', timestamp: 4000, base_timestamp: 1000 }]);
+
+    // Sync #1 = the committed-but-lost write's SIBLING from this client (any earlier POST):
+    // we only need it to capture a token this client actually sent. It "fails" on the wire
+    // (network blip) AFTER the server committed it — so nothing is acked, base stays 1000.
+    fetchMock.mockRejectedValueOnce(new TypeError('Load failed'));
+    await seedStore('nodes', [makeNode('bookTok', 100, 't-100', '<p>pasted v1</p>')]);
+    queueForSync('nodes', 100, 'update', makeNode('bookTok', 100, 't-100', '<p>pasted v1</p>'), null);
+    await debouncedMasterSync.flush();
+    const lostToken = JSON.parse(fetchMock.mock.calls[0][1].body).sync_token;
+    expect(typeof lostToken).toBe('string');
+
+    // The node keeps changing locally (paste flow's follow-up saves) → content drifts.
+    await seedStore('nodes', [makeNode('bookTok', 100, 't-100', '<p>pasted v2 (drifted)</p>')]);
+
+    // Sync #2: 409 at 9000 (never acked) echoing OUR token. The server's stored content is
+    // still v1 — the content check would see a mismatch — but the token match must win.
+    // No content-check GET should even be needed.
+    let posts = 0;
+    let contentCheckGets = 0;
+    fetchMock.mockImplementation((url) => {
+      if (String(url).includes('/api/db/unified-sync')) {
+        posts++;
+        return posts === 1
+          ? Promise.resolve({ ok: false, status: 409, json: async () => ({ error: 'STALE_DATA', message: 'stale', server_timestamp: 9000, server_sync_token: lostToken }) })
+          : Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, server_timestamp: 9500 }) });
+      }
+      contentCheckGets++;
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ nodes: [{ book: 'bookTok', startLine: 100, chunk_id: 0, node_id: 't-100', content: '<p>pasted v1</p>' }] }) });
+    });
+    queueForSync('nodes', 100, 'update', makeNode('bookTok', 100, 't-100', '<p>pasted v2 (drifted)</p>'), null);
+    await debouncedMasterSync.flush();
+
+    // Recovered silently on the token alone: 409 POST + retry POST, no read-only GET, no overlay.
+    expect(posts).toBe(2);
+    expect(contentCheckGets).toBe(0);
+    expect(showStaleTabOverlay).not.toHaveBeenCalled();
+    const postCalls = fetchMock.mock.calls.filter(c => String(c[0]).includes('/api/db/unified-sync'));
+    expect(JSON.parse(postCalls.at(-1)[1].body).base_timestamp).toBe(9000);
+    expect((await readOne('library', 'bookTok')).base_timestamp).toBe(9500);
+  });
+
+  // A foreign token (another device's write id) must NOT unlock recovery by itself —
+  // with the ledger missing it and content differing, the hard block stands.
+  it('409 with a token we never sent AND drifted content: still blocks with overlay', async () => {
+    showStaleTabOverlay.mockClear();
+    await seedStore('library', [{ book: 'bookForeign', title: 'X', timestamp: 4000, base_timestamp: 1000 }]);
+
+    let posts = 0;
+    fetchMock.mockImplementation((url) => {
+      if (String(url).includes('/api/db/unified-sync')) {
+        posts++;
+        return Promise.resolve({ ok: false, status: 409, json: async () => ({ error: 'STALE_DATA', message: 'stale', server_timestamp: 9000, server_sync_token: 'someone-elses-token' }) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ nodes: [{ book: 'bookForeign', startLine: 100, chunk_id: 0, node_id: 'f-100', content: '<p>OTHER DEVICE wrote this</p>' }] }) });
+    });
+    await seedStore('nodes', [makeNode('bookForeign', 100, 'f-100', '<p>mine</p>')]);
+    queueForSync('nodes', 100, 'update', makeNode('bookForeign', 100, 'f-100', '<p>mine</p>'), null);
+    await debouncedMasterSync.flush();
+
+    expect(posts).toBe(1); // no retry — retrying would clobber the other device's write
+    await vi.waitFor(() => expect(showStaleTabOverlay).toHaveBeenCalled());
   });
 
   // ── Pending new-book: exempt from the optimistic-concurrency (stale) check ──

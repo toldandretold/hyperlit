@@ -20,9 +20,11 @@ class PgLibrary extends Model
 
     /**
      * 🔒 SECURITY: Hide creator_token from JSON responses
-     * This prevents token leakage via API responses
+     * This prevents token leakage via API responses.
+     * last_sync_token is sync-internal bookkeeping (see UnifiedSyncController) —
+     * harmless if seen, but it doesn't belong in library payloads.
      */
-    protected $hidden = ['creator_token'];
+    protected $hidden = ['creator_token', 'last_sync_token'];
 
     protected $fillable = [
         'book',

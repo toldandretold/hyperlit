@@ -15,8 +15,12 @@ class SecurityHeaders
     {
         $response = $next($request);
 
-        // Prevent clickjacking by disallowing framing
-        $response->headers->set('X-Frame-Options', 'DENY');
+        // Prevent clickjacking by disallowing CROSS-ORIGIN framing. SAMEORIGIN
+        // (not DENY): the /maintainer triage page frames the reader in an
+        // iframe to show a flagged book next to its original PDF — same-origin
+        // framing is ours by definition; the clickjacking threat (an attacker
+        // page framing us) is cross-origin and stays blocked.
+        $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
 
         // Prevent MIME type sniffing
         $response->headers->set('X-Content-Type-Options', 'nosniff');
@@ -31,8 +35,9 @@ class SecurityHeaders
         //
         // We intentionally lock down only the directives that add real defence
         // WITHOUT risking the SPA or local Vite dev (public/hot) breaking:
-        //   - frame-ancestors 'none' : clickjacking protection at the CSP layer
-        //                              (stronger than, and complements, X-Frame-Options).
+        //   - frame-ancestors 'self' : clickjacking protection at the CSP layer
+        //                              (complements X-Frame-Options above; 'self'
+        //                              not 'none' so /maintainer can frame the reader).
         //   - base-uri 'self'        : blocks an injected <base> tag from
         //                              hijacking every relative URL on the page.
         //   - object-src 'none'      : kills <object>/<embed> plugin-based XSS.
@@ -44,7 +49,7 @@ class SecurityHeaders
         // defeating the XSS benefit) and runs Vite HMR + Reverb websockets in dev,
         // which a host allowlist would break. Tightening script-src with per-request
         // nonces is a separate, deliberate hardening pass — see tests/security-redteam.
-        $csp = "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'";
+        $csp = "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'";
         $response->headers->set('Content-Security-Policy', $csp);
 
         // HSTS: force HTTPS for a year (incl. subdomains). Only emit it over a

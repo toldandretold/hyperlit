@@ -211,6 +211,28 @@ class IntegrityReportController extends Controller
             ]);
         }
 
+        // A BAD rating lands on the reconvert queue (conversion_flags →
+        // `library:reconvert-queue`), not just in an email. Best-effort like
+        // the enrichment above: a report must never 500.
+        if ($data['rating'] === 'bad') {
+            try {
+                \App\Models\ConversionFlag::raise(
+                    $data['bookId'],
+                    \App\Models\ConversionFlag::SOURCE_USER_REPORT,
+                    $data['comment'] ?? null,
+                    [
+                        'issueTypes' => $data['issueTypes'] ?? [],
+                        'userName'   => $data['userName'],
+                    ],
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Conversion flag upsert failed (continuing)', [
+                    'bookId' => $data['bookId'],
+                    'error'  => $e->getMessage(),
+                ]);
+            }
+        }
+
         Log::info('Conversion feedback received', [
             'bookId' => $data['bookId'],
             'rating' => $data['rating'],

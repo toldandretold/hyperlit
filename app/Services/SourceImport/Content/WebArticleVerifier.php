@@ -123,17 +123,12 @@ class WebArticleVerifier
     /**
      * Does the page title look like a block/error shell rather than content?
      * Matched against the TITLE only (conservative) — these pages often still
-     * carry article-typed metadata from the site template.
+     * carry article-typed metadata from the site template. The phrase list
+     * itself lives in GarbageDetector (shared with library:flag-sweep).
      */
     private function looksLikeBlockPage(string $title): bool
     {
-        return (bool) preg_match(
-            '/just a moment|attention required|access denied|are you a robot|robot check|captcha|'
-            . 'page not found|\b404\b|\b403\b|server error|subscribe to (read|continue)|'
-            . 'sign in to|log ?in required|cookie consent|before you continue|'
-            . 'search results|results for/i',
-            $title,
-        );
+        return app(\App\Services\Conversion\GarbageDetector::class)->isBlockPhrase($title);
     }
 
     /**

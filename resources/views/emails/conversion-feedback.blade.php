@@ -9,6 +9,13 @@
         Conversion {{ ($rating ?? 'good') === 'bad' ? 'Issue Report' : 'Looks Good' }}
     </h2>
 
+    @if(!empty($maintainerUrl) && ($rating ?? 'good') === 'bad')
+    <p style="margin:0 0 16px;">
+        <a href="{{ $maintainerUrl }}" style="color:#4eacae; font-weight:bold;">Open in the maintainer triage page →</a>
+        <span style="color:#888;">(book beside its original, reconvert from there)</span>
+    </p>
+    @endif
+
     <table style="border-collapse:collapse; width:100%; margin-bottom:20px;">
         <tr><td style="padding:4px 12px 4px 0; color:#888;">Book ID</td><td>{{ $bookId ?? 'unknown' }}</td></tr>
         <tr><td style="padding:4px 12px 4px 0; color:#888;">Rating</td>

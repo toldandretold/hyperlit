@@ -142,6 +142,10 @@ export default defineConfig({
                 // three.js lives ONLY in this entry's chunk graph, never the reader)
                 'resources/css/pages/docuverse.css',
                 'resources/js/docuverse3d/main.ts',
+
+                // Maintainer triage page (standalone, non-SPA, admin-only — /maintainer)
+                'resources/css/pages/maintainer.css',
+                'resources/js/maintainer/main.ts',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],

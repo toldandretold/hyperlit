@@ -71,12 +71,20 @@ test('POST /api/db/references/upsert 422s without book + data', function () {
     $this->assertApiError($this->postJson('/api/db/references/upsert', []), 422);
 });
 
-/* ─── hypercite find: auth ────────────────────────────────────────── */
+/* ─── hypercite find: visibility enforced by the controller ───────── */
 
-test('GET /api/db/hypercites/find/{book}/{id} requires an author', function () {
+test('GET /api/db/hypercites/find/{book}/{id} is anonymous-readable; controller enforces visibility', function () {
+    // The route deliberately dropped RequireAuthor (see routes/api.php): fetch-on-demand
+    // must work for an anonymous reader deep-linking into a PUBLIC book, and find()
+    // itself enforces visibility (private + RLS → the book is simply not found, so
+    // existence isn't leaked). Anonymous requests get per-book 404s, not a blanket 401.
     // The id must be hypercite-shaped to match the route (constrained so the greedy
     // sub-book {book} pattern knows where the book id ends — see routes/api.php).
-    $this->assertApiError($this->getJson('/api/db/hypercites/find/apitest_x/hypercite_missing'), 401);
+    $this->getJson('/api/db/hypercites/find/apitest_x/hypercite_missing')->assertStatus(404);
+
+    $owner = $this->apiUser();
+    $privateBook = $this->makeBook($owner, ['visibility' => 'private']);
+    $this->getJson('/api/db/hypercites/find/'.$privateBook.'/hypercite_missing')->assertStatus(404);
 });
 
 test('GET /api/db/hypercites/find rejects non-hypercite-shaped ids at the router', function () {

@@ -186,6 +186,25 @@ class ProcessDocumentImportJob implements ShouldQueue
             $this->writeProgress($path, 'processing', 95, 'db_references', 'Saving references to database');
             $this->saveReferencesToDatabase($path, $this->bookId);
 
+            // Reconvert path: re-anchor hyperlights/hypercites onto the NEW
+            // nodes from the pre-clear snapshot (AnnotationSnapshotService —
+            // fresh imports have no snapshot, so this no-ops). Runs BEFORE the
+            // library timestamp bump below, so clients that invalidate on the
+            // timestamp pull already-reattached anchors. Best-effort: a
+            // reattachment failure must never fail the import (rows stay
+            // orphan-stamped and recoverable).
+            try {
+                $report = app(\App\Services\Annotations\AnnotationReattachmentService::class)
+                    ->reattach($this->bookId);
+                if (!isset($report['skipped'])) {
+                    Log::info('Reconvert annotation reattachment', ['book' => $this->bookId] + array_diff_key($report, ['per_id' => 0]));
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Annotation reattachment failed (import continues)', [
+                    'book' => $this->bookId, 'error' => $e->getMessage(),
+                ]);
+            }
+
             // Ingest extracted images into the unified private store (docs/e2ee.md).
             // ALL conversion paths (epub/docx/pdf/zip) drop images in {path}/media/;
             // prune:true makes the store mirror THIS conversion, closing the

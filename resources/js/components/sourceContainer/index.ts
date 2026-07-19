@@ -204,6 +204,13 @@ export class SourceContainerManager extends (ContainerManager as any) {
     const sourceStatusSection = this.container.querySelector("#check-source-section");
     if (sourceStatusSection) wireSourceStatus(sourceStatusSection);
 
+    // Maintainer loop: for NON-owners this is the only loadReconvertInfo call
+    // (Creator Tools never render) — it self-gates on the server's
+    // canAdminReconvert, so ordinary readers see nothing.
+    if (!this.container.querySelector('#creator-tools-section')) {
+      this.loadReconvertInfo();
+    }
+
     this.loadAiReviewStatus();
   }
 
