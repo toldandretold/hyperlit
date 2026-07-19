@@ -55,3 +55,4 @@
 @import url('../base/layout.css');
 /* After layout.css: paginated reading mode overrides the wrapper/main layout */
 @import url('../components/paginator.css');
+@import url('../components/customScrollbar.css');

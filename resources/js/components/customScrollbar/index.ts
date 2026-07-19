@@ -1,0 +1,726 @@
+/**
+ * customScrollbar — an accurate scrollbar for the chunk-windowed reader
+ * (ButtonRegistry component, reader page, read + scroll mode only).
+ *
+ * The DOM holds at most MAX_LOADED_CHUNKS chunks, so native scrollbar geometry
+ * is meaningless. This bar maps the WHOLE book through the virtual coordinate
+ * space built by virtualMap.ts:
+ *
+ *  - Thumb sync: a passive scroll listener (rAF-coalesced) finds which loaded
+ *    chunk straddles the wrapper's top edge, takes the fraction through it, and
+ *    maps that onto the chunk's virtual span. Real and virtual accumulators both
+ *    reset at every chunk boundary, so height-estimation error never drifts.
+ *  - Scrub: while dragging, ONLY the thumb + minimap move (the preview is the
+ *    live feedback; no DOM work mid-drag — that janked the drag). The content
+ *    jump fires on release / track-tap and routes through the loader's own
+ *    chunk machinery (loadChunk's atomic reservation + sorted insertion) under
+ *    lockScroll — mirroring internalNav's fast/clear paths.
+ *    Jumps are single-flight with latest-wins queueing, so rapid scrubbing can
+ *    never overlap two window rebuilds.
+ *
+ * Deliberately NOT here: any read of the saved reading-position storage key
+ *    (the accessor gate — position saving stays with forceSavePosition, which
+ *    unlockScroll triggers for us), and any second "which node is visible"
+ *    detector (the straddling-chunk scan feeds only this widget's thumb,
+ *    never saved state).
+ */
+
+import { log, verbose } from '../../utilities/logger';
+import { currentLazyLoader } from '../../pageLoad/currentLazyLoaderState';
+import { pendingFirstChunkLoadedPromise } from '../../pageLoad/firstChunkPromise';
+import { isPaginatorEngaged } from '../../scrolling/paginator';
+import { scrollElementWithConsistentMethod } from '../../scrolling/scrollHelpers';
+import { parseChunkId } from '../../indexedDB/types';
+import type { NodeRecord } from '../../indexedDB/types';
+import { MAX_LOADED_CHUNKS, trimWindow } from '../../lazyLoader/utilities/windowChunks';
+import {
+  buildVirtualMap,
+  indexAtVirtual,
+  virtualOfIndex,
+  isMapStale,
+  type VirtualMap,
+  type VirtualMapMetrics,
+} from './virtualMap';
+import { createMinimap, type MinimapController } from './minimap';
+
+/** The slice of the lazyLoader instance this component consumes. */
+interface LoaderLike {
+  bookId: string;
+  nodes: NodeRecord[];
+  container: HTMLElement;
+  scrollableParent: HTMLElement | Window;
+  currentlyLoadedChunks: Set<number>;
+  loadChunk: (chunkId: number, direction?: string) => Promise<unknown>;
+  repositionSentinels: () => void;
+  lockScroll: (reason?: string) => void;
+  unlockScroll: () => void;
+}
+
+const SRC = 'components/customScrollbar';
+/** Keep in sync with reader.blade.php's clip-path: inset(15px 0 40px 0) on the wrapper. */
+const CLIP_TOP = 15;
+const CLIP_BOTTOM = 40;
+const MIN_THUMB_PX = 24;
+/**
+ * Scrub landings put the target node at the TOP of the viewport (just under the
+ * 15px clip), like a real scrollbar — NOT at the app-wide 192px nav offset.
+ * The minimap's viewport band starts at the target node, so a 192px landing
+ * offset would push the band's bottom fifth off-screen ("I saw the title in
+ * the preview but not on the page").
+ */
+const SCRUB_LAND_OFFSET = 16;
+const REBUILD_DEBOUNCE_MS = 1000;
+
+// ── module state (document-delegated singleton, the pageNav pattern) ────────
+let root: HTMLElement | null = null;
+let thumb: HTMLElement | null = null;
+let minimap: MinimapController | null = null;
+
+let loader: LoaderLike | null = null;
+let boundWrapper: HTMLElement | null = null;
+let map: VirtualMap | null = null;
+
+let scrollHandler: (() => void) | null = null;
+let windowListeners: Array<[string, EventListener]> = [];
+let chunkObserver: MutationObserver | null = null;
+let chunkElsCache: HTMLElement[] | null = null;
+
+let syncRaf = 0;
+let geometryRaf = 0;
+let paintRaf = 0;
+let paintSpanCenter = 0;
+let paintBandTop = 0;
+let rebuildTimer: ReturnType<typeof setTimeout> | null = null;
+let resizeDebounce: ReturnType<typeof setTimeout> | null = null;
+
+// Track geometry (viewport px), recomputed on bind/resize/mode change.
+let barTop = 0;
+let trackH = 0;
+
+// Last synced content position (virtual px) — seeds the scrub start.
+let lastVPos = 0;
+let lastViewportVirtual = 0;
+/**
+ * Running calibration: estimated-px per real-px, sampled from whichever chunk
+ * straddles the viewport top during normal reading (EMA). The minimap band
+ * height converts the screen's real clientHeight into virtual units — without
+ * this, any systematic bias in the height estimator stretches/shrinks the band
+ * and it stops meaning "what you'll see".
+ */
+let estPerRealEma = 1;
+let thumbTop = 0;
+let thumbH = MIN_THUMB_PX;
+
+// Scrub state.
+let scrubbing = false;
+let hovering = false;
+let canvasHover = false;
+let hideTimer: ReturnType<typeof setTimeout> | null = null;
+let dragStartY = 0;
+let dragStartThumbTop = 0;
+let pendingIdx: number | null = null;
+
+// Jump single-flight.
+let jumpInFlight = false;
+let queuedIdx: number | null = null;
+let lastCommittedIdx: number | null = null;
+
+/** A generation counter: a rebind invalidates every in-flight async continuation. */
+let bindGeneration = 0;
+
+function isEditing(): boolean {
+  return (window as unknown as { isEditing?: boolean }).isEditing === true;
+}
+
+function idle(fn: () => void): void {
+  const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => void })
+    .requestIdleCallback;
+  if (ric) ric(fn);
+  else setTimeout(fn, 50);
+}
+
+
+// ── DOM ─────────────────────────────────────────────────────────────────────
+
+function ensureDom(): void {
+  if (root) return;
+  root = document.createElement('div');
+  root.className = 'custom-scrollbar';
+  root.hidden = true;
+  root.setAttribute('aria-hidden', 'true'); // presentation aid; keyboard nav has its own paths
+
+  const track = document.createElement('div');
+  track.className = 'custom-scrollbar-track';
+  thumb = document.createElement('div');
+  thumb.className = 'custom-scrollbar-thumb';
+
+  root.appendChild(track);
+  root.appendChild(thumb);
+  document.body.appendChild(root);
+
+  root.addEventListener('pointerdown', onPointerDown);
+  root.addEventListener('pointermove', onPointerMove);
+  root.addEventListener('pointerup', onPointerUp);
+  root.addEventListener('pointercancel', onPointerUp);
+  root.addEventListener('pointerenter', onPointerEnter);
+  root.addEventListener('pointerleave', onPointerLeave);
+
+  minimap = createMinimap({ onJump: handleMinimapJump, onHoverChange: handleMinimapHover });
+}
+
+function cancelHide(): void {
+  if (hideTimer) {
+    clearTimeout(hideTimer);
+    hideTimer = null;
+  }
+}
+
+/** Grace-period hide: crossing the gap from the bar onto the popup (or a touch
+ *  lift) must not kill the popup before the pointer arrives / the tap lands. */
+function hideSoon(): void {
+  cancelHide();
+  hideTimer = setTimeout(() => {
+    hideTimer = null;
+    if (!hovering && !canvasHover && !scrubbing) minimap?.hide();
+  }, 300);
+}
+
+function handleMinimapHover(h: boolean): void {
+  canvasHover = h;
+  if (h) cancelHide();
+  else hideSoon();
+}
+
+/** Click inside the preview → jump to exactly what was clicked. */
+function handleMinimapJump(v: number): void {
+  if (!map) return;
+  const idx = indexAtVirtual(map, v);
+  verbose.nav(`minimap click → virtual ${Math.round(v)} (idx ${idx})`, SRC);
+  hovering = false;
+  canvasHover = false;
+  cancelHide();
+  minimap?.hide();
+  void commitJump(idx);
+}
+
+function removeDom(): void {
+  minimap?.destroy();
+  minimap = null;
+  root?.remove();
+  root = null;
+  thumb = null;
+}
+
+// ── geometry & visibility ───────────────────────────────────────────────────
+
+/** Breathing room between the bar's ends and the corner button clusters. */
+const BUTTON_GAP = 8;
+
+function updateGeometry(): void {
+  if (!root || !boundWrapper) return;
+  const rect = boundWrapper.getBoundingClientRect();
+  let top = rect.top + CLIP_TOP;
+  let bottom = rect.bottom - CLIP_BOTTOM;
+  // Keep the bar clear of the right-edge button clusters: below the cloudRef
+  // sync button (top right), above the edit/contents cluster (bottom right).
+  // Perimeter chrome can be hidden (rect collapses) — then the clip insets win.
+  const cloud = document.getElementById('cloudRef')?.getBoundingClientRect();
+  if (cloud && cloud.height > 0) top = Math.max(top, cloud.bottom + BUTTON_GAP);
+  const cluster = document.getElementById('bottom-right-buttons')?.getBoundingClientRect();
+  if (cluster && cluster.height > 0) bottom = Math.min(bottom, cluster.top - BUTTON_GAP);
+  const height = Math.max(0, bottom - top);
+  // Self-diffing: called on every sync tick (the button clusters settle after
+  // their .loading phase and can move later, e.g. when chrome appears) — only
+  // write styles when the extent actually changed.
+  if (Math.abs(top - barTop) < 1 && Math.abs(height - trackH) < 1) return;
+  barTop = top;
+  trackH = height;
+  root.style.top = `${barTop}px`;
+  root.style.height = `${trackH}px`;
+}
+
+function updateVisibility(): void {
+  if (!root) return;
+  const onReader = document.body.getAttribute('data-page') === 'reader';
+  const show =
+    onReader &&
+    !!loader &&
+    !!map &&
+    map.totalHeight > 0 &&
+    !isPaginatorEngaged() &&
+    !isEditing();
+  root.hidden = !show;
+  if (!show) minimap?.hide();
+}
+
+// ── loader binding ──────────────────────────────────────────────────────────
+
+/** The paginator's resolveReaderLoader guard: main reader loader only. */
+function resolveReaderLoader(): LoaderLike | null {
+  const candidate = currentLazyLoader as LoaderLike | null;
+  if (!candidate?.container) return null;
+  const parent = candidate.scrollableParent;
+  if (!(parent instanceof HTMLElement) || !parent.classList.contains('reader-content-wrapper')) {
+    return null; // sub-book / home / user loaders never get the bar
+  }
+  return candidate;
+}
+
+function unbindLoader(): void {
+  if (boundWrapper && scrollHandler) {
+    boundWrapper.removeEventListener('scroll', scrollHandler);
+  }
+  scrollHandler = null;
+  chunkObserver?.disconnect();
+  chunkObserver = null;
+  chunkElsCache = null;
+  loader = null;
+  boundWrapper = null;
+  map = null;
+  lastCommittedIdx = null;
+  queuedIdx = null;
+}
+
+function bindLoader(): void {
+  bindGeneration++;
+  unbindLoader();
+
+  const candidate = resolveReaderLoader();
+  if (!candidate) {
+    updateVisibility();
+    return;
+  }
+  loader = candidate;
+  boundWrapper = candidate.scrollableParent as HTMLElement;
+
+  scrollHandler = () => {
+    if (!syncRaf) syncRaf = requestAnimationFrame(syncThumb);
+  };
+  boundWrapper.addEventListener('scroll', scrollHandler, { passive: true });
+
+  // Cheap cache invalidation: the loaded-chunk element list changes only on
+  // childList mutations of the container (chunk insert/remove).
+  chunkObserver = new MutationObserver(() => {
+    chunkElsCache = null;
+    if (!syncRaf) syncRaf = requestAnimationFrame(syncThumb);
+  });
+  chunkObserver.observe(candidate.container, { childList: true });
+
+  updateGeometry();
+  scheduleRebuild(0);
+  verbose.init(`customScrollbar bound to book ${candidate.bookId}`, SRC);
+}
+
+// ── virtual map lifecycle ───────────────────────────────────────────────────
+
+function measureMetrics(instance: LoaderLike): VirtualMapMetrics {
+  const cs = getComputedStyle(instance.container);
+  const fontSize = parseFloat(cs.fontSize) || 18;
+  const lineHeight = parseFloat(cs.lineHeight) || fontSize * 1.6;
+  const padL = parseFloat(cs.paddingLeft) || 0;
+  const padR = parseFloat(cs.paddingRight) || 0;
+  const textWidth = Math.max(80, instance.container.clientWidth - padL - padR);
+  // ~0.5em average glyph width for body text — an estimate is all we need.
+  const charsPerLine = Math.max(10, textWidth / (fontSize * 0.5));
+  return { lineHeight, charsPerLine, blockMargin: fontSize };
+}
+
+function scheduleRebuild(delayMs: number = REBUILD_DEBOUNCE_MS): void {
+  if (rebuildTimer) clearTimeout(rebuildTimer);
+  const generation = bindGeneration;
+  rebuildTimer = setTimeout(() => {
+    rebuildTimer = null;
+    idle(() => {
+      if (generation !== bindGeneration || !loader) return;
+      map = buildVirtualMap(loader.nodes, measureMetrics(loader));
+      updateVisibility();
+      if (!syncRaf) syncRaf = requestAnimationFrame(syncThumb);
+      verbose.content(
+        `customScrollbar map built: ${map.nodeIds.length} nodes, ${Math.round(map.totalHeight)}vpx`,
+        SRC,
+      );
+    });
+  }, delayMs);
+}
+
+// ── thumb sync (content → thumb) ────────────────────────────────────────────
+
+function getChunkEls(): HTMLElement[] {
+  if (!chunkElsCache && loader) {
+    chunkElsCache = Array.from(
+      loader.container.querySelectorAll<HTMLElement>('[data-chunk-id]'),
+    );
+  }
+  return chunkElsCache ?? [];
+}
+
+function syncThumb(): void {
+  syncRaf = 0;
+  if (!root || !thumb || !loader || !boundWrapper) return;
+  updateVisibility();
+  if (root.hidden || scrubbing) return;
+  if (!map) return;
+  updateGeometry(); // cheap when unchanged; tracks the settling button clusters
+
+  if (isMapStale(map, loader.nodes)) scheduleRebuild();
+
+  const wrapTop = boundWrapper.getBoundingClientRect().top;
+  const chunkEls = getChunkEls();
+  if (chunkEls.length === 0) return;
+
+  // First loaded chunk whose bottom edge is below the wrapper top = the chunk
+  // straddling (or next below) the top edge. ≤ MAX_LOADED_CHUNKS rect reads.
+  let target: HTMLElement | null = null;
+  let rect: DOMRect | null = null;
+  for (const el of chunkEls) {
+    const r = el.getBoundingClientRect();
+    if (r.bottom > wrapTop) {
+      target = el;
+      rect = r;
+      break;
+    }
+  }
+  if (!target || !rect) {
+    const last = chunkEls[chunkEls.length - 1];
+    if (!last) return;
+    target = last;
+    rect = last.getBoundingClientRect();
+  }
+
+  const chunkId = Number(parseChunkId(target.getAttribute('data-chunk-id') ?? '0'));
+  const bound = map.chunkBounds.get(chunkId);
+  if (!bound || rect.height <= 0) return; // stale map vs live DOM — next rebuild fixes it
+
+  const f = Math.min(1, Math.max(0, (wrapTop - rect.top) / rect.height));
+  const chunkVSpan = bound.vEnd - bound.vStart;
+  lastVPos = bound.vStart + f * chunkVSpan;
+  // The page moved under us — the last scrub target no longer describes where
+  // we are, so it must not dedupe the next commit (the "drag back to where I
+  // once jumped does nothing" bug).
+  lastCommittedIdx = null;
+  // Local real→virtual scale converts the viewport height into virtual px.
+  const localRatio = chunkVSpan / rect.height;
+  lastViewportVirtual = boundWrapper.clientHeight * localRatio;
+  if (Number.isFinite(localRatio) && localRatio > 0) {
+    estPerRealEma = estPerRealEma * 0.8 + localRatio * 0.2;
+  }
+
+  positionThumb(lastVPos, lastViewportVirtual);
+}
+
+function positionThumb(vPos: number, viewportVirtual: number): void {
+  if (!thumb || !map || trackH <= 0) return;
+  const total = map.totalHeight;
+  if (total <= 0) return;
+  thumbH = Math.min(trackH, Math.max(MIN_THUMB_PX, trackH * (viewportVirtual / total)));
+  const scrollableVirtual = Math.max(0, total - viewportVirtual);
+  const frac = scrollableVirtual > 0 ? Math.min(1, Math.max(0, vPos / scrollableVirtual)) : 0;
+  thumbTop = frac * (trackH - thumbH);
+  thumb.style.height = `${thumbH}px`;
+  thumb.style.transform = `translateY(${thumbTop}px)`;
+}
+
+// ── scrub (thumb → content) ─────────────────────────────────────────────────
+
+function viewportVirtualEstimate(): number {
+  // The virtual space is denominated in ESTIMATED real pixels, so the wrapper's
+  // clientHeight × the measured est-per-real ratio (EMA over rendered chunks)
+  // is the screen's span at an arbitrary (unrendered) target.
+  if (boundWrapper) return boundWrapper.clientHeight * estPerRealEma;
+  if (lastViewportVirtual > 0) return lastViewportVirtual;
+  return map ? map.totalHeight / 50 : 0;
+}
+
+function vPosOfThumbTop(top: number): number {
+  if (!map) return 0;
+  const scrollableVirtual = Math.max(0, map.totalHeight - viewportVirtualEstimate());
+  const range = trackH - thumbH;
+  return range > 0 ? (Math.min(range, Math.max(0, top)) / range) * scrollableVirtual : 0;
+}
+
+function scrubTo(top: number): void {
+  if (!map || !thumb) return;
+  const clamped = Math.min(Math.max(0, top), Math.max(0, trackH - thumbH));
+  thumbTop = clamped;
+  thumb.style.transform = `translateY(${clamped}px)`; // immediate — must track the finger
+  const vPos = vPosOfThumbTop(clamped);
+  pendingIdx = indexAtVirtual(map, vPos);
+  // The preview span glides with the raw position; only the band's top edge
+  // snaps to the landing node (snapping the whole span made the preview step
+  // node-by-node — "SUPER choppy"). The jump itself fires on release only:
+  // committing mid-drag rebuilt the chunk window under the finger.
+  schedulePaint(vPos, pendingIdx >= 0 ? virtualOfIndex(map, pendingIdx) : vPos);
+}
+
+/** One canvas repaint per frame, however fast pointermove fires. */
+function schedulePaint(spanCenter: number, bandTop: number): void {
+  paintSpanCenter = spanCenter;
+  paintBandTop = bandTop;
+  if (paintRaf) return;
+  paintRaf = requestAnimationFrame(() => {
+    paintRaf = 0;
+    paintMinimapAt(paintSpanCenter, paintBandTop);
+  });
+}
+
+function onPointerDown(e: PointerEvent): void {
+  if (!root || !thumb || !map || root.hidden) return;
+  e.preventDefault();
+  try {
+    root.setPointerCapture(e.pointerId);
+  } catch {
+    // No active pointer with this id (synthetic events) — drag still works
+    // while the pointer stays over the bar; capture is an enhancement.
+  }
+  scrubbing = true;
+  root.classList.add('scrubbing');
+  minimap?.show();
+
+  const isOnThumb = e.target === thumb;
+  dragStartY = e.clientY;
+  if (isOnThumb) {
+    dragStartThumbTop = thumbTop;
+  } else {
+    // Track press: center the thumb on the press point and treat as a scrub.
+    dragStartThumbTop = e.clientY - barTop - thumbH / 2;
+    scrubTo(dragStartThumbTop);
+  }
+}
+
+function onPointerMove(e: PointerEvent): void {
+  if (scrubbing) {
+    scrubTo(dragStartThumbTop + (e.clientY - dragStartY));
+    return;
+  }
+  if (hovering && map) {
+    // Hover preview without dragging: peek at the hovered position.
+    const frac = trackH > 0 ? Math.min(1, Math.max(0, (e.clientY - barTop) / trackH)) : 0;
+    const v = frac * map.totalHeight;
+    schedulePaint(v, v);
+  }
+}
+
+function onPointerUp(e: PointerEvent): void {
+  if (!scrubbing) return;
+  scrubbing = false;
+  root?.classList.remove('scrubbing');
+  try {
+    root?.releasePointerCapture?.(e.pointerId);
+  } catch {
+    // capture was never established (see onPointerDown)
+  }
+  if (pendingIdx !== null) {
+    void commitJump(pendingIdx);
+    pendingIdx = null;
+  }
+  // Touch has no hover: pointerleave never fires after lift-off, so `hovering`
+  // would stick true and the preview would never dismiss. Lift = done.
+  if (e.pointerType === 'touch') hovering = false;
+  if (!hovering) hideSoon();
+}
+
+function onPointerEnter(e: PointerEvent): void {
+  if (e.pointerType === 'touch') return; // no hover concept on touch — show only while scrubbing
+  hovering = true;
+  cancelHide();
+  if (root && !root.hidden && map) minimap?.show();
+}
+
+function onPointerLeave(): void {
+  hovering = false;
+  if (!scrubbing) hideSoon();
+}
+
+/** Safety net (mobile especially): any press outside the bar + popup dismisses the preview. */
+function onDocumentPointerDown(e: Event): void {
+  const target = e.target;
+  if (target instanceof Node && (root?.contains(target) || minimap?.contains(target))) return;
+  hovering = false;
+  canvasHover = false;
+  cancelHide();
+  if (!scrubbing) minimap?.hide();
+}
+
+function paintMinimapAt(vSpanCenter: number, vBandTop: number = vSpanCenter): void {
+  if (!minimap || !map) return;
+  minimap.paint(map, vSpanCenter, vBandTop, viewportVirtualEstimate(), {
+    barTop,
+    barHeight: trackH,
+    thumbTop,
+    thumbHeight: thumbH,
+  });
+}
+
+// ── jump execution ──────────────────────────────────────────────────────────
+
+function neighborChunkIds(m: VirtualMap, chunkId: number): number[] {
+  const ids = m.chunkIdsSorted;
+  const i = ids.indexOf(chunkId);
+  if (i < 0) return [chunkId];
+  return ids.slice(Math.max(0, i - 1), Math.min(ids.length, i + 2));
+}
+
+/**
+ * Jump the content to node index `idx` — single-flight with latest-wins
+ * queueing (a second commit can NEVER overlap the first: loadChunkInternal has
+ * awaits between its reservation and insert, and two interleaved window
+ * rebuilds would poison currentlyLoadedChunks / the sentinel order).
+ */
+async function commitJump(idx: number): Promise<void> {
+  if (!loader || !map || idx < 0 || idx >= map.nodeIds.length) {
+    verbose.nav(`scrub commit skipped: no loader/map or idx ${idx} out of range`, SRC);
+    return;
+  }
+  if (idx === lastCommittedIdx) {
+    verbose.nav(`scrub commit skipped: idx ${idx} already committed`, SRC);
+    return;
+  }
+  if (isEditing()) {
+    verbose.nav('scrub commit skipped: edit mode', SRC);
+    return;
+  }
+  if (jumpInFlight) {
+    verbose.nav(`scrub commit queued behind in-flight jump: idx ${idx}`, SRC);
+    queuedIdx = idx;
+    return;
+  }
+  jumpInFlight = true;
+  const instance = loader;
+  const generation = bindGeneration;
+  const jumpMap = map;
+  // Safety net mirroring refresh(): a wedged load must not leave scroll locked.
+  const safety = setTimeout(() => instance.unlockScroll(), 5000);
+  try {
+    const nodeId = jumpMap.nodeIds[idx];
+    const chunkId = jumpMap.chunkOf[idx];
+    if (nodeId === undefined || chunkId === undefined) return;
+    instance.lockScroll('scrollbar-scrub'); // blocks sentinels + scroll saves + prepend compensation
+
+    const far = !instance.currentlyLoadedChunks.has(chunkId);
+    verbose.nav(
+      `scrub commit → node ${nodeId} (idx ${idx}, chunk ${chunkId}, ${far ? 'far: rebuild window' : 'near: already loaded'})`,
+      SRC,
+    );
+    if (far) {
+      // Far jump — internalNav's clear-path shape: rebuild the window around the
+      // target. Legal here because the bar only exists in read mode (no caret /
+      // unsaved-edit chunks to protect). A held selection lives in the DOM we
+      // are about to remove — collapse it (the user chose to navigate away)
+      // rather than silently refusing to move, which read as a dead scrollbar.
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && !sel.getRangeAt(0).collapsed) sel.removeAllRanges();
+      instance.container.querySelectorAll('[data-chunk-id]').forEach((el) => el.remove());
+      instance.currentlyLoadedChunks.clear();
+      const ids = neighborChunkIds(jumpMap, chunkId);
+      await Promise.all(ids.map((id) => instance.loadChunk(id, 'down')));
+      if (generation !== bindGeneration) return; // SPA nav mid-load — the new book owns the DOM
+      instance.repositionSentinels();
+    }
+
+    const el = instance.container.querySelector<HTMLElement>(
+      `[id="${CSS.escape(nodeId)}"]`,
+    );
+    if (el) {
+      scrollElementWithConsistentMethod(el, instance.scrollableParent, SCRUB_LAND_OFFSET);
+      lastCommittedIdx = idx;
+    } else {
+      verbose.nav(`customScrollbar: target node ${nodeId} not found after load`, SRC);
+    }
+  } catch (err) {
+    log.error(`customScrollbar jump failed: ${err instanceof Error ? err.message : String(err)}`, SRC);
+  } finally {
+    clearTimeout(safety);
+    instance.unlockScroll(); // schedules forceSavePosition(+250ms) → % display + resume update
+    jumpInFlight = false;
+    if (generation === bindGeneration) {
+      // Belt-and-braces: bare loadChunk never trims; sentinel loads right after a
+      // jump can momentarily exceed the budget.
+      if (instance.currentlyLoadedChunks.size > MAX_LOADED_CHUNKS) {
+        void trimWindow(instance, 'down').catch(() => {});
+      }
+      // Edge landing: make sure short chunks still cover the viewport.
+      void import('../../lazyLoader/utilities/fillViewport')
+        .then(({ fillViewport }) => fillViewport(instance))
+        .catch(() => {});
+    }
+    if (queuedIdx !== null) {
+      const q = queuedIdx;
+      queuedIdx = null;
+      void commitJump(q);
+    }
+  }
+}
+
+// ── lifecycle ───────────────────────────────────────────────────────────────
+
+function addWindowListener(type: string, fn: EventListener): void {
+  window.addEventListener(type, fn);
+  windowListeners.push([type, fn]);
+}
+
+export function initCustomScrollbar(): void {
+  ensureDom();
+
+  // Dev-only inspection handle (smoke tests + "why didn't it move" console debugging).
+  if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
+    (window as unknown as Record<string, unknown>).__customScrollbar = {
+      get map() { return map; },
+      get loader() { return loader; },
+      get calibration() { return estPerRealEma; },
+    };
+  }
+
+  if (windowListeners.length === 0) {
+    addWindowListener('resize', () => {
+      if (resizeDebounce) clearTimeout(resizeDebounce);
+      resizeDebounce = setTimeout(() => {
+        resizeDebounce = null;
+        updateGeometry();
+        // Width/font changes alter charsPerLine — the estimates need a refresh.
+        scheduleRebuild();
+        if (!syncRaf) syncRaf = requestAnimationFrame(syncThumb);
+      }, 150);
+    });
+    const modeChanged = () => {
+      if (geometryRaf) cancelAnimationFrame(geometryRaf);
+      geometryRaf = requestAnimationFrame(() => {
+        geometryRaf = 0;
+        updateGeometry();
+        updateVisibility();
+        if (!syncRaf) syncRaf = requestAnimationFrame(syncThumb);
+      });
+    };
+    addWindowListener('paginatorstate', modeChanged);
+    addWindowListener('readingmodechange', modeChanged);
+    addWindowListener('backgroundDownloadComplete', () => scheduleRebuild(0));
+    addWindowListener('pointerdown', onDocumentPointerDown);
+  }
+
+  // Every reader entry (full load or SPA nav): bind once the first chunk is in
+  // the DOM — geometry and the node array need real content.
+  pendingFirstChunkLoadedPromise
+    ?.then(() => bindLoader())
+    .catch(() => {});
+}
+
+export function destroyCustomScrollbar(): void {
+  unbindLoader();
+  for (const [type, fn] of windowListeners) window.removeEventListener(type, fn);
+  windowListeners = [];
+  if (syncRaf) cancelAnimationFrame(syncRaf);
+  syncRaf = 0;
+  if (geometryRaf) cancelAnimationFrame(geometryRaf);
+  geometryRaf = 0;
+  if (paintRaf) cancelAnimationFrame(paintRaf);
+  paintRaf = 0;
+  cancelHide();
+  canvasHover = false;
+  if (rebuildTimer) clearTimeout(rebuildTimer);
+  rebuildTimer = null;
+  if (resizeDebounce) clearTimeout(resizeDebounce);
+  resizeDebounce = null;
+  scrubbing = false;
+  hovering = false;
+  removeDom();
+  verbose.init('customScrollbar destroyed', SRC);
+}

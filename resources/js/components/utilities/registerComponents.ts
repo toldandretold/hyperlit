@@ -146,6 +146,11 @@ import {
   destroyCommonsHarvestNotice
 } from '../commonsHarvestNotice/commonsHarvestNotice';
 
+import {
+  initCustomScrollbar,
+  destroyCustomScrollbar
+} from '../customScrollbar/index';
+
 import { verbose } from "../../utilities/logger";
 
 /**
@@ -338,6 +343,21 @@ export function registerAllComponents() {
     name: 'selectionAutoScroll',
     initFn: initSelectionAutoScroll,
     destroyFn: destroySelectionAutoScroll,
+    pages: ['reader'],
+    dependencies: [],
+    required: false
+  });
+
+  // Whole-book scrollbar + minimap for the chunk-windowed reader (native
+  // scrollbar geometry only ever sees the ~7-chunk DOM window, so scrollbars
+  // are hidden globally). Body-level fixed widget; binds to the active reader
+  // loader after the first chunk lands, rebinds on every reader entry (full
+  // load AND SPA nav). Read + scroll mode only — hides itself in paginated
+  // and edit modes.
+  buttonRegistry.register({
+    name: 'customScrollbar',
+    initFn: initCustomScrollbar,
+    destroyFn: destroyCustomScrollbar,
     pages: ['reader'],
     dependencies: [],
     required: false

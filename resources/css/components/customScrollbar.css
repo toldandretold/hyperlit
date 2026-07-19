@@ -1,0 +1,94 @@
+/*
+  =====================================================================
+  CUSTOM SCROLLBAR + MINIMAP PREVIEW (components/customScrollbar)
+
+  The reader windows its chunks (max 7 in the DOM), so native scrollbar
+  geometry can't represent "position in book" — this fixed bar maps a
+  virtual whole-book coordinate space instead. The minimap canvas fades
+  in beside the track while hovering/scrubbing.
+
+  Vertical placement (top/height) is set inline by the component from
+  the wrapper's rect minus the reader clip-path insets (15px / 40px).
+  =====================================================================
+*/
+
+.custom-scrollbar {
+  position: fixed;
+  right: 0;
+  width: 16px; /* generous hit area; the visible thumb is much thinner */
+  z-index: 998; /* above content + scroll mask, below the perimeter buttons (999) */
+  touch-action: none; /* the bar owns its pointer gestures — no page pan */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.custom-scrollbar-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: transparent;
+  transition: background var(--transition-fast, 200ms) ease;
+}
+
+.custom-scrollbar:hover .custom-scrollbar-track,
+.custom-scrollbar.scrubbing .custom-scrollbar-track {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.custom-scrollbar-thumb {
+  position: absolute;
+  top: 0;
+  right: 3px;
+  width: 5px;
+  min-height: 24px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-text) 35%, transparent);
+  transition:
+    width var(--transition-fast, 200ms) ease,
+    background var(--transition-fast, 200ms) ease;
+  will-change: transform;
+}
+
+.custom-scrollbar:hover .custom-scrollbar-thumb,
+.custom-scrollbar.scrubbing .custom-scrollbar-thumb {
+  width: 9px;
+  background: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+
+.custom-scrollbar.scrubbing .custom-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-primary) 75%, transparent);
+}
+
+/* Shape-approximation preview canvas. Interactive while visible: clicking a
+   spot in the preview jumps the reader there. */
+.minimap-preview {
+  position: fixed;
+  right: 22px;
+  z-index: 998;
+  pointer-events: none;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--icon-background) 94%, transparent);
+  backdrop-filter: var(--container-glass-blur, blur(7px));
+  -webkit-backdrop-filter: var(--container-glass-blur, blur(7px));
+  border: 0.5px solid color-mix(in srgb, var(--icon-stroke-primary) 25%, transparent);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 120ms ease,
+    visibility 120ms ease;
+}
+
+.minimap-preview.visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* Touch devices: no hover — keep the thumb at its widened size always. */
+@media (pointer: coarse) {
+  .custom-scrollbar-thumb {
+    width: 9px;
+  }
+}
