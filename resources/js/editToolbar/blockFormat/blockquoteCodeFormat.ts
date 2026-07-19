@@ -20,17 +20,25 @@ import {
 import { asLineId } from "../../utilities/idHelpers";
 import type { BlockCommandContext } from "./types";
 
+// Both helpers MOVE the live child nodes into the new element \u2014 never rebuild
+// via innerHTML re-parse. Re-parsing cloned every child (hypercite <u>/<a>,
+// highlight <mark>) and destroyed live node identity: listeners died, the
+// MutationObserver saw removal churn for every embedded hypercite, and the
+// browser's native undo stack (iOS shake-undo) was left pointing at destroyed
+// nodes \u2014 the source of the format-toggle duplication bug.
 export function _contentPreservingWrap(self: BlockCommandContext, element: Element, type: 'blockquote' | 'code'): HTMLElement {
-    let newEl;
+    let newEl: HTMLElement;
     if (type === "blockquote") {
       newEl = document.createElement("blockquote");
-      let content = element.innerHTML;
-      if (content && !content.endsWith("<br>")) content += "<br>";
-      newEl.innerHTML = content;
+      while (element.firstChild) newEl.appendChild(element.firstChild);
+      // Blockquote convention: content ends with a <br> (empty stays empty)
+      if (newEl.lastChild && newEl.lastChild.nodeName !== "BR") {
+        newEl.appendChild(document.createElement("br"));
+      }
     } else {
       newEl = document.createElement("pre");
       const code = document.createElement("code");
-      code.innerHTML = element.innerHTML;
+      while (element.firstChild) code.appendChild(element.firstChild);
       newEl.appendChild(code);
     }
 
@@ -46,14 +54,12 @@ export function _contentPreservingWrap(self: BlockCommandContext, element: Eleme
 export function _contentPreservingUnwrap(self: BlockCommandContext, element: Element, type: 'blockquote' | 'code'): HTMLElement {
     const p = document.createElement("p");
 
-    if (type === "blockquote") {
-      let content = element.innerHTML;
-      if (content.endsWith("<br>")) content = content.slice(0, -4);
-      p.innerHTML = content || "\u00A0";
-    } else {
-      const codeEl = element.querySelector("code");
-      p.innerHTML = (codeEl ? codeEl.innerHTML : element.innerHTML) || "\u00A0";
+    const source: Element = type === "code" ? (element.querySelector("code") ?? element) : element;
+    if (type === "blockquote" && source.lastChild && source.lastChild.nodeName === "BR") {
+      source.lastChild.remove(); // strip the wrap-convention trailing <br>
     }
+    while (source.firstChild) p.appendChild(source.firstChild);
+    if (!p.hasChildNodes()) p.textContent = "\u00A0";
 
     p.id = element.id;
     if (element.hasAttribute("data-node-id")) {
@@ -218,8 +224,6 @@ export async function wrapBlock(self: BlockCommandContext, blockParentToToggle: 
 
 export async function _mergeBlocksIntoBlockquote(self: BlockCommandContext, paragraphs: HTMLElement[]) {
     const bq = document.createElement("blockquote");
-    const content = paragraphs.map((p: HTMLElement) => p.innerHTML).join("<br>");
-    bq.innerHTML = content + "<br>";
 
     // Inherit identity from first paragraph
     const firstP = paragraphs[0]!;
@@ -228,9 +232,19 @@ export async function _mergeBlocksIntoBlockquote(self: BlockCommandContext, para
       bq.setAttribute("data-node-id", firstP.getAttribute("data-node-id")!);
     }
 
-    // Snapshot for undo
+    // Snapshot for undo — BEFORE moving children empties the paragraphs
     const originalParagraphsHTML = paragraphs.map((p: HTMLElement) => p.outerHTML);
     const extraIds = paragraphs.slice(1).map((p: HTMLElement) => p.id);
+
+    // Move live children (same reasoning as _contentPreservingWrap), one <br>
+    // between paragraphs plus the trailing convention <br>.
+    // NOTE: the undo/redo closures below still rebuild from HTML snapshots by
+    // design (explicit toolbar undo) — converting them is a separate refactor.
+    paragraphs.forEach((para: HTMLElement, i: number) => {
+      if (i > 0) bq.appendChild(document.createElement("br"));
+      while (para.firstChild) bq.appendChild(para.firstChild);
+    });
+    bq.appendChild(document.createElement("br"));
 
     // Record undo
     if (self.undoManager) {

@@ -94,4 +94,60 @@ describe('blockFormat/blockquoteCodeFormat — content-preserving transforms', (
       expect(p.innerHTML).toBe('round <em>trip</em>');
     });
   });
+
+  describe('hypercite identity preservation (duplication regression)', () => {
+    // The transforms must MOVE live child nodes, never rebuild via innerHTML
+    // re-parse: re-parsing cloned every child (destroying listeners) and left
+    // the native undo stack pointing at destroyed nodes — the source of the
+    // p → blockquote → p duplication bug with hypercites inside.
+    const HTML = '<p id="42" data-node-id="n42">before <u id="hypercite_x">cited</u> mid '
+      + '<a href="https://h/x#hypercite_x" class="open-icon">↗</a> after</p>';
+
+    it('wrap moves the hypercite elements (same object identity, no clones)', () => {
+      const c = mount(HTML);
+      const u = c.querySelector('u');
+      const a = c.querySelector('a');
+
+      const bq = _contentPreservingWrap(null, c.querySelector('[id="42"]'), 'blockquote');
+
+      expect(bq.querySelector('u')).toBe(u);
+      expect(bq.querySelector('a')).toBe(a);
+      expect(document.querySelectorAll('#hypercite_x')).toHaveLength(1);
+      expect(document.querySelectorAll('[id="42"]')).toHaveLength(1);
+    });
+
+    it('wrap → unwrap round-trips content with the same live hypercite nodes', () => {
+      const c = mount(HTML);
+      const u = c.querySelector('u');
+      const a = c.querySelector('a');
+      const original = c.querySelector('[id="42"]').innerHTML;
+
+      const bq = _contentPreservingWrap(null, c.querySelector('[id="42"]'), 'blockquote');
+      const p = _contentPreservingUnwrap(null, bq, 'blockquote');
+
+      expect(p.querySelector('u')).toBe(u);
+      expect(p.querySelector('a')).toBe(a);
+      expect(p.innerHTML).toBe(original);
+      expect(document.querySelectorAll('#hypercite_x')).toHaveLength(1);
+      expect(document.querySelectorAll('[id="42"]')).toHaveLength(1);
+    });
+
+    it('code path also moves nodes (same identity through pre>code)', () => {
+      const c = mount(HTML);
+      const u = c.querySelector('u');
+
+      const pre = _contentPreservingWrap(null, c.querySelector('[id="42"]'), 'code');
+      expect(pre.querySelector('u')).toBe(u);
+
+      const p = _contentPreservingUnwrap(null, pre, 'code');
+      expect(p.querySelector('u')).toBe(u);
+      expect(document.querySelectorAll('#hypercite_x')).toHaveLength(1);
+    });
+
+    it('wrap leaves an empty <p> empty (no <br> appended)', () => {
+      const c = mount('<p id="e1"></p>');
+      const bq = _contentPreservingWrap(null, c.querySelector('#e1'), 'blockquote');
+      expect(bq.innerHTML).toBe('');
+    });
+  });
 });

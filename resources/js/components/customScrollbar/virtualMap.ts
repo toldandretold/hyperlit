@@ -183,10 +183,15 @@ export function estimateNode(node: NodeRecord, metrics: VirtualMapMetrics): Node
  * Sorts a COPY by startLine: the background download and server-fallback paths
  * `push()` fetched chunks in COMPLETION order, so `instance.nodes` is not
  * reliably document-ordered.
+ *
+ * `measured` (optional) returns a REAL pixel height for a node (measure.ts
+ * cache) — it wins over the estimate, so the axis converges to real pixels as
+ * measurement proceeds.
  */
 export function buildVirtualMap(
   nodes: readonly NodeRecord[],
   metrics: VirtualMapMetrics,
+  measured?: (node: NodeRecord) => number | undefined,
 ): VirtualMap {
   const sorted = [...nodes].sort((a, b) => Number(a.startLine) - Number(b.startLine));
   const n = sorted.length;
@@ -204,7 +209,17 @@ export function buildVirtualMap(
     nodeIds[i] = String(node.startLine);
     const chunkId = Number(node.chunk_id);
     chunkOf[i] = chunkId;
-    const { height, mini } = estimateNode(node, metrics);
+    const est = estimateNode(node, metrics);
+    const real = measured?.(node);
+    const height = real ?? est.height;
+    const mini = est.mini;
+    if (real !== undefined && mini.kind !== 'figure' && mini.kind !== 'rule') {
+      // Strokes should reflect the REAL rendered line count, not the estimate.
+      mini.lineCount = Math.max(
+        1,
+        Math.round((real - metrics.blockMargin) / Math.max(MIN_METRIC, metrics.lineHeight)),
+      );
+    }
     minimap[i] = mini;
     v = vTop + height;
 

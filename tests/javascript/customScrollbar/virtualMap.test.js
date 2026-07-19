@@ -197,6 +197,36 @@ describe('minimap render list', () => {
   });
 });
 
+describe('measured-height lookup', () => {
+  it('measured heights win over estimates and keep offsets monotonic', () => {
+    const nodes = [para(30), para(30), para(30)];
+    const est = buildVirtualMap(nodes, METRICS);
+    const measured = new Map([[String(nodes[1].startLine), 500]]);
+    const map = buildVirtualMap(nodes, METRICS, (n) => measured.get(String(n.startLine)));
+
+    expect(map.offsets[2] - map.offsets[1]).toBe(500);
+    expect(map.offsets[1]).toBe(est.offsets[1]); // node 0 unmeasured → estimate unchanged
+    for (let i = 0; i < nodes.length; i++) {
+      expect(map.offsets[i + 1]).toBeGreaterThan(map.offsets[i]);
+    }
+  });
+
+  it('derives the minimap lineCount from the measured height', () => {
+    const map = buildVirtualMap([para(30)], METRICS, () => 24 * 10 + 18); // 10 lines + margin
+    expect(map.minimap[0].lineCount).toBe(10);
+  });
+
+  it('keeps the estimate lineCount for figure nodes even when measured', () => {
+    const map = buildVirtualMap(
+      [makeNode('<figure><img src="x.png"></figure>')],
+      METRICS,
+      () => 999,
+    );
+    expect(map.offsets[1]).toBe(999);
+    expect(map.minimap[0].kind).toBe('figure');
+  });
+});
+
 describe('isMapStale', () => {
   it('is fresh for the same array and stale on identity or length change', () => {
     const nodes = [para(10), para(20)];

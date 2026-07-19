@@ -6,7 +6,7 @@
     "moduleCount": 360,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3445,
+    "edgeCount": 3446,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -25485,6 +25485,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "divEditor/supTagHandler/escapeHandler:supEscapeHandler__call__divEditor/editorState:queueNodeForSave",
+      "source": "divEditor/supTagHandler/escapeHandler:supEscapeHandler",
+      "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/supTagHandler/escapeHandler:supEscapeHandler__domwrite__dom",
       "source": "divEditor/supTagHandler/escapeHandler:supEscapeHandler",
       "target": "dom",
@@ -43638,6 +43644,11 @@
       "source": "divEditor/supTagHandler/deleteHandler",
       "target": "indexedDB/index",
       "kind": "lazy"
+    },
+    {
+      "source": "divEditor/supTagHandler/escapeHandler",
+      "target": "divEditor/editorState",
+      "kind": "static"
     },
     {
       "source": "divEditor/supTagHandler/index",

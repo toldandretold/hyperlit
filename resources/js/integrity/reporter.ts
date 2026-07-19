@@ -10,6 +10,7 @@
  */
 
 import { getRecentLogs } from './logCapture';
+import { log } from '../utilities/logger';
 import { trapModalFocus } from '../utilities/modalFocusTrap';
 import { isIDBBroken } from '../indexedDB/core/healthMonitor';
 import {
@@ -122,8 +123,13 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
     console.warn('[integrity] Could not count IDB nodes:', e);
   }
 
-  // Detect deliberate IDB wipe: 80%+ nodes missing, zero mismatches, non-trivial book
-  const suspiciousWipe =
+  // Detect mass local-cache loss: 80%+ of rendered nodes absent from IDB with
+  // ZERO content mismatches. The DOM (rendered from the server) is fine — only
+  // the local IndexedDB cache is gutted. In practice this is the browser
+  // evicting storage (Safari ITP 7-day wipe, storage-pressure eviction, a dead
+  // IDB connection dropping writes) — NOT the user in DevTools: a manual wipe +
+  // refresh just re-downloads from the server and never produces this signature.
+  const localCacheLoss =
     missingFromIDB.length > 10 &&
     mismatches.length === 0 &&
     totalDomNodes > 0 &&
@@ -132,7 +138,9 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
   // Build diagnostic payload
   const payload = {
     bookId,
-    suspiciousWipe,
+    // Wire name kept for server compat (IntegrityReportController validates
+    // 'suspiciousWipe') — semantically this now means "local cache loss".
+    suspiciousWipe: localCacheLoss,
     mismatches: mismatches.map((m: any) => ({
       startLine: m.startLine || m.nodeId,
       nodeId: m.nodeId || null,
@@ -185,12 +193,12 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
 
   // Rate-limit popup display
   const now = Date.now();
-  if (suspiciousWipe) {
-    // Suspicious wipe overrides any existing modal — the full-book scan
+  if (localCacheLoss) {
+    // Cache loss overrides any existing modal — the full-book scan
     // has better data than the small post-save check that fired first.
     _closeModal();
     _lastPopupTs = now;
-    _showModal(bookId, payload, selfHealed, suspiciousWipe);
+    _showModal(bookId, payload, selfHealed, localCacheLoss);
     return;
   }
   if (now - _lastPopupTs < POPUP_COOLDOWN_MS) {
@@ -199,7 +207,7 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
   }
   _lastPopupTs = now;
 
-  _showModal(bookId, payload, selfHealed, suspiciousWipe);
+  _showModal(bookId, payload, selfHealed, localCacheLoss);
 }
 
 /**
@@ -397,7 +405,7 @@ async function _doSend(payload: any) {
  * @param {Object}  payload    - Diagnostic payload (sent only if user clicks Send Bug Report)
  * @param {boolean} selfHealed - Whether the issue was auto-fixed
  */
-function _showModal(bookId: any, payload: any, selfHealed = false, suspiciousWipe = false, serverError: any = null) {
+function _showModal(bookId: any, payload: any, selfHealed = false, localCacheLoss = false, serverError: any = null) {
   if (_modalEl) return; // Already showing
 
   const backdrop = document.createElement('div');
@@ -406,12 +414,6 @@ function _showModal(bookId: any, payload: any, selfHealed = false, suspiciousWip
 
   const card = document.createElement('div');
   card.className = 'integrity-card';
-
-  const premiumParagraph = `
-    <p>While we are still in beta testing, this is not good enough.
-    <strong>Free Premium 🙏</strong> — as compensation you have been awarded one month premium membership,
-    including free PDF conversion, AI Archivist, and Citation Review.</p>
-  `;
 
   const disclosureParagraph = `
     <p style="font-size:13px; opacity:0.65; font-style:italic;">
@@ -451,15 +453,28 @@ function _showModal(bookId: any, payload: any, selfHealed = false, suspiciousWip
         <button id="integrity-dismiss-btn" class="integrity-btn integrity-btn-primary">Dismiss</button>
       </div>
     `;
-  } else if (suspiciousWipe) {
+  } else if (localCacheLoss) {
+    // The browser evicted/corrupted the local IndexedDB cache (Safari's 7-day
+    // ITP wipe, storage-pressure eviction, or a dead IDB connection dropping
+    // writes). NOT data loss: the DOM rendered fine from the server, which is
+    // the source of truth. Offer a clean rebuild of the local cache.
     card.innerHTML = `
-      <h3>Okay, hacker 👀</h3>
-      <p>Looks like someone's been in DevTools clearing out IndexedDB nodes...
-      We see you.</p>
-      <p>Here's the thing though — you still get premium. Consider it a reward
-      for your curiosity. Welcome to the club ✊</p>
-      ${premiumParagraph}
+      <h3>Your browser cleared Hyperlit's local cache</h3>
+      <p>Most of this book's local offline copy is missing from your browser's
+      storage. This is usually the browser itself tidying up (Safari in
+      particular evicts site storage after inactivity or when disk is low) —
+      not anything you did.</p>
+      <p><strong>Your book and annotations are safe on the server.</strong>
+      To get a clean local copy, hit Restore — it clears this book's cached
+      data and re-downloads it fresh.</p>
+      <textarea id="integrity-comment" class="integrity-comment"
+        placeholder="Optional: describe what you were doing when this happened..."
+        rows="3"></textarea>
+      ${disclosureParagraph}
+      <div id="integrity-rectify-status" class="integrity-status"></div>
       <div class="integrity-btn-group integrity-btn-group-sticky">
+        <button id="integrity-restore-btn" class="integrity-btn integrity-btn-success">Restore from server</button>
+        <button id="integrity-send-report-btn" class="integrity-btn">Send Bug Report</button>
         <button id="integrity-dismiss-btn" class="integrity-btn integrity-btn-primary">Dismiss</button>
       </div>
     `;
@@ -545,14 +560,36 @@ function _showModal(bookId: any, payload: any, selfHealed = false, suspiciousWip
   });
 
   // Grant premium immediately for data-loss cases (no report required — consent shouldn't be
-  // coerced). Server errors are NOT data loss, so they don't auto-grant; premium instead rides
-  // on sending the bug report (see the send handler below).
-  if (!serverError) _grantPremium();
+  // coerced). Server errors and browser cache-loss are NOT data loss, so they don't
+  // auto-grant; premium instead rides on sending the bug report (see the send handler below).
+  if (!serverError && !localCacheLoss) _grantPremium();
 
   // Dismiss button
   card.querySelector('#integrity-dismiss-btn')?.addEventListener('click', () => {
     _closeModal();
   });
+
+  // Restore-from-server button (cache-loss variant only): wipe this book's
+  // IDB rows (stale survivors included — half-evicted stores can hold rows
+  // whose content no longer matches, e.g. highlight charData) and reload.
+  // The fresh-load path re-downloads everything from the server.
+  const restoreBtn: any = card.querySelector('#integrity-restore-btn');
+  if (restoreBtn) {
+    restoreBtn.addEventListener('click', async () => {
+      restoreBtn.disabled = true;
+      restoreBtn.textContent = 'Clearing local copy…';
+      try {
+        const { deleteBookFromIndexedDB } = await import('../indexedDB/utilities/cleanup');
+        await deleteBookFromIndexedDB(bookId);
+      } catch (e) {
+        // A broken IDB connection can make the delete fail — reload anyway;
+        // the fresh-load path upserts over whatever is left.
+        log.error(`[integrity] Restore: could not clear book from IDB, reloading anyway: ${(e as Error)?.message}`, 'integrity/reporter.ts');
+      }
+      restoreBtn.textContent = 'Re-downloading…';
+      window.location.reload();
+    });
+  }
 
   // Download emergency backup button
   const downloadBtn : any = card.querySelector('#integrity-download-btn');
@@ -622,8 +659,9 @@ function _showModal(bookId: any, payload: any, selfHealed = false, suspiciousWip
 
     const loggedIn = await isLoggedIn();
 
-    // Server-error modal skipped the upfront grant — reward it now that they've reported.
-    if (serverError && loggedIn) await _grantPremium();
+    // Server-error and cache-loss modals skipped the upfront grant — reward it
+    // now that they've reported.
+    if ((serverError || localCacheLoss) && loggedIn) await _grantPremium();
 
     if (loggedIn) {
       card.innerHTML = `

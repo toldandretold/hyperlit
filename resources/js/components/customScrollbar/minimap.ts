@@ -62,13 +62,13 @@ const SPAN_VIEWPORTS = 6;
  */
 const BOOK_SPAN_FRACTION = 6;
 /**
- * The landing band deliberately UNDER-promises: node heights are estimates, so
- * a full-screen band would routinely show content near its bottom edge that
- * doesn't make the real screen. Its top edge is exact (the landing node is
- * snapped to the viewport top); only claim the fraction of the screen we can
- * essentially guarantee.
+ * The landing band claims a full screen: node heights are MEASURED real pixels
+ * (measure.ts — live harvest + idle offscreen sweep), so what the band covers
+ * is what lands on screen. Estimate-covered nodes (unmeasured regions early in
+ * a session, image nodes pre-load) can still err slightly at the band's bottom
+ * edge — acceptable, and it converges as measurement proceeds.
  */
-const BAND_FRACTION = 0.55;
+const BAND_FRACTION = 1.0;
 const PAD_X = 7;
 const GUTTER_LIGHT = 6; // px from right edge — hyperlight ticks
 const GUTTER_CITE = 13; // second gutter — hypercite ticks

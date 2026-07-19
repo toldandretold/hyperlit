@@ -2,6 +2,7 @@ import { batchDeleteIndexedDBRecords } from "../indexedDB/index.js";
 declare const deleteIndexedDBRecordWithRetry: any;
 declare const queueNodeForSave: any;
 import { queueForSync } from '../indexedDB/syncQueue/queue';
+import { confirmDialog } from '../components/dialog/dialog';
 
 
 export class SelectionDeletionHandler {
@@ -230,8 +231,23 @@ export class SelectionDeletionHandler {
           parts.push(`footnote(s) ${fnNums}`);
         }
 
-        const confirmed = confirm(`Selection contains: ${parts.join(', ')}. Delete anyway?`);
-        if (!confirmed) return; // User cancelled — selection stays intact
+        // App dialog, NOT native confirm() — iOS Safari suppresses native
+        // modals in editing event contexts (silent auto-cancel).
+        const confirmed = await confirmDialog({
+          message: `Selection contains: ${parts.join(', ')}. Delete anyway?`,
+          danger: true,
+        });
+        if (!confirmed) {
+          // User cancelled — re-select (the dialog blurs the editor, which can
+          // collapse the selection; the captured range is still valid because
+          // preventDefault stopped any DOM change).
+          const sel = window.getSelection();
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+          return;
+        }
       }
 
       // User confirmed (or no warning needed) — execute the deletion

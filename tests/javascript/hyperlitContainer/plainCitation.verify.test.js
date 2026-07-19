@@ -34,8 +34,17 @@ function parse(html) {
   return d;
 }
 const bib = (referenceId, extra = {}) => ({ book: 'bookA', referenceId, content: 'Imported ref text.', ...extra });
-// Several ticks — the click handler does dynamic import()s (referenceVerify + prompt) before rendering.
-const flush = async () => { for (let i = 0; i < 8; i++) await new Promise((r) => setTimeout(r, 0)); };
+// The click handler does dynamic import()s (referenceVerify + prompt) before rendering. A FIXED
+// tick count races module-load latency under full-suite CPU contention (the one-in-N-runs flake:
+// "dedupes the same work" failed when 8 ticks weren't enough on a loaded worker). Wait for the
+// expected DOM instead — generous budget, exits as soon as the condition holds; a never-true
+// condition falls through to the test's own assertion for a clear failure.
+const flush = async (until = null, ticks = 400) => {
+  for (let i = 0; i < ticks; i++) {
+    await new Promise((r) => setTimeout(r, 0));
+    if (until ? until() : i >= 7) return;
+  }
+};
 
 const COX_META = {
   title: "'Real Socialism' in Historical Perspective", author: 'Robert W. Cox', year: 1991,
@@ -142,11 +151,11 @@ describe('plainCitation — clean source-container-style card', () => {
     wireReferenceVerifyButtons(container);
 
     container.querySelector('.ref-check-source').click();
-    await flush();
+    await flush(() => container.querySelector('.source-match-select'));
     const pick = container.querySelector('.source-match-select');
     expect(pick).toBeTruthy();
     pick.click();
-    await flush();
+    await flush(() => container.querySelector('.source-cat-pill[data-cat="verified"]'));
 
     expect(approveReference).toHaveBeenCalledWith('bookA', 'Ref1', expect.objectContaining({ openalex_id: 'W123' }));
     // Blockquote now shows the title-linked canonical citation + a "Citation verified" pill.
@@ -172,7 +181,7 @@ describe('plainCitation — clean source-container-style card', () => {
     const container = document.getElementById('hyperlit-container');
     wireReferenceVerifyButtons(container);
     container.querySelector('.ref-check-source').click();
-    await flush();
+    await flush(() => container.querySelector('.source-match-select'));
     expect(container.querySelectorAll('.source-match-select').length).toBe(1);
   });
 });

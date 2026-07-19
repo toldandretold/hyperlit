@@ -8,6 +8,28 @@
  */
 import { queueNodeForSave, queueNodeForDeletion } from '../editorState';
 import { queueForSync } from '../../indexedDB/syncQueue/queue';
+import { confirmDialog } from '../../components/dialog/dialog';
+import { log } from '../../utilities/logger';
+import { asBookId } from '../../utilities/idHelpers';
+
+// One confirmation dialog at a time — key-repeat can deliver several delete
+// beforeinput events while the dialog is open; they get preventDefaulted and
+// dropped instead of stacking dialogs.
+// NOTE: native confirm() MUST NOT be used in this handler — iOS Safari
+// suppresses modal dialogs inside beforeinput (confirm returns false with no
+// UI), which silently blocked all deletion near hypercites/footnotes.
+let supDeleteConfirmInFlight = false;
+
+function restoreCursorNextTo(el: Element, before: boolean): void {
+  if (!el.isConnected) return;
+  const sel = window.getSelection();
+  if (!sel) return;
+  const range = document.createRange();
+  if (before) range.setStartBefore(el); else range.setStartAfter(el);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
 
 export function supDeleteHandler(e: any): void {
       if (!(window as any).isEditing) return;
@@ -41,9 +63,11 @@ export function supDeleteHandler(e: any): void {
           // Async check — prevent default first, then decide
           e.preventDefault();
           e.stopPropagation();
+          if (supDeleteConfirmInFlight) return;
 
           const hyperciteId = sourceHypercite.id;
 
+          supDeleteConfirmInFlight = true;
           (async () => {
             try {
               const { openDatabase } = await import('../../indexedDB/index');
@@ -54,9 +78,10 @@ export function supDeleteHandler(e: any): void {
               const citedINCount = (hypercite?.citedIN?.length) || 0;
 
               if (citedINCount > 0) {
-                const confirmed = confirm(
-                  `This text is cited in ${citedINCount} other book(s). Delete anyway?`
-                );
+                const confirmed = await confirmDialog({
+                  message: `This text is cited in ${citedINCount} other book(s). Delete anyway?`,
+                  danger: true,
+                });
                 if (!confirmed) {
                   // Restore cursor position
                   const sel = window.getSelection()!;
@@ -85,7 +110,9 @@ export function supDeleteHandler(e: any): void {
                 queueNodeForSave(parentWithId.id, 'update');
               }
             } catch (error) {
-              console.error('❌ Error checking hypercite citations:', error);
+              log.error('Error checking hypercite citations', 'divEditor/supTagHandler/deleteHandler.ts', error);
+            } finally {
+              supDeleteConfirmInFlight = false;
             }
           })();
 
@@ -177,6 +204,7 @@ export function supDeleteHandler(e: any): void {
       // Structure: <a><sup>↗</sup></a>| where | is cursor (outside anchor)
       // Or: <a><sup>↗</sup>|</a> where | is cursor (inside anchor)
       let cursorAfterSupInAnchor = false;
+      let cursorAfterFootnoteSup = false;
       if (!supElement && e.inputType === 'deleteContentBackward') {
         let hyperciteAnchor = element?.closest('a[href*="#hypercite_"]');
 
@@ -268,6 +296,34 @@ export function supDeleteHandler(e: any): void {
             return;
           }
         }
+
+        // Also check if cursor is immediately AFTER a footnote sup — the
+        // backspace mirror of cursorBeforeFootnoteSup. Without this, backspace
+        // right after <sup fn-count-id> bypasses the guard and silently eats
+        // the sup's last digit. Plain <sup> without fn-count-id keeps default
+        // browser behavior.
+        if (!supElement && !hyperciteAnchor) {
+          let footnoteSup: HTMLElement | null = null;
+          if (node.nodeType === Node.TEXT_NODE && offset === 0) {
+            let prevNode = node.previousSibling;
+            while (prevNode && prevNode.nodeType === Node.TEXT_NODE && prevNode.textContent === '') {
+              prevNode = prevNode.previousSibling;
+            }
+            if (prevNode?.tagName === 'SUP' && prevNode.hasAttribute('fn-count-id')) {
+              footnoteSup = prevNode;
+            }
+          }
+          if (!footnoteSup && node.nodeType === Node.ELEMENT_NODE && offset > 0) {
+            const prevChild = node.childNodes[offset - 1];
+            if (prevChild?.tagName === 'SUP' && prevChild.hasAttribute('fn-count-id')) {
+              footnoteSup = prevChild;
+            }
+          }
+          if (footnoteSup) {
+            supElement = footnoteSup;
+            cursorAfterFootnoteSup = true;
+          }
+        }
       }
 
       // Also check if we're about to merge into a paragraph that starts with a sup
@@ -311,6 +367,7 @@ export function supDeleteHandler(e: any): void {
       // Show confirmation dialog
       const isDeletingSupContent =
         cursorAfterSupInAnchor || // Cursor after sup/anchor - always treat as deleting (backspace)
+        cursorAfterFootnoteSup || // Cursor after footnote sup - always treat as deleting (backspace)
         cursorBeforeHyperciteAnchor || // Cursor before hypercite anchor - always treat as deleting (forward delete)
         cursorBeforeFootnoteSup || // Cursor before footnote sup - always treat as deleting (forward delete)
         (e.inputType === 'deleteContentForward' && offset === 0) ||
@@ -318,44 +375,69 @@ export function supDeleteHandler(e: any): void {
 
       if (isDeletingSupContent) {
         if (supElement.hasAttribute('fn-count-id')) {
+          // preventDefault BEFORE the async dialog (see supDeleteConfirmInFlight
+          // note) — on confirm the sup is removed manually below.
+          e.preventDefault();
+          e.stopPropagation();
+          if (supDeleteConfirmInFlight) return;
+
           const fnNum = supElement.getAttribute('fn-count-id');
+          const targetSup: HTMLElement = supElement;
+          const wasForwardDelete = e.inputType === 'deleteContentForward';
 
-          if (!confirm(`Delete footnote ${fnNum}?`)) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            // Use setTimeout to restore cursor after dialog fully closes
-            const targetSup = supElement; // Capture reference
-            const wasForwardDelete = e.inputType === 'deleteContentForward';
-            setTimeout(() => {
-              const sel = window.getSelection()!;
-              sel.removeAllRanges();
-              const range = document.createRange();
-              if (targetSup && targetSup.parentNode) {
-                // Position based on delete direction
-                if (wasForwardDelete) {
-                  range.setStartBefore(targetSup); // fn-delete: cursor before
-                } else {
-                  range.setStartAfter(targetSup); // backspace: cursor after
-                }
-                range.collapse(true);
-                sel.addRange(range);
+          supDeleteConfirmInFlight = true;
+          (async () => {
+            try {
+              const confirmed = await confirmDialog({
+                message: `Delete footnote ${fnNum}?`,
+                danger: true,
+              });
+              // Dialog is closed; focus is back on the editor. Seat the caret
+              // explicitly in both branches.
+              if (!confirmed) {
+                restoreCursorNextTo(targetSup, wasForwardDelete);
+                return;
               }
-              // If element gone, cursor stays wherever browser put it
-            }, 10);
-            return;
-          }
 
-          // User confirmed footnote removal — queue delink so server cleans up
-          // orphaned citedIN refs. Footnote record + sub-book content are preserved
-          // (user may cut+paste the footnote back).
-          const footnoteId = supElement.id || supElement.getAttribute('fn-count-id');
-          const fnBook = supElement.closest('[data-book-id]')?.getAttribute('data-book-id')
-            || document.querySelector('.main-content')?.id;
+              // User confirmed footnote removal — queue delink (while the sup is
+              // still attached) so server cleans up orphaned citedIN refs.
+              // Footnote record + sub-book content are preserved (user may
+              // cut+paste the footnote back).
+              const footnoteId = targetSup.id || targetSup.getAttribute('fn-count-id');
+              const fnBook = targetSup.closest('[data-book-id]')?.getAttribute('data-book-id')
+                || document.querySelector('.main-content')?.id;
 
-          if (footnoteId && fnBook) {
-            queueForSync('footnotes', footnoteId, 'delete', { book: fnBook, footnoteId });
-          }
+              if (footnoteId && fnBook) {
+                queueForSync('footnotes', footnoteId, 'delete', { book: asBookId(fnBook), footnoteId });
+              }
+
+              // Manual removal (browser default was suppressed): capture the
+              // caret anchor first, then remove the whole sup.
+              const parentBlock = targetSup.closest('p, h1, h2, h3, h4, h5, h6, div, blockquote');
+              const parent = targetSup.parentNode;
+              const idx = parent ? Array.prototype.indexOf.call(parent.childNodes, targetSup) : -1;
+
+              targetSup.remove();
+
+              if (parentBlock?.id) {
+                queueNodeForSave(parentBlock.id, 'update');
+              }
+
+              if (parent && idx >= 0) {
+                const sel = window.getSelection();
+                if (sel) {
+                  const range = document.createRange();
+                  range.setStart(parent, Math.min(idx, parent.childNodes.length));
+                  range.collapse(true);
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+                }
+              }
+            } finally {
+              supDeleteConfirmInFlight = false;
+            }
+          })();
+          return;
         }
         // HYPERCITE LINK DELETION: Handle hypercite <a> elements
         // New structure: <a href="...#hypercite_xxx" class="open-icon">↗</a>
@@ -363,36 +445,35 @@ export function supDeleteHandler(e: any): void {
         else if (supElement.classList?.contains('open-icon') || supElement.closest?.('a[href*="#hypercite_"]')) {
           const hyperciteAnchor = supElement.tagName === 'A' ? supElement : supElement.closest('a[href*="#hypercite_"]');
           if (hyperciteAnchor) {
-            if (!confirm('Delete hypercite citation link?')) {
-              e.preventDefault();
-              e.stopPropagation();
-
-              // Use setTimeout to restore cursor after dialog fully closes
-              const targetAnchor = hyperciteAnchor; // Capture reference
-              const wasForwardDelete = e.inputType === 'deleteContentForward';
-              setTimeout(() => {
-                const sel = window.getSelection()!;
-                sel.removeAllRanges();
-                const range = document.createRange();
-                if (targetAnchor && targetAnchor.parentNode) {
-                  if (wasForwardDelete) {
-                    range.setStartBefore(targetAnchor);
-                  } else {
-                    range.setStartAfter(targetAnchor);
-                  }
-                  range.collapse(true);
-                  sel.addRange(range);
-                }
-              }, 10);
-              return;
-            }
-
-            // User confirmed - remove the entire <a> tag
-            // This triggers handleHyperciteRemoval via MutationObserver
+            // preventDefault BEFORE the async dialog (see supDeleteConfirmInFlight
+            // note) — on confirm the anchor is removed manually, same as before.
             e.preventDefault();
             e.stopPropagation();
-            console.log(`User confirmed hypercite link deletion: ${hyperciteAnchor.id}`);
-            hyperciteAnchor.remove();
+            if (supDeleteConfirmInFlight) return;
+
+            const targetAnchor: HTMLElement = hyperciteAnchor;
+            const wasForwardDelete = e.inputType === 'deleteContentForward';
+
+            supDeleteConfirmInFlight = true;
+            (async () => {
+              try {
+                const confirmed = await confirmDialog({
+                  message: 'Delete hypercite citation link?',
+                  danger: true,
+                });
+                if (!confirmed) {
+                  restoreCursorNextTo(targetAnchor, wasForwardDelete);
+                  return;
+                }
+
+                // User confirmed - remove the entire <a> tag
+                // This triggers handleHyperciteRemoval via MutationObserver
+                log.user(`User confirmed hypercite link deletion: ${targetAnchor.id}`, 'divEditor/supTagHandler/deleteHandler.ts');
+                targetAnchor.remove();
+              } finally {
+                supDeleteConfirmInFlight = false;
+              }
+            })();
             return;
           }
         }

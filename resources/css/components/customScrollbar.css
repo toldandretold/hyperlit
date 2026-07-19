@@ -20,6 +20,16 @@
   touch-action: none; /* the bar owns its pointer gestures — no page pan */
   user-select: none;
   -webkit-user-select: none;
+  transition: opacity 0.3s ease; /* fades with the perimeter chrome */
+}
+
+/* Fade model (applied by updateFade in index.ts): with the perimeter chrome
+   VISIBLE the bar stays up; with chrome hidden it behaves like a native
+   scrollbar — visible while scrolling (+2s grace) or while interacted with,
+   faded otherwise. */
+.custom-scrollbar.custom-scrollbar--faded {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .custom-scrollbar-track {
@@ -86,9 +96,26 @@
   cursor: pointer;
 }
 
-/* Touch devices: no hover — keep the thumb at its widened size always. */
+/* Touch devices: iOS-native feel — a hairline thumb at rest that springs
+   wider when grabbed (overshoot easing approximates the physical "engage"
+   shock; real haptics aren't available to web on iOS — Android gets a
+   navigator.vibrate tick from the component). */
 @media (pointer: coarse) {
   .custom-scrollbar-thumb {
-    width: 9px;
+    width: 3px;
+    right: 4px;
+    background: color-mix(in srgb, var(--color-text) 30%, transparent);
+    transition:
+      width 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      background 200ms ease;
+  }
+
+  .custom-scrollbar:hover .custom-scrollbar-thumb {
+    width: 3px; /* no hover concept on touch — override the desktop widen */
+  }
+
+  .custom-scrollbar.scrubbing .custom-scrollbar-thumb {
+    width: 11px;
+    background: color-mix(in srgb, var(--color-primary) 80%, transparent);
   }
 }

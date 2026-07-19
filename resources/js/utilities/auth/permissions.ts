@@ -125,6 +125,7 @@ export async function canUserEditBook(bookId: any) {
 
     // 1) fetch the library record from IndexedDB
     let record = await getLibraryObjectFromIndexedDB(bookId);
+    const recordFromIDB = !!record;
 
     // 2) If not in IndexedDB, try fetching from server (skip if offline)
     if (!record) {
@@ -147,12 +148,18 @@ export async function canUserEditBook(bookId: any) {
     // 3) check login state and use prioritized auth logic
     // 📡 OFFLINE: getCurrentUser() handles offline case by loading from localStorage
     const user = await getCurrentUser();
-    let result;
-    if (user) {
-      const userId = user.name || user.username || user.email;
-      result = checkUserPermission(record, userId, true);
-    } else {
-      result = checkUserPermission(record, authState.anonymousToken, false);
+    const userId = user ? (user.name || user.username || user.email) : authState.anonymousToken;
+    let result = checkUserPermission(record, userId, !!user);
+
+    // 4) Stale-negative guard: a local IDB record can lag reality (e.g. cached
+    // while logged out, or left behind by partial storage eviction) and lock
+    // the real owner out of edit mode. Before trusting "no" from local data,
+    // confirm it with the server — the server's is_owner is authoritative.
+    if (!result && recordFromIDB && !isOffline) {
+      const serverRecord = await fetchLibraryFromServer(bookId);
+      if (serverRecord) {
+        result = checkUserPermission(serverRecord, userId, !!user);
+      }
     }
 
     // Cache the result for future calls

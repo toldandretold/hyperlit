@@ -36,12 +36,19 @@ import { MAX_LOADED_CHUNKS, trimWindow } from '../../lazyLoader/utilities/window
 import {
   buildVirtualMap,
   indexAtVirtual,
-  virtualOfIndex,
   isMapStale,
   type VirtualMap,
   type VirtualMapMetrics,
 } from './virtualMap';
 import { createMinimap, type MinimapController } from './minimap';
+import {
+  makeWidthKey,
+  heightLookup,
+  harvestLiveChunk,
+  startIdleSweep,
+  stopIdleSweep,
+  measuredCount,
+} from './measure';
 
 /** The slice of the lazyLoader instance this component consumes. */
 interface LoaderLike {
@@ -83,7 +90,17 @@ let map: VirtualMap | null = null;
 let scrollHandler: (() => void) | null = null;
 let windowListeners: Array<[string, EventListener]> = [];
 let chunkObserver: MutationObserver | null = null;
+/** Watches .perimeter-hidden on the chrome cluster — the bar is chrome and fades with it. */
+let perimeterObserver: MutationObserver | null = null;
 let chunkElsCache: HTMLElement[] | null = null;
+
+// Real-height measurement wiring (measure.ts).
+let currentWidthKey = '';
+let containerWidth = 0;
+/** Chunk elements fully harvested (all nodes measured, images loaded). */
+let harvestedChunks = new WeakSet<HTMLElement>();
+/** Per-chunk-element earliest next harvest retry (ms timestamp) while images load. */
+let harvestRetryAt = new WeakMap<HTMLElement, number>();
 
 let syncRaf = 0;
 let geometryRaf = 0;
@@ -119,11 +136,14 @@ let hideTimer: ReturnType<typeof setTimeout> | null = null;
 let dragStartY = 0;
 let dragStartThumbTop = 0;
 let pendingIdx: number | null = null;
+/** Raw virtual position of the pending scrub target (mid-node precision). */
+let pendingV: number | null = null;
 
 // Jump single-flight.
 let jumpInFlight = false;
-let queuedIdx: number | null = null;
+let queuedJump: { idx: number; v: number } | null = null;
 let lastCommittedIdx: number | null = null;
+let lastCommittedV: number | null = null;
 
 /** A generation counter: a rebind invalidates every in-flight async continuation. */
 let bindGeneration = 0;
@@ -189,6 +209,7 @@ function handleMinimapHover(h: boolean): void {
   canvasHover = h;
   if (h) cancelHide();
   else hideSoon();
+  updateFade();
 }
 
 /** Click inside the preview → jump to exactly what was clicked. */
@@ -200,7 +221,7 @@ function handleMinimapJump(v: number): void {
   canvasHover = false;
   cancelHide();
   minimap?.hide();
-  void commitJump(idx);
+  void commitJump(idx, v);
 }
 
 function removeDom(): void {
@@ -239,6 +260,45 @@ function updateGeometry(): void {
   root.style.height = `${trackH}px`;
 }
 
+/** Is the perimeter chrome currently tapped away? (toggle component, search
+ *  toolbar, and edit button all write this class; the observer in bindLoader
+ *  catches every writer). */
+function chromeHidden(): boolean {
+  return (
+    document.getElementById('bottom-right-buttons')?.classList.contains('perimeter-hidden') ??
+    false
+  );
+}
+
+/** How long after the last scroll the bar stays up while the chrome is hidden. */
+const SCROLL_FADE_MS = 2000;
+let scrollActive = false;
+let scrollFadeTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Fade model (the cloudRef-glow precedent — independent of chrome when it has
+ * to be): chrome VISIBLE → bar always visible (improved browser default);
+ * chrome HIDDEN → native behavior: visible while scrolling + a grace period,
+ * faded otherwise. Interacting with the bar (hover/scrub/popup) keeps it up.
+ */
+function updateFade(): void {
+  if (!root) return;
+  const visible = !chromeHidden() || scrollActive || scrubbing || hovering || canvasHover;
+  root.classList.toggle('custom-scrollbar--faded', !visible);
+  if (!visible) minimap?.hide();
+}
+
+function noteScrollActivity(): void {
+  scrollActive = true;
+  updateFade();
+  if (scrollFadeTimer) clearTimeout(scrollFadeTimer);
+  scrollFadeTimer = setTimeout(() => {
+    scrollFadeTimer = null;
+    scrollActive = false;
+    updateFade();
+  }, SCROLL_FADE_MS);
+}
+
 function updateVisibility(): void {
   if (!root) return;
   const onReader = document.body.getAttribute('data-page') === 'reader';
@@ -251,6 +311,7 @@ function updateVisibility(): void {
     !isEditing();
   root.hidden = !show;
   if (!show) minimap?.hide();
+  updateFade();
 }
 
 // ── loader binding ──────────────────────────────────────────────────────────
@@ -273,12 +334,22 @@ function unbindLoader(): void {
   scrollHandler = null;
   chunkObserver?.disconnect();
   chunkObserver = null;
+  perimeterObserver?.disconnect();
+  perimeterObserver = null;
   chunkElsCache = null;
   loader = null;
   boundWrapper = null;
   map = null;
   lastCommittedIdx = null;
-  queuedIdx = null;
+  lastCommittedV = null;
+  queuedJump = null;
+  stopIdleSweep();
+  currentWidthKey = '';
+  harvestedChunks = new WeakSet();
+  harvestRetryAt = new WeakMap();
+  if (scrollFadeTimer) clearTimeout(scrollFadeTimer);
+  scrollFadeTimer = null;
+  scrollActive = false;
 }
 
 function bindLoader(): void {
@@ -294,6 +365,7 @@ function bindLoader(): void {
   boundWrapper = candidate.scrollableParent as HTMLElement;
 
   scrollHandler = () => {
+    noteScrollActivity();
     if (!syncRaf) syncRaf = requestAnimationFrame(syncThumb);
   };
   boundWrapper.addEventListener('scroll', scrollHandler, { passive: true });
@@ -306,6 +378,14 @@ function bindLoader(): void {
   });
   chunkObserver.observe(candidate.container, { childList: true });
 
+  // Follow tap-to-hide chrome: no scroll event fires when the user taps the
+  // page to hide the buttons, so visibility must react to the class change.
+  const cluster = document.getElementById('bottom-right-buttons');
+  if (cluster) {
+    perimeterObserver = new MutationObserver(() => updateVisibility());
+    perimeterObserver.observe(cluster, { attributes: true, attributeFilter: ['class'] });
+  }
+
   updateGeometry();
   scheduleRebuild(0);
   verbose.init(`customScrollbar bound to book ${candidate.bookId}`, SRC);
@@ -313,16 +393,45 @@ function bindLoader(): void {
 
 // ── virtual map lifecycle ───────────────────────────────────────────────────
 
-function measureMetrics(instance: LoaderLike): VirtualMapMetrics {
+function measureLayout(instance: LoaderLike): {
+  metrics: VirtualMapMetrics;
+  widthKey: string;
+  width: number;
+} {
   const cs = getComputedStyle(instance.container);
   const fontSize = parseFloat(cs.fontSize) || 18;
   const lineHeight = parseFloat(cs.lineHeight) || fontSize * 1.6;
   const padL = parseFloat(cs.paddingLeft) || 0;
   const padR = parseFloat(cs.paddingRight) || 0;
   const textWidth = Math.max(80, instance.container.clientWidth - padL - padR);
-  // ~0.5em average glyph width for body text — an estimate is all we need.
+  // ~0.5em average glyph width for body text — the estimator's fallback for
+  // nodes the measurement pass hasn't reached yet.
   const charsPerLine = Math.max(10, textWidth / (fontSize * 0.5));
-  return { lineHeight, charsPerLine, blockMargin: fontSize };
+  const width = instance.container.getBoundingClientRect().width;
+  return {
+    metrics: { lineHeight, charsPerLine, blockMargin: fontSize },
+    widthKey: makeWidthKey(width, fontSize),
+    width,
+  };
+}
+
+/** (Re)start the offscreen sweep — self-cancelling, skips measured chunks. */
+function restartSweep(): void {
+  if (!loader || !map || !currentWidthKey || map.chunkIdsSorted.length === 0) return;
+  const generation = bindGeneration;
+  const anchorIdx = indexAtVirtual(map, lastVPos);
+  const anchorChunk = anchorIdx >= 0 ? map.chunkOf[anchorIdx] ?? 0 : 0;
+  void startIdleSweep({
+    nodes: loader.nodes,
+    chunkIdsSorted: map.chunkIdsSorted,
+    currentChunkId: anchorChunk,
+    bookId: loader.bookId,
+    containerWidth,
+    widthKey: currentWidthKey,
+    onProgress: () => {
+      if (generation === bindGeneration) scheduleRebuild(1000);
+    },
+  }).catch(() => {});
 }
 
 function scheduleRebuild(delayMs: number = REBUILD_DEBOUNCE_MS): void {
@@ -332,13 +441,23 @@ function scheduleRebuild(delayMs: number = REBUILD_DEBOUNCE_MS): void {
     rebuildTimer = null;
     idle(() => {
       if (generation !== bindGeneration || !loader) return;
-      map = buildVirtualMap(loader.nodes, measureMetrics(loader));
+      const layout = measureLayout(loader);
+      if (layout.widthKey !== currentWidthKey) {
+        // Width/font changed — cached measurements for the old layout no
+        // longer apply (they simply miss on lookup) and the sweep restarts
+        // below with the new key.
+        stopIdleSweep();
+        currentWidthKey = layout.widthKey;
+        containerWidth = layout.width;
+      }
+      map = buildVirtualMap(loader.nodes, layout.metrics, heightLookup(currentWidthKey));
       updateVisibility();
       if (!syncRaf) syncRaf = requestAnimationFrame(syncThumb);
       verbose.content(
-        `customScrollbar map built: ${map.nodeIds.length} nodes, ${Math.round(map.totalHeight)}vpx`,
+        `customScrollbar map built: ${map.nodeIds.length} nodes, ${Math.round(map.totalHeight)}vpx, ${measuredCount()} measured`,
         SRC,
       );
+      restartSweep();
     });
   }, delayMs);
 }
@@ -354,6 +473,31 @@ function getChunkEls(): HTMLElement[] {
   return chunkElsCache ?? [];
 }
 
+/**
+ * Live harvest: measure real node heights from chunks the reader has already
+ * rendered (free + exact, includes loaded images). Each chunk element is
+ * measured once; chunks with still-loading images retry at most 1×/second.
+ */
+function harvestVisibleChunks(chunkEls: HTMLElement[]): void {
+  if (!loader || !currentWidthKey) return;
+  const now = performance.now();
+  let added = 0;
+  for (const el of chunkEls) {
+    if (harvestedChunks.has(el)) continue;
+    if (now < (harvestRetryAt.get(el) ?? 0)) continue;
+    harvestRetryAt.set(el, now + 1000);
+    const attr = el.getAttribute('data-chunk-id');
+    if (attr === null) continue;
+    const chunkId = Number(parseChunkId(attr));
+    const nodes = loader.nodes.filter((n) => Number(n.chunk_id) === chunkId);
+    if (nodes.length === 0) continue;
+    const res = harvestLiveChunk(el, nodes, currentWidthKey);
+    added += res.added;
+    if (res.skipped === 0) harvestedChunks.add(el);
+  }
+  if (added > 0) scheduleRebuild(1000);
+}
+
 function syncThumb(): void {
   syncRaf = 0;
   if (!root || !thumb || !loader || !boundWrapper) return;
@@ -367,6 +511,7 @@ function syncThumb(): void {
   const wrapTop = boundWrapper.getBoundingClientRect().top;
   const chunkEls = getChunkEls();
   if (chunkEls.length === 0) return;
+  harvestVisibleChunks(chunkEls);
 
   // First loaded chunk whose bottom edge is below the wrapper top = the chunk
   // straddling (or next below) the top edge. ≤ MAX_LOADED_CHUNKS rect reads.
@@ -398,6 +543,7 @@ function syncThumb(): void {
   // we are, so it must not dedupe the next commit (the "drag back to where I
   // once jumped does nothing" bug).
   lastCommittedIdx = null;
+  lastCommittedV = null;
   // Local real→virtual scale converts the viewport height into virtual px.
   const localRatio = chunkVSpan / rect.height;
   lastViewportVirtual = boundWrapper.clientHeight * localRatio;
@@ -445,11 +591,14 @@ function scrubTo(top: number): void {
   thumb.style.transform = `translateY(${clamped}px)`; // immediate — must track the finger
   const vPos = vPosOfThumbTop(clamped);
   pendingIdx = indexAtVirtual(map, vPos);
-  // The preview span glides with the raw position; only the band's top edge
-  // snaps to the landing node (snapping the whole span made the preview step
-  // node-by-node — "SUPER choppy"). The jump itself fires on release only:
-  // committing mid-drag rebuilt the chunk window under the finger.
-  schedulePaint(vPos, pendingIdx >= 0 ? virtualOfIndex(map, pendingIdx) : vPos);
+  pendingV = vPos;
+  // Everything glides on the RAW position — no node snapping anywhere. The
+  // landing is mid-node-accurate (commitJump's intra-node offset), so the band
+  // no longer needs a snapped top edge; snapping it made the band hop in
+  // node-sized steps against the smoothly gliding lens. The jump itself fires
+  // on release only: committing mid-drag rebuilt the chunk window under the
+  // finger.
+  schedulePaint(vPos, vPos);
 }
 
 /** One canvas repaint per frame, however fast pointermove fires. */
@@ -474,6 +623,11 @@ function onPointerDown(e: PointerEvent): void {
   }
   scrubbing = true;
   root.classList.add('scrubbing');
+  // iOS can't give web pages real haptics; Android can — a tick on grab
+  // approximates the native scrollbar's physical engage feel where possible.
+  if (e.pointerType === 'touch') {
+    (navigator as { vibrate?: (ms: number) => boolean }).vibrate?.(8);
+  }
   minimap?.show();
 
   const isOnThumb = e.target === thumb;
@@ -509,26 +663,30 @@ function onPointerUp(e: PointerEvent): void {
   } catch {
     // capture was never established (see onPointerDown)
   }
-  if (pendingIdx !== null) {
-    void commitJump(pendingIdx);
-    pendingIdx = null;
+  if (pendingIdx !== null && pendingV !== null) {
+    void commitJump(pendingIdx, pendingV);
   }
+  pendingIdx = null;
+  pendingV = null;
   // Touch has no hover: pointerleave never fires after lift-off, so `hovering`
   // would stick true and the preview would never dismiss. Lift = done.
   if (e.pointerType === 'touch') hovering = false;
   if (!hovering) hideSoon();
+  updateFade();
 }
 
 function onPointerEnter(e: PointerEvent): void {
   if (e.pointerType === 'touch') return; // no hover concept on touch — show only while scrubbing
   hovering = true;
   cancelHide();
+  updateFade();
   if (root && !root.hidden && map) minimap?.show();
 }
 
 function onPointerLeave(): void {
   hovering = false;
   if (!scrubbing) hideSoon();
+  updateFade();
 }
 
 /** Safety net (mobile especially): any press outside the bar + popup dismisses the preview. */
@@ -539,6 +697,7 @@ function onDocumentPointerDown(e: Event): void {
   canvasHover = false;
   cancelHide();
   if (!scrubbing) minimap?.hide();
+  updateFade();
 }
 
 function paintMinimapAt(vSpanCenter: number, vBandTop: number = vSpanCenter): void {
@@ -561,18 +720,19 @@ function neighborChunkIds(m: VirtualMap, chunkId: number): number[] {
 }
 
 /**
- * Jump the content to node index `idx` — single-flight with latest-wins
- * queueing (a second commit can NEVER overlap the first: loadChunkInternal has
- * awaits between its reservation and insert, and two interleaved window
- * rebuilds would poison currentlyLoadedChunks / the sentinel order).
+ * Jump the content to virtual position `vPos` (node index `idx` + intra-node
+ * fraction) — single-flight with latest-wins queueing (a second commit can
+ * NEVER overlap the first: loadChunkInternal has awaits between its
+ * reservation and insert, and two interleaved window rebuilds would poison
+ * currentlyLoadedChunks / the sentinel order).
  */
-async function commitJump(idx: number): Promise<void> {
+async function commitJump(idx: number, vPos: number): Promise<void> {
   if (!loader || !map || idx < 0 || idx >= map.nodeIds.length) {
     verbose.nav(`scrub commit skipped: no loader/map or idx ${idx} out of range`, SRC);
     return;
   }
-  if (idx === lastCommittedIdx) {
-    verbose.nav(`scrub commit skipped: idx ${idx} already committed`, SRC);
+  if (idx === lastCommittedIdx && lastCommittedV !== null && Math.abs(vPos - lastCommittedV) < 1) {
+    verbose.nav(`scrub commit skipped: position already committed (idx ${idx})`, SRC);
     return;
   }
   if (isEditing()) {
@@ -581,7 +741,7 @@ async function commitJump(idx: number): Promise<void> {
   }
   if (jumpInFlight) {
     verbose.nav(`scrub commit queued behind in-flight jump: idx ${idx}`, SRC);
-    queuedIdx = idx;
+    queuedJump = { idx, v: vPos };
     return;
   }
   jumpInFlight = true;
@@ -621,8 +781,21 @@ async function commitJump(idx: number): Promise<void> {
       `[id="${CSS.escape(nodeId)}"]`,
     );
     if (el) {
-      scrollElementWithConsistentMethod(el, instance.scrollableParent, SCRUB_LAND_OFFSET);
+      // Mid-node precision: convert the intra-node virtual offset into REAL
+      // pixels via the rendered element's height (ratio 1 once measured), and
+      // land that far INTO the node. Passing it through the header-offset
+      // parameter keeps the helper's 100ms + image-load corrections aimed at
+      // the same spot instead of fighting us back to the node top.
+      const nodeVTop = jumpMap.offsets[idx] ?? vPos;
+      const nodeVH = (jumpMap.offsets[idx + 1] ?? nodeVTop) - nodeVTop;
+      const rectH = el.getBoundingClientRect().height;
+      const intraReal =
+        nodeVH > 0 && rectH > 0
+          ? Math.min(Math.max(0, (vPos - nodeVTop) * (rectH / nodeVH)), Math.max(0, rectH - 1))
+          : 0;
+      scrollElementWithConsistentMethod(el, instance.scrollableParent, SCRUB_LAND_OFFSET - intraReal);
       lastCommittedIdx = idx;
+      lastCommittedV = vPos;
     } else {
       verbose.nav(`customScrollbar: target node ${nodeId} not found after load`, SRC);
     }
@@ -643,10 +816,10 @@ async function commitJump(idx: number): Promise<void> {
         .then(({ fillViewport }) => fillViewport(instance))
         .catch(() => {});
     }
-    if (queuedIdx !== null) {
-      const q = queuedIdx;
-      queuedIdx = null;
-      void commitJump(q);
+    if (queuedJump !== null) {
+      const q = queuedJump;
+      queuedJump = null;
+      void commitJump(q.idx, q.v);
     }
   }
 }
@@ -667,6 +840,7 @@ export function initCustomScrollbar(): void {
       get map() { return map; },
       get loader() { return loader; },
       get calibration() { return estPerRealEma; },
+      get measuredCount() { return measuredCount(); },
     };
   }
 

@@ -4,6 +4,14 @@
  * to a text node OUTSIDE the element (cursor escapes), never editing the generated content.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// escapeHandler preventDefaults the beforeinput and inserts the text node
+// manually, so the editor's input→save pipeline never fires — it must queue
+// the parent block itself (the node-5200 NBSP DOM↔IDB divergence).
+vi.mock('../../../resources/js/divEditor/editorState', () => ({
+  queueNodeForSave: vi.fn(),
+}));
+import { queueNodeForSave } from '../../../resources/js/divEditor/editorState';
 import { supEscapeHandler } from '../../../resources/js/divEditor/supTagHandler/escapeHandler';
 
 let p, sup;
@@ -43,6 +51,20 @@ describe('supEscapeHandler', () => {
     const e = ev();
     supEscapeHandler(e);
     expect(e.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('queues the parent block for save after a redirected insertion (preventDefault kills the normal save pipeline)', () => {
+    queueNodeForSave.mockClear();
+    cursorAt(sup.firstChild, 1);
+    supEscapeHandler(ev());
+    expect(queueNodeForSave).toHaveBeenCalledWith('1', 'update');
+  });
+
+  it('does NOT queue a save when it does not intercept', () => {
+    queueNodeForSave.mockClear();
+    cursorAt(p.firstChild, 2);                   // plain text, no interception
+    supEscapeHandler(ev());
+    expect(queueNodeForSave).not.toHaveBeenCalled();
   });
 
   it('ignores non-insert input types and Enter/line breaks', () => {

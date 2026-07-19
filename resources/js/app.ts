@@ -14,6 +14,14 @@ initializeTheme();
 // Reading-mode preference (scroll vs paginated) — body class before first paint
 initializeReadingMode();
 
+// Ask the browser not to evict our storage (IndexedDB is the offline book
+// cache). Chrome/Firefox honor this; Safari mostly ignores it and can still
+// wipe storage (ITP / disk pressure) — the integrity cache-loss modal covers
+// that case. Fire-and-forget: denial is fine, we just get eviction-eligible.
+if (navigator.storage?.persist) {
+  navigator.storage.persist().catch(() => { /* unsupported/denied — nothing to do */ });
+}
+
 // Load navigation health check in development
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
   import('./SPA/navigation/healthCheck').catch(() => {

@@ -12,6 +12,12 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import { collect, renderAll, writeArtifacts, ARTIFACTS } from '../../../visualisation/js/collect';
 
+// collect() is a full TypeScript-AST scan (~5-10s under parallel suite load).
+// It is deterministic and nothing below mutates its result, so run it ONCE and
+// share it — per-test calls blew the 5s test timeout under CPU contention.
+let _sharedViz = null;
+const collectOnce = () => (_sharedViz ??= collect());
+
 if (process.env.WRITE_FLOWVIZ) {
   const viz = writeArtifacts();
   // eslint-disable-next-line no-console
@@ -24,7 +30,7 @@ if (process.env.WRITE_FLOWVIZ) {
 
 describe('IndexedDB flow viz', () => {
   it('collects a coherent data-flow graph (fn/store/table/dom nodes + directed edges)', () => {
-    const viz = collect();
+    const viz = collectOnce();
     const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
     const kinds = viz.nodes.reduce((a, n) => ((a[n.kind] = (a[n.kind] || 0) + 1), a), {});
 
@@ -72,7 +78,7 @@ describe('IndexedDB flow viz', () => {
   });
 
   it('type-trace capture: nodes table + its handler fns carry the welded node-data types', () => {
-    const viz = collect();
+    const viz = collectOnce();
     const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
 
     // The `nodes` PG table advertises its full TS row-data lineage (PG↔IDB↔DOM).
@@ -98,7 +104,7 @@ describe('IndexedDB flow viz', () => {
   });
 
   it('type-trace capture: library table + its handler fns carry the welded library types', () => {
-    const viz = collect();
+    const viz = collectOnce();
     const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
 
     // The `library` PG table advertises its TS lineage (wire-in ServerLibraryRow → store/save LibraryRecord).
@@ -114,7 +120,7 @@ describe('IndexedDB flow viz', () => {
   });
 
   it('type-trace capture: footnotes table + its handler fns carry the welded footnote types', () => {
-    const viz = collect();
+    const viz = collectOnce();
     const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
 
     // wire payload-map (ServerFootnotesPayload) → expanded per-row store/save (FootnoteRecord)
@@ -127,7 +133,7 @@ describe('IndexedDB flow viz', () => {
   });
 
   it('type-trace capture: bibliography table + its handler fns carry the welded bibliography types', () => {
-    const viz = collect();
+    const viz = collectOnce();
     const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
 
     expect(byId['pg:bibliography'].types).toEqual(['BibliographyRecord', 'ServerBibliographyPayload']);  // sorted
@@ -140,7 +146,7 @@ describe('IndexedDB flow viz', () => {
   });
 
   it('type-trace capture: hypercites table — standalone record AND the shared embedded node view', () => {
-    const viz = collect();
+    const viz = collectOnce();
     const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
 
     // dual representation: standalone (HyperciteRecord/ServerHyperciteRow) + embedded (NodeHyperciteView)
@@ -156,7 +162,7 @@ describe('IndexedDB flow viz', () => {
   });
 
   it('type-trace capture: hyperlights table — standalone record AND the shared embedded node view', () => {
-    const viz = collect();
+    const viz = collectOnce();
     const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
 
     // dual representation: standalone (HyperlightRecord/ServerHyperlightRow) + embedded (NodeHyperlightView)
@@ -175,7 +181,7 @@ describe('IndexedDB flow viz', () => {
   // ── the four non-content tables: a single API-contract type each (fetch → DOM, no IDB store) ──
 
   it('type-trace capture: user_reading_positions — the scroll bookmark contract', () => {
-    const viz = collect();
+    const viz = collectOnce();
     const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
     const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
 
@@ -191,7 +197,7 @@ describe('IndexedDB flow viz', () => {
   });
 
   it('type-trace capture: canonical_source — the click-time best-version response', () => {
-    const viz = collect();
+    const viz = collectOnce();
     const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
     const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
 
@@ -201,7 +207,7 @@ describe('IndexedDB flow viz', () => {
   });
 
   it('type-trace capture: vibes — the css-override preset gallery', () => {
-    const viz = collect();
+    const viz = collectOnce();
     const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
     const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
 
@@ -212,7 +218,7 @@ describe('IndexedDB flow viz', () => {
   });
 
   it('type-trace capture: shelves — user book-collections (JS→TS migrated folder)', () => {
-    const viz = collect();
+    const viz = collectOnce();
     const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
     const fnByLabel = l => viz.nodes.find(n => n.kind === 'fn' && n.label === l);
 
@@ -222,7 +228,7 @@ describe('IndexedDB flow viz', () => {
   });
 
   it('API route tier: endpoints carry precise per-endpoint tables (no coarse fan-out)', () => {
-    const viz = collect();
+    const viz = collectOnce();
     const routes = viz.nodes.filter(n => n.kind === 'route');
     expect(routes.length).toBeGreaterThan(0);
     // tables an endpoint touches, NOW via the controller hop: route → controller → pg:<table>
@@ -259,7 +265,7 @@ describe('IndexedDB flow viz', () => {
   });
 
   it('backend tier: Laravel controllers bridge the routes to the PG tables (nodes read + write)', () => {
-    const viz = collect();
+    const viz = collectOnce();
     const byId = Object.fromEntries(viz.nodes.map(n => [n.id, n]));
     const controllers = viz.nodes.filter(n => n.kind === 'controller');
     expect(controllers.length).toBeGreaterThan(0);
@@ -298,7 +304,7 @@ describe('IndexedDB flow viz', () => {
   });
 
   it('import graph: NO real static-import cycles, every import edge classified', () => {
-    const viz = collect();
+    const viz = collectOnce();
     // The honest cycle detector: static-import rings are the only TDZ risk. We keep this at 0
     // (dynamic-import breakers/lazy-loads are intentional and don't crash). A regression here
     // means someone reintroduced a circular static import. The render layer (lazyLoader/scrolling/

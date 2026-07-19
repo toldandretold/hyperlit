@@ -5,8 +5,10 @@
  * element (before or after, depending on cursor position). Extracted from
  * supTagHandler.js.
  *
- * Pure: operates on the live selection/DOM, no `this`, no module state.
+ * Operates on the live selection/DOM, no `this`, no module state.
  */
+import { queueNodeForSave } from '../editorState';
+
 export function supEscapeHandler(e: any): void {
   if (!(window as any).isEditing) return;
 
@@ -210,4 +212,13 @@ export function supEscapeHandler(e: any): void {
   newRange.collapse(true);
   selection.removeAllRanges();
   selection.addRange(newRange);
+
+  // preventDefault() above cancels the input event, so the editor's normal
+  // input→save pipeline never sees this mutation — queue the parent block
+  // explicitly or the inserted char exists only in the DOM until an
+  // integrity sweep notices (the node-5200 NBSP mismatch).
+  const parentWithId = insertionReference.closest('p, h1, h2, h3, h4, h5, h6, div, blockquote');
+  if (parentWithId?.id) {
+    queueNodeForSave(parentWithId.id, 'update');
+  }
 }
