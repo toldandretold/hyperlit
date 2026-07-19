@@ -165,6 +165,27 @@ test.describe('Full authoring workflow', () => {
     expect(hasUl).toBeGreaterThanOrEqual(1);
 
     // ──────────────────────────────────────────────────────────
+    // Phase 3.5: Undo/redo round-trip after a toolbar button
+    // ──────────────────────────────────────────────────────────
+    // Native browser undo is blocked in the editor; Cmd+Z routes to the custom
+    // UndoManager. A toolbar format must be undoable: the top stack entry is
+    // the list conversion (recordFormat seals any open typing group first), so
+    // one undo reverts exactly it, one redo re-applies it.
+    const undoKey = process.platform === 'darwin' ? 'Meta+z' : 'Control+z';
+    const redoKey = process.platform === 'darwin' ? 'Meta+Shift+z' : 'Control+Shift+z';
+
+    await page.keyboard.press(undoKey);
+    await page.waitForTimeout(300);
+    expect(await page.locator('.main-content ul').count()).toBe(hasUl - 1);
+    // Undo unwraps the format, never the content
+    expect(await findParagraphByText('List item')).not.toBeNull();
+
+    await page.keyboard.press(redoKey);
+    await page.waitForTimeout(300);
+    expect(await page.locator('.main-content ul').count()).toBe(hasUl);
+    expect(await page.locator('.main-content li').filter({ hasText: 'List item' }).count()).toBeGreaterThanOrEqual(1);
+
+    // ──────────────────────────────────────────────────────────
     // Phase 4: Create Highlight
     // ──────────────────────────────────────────────────────────
 
