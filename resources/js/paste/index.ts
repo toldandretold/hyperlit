@@ -55,7 +55,7 @@ import { processMarkdownInChunks, preprocessMarkdownFootnotes, footnoteDefinitio
 import { estimatePasteNodeCount } from './utils/dom-helpers';
 import { saveCurrentParagraph } from './handlers/hyperciteHandler';
 import { detectYouTubeTranscript, transformYouTubeTranscript } from './utils/youtube-helpers';
-import { stripMarkTags, convertDefinitionListTags, normalizeListItems } from './utils/normalizer';
+import { stripMarkTags, stripHyperciteTags, convertDefinitionListTags, normalizeListItems } from './utils/normalizer';
 import { verifyNodesIntegrity, findOrphanedNodes } from '../integrity/verifier';
 import { reportIntegrityFailure } from '../integrity/reporter';
 import { startPasteCapture } from '../integrity/logCapture';
@@ -438,6 +438,13 @@ async function handlePaste(event: any) {
     // 🚨 Strip <mark> tags to prevent them from becoming rogue top-level nodes
     // Mark tags are inline highlights - they should NEVER become their own paragraph/node
     rawHtml = stripMarkTags(rawHtml);
+
+    // 🚨 Strip <u> hypercite tags — <u> is the render-time hypercite wrapper, not a
+    // user format. A pasted <u> is orphaned cross-book annotation markup (dead
+    // underline + stale data-overlapping/data-hypercite-listener attrs) and must
+    // not be baked into this book's nodes. Deliberate hypercite paste reads the
+    // pristine clipboard copy above, so it is unaffected.
+    rawHtml = stripHyperciteTags(rawHtml);
 
     // Convert <dl>, <dt>, <dd> definition list tags to <p> paragraphs
     rawHtml = convertDefinitionListTags(rawHtml);

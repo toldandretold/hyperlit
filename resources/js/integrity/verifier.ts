@@ -496,6 +496,13 @@ export function findOrphanedNodes(bookId: any) : any {
       if (child.hasAttribute('data-chunk-id')) continue;
       // Skip lazy-load sentinels
       if (child.hasAttribute('data-sentinel')) continue;
+      // Skip broken-image UI chrome: chunkRender/imageState wrap a 404'd image
+      // in an id-less <div class="broken-image-wrapper"> (delete button + layout
+      // guard), and contentProcessor strips it again on save. It's render
+      // furniture, not an unsaved content node — counting it as an orphan fired
+      // a false "data loss" modal on every edit-exit of a book whose markdown
+      // references an unreachable image.
+      if (child.classList.contains('broken-image-wrapper')) continue;
 
       if (!BLOCK_ELEMENT_TAGS.has(child.tagName)) continue;
 

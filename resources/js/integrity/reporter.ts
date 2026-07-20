@@ -70,11 +70,12 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
   if (orphanedNodes.length > 0) {
     console.warn(`[integrity] Orphaned nodes (${orphanedNodes.length}):`);
     orphanedNodes.forEach((o) => {
-      if (o.healFailed) {
-        console.warn(`  <${o.tag}> HEAL FAILED: ${o.error || 'unknown'} — "${o.textSnippet?.substring(0, 80)}"`);
-      } else {
-        console.warn(`  <${o.tag}> healed → ID ${o.assignedId} — "${o.textSnippet?.substring(0, 80)}"`);
-      }
+      // "detected" = the edit-exit sweep reports raw, un-healed orphans — don't
+      // print "healed → ID undefined" there, it misreads as a broken heal.
+      const state = o.healFailed
+        ? `HEAL FAILED: ${o.error || 'unknown'}`
+        : o.assignedId ? `healed → ID ${o.assignedId}` : 'detected (no id assigned)';
+      console.warn(`  <${o.tag}> ${state} — "${o.textSnippet?.substring(0, 80)}"`);
     });
   }
 

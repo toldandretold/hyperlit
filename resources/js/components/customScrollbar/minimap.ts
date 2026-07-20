@@ -49,24 +49,23 @@ export interface MinimapController {
 }
 
 const CSS_WIDTH = 110;
-/** Minimum span: this many viewports of content (small-book close-up). */
-const SPAN_VIEWPORTS = 6;
 /**
- * Maximum zoom-in for big books: the span never shows less than 1/Nth of the
- * whole book. The preview is chained 1:1 to the thumb, so its content speed is
- * (bookHeight / trackHeight) × (previewHeight / span) css-px per thumb-px — with
- * a viewport-sized span on a long book that's ~30px of preview per 1px of thumb,
- * which reads as the preview "hopping over" whole regions. Widening the lens to
- * a book fraction caps that speed at a glide; line detail collapses but heading
- * labels (drawn in a second pass) become the landmarks.
+ * The lens shows this many viewports (screens) of content at most. This is the
+ * single knob that trades off the "your screen" band size against scrub speed:
+ * the band is ALWAYS a valid true proportion of the lens — band ≈ cssH /
+ * SPAN_VIEWPORTS — so at 12 it's ~1/12 of the canvas (clearly visible) and a
+ * normal drag advances < one lens per frame (no "hopping over regions"). It is
+ * NOT floored/faked: a shorter book simply shows the whole book (span clamps to
+ * totalHeight) with a correspondingly larger, still-valid band.
+ *
+ * Bigger value → smaller band, faster scrub, more chapters visible; smaller
+ * value → bigger band, but a long book's content flies past on a fast drag.
  */
-const BOOK_SPAN_FRACTION = 6;
+const SPAN_VIEWPORTS = 12;
 /**
- * The landing band claims a full screen: node heights are MEASURED real pixels
- * (measure.ts — live harvest + idle offscreen sweep), so what the band covers
- * is what lands on screen. Estimate-covered nodes (unmeasured regions early in
- * a session, image nodes pre-load) can still err slightly at the band's bottom
- * edge — acceptable, and it converges as measurement proceeds.
+ * The band claims a full screen of the lens: node heights are MEASURED real
+ * pixels (measure.ts), so what the band covers is what lands on screen. It is a
+ * true proportion (viewportVirtual / span) — never floored — so it stays honest.
  */
 const BAND_FRACTION = 1.0;
 /** Floor for the shrink-to-content canvas height (a tiny book still needs a
@@ -231,15 +230,13 @@ export function createMinimap(hooks: MinimapHooks): MinimapController {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const span = Math.min(
-      map.totalHeight,
-      Math.max(1, viewportVirtual * SPAN_VIEWPORTS, map.totalHeight / BOOK_SPAN_FRACTION),
-    );
+    // Cap the lens at SPAN_VIEWPORTS screens (never more than the whole book) so
+    // the "your screen" band is a valid, visible fraction — NOT the unbounded
+    // totalHeight/N that made one screen a sliver on a long book.
+    const span = Math.min(map.totalHeight, Math.max(1, viewportVirtual * SPAN_VIEWPORTS));
 
-    // Shrink-to-content: render every book at ONE density (what a full lens
-    // would give) and let the canvas be SHORTER when there's less content,
-    // instead of stretching a short book to fill a fixed-height canvas — that
-    // stretch is what made paragraphs render as sparse "empty slots".
+    // Shrink-to-content: a short book gets a SHORTER canvas rather than stretching
+    // its content to fill a fixed-height canvas (the sparse "empty slots" bug).
     const cssHMax = Math.min(
       Math.max(MIN_CANVAS, Math.round(window.innerHeight * 0.6)),
       Math.max(MIN_CANVAS, Math.round(anchor.barHeight)),
@@ -273,13 +270,6 @@ export function createMinimap(hooks: MinimapHooks): MinimapController {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, CSS_WIDTH, cssH);
 
-    // Landing band: starts at the node that will sit at the viewport top.
-    const bandTop = (vBandTop - spanTop) * scale;
-    const bandH = Math.max(3, viewportVirtual * BAND_FRACTION * scale);
-    ctx.globalAlpha = 0.08;
-    ctx.fillStyle = theme.text;
-    ctx.fillRect(0, bandTop, CSS_WIDTH, bandH);
-
     let i = indexAtVirtual(map, spanTop);
     if (i < 0) return;
     const n = map.nodeIds.length;
@@ -309,6 +299,20 @@ export function createMinimap(hooks: MinimapHooks): MinimapController {
       ctx.fillStyle = theme.text;
       ctx.fillText(label.text, PAD_X, label.y, CSS_WIDTH - GUTTER_CITE - 3 - PAD_X);
     }
+
+    // "This is your screen" band, drawn LAST (on top of the shapes so it's never
+    // buried) as a bordered box. Its height is the TRUE proportion of one screen
+    // within the lens (never floored) — valid because the lens span is bounded.
+    const rawBandTop = (vBandTop - spanTop) * scale;
+    const bandH = Math.min(cssH, viewportVirtual * BAND_FRACTION * scale);
+    const bandTop = Math.min(Math.max(0, rawBandTop), cssH - bandH);
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = theme.text;
+    ctx.fillRect(0, bandTop, CSS_WIDTH, bandH);
+    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = theme.accent;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(0.75, bandTop + 0.75, CSS_WIDTH - 1.5, bandH - 1.5);
     ctx.globalAlpha = 1;
   }
 

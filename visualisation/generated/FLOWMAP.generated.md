@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1701 functions in 360 modules · 10 object stores · 10 PG tables · 3446 edges
+**MarkdownDB** schema v28 · 1702 functions in 360 modules · 10 object stores · 10 PG tables · 3446 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1397,6 +1397,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `normalizeListItems` | `paste/utils/normalizer` | — | — | read/write | — |
 | `normalizeQuotes` | `paste/utils/normalizer` | — | — | — | — |
 | `normalizeSpaces` | `paste/utils/normalizer` | — | — | — | — |
+| `stripHyperciteTags` | `paste/utils/normalizer` | — | — | — | — |
 | `stripMarkTags` | `paste/utils/normalizer` | — | — | — | — |
 | `generateReferenceKeys` | `paste/utils/reference-key-generator` | — | — | — | — |
 | `addUniqueReference` | `paste/utils/transform-helpers` | — | — | — | — |

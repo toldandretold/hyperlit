@@ -466,6 +466,7 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
           parentBookId: ct.parentBookId || null,
           // hypercite-citation fields
           targetBook: ct.targetBook || null,
+          targetSubBook: ct.targetSubBook || null,
           targetHyperciteId: ct.targetHyperciteId || null,
           targetUrl: ct.targetUrl || null,
           isHyperlightURL: ct.isHyperlightURL || false,
@@ -719,6 +720,7 @@ async function pushStackedLayer(element: any, highlightIds: any, newHighlightIds
       parentBookId: ct.parentBookId || null,
       // hypercite-citation fields
       targetBook: ct.targetBook || null,
+      targetSubBook: ct.targetSubBook || null,
       targetHyperciteId: ct.targetHyperciteId || null,
       targetUrl: ct.targetUrl || null,
       isHyperlightURL: ct.isHyperlightURL || false,

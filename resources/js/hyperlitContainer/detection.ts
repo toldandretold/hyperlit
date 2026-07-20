@@ -236,10 +236,17 @@ export async function detectHighlights(element: any, providedHighlightIds: strin
  * Extract the actual book ID and URL structure info from a hypercite citation URL.
  * Handles paths like /book_xxx/2/HL_aaa/HL_bbb#hypercite_yyy where the book ID
  * is before the HL_/Fn segments, not the last path segment.
+ *
+ * `targetBook` is the FOUNDATION book (used for the bibtex/library lookup — the
+ * citation shown is the containing work's). `targetSubBook` is the sub-book the
+ * hypercite RECORD actually lives in: for a footnote it's `foundation/Fn…` (the
+ * `[book, hyperciteId]` composite key), otherwise it's the foundation. A hypercite
+ * inside a footnote is keyed under the sub-book, so looking it up against the
+ * foundation 404s → the "This citation record no longer exists" false negative.
  * @param {URL} url - Parsed URL object
- * @returns {Object} { targetBook, isHyperlightURL, isFootnoteURL, hlDepth }
+ * @returns {Object} { targetBook, targetSubBook, isHyperlightURL, isFootnoteURL, hlDepth }
  */
-function extractBookAndStructure(url: URL): { targetBook: string; isHyperlightURL: boolean; isFootnoteURL: boolean; hlDepth: number } {
+function extractBookAndStructure(url: URL): { targetBook: string; targetSubBook: string; isHyperlightURL: boolean; isFootnoteURL: boolean; hlDepth: number } {
   const pathParts = url.pathname.split('/').filter(p => p);
   const hlSegments = pathParts.filter(p => p.startsWith('HL_'));
   const isHyperlightURL = hlSegments.length > 0;
@@ -278,8 +285,22 @@ function extractBookAndStructure(url: URL): { targetBook: string; isHyperlightUR
     bookID = pathParts.filter(p => !/^\d+$/.test(p))[0] || pathParts[0] || '';
   }
 
+  // The hypercite record lives in the footnote SUB-BOOK (`foundation/Fn…`), NOT the
+  // foundation. Footnote segments carry sub-book IDENTITY; page numbers and HL_
+  // segments are location-WITHIN a book and are dropped. HL-only URLs keep the
+  // foundation (a hyperlight is not a sub-book). Legacy single-segment `bookId_FnN`
+  // URLs have no bare `Fn…` segment, so they fall through to the foundation unchanged.
+  let subBookID = bookID || '';
+  if (isFootnoteURL) {
+    const fnSegments = pathParts.filter(p => /^Fn\d/.test(p!));
+    if (fnSegments.length > 0 && bookID) {
+      subBookID = [bookID, ...fnSegments].join('/');
+    }
+  }
+
   return {
     targetBook: bookID || '',
+    targetSubBook: subBookID,
     isHyperlightURL,
     isFootnoteURL,
     hlDepth: hlSegments.length
@@ -299,12 +320,13 @@ export function detectHyperciteCitation(element: any): any | null {
 
     if (hash && hash.startsWith('#hypercite_')) {
       const hyperciteId = hash.substring(1); // Remove #
-      const { targetBook, isHyperlightURL, isFootnoteURL, hlDepth } = extractBookAndStructure(url);
+      const { targetBook, targetSubBook, isHyperlightURL, isFootnoteURL, hlDepth } = extractBookAndStructure(url);
 
       return {
         type: 'hypercite-citation',
         element: element,
         targetBook,
+        targetSubBook,
         targetHyperciteId: hyperciteId,
         targetUrl: element.href,
         isHyperlightURL,
@@ -322,12 +344,13 @@ export function detectHyperciteCitation(element: any): any | null {
 
     if (hash && hash.startsWith('#hypercite_')) {
       const hyperciteId = hash.substring(1);
-      const { targetBook, isHyperlightURL, isFootnoteURL, hlDepth } = extractBookAndStructure(url);
+      const { targetBook, targetSubBook, isHyperlightURL, isFootnoteURL, hlDepth } = extractBookAndStructure(url);
 
       return {
         type: 'hypercite-citation',
         element: parentLink,
         targetBook,
+        targetSubBook,
         targetHyperciteId: hyperciteId,
         targetUrl: parentLink.href,
         isHyperlightURL,

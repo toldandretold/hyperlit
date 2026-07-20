@@ -465,7 +465,9 @@ export class ContainerManager {
     const returnEl = this._focusReturnEl;
     this._focusReturnEl = null;
     if (returnEl && returnEl.isConnected) {
-      try { returnEl.focus(); } catch { /* non-fatal */ }
+      // preventScroll: restoring focus to the opener must not move the viewport
+      // (a bare .focus() on the reader contenteditable scrolls the book to top).
+      try { returnEl.focus({ preventScroll: true }); } catch { /* non-fatal */ }
     }
   }
 

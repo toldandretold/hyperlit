@@ -100,6 +100,31 @@ describe('detectHyperciteCitation', () => {
     expect(data.hlDepth).toBe(2);
   });
 
+  it('for a non-footnote link, targetSubBook equals targetBook', () => {
+    const root = mount('<a href="http://localhost/book_77/2#hypercite_abc">cite</a>');
+    const data = detectHyperciteCitation(root.querySelector('a'));
+    expect(data.targetSubBook).toBe('book_77');
+  });
+
+  // Regression: a hypercite INSIDE a footnote is keyed under the sub-book
+  // (`foundation/Fn…`), not the foundation. Resolving it against the foundation
+  // 404'd → "This citation record no longer exists" on a record that exists.
+  it('resolves a footnote hypercite to its sub-book id (foundation/Fn…)', () => {
+    const root = mount('<a href="http://localhost/halloweenI/Fn1784511004812_pcrr#hypercite_l9w16cl">cite</a>');
+    const data = detectHyperciteCitation(root.querySelector('a'));
+    expect(data.isFootnoteURL).toBe(true);
+    expect(data.targetBook).toBe('halloweenI');
+    expect(data.targetSubBook).toBe('halloweenI/Fn1784511004812_pcrr');
+  });
+
+  it('drops page-number and HL_ segments from a footnote sub-book id', () => {
+    const root = mount('<a href="http://localhost/book_77/2/Fn123_abc/HL_zzz#hypercite_q">cite</a>');
+    const data = detectHyperciteCitation(root.querySelector('a'));
+    expect(data.isFootnoteURL).toBe(true);
+    expect(data.targetBook).toBe('book_77');
+    expect(data.targetSubBook).toBe('book_77/Fn123_abc');
+  });
+
   it('returns null when no #hypercite_ hash is present', () => {
     const root = mount('<a href="http://localhost/book_77/2">x</a>');
     expect(detectHyperciteCitation(root.querySelector('a'))).toBeNull();

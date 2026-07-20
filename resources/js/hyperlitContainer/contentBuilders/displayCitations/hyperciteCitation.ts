@@ -54,6 +54,11 @@ async function findSurvivingAncestor(bookId: any) {
 export async function buildHyperciteCitationContent(contentType: any, db: any = null) {
   try {
     const { targetBook, targetHyperciteId, targetUrl } = contentType;
+    // The record is keyed by the SUB-BOOK it lives in (`foundation/Fn…` for a
+    // footnote); `targetBook` is only the foundation, which is right for the
+    // bibtex/library lookup but wrong for the record existence check. Falling
+    // back to targetBook keeps non-footnote citations (where they're equal) intact.
+    const recordBook = contentType.targetSubBook || targetBook;
 
     console.log(`🔗 Building hypercite citation for: ${targetBook}#${targetHyperciteId}`);
 
@@ -95,9 +100,9 @@ export async function buildHyperciteCitationContent(contentType: any, db: any = 
     let ghostCitedText = '';
     let hyperciteBook = null;
     try {
-      let hyperciteData: any = await getHyperciteFromIndexedDB(targetBook, targetHyperciteId);
+      let hyperciteData: any = await getHyperciteFromIndexedDB(recordBook, targetHyperciteId);
       if (!hyperciteData) {
-        const fetched = await fetchHyperciteRecord(targetBook, targetHyperciteId);
+        const fetched = await fetchHyperciteRecord(recordBook, targetHyperciteId);
         if (fetched.status === 'ok') {
           hyperciteData = fetched.record;
         } else if (fetched.status === 'not_found') {
@@ -114,7 +119,7 @@ export async function buildHyperciteCitationContent(contentType: any, db: any = 
         ghostCitedText = hyperciteData.hypercitedText || '';
       } else if (hyperciteData?.relationshipStatus === 'dead') {
         isDead = true;
-        hyperciteBook = hyperciteData.book || targetBook;
+        hyperciteBook = hyperciteData.book || recordBook;
       }
     } catch (ghostError) {
       console.warn('Could not check ghost/dead status:', ghostError);

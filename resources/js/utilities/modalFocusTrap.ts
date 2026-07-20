@@ -96,7 +96,11 @@ export function trapModalFocus(
     popModal(token);
     document.removeEventListener('keydown', onKeydown, true);
     if (returnEl && returnEl.isConnected) {
-      try { returnEl.focus(); } catch { /* non-fatal */ }
+      // preventScroll: restoring focus to the opener must NOT move the viewport.
+      // The reader's contenteditable (.main-content) starts at the top of the
+      // page, so a bare .focus() on it scrolls the whole book to the top — the
+      // "delete near a hypercite → jump to top after pressing OK" bug.
+      try { returnEl.focus({ preventScroll: true }); } catch { /* non-fatal */ }
     }
   };
 }

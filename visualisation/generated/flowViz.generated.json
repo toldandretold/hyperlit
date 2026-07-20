@@ -2,7 +2,7 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1701,
+    "fnCount": 1702,
     "moduleCount": 360,
     "storeCount": 10,
     "tableCount": 10,
@@ -12554,6 +12554,14 @@
       "leaf": true
     },
     {
+      "id": "paste/utils/normalizer:stripHyperciteTags",
+      "label": "stripHyperciteTags",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/normalizer",
+      "leaf": true
+    },
+    {
       "id": "paste/utils/normalizer:stripMarkTags",
       "label": "stripMarkTags",
       "kind": "fn",
@@ -19245,6 +19253,7 @@
         "paste/utils/normalizer:normalizeListItems",
         "paste/utils/normalizer:normalizeQuotes",
         "paste/utils/normalizer:normalizeSpaces",
+        "paste/utils/normalizer:stripHyperciteTags",
         "paste/utils/normalizer:stripMarkTags"
       ]
     },

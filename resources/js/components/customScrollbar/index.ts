@@ -748,8 +748,8 @@ function onPointerDown(e: PointerEvent): void {
   }
   if (mode === 'chunk') minimap?.show(); // no preview in plain mode (no node data)
 
-  const isOnThumb = e.target === thumb;
   dragStartY = e.clientY;
+  const isOnThumb = e.target === thumb;
   if (isOnThumb) {
     dragStartThumbTop = thumbTop;
   } else {
@@ -761,6 +761,8 @@ function onPointerDown(e: PointerEvent): void {
 
 function onPointerMove(e: PointerEvent): void {
   if (scrubbing) {
+    // 1:1 absolute tracking — the thumb follows the pointer, so you can fling to
+    // the ends. Precise landing is via clicking the preview, not fine-dragging.
     scrubTo(dragStartThumbTop + (e.clientY - dragStartY));
     return;
   }

@@ -87,6 +87,32 @@ export function stripMarkTags(html: any) {
 }
 
 /**
+ * Strip <u> hypercite tags from HTML while preserving their inner content.
+ *
+ * In this app `<u>` is NOT a user underline format — it is exclusively the
+ * render-time wrapper for a hypercite (created in lazyLoader/chunkRender.ts,
+ * carrying id="hypercite_…" / class="couple|poly|single" / data-overlapping /
+ * data-hypercite-listener). It is never part of a node's stored content. So a
+ * `<u>` arriving through the clipboard is always orphaned annotation markup from
+ * wherever the text was copied — pasting it bakes a dead hypercite underline
+ * (and its stale, cross-book data-* attributes) into this book's node. Unwrap it
+ * to keep the text and drop the wrapper, exactly as stripMarkTags does for
+ * highlights. The deliberate "paste a quote to make a hypercite" flow reads the
+ * pristine clipboard copy, so it is unaffected by this strip.
+ *
+ * @param {string} html - HTML content that may contain hypercite <u> tags
+ * @returns {string} - HTML with <u> tags replaced by their inner content
+ */
+export function stripHyperciteTags(html: string): string {
+  if (!html) return html;
+
+  // Non-greedy, matches <u>text</u> and <u id="…" data-overlapping="…">text</u>.
+  // Hypercites never nest (overlaps render as one <u data-overlapping="a,b">),
+  // so a single pass is sufficient — same idiom as stripMarkTags.
+  return html.replace(/<u\b[^>]*>([\s\S]*?)<\/u>/gi, '$1');
+}
+
+/**
  * Convert definition list tags (<dl>, <dt>, <dd>) to paragraphs.
  * Definition lists are used by some publishers for author names, metadata, etc.
  * They're not supported in the editor, so convert <dt>/<dd> to <p> and strip <dl> wrappers.
