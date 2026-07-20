@@ -6,7 +6,7 @@
     "moduleCount": 360,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3446,
+    "edgeCount": 3447,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -20240,6 +20240,12 @@
       "source": "components/editButton/lock:checkEditPermissionsAndUpdateUI",
       "target": "components/editButton/lock:restoreEditButtonFromLock",
       "rel": "call"
+    },
+    {
+      "id": "components/editButton/lock:checkEditPermissionsAndUpdateUI__domwrite__dom",
+      "source": "components/editButton/lock:checkEditPermissionsAndUpdateUI",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "components/editButton/lock:replaceEditButtonWithLock__domwrite__dom",

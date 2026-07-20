@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1702 functions in 360 modules · 10 object stores · 10 PG tables · 3446 edges
+**MarkdownDB** schema v28 · 1702 functions in 360 modules · 10 object stores · 10 PG tables · 3447 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -46,7 +46,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `enforceEditableState` | `components/editButton/index` | — | — | read | — |
 | `initializeEditButtonListeners` | `components/editButton/index` | — | — | read/write | — |
 | `resetEditModeState` | `components/editButton/index` | — | — | — | — |
-| `checkEditPermissionsAndUpdateUI` | `components/editButton/lock` | — | — | read | — |
+| `checkEditPermissionsAndUpdateUI` | `components/editButton/lock` | — | — | read/write | — |
 | `replaceEditButtonWithLock` | `components/editButton/lock` | — | — | read/write | — |
 | `restoreEditButtonFromLock` | `components/editButton/lock` | — | — | read/write | — |
 | `updateEditButtonVisibility` | `components/editButton/lock` | — | — | read/write | — |

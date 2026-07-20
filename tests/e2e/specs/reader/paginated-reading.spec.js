@@ -183,15 +183,25 @@ test.describe('paginated reading mode', () => {
     // would union a page-spanning node's box across every page it crosses and pick
     // a node that began pages earlier, which the exit (rightly) scrolls PAST — so
     // capturing that way asserts a node the handoff never promised to keep in view.
+    // Mirror the paginator's fallback too: when the whole page is the MIDDLE of
+    // one page-spanning node (nothing STARTS here — happens when the saved
+    // anchor is deep inside a long paragraph), the exit anchors to that
+    // continuing node. Without this fallback the capture returns null and the
+    // assertion below fails on pages the exit handles correctly.
     const anchorId = await page.evaluate(() => {
       const w = document.querySelector('.reader-content-wrapper');
       const c = w.getBoundingClientRect();
+      let spanning = null;
       for (const el of document.querySelectorAll('.chunk > [id]')) {
         if (!/^\d+(\.\d+)?$/.test(el.id)) continue;
         const r = el.getClientRects()[0] || el.getBoundingClientRect();
         if (r.right > c.left + 1 && r.left < c.right - 1 && (r.width || r.height)) return el.id;
+        if (!spanning) {
+          const box = el.getBoundingClientRect();
+          if ((box.width || box.height) && box.right > c.left + 1 && box.left < c.right - 1) spanning = el.id;
+        }
       }
-      return null;
+      return spanning;
     });
     await page.click('#settingsButton');
     await page.waitForSelector('#scrollModeButton', { state: 'visible' });

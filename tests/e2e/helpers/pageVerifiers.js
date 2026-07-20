@@ -240,6 +240,16 @@ export async function verifyReaderPage(page, spa) {
   // user's book reached via a card or a book-to-book hypercite), where
   // #editButton is hidden/locked. That's a valid reader state, so skip the
   // toggle there rather than failing.
+  //
+  // The lock verdict is ASYNC (canUserEditBook: IDB read + a server
+  // confirmation on the can't-edit path) — probing before it settles races
+  // the lock swap and a click can hit a button that locks mid-click. Wait for
+  // the settled marker lock.ts sets after the check completes; fall through
+  // on timeout (e.g. button absent) and let the probe decide as before.
+  await page.waitForFunction(
+    () => document.getElementById('editButton')?.getAttribute('data-edit-perm-checked') === 'true',
+    null, { timeout: 10_000 },
+  ).catch(() => {});
   const editable = await page.evaluate(() => {
     const b = document.getElementById('editButton');
     if (!b) return false;

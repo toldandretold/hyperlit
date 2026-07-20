@@ -86,6 +86,7 @@ export async function updateEditButtonVisibility(bookId: any) {
 // Check if user has edit permissions and handle UI accordingly.
 export async function checkEditPermissionsAndUpdateUI() {
   const currentUser = await getCurrentUser();
+  void currentUser;
   const editBtn = document.getElementById("editButton");
 
   if (!editBtn) return;
@@ -94,6 +95,12 @@ export async function checkEditPermissionsAndUpdateUI() {
   if ((window as any).isEditing) {
     return;
   }
+
+  // The check below is ASYNC (IDB read; for a can't-edit verdict also a server
+  // confirmation) — until it settles the button renders in its default editable
+  // look and may still flip to the lock. Clear the settled marker so observers
+  // (e2e probes) don't trust a stale verdict from the previous book.
+  editBtn.removeAttribute('data-edit-perm-checked');
 
   // User is logged in - check permissions
   const canEdit = await canUserEditBook(book);
@@ -105,4 +112,7 @@ export async function checkEditPermissionsAndUpdateUI() {
     // User doesn't have permissions - show lock
     replaceEditButtonWithLock();
   }
+
+  // Re-query: replaceEditButtonWithLock clones the node to strip listeners.
+  document.getElementById("editButton")?.setAttribute('data-edit-perm-checked', 'true');
 }
