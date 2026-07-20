@@ -55,4 +55,7 @@
 @import url('../base/layout.css');
 /* After layout.css: paginated reading mode overrides the wrapper/main layout */
 @import url('../components/paginator.css');
+/* Custom scrollbar + minimap. Imported by every page entry that renders the bar
+   (reader here, plus home.css / user.css) — the bar runs on the home/user feeds
+   too once an arranger collection loads. */
 @import url('../components/customScrollbar.css');

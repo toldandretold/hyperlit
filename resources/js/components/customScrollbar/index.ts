@@ -87,6 +87,21 @@ let loader: LoaderLike | null = null;
 let boundWrapper: HTMLElement | null = null;
 let map: VirtualMap | null = null;
 
+/**
+ * Two binding modes:
+ *  - 'chunk': backed by a lazy loader (reader, or a home/user arranger
+ *    collection). The DOM is a ~7-chunk window, so position comes from the
+ *    virtual map + measured heights and scrubbing routes through the chunk-jump
+ *    machinery.
+ *  - 'plain': the home/user FEED/hero wrapper (`.welcome-copy` etc.) — ordinary
+ *    scrollable DOM with NO lazy loader. The whole content is present, so the
+ *    thumb maps straight to scrollTop and scrubbing just sets scrollTop. No map,
+ *    no measurement, no minimap.
+ */
+let mode: 'chunk' | 'plain' | null = null;
+/** The bound identity for rebind-detection: the loader (chunk) or wrapper (plain). */
+let boundTarget: unknown = null;
+
 let scrollHandler: (() => void) | null = null;
 let windowListeners: Array<[string, EventListener]> = [];
 let chunkObserver: MutationObserver | null = null;
@@ -301,14 +316,22 @@ function noteScrollActivity(): void {
 
 function updateVisibility(): void {
   if (!root) return;
-  const onReader = document.body.getAttribute('data-page') === 'reader';
-  const show =
-    onReader &&
-    !!loader &&
-    !!map &&
-    map.totalHeight > 0 &&
-    !isPaginatorEngaged() &&
-    !isEditing();
+  const page = document.body.getAttribute('data-page');
+  const onScrollbarPage = page === 'reader' || page === 'home' || page === 'user';
+  // Content must overflow the viewport, else there's nothing to scroll — hide
+  // the bar like a native scrollbar would.
+  let show = false;
+  if (onScrollbarPage && !!boundWrapper && !isPaginatorEngaged() && !isEditing()) {
+    if (mode === 'plain') {
+      show = boundWrapper.isConnected && boundWrapper.scrollHeight > boundWrapper.clientHeight + 4;
+    } else if (mode === 'chunk') {
+      show =
+        !!loader &&
+        loader.container.isConnected && // collection swapped away (home→feed) → stale, hide
+        !!map &&
+        map.totalHeight > boundWrapper.clientHeight + 4;
+    }
+  }
   root.hidden = !show;
   if (!show) minimap?.hide();
   updateFade();
@@ -316,21 +339,45 @@ function updateVisibility(): void {
 
 // ── loader binding ──────────────────────────────────────────────────────────
 
-/** The paginator's resolveReaderLoader guard: main reader loader only. */
+/** The bar's scroll wrappers: the reader, plus the home/user feed wrappers once
+ *  an arranger collection loads chunk-windowed content into them. Sub-book /
+ *  hyperlit-container scrollers are excluded (not one of these three). */
+const BAR_WRAPPERS = ['reader-content-wrapper', 'home-content-wrapper', 'user-content-wrapper'];
+
 function resolveReaderLoader(): LoaderLike | null {
   const candidate = currentLazyLoader as LoaderLike | null;
-  if (!candidate?.container) return null;
+  // isConnected: when a home/user feed closes back to the hero, the collection's
+  // .main-content is removed but currentLazyLoader may still point at it — treat
+  // that as no loader so plain mode can take over.
+  if (!candidate?.container || !candidate.container.isConnected) return null;
   const parent = candidate.scrollableParent;
-  if (!(parent instanceof HTMLElement) || !parent.classList.contains('reader-content-wrapper')) {
-    return null; // sub-book / home / user loaders never get the bar
+  if (!(parent instanceof HTMLElement) || !BAR_WRAPPERS.some((c) => parent.classList.contains(c))) {
+    return null;
   }
   return candidate;
+}
+
+/**
+ * The home/user FEED/hero wrapper when it's plain scrollable DOM with NO lazy
+ * loader (the `.welcome-copy` marketing scroll, or any non-chunked feed). Reader
+ * always has a loader, so plain mode never applies there.
+ */
+function resolvePlainWrapper(): HTMLElement | null {
+  const page = document.body.getAttribute('data-page');
+  if (page !== 'home' && page !== 'user') return null;
+  const sel = page === 'home' ? '.home-content-wrapper' : '.user-content-wrapper';
+  const w = document.querySelector<HTMLElement>(sel);
+  if (!w || !w.isConnected) return null;
+  if (w.scrollHeight <= w.clientHeight + 4) return null; // nothing to scroll yet
+  return w;
 }
 
 function unbindLoader(): void {
   if (boundWrapper && scrollHandler) {
     boundWrapper.removeEventListener('scroll', scrollHandler);
   }
+  // Hand the native scrollbar back to the feed wrapper we were replacing.
+  boundWrapper?.classList.remove('custom-scrollbar-owned');
   scrollHandler = null;
   chunkObserver?.disconnect();
   chunkObserver = null;
@@ -340,6 +387,8 @@ function unbindLoader(): void {
   loader = null;
   boundWrapper = null;
   map = null;
+  mode = null;
+  boundTarget = null;
   lastCommittedIdx = null;
   lastCommittedV = null;
   queuedJump = null;
@@ -352,43 +401,76 @@ function unbindLoader(): void {
   scrollActive = false;
 }
 
-function bindLoader(): void {
-  bindGeneration++;
-  unbindLoader();
+/** The element the bar SHOULD be bound to right now (loader wins over plain wrapper). */
+function currentTarget(): LoaderLike | HTMLElement | null {
+  return resolveReaderLoader() ?? resolvePlainWrapper();
+}
 
-  const candidate = resolveReaderLoader();
-  if (!candidate) {
-    updateVisibility();
-    return;
-  }
-  loader = candidate;
-  boundWrapper = candidate.scrollableParent as HTMLElement;
+/**
+ * (Re)bind ONLY when the active target actually changed. Home/user content swaps
+ * (arranger collection load, or feed↔hero) happen WITHOUT a ButtonRegistry
+ * re-init, so nothing calls bindLoader — but the arranger dispatches a `resize`
+ * afterward (and `contentUpdated` fires on server-changed refreshes). Both route
+ * here; cheap on ordinary window resizes (same target → no-op).
+ */
+function maybeRebind(): void {
+  if (currentTarget() !== boundTarget) bindLoader();
+}
 
+/** Chrome-fade observer + the wrapper scroll listener — shared by both modes. */
+function wireWrapperListeners(): void {
+  if (!boundWrapper) return;
+  boundWrapper.classList.add('custom-scrollbar-owned'); // re-hide the native bar we replace
   scrollHandler = () => {
     noteScrollActivity();
     if (!syncRaf) syncRaf = requestAnimationFrame(syncThumb);
   };
   boundWrapper.addEventListener('scroll', scrollHandler, { passive: true });
-
-  // Cheap cache invalidation: the loaded-chunk element list changes only on
-  // childList mutations of the container (chunk insert/remove).
-  chunkObserver = new MutationObserver(() => {
-    chunkElsCache = null;
-    if (!syncRaf) syncRaf = requestAnimationFrame(syncThumb);
-  });
-  chunkObserver.observe(candidate.container, { childList: true });
-
-  // Follow tap-to-hide chrome: no scroll event fires when the user taps the
-  // page to hide the buttons, so visibility must react to the class change.
   const cluster = document.getElementById('bottom-right-buttons');
   if (cluster) {
     perimeterObserver = new MutationObserver(() => updateVisibility());
     perimeterObserver.observe(cluster, { attributes: true, attributeFilter: ['class'] });
   }
-
   updateGeometry();
-  scheduleRebuild(0);
-  verbose.init(`customScrollbar bound to book ${candidate.bookId}`, SRC);
+}
+
+function bindLoader(): void {
+  bindGeneration++;
+  unbindLoader();
+
+  const candidate = resolveReaderLoader();
+  if (candidate) {
+    mode = 'chunk';
+    boundTarget = candidate;
+    loader = candidate;
+    boundWrapper = candidate.scrollableParent as HTMLElement;
+    wireWrapperListeners();
+    // Loaded-chunk element list changes only on childList mutations (chunk in/out).
+    chunkObserver = new MutationObserver(() => {
+      chunkElsCache = null;
+      if (!syncRaf) syncRaf = requestAnimationFrame(syncThumb);
+    });
+    chunkObserver.observe(candidate.container, { childList: true });
+    scheduleRebuild(0);
+    verbose.init(`customScrollbar bound (chunk) to book ${candidate.bookId}`, SRC);
+    return;
+  }
+
+  const plain = resolvePlainWrapper();
+  if (plain) {
+    // Plain-DOM mode: the whole content is present, so scrubbing scrolls the real
+    // DOM directly — no map, no measurement, no minimap, no chunk machinery.
+    mode = 'plain';
+    boundTarget = plain;
+    boundWrapper = plain;
+    wireWrapperListeners();
+    if (!syncRaf) syncRaf = requestAnimationFrame(syncThumb);
+    updateVisibility();
+    verbose.init('customScrollbar bound (plain DOM) to a feed wrapper', SRC);
+    return;
+  }
+
+  updateVisibility();
 }
 
 // ── virtual map lifecycle ───────────────────────────────────────────────────
@@ -498,13 +580,31 @@ function harvestVisibleChunks(chunkEls: HTMLElement[]): void {
   if (added > 0) scheduleRebuild(1000);
 }
 
+/** Plain-DOM thumb sync: scrollTop maps straight to the track (no virtual map). */
+function syncThumbPlain(): void {
+  if (!thumb || !boundWrapper) return;
+  const sh = boundWrapper.scrollHeight;
+  const ch = boundWrapper.clientHeight;
+  const range = sh - ch;
+  thumbH = Math.min(trackH, Math.max(MIN_THUMB_PX, sh > 0 ? (trackH * ch) / sh : trackH));
+  const frac = range > 0 ? Math.min(1, Math.max(0, boundWrapper.scrollTop / range)) : 0;
+  thumbTop = frac * (trackH - thumbH);
+  thumb.style.height = `${thumbH}px`;
+  thumb.style.transform = `translateY(${thumbTop}px)`;
+}
+
 function syncThumb(): void {
   syncRaf = 0;
-  if (!root || !thumb || !loader || !boundWrapper) return;
+  if (!root || !thumb || !boundWrapper) return;
   updateVisibility();
   if (root.hidden || scrubbing) return;
-  if (!map) return;
   updateGeometry(); // cheap when unchanged; tracks the settling button clusters
+
+  if (mode === 'plain') {
+    syncThumbPlain();
+    return;
+  }
+  if (!loader || !map) return;
 
   if (isMapStale(map, loader.nodes)) scheduleRebuild();
 
@@ -584,7 +684,24 @@ function vPosOfThumbTop(top: number): number {
   return range > 0 ? (Math.min(range, Math.max(0, top)) / range) * scrollableVirtual : 0;
 }
 
+/** Plain-DOM scrub: set scrollTop directly, live — the whole content is present,
+ *  so there's no chunk machinery to route through. */
+function scrubToPlain(top: number): void {
+  if (!thumb || !boundWrapper) return;
+  const clamped = Math.min(Math.max(0, top), Math.max(0, trackH - thumbH));
+  thumbTop = clamped;
+  thumb.style.transform = `translateY(${clamped}px)`;
+  const range = boundWrapper.scrollHeight - boundWrapper.clientHeight;
+  const thumbRange = trackH - thumbH;
+  const frac = thumbRange > 0 ? clamped / thumbRange : 0;
+  boundWrapper.scrollTop = frac * range;
+}
+
 function scrubTo(top: number): void {
+  if (mode === 'plain') {
+    scrubToPlain(top);
+    return;
+  }
   if (!map || !thumb) return;
   const clamped = Math.min(Math.max(0, top), Math.max(0, trackH - thumbH));
   thumbTop = clamped;
@@ -613,7 +730,8 @@ function schedulePaint(spanCenter: number, bandTop: number): void {
 }
 
 function onPointerDown(e: PointerEvent): void {
-  if (!root || !thumb || !map || root.hidden) return;
+  // Plain mode has no map; chunk mode requires one.
+  if (!root || !thumb || root.hidden || (mode === 'chunk' && !map) || mode === null) return;
   e.preventDefault();
   try {
     root.setPointerCapture(e.pointerId);
@@ -628,7 +746,7 @@ function onPointerDown(e: PointerEvent): void {
   if (e.pointerType === 'touch') {
     (navigator as { vibrate?: (ms: number) => boolean }).vibrate?.(8);
   }
-  minimap?.show();
+  if (mode === 'chunk') minimap?.show(); // no preview in plain mode (no node data)
 
   const isOnThumb = e.target === thumb;
   dragStartY = e.clientY;
@@ -646,7 +764,7 @@ function onPointerMove(e: PointerEvent): void {
     scrubTo(dragStartThumbTop + (e.clientY - dragStartY));
     return;
   }
-  if (hovering && map) {
+  if (hovering && map && mode === 'chunk') {
     // Hover preview without dragging: peek at the hovered position.
     const frac = trackH > 0 ? Math.min(1, Math.max(0, (e.clientY - barTop) / trackH)) : 0;
     const v = frac * map.totalHeight;
@@ -846,6 +964,9 @@ export function initCustomScrollbar(): void {
 
   if (windowListeners.length === 0) {
     addWindowListener('resize', () => {
+      // The arranger fires a `resize` right after loading a home/user collection
+      // (homepageDisplayUnit) — the one reliable hook to bind the new loader.
+      maybeRebind();
       if (resizeDebounce) clearTimeout(resizeDebounce);
       resizeDebounce = setTimeout(() => {
         resizeDebounce = null;
@@ -868,6 +989,9 @@ export function initCustomScrollbar(): void {
     addWindowListener('readingmodechange', modeChanged);
     addWindowListener('backgroundDownloadComplete', () => scheduleRebuild(0));
     addWindowListener('pointerdown', onDocumentPointerDown);
+    // contentUpdated fires only on a server-changed refresh (loadHyperText) —
+    // a secondary rebind hook alongside the arranger's resize.
+    addWindowListener('contentUpdated', () => maybeRebind());
   }
 
   // Every reader entry (full load or SPA nav): bind once the first chunk is in
@@ -875,6 +999,14 @@ export function initCustomScrollbar(): void {
   pendingFirstChunkLoadedPromise
     ?.then(() => bindLoader())
     .catch(() => {});
+
+  // Plain-DOM (home/user hero/feed) has no chunk promise — bind once layout is
+  // ready so the scrollable wrapper is measurable. maybeRebind is a no-op if the
+  // chunk promise above already bound a loader. A couple of retries cover the
+  // wrapper becoming scrollable late (web-font swap, lava-lamp layout settle).
+  requestAnimationFrame(() => maybeRebind());
+  window.setTimeout(() => maybeRebind(), 500);
+  window.setTimeout(() => maybeRebind(), 1500);
 }
 
 export function destroyCustomScrollbar(): void {

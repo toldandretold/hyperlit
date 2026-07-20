@@ -18,6 +18,13 @@ class UserPreferencesController extends Controller
         'reading_mode_mobile', 'reading_mode_desktop',
     ];
 
+    // Device-scoped base keys. The client only ever WRITES the suffixed variant
+    // (savePreference in utilities/preferences.ts appends _mobile/_desktop), so a
+    // clear of the base key must also clear those variants — otherwise the stored
+    // device pref is un-clearable and leaks forever (poisons cold-boot reading
+    // mode + defeats the e2e self-heal in auth.setup.js).
+    private const DEVICE_SCOPED = ['reading_mode', 'text_size', 'content_width'];
+
     public function show(Request $request): JsonResponse
     {
         return response()->json($request->user()->preferences ?? []);
@@ -32,7 +39,11 @@ class UserPreferencesController extends Controller
 
         foreach ($incoming as $key => $value) {
             if (is_null($value)) {
-                unset($current[$key]);
+                // Clearing a device-scoped base key clears its _mobile/_desktop
+                // variants too (the client writes those, never the base key).
+                foreach ($this->clearTargets($key) as $target) {
+                    unset($current[$target]);
+                }
             } else {
                 $current[$key] = $value;
             }
@@ -49,5 +60,20 @@ class UserPreferencesController extends Controller
         }
 
         return response()->json($current);
+    }
+
+    /**
+     * Keys to unset when clearing $key: a device-scoped base key expands to
+     * itself plus its _mobile/_desktop variants; everything else is just itself.
+     *
+     * @return string[]
+     */
+    private function clearTargets(string $key): array
+    {
+        if (in_array($key, self::DEVICE_SCOPED, true)) {
+            return [$key, "{$key}_mobile", "{$key}_desktop"];
+        }
+
+        return [$key];
     }
 }

@@ -177,13 +177,18 @@ test.describe('paginated reading mode', () => {
     const afterTurn = await page.evaluate(() => Math.round(document.querySelector('.reader-content-wrapper').scrollLeft));
     expect(afterTurn - beforeTurn, 'ArrowRight moves exactly one stride').toBe(stride);
 
-    // Anchor round-trip back to scroll mode.
+    // Anchor round-trip back to scroll mode. Capture the node that STARTS on
+    // the current page via its first client rect (the fragment where it begins)
+    // — the SAME criterion the paginator's exit anchor uses. getBoundingClientRect
+    // would union a page-spanning node's box across every page it crosses and pick
+    // a node that began pages earlier, which the exit (rightly) scrolls PAST — so
+    // capturing that way asserts a node the handoff never promised to keep in view.
     const anchorId = await page.evaluate(() => {
       const w = document.querySelector('.reader-content-wrapper');
       const c = w.getBoundingClientRect();
       for (const el of document.querySelectorAll('.chunk > [id]')) {
         if (!/^\d+(\.\d+)?$/.test(el.id)) continue;
-        const r = el.getBoundingClientRect();
+        const r = el.getClientRects()[0] || el.getBoundingClientRect();
         if (r.right > c.left + 1 && r.left < c.right - 1 && (r.width || r.height)) return el.id;
       }
       return null;

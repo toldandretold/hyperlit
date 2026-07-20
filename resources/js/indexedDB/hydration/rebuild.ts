@@ -33,7 +33,11 @@ export async function rebuildNodeArrays(
   { skipWrite = false }: { skipWrite?: boolean } = {},
 ): Promise<void> {
   if (!nodes || nodes.length === 0) {
-    log.error('rebuildNodeArrays: No nodes provided', '/indexedDB/hydration/rebuild.ts');
+    // Benign no-op: several callers compute an "affected nodes" set that the
+    // book-filter (parent/sub-book node_id collision) or a first-chunk-miss race
+    // can legitimately empty. "Nothing to rebuild" is a normal outcome, not an
+    // error — keep it out of console.error so it doesn't trip the e2e gate.
+    verbose.content('rebuildNodeArrays: no nodes to rebuild', 'indexedDB/hydration/rebuild');
     return;
   }
 

@@ -272,6 +272,12 @@ test.describe('Footnote integrity — reproduction harness', () => {
       throw new Error('D: no rendered footnote sup to delete');
     }
     await page.keyboard.press('Delete');
+    // Deleting a selection that contains a footnote now raises a guard dialog
+    // ("Selection contains: footnote(s) N. Delete anyway?", selectionDelete.ts)
+    // — confirm it so the deletion actually proceeds.
+    const deleteConfirm = page.locator('.app-dialog-overlay [data-act="confirm"]');
+    await deleteConfirm.waitFor({ state: 'visible', timeout: 5000 });
+    await deleteConfirm.click();
     await page.waitForTimeout(800);
     await checkpoint(page, bookId, 'D_after_delete_mid');
 

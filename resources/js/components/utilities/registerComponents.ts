@@ -358,7 +358,9 @@ export function registerAllComponents() {
     name: 'customScrollbar',
     initFn: initCustomScrollbar,
     destroyFn: destroyCustomScrollbar,
-    pages: ['reader'],
+    // home/user: plain-DOM mode drives the feed/hero scroll; chunk mode engages
+    // once an arranger collection loads a lazy loader into the wrapper.
+    pages: ['reader', 'home', 'user'],
     dependencies: [],
     required: false
   });

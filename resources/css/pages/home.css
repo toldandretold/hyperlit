@@ -52,3 +52,6 @@
 @import url('../components/alert.css');
 @import url('../base/layout.css');
 @import url('../components/homepage.css');
+/* Custom scrollbar engages once an arranger collection loads a lazy loader into
+   the home feed wrapper (native scrollbar in the bare feed). */
+@import url('../components/customScrollbar.css');

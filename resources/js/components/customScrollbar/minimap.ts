@@ -69,6 +69,9 @@ const BOOK_SPAN_FRACTION = 6;
  * edge — acceptable, and it converges as measurement proceeds.
  */
 const BAND_FRACTION = 1.0;
+/** Floor for the shrink-to-content canvas height (a tiny book still needs a
+ *  legible strip; the bar itself hides entirely when content can't scroll). */
+const MIN_CANVAS = 60;
 const PAD_X = 7;
 const GUTTER_LIGHT = 6; // px from right edge — hyperlight ticks
 const GUTTER_CITE = 13; // second gutter — hypercite ticks
@@ -228,10 +231,23 @@ export function createMinimap(hooks: MinimapHooks): MinimapController {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const cssH = Math.min(
-      Math.max(120, Math.round(window.innerHeight * 0.6)),
-      Math.max(120, Math.round(anchor.barHeight)),
+    const span = Math.min(
+      map.totalHeight,
+      Math.max(1, viewportVirtual * SPAN_VIEWPORTS, map.totalHeight / BOOK_SPAN_FRACTION),
     );
+
+    // Shrink-to-content: render every book at ONE density (what a full lens
+    // would give) and let the canvas be SHORTER when there's less content,
+    // instead of stretching a short book to fill a fixed-height canvas — that
+    // stretch is what made paragraphs render as sparse "empty slots".
+    const cssHMax = Math.min(
+      Math.max(MIN_CANVAS, Math.round(window.innerHeight * 0.6)),
+      Math.max(MIN_CANVAS, Math.round(anchor.barHeight)),
+    );
+    const maxScale = cssHMax / Math.max(1, viewportVirtual * SPAN_VIEWPORTS);
+    const cssH = Math.min(cssHMax, Math.max(MIN_CANVAS, span * maxScale));
+    const scale = cssH / span;
+
     const dpr = window.devicePixelRatio || 1;
     if (canvas.width !== CSS_WIDTH * dpr || canvas.height !== cssH * dpr) {
       canvas.width = CSS_WIDTH * dpr;
@@ -248,15 +264,10 @@ export function createMinimap(hooks: MinimapHooks): MinimapController {
     );
     canvas.style.top = `${top}px`;
 
-    const span = Math.min(
-      map.totalHeight,
-      Math.max(1, viewportVirtual * SPAN_VIEWPORTS, map.totalHeight / BOOK_SPAN_FRACTION),
-    );
     const spanTop = Math.min(
       Math.max(0, vCenter - span / 2),
       Math.max(0, map.totalHeight - span),
     );
-    const scale = cssH / span;
     lastLayout = { spanTop, span, cssH };
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

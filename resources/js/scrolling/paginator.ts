@@ -214,18 +214,38 @@ function lastNodeElement(): HTMLElement | null {
   return els[els.length - 1] ?? null;
 }
 
-/** First node element visible on the current page (the paginated anchor). */
+/**
+ * The paginated anchor: the node that STARTS on the current page, matched by its
+ * first client rect (the fragment where it begins), NOT getBoundingClientRect —
+ * the same union-box hazard pageOfElement guards against. A node longer than a
+ * page unions across every page it spans, so its bounding box "intersects" the
+ * current page even when it began pages earlier; anchoring to it made the
+ * Pages→Scroll exit undershoot to that earlier node.
+ *
+ * Fallback: if NO node starts on this page (the whole page is the middle of one
+ * page-spanning node), use that continuing node's bounding box so exit still
+ * anchors inside the content being read rather than jumping to the top.
+ */
 function firstElementOnCurrentPage(): HTMLElement | null {
   if (!wrapper) return null;
   const wrapRect = wrapper.getBoundingClientRect();
+  let spanning: HTMLElement | null = null;
   for (const el of nodeElements()) {
-    const rect = el.getBoundingClientRect();
-    if (rect.width === 0 && rect.height === 0) continue;
-    if (rect.right > wrapRect.left + 1 && rect.left < wrapRect.right - 1) {
-      return el;
+    const first = el.getClientRects()[0] ?? el.getBoundingClientRect();
+    if (first.width === 0 && first.height === 0) continue;
+    if (first.right > wrapRect.left + 1 && first.left < wrapRect.right - 1) {
+      return el; // node begins on this page — the true anchor
+    }
+    // Remember the first node whose BODY (some fragment) covers this page, in
+    // case nothing starts here.
+    if (!spanning) {
+      const box = el.getBoundingClientRect();
+      if ((box.width || box.height) && box.right > wrapRect.left + 1 && box.left < wrapRect.right - 1) {
+        spanning = el;
+      }
     }
   }
-  return null;
+  return spanning;
 }
 
 // ── Page application ───────────────────────────────────────────────────────

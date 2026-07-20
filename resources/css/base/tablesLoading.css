@@ -63,6 +63,32 @@ div::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
 
+/* Home/user FEED state: give the native scrollbar back (these are card feeds,
+   not chunk-windowed book content, so the custom whole-book bar doesn't apply).
+   Once an arranger collection loads a lazy loader into the wrapper, the custom
+   scrollbar component adds `custom-scrollbar-owned` to re-hide the native one it
+   replaces. The reader wrapper is untouched — globally hidden, custom bar only. */
+.home-content-wrapper,
+.user-content-wrapper {
+  -ms-overflow-style: auto;
+  scrollbar-width: auto;
+}
+
+.home-content-wrapper::-webkit-scrollbar,
+.user-content-wrapper::-webkit-scrollbar {
+  display: block;
+  width: 10px;
+}
+
+.custom-scrollbar-owned {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.custom-scrollbar-owned::-webkit-scrollbar {
+  display: none;
+}
+
 /* Use ::before to show the placeholder text */
 .temp-text:empty::before {
     content: attr(data-placeholder);
