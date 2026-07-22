@@ -330,6 +330,19 @@ class DbHyperlightController extends Controller
                         }
                     }
 
+                    // Save-time reconciliation: strip charData entries that are provably
+                    // impossible against the stored node content, so a stale client copy
+                    // can't re-introduce server-pruned fossils on every sync.
+                    if ($bookId) {
+                        try {
+                            $item = \App\Services\Annotations\StaleCharDataPruner::pruneIncomingItem($bookId, $item);
+                        } catch (\Throwable $e) {
+                            Log::warning('Incoming charData prune failed (non-fatal)', [
+                                'book' => $bookId, 'error' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+
                     Log::info("Processing hyperlight for upsert", [
                         'hyperlight_id' => $item['hyperlight_id'] ?? 'N/A',
                         'annotation_value' => $item['annotation'] ?? '---NULL OR NOT SET---'

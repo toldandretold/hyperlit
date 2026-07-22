@@ -262,7 +262,14 @@ export function createChunkElement(nodes: NodeRecord[], instance: any) {
     // Pass the node's startLine + bookId so any mutation triggers a deferred
     // write-back to IDB (render-time self-heal — keeps stored content in sync
     // with the map even when no renumber has fired this session).
-    applyDynamicFootnoteNumbers(temp, { startLine: node.startLine, bookId: node.book });
+    // Offscreen measurement copies (customScrollbar height sweep) still get the
+    // corrected numbers for accurate heights, but must NEVER queue the write-back:
+    // the heal persists from the LIVE DOM, which an offscreen render doesn't touch,
+    // so it can't converge — sweep → heal-save → sweep looped forever on stale books.
+    applyDynamicFootnoteNumbers(
+      temp,
+      instance.offscreen ? {} : { startLine: node.startLine, bookId: node.book },
+    );
 
     // 📐 MATH RENDERING: Render LaTeX math via KaTeX
     renderMathElements(temp);

@@ -29,6 +29,15 @@ import { verbose } from '../../utilities/logger';
 /** measured height per node, keyed by (startLine, content length, layout width/font). */
 const cache = new Map<string, number>();
 
+/**
+ * Chunks the offscreen sweep has already rendered+measured, keyed
+ * `${widthKey}|${chunkId}`. A chunk whose node(s) yield no measurement (empty
+ * render, zero height) would otherwise qualify as "unmeasured" on every
+ * restarted sweep and be re-rendered forever — one attempt per layout is
+ * enough; unmeasured nodes stay covered by the estimator (like image nodes).
+ */
+const sweptChunks = new Set<string>();
+
 export function makeWidthKey(contentWidth: number, fontSize: number): string {
   return `${Math.round(contentWidth)}x${Math.round(fontSize * 10)}`;
 }
@@ -48,6 +57,7 @@ export function measuredCount(): number {
 
 export function clearMeasurements(): void {
   cache.clear();
+  sweptChunks.clear();
 }
 
 interface NodeSpan {
@@ -201,11 +211,14 @@ export async function startIdleSweep(opts: SweepOptions): Promise<void> {
 
   const step = (): void => {
     if (generation !== sweepGeneration) return;
-    // Next chunk with at least one unmeasured, non-image node.
+    // Next not-yet-swept chunk with at least one unmeasured, non-image node.
     let chunkNodes: NodeRecord[] | null = null;
+    let chunkKey: string | null = null;
     while (queue.length > 0) {
       const id = queue.shift();
       if (id === undefined) break;
+      const key = `${opts.widthKey}|${id}`;
+      if (sweptChunks.has(key)) continue;
       const candidates = byChunk.get(id);
       if (!candidates) continue;
       if (
@@ -214,6 +227,7 @@ export async function startIdleSweep(opts: SweepOptions): Promise<void> {
         )
       ) {
         chunkNodes = candidates;
+        chunkKey = key;
         break;
       }
     }
@@ -226,25 +240,29 @@ export async function startIdleSweep(opts: SweepOptions): Promise<void> {
     const root = document.createElement('div');
     root.className = 'main-content';
     root.style.cssText = `position:absolute;left:-99999px;top:0;width:${opts.containerWidth}px;visibility:hidden;contain:layout style;`;
+    let added = 0;
     try {
       const neutered = chunkNodes.map((n) => ({
         ...n,
         content: typeof n.content === 'string' ? neuterImageSources(n.content) : n.content,
       }));
-      const chunkEl = createChunkElement(neutered as NodeRecord[], { bookId: opts.bookId }) as HTMLElement;
+      // offscreen: throwaway copy — render must be side-effect-free (no footnote
+      // self-heal write-backs; see chunkRender's applyDynamicFootnoteNumbers call).
+      const chunkEl = createChunkElement(neutered as NodeRecord[], { bookId: opts.bookId, offscreen: true }) as HTMLElement;
       chunkEl.removeAttribute('data-chunk-id');
       root.appendChild(chunkEl);
       document.body.appendChild(root);
       const spans = groupNodeSpans(chunkEl, chunkNodes);
-      const { added } = storeSpanHeights(spans, chunkEl.getBoundingClientRect().height, opts.widthKey, {
+      ({ added } = storeSpanHeights(spans, chunkEl.getBoundingClientRect().height, opts.widthKey, {
         skipImageNodes: true, // srcs are neutered — an unloaded <img> measures wrong
-      });
+      }));
       addedTotal += added;
     } finally {
       root.remove(); // NEVER survives the task — destructive .main-content queries exist
+      if (chunkKey) sweptChunks.add(chunkKey); // attempted, measured or not — never re-render it
     }
 
-    opts.onProgress(addedTotal);
+    if (added > 0) opts.onProgress(addedTotal); // a no-gain slice must not schedule another rebuild→sweep round
     idle(step);
   };
 

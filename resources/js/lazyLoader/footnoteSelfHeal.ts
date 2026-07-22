@@ -15,6 +15,15 @@ import { getDisplayNumber } from '../footnotes/FootnoteNumberingService';
 const _renderHealQueue = new Map<string, Set<string>>(); // bookId -> Set<startLine string>
 let _renderHealTimer: any = null;
 
+// One write-back attempt per (bookId, startLine) per session. The heal persists
+// from the LIVE DOM: when that DOM carries the same stale number (or the node
+// isn't rendered at all, so batch falls back to the existing record), the write
+// is a no-op and every future render of the chunk would re-queue it — an
+// infinite save loop that starves the debounced server sync (cloudRef stuck
+// orange). If one attempt doesn't converge, stop retrying; rebuildAndRenumber
+// remains the primary reconcile mechanism.
+const _healAttempted = new Set<string>(); // `${bookId}|${startLine}`
+
 function _scheduleRenderHealFlush() {
   if (_renderHealTimer || _renderHealQueue.size === 0) return;
   // setTimeout(0) defers until after the synchronous render task completes —
@@ -133,6 +142,9 @@ export function applyDynamicFootnoteNumbers(element: any, nodeContext: any = {})
   // content has the wrong number. Queue this node for write-back so future
   // integrity checks see DOM and IDB agreeing.
   if (mutatedThisNode && startLine != null && bookId) {
+    const attemptKey = `${bookId}|${startLine}`;
+    if (_healAttempted.has(attemptKey)) return;
+    _healAttempted.add(attemptKey);
     if (!_renderHealQueue.has(bookId)) {
       _renderHealQueue.set(bookId, new Set());
     }

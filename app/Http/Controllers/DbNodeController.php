@@ -8,6 +8,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
 use App\Models\PgNode;
+use App\Services\Annotations\StaleCharDataPruner;
 use App\Services\E2ee\EncryptedBookGuard;
 use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
@@ -673,6 +674,24 @@ class DbNodeController extends Controller
                         'saved_hypercites_count' => is_array($result?->hypercites) ? count($result->hypercites) : 'NOT_ARRAY',
                     ]);
                 }
+
+                // Save-time annotation reconciliation (mirrors bulkTargetedUpsert Phase 2b):
+                // prune charData entries the content just written makes provably impossible.
+                if ($hasPermission) {
+                    $savedNodeIds = [];
+                    foreach ($items as $item) {
+                        if (empty($item['_action']) && ! empty($item['node_id'])) {
+                            $savedNodeIds[] = $item['node_id'];
+                        }
+                    }
+                    try {
+                        StaleCharDataPruner::pruneStoredForNodes($bookId, $savedNodeIds);
+                    } catch (\Throwable $e) {
+                        Log::warning('Stale charData prune failed (non-fatal)', [
+                            'book' => $bookId, 'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
             }
 
             // Update preview_nodes for any sub-books that were modified
@@ -836,6 +855,22 @@ class DbNodeController extends Controller
                 if (! empty($toUpsert)) {
                     $upserted = $this->batchUpsert($bookId, $toUpsert);
                     $totalUpserted += $upserted;
+
+                    // Phase 2b: Save-time annotation reconciliation. The client can't
+                    // clean stale hyperlight/hypercite charData (a mark absent from its
+                    // DOM is ambiguous — gates, hidden anon highlights, toggles); the
+                    // server can: prune entries the content just written makes provably
+                    // impossible. Best-effort — never fails the sync.
+                    try {
+                        StaleCharDataPruner::pruneStoredForNodes(
+                            $bookId,
+                            array_values(array_filter(array_column($toUpsert, 'node_id')))
+                        );
+                    } catch (\Throwable $e) {
+                        Log::warning('Stale charData prune failed (non-fatal)', [
+                            'book' => $bookId, 'error' => $e->getMessage(),
+                        ]);
+                    }
                 }
 
                 // SYNC AUDIT: Snapshot after mutations
