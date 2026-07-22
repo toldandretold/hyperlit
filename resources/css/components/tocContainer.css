@@ -39,14 +39,22 @@
   right: 0;
   z-index: 3; /* above the scroller AND the mask-top fade */
   display: flex;
-  padding: 0.6em 2em 0.4em 1em; /* mirror the container's horizontal padding */
+  box-sizing: border-box;
+  /* EXACTLY the scroller's top clearance (footnoteTouchTargets.css padding-top:
+     3.2em) — the bar's hit area must cover the whole strip above the content,
+     else a mobile tap aimed at a tab can land just below the bar's box and
+     hit-test onto the first TOC link (the tap-through bug). */
+  height: 3.2em;
+  padding: 0.4em 2em 0.4em 1em; /* mirror the container's horizontal padding */
   background-color: var(--container-glass-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  touch-action: manipulation; /* no double-tap zoom / ghost-click delay */
 }
 
 .toc-tab-btn {
   flex: 1;
+  /* No height: stretch to the bar (flex default) → ~40px mobile tap targets. */
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
@@ -55,6 +63,7 @@
   font-size: 0.85em;
   padding: 0.35em 0.5em;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .toc-tab-btn.active {

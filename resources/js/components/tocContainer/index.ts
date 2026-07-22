@@ -98,6 +98,11 @@ function buildTabBar(container: HTMLElement): void {
     <button type="button" class="toc-tab-btn${activeTab === 'hyperlights' ? ' active' : ''}" role="tab" aria-selected="${activeTab === 'hyperlights'}" data-toc-tab="hyperlights">Hyperlights</button>
   `;
   bar.addEventListener('click', (event: Event) => {
+    // The bar owns its whole strip: swallow EVERY press that lands in it so a
+    // mobile tap can never fall through to a scroller link beneath or bubble
+    // into the container's delegated link handler.
+    event.preventDefault();
+    event.stopPropagation();
     const btn = (event.target as HTMLElement).closest('.toc-tab-btn') as HTMLElement | null;
     const tab = btn?.getAttribute('data-toc-tab') as 'contents' | 'hyperlights' | null;
     if (!btn || !tab || tab === activeTab) return;
