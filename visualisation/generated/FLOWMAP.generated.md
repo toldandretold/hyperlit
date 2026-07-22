@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1702 functions in 360 modules · 10 object stores · 10 PG tables · 3447 edges
+**MarkdownDB** schema v28 · 1721 functions in 365 modules · 10 object stores · 10 PG tables · 3511 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -872,7 +872,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `rebuildAndRenumber` | `footnotes/FootnoteNumberingService` | `nodes` | `nodes` | — | — |
 | `highlightTargetHypercite` | `hypercites/animations` | — | — | read/write | — |
 | `restoreNormalHyperciteDisplay` | `hypercites/animations` | — | — | read/write | — |
-| `revealGhostIfTombstone` | `hypercites/animations` | — | — | read/write | — |
+| `revealGhostIfTombstone` | `hypercites/animations` | — | — | read | — |
+| `spawnGhostBubble` | `hypercites/animations` | — | — | read/write | — |
 | `fallbackCopyText` | `hypercites/copy` | — | — | write | — |
 | `handleCopyEvent` | `hypercites/copy` | — | — | read/write | — |
 | `wrapSelectedTextInDOM` | `hypercites/copy` | — | — | read/write | — |
@@ -940,6 +941,20 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `formatRelativeTime` | `hyperlights/marks` | — | — | — | — |
 | `modifyNewMarks` | `hyperlights/marks` | — | — | read/write | — |
 | `unwrapMark` | `hyperlights/marks` | — | — | write | — |
+| `computeGhosted` | `hyperlights/myHighlights/ghost` | — | — | — | — |
+| `entryResolves` | `hyperlights/myHighlights/ghost` | — | — | — | — |
+| `isHighlightGhosted` | `hyperlights/myHighlights/ghost` | — | — | — | — |
+| `destroyGhostLedger` | `hyperlights/myHighlights/ghostLedger` | — | — | read/write | — |
+| `renderGhostLedger` | `hyperlights/myHighlights/ghostLedger` | — | — | read/write | — |
+| `scheduleGhostLedger` | `hyperlights/myHighlights/ghostLedger` | — | — | — | — |
+| `partitionGhosts` | `hyperlights/myHighlights/ghost` | `nodes` | — | — | — |
+| `getAdjacent` | `hyperlights/myHighlights/list` | — | — | — | — |
+| `getOwnedHighlightsForBook` | `hyperlights/myHighlights/list` | `hyperlights` | — | — | — |
+| `getPosition` | `hyperlights/myHighlights/list` | — | — | — | — |
+| `isOwnedHighlight` | `hyperlights/myHighlights/list` | — | — | — | — |
+| `resolveAnchorStartLine` | `hyperlights/myHighlights/list` | `nodes` | — | — | — |
+| `resolveDocumentPosition` | `hyperlights/myHighlights/list` | `nodes` | — | — | — |
+| `sortByDocumentOrder` | `hyperlights/myHighlights/list` | — | — | — | — |
 | `cleanupHighlightingControls` | `hyperlights/selectionToolbar` | — | — | read | — |
 | `handleSelection` | `hyperlights/selectionToolbar` | — | — | read/write | — |
 | `initializeHighlightingControls` | `hyperlights/selectionToolbar` | — | — | read | — |
@@ -965,6 +980,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `resetModuleState` | `hyperlitContainer/containerState` | — | — | — | — |
 | `restoreModuleState` | `hyperlitContainer/containerState` | — | — | — | — |
 | `saveModuleState` | `hyperlitContainer/containerState` | — | — | — | — |
+| `swapTopLayerContent` | `hyperlitContainer/containerSwap` | — | — | read/write | — |
 | `buildUnifiedContent` | `hyperlitContainer/contentBuild` | — | — | — | — |
 | `buildHyperciteCitationContent` | `hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation` | `library` | `library` | — | — |
 | `resolveButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation` | — | — | read/write | — |
@@ -1019,6 +1035,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `openReferenceContainer` | `hyperlitContainer/footnotesCitations` | — | — | — | — |
 | `hasFootnoteTapTarget` | `hyperlitContainer/footnoteTapExtender` | — | — | — | — |
 | `initFootnoteTapExtender` | `hyperlitContainer/footnoteTapExtender` | — | — | read | — |
+| `attachHighlightNavUI` | `hyperlitContainer/highlightNav` | — | — | read/write | — |
+| `openHighlightInPlace` | `hyperlitContainer/highlightNav` | `hyperlights` | — | read/write | — |
 | `buildContentFromMetadata` | `hyperlitContainer/history` | — | — | — | — |
 | `deriveMainAnchorId` | `hyperlitContainer/history` | — | — | — | — |
 | `determineSingleContentHash` | `hyperlitContainer/history` | — | — | — | — |
@@ -1212,6 +1230,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hydrateEncryptedImages` | `lazyLoader/encryptedImages` | — | — | read/write | — |
 | `restoreCanonicalImageSrcs` | `lazyLoader/encryptedImages` | — | — | — | — |
 | `applyDynamicFootnoteNumbers` | `lazyLoader/footnoteSelfHeal` | — | — | read/write | — |
+| `queueRenderHeal` | `lazyLoader/footnoteSelfHeal` | — | — | — | — |
 | `renderHarvestNetworks` | `lazyLoader/graphRenderer` | — | — | read/write | — |
 | `handleBrokenImages` | `lazyLoader/imageState` | — | — | read/write | — |
 | `createLazyLoader` | `lazyLoader/index` | `library` `localStorage` `sessionStorage` | `localStorage` `sessionStorage` | read/write | — |
@@ -1715,7 +1734,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 3 · dynamic cycle-breakers (debt): 3 · lazy-loads (code-split): 246
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 4 · dynamic cycle-breakers (debt): 4 · lazy-loads (code-split): 251
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1723,11 +1742,13 @@ Only *static-import* rings can crash with a TDZ "Cannot access X before initiali
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
 - (2 modules) `components/homepage/homepageDisplayUnit`, `components/shelves/shelfHeader`
 - (2 modules) `components/utilities/containerManager`, `hyperlitContainer/core`
+- (3 modules) `hyperlitContainer/containerSwap`, `hyperlitContainer/highlightNav`, `hyperlitContainer/postOpen`
 - (6 modules) `indexedDB/index`, `indexedDB/serverSync/loaders`, `indexedDB/serverSync/pull`, `indexedDB/syncQueue/master`, `indexedDB/syncQueue/selfConflictContentCheck`, `indexedDB/syncQueue/unload`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
 - `components/homepage/homepageDisplayUnit` → `components/shelves/shelfHeader`
 - `components/utilities/containerManager` → `hyperlitContainer/core`
+- `hyperlitContainer/postOpen` → `hyperlitContainer/highlightNav`
 - `indexedDB/syncQueue/selfConflictContentCheck` → `indexedDB/serverSync/pull`
 
 ### Lazy-loads (code-split points)
@@ -1831,6 +1852,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlights/createHighlight` → `hyperlitContainer/selectionContext`
 - `hyperlights/deleteHighlight` → `divEditor/index`
 - `hyperlights/deletion` → `lazyLoader/index`
+- `hyperlights/myHighlights/ghostLedger` → `hyperlights/utils`
 - `hyperlitContainer/brainQuery` → `components/userButton/userButton`
 - `hyperlitContainer/brainQuery` → `editToolbar/index`
 - `hyperlitContainer/brainQuery` → `hyperlights/deletion`
@@ -1841,6 +1863,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/containerListeners` → `divEditor/editSessionManager`
 - `hyperlitContainer/containerListeners` → `divEditor/index`
 - `hyperlitContainer/containerListeners` → `editToolbar/index`
+- `hyperlitContainer/containerSwap` → `hyperlitContainer/core`
 - `hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation` → `hyperlitContainer/utils`
 - `hyperlitContainer/contentBuilders/displayCitations/plainCitation` → `hyperlitContainer/utils`
 - `hyperlitContainer/contentBuilders/displayFootnotes` → `indexedDB/index`
@@ -1861,6 +1884,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/editMode` → `editToolbar/index`
 - `hyperlitContainer/editMode` → `hyperlitContainer/noteListener`
 - `hyperlitContainer/editMode` → `paste/index`
+- `hyperlitContainer/highlightNav` → `hyperlights/markGroup`
 - `hyperlitContainer/history` → `divEditor/editSessionManager`
 - `hyperlitContainer/history` → `divEditor/index`
 - `hyperlitContainer/history` → `hyperlitContainer/containerState`
@@ -1908,6 +1932,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `pageLoad/containerChain` → `hyperlitContainer/stack`
 - `pageLoad/initialChunk` → `pageLoad/accessGuards`
 - `pageLoad/lazyLoaderRegistry` → `hyperlights/index`
+- `pageLoad/lazyLoaderRegistry` → `hyperlights/myHighlights/ghostLedger`
 - `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/history`
 - `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/index`
 - `pageLoad/loadHyperText` → `SPA/navigation/resolveTargetChunk`

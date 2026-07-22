@@ -75,6 +75,12 @@ export function initializeMainLazyLoader() {
     bookId: book,
   }));
 
+  // Ghost-highlight ledger (deferred + idempotent; dynamic import keeps the
+  // hyperlights UI out of the eager reader bundle).
+  void import('../hyperlights/myHighlights/ghostLedger')
+    .then(({ scheduleGhostLedger }) => scheduleGhostLedger(book))
+    .catch(() => { /* enhancement only */ });
+
   return currentLazyLoader;
 }
 
@@ -158,6 +164,12 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: BookId
       isNavigatingToInternalId: !!targetId,
       onFirstChunkLoaded: getFirstChunkLoadedResolver()
     }));
+
+    // Ghost-highlight ledger (deferred + idempotent; dynamic import keeps the
+    // hyperlights UI out of the eager reader bundle).
+    void import('../hyperlights/myHighlights/ghostLedger')
+      .then(({ scheduleGhostLedger }) => scheduleGhostLedger(String(bookId)))
+      .catch(() => { /* enhancement only */ });
 
     // If the reader page server-rendered a chunk into the container (reader.blade.php emits the
     // target chunk as `.chunk[data-prerendered]` for SEO + instant paint), render THAT chunk

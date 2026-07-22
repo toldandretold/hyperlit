@@ -415,6 +415,45 @@ export async function batchDeleteIndexedDBRecords(
     try {
       const db = await openDatabase();
 
+      // Ghost-anchor pre-pass (BEFORE the readwrite tx, so the nodes are still
+      // present): for each deleted numeric id, find the nearest PRECEDING
+      // SURVIVING node's data-node-id. Tombstoned highlights store it as
+      // _ghost_anchor_node — node_ids never change under renumbering, so the
+      // ghost stays pinned to its neighborhood forever, unlike the frozen
+      // startLine number (which drifts as the book is renumbered around it).
+      const deletingNums = new Set(
+        uniqueIDnumericals.filter(id => NUMERIC_NODE_ID.test(String(id))).map(id => parseNodeId(id)),
+      );
+      const ghostAnchorByDeletedId = new Map<number, string>();
+      // deleted data-node-id → its numeric id, for re-anchoring ghosts whose
+      // EXISTING anchor is among the nodes deleted in this batch.
+      const numByDeletedNodeId = new Map<string, number>();
+      for (const [idNumerical, dataNodeId] of deletionMap) {
+        if (dataNodeId && NUMERIC_NODE_ID.test(String(idNumerical))) {
+          numByDeletedNodeId.set(dataNodeId, parseNodeId(idNumerical));
+        }
+      }
+      try {
+        const preTx = db.transaction('nodes', 'readonly');
+        const bookIdx = preTx.objectStore('nodes').index('book');
+        const bookNodes = await new Promise<NodeRecord[]>((resolve) => {
+          const req = bookIdx.getAll(IDBKeyRange.only(bookId));
+          req.onsuccess = () => resolve((req.result as NodeRecord[]) || []);
+          req.onerror = () => resolve([]);
+        });
+        const survivors = bookNodes
+          .filter(n => n.node_id && Number.isFinite(Number(n.startLine)) && !deletingNums.has(Number(n.startLine)))
+          .sort((a, b) => Number(a.startLine) - Number(b.startLine));
+        for (const deletedNum of deletingNums) {
+          let anchor: NodeRecord | null = null;
+          for (const n of survivors) {
+            if (Number(n.startLine) < deletedNum) anchor = n;
+            else break;
+          }
+          if (anchor?.node_id) ghostAnchorByDeletedId.set(deletedNum, anchor.node_id);
+        }
+      } catch { /* anchor is best-effort — tombstoning proceeds without it */ }
+
       const tx = db.transaction(
         ["nodes", "hyperlights", "hypercites"],
         "readwrite"
@@ -434,6 +473,12 @@ export async function batchDeleteIndexedDBRecords(
         hyperlights: [],
         hypercites: []
       };
+
+      // Single-node highlights whose only node is being deleted are NOT deleted —
+      // they are TOMBSTONED (charData -1/-1, the deterministic deleted-text marker
+      // shared with the server-side CharDataRecalculator) so the ghost system keeps
+      // them navigable. Collected here and synced as UPDATEs after the tx commits.
+      const tombstonedHyperlights: Array<{ tomb: HyperlightRecord; original: HyperlightRecord }> = [];
 
       let processedCount = 0;
       let errorCount = 0;
@@ -506,6 +551,26 @@ export async function batchDeleteIndexedDBRecords(
                         (highlight.node_id && Array.isArray(highlight.node_id) &&
                          highlight.node_id.some(dataNodeID => deletedDataNodeIDs.has(dataNodeID))); // NEW schema check
 
+                      // Re-anchor an existing GHOST whose anchor node is being deleted:
+                      // walk it up to the deleted anchor's own surviving predecessor
+                      // (already computed in the pre-pass), so the renumber-proof anchor
+                      // chain never dangles. No survivor → drop the anchor and let the
+                      // stored-startLine fallback take over.
+                      if (!affectsDeletedNode
+                          && highlight._ghost_anchor_node
+                          && deletedDataNodeIDs.has(highlight._ghost_anchor_node)) {
+                        const deletedAnchorNum = numByDeletedNodeId.get(highlight._ghost_anchor_node);
+                        const replacement = deletedAnchorNum !== undefined
+                          ? ghostAnchorByDeletedId.get(deletedAnchorNum)
+                          : undefined;
+                        if (replacement) {
+                          highlight._ghost_anchor_node = replacement;
+                        } else {
+                          delete highlight._ghost_anchor_node;
+                        }
+                        cursor.update(highlight);
+                      }
+
                       if (affectsDeletedNode) {
                         highlightsProcessed++;
 
@@ -525,25 +590,34 @@ export async function batchDeleteIndexedDBRecords(
                           // Save updated highlight (don't delete it!)
                           cursor.update(highlight);
                         } else {
-                          // Single-node highlight - OLD SYSTEM behavior (delete from OLD schema stores)
-                          if (deletedIDnumericals.has(startLineNum)) {
-                            deletedData.hyperlights.push(cursor.value); // Record for undo
-                            cursor.delete();
-                          } else {
-                            // Single-node in NEW schema - mark as orphaned
-                            highlight._orphaned_at = Date.now();
-                            highlight._orphaned_from_node = affectedDataNodeID || String(highlight.startLine ?? '');
-
-                            // Track deleted node for cleanup
-                            if (!highlight._deleted_nodes) {
-                              highlight._deleted_nodes = [];
-                            }
-                            if (affectedDataNodeID && !highlight._deleted_nodes.includes(affectedDataNodeID)) {
-                              highlight._deleted_nodes.push(affectedDataNodeID);
-                            }
-
-                            cursor.update(highlight);
+                          // Single-node highlight — its only node is being deleted.
+                          // NEVER destroy the record (this used to cursor.delete() +
+                          // queue a server delete, annihilating the highlight AND its
+                          // annotation sub-book — invisible to the ghost system).
+                          // Instead: TOMBSTONE every charData range at -1/-1 (the
+                          // deterministic deleted-text marker, same contract as the
+                          // server-side CharDataRecalculator), keep orphan bookkeeping,
+                          // and sync as an UPDATE so the server keeps the record too.
+                          // Ghost surfaces (arrows / ledger / 👻 bubble) read charStart<0.
+                          const original: HyperlightRecord = { ...highlight, charData: { ...(highlight.charData || {}) } };
+                          highlight._orphaned_at = Date.now();
+                          highlight._orphaned_from_node = affectedDataNodeID || String(highlight.startLine ?? '');
+                          // Renumber-proof position anchor: the nearest surviving
+                          // preceding node's data-node-id (see the pre-pass above).
+                          const ghostAnchor = ghostAnchorByDeletedId.get(startLineNum);
+                          if (ghostAnchor) highlight._ghost_anchor_node = ghostAnchor;
+                          if (!highlight._deleted_nodes) {
+                            highlight._deleted_nodes = [];
                           }
+                          if (affectedDataNodeID && !highlight._deleted_nodes.includes(affectedDataNodeID)) {
+                            highlight._deleted_nodes.push(affectedDataNodeID);
+                          }
+                          highlight.charData = highlight.charData || {};
+                          for (const nid of Object.keys(highlight.charData)) {
+                            highlight.charData[nid] = { charStart: -1, charEnd: -1 };
+                          }
+                          cursor.update(highlight);
+                          tombstonedHyperlights.push({ tomb: highlight, original });
                         }
                       }
 
@@ -657,6 +731,11 @@ export async function batchDeleteIndexedDBRecords(
           });
           deletedData.hyperlights.forEach((record) => {
             queueForSync("hyperlights", record.hyperlight_id, "delete", record);
+          });
+          // Tombstoned (not deleted) highlights: UPDATE sync keeps the server record —
+          // it becomes a ghost, never a deletion. originalData preserves undo.
+          tombstonedHyperlights.forEach(({ tomb, original }) => {
+            queueForSync("hyperlights", tomb.hyperlight_id, "update", tomb, original);
           });
           deletedData.hypercites.forEach((record) => {
             queueForSync("hypercites", record.hyperciteId, "delete", record);

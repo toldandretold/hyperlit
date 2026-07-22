@@ -64,6 +64,30 @@ function _scheduleRenderHealFlush() {
 }
 
 /**
+ * Queue a node for render-time self-heal write-back, reusing the same queue,
+ * one-attempt-per-(bookId,startLine)-per-session guard, and deferred flush the
+ * footnote heal uses. Callers detect that a chunk rendered stale stored content
+ * (e.g. a transient `audio-reading` class baked into the DB) and, after fixing
+ * the LIVE DOM, ask for the node to be re-persisted so IDB + Postgres converge.
+ *
+ * The one-attempt guard is load-bearing: it prevents the save loop that starves
+ * the debounced server sync (see the sweep×self-heal regression). Never call
+ * this for an offscreen render — the heal persists from the live DOM an
+ * offscreen copy never touches, so it can't converge.
+ */
+export function queueRenderHeal(bookId: any, startLine: any): void {
+  if (startLine == null || !bookId) return;
+  const attemptKey = `${bookId}|${startLine}`;
+  if (_healAttempted.has(attemptKey)) return;
+  _healAttempted.add(attemptKey);
+  if (!_renderHealQueue.has(bookId)) {
+    _renderHealQueue.set(bookId, new Set());
+  }
+  _renderHealQueue.get(bookId)!.add(String(startLine));
+  _scheduleRenderHealFlush();
+}
+
+/**
  * Apply dynamic footnote numbers to rendered HTML element.
  * Looks up display numbers from FootnoteNumberingService and updates
  * the fn-count-id attribute and link text.
@@ -141,14 +165,7 @@ export function applyDynamicFootnoteNumbers(element: any, nodeContext: any = {})
   // Render-time self-heal: any sup we just had to rewrite means IDB's stored
   // content has the wrong number. Queue this node for write-back so future
   // integrity checks see DOM and IDB agreeing.
-  if (mutatedThisNode && startLine != null && bookId) {
-    const attemptKey = `${bookId}|${startLine}`;
-    if (_healAttempted.has(attemptKey)) return;
-    _healAttempted.add(attemptKey);
-    if (!_renderHealQueue.has(bookId)) {
-      _renderHealQueue.set(bookId, new Set());
-    }
-    _renderHealQueue.get(bookId)!.add(String(startLine));
-    _scheduleRenderHealFlush();
+  if (mutatedThisNode) {
+    queueRenderHeal(bookId, startLine);
   }
 }

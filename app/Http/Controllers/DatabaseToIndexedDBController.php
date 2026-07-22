@@ -787,6 +787,12 @@ class DatabaseToIndexedDBController extends Controller
                     'highlightedHTML' => $hyperlight->highlightedHTML,
                     'highlightedText' => $hyperlight->highlightedText,
                     'startLine' => $hyperlight->startLine,
+                    // Ghost anchor (renumber-proof "lived after this node" ref, set by
+                    // the client at whole-node-deletion tombstone time; maintained
+                    // server-side by CharDataRecalculator::reanchorForDeletedNodes).
+                    // Served under the client's underscore-prefixed field name — the
+                    // IDB loader spreads the wire row wholesale.
+                    '_ghost_anchor_node' => $hyperlight->ghost_anchor_node ?? null,
                     'raw_json' => $rawJson,
                     'time_since' => $hyperlight->time_since,
                     'hidden' => (bool) ($hyperlight->hidden ?? false),

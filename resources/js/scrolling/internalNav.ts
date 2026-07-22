@@ -225,12 +225,16 @@ function isCitationRefTarget(id: string): boolean {
   return /^Ref\d/.test(id);
 }
 
-export function navigateToInternalId(targetId: string, lazyLoader: any, showOverlay = true, scrollOffset: number | null = null): Promise<any> {
+export function navigateToInternalId(targetId: string, lazyLoader: any, showOverlay = true, scrollOffset: number | null = null, opts: { suppressContainerOpen?: boolean } = {}): Promise<any> {
   if (!lazyLoader) {
     console.error("Lazy loader instance not provided!");
     return Promise.reject(new Error("Lazy loader instance not provided"));
   }
   targetId = toScrollTargetId(targetId);
+  // A caller that already owns an open hyperlit container (the prev/next arrow
+  // swap in hyperlitContainer/highlightNav) scrolls WITHOUT the auto-open below
+  // — otherwise the 200ms open would stack a second container over the swap.
+  (lazyLoader as any)._suppressContainerOpenFor = opts.suppressContainerOpen ? targetId : null;
   // Pin hypercite deep-link targets: the pinned set exempts them from the client gate and
   // rides every bulk fetch as `pinned=` so later re-syncs can't strip the record either.
   // (Harmless for ordinary couple/poly targets; essential for gated/'single' ones.)
@@ -811,8 +815,11 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
       verbose.nav('Element already visible and well-positioned - skipping scroll', 'scrolling/internalNav');
     }
 
-    // For highlights, open the container (cascade-origin is applied there)
-    if (targetId.startsWith('HL_')) {
+    // For highlights, open the container (cascade-origin is applied there) —
+    // unless the caller suppressed it (arrow-nav swap already owns the container).
+    const suppressOpen = (lazyLoader as any)._suppressContainerOpenFor === targetId;
+    (lazyLoader as any)._suppressContainerOpenFor = null;
+    if (targetId.startsWith('HL_') && !suppressOpen) {
       setTimeout(() => {
         verbose.nav(`Opening highlight after navigation: ${targetId}`, 'scrolling/internalNav');
         openHighlightById(targetId);

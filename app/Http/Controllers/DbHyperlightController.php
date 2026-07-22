@@ -348,29 +348,38 @@ class DbHyperlightController extends Controller
                         'annotation_value' => $item['annotation'] ?? '---NULL OR NOT SET---'
                     ]);
                     
+                    $values = [
+                        'sub_book_id' => ($bookId && isset($item['hyperlight_id']))
+                            ? SubBookIdHelper::build($bookId, $item['hyperlight_id'])
+                            : null,
+                        'node_id' => $item['node_id'] ?? null,
+                        'charData' => $item['charData'] ?? [],
+                        'highlightedText' => NodeHtmlSanitizer::clean($item['highlightedText'] ?? null),
+                        'highlightedHTML' => NodeHtmlSanitizer::clean($item['highlightedHTML'] ?? null),
+                        'annotation' => NodeHtmlSanitizer::clean($item['annotation'] ?? null),
+                        'preview_nodes' => $item['preview_nodes']
+                            ?? ($existingRecord ? $existingRecord->preview_nodes : null),
+                        'startLine' => $item['startLine'] ?? null,
+                        'creator' => $creator,
+                        'creator_token' => $creator_token,
+                        'time_since' => $item['time_since'] ?? floor(time()),
+                        'raw_json' => json_encode($this->cleanItemForStorage($item)),
+                        'updated_at' => now(),
+                    ];
+                    // Ghost anchor (whole-node-deletion tombstones): only written when
+                    // the payload CARRIES the key — an older client's record without it
+                    // must not wipe an existing anchor. The client field is the
+                    // underscore-prefixed IDB convention; the column has no underscore.
+                    if (array_key_exists('_ghost_anchor_node', $item) || array_key_exists('ghost_anchor_node', $item)) {
+                        $values['ghost_anchor_node'] = $item['_ghost_anchor_node'] ?? $item['ghost_anchor_node'] ?? null;
+                    }
+
                     PgHyperlight::updateOrCreate(
                         [
                             'book' => $item['book'] ?? null,
                             'hyperlight_id' => $item['hyperlight_id'] ?? null,
                         ],
-                        [
-                            'sub_book_id' => ($bookId && isset($item['hyperlight_id']))
-                                ? SubBookIdHelper::build($bookId, $item['hyperlight_id'])
-                                : null,
-                            'node_id' => $item['node_id'] ?? null,
-                            'charData' => $item['charData'] ?? [],
-                            'highlightedText' => NodeHtmlSanitizer::clean($item['highlightedText'] ?? null),
-                            'highlightedHTML' => NodeHtmlSanitizer::clean($item['highlightedHTML'] ?? null),
-                            'annotation' => NodeHtmlSanitizer::clean($item['annotation'] ?? null),
-                            'preview_nodes' => $item['preview_nodes']
-                                ?? ($existingRecord ? $existingRecord->preview_nodes : null),
-                            'startLine' => $item['startLine'] ?? null,
-                            'creator' => $creator,
-                            'creator_token' => $creator_token,
-                            'time_since' => $item['time_since'] ?? floor(time()),
-                            'raw_json' => json_encode($this->cleanItemForStorage($item)),
-                            'updated_at' => now(),
-                        ]
+                        $values
                     );
 
                     // When creating a new hyperlight, also create the sub-book library record

@@ -8,7 +8,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
 use App\Models\PgNode;
-use App\Services\Annotations\StaleCharDataPruner;
+use App\Services\Annotations\CharDataRecalculator;
 use App\Services\E2ee\EncryptedBookGuard;
 use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
@@ -488,6 +488,10 @@ class DbNodeController extends Controller
                 'total_items' => count($data['data']),
             ]);
 
+            // Pre-edit content per node, per book — captured before each save so the
+            // annotation recalculation can extract fragments from the OLD text.
+            $oldContentsByBook = [];
+
             // Process each book's items
             foreach ($itemsByBook as $bookId => $items) {
                 // E2EE backstop (docs/e2ee.md): an encrypted book only ever stores ciphertext.
@@ -505,7 +509,23 @@ class DbNodeController extends Controller
 
                     if (isset($item['_action']) && $item['_action'] === 'delete') {
                         if ($hasPermission) {
+                            // Capture the victim first — re-anchoring needs its node_id + position.
+                            $victim = PgNode::where('book', $item['book'])
+                                ->where('startLine', $item['startLine'])
+                                ->first(['node_id', 'startLine']);
                             PgNode::where('book', $item['book'])->where('startLine', $item['startLine'])->delete();
+                            if ($victim?->node_id) {
+                                try {
+                                    CharDataRecalculator::reanchorForDeletedNodes(
+                                        $bookId,
+                                        [$victim->node_id => $victim->startLine]
+                                    );
+                                } catch (\Throwable $e) {
+                                    Log::warning('Ghost re-anchor failed (non-fatal)', [
+                                        'book' => $bookId, 'error' => $e->getMessage(),
+                                    ]);
+                                }
+                            }
                         }
 
                         continue;
@@ -534,6 +554,11 @@ class DbNodeController extends Controller
                         'hypercites_raw' => $existingChunk ? $existingChunk->getAttributes()['hypercites'] ?? 'NULL_ATTR' : 'NO_CHUNK',
                         'hypercites_cast' => $existingChunk ? $existingChunk->hypercites : 'NO_CHUNK',
                     ]);
+
+                    // Snapshot the pre-edit content for the annotation recalculation below.
+                    if (! empty($item['node_id'])) {
+                        $oldContentsByBook[$bookId][$item['node_id']] = $existingChunk?->content;
+                    }
 
                     // --- REVISED LOGIC ---
 
@@ -675,8 +700,9 @@ class DbNodeController extends Controller
                     ]);
                 }
 
-                // Save-time annotation reconciliation (mirrors bulkTargetedUpsert Phase 2b):
-                // prune charData entries the content just written makes provably impossible.
+                // Save-time annotation recalculation (mirrors bulkTargetedUpsert
+                // Phase 2b): relocate every hyperlight/hypercite range on the saved
+                // nodes against the new content; tombstone (-1/-1) deleted text.
                 if ($hasPermission) {
                     $savedNodeIds = [];
                     foreach ($items as $item) {
@@ -684,13 +710,7 @@ class DbNodeController extends Controller
                             $savedNodeIds[] = $item['node_id'];
                         }
                     }
-                    try {
-                        StaleCharDataPruner::pruneStoredForNodes($bookId, $savedNodeIds);
-                    } catch (\Throwable $e) {
-                        Log::warning('Stale charData prune failed (non-fatal)', [
-                            'book' => $bookId, 'error' => $e->getMessage(),
-                        ]);
-                    }
+                    $this->recalcAnnotationsForNodes($bookId, $savedNodeIds, $oldContentsByBook[$bookId] ?? []);
                 }
             }
 
@@ -853,24 +873,22 @@ class DbNodeController extends Controller
 
                 // Phase 2: Batch upsert
                 if (! empty($toUpsert)) {
+                    // Capture PRE-EDIT content first — the recalculator extracts each
+                    // annotation's text fragment from the OLD text at its recorded range.
+                    $upsertNodeIds = array_values(array_filter(array_column($toUpsert, 'node_id')));
+                    $oldContents = $this->fetchNodeContents($bookId, $upsertNodeIds);
+
                     $upserted = $this->batchUpsert($bookId, $toUpsert);
                     $totalUpserted += $upserted;
 
-                    // Phase 2b: Save-time annotation reconciliation. The client can't
-                    // clean stale hyperlight/hypercite charData (a mark absent from its
-                    // DOM is ambiguous — gates, hidden anon highlights, toggles); the
-                    // server can: prune entries the content just written makes provably
-                    // impossible. Best-effort — never fails the sync.
-                    try {
-                        StaleCharDataPruner::pruneStoredForNodes(
-                            $bookId,
-                            array_values(array_filter(array_column($toUpsert, 'node_id')))
-                        );
-                    } catch (\Throwable $e) {
-                        Log::warning('Stale charData prune failed (non-fatal)', [
-                            'book' => $bookId, 'error' => $e->getMessage(),
-                        ]);
-                    }
+                    // Phase 2b: Save-time annotation recalculation. The client only
+                    // re-measures marks RENDERED in its DOM — every annotation that
+                    // isn't rendered (other users', gated, hidden, unloaded chunks)
+                    // goes stale on every edit. The server has old + new content, so
+                    // it relocates each hyperlight/hypercite range deterministically
+                    // (or tombstones it at -1/-1 when the text was deleted).
+                    // Best-effort — never fails the sync.
+                    $this->recalcAnnotationsForNodes($bookId, $upsertNodeIds, $oldContents);
                 }
 
                 // SYNC AUDIT: Snapshot after mutations
@@ -941,6 +959,69 @@ class DbNodeController extends Controller
     }
 
     /**
+     * Current stored content + startLine per data-node-id for a book (default
+     * connection — runs inside the caller's transaction, so it sees this
+     * request's writes).
+     *
+     * @param  string[]  $nodeIds
+     * @return array<string,array{content:?string,startLine:mixed}>
+     */
+    private function fetchNodeContents(string $bookId, array $nodeIds): array
+    {
+        if (empty($nodeIds)) {
+            return [];
+        }
+
+        $rows = \DB::table('nodes')
+            ->where('book', $bookId)
+            ->whereIn('node_id', $nodeIds)
+            ->get(['node_id', 'content', 'startLine']);
+
+        $out = [];
+        foreach ($rows as $row) {
+            $out[$row->node_id] = ['content' => $row->content, 'startLine' => $row->startLine];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Post-save annotation recalculation: pair each saved node's pre-edit
+     * content with its just-written content (+ current startLine, for the
+     * stored-column refresh) and hand the map to CharDataRecalculator.
+     * Best-effort — never fails the sync.
+     *
+     * @param  string[]  $nodeIds
+     * @param  array<string,array{content:?string,startLine:mixed}|string|null>  $oldContents
+     */
+    private function recalcAnnotationsForNodes(string $bookId, array $nodeIds, array $oldContents): void
+    {
+        if (empty($nodeIds)) {
+            return;
+        }
+        try {
+            $newContents = $this->fetchNodeContents($bookId, $nodeIds);
+            $contentsByNodeId = [];
+            foreach ($nodeIds as $nodeId) {
+                if (! array_key_exists($nodeId, $newContents)) {
+                    continue; // not actually written (skipped/deleted) — nothing to judge
+                }
+                $old = $oldContents[$nodeId] ?? null;
+                $contentsByNodeId[$nodeId] = [
+                    'old' => is_array($old) ? ($old['content'] ?? null) : $old,
+                    'new' => $newContents[$nodeId]['content'],
+                    'startLine' => $newContents[$nodeId]['startLine'],
+                ];
+            }
+            CharDataRecalculator::recalcForNodes($bookId, $contentsByNodeId);
+        } catch (\Throwable $e) {
+            Log::warning('Annotation charData recalculation failed (non-fatal)', [
+                'book' => $bookId, 'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * Batch delete nodes by startLine - single query instead of N queries
      */
     private function batchDelete(string $bookId, array $items): int
@@ -969,6 +1050,22 @@ class DbNodeController extends Controller
             ->where('book', $bookId)
             ->whereIn('startLine', $startLines)
             ->delete();
+
+        // Re-anchor ghosts whose ghost_anchor_node was among the deleted nodes
+        // (walk each to the deleted anchor's surviving predecessor). Best-effort.
+        try {
+            $deletedNodes = [];
+            foreach ($victims as $v) {
+                if ($v->node_id) {
+                    $deletedNodes[$v->node_id] = $v->startLine;
+                }
+            }
+            CharDataRecalculator::reanchorForDeletedNodes($bookId, $deletedNodes);
+        } catch (\Throwable $e) {
+            Log::warning('Ghost re-anchor failed (non-fatal)', [
+                'book' => $bookId, 'error' => $e->getMessage(),
+            ]);
+        }
 
         return $deleted;
     }

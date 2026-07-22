@@ -168,6 +168,10 @@ interface AnnotationRecordBase {
   _orphaned_at?: number;
   _orphaned_from_node?: string;
   _deleted_nodes?: string[];
+  /** Ghost anchor: nearest surviving PRECEDING node's data-node-id, captured at
+   *  whole-node-deletion tombstone time (batch.ts). node_ids survive renumbering,
+   *  so ghost position/nav derive from this instead of the frozen startLine. */
+  _ghost_anchor_node?: string;
 }
 
 /** A row in the `hyperlights` store. Key: [book, hyperlight_id]. */

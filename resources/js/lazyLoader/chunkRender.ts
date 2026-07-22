@@ -7,7 +7,8 @@ import { isNewlyCreatedHighlight } from "../utilities/operationState";
 import { renderCharts } from './chartRenderer';
 import { renderHarvestNetworks } from './graphRenderer';
 import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements';
-import { applyDynamicFootnoteNumbers } from './footnoteSelfHeal';
+import { applyDynamicFootnoteNumbers, queueRenderHeal } from './footnoteSelfHeal';
+import { stripTransientNodeClasses } from '../utilities/transientClasses';
 import { handleBrokenImages } from './imageState';
 // E2EE (docs/e2ee.md): registry is a zero-import leaf — a cheap SYNC check so
 // plaintext renders (the overwhelming majority) skip the hydration import entirely.
@@ -250,6 +251,17 @@ export function createChunkElement(nodes: NodeRecord[], instance: any) {
       });
     });
 
+    // 🧹 CLEANUP + SELF-HEAL: strip transient node-ROOT classes (audio-reading /
+    // cascade-origin) that were baked into stored content before the save-path
+    // backstop existed. Stripping keeps the stale highlight off screen; if we
+    // actually removed one AND this isn't an offscreen measurement render, queue
+    // a write-back so batchUpdate re-persists the cleaned node (the same DOM the
+    // audio player painted → contentProcessor strips it again → clean content
+    // syncs to IDB + Postgres). Offscreen renders must NOT heal (sweep loop).
+    if (stripTransientNodeClasses(temp) && !instance.offscreen) {
+      queueRenderHeal(node.book, node.startLine);
+    }
+
     // ⌨️ KEYBOARD MODEL (docs/a11y-findings.md): Tab never enters content, on
     // ANY page or container — book anchors, home/user feed cards, sub-book
     // content alike are reached via the contentHopper hop layer (n/p keys;
@@ -473,6 +485,11 @@ export function applyHighlights(html: any, highlights: NodeHyperlightView[], boo
   // hyperlights:purge-overlap-phantoms removes them server-side; this guard
   // keeps stale IDB copies inert.
   highlights = highlights.filter((h: any) => h.highlightID !== 'HL_overlap');
+
+  // Drop server tombstones (CharDataRecalculator): charStart -1 = the text was
+  // deleted in this node — a deterministic ghost. Skipping here (not in the
+  // segment loop) avoids a per-render findPositionsInDOM warning for them.
+  highlights = highlights.filter((h: any) => (h as any).charStart >= 0);
 
   if (highlights.length === 0) return html;
 

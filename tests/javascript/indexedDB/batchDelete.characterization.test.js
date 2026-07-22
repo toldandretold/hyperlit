@@ -77,18 +77,64 @@ describe('batchDeleteIndexedDBRecords (characterization)', () => {
     expect(await readOne('nodes', ['bookA', 100])).toBeTruthy();
   });
 
-  it('OLD-schema single highlight (startLine-keyed) is DELETED and queued for undo', async () => {
-    await seedStore('nodes', [node('bookA', 100, 'n-100')]);
+  it('single-node highlight survives node deletion as a TOMBSTONE (ghost), synced as update', async () => {
+    // Node deletion must NEVER destroy a highlight record — the ghost system
+    // (arrows / ledger / 👻 bubble) needs it. charData is tombstoned at -1/-1
+    // (the CharDataRecalculator contract), the surviving PRECEDING node is
+    // captured as the renumber-proof _ghost_anchor_node, and the server gets
+    // an UPDATE, not a delete.
+    await seedStore('nodes', [node('bookA', 50, 'n-50'), node('bookA', 100, 'n-100')]);
     await seedStore('hyperlights', [{
-      book: 'bookA', hyperlight_id: 'HL_old', startLine: 100,
-      // no node_id array — pure OLD schema
+      book: 'bookA', hyperlight_id: 'HL_solo', startLine: 100,
+      node_id: ['n-100'],
+      charData: { 'n-100': { charStart: 3, charEnd: 9 } },
+      highlightedText: 'ghost me',
     }]);
 
-    await batchDeleteIndexedDBRecords(['100']);
+    const deletionMap = new Map([['100', 'n-100']]);
+    await batchDeleteIndexedDBRecords(['100'], deletionMap);
 
-    expect(await readOne('hyperlights', ['bookA', 'HL_old'])).toBeUndefined();
-    const queued = pendingSyncs.get('hyperlights-bookA-HL_old');
-    expect(queued.type).toBe('delete');
+    const tomb = await readOne('hyperlights', ['bookA', 'HL_solo']);
+    expect(tomb).toBeTruthy();
+    expect(tomb.charData['n-100']).toEqual({ charStart: -1, charEnd: -1 });
+    expect(tomb._orphaned_at).toEqual(expect.any(Number));
+    expect(tomb._ghost_anchor_node).toBe('n-50'); // nearest surviving preceding node
+    const queued = pendingSyncs.get('hyperlights-bookA-HL_solo');
+    expect(queued.type).toBe('update');
+    expect(queued.data.charData['n-100']).toEqual({ charStart: -1, charEnd: -1 });
+    // originalData preserves the pre-tombstone ranges for undo
+    expect(queued.originalData.charData['n-100']).toEqual({ charStart: 3, charEnd: 9 });
+  });
+
+  it('a ghost whose anchor node is deleted RE-ANCHORS to the anchor\'s surviving predecessor', async () => {
+    // Book: 25 → 50 → 100. Batch 1 deletes 100 (highlight anchors to n-50).
+    // Batch 2 deletes 50 — the ghost's anchor must walk up to n-25, not dangle.
+    await seedStore('nodes', [
+      node('bookA', 25, 'n-25'),
+      node('bookA', 50, 'n-50'),
+      node('bookA', 100, 'n-100'),
+    ]);
+    await seedStore('hyperlights', [{
+      book: 'bookA', hyperlight_id: 'HL_chain', startLine: 100,
+      node_id: ['n-100'],
+      charData: { 'n-100': { charStart: 0, charEnd: 5 } },
+      highlightedText: 'chain',
+    }]);
+
+    await batchDeleteIndexedDBRecords(['100'], new Map([['100', 'n-100']]));
+    let ghost = await readOne('hyperlights', ['bookA', 'HL_chain']);
+    expect(ghost._ghost_anchor_node).toBe('n-50');
+
+    await batchDeleteIndexedDBRecords(['50'], new Map([['50', 'n-50']]));
+    ghost = await readOne('hyperlights', ['bookA', 'HL_chain']);
+    expect(ghost._ghost_anchor_node).toBe('n-25');
+
+    // Delete the last predecessor — no survivor precedes 25: anchor dropped,
+    // the stored-startLine fallback takes over (never a dangling reference).
+    await batchDeleteIndexedDBRecords(['25'], new Map([['25', 'n-25']]));
+    ghost = await readOne('hyperlights', ['bookA', 'HL_chain']);
+    expect(ghost._ghost_anchor_node).toBeUndefined();
+    expect(ghost.charData['n-100']).toEqual({ charStart: -1, charEnd: -1 }); // tombstone intact
   });
 
   it('NEW-schema annotations: multi-node gets _deleted_nodes, single-node gets orphaned; survivors rebuilt', async () => {
@@ -124,10 +170,12 @@ describe('batchDeleteIndexedDBRecords (characterization)', () => {
     expect(multi._orphaned_at).toBeUndefined();
     expect(multi.node_id).toEqual(['n-100', 'n-200']);
 
-    // NEW-schema single: orphaned (recoverable), not deleted
+    // NEW-schema single: orphaned (recoverable), not deleted — and tombstoned
+    // at -1/-1 so the ghost system detects it deterministically
     const single = await readOne('hyperlights', ['bookA', 'HL_single_new']);
     expect(single._orphaned_at).toEqual(expect.any(Number));
     expect(single._orphaned_from_node).toBe('n-100');
+    expect(single.charData['n-100']).toEqual({ charStart: -1, charEnd: -1 });
 
     // Multi-node hypercite: same _deleted_nodes treatment
     const cite = await readOne('hypercites', ['bookA', 'hypercite_multi']);

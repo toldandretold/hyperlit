@@ -155,21 +155,18 @@ export function restoreNormalHyperciteDisplay(): void {
 }
 
 /**
- * Reveal a ghost tombstone as a floating translucent bubble that floats up and fades away.
- * Called when navigating to a tombstone via "See in source text".
+ * Spawn the floating 👻 bubble at a screen position: float-up + fade, then
+ * self-remove. Shared by ghost hypercite tombstones AND ghost hyperlight
+ * navigation (hyperlitContainer/highlightNav) — the bubble is transient and
+ * never touches document content.
  */
-export function revealGhostIfTombstone(elementId: string): boolean {
-  const el = document.getElementById(elementId);
-  if (!el || !el.classList.contains('hypercite-tombstone')) return false;
-
-  // Remove any existing bubble for this element (duplicate guard)
-  const existingBubble = document.getElementById(`ghost-bubble-${elementId}`);
+export function spawnGhostBubble(rect: DOMRect, idSuffix: string): void {
+  // Remove any existing bubble for this anchor (duplicate guard)
+  const existingBubble = document.getElementById(`ghost-bubble-${idSuffix}`);
   if (existingBubble) existingBubble.remove();
 
-  // Position the bubble at the tombstone location
-  const rect = el.getBoundingClientRect();
   const bubble = document.createElement('div');
-  bubble.id = `ghost-bubble-${elementId}`;
+  bubble.id = `ghost-bubble-${idSuffix}`;
   bubble.className = 'ghost-bubble';
   bubble.textContent = '👻';
   bubble.style.left = `${rect.left}px`;
@@ -190,6 +187,16 @@ export function revealGhostIfTombstone(elementId: string): boolean {
   setTimeout(() => {
     if (bubble.parentNode) bubble.remove();
   }, 5000);
+}
 
+/**
+ * Reveal a ghost tombstone as a floating translucent bubble that floats up and fades away.
+ * Called when navigating to a tombstone via "See in source text".
+ */
+export function revealGhostIfTombstone(elementId: string): boolean {
+  const el = document.getElementById(elementId);
+  if (!el || !el.classList.contains('hypercite-tombstone')) return false;
+
+  spawnGhostBubble(el.getBoundingClientRect(), elementId);
   return true;
 }

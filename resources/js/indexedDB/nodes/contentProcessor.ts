@@ -18,6 +18,7 @@ import {
 } from './positionCollector';
 import { extractFootnoteIdsFromElement } from '../../paste/utils/extractFootnoteIds';
 import { stripInlineStylePreservingIntensity } from '../../utilities/stripInlineStyle';
+import { stripTransientNodeClasses } from '../../utilities/transientClasses';
 import type { CitationRef, FootnoteRef, ChunkId } from '../types';
 import { asChunkId, parseChunkId } from '../types';
 
@@ -206,6 +207,14 @@ export function processNodeContentHighlightsAndCites(
       el.classList.remove(className);
     });
   });
+
+  // 🧹 STRIP transient node-ROOT classes (audio-reading / cascade-origin).
+  // Unlike the navigation classes above — which only land on descendants — these
+  // are painted onto the node root itself (the same <p> this clone represents),
+  // so the descendant-only querySelectorAll can't reach them. Editing a node
+  // while audio is playing (root carries `audio-reading`) baked the class into
+  // stored content; this is the backstop that keeps it out on EVERY save path.
+  stripTransientNodeClasses(contentClone);
 
   // ⌨️ STRIP tabindex — a render-time artifact (chunkRender sets tabindex="-1"
   // on content anchors for the Tab-order model; the contentHopper sets it on

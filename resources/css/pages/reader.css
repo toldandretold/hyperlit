@@ -32,6 +32,7 @@
 @import url('../theme/variables.css');
 @import url('../components/buttonIcons.css');
 @import url('../components/hyperlitEditButton.css');
+@import url('../components/highlightNav.css');
 @import url('../components/siteLogoButton.css');
 @import url('../components/userButton.css');
 @import url('../components/perimeterGlass.css');

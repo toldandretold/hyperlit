@@ -29,10 +29,20 @@ function staleNodeElement() {
   return el;
 }
 
-async function flushHealTimer() {
-  // The flush is a setTimeout(0) + dynamic import — a couple of macrotask turns
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  await new Promise((resolve) => setTimeout(resolve, 0));
+// The flush is setTimeout(0) + a dynamic import + awaited writes — how many
+// macrotask turns that takes varies with suite load, so a fixed wait is flaky
+// (and a late flush then leaks into the NEXT test's call counter). Poll until
+// the expected call count lands; settle() confirms nothing MORE arrives.
+async function waitForCalls(expected, timeoutMs = 1500) {
+  const start = Date.now();
+  while (vi.mocked(batchUpdateIndexedDBRecords).mock.calls.length < expected) {
+    if (Date.now() - start > timeoutMs) break;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
+async function settle(ms = 60) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 describe('applyDynamicFootnoteNumbers self-heal queueing', () => {
@@ -48,7 +58,7 @@ describe('applyDynamicFootnoteNumbers self-heal queueing', () => {
     expect(el.querySelector('sup').getAttribute('fn-count-id')).toBe('7');
     expect(el.querySelector('a').textContent).toBe('7');
 
-    await flushHealTimer();
+    await waitForCalls(1);
     expect(batchUpdateIndexedDBRecords).toHaveBeenCalledTimes(1);
     expect(batchUpdateIndexedDBRecords).toHaveBeenCalledWith(
       [{ id: '100' }],
@@ -58,13 +68,13 @@ describe('applyDynamicFootnoteNumbers self-heal queueing', () => {
 
   it('does NOT re-queue the same node when stale content renders again (no save loop)', async () => {
     applyDynamicFootnoteNumbers(staleNodeElement(), { startLine: 200, bookId: 'bookB' });
-    await flushHealTimer();
+    await waitForCalls(1);
     expect(batchUpdateIndexedDBRecords).toHaveBeenCalledTimes(1);
 
     // Same node renders again, still stale (the heal didn't converge) — one
     // attempt per session, no second save.
     applyDynamicFootnoteNumbers(staleNodeElement(), { startLine: 200, bookId: 'bookB' });
-    await flushHealTimer();
+    await settle();
     expect(batchUpdateIndexedDBRecords).toHaveBeenCalledTimes(1);
   });
 
@@ -75,7 +85,7 @@ describe('applyDynamicFootnoteNumbers self-heal queueing', () => {
     // Numbers still corrected — measurement needs the real glyphs
     expect(el.querySelector('sup').getAttribute('fn-count-id')).toBe('7');
 
-    await flushHealTimer();
+    await settle();
     expect(batchUpdateIndexedDBRecords).not.toHaveBeenCalled();
   });
 });
