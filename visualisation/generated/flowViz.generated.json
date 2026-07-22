@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1721,
-    "moduleCount": 365,
+    "fnCount": 1724,
+    "moduleCount": 366,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3511,
+    "edgeCount": 3530,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -3153,6 +3153,25 @@
       "leaf": false
     },
     {
+      "id": "components/tocContainer/hyperlightsTab:buildHyperlightsTabHtml",
+      "label": "buildHyperlightsTabHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocContainer/hyperlightsTab",
+      "leaf": true,
+      "types": [
+        "HyperlightRecord"
+      ]
+    },
+    {
+      "id": "components/tocContainer/hyperlightsTab:renderHyperlightsTab",
+      "label": "renderHyperlightsTab",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/tocContainer/hyperlightsTab",
+      "leaf": false
+    },
+    {
       "id": "components/tocContainer/index:checkAndInvalidateTocCache",
       "label": "checkAndInvalidateTocCache",
       "kind": "fn",
@@ -4690,6 +4709,7 @@
         "library"
       ],
       "shape": [
+        "_ghost_anchor_node",
         "annotation",
         "book",
         "charData",
@@ -4956,6 +4976,7 @@
         "library"
       ],
       "shape": [
+        "_ghost_anchor_node",
         "annotation",
         "book",
         "charData",
@@ -9487,6 +9508,14 @@
     {
       "id": "hyperlitContainer/highlightNav:attachHighlightNavUI",
       "label": "attachHighlightNavUI",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/highlightNav",
+      "leaf": false
+    },
+    {
+      "id": "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
+      "label": "navigateAndOpenHighlight",
       "kind": "fn",
       "stage": "hyperlitContainer",
       "module": "hyperlitContainer/highlightNav",
@@ -16617,6 +16646,16 @@
       ]
     },
     {
+      "id": "components/tocContainer/hyperlightsTab",
+      "label": "components/tocContainer/hyperlightsTab",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/tocContainer/hyperlightsTab:buildHyperlightsTabHtml",
+        "components/tocContainer/hyperlightsTab:renderHyperlightsTab"
+      ]
+    },
+    {
       "id": "components/tocContainer/index",
       "label": "components/tocContainer/index",
       "stage": "components",
@@ -18191,6 +18230,7 @@
       "band": "capture",
       "fnIds": [
         "hyperlitContainer/highlightNav:attachHighlightNavUI",
+        "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
         "hyperlitContainer/highlightNav:openHighlightInPlace"
       ]
     },
@@ -23677,6 +23717,39 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/tocContainer/hyperlightsTab:renderHyperlightsTab__call__components/tocContainer/hyperlightsTab:buildHyperlightsTabHtml",
+      "source": "components/tocContainer/hyperlightsTab:renderHyperlightsTab",
+      "target": "components/tocContainer/hyperlightsTab:buildHyperlightsTabHtml",
+      "rel": "call"
+    },
+    {
+      "id": "components/tocContainer/hyperlightsTab:renderHyperlightsTab__call__hyperlights/myHighlights/ghost:partitionGhosts",
+      "source": "components/tocContainer/hyperlightsTab:renderHyperlightsTab",
+      "target": "hyperlights/myHighlights/ghost:partitionGhosts",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/tocContainer/hyperlightsTab:renderHyperlightsTab__call__hyperlights/myHighlights/list:getOwnedHighlightsForBook",
+      "source": "components/tocContainer/hyperlightsTab:renderHyperlightsTab",
+      "target": "hyperlights/myHighlights/list:getOwnedHighlightsForBook",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/tocContainer/hyperlightsTab:renderHyperlightsTab__call__indexedDB/core/connection:openDatabase",
+      "source": "components/tocContainer/hyperlightsTab:renderHyperlightsTab",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/tocContainer/hyperlightsTab:renderHyperlightsTab__domwrite__dom",
+      "source": "components/tocContainer/hyperlightsTab:renderHyperlightsTab",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/tocContainer/index:checkAndInvalidateTocCache__call__components/tocContainer/index:invalidateTocCache",
       "source": "components/tocContainer/index:checkAndInvalidateTocCache",
       "target": "components/tocContainer/index:invalidateTocCache",
@@ -23693,6 +23766,13 @@
       "source": "components/tocContainer/index:generateTableOfContents",
       "target": "components/tocContainer/managerRef:getTocManager",
       "rel": "call"
+    },
+    {
+      "id": "components/tocContainer/index:generateTableOfContents__call__hyperlitContainer/highlightNav:navigateAndOpenHighlight",
+      "source": "components/tocContainer/index:generateTableOfContents",
+      "target": "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/tocContainer/index:generateTableOfContents__call__indexedDB/nodes/read:getNodesFromIndexedDB",
@@ -23750,6 +23830,13 @@
       "source": "components/tocContainer/index:TocContainerManager.openContainer",
       "target": "components/tocContainer/bookmark:updateOrInsertBookmark",
       "rel": "call"
+    },
+    {
+      "id": "components/tocContainer/index:TocContainerManager.openContainer__call__components/tocContainer/hyperlightsTab:renderHyperlightsTab",
+      "source": "components/tocContainer/index:TocContainerManager.openContainer",
+      "target": "components/tocContainer/hyperlightsTab:renderHyperlightsTab",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/tocContainer/index:TocContainerManager.openContainer__call__components/tocContainer/index:generateTableOfContents",
@@ -26656,6 +26743,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/tocContainer/index:TocContainerManager.openContainer",
+      "source": "dom",
+      "target": "components/tocContainer/index:TocContainerManager.openContainer",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/tocToggleButton/tocToggleButton:initializeTocManager",
       "source": "dom",
       "target": "components/tocToggleButton/tocToggleButton:initializeTocManager",
@@ -28201,6 +28294,12 @@
       "id": "dom__domread__hyperlitContainer/highlightNav:attachHighlightNavUI",
       "source": "dom",
       "target": "hyperlitContainer/highlightNav:attachHighlightNavUI",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hyperlitContainer/highlightNav:navigateAndOpenHighlight",
+      "source": "dom",
+      "target": "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
       "rel": "domread"
     },
     {
@@ -32998,6 +33097,64 @@
     {
       "id": "hyperlitContainer/highlightNav:attachHighlightNavUI__domwrite__dom",
       "source": "hyperlitContainer/highlightNav:attachHighlightNavUI",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlitContainer/highlightNav:navigateAndOpenHighlight__call__hypercites/animations:spawnGhostBubble",
+      "source": "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
+      "target": "hypercites/animations:spawnGhostBubble",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/highlightNav:navigateAndOpenHighlight__call__hyperlights/markGroup:getMarkGroup",
+      "source": "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
+      "target": "hyperlights/markGroup:getMarkGroup",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/highlightNav:navigateAndOpenHighlight__call__hyperlights/myHighlights/ghost:isHighlightGhosted",
+      "source": "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
+      "target": "hyperlights/myHighlights/ghost:isHighlightGhosted",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/highlightNav:navigateAndOpenHighlight__call__hyperlights/myHighlights/list:resolveAnchorStartLine",
+      "source": "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
+      "target": "hyperlights/myHighlights/list:resolveAnchorStartLine",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/highlightNav:navigateAndOpenHighlight__call__hyperlights/utils:openHighlightById",
+      "source": "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
+      "target": "hyperlights/utils:openHighlightById",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/highlightNav:navigateAndOpenHighlight__call__hyperlitContainer/stack:getCurrentContainer",
+      "source": "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
+      "target": "hyperlitContainer/stack:getCurrentContainer",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/highlightNav:navigateAndOpenHighlight__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/highlightNav:navigateAndOpenHighlight__call__scrolling/internalNav:navigateToInternalId",
+      "source": "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
+      "target": "scrolling/internalNav:navigateToInternalId",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/highlightNav:navigateAndOpenHighlight__domwrite__dom",
+      "source": "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -41306,6 +41463,12 @@
       "rel": "read"
     },
     {
+      "id": "store:hyperlights__read__hyperlitContainer/highlightNav:navigateAndOpenHighlight",
+      "source": "store:hyperlights",
+      "target": "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
+      "rel": "read"
+    },
+    {
       "id": "store:hyperlights__read__hyperlitContainer/highlightNav:openHighlightInPlace",
       "source": "store:hyperlights",
       "target": "hyperlitContainer/highlightNav:openHighlightInPlace",
@@ -43661,6 +43824,21 @@
       "kind": "static"
     },
     {
+      "source": "components/tocContainer/hyperlightsTab",
+      "target": "hyperlights/myHighlights/ghost",
+      "kind": "static"
+    },
+    {
+      "source": "components/tocContainer/hyperlightsTab",
+      "target": "hyperlights/myHighlights/list",
+      "kind": "static"
+    },
+    {
+      "source": "components/tocContainer/hyperlightsTab",
+      "target": "indexedDB/core/connection",
+      "kind": "static"
+    },
+    {
       "source": "components/tocContainer/index",
       "target": "components/tocContainer/bookmark",
       "kind": "static"
@@ -43679,6 +43857,16 @@
       "source": "components/tocContainer/index",
       "target": "indexedDB/index",
       "kind": "static"
+    },
+    {
+      "source": "components/tocContainer/index",
+      "target": "components/tocContainer/hyperlightsTab",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/tocContainer/index",
+      "target": "hyperlitContainer/highlightNav",
+      "kind": "lazy"
     },
     {
       "source": "components/tocContainer/index",
@@ -45383,6 +45571,11 @@
     {
       "source": "hyperlitContainer/highlightNav",
       "target": "hyperlights/markGroup",
+      "kind": "lazy"
+    },
+    {
+      "source": "hyperlitContainer/highlightNav",
+      "target": "hyperlights/utils",
       "kind": "lazy"
     },
     {
@@ -47497,6 +47690,6 @@
       ]
     ],
     "breakerCount": 4,
-    "lazyCount": 251
+    "lazyCount": 254
   }
 }

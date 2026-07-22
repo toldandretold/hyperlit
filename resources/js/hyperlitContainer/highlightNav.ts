@@ -215,6 +215,38 @@ function markContainerGhosted(highlightId: string): void {
 }
 
 /**
+ * The "from afar" flow — open a highlight from a surface OUTSIDE the container
+ * (TOC hyperlights tab; reusable by the ghost ledger): open the hyperlit
+ * container via openHighlightById (works whether or not the mark is rendered —
+ * postOpen attaches the ↑↓ arrows), then scroll the reader appropriately:
+ * ghosts get the anchor scroll + 👻 bubble (never the 6s mark-hunt), live
+ * highlights get the suppressed-auto-open scroll + glow.
+ */
+export async function navigateAndOpenHighlight(highlightId: string): Promise<void> {
+  try {
+    const db = await openDatabase();
+    const record = await fetchRecord(highlightId, db);
+    if (!record) {
+      verbose.nav(`navigateAndOpenHighlight: no record for ${highlightId}`, 'hyperlitContainer/highlightNav');
+      return;
+    }
+    const ghosted = await isHighlightGhosted(record, db);
+
+    const { openHighlightById } = await import('../hyperlights/utils');
+    await openHighlightById(highlightId);
+
+    if (ghosted) {
+      markContainerGhosted(highlightId);
+      void navigateToGhostAnchor(record);
+    } else {
+      void scrollMainToHighlight(highlightId, record);
+    }
+  } catch (error) {
+    log.error('navigateAndOpenHighlight failed', 'hyperlitContainer/highlightNav.ts', error as any);
+  }
+}
+
+/**
  * Scroll the reader to a live highlight's mark and glow its group. If the mark
  * turns out NOT to render (detection said "live" but the renderer disagrees —
  * positions drifted in a way the content test couldn't see), fall back to the

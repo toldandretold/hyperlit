@@ -35,6 +35,9 @@ export class TocContainerManager extends (ContainerManager as any) {
     if (this.initialContent) {
       this.container.innerHTML = this.initialContent;
     }
+    // Contents is the default tab on every open (user decision).
+    activeTab = 'contents';
+    buildTabBar(this.container);
     // Now render TOC into the restored structure.
     await generateTableOfContents();
 
@@ -78,6 +81,56 @@ let tocCache: any = {
   bookId: null,
   headingCount: 0
 };
+
+// ── Tabs: Contents (default) | Hyperlights ──────────────────────────────────
+// The Hyperlights tab lists the user's own highlights (incl. ghosts) as
+// clickable previews — see ./hyperlightsTab. Contents re-selected on every open.
+let activeTab: 'contents' | 'hyperlights' = 'contents';
+
+/** Build (idempotently) the fixed two-tab bar above the scroller. */
+function buildTabBar(container: HTMLElement): void {
+  container.querySelector('.toc-tab-bar')?.remove();
+  const bar = document.createElement('div');
+  bar.className = 'toc-tab-bar';
+  bar.setAttribute('role', 'tablist');
+  bar.innerHTML = `
+    <button type="button" class="toc-tab-btn${activeTab === 'contents' ? ' active' : ''}" role="tab" aria-selected="${activeTab === 'contents'}" data-toc-tab="contents">Contents</button>
+    <button type="button" class="toc-tab-btn${activeTab === 'hyperlights' ? ' active' : ''}" role="tab" aria-selected="${activeTab === 'hyperlights'}" data-toc-tab="hyperlights">Hyperlights</button>
+  `;
+  bar.addEventListener('click', (event: Event) => {
+    const btn = (event.target as HTMLElement).closest('.toc-tab-btn') as HTMLElement | null;
+    const tab = btn?.getAttribute('data-toc-tab') as 'contents' | 'hyperlights' | null;
+    if (!btn || !tab || tab === activeTab) return;
+    activeTab = tab;
+    bar.querySelectorAll('.toc-tab-btn').forEach((b) => {
+      const selected = b.getAttribute('data-toc-tab') === tab;
+      b.classList.toggle('active', selected);
+      b.setAttribute('aria-selected', String(selected));
+    });
+    void renderActiveTab(container);
+  });
+  // Insert ABOVE the scroller so the bar stays fixed while content scrolls.
+  const scroller = container.querySelector('.scroller');
+  if (scroller) container.insertBefore(bar, scroller);
+  else container.prepend(bar);
+}
+
+/** Render the scroller for the currently selected tab. */
+async function renderActiveTab(container: HTMLElement): Promise<void> {
+  if (activeTab === 'contents') {
+    await generateTableOfContents();
+    // Bookmark applies to the contents view only.
+    updateOrInsertBookmark(container, tocCache.data);
+    setInitialBookmarkPosition(container);
+    return;
+  }
+  const scroller = container.querySelector('.scroller') as HTMLElement | null;
+  if (!scroller) return;
+  scroller.innerHTML = '<p class="toc-hyperlights-empty">Loading…</p>';
+  // Dynamic import keeps the highlights machinery out of the TOC's eager path.
+  const { renderHyperlightsTab } = await import('./hyperlightsTab');
+  await renderHyperlightsTab(scroller, book);
+}
 
 /** Check if TOC cache is valid for the current book */
 function isTocCacheValid() {
@@ -217,6 +270,21 @@ function attachTocClickHandler() {
 
   // Add new click handler
   const clickHandler = async (event: any) => {
+    // Hyperlights-tab entry: close the TOC, then the "from afar" flow (opens
+    // the hyperlit container + scrolls; ghosts get the anchor + 👻 bubble
+    // instead of a doomed mark-hunt). Checked BEFORE the generic <a> branch —
+    // entries are anchors too.
+    const hlEntry = event.target.closest('.toc-hyperlight-entry');
+    if (hlEntry) {
+      event.preventDefault();
+      const highlightId = hlEntry.getAttribute('data-highlight-id');
+      if (!highlightId) return;
+      getTocManager().closeContainer();
+      const { navigateAndOpenHighlight } = await import('../../hyperlitContainer/highlightNav');
+      void navigateAndOpenHighlight(highlightId);
+      return;
+    }
+
     const link = event.target.closest("a");
     if (link) {
       event.preventDefault();

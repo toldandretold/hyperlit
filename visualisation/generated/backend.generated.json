@@ -47,6 +47,7 @@
                 "library"
             ],
             "shape": [
+                "_ghost_anchor_node",
                 "annotation",
                 "book",
                 "charData",
@@ -291,6 +292,7 @@
                 "library"
             ],
             "shape": [
+                "_ghost_anchor_node",
                 "annotation",
                 "book",
                 "charData",

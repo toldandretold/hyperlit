@@ -147,5 +147,53 @@ test.describe('Highlight nav arrows', () => {
     expect(afterPrev.open).toBe(true);
     expect(afterPrev.containers).toBe(1);
     expect(afterPrev.quote).toContain('alpha target');
+
+    // ── TOC Hyperlights tab: discovery loop (TOC → highlight → arrows) ──
+    await spa.closeHyperlitContainer(page);
+    await page.waitForTimeout(500);
+
+    await page.click('#toc-toggle-button');
+    await page.waitForFunction(() => {
+      const c = document.getElementById('toc-container');
+      return c && c.classList.contains('open');
+    }, null, { timeout: 5000 });
+
+    const tocState = await page.evaluate(() => ({
+      contentsActive: document.querySelector('.toc-tab-btn[data-toc-tab="contents"]')?.classList.contains('active'),
+      tabCount: document.querySelectorAll('.toc-tab-btn').length,
+    }));
+    console.log('TOC STATE:', JSON.stringify(tocState));
+    expect(tocState.tabCount).toBe(2);
+    expect(tocState.contentsActive).toBe(true);
+
+    await page.click('.toc-tab-btn[data-toc-tab="hyperlights"]');
+    await page.waitForFunction(
+      () => document.querySelectorAll('.toc-hyperlight-entry').length >= 2,
+      null, { timeout: 5000 },
+    );
+    const entries = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.toc-hyperlight-entry')).map((e) => e.textContent.trim()));
+    console.log('TOC HYPERLIGHTS:', JSON.stringify(entries));
+    expect(entries.length).toBe(2);
+    expect(entries[0]).toContain('alpha target');
+    expect(entries[1]).toContain('beta target');
+
+    // Click the second entry: TOC closes, hyperlit container opens on it, arrows attach.
+    await page.locator('.toc-hyperlight-entry').nth(1).click();
+    await page.waitForFunction(() => {
+      const toc = document.getElementById('toc-container');
+      const hl = document.getElementById('hyperlit-container');
+      return toc && !toc.classList.contains('open') && hl && hl.classList.contains('open');
+    }, null, { timeout: 10000 });
+    await page.waitForTimeout(1200); // postOpen deferred arrows
+    const afterTocClick = await page.evaluate(() => ({
+      quote: document.querySelector('#hyperlit-container .highlight-text, #hyperlit-container blockquote')?.textContent?.trim() || '',
+      arrows: !!document.querySelector('#hyperlit-container .hyperlit-nav-arrows'),
+      containers: document.querySelectorAll('#hyperlit-container, .hyperlit-container-stacked').length,
+    }));
+    console.log('AFTER TOC CLICK:', JSON.stringify(afterTocClick));
+    expect(afterTocClick.quote).toContain('beta target');
+    expect(afterTocClick.arrows).toBe(true);
+    expect(afterTocClick.containers).toBe(1);
   });
 });
