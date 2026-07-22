@@ -77,6 +77,24 @@ mark[data-highlight-count].user-highlight[data-highlight-count="9"]:hover {
     filter: brightness(0.75);
 }
 
+/* ── Highlighted citation links / footnote sups: use the plain text color ──
+   The aqua .in-text-citation vanishes inside the user's AQUA highlight as
+   stacked intensity saturates; the pink footnote sup is camouflaged inside —
+   and, because marks SPLIT AROUND protected sups, BESIDE — others' PINK
+   highlights. In highlight context the hue carries no extra signal, so drop
+   to var(--color-text) (descendant rules for the inside cases, sibling/:has()
+   for the sup sandwiched between mark segments). */
+mark.user-highlight .in-text-citation,
+mark.user-highlight .citation-ref,
+mark[data-highlight-count]:not(.user-highlight) sup[fn-count-id],
+mark[data-highlight-count]:not(.user-highlight) .footnote-ref,
+mark[data-highlight-count]:not(.user-highlight) + sup[fn-count-id],
+mark[data-highlight-count]:not(.user-highlight) + sup[fn-count-id] .footnote-ref,
+sup[fn-count-id]:has(+ mark[data-highlight-count]:not(.user-highlight)),
+sup[fn-count-id]:has(+ mark[data-highlight-count]:not(.user-highlight)) .footnote-ref {
+  color: var(--color-text);
+}
+
 /* AI Review verdict-colored highlights */
 mark.hl-confirmed {
   background-color: rgba(39, 174, 96, var(--highlight-intensity, var(--highlight-resting-opacity))) !important;

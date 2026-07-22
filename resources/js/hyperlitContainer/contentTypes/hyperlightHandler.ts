@@ -238,8 +238,15 @@ export const hyperlightHandler: ContentTypeHandler = {
           if (needsEditor && loader) {
             if (subBookEl) {
               const { startObserving, isEditorObserving }: any = await import('../../divEditor/index');
-              if (!containerState.mainEditorWasActive) containerState.mainEditorWasActive = isEditorObserving();
-              if (!containerState.previousIsEditing) containerState.previousIsEditing = (window as any).isEditing;
+              // Capture the main-editor restore flags ONLY on a genuine first
+              // attach. During an in-place content swap (arrow nav) the globals
+              // are container-owned — window.isEditing is true BECAUSE of the
+              // container's edit session — and capturing them here would make
+              // the eventual close restore edit mode onto the MAIN book.
+              if (!ctx.options?.isContentSwap) {
+                if (!containerState.mainEditorWasActive) containerState.mainEditorWasActive = isEditorObserving();
+                if (!containerState.previousIsEditing) containerState.previousIsEditing = (window as any).isEditing;
+              }
               if (!(window as any).isEditing) (window as any).isEditing = true;
               await startObserving(subBookEl, subBookId);
               if (!subBookEl.dataset.pasteAttached) {

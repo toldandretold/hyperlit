@@ -119,6 +119,21 @@ async function nodeContentById(
   return content;
 }
 
+/**
+ * Pure. Is a HYPERCITE ghosted? Cites carry a DETERMINISTIC ghost state — the
+ * system maintains relationshipStatus 'ghost' (source-tag deletion, node
+ * deletion tombstones) and -1/-1 charData tombstones — so no content
+ * inspection is needed, unlike highlights.
+ */
+export function isHyperciteGhosted(record: {
+  relationshipStatus?: string;
+  charData?: Record<string, { charStart: number; charEnd: number }>;
+}): boolean {
+  if (record.relationshipStatus === 'ghost') return true;
+  const entries = Object.values(record.charData ?? {});
+  return entries.length > 0 && entries.every((e) => (e?.charStart ?? 0) < 0);
+}
+
 /** Is this single highlight ghosted? (One-off check — arrows/nav use this.) */
 export async function isHighlightGhosted(
   record: HyperlightRecord,

@@ -86,16 +86,18 @@ export async function handlePostOpenActions(contentTypes: any, newHighlightIds: 
       }
     }
 
-    // Prev/next arrows + "see all" for the user's OWN highlight (guards inside
-    // attachHighlightNavUI decide whether anything renders). Dynamic import:
-    // highlightNav → containerSwap → postOpen must stay out of the static graph.
-    const hlCt = contentTypes.find((c: any) => c.type === 'highlight');
-    if (hlCt) {
+    // Prev/next arrows over the user's OWN annotations — highlights AND <u>
+    // cites (guards inside attachHighlightNavUI decide whether anything
+    // renders). Dynamic import: highlightNav → containerSwap → postOpen must
+    // stay out of the static graph.
+    const navCt = contentTypes.find((c: any) => c.type === 'highlight')
+      || contentTypes.find((c: any) => c.type === 'hypercite');
+    if (navCt) {
       const navContainer = getCurrentContainer();
       if (navContainer) {
         try {
           const { attachHighlightNavUI } = await import('./highlightNav');
-          await attachHighlightNavUI(navContainer, hlCt, options);
+          await attachHighlightNavUI(navContainer, navCt, options);
         } catch (e) {
           // nav UI is an enhancement — a failure must never break the container,
           // but it must be VISIBLE (a silent catch hid a real import failure once).
@@ -105,7 +107,7 @@ export async function handlePostOpenActions(contentTypes: any, newHighlightIds: 
         try { (window as any).__hlNavDiag = 'postopen:no-container'; } catch { /* no-op */ }
       }
     } else {
-      try { (window as any).__hlNavDiag = 'postopen:no-hl-ct'; } catch { /* no-op */ }
+      try { (window as any).__hlNavDiag = 'postopen:no-nav-ct'; } catch { /* no-op */ }
     }
   }, 100);
 }

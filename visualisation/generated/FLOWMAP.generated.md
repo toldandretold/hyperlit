@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1724 functions in 366 modules · 10 object stores · 10 PG tables · 3530 edges
+**MarkdownDB** schema v28 · 1734 functions in 366 modules · 10 object stores · 10 PG tables · 3565 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -379,6 +379,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `showTargetNotFoundToast` | `components/toast/toast` | — | — | read/write | — |
 | `setInitialBookmarkPosition` | `components/tocContainer/bookmark` | — | — | read | — |
 | `updateOrInsertBookmark` | `components/tocContainer/bookmark` | — | — | read/write | — |
+| `buildDisplayEntries` | `components/tocContainer/hyperlightsTab` | `library` | — | — | — |
 | `buildHyperlightsTabHtml` | `components/tocContainer/hyperlightsTab` | — | — | — | — |
 | `renderHyperlightsTab` | `components/tocContainer/hyperlightsTab` | — | — | write | — |
 | `checkAndInvalidateTocCache` | `components/tocContainer/index` | — | — | — | — |
@@ -946,14 +947,21 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `computeGhosted` | `hyperlights/myHighlights/ghost` | — | — | — | — |
 | `entryResolves` | `hyperlights/myHighlights/ghost` | — | — | — | — |
 | `isHighlightGhosted` | `hyperlights/myHighlights/ghost` | — | — | — | — |
+| `isHyperciteGhosted` | `hyperlights/myHighlights/ghost` | — | — | — | — |
 | `destroyGhostLedger` | `hyperlights/myHighlights/ghostLedger` | — | — | read/write | — |
 | `renderGhostLedger` | `hyperlights/myHighlights/ghostLedger` | — | — | read/write | — |
 | `scheduleGhostLedger` | `hyperlights/myHighlights/ghostLedger` | — | — | — | — |
 | `partitionGhosts` | `hyperlights/myHighlights/ghost` | `nodes` | — | — | — |
+| `annotationId` | `hyperlights/myHighlights/list` | — | — | — | — |
 | `getAdjacent` | `hyperlights/myHighlights/list` | — | — | — | — |
+| `getAdjacentAnnotation` | `hyperlights/myHighlights/list` | — | — | — | — |
+| `getAnnotationPosition` | `hyperlights/myHighlights/list` | — | — | — | — |
+| `getOwnedAnnotationsForBook` | `hyperlights/myHighlights/list` | — | — | — | — |
 | `getOwnedHighlightsForBook` | `hyperlights/myHighlights/list` | `hyperlights` | — | — | — |
+| `getOwnedHypercitesForBook` | `hyperlights/myHighlights/list` | `hypercites` | — | — | — |
 | `getPosition` | `hyperlights/myHighlights/list` | — | — | — | — |
 | `isOwnedHighlight` | `hyperlights/myHighlights/list` | — | — | — | — |
+| `isOwnedHypercite` | `hyperlights/myHighlights/list` | — | — | — | — |
 | `resolveAnchorStartLine` | `hyperlights/myHighlights/list` | `nodes` | — | — | — |
 | `resolveDocumentPosition` | `hyperlights/myHighlights/list` | `nodes` | — | — | — |
 | `sortByDocumentOrder` | `hyperlights/myHighlights/list` | — | — | — | — |
@@ -1038,7 +1046,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hasFootnoteTapTarget` | `hyperlitContainer/footnoteTapExtender` | — | — | — | — |
 | `initFootnoteTapExtender` | `hyperlitContainer/footnoteTapExtender` | — | — | read | — |
 | `attachHighlightNavUI` | `hyperlitContainer/highlightNav` | — | — | read/write | — |
+| `navigateAndOpenAnnotation` | `hyperlitContainer/highlightNav` | `hypercites` | — | read | — |
 | `navigateAndOpenHighlight` | `hyperlitContainer/highlightNav` | `hyperlights` | — | read/write | — |
+| `openAnnotationInPlace` | `hyperlitContainer/highlightNav` | `hypercites` | — | read | — |
 | `openHighlightInPlace` | `hyperlitContainer/highlightNav` | `hyperlights` | — | read/write | — |
 | `buildContentFromMetadata` | `hyperlitContainer/history` | — | — | — | — |
 | `deriveMainAnchorId` | `hyperlitContainer/history` | — | — | — | — |
@@ -1737,7 +1747,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 4 · dynamic cycle-breakers (debt): 4 · lazy-loads (code-split): 254
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 4 · dynamic cycle-breakers (debt): 4 · lazy-loads (code-split): 256
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1788,6 +1798,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `SPA/viewManager` → `editToolbar/index`
 - `SPA/viewManager` → `hyperlights/index`
 - `SPA/viewManager` → `hyperlights/selectionToolbar`
+- `SPA/viewManager` → `hyperlitContainer/highlightNav`
 - `SPA/viewManager` → `indexedDB/core/connection`
 - `SPA/viewManager` → `indexedDB/core/healthMonitor`
 - `SPA/viewManager` → `indexedDB/core/recoveryToast`
@@ -1891,6 +1902,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/editMode` → `paste/index`
 - `hyperlitContainer/highlightNav` → `hyperlights/markGroup`
 - `hyperlitContainer/highlightNav` → `hyperlights/utils`
+- `hyperlitContainer/highlightNav` → `hyperlitContainer/containerActions`
 - `hyperlitContainer/history` → `divEditor/editSessionManager`
 - `hyperlitContainer/history` → `divEditor/index`
 - `hyperlitContainer/history` → `hyperlitContainer/containerState`

@@ -11,6 +11,7 @@ class PgHypercite extends Model
     protected $fillable = [
         'book',
         'hyperciteId',
+        'ghost_anchor_node',
         'node_id',
         'charData',
         'citedIN',

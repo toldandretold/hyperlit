@@ -107,11 +107,17 @@ class CharDataRecalculator
             return 0;
         }
 
-        $records = PgHyperlight::on('pgsql_admin')
-            ->where('book', $book)
-            ->whereIn('ghost_anchor_node', array_keys($deletedNodes))
-            ->get();
-        if ($records->isEmpty()) {
+        $recordSets = [
+            PgHyperlight::on('pgsql_admin')
+                ->where('book', $book)
+                ->whereIn('ghost_anchor_node', array_keys($deletedNodes))
+                ->get(),
+            PgHypercite::on('pgsql_admin')
+                ->where('book', $book)
+                ->whereIn('ghost_anchor_node', array_keys($deletedNodes))
+                ->get(),
+        ];
+        if ($recordSets[0]->isEmpty() && $recordSets[1]->isEmpty()) {
             return 0;
         }
 
@@ -124,19 +130,21 @@ class CharDataRecalculator
             ->values();
 
         $changed = 0;
-        foreach ($records as $record) {
-            $anchorStart = (float) $deletedNodes[$record->ghost_anchor_node];
-            $replacement = null;
-            foreach ($survivors as $n) {
-                if ((float) $n->startLine < $anchorStart) {
-                    $replacement = $n->node_id;
-                } else {
-                    break;
+        foreach ($recordSets as $records) {
+            foreach ($records as $record) {
+                $anchorStart = (float) $deletedNodes[$record->ghost_anchor_node];
+                $replacement = null;
+                foreach ($survivors as $n) {
+                    if ((float) $n->startLine < $anchorStart) {
+                        $replacement = $n->node_id;
+                    } else {
+                        break;
+                    }
                 }
+                $record->ghost_anchor_node = $replacement; // null when nothing precedes
+                $record->save();
+                $changed++;
             }
-            $record->ghost_anchor_node = $replacement; // null when nothing precedes
-            $record->save();
-            $changed++;
         }
 
         Log::info('CharDataRecalculator: re-anchored ghosts after anchor-node deletion', [

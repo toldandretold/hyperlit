@@ -109,6 +109,30 @@ blockquote.toc-hyperlight-text {
   opacity: 0.9;
 }
 
+/* Kind-coding with the real annotation looks (plain tags, scoped here — no
+   data-highlight-count, so the global mark rules don't apply). */
+.toc-hyperlight-text mark {
+  background-color: rgba(78, 172, 174, 0.45); /* user-highlight aqua */
+  color: var(--color-text);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.toc-hyperlight-text u {
+  /* the hypercite gradient underline (see resources/css/base/hypercites.css) */
+  text-decoration: none;
+  display: inline;
+  background-image: linear-gradient(to right,
+      rgba(238, 74, 149, 0.8),
+      rgba(239, 141, 52, 0.8),
+      rgba(78, 172, 174, 0.8),
+      rgba(238, 74, 149, 0.8));
+  background-position: 0 1.1em;
+  background-repeat: no-repeat;
+  background-size: 100% 2px;
+  padding-bottom: 2px;
+}
+
 .toc-hyperlight-entry[data-ghost="true"] .toc-hyperlight-text {
   opacity: 0.5;
 }

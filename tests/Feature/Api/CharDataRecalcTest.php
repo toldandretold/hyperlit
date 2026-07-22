@@ -281,6 +281,67 @@ test('deleting the anchor node RE-ANCHORS ghosts server-side to the surviving pr
     expect($rec->ghost_anchor_node)->toBeNull();
 });
 
+test('hypercite upsert persists the ghost anchor into its dedicated column', function () {
+    // via 'app': the hypercites upsert bumps library.annotations_updated_at on
+    // the DEFAULT connection — against an admin-committed row that row-lock
+    // deadlocks the afterEach admin cleanup (the documented seeding recipe).
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+    $nid50 = $book.'_050_bbbb';
+    saveNode($this, $book, $nid50, 'paragraph fifty', 50);
+
+    // Tombstone update from the client (node deleted → ghost + anchor).
+    $this->postJson('/api/db/hypercites/upsert', ['data' => [[
+        'book' => $book,
+        'hyperciteId' => 'hypercite_ghosted',
+        'node_id' => [$book.'_075_gone'],
+        'charData' => [$book.'_075_gone' => ['charStart' => -1, 'charEnd' => -1]],
+        'hypercitedText' => 'cited words',
+        'relationshipStatus' => 'ghost',
+        'citedIN' => ['otherbook#hypercite_ghosted'],
+        '_ghost_anchor_node' => $nid50,
+        'time_since' => time(),
+    ]]])->assertStatus(200);
+
+    $rec = PgHypercite::where('book', $book)->where('hyperciteId', 'hypercite_ghosted')->firstOrFail();
+    expect($rec->ghost_anchor_node)->toBe($nid50);
+});
+
+test('node deletion re-anchors a ghost HYPERCITE to the surviving predecessor', function () {
+    // No hypercites/upsert POST here (see the library-lock note above) — the
+    // ghost cite is seeded via admin so the admin-side re-anchor can see it.
+    $user = $this->loginUser();
+    $book = $this->makeBook($user);
+    $nid25 = $book.'_025_aaaa';
+    $nid50 = $book.'_050_bbbb';
+    saveNode($this, $book, $nid25, 'paragraph twenty five', 25);
+    saveNode($this, $book, $nid50, 'paragraph fifty', 50);
+
+    DB::connection('pgsql_admin')->table('hypercites')->insert([
+        'book' => $book,
+        'hyperciteId' => 'hypercite_reanchor',
+        'ghost_anchor_node' => $nid50,
+        'node_id' => json_encode([$book.'_075_gone']),
+        'charData' => json_encode([$book.'_075_gone' => ['charStart' => -1, 'charEnd' => -1]]),
+        'hypercitedText' => 'cited words',
+        'relationshipStatus' => 'ghost',
+        'citedIN' => json_encode(['otherbook#hypercite_reanchor']),
+        'creator' => 'someone_else_entirely',
+        'time_since' => time(),
+        'raw_json' => json_encode([]),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    // Deleting the anchor node walks the ghost cite up to node 25's node_id.
+    $this->postJson('/api/db/nodes/targeted-upsert', ['data' => [[
+        'book' => $book, 'startLine' => 50, '_action' => 'delete',
+    ]]])->assertStatus(200);
+
+    $rec = PgHypercite::on('pgsql_admin')->where('book', $book)->where('hyperciteId', 'hypercite_reanchor')->firstOrFail();
+    expect($rec->ghost_anchor_node)->toBe($nid25);
+});
+
 test('entity offsets: text after &nbsp; still relocates correctly', function () {
     $user = $this->loginUser();
     $book = $this->makeBook($user);

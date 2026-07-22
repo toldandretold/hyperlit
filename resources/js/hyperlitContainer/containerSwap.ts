@@ -127,7 +127,11 @@ export async function swapTopLayerContent(
 
     // ── 4. Re-run post-open (sub-books, listeners, edit/nav buttons) ──
     // skipAutoFocus: arrow navigation must not yank focus into the annotation.
-    await handlePostOpenActions(contentTypes, newHighlightIds, null, false, hasAnyEditPermission, true, db, { containerEl: container });
+    // isContentSwap: the editor re-attach must NOT re-capture the main-editor
+    // restore flags — window.isEditing is container-owned at this point, and
+    // capturing it poisons previousIsEditing so a later close would put the
+    // MAIN book into edit mode the user never had (the arrow edit-leak bug).
+    await handlePostOpenActions(contentTypes, newHighlightIds, null, false, hasAnyEditPermission, true, db, { containerEl: container, isContentSwap: true });
 
     // ── 5. Stack + history bookkeeping ──
     top.contentMetadata = {
@@ -136,6 +140,10 @@ export async function swapTopLayerContent(
       newHighlightIds,
       timestamp: Date.now(),
     };
+    // Keep the layer's URL snapshot in sync with the swap — a STACKED layer's
+    // pop restores the address bar from newTop.savedUrl, which would otherwise
+    // snap back to the highlight this layer was originally OPENED on.
+    if (opts.urlOverride) top.savedUrl = opts.urlOverride;
     syncStackToHistoryState({
       pushHistoryEntry: opts.pushHistoryEntry ?? false,
       urlOverride: opts.urlOverride ?? null,

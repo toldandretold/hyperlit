@@ -474,11 +474,13 @@ export async function batchDeleteIndexedDBRecords(
         hypercites: []
       };
 
-      // Single-node highlights whose only node is being deleted are NOT deleted —
-      // they are TOMBSTONED (charData -1/-1, the deterministic deleted-text marker
-      // shared with the server-side CharDataRecalculator) so the ghost system keeps
-      // them navigable. Collected here and synced as UPDATEs after the tx commits.
+      // Single-node highlights/hypercites whose only node is being deleted are NOT
+      // deleted — they are TOMBSTONED (charData -1/-1, the deterministic deleted-text
+      // marker shared with the server-side CharDataRecalculator; hypercites also flip
+      // to relationshipStatus 'ghost') so the ghost systems keep them navigable and
+      // citedIN links never dangle. Collected here, synced as UPDATEs post-commit.
       const tombstonedHyperlights: Array<{ tomb: HyperlightRecord; original: HyperlightRecord }> = [];
+      const tombstonedHypercites: Array<{ tomb: HyperciteRecord; original: HyperciteRecord }> = [];
 
       let processedCount = 0;
       let errorCount = 0;
@@ -668,25 +670,51 @@ export async function batchDeleteIndexedDBRecords(
 
                           // Save updated hypercite (don't delete it!)
                           cursor.update(hypercite);
-                        } else if (deletedIDnumericals.has(hypercite.startLine!)) {
-                          // OLD SYSTEM - hypercite only in old schema
-                          deletedData.hypercites.push(cursor.value); // Record for undo
-                          cursor.delete();
                         } else {
-                          // Single-node hypercite in NEW schema - mark as orphaned
+                          // Single-node hypercite — its only node is being deleted.
+                          // NEVER destroy the record (this used to cursor.delete() +
+                          // queue a server delete, annihilating another user's cite
+                          // and dangling every citedIN link pointing at it). Mirror
+                          // the highlight treatment: tombstone charData at -1/-1,
+                          // flip relationshipStatus to 'ghost' (the existing ghost
+                          // tombstone/nav machinery takes over), capture the
+                          // renumber-proof neighbor anchor, sync as an UPDATE.
+                          const originalCite: HyperciteRecord = { ...hypercite, charData: { ...(hypercite.charData || {}) } };
                           hypercite._orphaned_at = Date.now();
-                          hypercite._orphaned_from_node = affectedDataNodeID || hypercite.startLine!.toString();
-
-                          // Track deleted node for cleanup
+                          hypercite._orphaned_from_node = affectedDataNodeID || String(hypercite.startLine ?? '');
                           if (!hypercite._deleted_nodes) {
                             hypercite._deleted_nodes = [];
                           }
                           if (affectedDataNodeID && !hypercite._deleted_nodes.includes(affectedDataNodeID)) {
                             hypercite._deleted_nodes.push(affectedDataNodeID);
                           }
-
+                          hypercite.charData = hypercite.charData || {};
+                          for (const nid of Object.keys(hypercite.charData)) {
+                            hypercite.charData[nid] = { charStart: -1, charEnd: -1 };
+                          }
+                          hypercite.relationshipStatus = 'ghost';
+                          const citeAnchor = ghostAnchorByDeletedId.get(Number(hypercite.startLine));
+                          if (citeAnchor) hypercite._ghost_anchor_node = citeAnchor;
                           cursor.update(hypercite);
+                          tombstonedHypercites.push({ tomb: hypercite, original: originalCite });
                         }
+                      }
+
+                      // Re-anchor a ghost cite whose anchor node is being deleted
+                      // (mirror of the highlight re-anchor pass above).
+                      if (!affectsDeletedNode
+                          && hypercite._ghost_anchor_node
+                          && deletedDataNodeIDs.has(hypercite._ghost_anchor_node)) {
+                        const deletedAnchorNum = numByDeletedNodeId.get(hypercite._ghost_anchor_node);
+                        const replacement = deletedAnchorNum !== undefined
+                          ? ghostAnchorByDeletedId.get(deletedAnchorNum)
+                          : undefined;
+                        if (replacement) {
+                          hypercite._ghost_anchor_node = replacement;
+                        } else {
+                          delete hypercite._ghost_anchor_node;
+                        }
+                        cursor.update(hypercite);
                       }
 
                       cursor.continue();
@@ -732,10 +760,13 @@ export async function batchDeleteIndexedDBRecords(
           deletedData.hyperlights.forEach((record) => {
             queueForSync("hyperlights", record.hyperlight_id, "delete", record);
           });
-          // Tombstoned (not deleted) highlights: UPDATE sync keeps the server record —
-          // it becomes a ghost, never a deletion. originalData preserves undo.
+          // Tombstoned (not deleted) annotations: UPDATE sync keeps the server record —
+          // they become ghosts, never deletions. originalData preserves undo.
           tombstonedHyperlights.forEach(({ tomb, original }) => {
             queueForSync("hyperlights", tomb.hyperlight_id, "update", tomb, original);
+          });
+          tombstonedHypercites.forEach(({ tomb, original }) => {
+            queueForSync("hypercites", tomb.hyperciteId, "update", tomb, original);
           });
           deletedData.hypercites.forEach((record) => {
             queueForSync("hypercites", record.hyperciteId, "delete", record);

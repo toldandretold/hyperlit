@@ -353,7 +353,14 @@ export async function universalPageInitializer(progressCallback = null) {
     initializeHighlightingControls(currentBookId);
     initializeHypercitingControls(currentBookId);
     initializeSelectionHandler();
-    
+
+    // Warm the highlight-nav chunk now, while we're (presumably) online. postOpen loads it with a
+    // dynamic import (a cycle-breaker — the postOpen → highlightNav → containerSwap → postOpen ring
+    // must stay out of the static graph) the first time a highlight container opens; without this
+    // preload, opening one OFFLINE can't fetch the chunk and the ↑↓ nav arrows die (logging an error).
+    // Same specifier → resolved from the module cache. Background, non-blocking.
+    import('../hyperlitContainer/highlightNav').catch(() => { /* offline already; postOpen will surface it */ });
+
     // Initialize user profile page functionality if user owns this book
     const { getCurrentUser } = await import('../utilities/auth/index');
     const user = await getCurrentUser();

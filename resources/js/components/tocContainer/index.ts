@@ -277,11 +277,11 @@ function attachTocClickHandler() {
     const hlEntry = event.target.closest('.toc-hyperlight-entry');
     if (hlEntry) {
       event.preventDefault();
-      const highlightId = hlEntry.getAttribute('data-highlight-id');
-      if (!highlightId) return;
+      const annotationEntryId = hlEntry.getAttribute('data-highlight-id');
+      if (!annotationEntryId) return;
       getTocManager().closeContainer();
-      const { navigateAndOpenHighlight } = await import('../../hyperlitContainer/highlightNav');
-      void navigateAndOpenHighlight(highlightId);
+      const { navigateAndOpenAnnotation } = await import('../../hyperlitContainer/highlightNav');
+      void navigateAndOpenAnnotation(annotationEntryId);
       return;
     }
 

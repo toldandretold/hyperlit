@@ -106,6 +106,37 @@ describe('batchDeleteIndexedDBRecords (characterization)', () => {
     expect(queued.originalData.charData['n-100']).toEqual({ charStart: 3, charEnd: 9 });
   });
 
+  it('single-node HYPERCITE survives node deletion as a ghost tombstone, synced as update', function () {
+    // Mirrors the highlight treatment: destroying the record dangled every
+    // citedIN link pointing at it. Now: charData -1/-1, relationshipStatus
+    // flips to 'ghost' (the existing tombstone/nav machinery takes over),
+    // renumber-proof neighbor anchor captured, UPDATE sync not delete.
+    return (async () => {
+      await seedStore('nodes', [node('bookA', 50, 'n-50'), node('bookA', 100, 'n-100')]);
+      await seedStore('hypercites', [{
+        book: 'bookA', hyperciteId: 'hypercite_solo', startLine: 100,
+        node_id: ['n-100'],
+        charData: { 'n-100': { charStart: 3, charEnd: 9 } },
+        hypercitedText: 'cited words',
+        relationshipStatus: 'couple', citedIN: ['someone/book#hypercite_solo'],
+      }]);
+
+      const deletionMap = new Map([['100', 'n-100']]);
+      await batchDeleteIndexedDBRecords(['100'], deletionMap);
+
+      const tomb = await readOne('hypercites', ['bookA', 'hypercite_solo']);
+      expect(tomb).toBeTruthy();
+      expect(tomb.charData['n-100']).toEqual({ charStart: -1, charEnd: -1 });
+      expect(tomb.relationshipStatus).toBe('ghost');
+      expect(tomb.citedIN).toEqual(['someone/book#hypercite_solo']); // links preserved
+      expect(tomb._ghost_anchor_node).toBe('n-50');
+      const queued = pendingSyncs.get('hypercites-bookA-hypercite_solo');
+      expect(queued.type).toBe('update');
+      expect(queued.data.relationshipStatus).toBe('ghost');
+      expect(queued.originalData.relationshipStatus).toBe('couple');
+    })();
+  });
+
   it('a ghost whose anchor node is deleted RE-ANCHORS to the anchor\'s surviving predecessor', async () => {
     // Book: 25 → 50 → 100. Batch 1 deletes 100 (highlight anchors to n-50).
     // Batch 2 deletes 50 — the ghost's anchor must walk up to n-25, not dangle.

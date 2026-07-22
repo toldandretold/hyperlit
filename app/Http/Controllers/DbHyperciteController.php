@@ -351,24 +351,32 @@ class DbHyperciteController extends Controller
                         'citedIN' => $item['citedIN'] ?? []
                     ]);
 
+                    $values = [
+                        'node_id' => $item['node_id'] ?? null,
+                        'charData' => $item['charData'] ?? null,
+                        'hypercitedText' => NodeHtmlSanitizer::clean($item['hypercitedText'] ?? null),
+                        'hypercitedHTML' => NodeHtmlSanitizer::clean($item['hypercitedHTML'] ?? null),
+                        'relationshipStatus' => NodeHtmlSanitizer::clean($item['relationshipStatus'] ?? null),
+                        'citedIN' => $item['citedIN'] ?? [],
+                        'creator' => $creator,
+                        'creator_token' => $creator_token,
+                        'time_since' => $item['time_since'] ?? floor(time()),
+                        'raw_json' => $this->cleanItemForStorage($item),
+                        'updated_at' => now(),
+                    ];
+                    // Ghost anchor (node-deletion tombstones — mirrors DbHyperlightController):
+                    // only written when the payload CARRIES the key, so an older client's
+                    // record can't wipe a stored anchor.
+                    if (array_key_exists('_ghost_anchor_node', $item) || array_key_exists('ghost_anchor_node', $item)) {
+                        $values['ghost_anchor_node'] = $item['_ghost_anchor_node'] ?? $item['ghost_anchor_node'] ?? null;
+                    }
+
                     PgHypercite::updateOrCreate(
                         [
                             'book' => $item['book'] ?? null,
                             'hyperciteId' => $item['hyperciteId'] ?? null,
                         ],
-                        [
-                            'node_id' => $item['node_id'] ?? null,
-                            'charData' => $item['charData'] ?? null,
-                            'hypercitedText' => NodeHtmlSanitizer::clean($item['hypercitedText'] ?? null),
-                            'hypercitedHTML' => NodeHtmlSanitizer::clean($item['hypercitedHTML'] ?? null),
-                            'relationshipStatus' => NodeHtmlSanitizer::clean($item['relationshipStatus'] ?? null),
-                            'citedIN' => $item['citedIN'] ?? [],
-                            'creator' => $creator,
-                            'creator_token' => $creator_token,
-                            'time_since' => $item['time_since'] ?? floor(time()),
-                            'raw_json' => $this->cleanItemForStorage($item),
-                            'updated_at' => now(),
-                        ]
+                        $values
                     );
 
                     $processedCount++;

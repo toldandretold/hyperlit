@@ -10,8 +10,22 @@
  * (only set on locally-created records — the server strips it on read).
  */
 
-import type { BookId, HyperlightRecord } from '../../indexedDB/types';
+import type { BookId, HyperciteRecord, HyperlightRecord } from '../../indexedDB/types';
 import { openDatabase } from '../../indexedDB/core/connection';
+
+/** The structural fields position derivation needs — satisfied by both
+ *  HyperlightRecord and HyperciteRecord (startLine is unofficial on cites). */
+type Positionable = {
+  book: BookId;
+  node_id?: string[] | null;
+  startLine?: number | string | null;
+  _ghost_anchor_node?: string;
+};
+
+/** One entry of the unified "hyperlighted" list (highlights + <u> cites). */
+export type OwnedAnnotation =
+  | { kind: 'highlight'; record: HyperlightRecord }
+  | { kind: 'hypercite'; record: HyperciteRecord };
 
 export interface AuthIdentity {
   user: { name?: string; username?: string; email?: string } | null;
@@ -89,7 +103,7 @@ async function nodeStartLineById(
  *  3. the stored startLine (frozen at last measure — last resort).
  */
 export async function resolveDocumentPosition(
-  record: HyperlightRecord,
+  record: Positionable,
   db: IDBDatabase,
   cache: Map<string, number | null> = new Map(),
 ): Promise<number> {
@@ -118,7 +132,7 @@ export async function resolveDocumentPosition(
  * nearest-preceding fallback bounds the damage). Null when nothing resolves.
  */
 export async function resolveAnchorStartLine(
-  record: HyperlightRecord,
+  record: Positionable,
   db: IDBDatabase,
 ): Promise<string | null> {
   const cache = new Map<string, number | null>();
@@ -178,6 +192,72 @@ export async function getOwnedHighlightsForBook(
   return positioned.sort((a, b) => a.pos - b.pos).map((p) => p.record);
 }
 
+/** Pure. Ownership test for a hypercite: server-computed flag first (recomputed
+ *  on every pull, true at local creation — covers anon), creator fallback. */
+export function isOwnedHypercite(record: HyperciteRecord, auth: AuthIdentity): boolean {
+  if (record.is_user_hypercite === true) return true;
+  const { user } = auth;
+  return Boolean(user && record.creator && record.creator === user.name);
+}
+
+/** All of the user's <u> cites for a book (any relationshipStatus, incl. ghosts). */
+export async function getOwnedHypercitesForBook(
+  bookId: BookId | string,
+  auth: AuthIdentity,
+  db?: IDBDatabase,
+): Promise<HyperciteRecord[]> {
+  const database = db || await openDatabase();
+  const records = await new Promise<HyperciteRecord[]>((resolve, reject) => {
+    const out: HyperciteRecord[] = [];
+    const tx = database.transaction('hypercites', 'readonly');
+    const store = tx.objectStore('hypercites');
+    const range = IDBKeyRange.bound([bookId], [bookId, '￿']);
+    const req = store.openCursor(range);
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (cursor) {
+        out.push(cursor.value as HyperciteRecord);
+        cursor.continue();
+      } else {
+        resolve(out);
+      }
+    };
+    req.onerror = () => reject(req.error);
+  });
+  return records.filter((r) => isOwnedHypercite(r, auth));
+}
+
+/**
+ * The unified "everything I've hyperlighted" list: the user's highlights AND
+ * <u> cites for the book, merged into one CURRENT-document-order sequence
+ * (the traversal order of the container's ↑↓ arrows and the TOC tab).
+ */
+export async function getOwnedAnnotationsForBook(
+  bookId: BookId | string,
+  auth: AuthIdentity,
+  db?: IDBDatabase,
+): Promise<OwnedAnnotation[]> {
+  const database = db || await openDatabase();
+  const [highlights, hypercites] = await Promise.all([
+    getOwnedHighlightsForBook(bookId, auth, database),
+    getOwnedHypercitesForBook(bookId, auth, database),
+  ]);
+  const cache = new Map<string, number | null>();
+  const entries: Array<{ entry: OwnedAnnotation; pos: number }> = [];
+  for (const record of highlights) {
+    entries.push({ entry: { kind: 'highlight', record }, pos: await resolveDocumentPosition(record, database, cache) });
+  }
+  for (const record of hypercites) {
+    entries.push({ entry: { kind: 'hypercite', record }, pos: await resolveDocumentPosition(record as Positionable, database, cache) });
+  }
+  return entries.sort((a, b) => a.pos - b.pos).map((e) => e.entry);
+}
+
+/** The id an OwnedAnnotation is addressed by (HL_* or hypercite_*). */
+export function annotationId(entry: OwnedAnnotation): string {
+  return entry.kind === 'highlight' ? entry.record.hyperlight_id : entry.record.hyperciteId;
+}
+
 export interface AdjacentResult {
   record: HyperlightRecord;
   index: number;
@@ -208,5 +288,29 @@ export function getPosition(
   currentId: string,
 ): { index: number; total: number } | null {
   const idx = ordered.findIndex((r) => r.hyperlight_id === currentId);
+  return idx === -1 ? null : { index: idx, total: ordered.length };
+}
+
+/** Mixed-list neighbour of `currentId` (HL_* or hypercite_*). Null at the ends. */
+export function getAdjacentAnnotation(
+  ordered: OwnedAnnotation[],
+  currentId: string,
+  dir: 1 | -1,
+): { entry: OwnedAnnotation; index: number; total: number } | null {
+  const idx = ordered.findIndex((e) => annotationId(e) === currentId);
+  if (idx === -1) return null;
+  const targetIdx = idx + dir;
+  if (targetIdx < 0 || targetIdx >= ordered.length) return null;
+  const entry = ordered[targetIdx];
+  if (!entry) return null;
+  return { entry, index: targetIdx, total: ordered.length };
+}
+
+/** Mixed-list position of `currentId` (for "3 / 12" UI), or null. */
+export function getAnnotationPosition(
+  ordered: OwnedAnnotation[],
+  currentId: string,
+): { index: number; total: number } | null {
+  const idx = ordered.findIndex((e) => annotationId(e) === currentId);
   return idx === -1 ? null : { index: idx, total: ordered.length };
 }

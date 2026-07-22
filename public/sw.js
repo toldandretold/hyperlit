@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v29'; // TOC hyperlights tab + ghost anchor column — force-refresh
+const CACHE_VERSION = 'v30'; // hypercite ghost parity + unified hyperlighted list — force-refresh
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 

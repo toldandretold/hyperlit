@@ -4,7 +4,8 @@
 .hyperlit-nav-arrows {
   position: absolute;
   right: 10px;
-  bottom: 44px;
+  /* Clear of the edit pencil (bottom: 10px, 24px tall) — finger-friendly gap */
+  bottom: 60px;
   z-index: 1002;
   display: flex;
   flex-direction: column;
@@ -34,8 +35,11 @@
 }
 
 @media (hover: hover) {
+  /* Full inversion pair — background AND glyph must flip together (the edit
+     pencil does this via svg stroke). Background alone = dark-on-dark blackout. */
   .hyperlit-nav-btn:not([disabled]):hover {
     background-color: var(--icon-hover-background);
+    color: var(--icon-hover-stroke);
   }
 }
 

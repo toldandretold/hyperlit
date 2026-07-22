@@ -882,6 +882,10 @@ class DatabaseToIndexedDBController extends Controller
                 return [
                     'book' => $hypercite->book,
                     'hyperciteId' => $hypercite->hyperciteId,
+                    // Ghost anchor (node-deletion tombstones — mirrors getHyperlights):
+                    // served under the client's underscore-prefixed field name; the IDB
+                    // loader spreads the wire row wholesale.
+                    '_ghost_anchor_node' => $hypercite->ghost_anchor_node ?? null,
                     'node_id' => json_decode($hypercite->node_id ?? '[]', true),
                     'charData' => json_decode($hypercite->charData ?? '{}', true),
                     'citedIN' => json_decode($hypercite->citedIN ?? '[]', true),

@@ -195,5 +195,41 @@ test.describe('Highlight nav arrows', () => {
     expect(afterTocClick.quote).toContain('beta target');
     expect(afterTocClick.arrows).toBe(true);
     expect(afterTocClick.containers).toBe(1);
+
+    // ── Edit-leak regression: container edit + arrow + close must NOT put the
+    // MAIN book into edit mode (previousIsEditing was being re-captured from
+    // the container-owned window.isEditing during the swap re-attach). ──
+    await spa.closeHyperlitContainer(page);
+    await page.waitForTimeout(500);
+
+    // Exit MAIN edit mode (book creation auto-entered it) so the restore-to-read
+    // expectation is meaningful.
+    await page.click('#editButton');
+    await page.waitForFunction(() => {
+      const main = document.querySelector('.main-content');
+      return main && main.getAttribute('contenteditable') !== 'true';
+    }, null, { timeout: 8000 });
+    await page.waitForTimeout(800); // edit-exit save settles
+
+    // Open a highlight, enter CONTAINER edit mode, arrow, close.
+    await page.locator('.main-content mark').first().click();
+    await page.waitForFunction(() => document.getElementById('hyperlit-container')?.classList.contains('open'), null, { timeout: 10000 });
+    await page.waitForTimeout(1200);
+    await page.click('.hyperlit-edit-btn');
+    await page.waitForTimeout(600);
+    await page.click('.hyperlit-nav-next');
+    await page.waitForTimeout(1500);
+    await spa.closeHyperlitContainer(page);
+    await page.waitForTimeout(800);
+
+    const editLeak = await page.evaluate(() => ({
+      mainEditable: document.querySelector('.main-content')?.getAttribute('contenteditable'),
+      isEditing: !!window.isEditing,
+      containerOpen: document.getElementById('hyperlit-container')?.classList.contains('open'),
+    }));
+    console.log('EDIT LEAK CHECK:', JSON.stringify(editLeak));
+    expect(editLeak.containerOpen).toBe(false);
+    expect(editLeak.mainEditable).not.toBe('true');
+    expect(editLeak.isEditing).toBe(false);
   });
 });

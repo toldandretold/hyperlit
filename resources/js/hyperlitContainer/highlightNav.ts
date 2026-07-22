@@ -19,16 +19,23 @@
 
 import { log, verbose } from '../utilities/logger';
 import { openDatabase } from '../indexedDB/core/connection';
-import type { HyperlightRecord } from '../indexedDB/types';
+import type { HyperciteRecord, HyperlightRecord } from '../indexedDB/types';
 import { getAuthContextSync, getAuthContext } from '../utilities/auth/index';
-import { getOwnedHighlightsForBook, getAdjacent, getPosition, type AuthIdentity } from '../hyperlights/myHighlights/list';
-import { isHighlightGhosted } from '../hyperlights/myHighlights/ghost';
+import {
+  getOwnedAnnotationsForBook,
+  getAdjacentAnnotation,
+  getAnnotationPosition,
+  annotationId,
+  type AuthIdentity,
+  type OwnedAnnotation,
+} from '../hyperlights/myHighlights/list';
+import { isHighlightGhosted, isHyperciteGhosted } from '../hyperlights/myHighlights/ghost';
 import { currentLazyLoader } from '../pageLoad/currentLazyLoaderState';
 import { navigateToInternalId } from '../scrolling/internalNav';
 import { spawnGhostBubble } from '../hypercites/animations';
 import { registerListener } from './containerState';
 import { getDepth, getCurrentContainer } from './stack';
-import { detectHighlights } from './detection';
+import { detectHighlights, detectHypercites } from './detection';
 import { swapTopLayerContent } from './containerSwap';
 
 let navInFlight = false;
@@ -71,16 +78,31 @@ async function fetchRecord(highlightId: string, db: IDBDatabase): Promise<Hyperl
   });
 }
 
+async function fetchCiteRecord(hyperciteId: string, db: IDBDatabase): Promise<HyperciteRecord | null> {
+  return new Promise((resolve) => {
+    try {
+      const req = db.transaction('hypercites', 'readonly')
+        .objectStore('hypercites')
+        .get([renderedMainBookId(), hyperciteId]);
+      req.onsuccess = () => resolve((req.result as HyperciteRecord) || null);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
 /**
- * Render the arrows + see-all buttons into the container. Called from
- * postOpen's deferred block on every (re)build — idempotent.
- * Renders NOTHING unless: the view is a single owned highlight in the rendered
- * main book, on the base layer, outside brain mode.
+ * Render the ↑↓ arrows into the container. Called from postOpen's deferred
+ * block on every (re)build — idempotent. The arrows traverse the user's
+ * MIXED "hyperlighted" list (highlights + <u> cites, document order).
+ * Renders NOTHING unless: the view is one of the user's own annotations in
+ * the rendered main book, on the base layer, outside brain mode.
  */
-export async function attachHighlightNavUI(container: HTMLElement, hlContentType: any, options: any = {}): Promise<void> {
+export async function attachHighlightNavUI(container: HTMLElement, navContentType: any, options: any = {}): Promise<void> {
   container.querySelector('.hyperlit-nav-arrows')?.remove();
 
-  if (!hlContentType || options?.brainModeHighlightId) {
+  if (!navContentType || options?.brainModeHighlightId) {
     navDiag('skip:no-ct-or-brain');
     return;
   }
@@ -88,9 +110,11 @@ export async function attachHighlightNavUI(container: HTMLElement, hlContentType
     navDiag(`skip:stacked-depth-${getDepth()}`);
     return; // stacked layers sit over other containers, not the reader
   }
-  const firstId: string | undefined = hlContentType.highlightIds?.[0];
-  if (!firstId) {
-    navDiag('skip:no-highlight-id');
+  // The current annotation's id: a highlight view carries highlightIds, a
+  // hypercite view carries hyperciteId.
+  const currentId: string | undefined = navContentType.highlightIds?.[0] || navContentType.hyperciteId;
+  if (!currentId) {
+    navDiag('skip:no-annotation-id');
     return;
   }
   const mainBookId = renderedMainBookId();
@@ -100,60 +124,116 @@ export async function attachHighlightNavUI(container: HTMLElement, hlContentType
   }
 
   // Ownership + book scoping in ONE test: the ordered list contains exactly the
-  // user's visible highlights for the rendered main book. (Deliberately NOT the
+  // user's annotations for the rendered main book. (Deliberately NOT the
   // ct.highlightOwnership cache — buildUnifiedContent spreads content types into
   // copies before buildContent, so caches set there never reach postOpen's ct.)
   const auth = await resolveAuth();
   const db = await openDatabase();
-  const ordered = await getOwnedHighlightsForBook(mainBookId, auth, db);
-  if (!ordered.some((r) => r.hyperlight_id === firstId)) {
-    navDiag(`skip:not-owned-in-book:${firstId}`);
+  const ordered = await getOwnedAnnotationsForBook(mainBookId, auth, db);
+  if (!ordered.some((e) => annotationId(e) === currentId)) {
+    navDiag(`skip:not-owned-in-book:${currentId}`);
     return;
   }
   navDiag('guards-passed');
 
-  const pos = getPosition(ordered, firstId);
+  const pos = getAnnotationPosition(ordered, currentId);
 
   const wrap = document.createElement('div');
   wrap.className = 'hyperlit-nav-arrows';
   wrap.innerHTML = `
-    <button type="button" class="hyperlit-nav-btn hyperlit-nav-prev" title="Previous highlight" aria-label="Previous highlight">↑</button>
-    <button type="button" class="hyperlit-nav-btn hyperlit-nav-next" title="Next highlight" aria-label="Next highlight">↓</button>
+    <button type="button" class="hyperlit-nav-btn hyperlit-nav-prev" title="Previous" aria-label="Previous hyperlighted">↑</button>
+    <button type="button" class="hyperlit-nav-btn hyperlit-nav-next" title="Next" aria-label="Next hyperlighted">↓</button>
   `;
   container.appendChild(wrap);
 
   const prevBtn = wrap.querySelector('.hyperlit-nav-prev') as HTMLButtonElement;
   const nextBtn = wrap.querySelector('.hyperlit-nav-next') as HTMLButtonElement;
 
-  const prev = getAdjacent(ordered, firstId, -1);
-  const next = getAdjacent(ordered, firstId, 1);
+  const prev = getAdjacentAnnotation(ordered, currentId, -1);
+  const next = getAdjacentAnnotation(ordered, currentId, 1);
   prevBtn.disabled = !prev;
   nextBtn.disabled = !next;
   if (pos) {
-    prevBtn.title = `Previous highlight (${pos.index + 1} / ${pos.total})`;
-    nextBtn.title = `Next highlight (${pos.index + 1} / ${pos.total})`;
+    prevBtn.title = `Previous (${pos.index + 1} / ${pos.total})`;
+    nextBtn.title = `Next (${pos.index + 1} / ${pos.total})`;
   }
 
   if (prev) {
     registerListener(prevBtn, 'click', (e: Event) => {
       e.preventDefault();
       e.stopPropagation();
-      void openHighlightInPlace(prev.record.hyperlight_id);
+      void openAnnotationInPlace(annotationId(prev.entry));
     });
   }
   if (next) {
     registerListener(nextBtn, 'click', (e: Event) => {
       e.preventDefault();
       e.stopPropagation();
-      void openHighlightInPlace(next.record.hyperlight_id);
+      void openAnnotationInPlace(annotationId(next.entry));
     });
   }
   navDiag('attached');
 }
 
 /**
- * Swap the container to `highlightId` (replaceState — an arrow step is not its
- * own history entry) and scroll the main book to it.
+ * Swap the container to the given annotation (replaceState — an arrow step is
+ * not its own history entry) and scroll the main book to it. Ids are
+ * self-describing: HL_* = highlight, hypercite_* = <u> cite.
+ */
+export async function openAnnotationInPlace(id: string): Promise<void> {
+  if (id.startsWith('hypercite_')) return openHyperciteInPlace(id);
+  return openHighlightInPlace(id);
+}
+
+/** Hypercite arm of openAnnotationInPlace. */
+async function openHyperciteInPlace(hyperciteId: string): Promise<void> {
+  if (navInFlight) return;
+  navInFlight = true;
+  try {
+    const db = await openDatabase();
+    const record = await fetchCiteRecord(hyperciteId, db);
+    const ghosted = record ? isHyperciteGhosted(record) : false;
+
+    const ct = await detectHypercites(null, hyperciteId, db);
+    if (!ct) return;
+
+    const swapped = await swapTopLayerContent([ct], [], {
+      pushHistoryEntry: false,
+      urlOverride: `/${resolveRenderedBookSegment()}#${hyperciteId}`,
+      anchorId: hyperciteId,
+    });
+    if (!swapped) return;
+
+    // Scroll AFTER the swap (fire-and-forget). Live cites scroll to the <u>;
+    // ghost cites scroll to their invisible tombstone anchor (regenerated per
+    // render from the record) and float the 👻 bubble there. internalNav's
+    // auto-open only fires for HL_/Fn ids, so no suppress flag is needed.
+    void (async () => {
+      if (!currentLazyLoader) return;
+      try {
+        await navigateToInternalId(hyperciteId, currentLazyLoader, false);
+      } catch { /* fall through to the anchor fallback below */ }
+      if (ghosted) {
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const { revealGhostIfTombstone } = await import('../hypercites/animations');
+        if (!revealGhostIfTombstone(hyperciteId) && record) {
+          // Tombstone not rendered (e.g. its node was deleted) — anchor fallback.
+          const { resolveAnchorStartLine } = await import('../hyperlights/myHighlights/list');
+          const anchor = await resolveAnchorStartLine(record, db);
+          const anchorEl = anchor ? document.getElementById(anchor) : null;
+          if (anchorEl) spawnGhostBubble(anchorEl.getBoundingClientRect(), hyperciteId);
+        }
+      }
+    })();
+  } catch (error) {
+    log.error('openHyperciteInPlace failed', 'hyperlitContainer/highlightNav.ts', error as any);
+  } finally {
+    navInFlight = false;
+  }
+}
+
+/**
+ * Highlight arm of openAnnotationInPlace.
  */
 export async function openHighlightInPlace(highlightId: string): Promise<void> {
   if (navInFlight) return;
@@ -215,13 +295,43 @@ function markContainerGhosted(highlightId: string): void {
 }
 
 /**
- * The "from afar" flow — open a highlight from a surface OUTSIDE the container
- * (TOC hyperlights tab; reusable by the ghost ledger): open the hyperlit
- * container via openHighlightById (works whether or not the mark is rendered —
- * postOpen attaches the ↑↓ arrows), then scroll the reader appropriately:
- * ghosts get the anchor scroll + 👻 bubble (never the 6s mark-hunt), live
- * highlights get the suppressed-auto-open scroll + glow.
+ * The "from afar" flow — open an annotation from a surface OUTSIDE the
+ * container (TOC hyperlights tab; reusable by the ghost ledger): open the
+ * hyperlit container (works whether or not the mark/<u> is rendered — postOpen
+ * attaches the ↑↓ arrows), then scroll the reader appropriately: ghosts get
+ * the anchor/tombstone scroll + 👻 bubble (never the 6s mark-hunt), live ones
+ * the normal scroll + glow. Ids self-describe: HL_* or hypercite_*.
  */
+export async function navigateAndOpenAnnotation(id: string): Promise<void> {
+  if (!id.startsWith('hypercite_')) return navigateAndOpenHighlight(id);
+  try {
+    const db = await openDatabase();
+    const record = await fetchCiteRecord(id, db);
+    const ghosted = record ? isHyperciteGhosted(record) : false;
+
+    // Direct-ID open (containerActions delegator) — same path deep links use.
+    const { handleUnifiedContentClick } = await import('./containerActions');
+    await handleUnifiedContentClick(null, null, [], false, false, id);
+
+    if (!currentLazyLoader) return;
+    try {
+      await navigateToInternalId(id, currentLazyLoader, false);
+    } catch { /* anchor fallback below */ }
+    if (ghosted) {
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const { revealGhostIfTombstone } = await import('../hypercites/animations');
+      if (!revealGhostIfTombstone(id) && record) {
+        const { resolveAnchorStartLine } = await import('../hyperlights/myHighlights/list');
+        const anchor = await resolveAnchorStartLine(record, db);
+        const anchorEl = anchor ? document.getElementById(anchor) : null;
+        if (anchorEl) spawnGhostBubble(anchorEl.getBoundingClientRect(), id);
+      }
+    }
+  } catch (error) {
+    log.error('navigateAndOpenAnnotation failed', 'hyperlitContainer/highlightNav.ts', error as any);
+  }
+}
+
 export async function navigateAndOpenHighlight(highlightId: string): Promise<void> {
   try {
     const db = await openDatabase();
