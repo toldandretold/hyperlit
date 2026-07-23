@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v32'; // ghost detection text-survival fix + unplaceable-only ledger — force-refresh
+const CACHE_VERSION = 'v33'; // build-asset fetch retries past HTTP-cached 404s (deploy-outage self-heal) — force-refresh
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 
@@ -104,28 +104,37 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Handle build assets (hashed files) - CacheFirst with network fallback
+  // Handle build assets (hashed files) - CacheFirst with network fallback.
+  // On a non-200 or network error, RETRY with cache:'reload' — during the
+  // 2026-07-23 deploy outage Cloudflare stamped max-age=14400 onto transient
+  // 404s for hashed chunks, so the BROWSER HTTP cache kept re-serving a dead
+  // 404 long after the origin recovered (plain fetch() consults that cache).
+  // The bypass retry lets poisoned browsers self-heal on the next visit.
   if (url.pathname.startsWith('/build/')) {
+    const cacheIfOk = (networkResponse) => {
+      if (networkResponse.ok) {
+        console.log('[SW] Caching build asset:', url.pathname);
+        const responseClone = networkResponse.clone();
+        caches.open(STATIC_CACHE).then((cache) => {
+          cache.put(request, responseClone);
+        });
+      }
+      return networkResponse;
+    };
+    const retryBypassingHttpCache = () => fetch(request, { cache: 'reload' }).then(cacheIfOk);
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
         if (cachedResponse) {
           console.log('[SW] Serving cached build asset:', url.pathname);
           return cachedResponse;
         }
-        return fetch(request).then((networkResponse) => {
-          // Cache the new asset
-          if (networkResponse.ok) {
-            console.log('[SW] Caching build asset:', url.pathname);
-            const responseClone = networkResponse.clone();
-            caches.open(STATIC_CACHE).then((cache) => {
-              cache.put(request, responseClone);
-            });
-          }
-          return networkResponse;
-        }).catch((error) => {
-          console.error('[SW] Failed to fetch build asset:', url.pathname, error);
-          return new Response('', { status: 404 });
-        });
+        return fetch(request)
+          .then((networkResponse) => networkResponse.ok ? cacheIfOk(networkResponse) : retryBypassingHttpCache())
+          .catch(() => retryBypassingHttpCache())
+          .catch((error) => {
+            console.error('[SW] Failed to fetch build asset:', url.pathname, error);
+            return new Response('', { status: 404 });
+          });
       })
     );
     return;
