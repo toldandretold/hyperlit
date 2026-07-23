@@ -114,7 +114,15 @@ export class ImportBookTransition {
         }
       }
 
-      progress(100, 'Import complete!');
+      // Only tick 100% if the overlay is still up. Every progress tick routes
+      // through Enactor.show(), which RESURRECTS a hidden overlay — and
+      // domReadiness hides it asynchronously as soon as the book content
+      // renders. When that hide won the race, this final tick re-showed
+      // "Loading... 100%" over the finished book with nothing left to hide it
+      // (the form-import path calls execute() directly, no NavigationManager).
+      if (ProgressOverlayEnactor.isVisible()) {
+        progress(100, 'Import complete!');
+      }
 
       verbose.nav('✅ ImportBookTransition: Import book transition complete', '/SPA/navigation/pathways/ImportBookTransition.ts');
       // NOTE: NavigationManager will hide the overlay when this returns
@@ -869,6 +877,13 @@ export class ImportBookTransition {
             bookId: result.bookId,
             shouldEnterEditMode: true
           });
+
+          // This pathway calls execute() directly — no NavigationManager behind
+          // it to hide the overlay (see execute()'s NOTE). Any late progress
+          // tick (the 100% tick, the encrypt-after-import 96/99% ticks) that
+          // re-showed the overlay after domReadiness hid it would otherwise
+          // stick on screen forever. hide() is idempotent — safe when already hidden.
+          await ProgressOverlayConductor.hide();
 
           // Show conversion feedback toast if stats are available
           const stats = completedResult?.conversionStats;
