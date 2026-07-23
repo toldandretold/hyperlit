@@ -185,13 +185,6 @@ class BackendHighlightService
                 'footnotes'  => json_encode([]),
                 'plainText'  => $nodeData['plainText'] ?? strip_tags($content),
                 'type'       => $nodeData['type'] ?? 'p',
-                'raw_json'   => json_encode([
-                    'startLine' => $startLine,
-                    'chunk_id'  => $chunkId,
-                    'node_id'   => $newNodeId,
-                    'content'   => $content,
-                    'type'      => $nodeData['type'] ?? 'p',
-                ]),
                 'created_at' => $now,
                 'updated_at' => $now,
             ];

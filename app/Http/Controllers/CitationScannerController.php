@@ -460,6 +460,11 @@ class CitationScannerController extends Controller
             ]);
 
         if ($affected) {
+            // Only the request that won the guarded update notifies — and the
+            // notifier's failure_notified_at latch backstops any race anyway.
+            app(\App\Services\CitationPipeline\PipelineFailureNotifier::class)
+                ->notify($pipeline->id);
+
             $pipeline = DB::connection('pgsql_admin')
                 ->table('citation_pipelines')
                 ->where('id', $pipeline->id)

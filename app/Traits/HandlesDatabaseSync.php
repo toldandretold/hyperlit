@@ -28,10 +28,7 @@ trait HandlesDatabaseSync
                     // Add timestamps
                     $record['created_at'] = now();
                     $record['updated_at'] = now();
-                    
-                    // Store the original data as raw_json
-                    $record['raw_json'] = $item;
-                    
+
                     $records[] = $record;
                 }
                 

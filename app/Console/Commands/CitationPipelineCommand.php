@@ -532,14 +532,24 @@ class CitationPipelineCommand extends Command
     {
         $now = now();
 
-        // Close the last step
+        // Close the last step. If a sub-command already settled the run as
+        // failed (citation:review's empty-result paths, which exit 0 to avoid
+        // retry burn), do NOT emit 'completed' — it would repaint the failed
+        // stage green in the viz (the 0-claims incident).
         if ($this->currentTimingStep !== null && isset($this->stepTimings[$this->currentTimingStep])) {
             $prev = &$this->stepTimings[$this->currentTimingStep];
             $prev['completed_at'] = $now->toDateTimeString();
             $started = \Carbon\Carbon::parse($prev['started_at']);
             $prev['duration_seconds'] = $started->diffInSeconds($now);
             unset($prev);
-            $this->telemetry?->emit($this->currentTimingStep, 'completed');
+
+            $settledFailed = $this->option('pipeline-id') && DB::connection('pgsql_admin')
+                ->table('citation_pipelines')
+                ->where('id', $this->option('pipeline-id'))
+                ->value('status') === 'failed';
+            if (!$settledFailed) {
+                $this->telemetry?->emit($this->currentTimingStep, 'completed');
+            }
         }
 
         $pipelineId = $this->option('pipeline-id');

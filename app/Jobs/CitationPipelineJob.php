@@ -150,9 +150,12 @@ class CitationPipelineJob implements ShouldQueue
             throw new \RuntimeException("citation:pipeline exited with code {$exitCode}");
         }
 
-        // Mark pipeline as completed
+        // Mark pipeline as completed — guarded so a status the command itself
+        // settled (e.g. 'failed' from an empty-result review, which still
+        // exits 0 to avoid retry burn) is not overwritten to 'completed'.
         $db->table('citation_pipelines')
             ->where('id', $this->pipelineId)
+            ->whereIn('status', ['pending', 'running'])
             ->update(['status' => 'completed', 'updated_at' => now()]);
 
         Log::info('CitationPipelineJob completed', [
@@ -180,5 +183,8 @@ class CitationPipelineJob implements ShouldQueue
                 'error'      => $e->getMessage(),
                 'updated_at' => now(),
             ]);
+
+        app(\App\Services\CitationPipeline\PipelineFailureNotifier::class)
+            ->notify($this->pipelineId);
     }
 }

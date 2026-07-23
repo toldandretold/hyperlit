@@ -178,6 +178,7 @@ class CitationReviewCommand extends Command
 
         if ($resolved === 0) {
             $this->warn('No resolved sources — nothing to review.');
+            $this->failPipelineRun('Citation review stopped: no resolved sources to review — the bibliography scan found nothing usable.');
             return 0;
         }
 
@@ -203,7 +204,13 @@ class CitationReviewCommand extends Command
         }
 
         if (empty($claims)) {
+            // Exit 0 on purpose: a non-zero exit makes the job retry, re-burning
+            // the whole vacuum/OCR spend on a deterministic empty result. The
+            // pipeline row is settled as failed instead (the job's 'completed'
+            // update is guarded), and the notifier emails user + maintainer —
+            // never again the silent "completed, no report, no email" black hole.
             $this->warn('No claims were extracted.');
+            $this->failPipelineRun('Citation review extracted no claims — likely a citation-parsing bug on our side rather than a problem with your book.');
             return 0;
         }
 
@@ -313,6 +320,33 @@ class CitationReviewCommand extends Command
         }
 
         return 0;
+    }
+
+    /**
+     * Settle a run that produced nothing as a pipeline FAILURE (visible in the
+     * viz, resumable, emailed) instead of a silent success. No-op for manual
+     * artisan runs (no --pipeline-id) — the operator is watching the console.
+     */
+    private function failPipelineRun(string $reason): void
+    {
+        $pipelineId = $this->option('pipeline-id');
+        if (!$pipelineId) {
+            return;
+        }
+
+        (new PipelineTelemetry($pipelineId))->emit('review', 'failed', $reason);
+
+        DB::connection('pgsql_admin')
+            ->table('citation_pipelines')
+            ->where('id', $pipelineId)
+            ->update([
+                'status'     => 'failed',
+                'error'      => $reason,
+                'updated_at' => now(),
+            ]);
+
+        app(\App\Services\CitationPipeline\PipelineFailureNotifier::class)
+            ->notify($pipelineId);
     }
 
     /**
