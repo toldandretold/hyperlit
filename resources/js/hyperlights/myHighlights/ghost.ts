@@ -6,16 +6,24 @@
  * untouched, and the backend StaleCharDataPruner guarantees a fully-ghosted
  * record keeps ≥1 (stale) node entry + startLine as its last-known anchor.
  *
- * An entry (one node's charData range) RESOLVES when:
- *   1. the node still exists in the book, AND
- *   2. its range fits inside the node's current text, AND
- *   3. the text does still contain the highlight: either the slice at the
- *      range appears inside the record's highlightedText (per-node fragment,
- *      exact position) OR the whole highlightedText still appears anywhere in
- *      the node (offsets shifted by edits but the text survives).
- * Rule 3 is what catches MID-NODE deletion — a length-only test calls a
- * highlight "live" whenever the paragraph merely remains longer than
- * charStart, even though the highlighted words are gone.
+ * Ghost-ness is about TEXT SURVIVAL, not offset validity. An entry (one
+ * node's charData range) RESOLVES when the node still exists AND any of:
+ *   1. the slice at the range appears inside the record's highlightedText
+ *      (offsets valid — the exact fast path);
+ *   2. the whole highlightedText still appears anywhere in the node (offsets
+ *      drifted under edits but the text survives);
+ *   3. a digit-stripped PROBE of the highlight (prefix/middle/suffix) appears
+ *      in the digit-stripped node text — covers dynamic footnote renumbering
+ *      (sup digits differ between the DOM, where charData was measured, and
+ *      the stored content), multi-node highlights (each node holds only a
+ *      fragment of highlightedText), and stale local offsets awaiting the
+ *      server recalc round-trip.
+ * The content requirement is what catches MID-NODE deletion — a length-only
+ * test calls a highlight "live" whenever the paragraph merely remains longer
+ * than charStart, even though the highlighted words are gone. Conversely, a
+ * range that no longer fits must NOT alone prove ghost-ness: an edit
+ * elsewhere in the node shortens it without touching the highlighted words
+ * (the false-👻-on-a-visibly-alive-mark bug).
  *
  * DOM-independent: judges against IDB `nodes` store content, so it works for
  * highlights in chunks that aren't rendered. Unjudgeable cases stay LIVE:
@@ -55,6 +63,29 @@ function comparable(s: string): string {
   return s.replace(/[\s ]+/g, ' ').trim();
 }
 
+/** Comparison form with digit runs removed: footnote sup markers are digits
+ *  that DYNAMIC renumbering rewrites in the DOM (where charData and
+ *  highlightedText were measured) without touching stored content — digits
+ *  can't be trusted when matching the two. */
+function comparableNoDigits(s: string): string {
+  return comparable(s.replace(/\d+/g, ' '));
+}
+
+const PROBE_LEN = 20;
+
+/** Probe substrings (prefix / middle / suffix) of a digit-stripped highlight.
+ *  A node still containing ANY of them still holds part of the highlight. */
+function buildProbes(hlNoDigits: string): string[] {
+  if (hlNoDigits.length < 8) return []; // too short to be a meaningful probe
+  if (hlNoDigits.length <= PROBE_LEN) return [hlNoDigits];
+  const mid = Math.floor((hlNoDigits.length - PROBE_LEN) / 2);
+  return [
+    hlNoDigits.slice(0, PROBE_LEN),
+    hlNoDigits.slice(mid, mid + PROBE_LEN),
+    hlNoDigits.slice(-PROBE_LEN),
+  ];
+}
+
 /** Pure. Can this entry still resolve against the node's current content? */
 export function entryResolves(entry: GhostEntry): boolean {
   const { charStart, charEnd, nodeContent, highlightedText } = entry;
@@ -65,19 +96,30 @@ export function entryResolves(entry: GhostEntry): boolean {
   if (nodeContent.includes('<latex')) return true; // covers <latex> and <latex-block>
 
   const plain = plainTextOf(nodeContent);
-  if (charStart >= plain.length) return false;
-  if (charEnd > plain.length) return false; // range truncated by a shortening edit
+  const rangeFits = charStart < plain.length && charEnd <= plain.length;
 
   const hlNorm = comparable(String(highlightedText ?? ''));
-  if (hlNorm.length < 3) return true; // too short to judge by content — fall back to range fit
+  if (hlNorm.length < 3) return rangeFits; // too short to judge by content — range fit decides
 
-  // Per-node fragment check: the text AT the range should be part of the highlight.
-  const sliceNorm = comparable(plain.slice(charStart, charEnd));
-  if (sliceNorm.length > 0 && hlNorm.includes(sliceNorm)) return true;
+  // 1. Exact: the text AT the range is part of the highlight (offsets valid).
+  if (rangeFits) {
+    const sliceNorm = comparable(plain.slice(charStart, charEnd));
+    if (sliceNorm.length > 0 && hlNorm.includes(sliceNorm)) return true;
+  }
 
-  // Offsets may have shifted (earlier edits in the node) — the highlight is
-  // still alive if its whole text survives anywhere in the node.
-  return comparable(plain).includes(hlNorm);
+  // 2. Offsets may have shifted — or OVERRUN: an edit elsewhere in the node
+  //    shortened it without touching the highlighted words. The highlight is
+  //    alive if its whole text survives anywhere in the node. (A bad range
+  //    alone must never prove ghost-ness — that flagged visibly-alive marks.)
+  if (comparable(plain).includes(hlNorm)) return true;
+
+  // 3. Fuzzy: digit-insensitive probes. Handles renumbered footnote sups,
+  //    multi-node highlights (one node holds only a fragment of the whole
+  //    highlightedText) and stale offsets awaiting the server-recalc
+  //    round-trip. A false ghost on a live mark is worse than a late one —
+  //    err toward live when the words are demonstrably still present.
+  const plainNoDigits = comparableNoDigits(plain);
+  return buildProbes(comparableNoDigits(hlNorm)).some((p) => plainNoDigits.includes(p));
 }
 
 /** Pure. Ghosted = has at least one entry AND none of them resolve. */

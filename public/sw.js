@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v31'; // TOC tab-bar tap-through fix (full-strip hit area) — force-refresh
+const CACHE_VERSION = 'v32'; // ghost detection text-survival fix + unplaceable-only ledger — force-refresh
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 

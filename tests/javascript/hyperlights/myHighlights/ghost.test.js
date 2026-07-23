@@ -2,15 +2,19 @@
  * Ghost detection for hyperlights (hyperlights/myHighlights/ghost.ts).
  *
  * A highlight is GHOSTED when NONE of its per-node entries resolve against
- * current node content — computed at display time, never stored. An entry
- * resolves only when its range fits AND the highlight's text still exists
- * (at the range, or anywhere in the node — offsets may shift under edits).
- * The content check is what catches MID-NODE deletion, where the paragraph
- * stays longer than charStart but the highlighted words are gone (the
- * KARL-MARX-paragraph case that a length-only test called "live").
- * Conservative rules: unjudgeable cases (missing charData, latex nodes, IDB
- * errors, too-short text) never false-ghost; node_id lookups filter to the
- * record's own book (node_id repeats across parent/sub-books in IDB).
+ * current node content — computed at display time, never stored. Ghost-ness
+ * is about TEXT SURVIVAL: an entry resolves when the slice at its range is
+ * part of the highlight (offsets valid), OR the whole highlightedText appears
+ * anywhere in the node (offsets drifted), OR a digit-stripped probe of it
+ * does (renumbered footnote sups / multi-node fragments / stale offsets). A
+ * bad range alone must NEVER prove ghost-ness — that flagged visibly-alive
+ * marks 👻 (the prod false-positive). The content check is what catches
+ * MID-NODE deletion, where the paragraph stays longer than charStart but the
+ * highlighted words are gone (the KARL-MARX-paragraph case a length-only
+ * test called "live"). Conservative rules: unjudgeable cases (missing
+ * charData, latex nodes, IDB errors, too-short text) never false-ghost;
+ * node_id lookups filter to the record's own book (node_id repeats across
+ * parent/sub-books in IDB).
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { entryResolves, computeGhosted, isHighlightGhosted, partitionGhosts } from '../../../../resources/js/hyperlights/myHighlights/ghost';
@@ -44,16 +48,44 @@ describe('entryResolves (pure)', () => {
     })).toBe(false);
   });
 
-  it('does not resolve when charStart is beyond the text', () => {
+  it('does not resolve when charStart is beyond the text AND the words are gone', () => {
     expect(entryResolves({
       charStart: 500, charEnd: 510, nodeContent: '<p>short</p>', highlightedText: HL_TEXT,
     })).toBe(false);
   });
 
-  it('does not resolve when charEnd is truncated by a shortening edit', () => {
+  it('RESOLVES when the range overruns but the text is still present (false-👻 regression)', () => {
+    // An edit elsewhere shortened the node / offsets went stale — the mark is
+    // visibly alive in the book. A bad range alone must not prove ghost-ness.
     expect(entryResolves({
       charStart: 2, charEnd: 900, nodeContent: LONG_HTML, highlightedText: HL_TEXT,
+    })).toBe(true);
+  });
+
+  it('does not resolve when the range overruns AND the words are gone', () => {
+    const edited = '<p>KARL MARX developed many other ideas over the years</p>';
+    expect(entryResolves({
+      charStart: 2, charEnd: 900, nodeContent: edited, highlightedText: HL_TEXT,
     })).toBe(false);
+  });
+
+  it('resolves across renumbered footnote sup digits (digit-insensitive probes)', () => {
+    // charData/highlightedText were measured in the DOM where the sup showed
+    // "156"; the stored content holds "37" — digits differ, words survive.
+    const stored = '<p>KARL MARX developed the theory<sup>37</sup> of historical materialism over many years</p>';
+    expect(entryResolves({
+      charStart: 24, charEnd: 59, nodeContent: stored, highlightedText: 'theory156 of historical materialism',
+    })).toBe(true);
+  });
+
+  it('resolves a multi-node fragment: the node holds only the START of the highlight', () => {
+    // A highlight spanning nodes: this node's text ends with the highlight's
+    // opening words; the whole highlightedText never fits in one node and the
+    // offsets have drifted — the prefix probe keeps it live.
+    const spanning = HL_TEXT + ' and continues far into the following paragraph with more words';
+    expect(entryResolves({
+      charStart: 700, charEnd: 900, nodeContent: LONG_HTML, highlightedText: spanning,
+    })).toBe(true);
   });
 
   it('does not resolve when the node is missing (null content)', () => {
@@ -173,7 +205,10 @@ describe('isHighlightGhosted / partitionGhosts (IDB)', () => {
   it('partitionGhosts splits live and ghosted', async () => {
     await seedStore('nodes', [node('n1', LONG_HTML)]);
     const liveRec = hl('HL_a', { n1: { charStart: 24, charEnd: 56 } });
-    const ghostRec = hl('HL_b', { n1: { charStart: 800, charEnd: 810 } });
+    // Ghost: its words no longer exist ANYWHERE in the node (a bad range on a
+    // node that still holds the text is live now — the false-👻 regression).
+    const ghostRec = hl('HL_b', { n1: { charStart: 800, charEnd: 810 } },
+      { highlightedText: 'these words were completely removed from the paragraph' });
     const { live, ghosts } = await partitionGhosts([liveRec, ghostRec]);
     expect(live.map((r) => r.hyperlight_id)).toEqual(['HL_a']);
     expect(ghosts.map((r) => r.hyperlight_id)).toEqual(['HL_b']);

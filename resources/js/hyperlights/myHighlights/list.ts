@@ -154,6 +154,26 @@ export async function resolveAnchorStartLine(
 }
 
 /**
+ * Does the book still hold a REAL place for this record — one of its own
+ * nodes, or its ghost anchor? The stored startLine fallback deliberately does
+ * NOT count: it's a frozen guess that may point at a node that no longer
+ * exists. Placeable ghosts are discoverable at their spot via the TOC
+ * Hyperlights tab and the container ↑↓ arrows; only UNPLACEABLE ones need the
+ * book-bottom ghost ledger as their home.
+ */
+export async function hasKnownPosition(record: Positionable, db: IDBDatabase): Promise<boolean> {
+  const cache = new Map<string, number | null>();
+  const nodeIds = Array.isArray(record.node_id) ? record.node_id : [];
+  for (const nodeId of nodeIds) {
+    if (await nodeStartLineById(db, String(record.book), nodeId, cache) !== null) return true;
+  }
+  if (record._ghost_anchor_node) {
+    return (await nodeStartLineById(db, String(record.book), record._ghost_anchor_node, cache)) !== null;
+  }
+  return false;
+}
+
+/**
  * All of the user's visible highlights for a book, sorted in CURRENT document
  * order — positions derived from each record's nodes (renumber-stable), with
  * the stored startLine as the ghost fallback. Cursor over the

@@ -1,6 +1,10 @@
 /**
- * ghostLedger — the persistent, clickable surface for GHOSTED highlights
- * (underlying text deleted; see ./ghost). Rendered as a section AFTER the book
+ * ghostLedger — the persistent, clickable surface for UNPLACEABLE ghosted
+ * highlights: underlying text deleted (see ./ghost) AND no surviving node or
+ * ghost anchor to place them in the book (see list.ts hasKnownPosition).
+ * Placeable ghosts are deliberately excluded — they surface at their old spot
+ * via the TOC Hyperlights tab and the container ↑↓ arrows instead.
+ * Rendered as a section AFTER the book
  * text — a sibling of `main.main-content` inside `.reader-content-wrapper`,
  * deliberately OUTSIDE the editable/observed content, so it never interacts
  * with the editor's MutationObserver, the save path, or positionCollector.
@@ -21,7 +25,7 @@ import DOMPurify from 'dompurify';
 import { verbose } from '../../utilities/logger';
 import { openDatabase } from '../../indexedDB/core/connection';
 import { getAuthContextSync, getAuthContext } from '../../utilities/auth/index';
-import { getOwnedHighlightsForBook, type AuthIdentity } from './list';
+import { getOwnedHighlightsForBook, hasKnownPosition, type AuthIdentity } from './list';
 import { partitionGhosts } from './ghost';
 
 const LEDGER_ID = 'ghost-ledger';
@@ -56,20 +60,29 @@ export async function renderGhostLedger(bookId: string): Promise<void> {
     const owned = await getOwnedHighlightsForBook(bookId, auth, db);
     const { ghosts } = await partitionGhosts(owned, db);
 
+    // Only UNPLACEABLE ghosts (no surviving node, no surviving ghost anchor)
+    // live here. Placeable ghosts already appear at their old spot via the TOC
+    // Hyperlights tab and the container ↑↓ arrows — the ledger is the fallback
+    // home for ghosts whose place in the book is genuinely unknown.
+    const unplaceable: typeof ghosts = [];
+    for (const g of ghosts) {
+      if (!(await hasKnownPosition(g, db))) unplaceable.push(g);
+    }
+
     destroyGhostLedger();
-    if (ghosts.length === 0) return;
+    if (unplaceable.length === 0) return;
 
     const section = document.createElement('section');
     section.id = LEDGER_ID;
     section.setAttribute('aria-label', 'Ghosted highlights');
-    const entries = ghosts.map((g) => {
+    const entries = unplaceable.map((g) => {
       const text = DOMPurify.sanitize(String(g.highlightedText ?? ''), { ALLOWED_TAGS: [] }).trim() || '(empty highlight)';
       const id = DOMPurify.sanitize(g.hyperlight_id, { ALLOWED_TAGS: [] });
       return `<span class="ghost-ledger-mark" data-highlight-id="${id}" role="button" tabindex="-1">${text} 👻</span>`;
     }).join(' ');
     section.innerHTML = `
       <h2 class="ghost-ledger-heading">👻 Ghosted highlights</h2>
-      <p class="ghost-ledger-hint">These highlights lost their underlying text to later edits. Click one to open it.</p>
+      <p class="ghost-ledger-hint">These highlights lost their underlying text — and the place it lived — to later edits. Click one to open it.</p>
       <div class="ghost-ledger-items">${entries}</div>`;
 
     // Delegated click → open the highlight in the hyperlit container. The
@@ -85,7 +98,7 @@ export async function renderGhostLedger(bookId: string): Promise<void> {
     });
 
     mainEl.insertAdjacentElement('afterend', section);
-    verbose.content(`ghost ledger rendered: ${ghosts.length} ghost(s) for ${bookId}`, 'hyperlights/myHighlights/ghostLedger');
+    verbose.content(`ghost ledger rendered: ${unplaceable.length}/${ghosts.length} unplaceable ghost(s) for ${bookId}`, 'hyperlights/myHighlights/ghostLedger');
   } catch {
     // Ledger is an enhancement — a failure must never affect the reader.
   }

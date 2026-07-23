@@ -8,6 +8,7 @@ import {
   sortByDocumentOrder,
   getOwnedHighlightsForBook,
   resolveAnchorStartLine,
+  hasKnownPosition,
   getAdjacent,
   getPosition,
 } from '../../../../resources/js/hyperlights/myHighlights/list';
@@ -130,6 +131,47 @@ describe('getOwnedHighlightsForBook (IDB)', () => {
     const db = await openDatabase();
     const orphan = hl('HL_orphan', { startLine: '250', node_id: ['gone'], charData: { gone: { charStart: -1, charEnd: -1 } } });
     expect(await resolveAnchorStartLine(orphan, db)).toBe('250');
+  });
+});
+
+describe('hasKnownPosition (IDB) — the ghost-ledger gate', () => {
+  beforeEach(() => {
+    installFreshIndexedDB();
+  });
+
+  const NODE = { book: 'book_list_test', startLine: 700, chunk_id: 0, node_id: 'nAlive', content: '<p>x</p>', hyperlights: [], hypercites: [], footnotes: [] };
+
+  it('true when one of the record\'s own nodes survives', async () => {
+    await seedStore('nodes', [NODE]);
+    const db = await openDatabase();
+    expect(await hasKnownPosition(hl('HL_a', { node_id: ['gone', 'nAlive'] }), db)).toBe(true);
+  });
+
+  it('true when only the ghost anchor survives', async () => {
+    await seedStore('nodes', [NODE]);
+    const db = await openDatabase();
+    expect(await hasKnownPosition(
+      hl('HL_g', { node_id: ['gone'], _ghost_anchor_node: 'nAlive' }), db,
+    )).toBe(true);
+  });
+
+  it('false when nodes and anchor are all gone — the stored startLine does NOT count', async () => {
+    await seedStore('nodes', [NODE]);
+    const db = await openDatabase();
+    expect(await hasKnownPosition(
+      hl('HL_lost', { startLine: '250', node_id: ['gone'], _ghost_anchor_node: 'alsoGone' }), db,
+    )).toBe(false);
+  });
+
+  it('false for a pre-anchor-era ghost (no anchor field at all)', async () => {
+    const db = await openDatabase();
+    expect(await hasKnownPosition(hl('HL_old', { startLine: '250', node_id: ['gone'] }), db)).toBe(false);
+  });
+
+  it('ignores same-node_id matches from OTHER books', async () => {
+    await seedStore('nodes', [{ ...NODE, book: 'another_book' }]);
+    const db = await openDatabase();
+    expect(await hasKnownPosition(hl('HL_x', { node_id: ['nAlive'] }), db)).toBe(false);
   });
 });
 

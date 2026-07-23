@@ -152,6 +152,13 @@ export async function deleteHighlightById(highlightId: string): Promise<Highligh
     console.log(`✅ Successfully deleted highlight: ${highlightId}`);
     console.log(`📝 Affected nodes: ${Array.from(affectedIDnumericals).join(', ')}`);
 
+    // Ghosted highlights can live in the book-bottom ghost ledger — refresh it
+    // so a deleted ghost disappears immediately (no-op when nothing rendered).
+    try {
+      const { renderGhostLedger } = await import('./myHighlights/ghostLedger');
+      void renderGhostLedger(String(bookId));
+    } catch { /* ledger is an enhancement — never let it fail a delete */ }
+
     return {
       success: true,
       affectedNodes: Array.from(affectedIDnumericals),
@@ -259,6 +266,12 @@ export async function hideHighlightById(highlightId: string): Promise<HighlightA
 
     console.log(`✅ Successfully hidden highlight: ${highlightId}`);
     console.log(`📝 Affected nodes: ${Array.from(affectedIDnumericals).join(', ')}`);
+
+    // Same ledger refresh as delete — a hidden ghost must leave the graveyard.
+    try {
+      const { renderGhostLedger } = await import('./myHighlights/ghostLedger');
+      void renderGhostLedger(String(bookId));
+    } catch { /* ledger is an enhancement — never let it fail a hide */ }
 
     return {
       success: true,

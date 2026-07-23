@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1734,
+    "fnCount": 1735,
     "moduleCount": 366,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3565,
+    "edgeCount": 3569,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -8870,6 +8870,14 @@
       "types": [
         "HyperlightRecord"
       ]
+    },
+    {
+      "id": "hyperlights/myHighlights/list:hasKnownPosition",
+      "label": "hasKnownPosition",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/myHighlights/list",
+      "leaf": false
     },
     {
       "id": "hyperlights/myHighlights/list:isOwnedHighlight",
@@ -18045,6 +18053,7 @@
         "hyperlights/myHighlights/list:getOwnedHighlightsForBook",
         "hyperlights/myHighlights/list:getOwnedHypercitesForBook",
         "hyperlights/myHighlights/list:getPosition",
+        "hyperlights/myHighlights/list:hasKnownPosition",
         "hyperlights/myHighlights/list:isOwnedHighlight",
         "hyperlights/myHighlights/list:isOwnedHypercite",
         "hyperlights/myHighlights/list:resolveAnchorStartLine",
@@ -31697,6 +31706,13 @@
       "rel": "call"
     },
     {
+      "id": "hyperlights/deletion:deleteHighlightById__call__hyperlights/myHighlights/ghostLedger:renderGhostLedger",
+      "source": "hyperlights/deletion:deleteHighlightById",
+      "target": "hyperlights/myHighlights/ghostLedger:renderGhostLedger",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "hyperlights/deletion:deleteHighlightById__call__indexedDB/core/connection:openDatabase",
       "source": "hyperlights/deletion:deleteHighlightById",
       "target": "indexedDB/core/connection:openDatabase",
@@ -31761,6 +31777,13 @@
       "source": "hyperlights/deletion:hideHighlightById",
       "target": "hyperlights/deletion:unwrapMark",
       "rel": "call"
+    },
+    {
+      "id": "hyperlights/deletion:hideHighlightById__call__hyperlights/myHighlights/ghostLedger:renderGhostLedger",
+      "source": "hyperlights/deletion:hideHighlightById",
+      "target": "hyperlights/myHighlights/ghostLedger:renderGhostLedger",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/deletion:hideHighlightById__call__indexedDB/core/connection:openDatabase",
@@ -31986,6 +32009,13 @@
       "id": "hyperlights/myHighlights/ghostLedger:renderGhostLedger__call__hyperlights/myHighlights/list:getOwnedHighlightsForBook",
       "source": "hyperlights/myHighlights/ghostLedger:renderGhostLedger",
       "target": "hyperlights/myHighlights/list:getOwnedHighlightsForBook",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/myHighlights/ghostLedger:renderGhostLedger__call__hyperlights/myHighlights/list:hasKnownPosition",
+      "source": "hyperlights/myHighlights/ghostLedger:renderGhostLedger",
+      "target": "hyperlights/myHighlights/list:hasKnownPosition",
       "rel": "call",
       "dataPath": true
     },
@@ -42226,6 +42256,12 @@
       "rel": "read"
     },
     {
+      "id": "store:nodes__read__hyperlights/myHighlights/list:hasKnownPosition",
+      "source": "store:nodes",
+      "target": "hyperlights/myHighlights/list:hasKnownPosition",
+      "rel": "read"
+    },
+    {
       "id": "store:nodes__read__hyperlights/myHighlights/list:resolveAnchorStartLine",
       "source": "store:nodes",
       "target": "hyperlights/myHighlights/list:resolveAnchorStartLine",
@@ -45343,6 +45379,11 @@
     },
     {
       "source": "hyperlights/deletion",
+      "target": "hyperlights/myHighlights/ghostLedger",
+      "kind": "lazy"
+    },
+    {
+      "source": "hyperlights/deletion",
       "target": "lazyLoader/index",
       "kind": "lazy"
     },
@@ -48018,6 +48059,6 @@
       ]
     ],
     "breakerCount": 4,
-    "lazyCount": 256
+    "lazyCount": 257
   }
 }
