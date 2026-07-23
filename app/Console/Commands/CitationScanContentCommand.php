@@ -208,7 +208,7 @@ class CitationScanContentCommand extends Command
             if (!empty($footnoteMap)) {
                 if (preg_match_all('/<sup\b[^>]*\bfn-count-id="[^"]*"[^>]*>/i', $content, $supMatches)) {
                     foreach ($supMatches[0] as $supTag) {
-                        if (preg_match('/\bid="([^"]+)"/', $supTag, $idMatch)) {
+                        if (preg_match('/(?<![\w-])id="([^"]+)"/', $supTag, $idMatch)) {
                             $footnoteId = $idMatch[1];
                             if (isset($footnoteMap[$footnoteId])) {
                                 $footnoteRefIds = array_merge($footnoteRefIds, $footnoteMap[$footnoteId]);

@@ -97,7 +97,10 @@ final class CitationParser
                 $marked = preg_replace_callback(
                     '/<sup\b[^>]*\bfn-count-id="[^"]*"[^>]*>.*?<\/sup>/is',
                     function ($m) use ($footnoteMap) {
-                        if (preg_match('/\bid="([^"]+)"/', $m[0], $idMatch)) {
+                        // (?<![\w-]) not \b: a plain \b matches the id=" tail of
+                        // fn-count-id=" when that attribute precedes id=, grabbing
+                        // the count instead of the footnoteId (the 0-nodes bug).
+                        if (preg_match('/(?<![\w-])id="([^"]+)"/', $m[0], $idMatch)) {
                             $footnoteId = $idMatch[1];
                             if (isset($footnoteMap[$footnoteId])) {
                                 // FNCITE (not CITE): footnote markers attach to the
@@ -148,7 +151,7 @@ final class CitationParser
                     $supTag = $supMatch[0][0];
                     $tagByteOffset = $supMatch[0][1];
 
-                    if (preg_match('/\bid="([^"]+)"/', $supTag, $idMatch)) {
+                    if (preg_match('/(?<![\w-])id="([^"]+)"/', $supTag, $idMatch)) {
                         $footnoteId = $idMatch[1];
                         if (isset($footnoteMap[$footnoteId])) {
                             $contentBefore = substr($content, 0, $tagByteOffset);
