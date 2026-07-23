@@ -53,6 +53,12 @@ const HAS_TLS = fs.existsSync(HERD_CERT) && !NETWORK_MODE;
 
 export default defineConfig({
   build: {
+    // Do NOT wipe public/build on rebuild: hashed assets are immutable, and
+    // live clients (open tabs, SW caches) keep dynamic-importing OLD chunk
+    // hashes after a deploy — deleting them wedged prod with "Importing a
+    // module script failed". scripts/prune-old-build-assets.mjs (run by
+    // `npm run build`) age-prunes instead, so stragglers get a grace window.
+    emptyOutDir: false,
     rollupOptions: {
       plugins: bundleGatePlugin ? [bundleGatePlugin] : [],
       output: {

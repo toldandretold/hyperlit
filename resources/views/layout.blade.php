@@ -24,6 +24,37 @@
             }
         }
     </script>
+    <script>
+        // Deploy self-heal: when a lazy chunk fails to load (a deploy replaced
+        // the hashed /build/assets between this page's HTML and the moment a
+        // dynamic import fired), reload ONCE to pick up the new HTML + assets
+        // instead of wedging the app. vite:preloadError covers vite's preload
+        // helper; unhandledrejection catches bare import() failures (Safari:
+        // "Importing a module script failed", Chrome: "Failed to fetch
+        // dynamically imported module"). One-shot guard (60s) prevents loops
+        // when the server itself is the problem.
+        (function () {
+            function healChunkError() {
+                try {
+                    var last = Number(sessionStorage.getItem('hl_chunk_reload') || 0);
+                    if (Date.now() - last < 60000) return; // already tried — don't loop
+                    sessionStorage.setItem('hl_chunk_reload', String(Date.now()));
+                } catch (e) { /* storage unavailable — still better to reload once */ }
+                window.location.reload();
+            }
+            window.addEventListener('vite:preloadError', function (e) {
+                if (e && typeof e.preventDefault === 'function') e.preventDefault();
+                healChunkError();
+            });
+            window.addEventListener('unhandledrejection', function (e) {
+                var msg = String((e.reason && e.reason.message) || e.reason || '');
+                if (/Importing a module script failed|dynamically imported module|error loading dynamically imported/i.test(msg)) {
+                    e.preventDefault();
+                    healChunkError();
+                }
+            });
+        })();
+    </script>
     <title>{{ $pageTitle ?? 'Hyperlit' }}</title>
     <meta name="description" content="{{ $pageDescription ?? 'Read, write and publish hypertext literature' }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">

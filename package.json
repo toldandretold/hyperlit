@@ -15,7 +15,7 @@
     "mail": "lsof -i :1025 -P -n -sTCP:LISTEN >/dev/null 2>&1 && echo 'Mailpit already running, skipping' && tail -f /dev/null || mailpit",
     "dev:all": "node show-ip.js && concurrently -r -n PHP,IMP1,IMP2,CITE,VIBE,AUD,EMBED,SRCH,DEV,MAIL -c \"cyan,magenta,magenta,red,blue,blue,gray,white,green,yellow\" --kill-others-on-fail --restart-tries 3 --restart-after 1000 \"npm:php\" \"npm:queue:import\" \"npm:queue:import\" \"npm:queue:citation\" \"npm:queue:vibe\" \"npm:queue:audio\" \"npm:queue:embeddings\" \"npm:queue:search\" \"npm:dev\" \"npm:mail\"",
     "dev:network": "export VITE_NETWORK=1 && export APP_URL=http://$(node show-ip.js --ip-only):8000 && node show-ip.js --network && concurrently -r -n PHP,IMP1,IMP2,CITE,VIBE,AUD,EMBED,SRCH,DEV,MAIL -c \"cyan,magenta,magenta,red,blue,blue,gray,white,green,yellow\" --kill-others-on-fail --restart-tries 3 --restart-after 1000 \"npm:php:network\" \"npm:queue:import\" \"npm:queue:import\" \"npm:queue:citation\" \"npm:queue:vibe\" \"npm:queue:audio\" \"npm:queue:embeddings\" \"npm:queue:search\" \"npm:dev\" \"npm:mail\"",
-    "build": "vite build && node scripts/bundle-paste-engine.mjs",
+    "build": "node scripts/prune-old-build-assets.mjs && vite build && node scripts/bundle-paste-engine.mjs",
     "measure:bundle": "vite build && node scripts/measure-eager-bundle.mjs",
     "gate:bundle": "BUNDLE_GATE=1 vite build && node scripts/check-lazy-chunks.mjs",
     "typecheck": "tsc --noEmit",
