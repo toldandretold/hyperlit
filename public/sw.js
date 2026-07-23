@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v33'; // build-asset fetch retries past HTTP-cached 404s (deploy-outage self-heal) — force-refresh
+const CACHE_VERSION = 'v34'; // retry now URL-busts past ALL cache layers (Safari ignores cache:reload in SW) — force-refresh
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 
@@ -121,7 +121,23 @@ self.addEventListener('fetch', (event) => {
       }
       return networkResponse;
     };
-    const retryBypassingHttpCache = () => fetch(request, { cache: 'reload' }).then(cacheIfOk);
+    // cache:'reload' alone is unreliable in Safari SW contexts, so ALSO bust
+    // the URL — a fresh query string forces every layer (browser HTTP cache,
+    // CDN edge) to treat it as a new resource. The response is cached under
+    // the ORIGINAL request so future loads hit the SW cache normally.
+    const retryBypassingHttpCache = () => {
+      const bustUrl = request.url + (request.url.includes('?') ? '&' : '?') + 'swretry=' + Date.now();
+      return fetch(new Request(bustUrl, { cache: 'reload' })).then((networkResponse) => {
+        if (networkResponse.ok) {
+          console.log('[SW] Recovered build asset via cache-busting retry:', url.pathname);
+          const responseClone = networkResponse.clone();
+          caches.open(STATIC_CACHE).then((cache) => {
+            cache.put(request, responseClone);
+          });
+        }
+        return networkResponse;
+      });
+    };
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
         if (cachedResponse) {
