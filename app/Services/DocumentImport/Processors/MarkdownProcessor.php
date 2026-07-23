@@ -170,12 +170,15 @@ class MarkdownProcessor implements ProcessorInterface
                 throw new ProcessFailedException($pythonProcess);
             }
 
-            // Log Python output for debugging reference/citation processing
+            // Log Python output for debugging reference/citation processing.
+            // Full text goes to a per-book file; the Laravel log gets a head+tail
+            // excerpt (book-sized bibliographies used to jam it with per-entry lines).
             $pythonOutput = $pythonProcess->getOutput();
             if (!empty($pythonOutput)) {
+                File::put("{$outputPath}/conversion_stdout.log", $pythonOutput);
                 Log::info("Python script output", [
                     'book' => $bookId,
-                    'output' => $pythonOutput
+                    'output' => $this->truncateForLog($pythonOutput),
                 ]);
             }
 

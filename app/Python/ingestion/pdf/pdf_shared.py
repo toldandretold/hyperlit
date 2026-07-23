@@ -3,8 +3,12 @@ import sys
 import os
 import json
 import re
+import math
+import time
 import argparse
 import base64
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 from statistics import median
 from mistralai.client import Mistral
@@ -17,6 +21,34 @@ SUPERSCRIPT_MAP = str.maketrans("\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u207
 def emit_progress(percent, stage, detail):
     """Emit a progress event consumed by StreamsProgress (PHP side) and written to progress.json."""
     print("PROGRESS:" + json.dumps({"percent": percent, "stage": stage, "detail": detail}), flush=True)
+
+
+@contextmanager
+def progress_heartbeat(start_pct, cap_pct, stage, detail, expected_seconds, interval=5.0):
+    """Keep PROGRESS lines flowing while a long opaque call (the Mistral OCR request)
+    blocks. The percent creeps asymptotically from start_pct toward cap_pct on the
+    expected-duration curve \u2014 the bar keeps moving without ever overtaking the next
+    real stage. The steady writes also keep progress.json's updated_at fresh: the
+    frontend poller declares the import stalled after 5 silent minutes, so a long
+    book's OCR with no heartbeat flashes a false failure while the job is fine."""
+    stop = threading.Event()
+    t0 = time.monotonic()
+
+    def _beat():
+        while not stop.wait(interval):
+            elapsed = time.monotonic() - t0
+            frac = 1.0 - math.exp(-elapsed / max(float(expected_seconds), 1.0))
+            pct = int(round(start_pct + (cap_pct - start_pct) * frac))
+            mins, secs = divmod(int(elapsed), 60)
+            emit_progress(pct, stage, f"{detail} ({mins}m {secs:02d}s elapsed)")
+
+    thread = threading.Thread(target=_beat, daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        thread.join(timeout=interval + 1)
 
 
 def convert_footnotes(text):

@@ -5,10 +5,24 @@ bib-entry anchors. Mutates the soup; returns (bibliography_map, references_data)
 bibliography_map (key -> entry_id) is the INPUT the citation linker matches against,
 so its correctness directly governs whether in-text citations link to the right work."""
 
+import os
 import re
 
 from shared.assessment import ASSESSMENT
 from shared.refkeys import generate_ref_keys, is_likely_reference
+
+
+# Per-entry key/collision chatter (one 🔑 line per reference, plus 🔀 collision
+# lines) was jamming the Laravel log on every book-sized import — the PHP side
+# logs the whole conversion stdout. Default runs now print only the end-of-scan
+# summary; set HYPERLIT_CONVERSION_VERBOSE=1 to get the per-entry trace back
+# when debugging a conversion. The assessment trace keeps the counts either way.
+_VERBOSE = os.environ.get("HYPERLIT_CONVERSION_VERBOSE", "") == "1"
+
+
+def _vprint(msg):
+    if _VERBOSE:
+        print(msg)
 
 
 # Common reference section headers (module-level: shared by the heading scan + the reverse-scan tail).
@@ -94,7 +108,7 @@ def _find_reference_paragraphs(soup):
                 if next_sibling.name == 'p' and is_likely_reference(next_sibling):
                     reference_p_tags.append(next_sibling)
                     text_preview = next_sibling.get_text(" ", strip=True)[:80]
-                    print(f"  ✓ Detected reference: {text_preview}...")
+                    _vprint(f"  ✓ Detected reference: {text_preview}...")
                 next_sibling = next_sibling.find_next_sibling()
             # Don't break — continue scanning for more reference sections (multi-chapter books)
 
@@ -106,7 +120,7 @@ def _find_reference_paragraphs(soup):
             text_preview = p.get_text(" ", strip=True)[:80]
             if is_likely_reference(p):
                 reference_p_tags.insert(0, p)
-                print(f"  ✓ Detected reference: {text_preview}...")
+                _vprint(f"  ✓ Detected reference: {text_preview}...")
             elif reference_p_tags:
                 header_text = p.get_text(strip=True).lower()
                 if header_text in REFERENCE_HEADERS:
@@ -203,7 +217,7 @@ def extract_bibliography(soup):
         if dash_match and last_bib_author:
             # Replace the dash with the previous author name
             text_with_author = last_bib_author + text[dash_match.end()-1:]
-            print(f"  ↩️ Dash-author entry, substituting '{last_bib_author}': {text[:60]}...")
+            _vprint(f"  ↩️ Dash-author entry, substituting '{last_bib_author}': {text[:60]}...")
             keys = generate_ref_keys(text_with_author)
         else:
             keys = generate_ref_keys(text)
@@ -250,7 +264,7 @@ def extract_bibliography(soup):
                     alt_keys = generate_ref_keys(author_text.replace(prefix_year, alt_year))
                     keys = list(set(keys + alt_keys))
                 if keys:
-                    print(f"  🔄 Fallback keys from post-prefix text: {keys}")
+                    _vprint(f"  🔄 Fallback keys from post-prefix text: {keys}")
 
         if not keys:
             print(f"  ⚠️ No keys generated for: {text[:60]}...")
@@ -274,7 +288,7 @@ def extract_bibliography(soup):
                     suffix_num += 1
                 entry_id = base_entry_id + chr(ord('a') + suffix_num)
                 seen_references[base_entry_id]["suffix_count"] = suffix_num
-                print(f"  🔀 ID '{base_entry_id}' already taken by suffix — using {entry_id}")
+                _vprint(f"  🔀 ID '{base_entry_id}' already taken by suffix — using {entry_id}")
         else:
             prev = seen_references[base_entry_id]
             # Compare content (first 60 alphanum chars, normalized) to detect true dupes vs collisions
@@ -283,7 +297,7 @@ def extract_bibliography(soup):
                 # True duplicate — skip DOM/data, but still add keys
                 for key in keys:
                     bibliography_map[key] = base_entry_id if prev["suffix_count"] == 0 else base_entry_id + "a"
-                print(f"  ⏭️ Duplicate reference skipped (keys still added): {base_entry_id}")
+                _vprint(f"  ⏭️ Duplicate reference skipped (keys still added): {base_entry_id}")
                 _dups_skipped += 1
                 continue
             else:
@@ -316,7 +330,7 @@ def extract_bibliography(soup):
                     used_ids.discard(old_id)
                     used_ids.add(new_first_id)
                     seen_references[base_entry_id]["suffix_count"] = first_suffix
-                    print(f"  🔀 Collision detected! Retroactively suffixed first entry: {old_id} → {new_first_id}")
+                    _vprint(f"  🔀 Collision detected! Retroactively suffixed first entry: {old_id} → {new_first_id}")
 
                 prev["suffix_count"] += 1
                 suffix = chr(ord('a') + prev["suffix_count"])
@@ -325,7 +339,7 @@ def extract_bibliography(soup):
                     prev["suffix_count"] += 1
                     suffix = chr(ord('a') + prev["suffix_count"])
                 entry_id = base_entry_id + suffix
-                print(f"  🔀 Collision: assigned suffix → {entry_id}")
+                _vprint(f"  🔀 Collision: assigned suffix → {entry_id}")
                 _collisions += 1
 
         used_ids.add(entry_id)
@@ -337,10 +351,12 @@ def extract_bibliography(soup):
         anchor_tag = soup.new_tag("a", attrs={"class": "bib-entry", "id": entry_id})
         p.insert(0, anchor_tag)
         references_data.append({"referenceId": entry_id, "content": str(p)})
-        print(f"  🔑 Generated keys for reference: {keys} → {entry_id}")
+        _vprint(f"  🔑 Generated keys for reference: {keys} → {entry_id}")
 
     print(f"📚 Bibliography map has {len(bibliography_map)} entries: {list(bibliography_map.keys())[:10]}{'...' if len(bibliography_map) > 10 else ''}")
-    print(f"Found and processed {len(references_data)} reference entries (kept in DOM).")
+    print(f"Found and processed {len(references_data)} reference entries (kept in DOM): "
+          f"{_collisions} author-year collision(s) suffixed, {_dups_skipped} duplicate(s) skipped, "
+          f"{_dropped_no_keys} unkeyable. Set HYPERLIT_CONVERSION_VERBOSE=1 for the per-entry key trace.")
 
     via_heading = bool(reference_p_tags) and not used_reverse_scan
     _record_bibliography_assessment(references_data, bibliography_map, via_heading,

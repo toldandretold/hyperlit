@@ -200,20 +200,22 @@ def fetch_ocr_chunked(pdf_path, api_key, work_dir, model="mistral-ocr-2512"):
     `model` passes through to each chunk's `fetch_ocr` call (default keeps
     production behaviour; the harness overrides it with a pinned version).
     """
+    # Percent band 4–45: the downstream digestion stages start at 48
+    # (doc_parse), so OCR must finish below that or the bar jumps backwards.
     file_mb = pdf_path.stat().st_size / 1024 / 1024
     emit_progress(
-        5, "pdf_splitting",
+        4, "pdf_splitting",
         f"Large PDF detected ({file_mb:.0f}MB). Splitting into chunks for OCR — this takes longer than smaller files."
     )
 
     chunk_paths = split_pdf_into_chunks(pdf_path, CHUNK_TARGET_BYTES, work_dir)
     n = len(chunk_paths)
-    emit_progress(8, "pdf_splitting", f"Split into {n} chunks. Starting OCR...")
+    emit_progress(6, "pdf_splitting", f"Split into {n} chunks. Starting OCR...")
 
     merged_pages = []
     chunk_boundary_indices = []  # page index where each chunk (after the first) begins
     for i, chunk_path in enumerate(chunk_paths):
-        percent = 10 + int(68 * i / n)
+        percent = 8 + int(36 * i / n)
         emit_progress(
             percent, "ocr_chunk",
             f"Running OCR on chunk {i + 1} of {n} (each chunk takes around 30-60 seconds)..."
@@ -246,7 +248,7 @@ def fetch_ocr_chunked(pdf_path, api_key, work_dir, model="mistral-ocr-2512"):
     except OSError:
         pass
 
-    emit_progress(78, "ocr_chunk", f"OCR complete for all {n} chunks. Assembling document...")
+    emit_progress(45, "ocr_chunk", f"OCR complete for all {n} chunks. Assembling document...")
     return {
         "pages": merged_pages,
         "_chunk_boundaries": chunk_boundary_indices,

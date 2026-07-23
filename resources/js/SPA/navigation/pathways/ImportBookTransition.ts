@@ -304,6 +304,13 @@ export class ImportBookTransition {
   static STAGE_LABELS: any = {
     queued: 'Waiting to start...',
     starting: 'Starting document processing...',
+    pdf_splitting: 'Splitting large PDF for OCR...',
+    ocr: 'Reading pages with OCR...',
+    ocr_chunk: 'Reading pages with OCR...',
+    ocr_analyze: 'Analyzing document structure...',
+    ocr_assemble: 'Assembling document...',
+    metadata: 'Checking metadata...',
+    retrying: 'Retrying...',
     epub_load: 'Loading EPUB content...',
     epub_transforms: 'Normalizing document structure...',
     epub_footnotes: 'Detecting footnotes...',
@@ -431,9 +438,16 @@ export class ImportBookTransition {
       });
     }
 
+    // The bar never moves backwards: stage percents come from independent
+    // subprocesses (OCR band, digestion band, DB band) and a retry resets to 0 —
+    // visually regressing reads as "something broke" even when it hasn't.
+    let highestPct = 0;
     return {
       update(pct: any, msg: any, detail: any) {
-        if (progressBar && pct != null) progressBar.style.width = `${Math.min(pct, 100)}%`;
+        if (progressBar && pct != null) {
+          highestPct = Math.max(highestPct, Math.min(pct, 100));
+          progressBar.style.width = `${highestPct}%`;
+        }
         if (stageText && msg) stageText.textContent = msg;
         if (detailText) detailText.textContent = detail || '';
       },

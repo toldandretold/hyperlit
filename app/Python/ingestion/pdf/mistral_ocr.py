@@ -114,18 +114,40 @@ def main():
     cache_was_loaded = False
     if json_cache.exists() and not args.no_cache:
         print(f"Using cached OCR response: {json_cache}")
+        emit_progress(45, "ocr", "Using cached OCR result — skipping the page scan")
         response_dict = json.loads(json_cache.read_text(encoding="utf-8"))
         cache_was_loaded = True
     else:
         if pdf_path.stat().st_size > CHUNK_TARGET_BYTES:
             response_dict = fetch_ocr_chunked(pdf_path, api_key, output_dir, model=ocr_model)
         else:
-            response_dict = fetch_ocr(pdf_path, api_key, model=ocr_model)
+            # The OCR request is one opaque blocking call that scales with book
+            # length — tell the user what's happening (page count + rough ETA)
+            # and keep the bar creeping via the heartbeat, or the frontend
+            # poller times the import out as "stalled" after 5 silent minutes.
+            total_pages = None
+            try:
+                total_pages = len(PdfReader(str(pdf_path)).pages)
+            except Exception:
+                pass
+            if total_pages:
+                est_seconds = min(max(total_pages * 0.6, 45), 480)
+                est_min = max(1, round(est_seconds / 60))
+                detail = (f"Reading {total_pages} pages with OCR — roughly "
+                          f"{est_min} minute{'s' if est_min != 1 else ''} for a document this length")
+            else:
+                est_seconds = 120
+                detail = "Reading the PDF with OCR — this can take a few minutes"
+            emit_progress(4, "ocr", detail)
+            with progress_heartbeat(5, 44, "ocr", detail, est_seconds):
+                response_dict = fetch_ocr(pdf_path, api_key, model=ocr_model)
+            emit_progress(45, "ocr", f"OCR complete — read {len(response_dict.get('pages', []))} pages")
         json_cache.write_text(json.dumps(response_dict), encoding="utf-8")
         print(f"Cached raw response to: {json_cache}")
 
     # Initial classification (used to gate the renumber pass — chapter_endnotes
     # books have their own per-chapter offset machinery and we must not double-shift).
+    emit_progress(46, "ocr_analyze", "Analyzing footnote layout")
     footnote_meta = classify_footnotes(response_dict)
     print(f"Footnote classification: {footnote_meta['classification']} "
           f"(confidence: {footnote_meta['confidence']:.2f})")
@@ -190,6 +212,7 @@ def main():
     # Assemble markdown — may append additional mojibake warnings to
     # `footnote_warnings` for pypdf-extracted defs we had to reject.
     print("Assembling markdown...")
+    emit_progress(47, "ocr_assemble", "Assembling document text from OCR pages")
     markdown = assemble_markdown(
         response_dict,
         classification=footnote_meta['classification'],

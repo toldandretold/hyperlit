@@ -101,7 +101,7 @@ class PdfProcessor implements ProcessorInterface
         Log::info('Mistral OCR completed', [
             'book' => $bookId,
             'ocr_duration_ms' => $ocrDuration,
-            'stdout' => $process->getOutput(),
+            'stdout' => $this->truncateForLog($process->getOutput()),
         ]);
 
         // Stage 2: Update image refs in markdown (like ZipProcessor does)

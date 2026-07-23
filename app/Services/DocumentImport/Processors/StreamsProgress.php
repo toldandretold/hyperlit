@@ -38,4 +38,25 @@ trait StreamsProgress
             }
         });
     }
+
+    /**
+     * Head+tail truncate a subprocess's stdout for an INFO log entry. Conversion
+     * output scales with book length (a big bibliography used to jam the Laravel
+     * log with hundreds of per-reference lines) — the log keeps the opening
+     * decisions and the closing summary stats; the full text belongs in a
+     * per-book file next to the conversion artifacts, not in laravel.log.
+     */
+    protected function truncateForLog(string $output, int $head = 4000, int $tail = 3000): string
+    {
+        // PROGRESS: lines are machine plumbing already consumed by runWithProgress —
+        // the OCR heartbeat alone emits one every ~5s, which would re-spam the log.
+        $output = preg_replace('/^PROGRESS:.*$\n?/m', '', $output) ?? $output;
+        if (strlen($output) <= $head + $tail + 200) {
+            return $output;
+        }
+        $omitted = strlen($output) - $head - $tail;
+        return substr($output, 0, $head)
+            . "\n… [{$omitted} chars omitted — full output in conversion_stdout.log] …\n"
+            . substr($output, -$tail);
+    }
 }
