@@ -42,14 +42,17 @@
                 } catch (e) { /* storage unavailable — still better to reload once */ }
                 window.location.reload();
             }
-            window.addEventListener('vite:preloadError', function (e) {
-                if (e && typeof e.preventDefault === 'function') e.preventDefault();
+            // NEVER preventDefault() on vite:preloadError: vite's preload
+            // helper treats a cancelled event as "error handled" and lets the
+            // failed import RESOLVE AS UNDEFINED — downstream code then dies on
+            // `Cannot destructure ... from undefined` half-loaded instead of
+            // failing loudly. Let the error throw; just schedule the reload.
+            window.addEventListener('vite:preloadError', function () {
                 healChunkError();
             });
             window.addEventListener('unhandledrejection', function (e) {
                 var msg = String((e.reason && e.reason.message) || e.reason || '');
                 if (/Importing a module script failed|dynamically imported module|error loading dynamically imported/i.test(msg)) {
-                    e.preventDefault();
                     healChunkError();
                 }
             });
