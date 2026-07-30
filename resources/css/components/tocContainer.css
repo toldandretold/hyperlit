@@ -59,7 +59,11 @@
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--color-text);
-  opacity: 0.55;
+  /* Inactive tabs read dimmer than the active one, but must still clear WCAG
+     1.4.3 (4.5:1) — 0.55 dropped the text below it. The active tab is further
+     distinguished by the underline + font-weight below, so this only needs to
+     stay legible, not fully faded. */
+  opacity: 0.75;
   font-size: 0.85em;
   padding: 0.35em 0.5em;
   cursor: pointer;

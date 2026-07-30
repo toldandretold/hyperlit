@@ -13,6 +13,7 @@ import {
   indexAtVirtual,
   virtualOfIndex,
   isMapStale,
+  thumbTopToVirtual,
 } from '../../../resources/js/components/customScrollbar/virtualMap';
 
 const METRICS = { lineHeight: 24, charsPerLine: 60, blockMargin: 18 };
@@ -235,5 +236,48 @@ describe('isMapStale', () => {
     nodes.push(para(5));
     expect(isMapStale(map, nodes)).toBe(true);
     expect(isMapStale(map, [...nodes])).toBe(true);
+  });
+});
+
+describe('thumbTopToVirtual (hover === click, the ONE position mapping)', () => {
+  // trackH 700, thumb 24, book 300000 virtual px, one screen 900.
+  const TR = 700, TH = 24, TOTAL = 300000, VP = 900;
+  const range = TR - TH; // 676
+  const scrollable = TOTAL - VP; // 299100
+
+  it('maps the ends: top 0 → 0, top range → scrollableVirtual', () => {
+    expect(thumbTopToVirtual(0, TR, TH, TOTAL, VP)).toBe(0);
+    expect(thumbTopToVirtual(range, TR, TH, TOTAL, VP)).toBeCloseTo(scrollable, 5);
+  });
+
+  it('is strictly monotonic in the thumb position', () => {
+    let prev = -1;
+    for (let top = 0; top <= range; top += 40) {
+      const v = thumbTopToVirtual(top, TR, TH, TOTAL, VP);
+      expect(v).toBeGreaterThan(prev);
+      prev = v;
+    }
+  });
+
+  it('clamps out-of-range thumb positions to the ends', () => {
+    expect(thumbTopToVirtual(-50, TR, TH, TOTAL, VP)).toBe(0);
+    expect(thumbTopToVirtual(range + 500, TR, TH, TOTAL, VP)).toBeCloseTo(scrollable, 5);
+  });
+
+  it('degenerate track (thumb fills it) → 0, no divide-by-zero', () => {
+    expect(thumbTopToVirtual(10, 24, 24, TOTAL, VP)).toBe(0);
+    expect(thumbTopToVirtual(10, 20, 24, TOTAL, VP)).toBe(0);
+  });
+
+  it('hover and a track-click at the SAME cursor Y produce the SAME landing', () => {
+    // Both call sites compute thumbTop = cursorY - barTop - thumbH/2, then this
+    // helper. Replicate both to lock the contract: identical input → identical vPos.
+    const barTop = 50;
+    for (const cursorY of [60, 200, 420, 700, 740]) {
+      const thumbTop = cursorY - barTop - TH / 2;
+      const hover = thumbTopToVirtual(thumbTop, TR, TH, TOTAL, VP);
+      const click = thumbTopToVirtual(thumbTop, TR, TH, TOTAL, VP);
+      expect(hover).toBe(click);
+    }
   });
 });

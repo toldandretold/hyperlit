@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  */
 class InferenceTicketController extends Controller
 {
-    private const FEATURES = ['vibe_css', 'ai_brain', 'ai_review'];
+    private const FEATURES = ['vibe_css', 'ai_brain', 'ai_review', 'translation'];
 
     /**
      * Atomically claim up to `limit` pending tickets (FOR UPDATE SKIP LOCKED, so

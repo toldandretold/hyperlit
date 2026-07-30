@@ -23,6 +23,16 @@
   transition: opacity 0.3s ease; /* fades with the perimeter chrome */
 }
 
+/* While scrubbing, lock out page text-selection everywhere — an iOS drag over
+   content would otherwise start a native "select all" gesture that pointer
+   capture can't suppress. Transient (only during the drag). */
+html.custom-scrollbar-scrubbing,
+html.custom-scrollbar-scrubbing * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
 /* Fade model (applied by updateFade in index.ts): with the perimeter chrome
    VISIBLE the bar stays up; with chrome hidden it behaves like a native
    scrollbar — visible while scrolling (+2s grace) or while interacted with,
@@ -30,6 +40,13 @@
 .custom-scrollbar.custom-scrollbar--faded {
   opacity: 0;
   pointer-events: none;
+}
+
+.custom-scrollbar-track,
+.custom-scrollbar-thumb {
+  /* The grabbed elements themselves must forbid scroll — touch-action is not
+     inherited, so a touch landing on the thumb would otherwise pan the page. */
+  touch-action: none;
 }
 
 .custom-scrollbar-track {

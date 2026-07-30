@@ -37,6 +37,7 @@ import {
   buildVirtualMap,
   indexAtVirtual,
   isMapStale,
+  thumbTopToVirtual,
   type VirtualMap,
   type VirtualMapMetrics,
 } from './virtualMap';
@@ -107,6 +108,11 @@ let windowListeners: Array<[string, EventListener]> = [];
 let chunkObserver: MutationObserver | null = null;
 /** Watches .perimeter-hidden on the chrome cluster — the bar is chrome and fades with it. */
 let perimeterObserver: MutationObserver | null = null;
+/** While UNBOUND: watches the content wrapper so the bar binds the moment chunks
+ *  land — covers a slow first render that misses the timed bind retries. */
+let ensureObserver: MutationObserver | null = null;
+/** Capture-phase document scroll: binds on the first scroll if still unbound. */
+let docScrollHandler: ((e: Event) => void) | null = null;
 let chunkElsCache: HTMLElement[] | null = null;
 
 // Real-height measurement wiring (measure.ts).
@@ -199,6 +205,12 @@ function ensureDom(): void {
   root.addEventListener('pointercancel', onPointerUp);
   root.addEventListener('pointerenter', onPointerEnter);
   root.addEventListener('pointerleave', onPointerLeave);
+  // touch-action:none stops the page panning when a touch STARTS on the bar, but
+  // iOS still runs native scroll on the underlying wrapper as the finger moves —
+  // pointermove drives the thumb while the page scrolls too. A non-passive
+  // touchmove preventDefault while scrubbing is the definitive stop (both modes:
+  // chunk commits on release, plain scrolls programmatically via scrubToPlain).
+  root.addEventListener('touchmove', onTouchMove, { passive: false });
 
   minimap = createMinimap({ onJump: handleMinimapJump, onHoverChange: handleMinimapHover });
 }
@@ -417,6 +429,35 @@ function maybeRebind(): void {
   if (currentTarget() !== boundTarget) bindLoader();
 }
 
+function disconnectEnsureObserver(): void {
+  ensureObserver?.disconnect();
+  ensureObserver = null;
+}
+
+/**
+ * While UNBOUND, watch the page's content wrapper so the bar binds the instant
+ * chunks/content land — the safety net for a first render that arrives after the
+ * timed bind retries (a big book / cold cache / slow mobile, where otherwise the
+ * bar "sometimes doesn't appear"). Self-disconnects on the first successful bind.
+ */
+function watchForContentUntilBound(): void {
+  disconnectEnsureObserver();
+  maybeRebind(); // content may already be present (no future mutation to catch)
+  if (boundTarget) return;
+  const page = document.body.getAttribute('data-page');
+  const sel =
+    page === 'home' ? '.home-content-wrapper'
+    : page === 'user' ? '.user-content-wrapper'
+    : '.reader-content-wrapper';
+  const wrapper = document.querySelector(sel);
+  if (!wrapper) return;
+  ensureObserver = new MutationObserver(() => {
+    maybeRebind();
+    if (boundTarget) disconnectEnsureObserver(); // job done
+  });
+  ensureObserver.observe(wrapper, { childList: true, subtree: true });
+}
+
 /** Chrome-fade observer + the wrapper scroll listener — shared by both modes. */
 function wireWrapperListeners(): void {
   if (!boundWrapper) return;
@@ -452,6 +493,7 @@ function bindLoader(): void {
     });
     chunkObserver.observe(candidate.container, { childList: true });
     scheduleRebuild(0);
+    disconnectEnsureObserver(); // bound — stop watching for content
     verbose.init(`customScrollbar bound (chunk) to book ${candidate.bookId}`, SRC);
     return;
   }
@@ -466,6 +508,7 @@ function bindLoader(): void {
     wireWrapperListeners();
     if (!syncRaf) syncRaf = requestAnimationFrame(syncThumb);
     updateVisibility();
+    disconnectEnsureObserver(); // bound — stop watching for content
     verbose.init('customScrollbar bound (plain DOM) to a feed wrapper', SRC);
     return;
   }
@@ -679,9 +722,13 @@ function viewportVirtualEstimate(): number {
 
 function vPosOfThumbTop(top: number): number {
   if (!map) return 0;
-  const scrollableVirtual = Math.max(0, map.totalHeight - viewportVirtualEstimate());
-  const range = trackH - thumbH;
-  return range > 0 ? (Math.min(range, Math.max(0, top)) / range) * scrollableVirtual : 0;
+  return thumbTopToVirtual(top, trackH, thumbH, map.totalHeight, viewportVirtualEstimate());
+}
+
+/** Where a click/hover at this pointer Y lands — a track press centres the thumb
+ *  on the cursor (−thumbH/2), so both hover-preview and click share this. */
+function vPosOfCursorY(clientY: number): number {
+  return vPosOfThumbTop(clientY - barTop - thumbH / 2);
 }
 
 /** Plain-DOM scrub: set scrollTop directly, live — the whole content is present,
@@ -741,6 +788,11 @@ function onPointerDown(e: PointerEvent): void {
   }
   scrubbing = true;
   root.classList.add('scrubbing');
+  // Suppress page text-selection for the whole drag. On iOS the drag gesture
+  // starts a native text/"select all" selection on the content the finger
+  // travels over — pointer capture alone doesn't stop it; a global user-select
+  // lockdown does (paired with clearing any stray selection on each move).
+  document.documentElement.classList.add('custom-scrollbar-scrubbing');
   // iOS can't give web pages real haptics; Android can — a tick on grab
   // approximates the native scrollbar's physical engage feel where possible.
   if (e.pointerType === 'touch') {
@@ -761,15 +813,20 @@ function onPointerDown(e: PointerEvent): void {
 
 function onPointerMove(e: PointerEvent): void {
   if (scrubbing) {
+    // Clear any selection the drag started on the content before it can grow
+    // into a "select all" (iOS). Cheap: only touches a live non-collapsed range.
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && !sel.getRangeAt(0).collapsed) sel.removeAllRanges();
     // 1:1 absolute tracking — the thumb follows the pointer, so you can fling to
     // the ends. Precise landing is via clicking the preview, not fine-dragging.
     scrubTo(dragStartThumbTop + (e.clientY - dragStartY));
     return;
   }
   if (hovering && map && mode === 'chunk') {
-    // Hover preview without dragging: peek at the hovered position.
-    const frac = trackH > 0 ? Math.min(1, Math.max(0, (e.clientY - barTop) / trackH)) : 0;
-    const v = frac * map.totalHeight;
+    // Preview EXACTLY where a click at this cursor Y would land — same mapping
+    // the track-click/scrub uses (was a different frac×totalHeight formula, so
+    // hover showed one spot and the click jumped to another).
+    const v = vPosOfCursorY(e.clientY);
     schedulePaint(v, v);
   }
 }
@@ -778,6 +835,7 @@ function onPointerUp(e: PointerEvent): void {
   if (!scrubbing) return;
   scrubbing = false;
   root?.classList.remove('scrubbing');
+  document.documentElement.classList.remove('custom-scrollbar-scrubbing');
   try {
     root?.releasePointerCapture?.(e.pointerId);
   } catch {
@@ -807,6 +865,11 @@ function onPointerLeave(): void {
   hovering = false;
   if (!scrubbing) hideSoon();
   updateFade();
+}
+
+/** Kill the native touch-scroll of the page while the bar is being dragged. */
+function onTouchMove(e: TouchEvent): void {
+  if (scrubbing) e.preventDefault();
 }
 
 /** Safety net (mobile especially): any press outside the bar + popup dismisses the preview. */
@@ -961,6 +1024,9 @@ export function initCustomScrollbar(): void {
       get loader() { return loader; },
       get calibration() { return estPerRealEma; },
       get measuredCount() { return measuredCount(); },
+      get lastPaintCenter() { return paintSpanCenter; }, // hover/scrub preview centre (vPos)
+      get lastCommittedV() { return lastCommittedV; },   // where the last jump committed (vPos)
+      vPosOfCursorY: (y: number) => vPosOfCursorY(y),
     };
   }
 
@@ -994,25 +1060,34 @@ export function initCustomScrollbar(): void {
     // contentUpdated fires only on a server-changed refresh (loadHyperText) —
     // a secondary rebind hook alongside the arranger's resize.
     addWindowListener('contentUpdated', () => maybeRebind());
+    // Capture-phase (element scrolls don't bubble to window) safety net: if the
+    // bar never bound (first render missed the retries), the first scroll binds
+    // it. No-op once bound — the `!boundTarget` guard skips all work.
+    docScrollHandler = () => { if (!boundTarget) maybeRebind(); };
+    document.addEventListener('scroll', docScrollHandler, { capture: true, passive: true });
   }
 
   // Every reader entry (full load or SPA nav): bind once the first chunk is in
-  // the DOM — geometry and the node array need real content.
+  // the DOM. The promise is timing-sensitive across entry pathways (it can be
+  // captured already-resolved for a prior book), so it's a best-effort trigger,
+  // NOT the guarantee — the content observer below is.
   pendingFirstChunkLoadedPromise
     ?.then(() => bindLoader())
     .catch(() => {});
 
-  // Plain-DOM (home/user hero/feed) has no chunk promise — bind once layout is
-  // ready so the scrollable wrapper is measurable. maybeRebind is a no-op if the
-  // chunk promise above already bound a loader. A couple of retries cover the
-  // wrapper becoming scrollable late (web-font swap, lava-lamp layout settle).
-  requestAnimationFrame(() => maybeRebind());
-  window.setTimeout(() => maybeRebind(), 500);
-  window.setTimeout(() => maybeRebind(), 1500);
+  // The guarantee: bind the moment content is present or lands (covers plain-DOM
+  // feeds, and a slow first render that misses the promise). Self-disconnects on
+  // bind. A rAF gives layout a beat to settle (web-font/lava-lamp reflow).
+  requestAnimationFrame(() => watchForContentUntilBound());
 }
 
 export function destroyCustomScrollbar(): void {
   unbindLoader();
+  disconnectEnsureObserver();
+  if (docScrollHandler) {
+    document.removeEventListener('scroll', docScrollHandler, { capture: true } as EventListenerOptions);
+    docScrollHandler = null;
+  }
   for (const [type, fn] of windowListeners) window.removeEventListener(type, fn);
   windowListeners = [];
   if (syncRaf) cancelAnimationFrame(syncRaf);

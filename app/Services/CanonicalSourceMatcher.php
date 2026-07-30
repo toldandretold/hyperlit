@@ -170,11 +170,14 @@ class CanonicalSourceMatcher
             );
         }
 
-        // 3. OpenAlex DOI lookup (incl. a DOI that only lives in url/bibtex)
+        // 3. OpenAlex DOI lookup (incl. a DOI that only lives in url/bibtex).
+        // userFacing: preview() is only ever called from the interactive
+        // check-source controllers — fail fast on 429 rather than sleep-retry
+        // while the person watches "Checking…".
         $resolvedDoi = $this->resolveDoi($library);
         if (!empty($resolvedDoi)) {
             try {
-                $normalised = $this->openAlex->fetchByDoi($resolvedDoi);
+                $normalised = $this->openAlex->fetchByDoi($resolvedDoi, userFacing: true);
                 if ($normalised) {
                     return $this->previewResult(self::STATUS_LINKED_NEW, 'openalex_doi', 1.0, $normalised);
                 }
@@ -805,10 +808,15 @@ class CanonicalSourceMatcher
     {
         $pool = $isbnCandidates;
 
+        // userFacing/failFast: the preview path is only reached from the
+        // interactive check-source controllers. On a provider 429, skip the
+        // sleep-retry ladders (they stack across the cascade into a minutes-long
+        // "Checking…") — the other providers' candidates still fill the pool.
+        // The autonomous path (tryTitleSearch, via the scan job) keeps retries.
         $providers = [
-            ['openalex',         fn() => $this->openAlex->fetchFromOpenAlex($title, 5)],
+            ['openalex',         fn() => $this->openAlex->fetchFromOpenAlex($title, 5, 1, userFacing: true)],
             ['open_library',     fn() => $this->openLibrary->search($title, $library->author ?: null, 5)],
-            ['semantic_scholar', fn() => $this->semanticScholar->search($title, $library->author ?: null, 5)],
+            ['semantic_scholar', fn() => $this->semanticScholar->search($title, $library->author ?: null, 5, failFast: true)],
         ];
         foreach ($providers as [$name, $fetch]) {
             try {

@@ -50,9 +50,9 @@ class OpenAlexService
     }
 
     /** @see WorksApi::fetchByDoi() */
-    public function fetchByDoi(string $doi): ?array
+    public function fetchByDoi(string $doi, bool $userFacing = false): ?array
     {
-        return $this->works->fetchByDoi($doi);
+        return $this->works->fetchByDoi($doi, $userFacing);
     }
 
     /** @see WorksApi::fetchByOpenAlexId() */

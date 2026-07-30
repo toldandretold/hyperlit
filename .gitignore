@@ -79,3 +79,8 @@ macOShyperlit/build/
 macOShyperlit/DerivedData/
 macOShyperlit/**/xcuserdata/
 macOShyperlit/**/*.xcuserstate
+
+# Translation eval output — generated model comparisons, regenerate with
+# `php tests/translation/run-eval.php`. The fixtures ARE committed; the outputs
+# are not (they cost money to produce and change every run).
+tests/translation/out/

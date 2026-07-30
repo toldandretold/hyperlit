@@ -146,6 +146,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/book-audio/{book}/generate', [\App\Http\Controllers\BookAudioController::class, 'generate']);
     Route::post('/book-audio/{book}/cancel', [\App\Http\Controllers\BookAudioController::class, 'cancel']);
 
+    // Translation — synchronous passage translation, requester-pays. Auth'd
+    // because it spends credits and because the BYO ticket path has no anonymous
+    // arm (inference_tickets RLS keys off app.current_user).
+    Route::post('/translate', [\App\Http\Controllers\TranslationController::class, 'translate']);
+    Route::get('/translate/languages', [\App\Http\Controllers\TranslationController::class, 'languages']);
+
     // User preferences
     Route::get('/user/preferences', [UserPreferencesController::class, 'show']);
     Route::post('/user/preferences', [UserPreferencesController::class, 'update']);

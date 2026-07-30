@@ -3,11 +3,8 @@
 // onto the local IndexedDB library record so the source panel reflects the change offline.
 // rejectSource records "looked, no match" so the flow doesn't re-prompt.
 import { openDatabase } from '../indexedDB/index';
+import { timedPost, isTimeoutError, BUSY_MESSAGE } from './http';
 import type { SourceCandidate, SourceIdentifier, VerifyResult } from './types';
-
-function csrfToken(): string {
-  return (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content ?? '';
-}
 
 /** The identifier subset the server keys off to re-resolve the work authoritatively. */
 export function identifierOf(c: SourceCandidate): SourceIdentifier {
@@ -22,18 +19,12 @@ export function identifierOf(c: SourceCandidate): SourceIdentifier {
 export async function verifySource(bookId: string, candidate: SourceCandidate): Promise<VerifyResult> {
   let resp: Response;
   try {
-    resp = await fetch(`/api/library/${encodeURIComponent(bookId)}/source/verify`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken(),
-      },
-      credentials: 'include',
-      body: JSON.stringify({ identifier: identifierOf(candidate) }),
-    });
+    resp = await timedPost(
+      `/api/library/${encodeURIComponent(bookId)}/source/verify`,
+      JSON.stringify({ identifier: identifierOf(candidate) }),
+    );
   } catch (err) {
-    return { success: false, message: 'Network error during verification' };
+    return { success: false, message: isTimeoutError(err) ? BUSY_MESSAGE : 'Network error during verification' };
   }
 
   const data = await resp.json().catch(() => ({} as any));
@@ -54,16 +45,7 @@ export async function verifySource(bookId: string, candidate: SourceCandidate): 
 
 export async function rejectSource(bookId: string): Promise<void> {
   try {
-    await fetch(`/api/library/${encodeURIComponent(bookId)}/source/reject`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken(),
-      },
-      credentials: 'include',
-      body: '{}',
-    });
+    await timedPost(`/api/library/${encodeURIComponent(bookId)}/source/reject`, '{}');
   } catch (err) {
     // best-effort — rejection is only a UI convenience
   }

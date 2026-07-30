@@ -95,11 +95,11 @@ class WorksApi
      * Fetch a single work by DOI from OpenAlex.
      * Returns a normalised work array, or null if not found.
      */
-    public function fetchByDoi(string $doi): ?array
+    public function fetchByDoi(string $doi, bool $userFacing = false): ?array
     {
         $response = $this->http->retryableGet(OpenAlexHttpClient::BASE_URL . '/works/doi:' . $doi, [
             'select' => OpenAlexHttpClient::SELECT_FIELDS,
-        ]);
+        ], $userFacing);
 
         if (!$response->successful()) {
             return null;

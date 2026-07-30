@@ -68,6 +68,12 @@ return [
             'accounts/fireworks/models/llama-v3p3-70b-instruct' => ['input' => 0.90, 'output' => 0.90],
             'accounts/fireworks/models/minimax-m2p5'            => ['input' => 0.30, 'output' => 1.20],
             'nomic-ai/nomic-embed-text-v1.5'                   => ['input' => 0.008, 'output' => 0.0],
+            // DeepInfra (OpenAI-compatible at https://api.deepinfra.com/v1/openai) — priced
+            // ahead of use so pointing LLM_BASE_URL/LLM_MODEL there is costed from day one.
+            // Gemma 4 is the hosted translation candidate: Fireworks lists gemma-4-31b-it as
+            // "serverless: NOT supported" (on-demand GPU only), DeepInfra serves it per-token.
+            // Rates from deepinfra.com/pricing, checked 2026-07-30.
+            'google/gemma-4-31B-it'                            => ['input' => 0.13, 'output' => 0.38],
             // Mistral OCR — RAW cost per 1K pages (USD) we pay Mistral (the tier multiplier in
             // billing_tiers stacks on top). Keyed by the SERVED model id recorded in
             // ocr_response.json, so a book is billed at what its OCR actually cost. Prices are
@@ -143,6 +149,72 @@ return [
         'pricing' => [
             'provider_cost_per_million_chars' => 0.80, // DeepInfra Kokoro-82M, checked 2026-07-06
             'billed_per_million_chars' => 1.00,        // raw rate passed to BillingService::charge (tier multiplier applies on top)
+        ],
+    ],
+
+    // Machine translation. Provider is swappable via TranslationProviderInterface.
+    //
+    // WHY THREE PROVIDERS: as of 2026-07 neither specialised open translation model
+    // is reachable per-token from any host — TranslateGemma (4B/12B/27B) and Hy-MT2
+    // (1.8B/7B/30B-A3B) both report "not deployed by any Inference Provider" on HF.
+    // So the three real deployment shapes each get a provider, and which one runs is
+    // one env var:
+    //   'hosted'    — rides services.llm.* (LlmService), so a general instruct model
+    //                 prompted to translate. The ONLY one that works with no extra
+    //                 setup, and the only one BYO inference tickets pass through
+    //                 (ClientTicketTransport intercepts inside LlmService::chat*).
+    //   'ollama'    — a local specialised model (`ollama pull translategemma:4b`).
+    //                 Free, and the ONLY option for E2EE books, whose plaintext can
+    //                 never reach the server (EncryptedBookGuard).
+    //   'dedicated' — any OpenAI-compatible endpoint: a rented DeepInfra custom-LLM
+    //                 deployment (GPU-hour, ~$0.89/hr A100, min_instances 0 scales to
+    //                 zero) or a self-hosted box reached over Tailscale.
+    'translation' => [
+        'provider' => env('TRANSLATION_PROVIDER', 'hosted'),
+
+        'batch_size' => 30,                 // texts per LLM batch (mirrors the citation-metadata chunking)
+        'concurrency' => 5,                 // parallel provider requests per batch
+        'max_chars_per_request' => (int) env('TRANSLATION_MAX_CHARS', 4000),
+        'timeout' => (int) env('TRANSLATION_TIMEOUT', 120),
+
+        // BYO-key inference waits: deliberately SHORTER than the shared
+        // services.llm.ticket_* defaults (300s). Those serve an SSE stream and a
+        // queue job, where blocking is free; translation is a synchronous request
+        // a reader is waiting on, so a 5-minute hold would read as a hung page.
+        'byo_ttl_seconds' => (int) env('TRANSLATION_BYO_TTL', 300),
+        'byo_wait_seconds' => (int) env('TRANSLATION_BYO_WAIT', 90),
+
+        'hosted' => [
+            // Transport is services.llm.base_url + api_key — NOT a separate key. Only
+            // the model differs, so translation can use a different model from the
+            // citation/brain roles on the same endpoint.
+            // ⚠ If you repoint LLM_BASE_URL at DeepInfra, set TRANSLATION_MODEL too —
+            // this default is a Fireworks id and would 404 there.
+            'model' => env('TRANSLATION_MODEL', 'accounts/fireworks/models/gpt-oss-120b'),
+            'temperature' => 0.0,           // translation is not a creative task
+        ],
+
+        'ollama' => [
+            'base_url' => env('TRANSLATION_OLLAMA_BASE_URL', 'http://localhost:11434/v1'),
+            'model' => env('TRANSLATION_OLLAMA_MODEL', 'translategemma:4b'),
+            // TranslateGemma's chat template takes a STRUCTURED content part
+            // ({type,source_lang_code,target_lang_code,text}) rather than a
+            // natural-language instruction. Whether Ollama's bundled template
+            // accepts that is probed by tests/translation/probe-template.php;
+            // 'auto' tries structured and falls back to an instruction string.
+            'request_shape' => env('TRANSLATION_OLLAMA_SHAPE', 'auto'), // auto|structured|instruction
+            // No API key: Ollama is unauthenticated on localhost. Never bill for it.
+        ],
+
+        'dedicated' => [
+            'base_url' => env('TRANSLATION_DEDICATED_BASE_URL'),
+            'api_key' => env('TRANSLATION_DEDICATED_API_KEY'),
+            'model' => env('TRANSLATION_DEDICATED_MODEL'),
+            'request_shape' => env('TRANSLATION_DEDICATED_SHAPE', 'instruction'),
+            // Cost per 1M tokens for a rented endpoint is GPU-hour, not per-token, so
+            // there is no honest per-token rate to bill. Left null deliberately: the
+            // controller waives the charge rather than invent a number.
+            'pricing' => null,
         ],
     ],
 

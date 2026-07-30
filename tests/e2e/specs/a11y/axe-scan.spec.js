@@ -27,6 +27,18 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { a11yScan, violationsToCounts, diffAgainstBaseline } from '../../helpers/a11y.js';
+import { unregisterSwScript } from '../../helpers/offline.js';
+
+// Unregister the service worker before ANY navigation. In dev the SW's NetworkFirst
+// HTML shell can serve a stale/partial second load that drops the reader's `@vite`
+// CSS (reader.css → editToolbar.css) — the edit toolbar then renders visible AND
+// unstyled (buttons at their raw 16×21 intrinsic size instead of the real 28×28),
+// which axe reports as ~35 phantom `target-size` violations. Production ships that CSS
+// as a static <link>, so this is a dev/SW artifact only; removing the SW makes every
+// (re)navigation render the true state. See helpers/offline.js.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(unregisterSwScript);
+});
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const READER_BOOK = process.env.E2E_READER_BOOK;
@@ -61,6 +73,26 @@ async function settleForScan(page) {
     }
     return true;
   }, null, { timeout: 8000 }).catch(() => {});
+
+  // Sanity guard: never scan a page whose reader-chrome CSS failed to apply. When
+  // `reader.css` doesn't land (the SW artifact above), the edit toolbar renders
+  // unstyled — its buttons collapse from the real 28px box to their ~16px intrinsic
+  // size — and axe misreports that as `target-size` debt. If a toolbar button exists
+  // it MUST be its styled size; a persistent 16px box is a render bug, not an a11y
+  // finding, so fail loudly with that framing instead of laundering it through axe.
+  const chromeStyled = await page.waitForFunction(() => {
+    const b = document.getElementById('boldButton');
+    return !b || b.getBoundingClientRect().width >= 24;
+  }, null, { timeout: 8000 }).then(() => true).catch(() => false);
+  if (!chromeStyled) {
+    const w = await page.evaluate(() =>
+      document.getElementById('boldButton')?.getBoundingClientRect().width ?? null);
+    throw new Error(
+      `Reader chrome CSS did not apply (edit-toolbar #boldButton width=${w}px, expected ≥24). ` +
+      `This is a render/load bug (see the SW note at the top of this file), NOT a target-size a11y ` +
+      `regression — do not baseline it; fix the load.`
+    );
+  }
 }
 
 async function gotoReader(page) {

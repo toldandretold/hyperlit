@@ -56,11 +56,29 @@ export default defineConfig({
       testMatch: /auth\.setup\.js/,
       testDir: './fixtures',
     },
-    // All specs use the authenticated session
+    // All non-mobile specs use the authenticated session.
     {
       name: 'chromium',
+      testIgnore: /specs\/mobile\//, // mobile specs run only under mobile-chromium
       use: {
         browserName: 'chromium',
+        storageState: resolve(import.meta.dirname, 'fixtures/.auth-state.json'),
+      },
+      dependencies: ['setup'],
+    },
+    // Mobile emulation (touch + phone viewport) for touch-gesture specs under
+    // specs/mobile/. storageState is viewport-independent, so it reuses the same
+    // desktop auth. Real touch input is driven via CDP (Input.dispatchTouchEvent)
+    // inside the specs — synthetic events don't trigger the native scroll these
+    // guard against.
+    {
+      name: 'mobile-chromium',
+      testMatch: /specs\/mobile\/.*\.spec\.js/,
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 390, height: 844 },
+        hasTouch: true,
+        isMobile: true,
         storageState: resolve(import.meta.dirname, 'fixtures/.auth-state.json'),
       },
       dependencies: ['setup'],

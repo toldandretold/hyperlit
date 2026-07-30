@@ -29,7 +29,7 @@ class SemanticScholarService
      * Search Semantic Scholar for papers matching the given title and optional author.
      * Returns an array of normalised work arrays compatible with the shared citation shape.
      */
-    public function search(string $title, ?string $author = null, int $limit = 5): array
+    public function search(string $title, ?string $author = null, int $limit = 5, bool $failFast = false): array
     {
         $query = $title;
         if ($author) {
@@ -55,6 +55,13 @@ class SemanticScholarService
                 ]);
 
                 if ($response->status() === 429) {
+                    // $failFast (user-facing check-source flow): a person is waiting —
+                    // don't stack 1+2+4s sleeps onto the provider cascade; the other
+                    // providers' candidates still come back and the click is retryable.
+                    if ($failFast) {
+                        Log::info('Semantic Scholar rate limited, failing fast (user-facing)');
+                        return [];
+                    }
                     $delay = pow(2, $attempt); // 1s, 2s, 4s
                     Log::info("Semantic Scholar rate limited, retry in {$delay}s (attempt " . ($attempt + 1) . '/3)');
                     sleep($delay);

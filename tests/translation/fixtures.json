@@ -1,0 +1,62 @@
+{
+  "_readme": "Eval fixtures. Each case is one source text plus the targets to render it into. Keep them SHORT and REAL — prose of the kind Hyperlit actually holds (scholarly, translated-classic, footnote-bearing), not 'hello world'. Add your own; the whole point is that the judgement is yours.",
+
+  "cases": [
+    {
+      "id": "accumulation-plain",
+      "note": "Ordinary scholarly prose. The baseline — if a model fumbles this, nothing else matters.",
+      "source_lang": "en",
+      "text": "The rate of profit fell steadily through the period, and accumulation slowed with it.",
+      "targets": ["zh-Hans", "hi", "pa-Guru", "pa-Arab", "ar", "es"]
+    },
+    {
+      "id": "citation-preserved",
+      "note": "Bracketed reference numbers and an author-year must survive untouched. Models like to renumber or drop them.",
+      "source_lang": "en",
+      "text": "As Luxemburg argued (1913), primitive accumulation never ends [9]; it is a permanent feature of the system.",
+      "targets": ["zh-Hans", "hi", "pa-Guru", "ru"]
+    },
+    {
+      "id": "register-formal",
+      "note": "Tests whether register survives. A translation that flattens this into plain speech is a quality failure the script check cannot see.",
+      "source_lang": "en",
+      "text": "It would be idle to pretend that the contradiction admits of any resolution within the existing framework.",
+      "targets": ["zh-Hans", "pa-Guru", "pa-Arab", "ja"]
+    },
+    {
+      "id": "proper-nouns",
+      "note": "Names and quantities must not be 'localised'. Watch for helpfully converted currencies or transliterated-then-retranslated names.",
+      "source_lang": "en",
+      "text": "Between 1867 and 1894, output in Manchester rose from 12,000 to 47,500 tons.",
+      "targets": ["zh-Hans", "hi", "pa-Guru", "ar"]
+    },
+    {
+      "id": "already-target",
+      "note": "Already in the target language. Should come back UNCHANGED, not paraphrased.",
+      "source_lang": null,
+      "text": "资本的积累是一个持续的过程。",
+      "targets": ["zh-Hans"]
+    },
+    {
+      "id": "shahmukhi-direct",
+      "note": "THE case that motivated the script check. Both Punjabi scripts from the same source. A model that answers Shahmukhi in Gurmukhi (or in transliterated Latin) fails, however fluent it looks.",
+      "source_lang": "en",
+      "text": "The land was divided among the brothers, and the eldest took the largest share.",
+      "targets": ["pa-Guru", "pa-Arab"]
+    },
+    {
+      "id": "shahmukhi-roundtrip",
+      "note": "Reverse direction: Shahmukhi source into English. Tests that the model READS the script, not just writes it.",
+      "source_lang": "pa-Arab",
+      "text": "زمین بھائیاں وچ ونڈی گئی، تے وڈے نے سبھ توں وڈا حصہ لیا۔",
+      "targets": ["en"]
+    },
+    {
+      "id": "multi-paragraph",
+      "note": "Paragraph structure must survive. Exercises the splitter's preferred boundary too.",
+      "source_lang": "en",
+      "text": "The first crisis passed without much comment.\n\nThe second did not. By the autumn, every bank in the region had suspended payment, and the question was no longer whether the system would hold but what would replace it.",
+      "targets": ["zh-Hans", "hi", "pa-Guru"]
+    }
+  ]
+}

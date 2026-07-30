@@ -52,6 +52,35 @@ class AppServiceProvider extends ServiceProvider
             };
         });
 
+        // Translation provider seam. The three arms are the three real deployment
+        // shapes for a translation model (see config/services.php 'translation'):
+        // a hosted general model, a local specialised one, and an endpoint you
+        // run yourself. Which one answers is ONE env var, which is what keeps the
+        // "rent a GPU / buy a Mac Studio?" decision out of the code.
+        //
+        // The registry and prompt builder are singletons: both are stateless and
+        // the registry holds a large constant catalogue worth building once.
+        $this->app->singleton(\App\Services\Translation\LanguageRegistry::class);
+        $this->app->singleton(\App\Services\Translation\TranslationPrompt::class);
+
+        $this->app->bind(\App\Services\Translation\TranslationProviderInterface::class, function ($app) {
+            $registry = $app->make(\App\Services\Translation\LanguageRegistry::class);
+            $prompt = $app->make(\App\Services\Translation\TranslationPrompt::class);
+
+            return match (config('services.translation.provider', 'hosted')) {
+                'ollama' => new \App\Services\Translation\Providers\OllamaProvider($registry, $prompt),
+                'dedicated' => new \App\Services\Translation\Providers\DedicatedProvider($registry, $prompt),
+                // HostedProvider takes LlmService (the SINGLETON — so its usage
+                // counters feed billing and a BYO transport set by the caller is
+                // honoured) rather than its own HTTP client.
+                default => new \App\Services\Translation\Providers\HostedProvider(
+                    $app->make(\App\Services\LlmService::class),
+                    $registry,
+                    $prompt,
+                ),
+            };
+        });
+
         // Register DocumentImport services as singletons
         $this->app->singleton(ValidationService::class);
         $this->app->singleton(SanitizationService::class);

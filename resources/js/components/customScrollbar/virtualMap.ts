@@ -276,3 +276,21 @@ export function virtualOfIndex(map: VirtualMap, i: number): number {
 export function isMapStale(map: VirtualMap, nodes: readonly NodeRecord[]): boolean {
   return map.sourceRef !== nodes || map.sourceLength !== nodes.length;
 }
+
+/**
+ * The ONE source of truth for "a thumb-top (px, 0..trackH-thumbH) → a virtual
+ * scroll position". Both the drag-scrub AND the hover preview route through this
+ * so they can never disagree — hover must preview exactly where a click lands.
+ */
+export function thumbTopToVirtual(
+  top: number,
+  trackH: number,
+  thumbH: number,
+  totalHeight: number,
+  viewportVirtual: number,
+): number {
+  const scrollableVirtual = Math.max(0, totalHeight - viewportVirtual);
+  const range = trackH - thumbH;
+  if (range <= 0) return 0;
+  return (Math.min(range, Math.max(0, top)) / range) * scrollableVirtual;
+}

@@ -9,6 +9,7 @@
 import { openDatabase } from '../indexedDB/index';
 import { log } from '../utilities/logger';
 import { identifierOf } from './verify';
+import { timedPost, isTimeoutError, BUSY_MESSAGE } from './http';
 import type { LookupResult, SourceCandidate } from './types';
 
 export interface ReferenceVerifyResult {
@@ -17,10 +18,6 @@ export interface ReferenceVerifyResult {
   canonical_source_id?: string;
   reference_match_method?: 'user_verified' | 'user_rejected';
   message?: string;
-}
-
-function csrfToken(): string {
-  return (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content ?? '';
 }
 
 /**
@@ -43,12 +40,12 @@ export function candidateExternalUrl(c: SourceCandidate | null | undefined): str
 export async function lookupReference(bookId: string, referenceId: string): Promise<LookupResult> {
   let resp: Response;
   try {
-    resp = await fetch(
+    resp = await timedPost(
       `/api/library/${encodeURIComponent(bookId)}/reference/${encodeURIComponent(referenceId)}/source/lookup`,
-      { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() }, credentials: 'include', body: '{}' },
+      '{}',
     );
-  } catch {
-    return { success: false, status: 'error', method: null, score: null, candidate: null, alternates: [], alreadyLinked: false, current: null, message: 'Network error during lookup' };
+  } catch (err) {
+    return { success: false, status: 'error', method: null, score: null, candidate: null, alternates: [], alreadyLinked: false, current: null, message: isTimeoutError(err) ? BUSY_MESSAGE : 'Network error during lookup' };
   }
   const data = await resp.json().catch(() => ({} as any));
   if (!resp.ok) {
@@ -74,18 +71,9 @@ export async function approveReference(
 async function post(url: string, body: Record<string, unknown>): Promise<ReferenceVerifyResult> {
   let resp: Response;
   try {
-    resp = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken(),
-      },
-      credentials: 'include',
-      body: JSON.stringify(body),
-    });
-  } catch {
-    return { success: false, message: 'Network error during verification' };
+    resp = await timedPost(url, JSON.stringify(body));
+  } catch (err) {
+    return { success: false, message: isTimeoutError(err) ? BUSY_MESSAGE : 'Network error during verification' };
   }
 
   const data = await resp.json().catch(() => ({} as any));

@@ -1,26 +1,14 @@
 // lookupSource — read-only POST to the source-lookup endpoint (CanonicalSourceMatcher::preview).
 // Returns the best candidate (+ alternates) for the user to confirm. No DB/IDB writes happen here.
+import { timedPost, isTimeoutError, BUSY_MESSAGE } from './http';
 import type { LookupResult } from './types';
-
-function csrfToken(): string {
-  return (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content ?? '';
-}
 
 export async function lookupSource(bookId: string): Promise<LookupResult> {
   let resp: Response;
   try {
-    resp = await fetch(`/api/library/${encodeURIComponent(bookId)}/source/lookup`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken(),
-      },
-      credentials: 'include',
-      body: '{}',
-    });
+    resp = await timedPost(`/api/library/${encodeURIComponent(bookId)}/source/lookup`, '{}');
   } catch (err) {
-    return errorResult('Network error during source lookup');
+    return errorResult(isTimeoutError(err) ? BUSY_MESSAGE : 'Network error during source lookup');
   }
 
   const data = await resp.json().catch(() => ({} as any));

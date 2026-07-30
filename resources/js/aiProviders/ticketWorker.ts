@@ -23,7 +23,7 @@ const BACKOFF_MIN_MS = 1_000;
 const BACKOFF_MAX_MS = 5_000;
 
 export interface TicketWorkerOptions {
-  feature: 'ai_review' | 'ai_brain' | 'vibe_css';
+  feature: 'ai_review' | 'ai_brain' | 'vibe_css' | 'translation';
   contextId?: string;
   /** Called after each round with how many tickets were processed. */
   onProgress?: (processed: number) => void;

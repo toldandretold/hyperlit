@@ -27,13 +27,16 @@ class OpenAlexHttpClient
      * Proactively sleeps when X-RateLimit-Remaining drops below threshold.
      *
      * $userFacing=true suppresses the proactive sleep on low remaining-quota
-     * (still logs). Cron callers should leave it false so they back off politely;
-     * user-facing callers (citation search) shouldn't pay 1–2s of sleep per request
-     * just because the daily quota is running low.
+     * (still logs) AND skips the 429 retry loop entirely: a person is waiting
+     * on the response, and the sleeps stack across the provider cascade until
+     * the UI looks hung ("Checking…" for minutes). Failing fast is also the
+     * politer move — a 429 means "back off", and the interactive click can
+     * simply be retried by the human later. Cron/queue callers leave it false
+     * so they ride out the backoff and complete their batch.
      */
     public function retryableGet(string $url, array $query = [], bool $userFacing = false): Response
     {
-        $maxRetries = 3;
+        $maxRetries = $userFacing ? 0 : 3;
 
         for ($attempt = 0; $attempt <= $maxRetries; $attempt++) {
             // 10s connect / 15s total. OpenAlex is usually <1s; without a cap we'd

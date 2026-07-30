@@ -71,7 +71,7 @@ class SourceVerificationController extends Controller
         // Fallback: a DOI can be resolved directly even if the fresh preview shifted under us.
         if (!$candidate && !empty($identifier['doi'])) {
             try {
-                $candidate = $this->openAlex->fetchByDoi($identifier['doi']) ?: null;
+                $candidate = $this->openAlex->fetchByDoi($identifier['doi'], userFacing: true) ?: null;
             } catch (\Throwable $e) {
                 Log::warning('source verify doi re-resolve failed', ['book' => $book, 'err' => $e->getMessage()]);
             }
