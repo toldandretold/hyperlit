@@ -44,6 +44,12 @@ Then a deploy is `hd`, and worker chores are `hw status` / `hw logs citation -f`
 - **"not every worker line says RUNNING"** — `hw logs <name>` for that worker, then `hw health`.
 - **"migrations SKIPPED by you"** — the new code is now live against the old schema. Either finish (`./deploy/deploy.sh --all`) or roll back.
 
+## If it fails partway
+
+It stops at the failing step and prints exactly what already happened to prod — pulled / composer / assets / migrations / caches / workers, each yes or no — so you never have to guess what state the box is in. If the workers hadn't been cycled yet it says so explicitly and gives you the command, because that's the half-finished state that actually bites: new code on disk, old code in the workers' memory.
+
+`config:cache` and `route:cache` failures are fatal (prod would keep running the pre-deploy config). **`view:cache` failure is only a warning** — it's a perf optimisation, Laravel compiles blades on demand without it, and because it compiles EVERY blade file whether it's routed or not, one dead template must never be allowed to abort a deploy before the worker restart. That exact thing happened on the first real run: Breeze's never-routed `layouts/navigation.blade.php` referenced components (`x-nav-link`) and routes (`dashboard`) that don't exist, and killed the deploy right before `queue:restart`. The scaffold is deleted now, but the script no longer depends on that.
+
 ## When something's wrong after a deploy
 
 - `hw status` → are all six workers RUNNING?

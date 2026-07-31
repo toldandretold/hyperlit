@@ -19,7 +19,8 @@
 #   ./deploy/deploy.sh --skip-build    # don't rebuild front-end assets
 #   ./deploy/deploy.sh --skip-migrate  # don't run migrations
 # ─────────────────────────────────────────────────────────────────────────────
-set -euo pipefail
+# -E so the ERR trap fires from inside run()/artisan() too, not just top level.
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." >/dev/null 2>&1 && pwd)"
@@ -43,13 +44,43 @@ done
 BOLD=$'\033[1m'; DIM=$'\033[2m'; RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; OFF=$'\033[0m'
 [ -t 1 ] || { BOLD=""; DIM=""; RED=""; GRN=""; YEL=""; OFF=""; }
 STEP_N=0
-step()  { STEP_N=$((STEP_N + 1)); echo; echo "${BOLD}[${STEP_N}] $*${OFF}"; }
+CURRENT_STEP="startup"
+step()  { STEP_N=$((STEP_N + 1)); CURRENT_STEP="$*"; echo; echo "${BOLD}[${STEP_N}] $*${OFF}"; }
 ok()    { echo "  ${GRN}✓${OFF} $*"; }
 skip()  { echo "  ${DIM}· skipped — $*${OFF}"; }
 warn()  { echo "  ${YEL}⚠ $*${OFF}"; WARNINGS+=("$*"); }
 die()   { echo "  ${RED}✗ $*${OFF}" >&2; exit 1; }
 run()   { if [ "${DRY_RUN}" = 1 ]; then echo "  ${DIM}would run: $*${OFF}"; else echo "  ${DIM}\$ $*${OFF}"; "$@"; fi; }
+# Same as run(), but a non-zero exit is a warning, not the end of the deploy.
+run_soft() { if [ "${DRY_RUN}" = 1 ]; then echo "  ${DIM}would run: $*${OFF}"; return 0; fi
+             echo "  ${DIM}\$ $*${OFF}"; "$@" || { warn "'$*' failed — continuing"; return 0; }; }
 WARNINGS=()
+
+# What got as far as happening, so a mid-deploy failure can tell you the truth
+# about prod instead of leaving you to guess.
+DID_COMPOSER=no DID_BUILD=no DID_MIGRATE=no DID_CACHES=no DID_WORKERS=no
+
+on_err() {
+    local code=$?
+    echo
+    echo "${RED}${BOLD}✗ DEPLOY FAILED${OFF} during: ${BOLD}${CURRENT_STEP}${OFF} (exit ${code})"
+    echo
+    echo "  Prod state right now:"
+    echo "    code pulled ......... $([ "${BEFORE:-}" = "${AFTER:-}" ] && echo 'no new commits' || echo "${BEFORE:0:8} → ${AFTER:0:8}")"
+    echo "    composer ............ ${DID_COMPOSER}"
+    echo "    assets built ........ ${DID_BUILD}"
+    echo "    migrations run ...... ${DID_MIGRATE}"
+    echo "    caches rebuilt ...... ${DID_CACHES}"
+    echo "    workers restarted ... ${DID_WORKERS}"
+    echo
+    if [ "${DID_WORKERS}" = "no" ]; then
+        echo "  ${YEL}Workers are still running PRE-DEPLOY code.${OFF} Once you've fixed the above:"
+        echo "    ./deploy/supervisor/workers.sh restart"
+    fi
+    echo "  Then re-run: ./deploy/deploy.sh --all"
+    exit "${code}"
+}
+trap on_err ERR
 
 confirm() { # confirm "question" → 0 = yes
     [ "${ASSUME_YES}" = 1 ] && return 0
@@ -167,6 +198,7 @@ step "PHP dependencies"
 if [ "${DO_COMPOSER}" = 1 ]; then
     command -v composer >/dev/null 2>&1 || die "composer not found but composer.lock changed"
     run composer install --no-dev --optimize-autoloader --no-interaction
+    DID_COMPOSER=yes
     ok "composer up to date"
 else
     skip "composer.lock unchanged"
@@ -183,6 +215,7 @@ if [ "${DO_BUILD}" = 1 ]; then
     # so tabs open across the deploy keep resolving (docs/deploy.md). The build
     # script prunes anything untouched for 7 days by itself.
     run npm run build
+    DID_BUILD=yes
     ok "assets built (old chunks retained for live tabs)"
 else
     skip "no front-end changes"
@@ -195,6 +228,7 @@ if [ "${DO_MIGRATE}" = 1 ]; then
     "${ARTISAN[@]}" migrate:status 2>/dev/null | grep -i 'pending' | sed 's/^/    /' || echo "    (migrate:status unavailable)"
     if confirm "Run these migrations against PRODUCTION?"; then
         artisan migrate --force
+        DID_MIGRATE=yes
         ok "migrated"
     else
         warn "migrations SKIPPED by you — the new code is live against the old schema"
@@ -204,10 +238,16 @@ else
 fi
 
 step "Framework caches"
+# config + route caches are correctness-critical: without them prod runs on the
+# pre-deploy config, so a failure here really should stop the deploy.
 artisan config:cache
 artisan route:cache
-artisan view:cache
-ok "config + route + view caches rebuilt"
+# view:cache is a perf optimisation — Laravel compiles blades on demand without
+# it. It also compiles EVERY blade file, reachable or not, so one broken/dead
+# template must not be allowed to abort a deploy before the worker restart.
+run_soft "${ARTISAN[@]}" view:cache
+DID_CACHES=yes
+ok "config + route caches rebuilt"
 
 # ── 8. supervisor confs (only when they changed) ─────────────────────────────
 if [ "${DO_SUPERVISOR}" = 1 ]; then
@@ -232,6 +272,7 @@ step "Queue workers"
 # Same thing as `workers.sh restart`, but through the resolved artisan user so
 # the restart cache file stays writable by php-fpm.
 artisan queue:restart
+DID_WORKERS=yes
 ok "queue:restart signalled (workers reload after their current job)"
 
 # ── 10. maintenance off ──────────────────────────────────────────────────────
