@@ -4,7 +4,7 @@ This file documents the non-obvious decisions in the search stack so future-you 
 
 ## Deploy checklist
 
-Routine deploys are the usual `git pull` → `migrate` → `config:cache` → `./deploy/supervisor/workers.sh restart`. **One-time on the deploy that introduces the `search-supplement` queue** (the citation modal's external-ingest worker — without this step nothing listens on the queue and supplements silently never run):
+Routine deploys are just `./deploy/deploy.sh` (see `deploy/README.md`). **One-time on the deploy that introduces the `search-supplement` queue** (the citation modal's external-ingest worker — without this step nothing listens on the queue and supplements silently never run):
 
 ```bash
 cd /var/www/hyperlit && git pull

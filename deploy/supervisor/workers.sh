@@ -13,7 +13,10 @@
 #   hyperlit-search      → queue `search-supplement` (citation-modal external ingest, seconds)
 #
 # Run it ON the droplet after `cd /var/www/hyperlit`, or from your laptop via the
-# `hw` alias (see deploy/supervisor/README.md → "Daily ops").
+# `hw` alias (defined in deploy/README.md).
+#
+# DEPLOYING? You don't need this file — `./deploy/deploy.sh` restarts the workers
+# for you as its last step. See deploy/README.md.
 #
 # Usage:
 #   ./deploy/supervisor/workers.sh status              # are all 6 RUNNING?
@@ -62,7 +65,7 @@ need_supervisorctl() {
 
 This command manages the PRODUCTION queue workers and must run on the droplet.
   • On the droplet:   ssh marx@170.64.145.89 → cd /var/www/hyperlit → ./deploy/supervisor/workers.sh ...
-  • From your laptop: use the `hw` alias (see deploy/supervisor/README.md → "Daily ops").
+  • From your laptop: use the `hw` alias (defined in deploy/README.md).
 EOF
         exit 1
     fi

@@ -20,9 +20,9 @@
 
 ## Deploy checklist
 
-- `git pull` + `composer install` / `npm ci` as needed.
-- `php artisan migrate` (remember any pending migrations noted in the PR/commits).
-- `npm run build` (includes the asset prune — do NOT clear `public/build` manually).
+**The deploy is one command: `./deploy/deploy.sh` on the droplet (or `hd` from your laptop). The runbook is `deploy/README.md`.** It pulls, decides from the diff whether composer / `npm run build` / `migrate` are needed, rebuilds the framework caches, restarts the queue workers gracefully, and verifies the result. This document is the *why* behind two of those steps:
+
+- `npm run build` includes the asset prune — do NOT clear `public/build` manually, and never `rm -rf` it in a deploy script (that reintroduces the incident above).
 - `php artisan queue:restart` — ALWAYS. A running `queue:work` holds pre-deploy code and silently misbehaves (see the stale-worker audio incident); job workers must be recycled every deploy. **In the `npm run dev:network` dev stack this KILLS the workers for good** — `concurrently` does not restart a cleanly-exited process, so restart the dev stack after running it locally.
 
 ## Host prerequisites (one-off, not per deploy)

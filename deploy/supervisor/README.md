@@ -1,8 +1,26 @@
 # Queue worker topology (Supervisor)
 
+> **Deploying new code? You want `../README.md` — the deploy is one command: `./deploy/deploy.sh` (or `hd` from your laptop). It restarts these workers for you.** This file is the *reference*: which job runs where, how to poke a worker by hand, and what the box can afford to run at once.
+
 Production `hyperlit.io` runs queue workers under Supervisor (`/etc/supervisor/conf.d/`). `QUEUE_CONNECTION=database`. Each Supervisor *program* is an independent set of worker processes; **a worker serves its `--queue` list serially, one job at a time.** Separate queues + separate programs = real parallelism between job classes.
 
 **Rule: every job class gets its own worker.** Document conversion must never wait behind any other job — a shared serial worker head-of-line-blocks, no matter how the priorities are ordered. We learned this twice: vibe (28-min Python runs) blocked imports until it got `hyperlit-vibe`; then citation pipelines (12–15 min of LLM calls, and they *outranked* `default`) did exactly the same until they got `hyperlit-citation`.
+
+## Poking workers by hand
+
+`workers.sh` wraps the chores so you never have to remember the six program names. Run it on the droplet after `cd /var/www/hyperlit`, or from your laptop via the `hw` alias (defined in `../README.md`):
+
+```bash
+hw status              # are all 6 workers RUNNING?
+hw restart             # graceful: finish current job, reload new code (what deploy.sh does)
+hw restart citation    # hard-restart ONE program (worker|citation|vibe|audio|embeddings|search)
+hw logs citation -f    # tail a worker's log (-f follows)
+hw health              # queue:probe + citation:doctor --fast
+hw backlog             # what's queued/reserved per queue + failed count
+hw force-restart       # hard SIGTERM all — can WAIT on an in-flight job, avoid
+```
+
+`restart` with no name runs `php artisan queue:restart`: each worker finishes its current job, exits, and Supervisor relaunches it on the new code. A `force-restart` / `supervisorctl restart` SIGTERMs immediately and then **waits up to the job's `stopwaitsecs`** — ≈2 h for a mid-run citation job — before the process actually cycles.
 
 ## The queues
 
@@ -43,60 +61,23 @@ Production `hyperlit.io` runs queue workers under Supervisor (`/etc/supervisor/c
 > **`$tries` precedence.** A job's `public $tries` property *overrides* the worker's `--tries` flag. So actual retries follow the job, not the conf: `CitationPipelineJob` / `CanonicalizeLibraryJob` / `GenerateNodeEmbedding` retry **3×** (despite `--tries=1`/`2`), while `ProcessDocumentImportJob` and `VibeConversionJob` stay at **1** (never auto-retry).
 >
 > ⚠️ Two invariants when touching this topology:
-> 1. **Nothing listens on a queue → its jobs silently never run.** An app change that adds/renames an `onQueue()` and the worker conf MUST ship together.
+> 1. **Nothing listens on a queue → its jobs silently never run.** An app change that adds/renames an `onQueue()` and the worker conf MUST ship together. `deploy.sh` warns when a `.conf` changed and offers to install it.
 > 2. **`retry_after` (config/queue.php, now 7500s) must exceed the longest job `$timeout` (CitationPipelineJob: 7200s).** At Laravel's 90s default, any job running longer is re-reserved by a parallel worker and runs twice (historical `MaxAttemptsExceededException` failures on imports were this).
 
-## Daily ops — checking & restarting workers (the part you keep forgetting)
+## Installing / renaming a worker program
 
-You don't need to remember the four program names. `deploy/supervisor/workers.sh` wraps the chores. Run it **on the droplet** after `cd /var/www/hyperlit`:
-
-```bash
-./deploy/supervisor/workers.sh status          # are all 5 workers RUNNING?
-./deploy/supervisor/workers.sh restart         # graceful: finish current job, reload new code
-./deploy/supervisor/workers.sh restart citation # hard-restart ONE program (worker|citation|vibe|embeddings)
-./deploy/supervisor/workers.sh logs citation -f # tail a worker's log (-f follows)
-./deploy/supervisor/workers.sh health          # queue:probe + citation:doctor --fast
-./deploy/supervisor/workers.sh backlog         # what's queued/reserved per queue + failed count
-./deploy/supervisor/workers.sh force-restart   # hard SIGTERM all (can WAIT on an in-flight job — avoid)
-```
-
-`restart` (no name) is the safe post-deploy default: it runs `php artisan queue:restart`, so each worker finishes its current job, exits, and Supervisor relaunches it on the new code. A `force-restart` / `supervisorctl restart` SIGTERMs immediately and then **waits up to the job's `stopwaitsecs`** — ≈2 h for a mid-run citation job — before the process actually cycles.
-
-**One-command from your laptop** (no SSH dance). Add to `~/.zshrc`:
+> Only when you ADD or RENAME a worker. Routine deploys are `./deploy/deploy.sh`, which offers to do this for you when it sees a changed `.conf`.
 
 ```bash
-alias hw='ssh -t marx@170.64.145.89 "cd /var/www/hyperlit && ./deploy/supervisor/workers.sh"'
-# then:  hw status   |   hw restart   |   hw logs citation -f   |   hw health   |   hw backlog
-```
-
-**After deploying new code:** `git pull` → (`npm run build` only if front-end changed) → `hw restart` → `hw status`. If something looks wrong, `hw health` then `hw backlog`.
-
-## Install / update on the droplet
-
-> First-time setup, or after adding/renaming a worker conf. For routine "is it alive / restart it" use the **Daily ops** section above.
-
-```bash
-ssh marx@170.64.145.89
-cd /var/www/hyperlit && git pull           # picks up confs + retry_after bump
-
-sudo cp deploy/supervisor/hyperlit-worker.conf     /etc/supervisor/conf.d/
-sudo cp deploy/supervisor/hyperlit-citation.conf   /etc/supervisor/conf.d/
-sudo cp deploy/supervisor/hyperlit-vibe.conf       /etc/supervisor/conf.d/
-sudo cp deploy/supervisor/hyperlit-audio.conf      /etc/supervisor/conf.d/
-sudo cp deploy/supervisor/hyperlit-embeddings.conf /etc/supervisor/conf.d/
-sudo cp deploy/supervisor/hyperlit-search.conf     /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/hyperlit-*.conf /etc/supervisor/conf.d/
 sudo supervisorctl reread
-sudo supervisorctl update                  # starts any new programs, reloads changed ones
+sudo supervisorctl update                  # starts new programs, reloads changed ones
 sudo supervisorctl status                  # confirm all programs RUNNING
-
-php artisan queue:restart                  # tell running workers to pick up new code
-
+php artisan queue:restart                  # running workers pick up new code
 php artisan citation:doctor                # preflight: node/playwright/chromium, python OCR
                                            # deps, LIVE LLM role models, OCR/search APIs,
                                            # and an end-to-end citation-queue probe
 ```
-
-Check the droplet's `.env` does NOT set `DB_QUEUE_RETRY_AFTER` (it would override the 7500s config default).
 
 ## Local dev
 
@@ -108,15 +89,13 @@ Every Supervisor program is a real OS process holding real memory while its job 
 
 Peaks measured 2026-06-12 with real jobs (`tests/load/memprobe.sh`; full method + caveats in `tests/load/README.md`):
 
-| Job class | Peak RSS | What's in the tree |
-|---|---|---|
-| import (`default`) | **212 MB** | PHP worker + Python conversion (700-page handbook → 9.7k nodes) |
-| citation pipeline | **200 MB** | PHP doing batched LLM review + claim verify (230 refs) |
-| vibe conversion | **182 MB** | PHP worker + Python sandbox re-conversion + gate |
-| embeddings | **50 MB** | PHP worker, small HTTP calls |
-| search-supplement | **~50 MB** (est. — same profile as embeddings: PHP worker, two HTTP fetches + small upserts; re-measure with memprobe when convenient) | PHP worker, OpenAlex + Open Library fetch |
-| audio (TTS) | **~50 MB** (est. — embeddings profile: PHP worker, 5-wide `Http::pool` of ~150 KB base64 audio responses; re-measure with memprobe when convenient) | PHP worker, DeepInfra TTS calls + file writes |
-| **all six truly simultaneous** | **~620 MB** observed-basis / **~745 MB** worst-case sum | |
+- **import (`default`) — 212 MB.** PHP worker + Python conversion (700-page handbook → 9.7k nodes).
+- **citation pipeline — 200 MB.** PHP doing batched LLM review + claim verify (230 refs).
+- **vibe conversion — 182 MB.** PHP worker + Python sandbox re-conversion + gate.
+- **embeddings — 50 MB.** PHP worker, small HTTP calls.
+- **search-supplement — ~50 MB (estimated).** PHP worker, OpenAlex + Open Library fetch; same profile as embeddings (two HTTP fetches + small upserts) — re-measure with memprobe when convenient.
+- **audio (TTS) — ~50 MB (estimated).** PHP worker, DeepInfra TTS calls + file writes; embeddings profile with a 5-wide `Http::pool` of ~150 KB base64 audio responses — re-measure with memprobe when convenient.
+- **All six truly simultaneous — ~620 MB observed-basis, ~745 MB worst-case sum.**
 
 (Citation was measured with `--skip-fetch`. A live vacuum phase launches headless chromium per fetch — ~150–300 MB transient on top of the citation worker — so worst case during vacuum trends toward ~900 MB. Check `free -m` during the first real run after installing chromium.)
 
