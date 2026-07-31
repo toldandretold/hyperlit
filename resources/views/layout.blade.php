@@ -245,6 +245,13 @@
                 // mutated /media/ bytes broke the E2EE image passes + render.
                 navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
                     .then((registration) => {
+                        // register() can resolve WITHOUT a registration when the
+                        // environment refuses service workers (blocked by policy,
+                        // an automated browser context, some private modes) — the
+                        // unguarded `.scope` read then threw into the catch below
+                        // and logged a scary "Registration failed: Cannot read
+                        // properties of undefined".
+                        if (!registration) return;
                         console.log('[SW] Registered with scope:', registration.scope);
                         registration.update();
                     })

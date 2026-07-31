@@ -677,8 +677,10 @@ class ImportController extends Controller
             'sourceType'   => $sourceType,
             'maintenance'  => $maintenance,
             // Maintainer loop: admins may reconvert ANY book (the reconvert
-            // endpoint enforces the same bypass server-side).
-            'canAdminReconvert' => Auth::user()?->is_admin === true,
+            // endpoint enforces the same bypass server-side). isAdmin(), NOT
+            // the raw attribute: the session user hydrates on the RLS-filtered
+            // default connection where is_admin doesn't read reliably.
+            'canAdminReconvert' => Auth::user()?->isAdmin() === true,
         ]);
     }
 
@@ -701,7 +703,10 @@ class ImportController extends Controller
                 || ($creatorInfo['creator_token'] && $record->creator_token === $creatorInfo['creator_token']);
         // Maintainer bypass: an admin may reconvert ANY book (the bad-conversion
         // queue's fix-and-reconvert loop — flagged auto-imports are system-owned).
-        $isAdmin = Auth::user()?->is_admin === true;
+        // isAdmin() (pgsql_admin-backed), NOT the raw attribute: the session
+        // user hydrates on the RLS-filtered default connection where is_admin
+        // doesn't read reliably — the attribute check 403'd real admins.
+        $isAdmin = Auth::user()?->isAdmin() === true;
         if (!$isOwner && !$isAdmin) {
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }

@@ -36,13 +36,18 @@ export interface AudioStatus {
 
 export interface AudioProgress {
   status: 'none' | 'generating' | 'done' | 'partial' | 'cancelled' | 'failed';
-  stage?: 'preparing' | 'narrating';
+  /** 'continuing' = this run hit its time budget and handed off to a fresh one. */
+  stage?: 'preparing' | 'narrating' | 'continuing';
   done_nodes?: number;
   total_nodes?: number;
   done_chars?: number;
   total_chars?: number;
   failed_nodes?: string[];
   error?: string;
+  /** Heartbeat — the stall watchdog watches this stop moving. */
+  updated_at?: string;
+  /** The server judged the run dead rather than it reporting failure itself. */
+  stalled?: boolean;
 }
 
 export async function fetchAudioManifest(bookId: string): Promise<AudioManifest | null> {

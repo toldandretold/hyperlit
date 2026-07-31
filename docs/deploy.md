@@ -23,7 +23,11 @@
 - `git pull` + `composer install` / `npm ci` as needed.
 - `php artisan migrate` (remember any pending migrations noted in the PR/commits).
 - `npm run build` (includes the asset prune — do NOT clear `public/build` manually).
-- `php artisan queue:restart` — ALWAYS. A running `queue:work` holds pre-deploy code and silently misbehaves (see the stale-worker audio incident); job workers must be recycled every deploy.
+- `php artisan queue:restart` — ALWAYS. A running `queue:work` holds pre-deploy code and silently misbehaves (see the stale-worker audio incident); job workers must be recycled every deploy. **In the `npm run dev:network` dev stack this KILLS the workers for good** — `concurrently` does not restart a cleanly-exited process, so restart the dev stack after running it locally.
+
+## Host prerequisites (one-off, not per deploy)
+
+- **ffmpeg** — `apt install ffmpeg`. Needed only by the audiobook download (`docs/audio.md` §Downloading the whole thing), which packages a book's per-node MP3s into one chaptered `.m4b`. Without it the feature degrades cleanly: the status endpoint reports `supported: false` and the download button never appears. Verify with `ffmpeg -version && ffprobe -version` as the web/queue user, not just your login shell — PHP-FPM does not inherit a login shell's PATH, and `FFMPEG_BINARY` / `FFPROBE_BINARY` can be set to absolute paths if the probe of PATH, `/opt/homebrew/bin`, `/usr/local/bin` and `/usr/bin` misses it.
 
 ## What users see after a deploy
 

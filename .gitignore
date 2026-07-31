@@ -64,6 +64,10 @@ tests/conversion/fixtures-local/
 # README.md (the contract) is the only tracked thing under corpus/.
 tests/conversion/corpus/*
 !tests/conversion/corpus/README.md
+# Case drop-folder: prod case bundles (*.tar.gz) land here for `book:import-cases`.
+# README.md (the LLM/human contract) is the only tracked thing under cases/.
+tests/conversion/cases/*
+!tests/conversion/cases/README.md
 tests/conversion/vibe_eval_report.json
 tests/conversion/vibe_eval_report.md
 # OCR version-comparison harness: drop input PDFs in -in/, generated caches +

@@ -10,11 +10,13 @@
   bottom: 14px;
   left: 50%;
   transform: translateX(-50%);
+  /* Row: the drag grip beside the two-row stack (which keeps the old column
+     layout). See .audio-pill-stack + .audio-drag-handle below. */
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 12px;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 6px;
+  padding: 6px 12px 6px 4px;
   width: fit-content;
   /* Never wider than the reader column, never over the corner buttons:
      150px clears the settings (bottom-left) + nav (bottom-right) clusters. */
@@ -35,6 +37,65 @@
 #audio-player-bar.visible {
   opacity: 1;
   visibility: visible;
+}
+
+/* The two rows keep exactly their old stacking; only this wrapper is new. */
+.audio-pill-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0; /* let the status text ellipsis instead of forcing the pill wide */
+}
+
+/* Drag grip (playerDrag.ts): dotted, quiet until you approach it. Overrides
+   the generic #audio-player-bar button sizing/svg rules below. */
+#audio-player-bar .audio-drag-handle {
+  min-width: 14px;
+  width: 14px;
+  height: auto;
+  align-self: stretch;
+  padding: 0;
+  border-radius: 12px;
+  cursor: grab;
+  opacity: 0.45;
+  /* REQUIRED: without it a touch-drag scrolls the page and no pointermove
+     ever reaches the grip. */
+  touch-action: none;
+  transition: opacity 0.15s ease;
+}
+
+#audio-player-bar .audio-drag-handle:hover,
+#audio-player-bar .audio-drag-handle:focus-visible {
+  opacity: 1;
+}
+
+#audio-player-bar .audio-drag-handle:active,
+#audio-player-bar.audio-dragging .audio-drag-handle {
+  cursor: grabbing;
+  opacity: 1;
+}
+
+#audio-player-bar .audio-drag-handle svg {
+  width: 6px;
+  height: 22px;
+  fill: var(--icon-stroke-primary); /* the generic svg rule sets fill: none */
+  stroke: none;
+}
+
+/* Moved by the user: inline left/top from playerDrag.ts take over from the
+   bottom-centre anchoring, so the centring transform has to go. */
+#audio-player-bar.audio-player-bar--moved {
+  transform: none;
+  bottom: auto;
+  right: auto;
+  /* Once moved it's no longer parked over the corner clusters, so the 150px
+     clearance below stops applying. */
+  max-width: min(calc(100vw - 24px), 34rem);
+}
+
+#audio-player-bar.audio-dragging {
+  transition: none;
 }
 
 .audio-pill-row {
@@ -136,9 +197,22 @@
 /* Phones: compress the two rows so the pill clears the corner buttons */
 @media (max-width: 520px) {
   #audio-player-bar {
-    gap: 0;
-    padding: 4px 8px;
+    gap: 4px;
+    padding: 4px 8px 4px 3px;
     max-width: calc(100vw - 120px);
+  }
+
+  .audio-pill-stack {
+    gap: 0;
+  }
+
+  #audio-player-bar .audio-drag-handle {
+    min-width: 12px;
+    width: 12px;
+  }
+
+  #audio-player-bar .audio-drag-handle svg {
+    width: 5px;
   }
 
   .audio-pill-row {

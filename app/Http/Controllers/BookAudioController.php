@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\BuildAudiobookJob;
 use App\Jobs\GenerateBookAudioJob;
 use App\Models\PgBookAudio;
+use App\Services\Audiobook\AudiobookBuilder;
 use App\Models\PgBookAudioMeta;
 use App\Models\PgLibrary;
 use App\Services\BillingService;
@@ -16,6 +18,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
@@ -30,6 +33,20 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class BookAudioController extends Controller
 {
     private const MAX_BYTES = 50 * 1024 * 1024;
+
+    /**
+     * A run whose progress file hasn't been touched in this long is DEAD, not
+     * slow. The job rewrites progress after every batch of ~5 nodes, so a real
+     * run heartbeats every few seconds; five minutes of silence means the
+     * worker was killed without its failed() handler running (a deploy
+     * overrunning stopwaitsecs, the OOM killer, a reboot).
+     *
+     * This matters because the client SKIPS dispatching when status says
+     * generating — so a corpse used to mean every press of Listen silently
+     * watched a run that no longer existed, showing "Generating audio…" until
+     * the 3600s lock TTL expired.
+     */
+    private const RUN_STALE_AFTER_SECONDS = 300;
 
     /**
      * Generation state + a cost estimate priced with the CALLER's tier
@@ -65,13 +82,7 @@ class BookAudioController extends Controller
         $user = Auth::user();
         $multiplier = $user ? $user->getBillingMultiplier() : 1.0;
 
-        // Probe the generation lock without holding it hostage: acquiring
-        // means nobody is generating — release immediately.
-        $probe = Cache::lock("book-audio:{$book}", 1);
-        $generating = ! $probe->get();
-        if (! $generating) {
-            $probe->release();
-        }
+        $generating = $this->isGenerating($book);
 
         return response()->json([
             'has_audio' => $counts['audio_nodes'] > 0,
@@ -138,7 +149,19 @@ class BookAudioController extends Controller
         // releases it; the TTL (>= job timeout) is the crash backstop.
         $lock = Cache::lock("book-audio:{$book}", 3600);
         if (! $lock->get()) {
-            return response()->json(['success' => false, 'message' => 'Audio generation is already in progress for this book.'], 409);
+            // The holder may be a corpse — a job killed without its failed()
+            // handler keeps this lock for the full TTL. Refusing on a dead
+            // lock is how a book became un-narratable for an hour, so take it
+            // over when the run has stopped heartbeating. Safe: the job is
+            // idempotent (hash-skip), so even a genuine overlap re-does nothing.
+            if (! $this->runIsStale($this->readProgress($book))) {
+                return response()->json(['success' => false, 'message' => 'Audio generation is already in progress for this book.'], 409);
+            }
+            Log::warning('BookAudio: taking over a stale generation lock', ['book' => $book]);
+            $lock->forceRelease();
+            if (! $lock->get()) {
+                return response()->json(['success' => false, 'message' => 'Audio generation is already in progress for this book.'], 409);
+            }
         }
 
         // Anything failing between acquiring the lock and the dispatch MUST
@@ -173,8 +196,227 @@ class BookAudioController extends Controller
         }
 
         $data = json_decode(File::get($path), true);
+        if (! is_array($data)) {
+            return response()->json(['status' => 'none']);
+        }
 
-        return response()->json(is_array($data) ? $data : ['status' => 'none']);
+        // Report a dead run as failed rather than leaving the client polling a
+        // corpse forever. The nodes already synthesized are kept, so resuming
+        // costs only the remainder.
+        if ($this->runIsStale($data)) {
+            return response()->json([
+                'status' => 'failed',
+                'error' => 'Generation stopped unexpectedly. Press Listen to pick up where it left off — you are only charged for what is left.',
+                'done_nodes' => $data['done_nodes'] ?? 0,
+                'total_nodes' => $data['total_nodes'] ?? 0,
+                'stalled' => true,
+            ]);
+        }
+
+        return response()->json($data);
+    }
+
+    /** A progress record that claims to be running but has gone cold. */
+    private function runIsStale(?array $progress): bool
+    {
+        if (! $progress || ($progress['status'] ?? null) !== 'generating') {
+            return false;
+        }
+        $updatedAt = $progress['updated_at'] ?? null;
+        if (! is_string($updatedAt)) {
+            return true; // claims to be running but can't say since when
+        }
+        try {
+            return now()->diffInSeconds(\Carbon\Carbon::parse($updatedAt), true) > self::RUN_STALE_AFTER_SECONDS;
+        } catch (\Throwable) {
+            return true;
+        }
+    }
+
+    /** The on-disk progress record for a book, or null. */
+    private function readProgress(string $book): ?array
+    {
+        $path = app(BookAudioStore::class)->progressPath($book);
+        if (! is_file($path)) {
+            return null;
+        }
+        $data = json_decode(File::get($path), true);
+
+        return is_array($data) ? $data : null;
+    }
+
+    /**
+     * State of the downloadable .m4b: can this host build one at all, is there
+     * a current one ready, is a build running, and how complete the narration
+     * is. One endpoint so the download button can drive its whole UI from a
+     * single poll.
+     */
+    public function audiobookStatus(string $book): JsonResponse
+    {
+        $book = $this->cleanBookId($book);
+        $this->assertVisible($book);
+
+        $builder = app(AudiobookBuilder::class);
+        $store = app(BookAudioStore::class);
+
+        // Encrypted books: the bytes on disk are HLENC1 ciphertext, so the
+        // server physically cannot assemble them. Say so rather than offering
+        // a button that can only fail.
+        if (EncryptedBookGuard::isEncrypted($book)) {
+            return response()->json([
+                'supported' => false,
+                'reason' => 'encrypted',
+                'state' => 'unavailable',
+            ]);
+        }
+        if (! $builder->isAvailable()) {
+            return response()->json([
+                'supported' => false,
+                'reason' => 'ffmpeg_missing',
+                'state' => 'unavailable',
+            ]);
+        }
+
+        $segments = $builder->segments($book);
+        $counts = $this->audioCounts($book);
+        $ready = $segments !== [] && is_file($builder->cachedPath($book, $builder->digestFor($segments)));
+
+        $progress = null;
+        $path = $store->audiobookProgressPath($book);
+        if (is_file($path)) {
+            $decoded = json_decode(File::get($path), true);
+            $progress = is_array($decoded) ? $decoded : null;
+        }
+
+        // A 'ready' progress file for a SUPERSEDED digest must not read as
+        // ready — the digest check above is the authority.
+        //
+        // The LOCK, not the progress file, is what says "a build is happening":
+        // it's taken before dispatch, so it covers the gap between dispatch and
+        // the worker writing its first progress line. Reading only the file
+        // made a just-dispatched build look idle, and the button gave up on it.
+        $building = ! $ready
+            && ($this->isLocked(BuildAudiobookJob::lockKey($book)) || ($progress['status'] ?? null) === 'building');
+
+        return response()->json([
+            'supported' => true,
+            'state' => $ready ? 'ready' : ($building ? 'building' : ($segments === [] ? 'empty' : 'buildable')),
+            'progress' => $building ? (float) ($progress['progress'] ?? 0) : ($ready ? 1.0 : 0.0),
+            'message' => ($progress['status'] ?? null) === 'failed' ? ($progress['message'] ?? null) : null,
+            'sections' => count($segments),
+            'total_nodes' => $counts['total_nodes'],
+            'audio_nodes' => $counts['audio_nodes'],
+            'stale_nodes' => $counts['stale_nodes'],
+            'generating' => $this->isGenerating($book),
+            'bytes' => $ready ? (int) (filesize($builder->cachedPath($book, $builder->digestFor($segments))) ?: 0) : 0,
+        ]);
+    }
+
+    /** Kick off packaging (no-op when the current audio is already packaged). */
+    public function buildAudiobook(string $book): JsonResponse
+    {
+        // Order matters: cleanBookId STRIPS '/', so a sub-book id would be
+        // silently rewritten into a different book. Check before cleaning.
+        if (str_contains($book, '/')) {
+            return response()->json(['success' => false, 'message' => 'Sub-books have no audiobook.'], 422);
+        }
+        $book = $this->cleanBookId($book);
+        $this->assertVisible($book);
+
+        if (EncryptedBookGuard::isEncrypted($book)) {
+            return response()->json(['success' => false, 'message' => 'Encrypted books cannot be packaged by the server.'], 422);
+        }
+
+        $builder = app(AudiobookBuilder::class);
+        if (! $builder->isAvailable()) {
+            return response()->json(['success' => false, 'message' => 'Audiobook packaging is unavailable on this server.'], 503);
+        }
+
+        $segments = $builder->segments($book);
+        if ($segments === []) {
+            return response()->json(['success' => false, 'message' => 'This book has no narrated sections yet.'], 422);
+        }
+        if (is_file($builder->cachedPath($book, $builder->digestFor($segments)))) {
+            return response()->json(['success' => true, 'state' => 'ready']);
+        }
+
+        // A second requester joins the build in flight rather than starting a
+        // duplicate encode — the lock is released by the job.
+        $lock = Cache::lock(BuildAudiobookJob::lockKey($book), 3900);
+        if (! $lock->get()) {
+            return response()->json(['success' => true, 'state' => 'building']);
+        }
+
+        BuildAudiobookJob::dispatch($book);
+
+        return response()->json(['success' => true, 'state' => 'building'], 202);
+    }
+
+    /**
+     * Stream the packaged audiobook as a download. RLS decides who may read it,
+     * exactly like playback — the reader who downloads need not be the one who
+     * paid for narration (docs/audio.md: "playable by everyone RLS lets see").
+     */
+    public function downloadAudiobook(string $book): BinaryFileResponse
+    {
+        $book = $this->cleanBookId($book);
+        $this->assertVisible($book);
+
+        $builder = app(AudiobookBuilder::class);
+        $segments = $builder->segments($book);
+        if ($segments === []) {
+            abort(404, 'Audiobook not found.');
+        }
+
+        $path = $builder->cachedPath($book, $builder->digestFor($segments));
+        if (! is_file($path)) {
+            abort(404, 'Audiobook not built yet.');
+        }
+
+        return response()->download($path, $this->audiobookFilename($book), [
+            'Content-Type' => 'audio/mp4',
+        ]);
+    }
+
+    /** "Author - Title.m4b", mirroring the client-side export naming. */
+    private function audiobookFilename(string $book): string
+    {
+        $row = PgLibrary::where('book', $book)->first(['title', 'author', 'creator']);
+        $clean = fn (?string $s) => trim(preg_replace('/[<>:"\/\\\\|?*]+/', '', (string) $s) ?? '');
+        $title = $clean($row->title ?? '') ?: $book;
+        $author = $clean($row->author ?? $row->creator ?? '');
+
+        return ($author !== '' ? "{$author} - {$title}" : $title).'.m4b';
+    }
+
+    /**
+     * True while a narration run is genuinely alive.
+     *
+     * The lock alone is NOT enough: a job killed without its failed() handler
+     * leaves the lock held for its full 3600s TTL, and the client treats
+     * `generating` as "don't dispatch, just watch" — so a corpse used to eat
+     * every press of Listen for an hour. A run must hold the lock AND still be
+     * heartbeating.
+     */
+    private function isGenerating(string $book): bool
+    {
+        if (! $this->isLocked("book-audio:{$book}")) {
+            return false;
+        }
+
+        return ! $this->runIsStale($this->readProgress($book));
+    }
+
+    /** Probe a lock without holding it hostage: acquiring means it was free. */
+    private function isLocked(string $key): bool
+    {
+        $probe = Cache::lock($key, 1);
+        $free = $probe->get();
+        if ($free) {
+            $probe->release();
+        }
+
+        return ! $free;
     }
 
     /** Stop an in-flight generation between batches (sentinel file). */

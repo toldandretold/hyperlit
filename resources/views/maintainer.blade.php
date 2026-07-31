@@ -48,12 +48,29 @@
 
     {{-- Floating action bar --}}
     <div class="mt-actions" id="mt-actions" hidden>
+        <span class="mt-actions-grip" id="mt-actions-grip" title="Drag to move (double-click to reset)">⋮⋮</span>
         <span id="mt-actions-book"></span>
         <button type="button" id="mt-export">⤓ dev bundle</button>
         <button type="button" id="mt-reconvert">↻ reconvert</button>
         <button type="button" id="mt-resolve">✓ resolve</button>
         <button type="button" id="mt-dismiss">✕ dismiss</button>
         <span class="mt-actions-status" id="mt-actions-status" role="status"></span>
+        <button type="button" id="mt-help-toggle" aria-expanded="false" aria-controls="mt-help-panel" title="How this works">?</button>
+    </div>
+
+    {{-- Workflow help (the ? button) --}}
+    <div class="mt-help-panel" id="mt-help-panel" hidden>
+        <h2>The loop <button type="button" id="mt-help-close" aria-label="Close help">✕</button></h2>
+        <ol>
+            <li><strong>Judge it.</strong> Book (middle) vs original (right). Conversion actually fine? <strong>✓ resolve</strong> or <strong>✕ dismiss</strong> — done.</li>
+            <li><strong>Code already fixed, or worth a re-run?</strong> <strong>↻ reconvert</strong> — runs with progress; highlights &amp; hypercites re-attach automatically. Then resolve.</li>
+            <li><strong>Conversion code needs FIXING?</strong> <strong>⤓ dev bundle</strong> — downloads <code>&lt;book&gt;.tar.gz</code> (DB rows + original + OCR cache + decision traces + the complaint). Leave it in Downloads, or drag it into <code>tests/conversion/cases/</code>.</li>
+            <li><strong>On your dev machine, ONE command ingests everything</strong>:<br><code>php artisan book:import-cases --downloads</code><br>Sweeps Downloads + the drop-folder, imports each book (opens in your local reader), captures regression fixtures automatically.</li>
+            <li><strong>Or one prompt</strong>: tell Claude <code>@tests/conversion/cases/ new broken conversions to fix</code> — its README is the full contract (ingest → diagnose via <code>assessment.json</code> → fix → <code>--update-golden</code>).</li>
+            <li><strong>Deploy, come back here, ↻ reconvert, ✓ resolve.</strong></li>
+        </ol>
+        <p>ssh alternative (no browser download): <code>tests/conversion/pull_case.sh &lt;book&gt; --corpus</code></p>
+        <p class="mt-help-doc">Full write-up: <code>docs/maintainer-loop.md</code></p>
     </div>
 
     <script>

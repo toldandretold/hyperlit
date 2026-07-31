@@ -40,6 +40,20 @@ class GenerateBookAudioJob implements ShouldQueue
 
     public int $tries = 1;      // never auto-retry — re-pressing play resumes via hash-skip
 
+    /**
+     * Stop synthesizing and hand off to a fresh job after this long, well
+     * inside $timeout. Being killed at the timeout skips finally/failed(),
+     * stranding the lock, the credit hold and a "generating" progress file —
+     * so a very long book must never reach it.
+     */
+    private const WORK_BUDGET_SECONDS = 3000; // 50 min of a 60 min timeout
+
+    /** Wall clock at the start of THIS run (not serialized). */
+    private float $startedAt = 0.0;
+
+    /** The last progress payload written, so heartbeats can re-stamp it. */
+    private array $lastProgress = [];
+
     public function __construct(
         private string $bookId,
         private ?int $userId,
@@ -58,6 +72,11 @@ class GenerateBookAudioJob implements ShouldQueue
 
     public function handle(BookAudioStore $store, TtsProviderInterface $tts): void
     {
+        $this->startedAt = microtime(true);
+        // A continuation inherits the run rather than starting a new one, so it
+        // re-takes the lock its parent released. Best-effort: the hash-skip
+        // makes an overlap a no-op anyway.
+        Cache::lock("book-audio:{$this->bookId}", 3600)->get();
         try {
             $this->generate($store, $tts);
         } finally {
@@ -115,10 +134,30 @@ class GenerateBookAudioJob implements ShouldQueue
         $this->writeProgress($store, 'generating', $doneNodes, $totalNodes, $doneChars, $totalChars, $failedNodes);
 
         $concurrency = max(1, (int) config('services.tts.concurrency', 5));
+        $continuing = false;
         foreach (array_chunk($pending, $concurrency) as $batch) {
             if (is_file($store->cancelPath($this->bookId))) {
                 $cancelled = true;
                 break;
+            }
+
+            // Hand off before the worker kills us. At ~270 chars/sec a book
+            // over ~1M characters cannot finish inside the 3600s timeout, and
+            // being SIGKILLed loses the finally/failed() handlers — which is
+            // how a run left a stale lock and a "generating" progress file
+            // behind and the player span forever. Stopping voluntarily keeps
+            // every handler intact; the next run resumes for free via the
+            // (node_id, source_hash) hash-skip.
+            if ($this->budgetSpent()) {
+                $continuing = true;
+                break;
+            }
+
+            // Another run may have narrated some of these since $pending was
+            // snapshotted; paying twice for the same node is real money.
+            $batch = $this->dropAlreadyNarrated($batch);
+            if ($batch === []) {
+                continue;
             }
 
             $results = $this->synthesizeBatchWithRetry($tts, $batch);
@@ -148,13 +187,86 @@ class GenerateBookAudioJob implements ShouldQueue
             $this->writeProgress($store, 'generating', $doneNodes, $totalNodes, $doneChars, $totalChars, $failedNodes);
         }
 
+        // Charge for what THIS run actually synthesized, before any hand-off —
+        // each run bills its own work, so a book split across several runs
+        // costs exactly the same as one that fitted in a single run.
         if ($doneNodes > 0) {
             $this->upsertMeta($totalChars);
             $this->chargeFor($doneChars);
         }
 
+        if ($continuing) {
+            // Stay 'generating' so the player keeps polling straight through
+            // the hand-off; the user sees one continuous run.
+            $this->writeProgress($store, 'generating', $doneNodes, $totalNodes, $doneChars, $totalChars, $failedNodes, 'continuing');
+            Log::info('GenerateBookAudioJob: time budget reached, continuing in a fresh job', [
+                'book' => $this->bookId,
+                'done_nodes' => $doneNodes,
+                'remaining_nodes' => $totalNodes - $doneNodes,
+            ]);
+            // No reservation on the continuation: this run's finally releases
+            // the hold, and the remaining work is charged as it is produced.
+            self::dispatch($this->bookId, $this->userId, $this->voice, null);
+
+            return;
+        }
+
         $status = $cancelled ? 'cancelled' : (empty($failedNodes) ? 'done' : 'partial');
         $this->writeProgress($store, $status, $doneNodes, $totalNodes, $doneChars, $totalChars, $failedNodes);
+    }
+
+    /**
+     * Has this run used up the slice of its timeout it is allowed to spend on
+     * synthesis? Leaves room for the trailing charge + progress writes.
+     */
+    private function budgetSpent(): bool
+    {
+        return (microtime(true) - $this->startedAt) > self::WORK_BUDGET_SECONDS;
+    }
+
+    /**
+     * Re-stamp the current progress record without changing its counts: "still
+     * alive, just working". Readers judge a run dead from this timestamp, so it
+     * must be refreshed more often than a whole batch — see the call sites.
+     */
+    private function touchProgress(): void
+    {
+        if ($this->lastProgress === []) {
+            return;
+        }
+        $this->lastProgress['updated_at'] = now()->toIso8601String();
+        try {
+            File::put(
+                app(BookAudioStore::class)->progressPath($this->bookId),
+                json_encode($this->lastProgress),
+            );
+        } catch (\Throwable) {
+            // A missed heartbeat is not worth failing a run over.
+        }
+    }
+
+    /**
+     * Drop nodes another run has narrated since this batch was planned.
+     *
+     * `$pending` is a snapshot taken once at startup, so two overlapping runs
+     * would both consider the same nodes outstanding and both PAY the provider
+     * for them. Re-checking the batch's few node_ids immediately before
+     * synthesis closes that window to seconds, for one cheap indexed read.
+     *
+     * @param  array<int, array{node_id: string, text: string, hash: string}>  $batch
+     * @return array<int, array{node_id: string, text: string, hash: string}>
+     */
+    private function dropAlreadyNarrated(array $batch): array
+    {
+        $hashes = DB::connection('pgsql_admin')->table('book_audio')
+            ->where('book', $this->bookId)
+            ->whereIn('node_id', array_column($batch, 'node_id'))
+            ->pluck('source_hash', 'node_id');
+
+        return array_values(array_filter(
+            $batch,
+            fn ($item) => ($hashes[$item['node_id']] ?? null) !== $item['hash'],
+        ));
     }
 
     /**
@@ -189,6 +301,12 @@ class GenerateBookAudioJob implements ShouldQueue
             $attempts = 0;
             while (($results[$item['node_id']] ?? null) === null && $attempts < 2) {
                 $attempts++;
+                // Heartbeat between attempts. Each provider call may block for
+                // the full 120s timeout, and 5 nodes × 2 retries is ~20 minutes
+                // of silence — long enough for the staleness check to declare a
+                // WORKING run dead and let a second job double-charge it. The
+                // longest quiet window must stay one HTTP call, not a batch.
+                $this->touchProgress();
                 try {
                     $results[$item['node_id']] = mb_strlen($item['text']) > $maxChars
                         ? $this->synthesizeLong($tts, $item['text'], $maxChars)
@@ -210,6 +328,7 @@ class GenerateBookAudioJob implements ShouldQueue
         $bytes = '';
         foreach ($this->splitSentences($text, $maxChars) as $segment) {
             try {
+                $this->touchProgress(); // a split node is many sequential calls
                 $bytes .= $tts->synthesize($segment, $this->voice)->bytes;
             } catch (\Throwable) {
                 return null; // a hole mid-node is worse than a missing node
@@ -339,7 +458,7 @@ class GenerateBookAudioJob implements ShouldQueue
     ): void {
         $path = $store->progressPath($this->bookId);
         File::ensureDirectoryExists(dirname($path), 0755);
-        File::put($path, json_encode([
+        $this->lastProgress = [
             'status' => $status,
             'stage' => $stage,
             'done_nodes' => $doneNodes,
@@ -348,7 +467,8 @@ class GenerateBookAudioJob implements ShouldQueue
             'total_chars' => $totalChars,
             'failed_nodes' => $failedNodes,
             'updated_at' => now()->toIso8601String(),
-        ], JSON_PRETTY_PRINT));
+        ];
+        File::put($path, json_encode($this->lastProgress, JSON_PRETTY_PRINT));
     }
 
     /**

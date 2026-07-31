@@ -83,6 +83,42 @@ Playback on an encrypted book decrypts client-side (`components/audioPlayer/encr
 
 Server-side while encrypted: the manifest reports every row `stale: false` (content is ciphertext — hashing it would mark everything stale; staleness is unknowable and un-actionable anyway) plus a per-row `encrypted` flag; `status` short-circuits (no char counts); `serve` sends encrypted rows as `application/octet-stream`. The encrypt transition does NOT purge audio (`setEncryption` has a comment pinning this).
 
+## Very long books, dead runs, and the money
+
+Measured throughput is **259–278 chars/sec** (real generations: 67,380 chars in 242s; 51,817 in 200s), so one run of the 3600s job could only ever cover about **1M characters**. Marx's *Capital* is 2.73M speakable characters — roughly 162 minutes — and used to be SIGKILLed at the hour mark.
+
+That kill is the dangerous part, because it skips both `handle()`'s `finally` and `failed()`, leaving three corpses:
+
+- `audio_progress.json` frozen on `status: generating`, which nothing ever cleared;
+- the `book-audio:{book}` lock, held for its full 3600s TTL;
+- the credit reservation — and `reserveCredits` **increments `users.debits` for real**, so the user stays charged the whole estimate (~$4 on *Capital* at budget tier) for audio they never got.
+
+The client treats `generating` as "don't dispatch, just watch", so every later press of Listen silently watched a run that no longer existed. Symptom: *"clicked Listen, it stuck on Generating for ages, nothing happened."* Four defences now:
+
+- **Runs must heartbeat.** A `generating` progress record untouched for `RUN_STALE_AFTER_SECONDS` (300s) is dead, not slow. The threshold only works because the job *also* re-stamps progress between sequential provider calls: one call can block for the provider's full 120s timeout, and a batch of 5 nodes × 2 retries would otherwise go ~20 minutes quiet — long enough to declare a WORKING run dead, let a second job start, and pay the provider twice for the same nodes. The longest legitimate silence is one HTTP call, so 300s carries a 2.5× margin. Belt and braces, each batch also re-checks its own node_ids against `book_audio` immediately before synthesizing (`dropAlreadyNarrated`), so overlapping runs can never both bill for one node. `progress()` reports a cold run as `failed` with a resumable message and the count it reached; `status.generating` requires lock-held **and** a warm heartbeat; and `generate()` **takes over** a stale lock instead of 409ing, which is what made a book un-narratable for an hour.
+- **The client has its own watchdog.** `pollGenerationProgress` gives up after `STALL_BEATS` (90 beats ≈ 3 min) of an unchanging `status|updated_at|done_nodes` signature, for the case where progress is served but never advances. The player now prints the server's `error` verbatim instead of a bare "Audio generation failed."
+- **The job hands off before it can be killed.** After `WORK_BUDGET_SECONDS` (3000s of a 3600s timeout) it charges for what it produced, writes `stage: 'continuing'` so the player polls straight through, and dispatches a fresh copy of itself. The hash-skip makes the continuation free, and each run bills only its own work — so a book split across three runs costs exactly what one run would.
+- **Orphaned holds get reaped.** `billing:reap-reservations` (hourly, `routes/console.php`) releases `tts_reservation` holds older than 90 minutes. Safe by construction: `releaseReservation` only touches ledger rows whose metadata carries `reservation = true`, so a real charge can never be reversed through it. `--dry-run` to inspect, `--connection=` because a test's uncommitted rows are invisible to `pgsql_admin`.
+
+Locked by `tests/Feature/BookAudio/AudioStalledRunTest.php` (13) and `tests/javascript/audioPlayer/generationStall.test.js` (6).
+
+## Downloading the whole thing as an audiobook (.m4b)
+
+The source container's Download row has an audiobook button that packages every per-node MP3 into ONE `.m4b` — AAC in an MP4 container, with chapter markers. That is the real audiobook format: Apple Books, Audiobookshelf, BookPlayer, Voice and friends read its chapter list and remember your place, while an MP3 imports into Apple Books as *music* with no chapter UI at all. It also lands ~15% smaller than the equivalent MP3.
+
+**Chapters come from the book's own `h1`/`h2` nodes.** Those headings are narrated too (`SpeakableText` reads them), so each marker sits exactly on the spoken heading that opens its chapter. Whatever precedes the first heading becomes an opening chapter named after the book, so a player is never positioned outside one; a book with no headings gets a single chapter. Heading detection parses the node's `content` HTML, NOT `nodes.type` — that column is nullable and unreliably populated (whole books have it NULL), so trusting it would silently drop chapters.
+
+**REQUIRES ffmpeg + ffprobe on the host** (`apt install ffmpeg`; no PHP package — `symfony/process` is already a dependency). Without them the status endpoint reports `supported: false` and the button simply never appears; nothing else is affected. Binary resolution probes PATH plus `/opt/homebrew/bin`, `/usr/local/bin` and `/usr/bin`, because PHP-FPM does not inherit a login shell's PATH — set `FFMPEG_BINARY` / `FFPROBE_BINARY` to absolute paths to skip that.
+
+- **Flow.** `GET /api/book-audio/{book}/audiobook` reports `state` (`unavailable` / `empty` / `buildable` / `building` / `ready`) plus coverage; `POST` the same URL dispatches `BuildAudiobookJob` on the existing `audio` queue; `GET /{book}/audiobook.m4b` streams the cached artifact as an attachment named `Author - Title.m4b`. The button polls that one status endpoint and drives its whole UI from it — dimmed with a percentage while EITHER the narration run or the packaging is in flight, live when a file is ready.
+- **Caching + invalidation are the same thing.** The artifact is `{book}/audio/audiobook-{digest}.m4b` where the digest is a hash of the ordered filename list. Regeneration renames files to `{node_id}-{newhash8}.mp3`, so any re-narration, insertion, deletion or reorder yields a new digest and the stale audiobook can never be served. It also lives in the book's audio directory, so `BookAudioStore::purgeBook` deletes it for free.
+- **Free.** Packaging costs no external API spend, so it charges nothing, and RLS decides who may download exactly as it decides who may play — the downloader need not be whoever paid for narration.
+- **Not for encrypted books.** Their bytes on disk are HLENC1 ciphertext; the server cannot assemble them, so the status endpoint reports `supported: false, reason: encrypted`.
+
+Two measured facts worth keeping: naive byte-concatenation of the per-node MP3s is **wrong** (each file leads with a LAME Xing header frame, so `cat` injects junk frames and reports 610.8s for 615.2s of real audio — ffmpeg's concat demuxer handles the frame boundaries), and `book_audio.duration_ms` is an estimate from an assumed 64kbps CBR while Kokoro actually returns ~58kbps VBR, so it reads ~9% short and the error compounds. **Chapter timestamps come from ffprobe, never from that column.** Both are encoded in `AudiobookBuilder`'s docblock.
+
+Speed, measured on an 82-minute book (169 nodes): 37s end to end, ~133× realtime, 29 MB out.
+
 ## Costs
 
 Provider: DeepInfra-hosted Kokoro-82M ≈ $0.80 per million characters. Users are billed $1.00/M raw × their tier multiplier (premium 1.0 ledger-only, budget 1.5, solidarity 2.0, capitalist 5.0). Real-world calibration: a 59k-char paper = 212 nodes ≈ $0.06 raw → $0.09 for a budget user, generated in ~3.5 minutes. A 550k-char novel ≈ $0.55 raw → $0.83 budget. Regenerating ~20 edited paragraphs ≈ $0.02.

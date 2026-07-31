@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1735,
-    "moduleCount": 366,
+    "fnCount": 1736,
+    "moduleCount": 367,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3569,
+    "edgeCount": 3572,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -2121,6 +2121,14 @@
       "stage": "components",
       "module": "components/sourceContainer/aiReview/section",
       "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/audiobookDownload:initAudiobookDownload",
+      "label": "initAudiobookDownload",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/audiobookDownload",
+      "leaf": false
     },
     {
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
@@ -16438,6 +16446,15 @@
       ]
     },
     {
+      "id": "components/sourceContainer/audiobookDownload",
+      "label": "components/sourceContainer/audiobookDownload",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/audiobookDownload:initAudiobookDownload"
+      ]
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml",
       "label": "components/sourceContainer/buildSourceHtml",
       "stage": "components",
@@ -22763,6 +22780,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/audiobookDownload:initAudiobookDownload__domwrite__dom",
+      "source": "components/sourceContainer/audiobookDownload:initAudiobookDownload",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/checkSource:sourceStatusSectionHtml",
       "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
       "target": "components/sourceContainer/checkSource:sourceStatusSectionHtml",
@@ -23372,6 +23395,13 @@
       "id": "components/sourceContainer/index:SourceContainerManager._awaitReconvert__call__components/sourceContainer/creatorTools/reconvert:_awaitReconvert",
       "source": "components/sourceContainer/index:SourceContainerManager._awaitReconvert",
       "target": "components/sourceContainer/creatorTools/reconvert:_awaitReconvert",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/sourceContainer/audiobookDownload:initAudiobookDownload",
+      "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "target": "components/sourceContainer/audiobookDownload:initAudiobookDownload",
       "rel": "call",
       "dataPath": true
     },
@@ -26609,6 +26639,12 @@
       "id": "dom__domread__components/sourceContainer/aiReview/polling:pollAiReviewStatus",
       "source": "dom",
       "target": "components/sourceContainer/aiReview/polling:pollAiReviewStatus",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/audiobookDownload:initAudiobookDownload",
+      "source": "dom",
+      "target": "components/sourceContainer/audiobookDownload:initAudiobookDownload",
       "rel": "domread"
     },
     {
@@ -44080,6 +44116,11 @@
     {
       "source": "components/sourceContainer/index",
       "target": "components/sourceContainer/aiReview/polling",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/index",
+      "target": "components/sourceContainer/audiobookDownload",
       "kind": "static"
     },
     {

@@ -138,6 +138,17 @@ return [
     // Per-node TTS audiobook generation (GenerateBookAudioJob). Provider is
     // swappable via TtsProviderInterface; 'deepinfra' serves open-weight
     // Kokoro-82M and returns MP3 directly (no server-side transcode).
+    // Packaging the per-node MP3s into one .m4b with chapters
+    // (App\Services\Audiobook\AudiobookBuilder). Needs ffmpeg + ffprobe ON THE
+    // HOST — `apt install ffmpeg`. Absent, the download button simply never
+    // appears; nothing else is affected.
+    'audiobook' => [
+        'ffmpeg' => env('FFMPEG_BINARY', 'ffmpeg'),
+        'ffprobe' => env('FFPROBE_BINARY', 'ffprobe'),
+        'bitrate' => env('AUDIOBOOK_BITRATE', '48k'), // AAC; source is ~58kbps mp3
+        'timeout' => 3000,                            // seconds, under the job's 3600
+    ],
+
     'tts' => [
         'provider' => env('TTS_PROVIDER', 'deepinfra'),
         'api_key' => env('TTS_API_KEY'),

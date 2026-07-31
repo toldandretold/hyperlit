@@ -18,6 +18,13 @@ Schedule::job(\App\Jobs\UpdateHomepageJob::class)
 Schedule::command('cleanup:anonymous-sessions')
     ->daily();
 
+// Give back credit holds whose job was killed without releasing them (a
+// reservation increments users.debits for real, so a leaked hold is money).
+Schedule::command('billing:reap-reservations')
+    ->hourly()
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Cleanup old anonymous private books daily
 Schedule::job(\App\Jobs\DatabaseCleanupJob::class)
     ->daily()

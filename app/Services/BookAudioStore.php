@@ -49,6 +49,12 @@ class BookAudioStore
         return $this->dir($book).'/audio_cancel';
     }
 
+    /** Progress file for the .m4b packaging job (BuildAudiobookJob). */
+    public function audiobookProgressPath(string $book): string
+    {
+        return $this->dir($book).'/audiobook_progress.json';
+    }
+
     private function relative(string $book, string $filename): string
     {
         $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book) ?? '';

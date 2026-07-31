@@ -201,7 +201,14 @@ Route::middleware('throttle:120,1')->where(['book' => '[a-zA-Z0-9_-]+'])->group(
     Route::get('/book-audio/{book}/status', [\App\Http\Controllers\BookAudioController::class, 'status']);
     Route::get('/book-audio/{book}/progress', [\App\Http\Controllers\BookAudioController::class, 'progress']);
     Route::get('/book-audio/{book}/manifest', [\App\Http\Controllers\BookAudioController::class, 'manifest']);
+    Route::get('/book-audio/{book}/audiobook', [\App\Http\Controllers\BookAudioController::class, 'audiobookStatus']);
 });
+
+// Packaging the .m4b is CPU work, so it gets its own tighter throttle. Still
+// no auth: RLS decides visibility, and the artifact is cached + lock-guarded.
+Route::post('/book-audio/{book}/audiobook', [\App\Http\Controllers\BookAudioController::class, 'buildAudiobook'])
+    ->middleware('throttle:10,1')
+    ->where(['book' => '[a-zA-Z0-9_-]+']);
 
 // Password reset routes (throttled to prevent abuse)
 Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])

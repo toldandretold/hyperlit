@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1735 functions in 366 modules · 10 object stores · 10 PG tables · 3569 edges
+**MarkdownDB** schema v28 · 1736 functions in 367 modules · 10 object stores · 10 PG tables · 3572 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -254,6 +254,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `startAiReviewPolling` | `components/sourceContainer/aiReview/polling` | — | — | — | — |
 | `stopAiReviewPolling` | `components/sourceContainer/aiReview/polling` | — | — | — | — |
 | `aiReviewSectionHtml` | `components/sourceContainer/aiReview/section` | — | — | — | — |
+| `initAudiobookDownload` | `components/sourceContainer/audiobookDownload` | — | — | read/write | — |
 | `buildSourceHtml` | `components/sourceContainer/buildSourceHtml` | — | `library` | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `externalSourceLink` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `handleCheckSource` | `components/sourceContainer/checkSource` | — | — | read/write | — |

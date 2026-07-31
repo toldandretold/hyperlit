@@ -6,6 +6,7 @@
  */
 
 import { log } from '../utilities/logger';
+import { ensureCsrfToken } from '../utilities/auth/csrf';
 
 interface QueueFlag {
   source: string;
@@ -153,12 +154,25 @@ function setStatus(text: string): void {
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
+/** Session POSTs need the XSRF token — the standalone page must bootstrap it
+ *  itself (no SPA boot here); tokenless POSTs 419. */
+async function csrfHeaders(): Promise<Record<string, string> | null> {
+  const token = await ensureCsrfToken();
+  if (!token) {
+    setStatus('session error — refresh and retry');
+    return null;
+  }
+  return { 'X-XSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' };
+}
+
 async function resolveSelected(resolution: 'reconverted' | 'dismissed'): Promise<void> {
   if (!selected) return;
+  const headers = await csrfHeaders();
+  if (!headers) return;
   const resp = await fetch(`/api/maintainer/flags/${encodeURIComponent(selected.book)}/resolve`, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ resolution }),
   });
   if (!resp.ok) {
@@ -188,10 +202,15 @@ async function reconvertSelected(): Promise<void> {
   btn.disabled = true;
   setStatus('dispatching…');
 
+  const headers = await csrfHeaders();
+  if (!headers) {
+    btn.disabled = false;
+    return;
+  }
   const resp = await fetch(`/api/books/${encodeURIComponent(entry.book)}/reconvert`, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    headers,
   });
   if (!resp.ok) {
     btn.disabled = false;
@@ -227,6 +246,80 @@ el<HTMLButtonElement>('mt-flags-toggle').addEventListener('click', () => {
   const columns = el<HTMLDivElement>('mt-columns');
   const collapsed = columns.classList.toggle('mt-collapsed');
   el<HTMLButtonElement>('mt-flags-toggle').setAttribute('aria-expanded', String(!collapsed));
+});
+
+// Draggable action bar — the ⋮⋮ grip moves it anywhere (it can sit over
+// content you need to see); position persists; double-click resets to the
+// default bottom-center. Pointer capture keeps the drag alive over iframes
+// (plus body.mt-dragging kills their pointer-events as a belt).
+const ACTIONS_POS_KEY = 'mt_actions_pos';
+{
+  const bar = el<HTMLDivElement>('mt-actions');
+  const grip = el<HTMLSpanElement>('mt-actions-grip');
+
+  const place = (x: number, y: number): void => {
+    const w = bar.offsetWidth || 300;
+    const h = bar.offsetHeight || 46;
+    const left = Math.min(Math.max(4, x), window.innerWidth - w - 4);
+    const top = Math.min(Math.max(4, y), window.innerHeight - h - 4);
+    bar.style.left = `${left}px`;
+    bar.style.top = `${top}px`;
+    bar.style.bottom = 'auto';
+    bar.style.transform = 'none';
+  };
+
+  try {
+    const saved = localStorage.getItem(ACTIONS_POS_KEY);
+    if (saved) {
+      const pos = JSON.parse(saved) as { x: number; y: number };
+      place(pos.x, pos.y);
+    }
+  } catch { /* corrupt saved position — default placement stands */ }
+
+  let dragFrom: { px: number; py: number; bx: number; by: number } | null = null;
+  grip.addEventListener('pointerdown', (e: PointerEvent) => {
+    e.preventDefault();
+    const rect = bar.getBoundingClientRect();
+    dragFrom = { px: e.clientX, py: e.clientY, bx: rect.left, by: rect.top };
+    document.body.classList.add('mt-dragging');
+    grip.setPointerCapture(e.pointerId);
+  });
+  grip.addEventListener('pointermove', (e: PointerEvent) => {
+    if (!dragFrom) return;
+    place(dragFrom.bx + (e.clientX - dragFrom.px), dragFrom.by + (e.clientY - dragFrom.py));
+  });
+  const endDrag = (): void => {
+    if (!dragFrom) return;
+    dragFrom = null;
+    document.body.classList.remove('mt-dragging');
+    const rect = bar.getBoundingClientRect();
+    try {
+      localStorage.setItem(ACTIONS_POS_KEY, JSON.stringify({ x: rect.left, y: rect.top }));
+    } catch { /* storage full/blocked — position just won't persist */ }
+  };
+  grip.addEventListener('pointerup', endDrag);
+  grip.addEventListener('pointercancel', endDrag);
+
+  grip.addEventListener('dblclick', () => {
+    try { localStorage.removeItem(ACTIONS_POS_KEY); } catch { /* ignore */ }
+    bar.style.left = '';
+    bar.style.top = '';
+    bar.style.bottom = '';
+    bar.style.transform = '';
+  });
+}
+
+// Workflow help panel (the ? button) — toggle, ✕, and Escape all close it.
+const helpPanel = el<HTMLDivElement>('mt-help-panel');
+const helpToggle = el<HTMLButtonElement>('mt-help-toggle');
+const setHelp = (open: boolean): void => {
+  helpPanel.hidden = !open;
+  helpToggle.setAttribute('aria-expanded', String(open));
+};
+helpToggle.addEventListener('click', () => setHelp(!!helpPanel.hidden)); // hidden types as boolean|"until-found"
+el<HTMLButtonElement>('mt-help-close').addEventListener('click', () => setHelp(false));
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !helpPanel.hidden) setHelp(false);
 });
 
 el<HTMLButtonElement>('mt-export').addEventListener('click', () => {

@@ -9,6 +9,7 @@
 import { ContainerManager } from "../utilities/containerManager";
 import { book } from "../../app";
 import { buildSourceHtml } from "./buildSourceHtml";
+import { initAudiobookDownload } from "./audiobookDownload";
 import { exportBookAsMarkdown, exportBookAsDocxStyled, exportBookAsEpub, downloadAllForBook } from "./downloads";
 import {
   handleEditClick, showEditForm, populateEditForm, showOptionalFieldsForType,
@@ -38,6 +39,7 @@ export class SourceContainerManager extends (ContainerManager as any) {
     this.isAnimating = false;
     this.button = document.getElementById(buttonId);
     this.isInEditMode = false; // Track if we're currently in edit mode
+    this.audiobookDownload = null; // set by attachInternalListeners
   }
 
   rebindElements() {
@@ -88,6 +90,13 @@ export class SourceContainerManager extends (ContainerManager as any) {
         exportBookAsEpub(book);
       });
     }
+    // The audiobook button owns its own state machine (hidden / dimmed with a
+    // progress readout / ready) and polls the server, so it gets a handle
+    // rather than a bare listener. Re-created whenever the HTML is rebuilt —
+    // tear the previous one down or its poll timer outlives its button.
+    this.audiobookDownload?.destroy();
+    this.audiobookDownload = initAudiobookDownload(this.container, book);
+
     const downloadAllBtn = this.container.querySelector("#download-all");
     if (downloadAllBtn && !downloadAllBtn._listenerAttached) {
       downloadAllBtn._listenerAttached = true;
@@ -294,6 +303,8 @@ export class SourceContainerManager extends (ContainerManager as any) {
 
     this.stopAiReviewPolling();
     this.stopHarvestPolling();
+    this.audiobookDownload?.destroy(); // its poll timer must not outlive the panel
+    this.audiobookDownload = null;
     this.closeHarvestVizOverlay();
     this.isOpen = false;
     (window as any).activeContainer = "main-content";

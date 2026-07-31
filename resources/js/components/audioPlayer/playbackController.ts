@@ -6,13 +6,24 @@
 // node's DOM id (startLine) — navigateToInternalId wants the DOM id, and it
 // also handles chunk-window eviction (a far-away node's chunk is loaded
 // before scrolling).
+//
+// FAILURE MODEL. Every paragraph is a separate MP3 fetched over HTTP and played
+// progressively, so playback can die in ways `ended` never reports: the download
+// breaks mid-stream, a load supersedes an in-flight play(), the OS pauses us, or
+// the playlist re-read comes back short. All of those used to leave the player
+// silent while the pill still claimed to be playing (pressing prev/next was the
+// only way out). Now every failure funnels through recoverFrom() — retry the
+// node once, then skip, bounded — and a watchdog catches stall shapes nobody
+// enumerated. audioTrace.ts records the whole sequence so an intermittent stall
+// can be diagnosed after the fact.
 
-import { log, verbose } from '../../utilities/logger';
+import { log, verbose, isVerboseEnabled } from '../../utilities/logger';
 import { getNodesFromIndexedDB } from '../../indexedDB/nodes/read';
 import { asBookId } from '../../utilities/idHelpers';
 import { getFreshAnchor } from '../../scrolling/readingAnchor';
 import { navigateToInternalId } from '../../scrolling/internalNav';
 import { currentLazyLoader } from '../../pageLoad/currentLazyLoaderState';
+import { traceAudio } from './audioTrace';
 import { audioUrl, type AudioManifest } from './manifest';
 
 export type PlayerState = 'idle' | 'playing' | 'paused';
@@ -35,12 +46,33 @@ export interface PlaybackCallbacks {
   onAutoplayBlocked: () => void;
 }
 
-const SPEED_STEPS = [1, 1.25, 1.5, 2];
+const SPEED_STEPS = [1, 1.25, 1.5, 1.75, 2];
 const READING_CLASS = 'audio-reading';
 const SETTINGS_KEY = 'hyperlitAudioSettings';
 /** A user scroll pauses follow; after this much scroll-free time, follow
  *  re-engages on the next paragraph advance (walk-away-and-come-back). */
 const FOLLOW_RESUME_MS = 30_000;
+
+/** A failed node is retried once before being skipped: a network blip leaves the
+ *  audio perfectly good, and losing a paragraph to one is far more noticeable
+ *  than the 600ms the retry costs. */
+const MAX_NODE_RETRIES = 1;
+const RETRY_BACKOFF_MS = 600;
+const WATCHDOG_TICK_MS = 1000;
+/** Playing, buffered, but currentTime frozen — something is genuinely wrong. */
+const WATCHDOG_STUCK_MS = 6000;
+/** readyState < HAVE_FUTURE_DATA is honest buffering; give a slow network room. */
+const WATCHDOG_BUFFER_MS = 15_000;
+/** Within this much of the duration, "no progress" means it finished and the
+ *  `ended` event went missing — advance rather than recover. */
+const NEAR_END_S = 0.35;
+/** Bound on consecutive rejected playlist re-reads, so a book the user genuinely
+ *  shortened can't freeze the ordering forever. */
+const MAX_REJECTED_REFRESHES = 3;
+/** Bound on consecutive unplayable nodes before we stop, so a systemic failure
+ *  doesn't race to the end of the book (an unbounded skip once "finished" a
+ *  212-paragraph book instantly and hid the player). */
+const MAX_CONSECUTIVE_SKIPS = 5;
 
 interface AudioSettings {
   highlight: boolean;
@@ -89,11 +121,53 @@ export class PlaybackController {
 
   private boundUserScroll: (e: Event) => void;
 
-  private boundEnded: () => void;
+  /** [type, listener] pairs on the media element — a list rather than a field
+   *  per listener so destroy() cannot forget one (the element outlives nothing,
+   *  but a leaked listener would fire against a dead controller). */
+  private mediaListeners: Array<[string, EventListener]> = [];
 
   private lastUserScrollAt = 0;
 
   private consecutiveSkips = 0;
+
+  /** Monotonic. Bumped by everything that changes "what should be playing".
+   *  Any async continuation that resumes holding a stale token belongs to a
+   *  superseded intent and MUST return without touching the element — this is
+   *  what stops an ended→next() advance racing a user prev/next tap into
+   *  "AbortError: play() interrupted by a new load request", which the old
+   *  catch misread as a bad node and silently SKIPPED a paragraph. */
+  private playToken = 0;
+
+  /** True whenever the source has been torn down on purpose (idle/destroyed).
+   *  The element fires error/emptied/pause during that teardown and a quiescent
+   *  player must not mistake its own teardown for a stall. */
+  private quiescent = true;
+
+  /** Set immediately before any programmatic pause() so the `pause` listener can
+   *  tell "we did that" from "the OS/tab did that to us". */
+  private expectPause = false;
+
+  /** Watchdog heartbeat: when currentTime last actually moved, and to what. */
+  private lastProgressAt = 0;
+
+  private lastTime = 0;
+
+  /** Retries spent on the CURRENT node (reset whenever the node changes). */
+  private nodeRetries = 0;
+
+  /** The playToken whose recovery has already been started. A bad source
+   *  signals TWICE — the element fires `error` AND play() rejects — and without
+   *  this the second signal lands while the first is still in its retry backoff,
+   *  sees nodeRetries already spent, and skips the paragraph immediately. That
+   *  turned "retry once, then skip" into "never retry at all". */
+  private recoveredToken = -1;
+
+  private watchdogTimer: number | null = null;
+
+  private rejectedRefreshes = 0;
+
+  /** Where to resume the next load — set by a retry, consumed by loadedmetadata. */
+  private pendingSeek = 0;
 
   /** Encrypted books swap in a fetch-decrypt-to-blob-URL resolver
    *  (encryptedAudio.ts); plaintext books stream the serve URL directly. */
@@ -110,16 +184,17 @@ export class PlaybackController {
     this.settings = loadAudioSettings();
     this.audio = new Audio();
     this.audio.preload = 'auto';
-    this.audio.playbackRate = this.settings.speed;
-    this.boundEnded = () => void this.next();
-    this.audio.addEventListener('ended', this.boundEnded);
+    this.applyPlaybackRate();
+    this.installMediaListeners();
     // A user scroll means "I'm reading somewhere else" — stop dragging the
     // viewport around (keep playing + highlighting). internalNav's scroll
     // lock already yields to user scrolls mid-animation; this stops FUTURE
     // advances from scrolling. Follow re-engages after FOLLOW_RESUME_MS of
     // scroll silence (see maybeAutoResumeFollow) or via "Resume following".
     this.boundUserScroll = (e: Event) => {
-      // Touching the player pill isn't "reading somewhere else".
+      // Touching the player pill isn't "reading somewhere else". LOAD-BEARING
+      // for the drag grip (playerDrag.ts): arrow-key nudging and touch-dragging
+      // the pill must not disable follow mode.
       if (e.target instanceof Element && e.target.closest('#audio-player-bar')) return;
       // For keys, only scroll-intent keys outside editable targets count.
       if (e instanceof KeyboardEvent) {
@@ -136,13 +211,19 @@ export class PlaybackController {
   }
 
   destroy(): void {
+    this.playToken++;
+    this.quiescent = true;
+    this.stopWatchdog();
+    this.trace('destroy');
     this.clearHighlight();
-    this.audio.removeEventListener('ended', this.boundEnded);
+    for (const [type, listener] of this.mediaListeners) {
+      this.audio.removeEventListener(type, listener);
+    }
+    this.mediaListeners = [];
     window.removeEventListener('wheel', this.boundUserScroll);
     window.removeEventListener('touchmove', this.boundUserScroll);
     window.removeEventListener('keydown', this.boundUserScroll);
-    this.audio.pause();
-    this.audio.src = '';
+    this.teardownSource();
     this.clearMediaSession();
     this.setState('idle');
   }
@@ -153,6 +234,12 @@ export class PlaybackController {
 
   getSettings(): AudioSettings {
     return { ...this.settings };
+  }
+
+  /** The pill reads this every paragraph so its label can never drift from the
+   *  engine (it used to be written only on the button press). */
+  getSpeed(): number {
+    return this.settings.speed;
   }
 
   currentEntry(): PlaylistEntry | null {
@@ -184,6 +271,9 @@ export class PlaybackController {
     if (startIndex === null) return false; // position not covered yet — caller retries next poll
 
     this.index = startIndex;
+    this.consecutiveSkips = 0;
+    this.nodeRetries = 0;
+    this.rejectedRefreshes = 0;
     this.setFollow(this.settings.follow, false);
     await this.playCurrent();
 
@@ -212,7 +302,16 @@ export class PlaybackController {
   private async refreshPlaylist(): Promise<void> {
     if (!this.lastManifest) return;
     const current = this.currentEntry();
-    await this.ensureOrderedNodes(true);
+    try {
+      await this.ensureOrderedNodes(true);
+    } catch (e) {
+      // An IndexedDB rejection must NOT kill the advance. The caller is
+      // `void this.next()` from the `ended` handler, so a rejection here used to
+      // go unhandled and playback simply stopped dead mid-book.
+      verbose.content(`audioPlayer: playlist refresh failed, keeping the cached order: ${e}`, '/components/audioPlayer/playbackController');
+
+      return;
+    }
     this.playlist = this.buildPlaylist(this.lastManifest);
     this.relocate(current);
   }
@@ -220,16 +319,55 @@ export class PlaybackController {
   private relocate(current: PlaylistEntry | null): void {
     if (!current) return;
     const idx = this.playlist.findIndex((e) => e.nodeId === current.nodeId);
-    this.index = idx !== -1 ? idx : Math.min(this.index, this.playlist.length - 1);
+    if (idx !== -1) {
+      this.index = idx;
+
+      return;
+    }
+    // The node vanished (deleted, or a partial read we accepted). Land where it
+    // USED to sit by reading position, so next()'s index++ resumes with the
+    // paragraph after it. Clamping to the END of the list here — the old
+    // behaviour — is what made next()'s bounds check fire a spurious stop() and
+    // "randomly" end playback halfway through a book.
+    const line = parseFloat(current.elementId);
+    const after = Number.isNaN(line)
+      ? -1
+      : this.playlist.findIndex((e) => parseFloat(e.elementId) > line);
+    this.index = after === -1
+      ? Math.max(0, this.playlist.length - 1)
+      : Math.max(0, after - 1);
   }
 
   private async ensureOrderedNodes(force = false): Promise<void> {
     if (!force && this.orderedNodes.length > 0) return;
     const nodes = await getNodesFromIndexedDB(asBookId(this.bookId));
-    this.orderedNodes = [...nodes]
+    const ordered = [...nodes]
       .sort((a, b) => a.startLine - b.startLine)
       .filter((n) => n.node_id)
       .map((n) => ({ nodeId: n.node_id as string, elementId: String(n.startLine) }));
+
+    if (force && this.orderedNodes.length > 0) {
+      const current = this.currentEntry();
+      const keepsCurrent = !current || ordered.some((n) => n.nodeId === current.nodeId);
+      const majorShrink = ordered.length * 4 < this.orderedNodes.length * 3; // lost >25%
+      // A transient/partial IDB read used to REPLACE a good ordering, shrinking
+      // the playlist so relocate() clamped the index to the end and the next
+      // advance called stop(). Reject an untrustworthy read — bounded, so a book
+      // the user genuinely shortened isn't frozen on a stale order forever.
+      const untrustworthy = ordered.length === 0 || !keepsCurrent || majorShrink;
+      if (untrustworthy && this.rejectedRefreshes < MAX_REJECTED_REFRESHES) {
+        this.rejectedRefreshes++;
+        this.trace('refresh-rejected');
+        verbose.content(
+          `audioPlayer: ignoring node re-read (${ordered.length} vs ${this.orderedNodes.length})`,
+          '/components/audioPlayer/playbackController',
+        );
+
+        return;
+      }
+    }
+    this.rejectedRefreshes = 0;
+    this.orderedNodes = ordered;
   }
 
   private buildPlaylist(manifest: AudioManifest): PlaylistEntry[] {
@@ -248,7 +386,8 @@ export class PlaybackController {
     return playlist;
   }
 
-  async playCurrent(): Promise<void> {
+  /** `seekTo` > 0 resumes a retried node near where it died. */
+  async playCurrent(seekTo = 0): Promise<void> {
     const entry = this.currentEntry();
     if (!entry) {
       this.stop();
@@ -256,20 +395,43 @@ export class PlaybackController {
       return;
     }
 
-    this.audio.playbackRate = this.settings.speed;
+    const token = ++this.playToken; // supersede anything already in flight
+    this.pendingSeek = seekTo;
+    this.quiescent = false;
+    this.lastProgressAt = Date.now();
+    this.lastTime = seekTo;
+    this.trace('node-start');
+
     try {
-      // Resolver failures (fetch/decrypt) land in the same catch as play()
-      // failures — a bad node skips ahead (bounded), never crashes playback.
-      this.audio.src = this.resolveSrc
+      // Pause BEFORE swapping source: an in-flight play() on the old source is
+      // exactly what turns into AbortError when a new load lands on top of it.
+      this.silentPause();
+
+      const src = this.resolveSrc
         ? await this.resolveSrc(entry.filename)
         : audioUrl(this.bookId, entry.filename);
+      if (token !== this.playToken) return; // superseded while resolving
+
+      this.audio.src = src;
+      this.applyPlaybackRate(); // the src setter just reset it — see applyPlaybackRate
       await this.audio.play();
+      if (token !== this.playToken) return; // superseded while starting
+      this.applyPlaybackRate();
       this.consecutiveSkips = 0;
     } catch (e) {
+      if (token !== this.playToken) return; // a newer intent owns the element now
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        // play() was interrupted by a new load request. NOT a bad node and NOT a
+        // reason to skip a paragraph — the interrupting load owns the outcome.
+        this.trace('play-aborted');
+
+        return;
+      }
       // Autoplay blocked: the gesture that led here is too old (generation
       // just finished, or a background poll started playback). NOT a bad
       // file — stage everything and wait for one press of play.
       if (e instanceof DOMException && e.name === 'NotAllowedError') {
+        this.trace('autoplay-blocked');
         this.setState('paused');
         this.callbacks.onEntryChange(entry, this.index, this.playlist.length);
         this.applyHighlight(entry);
@@ -277,18 +439,8 @@ export class PlaybackController {
 
         return;
       }
-      // A genuinely bad node (e.g. its file was pruned mid-session) — skip
-      // ahead, but bounded: systemic failure must not cascade through the
-      // whole book (the old unbounded skip is how an autoplay rejection once
-      // "finished" a 212-paragraph book instantly and hid the player).
       verbose.content(`audioPlayer: play failed on ${entry.nodeId}: ${e}`, '/components/audioPlayer/playbackController');
-      this.consecutiveSkips++;
-      if (this.consecutiveSkips <= 5 && this.index < this.playlist.length - 1) {
-        this.index++;
-        await this.playCurrent();
-      } else {
-        this.stop();
-      }
+      await this.recoverFrom('play-failed', token);
 
       return;
     }
@@ -312,11 +464,12 @@ export class PlaybackController {
   }
 
   pause(): void {
-    this.audio.pause();
+    this.silentPause();
     this.setState('paused');
   }
 
   async resume(): Promise<void> {
+    this.quiescent = false;
     try {
       await this.audio.play();
       this.setState('playing');
@@ -327,34 +480,49 @@ export class PlaybackController {
   }
 
   stop(): void {
-    this.audio.pause();
-    this.audio.src = '';
+    this.playToken++; // kill any in-flight playCurrent continuation
+    this.quiescent = true;
+    this.stopWatchdog();
+    this.trace('stop');
+    this.teardownSource();
     this.clearHighlight();
     this.clearMediaSession();
     this.index = -1;
+    this.nodeRetries = 0;
+    this.consecutiveSkips = 0;
     this.setState('idle');
     this.callbacks.onFinished();
   }
 
   async next(): Promise<void> {
-    await this.refreshPlaylist(); // heal snapshot holes before choosing "next"
+    this.trace('next');
+    await this.refreshPlaylist();
     if (this.index >= this.playlist.length - 1) {
       this.stop();
 
       return;
     }
     this.index++;
-    await this.playCurrent();
+    this.nodeRetries = 0;
+    try {
+      await this.playCurrent();
+    } catch (e) {
+      log.error('audioPlayer: advance failed', '/components/audioPlayer/playbackController', e);
+      this.stop();
+    }
   }
 
   /** Hard restart from the first narrated paragraph of the book. */
   async restartFromTop(): Promise<void> {
     if (this.playlist.length === 0) return;
     this.index = 0;
+    this.nodeRetries = 0;
+    this.consecutiveSkips = 0;
     await this.playCurrent();
   }
 
   async previous(): Promise<void> {
+    this.trace('previous');
     // Within the first 3 seconds, prev = previous node; later it restarts the node.
     if (this.audio.currentTime > 3 || this.index <= 0) {
       this.audio.currentTime = 0;
@@ -363,14 +531,21 @@ export class PlaybackController {
     }
     await this.refreshPlaylist();
     this.index--;
-    await this.playCurrent();
+    this.nodeRetries = 0;
+    try {
+      await this.playCurrent();
+    } catch (e) {
+      log.error('audioPlayer: step back failed', '/components/audioPlayer/playbackController', e);
+      this.stop();
+    }
   }
 
   cycleSpeed(): number {
     const pos = SPEED_STEPS.indexOf(this.settings.speed);
     this.settings.speed = SPEED_STEPS[(pos + 1) % SPEED_STEPS.length] ?? 1;
-    this.audio.playbackRate = this.settings.speed;
+    this.applyPlaybackRate();
     saveAudioSettings(this.settings);
+    this.trace('speed');
 
     return this.settings.speed;
   }
@@ -410,10 +585,241 @@ export class PlaybackController {
     }
   }
 
+  // ── media element ──────────────────────────────────────────────────
+
+  /**
+   * The <audio> load algorithm resets playbackRate to defaultPlaybackRate on
+   * EVERY src assignment, so setting only playbackRate makes the chosen speed
+   * survive exactly one paragraph (the reported bug). defaultPlaybackRate is
+   * what carries the speed across node boundaries; playbackRate applies it to
+   * whatever is playing right now. Both, always, together.
+   */
+  private applyPlaybackRate(): void {
+    const rate = this.settings.speed;
+    if (this.audio.defaultPlaybackRate !== rate) this.audio.defaultPlaybackRate = rate;
+    if (this.audio.playbackRate !== rate) this.audio.playbackRate = rate;
+  }
+
+  private listenMedia(type: string, listener: EventListener): void {
+    this.audio.addEventListener(type, listener);
+    this.mediaListeners.push([type, listener]);
+  }
+
+  private installMediaListeners(): void {
+    this.listenMedia('loadedmetadata', () => {
+      this.applyPlaybackRate(); // fires after the load algorithm finished mutating
+      if (this.pendingSeek > 0) {
+        const target = this.pendingSeek;
+        this.pendingSeek = 0;
+        try {
+          this.audio.currentTime = target;
+        } catch { /* unseekable stream — start from the top instead */ }
+      }
+      this.trace('loadedmetadata');
+    });
+
+    this.listenMedia('playing', () => {
+      // NOTE: nodeRetries is deliberately NOT reset here. Resetting it on a
+      // successful start would give a node that reliably dies mid-stream an
+      // infinite retry budget (play → die at 3s → retry → play → die at 3s → …).
+      // It resets only when the index moves, so one visit earns one retry.
+      this.lastProgressAt = Date.now();
+      this.applyPlaybackRate();
+      this.trace('playing');
+      if (this.state !== 'playing') this.setState('playing'); // heal a drifted pill
+    });
+
+    // The watchdog's heartbeat. Fires ~4Hz — no branch, no trace, no log.
+    this.listenMedia('timeupdate', () => {
+      this.lastProgressAt = Date.now();
+      this.lastTime = this.audio.currentTime;
+    });
+
+    // Buffering counts as liveness, so a slow-but-working network never trips
+    // the watchdog.
+    this.listenMedia('progress', () => {
+      this.lastProgressAt = Date.now();
+    });
+
+    // Traced, deliberately not acted on: these are normal, and the watchdog is
+    // what decides a stall is real. They exist so the ring shows the run-up.
+    this.listenMedia('waiting', () => this.trace('waiting'));
+    this.listenMedia('stalled', () => this.trace('stalled'));
+
+    this.listenMedia('error', () => {
+      if (this.quiescent) {
+        this.trace('error-quiescent'); // our own teardown, not a failure
+        return;
+      }
+      this.trace('error');
+      log.content(
+        `audioPlayer: media error (code ${this.audio.error?.code ?? '?'}) on ${this.currentEntry()?.nodeId ?? 'unknown node'}`,
+        '/components/audioPlayer/playbackController',
+      );
+      void this.recoverFrom('media-error', this.playToken);
+    });
+
+    this.listenMedia('pause', () => {
+      if (this.expectPause) {
+        this.expectPause = false;
+        return;
+      }
+      if (this.quiescent || this.audio.ended) return;
+      // Nobody asked for this — the OS, the tab, or audio-focus loss paused us.
+      // Surface it so the pill offers Play instead of claiming to be playing.
+      this.trace('pause');
+      log.content('audioPlayer: playback paused externally', '/components/audioPlayer/playbackController');
+      this.setState('paused');
+    });
+
+    this.listenMedia('ended', () => {
+      this.trace('ended');
+      void this.next();
+    });
+  }
+
+  /**
+   * `audio.src = ''` makes Chrome resolve the empty string against the document
+   * URL and try to load the HTML page as media — which fires a REAL error event.
+   * removeAttribute + load() is the spec-clean reset.
+   */
+  private teardownSource(): void {
+    this.silentPause();
+    this.audio.removeAttribute('src');
+    this.audio.load();
+  }
+
+  /** Pause without the `pause` listener reading it as an external interruption.
+   *  The `expectPause` flag is armed ONLY when a pause event will actually fire
+   *  — arming it against an already-paused element would leave it set and
+   *  swallow the next genuine OS pause. */
+  private silentPause(): void {
+    if (this.audio.paused) return;
+    this.expectPause = true;
+    this.audio.pause();
+  }
+
+  /**
+   * Every failure path — a media `error`, a play()/resolver rejection, and the
+   * watchdog — lands here. One node gets ONE retry (resumed near where it died);
+   * after that it is skipped, and skips stay bounded so a systemic failure stops
+   * the player instead of racing to the end of the book.
+   */
+  private async recoverFrom(reason: string, token: number): Promise<void> {
+    if (token !== this.playToken) return;      // stale intent
+    if (this.quiescent) return;                // we tore the source down on purpose
+    if (this.recoveredToken === token) return; // this attempt is already being recovered
+    this.recoveredToken = token;
+    const entry = this.currentEntry();
+    if (!entry) {
+      this.stop();
+
+      return;
+    }
+
+    if (this.nodeRetries < MAX_NODE_RETRIES) {
+      this.nodeRetries++;
+      const resumeAt = this.lastTime > 2 ? Math.max(0, this.lastTime - 0.5) : 0;
+      this.trace('retry');
+      log.content(
+        `audioPlayer: retrying ${entry.nodeId} after ${reason} (from ${resumeAt.toFixed(1)}s)`,
+        '/components/audioPlayer/playbackController',
+      );
+      await new Promise((resolve) => { setTimeout(resolve, RETRY_BACKOFF_MS); });
+      if (token !== this.playToken || this.quiescent) return;
+      await this.playCurrent(resumeAt);
+
+      return;
+    }
+
+    this.consecutiveSkips++;
+    this.trace('skip');
+    log.content(
+      `audioPlayer: skipping ${entry.nodeId} after ${reason} (skip ${this.consecutiveSkips})`,
+      '/components/audioPlayer/playbackController',
+    );
+    this.nodeRetries = 0;
+    if (this.consecutiveSkips > MAX_CONSECUTIVE_SKIPS || this.index >= this.playlist.length - 1) {
+      this.stop();
+
+      return;
+    }
+    this.index++;
+    await this.playCurrent();
+  }
+
+  private startWatchdog(): void {
+    this.stopWatchdog();
+    this.lastProgressAt = Date.now();
+    this.watchdogTimer = window.setInterval(() => this.watchdogTick(), WATCHDOG_TICK_MS);
+  }
+
+  private stopWatchdog(): void {
+    if (this.watchdogTimer === null) return;
+    window.clearInterval(this.watchdogTimer);
+    this.watchdogTimer = null;
+  }
+
+  /**
+   * The catch-all. Whatever shape a stall takes — an event we don't listen for,
+   * a source that silently went dead, an `ended` that never arrived — it ends up
+   * as "state says playing, currentTime isn't moving", and this recovers it.
+   */
+  private watchdogTick(): void {
+    if (this.state !== 'playing' || this.quiescent) return;
+    if (this.audio.paused) return; // the `pause` listener owns that case
+    if (isVerboseEnabled()) this.trace('tick');
+
+    const since = Date.now() - this.lastProgressAt;
+    const limit = this.audio.readyState < 3 ? WATCHDOG_BUFFER_MS : WATCHDOG_STUCK_MS;
+    if (since < limit) return;
+
+    this.lastProgressAt = Date.now(); // one shot per stall, not one per tick
+    const token = this.playToken;
+
+    // "Finished but `ended` never fired" is an ADVANCE, not a failure.
+    const duration = this.audio.duration;
+    if (Number.isFinite(duration) && duration > 0 && this.audio.currentTime >= duration - NEAR_END_S) {
+      this.trace('watchdog-ended');
+      log.content(
+        'audioPlayer: watchdog advancing — playback reached the end without an `ended` event',
+        '/components/audioPlayer/playbackController',
+      );
+      void this.next();
+
+      return;
+    }
+
+    this.trace('watchdog');
+    log.content(
+      `audioPlayer: watchdog fired — no progress for ${since}ms (readyState ${this.audio.readyState})`,
+      '/components/audioPlayer/playbackController',
+    );
+    void this.recoverFrom('watchdog', token);
+  }
+
+  private trace(event: string): void {
+    traceAudio({
+      t: Math.round(performance.now()),
+      event,
+      index: this.index,
+      nodeId: this.currentEntry()?.nodeId ?? null,
+      state: this.state,
+      readyState: this.audio.readyState,
+      networkState: this.audio.networkState,
+      paused: this.audio.paused,
+      currentTime: Math.round(this.audio.currentTime * 100) / 100,
+      playbackRate: this.audio.playbackRate,
+      errorCode: this.audio.error?.code ?? null,
+    });
+  }
+
   // ── internals ──────────────────────────────────────────────────────
 
   private setState(state: PlayerState): void {
     this.state = state;
+    // The watchdog only ever runs while playing, so it can't outlive the state.
+    if (state === 'playing') this.startWatchdog(); else this.stopWatchdog();
     this.callbacks.onStateChange(state);
     if ('mediaSession' in navigator) {
       navigator.mediaSession.playbackState = state === 'playing' ? 'playing' : state === 'paused' ? 'paused' : 'none';

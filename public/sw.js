@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v34'; // retry now URL-busts past ALL cache layers (Safari ignores cache:reload in SW) — force-refresh
+const CACHE_VERSION = 'v35'; // skip cross-origin requests (was fabricating 404/503 for the Vite dev origin)
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 
@@ -91,6 +91,16 @@ self.addEventListener('fetch', (event) => {
 
   // Skip non-GET requests
   if (request.method !== 'GET') {
+    return;
+  }
+
+  // Only handle OUR origin. Every branch below answers a failed fetch with a
+  // FABRICATED 404/503, which is catastrophic for an origin this worker has no
+  // business proxying: in dev the Vite server is a different origin
+  // (http://<lan-ip>:5173), the worker's own fetch of it fails, and the whole
+  // module graph came back as 503s — the app hung on "Loading… Initializing…"
+  // with no styles. Let the browser fetch other origins itself.
+  if (url.origin !== self.location.origin) {
     return;
   }
 

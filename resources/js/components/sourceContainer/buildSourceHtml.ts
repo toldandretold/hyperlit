@@ -229,6 +229,28 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     </div>
   </button>
 
+    <!-- Audiobook (.m4b, chapters from the book's headings). Rendered hidden;
+         audiobookDownload.ts reveals it only when this book actually has
+         narration and this host can package it, and drives its busy state. -->
+    <button type="button" id="download-audiobook" class="download-btn" hidden
+            aria-label="Download audiobook">
+  <div class="icon-wrapper">
+    <svg
+      class="download-icon"
+      viewBox="-0.5 0 25 25"
+      preserveAspectRatio="xMidYMid meet"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M13 22.42C15.2091 22.42 17 20.6292 17 18.42C17 16.2109 15.2091 14.42 13 14.42C10.7909 14.42 9 16.2109 9 18.42C9 20.6292 10.7909 22.42 13 22.42Z"/>
+      <path d="M17 18.4099V9.5C16.9991 8.0814 17.5008 6.70828 18.4161 5.62451C19.3315 4.54074 20.6012 3.81639 22 3.57996"/>
+      <path d="M2 7.42004H12"/>
+      <path d="M2 11.42H12"/>
+      <path d="M2 3.42004H12"/>
+    </svg>
+    <span class="audiobook-progress" aria-hidden="true"></span>
+    </div>
+  </button>
+
     ${canEdit ? `<button type="button" id="download-all" class="download-btn">
   <div class="icon-wrapper">
     <svg

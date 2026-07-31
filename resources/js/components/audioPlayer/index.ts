@@ -24,9 +24,12 @@ import { fetchAudioManifest, staleCount, type AudioManifest } from './manifest';
 import { confirmAndGenerate, formatPrice, pollGenerationProgress, refreshStatus, requestGeneration, stopProgressPolling } from './generation';
 import { PlaybackController, type PlaylistEntry } from './playbackController';
 import { PlayerBar } from './playerBar';
+import { installAudioTraceGlobal } from './audioTrace';
+import { initPlayerDrag, type PlayerDragHandle } from './playerDrag';
 
 let controller: PlaybackController | null = null;
 let bar: PlayerBar | null = null;
+let drag: PlayerDragHandle | null = null;
 let manifest: AudioManifest | null = null;
 let busy = false;
 let generating = false;
@@ -307,6 +310,10 @@ function buildController(id: string): PlaybackController {
     // playing pill stays clean.
     onEntryChange: (_entry: PlaylistEntry, index: number, total: number) => {
       bar?.setStatus(`${index + 1} / ${total}`);
+      // Re-read the speed from the engine every paragraph so the pill's label
+      // can never drift from what's actually playing (it used to be written
+      // only on the button press, which is how "shows 1.5×, plays 1×" hid).
+      bar?.setSpeed(controller?.getSpeed() ?? 1);
     },
     onFollowModeChange: (following) => bar?.setFollowVisible(!following),
     onFinished: () => {
@@ -399,7 +406,9 @@ function watchGeneration(id: string, playWhenDone: boolean): void {
           return;
         }
         if (progress.status === 'failed') {
-          bar?.setStatus('Audio generation failed.');
+          // Surface the server's reason — a stalled run is resumable and the
+          // message says so, which a bare "failed" hid.
+          bar?.setStatus(progress.error ?? 'Audio generation failed.');
 
           return;
         }
@@ -446,6 +455,7 @@ export function syncListenButton(): void {
 
 export function initAudioPlayer(): void {
   active = true;
+  installAudioTraceGlobal(); // window.__audioTrace — the stall post-mortem
   syncListenButton();
 
   bar = new PlayerBar({
@@ -486,6 +496,10 @@ export function initAudioPlayer(): void {
     onResumeFollow: () => controller?.resumeFollowing(),
   });
 
+  // The pill's markup is static blade that persists across SPA navs, so the
+  // drag listeners MUST be torn down in destroy — same reason as PlayerBar.
+  drag = initPlayerDrag();
+
   log.init('audioPlayer initialized', '/components/audioPlayer');
   verbose.init('audioPlayer: listen button synced', '/components/audioPlayer');
 }
@@ -503,6 +517,8 @@ export function destroyAudioPlayer(): void {
   generating = false;
   bar?.destroy(); // removes its DOM listeners — the pill markup persists across SPA navs
   bar = null;
+  drag?.destroy(); // ditto — the moved POSITION is left applied, only listeners go
+  drag = null;
   busy = false;
   // Revoke any decrypted audio blob URLs (encrypted-book playback).
   void import('./encryptedAudio').then(({ clearAudioBlobCache }) => clearAudioBlobCache());

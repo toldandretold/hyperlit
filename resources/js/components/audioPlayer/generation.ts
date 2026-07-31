@@ -11,6 +11,14 @@ import { confirmDialog, alertDialog } from '../dialog/dialog';
 import { fetchAudioProgress, fetchAudioStatus, type AudioProgress, type AudioStatus } from './manifest';
 
 const POLL_MS = 2000;
+/**
+ * Give up if the server's progress heartbeat hasn't moved in this many beats
+ * (~3 minutes). The server also detects a dead run and reports it as failed,
+ * so this is the backstop for the case where progress keeps being served but
+ * nothing is actually advancing. Without it the pill sat on "Generating
+ * audio…" indefinitely with nothing running — the worst bug in this feature.
+ */
+const STALL_BEATS = 90;
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -101,9 +109,35 @@ export function pollGenerationProgress(
   onDone: (progress: AudioProgress) => void,
 ): void {
   stopProgressPolling();
+  let lastSignature = '';
+  let unchangedBeats = 0;
+
   pollTimer = setInterval(async () => {
     const progress = await fetchAudioProgress(bookId);
     if (!progress) return;
+
+    // A live run rewrites its progress file after every batch, so both the
+    // timestamp and the node count move. If neither has for STALL_BEATS, the
+    // run is gone and no terminal status is ever coming.
+    const signature = `${progress.status}|${progress.updated_at ?? ''}|${progress.done_nodes ?? 0}`;
+    unchangedBeats = signature === lastSignature ? unchangedBeats + 1 : 0;
+    lastSignature = signature;
+
+    if (progress.status === 'generating' && unchangedBeats >= STALL_BEATS) {
+      log.error(
+        `audioPlayer: generation stalled — no progress for ${Math.round(STALL_BEATS * POLL_MS / 1000)}s`,
+        '/components/audioPlayer/generation',
+      );
+      stopProgressPolling();
+      onDone({
+        ...progress,
+        status: 'failed',
+        error: 'Generation stopped responding. Press Listen to pick up where it left off.',
+      });
+
+      return;
+    }
+
     onBeat(progress);
     if (progress.status === 'done' || progress.status === 'partial'
       || progress.status === 'cancelled' || progress.status === 'failed') {

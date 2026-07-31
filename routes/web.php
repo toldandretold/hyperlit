@@ -311,6 +311,11 @@ Route::get('/{book}/audio/{filename}', [\App\Http\Controllers\BookAudioControlle
         'filename' => '[a-zA-Z0-9\-_.]+\.mp3',
     ]);
 
+// The packaged .m4b audiobook (one file, chapters from the book's headings).
+// Attachment, not inline — this is a download, unlike the per-node audio above.
+Route::get('/{book}/audiobook.m4b', [\App\Http\Controllers\BookAudioController::class, 'downloadAudiobook'])
+    ->where(['book' => '[a-zA-Z0-9\-_]+']);
+
 // Password reset page
 Route::get('/reset-password/{token}', function (Request $request, $token) {
     return view('reset-password', [

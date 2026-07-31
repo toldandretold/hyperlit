@@ -141,6 +141,54 @@ body[data-page="home"] #topRightContainer::after {
   height: 100%;
 }
 
+#download-audiobook .download-icon {
+  width: 80%;
+  height: 100%;
+}
+
+/* The audiobook glyph is a STROKE icon (headphones + lines), unlike its filled
+   siblings — the blanket `.download-icon path { fill: … !important }` above
+   would render it as solid blobs, so it has to be undone here. */
+#download-audiobook .download-icon path {
+  fill: none !important;
+  stroke: var(--icon-fill-primary);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Busy = the narration run OR the .m4b packaging is in flight. Dimmed with a
+   percentage over the glyph, so it reads as "not yet" rather than "broken". */
+#download-audiobook .icon-wrapper {
+  position: relative;
+}
+
+#download-audiobook.is-busy {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+#download-audiobook.is-busy .download-icon {
+  opacity: 0.35;
+}
+
+.audiobook-progress {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  pointer-events: none;
+}
+
+#download-audiobook.is-busy .audiobook-progress {
+  display: flex;
+}
+
 .download-btn {
   background: transparent;
   color: var(--color-text);
