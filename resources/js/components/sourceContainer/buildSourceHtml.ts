@@ -248,6 +248,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
       <path d="M2 3.42004H12"/>
     </svg>
     <span class="audiobook-progress" aria-hidden="true"></span>
+    <span class="audiobook-label" aria-hidden="true"></span>
     </div>
   </button>
 

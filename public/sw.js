@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v35'; // skip cross-origin requests (was fabricating 404/503 for the Vite dev origin)
+const CACHE_VERSION = 'v36'; // audiobook download button: "generating"/"narrating" label under the glyph
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 

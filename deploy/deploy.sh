@@ -288,12 +288,28 @@ step "Verify"
 if [ "${DRY_RUN}" = 1 ]; then
     echo "  ${DIM}would run: workers.sh status / backlog + HTTP check${OFF}"
 else
-    sleep 3   # give supervisor a beat to relaunch the workers it just cycled
-    WORKER_STATUS="$(./deploy/supervisor/workers.sh status 2>&1 || true)"
+    # A worker that was just cycled sits in STARTING for a second or two — that's
+    # health, not a fault. Poll until everything settles, and only judge the
+    # states that actually mean something is wrong.
+    WORKER_STATUS=""
+    for attempt in 1 2 3 4 5 6; do
+        WORKER_STATUS="$(./deploy/supervisor/workers.sh status 2>&1 || true)"
+        SETTLING="$(echo "${WORKER_STATUS}" | grep -c 'STARTING' || true)"
+        [ "${SETTLING}" -eq 0 ] && break
+        sleep 3
+    done
     echo "${WORKER_STATUS}" | sed 's/^/    /'
-    NOT_RUNNING="$(echo "${WORKER_STATUS}" | grep -vc 'RUNNING' || true)"
-    if echo "${WORKER_STATUS}" | grep -q 'RUNNING'; then
-        [ "${NOT_RUNNING}" -gt 0 ] && warn "not every worker line says RUNNING — check above, then: ./deploy/supervisor/workers.sh logs <name>"
+
+    if echo "${WORKER_STATUS}" | grep -qE 'RUNNING|STARTING'; then
+        BROKEN="$(echo "${WORKER_STATUS}" | grep -E 'FATAL|BACKOFF|EXITED|STOPPED|UNKNOWN' || true)"
+        RUNNING_N="$(echo "${WORKER_STATUS}" | grep -c 'RUNNING' || true)"
+        if [ -n "${BROKEN}" ]; then
+            warn "worker(s) not healthy: $(echo "${BROKEN}" | awk '{print $1}' | tr '\n' ' ')— ./deploy/supervisor/workers.sh logs <name>"
+        elif [ "${RUNNING_N}" -lt 6 ]; then
+            warn "only ${RUNNING_N}/6 workers RUNNING (rest still settling?) — re-check: ./deploy/supervisor/workers.sh status"
+        else
+            ok "all 6 workers RUNNING on the new code"
+        fi
     else
         warn "could not read worker status (supervisorctl?) — check manually"
     fi

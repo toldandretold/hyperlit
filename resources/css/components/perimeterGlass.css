@@ -178,6 +178,9 @@ body[data-page="home"] #topRightContainer::after {
   display: none;
   align-items: center;
   justify-content: center;
+  /* Sits above the label below, inside the same 48px box — the button must not
+     change size while busy or it reflows the whole download row. */
+  padding-bottom: 13px;
   font-size: 10px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -187,6 +190,28 @@ body[data-page="home"] #topRightContainer::after {
 
 #download-audiobook.is-busy .audiobook-progress {
   display: flex;
+}
+
+/* "generating" / "narrating" under the glyph — tells the user this bar is the
+   server building the file, NOT the download itself (which is why it can take
+   minutes on a long book). */
+.audiobook-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  display: none;
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-align: center;
+  color: var(--color-text);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+#download-audiobook.is-busy .audiobook-label {
+  display: block;
 }
 
 .download-btn {

@@ -78,6 +78,7 @@ export function initAudiobookDownload(container: HTMLElement, bookId: string): A
   if (!button) return null;
 
   const readout = button.querySelector<HTMLElement>('.audiobook-progress');
+  const label = button.querySelector<HTMLElement>('.audiobook-label');
   let timer: number | null = null;
   let polls = 0;
   let destroyed = false;
@@ -89,10 +90,11 @@ export function initAudiobookDownload(container: HTMLElement, bookId: string): A
     timer = null;
   };
 
-  const setBusy = (busy: boolean, label = ''): void => {
+  const setBusy = (busy: boolean, percent = '', what = ''): void => {
     button.classList.toggle(BUSY_CLASS, busy);
     button.disabled = busy;
-    if (readout) readout.textContent = label;
+    if (readout) readout.textContent = percent;
+    if (label) label.textContent = busy ? what : '';
   };
 
   const triggerDownload = (): void => {
@@ -140,7 +142,14 @@ export function initAudiobookDownload(container: HTMLElement, bookId: string): A
     // reading says otherwise — a single 'buildable' between dispatch and the
     // worker starting must not cancel the download the user asked for.
     const busy = status.generating || status.state === 'building' || downloadWhenReady;
-    setBusy(busy, status.state === 'building' ? `${Math.round(status.progress * 100)}%` : '');
+    // Name the work: a percentage alone reads like a download, and this bar is
+    // the SERVER building the file — which is why a long book takes minutes.
+    const packaging = status.state === 'building' || (downloadWhenReady && !status.generating);
+    setBusy(
+      busy,
+      status.state === 'building' ? `${Math.round(status.progress * 100)}%` : '',
+      status.generating ? 'narrating' : (packaging ? 'generating' : ''),
+    );
 
     if (busy) {
       schedulePoll();
@@ -172,7 +181,7 @@ export function initAudiobookDownload(container: HTMLElement, bookId: string): A
 
     // Not packaged yet: kick off the build and download it when it lands.
     downloadWhenReady = true;
-    setBusy(true, '0%');
+    setBusy(true, '0%', 'generating');
     void (async () => {
       try {
         const csrf = await ensureCsrfToken();

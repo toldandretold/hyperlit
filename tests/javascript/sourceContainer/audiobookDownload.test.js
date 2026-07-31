@@ -55,6 +55,7 @@ function buildDom() {
         <div class="icon-wrapper">
           <svg class="download-icon"></svg>
           <span class="audiobook-progress"></span>
+          <span class="audiobook-label"></span>
         </div>
       </button>
     </div>`;
@@ -169,6 +170,30 @@ describe('busy states', () => {
     expect(button.classList.contains('is-busy')).toBe(true);
     expect(button.disabled).toBe(true);
     expect(button.title).toContain('Narrating');
+  });
+
+  it('names the work under the glyph, so a percentage cannot read as a download', async () => {
+    statusQueue = [status({ state: 'building', progress: 0.36 })];
+    handle = initAudiobookDownload(container, BOOK);
+    await flush();
+
+    expect(container.querySelector('.audiobook-label').textContent).toBe('generating');
+  });
+
+  it('says "narrating" while the book is still being read aloud, not "generating"', async () => {
+    statusQueue = [status({ generating: true })];
+    handle = initAudiobookDownload(container, BOOK);
+    await flush();
+
+    expect(container.querySelector('.audiobook-label').textContent).toBe('narrating');
+  });
+
+  it('clears the label once there is nothing in flight', async () => {
+    statusQueue = [status({ state: 'ready', bytes: 1048576 })];
+    handle = initAudiobookDownload(container, BOOK);
+    await flush();
+
+    expect(container.querySelector('.audiobook-label').textContent).toBe('');
   });
 
   it('shows a percentage while packaging', async () => {
