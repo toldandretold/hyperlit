@@ -149,9 +149,17 @@ export default defineConfig({
                 'resources/css/pages/docuverse.css',
                 'resources/js/docuverse3d/main.ts',
 
-                // Maintainer triage page (standalone, non-SPA, admin-only — /maintainer)
+                // Maintainer triage page (standalone, non-SPA, admin-only — /maintainer/conversion)
                 'resources/css/pages/maintainer.css',
                 'resources/js/maintainer/main.ts',
+
+                // Job-failure triage page (standalone, non-SPA, admin-only — /maintainer/jobs)
+                'resources/css/pages/maintainer-jobs.css',
+                'resources/js/maintainerJobs/main.ts',
+
+                // Storage analysis page (standalone, non-SPA, admin-only — /maintainer/storage)
+                'resources/css/pages/maintainer-storage.css',
+                'resources/js/maintainerStorage/main.ts',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],

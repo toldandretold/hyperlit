@@ -10,7 +10,7 @@ use Illuminate\Console\Command;
  * The maintainer's queue in the terminal: every open conversion_flag (user
  * reports + library:flag-sweep) with artifacts + a suggested action, plus
  * ready-made command lines for the loop. The list logic itself lives in
- * App\Services\Conversion\ReconvertQueue (shared with the /maintainer page).
+ * App\Services\Conversion\ReconvertQueue (shared with the /maintainer/conversion page).
  *
  *   php artisan library:reconvert-queue                        # list
  *   php artisan library:reconvert-queue --resolve=book_x --resolution=reconverted
@@ -71,7 +71,7 @@ class ReconvertQueueCommand extends Command
                 implode(', ', $entry['artifacts']) ?: 'none',
             ));
             $this->line("  → suggested: <options=bold>{$entry['suggested']}</>");
-            $this->line('  triage:     ' . rtrim(config('app.url'), '/') . "/maintainer?book={$bookId}");
+            $this->line('  triage:     ' . rtrim(config('app.url'), '/') . "/maintainer/conversion?book={$bookId}");
             $this->line("  pull case:  tests/conversion/pull_case.sh {$bookId} --corpus");
             $this->line(match ($entry['suggested']) {
                 'reconvert' => "  reconvert:  php artisan library:reconvert-system-version {$bookId}",

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * The /maintainer triage page + its API: admin-only everywhere (the web page
+ * The /maintainer/conversion triage page + its API: admin-only everywhere (the web page
  * 404s for non-admins — its existence isn't advertised), the queue endpoint
  * mirrors library:reconvert-queue via the shared ReconvertQueue service, the
  * original-file endpoint streams the source for the side-by-side view, the
@@ -23,22 +23,22 @@ afterEach(function () {
 
 // ── Gating ──
 
-test('the /maintainer page 404s for guests and non-admins, renders for admins', function () {
-    $this->get('/maintainer')->assertNotFound();
+test('the /maintainer/conversion page 404s for guests and non-admins, renders for admins', function () {
+    $this->get('/maintainer/conversion')->assertNotFound();
 
     $this->loginUser();
-    $this->get('/maintainer')->assertNotFound();
+    $this->get('/maintainer/conversion')->assertNotFound();
 
     $this->loginUser(['is_admin' => true]);
-    $this->get('/maintainer')->assertOk()->assertViewIs('maintainer')->assertSee('Maintainer');
+    $this->get('/maintainer/conversion')->assertOk()->assertViewIs('maintainer')->assertSee('Maintainer');
 });
 
 test('every maintainer API endpoint is admin-gated', function () {
     $this->loginUser(); // authenticated but NOT admin
-    $this->getJson('/api/maintainer/flags')->assertStatus(403);
-    $this->postJson('/api/maintainer/flags/apitest_x/resolve', ['resolution' => 'dismissed'])->assertStatus(403);
-    $this->getJson('/api/maintainer/original/apitest_x')->assertStatus(403);
-    $this->getJson('/api/maintainer/export/apitest_x')->assertStatus(403);
+    $this->getJson('/api/maintainer/conversion/flags')->assertStatus(403);
+    $this->postJson('/api/maintainer/conversion/flags/apitest_x/resolve', ['resolution' => 'dismissed'])->assertStatus(403);
+    $this->getJson('/api/maintainer/conversion/original/apitest_x')->assertStatus(403);
+    $this->getJson('/api/maintainer/conversion/export/apitest_x')->assertStatus(403);
 });
 
 // ── The queue endpoint ──
@@ -54,7 +54,7 @@ test('flags endpoint groups per book with artifacts + suggested action', functio
     file_put_contents("{$dir}/ocr_response.json", '{}');
 
     try {
-        $entry = collect($this->getJson('/api/maintainer/flags')->assertOk()->json('entries'))
+        $entry = collect($this->getJson('/api/maintainer/conversion/flags')->assertOk()->json('entries'))
             ->firstWhere('book', $book);
         expect($entry)->not->toBeNull();
         expect($entry['title'])->toBe('Triage Me');
@@ -72,12 +72,12 @@ test('resolve endpoint closes all open flags for the book', function () {
     ConversionFlag::raise('apitest_mtres', ConversionFlag::SOURCE_USER_REPORT, 'r');
     ConversionFlag::raise('apitest_mtres', ConversionFlag::SOURCE_AUTO_SWEEP, 's');
 
-    $this->postJson('/api/maintainer/flags/apitest_mtres/resolve', ['resolution' => 'reconverted'])
+    $this->postJson('/api/maintainer/conversion/flags/apitest_mtres/resolve', ['resolution' => 'reconverted'])
         ->assertOk()->assertJson(['resolved' => 2]);
 
     expect(ConversionFlag::where('book', 'apitest_mtres')->where('status', 'open')->exists())->toBeFalse();
 
-    $this->postJson('/api/maintainer/flags/apitest_mtres/resolve', ['resolution' => 'nonsense'])
+    $this->postJson('/api/maintainer/conversion/flags/apitest_mtres/resolve', ['resolution' => 'nonsense'])
         ->assertStatus(422);
 });
 
@@ -87,14 +87,14 @@ test('original endpoint streams the PDF inline for the side-by-side view; 404 wh
     $admin = $this->loginUser(['is_admin' => true]);
     $book = $this->makeBook($admin, ['visibility' => 'public']);
 
-    $this->getJson("/api/maintainer/original/{$book}")->assertStatus(404);
+    $this->getJson("/api/maintainer/conversion/original/{$book}")->assertStatus(404);
 
     $dir = resource_path("markdown/{$book}");
     File::ensureDirectoryExists($dir);
     file_put_contents("{$dir}/original.pdf", "%PDF-1.4 fake");
 
     try {
-        $resp = $this->get("/api/maintainer/original/{$book}");
+        $resp = $this->get("/api/maintainer/conversion/original/{$book}");
         $resp->assertOk();
         expect($resp->headers->get('Content-Type'))->toBe('application/pdf');
         expect($resp->headers->get('Content-Disposition'))->toContain('inline');
@@ -111,7 +111,7 @@ test('export endpoint builds and downloads the case bundle', function () {
 
     $tarball = storage_path("app/book-exports/{$book}.tar.gz");
     try {
-        $resp = $this->get("/api/maintainer/export/{$book}");
+        $resp = $this->get("/api/maintainer/conversion/export/{$book}");
         $resp->assertOk();
         expect($resp->headers->get('Content-Disposition'))->toContain("{$book}.tar.gz");
         expect(is_file($tarball))->toBeTrue();

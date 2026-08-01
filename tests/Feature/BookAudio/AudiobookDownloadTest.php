@@ -161,6 +161,21 @@ it('changes the digest when any node is re-narrated, so a stale audiobook can ne
     expect($builder->digestFor($before))->toBe($builder->digestFor($before));
 });
 
+it('changes the digest when the encode bitrate changes', function () {
+    // Otherwise lowering the bitrate silently keeps serving files built at the
+    // old one — the source filenames haven't changed, so nothing else would
+    // invalidate them.
+    $segments = [seg('n0', 'a.mp3'), seg('n1', 'b.mp3')];
+
+    config(['services.audiobook.bitrate' => '32k']);
+    $at32 = app(AudiobookBuilder::class)->digestFor($segments);
+
+    config(['services.audiobook.bitrate' => '48k']);
+    $at48 = app(AudiobookBuilder::class)->digestFor($segments);
+
+    expect($at32)->not->toBe($at48);
+});
+
 it('changes the digest when nodes are reordered or removed', function () {
     $builder = app(AudiobookBuilder::class);
     $base = [seg('n0', 'a.mp3'), seg('n1', 'b.mp3'), seg('n2', 'c.mp3')];

@@ -28,7 +28,7 @@ class ConversionFeedbackMail extends Mailable implements ShouldQueue
         $subject = $rating === 'bad'
             ? "[flagged] Conversion Issue: {$bookId}"
             : "Conversion OK: {$bookId}";
-        $this->data['maintainerUrl'] = rtrim(config('app.url'), '/') . '/maintainer?book=' . $bookId;
+        $this->data['maintainerUrl'] = rtrim(config('app.url'), '/') . '/maintainer/conversion?book=' . $bookId;
 
         $mail = $this->to(config('mail.maintainer_alert'))
                      ->subject($subject)

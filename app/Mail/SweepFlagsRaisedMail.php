@@ -10,7 +10,7 @@ use Illuminate\Queue\SerializesModels;
 /**
  * ONE summary email per `library:flag-sweep` run that raised NEW flags —
  * deliberately not one email per book (a first sweep over a big corpus can
- * flag dozens). Each entry deep-links to the /maintainer triage page.
+ * flag dozens). Each entry deep-links to the /maintainer/conversion triage page.
  */
 class SweepFlagsRaisedMail extends Mailable implements ShouldQueue
 {
@@ -29,7 +29,7 @@ class SweepFlagsRaisedMail extends Mailable implements ShouldQueue
             ->subject(sprintf('[flagged] Sweep raised %d bad conversion(s)', count($this->flagged)))
             ->view('emails.sweep-flags-raised', [
                 'flagged'       => $this->flagged,
-                'maintainerUrl' => "{$base}/maintainer",
+                'maintainerUrl' => "{$base}/maintainer/conversion",
                 'base'          => $base,
             ]);
     }

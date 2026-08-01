@@ -120,7 +120,7 @@ return [
     |
     | Where conversion-quality alerts land: user "report an issue" feedback
     | (ConversionFeedbackMail) and the library:flag-sweep summary
-    | (SweepFlagsRaisedMail), both linking to the /maintainer triage page.
+    | (SweepFlagsRaisedMail), both linking to the /maintainer/conversion triage page.
     |
     */
 

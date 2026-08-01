@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
 // =============================================================================
 
 test('X-Frame-Options header prevents cross-origin clickjacking', function () {
-    // SAMEORIGIN, not DENY: the /maintainer triage page frames the reader
+    // SAMEORIGIN, not DENY: the /maintainer/conversion triage page frames the reader
     // (same-origin). The clickjacking threat — an ATTACKER page framing us —
     // is cross-origin and remains blocked.
     $response = $this->get('/');

@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -52,6 +53,11 @@ class AuthController extends Controller
                 'unique:pgsql_admin.users,name',
                 'alpha_dash', // Allows alphanumeric, hyphens, and underscores only
                 'regex:/^[a-zA-Z0-9][a-zA-Z0-9_-]*[a-zA-Z0-9]$/', // Cannot start/end with - or _
+                // A username is reachable at /{name} via the catch-all, so a
+                // name that matches a root route is shadowed by it. Same list
+                // book slugs use — config/reserved-routes.php, gated by
+                // tests/Feature/Routing/ReservedRoutesTest.
+                Rule::notIn(config('reserved-routes')),
             ],
             'email' => 'required|string|email|max:255|unique:pgsql_admin.users,email',
             'password' => 'required|string|min:8',
@@ -61,6 +67,7 @@ class AuthController extends Controller
             'name.min' => 'Username must be at least 3 characters.',
             'name.max' => 'Username must be 30 characters or less.',
             'name.unique' => 'This username is already taken.',
+            'name.not_in' => 'This username is reserved and cannot be used.',
         ]);
 
         // Use admin connection for registration - trusted operation that bypasses RLS

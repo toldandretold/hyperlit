@@ -96,7 +96,7 @@ class FlagSweepCommand extends Command
             }
         }
 
-        // ONE summary alert per run (never per book) — links to /maintainer.
+        // ONE summary alert per run (never per book) — links to /maintainer/conversion.
         if ($newFlags !== []) {
             try {
                 \Illuminate\Support\Facades\Mail::send(new \App\Mail\SweepFlagsRaisedMail($newFlags));

@@ -1,16 +1,16 @@
 # The maintainer loop — triaging and fixing bad conversions
 
-How a badly-converted book goes from "reader complains" to "fixed forever": flag → triage on /maintainer → pull the case to dev → capture a regression fixture → fix the conversion code → reconvert on prod with annotations preserved → resolve the flag. Each fixed book permanently hardens `tests/conversion/`, so the same failure class cannot come back.
+How a badly-converted book goes from "reader complains" to "fixed forever": flag → triage on /maintainer/conversion → pull the case to dev → capture a regression fixture → fix the conversion code → reconvert on prod with annotations preserved → resolve the flag. Each fixed book permanently hardens `tests/conversion/`, so the same failure class cannot come back.
 
 ## How books get flagged
 
-- A reader presses "report an issue" on a book (source panel) with a bad rating → an open `conversion_flags` row + a `[flagged]` email to `config('mail.maintainer_alert')` (default fml@hyperlit.io) with a link to `/maintainer?book=<id>`.
+- A reader presses "report an issue" on a book (source panel) with a bad rating → an open `conversion_flags` row + a `[flagged]` email to `config('mail.maintainer_alert')` (default fml@hyperlit.io) with a link to `/maintainer/conversion?book=<id>`.
 - `php artisan library:flag-sweep` (run it on prod after big harvests; `--dry-run` first) detects garbage signatures — CAPTCHA/block pages saved as books, near-empty conversions, OCR noise — and raises `auto_sweep` flags. One summary email per run, only for NEW flags.
 - Manually: `App\Models\ConversionFlag::raise($book, 'manual', 'reason')` in tinker.
 
-## Triage on /maintainer (admin-only)
+## Triage on /maintainer/conversion (admin-only)
 
-Open `/maintainer` (admins = `users.is_admin`; everyone else gets a 404). Left: the flag queue with suggested actions. Middle: the flagged book in the real reader. Right: the original source file (PDF/MD/HTML render inline). Bottom bar actions:
+Open `/maintainer/conversion` (admins = `users.is_admin`; everyone else gets a 404). Left: the flag queue with suggested actions. Middle: the flagged book in the real reader. Right: the original source file (PDF/MD/HTML render inline). Bottom bar actions:
 
 - **✓ resolve / ✕ dismiss** — the conversion is actually fine, or the flag is noise. Done.
 - **↻ reconvert** — the conversion code was already fixed (or the book just needs a re-run through current code). Runs with live progress; hyperlights/hypercites re-attach to the new nodes automatically (orphans are kept and stamped, never deleted — see `reattach_report.json` in the book's markdown dir). Then resolve.
@@ -44,7 +44,11 @@ Fixture auto-capture needs `ocr_response.json` or `debug_converted.html` in the 
 
 ## Close the loop (on prod)
 
-Deploy the fix (`migrate` if needed, `queue:restart` always), then back on `/maintainer`: press **↻ reconvert** on the book, watch it complete, check the annotations survived, press **✓ resolve**. Or from the terminal: `php artisan library:reconvert-system-version <book>` and `php artisan library:reconvert-queue --resolve=<book> --resolution=reconverted`.
+Deploy the fix (`migrate` if needed, `queue:restart` always), then back on `/maintainer/conversion`: press **↻ reconvert** on the book, watch it complete, check the annotations survived, press **✓ resolve**. Or from the terminal: `php artisan library:reconvert-system-version <book>` and `php artisan library:reconvert-queue --resolve=<book> --resolution=reconverted`.
+
+## The sibling loop: `/maintainer/jobs`
+
+`/maintainer` is a namespace, not a page — it is prefixed so no book can ever be shadowed by it (see `config/reserved-routes.php` and its gate, `tests/Feature/Routing/ReservedRoutesTest.php`). `/maintainer/conversion` is this loop; `/maintainer/jobs` is the same shape applied to **failed queue jobs**: failures grouped by job class + normalised exception (87 rows are usually ~5 bugs), with per-group retry, forget, and a downloadable case bundle whose README is the prompt. Its drop-folder is `tests/failures/cases/` and its dev command is `php artisan failure:import-cases --downloads` — deliberately the same muscle memory as `book:import-cases`. A data-shaped job failure (one book's content breaks an assumption) hands off to THIS loop via `book:export`.
 
 ## Where things live
 

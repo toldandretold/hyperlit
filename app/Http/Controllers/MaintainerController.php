@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 
 /**
- * The /maintainer triage page — the human-in-the-loop seat of the
+ * The /maintainer/conversion triage page — the human-in-the-loop seat of the
  * bad-conversion pipeline. Left: open conversion_flags; middle: the flagged
  * book in the REAL reader (same-origin iframe — see SecurityHeaders'
  * SAMEORIGIN note); right: the original source file (browser-native PDF
@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\File;
  */
 class MaintainerController extends Controller
 {
-    /** GET /maintainer — the standalone triage page (docuverse pattern). */
+    /** GET /maintainer/conversion — the standalone triage page (docuverse pattern). */
     public function show(Request $request)
     {
         $user = $request->user();
@@ -34,13 +34,13 @@ class MaintainerController extends Controller
         ]);
     }
 
-    /** GET /api/maintainer/flags — the queue, grouped per book. */
+    /** GET /api/maintainer/conversion/flags — the queue, grouped per book. */
     public function flags(ReconvertQueue $queue)
     {
         return response()->json(['entries' => $queue->openFlagsGrouped()]);
     }
 
-    /** POST /api/maintainer/flags/{book}/resolve {resolution} */
+    /** POST /api/maintainer/conversion/flags/{book}/resolve {resolution} */
     public function resolve(Request $request, string $book)
     {
         $data = $request->validate([
@@ -53,7 +53,7 @@ class MaintainerController extends Controller
     }
 
     /**
-     * GET /api/maintainer/original/{book} — stream the book's original source
+     * GET /api/maintainer/conversion/original/{book} — stream the book's original source
      * file for the right-hand column. PDFs/HTML/MD render natively in an
      * iframe; binary formats download.
      */
@@ -90,7 +90,7 @@ class MaintainerController extends Controller
     }
 
     /**
-     * GET /api/maintainer/export/{book} — build the case bundle (book:export)
+     * GET /api/maintainer/conversion/export/{book} — build the case bundle (book:export)
      * and stream it down: the "⤓ dev bundle" button. The same tarball
      * pull_case.sh fetches over ssh.
      */

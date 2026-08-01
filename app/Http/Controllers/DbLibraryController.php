@@ -1248,9 +1248,13 @@ class DbLibraryController extends Controller
                 ], 422);
             }
 
-            // Check collision with reserved routes
-            $reserved = ['based', 'u', 'api', 'db', 'email', 'home', 'login', 'register', 'reset-password', 'import-file', 'offline', 'stripe'];
-            if (in_array($slug, $reserved)) {
+            // Check collision with reserved routes. The list lives in
+            // config/reserved-routes.php and is gated by
+            // tests/Feature/Routing/ReservedRoutesTest — a root route with no
+            // entry there fails the suite, which is what stops this drifting
+            // out of sync with the route table (it used to be a local array
+            // here, and never learned about /q, /3d or /maintainer).
+            if (in_array($slug, config('reserved-routes'), true)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'This slug is reserved and cannot be used',

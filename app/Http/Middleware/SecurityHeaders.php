@@ -16,7 +16,7 @@ class SecurityHeaders
         $response = $next($request);
 
         // Prevent clickjacking by disallowing CROSS-ORIGIN framing. SAMEORIGIN
-        // (not DENY): the /maintainer triage page frames the reader in an
+        // (not DENY): the /maintainer/conversion triage page frames the reader in an
         // iframe to show a flagged book next to its original PDF — same-origin
         // framing is ours by definition; the clickjacking threat (an attacker
         // page framing us) is cross-origin and stays blocked.
@@ -37,7 +37,7 @@ class SecurityHeaders
         // WITHOUT risking the SPA or local Vite dev (public/hot) breaking:
         //   - frame-ancestors 'self' : clickjacking protection at the CSP layer
         //                              (complements X-Frame-Options above; 'self'
-        //                              not 'none' so /maintainer can frame the reader).
+        //                              not 'none' so /maintainer/conversion can frame the reader).
         //   - base-uri 'self'        : blocks an injected <base> tag from
         //                              hijacking every relative URL on the page.
         //   - object-src 'none'      : kills <object>/<embed> plugin-based XSS.

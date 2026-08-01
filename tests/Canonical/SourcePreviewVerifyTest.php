@@ -55,7 +55,12 @@ test('preview extracts a DOI from the url when the doi column is empty', functio
         $m->shouldReceive('extractDoi')->andReturnUsing(
             fn ($text) => preg_match('#(10\.\d{4,9}/[^\s]+)#', (string) $text, $mm) ? $mm[1] : null,
         );
-        $m->shouldReceive('fetchByDoi')->with('10.1080/13563467.2020.1841143')->once()
+        // preview() fetches with userFacing: true (fail fast on 429 while a
+        // human waits), so the arg list is (doi, true) — a one-arg `with()`
+        // silently stops matching, the DOI step returns null, and the flow
+        // falls through to the broad search. Match both args so this test keeps
+        // proving the DOI extracted from the url is the one fetched.
+        $m->shouldReceive('fetchByDoi')->with('10.1080/13563467.2020.1841143', true)->once()
             ->andReturn(canonvNormalisedWork(['title' => 'CanonV Real Title', 'doi' => '10.1080/13563467.2020.1841143']));
     });
 

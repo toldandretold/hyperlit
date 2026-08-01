@@ -145,7 +145,13 @@ return [
     'audiobook' => [
         'ffmpeg' => env('FFMPEG_BINARY', 'ffmpeg'),
         'ffprobe' => env('FFPROBE_BINARY', 'ffprobe'),
-        'bitrate' => env('AUDIOBOOK_BITRATE', '48k'), // AAC; source is ~58kbps mp3
+        // AAC mono. The source is only 24kHz mono (~58kbps VBR mp3), so a higher
+        // rate buys nothing audible — 32k is about what commercial audiobooks
+        // ship spoken word at, and it is 30% smaller than 48k. Measured on a
+        // real book: 48k→31MB, 40k→25MB, 32k→21MB, 24k→16MB. Matters because the
+        // .m4b is a DERIVED copy on top of the per-node mp3s it is built from
+        // (~86% storage overhead per book that anyone downloads).
+        'bitrate' => env('AUDIOBOOK_BITRATE', '32k'),
         'timeout' => 3000,                            // seconds, under the job's 3600
     ],
 

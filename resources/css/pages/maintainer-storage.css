@@ -1,0 +1,274 @@
+/* Storage analysis page — standalone non-SPA (maintainer-storage.blade.php).
+   Entry-only file: @vite'd by the blade, never an @import target (cssStructure gate 3).
+   Theme parity with the reader via the shared variable/theme files.
+
+   Chart colours are the validated categorical slots (dataviz skill,
+   scripts/validate_palette.js — light and dark both PASS). Light mode carries a
+   contrast WARN on three slots, whose required relief is that every segment is
+   ALSO named with its value in the always-visible ranked list below the chart —
+   identity is never colour-alone here. Do not re-order or re-map these: colour
+   follows the category, never its rank. */
+
+@import url('../theme/variables.css');
+@import url('../theme/light-theme.css');
+@import url('../theme/sepia-theme.css');
+
+:root {
+  --ms-cat-1: #2a78d6; /* documents */
+  --ms-cat-2: #eb6834; /* images */
+  --ms-cat-3: #1baf7a; /* audio */
+  --ms-cat-4: #eda100; /* cache */
+  --ms-cat-5: #e87ba4; /* legacy_images */
+  --ms-cat-6: #008300; /* database */
+  --ms-cat-7: #4a3aa7; /* other */
+  --ms-track: color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+
+body.theme-dark {
+  --ms-cat-1: #3987e5;
+  --ms-cat-2: #d95926;
+  --ms-cat-3: #199e70;
+  --ms-cat-4: #c98500;
+  --ms-cat-5: #d55181;
+  --ms-cat-6: #008300;
+  --ms-cat-7: #9085e9;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--color-background, #221f20);
+  color: var(--color-text, #cbcccc);
+  font-family: system-ui, sans-serif;
+}
+
+/* ── Header ── */
+.ms-header {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 10px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+}
+.ms-header h1 { margin: 0; font-size: 1.05rem; }
+.ms-header-sub { color: var(--color-text-faint, #888); font-size: 0.85rem; }
+.ms-header-nav { margin-left: auto; display: flex; gap: 14px; }
+.ms-header a { color: var(--color-text-faint, #888); text-decoration: none; font-size: 0.85rem; }
+.ms-header a:hover { color: var(--color-text); }
+#ms-rescan,
+#ms-help-toggle {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-text) 25%, transparent);
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+#ms-rescan[disabled] { opacity: 0.5; cursor: default; }
+
+/* ── Layout ── */
+.ms-main { max-width: 1000px; margin: 0 auto; padding: 18px; }
+.ms-section { margin-bottom: 30px; }
+.ms-section h2 {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-faint, #888);
+}
+.ms-section-head { display: flex; align-items: baseline; gap: 12px; }
+.ms-section-head h2 { flex: 0 0 auto; }
+.ms-section-head button {
+  margin-left: auto;
+  font: inherit;
+  color: var(--color-text-faint, #888);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.ms-hero {
+  margin-left: auto;
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ms-note {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  color: var(--color-text-faint, #888);
+}
+.ms-note code,
+.ms-help-panel code {
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* ── Stacked bar: 2px surface gaps between segments (mark spec) ── */
+.ms-stack {
+  display: flex;
+  gap: 2px;
+  height: 34px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--ms-track);
+}
+.ms-seg {
+  min-width: 2px;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+.ms-seg:hover,
+.ms-seg:focus-visible { filter: brightness(1.15); }
+.ms-seg:first-child { border-radius: 4px 0 0 4px; }
+.ms-seg:last-child { border-radius: 0 4px 4px 0; }
+
+.ms-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 10px;
+  font-size: 0.8rem;
+}
+.ms-legend-item { display: flex; align-items: center; gap: 6px; }
+.ms-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+.ms-legend-name { color: var(--color-text); }
+.ms-legend-val { color: var(--color-text-faint, #888); font-variant-numeric: tabular-nums; }
+
+/* ── Meters (a single ratio against a limit) ── */
+.ms-meters { display: flex; flex-direction: column; gap: 14px; }
+.ms-meter-top {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 5px;
+}
+.ms-meter-label { color: var(--color-text); }
+.ms-meter-val { margin-left: auto; color: var(--color-text-faint, #888); font-variant-numeric: tabular-nums; }
+.ms-meter-track {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--ms-track);
+  overflow: hidden;
+}
+.ms-meter-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: var(--ms-cat-1);
+}
+.ms-meter-fill.ms-warn { background: var(--ms-cat-4); }
+.ms-meter-fill.ms-crit { background: var(--ms-cat-2); }
+
+/* ── Ranked rows ── */
+.ms-rows { display: flex; flex-direction: column; gap: 3px; }
+.ms-row {
+  display: grid;
+  grid-template-columns: 190px 1fr 92px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: none;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  font-family: inherit;
+  width: 100%;
+}
+button.ms-row { cursor: pointer; }
+button.ms-row:hover,
+button.ms-row:focus-visible { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.ms-row-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-row-sub { color: var(--color-text-faint, #888); font-size: 0.75rem; }
+.ms-row-track { height: 8px; border-radius: 4px; background: var(--ms-track); overflow: hidden; }
+.ms-row-fill { height: 100%; border-radius: 4px; background: var(--ms-cat-1); }
+.ms-row-val {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.ms-tag {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 20px;
+  padding: 1px 7px;
+  margin-left: 6px;
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+  color: var(--color-text-faint, #888);
+}
+.ms-tag-orphan { background: color-mix(in srgb, #eb6834 30%, transparent); color: var(--color-text); }
+
+/* ── Orphans ── */
+.ms-orphans { border: 1px solid color-mix(in srgb, #eb6834 40%, transparent); border-radius: 10px; padding: 14px 16px; }
+.ms-cmd {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  font-size: 0.8rem;
+  overflow-x: auto;
+}
+.ms-empty { color: var(--color-text-faint, #888); font-size: 0.9rem; }
+
+/* ── Status line ── */
+.ms-status {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.85rem;
+  background: color-mix(in srgb, var(--color-background) 92%, var(--color-text));
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-radius: 8px;
+  padding: 7px 14px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+.ms-status.ms-visible { opacity: 1; }
+
+/* ── Help panel ── */
+.ms-help-panel {
+  position: fixed;
+  right: 18px;
+  top: 54px;
+  width: min(520px, calc(100vw - 36px));
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  background: var(--color-background, #221f20);
+  border: 1px solid color-mix(in srgb, var(--color-text) 25%, transparent);
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.ms-help-panel h2 { display: flex; align-items: center; margin: 0 0 8px; }
+.ms-help-panel h2 button {
+  margin-left: auto;
+  font: inherit;
+  color: var(--color-text-faint, #888);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.ms-help-panel ul { margin: 0; padding-left: 18px; }
+.ms-help-panel li { margin-bottom: 6px; }
+.ms-help-doc { color: var(--color-text-faint, #888); }
+
+@media (max-width: 640px) {
+  .ms-header { flex-wrap: wrap; }
+  .ms-row { grid-template-columns: 130px 1fr 78px; }
+}

@@ -7,6 +7,7 @@ use App\Services\BookAudioStore;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 
 /**
@@ -189,6 +190,9 @@ it('still calls a book generating while the run is warm', function () {
 // ---------------------------------------------------------------------------
 
 it('takes over a stale lock instead of 409ing against a run that no longer exists', function () {
+    // phpunit.xml pins QUEUE_CONNECTION=sync, so an un-faked dispatch would run
+    // the job INLINE and call the real TTS provider over the network.
+    Queue::fake();
     $owner = $this->seedUser(['credits' => 10, 'debits' => 0, 'status' => 'budget']);
     $book = stalledBook();
     $this->seedLibrary([

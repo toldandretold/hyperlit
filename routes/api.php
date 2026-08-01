@@ -514,17 +514,40 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::post('/conversion-tests/upload-fixture', [\App\Http\Controllers\ConversionTestController::class, 'uploadFixture'])
         ->middleware('throttle:5,1');
 
-    // Maintainer triage page API (/maintainer): the bad-conversion queue,
-    // the original source file for the side-by-side view, the dev case
-    // bundle, and flag resolution.
-    Route::get('/maintainer/flags', [\App\Http\Controllers\MaintainerController::class, 'flags']);
-    Route::post('/maintainer/flags/{book}/resolve', [\App\Http\Controllers\MaintainerController::class, 'resolve'])
+    // Maintainer triage APIs, one group per page (/maintainer/conversion,
+    // /maintainer/jobs). Same shape as the web routes so the two namespaces
+    // stay legible together.
+
+    // Conversion triage: the bad-conversion queue, the original source file
+    // for the side-by-side view, the dev case bundle, and flag resolution.
+    Route::get('/maintainer/conversion/flags', [\App\Http\Controllers\MaintainerController::class, 'flags']);
+    Route::post('/maintainer/conversion/flags/{book}/resolve', [\App\Http\Controllers\MaintainerController::class, 'resolve'])
         ->where('book', '[A-Za-z0-9_-]+');
-    Route::get('/maintainer/original/{book}', [\App\Http\Controllers\MaintainerController::class, 'original'])
+    Route::get('/maintainer/conversion/original/{book}', [\App\Http\Controllers\MaintainerController::class, 'original'])
         ->where('book', '[A-Za-z0-9_-]+');
-    Route::get('/maintainer/export/{book}', [\App\Http\Controllers\MaintainerController::class, 'export'])
+    Route::get('/maintainer/conversion/export/{book}', [\App\Http\Controllers\MaintainerController::class, 'export'])
         ->where('book', '[A-Za-z0-9_-]+')
         ->middleware('throttle:10,1');
+
+    // Job-failure triage: failures grouped by what actually broke, queue
+    // depth, and the per-group actions (retry / forget / case bundle).
+    Route::get('/maintainer/jobs/failures', [\App\Http\Controllers\Maintainer\JobsController::class, 'failures']);
+    Route::post('/maintainer/jobs/seen', [\App\Http\Controllers\Maintainer\JobsController::class, 'markSeen']);
+    Route::post('/maintainer/jobs/{key}/retry', [\App\Http\Controllers\Maintainer\JobsController::class, 'retry'])
+        ->where('key', '[a-f0-9]{12}');
+    Route::delete('/maintainer/jobs/{key}', [\App\Http\Controllers\Maintainer\JobsController::class, 'forget'])
+        ->where('key', '[a-f0-9]{12}');
+    Route::get('/maintainer/jobs/{key}/export', [\App\Http\Controllers\Maintainer\JobsController::class, 'export'])
+        ->where('key', '[a-f0-9]{12}')
+        ->middleware('throttle:10,1');
+
+    // Storage analysis: the latest snapshot, the per-category drill-down, and a
+    // manual rescan (throttled — it walks ~70k files).
+    Route::get('/maintainer/storage/summary', [\App\Http\Controllers\Maintainer\StorageController::class, 'summary']);
+    Route::get('/maintainer/storage/detail/{category}', [\App\Http\Controllers\Maintainer\StorageController::class, 'detail'])
+        ->where('category', '[a-z_]+');
+    Route::post('/maintainer/storage/rescan', [\App\Http\Controllers\Maintainer\StorageController::class, 'rescan'])
+        ->middleware('throttle:6,1');
 });
 
 // Snapshots endpoint — outside author middleware so public book readers can see version history

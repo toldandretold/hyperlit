@@ -1,0 +1,271 @@
+/* Job-failure triage page — standalone non-SPA (maintainer-jobs.blade.php).
+   Entry-only file: @vite'd by the blade, never an @import target (cssStructure gate 3).
+   Theme parity with the reader via the shared variable/theme files. */
+
+@import url('../theme/variables.css');
+@import url('../theme/light-theme.css');
+@import url('../theme/sepia-theme.css');
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--color-background, #221f20);
+  color: var(--color-text, #cbcccc);
+  font-family: system-ui, sans-serif;
+}
+
+/* ── Header ── */
+.mj-header {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 10px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+}
+.mj-header h1 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.mj-header-sub {
+  color: var(--color-text-faint, #888);
+  font-size: 0.85rem;
+}
+.mj-header-nav {
+  margin-left: auto;
+  display: flex;
+  gap: 14px;
+}
+.mj-header a {
+  color: var(--color-text-faint, #888);
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.mj-header a:hover { color: var(--color-text); }
+#mj-help-toggle {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-text) 25%, transparent);
+  border-radius: 6px;
+  padding: 2px 9px;
+  cursor: pointer;
+}
+
+/* ── Layout ── */
+.mj-main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 18px;
+}
+.mj-main h2 {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-faint, #888);
+}
+
+/* ── Queue depth ── */
+.mj-queues { margin-bottom: 26px; }
+.mj-queues-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mj-queue {
+  border: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+.mj-queue-name {
+  color: var(--color-text-faint, #888);
+  margin-right: 8px;
+}
+.mj-queue-count { font-weight: 600; }
+.mj-queue.mj-idle { opacity: 0.55; }
+.mj-queues-note {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  color: var(--color-text-faint, #888);
+}
+.mj-queues-note code,
+.mj-help-doc code {
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* ── Failure groups ── */
+.mj-groups-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mj-groups-head h2 { flex: 0 0 auto; }
+#mj-mark-seen {
+  margin-left: auto;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--color-text-faint, #888);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-radius: 6px;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+#mj-mark-seen:hover { color: var(--color-text); }
+
+.mj-group {
+  border: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.mj-group.mj-new {
+  border-color: color-mix(in srgb, #4eacae 55%, transparent);
+}
+
+.mj-group-top {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.mj-group-job {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.mj-count {
+  font-size: 0.78rem;
+  color: var(--color-text-faint, #888);
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-radius: 20px;
+  padding: 1px 8px;
+}
+.mj-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: 20px;
+  padding: 2px 8px;
+}
+.mj-badge-new {
+  background: color-mix(in srgb, #4eacae 30%, transparent);
+  color: var(--color-text);
+}
+.mj-badge-paid {
+  background: color-mix(in srgb, #d99a3a 28%, transparent);
+  color: var(--color-text);
+}
+.mj-group-when {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: var(--color-text-faint, #888);
+}
+
+.mj-group-msg {
+  margin: 8px 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--color-text) 85%, transparent);
+  overflow-wrap: anywhere;
+}
+.mj-group-books {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  color: var(--color-text-faint, #888);
+}
+.mj-group-books a { color: inherit; }
+
+.mj-group-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.mj-group-actions button {
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-text) 22%, transparent);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.mj-group-actions button:hover {
+  border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+.mj-group-actions button[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mj-empty {
+  color: var(--color-text-faint, #888);
+  font-size: 0.9rem;
+}
+
+/* ── Status line ── */
+.mj-status {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.85rem;
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-background) 92%, var(--color-text));
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-radius: 8px;
+  padding: 7px 14px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+.mj-status.mj-visible { opacity: 1; }
+
+/* ── Help panel ── */
+.mj-help-panel {
+  position: fixed;
+  right: 18px;
+  top: 54px;
+  width: min(480px, calc(100vw - 36px));
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  background: var(--color-background, #221f20);
+  border: 1px solid color-mix(in srgb, var(--color-text) 25%, transparent);
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.mj-help-panel h2 {
+  display: flex;
+  align-items: center;
+  margin: 0 0 8px;
+}
+.mj-help-panel h2 button {
+  margin-left: auto;
+  font: inherit;
+  color: var(--color-text-faint, #888);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.mj-help-panel ol { margin: 0; padding-left: 20px; }
+.mj-help-panel li { margin-bottom: 7px; }
+.mj-help-panel code {
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+}
+.mj-help-doc { color: var(--color-text-faint, #888); }
+
+@media (max-width: 640px) {
+  .mj-header { flex-wrap: wrap; }
+  .mj-group-when { margin-left: 0; width: 100%; }
+}

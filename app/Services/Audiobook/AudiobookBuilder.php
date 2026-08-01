@@ -14,9 +14,14 @@ use Symfony\Component\Process\Process;
  * Why m4b and not a concatenated mp3: m4b (AAC in an MP4 container) is the
  * actual audiobook format — Apple Books, Audiobookshelf, BookPlayer, Voice and
  * friends read its chapter list and remember your place. An mp3 imports into
- * Apple Books as *music* with no chapter UI at all. It also comes out ~15%
- * smaller. The price is an AAC re-encode, which is why this runs in a queue job
- * and the result is cached.
+ * Apple Books as *music* with no chapter UI at all. At 32kbps AAC it also lands
+ * ~40% smaller than the mp3s it is built from. The price is a re-encode, which
+ * is why this runs in a queue job and the result is cached.
+ *
+ * NOTE it is a DERIVED copy: the per-node mp3s remain the source of truth and
+ * the playback format, so every cached .m4b is real duplicated storage (~60% of
+ * the source on top of it at 32k). Worth pruning if disk ever gets tight —
+ * rebuilding is only ~133x realtime.
  *
  * Chapters come from the book's own h1/h2 nodes, which is exactly right: those
  * headings are narrated too (SpeakableText reads them), so each chapter marker
@@ -60,10 +65,21 @@ class AudiobookBuilder
      * filenames means ANY regeneration (which renames files to
      * {node_id}-{newhash8}.mp3), insertion, or deletion produces a new key —
      * so a stale audiobook can never be served, with no explicit invalidation.
+     *
+     * The ENCODE SETTINGS are part of the key too: without them, changing the
+     * bitrate would silently keep serving files built at the old one, because
+     * the source filenames haven't changed.
      */
     public function digestFor(array $segments): string
     {
-        return substr(hash('sha256', implode("\n", array_column($segments, 'filename'))), 0, 16);
+        $input = implode("\n", array_column($segments, 'filename'))."\n@".$this->bitrate();
+
+        return substr(hash('sha256', $input), 0, 16);
+    }
+
+    private function bitrate(): string
+    {
+        return (string) config('services.audiobook.bitrate', '32k');
     }
 
     public function filenameFor(string $digest): string
@@ -296,7 +312,7 @@ class AudiobookBuilder
             '-f', 'concat', '-safe', '0', '-i', "{$work}/list.txt",
             '-i', "{$work}/meta.txt", '-map_metadata', '1',
             '-c:a', 'aac',
-            '-b:a', (string) config('services.audiobook.bitrate', '48k'),
+            '-b:a', $this->bitrate(),
             // Match the source (Kokoro is 24kHz mono) so this is a straight
             // transcode with no resampling or channel work.
             '-ar', '24000', '-ac', '1',

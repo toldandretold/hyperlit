@@ -54,6 +54,7 @@ It stops at the failing step and prints exactly what already happened to prod �
 
 - `hw status` → are all six workers RUNNING?
 - `hw backlog` → what's queued, what's reserved, how many failed.
+- **`/maintainer/jobs`** (admin-only, in the browser) → the failed jobs themselves, grouped by what actually broke rather than listed row by row, with per-group retry / forget / downloadable case bundle. `hw backlog` tells you a number; this tells you the story behind it.
 - `hw health` → `queue:probe` (topology) + `citation:doctor --fast` (external deps).
 - `hw logs citation -f` → tail one worker.
 - Site looks impossibly stale despite a green deploy? Check the CDN before blaming the server: `curl -sD - https://hyperlit.io/sw.js | grep -i 'cf-cache-status\|last-modified'`. A `HIT` with an old `last-modified` is Cloudflare — Purge Everything unsticks it, and `/sw.js` must have a Bypass-cache rule. See `docs/deploy.md` §Cloudflare.

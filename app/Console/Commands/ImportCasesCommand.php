@@ -15,7 +15,7 @@ use Symfony\Component\Process\Process;
  * tests/conversion/add_fixture.py, then park the tarball in cases/ingested/.
  *
  * --downloads additionally sweeps ~/Downloads for valid bundles (the
- * /maintainer "⤓ dev bundle" button saves there — browsers can't choose the
+ * /maintainer/conversion "⤓ dev bundle" button saves there — browsers can't choose the
  * save path) and pulls them into the drop-folder first.
  *
  * See tests/conversion/cases/README.md — the contract this command serves.

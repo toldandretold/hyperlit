@@ -70,6 +70,16 @@ function makeMode() {
 
 beforeEach(() => {
   localStorage.clear();
+  // NO test may reach the real network. `_ensureShelvesLoaded()` fires on open
+  // and on shelf-scope changes, so an unstubbed fetch escapes to
+  // localhost:3000; the connection is refused asynchronously and the rejection
+  // surfaces as an unhandled error attributed to whichever test happens to be
+  // running when it lands. A benign default here makes that impossible —
+  // individual tests still override it with their own stub.
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ shelves: [] }),
+  }));
 });
 
 afterEach(() => {

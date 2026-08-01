@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\File;
  * The reconvert queue's shared brain — open conversion_flags grouped per
  * book, joined to the library row, with on-disk artifact availability and a
  * suggested action. Two consumers: `library:reconvert-queue` (terminal) and
- * the /maintainer triage page (MaintainerController API).
+ * the /maintainer/conversion triage page (MaintainerController API).
  */
 class ReconvertQueue
 {

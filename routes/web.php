@@ -55,10 +55,34 @@ Route::get('/{book}/AIreview', function (Request $request, $book) {
 Route::get('/dev/conversion-tests', [App\Http\Controllers\ConversionTestController::class, 'dashboard'])
     ->name('conversion-tests.dashboard');
 
-// Maintainer triage page (admin-only — checked in controller, non-admins 404).
-// Flagged books | live reader iframe | original PDF, side by side.
-Route::get('/maintainer', [App\Http\Controllers\MaintainerController::class, 'show'])
-    ->name('maintainer.show');
+// /maintainer/* — the reserved namespace for operator triage pages (admin-only,
+// checked in-controller so non-admins 404 and the pages aren't advertised).
+// PREFIXED for the same reason as /3d/ below: every one-segment root route
+// shadows a book of that name via the /{identifier} catch-all, so only the bare
+// word "maintainer" is spent (and it's reserved in config/reserved-routes.php)
+// while the pages themselves live one segment deeper, out of book-URL space.
+Route::prefix('maintainer')->group(function () {
+    // Bare /maintainer keeps working: already-sent flag emails and
+    // library:flag-sweep output carry ?book=<id> deep links, and
+    // Route::redirect() would DROP the query string — so re-append it.
+    Route::get('/', function (Request $request) {
+        $qs = $request->getQueryString();
+
+        return redirect('/maintainer/conversion' . ($qs ? "?{$qs}" : ''), 301);
+    })->name('maintainer.show');
+
+    // Flagged books | live reader iframe | original PDF, side by side.
+    Route::get('/conversion', [App\Http\Controllers\MaintainerController::class, 'show'])
+        ->name('maintainer.conversion');
+
+    // Failed queue jobs, grouped by what actually broke.
+    Route::get('/jobs', [App\Http\Controllers\Maintainer\JobsController::class, 'show'])
+        ->name('maintainer.jobs');
+
+    // What we're storing, and how much of it is waste.
+    Route::get('/storage', [App\Http\Controllers\Maintainer\StorageController::class, 'show'])
+        ->name('maintainer.storage');
+});
 
 // File import route - requires authentication (logged in or valid anonymous session)
 Route::post('/import-file', [App\Http\Controllers\ImportController::class, 'store'])
@@ -377,17 +401,13 @@ Route::get('/{identifier}', function (Request $request, $identifier) {
     // Try exact match first
     $user = User::where('name', $identifier)->first();
 
-    // If no exact match, try sanitized match (handles usernames with spaces)
+    // If no exact match, try sanitized match (handles usernames with spaces:
+    // the URL form has them stripped). Done as ONE indexed query — this used
+    // to load every user and compare in PHP, which meant each book-by-slug
+    // page load walked the whole users table. Index:
+    // users_name_nospace_idx on (replace(name,' ','')).
     if (! $user) {
-        $users = User::all();
-        foreach ($users as $potentialUser) {
-            $sanitizedDbName = str_replace(' ', '', $potentialUser->name);
-            $sanitizedIdentifier = str_replace(' ', '', $identifier);
-            if ($sanitizedDbName === $sanitizedIdentifier) {
-                $user = $potentialUser;
-                break;
-            }
-        }
+        $user = User::whereRaw("replace(name, ' ', '') = ?", [$identifier])->first();
     }
 
     // If we found a user, redirect to /u/{sanitized_username}

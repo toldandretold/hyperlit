@@ -1,5 +1,5 @@
 /**
- * /maintainer — the triage page's wiring (standalone, non-SPA, admin-only;
+ * /maintainer/conversion — the triage page's wiring (standalone, non-SPA, admin-only;
  * see MaintainerController). Left: the open-flag queue; middle: the flagged
  * book in the REAL reader (same-origin iframe); right: the original source
  * file; bottom: dev-bundle / reconvert / resolve / dismiss actions.
@@ -41,7 +41,7 @@ let selected: QueueEntry | null = null;
 // ── Queue list ────────────────────────────────────────────────────────────
 
 async function loadQueue(): Promise<void> {
-  const resp = await fetch('/api/maintainer/flags', { credentials: 'include' });
+  const resp = await fetch('/api/maintainer/conversion/flags', { credentials: 'include' });
   if (!resp.ok) {
     log.error(`Maintainer queue fetch failed (${resp.status})`, 'maintainer');
     return;
@@ -106,7 +106,7 @@ function renderList(): void {
 function select(entry: QueueEntry): void {
   selected = entry;
   renderList();
-  history.replaceState(null, '', `/maintainer?book=${encodeURIComponent(entry.book)}`);
+  history.replaceState(null, '', `/maintainer/conversion?book=${encodeURIComponent(entry.book)}`);
 
   // Middle: the real reader.
   el<HTMLIFrameElement>('mt-reader').src = `/${entry.book}`;
@@ -128,7 +128,7 @@ function select(entry: QueueEntry): void {
   }
 
   // Right: the original file (HEAD-probe so a 404 hides the pane cleanly).
-  const originalUrl = `/api/maintainer/original/${encodeURIComponent(entry.book)}`;
+  const originalUrl = `/api/maintainer/conversion/original/${encodeURIComponent(entry.book)}`;
   const frame = el<HTMLIFrameElement>('mt-original');
   const placeholder = el<HTMLParagraphElement>('mt-original-placeholder');
   frame.src = 'about:blank';
@@ -169,7 +169,7 @@ async function resolveSelected(resolution: 'reconverted' | 'dismissed'): Promise
   if (!selected) return;
   const headers = await csrfHeaders();
   if (!headers) return;
-  const resp = await fetch(`/api/maintainer/flags/${encodeURIComponent(selected.book)}/resolve`, {
+  const resp = await fetch(`/api/maintainer/conversion/flags/${encodeURIComponent(selected.book)}/resolve`, {
     method: 'POST',
     credentials: 'include',
     headers: { ...headers, 'Content-Type': 'application/json' },
@@ -325,7 +325,7 @@ document.addEventListener('keydown', (e) => {
 el<HTMLButtonElement>('mt-export').addEventListener('click', () => {
   if (!selected) return;
   setStatus('building bundle…');
-  window.location.href = `/api/maintainer/export/${encodeURIComponent(selected.book)}`;
+  window.location.href = `/api/maintainer/conversion/export/${encodeURIComponent(selected.book)}`;
   window.setTimeout(() => setStatus(''), 4000);
 });
 el<HTMLButtonElement>('mt-reconvert').addEventListener('click', () => void reconvertSelected());
