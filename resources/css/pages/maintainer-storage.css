@@ -57,6 +57,7 @@ body {
 .ms-header a { color: var(--color-text-faint, #888); text-decoration: none; font-size: 0.85rem; }
 .ms-header a:hover { color: var(--color-text); }
 #ms-rescan,
+#ms-export,
 #ms-help-toggle {
   font: inherit;
   font-size: 0.85rem;

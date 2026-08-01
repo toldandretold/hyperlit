@@ -131,6 +131,78 @@ test('the summary endpoint serves the latest snapshot grouped by category', func
         ->and(collect($body['categories'])->firstWhere('category', 'cache')['reclaimable'] ?? true)->toBeTrue();
 });
 
+// ── The drill-downs (every endpoint the page actually calls) ──────────────
+
+test('every drill-down endpoint responds', function () {
+    // These shipped a 500 to production once — an undefined variable that no
+    // test ever executed. Hit every endpoint the page calls, for every
+    // category, so a broken query can't reach prod again.
+    seedLibraryRow('storagetest_live');
+    seedBookDir('storagetest_live', 4096, 'pdf');
+    Artisan::call('storage:scan');
+
+    $this->loginUser(['is_admin' => true]);
+
+    foreach ([StorageScanner::DATABASE, StorageScanner::DOCUMENTS, StorageScanner::IMAGES,
+        StorageScanner::AUDIO, StorageScanner::CACHE, StorageScanner::LEGACY_IMAGES,
+        StorageScanner::OTHER] as $category) {
+        $this->getJson("/api/maintainer/storage/detail/{$category}")
+            ->assertOk()
+            ->assertJsonStructure(['category', 'grouped_by', 'rows']);
+    }
+});
+
+test('a database table drills down to the books inside it', function () {
+    $this->loginUser(['is_admin' => true]);
+
+    $body = $this->getJson('/api/maintainer/storage/table/library')->assertOk()->json();
+    expect($body['per_book'])->toBeTrue();
+
+    // A table with no book column must say so, not error.
+    $this->getJson('/api/maintainer/storage/table/migrations')
+        ->assertOk()
+        ->assertJson(['per_book' => false]);
+
+    // An unknown name is rejected before it can reach raw SQL.
+    $this->getJson('/api/maintainer/storage/table/not_a_table')->assertStatus(404);
+});
+
+test('a file type drills down to the books holding it', function () {
+    seedLibraryRow('storagetest_live');
+    seedBookDir('storagetest_live', 4096, 'pdf');
+    Artisan::call('storage:scan');
+
+    $this->loginUser(['is_admin' => true]);
+
+    $rows = $this->getJson('/api/maintainer/storage/type/documents/pdf')->assertOk()->json('rows');
+
+    expect(collect($rows)->pluck('label'))->toContain('storagetest_live')
+        ->and(collect($rows)->firstWhere('label', 'storagetest_live')['owner'])->toBe('storagetester');
+});
+
+test('the json export carries every row, not the page top-N', function () {
+    seedLibraryRow('storagetest_live');
+    seedBookDir('storagetest_live', 4096, 'pdf');
+    Artisan::call('storage:scan');
+
+    $this->loginUser(['is_admin' => true]);
+
+    $resp = $this->get('/api/maintainer/storage/export')->assertOk();
+    $body = json_decode($resp->streamedContent(), true);
+
+    expect($body['scan'])->not->toBeNull()
+        ->and($body['environment']['roots'])->toHaveKey('markdown')
+        ->and(collect($body['items'])->pluck('book'))->toContain('storagetest_live')
+        ->and($resp->headers->get('content-disposition'))->toContain('storage-scan-');
+});
+
+test('export 404s cleanly when nothing has been scanned', function () {
+    DB::table('storage_scans')->delete();
+
+    $this->loginUser(['is_admin' => true]);
+    $this->getJson('/api/maintainer/storage/export')->assertStatus(404);
+});
+
 // ── Reclaim guard rails (this command deletes irreversibly) ───────────────
 
 test('reclaim is a dry run by default and deletes nothing', function () {

@@ -118,7 +118,6 @@ class StorageController extends Controller
         $rows = DB::table('storage_scan_items')
             ->where('scan_id', $scan->id)
             ->where('category', $category)
-            ->when($orphansOnly, fn ($q) => $q->where('is_orphan', true))
             ->selectRaw("{$groupBy} AS label, SUM(bytes) AS bytes, SUM(file_count) AS file_count,
                          SUM(CASE WHEN is_orphan THEN bytes ELSE 0 END) AS orphan_bytes,
                          COUNT(DISTINCT book) AS book_count,
@@ -255,6 +254,46 @@ class StorageController extends Controller
             ]);
 
         return response()->json(['category' => $category, 'subtype' => $subtype, 'rows' => $rows]);
+    }
+
+    /**
+     * GET /api/maintainer/storage/export — the whole snapshot as a JSON file.
+     *
+     * Every row, not the page's top-N truncations: the point is to pull prod's
+     * numbers onto a dev machine and slice them properly (jq, a notebook, or
+     * Claude) rather than squint at a dashboard.
+     */
+    public function export()
+    {
+        $scan = DB::table('storage_scans')->orderByDesc('id')->first();
+        if (! $scan) {
+            return response()->json(['message' => 'No snapshot yet — run a scan first.'], 404);
+        }
+
+        $items = DB::table('storage_scan_items')
+            ->where('scan_id', $scan->id)
+            ->orderByDesc('bytes')
+            ->get(['book', 'owner', 'category', 'subtype', 'bytes', 'file_count', 'path', 'is_orphan']);
+
+        $payload = [
+            'scan' => $scan,
+            'environment' => [
+                'app_env' => config('app.env'),
+                'app_url' => config('app.url'),
+                'db_is_managed' => str_contains((string) config('database.connections.pgsql.host'), 'ondigitalocean.com'),
+                'roots' => StorageScanner::roots(),
+            ],
+            'history' => $this->history(),
+            'items' => $items,
+        ];
+
+        $name = "storage-scan-{$scan->id}-" . str_replace([' ', ':'], ['_', ''], (string) $scan->finished_at) . '.json';
+
+        return response()->streamDownload(
+            fn () => print(json_encode($payload, JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE)),
+            $name,
+            ['Content-Type' => 'application/json'],
+        );
     }
 
     /** POST /api/maintainer/storage/rescan — measure now (~2s), then hand back the new summary. */

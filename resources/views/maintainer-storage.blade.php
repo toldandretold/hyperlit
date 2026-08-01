@@ -27,6 +27,7 @@
             <a href="/">&larr; Hyperlit</a>
         </nav>
         <button type="button" id="ms-rescan" title="Measure now — walks the file trees (~2s)">↻ rescan</button>
+        <button type="button" id="ms-export" title="Download the full snapshot as JSON — every row, for analysis off the box">⤓ json</button>
         <button type="button" id="ms-help-toggle" aria-expanded="false" aria-controls="ms-help-panel" title="How this works">?</button>
     </header>
 

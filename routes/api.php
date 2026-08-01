@@ -554,6 +554,9 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where(['category' => '[a-z_]+', 'subtype' => '[A-Za-z0-9_.-]+']);
     Route::post('/maintainer/storage/rescan', [\App\Http\Controllers\Maintainer\StorageController::class, 'rescan'])
         ->middleware('throttle:6,1');
+    // The whole snapshot as a JSON file, for analysis off the box.
+    Route::get('/maintainer/storage/export', [\App\Http\Controllers\Maintainer\StorageController::class, 'export'])
+        ->middleware('throttle:10,1');
 });
 
 // Snapshots endpoint — outside author middleware so public book readers can see version history

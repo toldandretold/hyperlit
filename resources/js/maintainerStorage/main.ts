@@ -534,6 +534,11 @@ function wireHelp(): void {
 }
 
 el<HTMLButtonElement>('ms-rescan').addEventListener('click', () => void rescan());
+el<HTMLButtonElement>('ms-export').addEventListener('click', () => {
+  // Full snapshot, every row — the page only ever shows top-N.
+  setStatus('preparing json…');
+  window.location.href = '/api/maintainer/storage/export';
+});
 el<HTMLButtonElement>('ms-detail-close').addEventListener('click', () => {
   el<HTMLElement>('ms-detail-section').hidden = true;
 });
