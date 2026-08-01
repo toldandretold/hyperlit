@@ -22,7 +22,7 @@ afterEach(function () {
     DB::connection('pgsql_admin')->table('library')->where('book', 'like', 'guardtest%')->delete();
 });
 
-function seedBook(string $book, string $visibility, array $extra = []): void
+function seedGuardBook(string $book, string $visibility, array $extra = []): void
 {
     DB::connection('pgsql_admin')->table('library')->insert(array_merge([
         'book' => $book,
@@ -38,14 +38,14 @@ function seedBook(string $book, string $visibility, array $extra = []): void
 }
 
 test('a live book is writable', function () {
-    seedBook('guardtest_live', 'private');
+    seedGuardBook('guardtest_live', 'private');
 
     DeletedBookGuard::assertWritable('guardtest_live');
     expect(DeletedBookGuard::isDeleted('guardtest_live'))->toBeFalse();
 });
 
 test('a deleted book refuses writes', function () {
-    seedBook('guardtest_gone', 'deleted');
+    seedGuardBook('guardtest_gone', 'deleted');
 
     expect(DeletedBookGuard::isDeleted('guardtest_gone'))->toBeTrue();
     expect(fn () => DeletedBookGuard::assertWritable('guardtest_gone'))
@@ -53,7 +53,7 @@ test('a deleted book refuses writes', function () {
 });
 
 test('the failure message carries everything needed to understand the incident', function () {
-    seedBook('guardtest_ctx', 'deleted');
+    seedGuardBook('guardtest_ctx', 'deleted');
 
     try {
         DeletedBookGuard::assertWritable('guardtest_ctx', null, ['nodes_pending' => 15391]);
@@ -74,8 +74,8 @@ test('sub-books are exempt — their content is preserved on purpose', function 
     // BookDeletionService keeps `metadata_only` descendants so highlights
     // pointing into footnote sub-books survive the parent's deletion. On
     // production that is 497 sub-books holding 513 nodes, all intentional.
-    seedBook('guardtest_parent', 'deleted');
-    seedBook('guardtest_parent/Fn123', 'deleted');
+    seedGuardBook('guardtest_parent', 'deleted');
+    seedGuardBook('guardtest_parent/Fn123', 'deleted');
 
     expect(DeletedBookGuard::isDeleted('guardtest_parent/Fn123'))->toBeFalse();
     DeletedBookGuard::assertWritable('guardtest_parent/Fn123');

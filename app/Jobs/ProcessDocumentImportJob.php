@@ -520,7 +520,7 @@ class ProcessDocumentImportJob implements ShouldQueue
         ]);
 
         // Disable versioning trigger during bulk import — this is fresh data, no history needed
-        $this->db()->statement('ALTER TABLE nodes DISABLE TRIGGER nodes_versioning_trigger');
+        $this->db()->statement('ALTER TABLE nodes DISABLE TRIGGER USER');
 
         // Prepare renumbered nodes.json output (streamed)
         $jsonOutPath = "{$path}/nodes.json";
@@ -606,7 +606,7 @@ class ProcessDocumentImportJob implements ShouldQueue
             if (isset($jsonOut) && $jsonOut) {
                 fclose($jsonOut);
             }
-            $this->db()->statement('ALTER TABLE nodes ENABLE TRIGGER nodes_versioning_trigger');
+            $this->db()->statement('ALTER TABLE nodes ENABLE TRIGGER USER');
         }
 
         \App\Jobs\QueueBookEmbeddings::dispatch($bookId);
@@ -649,7 +649,7 @@ class ProcessDocumentImportJob implements ShouldQueue
         fwrite($enrichedFile, '[');
         $firstEnriched = true;
 
-        $this->db()->statement('ALTER TABLE nodes DISABLE TRIGGER nodes_versioning_trigger');
+        $this->db()->statement('ALTER TABLE nodes DISABLE TRIGGER USER');
         try {
             if ($hasExisting) {
                 $this->writeProgress($path, 'processing', 92, 'db_footnotes', "Clearing old footnotes");
@@ -776,7 +776,7 @@ class ProcessDocumentImportJob implements ShouldQueue
             if (isset($enrichedFile) && $enrichedFile) {
                 fclose($enrichedFile);
             }
-            $this->db()->statement('ALTER TABLE nodes ENABLE TRIGGER nodes_versioning_trigger');
+            $this->db()->statement('ALTER TABLE nodes ENABLE TRIGGER USER');
         }
 
         $this->writeProgress($path, 'processing', 94, 'db_footnotes', "Saved {$totalFootnotes} footnotes");

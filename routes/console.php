@@ -37,6 +37,19 @@ Schedule::job(\App\Jobs\DailyStatsJob::class)
     ->withoutOverlapping()
     ->onOneServer();
 
+// Generated books (user home/account/shelf pages) are rebuilt by deleting all
+// their nodes and re-inserting, so the versioning trigger archives a row per
+// card every time. The trigger can't exclude them — their ids are per-user, and
+// a trigger WHEN clause can't run a subquery — so the history is swept weekly
+// instead. The fixed ranking books ARE excluded at the trigger, so this only
+// mops up what still gets written.
+Schedule::command('nodes:purge-system-history --force')
+    ->weekly()
+    ->sundays()
+    ->at('04:00')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Storage snapshot for /maintainer/storage. Runs inline (~2s over ~70k files,
 // I/O bound) rather than on a queue, so it never sits behind a 15-min import.
 // Snapshots accumulate: quota policy needs measured growth, not one number.
