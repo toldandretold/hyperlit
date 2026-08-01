@@ -546,6 +546,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/maintainer/storage/summary', [\App\Http\Controllers\Maintainer\StorageController::class, 'summary']);
     Route::get('/maintainer/storage/detail/{category}', [\App\Http\Controllers\Maintainer\StorageController::class, 'detail'])
         ->where('category', '[a-z_]+');
+    // Footprint per user — the groundwork for quotas.
+    Route::get('/maintainer/storage/users', [\App\Http\Controllers\Maintainer\StorageController::class, 'users']);
     // Deleted books that still hold content — invisible to the orphan sweep.
     Route::get('/maintainer/storage/deleted-content', [\App\Http\Controllers\Maintainer\StorageController::class, 'deletedContent']);
     // Orphaned files get their own list, not a flag inside the category views.

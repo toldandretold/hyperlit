@@ -148,6 +148,7 @@ function render(data: Summary): void {
   renderBooks(data.top_books ?? []);
   void renderOrphans(totals.orphan_bytes, totals.file_bytes);
   void renderDeletedContent();
+  void renderUsers();
   renderDrift(data.categories, totals);
 }
 
@@ -339,6 +340,94 @@ async function renderOrphans(orphanBytes: number, fileBytes: number): Promise<vo
       tags: [],
     }));
   }
+}
+
+interface UserRow {
+  owner: string;
+  nodes: number;
+  books: number;
+  db_bytes: number;
+  file_bytes: number;
+  total_bytes: number;
+  bytes_per_book: number | null;
+  bytes_per_node: number | null;
+}
+
+/**
+ * Footprint per user — the groundwork for quotas.
+ *
+ * Mean AND median: with one dominant account the mean describes nobody, so the
+ * median is the number to design a quota around and the gap between them is
+ * itself the signal.
+ */
+async function renderUsers(): Promise<void> {
+  const resp = await fetch('/api/maintainer/storage/users', { credentials: 'include' });
+  if (!resp.ok) {
+    log.error(`Per-user fetch failed (${resp.status})`, 'maintainer-storage');
+    return;
+  }
+
+  const data = await resp.json();
+  const users = (data.users ?? []) as UserRow[];
+  const section = el<HTMLElement>('ms-users-section');
+  section.hidden = users.length === 0;
+  if (users.length === 0) return;
+
+  const s = data.stats;
+  const tiles = el<HTMLDivElement>('ms-user-stats');
+  tiles.textContent = '';
+  for (const [val, label, sub] of [
+    [human(s.median_bytes), 'median user', 'the typical account'],
+    [human(s.mean_bytes), 'mean user', 'skewed by the heaviest'],
+    [human(s.largest_bytes), 'largest user', `${s.user_count} users total`],
+  ] as Array<[string, string, string]>) {
+    const tile = document.createElement('div');
+    tile.className = 'ms-tile';
+    const v = document.createElement('span');
+    v.className = 'ms-tile-val';
+    v.textContent = val;
+    const l = document.createElement('span');
+    l.className = 'ms-tile-label';
+    l.textContent = label;
+    const sb = document.createElement('span');
+    sb.className = 'ms-tile-sub';
+    sb.textContent = sub;
+    tile.append(v, l, sb);
+    tiles.appendChild(tile);
+  }
+
+  const box = el<HTMLDivElement>('ms-users-rows');
+  box.textContent = '';
+  const max = users[0]?.total_bytes ?? 1;
+
+  for (const user of users) {
+    const row = rowEl({
+      label: `${user.owner} ›`,
+      sub: `${human(user.db_bytes)} database · ${human(user.file_bytes)} files · ${user.books.toLocaleString()} books`,
+      bytes: user.total_bytes,
+      max,
+      color: 'var(--ms-cat-1)',
+      tags: [],
+      button: true,
+    });
+    // Expand in place — the split is already in hand, no second request.
+    row.addEventListener('click', () => showUserDetail(user));
+    box.appendChild(row);
+  }
+}
+
+function showUserDetail(user: UserRow): void {
+  renderDetailRows(
+    `${user.owner} — storage breakdown`,
+    [
+      { label: 'database', bytes: user.db_bytes, file_count: user.nodes, orphan_bytes: 0, book_count: user.books, is_orphan: false, owner: null },
+      { label: 'files', bytes: user.file_bytes, file_count: 0, orphan_bytes: 0, book_count: user.books, is_orphan: false, owner: null },
+    ],
+    'documents',
+    `${user.books.toLocaleString()} books · ${user.nodes.toLocaleString()} nodes · `
+      + `${user.bytes_per_book ? human(user.bytes_per_book) : '—'} per book · `
+      + `${user.bytes_per_node ? human(user.bytes_per_node) : '—'} per node (database)`,
+  );
 }
 
 /**

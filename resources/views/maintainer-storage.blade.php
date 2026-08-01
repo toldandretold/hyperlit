@@ -91,6 +91,19 @@
                 <div id="ms-detail" class="ms-rows" role="list"></div>
             </section>
 
+            {{-- Per-user footprint: the groundwork for quotas. --}}
+            <section class="ms-section" id="ms-users-section" hidden aria-labelledby="ms-users-h">
+                <div class="ms-section-head">
+                    <h2 id="ms-users-h">Per user</h2>
+                </div>
+                <div class="ms-tiles" id="ms-user-stats"></div>
+                <div id="ms-users-rows" class="ms-rows" role="list"></div>
+                <p class="ms-note">
+                    Database bytes are apportioned by each user's share of node rows — there is no
+                    per-user byte figure in Postgres. Files come from the scan. Click a user for the split.
+                </p>
+            </section>
+
             <section class="ms-section" aria-labelledby="ms-books-h">
                 <h2 id="ms-books-h">Biggest books</h2>
                 <div id="ms-books" class="ms-rows" role="list"></div>

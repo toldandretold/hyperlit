@@ -154,6 +154,116 @@ class StorageController extends Controller
     }
 
     /**
+     * GET /api/maintainer/storage/users — footprint per user.
+     *
+     * Files come from the snapshot (every item carries the owner denormalised
+     * at scan time — the seam built in for exactly this). The database half has
+     * to be apportioned: there is no per-user byte figure, so a user's node
+     * count is scaled by the table's real bytes-per-row. Both halves are
+     * reported separately because they are different budgets — droplet disk vs
+     * the managed cluster.
+     *
+     * Median as well as mean, because with one dominant user the mean describes
+     * nobody: it is dragged up by the heaviest account while the typical user
+     * sits far below it.
+     */
+    public function users()
+    {
+        $scan = DB::table('storage_scans')->orderByDesc('id')->first();
+        if (! $scan) {
+            return response()->json(['users' => [], 'stats' => null]);
+        }
+
+        $rows = Cache::remember("storage.users.{$scan->id}", now()->addHour(), function () use ($scan) {
+            // Files: straight from the snapshot.
+            $files = DB::table('storage_scan_items')
+                ->where('scan_id', $scan->id)
+                ->whereNotNull('owner')
+                ->selectRaw('owner, SUM(bytes) AS bytes, COUNT(DISTINCT book) AS books')
+                ->groupBy('owner')
+                ->get()
+                ->keyBy('owner');
+
+            // Database: apportion the nodes table by each owner's share of rows.
+            $nodesBytes = (int) DB::table('storage_scan_items')
+                ->where('scan_id', $scan->id)
+                ->where('category', StorageScanner::DATABASE)
+                ->where('subtype', 'nodes')
+                ->sum('bytes');
+
+            $counts = DB::connection('pgsql_admin')->table('nodes as n')
+                ->join('library as l', 'l.book', '=', 'n.book')
+                ->whereNotNull('l.creator')
+                ->selectRaw('l.creator AS owner, COUNT(*) AS nodes, COUNT(DISTINCT n.book) AS books')
+                ->groupBy('l.creator')
+                ->get();
+
+            $totalNodes = max(1, (int) $counts->sum('nodes'));
+            $bytesPerNode = $nodesBytes / $totalNodes;
+
+            $byOwner = [];
+            foreach ($counts as $c) {
+                $byOwner[$c->owner] = [
+                    'owner' => $c->owner,
+                    'nodes' => (int) $c->nodes,
+                    'books' => (int) $c->books,
+                    'db_bytes' => (int) round($c->nodes * $bytesPerNode),
+                    'file_bytes' => 0,
+                ];
+            }
+
+            foreach ($files as $owner => $f) {
+                $byOwner[$owner] ??= ['owner' => $owner, 'nodes' => 0, 'books' => (int) $f->books, 'db_bytes' => 0, 'file_bytes' => 0];
+                $byOwner[$owner]['file_bytes'] = (int) $f->bytes;
+                $byOwner[$owner]['books'] = max($byOwner[$owner]['books'], (int) $f->books);
+            }
+
+            return array_values(array_map(function (array $u) {
+                $u['total_bytes'] = $u['db_bytes'] + $u['file_bytes'];
+                // The per-book / per-node figures the heaviest account is the
+                // useful test case for.
+                $u['bytes_per_book'] = $u['books'] > 0 ? (int) round($u['total_bytes'] / $u['books']) : null;
+                $u['bytes_per_node'] = $u['nodes'] > 0 ? (int) round($u['db_bytes'] / $u['nodes']) : null;
+
+                return $u;
+            }, $byOwner));
+        });
+
+        usort($rows, fn ($a, $z) => $z['total_bytes'] <=> $a['total_bytes']);
+
+        return response()->json([
+            'users' => array_slice($rows, 0, 100),
+            'stats' => $this->userStats($rows),
+        ]);
+    }
+
+    /**
+     * Mean AND median. With one heavy user the mean is misleading — it
+     * describes an account nobody has — so the median is what to design quotas
+     * around, and the gap between them is itself the signal.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function userStats(array $rows): array
+    {
+        $totals = array_values(array_filter(array_column($rows, 'total_bytes')));
+        sort($totals);
+        $n = count($totals);
+
+        $median = $n === 0 ? 0 : ($n % 2
+            ? $totals[intdiv($n, 2)]
+            : (int) round(($totals[$n / 2 - 1] + $totals[$n / 2]) / 2));
+
+        return [
+            'user_count' => $n,
+            'total_bytes' => array_sum($totals),
+            'mean_bytes' => $n > 0 ? (int) round(array_sum($totals) / $n) : 0,
+            'median_bytes' => $median,
+            'largest_bytes' => $n > 0 ? $totals[$n - 1] : 0,
+        ];
+    }
+
+    /**
      * GET /api/maintainer/storage/deleted-content — books marked `deleted` that
      * are still holding nodes.
      *
@@ -286,7 +396,14 @@ class StorageController extends Controller
             ]);
         }
 
-        $result = Cache::remember("storage.table.{$table}", now()->addHour(), function () use ($db, $table) {
+        // Key the cache to the LATEST SCAN, not to a clock. A purge + vacuum can
+        // change a table by an order of magnitude in minutes, and an hour-long
+        // key kept serving pre-purge numbers (nodes_history showed 2.4 GB for a
+        // book whose rows were already gone). A new scan means the world moved:
+        // new key, fresh measurement.
+        $scanId = DB::table('storage_scans')->max('id') ?? 0;
+
+        $result = Cache::remember("storage.table.{$table}.{$scanId}", now()->addHour(), function () use ($db, $table) {
             // Byte-exact attribution (SUM(pg_column_size(row))) means a full
             // scan — on prod's nodes_history that is 12 GB / 10M rows and never
             // returns inside a web request. So: count rows per book (an index
@@ -378,7 +495,9 @@ class StorageController extends Controller
             'per_book' => true,
             'note' => $result['method'] === 'unavailable'
                 ? "{$table} is too large to attribute live, and has no planner statistics for its book column (run ANALYZE {$table})."
-                : "sizes estimated by row share of the table total · {$result['method']}",
+                // Say which scan this is pinned to, so a stale number is
+                // identifiable rather than merely wrong.
+                : "sizes estimated by row share of the table total · {$result['method']} · scan #{$scanId}",
             'rows' => array_map(fn ($r) => [
                 'label' => $r['book'],
                 'bytes' => $r['bytes'],
@@ -469,12 +588,43 @@ class StorageController extends Controller
     /** POST /api/maintainer/storage/rescan — measure now (~2s), then hand back the new summary. */
     public function rescan()
     {
+        // "Rescan" has to mean EVERYTHING on the page, not just the snapshot.
+        // The per-table drill-downs are measured live and cached, so a rescan
+        // that only rewrote the snapshot left them serving pre-purge numbers —
+        // nodes_history kept showing 2.4 GB for a book whose rows were already
+        // deleted. Keying those caches to the scan id fixes it on its own; this
+        // clears them outright so freshness never depends on that subtlety.
+        $this->forgetTableCaches();
+
         $exit = Artisan::call('storage:scan');
         if ($exit !== 0) {
             return response()->json(['message' => 'Scan failed — see logs.'], 422);
         }
 
+        // Again after the scan: the id has moved, and anything measured during
+        // the scan window is now stale too.
+        $this->forgetTableCaches();
+
         return $this->summary();
+    }
+
+    /** Drop every cached live table measurement, across recent scan ids. */
+    private function forgetTableCaches(): void
+    {
+        $tables = DB::connection('pgsql_admin')->table('pg_class as c')
+            ->join('pg_namespace as n', 'n.oid', '=', 'c.relnamespace')
+            ->where('n.nspname', 'public')->where('c.relkind', 'r')
+            ->pluck('c.relname');
+
+        $latest = (int) (DB::table('storage_scans')->max('id') ?? 0);
+
+        foreach ($tables as $table) {
+            // A couple of ids back as well — cheap, and covers a key written
+            // between the flush and the new snapshot landing.
+            for ($id = max(0, $latest - 2); $id <= $latest + 1; $id++) {
+                Cache::forget("storage.table.{$table}.{$id}");
+            }
+        }
     }
 
     /**
