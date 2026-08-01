@@ -146,6 +146,38 @@ body {
 .ms-legend-name { color: var(--color-text); }
 .ms-legend-val { color: var(--color-text-faint, #888); font-variant-numeric: tabular-nums; }
 
+/* ── Stat tiles (a headline number is not a chart) ── */
+.ms-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.ms-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+  border-radius: 8px;
+  min-width: 170px;
+}
+.ms-tile-val {
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ms-tile-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-text-faint, #888);
+}
+.ms-tile-sub {
+  font-size: 0.76rem;
+  color: var(--color-text-faint, #888);
+}
+
 /* ── Meters (a single ratio against a limit) ── */
 .ms-meters { display: flex; flex-direction: column; gap: 14px; }
 .ms-meter-top {

@@ -80,6 +80,11 @@ class StorageController extends Controller
                 'images_tracked_bytes' => (int) ($notes['images_tracked_bytes'] ?? 0),
                 'audio_tracked_bytes' => (int) ($notes['audio_tracked_bytes'] ?? 0),
             ],
+            // Per-book / per-node cost, DATABASE ONLY — files are excluded
+            // deliberately: a book's PDF says nothing about what its content
+            // costs to store, and mixing them would make the number useless for
+            // reasoning about quotas or about nodes_history bloat.
+            'averages' => $this->averages($scan, $notes),
             'categories' => $categories,
             'top_books' => $this->topBooks($scan->id),
             'history' => $this->history(),
@@ -145,6 +150,59 @@ class StorageController extends Controller
             'category' => $category,
             'grouped_by' => $byBook ? 'book' : ($category === StorageScanner::DATABASE ? 'table' : 'type'),
             'rows' => $rows,
+        ]);
+    }
+
+    /**
+     * GET /api/maintainer/storage/deleted-content — books marked `deleted` that
+     * are still holding nodes.
+     *
+     * Invisible to the orphan sweep, which looks for a MISSING library row;
+     * these rows exist and say `deleted`. Root books and sub-books are reported
+     * SEPARATELY on purpose: sub-book content is preserved deliberately (so
+     * highlights pointing into footnote sub-books survive), and lumping them
+     * together reads as hundreds of problems when there are only a couple.
+     */
+    public function deletedContent()
+    {
+        $db = DB::connection('pgsql_admin');
+
+        $base = fn (bool $subBooks) => $db->table('nodes as n')
+            ->join('library as l', 'l.book', '=', 'n.book')
+            ->where('l.visibility', 'deleted')
+            ->where('n.book', $subBooks ? 'like' : 'not like', '%/%');
+
+        $rootRows = (clone $base(false))
+            ->selectRaw('n.book, COUNT(*) AS nodes, MIN(n.created_at) AS first_written, MAX(l.updated_at) AS deleted_at')
+            ->groupBy('n.book')
+            ->orderByDesc('nodes')
+            ->limit(50)
+            ->get()
+            ->map(fn ($r) => [
+                'label' => $r->book,
+                'file_count' => (int) $r->nodes,
+                'bytes' => 0,   // rows, not bytes — the page labels this column
+                'written_after_delete' => $r->first_written > $r->deleted_at,
+                'owner' => null,
+                'is_orphan' => true,
+                'orphan_bytes' => 0,
+                'book_count' => 1,
+            ]);
+
+        $subTotals = (clone $base(true))->selectRaw('COUNT(DISTINCT n.book) AS books, COUNT(*) AS nodes')->first();
+
+        return response()->json([
+            'root' => [
+                'books' => $rootRows->count(),
+                'nodes' => (int) $rootRows->sum('file_count'),
+                'rows' => $rootRows,
+            ],
+            // Reported, never flagged: this is intended behaviour.
+            'sub_books' => [
+                'books' => (int) ($subTotals->books ?? 0),
+                'nodes' => (int) ($subTotals->nodes ?? 0),
+                'note' => 'preserved on purpose so highlights into footnote sub-books survive their parent',
+            ],
         ]);
     }
 
@@ -228,7 +286,7 @@ class StorageController extends Controller
             ]);
         }
 
-        $rows = Cache::remember("storage.table.{$table}", now()->addHour(), function () use ($db, $table) {
+        $result = Cache::remember("storage.table.{$table}", now()->addHour(), function () use ($db, $table) {
             // Byte-exact attribution (SUM(pg_column_size(row))) means a full
             // scan — on prod's nodes_history that is 12 GB / 10M rows and never
             // returns inside a web request. So: count rows per book (an index
@@ -237,19 +295,22 @@ class StorageController extends Controller
             //
             // The timeout MUST be inside a transaction: `SET LOCAL` outside one
             // is silently a no-op, which is how the unbounded version shipped.
-            $db->beginTransaction();
+            $meta = $db->selectOne('
+                SELECT pg_total_relation_size(c.oid) AS total_bytes,
+                       GREATEST(c.reltuples, 1) AS est_rows
+                FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = \'public\' AND c.relname = ?
+            ', [$table]);
 
+            $bytesPerRow = ((float) $meta->total_bytes) / ((float) $meta->est_rows);
+
+            // 1. Exact counts, bounded. The timeout MUST live inside a
+            // transaction — `SET LOCAL` outside one is silently a no-op, which
+            // is how an unbounded version shipped and hung on a 12 GB table.
             try {
-                $db->statement("SET LOCAL statement_timeout = '20s'");
-
-                $meta = $db->selectOne('
-                    SELECT pg_total_relation_size(c.oid) AS total_bytes,
-                           GREATEST(c.reltuples, 1) AS est_rows
-                    FROM pg_class c
-                    JOIN pg_namespace n ON n.oid = c.relnamespace
-                    WHERE n.nspname = \'public\' AND c.relname = ?
-                ', [$table]);
-
+                $db->beginTransaction();
+                $db->statement("SET LOCAL statement_timeout = '8s'");
                 $counts = $db->select("
                     SELECT t.book, COUNT(*) AS row_count
                     FROM {$table} t
@@ -257,35 +318,72 @@ class StorageController extends Controller
                     ORDER BY row_count DESC
                     LIMIT 25
                 ");
+                $db->rollBack();
 
-                $db->rollBack();
+                return [
+                    'method' => 'exact row counts',
+                    'rows' => array_map(fn ($r) => [
+                        'book' => $r->book,
+                        'row_count' => (int) $r->row_count,
+                        'bytes' => (int) round($r->row_count * $bytesPerRow),
+                    ], $counts),
+                ];
             } catch (\Throwable $e) {
+                // Cancelled by the timeout on a very large table. Not an error
+                // the operator should see as a 500 — fall through.
                 $db->rollBack();
-                throw $e;
             }
 
-            $bytesPerRow = ((float) $meta->total_bytes) / ((float) $meta->est_rows);
+            // 2. Planner statistics: the most common `book` values and their
+            // frequencies, straight from ANALYZE. No scan, instant, approximate
+            // — and the only thing that answers this on a 10M-row history table.
+            $stats = $db->selectOne("
+                SELECT most_common_vals::text::text[] AS vals, most_common_freqs AS freqs
+                FROM pg_stats
+                WHERE schemaname = 'public' AND tablename = ? AND attname = 'book'
+            ", [$table]);
 
-            return array_map(fn ($r) => (object) [
-                'book' => $r->book,
-                'row_count' => (int) $r->row_count,
-                'bytes' => (int) round($r->row_count * $bytesPerRow),
-            ], $counts);
+            if (! $stats || ! $stats->vals) {
+                return ['method' => 'unavailable', 'rows' => []];
+            }
+
+            $vals = str_getcsv(trim($stats->vals, '{}'));
+            $freqs = array_map('floatval', explode(',', trim((string) $stats->freqs, '{}')));
+            $estRows = (float) $meta->est_rows;
+
+            $rows = [];
+            foreach ($vals as $i => $book) {
+                $share = $freqs[$i] ?? 0;
+                $rowCount = (int) round($share * $estRows);
+                $rows[] = [
+                    'book' => $book,
+                    'row_count' => $rowCount,
+                    'bytes' => (int) round($rowCount * $bytesPerRow),
+                ];
+            }
+            usort($rows, fn ($a, $b) => $b['bytes'] <=> $a['bytes']);
+
+            return ['method' => 'planner statistics (approximate — table too large to count live)',
+                'rows' => array_slice($rows, 0, 25)];
         });
 
+        $rows = $result['rows'];
+
         $owners = DB::connection('pgsql_admin')->table('library')
-            ->whereIn('book', array_map(fn ($r) => $r->book, $rows))
+            ->whereIn('book', array_column($rows, 'book'))
             ->pluck('creator', 'book');
 
         return response()->json([
             'table' => $table,
             'per_book' => true,
-            'note' => 'estimated by row share of the table total — exact byte attribution needs a full scan',
+            'note' => $result['method'] === 'unavailable'
+                ? "{$table} is too large to attribute live, and has no planner statistics for its book column (run ANALYZE {$table})."
+                : "sizes estimated by row share of the table total · {$result['method']}",
             'rows' => array_map(fn ($r) => [
-                'label' => $r->book,
-                'bytes' => (int) $r->bytes,
-                'file_count' => (int) $r->row_count,
-                'owner' => $owners[$r->book] ?? null,
+                'label' => $r['book'],
+                'bytes' => $r['bytes'],
+                'file_count' => $r['row_count'],
+                'owner' => $owners[$r['book']] ?? null,
                 'orphan_bytes' => 0,
                 'book_count' => 1,
                 'is_orphan' => false,
@@ -377,6 +475,48 @@ class StorageController extends Controller
         }
 
         return $this->summary();
+    }
+
+    /**
+     * Average database cost per book and per node.
+     *
+     * Database only. A book's PDF or audio says nothing about what its CONTENT
+     * costs, and blending them would hide the thing these numbers are for:
+     * spotting when the per-node cost climbs because history is accumulating.
+     *
+     * Two per-node figures on purpose — `nodes` alone is what a node genuinely
+     * costs; including `nodes_history` shows what the archive adds on top. On
+     * production that gap was the 12 GB of ranking-book history.
+     */
+    private function averages(object $scan, array $notes): array
+    {
+        $books = (int) ($notes['book_count_root'] ?? 0);
+        $nodes = (int) ($notes['node_count'] ?? 0);
+
+        if ($books === 0 && $nodes === 0) {
+            return ['available' => false];   // pre-dates these counts
+        }
+
+        $tableBytes = fn (string $t) => (int) DB::table('storage_scan_items')
+            ->where('scan_id', $scan->id)
+            ->where('category', StorageScanner::DATABASE)
+            ->where('subtype', $t)
+            ->sum('bytes');
+
+        $nodesBytes = $tableBytes('nodes');
+        $historyBytes = $tableBytes('nodes_history');
+
+        return [
+            'available' => true,
+            'book_count' => $books,
+            'book_count_all' => (int) ($notes['book_count_all'] ?? 0),
+            'node_count' => $nodes,
+            'db_bytes' => (int) $scan->db_bytes,
+            'bytes_per_book' => $books > 0 ? (int) round($scan->db_bytes / $books) : null,
+            'nodes_per_book' => $books > 0 ? round($nodes / $books, 1) : null,
+            'bytes_per_node' => $nodes > 0 ? (int) round($nodesBytes / $nodes) : null,
+            'bytes_per_node_with_history' => $nodes > 0 ? (int) round(($nodesBytes + $historyBytes) / $nodes) : null,
+        ];
     }
 
     /** Biggest books across every file category — the "who is using the space" list. */

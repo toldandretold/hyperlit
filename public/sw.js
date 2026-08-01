@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v39'; // /maintainer jobs + storage triage pages + namespace move
+const CACHE_VERSION = 'v40'; // /maintainer jobs + storage triage pages + namespace move
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 

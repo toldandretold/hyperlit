@@ -39,6 +39,17 @@ interface DetailRow {
   owner: string | null;
 }
 
+interface Averages {
+  available: boolean;
+  book_count: number;
+  book_count_all: number;
+  node_count: number;
+  bytes_per_book: number | null;
+  nodes_per_book: number | null;
+  bytes_per_node: number | null;
+  bytes_per_node_with_history: number | null;
+}
+
 interface Summary {
   scan: { id: number; finished_at: string; age_seconds: number | null; duration_ms: number } | null;
   totals?: {
@@ -52,6 +63,7 @@ interface Summary {
     audio_tracked_bytes: number;
   };
   categories?: Category[];
+  averages?: Averages;
   top_books?: BookRow[];
   db_is_managed?: boolean;
   db_limit_bytes?: number | null;
@@ -130,10 +142,12 @@ function render(data: Summary): void {
   el<HTMLElement>('ms-total').textContent = human(totals.total_bytes);
 
   renderStack(data.categories, totals.total_bytes);
+  renderAverages(data.averages);
   renderMeters(data);
   renderCategories(data.categories, totals.total_bytes);
   renderBooks(data.top_books ?? []);
-  renderOrphans(totals.orphan_bytes, totals.file_bytes);
+  void renderOrphans(totals.orphan_bytes, totals.file_bytes);
+  void renderDeletedContent();
   renderDrift(data.categories, totals);
 }
 
@@ -171,6 +185,27 @@ function renderStack(categories: Category[], total: number): void {
     item.append(swatch, name, val);
     legend.appendChild(item);
   }
+}
+
+/**
+ * Database cost per book and per node. Files are excluded deliberately — a
+ * book's PDF says nothing about what its content costs to store.
+ */
+function renderAverages(avg: Averages | undefined): void {
+  const box = el<HTMLDivElement>('ms-averages');
+  box.hidden = !avg?.available;
+  if (!avg?.available) return;
+
+  el<HTMLElement>('ms-avg-book').textContent = avg.bytes_per_book ? human(avg.bytes_per_book) : '—';
+  el<HTMLElement>('ms-avg-book-sub').textContent =
+    `${avg.book_count.toLocaleString()} books · ${avg.nodes_per_book ?? '—'} nodes each`;
+
+  el<HTMLElement>('ms-avg-node').textContent = avg.bytes_per_node ? human(avg.bytes_per_node) : '—';
+  // The gap between the two is what the history archive costs per node — the
+  // number that made nodes_history the biggest thing in the database.
+  el<HTMLElement>('ms-avg-node-sub').textContent = avg.bytes_per_node_with_history
+    ? `${human(avg.bytes_per_node_with_history)} incl. history · ${avg.node_count.toLocaleString()} nodes`
+    : `${avg.node_count.toLocaleString()} nodes`;
 }
 
 function renderMeters(data: Summary): void {
@@ -304,6 +339,52 @@ async function renderOrphans(orphanBytes: number, fileBytes: number): Promise<vo
       tags: [],
     }));
   }
+}
+
+/**
+ * Books marked deleted that still hold nodes. Root books are the bug (a delete
+ * that raced an import); sub-books are reported as a footnote because their
+ * content is preserved deliberately — showing them as problems would turn one
+ * real issue into hundreds of false ones.
+ */
+async function renderDeletedContent(): Promise<void> {
+  const resp = await fetch('/api/maintainer/storage/deleted-content', { credentials: 'include' });
+  if (!resp.ok) {
+    log.error(`Deleted-content fetch failed (${resp.status})`, 'maintainer-storage');
+    return;
+  }
+
+  const data = await resp.json();
+  const section = el<HTMLElement>('ms-deleted-section');
+  section.hidden = data.root.books === 0 && data.sub_books.books === 0;
+  if (section.hidden) return;
+
+  el<HTMLElement>('ms-deleted-total').textContent = `${data.root.nodes.toLocaleString()} nodes`;
+  el<HTMLParagraphElement>('ms-deleted-line').textContent = data.root.books === 0
+    ? 'No root books are holding stranded content.'
+    : `${data.root.books} deleted book${data.root.books === 1 ? '' : 's'} still holding content.`;
+
+  const box = el<HTMLDivElement>('ms-deleted-rows');
+  box.textContent = '';
+  const rows = data.root.rows as Array<{ label: string; file_count: number; written_after_delete: boolean }>;
+  const max = rows[0]?.file_count ?? 1;
+
+  for (const row of rows) {
+    box.appendChild(rowEl({
+      label: row.label,
+      sub: `${row.file_count.toLocaleString()} nodes · `
+        + (row.written_after_delete ? 'written AFTER the delete' : 'predates the delete'),
+      bytes: row.file_count,          // rows, not bytes — the label says so
+      max,
+      color: 'var(--ms-cat-2)',
+      tags: [],
+      unit: 'nodes',
+    }));
+  }
+
+  el<HTMLParagraphElement>('ms-deleted-sub').textContent =
+    `Plus ${data.sub_books.books.toLocaleString()} sub-books holding `
+    + `${data.sub_books.nodes.toLocaleString()} nodes — ${data.sub_books.note}. Not a problem; not counted above.`;
 }
 
 /** Bytes on disk that no book_images/book_audio row accounts for. */
@@ -478,6 +559,8 @@ interface RowSpec {
   tags: string[];
   orphanTag?: boolean;
   button?: boolean;
+  /** Set when the value is a COUNT, not bytes — otherwise 15,391 renders as "15.0 KB". */
+  unit?: string;
 }
 
 function rowEl(spec: RowSpec): HTMLElement {
@@ -510,7 +593,7 @@ function rowEl(spec: RowSpec): HTMLElement {
 
   const val = document.createElement('span');
   val.className = 'ms-row-val';
-  val.textContent = human(spec.bytes);
+  val.textContent = spec.unit ? spec.bytes.toLocaleString() : human(spec.bytes);
 
   row.append(label, track, val);
 

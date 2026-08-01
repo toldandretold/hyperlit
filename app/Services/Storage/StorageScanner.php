@@ -109,6 +109,13 @@ class StorageScanner
                 // bytes on disk with no owning row are untracked blobs.
                 'images_tracked_bytes' => $this->trackedBytes('book_images'),
                 'audio_tracked_bytes' => $this->trackedBytes('book_audio'),
+                // Counts for the per-book / per-node averages. Exact rather
+                // than reltuples: this runs nightly (plus a manual rescan), and
+                // an average built on a planner estimate would drift with
+                // ANALYZE timing rather than with real data.
+                'book_count_root' => $this->countBooks(rootOnly: true),
+                'book_count_all' => $this->countBooks(rootOnly: false),
+                'node_count' => (int) DB::connection('pgsql_admin')->table('nodes')->count(),
             ],
             'items' => $items,
         ];
@@ -149,6 +156,23 @@ class StorageScanner
             'bytes' => (int) $r->bytes,
             'file_count' => max(0, (int) $r->approx_rows),  // rows, not files
         ]), $rows);
+    }
+
+    /**
+     * How many books exist. Root-only excludes sub-books (`book_x/Fn1`,
+     * `book_x/HL_1`), which are annotation documents rather than things a
+     * person made — counting them would deflate "average size per book" by an
+     * order of magnitude, since one real book can spawn hundreds.
+     */
+    private function countBooks(bool $rootOnly): int
+    {
+        $q = DB::connection('pgsql_admin')->table('library')->where('visibility', '!=', 'deleted');
+
+        if ($rootOnly) {
+            $q->where('book', 'not like', '%/%');
+        }
+
+        return (int) $q->count();
     }
 
     /** Bytes the app has RECORDED for a blob table — compare against the disk walk. */

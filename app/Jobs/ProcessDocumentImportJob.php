@@ -508,6 +508,17 @@ class ProcessDocumentImportJob implements ShouldQueue
         }
         fclose($countHandle);
 
+        // The book may have been deleted while the conversion ran (conversion
+        // takes minutes; deleting takes a second). Deletion removes the nodes
+        // that exist at that instant, so writing now would strand this content
+        // in a book that no longer logically exists — exactly how 15,391 nodes
+        // ended up invisible in production. Counting first means the failure
+        // can say how much content was about to be written.
+        \App\Services\Books\DeletedBookGuard::assertWritable($bookId, $this->db(), [
+            'nodes_pending' => $totalNodes,
+            'source_path' => $nodesPath,
+        ]);
+
         // Disable versioning trigger during bulk import — this is fresh data, no history needed
         $this->db()->statement('ALTER TABLE nodes DISABLE TRIGGER nodes_versioning_trigger');
 

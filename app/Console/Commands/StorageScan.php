@@ -45,6 +45,9 @@ class StorageScan extends Command
             'notes' => json_encode([
                 'images_tracked_bytes' => $totals['images_tracked_bytes'],
                 'audio_tracked_bytes' => $totals['audio_tracked_bytes'],
+                'book_count_root' => $totals['book_count_root'],
+                'book_count_all' => $totals['book_count_all'],
+                'node_count' => $totals['node_count'],
             ]),
         ]);
 

@@ -45,6 +45,20 @@
                 </div>
                 <div id="ms-stack" class="ms-stack"></div>
                 <div id="ms-legend" class="ms-legend"></div>
+
+                {{-- Database cost per book / per node. Files excluded on purpose. --}}
+                <div class="ms-tiles" id="ms-averages" hidden>
+                    <div class="ms-tile">
+                        <span class="ms-tile-val" id="ms-avg-book"></span>
+                        <span class="ms-tile-label">database per book</span>
+                        <span class="ms-tile-sub" id="ms-avg-book-sub"></span>
+                    </div>
+                    <div class="ms-tile">
+                        <span class="ms-tile-val" id="ms-avg-node"></span>
+                        <span class="ms-tile-label">database per node</span>
+                        <span class="ms-tile-sub" id="ms-avg-node-sub"></span>
+                    </div>
+                </div>
             </section>
 
             {{-- Two budgets: droplet disk and the (managed, in prod) database. --}}
@@ -80,6 +94,22 @@
             <section class="ms-section" aria-labelledby="ms-books-h">
                 <h2 id="ms-books-h">Biggest books</h2>
                 <div id="ms-books" class="ms-rows" role="list"></div>
+            </section>
+
+            <section class="ms-section ms-orphans" id="ms-deleted-section" hidden aria-labelledby="ms-deleted-h">
+                <div class="ms-section-head">
+                    <h2 id="ms-deleted-h">Deleted, still stored</h2>
+                    <span class="ms-hero" id="ms-deleted-total"></span>
+                </div>
+                <p id="ms-deleted-line"></p>
+                <div id="ms-deleted-rows" class="ms-rows" role="list"></div>
+                <p class="ms-note" id="ms-deleted-sub"></p>
+                <p class="ms-note">
+                    Books marked <code>deleted</code> whose nodes are still in the database — usually a book
+                    deleted while its import was running, so the conversion finished and wrote into it anyway.
+                    The orphan sweep can't see these: it looks for a <em>missing</em> library row, and theirs exists.
+                </p>
+                <pre class="ms-cmd">php artisan nodes:purge-deleted-books --dry-run</pre>
             </section>
 
             <section class="ms-section ms-orphans" id="ms-orphan-section" hidden aria-labelledby="ms-orphan-h">

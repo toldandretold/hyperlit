@@ -338,6 +338,19 @@ class DbNodeController extends Controller
                 ], 403);
             }
 
+            // A tab open on a book the user just deleted will keep syncing.
+            // Deletion clears the nodes that exist at that moment, so a late
+            // sync silently repopulates a deleted book (the in-flight-write
+            // race). 409 rather than 500: the client's write is stale, not broken.
+            if (\App\Services\Books\DeletedBookGuard::isDeleted($book)) {
+                Log::warning('Rejected sync into a deleted book', ['book' => $book]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This book has been deleted — its content is no longer accepted.',
+                ], 409);
+            }
+
             if (isset($data['data']) && is_array($data['data'])) {
                 // SYNC AUDIT: This is the NUCLEAR upsert - deletes ALL nodes then re-inserts
                 $deletedCount = PgNode::where('book', $book)->count();
