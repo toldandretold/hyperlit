@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Storage\StorageScanner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -89,7 +90,14 @@ class StorageController extends Controller
         ]);
     }
 
-    /** GET /api/maintainer/storage/detail/{category} — the drill-down, biggest first. */
+    /**
+     * GET /api/maintainer/storage/detail/{category} — the drill-down, biggest first.
+     *
+     * Every number here is a TOTAL for the category. Orphaned files are not
+     * split out per row — they get their own section (see orphans()), because
+     * mixing "how much is there" and "how much is garbage" in one row made both
+     * numbers unreadable.
+     */
     public function detail(string $category)
     {
         $scan = DB::table('storage_scans')->orderByDesc('id')->first();
@@ -105,30 +113,148 @@ class StorageController extends Controller
             default => 'book',
         };
 
+        $byBook = $groupBy === 'book';
+
         $rows = DB::table('storage_scan_items')
             ->where('scan_id', $scan->id)
             ->where('category', $category)
+            ->when($orphansOnly, fn ($q) => $q->where('is_orphan', true))
             ->selectRaw("{$groupBy} AS label, SUM(bytes) AS bytes, SUM(file_count) AS file_count,
-                         BOOL_OR(is_orphan) AS is_orphan, MIN(owner) AS owner")
+                         SUM(CASE WHEN is_orphan THEN bytes ELSE 0 END) AS orphan_bytes,
+                         COUNT(DISTINCT book) AS book_count,
+                         BOOL_OR(is_orphan) AS all_orphan,
+                         MIN(owner) AS owner")
             ->groupBy($groupBy)
             ->orderByDesc('bytes')
             ->limit(200)
             ->get()
+            // A file TYPE has no owner and is not itself orphaned — it spans
+            // many books and many people. Only a row grouped BY BOOK can carry
+            // an owner or an orphan flag; for the rest we report how much of
+            // the type's bytes are orphaned, and across how many books.
             ->map(fn ($r) => [
                 'label' => $r->label ?? '(unlabelled)',
                 'bytes' => (int) $r->bytes,
                 'file_count' => (int) $r->file_count,
-                'is_orphan' => (bool) $r->is_orphan,
-                'owner' => $r->owner,
+                'orphan_bytes' => (int) $r->orphan_bytes,
+                'book_count' => (int) $r->book_count,
+                'is_orphan' => $byBook ? (bool) $r->all_orphan : false,
+                'owner' => $byBook ? $r->owner : null,
             ]);
 
-        // For book-shaped categories, also break the SAME category down by
-        // extension where we have it, so "documents" answers both questions.
         return response()->json([
             'category' => $category,
-            'grouped_by' => $groupBy === 'subtype' ? ($category === StorageScanner::DATABASE ? 'table' : 'type') : 'book',
+            'grouped_by' => $byBook ? 'book' : ($category === StorageScanner::DATABASE ? 'table' : 'type'),
             'rows' => $rows,
         ]);
+    }
+
+    /**
+     * GET /api/maintainer/storage/table/{table} — which books are biggest
+     * INSIDE one database table (click `nodes`, see the books filling it).
+     *
+     * The snapshot only holds per-table totals, so this measures live:
+     * SUM(pg_column_size(row)) needs a full scan, which is why it is on-demand
+     * (a deliberate click, not the nightly scan) with a statement timeout and
+     * an hour of caching. Tables with no `book` column say so rather than
+     * pretending.
+     */
+    public function table(string $table)
+    {
+        $db = DB::connection('pgsql_admin');
+
+        // Whitelist from the catalog — the name goes into raw SQL.
+        $known = $db->table('pg_class as c')
+            ->join('pg_namespace as n', 'n.oid', '=', 'c.relnamespace')
+            ->where('n.nspname', 'public')->where('c.relkind', 'r')
+            ->pluck('c.relname')->all();
+
+        if (! in_array($table, $known, true)) {
+            return response()->json(['message' => 'Unknown table.'], 404);
+        }
+
+        $hasBook = $db->table('information_schema.columns')
+            ->where('table_schema', 'public')->where('table_name', $table)
+            ->where('column_name', 'book')->exists();
+
+        if (! $hasBook) {
+            return response()->json([
+                'table' => $table,
+                'per_book' => false,
+                'message' => "{$table} has no book column — its rows aren't attributable to a book.",
+                'rows' => [],
+            ]);
+        }
+
+        $rows = Cache::remember("storage.table.{$table}", now()->addHour(), function () use ($db, $table) {
+            $db->statement("SET LOCAL statement_timeout = '30s'");
+
+            return $db->select("
+                SELECT t.book,
+                       COUNT(*) AS row_count,
+                       SUM(pg_column_size(t.*)) AS bytes
+                FROM {$table} t
+                GROUP BY t.book
+                ORDER BY bytes DESC
+                LIMIT 25
+            ");
+        });
+
+        $owners = DB::connection('pgsql_admin')->table('library')
+            ->whereIn('book', array_map(fn ($r) => $r->book, $rows))
+            ->pluck('creator', 'book');
+
+        return response()->json([
+            'table' => $table,
+            'per_book' => true,
+            // Heap bytes only — no indexes or TOAST, so these sum to less than
+            // the table total shown a level up. Say so on screen.
+            'note' => 'row bytes only (excludes indexes + TOAST), measured live',
+            'rows' => array_map(fn ($r) => [
+                'label' => $r->book,
+                'bytes' => (int) $r->bytes,
+                'file_count' => (int) $r->row_count,
+                'owner' => $owners[$r->book] ?? null,
+                'orphan_bytes' => 0,
+                'book_count' => 1,
+                'is_orphan' => false,
+            ], $rows),
+        ]);
+    }
+
+    /**
+     * GET /api/maintainer/storage/type/{category}/{subtype} — which books hold
+     * the most of one file type (click `pdf`, see whose PDFs they are).
+     * Straight from the snapshot, no live measurement needed.
+     */
+    public function type(string $category, string $subtype)
+    {
+        $scan = DB::table('storage_scans')->orderByDesc('id')->first();
+        if (! $scan) {
+            return response()->json(['rows' => []]);
+        }
+
+        $rows = DB::table('storage_scan_items')
+            ->where('scan_id', $scan->id)
+            ->where('category', $category)
+            ->where('subtype', $subtype)
+            ->whereNotNull('book')
+            ->selectRaw('book, owner, SUM(bytes) AS bytes, SUM(file_count) AS file_count, BOOL_OR(is_orphan) AS is_orphan')
+            ->groupBy('book', 'owner')
+            ->orderByDesc('bytes')
+            ->limit(50)
+            ->get()
+            ->map(fn ($r) => [
+                'label' => $r->book,
+                'bytes' => (int) $r->bytes,
+                'file_count' => (int) $r->file_count,
+                'owner' => $r->owner,
+                'is_orphan' => (bool) $r->is_orphan,
+                'orphan_bytes' => 0,
+                'book_count' => 1,
+            ]);
+
+        return response()->json(['category' => $category, 'subtype' => $subtype, 'rows' => $rows]);
     }
 
     /** POST /api/maintainer/storage/rescan — measure now (~2s), then hand back the new summary. */

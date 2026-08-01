@@ -546,6 +546,12 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/maintainer/storage/summary', [\App\Http\Controllers\Maintainer\StorageController::class, 'summary']);
     Route::get('/maintainer/storage/detail/{category}', [\App\Http\Controllers\Maintainer\StorageController::class, 'detail'])
         ->where('category', '[a-z_]+');
+    // Second level: which BOOKS fill one table / one file type.
+    Route::get('/maintainer/storage/table/{table}', [\App\Http\Controllers\Maintainer\StorageController::class, 'table'])
+        ->where('table', '[a-z0-9_]+')
+        ->middleware('throttle:20,1');   // measures live (full table scan)
+    Route::get('/maintainer/storage/type/{category}/{subtype}', [\App\Http\Controllers\Maintainer\StorageController::class, 'type'])
+        ->where(['category' => '[a-z_]+', 'subtype' => '[A-Za-z0-9_.-]+']);
     Route::post('/maintainer/storage/rescan', [\App\Http\Controllers\Maintainer\StorageController::class, 'rescan'])
         ->middleware('throttle:6,1');
 });

@@ -72,6 +72,7 @@
                     <h2 id="ms-detail-h">Detail</h2>
                     <button type="button" id="ms-detail-close" aria-label="Close detail">✕</button>
                 </div>
+                <p class="ms-note" id="ms-detail-note" hidden></p>
                 <div id="ms-detail" class="ms-rows" role="list"></div>
             </section>
 

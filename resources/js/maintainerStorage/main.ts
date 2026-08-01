@@ -32,6 +32,9 @@ interface DetailRow {
   label: string;
   bytes: number;
   file_count: number;
+  orphan_bytes: number;
+  book_count: number;
+  /** Only meaningful when the rows are grouped BY BOOK. */
   is_orphan: boolean;
   owner: string | null;
 }
@@ -314,6 +317,107 @@ async function showDetail(category: string): Promise<void> {
   box.textContent = '';
   const max = rows[0]?.bytes ?? 1;
 
+  const unit = category === 'database' ? 'rows' : 'files';
+
+  for (const row of rows) {
+    // Grouped by book: one owner, and the book either exists or it doesn't.
+    // Grouped by type/table: no owner (a file type belongs to nobody) and no
+    // orphan flag — instead say how much of it is orphaned, across how many books.
+    const sub = data.grouped_by === 'book'
+      ? `${row.file_count.toLocaleString()} ${unit}${row.owner ? ` · ${row.owner}` : ' · no owner'}`
+      : `${row.file_count.toLocaleString()} ${unit} · ${row.book_count.toLocaleString()} book${row.book_count === 1 ? '' : 's'}`;
+
+    // ONE number per row. In "all" the value is the total; in "orphaned only"
+    // it is the orphaned total. Mixing both in one row (a total on the right,
+    // an orphan figure in a chip) just made people ask which number they were
+    // reading. The book view keeps a plain flag — no number, it's binary there.
+    const tags = data.grouped_by === 'book' && row.is_orphan ? ['orphaned'] : [];
+
+    // Every leaf drills one more level: a table or a file type opens the books
+    // filling it. A book row is already the bottom.
+    const drillable = data.grouped_by !== 'book';
+
+    const el = rowEl({
+      label: row.label,
+      sub: drillable ? `${sub} · click for books` : sub,
+      bytes: row.bytes,
+      max,
+      color: colorFor(category),
+      tags,
+      orphanTag: tags.length > 0,
+      button: drillable,
+    });
+
+    if (drillable) {
+      el.addEventListener('click', () => void (data.grouped_by === 'table'
+        ? showTableBooks(row.label)
+        : showTypeBooks(category, row.label)));
+    }
+
+    box.appendChild(el);
+  }
+
+  section.hidden = false;
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/** Second level: the books filling one database table (measured live). */
+async function showTableBooks(table: string): Promise<void> {
+  setStatus(`measuring ${table}… (full scan)`);
+  const resp = await fetch(`/api/maintainer/storage/table/${encodeURIComponent(table)}`, {
+    credentials: 'include',
+  });
+  if (!resp.ok) {
+    setStatus(`could not measure ${table} (${resp.status})`);
+    return;
+  }
+
+  const data = await resp.json();
+  if (data.per_book === false) {
+    setStatus(data.message);
+    return;
+  }
+
+  renderDetailRows(
+    `${table} — biggest books`,
+    (data.rows ?? []) as DetailRow[],
+    'database',
+    data.note ? `Rows in ${table}. ${data.note}.` : '',
+  );
+  setStatus(`${table}: top ${data.rows?.length ?? 0} books`);
+}
+
+/** Second level: the books holding the most of one file type. */
+async function showTypeBooks(category: string, subtype: string): Promise<void> {
+  const resp = await fetch(
+    `/api/maintainer/storage/type/${encodeURIComponent(category)}/${encodeURIComponent(subtype)}`,
+    { credentials: 'include' },
+  );
+  if (!resp.ok) {
+    setStatus(`could not load ${subtype} (${resp.status})`);
+    return;
+  }
+
+  const data = await resp.json();
+  renderDetailRows(
+    `${category} · ${subtype} — biggest books`,
+    (data.rows ?? []) as DetailRow[],
+    category,
+    `Books holding the most ${subtype} files.`,
+  );
+}
+
+/** Shared renderer for any book-level list. */
+function renderDetailRows(heading: string, rows: DetailRow[], category: string, note: string): void {
+  const section = el<HTMLElement>('ms-detail-section');
+  const box = el<HTMLDivElement>('ms-detail');
+
+  el<HTMLHeadingElement>('ms-detail-h').textContent = heading;
+  el<HTMLParagraphElement>('ms-detail-note').textContent = note;
+  el<HTMLParagraphElement>('ms-detail-note').hidden = note === '';
+  box.textContent = '';
+
+  const max = rows[0]?.bytes ?? 1;
   for (const row of rows) {
     box.appendChild(rowEl({
       label: row.label,
