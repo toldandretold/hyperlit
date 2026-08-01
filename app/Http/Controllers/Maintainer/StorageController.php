@@ -149,6 +149,49 @@ class StorageController extends Controller
     }
 
     /**
+     * GET /api/maintainer/storage/orphans — the files whose book no longer
+     * exists, as their OWN list rather than a flag mixed into the category
+     * views. One row per orphaned book, biggest first, with the path so it can
+     * be matched against what `storage:reclaim` reports.
+     */
+    public function orphans()
+    {
+        $scan = DB::table('storage_scans')->orderByDesc('id')->first();
+        if (! $scan) {
+            return response()->json(['rows' => [], 'total_bytes' => 0]);
+        }
+
+        $rows = DB::table('storage_scan_items')
+            ->where('scan_id', $scan->id)
+            ->where('is_orphan', true)
+            ->selectRaw("book, SUM(bytes) AS bytes, SUM(file_count) AS file_count,
+                         COUNT(DISTINCT category) AS category_count,
+                         STRING_AGG(DISTINCT category, ', ' ORDER BY category) AS categories,
+                         MIN(path) AS path")
+            ->groupBy('book')
+            ->orderByDesc('bytes')
+            ->limit(200)
+            ->get()
+            ->map(fn ($r) => [
+                'label' => $r->book,
+                'bytes' => (int) $r->bytes,
+                'file_count' => (int) $r->file_count,
+                'categories' => $r->categories,
+                'path' => $r->path,
+                'owner' => null,
+                'is_orphan' => true,
+                'orphan_bytes' => (int) $r->bytes,
+                'book_count' => 1,
+            ]);
+
+        return response()->json([
+            'rows' => $rows,
+            'total_bytes' => (int) $scan->orphan_bytes,
+            'book_count' => $rows->count(),
+        ]);
+    }
+
+    /**
      * GET /api/maintainer/storage/table/{table} — which books are biggest
      * INSIDE one database table (click `nodes`, see the books filling it).
      *
@@ -186,17 +229,48 @@ class StorageController extends Controller
         }
 
         $rows = Cache::remember("storage.table.{$table}", now()->addHour(), function () use ($db, $table) {
-            $db->statement("SET LOCAL statement_timeout = '30s'");
+            // Byte-exact attribution (SUM(pg_column_size(row))) means a full
+            // scan — on prod's nodes_history that is 12 GB / 10M rows and never
+            // returns inside a web request. So: count rows per book (an index
+            // scan) and apportion the table's real size by row share. Labelled
+            // as an estimate on screen, because it is one.
+            //
+            // The timeout MUST be inside a transaction: `SET LOCAL` outside one
+            // is silently a no-op, which is how the unbounded version shipped.
+            $db->beginTransaction();
 
-            return $db->select("
-                SELECT t.book,
-                       COUNT(*) AS row_count,
-                       SUM(pg_column_size(t.*)) AS bytes
-                FROM {$table} t
-                GROUP BY t.book
-                ORDER BY bytes DESC
-                LIMIT 25
-            ");
+            try {
+                $db->statement("SET LOCAL statement_timeout = '20s'");
+
+                $meta = $db->selectOne('
+                    SELECT pg_total_relation_size(c.oid) AS total_bytes,
+                           GREATEST(c.reltuples, 1) AS est_rows
+                    FROM pg_class c
+                    JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = \'public\' AND c.relname = ?
+                ', [$table]);
+
+                $counts = $db->select("
+                    SELECT t.book, COUNT(*) AS row_count
+                    FROM {$table} t
+                    GROUP BY t.book
+                    ORDER BY row_count DESC
+                    LIMIT 25
+                ");
+
+                $db->rollBack();
+            } catch (\Throwable $e) {
+                $db->rollBack();
+                throw $e;
+            }
+
+            $bytesPerRow = ((float) $meta->total_bytes) / ((float) $meta->est_rows);
+
+            return array_map(fn ($r) => (object) [
+                'book' => $r->book,
+                'row_count' => (int) $r->row_count,
+                'bytes' => (int) round($r->row_count * $bytesPerRow),
+            ], $counts);
         });
 
         $owners = DB::connection('pgsql_admin')->table('library')
@@ -206,9 +280,7 @@ class StorageController extends Controller
         return response()->json([
             'table' => $table,
             'per_book' => true,
-            // Heap bytes only — no indexes or TOAST, so these sum to less than
-            // the table total shown a level up. Say so on screen.
-            'note' => 'row bytes only (excludes indexes + TOAST), measured live',
+            'note' => 'estimated by row share of the table total — exact byte attribution needs a full scan',
             'rows' => array_map(fn ($r) => [
                 'label' => $r->book,
                 'bytes' => (int) $r->bytes,

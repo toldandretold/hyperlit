@@ -268,14 +268,42 @@ function renderBooks(books: BookRow[]): void {
   }
 }
 
-function renderOrphans(orphanBytes: number, fileBytes: number): void {
+async function renderOrphans(orphanBytes: number, fileBytes: number): Promise<void> {
   const section = el<HTMLElement>('ms-orphan-section');
   section.hidden = orphanBytes <= 0;
   if (orphanBytes <= 0) return;
 
   const share = fileBytes > 0 ? Math.round((orphanBytes / fileBytes) * 100) : 0;
+  el<HTMLElement>('ms-orphan-total').textContent = human(orphanBytes);
   el<HTMLParagraphElement>('ms-orphan-line').textContent =
-    `${human(orphanBytes)} — ${share}% of all file storage belongs to books that no longer exist.`;
+    `${share}% of all file storage belongs to books that no longer exist.`;
+
+  const resp = await fetch('/api/maintainer/storage/orphans', { credentials: 'include' });
+  if (!resp.ok) {
+    log.error(`Orphan list fetch failed (${resp.status})`, 'maintainer-storage');
+    return;
+  }
+
+  const data = await resp.json();
+  const rows = (data.rows ?? []) as Array<DetailRow & { categories: string; path: string | null }>;
+  const box = el<HTMLDivElement>('ms-orphan-rows');
+  box.textContent = '';
+
+  el<HTMLParagraphElement>('ms-orphan-line').textContent =
+    `${data.book_count} book${data.book_count === 1 ? '' : 's'} no longer in the database — `
+    + `${share}% of all file storage.`;
+
+  const max = rows[0]?.bytes ?? 1;
+  for (const row of rows) {
+    box.appendChild(rowEl({
+      label: row.label,
+      sub: `${row.file_count.toLocaleString()} files · ${row.categories}`,
+      bytes: row.bytes,
+      max,
+      color: 'var(--ms-cat-2)',
+      tags: [],
+    }));
+  }
 }
 
 /** Bytes on disk that no book_images/book_audio row accounts for. */
@@ -323,9 +351,13 @@ async function showDetail(category: string): Promise<void> {
     // Grouped by book: one owner, and the book either exists or it doesn't.
     // Grouped by type/table: no owner (a file type belongs to nobody) and no
     // orphan flag — instead say how much of it is orphaned, across how many books.
+    // A database TABLE has no books attached to its snapshot row (those items
+    // carry book = null), so a book count there is always 0 and always noise.
     const sub = data.grouped_by === 'book'
       ? `${row.file_count.toLocaleString()} ${unit}${row.owner ? ` · ${row.owner}` : ' · no owner'}`
-      : `${row.file_count.toLocaleString()} ${unit} · ${row.book_count.toLocaleString()} book${row.book_count === 1 ? '' : 's'}`;
+      : data.grouped_by === 'table'
+        ? `${row.file_count.toLocaleString()} ${unit}`
+        : `${row.file_count.toLocaleString()} ${unit} · ${row.book_count.toLocaleString()} book${row.book_count === 1 ? '' : 's'}`;
 
     // ONE number per row. In "all" the value is the total; in "orphaned only"
     // it is the orphaned total. Mixing both in one row (a total on the right,
@@ -338,8 +370,8 @@ async function showDetail(category: string): Promise<void> {
     const drillable = data.grouped_by !== 'book';
 
     const el = rowEl({
-      label: row.label,
-      sub: drillable ? `${sub} · click for books` : sub,
+      label: drillable ? `${row.label} ›` : row.label,
+      sub,
       bytes: row.bytes,
       max,
       color: colorFor(category),

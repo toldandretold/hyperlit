@@ -83,11 +83,16 @@
             </section>
 
             <section class="ms-section ms-orphans" id="ms-orphan-section" hidden aria-labelledby="ms-orphan-h">
-                <h2 id="ms-orphan-h">Orphaned</h2>
+                <div class="ms-section-head">
+                    <h2 id="ms-orphan-h">Orphaned</h2>
+                    <span class="ms-hero" id="ms-orphan-total"></span>
+                </div>
                 <p id="ms-orphan-line"></p>
+                <div id="ms-orphan-rows" class="ms-rows" role="list"></div>
                 <p class="ms-note">
-                    Files whose book has no <code>library</code> row. Nothing in the app deletes a book's
-                    files, so these accumulate. Reclaim them from a terminal — there is no undo:
+                    Files whose book has no <code>library</code> row — already counted in the totals above.
+                    Nothing in the app deletes a book's files, so these accumulate. Reclaim them from a
+                    terminal; there is no undo:
                 </p>
                 <pre class="ms-cmd">php artisan storage:reclaim --dry-run</pre>
             </section>

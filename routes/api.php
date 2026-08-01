@@ -546,6 +546,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/maintainer/storage/summary', [\App\Http\Controllers\Maintainer\StorageController::class, 'summary']);
     Route::get('/maintainer/storage/detail/{category}', [\App\Http\Controllers\Maintainer\StorageController::class, 'detail'])
         ->where('category', '[a-z_]+');
+    // Orphaned files get their own list, not a flag inside the category views.
+    Route::get('/maintainer/storage/orphans', [\App\Http\Controllers\Maintainer\StorageController::class, 'orphans']);
     // Second level: which BOOKS fill one table / one file type.
     Route::get('/maintainer/storage/table/{table}', [\App\Http\Controllers\Maintainer\StorageController::class, 'table'])
         ->where('table', '[a-z0-9_]+')
