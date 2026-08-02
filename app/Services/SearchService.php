@@ -23,6 +23,26 @@ class SearchService
     }
 
     /**
+     * The node FTS expression. Since 2026-08 the tsvectors are NOT stored
+     * columns — only expression GIN indexes (nodes_fts_english_idx /
+     * nodes_fts_simple_idx) exist, so every WHERE / ts_rank must use this
+     * exact expression or the planner falls back to a seq scan. plainText
+     * only, no content fallback: content is ciphertext for E2EE books, and
+     * every non-encrypted row has plainText (backfilled in the
+     * replace_stored_tsvectors migration; PgNode::saving keeps it that way).
+     *
+     * Also the single whitelist for interpolating a config name into SQL.
+     */
+    public static function nodeTsExpression(string $config, string $alias = 'nodes'): string
+    {
+        if (!in_array($config, ['simple', 'english'], true)) {
+            throw new \InvalidArgumentException("Invalid search config: {$config}");
+        }
+
+        return "to_tsvector('{$config}', COALESCE({$alias}.\"plainText\", ''))";
+    }
+
+    /**
      * Convert user query to PostgreSQL tsquery format.
      * Handles phrase search with quotes and joins terms with &.
      */
@@ -105,22 +125,18 @@ class SearchService
         }
 
         // Try exact (simple) first, fall back to stemmed (english)
+        $probeExpr = self::nodeTsExpression('simple');
         $simpleCount = $this->searchConnection()->selectOne("
             SELECT COUNT(*) as cnt FROM (
                 SELECT 1 FROM nodes
-                WHERE search_vector_simple @@ to_tsquery('simple', ?)
+                WHERE {$probeExpr} @@ to_tsquery('simple', ?)
                 AND book NOT IN ('most-recent', 'most-connected', 'most-lit')
                 LIMIT 101
             ) sub
         ", [$tsQuery]);
 
-        if (($simpleCount->cnt ?? 0) > 0) {
-            $config = 'simple';
-            $vectorColumn = 'search_vector_simple';
-        } else {
-            $config = 'english';
-            $vectorColumn = 'search_vector';
-        }
+        $config = ($simpleCount->cnt ?? 0) > 0 ? 'simple' : 'english';
+        $tsExpr = self::nodeTsExpression($config);
 
         // Visibility — private books are NEVER returned, regardless of scope.
         // `mine` narrows further to the user's own public books; `shelf` narrows via join.
@@ -136,23 +152,44 @@ class SearchService
         $shelfJoin = '';
         $shelfParams = [];
         if ($sourceScope === 'shelf' && $shelfId) {
-            $shelfJoin = 'JOIN shelf_items ON shelf_items.book = nodes.book AND shelf_items.shelf_id = ?';
+            $shelfJoin = 'JOIN shelf_items ON shelf_items.book = hits.book AND shelf_items.shelf_id = ?';
             $shelfParams = [$shelfId];
         }
 
         $excludeClause = '';
         $excludeParams = [];
         if ($excludeBook) {
-            $excludeClause = 'AND nodes.book != ?';
+            $excludeClause = 'AND hits.book != ?';
             $excludeParams = [$excludeBook];
         }
 
         $orderClause = $tsOperator === '|'
-            ? "ORDER BY ts_rank(nodes.{$vectorColumn}, to_tsquery('{$config}', ?)) DESC"
+            ? "ORDER BY ts_rank(hits.vec, to_tsquery('{$config}', ?)) DESC"
             : "ORDER BY library.created_at DESC";
         $rankParams = $tsOperator === '|' ? [$tsQuery] : [];
 
+        // hits is a MATERIALIZED CTE over nodes only, capped, so the GIN
+        // expression index drives the plan and the tsvector (vec) is computed
+        // at most $candidateCap times for ranking — same fence-and-cap shape
+        // (and same caveat: candidates that fail the visibility/exclude
+        // filters below consume cap slots) as buildNodeSearchQuery.
+        $candidateCap = max($limit * 20, 300);
+
         $sql = "
+            WITH hits AS MATERIALIZED (
+                SELECT
+                    nodes.id,
+                    nodes.book,
+                    nodes.node_id,
+                    nodes.\"plainText\",
+                    nodes.content,
+                    COALESCE(nodes.\"plainText\", nodes.content, '') as text_content,
+                    {$tsExpr} AS vec
+                FROM nodes
+                WHERE {$tsExpr} @@ to_tsquery('{$config}', ?)
+                    AND nodes.book NOT IN ('most-recent', 'most-connected', 'most-lit')
+                LIMIT {$candidateCap}
+            )
             SELECT
                 sub.id,
                 sub.book,
@@ -169,22 +206,15 @@ class SearchService
                 ) as headline
             FROM (
                 SELECT
-                    nodes.id,
-                    nodes.book,
-                    nodes.node_id,
-                    nodes.\"plainText\",
-                    nodes.content,
+                    hits.*,
                     library.title,
                     library.author,
                     library.year,
-                    library.bibtex,
-                    COALESCE(nodes.\"plainText\", nodes.content, '') as text_content
-                FROM nodes
-                JOIN library ON nodes.book = library.book
+                    library.bibtex
+                FROM hits
+                JOIN library ON hits.book = library.book
                 {$shelfJoin}
-                WHERE nodes.{$vectorColumn} @@ to_tsquery('{$config}', ?)
-                    AND nodes.book NOT IN ('most-recent', 'most-connected', 'most-lit')
-                    AND library.type != 'sub_book'
+                WHERE library.type != 'sub_book'
                     AND {$visibilityClause}
                     {$excludeClause}
                 {$orderClause}
@@ -193,9 +223,8 @@ class SearchService
         ";
 
         $params = array_merge(
-            [$tsQuery],
+            [$tsQuery, $tsQuery],
             $shelfParams,
-            [$tsQuery],
             $visibilityParams,
             $excludeParams,
             $rankParams,
@@ -445,9 +474,8 @@ class SearchService
      * Assemble the /api/search/nodes SQL + params for a pre-built tsquery.
      *
      * Extracted from SearchController::executeNodeSearch so the controller and
-     * `php artisan search:profile` share one copy of the query. The controller
-     * keeps the config/vector-column whitelist validation; this method trusts
-     * its inputs (callers must validate).
+     * `php artisan search:profile` share one copy of the query. The config is
+     * validated (whitelisted) by nodeTsExpression before interpolation.
      *
      * Two-stage: inner subquery uses no ORDER BY so the GIN scan can
      * stream-and-stop at LIMIT (cheap regardless of match cardinality).
@@ -459,11 +487,11 @@ class SearchService
     public function buildNodeSearchQuery(
         string $tsQuery,
         string $config,
-        string $vectorColumn,
         int $limit,
         ?string $creatorName = null,
         ?string $anonToken = null,
     ): array {
+        $tsExpr = self::nodeTsExpression($config);
         $visibilityConditions = ["(library.listed = true AND library.visibility NOT IN ('private', 'deleted'))"];
         $visibilityParams = [];
 
@@ -508,9 +536,9 @@ class SearchService
                     nodes.node_id,
                     nodes.\"startLine\",
                     COALESCE(nodes.\"plainText\", nodes.content, '') as text_content,
-                    nodes.{$vectorColumn} AS vec
+                    {$tsExpr} AS vec
                 FROM nodes
-                WHERE nodes.{$vectorColumn} @@ to_tsquery('{$config}', ?)
+                WHERE {$tsExpr} @@ to_tsquery('{$config}', ?)
                     AND nodes.book NOT IN ('most-recent', 'most-connected', 'most-lit')
                 LIMIT {$candidateCap}
             )

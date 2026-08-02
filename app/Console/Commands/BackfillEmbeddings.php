@@ -81,7 +81,7 @@ class BackfillEmbeddings extends Command
                     $vectorStr = '[' . implode(',', $embedding) . ']';
                     DB::connection('pgsql_admin')->table('nodes')
                         ->where('id', $nodeMap[$idx]->id)
-                        ->update(['embedding' => DB::raw("'{$vectorStr}'::vector")]);
+                        ->update(['embedding' => DB::raw("'{$vectorStr}'::halfvec")]);
                     $embedded++;
                 }
                 $bar->advance();

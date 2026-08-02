@@ -619,11 +619,11 @@ class ShelfController extends Controller
         }
 
         // Two-stage search: exact first, fallback to stemmed
-        $results = $this->executeShelfNodeSearch($tsQuery, 'simple', 'search_vector_simple', $books, $limit);
+        $results = $this->executeShelfNodeSearch($tsQuery, 'simple', $books, $limit);
         $searchType = 'exact';
 
         if ($results->isEmpty()) {
-            $results = $this->executeShelfNodeSearch($tsQuery, 'english', 'search_vector', $books, $limit);
+            $results = $this->executeShelfNodeSearch($tsQuery, 'english', $books, $limit);
             $searchType = 'stemmed';
         }
 
@@ -727,11 +727,11 @@ class ShelfController extends Controller
         }
 
         // Two-stage search: exact (simple) first, fallback to stemmed (english)
-        $results = $this->executeShelfNodeSearch($tsQuery, 'simple', 'search_vector_simple', $books, $limit);
+        $results = $this->executeShelfNodeSearch($tsQuery, 'simple', $books, $limit);
         $searchType = 'exact';
 
         if ($results->isEmpty()) {
-            $results = $this->executeShelfNodeSearch($tsQuery, 'english', 'search_vector', $books, $limit);
+            $results = $this->executeShelfNodeSearch($tsQuery, 'english', $books, $limit);
             $searchType = 'stemmed';
         }
 
@@ -808,11 +808,11 @@ class ShelfController extends Controller
         }
 
         // Two-stage search: exact first, fallback to stemmed
-        $results = $this->executeShelfNodeSearch($tsQuery, 'simple', 'search_vector_simple', $books, $limit);
+        $results = $this->executeShelfNodeSearch($tsQuery, 'simple', $books, $limit);
         $searchType = 'exact';
 
         if ($results->isEmpty()) {
-            $results = $this->executeShelfNodeSearch($tsQuery, 'english', 'search_vector', $books, $limit);
+            $results = $this->executeShelfNodeSearch($tsQuery, 'english', $books, $limit);
             $searchType = 'stemmed';
         }
 
@@ -839,21 +839,15 @@ class ShelfController extends Controller
         ]);
     }
 
-    // Allowed values for SQL interpolation
-    private const ALLOWED_CONFIGS = ['simple', 'english'];
-    private const ALLOWED_VECTOR_COLUMNS = ['search_vector', 'search_vector_simple'];
-
     /**
      * Execute node search scoped to a specific set of books.
+     * Config whitelist (🔒 SQL-injection guard) is enforced by
+     * SearchService::nodeTsExpression, which also builds the exact
+     * expression the GIN expression indexes are defined on.
      */
-    protected function executeShelfNodeSearch(string $tsQuery, string $config, string $vectorColumn, array $books, int $limit)
+    protected function executeShelfNodeSearch(string $tsQuery, string $config, array $books, int $limit)
     {
-        if (!in_array($config, self::ALLOWED_CONFIGS, true)) {
-            throw new \InvalidArgumentException("Invalid search config: {$config}");
-        }
-        if (!in_array($vectorColumn, self::ALLOWED_VECTOR_COLUMNS, true)) {
-            throw new \InvalidArgumentException("Invalid vector column: {$vectorColumn}");
-        }
+        $tsExpr = SearchService::nodeTsExpression($config);
 
         $placeholders = implode(',', array_fill(0, count($books), '?'));
 
@@ -876,10 +870,10 @@ class ShelfController extends Controller
                     library.title,
                     library.author,
                     COALESCE(nodes.\"plainText\", nodes.content, '') as text_content,
-                    nodes.{$vectorColumn} AS vec
+                    {$tsExpr} AS vec
                 FROM nodes
                 JOIN library ON nodes.book = library.book
-                WHERE nodes.{$vectorColumn} @@ to_tsquery('{$config}', ?)
+                WHERE {$tsExpr} @@ to_tsquery('{$config}', ?)
                     AND nodes.book IN ({$placeholders})
                 LIMIT ?
             ) sub

@@ -359,7 +359,7 @@ class WebFetchService
     /**
      * Create node records from text chunks.
      * Uses e() for HTML content (XSS protection) — same pattern as ImportController footnotes.
-     * search_vector auto-populates from plainText (GENERATED ALWAYS AS STORED).
+     * plainText MUST be set here: the FTS expression indexes cover plainText only.
      */
     private function createNodes($db, string $bookId, array $chunks): void
     {

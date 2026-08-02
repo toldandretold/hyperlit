@@ -146,8 +146,8 @@ class SearchProfileCommand extends Command
             [$tsQuery, $tsQuery, $tsQuery, self::LIMIT],
         ];
 
-        $shapes['nodes (exact/simple)'] = $search->buildNodeSearchQuery($tsQuery, 'simple', 'search_vector_simple', self::LIMIT, $creator, null);
-        $shapes['nodes (stemmed/english)'] = $search->buildNodeSearchQuery($tsQuery, 'english', 'search_vector', self::LIMIT, $creator, null);
+        $shapes['nodes (exact/simple)'] = $search->buildNodeSearchQuery($tsQuery, 'simple', self::LIMIT, $creator, null);
+        $shapes['nodes (stemmed/english)'] = $search->buildNodeSearchQuery($tsQuery, 'english', self::LIMIT, $creator, null);
 
         return $shapes;
     }

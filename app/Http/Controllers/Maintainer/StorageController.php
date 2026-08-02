@@ -159,9 +159,9 @@ class StorageController extends Controller
      * The per-book / per-node averages answer "how much"; this answers "of
      * what", and the answer is usually surprising: the prose is the small part.
      * Text is stored raw (a paragraph is under the ~2 KB TOAST threshold, so it
-     * is never compressed), it is stored TWICE (content + plainText), and then
-     * the derived search data — two tsvectors and one embedding vector — costs
-     * several times the text it describes.
+     * is never compressed), it is stored TWICE (content + plainText), and the
+     * halfvec embedding still costs several times the text it describes (the
+     * tsvectors live only in expression GIN indexes since 2026-08).
      *
      * Column shares come from a page-level SAMPLE, not a full scan:
      * sum(pg_column_size(col)) over every row means reading the whole table,
@@ -184,12 +184,13 @@ class StorageController extends Controller
             $toast = max(0, (int) $size->total - (int) $size->heap - (int) $size->indexes);
 
             // SYSTEM sampling reads whole pages — fast, and fine for shares.
+            // NB: the tsvectors are no longer stored columns (2026-08 —
+            // expression GIN indexes only), so their cost now lives entirely
+            // in the "indexes" physical figure, not in any row column.
             $s = $db->selectOne('
                 SELECT count(*) AS rows,
                        sum(pg_column_size(content))              AS content,
                        sum(pg_column_size("plainText"))          AS plaintext,
-                       sum(pg_column_size(search_vector))        AS tsv_english,
-                       sum(pg_column_size(search_vector_simple)) AS tsv_simple,
                        sum(pg_column_size(embedding))            AS embedding,
                        sum(pg_column_size(footnotes))            AS footnotes,
                        sum(pg_column_size(nodes.*))              AS row_total
@@ -202,8 +203,6 @@ class StorageController extends Controller
 
             $columns = [
                 'embedding' => (int) $s->embedding,
-                'search_vector_simple' => (int) $s->tsv_simple,
-                'search_vector (english)' => (int) $s->tsv_english,
                 'content (HTML)' => (int) $s->content,
                 'plainText (duplicate of content)' => (int) $s->plaintext,
                 'footnotes' => (int) $s->footnotes,
@@ -216,8 +215,9 @@ class StorageController extends Controller
             // row count. NOT apportioned against the heap: pg_column_size()
             // reports a value's stored size even when that value lives in TOAST,
             // so folding these into the heap and then listing TOAST separately
-            // counts the same bytes twice. Embeddings are 3 KB each — above the
-            // ~2 KB threshold — so they are largely IN the TOAST figure below.
+            // counts the same bytes twice. halfvec embeddings are ~1.5 KB each;
+            // rows carrying one usually exceed the ~2 KB threshold, so they
+            // are largely IN the TOAST figure below.
             //
             // PHYSICAL = how the table is laid out on disk. These three sum to
             // the table size; the logical column figures do not, and the two

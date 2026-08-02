@@ -71,7 +71,7 @@ class GenerateNodeEmbedding implements ShouldQueue
             $vectorStr = '[' . implode(',', $embedding) . ']';
             $admin->table('nodes')
                 ->where('id', $this->nodeId)
-                ->update(['embedding' => DB::raw("'{$vectorStr}'::vector")]);
+                ->update(['embedding' => DB::raw("'{$vectorStr}'::halfvec")]);
         }
     }
 }

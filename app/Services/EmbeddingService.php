@@ -12,6 +12,20 @@ class EmbeddingService
     private string $apiKey;
     private string $model;
 
+    /**
+     * Read connection for similarity queries. Same seam as SearchService:
+     * under RLS the planner refuses the HNSW ordered scan (pgvector's
+     * distance operators are not LEAKPROOF, the same trap that made GIN
+     * unusable for FTS), so every query seq-scanned all embedded nodes —
+     * pg_stat showed 0 scans on idx_nodes_embedding, ever. Visibility is
+     * enforced by the explicit scope clauses in each query below, NOT by
+     * RLS; that contract is locked by tests/Feature/AiBrain/RetrievalScopeTest.php.
+     */
+    private function searchConnection(): \Illuminate\Database\ConnectionInterface
+    {
+        return DB::connection(config('database.search_read_connection'));
+    }
+
     public function __construct()
     {
         $this->baseUrl = rtrim(config('services.llm.base_url', ''), '/');
@@ -102,7 +116,7 @@ class EmbeddingService
     {
         $vectorStr = '[' . implode(',', $queryEmbedding) . ']';
 
-        $query = DB::table('nodes AS n')
+        $query = $this->searchConnection()->table('nodes AS n')
             ->join('library AS l', 'n.book', '=', 'l.book')
             ->selectRaw('
                 n.id,
@@ -114,11 +128,11 @@ class EmbeddingService
                 l.author AS book_author,
                 l.year AS book_year,
                 l.bibtex,
-                (n.embedding <=> ?::vector) AS distance
+                (n.embedding <=> ?::halfvec) AS distance
             ', [$vectorStr])
             ->whereNotNull('n.embedding')
             ->where('l.type', '!=', 'sub_book')
-            ->orderByRaw('n.embedding <=> ?::vector', [$vectorStr])
+            ->orderByRaw('n.embedding <=> ?::halfvec', [$vectorStr])
             ->limit($limit);
 
         // Scope filtering — private books are NEVER returned, regardless of scope
@@ -156,7 +170,7 @@ class EmbeddingService
 
         $vectorStr = '[' . implode(',', $queryEmbedding) . ']';
 
-        $query = DB::table('nodes AS n')
+        $query = $this->searchConnection()->table('nodes AS n')
             ->join('library AS l', 'n.book', '=', 'l.book')
             ->selectRaw('
                 n.id,
@@ -168,12 +182,12 @@ class EmbeddingService
                 l.author AS book_author,
                 l.year AS book_year,
                 l.bibtex,
-                (n.embedding <=> ?::vector) AS distance
+                (n.embedding <=> ?::halfvec) AS distance
             ', [$vectorStr])
             ->whereNotNull('n.embedding')
             ->where('l.type', '!=', 'sub_book')
             ->where('l.author', $author)
-            ->orderByRaw('n.embedding <=> ?::vector', [$vectorStr])
+            ->orderByRaw('n.embedding <=> ?::halfvec', [$vectorStr])
             ->limit($limit);
 
         // Scope filtering — private books are NEVER returned, regardless of scope

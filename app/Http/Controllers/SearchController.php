@@ -341,11 +341,11 @@ class SearchController extends Controller
 
             $t = hrtime(true);
             $payload = Cache::remember($cacheKey, 60, function () use ($request, $tsQuery, $limit) {
-                $results = $this->executeNodeSearch($request, $tsQuery, 'simple', 'search_vector_simple', $limit);
+                $results = $this->executeNodeSearch($request, $tsQuery, 'simple', $limit);
                 $searchType = 'exact';
 
                 if ($results->isEmpty()) {
-                    $results = $this->executeNodeSearch($request, $tsQuery, 'english', 'search_vector', $limit);
+                    $results = $this->executeNodeSearch($request, $tsQuery, 'english', $limit);
                     $searchType = 'stemmed';
                 }
 
@@ -410,31 +410,18 @@ class SearchController extends Controller
         }
     }
 
-    // 🔒 SECURITY: Whitelist allowed values to prevent SQL injection
-    private const ALLOWED_CONFIGS = ['simple', 'english'];
-    private const ALLOWED_VECTOR_COLUMNS = ['search_vector', 'search_vector_simple'];
-
     /**
      * Execute node search with specified text search configuration.
      *
      * SQL assembly lives in SearchService::buildNodeSearchQuery (shared with
-     * `php artisan search:profile`); this wrapper validates the config/vector
-     * whitelist and supplies the caller's identity for visibility filtering.
+     * `php artisan search:profile`); the config whitelist (🔒 SQL-injection
+     * guard) is enforced centrally by SearchService::nodeTsExpression.
      */
-    private function executeNodeSearch(Request $request, string $tsQuery, string $config, string $vectorColumn, int $limit)
+    private function executeNodeSearch(Request $request, string $tsQuery, string $config, int $limit)
     {
-        // 🔒 SECURITY: Validate config and vectorColumn against whitelist
-        if (!in_array($config, self::ALLOWED_CONFIGS, true)) {
-            throw new \InvalidArgumentException("Invalid search config: {$config}");
-        }
-        if (!in_array($vectorColumn, self::ALLOWED_VECTOR_COLUMNS, true)) {
-            throw new \InvalidArgumentException("Invalid vector column: {$vectorColumn}");
-        }
-
         [$sql, $params] = $this->searchService->buildNodeSearchQuery(
             $tsQuery,
             $config,
-            $vectorColumn,
             $limit,
             Auth::user()?->name,
             $request->cookie('anon_token'),
