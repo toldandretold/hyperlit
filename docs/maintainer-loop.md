@@ -29,9 +29,13 @@ The fix site is `app/Services/ContentFetchService.php` and its two deterministic
 After fixing acquisition, sweep what's already in the library — the gate only protects future fetches:
 
 ```bash
-php artisan harvest:audit-imports          # report suspects (free: measures stored nodes, no re-fetch)
-php artisan harvest:audit-imports --flag   # and queue them into /maintainer/conversion
+php artisan harvest:audit-imports --stats   # FIRST: prose distribution over the real corpus
+php artisan harvest:audit-imports           # report suspects (free: measures stored nodes, no re-fetch)
+php artisan harvest:audit-imports --flag    # queue them into /maintainer/conversion
+php artisan harvest:audit-imports --unflag  # UNDO: delete exactly those flags again
 ```
+
+Always run `--stats` before `--flag`. The audit scores a book by how many genuine prose paragraphs it holds, and that measure is only meaningful for whole harvested works — sub-books (annotations, footnotes) are excluded because a footnote is one paragraph, and user uploads are out of scope entirely. If more than 25% of the audited set comes back body-absent the command refuses to flag without `--force`: at that rate the threshold is wrong, not the library. `--unflag` targets only this audit's flags, so `library:flag-sweep` flags and user reports survive.
 
 ## From bundle to fixed code (on your dev machine)
 
