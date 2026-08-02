@@ -154,6 +154,106 @@ class StorageController extends Controller
     }
 
     /**
+     * GET /api/maintainer/storage/composition — what a node's bytes are MADE of.
+     *
+     * The per-book / per-node averages answer "how much"; this answers "of
+     * what", and the answer is usually surprising: the prose is the small part.
+     * Text is stored raw (a paragraph is under the ~2 KB TOAST threshold, so it
+     * is never compressed), it is stored TWICE (content + plainText), and then
+     * the derived search data — two tsvectors and one embedding vector — costs
+     * several times the text it describes.
+     *
+     * Column shares come from a page-level SAMPLE, not a full scan:
+     * sum(pg_column_size(col)) over every row means reading the whole table,
+     * which is what made the first version of the table drill-down hang. The
+     * sample gives proportions, which is all that is needed; those proportions
+     * are then applied to the table's REAL size.
+     */
+    public function composition()
+    {
+        $db = DB::connection('pgsql_admin');
+
+        $scanId = (int) (DB::table('storage_scans')->max('id') ?? 0);
+
+        return response()->json(Cache::remember("storage.composition.{$scanId}", now()->addHour(), function () use ($db) {
+            $size = $db->selectOne("
+                SELECT pg_total_relation_size('nodes') AS total,
+                       pg_relation_size('nodes')       AS heap,
+                       pg_indexes_size('nodes')        AS indexes
+            ");
+            $toast = max(0, (int) $size->total - (int) $size->heap - (int) $size->indexes);
+
+            // SYSTEM sampling reads whole pages — fast, and fine for shares.
+            $s = $db->selectOne('
+                SELECT count(*) AS rows,
+                       sum(pg_column_size(content))              AS content,
+                       sum(pg_column_size("plainText"))          AS plaintext,
+                       sum(pg_column_size(search_vector))        AS tsv_english,
+                       sum(pg_column_size(search_vector_simple)) AS tsv_simple,
+                       sum(pg_column_size(embedding))            AS embedding,
+                       sum(pg_column_size(footnotes))            AS footnotes,
+                       sum(pg_column_size(nodes.*))              AS row_total
+                FROM nodes TABLESAMPLE SYSTEM (2)
+            ');
+
+            $nodeCount = (int) $db->table('nodes')->count();
+            $sampled = max(1, (int) $s->rows);
+            $rowTotal = max(1, (int) $s->row_total);
+
+            $columns = [
+                'embedding' => (int) $s->embedding,
+                'search_vector_simple' => (int) $s->tsv_simple,
+                'search_vector (english)' => (int) $s->tsv_english,
+                'content (HTML)' => (int) $s->content,
+                'plainText (duplicate of content)' => (int) $s->plaintext,
+                'footnotes' => (int) $s->footnotes,
+            ];
+            $columns['row overhead + small columns'] = max(0, $rowTotal - array_sum($columns));
+
+            // TWO accounting systems, kept apart on purpose.
+            //
+            // LOGICAL = what each column's data costs, scaled from the sample by
+            // row count. NOT apportioned against the heap: pg_column_size()
+            // reports a value's stored size even when that value lives in TOAST,
+            // so folding these into the heap and then listing TOAST separately
+            // counts the same bytes twice. Embeddings are 3 KB each — above the
+            // ~2 KB threshold — so they are largely IN the TOAST figure below.
+            //
+            // PHYSICAL = how the table is laid out on disk. These three sum to
+            // the table size; the logical column figures do not, and the two
+            // lists must never be ranked against each other.
+            $logical = [];
+            foreach ($columns as $name => $sampleBytes) {
+                $perNode = $sampleBytes / $sampled;
+                $logical[] = [
+                    'label' => $name,
+                    'bytes' => (int) round($perNode * $nodeCount),
+                    'per_node' => (int) round($perNode),
+                    'share' => round(100 * $sampleBytes / $rowTotal, 1),
+                    // Above the threshold it is compressed and moved out-of-line.
+                    'toasted' => $perNode > 2000,
+                ];
+            }
+            usort($logical, fn ($a, $z) => $z['bytes'] <=> $a['bytes']);
+
+            return [
+                'node_count' => $nodeCount,
+                'sampled_rows' => $sampled,
+                'physical' => [
+                    'total' => (int) $size->total,
+                    'heap' => (int) $size->heap,
+                    'toast' => $toast,
+                    'indexes' => (int) $size->indexes,
+                ],
+                'rows' => $logical,
+                'note' => "per-column data cost, scaled from a {$sampled}-row page sample · "
+                    . 'columns marked TOASTED are compressed and stored out-of-line, so they are counted '
+                    . 'in the TOAST figure above rather than in the heap — the two lists are not addable',
+            ];
+        }));
+    }
+
+    /**
      * GET /api/maintainer/storage/users — footprint per user.
      *
      * Files come from the snapshot (every item carries the owner denormalised

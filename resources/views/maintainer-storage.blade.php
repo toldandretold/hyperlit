@@ -48,16 +48,18 @@
 
                 {{-- Database cost per book / per node. Files excluded on purpose. --}}
                 <div class="ms-tiles" id="ms-averages" hidden>
-                    <div class="ms-tile">
+                    <button type="button" class="ms-tile ms-tile-button" id="ms-avg-book-tile"
+                            title="What makes up these bytes — content vs embeddings vs search indexes">
                         <span class="ms-tile-val" id="ms-avg-book"></span>
-                        <span class="ms-tile-label">database per book</span>
+                        <span class="ms-tile-label">database per book ›</span>
                         <span class="ms-tile-sub" id="ms-avg-book-sub"></span>
-                    </div>
-                    <div class="ms-tile">
+                    </button>
+                    <button type="button" class="ms-tile ms-tile-button" id="ms-avg-node-tile"
+                            title="What makes up these bytes — content vs embeddings vs search indexes">
                         <span class="ms-tile-val" id="ms-avg-node"></span>
-                        <span class="ms-tile-label">database per node</span>
+                        <span class="ms-tile-label">database per node ›</span>
                         <span class="ms-tile-sub" id="ms-avg-node-sub"></span>
-                    </div>
+                    </button>
                 </div>
             </section>
 

@@ -546,6 +546,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/maintainer/storage/summary', [\App\Http\Controllers\Maintainer\StorageController::class, 'summary']);
     Route::get('/maintainer/storage/detail/{category}', [\App\Http\Controllers\Maintainer\StorageController::class, 'detail'])
         ->where('category', '[a-z_]+');
+    // What a node's bytes are made of (content vs embeddings vs search vectors).
+    Route::get('/maintainer/storage/composition', [\App\Http\Controllers\Maintainer\StorageController::class, 'composition']);
     // Footprint per user — the groundwork for quotas.
     Route::get('/maintainer/storage/users', [\App\Http\Controllers\Maintainer\StorageController::class, 'users']);
     // Deleted books that still hold content — invisible to the orphan sweep.

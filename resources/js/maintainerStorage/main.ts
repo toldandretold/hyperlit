@@ -342,6 +342,55 @@ async function renderOrphans(orphanBytes: number, fileBytes: number): Promise<vo
   }
 }
 
+/**
+ * What the per-node bytes are actually made of. Opened from either averages
+ * tile — the tiles say "how much", this says "of what", and the answer (prose
+ * is the small part) is the point.
+ */
+async function showComposition(): Promise<void> {
+  setStatus('sampling the nodes table…');
+  const resp = await fetch('/api/maintainer/storage/composition', { credentials: 'include' });
+  if (!resp.ok) {
+    setStatus(`composition failed (${resp.status})`);
+    return;
+  }
+
+  const data = await resp.json();
+  const rows = (data.rows ?? []) as Array<{
+    label: string; bytes: number; share: number; per_node: number; toasted: boolean;
+  }>;
+  const phys = data.physical;
+
+  const section = el<HTMLElement>('ms-detail-section');
+  const box = el<HTMLDivElement>('ms-detail');
+
+  el<HTMLHeadingElement>('ms-detail-h').textContent = 'nodes — what the bytes are made of';
+  // Physical layout goes in the note, per-column data cost in the list. Keeping
+  // them apart is deliberate: pg_column_size counts a value even when it lives
+  // in TOAST, so ranking the two together double-counts the same bytes.
+  el<HTMLParagraphElement>('ms-detail-note').textContent =
+    `Table ${human(phys.total)} = heap ${human(phys.heap)} + TOAST ${human(phys.toast)} + indexes ${human(phys.indexes)}. `
+    + data.note;
+  el<HTMLParagraphElement>('ms-detail-note').hidden = false;
+  box.textContent = '';
+
+  const max = rows[0]?.bytes ?? 1;
+  for (const row of rows) {
+    box.appendChild(rowEl({
+      label: row.label,
+      sub: `${row.share}% of a row · ${human(row.per_node)} per node`,
+      bytes: row.bytes,
+      max,
+      color: 'var(--ms-cat-6)',
+      tags: row.toasted ? ['toasted'] : [],
+    }));
+  }
+
+  section.hidden = false;
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setStatus(`sampled ${data.sampled_rows.toLocaleString()} rows`);
+}
+
 interface UserRow {
   owner: string;
   nodes: number;
@@ -737,6 +786,8 @@ function wireHelp(): void {
   });
 }
 
+el<HTMLButtonElement>('ms-avg-book-tile').addEventListener('click', () => void showComposition());
+el<HTMLButtonElement>('ms-avg-node-tile').addEventListener('click', () => void showComposition());
 el<HTMLButtonElement>('ms-rescan').addEventListener('click', () => void rescan());
 el<HTMLButtonElement>('ms-export').addEventListener('click', () => {
   // Full snapshot, every row — the page only ever shows top-N.

@@ -177,6 +177,17 @@ body {
   font-size: 0.76rem;
   color: var(--color-text-faint, #888);
 }
+button.ms-tile-button {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+}
+button.ms-tile-button:hover,
+button.ms-tile-button:focus-visible {
+  border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
 
 /* ── Meters (a single ratio against a limit) ── */
 .ms-meters { display: flex; flex-direction: column; gap: 14px; }
