@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Console\Commands\BookExport;
 use App\Models\ConversionFlag;
 use App\Services\Conversion\ReconvertQueue;
 use Illuminate\Http\Request;
@@ -90,15 +91,23 @@ class MaintainerController extends Controller
     }
 
     /**
-     * GET /api/maintainer/conversion/export/{book} — build the case bundle (book:export)
-     * and stream it down: the "⤓ dev bundle" button. The same tarball
-     * pull_case.sh fetches over ssh.
+     * GET /api/maintainer/conversion/export/{book}?kind=conversion|harvest —
+     * build the case bundle (book:export) and stream it down: the "⤓ dev bundle"
+     * / "⤓ harvest bundle" buttons. The same tarball pull_case.sh fetches over
+     * ssh. `kind` is optional — book:export auto-detects it from the book, and
+     * the param only exists to override a wrong guess.
      */
-    public function export(string $book)
+    public function export(Request $request, string $book)
     {
         $book = $this->cleanBookId($book);
 
-        $exit = Artisan::call('book:export', ['book' => $book]);
+        $kind = (string) $request->query('kind', '');
+        $args = ['book' => $book];
+        if (in_array($kind, [BookExport::KIND_CONVERSION, BookExport::KIND_HARVEST], true)) {
+            $args['--kind'] = $kind;
+        }
+
+        $exit = Artisan::call('book:export', $args);
         if ($exit !== 0) {
             return response()->json(['message' => 'Export failed — see logs.'], 422);
         }

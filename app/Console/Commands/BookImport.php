@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\File;
 class BookImport extends Command
 {
     protected $signature = 'book:import
-        {archive : Path to the .tar.gz produced by book:export}
+        {archive : Path to the .tar.gz (or gunzipped .tar) produced by book:export}
         {--force : Replace the book if it already exists locally}
         {--keep-tokens : Do not scrub creator_token (default scrubs)}';
 
@@ -34,7 +34,8 @@ class BookImport extends Command
         $stage = storage_path('app/book-exports/.import-stage-' . getmypid());
         File::deleteDirectory($stage);
         File::ensureDirectoryExists($stage);
-        exec(sprintf('tar -xzf %s -C %s', escapeshellarg($archive), escapeshellarg($stage)), $o, $code);
+        // -xf (no z): tar auto-detects gzip, so a Safari-gunzipped .tar imports too.
+        exec(sprintf('tar -xf %s -C %s', escapeshellarg($archive), escapeshellarg($stage)), $o, $code);
         if ($code !== 0) {
             $this->error("tar extraction failed (exit {$code}).");
             return self::FAILURE;
@@ -59,6 +60,13 @@ class BookImport extends Command
             }
 
             $counts = [];
+
+            // canonical_source first: for a harvest case it is the acquisition
+            // evidence (is_oa / oa_status / oa_locations / pdf_url — what
+            // OpenAlex actually claimed). Insert-if-absent, never replaced: one
+            // canonical row is shared by every version of the work, so a --force
+            // re-import of one book must not clobber (or delete) it.
+            $counts['canonical_source'] = $this->insertCanonicalSource($db, "{$stage}/db/canonical_source.json");
 
             $counts['library'] = $this->insertJson($db, 'library', "{$stage}/db/library.json");
             $counts['nodes'] = $this->insertNodesJsonl($db, "{$stage}/db/nodes.jsonl");
@@ -97,6 +105,28 @@ class BookImport extends Command
         DB::table('conversion_flags')->where('book', $book)->delete();
         File::deleteDirectory(resource_path("markdown/{$book}"));
         $this->line("  (purged existing {$book})");
+    }
+
+    /**
+     * Insert canonical_source rows that aren't here yet. Shared across books and
+     * across cases, so existing rows are left exactly as they are.
+     */
+    private function insertCanonicalSource($db, string $path): int
+    {
+        if (!is_file($path)) {
+            return 0;
+        }
+        $rows = json_decode((string) file_get_contents($path), true) ?: [];
+        $inserted = 0;
+        foreach ($rows as $row) {
+            if (empty($row['id']) || $db->table('canonical_source')->where('id', $row['id'])->exists()) {
+                continue;
+            }
+            $db->table('canonical_source')->insert($this->scrub($row));
+            $inserted++;
+        }
+
+        return $inserted;
     }
 
     private function insertJson($db, string $table, string $path): int

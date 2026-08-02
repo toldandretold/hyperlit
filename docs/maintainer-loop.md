@@ -15,6 +15,23 @@ Open `/maintainer/conversion` (admins = `users.is_admin`; everyone else gets a 4
 - **✓ resolve / ✕ dismiss** — the conversion is actually fine, or the flag is noise. Done.
 - **↻ reconvert** — the conversion code was already fixed (or the book just needs a re-run through current code). Runs with live progress; hyperlights/hypercites re-attach to the new nodes automatically (orphans are kept and stamped, never deleted — see `reattach_report.json` in the book's markdown dir). Then resolve.
 - **⤓ dev bundle** — the conversion CODE needs fixing: downloads `<book>.tar.gz`, the complete case (all DB rows incl. annotations + the whole `resources/markdown/<book>/` artifact dir: `original.*`, `ocr_response.json`, `assessment.json` decision trace, debug files, the user complaint).
+- **⤓ harvest bundle** — the ACQUISITION needs fixing: the text isn't a mangled version of the work, it isn't the work at all. Use this when the book is a journal landing page, a "prove you're not a robot" interstitial, an abstract with nothing after it, or the wrong edition. See the section below.
+
+## Conversion case vs harvest case — pick the right loop
+
+These are two unrelated failures with two different fix sites, and running one through the other's loop wastes a day. The bundle manifest carries `case_kind` (auto-detected by `book:export` from the book itself; `--kind=` overrides), and `book:import-cases` prints it as `── <book> [kind]`.
+
+- **`conversion`** — a user's own upload converted badly. Fix `app/Python`, lock it with a regression fixture. That's the loop in the next section.
+- **`harvest`** — the Source Network Harvester auto-imported a work from OpenAlex and what it FETCHED was already wrong. An OpenAlex `is_oa` flag is a claim about the work, not a promise about the URL: following one can land on a paywalled publisher landing page or a bot wall. The converter then faithfully converted that, so replaying it through `run_regression.py` proves nothing — it just reconverts the junk. These bundles carry two things a conversion bundle never did: `db/canonical_source.json` (what OpenAlex actually claimed — `is_oa`, `oa_status`, every `oa_locations` copy, `pdf_url`, `oa_url`) and `artifacts/fetch_trace.json` (how many OA copies were tried, which host won, and the acquisition-gate verdict). `book:import-cases` skips fixture capture for these and prints the diagnosis instead.
+
+The fix site is `app/Services/ContentFetchService.php` and its two deterministic gates in `app/Services/SourceImport/Content/`: `AccessWallDetector` (captcha/bot interstitials, raw HTML, runs before the paste engine) and `BodyPresenceAssessor` (is the article BODY here at all — the check that catches a paywalled landing page, which passes every identity and completeness signal because publishers paywall the body but never the reference list). A body-absent verdict rejects outright: no book is created. Tests: `php artisan test tests/Canonical/AcquisitionGateTest.php`, with the two real production failures kept as fixtures in `tests/paste/fixtures/walled/`.
+
+After fixing acquisition, sweep what's already in the library — the gate only protects future fetches:
+
+```bash
+php artisan harvest:audit-imports          # report suspects (free: measures stored nodes, no re-fetch)
+php artisan harvest:audit-imports --flag   # and queue them into /maintainer/conversion
+```
 
 ## From bundle to fixed code (on your dev machine)
 

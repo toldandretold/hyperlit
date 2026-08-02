@@ -53,6 +53,7 @@
         <span class="mt-actions-grip" id="mt-actions-grip" title="Drag to move (double-click to reset)">⋮⋮</span>
         <span id="mt-actions-book"></span>
         <button type="button" id="mt-export">⤓ dev bundle</button>
+        <button type="button" id="mt-export-harvest" title="Acquisition case: what we FETCHED was wrong (paywalled landing page, captcha, wrong edition) — carries canonical_source + fetch_trace.json">⤓ harvest bundle</button>
         <button type="button" id="mt-reconvert">↻ reconvert</button>
         <button type="button" id="mt-resolve">✓ resolve</button>
         <button type="button" id="mt-dismiss">✕ dismiss</button>
@@ -67,6 +68,7 @@
             <li><strong>Judge it.</strong> Book (middle) vs original (right). Conversion actually fine? <strong>✓ resolve</strong> or <strong>✕ dismiss</strong> — done.</li>
             <li><strong>Code already fixed, or worth a re-run?</strong> <strong>↻ reconvert</strong> — runs with progress; highlights &amp; hypercites re-attach automatically. Then resolve.</li>
             <li><strong>Conversion code needs FIXING?</strong> <strong>⤓ dev bundle</strong> — downloads <code>&lt;book&gt;.tar.gz</code> (DB rows + original + OCR cache + decision traces + the complaint). Leave it in Downloads, or drag it into <code>tests/conversion/cases/</code>.</li>
+            <li><strong>Is the CONTENT ITSELF wrong — a paywalled landing page, a captcha, the wrong edition?</strong> That's an <em>acquisition</em> bug, not a conversion bug: the converter faithfully converted junk, so replaying it through <code>run_regression.py</code> just reproduces the junk. Use <strong>⤓ harvest bundle</strong> — same tarball plus <code>canonical_source</code> (what OpenAlex claimed: <code>is_oa</code>, <code>oa_status</code>, every <code>oa_locations</code> copy) and <code>fetch_trace.json</code> (which copy won, and the body-gate verdict). Fix <code>ContentFetchService</code>, not <code>app/Python</code>.</li>
             <li><strong>On your dev machine, ONE command ingests everything</strong>:<br><code>php artisan book:import-cases --downloads</code><br>Sweeps Downloads + the drop-folder, imports each book (opens in your local reader), captures regression fixtures automatically.</li>
             <li><strong>Or one prompt</strong>: tell Claude <code>@tests/conversion/cases/ new broken conversions to fix</code> — its README is the full contract (ingest → diagnose via <code>assessment.json</code> → fix → <code>--update-golden</code>).</li>
             <li><strong>Deploy, come back here, ↻ reconvert, ✓ resolve.</strong></li>

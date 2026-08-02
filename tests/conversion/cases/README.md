@@ -1,12 +1,17 @@
-# Case drop-folder — broken conversions pulled from prod
+# Case drop-folder — broken books pulled from prod
 
-Tarballs (`<book>.tar.gz`) in this folder are **case bundles** exported from production by the `/maintainer/conversion` triage page's "⤓ dev bundle" button (or `php artisan book:export`). Each contains everything needed to reproduce, debug, and regression-lock a bad conversion: all DB rows (library, nodes, footnotes, bibliography, hyperlights, hypercites, the conversion_flags complaint) plus the book's whole artifact dir (`original.pdf|epub|md`, `ocr_response.json` OCR cache, `assessment.json` decision trace, `audit.json`, debug files, user feedback).
+Tarballs (`<book>.tar.gz`) in this folder are **case bundles** exported from production by the `/maintainer/conversion` triage page's download buttons (or `php artisan book:export`). Everything here except this README is git-ignored — bundles are local working material.
 
-Everything here except this README is git-ignored — bundles are local working material.
+## Two case kinds — check `case_kind` in the manifest FIRST
+
+A bad book has two unrelated possible causes, and they have two different fix sites. The manifest's `case_kind` says which (auto-detected at export; `book:export --kind=` overrides), and `book:import-cases` prints it as `── <book> [kind]`.
+
+- **`conversion`** — the user's own upload converted badly. The input was fine; `app/Python` mangled it. Carries all DB rows plus the artifact dir (`original.pdf|epub|md`, `ocr_response.json` OCR cache, `assessment.json` decision trace, `audit.json`, debug files, user feedback). This is the loop the checklist below describes.
+- **`harvest`** — the Source Network Harvester auto-imported a work from OpenAlex and **what it acquired was already wrong**: a paywalled publisher landing page, a captcha interstitial, the wrong edition. The converter did its job faithfully on junk input, so `run_regression.py` would only prove that the junk converts to junk. These bundles additionally carry `db/canonical_source.json` (what OpenAlex claimed — `is_oa`, `oa_status`, `oa_locations`, `pdf_url`, `oa_url`) and `artifacts/fetch_trace.json` (which OA copy won, and the acquisition-gate verdict). **Fix `app/Services/ContentFetchService.php` and its gates (`SourceImport/Content/{AccessWallDetector,BodyPresenceAssessor}.php`), not `app/Python`.** Tests: `php artisan test tests/Canonical/AcquisitionGateTest.php`. After a fix, re-check every already-imported source with `php artisan harvest:audit-imports --flag` — the gate only protects future fetches, and there are older bad imports sitting in the library that no one has opened yet.
 
 ## If you are Claude (or any LLM asked to "look at the new broken conversions")
 
-Work through this checklist:
+Run `php artisan book:import-cases --downloads` first; it tells you each case's kind. For a `harvest` case, follow the paragraph above — the checklist below is the `conversion` loop and does not apply. For a `conversion` case, work through this checklist:
 
 1. **Ingest whatever is sitting here**: run `php artisan book:import-cases --downloads` (the `--downloads` flag also sweeps `~/Downloads` for bundles the maintainer page saved there). For each bundle this imports the book into the local DB + `resources/markdown/<book>/`, captures a conversion-regression fixture named after the book id, and parks the tarball in `ingested/`.
 2. **See what the user saw**: the book renders at `https://hyperlit.test/<book>` in the local reader; the original file is at `resources/markdown/<book>/original.*`. Compare them — that gap IS the bug.
@@ -22,3 +27,5 @@ Notes: fixture auto-capture needs `ocr_response.json` or `debug_converted.html` 
 ## If you are a human
 
 Drag the downloaded `<book>.tar.gz` here (or leave it in Downloads), then either run `php artisan book:import-cases --downloads` yourself — or open Claude and say: `@tests/conversion/cases/ new broken conversions to fix`.
+
+Which button to press on `/maintainer/conversion`: if the book's TEXT is the right text but mangled (garbled footnotes, lost headings, scrambled order) that's **⤓ dev bundle**. If the text isn't the work at all — a journal landing page, a "prove you're not a robot" page, an abstract with nothing after it — that's **⤓ harvest bundle**. Export auto-detects the kind either way, so the buttons only matter when you want to override the guess.

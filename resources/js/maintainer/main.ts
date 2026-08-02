@@ -322,12 +322,20 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !helpPanel.hidden) setHelp(false);
 });
 
-el<HTMLButtonElement>('mt-export').addEventListener('click', () => {
+// Two case kinds, two fix loops (see BookExport::KIND_*): `conversion` blames
+// the converter and replays through run_regression.py; `harvest` blames
+// acquisition and ships canonical_source + fetch_trace.json instead. Passing
+// no kind lets book:export auto-detect from the book.
+const downloadBundle = (kind?: 'conversion' | 'harvest'): void => {
   if (!selected) return;
   setStatus('building bundle…');
-  window.location.href = `/api/maintainer/conversion/export/${encodeURIComponent(selected.book)}`;
+  const qs = kind ? `?kind=${kind}` : '';
+  window.location.href = `/api/maintainer/conversion/export/${encodeURIComponent(selected.book)}${qs}`;
   window.setTimeout(() => setStatus(''), 4000);
-});
+};
+
+el<HTMLButtonElement>('mt-export').addEventListener('click', () => downloadBundle('conversion'));
+el<HTMLButtonElement>('mt-export-harvest').addEventListener('click', () => downloadBundle('harvest'));
 el<HTMLButtonElement>('mt-reconvert').addEventListener('click', () => void reconvertSelected());
 el<HTMLButtonElement>('mt-resolve').addEventListener('click', () => void resolveSelected('reconverted'));
 el<HTMLButtonElement>('mt-dismiss').addEventListener('click', () => void resolveSelected('dismissed'));

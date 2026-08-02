@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 
@@ -40,7 +41,7 @@ class ImportCasesCommand extends Command
             $this->option('downloads') ? ($_SERVER['HOME'] ?? '') . '/Downloads' : null,
             $this->option('from') ?: null,
         ]) as $sweepDir) {
-            foreach (File::glob(rtrim($sweepDir, '/') . '/*.tar.gz') as $candidate) {
+            foreach (File::glob(rtrim($sweepDir, '/') . '/*.{tar.gz,tgz,tar}', GLOB_BRACE) as $candidate) {
                 if ($this->bundleBook($candidate) !== null) {
                     $dest = "{$casesDir}/" . basename($candidate);
                     File::move($candidate, $dest);
@@ -49,7 +50,7 @@ class ImportCasesCommand extends Command
             }
         }
 
-        $bundles = File::glob("{$casesDir}/*.tar.gz");
+        $bundles = File::glob("{$casesDir}/*.{tar.gz,tgz,tar}", GLOB_BRACE);
         if ($bundles === []) {
             $this->info('No case bundles in tests/conversion/cases/ — drop *.tar.gz files there (or use --downloads).');
             return self::SUCCESS;
@@ -57,15 +58,22 @@ class ImportCasesCommand extends Command
 
         $ok = 0;
         $failed = 0;
+        $harvestCases = 0;
         foreach ($bundles as $tarball) {
-            $book = $this->bundleBook($tarball);
+            $manifest = $this->bundleManifest($tarball);
+            $book = !empty($manifest['book']) ? (string) $manifest['book'] : null;
             if ($book === null) {
                 $this->warn(basename($tarball) . ': not a book:export bundle (no manifest) — skipped.');
                 $failed++;
                 continue;
             }
 
-            $this->line("── {$book} (" . basename($tarball) . ')');
+            // Bundles exported before schema_version 2 carry no case_kind; they
+            // are all conversion cases by construction (the harvest kind is what
+            // introduced the field).
+            $kind = (string) ($manifest['case_kind'] ?? BookExport::KIND_CONVERSION);
+
+            $this->line("── {$book} [{$kind}] (" . basename($tarball) . ')');
 
             if (Artisan::call('book:import', ['archive' => $tarball, '--force' => true]) !== 0) {
                 $this->error('  import FAILED — bundle left in place; see logs.');
@@ -74,7 +82,10 @@ class ImportCasesCommand extends Command
             }
             $this->info('  imported → open locally at /' . $book);
 
-            if (!$this->option('no-fixture')) {
+            if ($kind === BookExport::KIND_HARVEST) {
+                $harvestCases++;
+                $this->reportHarvestCase($book);
+            } elseif (!$this->option('no-fixture')) {
                 $this->captureFixture($book);
             }
 
@@ -84,8 +95,14 @@ class ImportCasesCommand extends Command
 
         $this->newLine();
         $this->info("{$ok} bundle(s) ingested" . ($failed ? ", {$failed} skipped/failed" : '') . '.');
+        if ($ok > $harvestCases) {
+            $this->line('Conversion cases → python3 tests/conversion/run_regression.py --fixture <book>   (expect RED, then fix + --update-golden)');
+        }
+        if ($harvestCases > 0) {
+            $this->line("Harvest cases ({$harvestCases}) → fix the acquisition ladder, then re-check every already-imported source:");
+            $this->line('  php artisan harvest:audit-imports');
+        }
         if ($ok > 0) {
-            $this->line('Next: python3 tests/conversion/run_regression.py --fixture <book>   (expect RED, then fix + --update-golden)');
             $this->line('Or just point Claude at tests/conversion/cases/README.md.');
         }
 
@@ -95,14 +112,73 @@ class ImportCasesCommand extends Command
     /** The bundle's book id, or null if it isn't a book:export bundle. */
     private function bundleBook(string $tarball): ?string
     {
-        $probe = new Process(['tar', '-xzOf', $tarball, './manifest.json']);
+        $manifest = $this->bundleManifest($tarball);
+
+        return is_array($manifest) && !empty($manifest['book']) ? (string) $manifest['book'] : null;
+    }
+
+    /** The bundle's manifest.json, or null if it isn't a book:export bundle. */
+    private function bundleManifest(string $tarball): ?array
+    {
+        // -xOf (no z): tar auto-detects gzip, so a Safari-gunzipped .tar probes fine too.
+        $probe = new Process(['tar', '-xOf', $tarball, './manifest.json']);
         $probe->run();
         if (!$probe->isSuccessful()) {
             return null;
         }
         $manifest = json_decode($probe->getOutput(), true);
 
-        return is_array($manifest) && !empty($manifest['book']) ? (string) $manifest['book'] : null;
+        return is_array($manifest) ? $manifest : null;
+    }
+
+    /**
+     * A harvest case is an ACQUISITION failure — what we fetched was already
+     * wrong (paywalled landing page, captcha interstitial, wrong edition). The
+     * converter faithfully converted junk, so a conversion-regression fixture
+     * would only lock in "this captcha page converts to this captcha book".
+     * Print the acquisition evidence instead and point at the real fix site.
+     */
+    private function reportHarvestCase(string $book): void
+    {
+        $this->line('  ACQUISITION case — the fetch was wrong, not the converter.');
+
+        $tracePath = resource_path("markdown/{$book}/fetch_trace.json");
+        $trace = is_file($tracePath) ? json_decode((string) File::get($tracePath), true) : null;
+        if (is_array($trace)) {
+            $this->line(sprintf(
+                '    fetch: %d OA candidate(s), won=%s (%s), body=%s',
+                $trace['candidates'] ?? 0,
+                $trace['won_host'] ?? '—',
+                $trace['won_source'] ?? '—',
+                $trace['body_verdict'] ?? '—',
+            ));
+            if (!empty($trace['body_reason'])) {
+                $this->line('    reason: ' . $trace['body_reason']);
+            }
+        } else {
+            $this->line('    no fetch_trace.json — bundle predates trace capture, or the fetch never ran.');
+        }
+
+        $canonical = DB::connection('pgsql_admin')->table('library')
+            ->join('canonical_source', 'canonical_source.id', '=', 'library.canonical_source_id')
+            ->where('library.book', $book)
+            ->first(['canonical_source.is_oa', 'canonical_source.oa_status', 'canonical_source.pdf_url', 'canonical_source.oa_url', 'canonical_source.openalex_id']);
+        if ($canonical) {
+            $this->line(sprintf(
+                '    OpenAlex claimed: is_oa=%s oa_status=%s (%s)',
+                $canonical->is_oa ? 'true' : 'false',
+                $canonical->oa_status ?: '—',
+                $canonical->openalex_id ?: 'no openalex id',
+            ));
+            $this->line('    pdf_url: ' . ($canonical->pdf_url ?: '—'));
+            $this->line('    oa_url:  ' . ($canonical->oa_url ?: '—'));
+        } else {
+            $this->line('    no canonical_source row — re-export with a current book:export to capture it.');
+        }
+
+        $this->line('    Fix site: app/Services/ContentFetchService.php + its gates');
+        $this->line('              (SourceImport/Content/{AccessWallDetector,BodyPresenceAssessor}.php)');
+        $this->line('    Tests:    php artisan test tests/Canonical/AcquisitionGateTest.php');
     }
 
     /** Best-effort fixture capture — a capture failure never blocks the import. */

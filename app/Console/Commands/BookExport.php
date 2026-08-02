@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\CanonicalVersions\AutoVersionResolver;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -24,11 +25,33 @@ class BookExport extends Command
     protected $signature = 'book:export
         {book : The book id to export}
         {--out= : Output path for the .tar.gz (default storage/app/book-exports/{book}.tar.gz)}
+        {--kind= : Case kind: conversion|harvest (default: auto-detected from the book)}
         {--with-logs : Grep storage/logs/laravel*.log for the book id into the bundle}';
 
     protected $description = 'Export a book (all DB rows + conversion artifacts) as a case bundle';
 
-    private const SCHEMA_VERSION = 1;
+    private const SCHEMA_VERSION = 2;
+
+    /**
+     * The two kinds of case a bad book can be, because they have two different
+     * root causes and two different fix loops:
+     *
+     *   conversion — a user's own upload converted badly. The input was fine;
+     *                app/Python mangled it. Fix the converter, replay the cached
+     *                OCR through tests/conversion/run_regression.py.
+     *   harvest    — the Source Network Harvester auto-imported a work from
+     *                OpenAlex and what it ACQUIRED was wrong (a paywalled
+     *                landing page, a captcha interstitial, the wrong edition).
+     *                The converter did its job faithfully on junk input, so
+     *                replaying it proves nothing — the fix is in the acquisition
+     *                ladder (ContentFetchService + its gates).
+     *
+     * Sending a harvest case round the conversion loop is what made the JSTOR
+     * "Access Check" and Springer landing-page reports so confusing: the
+     * regression fixture faithfully reproduced a captcha page.
+     */
+    public const KIND_CONVERSION = 'conversion';
+    public const KIND_HARVEST    = 'harvest';
 
     /** Columns the importing side must let its own DB derive. */
     private const EXCLUDE = [
@@ -39,6 +62,7 @@ class BookExport extends Command
         'hyperlights'      => ['id'],
         'hypercites'       => ['id'],
         'conversion_flags' => ['id'],
+        'canonical_source' => ['search_vector'],
     ];
 
     public function handle(): int
@@ -46,8 +70,15 @@ class BookExport extends Command
         $book = (string) $this->argument('book');
         $db = DB::connection('pgsql_admin');
 
-        if (!$db->table('library')->where('book', $book)->exists()) {
+        $libraryRow = $db->table('library')->where('book', $book)->first();
+        if (!$libraryRow) {
             $this->error("No library row for '{$book}'.");
+            return self::FAILURE;
+        }
+
+        $kind = (string) ($this->option('kind') ?: $this->detectKind($libraryRow));
+        if (!in_array($kind, [self::KIND_CONVERSION, self::KIND_HARVEST], true)) {
+            $this->error("--kind must be 'conversion' or 'harvest'.");
             return self::FAILURE;
         }
 
@@ -87,6 +118,20 @@ class BookExport extends Command
             DB::table('conversion_flags')->where('book', $book)->get(),
         );
 
+        // canonical_source: for a HARVEST case this row IS the evidence — what
+        // OpenAlex claimed (is_oa, oa_status, work_license) and every OA copy it
+        // offered (oa_locations, pdf_url, oa_url). A conversion bundle never
+        // carried it, so "was the OpenAlex link actually open access?" was
+        // unanswerable from the bundle. Cheap enough to include either way when
+        // the book is linked, but it is the whole point of the harvest kind.
+        $counts['canonical_source'] = $libraryRow->canonical_source_id
+            ? $this->dumpJson(
+                "{$stage}/db/canonical_source.json",
+                'canonical_source',
+                $db->table('canonical_source')->where('id', $libraryRow->canonical_source_id)->get(),
+            )
+            : 0;
+
         // ── Artifacts: the whole markdown dir (original.*, ocr cache, traces) ──
         $artifactDir = resource_path("markdown/{$book}");
         if (is_dir($artifactDir)) {
@@ -115,6 +160,7 @@ class BookExport extends Command
         file_put_contents("{$stage}/manifest.json", json_encode([
             'schema_version' => self::SCHEMA_VERSION,
             'book'           => $book,
+            'case_kind'      => $kind,
             'exported_at'    => now()->toIso8601String(),
             'counts'         => $counts,
         ], JSON_PRETTY_PRINT));
@@ -128,12 +174,35 @@ class BookExport extends Command
             return self::FAILURE;
         }
 
-        $this->info("Exported {$book} → {$out}");
+        $this->info("Exported {$book} ({$kind} case) → {$out}");
         foreach ($counts as $k => $v) {
             $this->line("  {$k}: {$v}");
         }
+        if ($kind === self::KIND_HARVEST) {
+            $this->line('  → acquisition case: fix ContentFetchService, not app/Python.');
+        }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Auto-detect the case kind from the book itself. A harvest case is one the
+     * system acquired on the user's behalf: minted by the canonicalizer, or
+     * carrying a conversion_method only the acquisition ladder produces.
+     */
+    private function detectKind(object $libraryRow): string
+    {
+        $acquired = [
+            'pdf_ocr_auto_raw', 'jats_fulltext', 'paste_engine_html', 'ar5iv_html',
+            'html_scrape_unverified', 'web_article_verified', 'web_article_unverified',
+            'web_article_rejected',
+        ];
+
+        $isHarvest = ($libraryRow->creator ?? null) === AutoVersionResolver::CREATOR
+            || ($libraryRow->foundation_source ?? null) === AutoVersionResolver::FOUNDATION_SOURCE
+            || in_array($libraryRow->conversion_method ?? '', $acquired, true);
+
+        return $isHarvest ? self::KIND_HARVEST : self::KIND_CONVERSION;
     }
 
     private function dumpJson(string $path, string $table, $rows): int

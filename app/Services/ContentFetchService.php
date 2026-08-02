@@ -6,6 +6,8 @@ use App\Helpers\SubBookIdHelper;
 use App\Services\DocumentImport\FileHelpers;
 use App\Services\DocumentImport\Processors\HtmlProcessor;
 use App\Services\DocumentImport\Processors\PdfProcessor;
+use App\Services\SourceImport\Content\AccessWallDetector;
+use App\Services\SourceImport\Content\BodyPresenceAssessor;
 use App\Services\SourceImport\Content\FlareSolverrClient;
 use App\Services\SourceImport\Content\LandingPagePdfLocator;
 use App\Services\SourceImport\Content\OaLocationResolver;
@@ -25,9 +27,12 @@ class ContentFetchService
     /**
      * Trace of the last fetch()'s OA-candidate loop, for telemetry:
      * how many OA copies were tried and which host/source finally won.
-     * @var array{candidates: int, won_host: ?string, won_source: ?string, won_license: ?string, won_version: ?string, completeness: ?string, completeness_reason: ?string, session: ?string, proxy: ?string}
+     * `body_verdict`/`body_reason` carry the acquisition-gate outcome (present /
+     * absent / blocked) so a rejected fetch can explain ITSELF — to the Source
+     * Yield Report, and to fetch_trace.json in the harvest case bundle.
+     * @var array{candidates: int, won_host: ?string, won_source: ?string, won_license: ?string, won_version: ?string, completeness: ?string, completeness_reason: ?string, session: ?string, proxy: ?string, body_verdict: ?string, body_reason: ?string}
      */
-    private array $lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null];
+    private array $lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null, 'body_verdict' => null, 'body_reason' => null];
 
     /**
      * Per-work sticky-proxy session id. Set once at the top of fetch() so every
@@ -45,7 +50,7 @@ class ContentFetchService
         $this->llmService = $llmService;
     }
 
-    /** @return array{candidates: int, won_host: ?string, won_source: ?string, won_license: ?string, won_version: ?string, completeness: ?string, completeness_reason: ?string, session: ?string, proxy: ?string} */
+    /** @return array{candidates: int, won_host: ?string, won_source: ?string, won_license: ?string, won_version: ?string, completeness: ?string, completeness_reason: ?string, session: ?string, proxy: ?string, body_verdict: ?string, body_reason: ?string} */
     public function lastFetchTrace(): array
     {
         return $this->lastFetchTrace;
@@ -131,13 +136,49 @@ class ContentFetchService
      */
     public function fetch(object $libraryRecord): array
     {
+        try {
+            return $this->fetchInner($libraryRecord);
+        } finally {
+            // Every exit path — success, reject, exhausted ladder, throw — leaves
+            // the acquisition evidence on disk. It lands in the artifact dir, so
+            // book:export carries it into the case bundle automatically: which OA
+            // copies were offered, which won, and why the body gate ruled as it
+            // did. Without this the trace died with the queue worker and a
+            // "false content" report was undiagnosable after the fact.
+            $this->persistFetchTrace($libraryRecord->book ?? null);
+        }
+    }
+
+    /**
+     * Write fetch_trace.json beside the book's artifacts. Best-effort: a trace
+     * write must never break an otherwise-good fetch.
+     */
+    private function persistFetchTrace(?string $bookId): void
+    {
+        if (!$bookId) {
+            return;
+        }
+        try {
+            $dir = resource_path("markdown/{$bookId}");
+            File::ensureDirectoryExists($dir);
+            File::put("{$dir}/fetch_trace.json", json_encode(
+                $this->lastFetchTrace + ['traced_at' => now()->toIso8601String()],
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES,
+            ));
+        } catch (\Throwable $e) {
+            Log::warning('fetch_trace.json write failed', ['book' => $bookId, 'error' => $e->getMessage()]);
+        }
+    }
+
+    private function fetchInner(object $libraryRecord): array
+    {
         $bookId = $libraryRecord->book;
         $oaUrl = $libraryRecord->oa_url ?? null;
         $pdfUrl = $libraryRecord->pdf_url ?? null;
         $doi = $libraryRecord->doi ?? null;
 
         $lastFailure = null;
-        $this->lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null];
+        $this->lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null, 'body_verdict' => null, 'body_reason' => null];
 
         // One sticky-proxy session per work: the CF solve and the PDF download
         // then share an IP (cf_clearance is IP-bound). Different works get
@@ -860,6 +901,16 @@ class ContentFetchService
      */
     private function assessHtmlContent(string $html, string $bookId): array
     {
+        // --- Layer 0: deterministic bot-wall check (no LLM, never fails open) ---
+        // Runs BEFORE anything else: a captcha interstitial has no citation_pdf_url
+        // worth chasing and no abstract worth saving. Layer 2's LLM `is_blocked`
+        // verdict used to be the only block detection, and it falls through to
+        // "import as-is" whenever the LLM is unavailable — so a wall page could
+        // sail past whenever the provider hiccuped.
+        if ($wall = app(AccessWallDetector::class)->detect($html)) {
+            return ['action' => 'blocked', 'reason' => $wall];
+        }
+
         // --- Layer 1: Meta-tag extraction (no LLM) ---
         $metaTags = $this->extractScholarlyMetaTags($html);
 
@@ -1361,6 +1412,16 @@ class ContentFetchService
      */
     private function importViaPasteEngine(string $html, string $bookId, string $url): array
     {
+        // 0. Bot-wall interstitial? Deterministic, no LLM, and BEFORE the Node
+        // spawn — a captcha page is never worth converting. This is the JSTOR
+        // "Access Check" case that shipped as a 7-node published book.
+        if ($wall = app(AccessWallDetector::class)->detect($html)) {
+            $this->lastFetchTrace['body_verdict'] = 'blocked';
+            $this->lastFetchTrace['body_reason'] = $wall;
+            $this->setPdfUrlStatus($bookId, $wall);
+            return ['status' => 'failed', 'reason' => $wall];
+        }
+
         // 1. Convert via the shared engine (Node + happy-dom).
         try {
             $proc = new \Symfony\Component\Process\Process(['node', base_path('scripts/paste-convert.mjs')], base_path());
@@ -1383,6 +1444,27 @@ class ContentFetchService
             $reason = 'Page identity does not match the cited source — not imported';
             $this->setPdfUrlStatus($bookId, $reason);
             return ['status' => 'failed', 'reason' => $reason];
+        }
+
+        // 2b. Body gate — identity says it IS the article, but is the article
+        // TEXT here? A paywalled landing page passes every identity and
+        // completeness signal above (matching citation_doi, publisher-specific
+        // processor, full reference list — publishers paywall the body, not the
+        // bibliography), so this is the only check that separates the article
+        // from its shop window. Absent body => reject outright: importing it
+        // would publish nav chrome under the real work's title, which is what
+        // readers report as "false content".
+        $body = app(BodyPresenceAssessor::class)->assess($engine['html'] ?? '');
+        $this->lastFetchTrace['body_verdict'] = $body['verdict'];
+        $this->lastFetchTrace['body_reason'] = $body['reason'];
+        if ($body['verdict'] === BodyPresenceAssessor::ABSENT) {
+            $this->setPdfUrlStatus($bookId, $body['reason']);
+            Log::info('Paste-engine import REJECTED — body absent', [
+                'book' => $bookId, 'url' => $url, 'identity' => $verdict,
+                'prose_blocks' => $body['prose_blocks'], 'prose_chars' => $body['prose_chars'],
+                'refs' => count($engine['references'] ?? []),
+            ]);
+            return ['status' => 'failed', 'reason' => $body['reason']];
         }
 
         // 3. Persist. verified → paste_engine_html (canonical-eligible);
@@ -1431,6 +1513,12 @@ class ContentFetchService
             return ['status' => 'failed', 'reason' => 'Could not fetch the web page'];
         }
 
+        // Bot-wall interstitial — same deterministic check the academic lane runs.
+        if ($wall = app(AccessWallDetector::class)->detect($html)) {
+            $this->setPdfUrlStatus($bookId, $wall);
+            return ['status' => 'failed', 'reason' => $wall];
+        }
+
         // Identity verdict (the honest URL-content match).
         $verdict = app(\App\Services\SourceImport\Content\WebArticleVerifier::class)
             ->assess($html, $citationTitle);
@@ -1456,6 +1544,17 @@ class ContentFetchService
         $engine = json_decode(trim($proc->getOutput()), true);
         if (!is_array($engine) || ($engine['ok'] ?? false) !== true) {
             return ['status' => 'failed', 'reason' => 'paste engine failed on web page'];
+        }
+
+        // Body gate — a subscriber-only news page serves headline + standfirst +
+        // "subscribe to continue", which the identity check happily confirms IS
+        // the cited article. Same reject-don't-import rule as the academic lane,
+        // but on the WEB profile: a real 500-word news piece is a fraction the
+        // length of a journal article and must not be mistaken for a teaser.
+        $body = app(BodyPresenceAssessor::class)->assess($engine['html'] ?? '', BodyPresenceAssessor::PROFILE_WEB);
+        if ($body['verdict'] === BodyPresenceAssessor::ABSENT) {
+            $this->setPdfUrlStatus($bookId, $body['reason']);
+            return ['status' => 'failed', 'reason' => $body['reason'], 'web_verdict' => $verdict];
         }
 
         $footnotes = array_values(array_filter(array_map(function ($f) {
