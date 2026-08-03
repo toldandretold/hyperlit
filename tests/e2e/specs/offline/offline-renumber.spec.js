@@ -27,8 +27,10 @@ test.describe('Offline ID renumbering', () => {
 
     // Drive the fixed-anchor recipe until the renumber fires.
     const res = await forceDeepDecimalsAndRenumber(page, { anchorId: '100' });
-    const { depthReached, renumberFired, iterations, finalDepth, renumberLog } = res;
-    expect(depthReached, `decimal depth should have crossed 3 (reached ${depthReached} in ${iterations} inserts)`).toBeGreaterThanOrEqual(3);
+    const { depthReached, renumberFired, iterations, finalDepth, renumberLog, insertedNodes, activeElement } = res;
+    expect(depthReached,
+      `decimal depth should have crossed 3 (reached ${depthReached} in ${iterations} inserts; ` +
+      `insertedNodes=${insertedNodes}, activeElement=${activeElement})`).toBeGreaterThanOrEqual(3);
     expect(renumberFired,
       `the renumber should have fired while offline (finalDepth=${finalDepth}, log=${JSON.stringify(renumberLog)})`).toBe(true);
 

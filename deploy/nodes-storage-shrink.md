@@ -22,6 +22,8 @@ cd /var/www/hyperlit && ./deploy/deploy.sh --maintenance
 
 Use `--maintenance`. The halfvec migration's `ALTER TABLE ... ALTER COLUMN TYPE` rewrites the entire nodes table (~1.8 GB) under an ACCESS EXCLUSIVE lock, and the GIN index builds block writes — during that window every request touching `nodes` piles up on php-fpm workers until it times out. Readers mostly survive (book content is served from cached `nodes.json`, in-book search is client-side) and editors' saves would queue and retry in the sync queue, but a pile-up of stuck requests is a worse experience than a clean maintenance page. Pick a quiet hour.
 
+Visitors see the branded maintenance page at `resources/views/errors/503.blade.php` (lava-lamp background + logo + "Apologies comrades…"), which `deploy.sh`'s existing `artisan down --render=errors::503` picks up automatically because the pull happens before the down. The page is fully self-contained (inline SVG/CSS/JS, no Vite assets — the build may be mid-rebuild during the window) and carries a 60s meta-refresh, so browsers sitting on it come back on their own once the site is up.
+
 Expected duration: dev (11.5k nodes / 5.2k vectors) took ~65s for all three; prod is ~40× the rows and ~26× the vectors on managed-DB hardware, so budget **10–30 minutes** in maintenance. The breakdown: backfill (fast) → two GIN builds (~1–3 min each) → column drops (instant) → table rewrite + HNSW rebuild (the bulk).
 
 ## After the deploy

@@ -97,6 +97,14 @@ export async function caretJustAfterAnchor(page, anchorId = '100') {
     if (idx < 0) throw new Error(`caretJustAfterAnchor: anchor #${anchorId} not found`);
     const target = nodes[idx + 1];
     if (!target) return null; // nothing after the anchor yet
+    // Seat focus on the editing host FIRST. Called cold (no gesture since the
+    // baseline paste + sync-settle waits), focus can be on <body>; a Selection
+    // range alone doesn't route keystrokes, so every Enter would silently no-op
+    // (observed as depthReached=0 with zero inserted nodes in offline-renumber).
+    const host = target.closest('[contenteditable="true"]') || main;
+    if (host !== document.activeElement && !host.contains(document.activeElement)) {
+      host.focus?.();
+    }
     const range = document.createRange();
     range.selectNodeContents(target);
     range.collapse(true); // caret at the very start → Enter inserts between anchor and target
@@ -132,6 +140,13 @@ export async function forceDeepDecimalsAndRenumber(
 ) {
   let depthReached = 0;
   let iterations = 0;
+
+  const countNumericNodes = () => page.evaluate(() => {
+    const re = /^\d+(\.\d+)?$/;
+    const main = document.querySelector('.main-content');
+    return main ? [...main.querySelectorAll('[id]')].filter((el) => re.test(el.id)).length : 0;
+  });
+  const startNodeCount = await countNumericNodes();
 
   for (let i = 0; i < maxIters; i++) {
     const target = await caretJustAfterAnchor(page, anchorId);
@@ -169,5 +184,10 @@ export async function forceDeepDecimalsAndRenumber(
   if (!renumberFired && depthReached >= 3 && finalDepth === 0) renumberFired = true;
 
   const renumberLog = await page.evaluate(() => (window.__renumberLog || []).slice());
-  return { depthReached, renumberFired, iterations, finalDepth, renumberLog };
+  // insertedNodes === 0 with depthReached === 0 means every Enter was a no-op —
+  // keystrokes never reached the editor (focus/edit-mode problem), not an id-depth problem.
+  const insertedNodes = (await countNumericNodes()) - startNodeCount;
+  const activeElement = await page.evaluate(() =>
+    `${document.activeElement?.tagName}#${document.activeElement?.id || ''} isEditing=${window.isEditing}`);
+  return { depthReached, renumberFired, iterations, finalDepth, renumberLog, insertedNodes, activeElement };
 }
