@@ -66,7 +66,15 @@ class QueueTopologyProbeCommand extends Command
                 $this->info('Using already-running workers (none spawned).');
             }
 
-            // 1. One blocker per queue, all at once.
+            // 1. One blocker per queue, all at once. Record each queue's
+            //    pre-existing backlog first: queues are FIFO, so behind a deep
+            //    backlog the blocker cannot start within any reasonable
+            //    deadline even with a perfectly healthy worker — those queues
+            //    get judged by CONSUMPTION instead (see step 2).
+            $backlogs = [];
+            foreach (self::QUEUES as $queue) {
+                $backlogs[$queue] = DB::table('jobs')->where('queue', $queue)->count();
+            }
             $blockers = [];
             $dispatchedAt = microtime(true);
             foreach (self::QUEUES as $queue) {
@@ -76,25 +84,44 @@ class QueueTopologyProbeCommand extends Command
             }
             $this->info('Dispatched a '.$blockerSecs."s blocker onto every queue: ".implode(', ', self::QUEUES));
 
+            // 1b. Dispatch the short default-queue probe NOW, while the default
+            //     blocker is guaranteed to still be sleeping. Dispatching it
+            //     after the start-await loop (as this probe originally did) was
+            //     a latent false negative: one backlogged queue burns the whole
+            //     start deadline, by which time the default blocker has already
+            //     finished and the standby comparison below can only fail.
+            $probeId = "{$runId}-probe-default";
+            $probeDispatchedAt = microtime(true);
+            QueueProbeSleepJob::dispatch($probeId, $probeSecs)->onQueue('default');
+
             // 2. Every blocker must START (= the queue has a worker at all).
+            //    Exception: a backlogged queue whose blocker never surfaces is
+            //    judged by whether the backlog is being actively consumed — a
+            //    reserved job means a worker is holding one RIGHT NOW. (The
+            //    2026-08 incident: 107k embedding jobs made the probe declare
+            //    "NO WORKER" about a queue a worker was draining at 2.5 jobs/s.)
             $startDeadline = $blockerSecs; // generous: workers poll every 1s
             $rows = [];
             $allStarted = true;
             foreach ($blockers as $queue => $id) {
                 $startedAt = $this->awaitCache("queueprobe:{$id}:started", $dispatchedAt + $startDeadline);
-                $rows[$queue] = ['queue' => $queue, 'started' => $startedAt];
-                if ($startedAt === null) {
+                $busy = false;
+                if ($startedAt === null && $backlogs[$queue] > 0) {
+                    $busy = $this->queueActivelyConsuming($queue);
+                }
+                $rows[$queue] = ['queue' => $queue, 'started' => $startedAt, 'busy' => $busy, 'backlog' => $backlogs[$queue]];
+                if ($startedAt === null && ! $busy) {
                     $allStarted = false;
                     $this->error("✗ Queue '{$queue}': blocker never started — NO WORKER is serving this queue.");
+                } elseif ($busy) {
+                    $this->warn("~ Queue '{$queue}': blocker is stuck behind a {$backlogs[$queue]}-job backlog, but the queue IS being actively consumed — worker present.");
                 }
             }
 
-            // 3. The short default probe must run WHILE the default blocker sleeps
-            //    (proves the standby import worker), and while every other queue is
-            //    busy (proves imports don't wait on anything).
-            $probeId = "{$runId}-probe-default";
-            $probeDispatchedAt = microtime(true);
-            QueueProbeSleepJob::dispatch($probeId, $probeSecs)->onQueue('default');
+            // 3. The short default probe (dispatched in 1b) must have run WHILE
+            //    the default blocker slept (proves the standby import worker),
+            //    and while every other queue was busy (proves imports don't
+            //    wait on anything).
             $probeStarted = $this->awaitCache("queueprobe:{$probeId}:started", $probeDispatchedAt + $blockerSecs + 5);
             $probeFinished = $probeStarted !== null
                 ? $this->awaitCache("queueprobe:{$probeId}:finished", $probeStarted + $probeSecs + 10)
@@ -112,8 +139,10 @@ class QueueTopologyProbeCommand extends Command
                 ['queue', 'worker found', 'blocker started after'],
                 array_map(fn ($r) => [
                     $r['queue'],
-                    $r['started'] !== null ? 'yes' : 'NO',
-                    $r['started'] !== null ? round(($r['started'] - $dispatchedAt) * 1000).' ms' : '—',
+                    $r['started'] !== null ? 'yes' : ($r['busy'] ? 'yes (busy)' : 'NO'),
+                    $r['started'] !== null
+                        ? round(($r['started'] - $dispatchedAt) * 1000).' ms'
+                        : ($r['busy'] ? "behind {$r['backlog']}-job backlog" : '—'),
                 ], $rows)
             );
 
@@ -122,8 +151,13 @@ class QueueTopologyProbeCommand extends Command
             // Parallelism: every blocker must have been running at the same time as
             // the slowest-starting one. With one serial shared worker they would
             // start ~blockerSecs apart; in a correct topology all start within ~2s.
+            // Busy (backlogged) queues can't take part — their blocker never ran.
+            $busyQueues = array_keys(array_filter($rows, fn ($r) => $r['busy']));
+            if ($busyQueues) {
+                $this->warn('~ Parallelism unverified for busy queue(s): '.implode(', ', $busyQueues).' — re-probe once their backlogs drain.');
+            }
             if ($allStarted) {
-                $starts = array_map(fn ($r) => $r['started'], $rows);
+                $starts = array_filter(array_map(fn ($r) => $r['started'], $rows), fn ($s) => $s !== null);
                 $spread = max($starts) - min($starts);
                 if ($spread < $blockerSecs) {
                     $this->info('✓ All queues ran in PARALLEL (start spread '.round($spread, 1).'s < blocker duration '.$blockerSecs.'s).');
@@ -187,6 +221,35 @@ class QueueTopologyProbeCommand extends Command
         }
         $this->info('Spawned reference topology: 2x default, 1x citation-pipeline, 1x vibe, 1x embeddings.');
         sleep(2); // let workers boot before dispatching
+    }
+
+    /**
+     * A worker IS serving the queue if a job is reserved right now, or the
+     * pending count drops during a short watch window. This is the fallback
+     * signal for queues whose pre-existing backlog makes the blocker-start
+     * test meaningless (the blocker sits at the BACK of a FIFO queue it may
+     * not reach for hours).
+     */
+    private function queueActivelyConsuming(string $queue): bool
+    {
+        $reserved = fn (): bool => DB::table('jobs')
+            ->where('queue', $queue)
+            ->whereNotNull('reserved_at')
+            ->exists();
+
+        if ($reserved()) {
+            return true;
+        }
+
+        $before = DB::table('jobs')->where('queue', $queue)->count();
+        for ($i = 0; $i < 15; $i++) { // watch for up to ~3s
+            usleep(200_000);
+            if ($reserved() || DB::table('jobs')->where('queue', $queue)->count() < $before) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** Poll a cache key until it appears or the absolute deadline passes. */
