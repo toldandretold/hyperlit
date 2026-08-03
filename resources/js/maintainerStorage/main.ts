@@ -364,6 +364,7 @@ async function showComposition(): Promise<void> {
     eligible: number; embedded: number;
     buckets: Array<{ label: string; nodes: number; embedded: number; eligible: boolean }>;
   } | undefined;
+  const pt = data.plaintext_coverage as { expected: number; present: number } | undefined;
 
   const section = el<HTMLElement>('ms-detail-section');
   const box = el<HTMLDivElement>('ms-detail');
@@ -372,15 +373,9 @@ async function showComposition(): Promise<void> {
   // Physical layout goes in the note, per-column data cost in the list. Keeping
   // them apart is deliberate: pg_column_size counts a value even when it lives
   // in TOAST, so ranking the two together double-counts the same bytes.
-  // The coverage headline rides in the note too: the embedding byte-row is
-  // uninterpretable without knowing how much of the table SHOULD have one.
-  const covPct = cov && cov.eligible ? Math.round((100 * cov.embedded) / cov.eligible) : null;
   el<HTMLParagraphElement>('ms-detail-note').textContent =
     `Table ${human(phys.total)} = heap ${human(phys.heap)} + TOAST ${human(phys.toast)} + indexes ${human(phys.indexes)}. `
-    + data.note
-    + (cov && covPct !== null
-      ? ` · embedding coverage: ${cov.embedded.toLocaleString()} of ${cov.eligible.toLocaleString()} eligible nodes (${covPct}%) — eligibility mirrors the embedding job (≥20 chars plainText; not sub-book / E2EE / system / deleted); the count rows below give the per-bucket picture`
-      : '');
+    + data.note;
   el<HTMLParagraphElement>('ms-detail-note').hidden = false;
   box.textContent = '';
 
@@ -396,27 +391,32 @@ async function showComposition(): Promise<void> {
     }));
   }
 
-  // Coverage buckets ride in the same list (valid listitems for the a11y
-  // gate) but read as counts, not bytes: eligible buckets in blue with their
-  // embedded %, excluded buckets in amber with the reason as the label.
-  if (cov) {
-    const cmax = Math.max(1, ...cov.buckets.map((b) => b.nodes));
+  // Coverage AS GRAPHS: the bar is the percentage (of nodes that SHOULD have
+  // the thing, how many do), the value column is the percentage. Ineligible
+  // nodes (sub-books / short text / E2EE / system / deleted / orphans) are
+  // simply not part of the embedding denominator — no rows for them.
+  const pctRow = (label: string, sub: string, have: number, total: number, color: string) => {
+    const pct = total ? Math.round((100 * have) / total) : 0;
+    box.appendChild(rowEl({
+      label,
+      sub: `${have.toLocaleString()} of ${total.toLocaleString()} ${sub}`,
+      bytes: pct,
+      max: 100,
+      valText: `${pct}%`,
+      color,
+      tags: [],
+    }));
+  };
+  if (cov && cov.eligible > 0) {
+    pctRow('embedding coverage', 'embedded', cov.embedded, cov.eligible, 'var(--ms-cat-3)');
     for (const b of cov.buckets) {
-      const pct = b.nodes ? Math.round((100 * b.embedded) / b.nodes) : 0;
-      box.appendChild(rowEl({
-        label: `embeddings · ${b.label}`,
-        sub: b.eligible
-          ? `${b.embedded.toLocaleString()} of ${b.nodes.toLocaleString()} embedded · ${pct}%`
-          : (b.embedded > 0
-            ? `excluded, yet ${b.embedded.toLocaleString()} stray embeddings`
-            : 'excluded — never embedded'),
-        bytes: b.nodes,
-        max: cmax,
-        unit: 'nodes',
-        color: b.eligible ? 'var(--ms-cat-1)' : 'var(--ms-cat-4)',
-        tags: b.eligible ? [] : ['excluded'],
-      }));
+      if (b.eligible) pctRow(`· ${b.label}`, 'embedded', b.embedded, b.nodes, 'var(--ms-cat-1)');
     }
+  }
+  // Should be ~100%: below that, a write path is creating nodes without
+  // plainText — invisible to FTS and embeddings alike.
+  if (pt && pt.expected > 0) {
+    pctRow('plainText coverage', 'content nodes with plainText', pt.present, pt.expected, 'var(--ms-cat-5)');
   }
 
   section.hidden = false;
@@ -732,6 +732,8 @@ interface RowSpec {
   button?: boolean;
   /** Set when the value is a COUNT, not bytes — otherwise 15,391 renders as "15.0 KB". */
   unit?: string;
+  /** Overrides the value column outright (e.g. "40%"). */
+  valText?: string;
 }
 
 function rowEl(spec: RowSpec): HTMLElement {
@@ -764,7 +766,7 @@ function rowEl(spec: RowSpec): HTMLElement {
 
   const val = document.createElement('span');
   val.className = 'ms-row-val';
-  val.textContent = spec.unit ? spec.bytes.toLocaleString() : human(spec.bytes);
+  val.textContent = spec.valText ?? (spec.unit ? spec.bytes.toLocaleString() : human(spec.bytes));
 
   row.append(label, track, val);
 

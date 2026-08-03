@@ -281,6 +281,28 @@ class StorageController extends Controller
                 'buckets' => array_values($buckets),
             ];
 
+            // plainText coverage: every non-encrypted node whose content has
+            // actual TEXT (not markup-only — images/figures/empty anchors
+            // legitimately strip to nothing) should carry a plainText copy
+            // (PgNode::saving + the 2026-08 migration backfill). This should
+            // read ~100% — anything less means a write path is inserting
+            // nodes without plainText, which silently drops them from FTS
+            // (expression indexes cover plainText ONLY) and from embedding
+            // eligibility.
+            $pt = $db->selectOne(<<<'SQL'
+                SELECT count(*) AS expected,
+                       count(*) FILTER (WHERE LENGTH(TRIM(COALESCE(n."plainText", ''))) > 0) AS present
+                FROM nodes n
+                LEFT JOIN library l ON l.book = n.book
+                WHERE n.content IS NOT NULL
+                  AND LENGTH(TRIM(regexp_replace(n.content, '<[^>]*>', '', 'g'))) > 0
+                  AND NOT COALESCE(l.encrypted, false)
+            SQL);
+            $plaintextCoverage = [
+                'expected' => (int) $pt->expected,
+                'present' => (int) $pt->present,
+            ];
+
             return [
                 'node_count' => $nodeCount,
                 'sampled_rows' => $sampled,
@@ -291,6 +313,7 @@ class StorageController extends Controller
                     'indexes' => (int) $size->indexes,
                 ],
                 'embedding_coverage' => $coverage,
+                'plaintext_coverage' => $plaintextCoverage,
                 'rows' => $logical,
                 'note' => "per-column data cost, scaled from a {$sampled}-row page sample · "
                     . 'columns marked TOASTED are compressed and stored out-of-line, so they are counted '
