@@ -202,6 +202,9 @@ class BookRestore extends Command
                         'type' => $historical->type,
                         'footnotes' => $historical->footnotes,
                         'updated_at' => now(),
+                        // restored text != embedded text — NULL so the
+                        // post-restore QueueBookEmbeddings re-embeds it
+                        'embedding' => null,
                     ]);
                 $bar->advance();
             }
@@ -232,6 +235,10 @@ class BookRestore extends Command
 
             DB::commit();
             $bar->finish();
+
+            // Raw writes bypass PgNode's embedding hook — re-embed the
+            // restored/recreated nodes (updates NULLed their vectors above).
+            \App\Jobs\QueueBookEmbeddings::dispatch($bookId);
 
             $this->newLine(2);
             $this->info("✓ Book restored to {$timestamp} ({$snapshotLabel})");

@@ -214,7 +214,13 @@ class DbNodeController extends Controller
                 footnotes = EXCLUDED.footnotes,
                 "plainText" = EXCLUDED."plainText",
                 type = EXCLUDED.type,
-                updated_at = EXCLUDED.updated_at
+                updated_at = EXCLUDED.updated_at,
+                -- content changed => the existing vector describes the OLD text.
+                -- NULL it so the QueueBookEmbeddings dispatch on this request
+                -- re-embeds (it only fills NULLs — without this, edited nodes
+                -- kept their pre-edit vectors forever).
+                embedding = CASE WHEN nodes.content IS DISTINCT FROM EXCLUDED.content
+                                 THEN NULL ELSE nodes.embedding END
         ';
         \DB::statement($sql, $bindings);
     }
@@ -1225,7 +1231,13 @@ class DbNodeController extends Controller
                 footnotes = EXCLUDED.footnotes,
                 "plainText" = EXCLUDED."plainText",
                 type = EXCLUDED.type,
-                updated_at = EXCLUDED.updated_at
+                updated_at = EXCLUDED.updated_at,
+                -- content changed => the existing vector describes the OLD text.
+                -- NULL it so the QueueBookEmbeddings dispatch on this request
+                -- re-embeds (it only fills NULLs — without this, edited nodes
+                -- kept their pre-edit vectors forever).
+                embedding = CASE WHEN nodes.content IS DISTINCT FROM EXCLUDED.content
+                                 THEN NULL ELSE nodes.embedding END
         ';
 
         \DB::statement($sql, $bindings);
@@ -1277,7 +1289,13 @@ class DbNodeController extends Controller
                 footnotes = EXCLUDED.footnotes,
                 "plainText" = EXCLUDED."plainText",
                 type = EXCLUDED.type,
-                updated_at = EXCLUDED.updated_at
+                updated_at = EXCLUDED.updated_at,
+                -- content changed => the existing vector describes the OLD text.
+                -- NULL it so the QueueBookEmbeddings dispatch on this request
+                -- re-embeds (it only fills NULLs — without this, edited nodes
+                -- kept their pre-edit vectors forever).
+                embedding = CASE WHEN nodes.content IS DISTINCT FROM EXCLUDED.content
+                                 THEN NULL ELSE nodes.embedding END
         ';
 
         \DB::statement($sql, $bindings);

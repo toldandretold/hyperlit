@@ -29,12 +29,13 @@ class QueueBookEmbeddings implements ShouldQueue
         // 2026-06-12: 0 of 1.5M private-book nodes had embeddings).
         $admin = DB::connection('pgsql_admin');
 
-        // Skip sub-books (their content belongs to the parent)
+        // One shared eligibility definition (sub-books, E2EE, system and
+        // generated card-list books, deleted) — see EmbeddingEligibility.
         $library = $admin->table('library')
             ->where('book', $this->bookId)
             ->first();
 
-        if (!$library || $library->type === 'sub_book') {
+        if (!\App\Services\EmbeddingEligibility::bookEligible($library, $this->bookId)) {
             return;
         }
 
@@ -42,8 +43,7 @@ class QueueBookEmbeddings implements ShouldQueue
         $nodeIds = $admin->table('nodes')
             ->where('book', $this->bookId)
             ->whereNull('embedding')
-            ->whereNotNull('plainText')
-            ->whereRaw("LENGTH(TRIM(\"plainText\")) >= 20")
+            ->whereRaw(\App\Services\EmbeddingEligibility::nodeSql('nodes'))
             ->pluck('id');
 
         if ($nodeIds->isEmpty()) {

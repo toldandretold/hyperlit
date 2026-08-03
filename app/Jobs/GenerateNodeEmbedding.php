@@ -49,28 +49,29 @@ class GenerateNodeEmbedding implements ShouldQueue
             return;
         }
 
-        // Skip sub-books (their content belongs to the parent)
+        // One shared eligibility definition (sub-books, E2EE, system and
+        // generated card-list books, deleted) — see EmbeddingEligibility.
         $library = $admin->table('library')
             ->where('book', $node->book)
             ->first();
 
-        if (!$library || $library->type === 'sub_book') {
-            return;
-        }
-
-        // E2EE (docs/e2ee.md): encrypted books hold ciphertext — never embed.
-        // (plainText is NULLed for them anyway; this guards already-queued jobs
-        // racing an encryption transition.)
-        if (!empty($library->encrypted)) {
+        if (!\App\Services\EmbeddingEligibility::bookEligible($library, $node->book)) {
             return;
         }
 
         $embedding = $embeddingService->embed($node->plainText);
 
         if ($embedding) {
+            // The write re-checks encryption IN the statement: the eligibility
+            // check above runs before a slow (up to 60s × retries) API call,
+            // so an encrypt transition can commit — and scrub the book's
+            // embeddings — while we wait. Guarding the UPDATE itself closes
+            // that race; a plaintext-derived vector must never land on an
+            // encrypted book after the scrub (docs/e2ee.md).
             $vectorStr = '[' . implode(',', $embedding) . ']';
             $admin->table('nodes')
                 ->where('id', $this->nodeId)
+                ->whereRaw('NOT EXISTS (SELECT 1 FROM library l WHERE l.book = nodes.book AND COALESCE(l.encrypted, false))')
                 ->update(['embedding' => DB::raw("'{$vectorStr}'::halfvec")]);
         }
     }

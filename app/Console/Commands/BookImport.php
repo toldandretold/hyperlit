@@ -83,6 +83,11 @@ class BookImport extends Command
                 $counts['artifact_files'] = count(File::allFiles($dest));
             }
 
+            // Exports strip the embedding column and these raw inserts bypass
+            // PgNode's hook — queue re-embedding or the imported book stays
+            // invisible to embedding retrieval.
+            \App\Jobs\QueueBookEmbeddings::dispatch($book);
+
             $this->info("Imported {$book} from {$archive}");
             foreach ($counts as $k => $v) {
                 $this->line("  {$k}: {$v}");

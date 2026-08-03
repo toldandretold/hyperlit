@@ -238,20 +238,25 @@ class StorageController extends Controller
 
             // Embedding coverage, bucketed by WHY a node does or doesn't get a
             // vector — a raw "31% of rows embedded" misreads as a backlog when
-            // most of the gap is nodes the job deliberately skips. The CASE
-            // arms mirror GenerateNodeEmbedding / QueueBookEmbeddings exactly
-            // (≥20 chars of trimmed plainText, no sub-books, no E2EE books) —
-            // keep them in sync with the job. Full scan, but this endpoint is
-            // cached per storage-scan for an hour.
-            $coverageRows = $db->select(<<<'SQL'
+            // most of the gap is nodes the jobs deliberately skip. The CASE is
+            // BUILT FROM EmbeddingEligibility's constants — the same single
+            // definition the jobs, backfill, and reconcile sweep use — so the
+            // dashboard can't drift from what the system actually does. Full
+            // scan, but this endpoint is cached per storage-scan for an hour.
+            $sysBooks = "'" . implode("','", \App\Services\EmbeddingEligibility::SYSTEM_BOOKS) . "'";
+            $synthetic = "'" . implode("','", \App\Services\EmbeddingEligibility::SYNTHETIC_RAW_TYPES) . "'";
+            $minChars = \App\Services\EmbeddingEligibility::MIN_PLAINTEXT_CHARS;
+            $coverageRows = $db->select(<<<SQL
                 SELECT
                     CASE
                         WHEN l.book IS NULL THEN 'orphan nodes (no library row)'
-                        WHEN n.book IN ('most-recent', 'most-connected', 'most-lit') THEN 'system books'
+                        WHEN n.book IN ({$sysBooks}) THEN 'system books'
                         WHEN l.type = 'sub_book' THEN 'sub-books'
+                        WHEN COALESCE(l.raw_json->>'type', '') IN ({$synthetic})
+                             OR COALESCE(l.type, '') = 'report' THEN 'generated card-list books'
                         WHEN COALESCE(l.encrypted, false) THEN 'E2EE encrypted books'
                         WHEN l.visibility = 'deleted' THEN 'deleted books'
-                        WHEN LENGTH(TRIM(COALESCE(n."plainText", ''))) < 20 THEN 'text under 20 chars'
+                        WHEN LENGTH(TRIM(COALESCE(n."plainText", ''))) < {$minChars} THEN 'text under {$minChars} chars'
                         WHEN l.visibility = 'private' THEN 'private books'
                         ELSE 'public books'
                     END AS bucket,

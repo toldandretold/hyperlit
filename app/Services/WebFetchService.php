@@ -393,6 +393,10 @@ class WebFetchService
             $db->table('nodes')->insert($batch);
         }
 
+        // Raw inserts bypass PgNode's embedding hook and no caller dispatches —
+        // web_* stubs are public content and belong in embedding retrieval.
+        \App\Jobs\QueueBookEmbeddings::dispatch($bookId);
+
         Log::info('WebFetchService created nodes', [
             'book' => $bookId,
             'count' => count($insertData),

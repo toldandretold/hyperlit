@@ -57,3 +57,13 @@ Schedule::command('storage:scan')
     ->dailyAt('03:30')
     ->withoutOverlapping()
     ->onOneServer();
+
+// Embedding reconciliation: converge to the EmbeddingEligibility definition —
+// queue books with missing embeddings (write paths that forgot to dispatch,
+// 3-strikes API failures, content edits that nulled a stale vector) and scrub
+// strays on ineligible books. The dispatch side lands on the low-priority
+// 'embeddings' queue, so even a huge post-import backlog never blocks imports.
+Schedule::command('embeddings:reconcile')
+    ->dailyAt('04:30')
+    ->withoutOverlapping()
+    ->onOneServer();

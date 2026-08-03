@@ -50,6 +50,14 @@ it('encrypt forces private/unlisted/null-slug, cascades to sub-books, and scrubs
     $this->seedNode(['book' => 'e2ee_lock', 'startLine' => 100, 'content' => '<p>hello</p>', 'plainText' => 'hello']);
     $this->seedNode(['book' => 'e2ee_lock/Fn1', 'startLine' => 100, 'content' => '<p>foot</p>', 'plainText' => 'foot']);
 
+    // Give both nodes real plaintext-derived vectors so the embedding-scrub
+    // assertion below actually bites (previously the nodes had no embeddings,
+    // so removing the scrub from setEncryption failed zero tests).
+    $vec = '[' . implode(',', array_fill(0, 768, 0.1)) . ']';
+    DB::connection('pgsql_admin')->table('nodes')
+        ->whereIn('book', ['e2ee_lock', 'e2ee_lock/Fn1'])
+        ->update(['embedding' => DB::raw("'{$vec}'::halfvec")]);
+
     // Plaintext RESIDUE the scrub must also remove: a temporal-history row
     // holding an old plaintext version, and conversion artifacts on disk.
     DB::connection('pgsql_admin')->table('nodes_history')->insert([
@@ -89,6 +97,11 @@ it('encrypt forces private/unlisted/null-slug, cascades to sub-books, and scrubs
 
     expect(DB::table('nodes')->where('book', 'e2ee_lock')->value('plainText'))->toBeNull();
     expect(DB::table('nodes')->where('book', 'e2ee_lock/Fn1')->value('plainText'))->toBeNull();
+
+    // The embedding scrub (plaintext-derived vectors must not survive
+    // encryption — DbLibraryController::setEncryption)
+    expect(DB::table('nodes')->where('book', 'e2ee_lock')->whereNotNull('embedding')->count())->toBe(0);
+    expect(DB::table('nodes')->where('book', 'e2ee_lock/Fn1')->whereNotNull('embedding')->count())->toBe(0);
 });
 
 it('publish defers clearing the wrapped DEK until finalize (no data-loss window)', function () {

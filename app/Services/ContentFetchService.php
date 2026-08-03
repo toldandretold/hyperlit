@@ -1869,6 +1869,11 @@ class ContentFetchService
             $db->table('nodes')->insert($batch);
         }
 
+        // Raw inserts bypass PgNode's embedding hook, and no caller in the
+        // acquisition/citation pipelines dispatches — without this, every
+        // harvested full text shipped embedding-less forever (2026-08 audit).
+        \App\Jobs\QueueBookEmbeddings::dispatch($bookId);
+
         // Write the renumbered nodes.json artifact (kept alongside nodes.jsonl —
         // the editor saver reads nodes.json)
         File::put("{$path}/nodes.json", json_encode($artifactRows, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));

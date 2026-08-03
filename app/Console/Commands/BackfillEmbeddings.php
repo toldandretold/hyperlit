@@ -30,13 +30,17 @@ class BackfillEmbeddings extends Command
 
         $this->info('Starting embedding backfill...');
 
-        // Use admin connection to bypass RLS (artisan has no user context)
+        // Use admin connection to bypass RLS (artisan has no user context).
+        // Scope = the shared eligibility definition (private books INCLUDED
+        // by policy; sub-books, E2EE, system/generated books excluded) — the
+        // old hand-rolled visibility='public' filter silently skipped every
+        // private book.
         $query = DB::connection('pgsql_admin')->table('nodes AS n')
             ->join('library AS l', 'n.book', '=', 'l.book')
             ->select('n.id', 'n.plainText', 'n.book')
             ->whereNull('n.embedding')
-            ->where('l.visibility', 'public')
-            ->where('l.type', '!=', 'sub_book')
+            ->whereRaw(\App\Services\EmbeddingEligibility::bookSql('l'))
+            ->whereRaw(\App\Services\EmbeddingEligibility::nodeSql('n'))
             ->orderBy('n.id');
 
         if ($bookFilter) {
