@@ -102,7 +102,7 @@ Route::get('/{book}/main-text-footnotes.json', function (Request $request, $book
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
 
     // SECURITY: Check authorization
-    if (! canAccessBookContent($book, $request)) {
+    if (! \App\Services\BookAccess::canAccessBookContent($book, $request)) {
         abort(403, 'Access denied.');
     }
 
@@ -120,7 +120,7 @@ Route::get('/{book}/main-text.md', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
 
     // SECURITY: Check authorization
-    if (! canAccessBookContent($book, $request)) {
+    if (! \App\Services\BookAccess::canAccessBookContent($book, $request)) {
         abort(403, 'Access denied.');
     }
 
@@ -138,7 +138,7 @@ Route::get('/{book}/latest_update.json', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
 
     // SECURITY: Check authorization
-    if (! canAccessBookContent($book, $request)) {
+    if (! \App\Services\BookAccess::canAccessBookContent($book, $request)) {
         abort(403, 'Access denied.');
     }
 
@@ -151,45 +151,12 @@ Route::get('/{book}/latest_update.json', function (Request $request, $book) {
     return response()->file($filePath, ['Content-Type' => 'application/json']);
 })->where('book', '[a-zA-Z0-9\-_]+');
 
-// SECURITY: Helper function to check if user can access book content
-// Returns true if book is public OR user is the owner
-if (! function_exists('canAccessBookContent')) {
-    function canAccessBookContent($book, $request)
-    {
-        $library = \App\Models\PgLibrary::where('book', $book)->first();
-
-        // If no library record, allow access (legacy or public content)
-        if (! $library) {
-            return true;
-        }
-
-        // Public books are accessible to everyone
-        if ($library->visibility === 'public') {
-            return true;
-        }
-
-        // For private books, check ownership
-        $user = Auth::user();
-        if ($user && $library->creator === $user->name) {
-            return true;
-        }
-
-        // Check anonymous token (constant-time to prevent timing attacks)
-        $anonToken = $request->cookie('anon_token');
-        if ($anonToken && $library->creator_token && hash_equals((string) $library->creator_token, (string) $anonToken)) {
-            return true;
-        }
-
-        return false;
-    }
-}
-
 // JSON routes for nodes, footnotes, references (fallback file access)
 Route::get('/{book}/nodes.json', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
 
     // SECURITY: Check authorization
-    if (! canAccessBookContent($book, $request)) {
+    if (! \App\Services\BookAccess::canAccessBookContent($book, $request)) {
         abort(403, 'Access denied.');
     }
 
@@ -205,7 +172,7 @@ Route::get('/{book}/footnotes.json', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
 
     // SECURITY: Check authorization
-    if (! canAccessBookContent($book, $request)) {
+    if (! \App\Services\BookAccess::canAccessBookContent($book, $request)) {
         abort(403, 'Access denied.');
     }
 
@@ -221,7 +188,7 @@ Route::get('/{book}/references.json', function (Request $request, $book) {
     $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
 
     // SECURITY: Check authorization
-    if (! canAccessBookContent($book, $request)) {
+    if (! \App\Services\BookAccess::canAccessBookContent($book, $request)) {
         abort(403, 'Access denied.');
     }
 

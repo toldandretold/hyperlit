@@ -17,7 +17,7 @@ class QuantizerController extends Controller
     {
         $book = BookSlugHelper::resolve($book);
 
-        if (!canAccessBookContent($book, $request)) {
+        if (!\App\Services\BookAccess::canAccessBookContent($book, $request)) {
             abort(403, 'Access denied.');
         }
 
@@ -61,7 +61,7 @@ class QuantizerController extends Controller
         $parentBook = BookSlugHelper::resolve($parentBook);
         $bookId = $parentBook . '/' . $subId;
 
-        if (!canAccessBookContent($parentBook, $request)) {
+        if (!\App\Services\BookAccess::canAccessBookContent($parentBook, $request)) {
             return response()->json(['error' => 'Access denied'], 403);
         }
 
