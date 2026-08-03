@@ -236,6 +236,51 @@ class StorageController extends Controller
             }
             usort($logical, fn ($a, $z) => $z['bytes'] <=> $a['bytes']);
 
+            // Embedding coverage, bucketed by WHY a node does or doesn't get a
+            // vector — a raw "31% of rows embedded" misreads as a backlog when
+            // most of the gap is nodes the job deliberately skips. The CASE
+            // arms mirror GenerateNodeEmbedding / QueueBookEmbeddings exactly
+            // (≥20 chars of trimmed plainText, no sub-books, no E2EE books) —
+            // keep them in sync with the job. Full scan, but this endpoint is
+            // cached per storage-scan for an hour.
+            $coverageRows = $db->select(<<<'SQL'
+                SELECT
+                    CASE
+                        WHEN l.book IS NULL THEN 'orphan nodes (no library row)'
+                        WHEN n.book IN ('most-recent', 'most-connected', 'most-lit') THEN 'system books'
+                        WHEN l.type = 'sub_book' THEN 'sub-books'
+                        WHEN COALESCE(l.encrypted, false) THEN 'E2EE encrypted books'
+                        WHEN l.visibility = 'deleted' THEN 'deleted books'
+                        WHEN LENGTH(TRIM(COALESCE(n."plainText", ''))) < 20 THEN 'text under 20 chars'
+                        WHEN l.visibility = 'private' THEN 'private books'
+                        ELSE 'public books'
+                    END AS bucket,
+                    count(*) AS nodes,
+                    count(n.embedding) AS embedded
+                FROM nodes n
+                LEFT JOIN library l ON l.book = n.book
+                GROUP BY 1
+            SQL);
+
+            // Private books ARE eligible by current policy: unreachable by any
+            // query today, but kept embedded for the planned private-library
+            // search (2026-08 decision). Their own bucket keeps that visible.
+            $eligibleBuckets = ['public books', 'private books'];
+            $buckets = array_map(fn ($r) => [
+                'label' => $r->bucket,
+                'nodes' => (int) $r->nodes,
+                'embedded' => (int) $r->embedded,
+                'eligible' => in_array($r->bucket, $eligibleBuckets, true),
+            ], $coverageRows);
+            // Eligible buckets first, then excluded ones, biggest first.
+            usort($buckets, fn ($a, $z) => [$z['eligible'], $z['nodes']] <=> [$a['eligible'], $a['nodes']]);
+            $eligible = array_filter($buckets, fn ($b) => $b['eligible']);
+            $coverage = [
+                'eligible' => array_sum(array_column($eligible, 'nodes')),
+                'embedded' => array_sum(array_column($eligible, 'embedded')),
+                'buckets' => array_values($buckets),
+            ];
+
             return [
                 'node_count' => $nodeCount,
                 'sampled_rows' => $sampled,
@@ -245,6 +290,7 @@ class StorageController extends Controller
                     'toast' => $toast,
                     'indexes' => (int) $size->indexes,
                 ],
+                'embedding_coverage' => $coverage,
                 'rows' => $logical,
                 'note' => "per-column data cost, scaled from a {$sampled}-row page sample · "
                     . 'columns marked TOASTED are compressed and stored out-of-line, so they are counted '

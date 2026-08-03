@@ -360,6 +360,10 @@ async function showComposition(): Promise<void> {
     label: string; bytes: number; share: number; per_node: number; toasted: boolean;
   }>;
   const phys = data.physical;
+  const cov = data.embedding_coverage as {
+    eligible: number; embedded: number;
+    buckets: Array<{ label: string; nodes: number; embedded: number; eligible: boolean }>;
+  } | undefined;
 
   const section = el<HTMLElement>('ms-detail-section');
   const box = el<HTMLDivElement>('ms-detail');
@@ -368,9 +372,15 @@ async function showComposition(): Promise<void> {
   // Physical layout goes in the note, per-column data cost in the list. Keeping
   // them apart is deliberate: pg_column_size counts a value even when it lives
   // in TOAST, so ranking the two together double-counts the same bytes.
+  // The coverage headline rides in the note too: the embedding byte-row is
+  // uninterpretable without knowing how much of the table SHOULD have one.
+  const covPct = cov && cov.eligible ? Math.round((100 * cov.embedded) / cov.eligible) : null;
   el<HTMLParagraphElement>('ms-detail-note').textContent =
     `Table ${human(phys.total)} = heap ${human(phys.heap)} + TOAST ${human(phys.toast)} + indexes ${human(phys.indexes)}. `
-    + data.note;
+    + data.note
+    + (cov && covPct !== null
+      ? ` · embedding coverage: ${cov.embedded.toLocaleString()} of ${cov.eligible.toLocaleString()} eligible nodes (${covPct}%) — eligibility mirrors the embedding job (≥20 chars plainText; not sub-book / E2EE / system / deleted); the count rows below give the per-bucket picture`
+      : '');
   el<HTMLParagraphElement>('ms-detail-note').hidden = false;
   box.textContent = '';
 
@@ -384,6 +394,29 @@ async function showComposition(): Promise<void> {
       color: 'var(--ms-cat-6)',
       tags: row.toasted ? ['toasted'] : [],
     }));
+  }
+
+  // Coverage buckets ride in the same list (valid listitems for the a11y
+  // gate) but read as counts, not bytes: eligible buckets in blue with their
+  // embedded %, excluded buckets in amber with the reason as the label.
+  if (cov) {
+    const cmax = Math.max(1, ...cov.buckets.map((b) => b.nodes));
+    for (const b of cov.buckets) {
+      const pct = b.nodes ? Math.round((100 * b.embedded) / b.nodes) : 0;
+      box.appendChild(rowEl({
+        label: `embeddings · ${b.label}`,
+        sub: b.eligible
+          ? `${b.embedded.toLocaleString()} of ${b.nodes.toLocaleString()} embedded · ${pct}%`
+          : (b.embedded > 0
+            ? `excluded, yet ${b.embedded.toLocaleString()} stray embeddings`
+            : 'excluded — never embedded'),
+        bytes: b.nodes,
+        max: cmax,
+        unit: 'nodes',
+        color: b.eligible ? 'var(--ms-cat-1)' : 'var(--ms-cat-4)',
+        tags: b.eligible ? [] : ['excluded'],
+      }));
+    }
   }
 
   section.hidden = false;
