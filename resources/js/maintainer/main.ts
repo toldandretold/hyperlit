@@ -194,7 +194,10 @@ async function resolveSelected(resolution: 'reconverted' | 'dismissed'): Promise
     setStatus(`resolve failed (${resp.status})`);
     return;
   }
-  dropSelectedFromQueue(`${resolution}: ${selected.book}`);
+  // Harvested versions are public+unlisted until a human approves them —
+  // the server lists the book when this resolve was that approval.
+  const body = await resp.json().catch(() => ({ listed: false })) as { listed?: boolean };
+  dropSelectedFromQueue(`${resolution}: ${selected.book}${body.listed ? ' — now listed' : ''}`);
 }
 
 /**

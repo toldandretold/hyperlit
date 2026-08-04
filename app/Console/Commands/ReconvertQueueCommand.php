@@ -30,6 +30,9 @@ class ReconvertQueueCommand extends Command
         if ($book = $this->option('dismiss')) {
             $n = ConversionFlag::resolveFor($book, 'dismissed');
             $this->info("Dismissed {$n} open flag(s) for {$book}.");
+            if ($queue->promoteApprovedHarvest($book)) {
+                $this->info("Harvested version approved by a human → now LISTED (homepage/search/sitemap).");
+            }
             return self::SUCCESS;
         }
 
@@ -41,6 +44,9 @@ class ReconvertQueueCommand extends Command
             }
             $n = ConversionFlag::resolveFor($book, $resolution);
             $this->info("Resolved {$n} open flag(s) for {$book} as {$resolution}.");
+            if ($queue->promoteApprovedHarvest($book)) {
+                $this->info("Harvested version approved by a human → now LISTED (homepage/search/sitemap).");
+            }
             return self::SUCCESS;
         }
 

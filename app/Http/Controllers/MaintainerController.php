@@ -42,15 +42,20 @@ class MaintainerController extends Controller
     }
 
     /** POST /api/maintainer/conversion/flags/{book}/resolve {resolution} */
-    public function resolve(Request $request, string $book)
+    public function resolve(Request $request, string $book, ReconvertQueue $queue)
     {
         $data = $request->validate([
             'resolution' => 'required|string|in:reconverted,refetched,dismissed',
         ]);
 
-        $count = ConversionFlag::resolveFor($this->cleanBookId($book), $data['resolution']);
+        $book = $this->cleanBookId($book);
+        $count = ConversionFlag::resolveFor($book, $data['resolution']);
 
-        return response()->json(['resolved' => $count]);
+        // Human approval doubles as the listing gate for harvested versions
+        // (minted public+unlisted until someone has actually looked at them).
+        $listed = $queue->promoteApprovedHarvest($book);
+
+        return response()->json(['resolved' => $count, 'listed' => $listed]);
     }
 
     /**

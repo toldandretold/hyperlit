@@ -70,7 +70,7 @@ class HarvestRetraction
         }
         $out['title'] = $row->title;
 
-        if (!$this->isSystemAcquired($row)) {
+        if (!self::isSystemAcquired($row)) {
             $out['refusal'] = self::REFUSED_NOT_ACQUIRED;
             return $out;
         }
@@ -129,7 +129,8 @@ class HarvestRetraction
             ->all();
     }
 
-    private function isSystemAcquired(object $row): bool
+    /** "The SYSTEM fetched this" — shared with ReconvertQueue's approval promotion. */
+    public static function isSystemAcquired(object $row): bool
     {
         return in_array($row->foundation_source ?? null, [
                 AutoVersionResolver::FOUNDATION_SOURCE,

@@ -15,6 +15,41 @@ use Illuminate\Support\Facades\File;
 class ReconvertQueue
 {
     /**
+     * Maintainer approval → listing. Harvested auto-versions are minted
+     * `visibility=public, listed=false` (link-accessible, but kept off the
+     * homepage / public search / sitemap because no human has looked at
+     * them). Resolving a flag on one IS a human looking at it — the
+     * maintainer judged the book side-by-side with its source and closed the
+     * flag — so the version earns `listed=true`. Scope: SYSTEM-ACQUIRED
+     * books only (a user's upload is theirs to list), already-public only
+     * (never overrides a privacy state), never encrypted. Called by both
+     * resolve seams (MaintainerController + library:reconvert-queue);
+     * retraction never comes through here.
+     *
+     * @return bool true when the book was newly promoted to listed
+     */
+    public function promoteApprovedHarvest(string $book): bool
+    {
+        $db = DB::connection('pgsql_admin');
+        $row = $db->table('library')->where('book', $book)->first();
+
+        if (!$row
+            || $row->visibility !== 'public'
+            || ($row->listed ?? false)
+            || ($row->encrypted ?? false)
+            || !HarvestRetraction::isSystemAcquired($row)) {
+            return false;
+        }
+
+        $db->table('library')->where('book', $book)->update([
+            'listed'     => true,
+            'updated_at' => now(),
+        ]);
+
+        return true;
+    }
+
+    /**
      * @return array[] one entry per flagged book:
      *  {book, title, creator, conversion_method, completeness,
      *   artifacts: string[], suggested: reconvert|re-fetch|inspect,

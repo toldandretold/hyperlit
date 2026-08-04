@@ -99,6 +99,26 @@ test('resolve endpoint closes all open flags for the book', function () {
         ->assertStatus(422);
 });
 
+test('resolving a flag on a harvested version promotes it to listed — a user upload stays untouched', function () {
+    $admin = $this->loginUser(['is_admin' => true]);
+
+    // System-acquired, public, unlisted (how the harvester mints versions).
+    $harvested = $this->makeBook($admin, ['visibility' => 'public', 'listed' => false, 'conversion_method' => 'html_scrape_unverified']);
+    ConversionFlag::raise($harvested, ConversionFlag::SOURCE_AUTO_SWEEP, 'suspect');
+
+    $this->postJson("/api/maintainer/conversion/flags/{$harvested}/resolve", ['resolution' => 'dismissed'])
+        ->assertOk()->assertJson(['listed' => true]);
+    expect((bool) DB::connection('pgsql_admin')->table('library')->where('book', $harvested)->value('listed'))->toBeTrue();
+
+    // A user's own upload: approval closes the flag but NEVER touches their listing.
+    $upload = $this->makeBook($admin, ['visibility' => 'public', 'listed' => false, 'conversion_method' => 'pdf_ocr_mistral']);
+    ConversionFlag::raise($upload, ConversionFlag::SOURCE_USER_REPORT, 'r');
+
+    $this->postJson("/api/maintainer/conversion/flags/{$upload}/resolve", ['resolution' => 'reconverted'])
+        ->assertOk()->assertJson(['listed' => false]);
+    expect((bool) DB::connection('pgsql_admin')->table('library')->where('book', $upload)->value('listed'))->toBeFalse();
+});
+
 // ── The retract endpoint (harvest false positives) ──
 
 test('retract deletes a junk harvested version and closes its flags as retracted', function () {
