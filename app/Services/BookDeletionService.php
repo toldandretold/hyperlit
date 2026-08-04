@@ -208,6 +208,29 @@ class BookDeletionService
                 Log::warning('BookDeletionService: canonical pointer cleanup failed', ['book' => $bookId, 'error' => $e->getMessage()]);
             }
 
+            // Remove the book from every shelf that held it — a deleted book must
+            // not linger as a "No content available" card (the harvest-retraction
+            // case: junk retracted by a maintainer stayed in its "Harvested from:"
+            // shelf). Shelf membership is CROSS-USER (anyone can shelve a public
+            // book), so this must run on the admin connection — the caller's RLS
+            // context would silently skip other users' shelf rows. Best-effort.
+            try {
+                $shelfAdmin = DB::connection('pgsql_admin');
+                $shelfIds = $shelfAdmin->table('shelf_items')->where('book', $bookId)->pluck('shelf_id')->unique();
+                if ($shelfIds->isNotEmpty()) {
+                    $shelfAdmin->table('shelf_items')->where('book', $bookId)->delete();
+                    $invalidator = new \App\Services\ShelfCacheInvalidator();
+                    foreach ($shelfIds as $shelfId) {
+                        $invalidator->flush((string) $shelfId);
+                    }
+                    $shelfAdmin->table('shelves')->whereIn('id', $shelfIds)->update(['updated_at' => now()]);
+                    $stats['shelves_removed_from'] = $shelfIds->count();
+                }
+                $shelfAdmin->table('shelf_pins')->where('book', $bookId)->delete();
+            } catch (\Throwable $e) {
+                Log::warning('BookDeletionService: shelf membership cleanup failed', ['book' => $bookId, 'error' => $e->getMessage()]);
+            }
+
             // Bump annotation timestamps for citing books (outside transaction)
             if (!empty($deadResult['citing_books'])) {
                 $now = round(microtime(true) * 1000);

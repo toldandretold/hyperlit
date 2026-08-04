@@ -67,12 +67,25 @@ body {
   padding: 8px;
 }
 .mt-flag-item {
+  position: relative; /* anchors the ⤓ exported marker */
   padding: 10px;
   border-radius: 8px;
   cursor: pointer;
   border: 1px solid transparent;
   margin-bottom: 6px;
 }
+/* "This case's bundle was downloaded" marker, top-right of the item. */
+.mt-flag-export {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 0.68rem;
+  color: var(--color-text-faint, #888);
+}
+.mt-flag-export[data-kind='conversion'] { color: var(--hyperlit-orange, #ef8d34); }
+.mt-flag-export[data-kind='harvest']    { color: var(--hyperlit-pink, #e0538b); }
+/* keep long titles clear of the marker */
+.mt-exported .mt-flag-title { padding-right: 92px; }
 .mt-flag-item:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
 .mt-flag-item.mt-selected {
   border-color: var(--hyperlit-aqua, #4eacae);

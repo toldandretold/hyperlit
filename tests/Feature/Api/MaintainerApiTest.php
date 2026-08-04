@@ -121,21 +121,33 @@ test('resolving a flag on a harvested version promotes it to listed — a user u
 
 // ── The retract endpoint (harvest false positives) ──
 
-test('retract deletes a junk harvested version and closes its flags as retracted', function () {
+test('retract deletes a junk harvested version, closes its flags, and pulls it out of shelves', function () {
     $admin = $this->loginUser(['is_admin' => true]);
     $book = $this->makeBook($admin, ['visibility' => 'public', 'title' => 'Paywall Page', 'conversion_method' => 'html_scrape_unverified']);
     seedNodes($book, 2, prose: false); // landing-page junk: body absent
     ConversionFlag::raise($book, ConversionFlag::SOURCE_AUTO_SWEEP, 'no article body', ['issueTypes' => ['body_absent']]);
 
+    // The harvester shelved it ("Harvested from: …") — retraction must not
+    // leave a "No content available" corpse card behind.
+    $admin_db = DB::connection('pgsql_admin');
+    $shelfId = $admin_db->table('shelves')->insertGetId([
+        'creator' => $admin->name, 'creator_token' => null, 'name' => 'Harvested from: test',
+        'slug' => 'apitest-harvest-shelf', 'visibility' => 'private', 'default_sort' => 'recent',
+        'created_at' => now(), 'updated_at' => now(),
+    ], 'id');
+    $admin_db->table('shelf_items')->insert(['shelf_id' => $shelfId, 'book' => $book, 'added_at' => now()]);
+
     $this->postJson("/api/maintainer/conversion/flags/{$book}/retract")
         ->assertOk()->assertJson(['retracted' => true, 'resolved' => 1]);
 
-    $admin_db = DB::connection('pgsql_admin');
     expect($admin_db->table('library')->where('book', $book)->value('visibility'))->toBe('deleted');
     expect($admin_db->table('nodes')->where('book', $book)->count())->toBe(0);
+    expect($admin_db->table('shelf_items')->where('book', $book)->exists())->toBeFalse();
     $flag = ConversionFlag::where('book', $book)->first();
     expect($flag->status)->toBe('resolved');
     expect($flag->resolution)->toBe('retracted');
+
+    $admin_db->table('shelves')->where('id', $shelfId)->delete();
 });
 
 test('retract refuses a body-present book without force — a flagged book can be real', function () {
@@ -211,16 +223,22 @@ test('original endpoint streams the PDF inline for the side-by-side view; 404 wh
 
 // ── The export endpoint ──
 
-test('export endpoint builds and downloads the case bundle', function () {
+test('export endpoint builds the bundle and stamps the flags with what was downloaded', function () {
     $admin = $this->loginUser(['is_admin' => true]);
     $book = $this->makeBook($admin, ['visibility' => 'public', 'title' => 'Bundle Me']);
+    ConversionFlag::raise($book, ConversionFlag::SOURCE_USER_REPORT, 'r');
 
     $tarball = storage_path("app/book-exports/{$book}.tar.gz");
     try {
-        $resp = $this->get("/api/maintainer/conversion/export/{$book}");
+        $resp = $this->get("/api/maintainer/conversion/export/{$book}?kind=harvest");
         $resp->assertOk();
         expect($resp->headers->get('Content-Disposition'))->toContain("{$book}.tar.gz");
         expect(is_file($tarball))->toBeTrue();
+
+        // The queue renders the "⤓ harvest" downloaded-marker from this stamp.
+        $flag = ConversionFlag::where('book', $book)->where('status', 'open')->first();
+        expect($flag->details['exported_kind'] ?? null)->toBe('harvest');
+        expect($flag->details['exported_at'] ?? null)->not->toBeNull();
     } finally {
         @unlink($tarball);
     }

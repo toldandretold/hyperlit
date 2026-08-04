@@ -131,8 +131,8 @@ class MaintainerController extends Controller
 
     /**
      * GET /api/maintainer/conversion/export/{book}?kind=conversion|harvest —
-     * build the case bundle (book:export) and stream it down: the "⤓ dev bundle"
-     * / "⤓ harvest bundle" buttons. The same tarball pull_case.sh fetches over
+     * build the case bundle (book:export) and stream it down: the "⤓ conversion glitch"
+     * / "⤓ harvest glitch" buttons. The same tarball pull_case.sh fetches over
      * ssh. `kind` is optional — book:export auto-detects it from the book, and
      * the param only exists to override a wrong guess.
      */
@@ -154,6 +154,23 @@ class MaintainerController extends Controller
         $tarball = storage_path("app/book-exports/{$book}.tar.gz");
         if (!File::exists($tarball)) {
             return response()->json(['message' => 'Export produced no bundle.'], 500);
+        }
+
+        // Stamp the open flags with what was exported — the queue list renders a
+        // "⤓ conversion / ⤓ harvest" marker from this, so the maintainer can see
+        // which cases they already pulled down. When no explicit kind was passed,
+        // read the auto-detected one from the manifest of the bundle just built.
+        if (!in_array($kind, [BookExport::KIND_CONVERSION, BookExport::KIND_HARVEST], true)) {
+            $probe = new \Symfony\Component\Process\Process(['tar', '-xzOf', $tarball, './manifest.json']);
+            $probe->run();
+            $kind = (string) (json_decode($probe->getOutput(), true)['case_kind'] ?? BookExport::KIND_CONVERSION);
+        }
+        foreach (ConversionFlag::where('book', $book)->where('status', 'open')->get() as $flag) {
+            $flag->details = array_merge($flag->details ?? [], [
+                'exported_kind' => $kind,
+                'exported_at'   => now()->toIso8601String(),
+            ]);
+            $flag->save();
         }
 
         return response()->download($tarball, "{$book}.tar.gz");

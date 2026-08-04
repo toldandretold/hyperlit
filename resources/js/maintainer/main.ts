@@ -73,6 +73,23 @@ function renderList(): void {
     item.tabIndex = 0;
     if (selected?.book === entry.book) item.classList.add('mt-selected');
 
+    // "⤓ conversion / ⤓ harvest" marker — this case's bundle was already
+    // downloaded (stamped into the flag details by the export endpoint, so it
+    // survives reloads and is visible to every admin).
+    const exported = entry.flags
+      .map((f) => f.details?.exported_kind)
+      .filter((k): k is string => k === 'conversion' || k === 'harvest')
+      .pop();
+    if (exported) {
+      item.classList.add('mt-exported');
+      const mark = document.createElement('span');
+      mark.className = 'mt-flag-export';
+      mark.dataset.kind = exported;
+      mark.textContent = `⤓ ${exported}`;
+      mark.title = 'Case bundle downloaded';
+      item.appendChild(mark);
+    }
+
     const title = document.createElement('div');
     title.className = 'mt-flag-title';
     title.textContent = entry.title;
@@ -387,6 +404,14 @@ const downloadBundle = (kind?: 'conversion' | 'harvest'): void => {
   setStatus('building bundle…');
   const qs = kind ? `?kind=${kind}` : '';
   window.location.href = `/api/maintainer/conversion/export/${encodeURIComponent(selected.book)}${qs}`;
+  // Optimistically mirror the server-side stamp so the ⤓ marker shows without
+  // a queue refetch (the download navigation doesn't reload the page).
+  if (kind && selected.flags.length > 0) {
+    for (const flag of selected.flags) {
+      flag.details = { ...flag.details, exported_kind: kind };
+    }
+    renderList();
+  }
   window.setTimeout(() => setStatus(''), 4000);
 };
 

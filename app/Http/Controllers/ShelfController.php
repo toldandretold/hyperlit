@@ -393,10 +393,14 @@ class ShelfController extends Controller
             return response()->json(['bookId' => $syntheticBookId]);
         }
 
-        // Fetch shelf items joined with library for citation data
+        // Fetch shelf items joined with library for citation data. Deleted books
+        // are excluded — BookDeletionService removes shelf memberships on delete,
+        // but rows stranded BEFORE that cleanup existed (e.g. retracted harvest
+        // junk) must not render as "No content available" corpse cards.
         $items = DB::connection('pgsql_admin')->table('shelf_items')
             ->join('library', 'shelf_items.book', '=', 'library.book')
             ->where('shelf_items.shelf_id', $id)
+            ->where('library.visibility', '!=', 'deleted')
             ->select([
                 'library.book', 'library.title', 'library.author', 'library.year',
                 'library.publisher', 'library.journal', 'library.bibtex', 'library.created_at',
@@ -499,10 +503,12 @@ class ShelfController extends Controller
             return response()->json(['bookId' => $syntheticBookId]);
         }
 
-        // Fetch shelf items joined with library for citation data + visibility
+        // Fetch shelf items joined with library for citation data + visibility.
+        // Deleted books excluded — same corpse-card guard as render().
         $items = DB::connection('pgsql_admin')->table('shelf_items')
             ->join('library', 'shelf_items.book', '=', 'library.book')
             ->where('shelf_items.shelf_id', $id)
+            ->where('library.visibility', '!=', 'deleted')
             ->select([
                 'library.book', 'library.title', 'library.author', 'library.year',
                 'library.publisher', 'library.journal', 'library.bibtex', 'library.created_at',
