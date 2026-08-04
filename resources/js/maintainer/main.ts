@@ -145,20 +145,7 @@ function select(entry: QueueEntry): void {
   el<HTMLIFrameElement>('mt-reader').src = `/${entry.book}`;
   el<HTMLParagraphElement>('mt-reader-placeholder').hidden = true;
 
-  // Detail strip: why it's flagged.
-  const detail = el<HTMLDivElement>('mt-detail');
-  detail.innerHTML = '';
-  detail.hidden = entry.flags.length === 0;
-  for (const flag of entry.flags) {
-    const line = document.createElement('div');
-    const issueTypes = Array.isArray(flag.details?.issueTypes) ? flag.details.issueTypes as string[] : [];
-    const signals = Array.isArray(flag.details?.signals) ? flag.details.signals as string[] : [];
-    line.textContent = `[${flag.source} ×${flag.report_count}] `
-      + (flag.reason ?? '')
-      + (issueTypes.length ? ` — ${issueTypes.join(', ')}` : '')
-      + (signals.length ? ` — ${signals.join(', ')}` : '');
-    detail.appendChild(line);
-  }
+  renderDetailStrip(entry);
 
   // Right: the original file (HEAD-probe so a 404 hides the pane cleanly).
   const originalUrl = `/api/maintainer/conversion/original/${encodeURIComponent(entry.book)}`;
@@ -195,6 +182,102 @@ function select(entry: QueueEntry): void {
 
 function setStatus(text: string): void {
   el<HTMLSpanElement>('mt-actions-status').textContent = text;
+}
+
+/**
+ * The detail strip above the reader: the user's complaint per flag, plus the
+ * MAINTAINER's own note — editable in place, stored in the flags' details, so
+ * it rides the case bundle to local dev and the LLM reads both diagnoses.
+ */
+function renderDetailStrip(entry: QueueEntry): void {
+  const detail = el<HTMLDivElement>('mt-detail');
+  detail.innerHTML = '';
+  detail.hidden = entry.flags.length === 0;
+  for (const flag of entry.flags) {
+    const line = document.createElement('div');
+    const issueTypes = Array.isArray(flag.details?.issueTypes) ? flag.details.issueTypes as string[] : [];
+    const signals = Array.isArray(flag.details?.signals) ? flag.details.signals as string[] : [];
+    line.textContent = `[${flag.source} ×${flag.report_count}] `
+      + (flag.reason ?? '')
+      + (issueTypes.length ? ` — ${issueTypes.join(', ')}` : '')
+      + (signals.length ? ` — ${signals.join(', ')}` : '');
+    detail.appendChild(line);
+  }
+  if (entry.flags.length > 0) {
+    detail.appendChild(buildNoteRow(entry));
+  }
+}
+
+function buildNoteRow(entry: QueueEntry): HTMLDivElement {
+  const existing = entry.flags
+    .map((f) => f.details?.maintainer_note)
+    .filter((n): n is string => typeof n === 'string' && n !== '')
+    .pop() ?? '';
+
+  const row = document.createElement('div');
+  row.className = 'mt-note-row';
+
+  const label = document.createElement('span');
+  label.className = 'mt-note-label';
+  label.textContent = existing ? `[maintainer] ${existing}` : '';
+  if (existing) row.appendChild(label);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'mt-note-btn';
+  btn.textContent = existing ? '✎ edit note' : '✎ add note';
+  btn.title = 'Your diagnosis rides the case bundle to dev alongside the user report';
+  btn.addEventListener('click', () => {
+    row.innerHTML = '';
+    const ta = document.createElement('textarea');
+    ta.className = 'mt-note-editor';
+    ta.rows = 2;
+    ta.maxLength = 4000;
+    ta.placeholder = 'What YOU see — e.g. "endnotes were parsed as references; markers 12–19 unlinked"';
+    ta.value = existing;
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'mt-note-btn';
+    save.textContent = 'save';
+    save.addEventListener('click', () => void saveNote(entry, ta.value.trim()));
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'mt-note-btn';
+    cancel.textContent = 'cancel';
+    cancel.addEventListener('click', () => {
+      row.replaceWith(buildNoteRow(entry));
+    });
+    row.append(ta, save, cancel);
+    ta.focus();
+  });
+  row.appendChild(btn);
+
+  return row;
+}
+
+async function saveNote(entry: QueueEntry, note: string): Promise<void> {
+  const headers = await csrfHeaders();
+  if (!headers) return;
+  const resp = await fetch(`/api/maintainer/conversion/flags/${encodeURIComponent(entry.book)}/note`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note }),
+  });
+  if (!resp.ok) {
+    setStatus(`note save failed (${resp.status})`);
+    return;
+  }
+  // Mirror the server-side stamp locally, then re-render the strip.
+  for (const flag of entry.flags) {
+    if (note === '') {
+      delete flag.details?.maintainer_note;
+    } else {
+      flag.details = { ...flag.details, maintainer_note: note };
+    }
+  }
+  setStatus(note === '' ? 'note cleared' : 'note saved — rides the case bundle');
+  if (selected?.book === entry.book) renderDetailStrip(entry);
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────

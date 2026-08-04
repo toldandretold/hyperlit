@@ -59,6 +59,40 @@ class MaintainerController extends Controller
     }
 
     /**
+     * POST /api/maintainer/conversion/flags/{book}/note {note} — the maintainer's
+     * own diagnosis, written from the triage page's detail strip. Stored in the
+     * open flags' details (maintainer_note), so it rides the case bundle's
+     * conversion_flags into local dev — the LLM assessing the case reads the
+     * USER's complaint and the MAINTAINER's read of it side by side. An empty
+     * note clears it.
+     */
+    public function note(Request $request, string $book)
+    {
+        $data = $request->validate(['note' => 'present|nullable|string|max:4000']);
+        $note = trim((string) ($data['note'] ?? ''));
+
+        $flags = ConversionFlag::where('book', $this->cleanBookId($book))->where('status', 'open')->get();
+        if ($flags->isEmpty()) {
+            return response()->json(['message' => 'No open flags for this book.'], 404);
+        }
+
+        foreach ($flags as $flag) {
+            $details = $flag->details ?? [];
+            if ($note === '') {
+                unset($details['maintainer_note'], $details['noted_by'], $details['noted_at']);
+            } else {
+                $details['maintainer_note'] = $note;
+                $details['noted_by'] = $request->user()?->name;
+                $details['noted_at'] = now()->toIso8601String();
+            }
+            $flag->details = $details;
+            $flag->save();
+        }
+
+        return response()->json(['saved' => $flags->count(), 'note' => $note !== '' ? $note : null]);
+    }
+
+    /**
      * POST /api/maintainer/conversion/flags/{book}/retract {force?} — the 🗑 retract
      * button: this harvested version should never have been approved (paywalled
      * landing page, captcha, contents-only). Deletes the version book, clears +

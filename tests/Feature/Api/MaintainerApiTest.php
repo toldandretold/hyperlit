@@ -55,6 +55,7 @@ test('every maintainer API endpoint is admin-gated', function () {
     $this->getJson('/api/maintainer/conversion/flags')->assertStatus(403);
     $this->postJson('/api/maintainer/conversion/flags/apitest_x/resolve', ['resolution' => 'dismissed'])->assertStatus(403);
     $this->postJson('/api/maintainer/conversion/flags/apitest_x/retract')->assertStatus(403);
+    $this->postJson('/api/maintainer/conversion/flags/apitest_x/note', ['note' => 'x'])->assertStatus(403);
     $this->getJson('/api/maintainer/conversion/original/apitest_x')->assertStatus(403);
     $this->getJson('/api/maintainer/conversion/export/apitest_x')->assertStatus(403);
 });
@@ -97,6 +98,28 @@ test('resolve endpoint closes all open flags for the book', function () {
 
     $this->postJson('/api/maintainer/conversion/flags/apitest_mtres/resolve', ['resolution' => 'nonsense'])
         ->assertStatus(422);
+});
+
+test('maintainer note lands on every open flag and can be cleared; 404 with no open flags', function () {
+    $this->loginUser(['is_admin' => true]);
+    ConversionFlag::raise('apitest_mtnote', ConversionFlag::SOURCE_USER_REPORT, 'footnotes broken');
+    ConversionFlag::raise('apitest_mtnote', ConversionFlag::SOURCE_AUTO_SWEEP, 'sweep signal');
+
+    $this->postJson('/api/maintainer/conversion/flags/apitest_mtnote/note', ['note' => 'endnotes parsed as refs; markers 12–19 unlinked'])
+        ->assertOk()->assertJson(['saved' => 2]);
+
+    foreach (ConversionFlag::where('book', 'apitest_mtnote')->get() as $flag) {
+        expect($flag->details['maintainer_note'])->toBe('endnotes parsed as refs; markers 12–19 unlinked');
+        expect($flag->details['noted_by'])->not->toBeNull();
+    }
+
+    // Empty note clears it.
+    $this->postJson('/api/maintainer/conversion/flags/apitest_mtnote/note', ['note' => ''])->assertOk();
+    foreach (ConversionFlag::where('book', 'apitest_mtnote')->get() as $flag) {
+        expect($flag->details)->not->toHaveKey('maintainer_note');
+    }
+
+    $this->postJson('/api/maintainer/conversion/flags/apitest_nothing/note', ['note' => 'x'])->assertStatus(404);
 });
 
 test('resolving a flag on a harvested version promotes it to listed — a user upload stays untouched', function () {

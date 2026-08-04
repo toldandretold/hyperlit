@@ -81,6 +81,7 @@ class ImportCasesCommand extends Command
                 continue;
             }
             $this->info('  imported → open locally at /' . $book);
+            $this->printReportsFor($book);
 
             if ($kind === BookExport::KIND_HARVEST) {
                 $harvestCases++;
@@ -134,6 +135,28 @@ class ImportCasesCommand extends Command
         $manifest = json_decode($probe->getOutput(), true);
 
         return is_array($manifest) ? $manifest : null;
+    }
+
+    /**
+     * The case's human context, straight from the imported conversion_flags:
+     * the USER's complaint (reason + issueTypes) and — when the triager wrote
+     * one — the MAINTAINER's own diagnosis. Print both up front: they are the
+     * problem statement the rest of the loop is trying to satisfy.
+     */
+    private function printReportsFor(string $book): void
+    {
+        $flags = \App\Models\ConversionFlag::where('book', $book)->orderBy('created_at')->get();
+        foreach ($flags as $flag) {
+            $issueTypes = (array) ($flag->details['issueTypes'] ?? []);
+            $line = "  [{$flag->source}] " . ($flag->reason ?: '—');
+            if ($issueTypes !== []) {
+                $line .= ' (' . implode(', ', $issueTypes) . ')';
+            }
+            $this->line($line);
+            if (!empty($flag->details['maintainer_note'])) {
+                $this->info('  [maintainer] ' . $flag->details['maintainer_note']);
+            }
+        }
     }
 
     /**

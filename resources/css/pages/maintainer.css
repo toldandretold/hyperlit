@@ -162,6 +162,37 @@ body {
   max-height: 110px;
   overflow-y: auto;
 }
+/* Maintainer's own diagnosis, inline in the detail strip. */
+.mt-note-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.mt-note-label { color: var(--hyperlit-aqua, #4eacae); }
+.mt-note-btn {
+  font: inherit;
+  font-size: 0.72rem;
+  color: var(--color-text-faint, #888);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-radius: 5px;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.mt-note-btn:hover { color: var(--color-text); }
+.mt-note-editor {
+  flex: 1 1 260px;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 22%, transparent);
+  border-radius: 6px;
+  padding: 6px 8px;
+  resize: vertical;
+}
 
 /* ── Floating action bar ── */
 .mt-actions {

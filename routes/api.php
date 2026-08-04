@@ -525,6 +525,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('book', '[A-Za-z0-9_-]+');
     Route::post('/maintainer/conversion/flags/{book}/retract', [\App\Http\Controllers\MaintainerController::class, 'retract'])
         ->where('book', '[A-Za-z0-9_-]+');
+    Route::post('/maintainer/conversion/flags/{book}/note', [\App\Http\Controllers\MaintainerController::class, 'note'])
+        ->where('book', '[A-Za-z0-9_-]+');
     Route::get('/maintainer/conversion/original/{book}', [\App\Http\Controllers\MaintainerController::class, 'original'])
         ->where('book', '[A-Za-z0-9_-]+');
     Route::get('/maintainer/conversion/export/{book}', [\App\Http\Controllers\MaintainerController::class, 'export'])
