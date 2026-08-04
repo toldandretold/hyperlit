@@ -221,6 +221,24 @@ test('original endpoint streams the PDF inline for the side-by-side view; 404 wh
     }
 });
 
+test('original endpoint falls back to the scraped fetched_page.html when no original.* exists', function () {
+    $admin = $this->loginUser(['is_admin' => true]);
+    $book = $this->makeBook($admin, ['visibility' => 'public', 'conversion_method' => 'html_scrape_unverified']);
+
+    $dir = resource_path("markdown/{$book}");
+    File::ensureDirectoryExists($dir);
+    file_put_contents("{$dir}/fetched_page.html", '<html><body>the scraped page</body></html>');
+
+    try {
+        $resp = $this->get("/api/maintainer/conversion/original/{$book}");
+        $resp->assertOk();
+        expect($resp->headers->get('Content-Type'))->toContain('text/html');
+        expect($resp->headers->get('Content-Disposition'))->toContain('fetched-page');
+    } finally {
+        File::deleteDirectory($dir);
+    }
+});
+
 // ── The export endpoint ──
 
 test('export endpoint builds the bundle and stamps the flags with what was downloaded', function () {

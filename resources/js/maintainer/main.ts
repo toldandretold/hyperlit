@@ -159,9 +159,21 @@ function select(entry: QueueEntry): void {
     }
   });
 
-  // Action bar.
+  // Action bar. Reconvert needs a source on disk (original.* / OCR cache /
+  // main-text.md) — without one the server can only 404 ("No source file
+  // found"), so disable the button up front for re-fetch/inspect cases.
   el<HTMLDivElement>('mt-actions').hidden = false;
   el<HTMLSpanElement>('mt-actions-book').textContent = entry.title;
+  const reconvertBtn = el<HTMLButtonElement>('mt-reconvert');
+  const hasSource = entry.artifacts.some(
+    (a) => a.startsWith('original.') || a === 'ocr_response.json' || a === 'epub_original',
+  );
+  // Deep-linked books outside the queue get a synthetic entry with no artifact
+  // info — leave the button enabled there rather than guessing.
+  reconvertBtn.disabled = entry.flags.length > 0 && !hasSource;
+  reconvertBtn.title = hasSource
+    ? ''
+    : 'No source file on disk — nothing to reconvert from. This is a re-fetch case: retract it (a future harvest re-fetches through the gated ladder), or resolve/dismiss.';
   setStatus('');
 }
 
@@ -287,7 +299,8 @@ async function reconvertSelected(): Promise<void> {
   });
   if (!resp.ok) {
     btn.disabled = false;
-    setStatus(`reconvert failed (${resp.status})`);
+    const body = await resp.json().catch(() => ({} as { message?: string }));
+    setStatus(body.message ? `reconvert failed: ${body.message}` : `reconvert failed (${resp.status})`);
     return;
   }
 

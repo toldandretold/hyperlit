@@ -1481,6 +1481,14 @@ class ContentFetchService
             return $result;
         }
 
+        // Ground truth to disk — the FETCHED page, this lane's ocr_response.json
+        // equivalent. Deliberately NOT original.html: reconvert would route that
+        // through the generic HTML import job, the WRONG engine for a scraped
+        // article (these need the paste engine — they stay re-fetch cases). But
+        // without it a scraped book had NO source at all: glitch bundles carried
+        // nothing replayable and triage had nothing to show.
+        $this->persistFetchedPage($bookId, $html);
+
         Log::info('Paste-engine HTML import complete', [
             'book' => $bookId, 'url' => $url, 'format' => $engine['formatType'] ?? '?',
             'verdict' => $verdict, 'nodes' => $result['node_count'],
@@ -1571,6 +1579,9 @@ class ContentFetchService
             return $result;
         }
 
+        // Ground truth to disk — same rationale as the academic scrape lane.
+        $this->persistFetchedPage($bookId, $html);
+
         // On a confirmed URL-content match, group this source under a WEB
         // canonical keyed on the URL (version-grouping; NOT academic). Only on
         // 'verified' — never the unverified path. type='web', no academic signals.
@@ -1598,6 +1609,25 @@ class ContentFetchService
             . "title match {$verdict['score']}: {$result['node_count']} nodes, " . count($footnotes) . ' footnotes)';
         $result['web_verdict'] = $verdict;
         return $result;
+    }
+
+    /**
+     * Persist the raw fetched page for a scrape-acquired book — the lane's
+     * ground truth (never overwritten once present, mirroring the OCR-cache
+     * invariant). Best-effort: a disk hiccup never fails an import that
+     * already landed.
+     */
+    private function persistFetchedPage(string $bookId, string $html): void
+    {
+        try {
+            $dir = resource_path("markdown/{$bookId}");
+            File::ensureDirectoryExists($dir);
+            if (!File::exists("{$dir}/fetched_page.html")) {
+                File::put("{$dir}/fetched_page.html", $html);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Could not persist fetched_page.html', ['book' => $bookId, 'error' => $e->getMessage()]);
+        }
     }
 
     /**

@@ -126,6 +126,18 @@ class MaintainerController extends Controller
             }
         }
 
+        // Scrape-acquired books have no original.* — their ground truth is the
+        // raw fetched page (deliberately not named original.html so reconvert
+        // can't route it through the wrong engine). Show it in the side pane.
+        $fetched = "{$dir}/fetched_page.html";
+        if (File::exists($fetched)) {
+            return response()->file($fetched, [
+                'Content-Type'        => 'text/html; charset=UTF-8',
+                'Content-Disposition' => 'inline; filename="' . $book . '-fetched-page.html"',
+                'Cache-Control'       => 'private, no-store',
+            ]);
+        }
+
         return response()->json(['message' => 'No original source file on disk.'], 404);
     }
 

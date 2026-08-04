@@ -85,6 +85,11 @@ class ImportCasesCommand extends Command
             if ($kind === BookExport::KIND_HARVEST) {
                 $harvestCases++;
                 $this->reportHarvestCase($book);
+            } elseif ($this->isPasteLaneBook($book)) {
+                // A scrape-acquired book's "conversion" is the PASTE ENGINE, not
+                // app/Python — run_regression.py has nothing to replay and the
+                // python fixture loop does not apply.
+                $this->reportPasteCase($book);
             } elseif (!$this->option('no-fixture')) {
                 $this->captureFixture($book);
             }
@@ -179,6 +184,54 @@ class ImportCasesCommand extends Command
         $this->line('    Fix site: app/Services/ContentFetchService.php + its gates');
         $this->line('              (SourceImport/Content/{AccessWallDetector,BodyPresenceAssessor}.php)');
         $this->line('    Tests:    php artisan test tests/Canonical/AcquisitionGateTest.php');
+
+        if (is_file(resource_path("markdown/{$book}/fetched_page.html"))) {
+            $this->line('    fetched_page.html is in the bundle — if that page IS the right article');
+            $this->line('    but the conversion mangled it, this is a PASTE-ENGINE case, not acquisition:');
+            $this->pasteLoopHint($book);
+        }
+    }
+
+    /**
+     * A scrape-acquired book whose conversion is suspect: the "converter" was
+     * the shared paste engine (scripts/paste-convert.mjs + resources/js/paste),
+     * NOT app/Python — so run_regression.py has nothing to replay. The loop is
+     * the paste harness: the bundled fetched_page.html becomes a clipboard
+     * fixture, the smoke test baselines it, the fix is a processor rule.
+     */
+    private function reportPasteCase(string $book): void
+    {
+        $this->line('  PASTE-ENGINE case — this book was scrape-acquired and converted by the paste engine.');
+        $this->line('    The python conversion loop (run_regression.py / add_fixture.py) does NOT apply.');
+        $this->pasteLoopHint($book);
+    }
+
+    private function pasteLoopHint(string $book): void
+    {
+        $fetched = resource_path("markdown/{$book}/fetched_page.html");
+        if (is_file($fetched)) {
+            $this->line("    1. cp {$fetched} tests/paste/fixtures/clipboard/<publisher>-<slug>.html");
+            $this->line('       (naming convention: tests/paste/fixtures/clipboard/README.md)');
+        } else {
+            $this->line('    (no fetched_page.html — bundle predates fetched-page capture; retract + re-harvest');
+            $this->line('     through the current ladder to get a replayable copy)');
+        }
+        $this->line('    2. baseline it: tests/paste/handlers/fixtures-smoke.test.js (runs in npm run test:run)');
+        $this->line('    3. fix resources/js/paste/format-processors/ — ADD a rule, never edit a scan;');
+        $this->line('       backend parity is guaranteed by tests/paste/handlers/backend-entry.test.js');
+        $this->line('    4. verify: replay the page through scripts/paste-convert.mjs (stdin {"html": …})');
+    }
+
+    /** Was this book converted by the paste engine (scrape lanes), not app/Python? */
+    private function isPasteLaneBook(string $book): bool
+    {
+        $method = (string) DB::connection('pgsql_admin')->table('library')
+            ->where('book', $book)->value('conversion_method');
+
+        return in_array($method, [
+            'paste_engine_html', 'html_scrape_unverified',
+            'web_article_verified', 'web_article_unverified',
+        ], true);
     }
 
     /** Best-effort fixture capture — a capture failure never blocks the import. */
