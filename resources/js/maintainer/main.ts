@@ -101,6 +101,22 @@ function renderList(): void {
     badge.dataset.action = entry.suggested;
     badge.textContent = entry.suggested;
     meta.appendChild(badge);
+    // Lane badge: this case's conversion was the PASTE engine (a user's
+    // paste-glitch report, pasted_page.html on disk) or a scrape — its fix
+    // loop is tests/paste, not app/Python.
+    if (entry.artifacts.includes('pasted_page.html')) {
+      const lane = document.createElement('span');
+      lane.className = 'mt-flag-badge';
+      lane.dataset.action = 'pasted';
+      lane.textContent = 'pasted';
+      meta.appendChild(lane);
+    } else if (entry.artifacts.includes('fetched_page.html')) {
+      const lane = document.createElement('span');
+      lane.className = 'mt-flag-badge';
+      lane.dataset.action = 'scraped';
+      lane.textContent = 'scraped';
+      meta.appendChild(lane);
+    }
     const sources = entry.flags
       .map((f) => `${f.source}×${f.report_count}`)
       .join(' · ');

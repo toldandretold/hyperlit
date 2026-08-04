@@ -110,7 +110,7 @@ class IntegrityReportController extends Controller
             'pasteLogs.*.level'   => 'nullable|string|max:10',
             'pasteLogs.*.ts'      => 'nullable|numeric',
             'pasteLogs.*.msg'     => 'nullable|string|max:2000',
-            'pastedContent'       => 'nullable|string',
+            'pastedContent'       => 'nullable|string|max:2000000',
             'url'                 => 'nullable|string|max:2000',
             'userAgent'           => 'nullable|string|max:1000',
             'timestamp'           => 'nullable|string|max:100',
@@ -120,7 +120,48 @@ class IntegrityReportController extends Controller
         $data['userId'] = $user?->id;
         $data['userName'] = $user?->name ?? 'anonymous';
 
-        Log::warning('Paste conversion glitch report', $data);
+        Log::warning('Paste conversion glitch report', array_diff_key($data, ['pastedContent' => 1]));
+
+        // Land the report on /maintainer/conversion, not just in an inbox:
+        // raise a flag, and persist the PASTED HTML as the case's ground truth
+        // (the paste lane's fetched_page.html equivalent — it becomes a
+        // tests/paste/fixtures/clipboard/ fixture in the dev loop). The file
+        // write is OWNER-ONLY: the reporter must be the book's creator, so a
+        // third party can never plant content in someone else's artifact dir.
+        // Best-effort like everything else here — a report must never 500.
+        try {
+            \App\Models\ConversionFlag::raise(
+                $data['bookId'],
+                \App\Models\ConversionFlag::SOURCE_USER_REPORT,
+                ($data['comment'] ?? null) ?: 'paste conversion glitch',
+                [
+                    'lane'       => 'paste',
+                    'issueTypes' => [],
+                    'userName'   => $data['userName'],
+                    'summary'    => $data['conversionSummary'] ?? null,
+                ],
+            );
+
+            if (!empty($data['pastedContent'])) {
+                $row = \Illuminate\Support\Facades\DB::connection('pgsql_admin')
+                    ->table('library')->where('book', $data['bookId'])->first(['creator', 'creator_token']);
+                $creatorInfo = app(DbLibraryController::class)->getCreatorInfo($request);
+                $isOwner = $row && (
+                    ($creatorInfo['creator'] && $row->creator === $creatorInfo['creator'])
+                    || ($creatorInfo['creator_token'] && $row->creator_token === $creatorInfo['creator_token'])
+                );
+                if ($isOwner) {
+                    $dir = resource_path("markdown/{$data['bookId']}");
+                    \Illuminate\Support\Facades\File::ensureDirectoryExists($dir);
+                    \Illuminate\Support\Facades\File::put("{$dir}/pasted_page.html", $data['pastedContent']);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Paste glitch flag/artifact failed (continuing)', [
+                'bookId' => $data['bookId'],
+                'error'  => $e->getMessage(),
+            ]);
+        }
 
         try {
             Mail::send(new PasteGlitchReportMail($data));

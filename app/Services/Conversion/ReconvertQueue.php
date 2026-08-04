@@ -105,7 +105,10 @@ class ReconvertQueue
         foreach (File::glob("{$dir}/original.*") as $f) {
             $found[] = basename($f);
         }
-        foreach (['ocr_response.json', 'assessment.json', 'epub_original'] as $name) {
+        // fetched_page.html = scrape-lane ground truth; pasted_page.html = the
+        // paste-glitch report's clipboard payload. Neither is reconvertible
+        // (wrong engine), but both are the case's replayable evidence.
+        foreach (['ocr_response.json', 'assessment.json', 'epub_original', 'fetched_page.html', 'pasted_page.html'] as $name) {
             if (file_exists("{$dir}/{$name}")) {
                 $found[] = $name;
             }

@@ -127,15 +127,18 @@ class MaintainerController extends Controller
         }
 
         // Scrape-acquired books have no original.* — their ground truth is the
-        // raw fetched page (deliberately not named original.html so reconvert
-        // can't route it through the wrong engine). Show it in the side pane.
-        $fetched = "{$dir}/fetched_page.html";
-        if (File::exists($fetched)) {
-            return response()->file($fetched, [
-                'Content-Type'        => 'text/html; charset=UTF-8',
-                'Content-Disposition' => 'inline; filename="' . $book . '-fetched-page.html"',
-                'Cache-Control'       => 'private, no-store',
-            ]);
+        // raw fetched page; paste-glitch reports leave the pasted clipboard
+        // payload. Both deliberately NOT named original.html so reconvert can't
+        // route them through the wrong engine. Show them in the side pane.
+        foreach (['fetched_page.html', 'pasted_page.html'] as $name) {
+            $path = "{$dir}/{$name}";
+            if (File::exists($path)) {
+                return response()->file($path, [
+                    'Content-Type'        => 'text/html; charset=UTF-8',
+                    'Content-Disposition' => 'inline; filename="' . $book . '-' . str_replace('_', '-', $name) . '"',
+                    'Cache-Control'       => 'private, no-store',
+                ]);
+            }
         }
 
         return response()->json(['message' => 'No original source file on disk.'], 404);

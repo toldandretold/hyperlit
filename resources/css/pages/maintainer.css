@@ -113,6 +113,9 @@ body {
 .mt-flag-badge[data-action='reconvert'] { color: var(--hyperlit-orange, #ef8d34); }
 .mt-flag-badge[data-action='re-fetch']  { color: var(--hyperlit-pink, #e0538b); }
 .mt-flag-badge[data-action='inspect']   { color: var(--color-text-faint, #888); }
+/* conversion-lane badges: which engine produced the book */
+.mt-flag-badge[data-action='pasted']    { color: var(--hyperlit-aqua, #4eacae); }
+.mt-flag-badge[data-action='scraped']   { color: var(--hyperlit-aqua, #4eacae); }
 .mt-flags-empty {
   color: var(--color-text-faint, #888);
   text-align: center;

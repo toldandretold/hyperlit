@@ -208,13 +208,21 @@ class ImportCasesCommand extends Command
 
     private function pasteLoopHint(string $book): void
     {
-        $fetched = resource_path("markdown/{$book}/fetched_page.html");
-        if (is_file($fetched)) {
-            $this->line("    1. cp {$fetched} tests/paste/fixtures/clipboard/<publisher>-<slug>.html");
+        // fetched_page.html = scrape-lane ground truth; pasted_page.html = a
+        // user's paste-glitch report (the clipboard payload they pasted).
+        $page = null;
+        foreach (['fetched_page.html', 'pasted_page.html'] as $name) {
+            if (is_file(resource_path("markdown/{$book}/{$name}"))) {
+                $page = resource_path("markdown/{$book}/{$name}");
+                break;
+            }
+        }
+        if ($page !== null) {
+            $this->line("    1. cp {$page} tests/paste/fixtures/clipboard/<publisher>-<slug>.html");
             $this->line('       (naming convention: tests/paste/fixtures/clipboard/README.md)');
         } else {
-            $this->line('    (no fetched_page.html — bundle predates fetched-page capture; retract + re-harvest');
-            $this->line('     through the current ladder to get a replayable copy)');
+            $this->line('    (no fetched_page.html / pasted_page.html — bundle predates ground-truth capture;');
+            $this->line('     scraped books: retract + re-harvest through the current ladder for a replayable copy)');
         }
         $this->line('    2. baseline it: tests/paste/handlers/fixtures-smoke.test.js (runs in npm run test:run)');
         $this->line('    3. fix resources/js/paste/format-processors/ — ADD a rule, never edit a scan;');
@@ -222,7 +230,12 @@ class ImportCasesCommand extends Command
         $this->line('    4. verify: replay the page through scripts/paste-convert.mjs (stdin {"html": …})');
     }
 
-    /** Was this book converted by the paste engine (scrape lanes), not app/Python? */
+    /**
+     * Was this book converted by the paste engine, not app/Python? True for the
+     * scrape lanes (conversion_method) and for user-pasted books whose glitch
+     * report left the clipboard payload on disk (pasted_page.html — front-end
+     * pasted books carry no conversion_method at all).
+     */
     private function isPasteLaneBook(string $book): bool
     {
         $method = (string) DB::connection('pgsql_admin')->table('library')
@@ -231,7 +244,8 @@ class ImportCasesCommand extends Command
         return in_array($method, [
             'paste_engine_html', 'html_scrape_unverified',
             'web_article_verified', 'web_article_unverified',
-        ], true);
+        ], true)
+            || is_file(resource_path("markdown/{$book}/pasted_page.html"));
     }
 
     /** Best-effort fixture capture — a capture failure never blocks the import. */

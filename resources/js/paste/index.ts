@@ -740,7 +740,11 @@ async function handlePaste(event: any) {
       referenceCount: extractedReferences.length,
       nodeCount: newAndUpdatedNodes.length,
       bookId: pasteBook,
-      pastedContent: rawHtml.trim() || plainText,
+      // PRISTINE clipboard payload, not the mutated rawHtml: a glitch report's
+      // pastedContent becomes a tests/paste/fixtures/clipboard/ fixture, and
+      // those replay the WHOLE pipeline including the smart-quote/mark/dl
+      // pre-processing — so the ground truth is what the clipboard held.
+      pastedContent: pristineClipboardHtml.trim() || plainText,
     };
     showPasteUndoToast(() => undoLastLargePaste(), conversionSummary);
 

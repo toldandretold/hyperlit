@@ -63,6 +63,48 @@ test('repeat bad reports UPSERT the one open flag (report_count bumps)', functio
     expect($open[0]->reason)->toBe('second complaint'); // freshest complaint wins
 });
 
+test('paste-glitch report raises a flag and saves the pasted HTML for the owner', function () {
+    Mail::fake();
+    $user = $this->loginUser();
+    $book = $this->makeBook($user);
+
+    $this->postJson('/api/integrity/paste-glitch', [
+        'bookId'        => $book,
+        'comment'       => 'paragraphs merged after paste',
+        'pastedContent' => '<p>the exact clipboard payload</p>',
+    ])->assertStatus(200);
+
+    // Lands on /maintainer/conversion, marked as the paste lane…
+    $flag = ConversionFlag::where('book', $book)->where('status', 'open')->first();
+    expect($flag)->not->toBeNull();
+    expect($flag->source)->toBe('user_report');
+    expect($flag->details['lane'] ?? null)->toBe('paste');
+
+    // …and the clipboard payload is on disk as the case's ground truth.
+    $file = resource_path("markdown/{$book}/pasted_page.html");
+    try {
+        expect(is_file($file))->toBeTrue();
+        expect(file_get_contents($file))->toBe('<p>the exact clipboard payload</p>');
+    } finally {
+        \Illuminate\Support\Facades\File::deleteDirectory(resource_path("markdown/{$book}"));
+    }
+});
+
+test('paste-glitch report from a NON-owner raises the flag but never writes the artifact', function () {
+    Mail::fake();
+    $owner = $this->apiUser();
+    $book = $this->makeBook($owner);
+    $this->loginUser(); // somebody else entirely
+
+    $this->postJson('/api/integrity/paste-glitch', [
+        'bookId'        => $book,
+        'pastedContent' => '<p>planted content</p>',
+    ])->assertStatus(200);
+
+    expect(ConversionFlag::where('book', $book)->where('status', 'open')->exists())->toBeTrue();
+    expect(is_file(resource_path("markdown/{$book}/pasted_page.html")))->toBeFalse();
+});
+
 test('conversion-feedback rating=good raises NO flag', function () {
     Mail::fake();
     $user = $this->loginUser();
