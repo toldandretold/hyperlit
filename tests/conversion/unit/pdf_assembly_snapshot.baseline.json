@@ -259,10 +259,10 @@
     }
   },
   "tests/conversion/fixtures-local/pdf/bibliography/stem_bibliography_example/ocr_response.json": {
-    "classification": "unknown",
-    "confidence": 0.0,
-    "md_len": 141798,
-    "md_sha256": "a08b6fac6479295dc0a517541502a13dfd17807dcf7df533ac2a3f13273abfc2",
+    "classification": "wackSTEMbibliographyNotes",
+    "confidence": 0.7,
+    "md_len": 149786,
+    "md_sha256": "b7ec2049f96be5afddbda8c4c11ebb4c0cfcdbc8ed13036ca12752f1eb876871",
     "segments": [],
     "signals": {
       "co_location_ratio": 0.0,
@@ -470,6 +470,54 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 23,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
+  "tests/conversion/fixtures-local/pdf/sequential/bedjaoui0000towards-ocr3/ocr_response.json": {
+    "classification": "page_bottom",
+    "confidence": 0.8,
+    "md_len": 765110,
+    "md_sha256": "46737103dde21243d210e21403c98bc86da60998a442bcc147bb67c5a99db770",
+    "segments": [],
+    "signals": {
+      "co_location_ratio": 0.9879,
+      "def_clustering_ratio": 0.6123,
+      "max_ref_number": 5,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 5,
+      "pages_with_both": 163,
+      "pages_with_defs": 169,
+      "pages_with_refs": 165,
+      "ref_number_max_page_spread": 165,
+      "reset_count": 164,
+      "reset_frequency": 0.9939,
+      "total_pages": 276,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
+  "tests/conversion/fixtures-local/pdf/sequential/bedjaoui0000towards/ocr_response.json": {
+    "classification": "page_bottom",
+    "confidence": 0.5,
+    "md_len": 713688,
+    "md_sha256": "3b7493b2e97780d38bc391d2eb082cc23bfa473afd7c8375ecfa26580bd5a40c",
+    "segments": [],
+    "signals": {
+      "co_location_ratio": 0.2897,
+      "def_clustering_ratio": 0.1196,
+      "max_ref_number": 5,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 4,
+      "pages_with_both": 31,
+      "pages_with_defs": 33,
+      "pages_with_refs": 107,
+      "ref_number_max_page_spread": 106,
+      "reset_count": 105,
+      "reset_frequency": 0.9813,
+      "total_pages": 276,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }

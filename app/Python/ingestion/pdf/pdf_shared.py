@@ -557,15 +557,18 @@ def wrap_stem_citations(text):
     """Wrap inline [N] citations with <a class="wackSTEMcite"> tags.
 
     Handles single citations like [36], comma-separated multi-cites like [36, 72],
-    and range citations like [6-8] (meaning refs 6, 7, 8).
+    and range citations like [6-8] (meaning refs 6, 7, 8) — with either an ASCII
+    hyphen or the typographic en-dash ([1–3]), which is what real typesetting
+    (and Mistral OCR faithfully reading it) produces.
     Only matches mid-line occurrences (not at start of line) with N <= 500.
     """
     def replace_range_cite(m):
-        start, end = int(m.group(1)), int(m.group(2))
+        start, end = int(m.group(1)), int(m.group(3))
         if start >= end or end > 500:
             return m.group(0)
         refs = ','.join(f'stemref_{i}' for i in range(start, end + 1))
-        return f'<a class="wackSTEMcite" data-refs="{refs}">[{start}-{end}]</a>'
+        # Keep the document's own dash character in the visible text.
+        return f'<a class="wackSTEMcite" data-refs="{refs}">[{start}{m.group(2)}{end}]</a>'
 
     def replace_cite(m):
         inner = m.group(1)
@@ -582,8 +585,8 @@ def wrap_stem_citations(text):
         # Single cite
         return f'<a class="wackSTEMcite">[{inner.strip()}]</a>'
 
-    # Range citations [N-M] first (before single/comma pattern consumes them)
-    text = re.sub(r'(?<!^)(?<=.)\[(\d{1,3})-(\d{1,3})\]', replace_range_cite, text, flags=re.MULTILINE)
+    # Range citations [N-M] / [N–M] first (before single/comma pattern consumes them)
+    text = re.sub(r'(?<!^)(?<=.)\[(\d{1,3})([-–])(\d{1,3})\]', replace_range_cite, text, flags=re.MULTILINE)
     # Match [N] or [N, N, ...] NOT at start of line
     text = re.sub(r'(?<!^)(?<=.)\[(\d{1,3}(?:\s*,\s*\d{1,3})*)\]', replace_cite, text, flags=re.MULTILINE)
     return text

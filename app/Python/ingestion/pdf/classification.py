@@ -55,10 +55,17 @@ class WackStemClassifier(PdfClassifier):
     would_need = 'the same low ref-numbers reappearing across many pages (bibliography citations)'
 
     def matches(self, sig):
+        # Resets are page-to-page ref-number DESCENTS. For bibliography citations they are not a
+        # counter-signal — re-citing [1] late in the paper IS the signature ("the same low numbers
+        # recur"), and every re-citation of a low number reads as a reset. What separates that from
+        # chapter-endnote restarts is max_ref_number: restarting numbering never climbs high (a
+        # chapter with >50 notes is the rare exception), global bibliography numbering does. The
+        # Sci-Hub coverage paper (129 refs, 9 "resets" from re-citation) was misclassified
+        # chapter_endnotes by an unconditional reset_count<=3 here.
         return (sig['ref_number_max_page_spread'] >= 3
                 and sig['co_location_ratio'] < 0.2
                 and sig['notes_page_count'] == 0
-                and sig['reset_count'] <= 3
+                and (sig['reset_count'] <= 3 or sig['max_ref_number'] > 50)
                 and (sig['reset_frequency'] < 0.2 or sig['max_ref_number'] > 50))
 
     def confidence(self, sig):
@@ -74,12 +81,26 @@ class WackStemClassifier(PdfClassifier):
         return c
 
     def rejected_because(self, sig):
-        return (f"ref-number page-spread {sig['ref_number_max_page_spread']} (need >=3) and "
-                f"co-location {sig['co_location_ratio']:.2f} (need <0.2)")
+        # Name the guard(s) that ACTUALLY failed — the old message always recited spread +
+        # co-location, so a reset-guard rejection read as self-contradictory in assessment.json.
+        fails = []
+        if sig['ref_number_max_page_spread'] < 3:
+            fails.append(f"ref page-spread {sig['ref_number_max_page_spread']} (need >=3)")
+        if sig['co_location_ratio'] >= 0.2:
+            fails.append(f"co-location {sig['co_location_ratio']:.2f} (need <0.2)")
+        if sig['notes_page_count'] > 0:
+            fails.append(f"{sig['notes_page_count']} Notes-header page(s) (need 0)")
+        resets = sig.get('reset_count', 0)
+        rf = sig.get('reset_frequency', 0.0)
+        if sig['max_ref_number'] <= 50 and (resets > 3 or rf >= 0.2):
+            fails.append(f"resets {resets} / freq {rf:.2f} with "
+                         f"max-ref only {sig['max_ref_number']} (chapter-restart shape, not re-citation)")
+        return ' and '.join(fails) if fails else 'gate passed'
 
     def margin(self, sig):
         return (f"ref-spread {sig['ref_number_max_page_spread']} (>=3 gate), "
-                f"co-location {sig['co_location_ratio']:.2f} (<0.2 gate)")
+                f"co-location {sig['co_location_ratio']:.2f} (<0.2 gate), "
+                f"resets {sig['reset_count']} vs max-ref {sig['max_ref_number']} (>50 excuses resets)")
 
 
 class PageBottomClassifier(PdfClassifier):

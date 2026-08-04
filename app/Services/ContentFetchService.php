@@ -1906,7 +1906,14 @@ class ContentFetchService
             $footnotesData = json_decode(File::get($jsonPath), true) ?: [];
         }
 
-        if (empty($footnotesData)) {
+        // The guard against wiping a good prior set is FILE PRESENCE, not row count: a pipeline
+        // that ran to completion writes footnotes.jsonl even when it decided there are ZERO
+        // footnotes (a layout reclassification — e.g. chapter_endnotes → wackSTEM — turns every
+        // "footnote" into a bibliography entry, and the correct new count is 0). Only when the
+        // pipeline produced no footnote output at all do we leave the prior rows alone. The old
+        // guard was `empty($footnotesData)` → the Sci-Hub case kept its 118 phantom footnote
+        // sub-books after a reconvert whose real footnote count was 0.
+        if (!File::exists($jsonlPath) && !File::exists($jsonPath)) {
             return;
         }
 
@@ -1921,12 +1928,24 @@ class ContentFetchService
         // Replace wholesale: a RE-conversion (re-OCR / re-fetch) generates fresh footnote ids, so a
         // per-id upsert would leave every PRIOR footnote sub-book orphaned — no in-text marker points
         // at it, yet it lingers in footnotes/nodes/library forever. Clear this book's footnote rows
-        // and their sub-books first (mirrors ReconvertSystemVersionCommand::clearBookContent), then
-        // insert the fresh set below. Guarded by the empty-data early return above, so a footnote-less
-        // conversion never wipes a good prior set.
+        // and their sub-books first, then insert the fresh set below. Sub-books named by
+        // hyperlights.sub_book_id are OTHER READERS' annotation documents anchored to this book —
+        // they survive, same keep-list as BookContentClearer.
+        $keepSubBooks = $db->table('hyperlights')
+            ->whereNotNull('sub_book_id')
+            ->where('sub_book_id', 'LIKE', "{$bookId}/%")
+            ->distinct()
+            ->pluck('sub_book_id')
+            ->all();
         $db->table('footnotes')->where('book', $bookId)->delete();
-        $db->table('nodes')->where('book', 'LIKE', "{$bookId}/%")->delete();
-        $db->table('library')->where('book', 'LIKE', "{$bookId}/%")->where('type', 'sub_book')->delete();
+        $db->table('nodes')->where('book', 'LIKE', "{$bookId}/%")
+            ->whereNotIn('book', $keepSubBooks)->delete();
+        $db->table('library')->where('book', 'LIKE', "{$bookId}/%")->where('type', 'sub_book')
+            ->whereNotIn('book', $keepSubBooks)->delete();
+
+        if (empty($footnotesData)) {
+            return; // pipeline's verdict: zero footnotes — stale set cleared, nothing to insert
+        }
 
         $upsertedCount = 0;
         $enrichedForJson = [];

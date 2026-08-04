@@ -18,8 +18,25 @@ use Illuminate\Support\Facades\Mail;
 
 afterEach(function () {
     ConversionFlag::query()->where('book', 'like', 'apitest%')->delete();
+    DB::connection('pgsql_admin')->table('nodes')->where('book', 'like', 'apitest\_%')->delete();
     $this->cleanupApiFixtures();
 });
+
+/** Seed N nodes of junk (short) or prose (real-paragraph-length) text. */
+function seedNodes(string $book, int $count, bool $prose): void
+{
+    $rows = [];
+    for ($i = 1; $i <= $count; $i++) {
+        $text = $prose
+            ? str_repeat("The measured spectra of the silicon qubit devices continued to improve across successive fabrication runs, and the teams reported steadily longer coherence times in each publication. ", 3)
+            : 'Access options · Institutional login';
+        $rows[] = [
+            'book' => $book, 'node_id' => "{$book}_n{$i}", 'chunk_id' => 0, 'startLine' => $i,
+            'content' => '<p>' . $text . '</p>', 'plainText' => $text,
+        ];
+    }
+    DB::connection('pgsql_admin')->table('nodes')->insert($rows);
+}
 
 // ── Gating ──
 
@@ -37,6 +54,7 @@ test('every maintainer API endpoint is admin-gated', function () {
     $this->loginUser(); // authenticated but NOT admin
     $this->getJson('/api/maintainer/conversion/flags')->assertStatus(403);
     $this->postJson('/api/maintainer/conversion/flags/apitest_x/resolve', ['resolution' => 'dismissed'])->assertStatus(403);
+    $this->postJson('/api/maintainer/conversion/flags/apitest_x/retract')->assertStatus(403);
     $this->getJson('/api/maintainer/conversion/original/apitest_x')->assertStatus(403);
     $this->getJson('/api/maintainer/conversion/export/apitest_x')->assertStatus(403);
 });
@@ -79,6 +97,74 @@ test('resolve endpoint closes all open flags for the book', function () {
 
     $this->postJson('/api/maintainer/conversion/flags/apitest_mtres/resolve', ['resolution' => 'nonsense'])
         ->assertStatus(422);
+});
+
+// ── The retract endpoint (harvest false positives) ──
+
+test('retract deletes a junk harvested version and closes its flags as retracted', function () {
+    $admin = $this->loginUser(['is_admin' => true]);
+    $book = $this->makeBook($admin, ['visibility' => 'public', 'title' => 'Paywall Page', 'conversion_method' => 'html_scrape_unverified']);
+    seedNodes($book, 2, prose: false); // landing-page junk: body absent
+    ConversionFlag::raise($book, ConversionFlag::SOURCE_AUTO_SWEEP, 'no article body', ['issueTypes' => ['body_absent']]);
+
+    $this->postJson("/api/maintainer/conversion/flags/{$book}/retract")
+        ->assertOk()->assertJson(['retracted' => true, 'resolved' => 1]);
+
+    $admin_db = DB::connection('pgsql_admin');
+    expect($admin_db->table('library')->where('book', $book)->value('visibility'))->toBe('deleted');
+    expect($admin_db->table('nodes')->where('book', $book)->count())->toBe(0);
+    $flag = ConversionFlag::where('book', $book)->first();
+    expect($flag->status)->toBe('resolved');
+    expect($flag->resolution)->toBe('retracted');
+});
+
+test('retract refuses a body-present book without force — a flagged book can be real', function () {
+    $admin = $this->loginUser(['is_admin' => true]);
+    $book = $this->makeBook($admin, ['visibility' => 'public', 'title' => 'Real Short Article', 'conversion_method' => 'html_scrape_unverified']);
+    seedNodes($book, 6, prose: true); // ≥5 real paragraphs: body PRESENT
+    ConversionFlag::raise($book, ConversionFlag::SOURCE_AUTO_SWEEP, 'suspect', ['issueTypes' => ['body_absent']]);
+
+    $this->postJson("/api/maintainer/conversion/flags/{$book}/retract")
+        ->assertStatus(422)->assertJson(['refusal' => 'body_present']);
+    expect(DB::connection('pgsql_admin')->table('library')->where('book', $book)->value('visibility'))->toBe('public');
+
+    // The human eyeballed it and insists — force goes through.
+    $this->postJson("/api/maintainer/conversion/flags/{$book}/retract", ['force' => true])
+        ->assertOk()->assertJson(['retracted' => true]);
+    expect(DB::connection('pgsql_admin')->table('library')->where('book', $book)->value('visibility'))->toBe('deleted');
+});
+
+test('retract never touches a non-system-acquired book, even with force', function () {
+    $admin = $this->loginUser(['is_admin' => true]);
+    $book = $this->makeBook($admin, ['visibility' => 'public', 'title' => 'My Own Upload', 'conversion_method' => 'pdf_ocr_mistral']);
+    seedNodes($book, 2, prose: false);
+    ConversionFlag::raise($book, ConversionFlag::SOURCE_USER_REPORT, 'looks broken');
+
+    $this->postJson("/api/maintainer/conversion/flags/{$book}/retract", ['force' => true])
+        ->assertStatus(422)->assertJson(['refusal' => 'not_system_acquired']);
+    expect(DB::connection('pgsql_admin')->table('library')->where('book', $book)->value('visibility'))->toBe('public');
+    expect(ConversionFlag::where('book', $book)->where('status', 'open')->exists())->toBeTrue();
+});
+
+test('harvest:retract --flagged bulk-retracts junk, skips real books, and dry-run deletes nothing', function () {
+    $admin = $this->loginUser(['is_admin' => true]);
+    $junk = $this->makeBook($admin, ['visibility' => 'public', 'title' => 'Junk A', 'conversion_method' => 'html_scrape_unverified']);
+    $real = $this->makeBook($admin, ['visibility' => 'public', 'title' => 'Real B', 'conversion_method' => 'html_scrape_unverified']);
+    seedNodes($junk, 2, prose: false);
+    seedNodes($real, 6, prose: true);
+    ConversionFlag::raise($junk, ConversionFlag::SOURCE_AUTO_SWEEP, 'no body', ['issueTypes' => ['body_absent']]);
+    ConversionFlag::raise($real, ConversionFlag::SOURCE_AUTO_SWEEP, 'no body', ['issueTypes' => ['body_absent']]);
+
+    $lib = fn (string $b) => DB::connection('pgsql_admin')->table('library')->where('book', $b)->value('visibility');
+
+    Artisan::call('harvest:retract', ['--flagged' => true, '--dry-run' => true]);
+    expect($lib($junk))->toBe('public'); // dry run touched nothing
+
+    Artisan::call('harvest:retract', ['--flagged' => true, '--yes' => true]);
+    expect($lib($junk))->toBe('deleted');
+    expect($lib($real))->toBe('public'); // body-present → skipped, flag stays open
+    expect(ConversionFlag::where('book', $junk)->where('status', 'open')->exists())->toBeFalse();
+    expect(ConversionFlag::where('book', $real)->where('status', 'open')->exists())->toBeTrue();
 });
 
 // ── The original-file endpoint ──

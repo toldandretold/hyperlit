@@ -196,6 +196,7 @@ body.mt-dragging iframe { pointer-events: none; }
 .mt-actions button:hover { background: color-mix(in srgb, var(--color-text) 10%, transparent); }
 .mt-actions button:disabled { opacity: 0.5; cursor: default; }
 #mt-reconvert { color: var(--hyperlit-orange, #ef8d34); }
+#mt-retract   { color: var(--hyperlit-pink, #e0538b); }
 #mt-resolve   { color: var(--hyperlit-aqua, #4eacae); }
 .mt-actions-status { font-size: 0.78rem; color: var(--color-text-faint, #888); }
 

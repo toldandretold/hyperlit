@@ -58,8 +58,12 @@ def test_wackstem_classifier_gate():
     assert M.WackStemClassifier().matches(hit) is True
     # a Notes header disqualifies it
     assert M.WackStemClassifier().matches(_sig(**{**hit, 'notes_page_count': 1})) is False
-    # too many resets disqualifies it
+    # too many resets disqualifies it — when numbering stays LOW (chapter-restart shape)
     assert M.WackStemClassifier().matches(_sig(**{**hit, 'reset_count': 4, 'reset_frequency': 0.9, 'max_ref_number': 10})) is False
+    # …but NOT when numbering is global-bibliography scale: re-citing [1] late in the paper IS the
+    # wackSTEM signature, and every re-citation of a low number reads as a "reset". The Sci-Hub
+    # coverage paper (129 refs, 9 resets from re-citation) was misclassified chapter_endnotes.
+    assert M.WackStemClassifier().matches(_sig(**{**hit, 'reset_count': 9, 'reset_frequency': 0.47, 'max_ref_number': 129})) is True
 
 
 def test_page_bottom_classifier_both_gates():

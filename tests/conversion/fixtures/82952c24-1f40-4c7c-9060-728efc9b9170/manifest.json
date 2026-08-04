@@ -1,0 +1,17 @@
+{
+    "name": "82952c24-1f40-4c7c-9060-728efc9b9170",
+    "description": "pulled prod case: Sci-Hub coverage paper (Himmelstein et al.) — numbered-bracket citations incl. en-dash ranges [1–3]; was misclassified chapter_endnotes (118 fake footnotes, 81 orphans) before the wackSTEM reset-guard fix",
+    "book_id": "82952c24-1f40-4c7c-9060-728efc9b9170",
+    "citation_style": "numbered-bracket",
+    "footnote_strategy": "stem_bibliography",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 125,
+        "citations_linked": 161,
+        "citations_total": 161,
+        "footnotes_count": 0,
+        "audit_gaps": 0,
+        "footnote_strategy": "stem_bibliography",
+        "citation_style": "numbered-bracket"
+    }
+}

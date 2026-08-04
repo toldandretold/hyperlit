@@ -1,0 +1,2083 @@
+{
+    "total_refs": 47,
+    "total_defs": 118,
+    "gaps": [
+        {
+            "missing": 6,
+            "after_ref": 5,
+            "before_ref": 11,
+            "section": 1,
+            "after_ref_context": "Recent estimates suggest paywalls on the web limit access to three-quarters of scholarly literature [1–3]. The open acce",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 7,
+            "after_ref": 5,
+            "before_ref": 11,
+            "section": 1,
+            "after_ref_context": "Recent estimates suggest paywalls on the web limit access to three-quarters of scholarly literature [1–3]. The open acce",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 8,
+            "after_ref": 5,
+            "before_ref": 11,
+            "section": 1,
+            "after_ref_context": "Recent estimates suggest paywalls on the web limit access to three-quarters of scholarly literature [1–3]. The open acce",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 9,
+            "after_ref": 5,
+            "before_ref": 11,
+            "section": 1,
+            "after_ref_context": "Recent estimates suggest paywalls on the web limit access to three-quarters of scholarly literature [1–3]. The open acce",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 10,
+            "after_ref": 5,
+            "before_ref": 11,
+            "section": 1,
+            "after_ref_context": "Recent estimates suggest paywalls on the web limit access to three-quarters of scholarly literature [1–3]. The open acce",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 15,
+            "after_ref": 14,
+            "before_ref": 21,
+            "section": 1,
+            "after_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 16,
+            "after_ref": 14,
+            "before_ref": 21,
+            "section": 1,
+            "after_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 17,
+            "after_ref": 14,
+            "before_ref": 21,
+            "section": 1,
+            "after_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 18,
+            "after_ref": 14,
+            "before_ref": 21,
+            "section": 1,
+            "after_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 19,
+            "after_ref": 14,
+            "before_ref": 21,
+            "section": 1,
+            "after_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 20,
+            "after_ref": 14,
+            "before_ref": 21,
+            "section": 1,
+            "after_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Since each article is unique, libraries cannot substitute one journal subscription for another without depriving their u",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 23,
+            "after_ref": 22,
+            "before_ref": 24,
+            "section": 1,
+            "after_ref_context": "In this study, we use the term \"toll access\" (also known as \"closed access\") to refer to paywalled literature 22. On the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "In this study, we use the term \"toll access\" (also known as \"closed access\") to refer to paywalled literature 22. On the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 25,
+            "after_ref": 24,
+            "before_ref": 30,
+            "section": 1,
+            "after_ref_context": "In this study, we use the term \"toll access\" (also known as \"closed access\") to refer to paywalled literature 22. On the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Sci-Hub is currently served at domains including https://sci-hub.hk, https://sci-hub.la, https://sci-hub.mn, https://sci",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 26,
+            "after_ref": 24,
+            "before_ref": 30,
+            "section": 1,
+            "after_ref_context": "In this study, we use the term \"toll access\" (also known as \"closed access\") to refer to paywalled literature 22. On the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Sci-Hub is currently served at domains including https://sci-hub.hk, https://sci-hub.la, https://sci-hub.mn, https://sci",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 27,
+            "after_ref": 24,
+            "before_ref": 30,
+            "section": 1,
+            "after_ref_context": "In this study, we use the term \"toll access\" (also known as \"closed access\") to refer to paywalled literature 22. On the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Sci-Hub is currently served at domains including https://sci-hub.hk, https://sci-hub.la, https://sci-hub.mn, https://sci",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 28,
+            "after_ref": 24,
+            "before_ref": 30,
+            "section": 1,
+            "after_ref_context": "In this study, we use the term \"toll access\" (also known as \"closed access\") to refer to paywalled literature 22. On the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Sci-Hub is currently served at domains including https://sci-hub.hk, https://sci-hub.la, https://sci-hub.mn, https://sci",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 29,
+            "after_ref": 24,
+            "before_ref": 30,
+            "section": 1,
+            "after_ref_context": "In this study, we use the term \"toll access\" (also known as \"closed access\") to refer to paywalled literature 22. On the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Sci-Hub is currently served at domains including https://sci-hub.hk, https://sci-hub.la, https://sci-hub.mn, https://sci",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 32,
+            "after_ref": 31,
+            "before_ref": 33,
+            "section": 2,
+            "after_ref_context": "Figure 1: The history of Sci-Hub. Weekly interest from Google Trends is plotted over time for the search terms \"Sci-Hub\"",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Figure 1: The history of Sci-Hub. Weekly interest from Google Trends is plotted over time for the search terms \"Sci-Hub\"",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 34,
+            "after_ref": 33,
+            "before_ref": 36,
+            "section": 2,
+            "after_ref_context": "Figure 1: The history of Sci-Hub. Weekly interest from Google Trends is plotted over time for the search terms \"Sci-Hub\"",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- B Several LibGen domains go down when their registration expires, allegedly due to a longtime site administrator passi",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 35,
+            "after_ref": 33,
+            "before_ref": 36,
+            "section": 2,
+            "after_ref_context": "Figure 1: The history of Sci-Hub. Weekly interest from Google Trends is plotted over time for the search terms \"Sci-Hub\"",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- B Several LibGen domains go down when their registration expires, allegedly due to a longtime site administrator passi",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 37,
+            "after_ref": 36,
+            "before_ref": 42,
+            "section": 2,
+            "after_ref_context": "- B Several LibGen domains go down when their registration expires, allegedly due to a longtime site administrator passi",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- E The article \"Meet the Robin Hood of Science\" by Simon Oxenham spurs a wave of attention and news coverage on Sci-Hub",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 38,
+            "after_ref": 36,
+            "before_ref": 42,
+            "section": 2,
+            "after_ref_context": "- B Several LibGen domains go down when their registration expires, allegedly due to a longtime site administrator passi",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- E The article \"Meet the Robin Hood of Science\" by Simon Oxenham spurs a wave of attention and news coverage on Sci-Hub",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 39,
+            "after_ref": 36,
+            "before_ref": 42,
+            "section": 2,
+            "after_ref_context": "- B Several LibGen domains go down when their registration expires, allegedly due to a longtime site administrator passi",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- E The article \"Meet the Robin Hood of Science\" by Simon Oxenham spurs a wave of attention and news coverage on Sci-Hub",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 40,
+            "after_ref": 36,
+            "before_ref": 42,
+            "section": 2,
+            "after_ref_context": "- B Several LibGen domains go down when their registration expires, allegedly due to a longtime site administrator passi",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- E The article \"Meet the Robin Hood of Science\" by Simon Oxenham spurs a wave of attention and news coverage on Sci-Hub",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 41,
+            "after_ref": 36,
+            "before_ref": 42,
+            "section": 2,
+            "after_ref_context": "- B Several LibGen domains go down when their registration expires, allegedly due to a longtime site administrator passi",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- E The article \"Meet the Robin Hood of Science\" by Simon Oxenham spurs a wave of attention and news coverage on Sci-Hub",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 44,
+            "after_ref": 43,
+            "before_ref": 48,
+            "section": 2,
+            "after_ref_context": "- E The article \"Meet the Robin Hood of Science\" by Simon Oxenham spurs a wave of attention and news coverage on Sci-Hub",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- ⑤ Alexandra Elbakyan is named one of \"Nature's 10\", which featured \"ten people who mattered\" in 2016 48. Written by Ri",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 45,
+            "after_ref": 43,
+            "before_ref": 48,
+            "section": 2,
+            "after_ref_context": "- E The article \"Meet the Robin Hood of Science\" by Simon Oxenham spurs a wave of attention and news coverage on Sci-Hub",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- ⑤ Alexandra Elbakyan is named one of \"Nature's 10\", which featured \"ten people who mattered\" in 2016 48. Written by Ri",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 46,
+            "after_ref": 43,
+            "before_ref": 48,
+            "section": 2,
+            "after_ref_context": "- E The article \"Meet the Robin Hood of Science\" by Simon Oxenham spurs a wave of attention and news coverage on Sci-Hub",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- ⑤ Alexandra Elbakyan is named one of \"Nature's 10\", which featured \"ten people who mattered\" in 2016 48. Written by Ri",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 47,
+            "after_ref": 43,
+            "before_ref": 48,
+            "section": 2,
+            "after_ref_context": "- E The article \"Meet the Robin Hood of Science\" by Simon Oxenham spurs a wave of attention and news coverage on Sci-Hub",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- ⑤ Alexandra Elbakyan is named one of \"Nature's 10\", which featured \"ten people who mattered\" in 2016 48. Written by Ri",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 49,
+            "after_ref": 48,
+            "before_ref": 54,
+            "section": 2,
+            "after_ref_context": "- ⑤ Alexandra Elbakyan is named one of \"Nature's 10\", which featured \"ten people who mattered\" in 2016 48. Written by Ri",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- The version 1 preprint of this study is published 54, generating headlines such as Science's \"subscription journals ar",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 50,
+            "after_ref": 48,
+            "before_ref": 54,
+            "section": 2,
+            "after_ref_context": "- ⑤ Alexandra Elbakyan is named one of \"Nature's 10\", which featured \"ten people who mattered\" in 2016 48. Written by Ri",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- The version 1 preprint of this study is published 54, generating headlines such as Science's \"subscription journals ar",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 51,
+            "after_ref": 48,
+            "before_ref": 54,
+            "section": 2,
+            "after_ref_context": "- ⑤ Alexandra Elbakyan is named one of \"Nature's 10\", which featured \"ten people who mattered\" in 2016 48. Written by Ri",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- The version 1 preprint of this study is published 54, generating headlines such as Science's \"subscription journals ar",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 52,
+            "after_ref": 48,
+            "before_ref": 54,
+            "section": 2,
+            "after_ref_context": "- ⑤ Alexandra Elbakyan is named one of \"Nature's 10\", which featured \"ten people who mattered\" in 2016 48. Written by Ri",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- The version 1 preprint of this study is published 54, generating headlines such as Science's \"subscription journals ar",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 53,
+            "after_ref": 48,
+            "before_ref": 54,
+            "section": 2,
+            "after_ref_context": "- ⑤ Alexandra Elbakyan is named one of \"Nature's 10\", which featured \"ten people who mattered\" in 2016 48. Written by Ri",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- The version 1 preprint of this study is published 54, generating headlines such as Science's \"subscription journals ar",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 58,
+            "after_ref": 57,
+            "before_ref": 59,
+            "section": 2,
+            "after_ref_context": "- Sci-Hub blocks access to Russian IP addresses due to disputes with the Russian Scientific establishment and the naming",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- Sci-Hub blocks access to Russian IP addresses due to disputes with the Russian Scientific establishment and the naming",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 60,
+            "after_ref": 59,
+            "before_ref": 62,
+            "section": 2,
+            "after_ref_context": "- Sci-Hub blocks access to Russian IP addresses due to disputes with the Russian Scientific establishment and the naming",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- The court rules on the American Chemical Society suit, ordering Sci-Hub to pay $4.8 million in damages and that \"any p",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 61,
+            "after_ref": 59,
+            "before_ref": 62,
+            "section": 2,
+            "after_ref_context": "- Sci-Hub blocks access to Russian IP addresses due to disputes with the Russian Scientific establishment and the naming",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "- The court rules on the American Chemical Society suit, ordering Sci-Hub to pay $4.8 million in damages and that \"any p",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 32,
+            "after_ref": 31,
+            "before_ref": 34,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 33,
+            "after_ref": 31,
+            "before_ref": 34,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 35,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 36,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 37,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 38,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 39,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 40,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 41,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 42,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 43,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 44,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 45,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 46,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 47,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 48,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 49,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 50,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 51,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 52,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 53,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 54,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 55,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 56,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 57,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 58,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 59,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 60,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 61,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 62,
+            "after_ref": 34,
+            "before_ref": 63,
+            "section": 3,
+            "after_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Past research sheds some light on Sci-Hub's reach. From the Spring of 2013 until the end of 2014, Sci-Hub relied on the",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 45,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 46,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 47,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 48,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 49,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 50,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 51,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 52,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 53,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 54,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 55,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 56,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 57,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 58,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 59,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 60,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 61,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 62,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 63,
+            "after_ref": 44,
+            "before_ref": 64,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Introduction"
+        },
+        {
+            "missing": 66,
+            "after_ref": 65,
+            "before_ref": 70,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "In addition, the prevalence of open access has been increasing, while Sci-Hub preferentially covers articles in toll acc",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Coverage by year"
+        },
+        {
+            "missing": 67,
+            "after_ref": 65,
+            "before_ref": 70,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "In addition, the prevalence of open access has been increasing, while Sci-Hub preferentially covers articles in toll acc",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Coverage by year"
+        },
+        {
+            "missing": 68,
+            "after_ref": 65,
+            "before_ref": 70,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "In addition, the prevalence of open access has been increasing, while Sci-Hub preferentially covers articles in toll acc",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Coverage by year"
+        },
+        {
+            "missing": 69,
+            "after_ref": 65,
+            "before_ref": 70,
+            "section": 4,
+            "after_ref_context": "Later, Bohannon analyzed six months of Sci-Hub's server access logs, starting in September 2015 44. He found a global pa",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Introduction",
+            "before_ref_context": "In addition, the prevalence of open access has been increasing, while Sci-Hub preferentially covers articles in toll acc",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Coverage by year"
+        },
+        {
+            "missing": "72-123",
+            "after_ref": 71,
+            "before_ref": 124,
+            "section": 5,
+            "gap_size": 52,
+            "after_ref_context": "In practice, readers of the scholarly literature likely use a variety of methods for access. Figure 8 compares several o",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Coverage combining access methods",
+            "before_ref_context": "In the first version of this study 124, we mistakenly treated the log events as requests rather than downloads. Fortunat",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 95,
+            "after_ref": 94,
+            "before_ref": 101,
+            "section": 9,
+            "after_ref_context": "Sci-Hub is poised to fundamentally disrupt scholarly publishing. The transition to gratis availability of scholarly arti",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Discussion",
+            "before_ref_context": "101",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "LibGen scimag's catalog of articles"
+        },
+        {
+            "missing": 96,
+            "after_ref": 94,
+            "before_ref": 101,
+            "section": 9,
+            "after_ref_context": "Sci-Hub is poised to fundamentally disrupt scholarly publishing. The transition to gratis availability of scholarly arti",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Discussion",
+            "before_ref_context": "101",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "LibGen scimag's catalog of articles"
+        },
+        {
+            "missing": 97,
+            "after_ref": 94,
+            "before_ref": 101,
+            "section": 9,
+            "after_ref_context": "Sci-Hub is poised to fundamentally disrupt scholarly publishing. The transition to gratis availability of scholarly arti",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Discussion",
+            "before_ref_context": "101",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "LibGen scimag's catalog of articles"
+        },
+        {
+            "missing": 98,
+            "after_ref": 94,
+            "before_ref": 101,
+            "section": 9,
+            "after_ref_context": "Sci-Hub is poised to fundamentally disrupt scholarly publishing. The transition to gratis availability of scholarly arti",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Discussion",
+            "before_ref_context": "101",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "LibGen scimag's catalog of articles"
+        },
+        {
+            "missing": 99,
+            "after_ref": 94,
+            "before_ref": 101,
+            "section": 9,
+            "after_ref_context": "Sci-Hub is poised to fundamentally disrupt scholarly publishing. The transition to gratis availability of scholarly arti",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Discussion",
+            "before_ref_context": "101",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "LibGen scimag's catalog of articles"
+        },
+        {
+            "missing": 100,
+            "after_ref": 94,
+            "before_ref": 101,
+            "section": 9,
+            "after_ref_context": "Sci-Hub is poised to fundamentally disrupt scholarly publishing. The transition to gratis availability of scholarly arti",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Discussion",
+            "before_ref_context": "101",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "LibGen scimag's catalog of articles"
+        },
+        {
+            "missing": 102,
+            "after_ref": 101,
+            "before_ref": 104,
+            "section": 9,
+            "after_ref_context": "101",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "LibGen scimag's catalog of articles",
+            "before_ref_context": "104",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "LibGen scimag's catalog of articles"
+        },
+        {
+            "missing": 103,
+            "after_ref": 101,
+            "before_ref": 104,
+            "section": 9,
+            "after_ref_context": "101",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "LibGen scimag's catalog of articles",
+            "before_ref_context": "104",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "LibGen scimag's catalog of articles"
+        },
+        {
+            "missing": 102,
+            "after_ref": 101,
+            "before_ref": 104,
+            "section": 10,
+            "after_ref_context": "101",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "LibGen scimag's catalog of articles",
+            "before_ref_context": "Figure 11: Number of articles in LibGen scimag over time. The figure shows the number of articles in LibGen scimag, acco",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "LibGen scimag's catalog of articles"
+        },
+        {
+            "missing": 103,
+            "after_ref": 101,
+            "before_ref": 104,
+            "section": 10,
+            "after_ref_context": "101",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "LibGen scimag's catalog of articles",
+            "before_ref_context": "Figure 11: Number of articles in LibGen scimag over time. The figure shows the number of articles in LibGen scimag, acco",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "LibGen scimag's catalog of articles"
+        },
+        {
+            "missing": 72,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 73,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 74,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 75,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 76,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 77,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 78,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 79,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 80,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 81,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 82,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 83,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 84,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 85,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 86,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 87,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 88,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 89,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 90,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 91,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 92,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 93,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 94,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 95,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 96,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 97,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 98,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 99,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 100,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 101,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        },
+        {
+            "missing": 102,
+            "after_ref": 71,
+            "before_ref": 103,
+            "section": 12,
+            "after_ref_context": "oaDOI, short for open access DOI, is a service that determines whether a DOI is available gratis somewhere online [^192]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "State of OA Datasets",
+            "before_ref_context": "The 2016 study titled \"Who's downloading pirated papers? Everyone\" analyzed a dataset of SciHub access logs [44,45]. Ale",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Sci-Hub access logs"
+        }
+    ],
+    "duplicates": [],
+    "unmatched_refs": [],
+    "unmatched_defs": [
+        {
+            "footnote_id": "seq1_Fn1785808008933_f6oq",
+            "number": "1",
+            "section": "1",
+            "definition_preview": "The State of OA: A large-scale analysis of the prevalence and impact of Open Access articles<br><br>Heather Piwowar, Jason Priem, Vincent Larivière, Juan Pablo Alperin, Lisa Matthias, Bree Norlander, "
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_er54",
+            "number": "2",
+            "section": "1",
+            "definition_preview": "The Number of Scholarly Documents on the Public Web<br><br>Madian Khabsa, C. Lee Giles<br><br><a class=\"bib-entry\" id=\"one2014\"></a>PLoS ONE (2014) https://doi.org/10.1371/journal.pone.0093949"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_ynhp",
+            "number": "3",
+            "section": "1",
+            "definition_preview": "Open access levels: a quantitative exploration using Web of Science and oaDOI data<br><br>Jeroen Bosman, Bianca Kramer<br><br><a class=\"bib-entry\" id=\"peerj2018\"></a>PeerJ (2018) https://doi.org/10.72"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_m1s1",
+            "number": "6",
+            "section": "1",
+            "definition_preview": "Proportion of Open Access Papers Published in Peer-Reviewed Journals at the European and World Levels—1996–2013<br><br>Éric Archambault, Didier Amyot, Philippe Deschamps, Aurore Nicol, Françoise Prove"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_8sn8",
+            "number": "7",
+            "section": "1",
+            "definition_preview": "Half of 2011 papers now free to read<br><br>Richard Van Noorden<br><br><a class=\"bib-entry\" id=\"nature2013a\"></a>Nature (2013) https://doi.org/10.1038/500386a"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_li7k",
+            "number": "8",
+            "section": "1",
+            "definition_preview": "Beyond Open: Expanding Access to Scholarly Content<br><br>Alice Meadows<br><br><a class=\"bib-entry\" id=\"publishing2015\"></a>The Journal of Electronic Publishing (2015) https://doi.org/10.3998/3336451."
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_j15k",
+            "number": "9",
+            "section": "1",
+            "definition_preview": "Transforming Access to Research Literature for Developing Countries<br><br>Barbara Kirsop, Leslie Chan<br><br><a class=\"bib-entry\" id=\"review2005\"></a>Serials Review (2005) https://doi.org/10.1080/009"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_3sxr",
+            "number": "10",
+            "section": "1",
+            "definition_preview": "Sci-Hub and medical practice: an ethical dilemma in Peru<br><br>Guido Bendezú-Quispe, Wendy Nieto-Gutiérrez, Josmel Pacheco-Mendoza, Alvaro Taype-Rondan<br><br><a class=\"bib-entry\" id=\"health2016\"></a"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_qu8s",
+            "number": "15",
+            "section": "1",
+            "definition_preview": "Freedom for scholarship in the internet age<br><br>Heather Grace Morrison<br><br>(2012) http://summit.sfu.ca/item/12537"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_2ll4",
+            "number": "16",
+            "section": "1",
+            "definition_preview": "Is the staggeringly profitable business of scientific publishing bad for science?<br><br>Stephen Buranyi, Stephen Buranyi<br><br>the Guardian (2017) https://www.theguardian.com/science/2017/jun/27/pro"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_3n2n",
+            "number": "17",
+            "section": "1",
+            "definition_preview": "Open access: The true cost of science publishing<br><br>Richard Van Noorden<br><br><a class=\"bib-entry\" id=\"nature2013b\"></a>Nature (2013) https://doi.org/10.1038/495426a"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_85p8",
+            "number": "18",
+            "section": "1",
+            "definition_preview": "New World, Same Model | Periodicals Price Survey 2017<br><br>Stephen Bosch, Kittie Henderson<br><br><a class=\"bib-entry\" id=\"journal2017\"></a>Library Journal (2017) http://lj.libraryjournal.com/2017/0"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_bonj",
+            "number": "19",
+            "section": "1",
+            "definition_preview": "Journal subscription costs - FOIs to UK universities<br><br>Stuart Lawson, Ben Meghreblian, Michelle Brook<br><br><a class=\"bib-entry\" id=\"figshare2015\"></a>Figshare (2015) https://doi.org/10.6084/m9."
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_hq13",
+            "number": "20",
+            "section": "1",
+            "definition_preview": "Journal subscription expenditure in the UK 2015-16<br><br>Stuart Lawson<br><br><a class=\"bib-entry\" id=\"figshare2017a\"></a>Figshare (2017) https://doi.org/10.6084/m9.figshare.4542433.v6"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_av6t",
+            "number": "23",
+            "section": "1",
+            "definition_preview": "Gratis and libre open access<br><br>Peter Suber<br><br><a class=\"bib-entry\" id=\"suber2008\"></a>Peter Suber, Gratis and libre open access, SPARC Open Access Newsletter, August 2, 2008.<br><br>(2008) ht"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_cgy0",
+            "number": "25",
+            "section": "1",
+            "definition_preview": "The frustrated science student behind Sci-Hub<br><br>John Bohannon<br><br><a class=\"bib-entry\" id=\"science2016a\"></a>Science (2016) https://doi.org/10.1126/science.aaf5675"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_aolx",
+            "number": "26",
+            "section": "1",
+            "definition_preview": "Pirate research-paper sites play hide-and-seek with publishers<br><br>Quirin Schiermeier<br><br><a class=\"bib-entry\" id=\"nature2015a\"></a>Nature (2015) https://doi.org/10.1038/nature.2015.18876"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_tt3c",
+            "number": "27",
+            "section": "1",
+            "definition_preview": "Sci-Hub is a goal, changing the system is a method<br><br>Alexandra Elbakyan<br><br><a class=\"bib-entry\" id=\"engineering2016\"></a>Engineering (2016) https://engineering.wordpress.com/2016/03/11/sci-hu"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_gr9q",
+            "number": "28",
+            "section": "1",
+            "definition_preview": "Letter – Document #50 of Elsevier Inc. v. Sci-Hub – Case 1:15-cv-04282-RWS<br><br>Alexandra Elbakyan<br><br><a class=\"bib-entry\" id=\"york2015\"></a>Southern District Court of New York (2015)<br><br>htt"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_3n5k",
+            "number": "29",
+            "section": "1",
+            "definition_preview": "Alexandra Elbakyan – Science Should be Open to all Not Behind Paywalls<br><br>Elena Milova<br><br><a class=\"bib-entry\" id=\"foundation2017\"></a>Life Extension Advocacy Foundation (2017) http://www.leaf"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_b3w1",
+            "number": "35",
+            "section": "1",
+            "definition_preview": "Scimag catalogue of LibGen as of January 1st, 2014<br><br>Guillaume Cabanac<br><br><a class=\"bib-entry\" id=\"figshare2017b\"></a>Figshare (2017) https://doi.org/10.6084/m9.figshare.4906367.v1"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_s09f",
+            "number": "37",
+            "section": "1",
+            "definition_preview": "Elsevier Cracks Down on Pirated Scientific Articles<br><br>Ernesto Van der Sar<br><br><a class=\"bib-entry\" id=\"torrentfreak2015a\"></a>TorrentFreak (2015) https://torrentfreak.com/elsevier-cracks-down-"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_nngi",
+            "number": "38",
+            "section": "1",
+            "definition_preview": "Complaint – Document #1 of Elsevier Inc. v. Sci-Hub – Case 1:15-cv-04282-RWS<br><br>Joseph V. DeMarco, David M. Hirschberg, Urvashi Sen<br><br>Southern District Court of New York (2015)<br><br>https:/"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_u6fr",
+            "number": "39",
+            "section": "1",
+            "definition_preview": "Court Orders Shutdown of Libgen, Bookfi and Sci-Hub<br><br>Ernesto Van der Sar<br><br><a class=\"bib-entry\" id=\"torrentfreak2015b\"></a>TorrentFreak (2015) https://torrentfreak.com/court-orders-shutdown"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_k3xu",
+            "number": "40",
+            "section": "1",
+            "definition_preview": "Memorandum & Opinion – Document #53 of Elsevier Inc. v. Sci-Hub – Case 1:15-cv-04282-RWS<br><br>Robert W. Sweet<br><br>Southern District Court of New York (2015)<br><br>https://www.courtlistener.com/d"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_da89",
+            "number": "41",
+            "section": "1",
+            "definition_preview": "Sci-Hub, BookFi and LibGen Resurface After Being Shut Down<br><br>Ernesto Van der Sar<br><br><a class=\"bib-entry\" id=\"torrentfreak2015c\"></a>TorrentFreak (2015) https://torrentfreak.com/sci-hub-and-li"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_sjta",
+            "number": "45",
+            "section": "1",
+            "definition_preview": "Who's downloading pirated papers? Everyone<br><br>John Bohannon<br><br><a class=\"bib-entry\" id=\"science2016c\"></a>Science (2016) https://doi.org/10.1126/science.aaf5664"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_ityp",
+            "number": "46",
+            "section": "1",
+            "definition_preview": "Paper piracy sparks online debate<br><br>Chris Woolston<br><br><a class=\"bib-entry\" id=\"nature2016a\"></a>Nature (2016) https://doi.org/10.1038/nature.2016.19841"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_ace1",
+            "number": "47",
+            "section": "1",
+            "definition_preview": "In survey, most give thumbs-up to pirated papers<br><br>John Travis<br><br><a class=\"bib-entry\" id=\"science2016d\"></a>Science (2016) https://doi.org/10.1126/science.aaf5704"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_i3lp",
+            "number": "49",
+            "section": "1",
+            "definition_preview": "US court grants Elsevier millions in damages from Sci-Hub<br><br>Quirin Schiermeier<br><br><a class=\"bib-entry\" id=\"nature2017a\"></a>Nature (2017) https://doi.org/10.1038/nature.2017.22196"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_txf9",
+            "number": "50",
+            "section": "1",
+            "definition_preview": "Sci-Hub Ordered to Pay $15 Million in Piracy Damages<br><br>Ernesto Van der Sar<br><br><a class=\"bib-entry\" id=\"torrentfreak2017a\"></a>TorrentFreak (2017) https://torrentfreak.com/sci-hub-ordered-to-p"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_ni8e",
+            "number": "51",
+            "section": "1",
+            "definition_preview": "Judgement – Document #87 of Elsevier Inc. v. Sci-Hub – Case 1:15-cv-04282-RWS<br><br>Robert W. Sweet<br><br><a class=\"bib-entry\" id=\"york2017\"></a>Southern District Court of New York (2017) https://ww"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_fejf",
+            "number": "52",
+            "section": "1",
+            "definition_preview": "New Lawsuit Demands ISP Blockades Against \"Pirate\" Site Sci-Hub<br><br>Ernesto Van der Sar<br><br><a class=\"bib-entry\" id=\"torrentfreak2017b\"></a>TorrentFreak (2017) https://torrentfreak.com/new-lawsu"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_s369",
+            "number": "53",
+            "section": "1",
+            "definition_preview": "Complaint – Document #1 of American Chemical Society v. Sci-Hub – Case 1:17-cv-00726-LMB-JFA<br><br>Barnes Attison L. III, Weslow David E., Gardner Matthew J."
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008933_5hjm",
+            "number": "58",
+            "section": "1",
+            "definition_preview": "Ichneumonidae (Hymenoptera) associated with xyelid sawflies (Hymenoptera, Xyelidae) in Mexico<br><br>Andrey I. Khalaim, Enrique Ruiz-Cancino<br><br><a class=\"bib-entry\" id=\"research2017a\"></a>Journal "
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_q5tv",
+            "number": "60",
+            "section": "1",
+            "definition_preview": "Pirate paper website Sci-Hub dealt another blow by US courts<br><br>Quirin Schiermeier<br><br><a class=\"bib-entry\" id=\"nature2017b\"></a>Nature (2017) https://doi.org/10.1038/nature.2017.22971"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_pdtr",
+            "number": "61",
+            "section": "1",
+            "definition_preview": "Order – Document #37 of American Chemical Society v. Sci-Hub – Case 1:17-cv-00726-LMB-JFA<br><br>Brinkema Leonie M.<br><br><a class=\"bib-entry\" id=\"virginia2017b\"></a>Eastern District Court of Virgini"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_fa46",
+            "number": "66",
+            "section": "1",
+            "definition_preview": "Looking into Pandora's Box: The Content of Sci-Hub and its Usage<br><br>Bastian Greshake<br><br><a class=\"bib-entry\" id=\"research2017b\"></a>F1000Research (2017) https://doi.org/10.12688/f1000research."
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_maue",
+            "number": "67",
+            "section": "1",
+            "definition_preview": "Data And Scripts For Looking Into Pandora'S Box: The Content Of Sci-Hub And Its Usage<br><br>Bastian Greshake<br><br><a class=\"bib-entry\" id=\"zenodo2017\"></a>Zenodo (2017) https://doi.org/10.5281/zeno"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_y7ev",
+            "number": "68",
+            "section": "1",
+            "definition_preview": "Online Access To ACS Publications Is Restored After Some Customers Were Unintentionally Blocked | Chemical & Engineering News<br><br>Sophie L. Rovner<br><br>(2014) http://cen.acs.org/articles/92/web/2"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_efb3",
+            "number": "69",
+            "section": "1",
+            "definition_preview": "Publisher under fire for fake article webpages<br><br>Rachel Becker<br><br><a class=\"bib-entry\" id=\"nature2016b\"></a>Nature (2016) https://doi.org/10.1038/535011f"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_o1tp",
+            "number": "72",
+            "section": "1",
+            "definition_preview": "Declaration in Support of Motion – Document #8 Attachment #23 of Elsevier Inc. v. SciHub – Case 1:15-cv-04282-RWS<br><br>Anthony Woltermann<br><br>Southern District Court of New York (2015)<br><br>htt"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_tj7b",
+            "number": "73",
+            "section": "1",
+            "definition_preview": "Access, ethics and piracy<br><br>Stuart Lawson<br><br><a class=\"bib-entry\" id=\"uksg2017\"></a>Insights the UKSG journal (2017) https://doi.org/10.1629/uksg.333"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_2upn",
+            "number": "74",
+            "section": "1",
+            "definition_preview": "Is Biblioleaks Inevitable?<br><br>Adam G Dunn, Enrico Coiera, Kenneth D Mandl<br><br><a class=\"bib-entry\" id=\"research2014\"></a>Journal of Medical Internet Research (2014) https://doi.org/10.2196/jmir"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_1380",
+            "number": "75",
+            "section": "1",
+            "definition_preview": "IPFS - Content Addressed, Versioned, P2P File System<br><br>Juan Benet<br><br>arXiv (2014) https://arxiv.org/abs/1407.3561v1"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_3sbu",
+            "number": "76",
+            "section": "1",
+            "definition_preview": "Decentralized Storage: The Backbone of the Third Web<br><br>ConsenSys<br><br><a class=\"bib-entry\" id=\"media2016\"></a>ConsenSys Media (2016) https://media.consensys.net/decentralized-storage-the-backbo"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_ud38",
+            "number": "77",
+            "section": "1",
+            "definition_preview": "Pirates in the Library – An Inquiry into the Guerilla Open Access Movement<br><br>Balázs Bodó<br><br>8th Annual Workshop of the International Society for the History and Theory of Intellectual<br><br>"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_9b4q",
+            "number": "78",
+            "section": "1",
+            "definition_preview": "Libraries in the Post-Scarcity Era<br><br>Balázs Bodó<br><br><a class=\"bib-entry\" id=\"creative2015\"></a>Copyrighting Creativity: Creative values, Cultural Heritage Institutions and Systems of Intellec"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_zd8q",
+            "number": "88",
+            "section": "1",
+            "definition_preview": "Reassessing the value proposition: first steps towards a fair(er) price for scholarly journals<br><br>David C Prosser<br><br>Serials: The Journal for the Serials Community (2011) https://doi.org/10.16"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_w5u7",
+            "number": "89",
+            "section": "1",
+            "definition_preview": "Dutch lose access to OUP journals in subscription standoff<br><br>Holly Else<br><br>Times Higher Education (2017) https://www.timeshighereducation.com/news/dutch-lose-access-oup-journals-subscription-"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_2g5y",
+            "number": "90",
+            "section": "1",
+            "definition_preview": "UdeM Libraries cancel Big Deal subscription to 2,231 periodical titles published by Taylor & Francis Group<br><br>Stéphanie Gagnon<br><br>Communiqués, Bibliothèques, Université de Montréal (2017)<br><"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_4pqb",
+            "number": "91",
+            "section": "1",
+            "definition_preview": "Scientists in Germany, Peru and Taiwan to lose access to Elsevier journals<br><br>Quirin Schiermeier, Emiliano Rodriguez Mega<br><br>Nature (2016) https://doi.org/10.1038/nature.2016.21223"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_6u48",
+            "number": "92",
+            "section": "1",
+            "definition_preview": "Germany vs Elsevier: universities win temporary journal access after refusing to pay fees<br><br>Quirin Schiermeier<br><br>Nature (2018) https://doi.org/10.1038/d41586-018-00093-7"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_mrgq",
+            "number": "93",
+            "section": "1",
+            "definition_preview": "Memorandum of Law in Support of Motion – Document #6 of Elsevier Inc. v. Sci-Hub – Case 1:15-cv-04282-RWS<br><br>Joseph V. DeMarco, David M. Hirschberg, Urvashi Sen<br><br>Southern District Court of N"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_zg3i",
+            "number": "95",
+            "section": "1",
+            "definition_preview": "Need a paper? Get a plug-in<br><br>Dalmeet Singh Chawla<br><br>Nature (2017) https://doi.org/10.1038/d41586-017-05922-9"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_9nxo",
+            "number": "96",
+            "section": "1",
+            "definition_preview": "Funders punish open-access dodgers<br><br>Richard Van Noorden<br><br>Nature (2014) https://doi.org/10.1038/508161a"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_hgxc",
+            "number": "97",
+            "section": "1",
+            "definition_preview": "Does it take too long to publish research?<br><br>Kendall Powell<br><br>Nature (2016) https://doi.org/10.1038/530148a"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_tp8c",
+            "number": "98",
+            "section": "1",
+            "definition_preview": "Why Sci-Hub is the true solution for Open Access: reply to criticism<br><br>Alexandra Elbakyan<br><br>Engineering (2016) https://engineering.wordpress.com/2016/02/24/why-sci-hub-is-the-true-solution-f"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_1a0o",
+            "number": "99",
+            "section": "1",
+            "definition_preview": "The Inevitability of Open Access<br><br>David W. Lewis<br><br>College & Research Libraries (2012) https://doi.org/10.5860/crl-299"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_y09g",
+            "number": "100",
+            "section": "1",
+            "definition_preview": "Is free inevitable in scholarly communication?: The economics of open access<br><br>Caroline Sutton<br><br>College & Research Libraries News (2011) https://doi.org/10.5860/crln.72.11.8671"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_4aok",
+            "number": "102",
+            "section": "1",
+            "definition_preview": "The Transition to Open Access: The State of the Market, Offsetting Deals, and a Demonstrated Model for Fair Open Access with the Open Library of Humanities<br><br>Eve Martin Paul, de Vries Saskia C.J."
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_46h9",
+            "number": "105",
+            "section": "1",
+            "definition_preview": "Text mining of 15 million full-text scientific articles<br><br>David Westergaard, Hans-Henrik Stærfeldt, Christian Tønsberg, Lars Juhl Jensen, Søren Brunak<br><br>Cold Spring Harbor Laboratory (2017) "
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_3wtu",
+            "number": "106",
+            "section": "1",
+            "definition_preview": "The Social, Political and Legal Aspects of Text and Data Mining (TDM)<br><br>Michelle Brook, Peter Murray-Rust, Charles Oppenheim<br><br>D-Lib Magazine (2014) https://doi.org/10.1045/november14-brook"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_358x",
+            "number": "107",
+            "section": "1",
+            "definition_preview": "Trouble at the text mine<br><br>Richard Van Noorden<br><br>Nature (2012) https://doi.org/10.1038/483134a"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_a557",
+            "number": "108",
+            "section": "1",
+            "definition_preview": "Vega-Lite: A Grammar of Interactive Graphics<br><br>Arvind Satyanarayan, Dominik Moritz, Kanit Wongsuphasawat, Jeffrey Heer<br><br>IEEE Transactions on Visualization and Computer Graphics (2017)<br><b"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_38u6",
+            "number": "109",
+            "section": "1",
+            "definition_preview": "Opportunities And Obstacles For Deep Learning In Biology And Medicine<br><br>Travers Ching, Daniel S. Himmelstein, Brett K. Beaulieu-Jones, Alexandr A. Kalinin, Brian T. Do, Gregory P. Way, Enrico Fer"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_ejtc",
+            "number": "110",
+            "section": "1",
+            "definition_preview": "Reproducibility of computational workflows is automated using continuous analysis<br><br>Brett K Beaulieu-Jones, Casey S Greene<br><br>Nature Biotechnology (2017) https://doi.org/10.1038/nbt.3780"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_4crj",
+            "number": "111",
+            "section": "1",
+            "definition_preview": "DOI® Handbook International DOI Foundation (2017) https://doi.org/10.1000/182"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_8sfc",
+            "number": "112",
+            "section": "1",
+            "definition_preview": "Digital Object Identifiers and Their Use in Libraries<br><br>Jue Wang<br><br>Serials Review (2007) https://doi.org/10.1016/j.serrev.2007.05.006"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_vpxo",
+            "number": "113",
+            "section": "1",
+            "definition_preview": "Observations, Communicated to the Publisher by Mr. Antony van Leewenhoeck, in a Dutch Letter of the 9th of Octob. 1676. Here English'd: concerning Little Animals by Him Observed in Rain-Well-Sea. and "
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_ywtn",
+            "number": "114",
+            "section": "1",
+            "definition_preview": "Availability of digital object identifiers (DOIs) in Web of Science and Scopus<br><br>Juan Gorraiz, David Melero-Fuentes, Christian Gumpenberger, Juan-Carlos Valderrama-Zurian<br><br>Journal of Inform"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_hb4x",
+            "number": "115",
+            "section": "1",
+            "definition_preview": "Availability of digital object identifiers in publications archived by PubMed<br><br>Christophe Boudry, Ghislaine Chartron<br><br>Scientometrics (2017) https://doi.org/10.1007/s11192-016-2225-6"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008934_weab",
+            "number": "116",
+            "section": "1",
+            "definition_preview": "BS ISO 26324:2012. Information and documentation. Digital object identifier systemBSI<br><br>British Standards (2012) https://doi.org/10.3403/30177056"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008935_qanm",
+            "number": "119",
+            "section": "1",
+            "definition_preview": "Metadata for all DOIs in Crossref: JSON MongoDB exports of all works from the Crossref API<br><br>Daniel Himmelstein, Kurt Wheeler, Casey Greene<br><br>Figshare (2017) https://doi.org/10.6084/m9.figsh"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008935_326q",
+            "number": "120",
+            "section": "1",
+            "definition_preview": "The journal coverage of Web of Science and Scopus: a comparative analysis<br><br>Philippe Mongeon, Adèle Paul-Hus<br><br>Scientometrics (2015) https://doi.org/10.1007/s11192-015-1765-5"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008935_qg0i",
+            "number": "121",
+            "section": "1",
+            "definition_preview": "A user-friendly extract of the LibGen scimag metadata SQL dump on 2017-04-07<br><br>Daniel Himmelstein, Stephen McLaughlin<br><br>Figshare (2017) https://doi.org/10.6084/m9.figshare.5231245.v1"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008935_ayaw",
+            "number": "122",
+            "section": "1",
+            "definition_preview": "Introducing oaDOI: resolve a DOI straight to OA<br><br>Heather Piwowar<br><br>Impactstory blog (2016) http://blog.impactstory.org/introducting-oadoi/"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008935_9uu2",
+            "number": "123",
+            "section": "1",
+            "definition_preview": "Unpaywall finds free versions of paywalled papers<br><br>Dalmeet Singh Chawla<br><br>Nature (2017) https://doi.org/10.1038/nature.2017.21765"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008935_12vv",
+            "number": "125",
+            "section": "1",
+            "definition_preview": "Setting our bibliographic references free: towards open citation data<br><br>Silvio Peroni, Alexander Dutton, Tanya Gray, David Shotton<br><br>Journal of Documentation (2015) https://doi.org/10.1108/j"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008935_w9uc",
+            "number": "126",
+            "section": "1",
+            "definition_preview": "Metadata for the OpenCitations Corpus<br><br>Silvio Peroni, David Shotton<br><br>Figshare (2016) https://doi.org/10.6084/m9.figshare.3443876.v3"
+        },
+        {
+            "footnote_id": "seq1_Fn1785808008935_bf12",
+            "number": "127",
+            "section": "1",
+            "definition_preview": "OCC dataset of all the identifiers, made on 2017-07-25<br><br>OpenCitations<br><br>Figshare (2017) https://doi.org/10.6084/m9.figshare.5255368.v1<br><br>128. OCC dataset of all the bibliographic resou"
+        }
+    ],
+    "font_encoding_warnings": [],
+    "segment_boundaries": []
+}

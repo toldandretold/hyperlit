@@ -52,11 +52,9 @@ class HarvestAuditImportsCommand extends Command
     /**
      * conversion_methods produced by the acquisition ladder. A user's own upload
      * is out of scope — this audits what the SYSTEM fetched on their behalf.
+     * Single source: HarvestRetraction (retraction scopes by the same list).
      */
-    private const ACQUIRED_METHODS = [
-        'pdf_ocr_auto_raw', 'jats_fulltext', 'paste_engine_html', 'ar5iv_html',
-        'html_scrape_unverified', 'web_article_verified', 'web_article_unverified',
-    ];
+    private const ACQUIRED_METHODS = \App\Services\Conversion\HarvestRetraction::ACQUIRED_METHODS;
 
     /** Above this share of the audited set, refuse to flag: the measure is wrong, not the corpus. */
     private const SANE_SUSPECT_RATE = 0.25;

@@ -1,0 +1,590 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [],
+      "i": 29,
+      "references": [
+        "stemref_1",
+        "stemref_2",
+        "stemref_3",
+        "stemref_4",
+        "stemref_5",
+        "stemref_1",
+        "stemref_6",
+        "stemref_7"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 30,
+      "references": [
+        "stemref_8",
+        "stemref_9",
+        "stemref_10"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 31,
+      "references": [
+        "stemref_11",
+        "stemref_12",
+        "stemref_13",
+        "stemref_14",
+        "stemref_15",
+        "stemref_16",
+        "stemref_17",
+        "stemref_18",
+        "stemref_19",
+        "stemref_20",
+        "stemref_21"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 32,
+      "references": [
+        "stemref_22",
+        "stemref_22",
+        "stemref_23",
+        "stemref_24"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 33,
+      "references": [
+        "stemref_25",
+        "stemref_26",
+        "stemref_27",
+        "stemref_28",
+        "stemref_29"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 35,
+      "references": [
+        "stemref_30",
+        "stemref_31"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 36,
+      "references": [
+        "stemref_31",
+        "stemref_32"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 37,
+      "references": [
+        "stemref_31",
+        "stemref_33",
+        "stemref_34",
+        "stemref_35"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 41,
+      "references": [
+        "stemref_36"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 42,
+      "references": [
+        "stemref_37",
+        "stemref_38"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 43,
+      "references": [
+        "stemref_39",
+        "stemref_40",
+        "stemref_26",
+        "stemref_41"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 44,
+      "references": [
+        "stemref_42",
+        "stemref_43"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 45,
+      "references": [
+        "stemref_44",
+        "stemref_45",
+        "stemref_46",
+        "stemref_47"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 46,
+      "references": [
+        "stemref_48"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 47,
+      "references": [
+        "stemref_49",
+        "stemref_50",
+        "stemref_51"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 48,
+      "references": [
+        "stemref_52",
+        "stemref_53"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 49,
+      "references": [
+        "stemref_54",
+        "stemref_55",
+        "stemref_56"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 50,
+      "references": [
+        "stemref_57",
+        "stemref_59"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 51,
+      "references": [
+        "stemref_60",
+        "stemref_61",
+        "stemref_62"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 52,
+      "references": [
+        "stemref_31",
+        "stemref_34",
+        "stemref_63"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 53,
+      "references": [
+        "stemref_44",
+        "stemref_64",
+        "stemref_65"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 54,
+      "references": [
+        "stemref_66",
+        "stemref_67"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 55,
+      "references": [
+        "stemref_66",
+        "stemref_67"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 81,
+      "references": [
+        "stemref_68",
+        "stemref_69"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 84,
+      "references": [
+        "stemref_70"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 88,
+      "references": [
+        "stemref_1"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 96,
+      "references": [
+        "stemref_71"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 98,
+      "references": [
+        "stemref_1"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 111,
+      "references": [
+        "stemref_33",
+        "stemref_44",
+        "stemref_45"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 112,
+      "references": [
+        "stemref_54",
+        "stemref_31"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 121,
+      "references": [
+        "stemref_38",
+        "stemref_72",
+        "stemref_54"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 124,
+      "references": [
+        "stemref_55",
+        "stemref_73",
+        "stemref_74",
+        "stemref_75",
+        "stemref_76",
+        "stemref_77",
+        "stemref_78",
+        "stemref_79"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 125,
+      "references": [
+        "stemref_47",
+        "stemref_80",
+        "stemref_48"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 126,
+      "references": [
+        "stemref_81",
+        "stemref_82",
+        "stemref_83",
+        "stemref_84",
+        "stemref_85"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 127,
+      "references": [
+        "stemref_12",
+        "stemref_86",
+        "stemref_87",
+        "stemref_14",
+        "stemref_88",
+        "stemref_89",
+        "stemref_90",
+        "stemref_91",
+        "stemref_92",
+        "stemref_93"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 128,
+      "references": [
+        "stemref_12",
+        "stemref_47",
+        "stemref_1",
+        "stemref_94",
+        "stemref_95",
+        "stemref_96",
+        "stemref_97",
+        "stemref_98"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 129,
+      "references": [
+        "stemref_99",
+        "stemref_100",
+        "stemref_101",
+        "stemref_102",
+        "stemref_103",
+        "stemref_104",
+        "stemref_24",
+        "stemref_105",
+        "stemref_106",
+        "stemref_107"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 132,
+      "references": [
+        "stemref_108"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 133,
+      "references": [
+        "stemref_109",
+        "stemref_110"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 135,
+      "references": [
+        "stemref_111",
+        "stemref_112",
+        "stemref_113"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 136,
+      "references": [
+        "stemref_114",
+        "stemref_115",
+        "stemref_114",
+        "stemref_115",
+        "stemref_115"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 137,
+      "references": [
+        "stemref_111",
+        "stemref_116",
+        "stemref_111"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 139,
+      "references": [
+        "stemref_117",
+        "stemref_118"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 140,
+      "references": [
+        "stemref_119"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 144,
+      "references": [
+        "stemref_120"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 147,
+      "references": [
+        "stemref_31",
+        "stemref_34",
+        "stemref_31"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 148,
+      "references": [
+        "stemref_121"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 149,
+      "references": [
+        "stemref_34",
+        "stemref_35",
+        "stemref_34",
+        "stemref_74"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 150,
+      "references": [
+        "stemref_34"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 155,
+      "references": [
+        "stemref_122",
+        "stemref_1",
+        "stemref_1"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 159,
+      "references": [
+        "stemref_123"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 160,
+      "references": [
+        "stemref_1",
+        "stemref_124"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 162,
+      "references": [
+        "stemref_125"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 165,
+      "references": [
+        "stemref_44",
+        "stemref_45",
+        "stemref_33",
+        "stemref_26",
+        "stemref_41"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 173,
+      "references": [
+        "stemref_129"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 175,
+      "references": [
+        "stemref_33",
+        "stemref_129",
+        "stemref_62"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 181,
+      "references": [
+        "stemref_120",
+        "stemref_1"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 589,
+  "type_histogram": {
+    "h1": 41,
+    "h3": 2,
+    "img": 21,
+    "p": 524,
+    "table": 1
+  }
+}

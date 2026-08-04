@@ -165,6 +165,21 @@ async function csrfHeaders(): Promise<Record<string, string> | null> {
   return { 'X-XSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' };
 }
 
+/** Remove the handled book from the queue and advance to the next flag. */
+function dropSelectedFromQueue(statusText: string): void {
+  if (!selected) return;
+  const gone = selected.book;
+  entries = entries.filter((e) => e.book !== gone);
+  selected = null;
+  renderList();
+  setStatus(statusText);
+  if (entries.length > 0) {
+    select(entries[0]!);
+  } else {
+    el<HTMLDivElement>('mt-actions').hidden = true;
+  }
+}
+
 async function resolveSelected(resolution: 'reconverted' | 'dismissed'): Promise<void> {
   if (!selected) return;
   const headers = await csrfHeaders();
@@ -179,16 +194,54 @@ async function resolveSelected(resolution: 'reconverted' | 'dismissed'): Promise
     setStatus(`resolve failed (${resp.status})`);
     return;
   }
-  const gone = selected.book;
-  entries = entries.filter((e) => e.book !== gone);
-  selected = null;
-  renderList();
-  setStatus(`${resolution}: ${gone}`);
-  if (entries.length > 0) {
-    select(entries[0]!);
-  } else {
-    el<HTMLDivElement>('mt-actions').hidden = true;
+  dropSelectedFromQueue(`${resolution}: ${selected.book}`);
+}
+
+/**
+ * Harvest false positive: the fetched content was never the work (landing
+ * page / captcha / contents-only), so the version should not exist at all.
+ * The server re-checks body presence — a body_present 422 means "this might
+ * be a REAL book"; the human confirms a second time and we retry with force.
+ */
+async function retractSelected(): Promise<void> {
+  if (!selected) return;
+  const entry = selected;
+  if (!window.confirm(`Retract ${entry.title}?\nThe harvested version is DELETED (it should never have been approved), its canonical is freed for a legitimate re-fetch, and the flag closes as "retracted".`)) {
+    return;
   }
+
+  const post = async (force: boolean): Promise<Response | null> => {
+    const headers = await csrfHeaders();
+    if (!headers) return null;
+    return fetch(`/api/maintainer/conversion/flags/${encodeURIComponent(entry.book)}/retract`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force }),
+    });
+  };
+
+  setStatus('retracting…');
+  let resp = await post(false);
+  if (!resp) return;
+  if (resp.status === 422) {
+    const body = await resp.json() as { refusal?: string; message?: string };
+    if (body.refusal !== 'body_present') {
+      setStatus(body.message ?? `retract refused (${resp.status})`);
+      return;
+    }
+    if (!window.confirm(`${body.message ?? 'The stored text looks like a REAL body.'}`)) {
+      setStatus('');
+      return;
+    }
+    resp = await post(true);
+    if (!resp) return;
+  }
+  if (!resp.ok) {
+    setStatus(`retract failed (${resp.status})`);
+    return;
+  }
+  dropSelectedFromQueue(`retracted: ${entry.book}`);
 }
 
 async function reconvertSelected(): Promise<void> {
@@ -337,6 +390,7 @@ const downloadBundle = (kind?: 'conversion' | 'harvest'): void => {
 el<HTMLButtonElement>('mt-export').addEventListener('click', () => downloadBundle('conversion'));
 el<HTMLButtonElement>('mt-export-harvest').addEventListener('click', () => downloadBundle('harvest'));
 el<HTMLButtonElement>('mt-reconvert').addEventListener('click', () => void reconvertSelected());
+el<HTMLButtonElement>('mt-retract').addEventListener('click', () => void retractSelected());
 el<HTMLButtonElement>('mt-resolve').addEventListener('click', () => void resolveSelected('reconverted'));
 el<HTMLButtonElement>('mt-dismiss').addEventListener('click', () => void resolveSelected('dismissed'));
 

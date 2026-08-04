@@ -54,6 +54,40 @@ class MaintainerController extends Controller
     }
 
     /**
+     * POST /api/maintainer/conversion/flags/{book}/retract {force?} — the 🗑 retract
+     * button: this harvested version should never have been approved (paywalled
+     * landing page, captcha, contents-only). Deletes the version book, clears +
+     * re-resolves the canonical pointer, closes the flags as `retracted`. The
+     * guards (system-acquired only; body-PRESENT refuses without force) live in
+     * HarvestRetraction — a 422 with refusal=body_present is the "this might be
+     * a real book, confirm again" signal the frontend re-prompts on.
+     */
+    public function retract(Request $request, string $book, \App\Services\Conversion\HarvestRetraction $retraction)
+    {
+        $data = $request->validate(['force' => 'sometimes|boolean']);
+
+        $result = $retraction->retract($this->cleanBookId($book), (bool) ($data['force'] ?? false));
+        if (!$result['allowed']) {
+            return response()->json([
+                'message'      => match ($result['refusal']) {
+                    \App\Services\Conversion\HarvestRetraction::REFUSED_BODY_PRESENT
+                        => "The stored text looks like a REAL body ({$result['prose_blocks']} prose blocks) — retract anyway?",
+                    \App\Services\Conversion\HarvestRetraction::REFUSED_NOT_ACQUIRED
+                        => 'Not a system-acquired version — user uploads are never retractable from here.',
+                    default => 'Book not found.',
+                },
+                'refusal'      => $result['refusal'],
+                'prose_blocks' => $result['prose_blocks'],
+            ], $result['refusal'] === \App\Services\Conversion\HarvestRetraction::REFUSED_NOT_FOUND ? 404 : 422);
+        }
+
+        return response()->json([
+            'retracted' => true,
+            'resolved'  => $result['flags_resolved'] ?? 0,
+        ]);
+    }
+
+    /**
      * GET /api/maintainer/conversion/original/{book} — stream the book's original source
      * file for the right-hand column. PDFs/HTML/MD render natively in an
      * iframe; binary formats download.

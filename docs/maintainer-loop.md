@@ -16,6 +16,7 @@ Open `/maintainer/conversion` (admins = `users.is_admin`; everyone else gets a 4
 - **↻ reconvert** — the conversion code was already fixed (or the book just needs a re-run through current code). Runs with live progress; hyperlights/hypercites re-attach to the new nodes automatically (orphans are kept and stamped, never deleted — see `reattach_report.json` in the book's markdown dir). Then resolve.
 - **⤓ dev bundle** — the conversion CODE needs fixing: downloads `<book>.tar.gz`, the complete case (all DB rows incl. annotations + the whole `resources/markdown/<book>/` artifact dir: `original.*`, `ocr_response.json`, `assessment.json` decision trace, debug files, the user complaint).
 - **⤓ harvest bundle** — the ACQUISITION needs fixing: the text isn't a mangled version of the work, it isn't the work at all. Use this when the book is a journal landing page, a "prove you're not a robot" interstitial, an abstract with nothing after it, or the wrong edition. See the section below.
+- **🗑 retract** — the harvest-case closer: this version should never have been approved, so it is un-approved. Deletes the version book, clears + re-resolves the canonical's version pointer (BookDeletionService → CanonicalVersionSync), and closes the flags as `retracted`. The canonical becomes harvest-eligible again — safe, because the body gate now rejects the junk that got it in. Two guards (`App\Services\Conversion\HarvestRetraction`): only SYSTEM-acquired books are ever retractable (a user's upload never is, no override), and a body-PRESENT verdict on the stored nodes makes you confirm a second time — a flagged book can be real (a short Nature piece sat in a batch of 56 with 55 genuine junk pages).
 
 ## Conversion case vs harvest case — pick the right loop
 
@@ -36,6 +37,16 @@ php artisan harvest:audit-imports --unflag  # UNDO: delete exactly those flags a
 ```
 
 Always run `--stats` before `--flag`. The audit scores a book by how many genuine prose paragraphs it holds, and that measure is only meaningful for whole harvested works — sub-books (annotations, footnotes) are excluded because a footnote is one paragraph, and user uploads are out of scope entirely. If more than 25% of the audited set comes back body-absent the command refuses to flag without `--force`: at that rate the threshold is wrong, not the library. `--unflag` targets only this audit's flags, so `library:flag-sweep` flags and user reports survive.
+
+Then close the confirmed junk in bulk — retraction deletes each version book, frees its canonical for a legitimate re-fetch, and closes its flags as `retracted`:
+
+```bash
+php artisan harvest:retract --flagged --dry-run   # guards + report, deletes nothing
+php artisan harvest:retract --flagged             # confirm, then retract
+php artisan harvest:retract <book> [<book>…]      # explicit ids (e.g. flags without the body_absent marker)
+```
+
+`--flagged` targets every open flag carrying the audit's `body_absent` issue type. A book whose stored text looks body-PRESENT is skipped with a warning (it may be real — resolve its flag instead, or `--force` after eyeballing it on `/maintainer/conversion`); a book that isn't system-acquired is always skipped. `--yes` skips the prompt for scripted runs.
 
 ## From bundle to fixed code (on your dev machine)
 
