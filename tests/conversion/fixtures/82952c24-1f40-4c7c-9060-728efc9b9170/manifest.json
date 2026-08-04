@@ -6,7 +6,7 @@
     "footnote_strategy": "stem_bibliography",
     "pipeline": "full",
     "expected": {
-        "references_count": 125,
+        "references_count": 134,
         "citations_linked": 161,
         "citations_total": 161,
         "footnotes_count": 0,

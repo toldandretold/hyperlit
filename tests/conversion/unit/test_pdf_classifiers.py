@@ -136,6 +136,21 @@ def test_wackstem_assembler_wraps_citations():
     assert 'wackSTEMcite' in out
 
 
+def test_wackstem_wraps_endash_ranges_and_heading_defs():
+    # En-dash range [1–3] (real typesetting) expands to the individual refs.
+    out = M.wrap_stem_citations("Estimates suggest paywalls limit access [1–3].")
+    assert 'data-refs="stemref_1,stemref_2,stemref_3"' in out
+    assert '[1–3]' in out  # the document's own dash survives in the visible text
+    # Heading-shaped reference entries (Mistral reads a bold ref title as a heading)
+    # are wrapped as defs — but ONLY after the References heading; a numbered
+    # SECTION heading before it is never touched (no confident wrong links).
+    md = "# 3. Methods\n\nBody text.\n\n# References\n\n1. First Ref\n\n# 79. The Rise of Pirate Libraries\n"
+    out = M.wrap_stem_definitions(md)
+    assert '<a class="wackSTEMdef" id="stemref_79">79. The Rise of Pirate Libraries</a>' in out
+    assert 'id="stemref_1"' in out
+    assert '# 3. Methods' in out  # section heading untouched
+
+
 def test_chapter_assembler_setup_builds_offsets_only_with_meta():
     # no footnote_meta → no chapter offsets (guarded)
     ctx = M.AssemblyContext({"pages": [{"markdown": ""}]}, 'chapter_endnotes', None)

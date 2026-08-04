@@ -111,12 +111,10 @@ def main():
     media_dir = output_dir / "media"
 
     # Fetch or load cached OCR response
-    cache_was_loaded = False
     if json_cache.exists() and not args.no_cache:
         print(f"Using cached OCR response: {json_cache}")
         emit_progress(45, "ocr", "Using cached OCR result — skipping the page scan")
         response_dict = json.loads(json_cache.read_text(encoding="utf-8"))
-        cache_was_loaded = True
     else:
         if pdf_path.stat().st_size > CHUNK_TARGET_BYTES:
             response_dict = fetch_ocr_chunked(pdf_path, api_key, output_dir, model=ocr_model)
@@ -168,10 +166,26 @@ def main():
                   f"{footnote_meta['classification']} (confidence: {footnote_meta['confidence']:.2f})")
 
     # Renumber footnote IDs across chunk and multi-paper resets — skip for
-    # chapter_endnotes (existing chapter_fn_offsets handles those). Idempotent
-    # via the marker on response_dict.
-    pre_renumber = response_dict.get("_footnote_renumber_version")
-    if footnote_meta['classification'] != "chapter_endnotes":
+    # chapter_endnotes (existing chapter_fn_offsets handles those) AND for
+    # wackSTEM bibliography docs: their in-text citations re-cite low numbers
+    # constantly, so the "min ref == 1 → new-paper reset" heuristic fires on
+    # ordinary re-citations and offsets the reference-LIST lines (+320 on the
+    # Sci-Hub paper) while the [N] cites keep their real numbers — every
+    # stemref link then points at nothing. Worse, the mutation is PERSISTED
+    # into the cached ocr_response.json. Idempotent via the marker on
+    # response_dict.
+    # INVARIANT: ocr_response.json is Mistral's GROUND TRUTH and is never written
+    # back to. The renumber mutates only the in-memory copy; every run re-derives
+    # it deterministically (the `_chunk_boundaries` fetch provenance is cached, so
+    # replays get the same boundary hints the original fetch had). A previous
+    # version persisted the renumbered markdown over the cache "so re-runs see the
+    # new IDs" — that permanently vandalised the source of truth (the Sci-Hub case:
+    # refs 1–129 rewritten to 321–449 on disk, unrecoverable without a pristine
+    # copy from a fixture/bundle). Caches already carrying the
+    # `_footnote_renumber_version` marker from that era are served as-is (the
+    # marker makes renumber a no-op), but they are damaged goods — restore from a
+    # case bundle or fixture where one exists.
+    if footnote_meta['classification'] not in ("chapter_endnotes", "wackSTEMbibliographyNotes"):
         renumber_chunk_footnotes(
             response_dict,
             response_dict.get("_chunk_boundaries"),
@@ -180,12 +194,6 @@ def main():
         # corrected IDs.
         if response_dict.get("_footnote_renumber_boundaries"):
             footnote_meta = classify_footnotes(response_dict)
-
-    if response_dict.get("_footnote_renumber_version") and not pre_renumber:
-        # Persist the renumbered response so subsequent re-runs see the new IDs
-        json_cache.write_text(json.dumps(response_dict), encoding="utf-8")
-        if cache_was_loaded:
-            print("Renumbered chunk footnotes in cached response.")
 
     # Detect multi-paper segment boundaries (anthology PDFs)
     segment_boundaries = detect_segment_boundaries(response_dict, footnote_meta)

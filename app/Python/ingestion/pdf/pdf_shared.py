@@ -598,6 +598,15 @@ def wrap_stem_definitions(text):
     Handles both formats:
       N. Author text...   → <a class="wackSTEMdef" id="stemref_N">N. Author text...</a>
       [N] Author text...  → <a class="wackSTEMdef" id="stemref_N">[N] Author text...</a>
+
+    Plus, WITHIN the references section only: heading-shaped entries. Mistral
+    sometimes reads a reference's bold title line as a heading and emits
+    `# 79. The Rise of Pirate Libraries` — the entry is captured perfectly,
+    just marked up as a heading (Sci-Hub paper, refs 79–87). Those are
+    converted to plain wrapped defs (heading marker dropped, so they render
+    like their sibling entries and stop polluting the book's heading
+    structure). Scoped to after the References/Bibliography heading so a
+    genuinely numbered SECTION heading (`# 3. Methods`) is never touched.
     """
     def replace_numbered(m):
         num = m.group(1)
@@ -615,6 +624,24 @@ def wrap_stem_definitions(text):
     text = re.sub(r'^(\d{1,3})\. (.+)', replace_numbered, text, flags=re.MULTILINE)
     # Format 2: "[N] text" at start of line
     text = re.sub(r'^\[(\d{1,3})\] (.+)', replace_bracketed, text, flags=re.MULTILINE)
+
+    # Format 3: heading-shaped defs, references section only.
+    refs_heading = None
+    for m in re.finditer(r'^#{1,6}\s*(References|Bibliography|Works Cited|Literature Cited)\s*$',
+                         text, flags=re.MULTILINE | re.IGNORECASE):
+        refs_heading = m  # last occurrence wins (an earlier body mention can't scope the tail)
+    if refs_heading is not None:
+        def replace_heading_def(m):
+            num = m.group(1)
+            if int(num) > 500:
+                return m.group(0)
+            return f'<a class="wackSTEMdef" id="stemref_{num}">{num}. {m.group(2)}</a>'
+
+        tail_start = refs_heading.end()
+        tail = re.sub(r'^#{1,6}\s+(\d{1,3})\. (.+)', replace_heading_def,
+                      text[tail_start:], flags=re.MULTILINE)
+        text = text[:tail_start] + tail
+
     return text
 
 
