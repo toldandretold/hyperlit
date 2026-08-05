@@ -1,0 +1,15 @@
+{
+    "name": "44b1408c-12e0-4bcb-a090-27346b5d4de4",
+    "description": "pulled prod case: 44b1408c-12e0-4bcb-a090-27346b5d4de4",
+    "book_id": "44b1408c-12e0-4bcb-a090-27346b5d4de4",
+    "citation_style": "none",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 0,
+        "citations_linked": 0,
+        "citations_total": 0,
+        "footnotes_count": 0,
+        "audit_gaps": 0
+    }
+}

@@ -1,0 +1,15 @@
+{
+    "name": "da18ab4f-c4dd-4cff-8094-8535508a94b2",
+    "description": "pulled prod case: da18ab4f-c4dd-4cff-8094-8535508a94b2",
+    "book_id": "da18ab4f-c4dd-4cff-8094-8535508a94b2",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "sequential",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 4,
+        "citations_linked": 0,
+        "citations_total": 13,
+        "footnotes_count": 19,
+        "audit_gaps": 3
+    }
+}

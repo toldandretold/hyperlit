@@ -1,0 +1,124 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [],
+      "i": 11,
+      "references": [
+        "gingras2014",
+        "wouters2006",
+        "archambault2006"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 13,
+      "references": [
+        "knorrcetina1991",
+        "glanzel1999",
+        "lariviere2006",
+        "hicks2011",
+        "nederhof2006"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 14,
+      "references": [
+        "archambault2006"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 16,
+      "references": [
+        "archambault2009",
+        "gavel2008"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 17,
+      "references": [
+        "barnett2012",
+        "groote2012",
+        "clermont2012"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 18,
+      "references": [
+        "meho2007",
+        "abrizah2012",
+        "lopezillescas2008",
+        "kousha2007",
+        "gonzalezmigueloscalluchpenarandaortegaquinonesvidal2001"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0001",
+          "marker": "1"
+        }
+      ],
+      "i": 23,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0002",
+          "marker": "2"
+        },
+        {
+          "id": "FN0003",
+          "marker": "3"
+        },
+        {
+          "id": "FN0004",
+          "marker": "4"
+        }
+      ],
+      "i": 24,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 101,
+      "references": [
+        "archambault2006"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 107,
+      "references": [
+        "archambault2006",
+        "clermont2012",
+        "wouters2012",
+        "wouters2012"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 143,
+  "type_histogram": {
+    "a": 2,
+    "h1": 13,
+    "h2": 14,
+    "hr": 1,
+    "img": 15,
+    "p": 95,
+    "table": 3
+  }
+}

@@ -1,0 +1,17 @@
+{
+    "name": "93d34a74-72b3-4ec1-8f0b-7f9e9bac0add",
+    "description": "pulled prod case: 93d34a74-72b3-4ec1-8f0b-7f9e9bac0add",
+    "book_id": "93d34a74-72b3-4ec1-8f0b-7f9e9bac0add",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "sequential",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 590,
+        "citations_linked": 1477,
+        "citations_total": 1651,
+        "footnotes_count": 24,
+        "audit_gaps": 58,
+        "max_unmatched_defs": 1,
+        "footnotes_note": "TOC 'Chapter 1.1 … 4' page numbers no longer wrapped as footnotes; freeing the [^N] namespace recovered real footnotes 30–37 the corrupted renumber had dropped (17→24). Residual orphan is a URL-only def (28/29) whose in-text ref OCR omitted."
+    }
+}

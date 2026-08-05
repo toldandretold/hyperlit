@@ -1,0 +1,15 @@
+{
+    "name": "42be715c-82e4-4897-84d8-c495129e4978",
+    "description": "pulled prod case: 42be715c-82e4-4897-84d8-c495129e4978 (user: 'should be wackSTEM'). SHORT (6pp) 'Access, ethics and piracy' Vancouver paper: numeric citations → a numbered 'References' list (29 entries). Each ref cited once (spread 1), so the wackSTEM spread gate missed it; the very-high citation_group_ratio (>=0.4) now flips it to wackSTEMbibliographyNotes and its bracket citations link.",
+    "book_id": "42be715c-82e4-4897-84d8-c495129e4978",
+    "citation_style": "numbered-bracket",
+    "footnote_strategy": "stem_bibliography",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 29,
+        "citations_linked": 12,
+        "citations_total": 12,
+        "footnotes_count": 0,
+        "audit_gaps": 0
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "name": "2e9728f6-0161-4442-b049-c28d2938b29c",
+    "description": "pulled prod case: 2e9728f6-0161-4442-b049-c28d2938b29c",
+    "book_id": "2e9728f6-0161-4442-b049-c28d2938b29c",
+    "citation_style": "none",
+    "footnote_strategy": "sequential",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 0,
+        "citations_linked": 0,
+        "citations_total": 0,
+        "footnotes_count": 12,
+        "audit_gaps": 0,
+        "footnotes_note": "author-affiliation block (12 authors): affiliations 7–12 were OCR'd as plain 'N Text' lines continuing the ¹–⁶ superscript def block across a page break — recovered as defs so every author→affiliation link resolves."
+    }
+}

@@ -1,0 +1,15 @@
+{
+    "name": "824c39fd-8ed8-4a9a-b81b-0b1de783479f",
+    "description": "pulled prod case: 824c39fd-8ed8-4a9a-b81b-0b1de783479f",
+    "book_id": "824c39fd-8ed8-4a9a-b81b-0b1de783479f",
+    "citation_style": "none",
+    "footnote_strategy": "sequential",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 0,
+        "citations_linked": 0,
+        "citations_total": 0,
+        "footnotes_count": 2,
+        "audit_gaps": 0
+    }
+}

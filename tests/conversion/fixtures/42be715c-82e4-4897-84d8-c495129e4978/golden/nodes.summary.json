@@ -1,0 +1,44 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [],
+      "i": 5,
+      "references": [
+        "stemref_1",
+        "stemref_2",
+        "stemref_3"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 26,
+      "references": [
+        "stemref_18",
+        "stemref_19",
+        "stemref_20"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 30,
+      "references": [
+        "stemref_21",
+        "stemref_22",
+        "stemref_23",
+        "stemref_24",
+        "stemref_25",
+        "stemref_26"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 85,
+  "type_histogram": {
+    "h1": 4,
+    "h2": 3,
+    "img": 1,
+    "p": 77
+  }
+}

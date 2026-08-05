@@ -1,0 +1,17 @@
+{
+    "name": "ca74000e-9d66-419e-a055-c3f5f6e585b4",
+    "description": "pulled prod case: ca74000e-9d66-419e-a055-c3f5f6e585b4",
+    "book_id": "ca74000e-9d66-419e-a055-c3f5f6e585b4",
+    "citation_style": "none",
+    "footnote_strategy": "sequential",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 0,
+        "citations_linked": 0,
+        "citations_total": 0,
+        "footnotes_count": 371,
+        "audit_gaps": 50,
+        "max_unmatched_defs": 5,
+        "max_unmatched_defs_note": "TOC page numbers no longer wrapped as footnotes; the 5 residual orphans (8/63/66/78/196) are real defs whose in-text superscript OCR dropped. Gap count rose 47→50 only because removing the bogus TOC footnotes exposes the genuine holes the fake sequence had masked."
+    }
+}

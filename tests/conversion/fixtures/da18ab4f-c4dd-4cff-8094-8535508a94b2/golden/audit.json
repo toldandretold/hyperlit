@@ -1,0 +1,47 @@
+{
+    "total_refs": 19,
+    "total_defs": 19,
+    "gaps": [
+        {
+            "missing": 30,
+            "after_ref": 29,
+            "before_ref": 31,
+            "section": 1,
+            "after_ref_context": "- Aggregator-provided services include TDM Studio (ProQuest), Digital Scholar Lab (Gale), Nexis Data Lab (LexisNexis), H",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Non-Consumptive Use",
+            "before_ref_context": "- LYRASIS brings together several open-source technologies (e.g., ArchivesSpace, DSpace, Fedora, etc.) to provide and su",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Repositories"
+        },
+        {
+            "missing": 32,
+            "after_ref": 31,
+            "before_ref": 34,
+            "section": 1,
+            "after_ref_context": "- LYRASIS brings together several open-source technologies (e.g., ArchivesSpace, DSpace, Fedora, etc.) to provide and su",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Repositories",
+            "before_ref_context": "- For open access materials, there are efforts to aggregate these usage data to provide a more complete dataset. Such ef",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Examples"
+        },
+        {
+            "missing": 33,
+            "after_ref": 31,
+            "before_ref": 34,
+            "section": 1,
+            "after_ref_context": "- LYRASIS brings together several open-source technologies (e.g., ArchivesSpace, DSpace, Fedora, etc.) to provide and su",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Repositories",
+            "before_ref_context": "- For open access materials, there are efforts to aggregate these usage data to provide a more complete dataset. Such ef",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Examples"
+        }
+    ],
+    "duplicates": [],
+    "unmatched_refs": [],
+    "unmatched_defs": [],
+    "font_encoding_warnings": [],
+    "segment_boundaries": []
+}

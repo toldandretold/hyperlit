@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "classification": "unknown",
+  "confidence": 0.0,
+  "signals": {
+    "total_pages": 4,
+    "pages_with_refs": 1,
+    "pages_with_defs": 1,
+    "pages_with_both": 0,
+    "co_location_ratio": 0.0,
+    "def_clustering_ratio": 0.25,
+    "reset_count": 0,
+    "reset_frequency": 0.0,
+    "notes_page_count": 0,
+    "notes_page_indices": [],
+    "trailing_page_number_offset": null,
+    "trailing_page_number_consistency": 0.0,
+    "ref_number_max_page_spread": 1,
+    "numbers_on_multiple_pages": 0,
+    "max_ref_number": 6
+  },
+  "page_summary": [
+    {
+      "index": 1,
+      "refs": [
+        4,
+        5,
+        6
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 3,
+      "refs": [],
+      "defs": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "trailing_number": null
+    }
+  ],
+  "rationale": "signals matched no specific classifier \u2014 fell through to unknown",
+  "considered": [
+    {
+      "option": "none",
+      "rejected_because": "1 page(s) carry in-text references",
+      "would_need": "zero pages with in-text footnote references"
+    },
+    {
+      "option": "page_bottom",
+      "rejected_because": "co-location 0.00 / reset-freq 0.00 fit neither page_bottom rule (continuous: co>0.4 & resets<0.1 & maxref>10; restart: co>0.5 & resets>0.4)",
+      "would_need": "refs and their definitions sharing the same pages (high co-location)"
+    },
+    {
+      "option": "chapter_endnotes",
+      "rejected_because": "no Notes-header page and co-location 0.00/reset-freq 0.00 miss the endnote rules",
+      "would_need": "a \"Notes\" page header, OR per-chapter resets with separated definition pages (co-location < 0.3)"
+    },
+    {
+      "option": "document_endnotes",
+      "rejected_because": "co-location 0.00 (need <0.15) and def-clustering 0.25 (need <0.1)",
+      "would_need": "definitions clustered on very few trailing pages with near-zero co-location"
+    },
+    {
+      "option": "wackSTEMbibliographyNotes",
+      "rejected_because": "ref-number page-spread 1 (need >=3) and co-location 0.00 (need <0.2)",
+      "would_need": "the same low ref-numbers reappearing across many pages (bibliography citations)"
+    }
+  ],
+  "margin": "FALL-THROUGH: no classifier matched (co 0.00, reset-freq 0.00, notes-pages 0, def-clustering 0.25). LOW confidence \u2014 prime review candidate.",
+  "segment_boundaries": [],
+  "footnote_warnings": []
+}

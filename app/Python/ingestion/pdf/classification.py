@@ -62,11 +62,22 @@ class WackStemClassifier(PdfClassifier):
         # chapter with >50 notes is the rare exception), global bibliography numbering does. The
         # Sci-Hub coverage paper (129 refs, 9 "resets" from re-citation) was misclassified
         # chapter_endnotes by an unconditional reset_count<=3 here.
-        return (sig['ref_number_max_page_spread'] >= 3
+        # A high citation_group_ratio (dense "[1,2,3]" Vancouver multi-cites) is a second way to
+        # excuse the reset guard: chapter-endnote restarts don't cite in bracket GROUPS, so it flips
+        # a genuinely-wackSTEM short paper (709c9348: ratio 0.33, reset 6, max-ref only 33) that the
+        # max-ref>50 escape alone would miss, without touching a footnoted book with a stray group
+        # (433d423b: ratio 0.03 stays chapter_endnotes).
+        dense = sig['max_ref_number'] > 50 or sig.get('citation_group_ratio', 0.0) >= 0.15
+        # A SHORT Vancouver paper cites each reference once or twice, so no number recurs across
+        # >=3 pages (the spread gate assumes a long paper). A very high citation_group_ratio (dense
+        # "[1,2,3]" multi-cites — >=0.4, seen only in genuine numbered-bibliography papers) is a
+        # spread-independent Vancouver fingerprint, so it substitutes for the spread requirement.
+        very_dense = sig.get('citation_group_ratio', 0.0) >= 0.4
+        return ((sig['ref_number_max_page_spread'] >= 3 or very_dense)
                 and sig['co_location_ratio'] < 0.2
                 and sig['notes_page_count'] == 0
-                and (sig['reset_count'] <= 3 or sig['max_ref_number'] > 50)
-                and (sig['reset_frequency'] < 0.2 or sig['max_ref_number'] > 50))
+                and (sig['reset_count'] <= 3 or dense or very_dense)
+                and (sig['reset_frequency'] < 0.2 or dense or very_dense))
 
     def confidence(self, sig):
         c = 0.0
@@ -389,6 +400,22 @@ def classify_footnotes(response_dict):
         all_refs |= p["refs"]
     max_ref_number = max(all_refs) if all_refs else 0
 
+    # Vancouver signature: multi-number bracket groups "[1,2,3]" / "[1–3]" are how STEM papers
+    # cite ("as shown [3,7,8]"). Chapter/page footnotes are one-marker-per-call and essentially
+    # never carry them in quantity, so the RATIO of grouped to total bracket citations separates a
+    # numbered-bibliography paper (709c9348: 9 groups / 27 singles ≈ 0.33) from a footnoted book
+    # that has a stray "[5, 12]" (433d423b: 2 / 62 ≈ 0.03). Whole-doc, single-bracket refs only
+    # (skip [^N] footnote markers and []( ) links).
+    group_hits = single_hits = 0
+    for p in pages:
+        md = p.get("markdown", "")
+        group_hits += len(re.findall(r'\[\d{1,3}(?:\s*[,–-]\s*\d{1,3})+\]', md))
+        for m in re.finditer(r'(?<![\d.\]!])\[(\d{1,3})\](?!\()', md):
+            single_hits += 1
+    citation_group_ratio = (
+        group_hits / (group_hits + single_hits) if (group_hits + single_hits) else 0.0
+    )
+
     signals = {
         "total_pages": total_pages,
         "pages_with_refs": pages_with_refs,
@@ -405,6 +432,7 @@ def classify_footnotes(response_dict):
         "ref_number_max_page_spread": ref_number_max_page_spread,
         "numbers_on_multiple_pages": numbers_on_multiple_pages,
         "max_ref_number": max_ref_number,
+        "citation_group_ratio": round(citation_group_ratio, 4),
     }
 
     # --- Step 3+4: Classification + confidence via the PDF_CLASSIFIERS registry ---
@@ -424,6 +452,7 @@ def classify_footnotes(response_dict):
         "numbers_on_multiple_pages": numbers_on_multiple_pages,
         "max_ref_number": max_ref_number,
         "trailing_page_number_consistency": trailing_page_number_consistency,
+        "citation_group_ratio": citation_group_ratio,
     }
     chosen_classifier = _UNKNOWN_CLASSIFIER
     for _clf in PDF_CLASSIFIERS:

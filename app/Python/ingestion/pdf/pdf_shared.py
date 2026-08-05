@@ -150,8 +150,13 @@ def convert_inline_footnote_markers(md, strip_italic_brackets=False):
         return f'[^{m.group(1)}]'
     md = re.sub(r'\[(\d+)\]', _convert_bracket, md)
 
+    # (?<!\.\.) / (?<!\u2026): a digit riding a dotted leader ("Introduction and Scope...3" /
+    # "Chapter One\u202612") is a TOC PAGE NUMBER, not a footnote marker \u2014 per-page we can't
+    # sequence-validate, and wrapping these poisoned the global renumber (whole TOCs became [^1..N]).
+    # "#" in the follow class: a marker ending the last sentence BEFORE a heading ('\u2026occupation."75
+    # \n\n## B. Survey Methods') is still a marker \u2014 the next block starting with # must not veto it.
     md = re.sub(
-        r'(?<!\d\.)(?<![A-Z]\.)(?<=[.!?"\u201d\u201c)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(])',
+        r'(?<!\d\.)(?<![A-Z]\.)(?<!\.\.)(?<!\u2026)(?<=[.!?"\u201d\u201c)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(#])',
         r'[^\1]',
         md,
         flags=re.DOTALL,
@@ -216,7 +221,8 @@ def normalize_all_footnote_refs(text):
     # ("5 Questions with...) or an inch-mark (6"4). Sequential validation below still gates every hit.
     _closers = ".,;:!?”’)" + '"' + "'"
     bare_candidates = []
-    for m in re.finditer("(?<=[" + re.escape(_closers) + "])(\\d{1,3})\\s", text):
+    # (?<!\.\.) / (?<!…): dotted-leader TOC page numbers ("Scope...3") are never markers.
+    for m in re.finditer("(?<!\\.\\.)(?<!…)(?<=[" + re.escape(_closers) + "])(\\d{1,3})\\s", text):
         num = int(m.group(1))
         if num > 500 or num < 1:
             continue
@@ -229,6 +235,19 @@ def normalize_all_footnote_refs(text):
             before = text[pos - 2] if pos >= 2 else ' '
             if not (before.isalpha() or before in '.!?,;:'):
                 continue
+        if text[pos - 1] == '.' and pos >= 2:
+            prev = text[pos - 2]
+            # "V.2" — digit after an initial is version/section punctuation, not a marker.
+            if prev.isalpha() and prev.isupper():
+                continue
+            # Digits before the dot: "8.7" in a table cell is a DECIMAL (1–3 digit integer part),
+            # but "…status quo in 2007.26" is a marker after a YEAR — a 4+ digit run stays eligible.
+            if prev.isdigit():
+                j = pos - 2
+                while j >= 0 and text[j].isdigit():
+                    j -= 1
+                if pos - 2 - j <= 3:
+                    continue
         bare_candidates.append((pos, num, m.start(), m.start() + len(m.group(1)), 'bare'))
 
     all_candidates = bracket_candidates + bare_candidates

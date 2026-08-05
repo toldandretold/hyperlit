@@ -1,0 +1,15 @@
+{
+    "name": "709c9348-9d8b-4c9d-8589-192e791668f7",
+    "description": "pulled prod case: 709c9348-9d8b-4c9d-8589-192e791668f7. Garfield-legacy STEM review with in-text [1,2,3] Vancouver citations resolving to a single 'References' list. Was misclassified chapter_endnotes (reset 6, max-ref only 33 defeated the wackSTEM reset guard); the citation_group_ratio signal (0.25 — dense bracket groups that chapter endnotes never carry) now flips it to wackSTEMbibliographyNotes.",
+    "book_id": "709c9348-9d8b-4c9d-8589-192e791668f7",
+    "citation_style": "numbered-bracket",
+    "footnote_strategy": "stem_bibliography",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 33,
+        "citations_linked": 60,
+        "citations_total": 60,
+        "footnotes_count": 0,
+        "audit_gaps": 0
+    }
+}

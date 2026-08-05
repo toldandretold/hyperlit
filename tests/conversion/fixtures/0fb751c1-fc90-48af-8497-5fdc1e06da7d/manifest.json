@@ -1,0 +1,15 @@
+{
+    "name": "0fb751c1-fc90-48af-8497-5fdc1e06da7d",
+    "description": "pulled prod case: 0fb751c1-fc90-48af-8497-5fdc1e06da7d. SHORT (12pp) Vancouver paper: numeric [N] citations resolving to a numbered '# References' list (39 entries). Each ref cited once, so no number recurs across >=3 pages and the wackSTEM spread gate missed it; the very-high citation_group_ratio (dense '[N,M]' multi-cites, >=0.4) now flips it to wackSTEMbibliographyNotes and every citation links.",
+    "book_id": "0fb751c1-fc90-48af-8497-5fdc1e06da7d",
+    "citation_style": "numbered-bracket",
+    "footnote_strategy": "stem_bibliography",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 39,
+        "citations_linked": 13,
+        "citations_total": 13,
+        "footnotes_count": 0,
+        "audit_gaps": 0
+    }
+}

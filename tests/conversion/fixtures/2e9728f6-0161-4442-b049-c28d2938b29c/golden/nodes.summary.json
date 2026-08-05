@@ -1,0 +1,70 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [
+        {
+          "id": "FN0001",
+          "marker": "1"
+        },
+        {
+          "id": "FN0002",
+          "marker": "2"
+        },
+        {
+          "id": "FN0003",
+          "marker": "3"
+        },
+        {
+          "id": "FN0004",
+          "marker": "4"
+        },
+        {
+          "id": "FN0005",
+          "marker": "5"
+        },
+        {
+          "id": "FN0006",
+          "marker": "6"
+        },
+        {
+          "id": "FN0007",
+          "marker": "7"
+        },
+        {
+          "id": "FN0008",
+          "marker": "8"
+        },
+        {
+          "id": "FN0009",
+          "marker": "9"
+        },
+        {
+          "id": "FN0010",
+          "marker": "10"
+        },
+        {
+          "id": "FN0011",
+          "marker": "11"
+        },
+        {
+          "id": "FN0012",
+          "marker": "12"
+        },
+        {
+          "id": "FN0007",
+          "marker": "7"
+        }
+      ],
+      "i": 16,
+      "references": [],
+      "type": "p"
+    }
+  ],
+  "node_count": 87,
+  "type_histogram": {
+    "a": 3,
+    "h1": 6,
+    "h2": 7,
+    "p": 71
+  }
+}

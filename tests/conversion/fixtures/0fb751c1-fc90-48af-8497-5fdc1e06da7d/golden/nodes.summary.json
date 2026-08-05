@@ -1,0 +1,81 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [],
+      "i": 53,
+      "references": [
+        "stemref_15"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 56,
+      "references": [
+        "stemref_17",
+        "stemref_18",
+        "stemref_19",
+        "stemref_20"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 59,
+      "references": [
+        "stemref_21"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 62,
+      "references": [
+        "stemref_22",
+        "stemref_23"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 64,
+      "references": [
+        "stemref_24",
+        "stemref_25"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 77,
+      "references": [
+        "stemref_33"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 80,
+      "references": [
+        "stemref_33"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 81,
+      "references": [
+        "stemref_34"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 140,
+  "type_histogram": {
+    "blockquote": 1,
+    "h1": 5,
+    "h2": 9,
+    "img": 5,
+    "p": 120
+  }
+}

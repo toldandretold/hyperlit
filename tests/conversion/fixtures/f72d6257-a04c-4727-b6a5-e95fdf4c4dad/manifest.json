@@ -1,0 +1,15 @@
+{
+    "name": "f72d6257-a04c-4727-b6a5-e95fdf4c4dad",
+    "description": "pulled prod case: f72d6257-a04c-4727-b6a5-e95fdf4c4dad",
+    "book_id": "f72d6257-a04c-4727-b6a5-e95fdf4c4dad",
+    "citation_style": "none",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 0,
+        "citations_linked": 0,
+        "citations_total": 0,
+        "footnotes_count": 0,
+        "audit_gaps": 0
+    }
+}

@@ -1,0 +1,15 @@
+{
+    "name": "3f202e8f-0475-4b52-b5e7-37e7905f1cc6",
+    "description": "pulled prod case: 3f202e8f-0475-4b52-b5e7-37e7905f1cc6",
+    "book_id": "3f202e8f-0475-4b52-b5e7-37e7905f1cc6",
+    "citation_style": "none",
+    "footnote_strategy": "sequential",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 0,
+        "citations_linked": 0,
+        "citations_total": 0,
+        "footnotes_count": 3,
+        "audit_gaps": 16
+    }
+}

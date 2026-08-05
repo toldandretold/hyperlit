@@ -26,7 +26,9 @@ def _vprint(msg):
 
 
 # Common reference section headers (module-level: shared by the heading scan + the reverse-scan tail).
-REFERENCE_HEADERS = ["references", "bibliography", "works cited", "sources", "literature cited", "reference list"]
+REFERENCE_HEADERS = ["references", "bibliography", "works cited", "sources", "literature cited",
+                     "reference list", "cited references", "list of references", "references cited",
+                     "citations", "cited works"]
 
 # A HEADING-LESS reverse-scan bibliography is believed only if it is a DENSE block (this many
 # entries) OR carries genuine reference STRUCTURE (below). is_likely_reference is loose by design (a

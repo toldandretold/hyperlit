@@ -1,0 +1,15 @@
+{
+    "name": "1313c1a2-de77-4fa8-9f77-6c44e8ae7e83",
+    "description": "pulled prod case: 1313c1a2-de77-4fa8-9f77-6c44e8ae7e83",
+    "book_id": "1313c1a2-de77-4fa8-9f77-6c44e8ae7e83",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "sequential",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 40,
+        "citations_linked": 49,
+        "citations_total": 57,
+        "footnotes_count": 1,
+        "audit_gaps": 0
+    }
+}

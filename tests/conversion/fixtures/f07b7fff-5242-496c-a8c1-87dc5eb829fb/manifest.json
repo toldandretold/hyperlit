@@ -1,0 +1,15 @@
+{
+    "name": "f07b7fff-5242-496c-a8c1-87dc5eb829fb",
+    "description": "pulled prod case: f07b7fff-5242-496c-a8c1-87dc5eb829fb",
+    "book_id": "f07b7fff-5242-496c-a8c1-87dc5eb829fb",
+    "citation_style": "none",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 0,
+        "citations_linked": 0,
+        "citations_total": 0,
+        "footnotes_count": 0,
+        "audit_gaps": 0
+    }
+}

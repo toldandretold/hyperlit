@@ -1,0 +1,388 @@
+{
+  "version": 1,
+  "classification": "unknown",
+  "confidence": 0.0,
+  "signals": {
+    "total_pages": 416,
+    "pages_with_refs": 35,
+    "pages_with_defs": 13,
+    "pages_with_both": 10,
+    "co_location_ratio": 0.2857,
+    "def_clustering_ratio": 0.0312,
+    "reset_count": 5,
+    "reset_frequency": 0.1429,
+    "notes_page_count": 0,
+    "notes_page_indices": [],
+    "trailing_page_number_offset": null,
+    "trailing_page_number_consistency": 0.0,
+    "ref_number_max_page_spread": 2,
+    "numbers_on_multiple_pages": 5,
+    "max_ref_number": 84
+  },
+  "page_summary": [
+    {
+      "index": 14,
+      "refs": [
+        3
+      ],
+      "defs": [
+        3
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 61,
+      "refs": [
+        7,
+        8,
+        9
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 120,
+      "refs": [
+        9
+      ],
+      "defs": [
+        9
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 150,
+      "refs": [
+        14
+      ],
+      "defs": [
+        14
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 151,
+      "refs": [
+        15
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 179,
+      "refs": [
+        16,
+        17
+      ],
+      "defs": [
+        16,
+        17
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 181,
+      "refs": [
+        18,
+        19,
+        20,
+        21
+      ],
+      "defs": [
+        6
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 185,
+      "refs": [
+        22
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 187,
+      "refs": [
+        24
+      ],
+      "defs": [
+        9
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 192,
+      "refs": [
+        12
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 194,
+      "refs": [
+        13,
+        14
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 195,
+      "refs": [
+        30,
+        31,
+        32
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 196,
+      "refs": [
+        33
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 198,
+      "refs": [
+        34,
+        35,
+        36
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 204,
+      "refs": [
+        37
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 205,
+      "refs": [
+        38,
+        39,
+        40
+      ],
+      "defs": [
+        38,
+        39,
+        40
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 206,
+      "refs": [
+        26
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 215,
+      "refs": [
+        28
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 250,
+      "refs": [
+        44
+      ],
+      "defs": [
+        44
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 251,
+      "refs": [
+        45
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 262,
+      "refs": [
+        46
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 273,
+      "refs": [
+        47
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 277,
+      "refs": [
+        49
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 288,
+      "refs": [
+        51
+      ],
+      "defs": [
+        51
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 312,
+      "refs": [
+        45,
+        46
+      ],
+      "defs": [
+        45,
+        46
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 313,
+      "refs": [
+        47
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 315,
+      "refs": [
+        6
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 335,
+      "refs": [
+        58
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 341,
+      "refs": [
+        62
+      ],
+      "defs": [
+        62
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 347,
+      "refs": [
+        63
+      ],
+      "defs": [
+        63
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 351,
+      "refs": [
+        25,
+        70,
+        71
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 352,
+      "refs": [
+        29
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 353,
+      "refs": [
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80
+      ],
+      "defs": [
+        32
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 357,
+      "refs": [
+        83
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 358,
+      "refs": [
+        84
+      ],
+      "defs": [],
+      "trailing_number": null
+    }
+  ],
+  "rationale": "signals matched no specific classifier \u2014 fell through to unknown",
+  "considered": [
+    {
+      "option": "none",
+      "rejected_because": "35 page(s) carry in-text references",
+      "would_need": "zero pages with in-text footnote references"
+    },
+    {
+      "option": "page_bottom",
+      "rejected_because": "co-location 0.29 / reset-freq 0.14 fit neither page_bottom rule (continuous: co>0.4 & resets<0.1 & maxref>10; restart: co>0.5 & resets>0.4)",
+      "would_need": "refs and their definitions sharing the same pages (high co-location)"
+    },
+    {
+      "option": "chapter_endnotes",
+      "rejected_because": "no Notes-header page and co-location 0.29/reset-freq 0.14 miss the endnote rules",
+      "would_need": "a \"Notes\" page header, OR per-chapter resets with separated definition pages (co-location < 0.3)"
+    },
+    {
+      "option": "document_endnotes",
+      "rejected_because": "co-location 0.29 (need <0.15) and def-clustering 0.03 (need <0.1)",
+      "would_need": "definitions clustered on very few trailing pages with near-zero co-location"
+    },
+    {
+      "option": "wackSTEMbibliographyNotes",
+      "rejected_because": "ref-number page-spread 2 (need >=3) and co-location 0.29 (need <0.2)",
+      "would_need": "the same low ref-numbers reappearing across many pages (bibliography citations)"
+    }
+  ],
+  "margin": "FALL-THROUGH: no classifier matched (co 0.29, reset-freq 0.14, notes-pages 0, def-clustering 0.03). LOW confidence \u2014 prime review candidate.",
+  "segment_boundaries": [],
+  "footnote_warnings": []
+}

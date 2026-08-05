@@ -1,0 +1,17 @@
+{
+    "name": "21696c70-8d66-4e97-b627-15ea2724c107",
+    "description": "pulled prod case: 21696c70-8d66-4e97-b627-15ea2724c107",
+    "book_id": "21696c70-8d66-4e97-b627-15ea2724c107",
+    "citation_style": "none",
+    "footnote_strategy": "sequential",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 0,
+        "citations_linked": 0,
+        "citations_total": 0,
+        "footnotes_count": 283,
+        "audit_gaps": 85,
+        "max_unmatched_defs": 2,
+        "max_unmatched_defs_note": "markers 37 & 76: Mistral dropped the in-text superscript (only the def survives) — left unlinked, not force-matched (no link where ambiguous)."
+    }
+}

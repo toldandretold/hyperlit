@@ -191,6 +191,68 @@ def _split_out_definition_paragraphs(md, open_tail=False):
     return '\n\n'.join(body_parts), '\n\n'.join(def_parts), (after_def and tail_open)
 
 
+# A GLUED line-start def: "[^1]Associate Professor…" — Mistral renders affiliation-block
+# superscripts with no space, so the generic "[^N] text" → "[^N]: text" colon fix never sees them.
+_GLUED_AFFIL_DEF_RE = re.compile(r'^\[\^(\d{1,2})\]([A-Za-z(“"\'].*)$')
+
+
+def _resolve_affiliation_block(combined):
+    """An author line ("Name[^1], Name[^2], … Name[^9]") followed by a run of GLUED line-start
+    defs ("[^1]Associate Professor…") is an AFFILIATION block — a numbering universe of its own.
+    Unglue the defs into [^N]: form so author→affiliation links work (book 2e9728f6 wants this) —
+    UNLESS any of the block's numbers is ALSO defined elsewhere in the document (824c39fd: real
+    footnotes ¹/² restart the same numbers for JIF notes): then author-marker→def-number is
+    ambiguous, so DEMOTE the whole universe — strip the author-line markers, plain-text the def
+    lines. A wrong link is worse than a missing one."""
+    lines = combined.split('\n')
+    author_idx, author_refs = None, []
+    for i, line in enumerate(lines[:50]):
+        if line.startswith('[^'):
+            continue
+        refs = re.findall(r'\[\^(\d{1,2})\]', line)
+        if len(refs) >= 3:
+            author_idx, author_refs = i, refs
+            break
+    if author_idx is None:
+        return combined
+    glued = []                                  # (line_idx, num_str, rest)
+    for i in range(author_idx + 1, min(author_idx + 45, len(lines))):
+        s = lines[i]
+        if not s.strip():
+            continue
+        m = _GLUED_AFFIL_DEF_RE.match(s)
+        if m:
+            glued.append((i, m.group(1), m.group(2)))
+        elif glued:
+            break
+        elif i > author_idx + 3:
+            break                               # block must start right under the author line
+    glued_nums = {n for _i, n, _r in glued}
+    if len(glued) < 3 or len(set(author_refs) & glued_nums) < 3:
+        return combined
+    glued_line_idxs = {i for i, _n, _r in glued}
+    other_defs = set()
+    for i, line in enumerate(lines):
+        if i in glued_line_idxs:
+            continue
+        m = re.match(r'^\[\^(\d+)\]', line)
+        if m:
+            other_defs.add(m.group(1))
+    collides = bool(glued_nums & other_defs)
+    seen = set()
+    for i, n, rest in glued:
+        if collides:
+            lines[i] = f'{n}. {rest}'
+        elif n in seen:
+            lines[i] = rest                     # duplicate number inside the block (OCR misread) —
+        else:                                   # a second [^N]: def would steal the link
+            lines[i] = f'[^{n}]: {rest}'
+            seen.add(n)
+    if collides:
+        lines[author_idx] = re.sub(r'\[\^\d{1,2}\]', '', lines[author_idx])
+    return '\n'.join(lines)
+
+
 # A paragraph that opens like a BIBLIOGRAPHY entry, not a footnote — author-first ("Pimm SL,
 # Russell GJ", "Bailey, M. J.") or carrying an "(1995)" author-year cite near the front. Such a
 # paragraph must never be pulled out as a "recovered" footnote def.
@@ -230,6 +292,39 @@ def _recover_orphan_plain_defs(combined, footer_candidates=None):
         if txt:
             recovered.append(f'[^{n}]: ' + txt)
     still_orphan = orphans - {n for n in orphans if (footer_candidates or {}).get(n)}
+    # Source 1.5: a RUN of consecutive plain "N Text" LINES continuing an already-converted def
+    # sequence — Mistral drops the superscript style when a def block spans a page break ("⁶ Cagliari…"
+    # on one page, plain "7 Goldsmiths…" on the next; book 2e9728f6's author affiliations 7–12).
+    # Keyed hard so numbered LISTS never convert: numbers must ascend by exactly 1, EVERY number must
+    # be an orphaned ref, and the run must continue a converted def ([^first-1]: exists) — a real list
+    # restarts at 1 and its numbers aren't orphans. Runs BEFORE Source 2, which would otherwise
+    # swallow the whole run as one long def-7 paragraph.
+    if still_orphan:
+        lines = combined.split('\n')
+        run = []                                    # (line_idx, num, rest_of_line)
+
+        def _flush_run(r):
+            if len(r) >= 2 and str(r[0][1] - 1) in defs and \
+                    all(str(n) in still_orphan for _i, n, _t in r):
+                for idx, n, rest in r:
+                    lines[idx] = f'[^{n}]: {rest}'
+                return {str(n) for _i, n, _t in r}
+            return set()
+
+        run_recovered = set()
+        for i, ln in enumerate(lines):
+            if not ln.strip():
+                continue                            # blank lines neither extend nor break a run
+            m = re.match(r'^(\d{1,3})[.)]?\s+(\S.*)', ln)
+            if m and (not run or int(m.group(1)) == run[-1][1] + 1):
+                run.append((i, int(m.group(1)), m.group(2)))
+            else:
+                run_recovered |= _flush_run(run)
+                run = [(i, int(m.group(1)), m.group(2))] if m else []
+        run_recovered |= _flush_run(run)
+        if run_recovered:
+            combined = '\n'.join(lines)
+            still_orphan = still_orphan - run_recovered
     # Source 2: a plain "N Text…" body paragraph — only when numbers aren't a structural device
     # here (Barro's References are author-first → leading-number paragraphs stay ~1).
     leading_num_paras = len(re.findall(r'(?m)^\d{1,3}\.?\s+[A-Z‘“"\'(]', combined))
@@ -294,6 +389,9 @@ class DefaultAssembler(FootnoteAssembler):
         # Fix footnote definitions: OCR produces [^N] Text but markdown expects [^N]: Text
         # Only at start of line (definitions), not inline references
         combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)
+        # Author-affiliation block: unglue "[^1]Associate Professor…" defs (link when unambiguous,
+        # demote the whole universe when its numbers collide with real footnote defs).
+        combined = _resolve_affiliation_block(combined)
         # An orphaned in-text ref whose def the OCR left as a plain "N Text…" paragraph (often
         # stranded mid-References) or dropped into a bare-number page footer → recover the def.
         combined = _recover_orphan_plain_defs(combined, ctx.footer_bare_candidates)
