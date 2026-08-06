@@ -226,7 +226,10 @@ function setStatus(text: string): void {
 function renderDetailStrip(entry: QueueEntry): void {
   const detail = el<HTMLDivElement>('mt-detail');
   detail.innerHTML = '';
-  detail.hidden = entry.flags.length === 0;
+  // Always show the strip for a selected case — even flag-less ones — so the BOOK ID is visible
+  // and copyable (reading it off the URL is error-prone; a case's title can mismatch its id).
+  detail.hidden = !entry.book;
+  detail.appendChild(buildBookIdRow(entry));
   for (const flag of entry.flags) {
     const line = document.createElement('div');
     const issueTypes = Array.isArray(flag.details?.issueTypes) ? flag.details.issueTypes as string[] : [];
@@ -240,6 +243,38 @@ function renderDetailStrip(entry: QueueEntry): void {
   if (entry.flags.length > 0) {
     detail.appendChild(buildNoteRow(entry));
   }
+}
+
+function buildBookIdRow(entry: QueueEntry): HTMLDivElement {
+  const row = document.createElement('div');
+  row.className = 'mt-bookid-row';
+
+  const id = document.createElement('code');
+  id.className = 'mt-bookid';
+  id.textContent = entry.book;
+  id.title = 'Book id — click to copy';
+  id.tabIndex = 0;
+  const copy = (): void => {
+    void navigator.clipboard?.writeText(entry.book).then(
+      () => setStatus('book id copied'),
+      () => setStatus('copy failed — select and copy manually'),
+    );
+  };
+  id.addEventListener('click', copy);
+  id.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copy(); }
+  });
+
+  const open = document.createElement('a');
+  open.className = 'mt-bookid-open';
+  open.href = `/${entry.book}`;
+  open.target = '_blank';
+  open.rel = 'noopener';
+  open.textContent = 'open ↗';
+  open.title = 'Open this exact book in a new tab';
+
+  row.append(id, open);
+  return row;
 }
 
 function buildNoteRow(entry: QueueEntry): HTMLDivElement {

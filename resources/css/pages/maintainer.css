@@ -171,6 +171,32 @@ body {
   max-height: 110px;
   overflow-y: auto;
 }
+/* Book-id header in the detail strip — copyable, so the maintainer references the RIGHT book
+   (a case's title can mismatch its id; the URL is easy to mis-copy). */
+.mt-bookid-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.mt-bookid {
+  font-size: 0.72rem;
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-radius: 5px;
+  padding: 1px 7px;
+  cursor: pointer;
+  user-select: all;
+}
+.mt-bookid:hover { border-color: var(--hyperlit-aqua, #4eacae); }
+.mt-bookid-open {
+  font-size: 0.72rem;
+  color: var(--color-text-faint, #888);
+  text-decoration: none;
+}
+.mt-bookid-open:hover { color: var(--hyperlit-aqua, #4eacae); }
+
 /* Maintainer's own diagnosis, inline in the detail strip. */
 .mt-note-row {
   display: flex;
