@@ -8,9 +8,10 @@
     "pipeline": "full",
     "expected": {
         "references_count": 40,
-        "citations_linked": 49,
+        "citations_linked": 53,
         "citations_total": 57,
         "footnotes_count": 1,
-        "audit_gaps": 0
+        "audit_gaps": 0,
+        "citation_note": "suffixed-year keying: an entry whose publication year carries a disambiguation letter (\"… 2015b. Title … 2015 Conference\") now keys on 2015b (not the later venue year 2015), so \"(Sharma et al., 2015b)\"-style citations link."
     }
 }

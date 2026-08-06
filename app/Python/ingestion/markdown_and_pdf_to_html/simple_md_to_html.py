@@ -37,9 +37,76 @@ def escape_html_no_double(text):
 
     return escaped
 
+# The actual \left / \right delimiter COMMANDS — NOT \leftrightarrow / \leftarrow / \rightarrow /
+# \Rightarrow etc., which merely start with those letters. A real \left/\right is followed by a
+# delimiter (a non-letter), so a negative letter-lookahead separates the two.
+_LEFT_CMD_RE = re.compile(r'\\left(?![a-zA-Z])')
+_RIGHT_CMD_RE = re.compile(r'\\right(?![a-zA-Z])')
+
+
+def repair_unbalanced_latex(latex):
+    r"""Balance \left / \right so KaTeX renders instead of hard-erroring (it shows the raw LaTeX in
+    red on ANY unmatched \left OR \right). Mistral produces both OCR faults:
+      • a DROPPED \right — "p r (+ \left| m ^ {e} r ; T)" should end "… T\right)";
+      • a STRAY \right with no \left — "pr(h \leftrightarrow e; mr(T)\right)" where the \right)
+        should just be a literal ")".
+    An unmatched \left is closed at its {} group end (a bare ) ] | } there → "\right<delim>"; else
+    an invisible "\right."). An unmatched \right has its "\right" stripped, leaving the delimiter.
+
+    Only \left/\right COMMANDS count — "\leftrightarrow" is text, not a delimiter (an earlier version
+    miscounted it and injected spurious \right., breaking correct arrow equations). GATED on the
+    command counts differing, so a balanced equation is byte-identical and can never be harmed.
+    """
+    if len(_LEFT_CMD_RE.findall(latex)) == len(_RIGHT_CMD_RE.findall(latex)):
+        return latex
+
+    out = []            # output tokens
+    stack = []          # 'group' for {  ,  'left' for a real \left command
+
+    def _close_left():
+        j = len(out) - 1
+        while j >= 0 and out[j].isspace():
+            j -= 1
+        if j >= 0 and out[j] in (')', ']', '|', '}'):
+            out[j] = '\\right' + out[j]     # the dropped-\right sat right here
+        else:
+            out.append('\\right.')
+
+    i, n = 0, len(latex)
+    while i < n:
+        if _LEFT_CMD_RE.match(latex, i):
+            out.append('\\left'); stack.append('left'); i += 5
+        elif _RIGHT_CMD_RE.match(latex, i):
+            if any(s == 'left' for s in stack):
+                out.append('\\right')
+                for k in range(len(stack) - 1, -1, -1):
+                    if stack[k] == 'left':
+                        del stack[k]; break
+            # else: STRAY \right — drop the command, the following delimiter stays as a literal
+            i += 6
+        elif latex[i] == '{':
+            out.append('{'); stack.append('group'); i += 1
+        elif latex[i] == '}':
+            while stack and stack[-1] == 'left':   # unmatched \left inside this group
+                _close_left(); stack.pop()
+            if stack and stack[-1] == 'group':
+                stack.pop()
+            out.append('}'); i += 1
+        else:
+            out.append(latex[i]); i += 1
+
+    while stack:                                   # unmatched \left at end of string
+        if stack[-1] == 'left':
+            _close_left()
+        stack.pop()
+
+    return ''.join(out)
+
+
 def encode_math(latex_content):
     """Base64-encode LaTeX for safe embedding in data-math attribute.
     Avoids double-encoding issues when bleach/BeautifulSoup re-encodes HTML entities."""
+    latex_content = repair_unbalanced_latex(latex_content)
     return base64.b64encode(latex_content.encode('utf-8')).decode('ascii')
 
 def process_inline_formatting(text):

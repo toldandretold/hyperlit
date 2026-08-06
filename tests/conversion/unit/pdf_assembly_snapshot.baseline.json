@@ -143,8 +143,8 @@
   "tests/conversion/corpus/towards_a_new_international_economic_order_pour_/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.8,
-    "md_len": 772727,
-    "md_sha256": "4108198ba1726297e2e984c6f77d16a36b50d605e414cd2ef376de83f96c7701",
+    "md_len": 772724,
+    "md_sha256": "81887e466a40ff0288d85c49d9b386b8f8f3f299007460ec7fa7991bc5dd7f79",
     "segments": [
       29,
       189
@@ -496,8 +496,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/bedjaoui0000towards-ocr3/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.8,
-    "md_len": 765110,
-    "md_sha256": "46737103dde21243d210e21403c98bc86da60998a442bcc147bb67c5a99db770",
+    "md_len": 765104,
+    "md_sha256": "2ef2e5e4123559bba2a489a1c6ddb10d694d69a2d5584d3edef111a87aaf7c9b",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,

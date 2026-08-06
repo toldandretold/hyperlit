@@ -79,12 +79,26 @@ def test_bracket_text_node_linker(soup):
 
 
 def test_bracket_text_node_linker_skips_definition_pattern(soup):
-    # "[^3]:" is a definition line, not an in-text marker — must NOT be linked.
+    # "[^3]:" that OPENS the line is a definition, not an in-text marker — must NOT be linked.
     s, ctx = _whole_doc_ctx(soup,
                             '<body><p>[^3]: the definition body</p></body>',
                             {'3': {'unique_fn_id': 'FnCCC'}})
     BracketTextNodeLinker().apply(ctx)
     assert s.find('sup', class_='footnote-ref') is None
+
+
+def test_bracket_text_node_linker_links_inline_marker_before_sentence_colon(soup):
+    # An in-text marker landing right before a sentence colon ("…case study[^3]: over a century…")
+    # is a REFERENCE, not a definition — the colon belongs to the prose. It must still link (the
+    # def-skip only applies when the marker OPENS the text node). Regression: ad752a46 note 10.
+    s, ctx = _whole_doc_ctx(soup,
+                            '<body><p>a critical case study[^3]: over a century of work.</p></body>',
+                            {'3': {'unique_fn_id': 'FnCCC'}})
+    BracketTextNodeLinker().apply(ctx)
+    sup = s.find('sup', class_='footnote-ref')
+    assert sup is not None and sup['id'] == 'FnCCC'
+    assert '[^3]' not in s.get_text()
+    assert 'case study' in s.get_text() and ': over a century' in s.get_text()
 
 
 def test_bracket_text_node_linker_gate_noop_without_pattern(soup):

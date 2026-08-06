@@ -1,0 +1,205 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [],
+      "i": 25,
+      "references": [
+        "dewaele2010"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0001",
+          "marker": "1"
+        }
+      ],
+      "i": 28,
+      "references": [
+        "milroy1995"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 29,
+      "references": [
+        "bali2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 30,
+      "references": [
+        "sanchez1983"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 35,
+      "references": [
+        "sharma2015b"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 40,
+      "references": [
+        "auer1995",
+        "fishman1971",
+        "barredo1997",
+        "sanchez1983",
+        "nishimura1995",
+        "maschler1991",
+        "maschler1994"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 41,
+      "references": [
+        "dewaele2010",
+        "dewaele2010"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 43,
+      "references": [
+        "parshad2016",
+        "bali2014",
+        "barman2014",
+        "solorio2014",
+        "sequiera2015",
+        "bali2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 44,
+      "references": [
+        "solorio2008",
+        "solorio2010",
+        "vyas2014",
+        "peng2014",
+        "choudhury2013",
+        "danescuniculescumizil2013",
+        "vosoughi2016",
+        "tchokni2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 46,
+      "references": [
+        "dewaele2010"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 54,
+      "references": [
+        "bali2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 90,
+      "references": [
+        "bali2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 107,
+      "references": [
+        "gella2013"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 112,
+      "references": [
+        "mohammad2012",
+        "mohammad2013b",
+        "mittal2013",
+        "rosenthal2015",
+        "vilares2015",
+        "sharma2015b",
+        "sharma2015b"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 117,
+      "references": [
+        "volkova2013",
+        "bakliwal2012",
+        "barbosa2012"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 118,
+      "references": [
+        "mohammad2013b",
+        "volkova2013",
+        "bakliwal2012",
+        "sharma2015a",
+        "mohammad2013b",
+        "pang2002"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 124,
+      "references": [
+        "qadir2009",
+        "sharma2015b"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 153,
+      "references": [
+        "sanchez1983"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 170,
+      "references": [
+        "dewaele2004",
+        "dewaele2010"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 216,
+  "type_histogram": {
+    "a": 2,
+    "h1": 16,
+    "h2": 5,
+    "h3": 4,
+    "img": 4,
+    "p": 180,
+    "table": 5
+  }
+}

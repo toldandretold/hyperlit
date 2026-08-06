@@ -389,6 +389,13 @@ def renumber_page_footnotes(page_md, global_counter):
 
     def _def_candidate(stripped):
         """(int_num, num_str, rest) if the line opens a footnote definition, else None."""
+        # Converted-superscript def: Mistral rendered the page-bottom note NUMBER as a superscript
+        # ("¹². For a more…"), which convert_inline_footnote_markers above already turned into a
+        # leading "[^12]." / "[^12] ". Recognise that so those defs aren't stranded in the body as
+        # inline-ref-looking text (ad752a46: notes 10-13 on the superscript-numbered pages).
+        m = re.match(r'^\[\^(\d{1,3})\]\.?\s+(\S.+)', stripped)
+        if m:
+            return int(m.group(1)), m.group(1), m.group(2)
         m = re.match(r'^(\d{1,3})\.?\s+(\S.+)', stripped)
         if not m:
             return None

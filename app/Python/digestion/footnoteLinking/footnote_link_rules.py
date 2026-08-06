@@ -516,7 +516,12 @@ class BracketTextNodeLinker(LinkRule):
                         identifier = match.group(1)
                         match_end = match.end()
                         following_text = text[match_end:match_end + 5].strip()
-                        if following_text.startswith(':'):
+                        # A leaked DEFINITION line ("[^N]: text") is skipped — but ONLY when the
+                        # marker OPENS the text node. An INLINE marker whose sentence just continues
+                        # with a colon ("…case study[^10]: over a century…") has text before it and
+                        # MUST still link — otherwise a marker that lands right before a sentence's
+                        # colon silently drops (ad752a46 note 10).
+                        if following_text.startswith(':') and text[:match.start()].strip() == '':
                             print(f"Skipping footnote definition pattern: {match.group(0)}:")
                             continue
                         footnote_data = ctx.find_footnote_data(identifier, text_node.parent)

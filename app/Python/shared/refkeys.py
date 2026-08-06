@@ -37,7 +37,14 @@ def generate_ref_keys(text, context_text=""):
         # to avoid picking up title numbers like "Scopus 1900–2020" or arXiv IDs like "2601"
         plausible_years = list(re.finditer(r'(?<!\d)(\d{4}[a-z]?)(?!\d)', processed_text))
         plausible_years = [m for m in plausible_years if 1900 <= int(re.match(r'\d{4}', m.group(1)).group()) <= 2099]
-        year_match = plausible_years[-1] if plausible_years else None
+        # A LETTER-SUFFIXED year ("2015b") is a disambiguation marker — it IS the publication year a
+        # citation references, and in "Author. 2015b. Title … 2015 International Conference…" it sits
+        # BEFORE an incidental venue year, so the last-year rule would drop the 'b' (keying the entry
+        # sharma2015, unreachable by the "(Sharma et al., 2015b)" citation). Prefer the suffixed one —
+        # but NOT a decade ("1990s"): the disambiguation suffix is a/b/c…, never the plural 's'.
+        suffixed = [m for m in plausible_years
+                    if re.search(r'[a-z]$', m.group(1)) and not m.group(1).endswith('s')]
+        year_match = suffixed[0] if suffixed else (plausible_years[-1] if plausible_years else None)
     if not year_match: return []
     year = year_match.group(1)
     authors_part = text.split(year)[0]

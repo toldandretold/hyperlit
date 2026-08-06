@@ -9,11 +9,48 @@ which merge consecutive non-blank lines into one paragraph).
 
 import re
 
-from simple_md_to_html import convert_markdown_to_html, process_inline_formatting
+from simple_md_to_html import convert_markdown_to_html, process_inline_formatting, repair_unbalanced_latex
 
 
 def md(s):
     return convert_markdown_to_html(s)
+
+
+# ---------------------------------------------------------------------------
+# LaTeX \left/\right balancing (KaTeX hard-errors on an unmatched \left)
+# ---------------------------------------------------------------------------
+def test_repair_closes_dropped_right_before_delimiter():
+    # OCR dropped the \right before the final ) — should become \right) so KaTeX renders it.
+    tex = r'\frac{p r (+ \left| m ^ {e} r ; T\right)}{p r (+ \left| m ^ {e} r ; T)}'
+    fixed = repair_unbalanced_latex(tex)
+    assert fixed.count(r'\left') == fixed.count(r'\right')
+    assert '; T\\right)}' in fixed          # the bare ) was upgraded to \right)
+
+
+def test_repair_leaves_balanced_latex_untouched():
+    # a correct equation (incl. nested literal parens) must be byte-identical after the pass
+    for ok in [r'\frac{a}{b} \left( x + y \right) = z', r'\left| f(x) \right|', r'a^2 + b^2 = c^2']:
+        assert repair_unbalanced_latex(ok) == ok
+
+
+def test_repair_falls_back_to_invisible_right_when_no_delimiter():
+    # no bare closer at the group end → \right. keeps it parseable
+    assert repair_unbalanced_latex(r'\left| f(x) ; T') == r'\left| f(x) ; T\right.'
+
+
+def test_repair_strips_stray_right_with_no_left():
+    # OCR emitted a \right) with no matching \left — the \right must be dropped, leaving a literal ).
+    tex = r'pr(h \leftrightarrow e; mr(T)\right)'
+    fixed = repair_unbalanced_latex(tex)
+    assert fixed == r'pr(h \leftrightarrow e; mr(T))'
+    assert '\\right' not in fixed
+
+
+def test_repair_never_mistakes_leftrightarrow_for_a_delimiter():
+    # \leftrightarrow / \rightarrow start with \left / \right but are NOT delimiter commands —
+    # a balanced arrow equation must be byte-identical (regression: injected spurious \right.).
+    for ok in [r'a \leftrightarrow b', r'x \rightarrow y', r'\left( p \right) \leftrightarrow q']:
+        assert repair_unbalanced_latex(ok) == ok
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,16 @@
+{
+    "book_1786008864631_1": {
+        "book": "book_1786008864631",
+        "chunk_id": 0,
+        "startLine": 1,
+        "content": "<p>This Article examines a critical historical case study<sup class=\"footnote-ref\" fn-count-id=\"10\" id=\"Fn1786008864631001\">10</sup>: over a century of chauffeur work in San Francisco, California.<sup class=\"footnote-ref\" fn-count-id=\"11\" id=\"Fn1786008864631002\">11</sup> This case study is significant.<sup class=\"footnote-ref\" fn-count-id=\"12\" id=\"Fn1786008864631003\">12</sup></p>",
+        "references": [],
+        "footnotes": [
+            "Fn1786008864631001",
+            "Fn1786008864631002",
+            "Fn1786008864631003"
+        ],
+        "hypercites": [],
+        "hyperlights": []
+    }
+}
