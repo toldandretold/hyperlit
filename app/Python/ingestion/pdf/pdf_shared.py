@@ -59,6 +59,39 @@ def convert_footnotes(text):
     return re.sub(r'[\u2070\u00b9\u00b2\u00b3\u2074-\u2079]+', replace_fn, text)
 
 
+# A superscript CITATION run \u2014 one or more superscript numbers, optionally comma-separated
+# ("piracy\u2077", "Elbakyan in 2011.\u00b9\u00b9,\u00b9\u00b2", "nations,\u00b9\u2074,\u00b9\u2075,\u00b9\u2076"). Only meaningful on the wackSTEM
+# path, where the numbers point at a numbered bibliography, not footnote definitions.
+_SUP_CITE_RUN_RE = re.compile(
+    r'[\u2070\u00b9\u00b2\u00b3\u2074-\u2079]{1,3}'
+    r'(?:\s*,\s*[\u2070\u00b9\u00b2\u00b3\u2074-\u2079]{1,3})*'
+)
+
+
+def convert_superscript_citations_to_brackets(text):
+    """wackSTEM path ONLY: superscript citation markers \u2192 bracket citations ("piracy\u2077" \u2192 "piracy[7]",
+    "2011.\u00b9\u00b9,\u00b9\u00b2" \u2192 "2011.[11,12]") so wrap_stem_citations links them exactly like the [N] forms a
+    mixed-style paper also carries (42be715c cited BOTH ways; only the brackets linked). Math inside
+    $\u2026$ is masked first so genuine exponents survive untouched."""
+    spans = []
+
+    def _mask(m):
+        spans.append(m.group(0))
+        return f'\x00SUPCITE{len(spans) - 1}\x00'
+
+    masked = _MATH_SPAN_RE.sub(_mask, text)
+
+    def repl(m):
+        nums = [p.strip().translate(SUPERSCRIPT_MAP)
+                for p in m.group(0).split(',')]
+        return '[' + ','.join(nums) + ']'
+
+    masked = _SUP_CITE_RUN_RE.sub(repl, masked)
+    for i, s in enumerate(spans):
+        masked = masked.replace(f'\x00SUPCITE{i}\x00', s)
+    return masked
+
+
 # A LaTeX superscript group of footnote numbers \u2014 the OCR's rendering of a superscript marker.
 # Handles a COMMA-SEPARATED list ($^{1,2}$, common on author-affiliation markers like "Wan Wang^{1,2}")
 # as well as the single-number case ($^{5}$ / $^5$). A single-number regex left $^{1,2}$ untouched, so

@@ -1,15 +1,19 @@
 {
     "name": "0fb751c1-fc90-48af-8497-5fdc1e06da7d",
-    "description": "pulled prod case: 0fb751c1-fc90-48af-8497-5fdc1e06da7d. SHORT (12pp) Vancouver paper: numeric [N] citations resolving to a numbered '# References' list (39 entries). Each ref cited once, so no number recurs across >=3 pages and the wackSTEM spread gate missed it; the very-high citation_group_ratio (dense '[N,M]' multi-cites, >=0.4) now flips it to wackSTEMbibliographyNotes and every citation links.",
+    "description": "pulled prod case: 0fb751c1 ('Collectivity and collaboration', 12pp). Same shape as 42be715c: numbered footnote markers in order -> a numbered '# References' list = document endnotes (footnotes), not wackSTEM. 15 residual orphans are in-text markers the OCR dropped from a heavily-cited body; the 39-entry reference list is complete.",
+    "license": "is_oa=true oa_status=diamond work_license=cc-by — license cc-by -> committable",
     "book_id": "0fb751c1-fc90-48af-8497-5fdc1e06da7d",
-    "citation_style": "numbered-bracket",
-    "footnote_strategy": "stem_bibliography",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "sequential",
     "pipeline": "full",
     "expected": {
-        "references_count": 39,
-        "citations_linked": 13,
-        "citations_total": 13,
-        "footnotes_count": 0,
-        "audit_gaps": 0
+        "references_count": 3,
+        "citations_linked": 0,
+        "citations_total": 30,
+        "footnotes_count": 39,
+        "audit_gaps": 15,
+        "max_unmatched_defs": 15,
+        "max_unmatched_defs_note": "in-text markers dropped by OCR; the numbered reference/endnote list is complete, so the defs survive without a body marker. Numbered footnote markers cited in order -> a trailing numbered list = document endnotes (footnotes), NOT wackSTEM citations.",
+        "citations_note": "these papers ALSO carry an author-year citation layer ((Author, year) -> a small reference list) alongside the numeric footnotes; 0 link because the OCR'd body author-year forms don't cleanly match the sparse extracted refs — separate from the footnote fix."
     }
 }

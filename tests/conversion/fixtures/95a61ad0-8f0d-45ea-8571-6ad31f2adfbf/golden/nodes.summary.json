@@ -4,36 +4,29 @@
       "footnotes": [
         {
           "id": "FN0001",
-          "marker": "3"
-        }
-      ],
-      "i": 6,
-      "references": [],
-      "type": "p"
-    },
-    {
-      "footnotes": [
-        {
-          "id": "FN0002",
-          "marker": "4"
+          "marker": "1"
         },
         {
-          "id": "FN0003",
-          "marker": "5"
+          "id": "FN0002",
+          "marker": "2"
         }
       ],
-      "i": 11,
+      "i": 18,
       "references": [],
       "type": "p"
     },
     {
       "footnotes": [
         {
+          "id": "FN0003",
+          "marker": "3"
+        },
+        {
           "id": "FN0004",
-          "marker": "6"
+          "marker": "4"
         }
       ],
-      "i": 13,
+      "i": 19,
       "references": [],
       "type": "p"
     },
@@ -41,10 +34,10 @@
       "footnotes": [
         {
           "id": "FN0005",
-          "marker": "7"
+          "marker": "5"
         }
       ],
-      "i": 15,
+      "i": 21,
       "references": [],
       "type": "p"
     },
@@ -52,21 +45,14 @@
       "footnotes": [
         {
           "id": "FN0006",
-          "marker": "8"
-        }
-      ],
-      "i": 17,
-      "references": [],
-      "type": "p"
-    },
-    {
-      "footnotes": [
+          "marker": "6"
+        },
         {
           "id": "FN0007",
-          "marker": "9"
+          "marker": "7"
         }
       ],
-      "i": 18,
+      "i": 23,
       "references": [],
       "type": "p"
     },
@@ -79,7 +65,14 @@
         {
           "id": "FN0009",
           "marker": "11"
-        },
+        }
+      ],
+      "i": 37,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
         {
           "id": "FN0010",
           "marker": "12"
@@ -89,7 +82,7 @@
           "marker": "13"
         }
       ],
-      "i": 21,
+      "i": 44,
       "references": [],
       "type": "p"
     },
@@ -98,7 +91,14 @@
         {
           "id": "FN0012",
           "marker": "14"
-        },
+        }
+      ],
+      "i": 48,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
         {
           "id": "FN0013",
           "marker": "15"
@@ -106,24 +106,24 @@
         {
           "id": "FN0014",
           "marker": "16"
-        },
-        {
-          "id": "FN0015",
-          "marker": "17"
         }
       ],
-      "i": 22,
+      "i": 51,
       "references": [],
       "type": "p"
     },
     {
       "footnotes": [
         {
+          "id": "FN0015",
+          "marker": "17"
+        },
+        {
           "id": "FN0016",
-          "marker": "20"
+          "marker": "18"
         }
       ],
-      "i": 23,
+      "i": 53,
       "references": [],
       "type": "p"
     },
@@ -131,33 +131,40 @@
       "footnotes": [
         {
           "id": "FN0017",
-          "marker": "21"
-        },
-        {
-          "id": "FN0018",
-          "marker": "24"
-        },
-        {
-          "id": "FN0019",
-          "marker": "25"
-        },
-        {
-          "id": "FN0020",
-          "marker": "26"
+          "marker": "19"
         }
       ],
-      "i": 27,
+      "i": 55,
       "references": [],
       "type": "p"
     },
     {
       "footnotes": [
         {
-          "id": "FN0021",
-          "marker": "27"
+          "id": "FN0018",
+          "marker": "28"
         }
       ],
-      "i": 29,
+      "i": 66,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0019",
+          "marker": "21"
+        },
+        {
+          "id": "FN0020",
+          "marker": "22"
+        },
+        {
+          "id": "FN0021",
+          "marker": "23"
+        }
+      ],
+      "i": 71,
       "references": [],
       "type": "p"
     },
@@ -165,10 +172,21 @@
       "footnotes": [
         {
           "id": "FN0022",
+          "marker": "24"
+        }
+      ],
+      "i": 72,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0018",
           "marker": "28"
         }
       ],
-      "i": 30,
+      "i": 74,
       "references": [],
       "type": "p"
     },
@@ -176,20 +194,39 @@
       "footnotes": [
         {
           "id": "FN0023",
+          "marker": "26"
+        },
+        {
+          "id": "FN0024",
+          "marker": "27"
+        },
+        {
+          "id": "FN0018",
+          "marker": "28"
+        }
+      ],
+      "i": 77,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0025",
           "marker": "29"
         }
       ],
-      "i": 33,
+      "i": 78,
       "references": [],
       "type": "p"
     }
   ],
-  "node_count": 83,
+  "node_count": 133,
   "type_histogram": {
-    "a": 2,
-    "h1": 4,
-    "h2": 4,
-    "img": 1,
-    "p": 72
+    "a": 4,
+    "h1": 7,
+    "h2": 7,
+    "img": 10,
+    "p": 105
   }
 }

@@ -24,6 +24,8 @@
         <a href="/maintainer/jobs">job failures &rarr;</a>
         <a href="/maintainer/storage">storage &rarr;</a>
         <a href="/">&larr; Hyperlit</a>
+        <button type="button" id="mt-regressions-toggle" aria-pressed="false" hidden
+            title="Show only cases with a captured regression fixture (the pulled-and-fixed review loop)">⚗ regressions</button>
         <button type="button" id="mt-flags-toggle" aria-expanded="true" title="Toggle the flag list">☰ queue</button>
     </header>
 

@@ -1,15 +1,18 @@
 {
     "name": "42be715c-82e4-4897-84d8-c495129e4978",
-    "description": "pulled prod case: 42be715c-82e4-4897-84d8-c495129e4978 (user: 'should be wackSTEM'). SHORT (6pp) 'Access, ethics and piracy' Vancouver paper: numeric citations → a numbered 'References' list (29 entries). Each ref cited once (spread 1), so the wackSTEM spread gate missed it; the very-high citation_group_ratio (>=0.4) now flips it to wackSTEMbibliographyNotes and its bracket citations link.",
+    "description": "pulled prod case: 42be715c ('Access, ethics and piracy', 6pp). Superscript/bracket footnote markers cited strictly IN ORDER -> a numbered 'References' list at the end = document endnotes, NOT wackSTEM citations (maintainer confirmed). Classified document_endnotes via the short-doc branch (1 def page, zero co-location); the numbered list becomes [^N]: definitions so the markers render as FOOTNOTES. 6 residual orphans = in-text markers the OCR dropped (their def survives); the reference list is complete.",
+    "license": "is_oa=true oa_status=diamond work_license=cc-by — license cc-by -> committable",
     "book_id": "42be715c-82e4-4897-84d8-c495129e4978",
-    "citation_style": "numbered-bracket",
-    "footnote_strategy": "stem_bibliography",
+    "citation_style": "none",
+    "footnote_strategy": "sequential",
     "pipeline": "full",
     "expected": {
-        "references_count": 29,
-        "citations_linked": 12,
-        "citations_total": 12,
-        "footnotes_count": 0,
-        "audit_gaps": 0
+        "references_count": 0,
+        "citations_linked": 0,
+        "citations_total": 0,
+        "footnotes_count": 29,
+        "audit_gaps": 4,
+        "max_unmatched_defs": 6,
+        "max_unmatched_defs_note": "in-text markers dropped by OCR; the numbered reference/endnote list is complete, so the defs survive without a body marker. Numbered footnote markers cited in order -> a trailing numbered list = document endnotes (footnotes), NOT wackSTEM citations."
     }
 }

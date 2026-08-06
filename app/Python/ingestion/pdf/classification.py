@@ -66,18 +66,16 @@ class WackStemClassifier(PdfClassifier):
         # excuse the reset guard: chapter-endnote restarts don't cite in bracket GROUPS, so it flips
         # a genuinely-wackSTEM short paper (709c9348: ratio 0.33, reset 6, max-ref only 33) that the
         # max-ref>50 escape alone would miss, without touching a footnoted book with a stray group
-        # (433d423b: ratio 0.03 stays chapter_endnotes).
+        # (433d423b: ratio 0.03 stays chapter_endnotes). The spread gate stays HARD: recurrence
+        # (the same numbers re-cited across pages) IS the wackSTEM signature — a paper whose
+        # numbers run strictly in order once each (42be715c) is sequential ENDNOTES, not a
+        # citation bibliography, however dense its bracket groups look.
         dense = sig['max_ref_number'] > 50 or sig.get('citation_group_ratio', 0.0) >= 0.15
-        # A SHORT Vancouver paper cites each reference once or twice, so no number recurs across
-        # >=3 pages (the spread gate assumes a long paper). A very high citation_group_ratio (dense
-        # "[1,2,3]" multi-cites — >=0.4, seen only in genuine numbered-bibliography papers) is a
-        # spread-independent Vancouver fingerprint, so it substitutes for the spread requirement.
-        very_dense = sig.get('citation_group_ratio', 0.0) >= 0.4
-        return ((sig['ref_number_max_page_spread'] >= 3 or very_dense)
+        return (sig['ref_number_max_page_spread'] >= 3
                 and sig['co_location_ratio'] < 0.2
                 and sig['notes_page_count'] == 0
-                and (sig['reset_count'] <= 3 or dense or very_dense)
-                and (sig['reset_frequency'] < 0.2 or dense or very_dense))
+                and (sig['reset_count'] <= 3 or dense)
+                and (sig['reset_frequency'] < 0.2 or dense))
 
     def confidence(self, sig):
         c = 0.0
@@ -207,7 +205,16 @@ class DocumentEndnotesClassifier(PdfClassifier):
     would_need = 'definitions clustered on very few trailing pages with near-zero co-location'
 
     def matches(self, sig):
-        return sig['co_location_ratio'] < 0.15 and sig['def_clustering_ratio'] < 0.1
+        if sig['co_location_ratio'] < 0.15 and sig['def_clustering_ratio'] < 0.1:
+            return True
+        # SHORT-DOC branch: def_clustering is defs-pages / total-pages, so one endnotes page in a
+        # 6-page article reads 0.17 and misses the <0.1 gate on arithmetic alone. Small ABSOLUTE
+        # def-page count (1–2), zero co-location, and several ref-bearing pages is the same
+        # trailing-endnotes shape (42be715c / 0fb751c1: markers strictly in order, list at the end).
+        return (sig['co_location_ratio'] < 0.15
+                and sig['pages_with_both'] == 0
+                and sig['pages_with_defs'] in (1, 2)
+                and sig['pages_with_refs'] >= 2)
 
     def confidence(self, sig):
         c = 0.0
@@ -223,7 +230,9 @@ class DocumentEndnotesClassifier(PdfClassifier):
 
     def rejected_because(self, sig):
         return (f"co-location {sig['co_location_ratio']:.2f} (need <0.15) and "
-                f"def-clustering {sig['def_clustering_ratio']:.2f} (need <0.1)")
+                f"def-clustering {sig['def_clustering_ratio']:.2f} (need <0.1; or 1-2 def pages "
+                f"with zero co-location on a short doc — here {sig.get('pages_with_defs', 0)} def "
+                f"page(s), {sig.get('pages_with_both', 0)} shared)")
 
     def margin(self, sig):
         return (f"co-location {sig['co_location_ratio']:.2f} (<0.15 gate), "

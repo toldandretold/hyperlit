@@ -86,6 +86,28 @@ test('flags endpoint groups per book with artifacts + suggested action', functio
     }
 });
 
+test('flags endpoint reports which regression-fixture tree holds the case', function () {
+    $admin = $this->loginUser(['is_admin' => true]);
+    $book = $this->makeBook($admin, ['visibility' => 'public', 'title' => 'Fixture Backed']);
+    ConversionFlag::raise($book, ConversionFlag::SOURCE_USER_REPORT, 'footnotes broken');
+
+    $fixtureDir = base_path("tests/conversion/fixtures-local/{$book}");
+    File::ensureDirectoryExists($fixtureDir);
+
+    try {
+        $entry = collect($this->getJson('/api/maintainer/conversion/flags')->assertOk()->json('entries'))
+            ->firstWhere('book', $book);
+        expect($entry['fixture'])->toBe('fixtures-local');
+    } finally {
+        File::deleteDirectory($fixtureDir);
+    }
+
+    // no fixture dir → null (the ⚗ filter hides it)
+    $entry = collect($this->getJson('/api/maintainer/conversion/flags')->assertOk()->json('entries'))
+        ->firstWhere('book', $book);
+    expect($entry['fixture'])->toBeNull();
+});
+
 test('resolve endpoint closes all open flags for the book', function () {
     $this->loginUser(['is_admin' => true]);
     ConversionFlag::raise('apitest_mtres', ConversionFlag::SOURCE_USER_REPORT, 'r');

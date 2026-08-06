@@ -38,8 +38,8 @@ body {
   font-size: 0.85rem;
 }
 .mt-header a:hover { color: var(--color-text); }
-#mt-flags-toggle {
-  margin-left: auto;
+#mt-flags-toggle,
+#mt-regressions-toggle {
   font: inherit;
   font-size: 0.85rem;
   color: var(--color-text);
@@ -48,6 +48,13 @@ body {
   border-radius: 6px;
   padding: 4px 10px;
   cursor: pointer;
+}
+#mt-regressions-toggle { margin-left: auto; }
+#mt-regressions-toggle[hidden] + #mt-flags-toggle { margin-left: auto; }
+#mt-regressions-toggle.mt-toggled {
+  color: var(--hyperlit-aqua, #4eacae);
+  border-color: var(--hyperlit-aqua, #4eacae);
+  background: color-mix(in srgb, var(--hyperlit-aqua, #4eacae) 12%, transparent);
 }
 
 /* ── Columns ── */
@@ -116,6 +123,8 @@ body {
 /* conversion-lane badges: which engine produced the book */
 .mt-flag-badge[data-action='pasted']    { color: var(--hyperlit-aqua, #4eacae); }
 .mt-flag-badge[data-action='scraped']   { color: var(--hyperlit-aqua, #4eacae); }
+/* ⚗ = a regression fixture is captured for this case (it's in the review loop) */
+.mt-flag-badge[data-action='regression'] { color: var(--hyperlit-aqua, #4eacae); }
 .mt-flags-empty {
   color: var(--color-text-faint, #888);
   text-align: center;

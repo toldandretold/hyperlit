@@ -23,6 +23,7 @@ interface QueueEntry {
   conversion_method: string | null;
   completeness: string | null;
   artifacts: string[];
+  fixture: 'fixtures' | 'fixtures-local' | null;
   suggested: 'reconvert' | 're-fetch' | 'inspect';
   flags: QueueFlag[];
 }
@@ -37,6 +38,16 @@ const el = <T extends HTMLElement>(id: string): T => document.getElementById(id)
 
 let entries: QueueEntry[] = [];
 let selected: QueueEntry | null = null;
+
+// "⚗ regressions" filter: only cases with a captured regression fixture — i.e. the books
+// currently in the pulled-and-fixed review loop. The local DB accumulates open flags from every
+// bundle ever imported, so without this the actual review set drowns. Sticky across visits.
+const REGRESSIONS_KEY = 'maintainer_regressions_only';
+let regressionsOnly = localStorage.getItem(REGRESSIONS_KEY) === '1';
+
+function visibleEntries(): QueueEntry[] {
+  return regressionsOnly ? entries.filter((e) => e.fixture !== null) : entries;
+}
 
 // ── Queue list ────────────────────────────────────────────────────────────
 
@@ -57,16 +68,28 @@ async function loadQueue(): Promise<void> {
   } else if (wanted) {
     // Not in the queue (already resolved, or direct link) — still show it.
     select({ book: wanted, title: wanted, creator: null, conversion_method: null,
-      completeness: null, artifacts: [], suggested: 'inspect', flags: [] });
+      completeness: null, artifacts: [], fixture: null, suggested: 'inspect', flags: [] });
   }
 }
 
 function renderList(): void {
   const list = el<HTMLDivElement>('mt-flags-list');
   list.innerHTML = '';
-  el<HTMLParagraphElement>('mt-flags-empty').hidden = entries.length > 0;
 
-  for (const entry of entries) {
+  // Regressions toggle: only shown when at least one case HAS a fixture (on prod
+  // that's the committed committable set; locally, everything import-cases captured).
+  const withFixture = entries.filter((e) => e.fixture !== null).length;
+  const toggle = el<HTMLButtonElement>('mt-regressions-toggle');
+  toggle.hidden = withFixture === 0;
+  if (withFixture === 0) regressionsOnly = false;
+  toggle.textContent = `⚗ regressions (${withFixture})`;
+  toggle.setAttribute('aria-pressed', String(regressionsOnly));
+  toggle.classList.toggle('mt-toggled', regressionsOnly);
+
+  const shown = visibleEntries();
+  el<HTMLParagraphElement>('mt-flags-empty').hidden = shown.length > 0;
+
+  for (const entry of shown) {
     const item = document.createElement('div');
     item.className = 'mt-flag-item';
     item.setAttribute('role', 'listitem');
@@ -101,6 +124,17 @@ function renderList(): void {
     badge.dataset.action = entry.suggested;
     badge.textContent = entry.suggested;
     meta.appendChild(badge);
+    // ⚗ = this case has a captured regression fixture (it's in the review loop).
+    if (entry.fixture) {
+      const fx = document.createElement('span');
+      fx.className = 'mt-flag-badge';
+      fx.dataset.action = 'regression';
+      fx.textContent = '⚗ regression';
+      fx.title = entry.fixture === 'fixtures'
+        ? 'Regression fixture captured (committable — permissive license)'
+        : 'Regression fixture captured (fixtures-local — git-ignored, non-permissive/unknown license)';
+      meta.appendChild(fx);
+    }
     // Lane badge: this case's conversion was the PASTE engine (a user's
     // paste-glitch report, pasted_page.html on disk) or a scrape — its fix
     // loop is tests/paste, not app/Python.
@@ -301,8 +335,9 @@ function dropSelectedFromQueue(statusText: string): void {
   selected = null;
   renderList();
   setStatus(statusText);
-  if (entries.length > 0) {
-    select(entries[0]!);
+  const shown = visibleEntries();
+  if (shown.length > 0) {
+    select(shown[0]!);
   } else {
     el<HTMLDivElement>('mt-actions').hidden = true;
   }
@@ -431,6 +466,17 @@ el<HTMLButtonElement>('mt-flags-toggle').addEventListener('click', () => {
   const columns = el<HTMLDivElement>('mt-columns');
   const collapsed = columns.classList.toggle('mt-collapsed');
   el<HTMLButtonElement>('mt-flags-toggle').setAttribute('aria-expanded', String(!collapsed));
+});
+
+el<HTMLButtonElement>('mt-regressions-toggle').addEventListener('click', () => {
+  regressionsOnly = !regressionsOnly;
+  localStorage.setItem(REGRESSIONS_KEY, regressionsOnly ? '1' : '0');
+  renderList();
+  // If the selection was filtered out, jump to the first visible case.
+  const shown = visibleEntries();
+  if (regressionsOnly && selected && !shown.some((e) => e.book === selected!.book) && shown.length > 0) {
+    select(shown[0]!);
+  }
 });
 
 // Draggable action bar — the ⋮⋮ grip moves it anywhere (it can sit over

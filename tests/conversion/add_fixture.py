@@ -30,6 +30,10 @@ import tempfile
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 FIXTURES_DIR = os.path.join(SCRIPT_DIR, 'fixtures')
+# Git-ignored twin tree for fixtures whose BOOK CONTENT is not provably redistributable
+# (ocr_response.json IS the full text of the work). run_regression.py discovers both trees,
+# so a local fixture is a full regression test — it just never reaches the public repo.
+FIXTURES_LOCAL_DIR = os.path.join(SCRIPT_DIR, 'fixtures-local')
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..'))
 PROCESS_SCRIPT = os.path.join(PROJECT_ROOT, 'app', 'Python', 'process_document.py')
 MISTRAL_OCR_SCRIPT = os.path.join(PROJECT_ROOT, 'app', 'Python', 'mistral_ocr.py')
@@ -43,6 +47,12 @@ def main():
                         help='Path to directory containing ocr_response.json or debug_converted.html')
     parser.add_argument('--description', required=True, help='Short description of this fixture')
     parser.add_argument('--book-id', help='Book ID for processing (defaults to fixture name)')
+    parser.add_argument('--local', action='store_true',
+                        help='Write to the git-ignored fixtures-local/ tree (book content not '
+                             'provably open-license — full regression locally, never committed)')
+    parser.add_argument('--license-note',
+                        help='Provenance note recorded in the manifest (e.g. "cc-by (committable)" '
+                             'or "green OA, no known license -> local-only")')
     args = parser.parse_args()
 
     # Resolve source path
@@ -51,7 +61,7 @@ def main():
         source_dir = os.path.join(PROJECT_ROOT, source_dir)
 
     book_id = args.book_id or args.name
-    fixture_dir = os.path.join(FIXTURES_DIR, args.name)
+    fixture_dir = os.path.join(FIXTURES_LOCAL_DIR if args.local else FIXTURES_DIR, args.name)
     golden_dir = os.path.join(fixture_dir, 'golden')
 
     # Determine what input is available
@@ -173,6 +183,7 @@ def main():
     manifest = {
         'name': args.name,
         'description': args.description,
+        **({'license': args.license_note} if args.license_note else {}),
         'book_id': book_id,
         'citation_style': stats.get('citation_style', 'unknown'),
         'footnote_strategy': stats.get('footnote_strategy', 'unknown'),

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Conversion\FixtureLicenseGate;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -280,20 +281,61 @@ class ImportCasesCommand extends Command
             return;
         }
 
-        $proc = new Process([
+        // The fixture's ocr_response.json is the FULL TEXT of the work — committing it to the
+        // public repo is redistribution. Route by license: provably-permissive works go to the
+        // committable fixtures/ tree, everything else to the git-ignored fixtures-local/ twin
+        // (run_regression.py discovers both, so it is still a full regression test).
+        [$committable, $licenseNote] = $this->licenseDecision($book);
+        $this->line('  license: ' . $licenseNote);
+
+        $cmd = [
             'python3', base_path('tests/conversion/add_fixture.py'),
             '--name', $book,
             '--source', $source,
             '--description', "pulled prod case: {$book}",
             '--book-id', $book,
-        ], base_path());
+            '--license-note', $licenseNote,
+        ];
+        if (!$committable) {
+            $cmd[] = '--local';
+        }
+        $proc = new Process($cmd, base_path());
         $proc->setTimeout(300);
         $proc->run();
 
         if ($proc->isSuccessful()) {
-            $this->info('  fixture captured: ' . $book);
+            $this->info('  fixture captured: ' . $book
+                . ($committable ? ' → fixtures/ (committable)' : ' → fixtures-local/ (git-ignored)'));
         } else {
             $this->warn('  fixture capture failed (import is fine): ' . trim($proc->getErrorOutput() ?: $proc->getOutput()));
         }
+    }
+
+    /** @return array{0: bool, 1: string} [committable, human-readable note for manifest + console] */
+    private function licenseDecision(string $book): array
+    {
+        $row = null;
+        try {
+            $row = DB::connection('pgsql_admin')->table('library')
+                ->leftJoin('canonical_source', 'canonical_source.id', '=', 'library.canonical_source_id')
+                ->where('library.book', $book)
+                ->first(['canonical_source.is_oa', 'canonical_source.oa_status', 'canonical_source.work_license']);
+        } catch (\Throwable $e) {
+            // fall through — no signal reads as not-committable
+        }
+
+        $decision = FixtureLicenseGate::decide(
+            $row?->is_oa === null ? null : (bool) $row->is_oa,
+            $row?->work_license,
+        );
+        $note = sprintf(
+            'is_oa=%s oa_status=%s work_license=%s — %s',
+            $row?->is_oa === null ? 'unknown' : ($row->is_oa ? 'true' : 'false'),
+            $row?->oa_status ?: '—',
+            $row?->work_license ?: '—',
+            $decision['reason'],
+        );
+
+        return [$decision['committable'], $note];
     }
 }

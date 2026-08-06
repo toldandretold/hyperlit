@@ -79,6 +79,7 @@ class ReconvertQueue
                 'conversion_method' => $lib->conversion_method ?? null,
                 'completeness'      => $lib->completeness ?? null,
                 'artifacts'         => $artifacts,
+                'fixture'           => $this->fixtureTreeFor($bookId),
                 'suggested'         => $this->suggestAction($artifacts, $lib),
                 'flags'             => $bookFlags->map(fn ($f) => [
                     'source'       => $f->source,
@@ -91,6 +92,26 @@ class ReconvertQueue
         }
 
         return $out;
+    }
+
+    /**
+     * Which regression-fixture tree holds this book, if any — 'fixtures' (committable),
+     * 'fixtures-local' (git-ignored), or null. In LOCAL DEV a captured fixture is what makes an
+     * imported case "a regression", so the maintainer page uses this to filter its queue down to
+     * the cases actually under review (the local DB accumulates plenty of other open flags).
+     */
+    public function fixtureTreeFor(string $bookId): ?string
+    {
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $bookId)) {
+            return null;
+        }
+        foreach (['fixtures', 'fixtures-local'] as $tree) {
+            if (is_dir(base_path("tests/conversion/{$tree}/{$bookId}"))) {
+                return $tree;
+            }
+        }
+
+        return null;
     }
 
     /** Which conversion artifacts exist on disk for this book. */

@@ -1,81 +1,225 @@
 {
   "linked_nodes": [
     {
-      "footnotes": [],
+      "footnotes": [
+        {
+          "id": "FN0001",
+          "marker": "1"
+        },
+        {
+          "id": "FN0002",
+          "marker": "2"
+        }
+      ],
+      "i": 24,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0003",
+          "marker": "15"
+        }
+      ],
+      "i": 51,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0004",
+          "marker": "16"
+        }
+      ],
       "i": 53,
-      "references": [
-        "stemref_15"
-      ],
+      "references": [],
       "type": "p"
     },
     {
-      "footnotes": [],
+      "footnotes": [
+        {
+          "id": "FN0005",
+          "marker": "17"
+        },
+        {
+          "id": "FN0006",
+          "marker": "20"
+        }
+      ],
+      "i": 54,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0007",
+          "marker": "21"
+        }
+      ],
       "i": 56,
-      "references": [
-        "stemref_17",
-        "stemref_18",
-        "stemref_19",
-        "stemref_20"
-      ],
+      "references": [],
       "type": "p"
     },
     {
-      "footnotes": [],
+      "footnotes": [
+        {
+          "id": "FN0008",
+          "marker": "22"
+        },
+        {
+          "id": "FN0009",
+          "marker": "23"
+        }
+      ],
       "i": 59,
-      "references": [
-        "stemref_21"
-      ],
+      "references": [],
       "type": "p"
     },
     {
-      "footnotes": [],
-      "i": 62,
-      "references": [
-        "stemref_22",
-        "stemref_23"
+      "footnotes": [
+        {
+          "id": "FN0010",
+          "marker": "24"
+        },
+        {
+          "id": "FN0011",
+          "marker": "25"
+        }
       ],
+      "i": 61,
+      "references": [],
       "type": "p"
     },
     {
-      "footnotes": [],
+      "footnotes": [
+        {
+          "id": "FN0012",
+          "marker": "26"
+        },
+        {
+          "id": "FN0013",
+          "marker": "27"
+        },
+        {
+          "id": "FN0014",
+          "marker": "28"
+        }
+      ],
       "i": 64,
-      "references": [
-        "stemref_24",
-        "stemref_25"
-      ],
+      "references": [],
       "type": "p"
     },
     {
-      "footnotes": [],
+      "footnotes": [
+        {
+          "id": "FN0015",
+          "marker": "29"
+        }
+      ],
+      "i": 65,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0016",
+          "marker": "30"
+        },
+        {
+          "id": "FN0017",
+          "marker": "31"
+        }
+      ],
+      "i": 66,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0018",
+          "marker": "33"
+        }
+      ],
+      "i": 72,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0018",
+          "marker": "33"
+        }
+      ],
+      "i": 76,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0019",
+          "marker": "34"
+        }
+      ],
       "i": 77,
-      "references": [
-        "stemref_33"
-      ],
+      "references": [],
       "type": "p"
     },
     {
-      "footnotes": [],
-      "i": 80,
-      "references": [
-        "stemref_33"
+      "footnotes": [
+        {
+          "id": "FN0020",
+          "marker": "35"
+        }
       ],
+      "i": 78,
+      "references": [],
       "type": "p"
     },
     {
-      "footnotes": [],
-      "i": 81,
-      "references": [
-        "stemref_34"
+      "footnotes": [
+        {
+          "id": "FN0021",
+          "marker": "36"
+        }
       ],
+      "i": 79,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0022",
+          "marker": "37"
+        },
+        {
+          "id": "FN0023",
+          "marker": "38"
+        },
+        {
+          "id": "FN0024",
+          "marker": "39"
+        }
+      ],
+      "i": 82,
+      "references": [],
       "type": "p"
     }
   ],
-  "node_count": 140,
+  "node_count": 138,
   "type_histogram": {
+    "a": 3,
     "blockquote": 1,
     "h1": 5,
-    "h2": 9,
+    "h2": 10,
     "img": 5,
-    "p": 120
+    "p": 114
   }
 }

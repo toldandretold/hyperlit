@@ -114,6 +114,48 @@ def test_chapter_endnotes_classifier_gates():
 def test_document_endnotes_classifier_gate():
     assert M.DocumentEndnotesClassifier().matches(_sig(co_location_ratio=0.05, def_clustering_ratio=0.05)) is True
     assert M.DocumentEndnotesClassifier().matches(_sig(co_location_ratio=0.5, def_clustering_ratio=0.5)) is False
+    # SHORT-DOC branch: a 6-page article's single endnotes page reads def_clustering 0.17 (misses the
+    # <0.1 gate on arithmetic), but 1 def page + zero co-location + several ref pages is still the
+    # trailing-endnotes shape (42be715c / 0fb751c1: numbered markers in order -> a list at the end).
+    short = _sig(co_location_ratio=0.0, def_clustering_ratio=0.17,
+                 pages_with_both=0, pages_with_defs=1, pages_with_refs=4)
+    assert M.DocumentEndnotesClassifier().matches(short) is True
+    # Guard: a page-bottom book (defs co-locate with refs) must NOT be grabbed by the short branch.
+    assert M.DocumentEndnotesClassifier().matches(
+        _sig(co_location_ratio=0.0, def_clustering_ratio=0.17,
+             pages_with_both=3, pages_with_defs=1, pages_with_refs=4)) is False
+
+
+def test_numbered_endnote_list_becomes_footnote_defs():
+    # A trailing 'References' numbered list cited by in-order [^N] markers IS the def list.
+    md = ('Piracy is common.[^1] And more.[^2] And again.[^3]\n\n'
+          '# References\n\n'
+          '1. Association of American Publishers, 2016, http://x.org/10.1/y.333 (accessed).\n'
+          '2. Lowe D, 2016, Thoughts.\n'
+          '3. Brembs B, 2016, Civil disobedience.\n')
+    out = M._convert_numbered_endnote_defs(md)
+    assert '[^1]: Association of American Publishers' in out
+    assert '[^3]: Brembs B' in out
+    # a number INSIDE an entry (the DOI tail .333) is unwrapped, never left as a bogus marker
+    assert '[^333]' not in out
+    # markers still present in body, now linkable
+    assert 'Piracy is common.[^1]' in out
+
+
+def test_uncited_numbered_bibliography_is_left_alone():
+    # An author-year paper whose References happen to be numbered but are NOT cited by number:
+    # only a stray [^1] in the body, so overlap with the list is far below half -> DON'T convert
+    # (else a bibliography becomes phantom footnotes — the 95a61ad0-class false positive).
+    md = ('As shown by Smith (2019) and others.[^1]\n\n'
+          '# References\n\n'
+          '1. Smith J, 2019, A study.\n2. Jones K, 2020, Another.\n'
+          '3. Lee R, 2021, Third.\n4. Ng B, 2022, Fourth.\n')
+    out = M._convert_numbered_endnote_defs(md)
+    assert '[^1]: Smith' not in out          # list untouched
+    assert '1. Smith J, 2019' in out
+    # and an already-footnoted doc ([^N]: defs exist) is never touched
+    md2 = 'Body.[^1]\n\n[^1]: real def.\n\n# References\n\n1. X, 2019.\n2. Y, 2020.\n3. Z, 2021.\n'
+    assert M._convert_numbered_endnote_defs(md2) == md2
 
 
 def test_story_hooks_are_self_describing():
@@ -163,6 +205,21 @@ def test_wackstem_wraps_endash_ranges_and_heading_defs():
     assert '<a class="wackSTEMdef" id="stemref_79">79. The Rise of Pirate Libraries</a>' in out
     assert 'id="stemref_1"' in out
     assert '# 3. Methods' in out  # section heading untouched
+
+
+def test_superscript_citations_convert_to_brackets_on_stem_path():
+    # A mixed-style paper (42be715c) cites via brackets AND superscripts — the wackSTEM
+    # assembler normalises superscript runs (incl. comma runs) to bracket form so both halves link.
+    out = M.convert_superscript_citations_to_brackets(
+        'guard against this.⁷ Elbakyan in 2011.¹¹,¹² used in some nations,¹⁴,¹⁵,¹⁶ today.')
+    assert '[7]' in out and '[11,12]' in out and '[14,15,16]' in out
+    # math exponents inside $…$ stay math
+    out2 = M.convert_superscript_citations_to_brackets('area of $x²$ plus a cite.⁷')
+    assert '$x²$' in out2 and '[7]' in out2
+    # end-to-end: the wackSTEM assembler wraps the converted superscripts as citations
+    ctx = M.AssemblyContext({"pages": []}, 'wackSTEMbibliographyNotes', None)
+    wrapped = M.WackStemAssembler().post_combine(ctx, 'A claim.⁷ And another [8].')
+    assert wrapped.count('wackSTEMcite') == 2
 
 
 def test_toc_dotted_leader_page_numbers_not_wrapped():

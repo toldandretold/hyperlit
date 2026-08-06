@@ -408,6 +408,10 @@ class WackStemAssembler(FootnoteAssembler):
              'backend STEM pass then converts into links.')
 
     def post_combine(self, ctx, combined):
+        # A mixed-style paper cites BOTH ways — brackets ("[18,19]") and superscripts
+        # ("piracy⁷", "2011.¹¹,¹²"). Normalise the superscript runs to bracket form first,
+        # or only the bracket half links (42be715c: 12 of 26 markers linked).
+        combined = convert_superscript_citations_to_brackets(combined)
         combined = wrap_stem_citations(combined)
         combined = wrap_stem_definitions(combined)
         return combined
@@ -438,6 +442,63 @@ class PageBottomAssembler(FootnoteAssembler):
         return combined
 
 
+# The heading that opens a trailing endnotes/references list. Case-insensitive, optional '#'s
+# (Mistral renders it either as a heading or a bare line).
+_ENDNOTE_LIST_HEADING_RE = re.compile(
+    r'(?mi)^#{0,6}\s*(references|notes|endnotes|bibliography|works cited)\s*$')
+
+
+def _convert_numbered_endnote_defs(combined):
+    """document_endnotes: when the body cites [^N] and the ONLY definition material is a numbered
+    'N. Text' list under a trailing References/Notes heading, that list IS the endnote-definition
+    list (journal styles like UKSG Insights: superscript markers strictly in order → a numbered
+    'References' section). Convert the ascending-from-1 run to '[^N]: Text' so the markers link as
+    FOOTNOTES. Gated hard: no existing [^N]: defs anywhere (else this would create a colliding
+    second universe), entries must ascend exactly from 1, and the run must cover at least half the
+    in-text ref numbers — a bibliography that ISN'T cited by number fails the overlap test."""
+    refs = {int(m.group(1)) for m in re.finditer(r'(?<!\n)\[\^(\d+)\]', combined)}
+    if not refs or re.search(r'(?m)^\[\^\d+\]:', combined):
+        return combined
+    heading = None
+    for m in _ENDNOTE_LIST_HEADING_RE.finditer(combined):
+        heading = m                                   # LAST such heading (front-matter TOCs repeat them)
+    if not heading:
+        return combined
+    head, tail = combined[:heading.end()], combined[heading.end():]
+    lines = tail.split('\n')
+    expected, converted_nums = 1, set()
+    for i, ln in enumerate(lines):
+        m = re.match(r'^(\d{1,3})\.\s+(\S.*)', ln)
+        if not m or int(m.group(1)) != expected:
+            continue                                  # page footers etc. interleave — skip, don't abort
+        # The per-page pass may have turned a number INSIDE the entry (a DOI tail
+        # "etnografica.840", a year, a page range) into a bogus [^M] marker. Reference-entry text is
+        # a DEFINITION, never a marker site — unwrap any such markers back to plain digits.
+        body = re.sub(r'\[\^(\d+)\]', r'\1', m.group(2))
+        lines[i] = f'[^{expected}]: {body}'
+        converted_nums.add(expected)
+        expected += 1
+    # Convert only when at least HALF the numbered entries are actually cited by a body marker —
+    # a bibliography that ISN'T cited by number (an author-year paper whose refs happen to be
+    # numbered) leaves most entries un-referenced and must stay a plain list, not phantom footnotes.
+    # (Keyed on len(converted_nums), NOT len(refs): a single stray [^1] must not justify converting
+    # a 4-entry list.) The real books clear it comfortably even with OCR-dropped markers
+    # (42be715c 23/29, 0fb751c1 24/39, 95a61ad0 25/29); the uncited case sits at 1/4.
+    if len(converted_nums) < 2 or len(refs & converted_nums) * 2 < len(converted_nums):
+        return combined                               # unconvincing — leave the list untouched
+    combined = head + '\n'.join(lines)
+    # A body footnote MARKER can never exceed the number of definitions — anything higher is a
+    # stray from a body year/figure the per-page pass misfired on (e.g. "etnografica.840"). Unwrap
+    # body [^M] where M is above the def ceiling (small margin for an OCR-dropped final def).
+    ceiling = max(converted_nums)
+    combined = re.sub(
+        r'(?<!\n)\[\^(\d+)\]',
+        lambda m: m.group(0) if int(m.group(1)) <= ceiling + 2 else m.group(1),
+        combined,
+    )
+    return combined
+
+
 class DocumentEndnotesAssembler(FootnoteAssembler):
     """document_endnotes: definitions clustered on trailing pages — convert refs to [^N] per page;
     post-combine fixes def formatting + rejoins."""
@@ -454,6 +515,8 @@ class DocumentEndnotesAssembler(FootnoteAssembler):
 
     def post_combine(self, ctx, combined):
         combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)
+        # A trailing numbered References/Notes list cited by in-order markers is the def list.
+        combined = _convert_numbered_endnote_defs(combined)
         combined = rejoin_page_breaks(combined)
         return combined
 
