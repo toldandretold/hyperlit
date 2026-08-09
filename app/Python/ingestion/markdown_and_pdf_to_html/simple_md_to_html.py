@@ -278,6 +278,7 @@ def convert_markdown_to_html(markdown_content):
     def_section_counter = 0
     last_ref_number = None   # Track the last ref number seen
     last_def_number = None   # Track the last def number seen
+    in_refs_section = False  # inside a References/Bibliography section (suppresses list conversion)
 
     in_math_block = False
     math_block_lines = []
@@ -348,6 +349,10 @@ def convert_markdown_to_html(markdown_content):
         if header_match:
             level = len(header_match.group(1))
             header_text = header_match.group(2)
+            # Reference sections keep their "- Author (year)…" lines as PARAGRAPHS: the
+            # bibliography extractor reads <p> entries, and converting them to <li> collapsed
+            # extraction (128ad69a: 31 refs -> 0). Any other heading exits the section.
+            in_refs_section = bool(re.match(r'(?i)(references|bibliography|works cited)\b', header_text))
             # Create simple ID from header text
             header_id = re.sub(r'[^a-zA-Z0-9\s-]', '', header_text.lower()).replace(' ', '-')
             # Process inline formatting in headers too
@@ -399,6 +404,45 @@ def convert_markdown_to_html(markdown_content):
                 paragraphs.append(' '.join(current))
             inner = ''.join(f'<p>{process_inline_formatting(p)}</p>' for p in paragraphs)
             html_lines.append(f'<blockquote>{inner}</blockquote>')
+            continue
+
+        # Unordered lists: consecutive "- item" / "* item" / "+ item" lines become one <ul>.
+        # A single blank line inside the run is tolerated when another item follows (loose list).
+        # UNORDERED ONLY — a numbered "N. text" line is a footnote-definition candidate elsewhere
+        # in the pipeline, so converting <ol> here would fight the footnote engine. Without this
+        # branch every bullet list in every OCR'd PDF rendered as literal "<p>- text</p>".
+        # Suppressed inside References/Bibliography sections (see in_refs_section at the header
+        # branch) so dash-prefixed bibliography entries stay <p> for the reference extractor.
+        # Needs >=2 items: a lone dash line is usually a stray (an author byline "- Nick
+        # Dyer-Witheford" became a one-item <ul>), so it stays a paragraph.
+        def _next_nonblank_is_item(idx):
+            j = idx + 1
+            while j < len(lines) and not lines[j].strip():
+                j += 1
+            return j < len(lines) and re.match(r'^[-*+]\s+\S', lines[j].strip())
+
+        if (not in_refs_section and re.match(r'^[-*+]\s+\S', stripped)
+                and _next_nonblank_is_item(i)):
+            list_items = []
+            while i < len(lines):
+                s = lines[i].strip()
+                m = re.match(r'^[-*+]\s+(\S.*)$', s)
+                if m:
+                    list_items.append(m.group(1))
+                    i += 1
+                elif not s:
+                    # blank line: continue the list only if the next non-blank line is an item
+                    j = i + 1
+                    while j < len(lines) and not lines[j].strip():
+                        j += 1
+                    if j < len(lines) and re.match(r'^[-*+]\s+\S', lines[j].strip()):
+                        i = j
+                    else:
+                        break
+                else:
+                    break
+            inner = ''.join(f'<li>{process_inline_formatting(it)}</li>' for it in list_items)
+            html_lines.append(f'<ul>{inner}</ul>')
             continue
 
         # Images (standalone line)

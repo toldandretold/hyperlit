@@ -137,6 +137,16 @@ def run_pdf_pipeline(fixture, tmp_dir):
     shutil.copy2(os.path.join(fixture['dir'], 'ocr_response.json'),
                  os.path.join(tmp_dir, 'ocr_response.json'))
 
+    # GROBID experiment mode ONLY (env GROBID_URL set): stage the fixture's source PDF so the
+    # bibliography pass can exercise the ML path. Deliberately NOT done by default — the default
+    # suite must stay byte-identical with no PDF in the tmp dir (and CI has no GROBID server).
+    if os.environ.get('GROBID_URL'):
+        for pdf_name in ('source.pdf', 'original.pdf'):
+            src = os.path.join(fixture['dir'], pdf_name)
+            if os.path.isfile(src):
+                shutil.copy2(src, os.path.join(tmp_dir, 'source.pdf'))
+                break
+
     r = _run([sys.executable, MISTRAL_OCR_SCRIPT, '/dev/null', tmp_dir])
     if r.returncode != 0:
         return _err('mistral_ocr', r)

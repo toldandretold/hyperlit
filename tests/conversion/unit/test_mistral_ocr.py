@@ -442,6 +442,22 @@ def test_bare_caret_footnote_marker_and_def_converted():
     assert M.convert_bare_caret_footnotes('^24 If the fractions differ') == '[^24] If the fractions differ'
 
 
+def test_caret_prefixed_bracket_superscripts_unwrapped():
+    # Mistral's caret+bracket renderings (3f202e8f): wrapped "^[64]^" and open "^[87]".
+    # Inline refs unwrap AND convert; line-start forms unwrap to [N] so the def-candidate
+    # rules (which own line-start brackets) collect them — without this the caret survives
+    # ("^[^295]^ Electronic Privacy…") and the def is never harvested.
+    assert M.convert_bare_caret_footnotes('Harmsze and Kircz^[64]^ is an example') == \
+        'Harmsze and Kircz[64] is an example'
+    assert M.convert_bare_caret_footnotes('^[60]^ Electronic Privacy Information Center (2004).') == \
+        '[60] Electronic Privacy Information Center (2004).'
+    assert M.convert_bare_caret_footnotes('^[87] Sullivan 2000.') == '[87] Sullivan 2000.'
+    # half-converted form re-runs idempotently
+    assert M.convert_bare_caret_footnotes('^[^64]^ LaMacchia 2002.') == '[^64] LaMacchia 2002.'
+    # pandoc-style TEXTUAL inline footnote must never match (digits-only gate)
+    assert M.convert_bare_caret_footnotes('word^[a textual note] here') == 'word^[a textual note] here'
+
+
 def test_bare_caret_math_exponent_not_converted():
     # ^2 followed by a letter/variable, ^o, and anything inside $…$/$$…$$ are exponents — leave them.
     assert M.convert_bare_caret_footnotes('(1 - r)^2A_2^o here') == '(1 - r)^2A_2^o here'

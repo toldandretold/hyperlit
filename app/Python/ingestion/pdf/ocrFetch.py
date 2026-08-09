@@ -388,6 +388,58 @@ def renumber_chunk_footnotes(response_dict, chunk_boundary_indices=None):
     return response_dict
 
 
+def revert_partial_renumber(response_dict):
+    """UNDO the segment renumbering for a page_bottom book — it is HALF-APPLIED and half is
+    worse than none. renumber_chunk_footnotes shifts [^N] forms and LINE-START [N] / 'N.'
+    definition lines by each segment's offset but never inline bracket [N] refs or plain
+    'N Text' def lines — so a page can carry refs [15] with defs [284] (3f202e8f p200), or
+    shifted refs against unshifted mid-page defs (p67). Mismatched pairs never license as
+    page-bottom footnotes AND a ref collides with another chapter's same-numbered note: a
+    confidently WRONG link, the worst failure mode. Completing the shift is a losing game —
+    every marker-form family Mistral uses would need its own shifted/unshifted bookkeeping.
+
+    Reverting is exact: the RAW Mistral pages were internally consistent, ALL inconsistency
+    came from the shift, and the per-page offsets it applied are recorded in
+    _footnote_renumber_page_offsets. Subtract each page's offset from exactly the three
+    patterns the pass shifted, restoring the original print numbering everywhere. Chapter
+    restarts then don't matter: page_bottom assembly's renumber_page_footnotes owns global
+    uniqueness and renumbers each page's ref+def pairs TOGETHER.
+
+    Caller MUST gate to classification == 'page_bottom' — other layouts (chapter/document
+    endnotes) rely on the shifted numbering staying consistent with their own offset logic.
+    Idempotent via _footnote_renumber_reverted. Returns the number of pages touched."""
+    if response_dict.get("_footnote_renumber_reverted"):
+        return 0
+    offsets = response_dict.get("_footnote_renumber_page_offsets") or []
+    touched = 0
+    for i, page in enumerate(response_dict.get("pages", [])):
+        off = offsets[i] if i < len(offsets) else 0
+        if off <= 0:
+            continue
+        md = page.get("markdown", "")
+
+        def _unshift_caret(m, _off=off):
+            num = int(m.group(1))
+            return f'[^{num - _off}]' if num - _off >= 1 else m.group(0)
+
+        def _unshift_bracket_def(m, _off=off):
+            num = int(m.group(1))
+            return f'[{num - _off}]{m.group(2)}' if num - _off >= 1 else m.group(0)
+
+        def _unshift_numdot_def(m, _off=off):
+            num = int(m.group(1))
+            return f'{num - _off}. {m.group(2)}' if 1 <= num - _off <= 200 else m.group(0)
+
+        new_md = re.sub(r'\[\^(\d+)\]', _unshift_caret, md)
+        new_md = re.sub(r'^\[(\d+)\]( .)', _unshift_bracket_def, new_md, flags=re.MULTILINE)
+        new_md = re.sub(r'^(\d{1,3})\. (\S)', _unshift_numdot_def, new_md, flags=re.MULTILINE)
+        if new_md != md:
+            page["markdown"] = new_md
+            touched += 1
+    response_dict["_footnote_renumber_reverted"] = True
+    return touched
+
+
 def detect_segment_boundaries(response_dict, footnote_meta):
     """Identify multi-paper boundaries from footnote-number resets, anchored to headings.
 

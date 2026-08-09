@@ -147,7 +147,9 @@ IMPORT ─ by file extension  (ProcessDocumentImportJob match)
 │  └─ DOCX  strip_docx_metadata.py + pandoc → html
 └─ BACKEND  process_document.py (DOC_PASSES, the orchestrator) · _doc_shared.py (shared helpers)  GOAL → nodes + footnotes + references + audit + assessment
    ├─ LOAD     load.py — LoadDocument(+footnote_meta→is_stem) · SafariRtlFix · SplitBibliographyParagraphs · [STEM wackSTEM branch]
-   ├─ EXTRACT  bibliography.py(extract_bibliography) · strategy.py(analyze_document_structure →
+   ├─ EXTRACT  bibliography.py(extract_bibliography) · grobid_client.py (opt-in GROBID reference
+   │           segmentation: env GROBID_URL + source PDF → ML path, regex fallback)
+   │           · strategy.py(analyze_document_structure →
    │           STRATEGY_RULES {sequential|whole_document|sectioned | no_footnotes ✗ | pre_processed ∅})
    │           · footnotes.py + strategy.py(detect_footnote_sections)
    │           · _footnote_numbering_is_linkable  [GUARD → extract-but-DON'T-link ∅]

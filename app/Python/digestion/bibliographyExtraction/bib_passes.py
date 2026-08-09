@@ -3,7 +3,11 @@ Extracted from process_document.py (the orchestrator imports these into DOC_PASS
 from shared.pipeline_base import DocPass
 from digestion._doc_shared import _detect_file_type
 from digestion._doc_shared import emit_progress
-from digestion.bibliographyExtraction.bibliography import extract_bibliography
+from digestion.bibliographyExtraction.bibliography import (
+    extract_bibliography, merge_grobid_into_bibliography,
+    assess_bibliography_health, _find_reference_paragraphs,
+)
+from shared.assessment import ASSESSMENT
 import json
 import os
 import re
@@ -108,4 +112,46 @@ class ExtractBibliography(DocPass):
         print("--- PASS 1: Extracting All Definitions ---")
 
         # --- 1A: Process Bibliography / References → conversion/bibliography.py ---
+        # GROBID SURGICAL MERGE (opt-in, never blocking, ADDITIVE-ONLY). The regex extraction ALWAYS
+        # runs and its result always stands — the 2026-08 trial (deploy/experiments/grobid.md)
+        # showed wholesale GROBID replacement loses ~20% of reference targets even while fixing the
+        # glued entries, so GROBID is only allowed to ADD: when the read-only candidate scan flags
+        # SUSPECT paragraphs (run-on entries carrying multiple "(year)" patterns; merged over-long
+        # blobs) AND env GROBID_URL is set AND the source PDF is on disk, GROBID's segmentation is
+        # folded in for entries the regex map cannot reach (all keys absent) that probe-locate
+        # INSIDE a suspect paragraph. Nothing regex found is ever removed or overwritten. Every
+        # failure mode (env unset, server absent/hung — 5s probe + 120s/300s budgets, bad result)
+        # simply adds nothing, so shipping this ahead of any server setup changes nothing.
+        # GROBID_ALWAYS=1 forces the attempt even when not suspect (corpus trials; still merges
+        # only into suspect paragraphs, so healthy books stay byte-identical by construction).
+        suspect_ps = []
+        health = None
+        grobid_url = os.environ.get('GROBID_URL')
+        pdf_path = None
+        if grobid_url:
+            pdf_path = next((p for p in (os.path.join(ctx.output_dir, 'original.pdf'),
+                                         os.path.join(ctx.output_dir, 'source.pdf'))
+                             if os.path.isfile(p)), None)
+            if pdf_path:
+                candidates, _ = _find_reference_paragraphs(ctx.soup)
+                health = assess_bibliography_health([p.get_text(' ', strip=True) for p in candidates])
+                suspect_ps = [candidates[i] for i in health['suspect_indices']]
+
         ctx.bibliography_map, ctx.references_data = extract_bibliography(ctx.soup)
+
+        if suspect_ps and (health['suspect'] or os.environ.get('GROBID_ALWAYS') == '1'):
+            why = '; '.join(health['reasons']) if health['suspect'] else 'GROBID_ALWAYS=1'
+            print(f"  🧪 Bibliography suspect ({why}) — GROBID surgical merge ({grobid_url})")
+            added = merge_grobid_into_bibliography(
+                ctx.soup, pdf_path, grobid_url, ctx.bibliography_map, ctx.references_data,
+                suspect_ps)
+            ASSESSMENT.record(
+                module='bibliography_health', code_ref='bib_passes.py:ExtractBibliography',
+                node_help=('Scores the regex-scanned reference candidates for glued/merged entries '
+                           'and, when suspect, folds GROBID-segmented entries INTO the regex '
+                           'extraction (additive-only: nothing regex found is removed). A flag, '
+                           'not a verdict — added=0 means GROBID could not do better.'),
+                decision=f"suspect={health['suspect']} → GROBID surgical merge added {added} entr(y/ies)",
+                rationale=why, evidence={**health, 'grobid_added': added},
+                question='Did the glued/merged reference blobs hide entries the regex could not key?',
+                considered=[], confidence=0.5, margin=why)

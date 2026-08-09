@@ -106,7 +106,7 @@
     },
     {
       "footnotes": [],
-      "i": 54,
+      "i": 53,
       "references": [
         "bali2014"
       ],
@@ -114,7 +114,7 @@
     },
     {
       "footnotes": [],
-      "i": 90,
+      "i": 89,
       "references": [
         "bali2014"
       ],
@@ -122,7 +122,7 @@
     },
     {
       "footnotes": [],
-      "i": 107,
+      "i": 106,
       "references": [
         "gella2013"
       ],
@@ -130,7 +130,7 @@
     },
     {
       "footnotes": [],
-      "i": 112,
+      "i": 111,
       "references": [
         "mohammad2012",
         "mohammad2013b",
@@ -144,7 +144,7 @@
     },
     {
       "footnotes": [],
-      "i": 117,
+      "i": 116,
       "references": [
         "volkova2013",
         "bakliwal2012",
@@ -154,7 +154,7 @@
     },
     {
       "footnotes": [],
-      "i": 118,
+      "i": 117,
       "references": [
         "mohammad2013b",
         "volkova2013",
@@ -167,7 +167,7 @@
     },
     {
       "footnotes": [],
-      "i": 124,
+      "i": 123,
       "references": [
         "qadir2009",
         "sharma2015b"
@@ -176,7 +176,7 @@
     },
     {
       "footnotes": [],
-      "i": 153,
+      "i": 152,
       "references": [
         "sanchez1983"
       ],
@@ -184,7 +184,7 @@
     },
     {
       "footnotes": [],
-      "i": 170,
+      "i": 169,
       "references": [
         "dewaele2004",
         "dewaele2010"
@@ -192,14 +192,15 @@
       "type": "p"
     }
   ],
-  "node_count": 216,
+  "node_count": 215,
   "type_histogram": {
     "a": 2,
     "h1": 16,
     "h2": 5,
     "h3": 4,
     "img": 4,
-    "p": 180,
-    "table": 5
+    "p": 178,
+    "table": 5,
+    "ul": 1
   }
 }

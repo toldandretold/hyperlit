@@ -132,7 +132,14 @@ class PageBottomClassifier(PdfClassifier):
                 # many ref pages: the defs that survived are co-located (def_coloc high), numbering
                 # restarts, and there is NO clustered notes section (else it'd be chapter/doc endnotes).
                 # Bedjaoui "Towards a NIEO": co 0.29 but 31/33 def-pages carry refs, rf 0.98, notes 0.
-                or (pd >= 5 and def_coloc > 0.7 and rf > 0.4 and sig['notes_page_count'] == 0))
+                or (pd >= 5 and def_coloc > 0.7 and rf > 0.4 and sig['notes_page_count'] == 0)
+                # The MID-reset dead zone: mostly-continuous numbering whose occasional per-chapter
+                # restarts put rf between the continuous gate (<0.1) and the restart gates (>0.4).
+                # High co-location + high def-co-location + no Notes section is still unambiguously
+                # page-bottom (3f202e8f: co 0.47, def_coloc 0.71, rf 0.20 fell through to unknown).
+                # Cannot steal from chapter/document endnotes — both need co < 0.3.
+                or (co > 0.4 and sig['pages_with_both'] >= 3 and def_coloc > 0.7
+                    and sig['notes_page_count'] == 0))
 
     def confidence(self, sig):
         co = sig['co_location_ratio']; rf = sig['reset_frequency']
@@ -152,9 +159,13 @@ class PageBottomClassifier(PdfClassifier):
         return c
 
     def rejected_because(self, sig):
-        return (f"co-location {sig['co_location_ratio']:.2f} / reset-freq {sig['reset_frequency']:.2f} "
-                f"fit neither page_bottom rule "
-                f"(continuous: co>0.4 & resets<0.1 & maxref>10; restart: co>0.5 & resets>0.4)")
+        pd = sig.get('pages_with_defs', 0)
+        def_coloc = (sig.get('pages_with_both', 0) / pd) if pd else 0.0
+        return (f"co-location {sig['co_location_ratio']:.2f} / def-co-location {def_coloc:.2f} / "
+                f"reset-freq {sig['reset_frequency']:.2f} fit no page_bottom rule "
+                f"(continuous: co>0.4 & resets<0.1 & maxref>10; restart: co>0.5 & resets>0.4; "
+                f"messy-OCR: def-coloc>0.7 & resets>0.4 & notes 0; "
+                f"mid-reset: co>0.4 & def-coloc>0.7 & notes 0)")
 
     def margin(self, sig):
         return (f"co-location {sig['co_location_ratio']:.2f} (gate 0.4/0.5), "

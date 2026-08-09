@@ -97,111 +97,41 @@
     },
     {
       "footnotes": [],
-      "i": 41,
+      "i": 40,
       "references": [
-        "stemref_36"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 42,
-      "references": [
+        "stemref_36",
         "stemref_37",
-        "stemref_38"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 43,
-      "references": [
+        "stemref_38",
         "stemref_39",
         "stemref_40",
         "stemref_26",
-        "stemref_41"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 44,
-      "references": [
+        "stemref_41",
         "stemref_42",
-        "stemref_43"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 45,
-      "references": [
+        "stemref_43",
         "stemref_44",
         "stemref_45",
         "stemref_46",
-        "stemref_47"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 46,
-      "references": [
-        "stemref_48"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 47,
-      "references": [
+        "stemref_47",
+        "stemref_48",
         "stemref_49",
         "stemref_50",
-        "stemref_51"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 48,
-      "references": [
+        "stemref_51",
         "stemref_52",
-        "stemref_53"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 49,
-      "references": [
+        "stemref_53",
         "stemref_54",
         "stemref_55",
-        "stemref_56"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 50,
-      "references": [
+        "stemref_56",
         "stemref_57",
-        "stemref_59"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 51,
-      "references": [
+        "stemref_59",
         "stemref_60",
         "stemref_61",
         "stemref_62"
       ],
-      "type": "p"
+      "type": "ul"
     },
     {
       "footnotes": [],
-      "i": 52,
+      "i": 41,
       "references": [
         "stemref_31",
         "stemref_34",
@@ -211,7 +141,7 @@
     },
     {
       "footnotes": [],
-      "i": 53,
+      "i": 42,
       "references": [
         "stemref_44",
         "stemref_64",
@@ -221,7 +151,7 @@
     },
     {
       "footnotes": [],
-      "i": 54,
+      "i": 43,
       "references": [
         "stemref_66",
         "stemref_67"
@@ -230,7 +160,7 @@
     },
     {
       "footnotes": [],
-      "i": 55,
+      "i": 44,
       "references": [
         "stemref_66",
         "stemref_67"
@@ -239,7 +169,7 @@
     },
     {
       "footnotes": [],
-      "i": 81,
+      "i": 70,
       "references": [
         "stemref_68",
         "stemref_69"
@@ -248,7 +178,7 @@
     },
     {
       "footnotes": [],
-      "i": 84,
+      "i": 73,
       "references": [
         "stemref_70"
       ],
@@ -256,7 +186,7 @@
     },
     {
       "footnotes": [],
-      "i": 88,
+      "i": 77,
       "references": [
         "stemref_1"
       ],
@@ -264,7 +194,7 @@
     },
     {
       "footnotes": [],
-      "i": 96,
+      "i": 85,
       "references": [
         "stemref_71"
       ],
@@ -272,7 +202,7 @@
     },
     {
       "footnotes": [],
-      "i": 98,
+      "i": 87,
       "references": [
         "stemref_1"
       ],
@@ -280,7 +210,7 @@
     },
     {
       "footnotes": [],
-      "i": 111,
+      "i": 100,
       "references": [
         "stemref_33",
         "stemref_44",
@@ -290,7 +220,7 @@
     },
     {
       "footnotes": [],
-      "i": 112,
+      "i": 101,
       "references": [
         "stemref_54",
         "stemref_31"
@@ -299,7 +229,7 @@
     },
     {
       "footnotes": [],
-      "i": 121,
+      "i": 110,
       "references": [
         "stemref_38",
         "stemref_72",
@@ -309,7 +239,7 @@
     },
     {
       "footnotes": [],
-      "i": 124,
+      "i": 113,
       "references": [
         "stemref_55",
         "stemref_73",
@@ -324,7 +254,7 @@
     },
     {
       "footnotes": [],
-      "i": 125,
+      "i": 114,
       "references": [
         "stemref_47",
         "stemref_80",
@@ -334,7 +264,7 @@
     },
     {
       "footnotes": [],
-      "i": 126,
+      "i": 115,
       "references": [
         "stemref_81",
         "stemref_82",
@@ -346,7 +276,7 @@
     },
     {
       "footnotes": [],
-      "i": 127,
+      "i": 116,
       "references": [
         "stemref_12",
         "stemref_86",
@@ -363,7 +293,7 @@
     },
     {
       "footnotes": [],
-      "i": 128,
+      "i": 117,
       "references": [
         "stemref_12",
         "stemref_47",
@@ -378,7 +308,7 @@
     },
     {
       "footnotes": [],
-      "i": 129,
+      "i": 118,
       "references": [
         "stemref_99",
         "stemref_100",
@@ -395,7 +325,7 @@
     },
     {
       "footnotes": [],
-      "i": 132,
+      "i": 121,
       "references": [
         "stemref_108"
       ],
@@ -403,7 +333,7 @@
     },
     {
       "footnotes": [],
-      "i": 133,
+      "i": 122,
       "references": [
         "stemref_109",
         "stemref_110"
@@ -412,7 +342,7 @@
     },
     {
       "footnotes": [],
-      "i": 135,
+      "i": 124,
       "references": [
         "stemref_111",
         "stemref_112",
@@ -422,7 +352,7 @@
     },
     {
       "footnotes": [],
-      "i": 136,
+      "i": 125,
       "references": [
         "stemref_114",
         "stemref_115",
@@ -434,7 +364,7 @@
     },
     {
       "footnotes": [],
-      "i": 137,
+      "i": 126,
       "references": [
         "stemref_111",
         "stemref_116",
@@ -444,7 +374,7 @@
     },
     {
       "footnotes": [],
-      "i": 139,
+      "i": 128,
       "references": [
         "stemref_117",
         "stemref_118"
@@ -453,7 +383,7 @@
     },
     {
       "footnotes": [],
-      "i": 140,
+      "i": 129,
       "references": [
         "stemref_119"
       ],
@@ -461,7 +391,7 @@
     },
     {
       "footnotes": [],
-      "i": 144,
+      "i": 133,
       "references": [
         "stemref_120"
       ],
@@ -469,7 +399,7 @@
     },
     {
       "footnotes": [],
-      "i": 147,
+      "i": 136,
       "references": [
         "stemref_31",
         "stemref_34",
@@ -479,7 +409,7 @@
     },
     {
       "footnotes": [],
-      "i": 148,
+      "i": 137,
       "references": [
         "stemref_121"
       ],
@@ -487,7 +417,7 @@
     },
     {
       "footnotes": [],
-      "i": 149,
+      "i": 138,
       "references": [
         "stemref_34",
         "stemref_35",
@@ -498,7 +428,7 @@
     },
     {
       "footnotes": [],
-      "i": 150,
+      "i": 139,
       "references": [
         "stemref_34"
       ],
@@ -506,7 +436,7 @@
     },
     {
       "footnotes": [],
-      "i": 155,
+      "i": 144,
       "references": [
         "stemref_122",
         "stemref_1",
@@ -516,7 +446,7 @@
     },
     {
       "footnotes": [],
-      "i": 159,
+      "i": 147,
       "references": [
         "stemref_123"
       ],
@@ -524,7 +454,7 @@
     },
     {
       "footnotes": [],
-      "i": 160,
+      "i": 148,
       "references": [
         "stemref_1",
         "stemref_124"
@@ -533,7 +463,7 @@
     },
     {
       "footnotes": [],
-      "i": 162,
+      "i": 150,
       "references": [
         "stemref_125"
       ],
@@ -541,7 +471,7 @@
     },
     {
       "footnotes": [],
-      "i": 165,
+      "i": 153,
       "references": [
         "stemref_44",
         "stemref_45",
@@ -553,7 +483,7 @@
     },
     {
       "footnotes": [],
-      "i": 173,
+      "i": 161,
       "references": [
         "stemref_129"
       ],
@@ -561,7 +491,7 @@
     },
     {
       "footnotes": [],
-      "i": 175,
+      "i": 163,
       "references": [
         "stemref_33",
         "stemref_129",
@@ -571,7 +501,7 @@
     },
     {
       "footnotes": [],
-      "i": 181,
+      "i": 169,
       "references": [
         "stemref_120",
         "stemref_1"
@@ -579,12 +509,13 @@
       "type": "p"
     }
   ],
-  "node_count": 589,
+  "node_count": 577,
   "type_histogram": {
     "h1": 32,
     "h3": 2,
     "img": 21,
-    "p": 533,
-    "table": 1
+    "p": 519,
+    "table": 1,
+    "ul": 2
   }
 }

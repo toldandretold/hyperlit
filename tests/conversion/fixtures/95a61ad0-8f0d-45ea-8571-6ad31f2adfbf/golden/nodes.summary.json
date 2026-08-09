@@ -142,7 +142,7 @@
       "footnotes": [
         {
           "id": "FN0018",
-          "marker": "28"
+          "marker": "20"
         }
       ],
       "i": 66,
@@ -164,7 +164,7 @@
           "marker": "23"
         }
       ],
-      "i": 71,
+      "i": 70,
       "references": [],
       "type": "p"
     },
@@ -175,18 +175,7 @@
           "marker": "24"
         }
       ],
-      "i": 72,
-      "references": [],
-      "type": "p"
-    },
-    {
-      "footnotes": [
-        {
-          "id": "FN0018",
-          "marker": "28"
-        }
-      ],
-      "i": 74,
+      "i": 71,
       "references": [],
       "type": "p"
     },
@@ -194,36 +183,47 @@
       "footnotes": [
         {
           "id": "FN0023",
-          "marker": "26"
-        },
-        {
-          "id": "FN0024",
-          "marker": "27"
-        },
-        {
-          "id": "FN0018",
-          "marker": "28"
+          "marker": "25"
         }
       ],
-      "i": 77,
+      "i": 73,
       "references": [],
       "type": "p"
     },
     {
       "footnotes": [
         {
+          "id": "FN0024",
+          "marker": "26"
+        },
+        {
           "id": "FN0025",
+          "marker": "27"
+        },
+        {
+          "id": "FN0026",
+          "marker": "28"
+        }
+      ],
+      "i": 75,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0027",
           "marker": "29"
         }
       ],
-      "i": 78,
+      "i": 76,
       "references": [],
       "type": "p"
     }
   ],
-  "node_count": 133,
+  "node_count": 131,
   "type_histogram": {
-    "a": 4,
+    "a": 2,
     "h1": 7,
     "h2": 7,
     "img": 10,

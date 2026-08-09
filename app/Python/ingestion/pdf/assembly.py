@@ -499,6 +499,47 @@ def _convert_numbered_endnote_defs(combined):
     return combined
 
 
+_INLINE_REF_RE = re.compile(r'\[\^(\d+)\]')
+
+
+def _repair_sequential_ref_misreads(combined):
+    """document_endnotes ONLY: in-text markers run STRICTLY 1..N, once each — that is the class
+    signature (a doc whose numbers recur across pages classifies wackSTEM instead). An OCR digit
+    misread turns a marker into a DUPLICATE of a different number ("requirements,20" and
+    "content.25" both read as 28 in 95a61ad0), and the linker then binds the misread marker to
+    the WRONG definition — a confidently wrong link, plus the real def strands unmatched. Walk
+    the in-text refs in document order with an expected counter; a ref that breaks the chain is
+    rewritten to the expected value ONLY when all three hold:
+      (a) its number is AHEAD of the chain (a later-list number appearing early),
+      (b) a definition for the expected number exists (the repair has a real target),
+      (c) the NEXT in-text ref confirms the chain (== expected+1) — a genuinely absent number
+          fails this and the chain just resynchronises without rewriting anything."""
+    defs = {int(n) for n in re.findall(r'(?m)^\[\^(\d+)\]:', combined)}
+    refs = [(m.start(1), m.end(1), int(m.group(1)))
+            for m in _INLINE_REF_RE.finditer(combined)
+            if m.start() > 0 and combined[m.start() - 1] != '\n']
+    if len(refs) < 3:
+        return combined
+    rewrites = []                       # (start, end, new_num)
+    expected = refs[0][2] + 1
+    for k in range(1, len(refs)):
+        s, e, r = refs[k]
+        if r == expected:
+            expected += 1
+        elif (r > expected and expected in defs
+                and k + 1 < len(refs) and refs[k + 1][2] == expected + 1):
+            rewrites.append((s, e, expected))
+            expected += 1
+        else:
+            expected = r + 1
+    for s, e, n in reversed(rewrites):
+        combined = combined[:s] + str(n) + combined[e:]
+    if rewrites:
+        print(f"  Repaired {len(rewrites)} sequence-breaking marker misread(s) "
+              f"({', '.join(str(n) for _s, _e, n in rewrites)}) — strict-order endnote chain")
+    return combined
+
+
 class DocumentEndnotesAssembler(FootnoteAssembler):
     """document_endnotes: definitions clustered on trailing pages — convert refs to [^N] per page;
     post-combine fixes def formatting + rejoins."""
@@ -517,6 +558,10 @@ class DocumentEndnotesAssembler(FootnoteAssembler):
         combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)
         # A trailing numbered References/Notes list cited by in-order markers is the def list.
         combined = _convert_numbered_endnote_defs(combined)
+        # A misread digit that duplicates a later marker breaks the strict 1..N chain AND
+        # binds to the wrong definition — restore the expected value (95a61ad0: 20 and 25
+        # both OCR'd as 28, so three markers merged onto the transparency-report note).
+        combined = _repair_sequential_ref_misreads(combined)
         combined = rejoin_page_breaks(combined)
         return combined
 
@@ -691,6 +736,119 @@ PDF_ASSEMBLERS = {
 _DEFAULT_ASSEMBLER = DefaultAssembler()
 
 
+_CODE_FENCE_LINE_RE = re.compile(r'(?m)^[ \t]*```[^\n]*$')
+
+
+def _strip_stray_code_fences(md):
+    """Strip OCR-hallucinated ``` fences from a page whose fence count is ODD.
+
+    A lone unpaired fence is catastrophic downstream: simple_md_to_html opens a <pre><code>
+    at that point and never closes it, so the REST OF THE BOOK renders as one literal code
+    block — footnote defs, blockquotes and headings all become inert text (3f202e8f: a single
+    stray fence Mistral emitted at the page-29 break swallowed 92% of the document; 212
+    footnote defs -> 3). A page with an odd fence count cannot contain a balanced code block,
+    so its fences are OCR noise — drop them all. Worst case a REAL code block spanning the
+    page turn is unwrapped to plain text, which is strictly cheaper than swallowing everything
+    after it. Balanced pages (even count, incl. zero) are untouched.
+
+    Returns (md, n_stripped)."""
+    fences = _CODE_FENCE_LINE_RE.findall(md)
+    if len(fences) % 2 == 0:
+        return md, 0
+    return _CODE_FENCE_LINE_RE.sub('', md), len(fences)
+
+
+# Line-start LaTeX glyphs Mistral uses for a book's decorative list bullets.
+_LATEX_BULLET_RE = re.compile(
+    r'(?m)^\$\\(?:triangleright|blacktriangleright|rightarrow|bullet|square|diamond|ast)\$\s*')
+
+_QUOTE_OPEN_CHARS = "'‘“\""
+# A paragraph END that closes a quotation: closing quote, optional period, optional footnote
+# marker ([^N] or a bare OCR'd number), optional page-number anchor, nothing else.
+_QUOTE_PARA_END_RE = re.compile(
+    r"['’”\"]\s*\.?\s*(?:\[\^\d+\]|\d{1,3})?\s*(?:<a class=\"pageNumber\"[^>]*></a>)?\s*$")
+# An intro paragraph that ANNOUNCES a quotation: ends with a colon (optional footnote marker).
+_QUOTE_INTRO_END_RE = re.compile(r':\s*(?:\[\^\d+\]|\d{1,3})?\s*$')
+
+
+def _wrap_quote_blockquotes(md):
+    """Mark block quotations Mistral emitted as PLAIN paragraphs (it gives no structural signal —
+    no '>' and no indent) as markdown '>' blockquotes. Conservative shape: the previous paragraph
+    ends with a COLON (an explicit quote introduction — "…as follows:") and this paragraph is
+    fully wrapped in quote marks (opening quote first char, closing quote at the end, allowing a
+    trailing period / footnote marker) and long enough to be a passage, not a quoted term.
+    Runs on the JOINED document, not per page — a quotation routinely opens a fresh page while
+    its "…conclude that:" intro sits at the bottom of the previous one."""
+    paras = re.split(r'\n\s*\n', md)
+    prev_stripped = ''
+    for k, para in enumerate(paras):
+        s = para.strip()
+        if (s and s[0] in _QUOTE_OPEN_CHARS
+                and not s.startswith('> ')
+                and len(s) >= 80
+                and '\n' not in s
+                and _QUOTE_PARA_END_RE.search(s)
+                and _QUOTE_INTRO_END_RE.search(prev_stripped)):
+            paras[k] = '> ' + s
+        prev_stripped = s
+    # A PAGE-SPANNING quotation Mistral wrapped only half of: the continuation page arrives as a
+    # native '> ' paragraph opening in lowercase, while the quote's first half (previous page)
+    # sits unwrapped — it opens with a quote char but never closes (cut at the page turn). Pull
+    # the first half into the same blockquote, with a '>' separator line so the converter renders
+    # ONE <blockquote> ('‘Yet, while all of these changes…' / '> are omitted when…').
+    for k, para in enumerate(paras):
+        s = para.strip()
+        if not s.startswith('> '):
+            continue
+        first_content = s[2:].lstrip()
+        if not first_content[:1].islower():
+            continue
+        j = k - 1
+        while j >= 0 and not paras[j].strip():
+            j -= 1
+        if j < 0:
+            continue
+        prev = paras[j].strip()
+        if (prev and prev[0] in _QUOTE_OPEN_CHARS
+                and not prev.startswith('> ')
+                and '\n' not in prev
+                and not _QUOTE_PARA_END_RE.search(prev)):
+            paras[j] = '> ' + prev + '\n>\n' + s
+            paras[k] = None
+    return '\n\n'.join(p for p in paras if p is not None)
+
+_HEADING_LINE_RE = re.compile(r'(?m)^#{1,6}[ \t]+(.+?)\s*$')
+_LEADING_HEADING_RE = re.compile(r'^#{1,6}[ \t]+([^\n]+)')
+# STRUCTURAL headings legitimately open a fresh page long after the same text appeared earlier
+# (93d34a74: a mid-book '# References' section heading, then the real back-of-book bibliography
+# opening its own page with '# References' — stripping that as a "leak" re-anchored bibliography
+# extraction on the early heading and collapsed 590 entries to 54). For these, only the
+# CONSECUTIVE-page repeat (the multi-page-section leak: '# Bibliography' opening 14 pages in a
+# row) is stripped; the seen-anywhere rule applies to chapter/section titles only.
+_STRUCTURAL_HEADING_RE = re.compile(
+    r'(?i)^((foot|end)?notes|references|bibliography|works cited|index|appendix.*|acknowledg.*)$')
+
+
+def _norm_heading(text):
+    return re.sub(r'\s+', ' ', (text or '')).strip()
+
+
+def _collect_body_heading_texts(pages):
+    """Every heading TEXT Mistral emitted anywhere in a page body, normalised — plus its
+    leading-number-stripped form ('2 The development…' also as 'The development…') so it can be
+    compared against extract_section_name output, which strips leading numbers. The trailing
+    page number of a TOC-line heading ('4 The digitization… 129') is deliberately KEPT, so a
+    TOC entry never masquerades as the real chapter heading and suppresses its injection."""
+    texts = set()
+    for page in pages:
+        for h in _HEADING_LINE_RE.findall(page.get("markdown", "") or ""):
+            t = _norm_heading(h)
+            if t:
+                texts.add(t)
+                texts.add(re.sub(r'^\d+\s+', '', t))
+    return texts
+
+
 def assemble_markdown(response_dict, classification="unknown", footnote_meta=None, pdf_path=None,
                        segment_boundaries=None, footnote_warnings=None):
     """Assemble pages into markdown, injecting section headings from headers. Thin conductor over the
@@ -725,6 +883,12 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     threshold = max(3, len(pages) * 0.4)
     running_headers = {name for name, count in header_counts.items() if count >= threshold}
 
+    # Headings Mistral emitted in page BODIES, document-wide. Injection consults this: when the
+    # header-field section name already exists as a body heading somewhere, injecting a copy just
+    # plants a duplicate at a PAGE top (usually mid-paragraph), so the body's own heading wins.
+    body_heading_texts = _collect_body_heading_texts(pages)
+    fence_lines_stripped = fence_pages = 0
+
     # The per-classification assembler owns setup (e.g. the chapter-offset precompute) + per_page +
     # post_combine; the default handles the generic/unknown path.
     assembler = PDF_ASSEMBLERS.get(classification, _DEFAULT_ASSEMBLER)
@@ -740,7 +904,20 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     for i, page in enumerate(pages):
         md = page.get("markdown", "")
         header = page.get("header") or ""
+        md, _n_fences = _strip_stray_code_fences(md)
+        if _n_fences:
+            fence_lines_stripped += _n_fences
+            fence_pages += 1
+        # A book's triangle/arrow bullets OCR as LaTeX glyph commands at line start
+        # ("$\triangleright$ increased user involvement…") — downstream that renders as a <latex>
+        # element in a <p>, not a list item. Normalise to a markdown bullet so the list survives.
+        md = _LATEX_BULLET_RE.sub('- ', md)
         md_stripped = md.strip()
+
+        # A blank page OCR'd as bare punctuation (3f202e8f p276: an empty verso rendered as
+        # '.') would otherwise become a lone '.' paragraph node in the reader — skip it.
+        if md_stripped and re.fullmatch(r'[.,;:·•*\-–—]{1,3}', md_stripped):
+            continue
 
         # Sticky notes section — only triggers once all body refs are done; mid-book "Notes" headings
         # (chapter-endnote books like Road from Mont Pelerin) sit BEFORE last_ref_page_idx, so they
@@ -782,6 +959,42 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                 md += f' <a class="pageNumber" data-page="{int(expected)}"></a>'
                 md_stripped = md.strip()
 
+        # A page whose body OPENS with a heading text we have already seen is the print running
+        # header leaking into content: extract_header failed on this page (its `header` field got
+        # only the page number) and Mistral emitted the chapter/section title as a fresh '# '
+        # heading instead ('# 1 Introduction' opened 8 pages of 3f202e8f, '# Bibliography' 14).
+        # Keep the first occurrence — the real chapter/section opening — and strip the repeats.
+        # Structural headings only dedupe against the LAST 2 content pages' opening headings
+        # (see _STRUCTURAL_HEADING_RE) — a window of 2 because running headers leak on RECTO
+        # pages only in many books ('# Bibliography' opened pages 275/277/278/280/… of
+        # 3f202e8f; a strictly-previous-page rule caught 1 of the 14). A genuine second
+        # References section hundreds of pages later (93d34a74) is far outside the window.
+        # Chapter/section titles dedupe against everything seen.
+        _lead = _LEADING_HEADING_RE.match(md_stripped)
+        _lead_text = _norm_heading(_lead.group(1)) if _lead else None
+        if _lead_text:
+            if _STRUCTURAL_HEADING_RE.match(_lead_text):
+                _is_leak = _lead_text in ctx.recent_opening_headings
+            else:
+                _is_leak = _lead_text in ctx.seen_sections
+            if _is_leak:
+                md = re.sub(r'^\s*#{1,6}[ \t]+[^\n]*\n?', '', md, count=1)
+                md_stripped = md.strip()
+        elif md_stripped:
+            # The same leak in PLAIN-text form: Mistral sometimes emits the running header as a
+            # bare page-opening LINE, not a '#' heading ("2 The development of scientific
+            # communication" landing mid-quote on 3f202e8f p27). A first line that verbatim
+            # equals an already-seen heading (or a header-field section name) is page chrome.
+            _plain = _norm_heading(md_stripped.split('\n', 1)[0])
+            if (_plain and not _STRUCTURAL_HEADING_RE.match(_plain)
+                    and (_plain in ctx.seen_sections
+                         or _plain in header_counts
+                         or re.sub(r'^\d+\s+', '', _plain) in header_counts)):
+                md = re.sub(r'^\s*[^\n]*\n?', '', md, count=1)
+                md_stripped = md.strip()
+        if md_stripped:
+            ctx.recent_opening_headings = (ctx.recent_opening_headings + [_lead_text])[-2:]
+
         # Extract section name from header
         section_name = None
         for line in header.split('\n'):
@@ -795,18 +1008,23 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         # 2. This section hasn't been seen before
         # 3. The markdown body doesn't already start with a # heading
         # 4. The body starts with uppercase (new section, not a paragraph continuation)
+        # 5. Mistral didn't emit the same heading in ANY page body (else the body's own copy at
+        #    the real section start wins, and the injected one would sit at a page top duplicating
+        #    it — 3f202e8f grew both '# The development of scientific communication' (injected)
+        #    and Mistral's '# 2 The development of scientific communication').
         if (section_name
-                and section_name not in ctx.seen_sections
+                and _norm_heading(section_name) not in ctx.seen_sections
                 and not md_stripped.startswith('#')
                 and md_stripped
-                and md_stripped[0].isupper()):
-            ctx.seen_sections.add(section_name)
+                and md_stripped[0].isupper()
+                and _norm_heading(section_name) not in body_heading_texts):
+            ctx.seen_sections.add(_norm_heading(section_name))
             md = f"# {section_name}\n\n{md}"
 
-        # Track sections from headings Mistral already detected in the body
-        if md_stripped.startswith('#'):
-            heading_text = re.sub(r'^#+\s*', '', md_stripped.split('\n')[0])
-            ctx.seen_sections.add(heading_text)
+        # Track sections from EVERY heading in this page's body (page-opening AND mid-page —
+        # a mid-page section heading must also arm the running-header dedupe above)
+        for _h in _HEADING_LINE_RE.findall(md):
+            ctx.seen_sections.add(_norm_heading(_h))
 
         # Convert numbered notes to footnote definitions on Notes pages
         if is_notes_page and classification != "wackSTEMbibliographyNotes":
@@ -861,7 +1079,15 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
             for num, txt in _footer_bare_num_defs(page.get("footer") or "").items():
                 ctx.footer_bare_candidates.setdefault(num, txt)
 
+    if fence_lines_stripped:
+        print(f"  Stripped {fence_lines_stripped} stray code-fence line(s) on {fence_pages} page(s) "
+              f"(odd fence count = OCR noise; an unpaired fence swallows the rest of the document)")
+
     combined = "\n\n".join(ctx.md_parts)
+    # Block quotations arrive as plain paragraphs (Mistral gives no structural signal) — mark the
+    # colon-introduced, fully quote-wrapped ones as '>' blockquotes so they render as
+    # <blockquote>, not <p>. On the joined body, before the deferred defs are appended.
+    combined = _wrap_quote_blockquotes(combined)
     # Append every deferred def (inline splits + footer recoveries, page order) as ONE contiguous
     # block at the end, BEFORE post_combine so its ref/def normalisation still runs over them.
     if ctx.deferred_defs_parts:

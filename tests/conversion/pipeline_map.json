@@ -155,6 +155,7 @@
 
     "digestion/strategySelection/strategy.py": {"band": "backend", "role": "strategy + section detection + linkability guard"},
     "digestion/bibliographyExtraction/bibliography.py": {"band": "backend", "role": "reference extraction (PASS 1A)"},
+    "digestion/bibliographyExtraction/grobid_client.py": {"band": "backend", "role": "GROBID reference segmentation (opt-in ML alternative to the regex PASS 1A; env GROBID_URL + source PDF; regex fallback)"},
     "digestion/footnoteExtraction/footnotes.py": {"band": "backend", "role": "footnote extraction + marker linking shell"},
     "digestion/footnoteLinking/footnote_link_rules.py": {"band": "backend", "role": "FOOTNOTE_LINK_RULES + MARKER_LINK_RULES (also used by epub frontend)"},
     "digestion/citationLinking/citations.py": {"band": "backend", "role": "citation linking shell (PASS 2A)"},

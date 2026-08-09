@@ -9,7 +9,7 @@ import os
 import re
 
 from shared.assessment import ASSESSMENT
-from shared.refkeys import generate_ref_keys, is_likely_reference
+from shared.refkeys import generate_ref_keys, is_likely_reference, normalize_unicode_name
 
 
 # Per-entry key/collision chatter (one 🔑 line per reference, plus 🔀 collision
@@ -156,21 +156,25 @@ _BIBLIOGRAPHY_PLAIN = (
 
 
 def _record_bibliography_assessment(references_data, bibliography_map, via_heading,
-                                    collisions, dups_skipped, dropped_no_keys):
+                                    collisions, dups_skipped, dropped_no_keys, method='regex'):
     """Record the bibliography-extraction pass to the assessment trace. The link-correctness risk is
     the collision suffixing (two works, same author+year): when it fires, the bare key resolves to the
-    LAST entry (an inherent ambiguity). Dropped entries = targets that exist but can never be linked."""
+    LAST entry (an inherent ambiguity). Dropped entries = targets that exist but can never be linked.
+    method='grobid' marks the ML-backed path (dropped_no_keys then means DOM-unanchorable refs)."""
     ASSESSMENT.record(
         module='bibliography_extraction', code_ref='bibliography.py:extract_bibliography',
         node_help=_BIBLIOGRAPHY_PLAIN,
         decision=f'{len(references_data)} reference entr(y/ies); {collisions} collision-suffixed, '
-                 f'{dups_skipped} duplicate(s) merged, {dropped_no_keys} dropped (unkeyable)',
-        rationale=('references found via a heading match' if via_heading
-                   else 'references found via the reverse paragraph scan (no heading matched)'),
+                 f'{dups_skipped} duplicate(s) merged, {dropped_no_keys} dropped (unkeyable)'
+                 + (f' [via {method}]' if method != 'regex' else ''),
+        rationale=('references segmented by GROBID from the source PDF' if method == 'grobid'
+                   else ('references found via a heading match' if via_heading
+                         else 'references found via the reverse paragraph scan (no heading matched)')),
         evidence={'entries': len(references_data), 'map_keys': len(bibliography_map),
                   'collisions_suffixed': collisions, 'duplicates_merged': dups_skipped,
-                  'dropped_no_keys': dropped_no_keys,
-                  'detection': 'heading' if via_heading else 'reverse_scan'},
+                  'dropped_no_keys': dropped_no_keys, 'method': method,
+                  'detection': 'grobid' if method == 'grobid'
+                               else ('heading' if via_heading else 'reverse_scan')},
         question='Which paragraphs are bibliography entries, and what id does each get?',
         considered=([{'option': 'disambiguate same author+year citations precisely',
                       'rejected_because': 'two or more works share an author+year; a bare "(Author Year)" '
@@ -184,6 +188,189 @@ def _record_bibliography_assessment(references_data, bibliography_map, via_headi
                 f'citation can ever link to them' if dropped_no_keys
                 else (f'{collisions} author+year collision(s) disambiguated by suffix' if collisions
                       else f'{len(references_data)} entries, clean keys, no collisions')))
+
+
+def _norm_probe(text):
+    """Lowercased alphanumeric-only form used to locate a reference's text inside a DOM paragraph."""
+    return re.sub(r'[^a-z0-9]', '', (text or '').lower())
+
+
+_PAREN_YEAR_RE = re.compile(r'\((?:19|20)\d{2}[a-z]?\)')
+
+
+def suspect_paragraph_indices(candidate_texts):
+    """Indices of candidate paragraphs showing the glued/merged pathologies: (multi_year_set,
+    overlong_set). multi_year = >=2 "(YYYY)" patterns in one paragraph (OCR-glued run-on entries);
+    overlong = >=3x the median length, min 500 chars (merged blobs without parenthesised years)."""
+    texts = [t or '' for t in candidate_texts]
+    multi_year = {i for i, t in enumerate(texts) if len(_PAREN_YEAR_RE.findall(t)) >= 2}
+    overlong = set()
+    if texts:
+        lengths = sorted(len(t) for t in texts)
+        median = lengths[len(texts) // 2]
+        overlong = {i for i, t in enumerate(texts) if len(t) >= max(500, 3 * median)}
+    return multi_year, overlong
+
+
+def assess_bibliography_health(candidate_texts):
+    """Score the REGEX-SCANNED reference candidates for the pathologies that make the regex
+    extraction unreliable — the mechanical trigger for escalating to GROBID. Pure function over the
+    candidate paragraphs' TEXTS (read-only: runs BEFORE any anchors are inserted).
+
+    suspect = True when either signal clears its floor (>=2 glued, or >=10% overlong)."""
+    n = len(candidate_texts)
+    multi_year_idx, overlong_idx = suspect_paragraph_indices(candidate_texts)
+    multi_year, overlong = len(multi_year_idx), len(overlong_idx)
+    reasons = []
+    if multi_year >= 2:
+        reasons.append(f'{multi_year} run-on entr(y/ies) carrying multiple (year) patterns')
+    if n and overlong / n >= 0.10:
+        reasons.append(f'{overlong}/{n} entries are >=3x the median length (merged blobs)')
+    return {'entries': n, 'multi_year_entries': multi_year, 'overlong_entries': overlong,
+            'suspect': bool(reasons), 'reasons': reasons,
+            'suspect_indices': sorted(multi_year_idx | overlong_idx)}
+
+
+def merge_grobid_refs(soup, refs, bibliography_map, references_data, suspect_ps):
+    """SURGICAL core (pure of I/O, unit-testable): fold GROBID-segmented refs into an EXISTING
+    regex extraction, additively. A ref is added ONLY when (a) NONE of its keys exist in the map —
+    if the regex already reaches the work by any key, we never override or duplicate it — and
+    (b) its text probe-locates inside one of the SUSPECT paragraphs (the glued/merged blobs the
+    health scorer flagged). Everything the regex found is untouched by construction: this exists
+    because the 2026-08 trial showed wholesale replacement fixes the glued entries but LOSES ~20%
+    of the reference targets regex had (deploy/experiments/grobid.md). Returns entries added."""
+    suspect_norm = [(p, _norm_probe(p.get_text(' ', strip=True))) for p in suspect_ps]
+    used_ids = set(bibliography_map.values()) | {rd['referenceId'] for rd in references_data}
+    added = 0
+    for ref in refs:
+        keys = list(generate_ref_keys(ref['raw'])) if ref['raw'] else []
+        if ref['first_author'] and ref['year']:
+            structured = normalize_unicode_name(ref['first_author']).lower().replace(' ', '') + ref['year']
+            if structured not in keys:
+                keys.insert(0, structured)
+        if not keys or any(k in bibliography_map for k in keys):
+            continue                                   # unkeyable, or regex already reaches it
+        probe = _norm_probe((ref['raw'] or '')[:60]) or _norm_probe(ref['first_author'] + ref['title'])[:40]
+        if len(probe) < 12:
+            continue
+        target_p = next((p for p, t in suspect_norm if probe in t), None)
+        if target_p is None:
+            continue                                   # not hidden inside a suspect blob — out of scope
+        entry_id = keys[0]
+        suffix = 0
+        while entry_id in used_ids:
+            suffix += 1
+            entry_id = keys[0] + chr(ord('a') + suffix - 1)
+        used_ids.add(entry_id)
+        for k in keys:
+            bibliography_map.setdefault(k, entry_id)
+        anchor = soup.new_tag('a', attrs={'class': 'bib-entry', 'id': entry_id})
+        target_p.insert(0, anchor)
+        references_data.append({'referenceId': entry_id, 'content': str(target_p)})
+        added += 1
+    return added
+
+
+def merge_grobid_into_bibliography(soup, pdf_path, base_url, bibliography_map, references_data,
+                                   suspect_ps):
+    """Transport wrapper for the surgical merge: GROBID client call + never-raise contract.
+    Returns entries added (0 on any failure — the regex extraction stands either way)."""
+    from digestion.bibliographyExtraction.grobid_client import extract_refs_from_pdf, grobid_alive
+    try:
+        if not grobid_alive(base_url):
+            print('  ⚠️ GROBID configured but not reachable — regex extraction stands.')
+            return 0
+        refs = extract_refs_from_pdf(pdf_path, base_url)
+    except Exception as e:                             # noqa: BLE001 — never-raise by contract
+        print(f'  ⚠️ GROBID merge failed ({e.__class__.__name__}: {e}) — regex extraction stands.')
+        return 0
+    added = merge_grobid_refs(soup, refs, bibliography_map, references_data, suspect_ps)
+    print(f'📚 GROBID bibliography: surgical merge added {added} hidden entr(y/ies) '
+          f'(of {len(refs)} segmented) into {len(suspect_ps)} suspect paragraph(s)')
+    return added
+
+
+def extract_bibliography_via_grobid(soup, pdf_path, base_url, min_entries=3):
+    """GROBID-backed PASS 1A: segment the PDF's references with GROBID's CRF model and build the
+    same (bibliography_map, references_data) contract the regex path produces — but with entries
+    the regex CANNOT free (run-on/DOI-glued blobs: book 93d34a74's "…doi:… Archambault…" chain).
+
+    Anchoring: each GROBID reference is located in the DOM by normalized-substring probe and the
+    <a class="bib-entry" id> anchor is inserted into its containing <p> (a still-glued paragraph
+    carries several anchors — citation nav lands on the right paragraph). A reference that cannot
+    be located in the DOM is SKIPPED entirely — a map key without a DOM anchor would be a dead
+    link, and no link beats a dead one.
+
+    Returns (bibliography_map, references_data) or None ("use the regex path"): None on transport
+    failure, on an empty/thin GROBID result (<3 anchored entries), or if pypdf can't read the PDF.
+    The caller treats None as fall-through, so this function must never raise."""
+    from digestion.bibliographyExtraction.grobid_client import extract_refs_from_pdf, grobid_alive
+    try:
+        if not grobid_alive(base_url):
+            print('  ⚠️ GROBID configured but not reachable — regex bibliography path.')
+            return None
+        refs = extract_refs_from_pdf(pdf_path, base_url)
+    except Exception as e:                                     # noqa: BLE001 — fallback by contract
+        print(f'  ⚠️ GROBID extraction failed ({e.__class__.__name__}: {e}) — regex bibliography path.')
+        return None
+    if not refs:
+        print('  ⚠️ GROBID returned no references — regex bibliography path.')
+        return None
+
+    # Normalized text of every <p> once, for substring probes.
+    paragraphs = [(p, _norm_probe(p.get_text(' ', strip=True))) for p in soup.find_all('p')]
+
+    bibliography_map = {}
+    references_data = []
+    used_ids = set()
+    skipped_unanchored = 0
+
+    for ref in refs:
+        # Keys: the raw citation string through the SAME key generator the linker's citations use,
+        # plus the structured (first_author, year) key GROBID gives us directly.
+        keys = list(generate_ref_keys(ref['raw'])) if ref['raw'] else []
+        if ref['first_author'] and ref['year']:
+            structured = normalize_unicode_name(ref['first_author']).lower().replace(' ', '') + ref['year']
+            if structured not in keys:
+                keys.insert(0, structured)
+        if not keys:
+            continue
+
+        # Locate the entry's paragraph: probe with the raw string's head, else author+title head.
+        probe = _norm_probe((ref['raw'] or '')[:60]) or _norm_probe(ref['first_author'] + ref['title'])[:40]
+        target_p = None
+        if len(probe) >= 12:                                  # too-short probes match everywhere
+            for p, ptext in paragraphs:
+                if probe in ptext:
+                    target_p = p
+                    break
+        if target_p is None:
+            skipped_unanchored += 1
+            continue
+
+        entry_id = keys[0]
+        suffix = 0
+        while entry_id in used_ids:                            # same-author-year collision → a/b/c…
+            suffix += 1
+            entry_id = keys[0] + chr(ord('a') + suffix - 1)
+        used_ids.add(entry_id)
+
+        for key in keys:
+            bibliography_map.setdefault(key, entry_id)
+        anchor = soup.new_tag('a', attrs={'class': 'bib-entry', 'id': entry_id})
+        target_p.insert(0, anchor)
+        references_data.append({'referenceId': entry_id, 'content': str(target_p)})
+
+    if len(references_data) < max(3, min_entries):
+        print(f'  ⚠️ GROBID anchored only {len(references_data)} entr(y/ies) in the DOM '
+              f'(needed >={max(3, min_entries)}) — regex path.')
+        return None
+
+    print(f'📚 GROBID bibliography: {len(refs)} segmented, {len(references_data)} anchored '
+          f'({skipped_unanchored} not locatable in DOM, skipped), map has {len(bibliography_map)} keys')
+    _record_bibliography_assessment(references_data, bibliography_map, True, 0, 0, skipped_unanchored,
+                                    method='grobid')
+    return bibliography_map, references_data
 
 
 def extract_bibliography(soup):

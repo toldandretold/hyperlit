@@ -195,6 +195,18 @@ def main():
         if response_dict.get("_footnote_renumber_boundaries"):
             footnote_meta = classify_footnotes(response_dict)
 
+    # Revert the HALF-APPLIED segment renumbering (offsets hit [^N] + line-start defs but
+    # never inline bracket refs or plain "N Text" defs — mismatched pairs never license, and
+    # a ref links to the WRONG chapter's same-numbered note). page_bottom ONLY: its assembler
+    # renumbers each page's pairs together, so restoring the original per-chapter numbering
+    # is safe there and only there. See ocrFetch.revert_partial_renumber.
+    if footnote_meta['classification'] == 'page_bottom':
+        _reverted = revert_partial_renumber(response_dict)
+        if _reverted:
+            print(f"Reverted half-applied footnote renumbering on {_reverted} page(s) "
+                  f"(page-local print numbering restored; renumber_page_footnotes owns uniqueness)")
+            footnote_meta = classify_footnotes(response_dict)
+
     # Detect multi-paper segment boundaries (anthology PDFs)
     segment_boundaries = detect_segment_boundaries(response_dict, footnote_meta)
     if segment_boundaries:

@@ -142,6 +142,15 @@ def convert_bare_caret_footnotes(text):
         return f'\x00CARETMATH{len(spans) - 1}\x00'
 
     masked = _MATH_SPAN_RE.sub(_mask, text)
+    # caret-PREFIXED bracket superscript — two more Mistral superscript renderings (3f202e8f):
+    # wrapped "^[64]^" (refs "Kircz^[64]^", defs "^[60]^ Electronic Privacy…", pp≈170-180) and
+    # open "^[87]" with no closing caret (defs "^[87] Sullivan 2000.", p130). Without this the
+    # inner [N] still converts+renumbers but the caret survives, leaving literal "^[^295]^"
+    # text: the def line starts with '^' so it is never collected as a definition, and the ref
+    # never links. Unwrap to [N] and let the bracket rules downstream decide inline-ref vs
+    # line-start definition. Digits-only inside the brackets — pandoc's textual "^[a note]"
+    # inline-footnote form can never match. The \[\^? also unwraps a half-converted "^[^64]^".
+    masked = re.sub(r'\^(\[\^?\d{1,3}\])\^?', r'\1', masked)
     # inline markers (preceded by a word/punct)
     masked = _BARE_CARET_FN_RE.sub(lambda m: f'[^{m.group(1)}]', masked)
     # line-start definition form "^24 Text"
@@ -396,6 +405,15 @@ def renumber_page_footnotes(page_md, global_counter):
         m = re.match(r'^\[\^(\d{1,3})\]\.?\s+(\S.+)', stripped)
         if m:
             return int(m.group(1)), m.group(1), m.group(2)
+        # Bracket-form def: "[17] Mackenzie Owen 2002." — Mistral renders some page-bottom notes
+        # with the number in square brackets. convert_inline_footnote_markers converts the INLINE
+        # [17] refs but leaves line-start brackets, so without this the body refs get renumbered
+        # while their defs stay literal "[17] …" paragraphs stranded in the body (3f202e8f p20:
+        # the [^N] markers linked to nothing and the defs rendered as in-text <p> nodes). The
+        # ascending-run + ref-overlap gate below still protects a numbered [N] bibliography list.
+        m = re.match(r'^\[(\d{1,3})\]\.?\s+(\S.+)', stripped)
+        if m:
+            return int(m.group(1)), m.group(1), m.group(2)
         m = re.match(r'^(\d{1,3})\.?\s+(\S.+)', stripped)
         if not m:
             return None
@@ -430,6 +448,36 @@ def renumber_page_footnotes(page_md, global_counter):
     # (no matching footnote refs) from being mistaken for definitions.
     nums = [b[1] for b in block]
     ascending = len(nums) >= 2 and all(nums[k] < nums[k + 1] for k in range(len(nums) - 1))
+
+    # BARE-marker recovery: on a messy page the OCR drops the superscript STYLE entirely and the
+    # marker survives as a plain trailing number — "…seventeenth century'. 11" (3f202e8f p17,
+    # where the page had defs 9/10/11 but ZERO detectable refs, so the block failed the licensing
+    # test below and every def rendered as an in-text paragraph). A bare number at a LINE END,
+    # directly after sentence-closing punctuation, that equals one of the trailing block's numbers
+    # is that note's marker: convert it to [^N]. Gated hard — the number must be in the ascending
+    # def block AND not already a converted ref, so years/counts in running prose never convert.
+    if ascending:
+        first_def_line = block[0][0]
+        for li in range(first_def_line):
+            m = re.search(r"[.!?]['’”\"]?\s+(\d{1,3})\s*$", lines[li])
+            if m and int(m.group(1)) in nums and int(m.group(1)) not in ref_nums:
+                lines[li] = lines[li][:m.start(1)] + f'[^{m.group(1)}]'
+                ref_nums.add(int(m.group(1)))
+
+    # CONSTANT-OFFSET rekey: the fetch-time chunk renumberer (renumber_chunk_footnotes) shifts
+    # [^N] forms and LINE-START [N] defs by the segment offset but NOT inline [N] refs — so a
+    # cached response can carry defs "[241] Thompson…/[242] Shapin…" whose in-text markers still
+    # read [65]/[66] (3f202e8f p176; p92 and p246 same, offsets 176/309). The block then shares
+    # no numbers with the page's refs and every def strands in the body. When the ascending
+    # block aligns with the page's HIGHEST refs at one constant offset (>=10 — small diffs are
+    # OCR misreads, not segment offsets), rekey the defs back to the ref numbers.
+    if ascending and not any(n in ref_nums for n in nums) and len(ref_nums) >= len(nums):
+        tail = sorted(ref_nums)[-len(nums):]
+        diffs = {n - r for n, r in zip(nums, tail)}
+        if len(diffs) == 1 and next(iter(diffs)) >= 10:
+            block = [(idx, r, str(r), rest) for (idx, _n, _s, rest), r in zip(block, tail)]
+            nums = tail
+
     convert_all = ascending and any(n in ref_nums for n in nums)
 
     if convert_all:
@@ -755,6 +803,7 @@ class AssemblyContext:
         self.page_number_offset = None
         self.md_parts = []
         self.seen_sections = set()
+        self.recent_opening_headings = []   # last 2 content pages' opening headings (leak dedupe)
         self.global_fn_counter = 1          # for page_bottom renumbering
         self.fn_defs_parts = []             # collected footnote definitions for page_bottom
         self.deferred_defs_parts = []       # defs deferred to doc end: inline splits + footer recoveries (Default path)

@@ -112,6 +112,8 @@ max overlap, current topology (numprocs=1 everywhere)   ~745 MB
 
 Raising any `numprocs` re-runs this math. `numprocs=2` on imports adds another 212 MB *at peak*, pushing worst case to the edge of physical RAM — and past it if the baseline sits at the high end. Falling into swap means every import crawls; OOM means the kernel kills PHP-FPM and *everyone* gets Cloudflare 502s. That's the whole "more concurrency requires more RAM" rule: the topology change was free because it only reorganised existing workers; **capacity** (N simultaneous users *per feature*) is the thing you buy with hardware.
 
+**Adding a resident service (GROBID, FlareSolverr, …)?** Its RSS joins this budget exactly like a worker class — but resident JVMs never give memory back, so they raise the BASELINE, not the overlap. `deploy/grobid.md` walks the math for GROBID specifically (verdict: ~0.5–1 GB resident does NOT fit this box; resize first, or host it on a side droplet — the app falls back to regex either way).
+
 Order of operations when multi-user import demand is real:
 1. Resize the droplet (4 GB roughly doubles the job budget).
 2. THEN `numprocs=2` on `hyperlit-worker` (+212 MB worst case).
