@@ -201,9 +201,22 @@ def convert_inline_footnote_markers(md, strip_italic_brackets=False):
     # sequence-validate, and wrapping these poisoned the global renumber (whole TOCs became [^1..N]).
     # "#" in the follow class: a marker ending the last sentence BEFORE a heading ('\u2026occupation."75
     # \n\n## B. Survey Methods') is still a marker \u2014 the next block starting with # must not veto it.
+    # A straight quote is the SAME glyph open or closed, so it counts as a closer ONLY in a
+    # closing context: the char before it must be a letter or sentence punctuation. A space /
+    # paren / digit before it marks an OPENING quote \u2014 'Peer. "10 Things for Curating\u2026' is a
+    # TITLE number, not a marker (da18ab4f grew a footnote out of it). \u201c (an unambiguous
+    # OPENING curly quote) is out of the closer class entirely for the same reason.
+    def _bare_after_punct(m, _md=md):
+        pos = m.start(1)
+        closer = _md[pos - 1]
+        if closer in ('"', "'"):
+            before = _md[pos - 2] if pos >= 2 else ''
+            if not (before.isalpha() or before in '.,;:!?'):
+                return m.group(0)
+        return f'[^{m.group(1)}]'
     md = re.sub(
-        r'(?<!\d\.)(?<![A-Z]\.)(?<!\.\.)(?<!\u2026)(?<=[.!?"\u201d\u201c)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(#])',
-        r'[^\1]',
+        r'(?<!\d\.)(?<![A-Z]\.)(?<!\.\.)(?<!\u2026)(?<=[.!?"\u201d)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(#])',
+        _bare_after_punct,
         md,
         flags=re.DOTALL,
     )
