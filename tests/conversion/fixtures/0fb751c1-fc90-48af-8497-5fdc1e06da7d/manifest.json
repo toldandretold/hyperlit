@@ -11,7 +11,7 @@
         "citations_linked": 0,
         "citations_total": 30,
         "footnotes_count": 39,
-        "audit_gaps": 14,
+        "audit_gaps": 10,
         "max_unmatched_defs": 15,
         "max_unmatched_defs_note": "in-text markers dropped by OCR; the numbered reference/endnote list is complete, so the defs survive without a body marker. Numbered footnote markers cited in order -> a trailing numbered list = document endnotes (footnotes), NOT wackSTEM citations.",
         "citations_note": "these papers ALSO carry an author-year citation layer ((Author, year) -> a small reference list) alongside the numeric footnotes; 0 link because the OCR'd body author-year forms don't cleanly match the sparse extracted refs — separate from the footnote fix."

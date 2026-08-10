@@ -4,13 +4,14 @@
     "license": "is_oa=true oa_status=diamond work_license=cc-by — license cc-by -> committable",
     "book_id": "85542c5e-4642-4ff6-a378-6a15607e5a54",
     "citation_style": "author-year-bracket",
-    "footnote_strategy": "no_footnotes",
+    "footnote_strategy": "sequential",
     "pipeline": "full",
     "expected": {
         "references_count": 3,
         "citations_linked": 1,
         "citations_total": 94,
-        "footnotes_count": 0,
-        "audit_gaps": 0
+        "footnotes_count": 90,
+        "audit_gaps": 33,
+        "max_unmatched_defs": 10
     }
 }

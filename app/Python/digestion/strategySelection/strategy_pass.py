@@ -20,8 +20,8 @@ class SelectFootnoteStrategy(DocPass):
              'links — a missing link beats a confident-wrong one.')
 
     def apply(self, ctx):
-        if ctx.is_stem:
-            return
+        if ctx.is_stem and not getattr(ctx, 'stem_caret_footnotes', False):
+            return   # STEM hybrid keeps the footnote passes ON for its real [^N] footnotes
         soup = ctx.soup
         book_id = ctx.book_id
         output_dir = ctx.output_dir

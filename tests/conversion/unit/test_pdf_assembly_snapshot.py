@@ -47,6 +47,15 @@ _SYNTHETIC = {
         _page("Body four uses [25] alongside [50] in text."),
         _page("Body five mentions [30] and finally [50] here."),
     ]},
+    # document_endnotes lost its live representative when 128ad69a (its only scanned fixture)
+    # reclassified — correctly — as wackSTEM (genuine recurring [N] citations). Strictly-ordered
+    # superscript markers + one trailing def page is the class shape (short-doc branch).
+    'synthetic:document_endnotes': {"pages": [
+        _page("Body opens with a claim¹ developed at length in this paragraph of prose."),
+        _page("The argument continues² across this page with further detail³ in text."),
+        _page("A concluding page raises one final point⁴ before the notes."),
+        _page("1. First endnote text here.\n2. Second endnote text.\n3. Third note text.\n4. Fourth note text."),
+    ]},
 }
 
 

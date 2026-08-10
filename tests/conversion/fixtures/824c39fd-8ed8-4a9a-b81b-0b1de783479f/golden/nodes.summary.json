@@ -1,0 +1,44 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [
+        {
+          "id": "FN0001",
+          "marker": "1"
+        }
+      ],
+      "i": 22,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0002",
+          "marker": "2"
+        }
+      ],
+      "i": 23,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 138,
+      "references": [
+        "europe2016"
+      ],
+      "type": "h1"
+    }
+  ],
+  "node_count": 206,
+  "type_histogram": {
+    "a": 2,
+    "h1": 12,
+    "h2": 7,
+    "img": 45,
+    "p": 135,
+    "table": 4,
+    "ul": 1
+  }
+}

@@ -32,6 +32,13 @@ class LoadDocument(DocPass):
                 ctx.segment_boundaries = footnote_meta.get('segment_boundaries', []) or []
         if ctx.is_stem:
             print("📐 STEM bibliography mode detected — using wackSTEM marker conversion")
+            # HYBRID paper (MDPI shape): superscript FOOTNOTES alongside the [N] citations.
+            # The frontend normalises those to "[^N]:" defs (79c3d8e4: "en masse^{2}." + its
+            # Notes entry). The stem branch stays terminal for CITATIONS, but these footnotes
+            # still need the standard footnote passes — flag them so those gates open.
+            ctx.stem_caret_footnotes = bool(re.search(r'\[\^\d+\]\s*:', str(ctx.soup)))
+            if ctx.stem_caret_footnotes:
+                print("📐 STEM hybrid: caret-form footnote defs present — footnote passes stay ON")
 
 
 class SafariRtlFix(DocPass):

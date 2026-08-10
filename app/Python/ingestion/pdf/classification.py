@@ -71,11 +71,15 @@ class WackStemClassifier(PdfClassifier):
         # numbers run strictly in order once each (42be715c) is sequential ENDNOTES, not a
         # citation bibliography, however dense its bracket groups look.
         dense = sig['max_ref_number'] > 50 or sig.get('citation_group_ratio', 0.0) >= 0.15
+        # reset_frequency is resets / pages-with-refs — on a SHORT paper the denominator makes
+        # it noisy (79c3d8e4: 2 resets over 7 ref-pages = 0.29, over the gate, though 2 descents
+        # is just a re-citation pair). A small ABSOLUTE reset count excuses the ratio the same
+        # way density does; chapter-restart books reset once per chapter and clear 2 quickly.
         return (sig['ref_number_max_page_spread'] >= 3
                 and sig['co_location_ratio'] < 0.2
                 and sig['notes_page_count'] == 0
                 and (sig['reset_count'] <= 3 or dense)
-                and (sig['reset_frequency'] < 0.2 or dense))
+                and (sig['reset_frequency'] < 0.2 or dense or sig['reset_count'] <= 2))
 
     def confidence(self, sig):
         c = 0.0
@@ -222,10 +226,21 @@ class DocumentEndnotesClassifier(PdfClassifier):
         # 6-page article reads 0.17 and misses the <0.1 gate on arithmetic alone. Small ABSOLUTE
         # def-page count (1–2), zero co-location, and several ref-bearing pages is the same
         # trailing-endnotes shape (42be715c / 0fb751c1: markers strictly in order, list at the end).
-        return (sig['co_location_ratio'] < 0.15
+        if (sig['co_location_ratio'] < 0.15
                 and sig['pages_with_both'] == 0
                 and sig['pages_with_defs'] in (1, 2)
-                and sig['pages_with_refs'] >= 2)
+                and sig['pages_with_refs'] >= 2):
+            return True
+        # TRAILING-BLOCK branch: a LONG endnotes section (f1aafdde: 7 def pages on a 31-page
+        # report, refs 1..57 strictly ascending then defs 1..57 at the back) blows both the
+        # def-clustering arithmetic AND the 1-2-page count — but every def page sitting AFTER
+        # the last in-text ref page IS the document-endnotes shape, however long the section.
+        # Interleaved layouts (page-bottom, chapter endnotes) score low on the ratio.
+        return (sig['co_location_ratio'] < 0.15
+                and sig['pages_with_both'] == 0
+                and sig['pages_with_defs'] >= 3
+                and sig['pages_with_refs'] >= 3
+                and sig.get('trailing_def_page_ratio', 0.0) >= 0.9)
 
     def confidence(self, sig):
         c = 0.0
@@ -386,6 +401,16 @@ def classify_footnotes(response_dict):
     notes_page_indices = [i for i, p in enumerate(page_data) if p["has_notes_header"]]
     notes_page_count = len(notes_page_indices)
 
+    # Positional endnote signal: what fraction of def-bearing pages sit AFTER the last
+    # ref-bearing page? A back-of-book endnotes section scores 1.0 however many pages it
+    # spans; page-bottom and chapter-endnote layouts interleave defs with refs and score low.
+    last_ref_idx = max((i for i, p in enumerate(page_data) if p["refs"]), default=-1)
+    def_page_idxs = [i for i, p in enumerate(page_data) if p["defs"]]
+    trailing_def_page_ratio = (
+        sum(1 for i in def_page_idxs if i > last_ref_idx) / len(def_page_idxs)
+        if def_page_idxs else 0.0
+    )
+
     # Page number detection via trailing numbers
     trailing_offsets = []
     for i, p in enumerate(page_data):
@@ -449,6 +474,7 @@ def classify_footnotes(response_dict):
         "notes_page_indices": notes_page_indices,
         "trailing_page_number_offset": trailing_page_number_offset,
         "trailing_page_number_consistency": round(trailing_page_number_consistency, 4),
+        "trailing_def_page_ratio": round(trailing_def_page_ratio, 4),
         "ref_number_max_page_spread": ref_number_max_page_spread,
         "numbers_on_multiple_pages": numbers_on_multiple_pages,
         "max_ref_number": max_ref_number,
@@ -473,6 +499,7 @@ def classify_footnotes(response_dict):
         "max_ref_number": max_ref_number,
         "trailing_page_number_consistency": trailing_page_number_consistency,
         "citation_group_ratio": citation_group_ratio,
+        "trailing_def_page_ratio": trailing_def_page_ratio,
     }
     chosen_classifier = _UNKNOWN_CLASSIFIER
     for _clf in PDF_CLASSIFIERS:

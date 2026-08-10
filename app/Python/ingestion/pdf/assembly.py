@@ -412,6 +412,41 @@ class WackStemAssembler(FootnoteAssembler):
         # ("piracy⁷", "2011.¹¹,¹²"). Normalise the superscript runs to bracket form first,
         # or only the bracket half links (42be715c: 12 of 26 markers linked).
         combined = convert_superscript_citations_to_brackets(combined)
+        # A naked-brace superscript ("en masse^{2}." — 79c3d8e4) is a real FOOTNOTE marker, not
+        # a citation: MDPI papers carry BOTH universes (superscript notes + bracket citations).
+        # Convert to [^N] so the footnote system owns it — wrap_stem_citations targets [N], so
+        # the caret form can never be mistaken for a citation.
+        combined = re.sub(r'\^\{(\d{1,3})\}', r'[^\1]', combined)
+        # Its definition lives in the NOTES block hiding in the numbered-entry stream (the
+        # "Notes" heading is dropped by OCR). A numbered line whose number matches an in-text
+        # [^N] marker becomes that footnote's definition when it sits in a detected notes run
+        # (stem_notes_block_lines) OR its content is not author-shaped — "2. i.e. if enough
+        # papers…" opens lowercase, which a bibliography entry never does. The run detection
+        # alone is not enough here: OCR ALSO dropped refs 1-4, so notes (1,2) + refs (5..34)
+        # read as one ascending run with no restart. fn_refs only ever contains brace-derived
+        # markers (citations are [N] bracket form), so bibliography numbers stay untouched.
+        fn_refs = {m.group(1) for m in re.finditer(r'(?<!\n)\[\^(\d+)\]', combined)}
+        if fn_refs:
+            lines = combined.split('\n')
+            notes_lines = stem_notes_block_lines(lines)
+            for i, ln in enumerate(lines):
+                m = re.match(r'^(\d{1,3})[.)]\s+(.+)$', ln)
+                if not m or m.group(1) not in fn_refs:
+                    continue
+                body = m.group(2)
+                authorish = re.match(r'^[A-ZÀ-ÖØ-Þ]', body) and not body.lower().startswith('http')
+                if i in notes_lines or not authorish:
+                    lines[i] = f'[^{m.group(1)}]: {body}'
+            combined = '\n'.join(lines)
+        # A reference list Mistral emitted as DASH BULLETS ("- [4] K. Kiefer, …" — 128ad69a)
+        # or glued into one blob with " - [N] " seams: either way the brackets are NOT at line
+        # start, so wrap_stem_citations eats the bibliography as citations and
+        # wrap_stem_definitions finds nothing — every citation dangles. Normalise both to
+        # line-start entries; >=3 occurrences = a real list, a lone prose dash never qualifies.
+        if len(re.findall(r'(?m)^-\s+\[\d{1,3}\] ', combined)) >= 3:
+            combined = re.sub(r'(?m)^-\s+(\[\d{1,3}\] )', r'\1', combined)
+        if len(re.findall(r' - \[\d{1,3}\] ', combined)) >= 3:
+            combined = re.sub(r' - (\[\d{1,3}\] )', r'\n\1', combined)
         combined = wrap_stem_citations(combined)
         combined = wrap_stem_definitions(combined)
         return combined
@@ -462,15 +497,34 @@ def _convert_numbered_endnote_defs(combined):
     heading = None
     for m in _ENDNOTE_LIST_HEADING_RE.finditer(combined):
         heading = m                                   # LAST such heading (front-matter TOCs repeat them)
-    if not heading:
-        return combined
-    head, tail = combined[:heading.end()], combined[heading.end():]
+    if heading:
+        head, tail = combined[:heading.end()], combined[heading.end():]
+    else:
+        # OCR routinely DROPS the Notes/References heading (f1aafdde: author bios flow straight
+        # into "1. Aileen Fyfe, …"). The document-endnotes class itself promises a trailing def
+        # list, so anchor on the LAST line-start "1." entry instead — the cited-by-half gate
+        # below still decides whether the run really is the def list, so a stray body list
+        # whose numbers the text never cites stays untouched.
+        anchor = None
+        for m in re.finditer(r'(?m)^1\. \S', combined):
+            anchor = m
+        if anchor is None:
+            return combined
+        head, tail = combined[:anchor.start()], combined[anchor.start():]
     lines = tail.split('\n')
     expected, converted_nums = 1, set()
     for i, ln in enumerate(lines):
         m = re.match(r'^(\d{1,3})\.\s+(\S.*)', ln)
-        if not m or int(m.group(1)) != expected:
+        if not m:
             continue                                  # page footers etc. interleave — skip, don't abort
+        n = int(m.group(1))
+        if n != expected:
+            # SMALL-GAP resync: an OCR-dropped entry must not strand the rest of the list —
+            # f1aafdde lost a handful of numbers mid-list and the strict counter left ~20 defs
+            # unconverted. A jump of <= 3 keeps the ascent; anything larger is a stray number.
+            if not (expected < n <= expected + 3):
+                continue
+            expected = n
         # The per-page pass may have turned a number INSIDE the entry (a DOI tail
         # "etnografica.840", a year, a page range) into a bogus [^M] marker. Reference-entry text is
         # a DEFINITION, never a marker site — unwrap any such markers back to plain digits.

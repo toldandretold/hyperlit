@@ -143,6 +143,27 @@ def _find_reference_paragraphs(soup):
                   f"unstructured (looks like body prose, not a heading-less bibliography)")
             reference_p_tags = []
 
+    # ORDINAL-density gate: entries with a plain "N." / "N)" enumerator are a real numbered
+    # bibliography only when their numbers form a DENSE ascending run (1..16 in 5f52d575,
+    # 24..33 in 79c3d8e4 — density 1.0). Scattered ordinals (42, 64, 68, 81 in 85542c5e —
+    # density 0.1) are numbered ENDNOTES whose openers happen to look author-shaped; keeping
+    # them mints phantom references AND steals their text from the footnote system. Applies
+    # only to the ordinal-prefixed subset; unnumbered entries are untouched.
+    ordinals = []
+    for p in reference_p_tags:
+        m = re.match(r'^\s*(\d{1,4})[.)]\s', p.get_text(" ", strip=True))
+        if m:
+            ordinals.append((p, int(m.group(1))))
+    if len(ordinals) >= 3:
+        nums = sorted(n for _p, n in ordinals)
+        span = nums[-1] - nums[0] + 1
+        if span > 0 and len(set(nums)) / span < 0.5:
+            dropped = {id(p) for p, _n in ordinals}
+            print(f"  🚫 Dropping {len(ordinals)} ordinal-numbered paragraph(s) — numbers "
+                  f"{nums[0]}..{nums[-1]} are too sparse for a numbered bibliography "
+                  f"(density {len(set(nums)) / span:.2f}; these are endnotes, not references)")
+            reference_p_tags = [p for p in reference_p_tags if id(p) not in dropped]
+
     print(f"\U0001F4DA Found {len(reference_p_tags)} reference paragraphs")
     return reference_p_tags, used_reverse_scan
 

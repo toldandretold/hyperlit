@@ -15,8 +15,8 @@ class TraditionalFootnotes(DocPass):
     description = '[standard] Unwrap a <section class="footnotes"> container into individually-processed notes.'
 
     def apply(self, ctx):
-        if ctx.is_stem:
-            return
+        if ctx.is_stem and not getattr(ctx, 'stem_caret_footnotes', False):
+            return   # STEM hybrid keeps the footnote passes ON for its real [^N] footnotes
         soup = ctx.soup
         # Process traditional footnotes container first (skip if pre-processed)
         fn_container = soup.find('section', class_='footnotes')
@@ -73,8 +73,8 @@ class SectionedFootnotes(DocPass):
     description = '[standard] Extract per-section footnotes with multi-paragraph continuation support.'
 
     def apply(self, ctx):
-        if ctx.is_stem:
-            return
+        if ctx.is_stem and not getattr(ctx, 'stem_caret_footnotes', False):
+            return   # STEM hybrid keeps the footnote passes ON for its real [^N] footnotes
         soup = ctx.soup
         all_elements = ctx.all_elements
         # Process sectioned footnotes with multi-paragraph support
@@ -161,8 +161,8 @@ class FlattenFootnoteMap(DocPass):
     description = '[standard] Flatten the per-section footnote maps into one keyed map + count totals.'
 
     def apply(self, ctx):
-        if ctx.is_stem:
-            return
+        if ctx.is_stem and not getattr(ctx, 'stem_caret_footnotes', False):
+            return   # STEM hybrid keeps the footnote passes ON for its real [^N] footnotes
         # Create flattened map for backward compatibility
         footnote_map = {}
         for section_id, section_footnotes in ctx.sectioned_footnote_map.items():

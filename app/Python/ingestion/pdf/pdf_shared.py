@@ -151,6 +151,10 @@ def convert_bare_caret_footnotes(text):
     # line-start definition. Digits-only inside the brackets — pandoc's textual "^[a note]"
     # inline-footnote form can never match. The \[\^? also unwraps a half-converted "^[^64]^".
     masked = re.sub(r'\^(\[\^?\d{1,3}\])\^?', r'\1', masked)
+    # brace form "^{2}" without $-delimiters (79c3d8e4: "en masse^{2}.") — a naked LaTeX-style
+    # superscript Mistral emits outside math mode. Genuine exponents live inside $…$ and are
+    # masked above, so a surviving ^{N} is a footnote marker.
+    masked = re.sub(r'\^\{(\d{1,3})\}', r'[^\1]', masked)
     # inline markers (preceded by a word/punct)
     masked = _BARE_CARET_FN_RE.sub(lambda m: f'[^{m.group(1)}]', masked)
     # line-start definition form "^24 Text"
@@ -699,12 +703,42 @@ def wrap_stem_citations(text):
     return text
 
 
+def stem_notes_block_lines(lines):
+    """Line indexes of a NOTES block masquerading inside the numbered-entry stream: a SHORT
+    (<= 3 entries) ascending run of line-start "N." / "[N]" entries immediately followed by a
+    LONGER run that restarts at a lower number. MDPI papers put real footnotes under a "Notes"
+    heading right before "References" and Mistral drops BOTH headings (79c3d8e4: "1. unsub.org /
+    2. i.e.…" directly above refs "1. Eglen…34."), so without this the notes wrap as
+    stemref_1/stemref_2 and steal the [1]/[2] citations from the bibliography's real entries."""
+    entries = []                          # (line_idx, num)
+    for i, ln in enumerate(lines):
+        m = re.match(r'^(\d{1,3})\. .', ln) or re.match(r'^\[(\d{1,3})\] .', ln)
+        if m and int(m.group(1)) <= 500:
+            entries.append((i, int(m.group(1))))
+    runs, cur = [], []
+    for e in entries:
+        if cur and e[1] <= cur[-1][1]:
+            runs.append(cur)
+            cur = []
+        cur.append(e)
+    if cur:
+        runs.append(cur)
+    skip = set()
+    for k, run in enumerate(runs[:-1]):
+        if len(run) <= 3 and len(runs[k + 1]) > len(run):
+            skip.update(i for i, _n in run)
+    return skip
+
+
 def wrap_stem_definitions(text):
     """Wrap bibliography definitions at start of line with <a class="wackSTEMdef"> tags.
 
     Handles both formats:
       N. Author text...   → <a class="wackSTEMdef" id="stemref_N">N. Author text...</a>
       [N] Author text...  → <a class="wackSTEMdef" id="stemref_N">[N] Author text...</a>
+
+    A short notes block hiding in the entry stream (see stem_notes_block_lines) is left
+    unwrapped — wrapping it would mint duplicate stemref ids that steal the citations.
 
     Plus, WITHIN the references section only: heading-shaped entries. Mistral
     sometimes reads a reference's bold title line as a heading and emits
@@ -715,22 +749,15 @@ def wrap_stem_definitions(text):
     structure). Scoped to after the References/Bibliography heading so a
     genuinely numbered SECTION heading (`# 3. Methods`) is never touched.
     """
-    def replace_numbered(m):
-        num = m.group(1)
-        if int(num) > 500:
-            return m.group(0)
-        return f'<a class="wackSTEMdef" id="stemref_{num}">{m.group(0)}</a>'
-
-    def replace_bracketed(m):
-        num = m.group(1)
-        if int(num) > 500:
-            return m.group(0)
-        return f'<a class="wackSTEMdef" id="stemref_{num}">{m.group(0)}</a>'
-
-    # Format 1: "N. text" at start of line (N <= 500)
-    text = re.sub(r'^(\d{1,3})\. (.+)', replace_numbered, text, flags=re.MULTILINE)
-    # Format 2: "[N] text" at start of line
-    text = re.sub(r'^\[(\d{1,3})\] (.+)', replace_bracketed, text, flags=re.MULTILINE)
+    lines = text.split('\n')
+    notes_lines = stem_notes_block_lines(lines)
+    for i, ln in enumerate(lines):
+        if i in notes_lines:
+            continue
+        m = re.match(r'^(\d{1,3})\. (.+)', ln) or re.match(r'^\[(\d{1,3})\] (.+)', ln)
+        if m and int(m.group(1)) <= 500:
+            lines[i] = f'<a class="wackSTEMdef" id="stemref_{m.group(1)}">{ln}</a>'
+    text = '\n'.join(lines)
 
     # Format 3: heading-shaped defs, references section only.
     refs_heading = None

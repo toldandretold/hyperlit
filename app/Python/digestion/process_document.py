@@ -47,6 +47,7 @@ class DocContext:
         self.soup = None
         # STEM / footnote-meta signals
         self.is_stem = False
+        self.stem_caret_footnotes = False   # STEM hybrid: real [^N] footnotes alongside [N] citations
         self.footnote_warnings = []
         self.segment_boundaries = []
         # PASS 1 outputs

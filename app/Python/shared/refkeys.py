@@ -111,6 +111,24 @@ def generate_ref_keys(text, context_text=""):
             if group_surnames and set(group_surnames) != set(surnames):
                 _add(group_surnames[0] + year)
                 _add("".join(sorted(group_surnames)) + year)
+        else:
+            # Lowercase-branded author ("ephemera collective. 2021…") — no capitalised token to
+            # key on, so both the entry and its "(ephemera collective 2021)" citation produced
+            # ZERO keys and could never meet. Key on the first lowercase word instead; the same
+            # fallback runs on both sides, so they generate the same key. Gated to a NAME-shaped
+            # author_source (<= 4 word tokens): a prose sentence that merely contains a year used
+            # to die here as unkeyable, and rescuing it would mint junk entries ("A journal's
+            # publication history…" keyed journal1997 — 93d34a74 grew 2 phantom references).
+            words = re.findall(r"(?<![\w'’-])[\wà-ÿÀ-ÿ][\w'’-]*", author_source)
+            words = [w for w in words if not w.isdigit()]
+            if len(words) <= 4:
+                lower_words = [normalize_unicode_name(w).lower()
+                               for w in words
+                               if len(w) > 2 and w.lower() not in
+                               {'and', 'the', 'for', 'in', 'an', 'on', 'as',
+                                'ed', 'of', 'see', 'also', 'et', 'al'}]
+                if lower_words:
+                    _add(lower_words[0] + year)
 
     acronyms = re.findall(r'\b[A-Z]{2,}\b', author_source)
     for acronym in acronyms: _add(acronym.lower() + year)
@@ -138,6 +156,20 @@ def is_likely_reference(p_tag):
     # 1. Numbered format: [1] Author... (year)
     if re.match(r'^\s*\[\d+\]', text):
         return True
+
+    # 1b. Ordinal-numbered format: "1. Caso, R. (2019)…" / "12) Author…" — an ORDERED
+    # bibliography whose entries are author-date (5f52d575: every entry rejected, so its 8
+    # author-date citations had nothing to link against). The remainder after the enumerator
+    # must itself be reference-shaped (author-comma, or capitalised author with a year near the
+    # start) — a numbered prose list item ("3. In 2019 we surveyed…") fails both and stays out.
+    m = re.match(r'^\s*\d{1,4}[.)]\s+(.+)$', text, re.DOTALL)
+    if m:
+        rest = m.group(1)
+        if (re.match(r"^[A-ZÀ-ÖØ-Þ][a-zA-ZÀ-ÿßẞ'’-]+,\s", rest)
+                or re.match(r"^[A-ZÀ-ÖØ-Þ].{0,60}?\(\d{4}[a-z]?\)", rest, re.DOTALL)
+                # lowercase-branded author: "ephemera collective. 2021. Title…"
+                or re.match(r"^[a-zà-ÿ][\w'’-]*(?:\s+[\w'’-]+){0,3}[.,]\s+\(?(?:19|20)\d{2}[a-z]?\)?[.,]", rest)):
+            return True
 
     # 2. Bracketed year format: [2023] Author...
     if re.match(r'^\s*\[\d{4}\]', text):

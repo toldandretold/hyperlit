@@ -1,0 +1,110 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [],
+      "i": 6,
+      "references": [
+        "caso2019"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 7,
+      "references": [
+        "pia2020",
+        "herman2021",
+        "murrayrust2021"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 10,
+      "references": [
+        "pia2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 17,
+      "references": [
+        "collective2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 18,
+      "references": [
+        "farley2021"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 19,
+      "references": [
+        "pooley2022",
+        "collective2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 21,
+      "references": [
+        "murrayrust2021"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 24,
+      "references": [
+        "sundell2021"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 26,
+      "references": [
+        "ephemera2021"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 27,
+      "references": [
+        "batterbury2020",
+        "pells2022"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 29,
+      "references": [
+        "batterbury2017"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 41,
+      "references": [
+        "tuck2012"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 69,
+  "type_histogram": {
+    "h1": 5,
+    "h2": 6,
+    "p": 58
+  }
+}

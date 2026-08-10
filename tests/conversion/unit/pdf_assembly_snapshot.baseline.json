@@ -23,6 +23,33 @@
       "reset_count": 1,
       "reset_frequency": 0.25,
       "total_pages": 6,
+      "trailing_def_page_ratio": 1.0,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
+  "synthetic:document_endnotes": {
+    "classification": "document_endnotes",
+    "confidence": 0.7,
+    "md_len": 337,
+    "md_sha256": "238fcf8bc007ac73761ffc72aa46fee1e397bd29d88777bea3365e2472e169d8",
+    "segments": [],
+    "signals": {
+      "citation_group_ratio": 0.0,
+      "co_location_ratio": 0.0,
+      "def_clustering_ratio": 0.25,
+      "max_ref_number": 4,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 0,
+      "pages_with_both": 0,
+      "pages_with_defs": 1,
+      "pages_with_refs": 3,
+      "ref_number_max_page_spread": 1,
+      "reset_count": 0,
+      "reset_frequency": 0.0,
+      "total_pages": 4,
+      "trailing_def_page_ratio": 1.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -48,6 +75,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 5,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -75,6 +103,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 312,
+      "trailing_def_page_ratio": 1.0,
       "trailing_page_number_consistency": 1.0,
       "trailing_page_number_offset": -15
     }
@@ -102,6 +131,7 @@
       "reset_count": 15,
       "reset_frequency": 0.0617,
       "total_pages": 515,
+      "trailing_def_page_ratio": 0.9062,
       "trailing_page_number_consistency": 1.0,
       "trailing_page_number_offset": 484
     }
@@ -136,6 +166,7 @@
       "reset_count": 4,
       "reset_frequency": 0.0282,
       "total_pages": 280,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 1.0,
       "trailing_page_number_offset": 264
     }
@@ -164,15 +195,16 @@
       "reset_count": 162,
       "reset_frequency": 0.9701,
       "total_pages": 290,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
   },
   "tests/conversion/fixtures-local/pdf/author_year_bracket/128ad69a-b2a5-471e-84bd-2037e02b3791/ocr_response.json": {
-    "classification": "document_endnotes",
-    "confidence": 0.8,
-    "md_len": 34493,
-    "md_sha256": "2a8734964dbeab2cf21eb80715760109014cbb1d5de0d9c72dde777ed9eea664",
+    "classification": "wackSTEMbibliographyNotes",
+    "confidence": 0.7,
+    "md_len": 36782,
+    "md_sha256": "b421ca2b94e445b21c2cd7f8dc38ae96522f8d3b6e049b49a2af4d1b3e01cef8",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0806,
@@ -189,6 +221,7 @@
       "reset_count": 2,
       "reset_frequency": 0.4,
       "total_pages": 6,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -214,6 +247,7 @@
       "reset_count": 5,
       "reset_frequency": 0.5556,
       "total_pages": 14,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -239,6 +273,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 6,
+      "trailing_def_page_ratio": 1.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -264,6 +299,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 22,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -272,7 +308,7 @@
     "classification": "wackSTEMbibliographyNotes",
     "confidence": 0.7,
     "md_len": 149784,
-    "md_sha256": "b5bbf3e7d0dfd9505afa1869f953c3059314e7473acde515aff9af4116cdb9a8",
+    "md_sha256": "aa103f73b3df8f0b3ba2d235471ce81b1a1a9959ae2c0e2c0d94fd5b4481018b",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0397,
@@ -289,6 +325,7 @@
       "reset_count": 7,
       "reset_frequency": 0.2692,
       "total_pages": 39,
+      "trailing_def_page_ratio": 1.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -297,7 +334,7 @@
     "classification": "unknown",
     "confidence": 0.0,
     "md_len": 54717,
-    "md_sha256": "7d646b1fcb719066067c65aa17b265c812438066eb4223d17b43a83791588ffb",
+    "md_sha256": "5e6fff0a0d75c5f874d7450e70342ed1b65e28899ca2bb29f86cfa6004857a87",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.2857,
@@ -314,6 +351,7 @@
       "reset_count": 1,
       "reset_frequency": 0.25,
       "total_pages": 12,
+      "trailing_def_page_ratio": 0.6667,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -339,6 +377,7 @@
       "reset_count": 1,
       "reset_frequency": 0.1667,
       "total_pages": 8,
+      "trailing_def_page_ratio": 0.3333,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -364,6 +403,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 21,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -389,6 +429,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 61,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -414,6 +455,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 46,
+      "trailing_def_page_ratio": 0.3333,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -439,6 +481,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 24,
+      "trailing_def_page_ratio": 0.5,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -464,6 +507,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 16,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -489,6 +533,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 23,
+      "trailing_def_page_ratio": 0.7143,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -514,6 +559,7 @@
       "reset_count": 164,
       "reset_frequency": 0.9939,
       "total_pages": 276,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -539,6 +585,7 @@
       "reset_count": 105,
       "reset_frequency": 0.9813,
       "total_pages": 276,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -564,6 +611,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 25,
+      "trailing_def_page_ratio": 0.75,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -589,6 +637,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 6,
+      "trailing_def_page_ratio": 1.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -614,6 +663,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 46,
+      "trailing_def_page_ratio": 0.3333,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -639,6 +689,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 1,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -664,6 +715,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 1,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -689,6 +741,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 1,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -714,6 +767,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 3,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }
@@ -739,6 +793,7 @@
       "reset_count": 0,
       "reset_frequency": 0.0,
       "total_pages": 1,
+      "trailing_def_page_ratio": 0.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }

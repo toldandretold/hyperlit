@@ -1,0 +1,549 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [
+        {
+          "id": "FN0001",
+          "marker": "1"
+        }
+      ],
+      "i": 7,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0002",
+          "marker": "2"
+        },
+        {
+          "id": "FN0003",
+          "marker": "3"
+        },
+        {
+          "id": "FN0004",
+          "marker": "4"
+        }
+      ],
+      "i": 8,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0005",
+          "marker": "5"
+        },
+        {
+          "id": "FN0006",
+          "marker": "6"
+        },
+        {
+          "id": "FN0007",
+          "marker": "7"
+        },
+        {
+          "id": "FN0008",
+          "marker": "8"
+        }
+      ],
+      "i": 9,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0009",
+          "marker": "9"
+        },
+        {
+          "id": "FN0010",
+          "marker": "10"
+        },
+        {
+          "id": "FN0011",
+          "marker": "11"
+        },
+        {
+          "id": "FN0012",
+          "marker": "12"
+        }
+      ],
+      "i": 17,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0013",
+          "marker": "13"
+        },
+        {
+          "id": "FN0014",
+          "marker": "14"
+        },
+        {
+          "id": "FN0015",
+          "marker": "15"
+        }
+      ],
+      "i": 22,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0016",
+          "marker": "16"
+        },
+        {
+          "id": "FN0017",
+          "marker": "17"
+        }
+      ],
+      "i": 23,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0018",
+          "marker": "18"
+        },
+        {
+          "id": "FN0019",
+          "marker": "19"
+        },
+        {
+          "id": "FN0020",
+          "marker": "20"
+        },
+        {
+          "id": "FN0021",
+          "marker": "21"
+        }
+      ],
+      "i": 24,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0022",
+          "marker": "23"
+        },
+        {
+          "id": "FN0023",
+          "marker": "24"
+        },
+        {
+          "id": "FN0024",
+          "marker": "25"
+        },
+        {
+          "id": "FN0025",
+          "marker": "26"
+        }
+      ],
+      "i": 26,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0022",
+          "marker": "23"
+        },
+        {
+          "id": "FN0026",
+          "marker": "28"
+        },
+        {
+          "id": "FN0027",
+          "marker": "31"
+        }
+      ],
+      "i": 28,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0028",
+          "marker": "32"
+        },
+        {
+          "id": "FN0029",
+          "marker": "33"
+        },
+        {
+          "id": "FN0030",
+          "marker": "35"
+        }
+      ],
+      "i": 29,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0031",
+          "marker": "37"
+        },
+        {
+          "id": "FN0032",
+          "marker": "39"
+        }
+      ],
+      "i": 30,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0033",
+          "marker": "42"
+        },
+        {
+          "id": "FN0034",
+          "marker": "43"
+        },
+        {
+          "id": "FN0035",
+          "marker": "44"
+        }
+      ],
+      "i": 31,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0036",
+          "marker": "45"
+        },
+        {
+          "id": "FN0037",
+          "marker": "46"
+        },
+        {
+          "id": "FN0038",
+          "marker": "47"
+        }
+      ],
+      "i": 33,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0039",
+          "marker": "68"
+        },
+        {
+          "id": "FN0040",
+          "marker": "69"
+        },
+        {
+          "id": "FN0041",
+          "marker": "50"
+        },
+        {
+          "id": "FN0042",
+          "marker": "51"
+        },
+        {
+          "id": "FN0043",
+          "marker": "52"
+        },
+        {
+          "id": "FN0044",
+          "marker": "53"
+        }
+      ],
+      "i": 34,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0045",
+          "marker": "54"
+        },
+        {
+          "id": "FN0046",
+          "marker": "55"
+        }
+      ],
+      "i": 36,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0047",
+          "marker": "56"
+        },
+        {
+          "id": "FN0048",
+          "marker": "57"
+        },
+        {
+          "id": "FN0049",
+          "marker": "58"
+        }
+      ],
+      "i": 37,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0050",
+          "marker": "59"
+        }
+      ],
+      "i": 40,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0051",
+          "marker": "60"
+        }
+      ],
+      "i": 43,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0052",
+          "marker": "61"
+        },
+        {
+          "id": "FN0053",
+          "marker": "62"
+        },
+        {
+          "id": "FN0054",
+          "marker": "63"
+        },
+        {
+          "id": "FN0055",
+          "marker": "64"
+        },
+        {
+          "id": "FN0056",
+          "marker": "65"
+        },
+        {
+          "id": "FN0057",
+          "marker": "66"
+        }
+      ],
+      "i": 44,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0058",
+          "marker": "67"
+        },
+        {
+          "id": "FN0039",
+          "marker": "68"
+        },
+        {
+          "id": "FN0039",
+          "marker": "68"
+        },
+        {
+          "id": "FN0059",
+          "marker": "70"
+        }
+      ],
+      "i": 45,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0060",
+          "marker": "71"
+        },
+        {
+          "id": "FN0061",
+          "marker": "72"
+        }
+      ],
+      "i": 47,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0062",
+          "marker": "73"
+        },
+        {
+          "id": "FN0063",
+          "marker": "74"
+        },
+        {
+          "id": "FN0064",
+          "marker": "75"
+        },
+        {
+          "id": "FN0065",
+          "marker": "76"
+        },
+        {
+          "id": "FN0066",
+          "marker": "77"
+        }
+      ],
+      "i": 48,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0067",
+          "marker": "78"
+        },
+        {
+          "id": "FN0068",
+          "marker": "79"
+        }
+      ],
+      "i": 50,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0069",
+          "marker": "80"
+        },
+        {
+          "id": "FN0070",
+          "marker": "81"
+        },
+        {
+          "id": "FN0071",
+          "marker": "82"
+        },
+        {
+          "id": "FN0072",
+          "marker": "83"
+        },
+        {
+          "id": "FN0073",
+          "marker": "84"
+        }
+      ],
+      "i": 52,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0074",
+          "marker": "85"
+        },
+        {
+          "id": "FN0075",
+          "marker": "86"
+        }
+      ],
+      "i": 53,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0076",
+          "marker": "87"
+        }
+      ],
+      "i": 54,
+      "references": [],
+      "type": "ul"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0077",
+          "marker": "88"
+        },
+        {
+          "id": "FN0078",
+          "marker": "89"
+        },
+        {
+          "id": "FN0079",
+          "marker": "90"
+        }
+      ],
+      "i": 57,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0080",
+          "marker": "91"
+        }
+      ],
+      "i": 58,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 134,
+      "references": [
+        "january2019"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 170,
+  "type_histogram": {
+    "a": 3,
+    "h1": 9,
+    "h2": 7,
+    "img": 2,
+    "p": 147,
+    "ul": 2
+  }
+}
