@@ -127,8 +127,7 @@ export async function buildCitationContent(contentType: any, db: any = null) {
     // One heading for the whole popup — "References" pluralised for a range/multi cite; the
     // per-entry cards repeat everything else but a "Reference" title per entry read as clutter.
     let sections = '';
-    for (let i = 0; i < loaded.length; i++) {
-      const { refId, result } = loaded[i];
+    for (const [i, { refId, result }] of loaded.entries()) {
       const record: BibliographyRecord | null = result;
       const heading = i === 0 ? (loaded.length > 1 ? 'References' : 'Reference') : null;
       sections += await buildOneSection(database, lookupBook, refId, record, isOwner, heading);
