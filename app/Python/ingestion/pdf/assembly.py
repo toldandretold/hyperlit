@@ -306,8 +306,13 @@ def _recover_orphan_plain_defs(combined, footer_candidates=None):
         def _flush_run(r):
             if len(r) >= 2 and str(r[0][1] - 1) in defs and \
                     all(str(n) in still_orphan for _i, n, _t in r):
+                # MOVE the run to the recovered block at the document end, with the other defs —
+                # rewriting in place left "[^7]: Goldsmiths…" paragraphs scattered mid-body
+                # wherever the print page happened to put them (2e9728f6: affiliations 7-12 at
+                # the top of page 2 while 1-6 sat in the end block, visibly out of order).
                 for idx, n, rest in r:
-                    lines[idx] = f'[^{n}]: {rest}'
+                    lines[idx] = None
+                    recovered.append(f'[^{n}]: {rest}')
                 return {str(n) for _i, n, _t in r}
             return set()
 
@@ -323,7 +328,7 @@ def _recover_orphan_plain_defs(combined, footer_candidates=None):
                 run = [(i, int(m.group(1)), m.group(2))] if m else []
         run_recovered |= _flush_run(run)
         if run_recovered:
-            combined = '\n'.join(lines)
+            combined = '\n'.join(l for l in lines if l is not None)
             still_orphan = still_orphan - run_recovered
     # Source 2: a plain "N Text…" body paragraph — only when numbers aren't a structural device
     # here (Barro's References are author-first → leading-number paragraphs stay ~1).
@@ -339,6 +344,9 @@ def _recover_orphan_plain_defs(combined, footer_candidates=None):
             combined = combined[:m.start()] + combined[m.end():]
             recovered.append(f'[^{n}]: ' + body)
     if recovered:
+        # Numeric order — the recovered defs join the deferred block at the doc end, and the
+        # Footnotes section should read 1..N regardless of which source rescued each def.
+        recovered.sort(key=lambda s: int(re.match(r'\[\^(\d+)\]', s).group(1)))
         combined = combined.rstrip() + '\n\n' + '\n\n'.join(recovered)
     return combined
 
@@ -575,16 +583,29 @@ def _repair_sequential_ref_misreads(combined):
     if len(refs) < 3:
         return combined
     rewrites = []                       # (start, end, new_num)
+    seen = {refs[0][2]}
     expected = refs[0][2] + 1
     for k in range(1, len(refs)):
         s, e, r = refs[k]
         if r == expected:
+            seen.add(r)
             expected += 1
         elif (r > expected and expected in defs
                 and k + 1 < len(refs) and refs[k + 1][2] == expected + 1):
             rewrites.append((s, e, expected))
+            seen.add(expected)
+            expected += 1
+        elif (r < expected and r in seen and expected in defs
+                and k + 1 < len(refs) and refs[k + 1][2] == expected + 1):
+            # BEHIND-the-chain duplicate: the misread lowered a digit ("stalemate',27" read as
+            # ²³ — 85542c5e p1), so the number re-appears where its true place is already taken.
+            # Same triple gate as the ahead case; a strictly-once endnote chain never legally
+            # repeats a number.
+            rewrites.append((s, e, expected))
+            seen.add(expected)
             expected += 1
         else:
+            seen.add(r)
             expected = r + 1
     for s, e, n in reversed(rewrites):
         combined = combined[:s] + str(n) + combined[e:]
@@ -612,6 +633,17 @@ class DocumentEndnotesAssembler(FootnoteAssembler):
         combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)
         # A trailing numbered References/Notes list cited by in-order markers is the def list.
         combined = _convert_numbered_endnote_defs(combined)
+        # A $-form comma-group superscript ("$^{13,16}$" — 0fb751c1) survives the per-page
+        # expansion because that gate needs SAME-PAGE defs, which a document-endnotes book can
+        # never satisfy. Post-combine the def list exists, so expand any group whose numbers
+        # ALL have definitions; anything else really is math and stays.
+        _defs_now = {m.group(1) for m in re.finditer(r'(?m)^\[\^(\d+)\]:', combined)}
+        def _expand_group(m):
+            nums = re.findall(r'\d{1,3}', m.group(1))
+            if nums and all(n in _defs_now for n in nums):
+                return ''.join(f'[^{n}]' for n in nums)
+            return m.group(0)
+        combined = re.sub(r'\$\^\{(\d{1,3}(?:\s*,\s*\d{1,3})+)\s*,?\}\$', _expand_group, combined)
         # A misread digit that duplicates a later marker breaks the strict 1..N chain AND
         # binds to the wrong definition — restore the expected value (95a61ad0: 20 and 25
         # both OCR'd as 28, so three markers merged onto the transparency-report note).
@@ -652,6 +684,7 @@ class ChapterEndnotesAssembler(FootnoteAssembler):
             cumulative = 0
             ch_max = 0          # max footnote number in current chapter (refs + defs)
             ref_ch_max = 0      # max ref number in current chapter (for detecting resets)
+            body_chapter_offsets = [0]   # the offset each BODY chapter received, in order
 
             for entry in footnote_meta.get('page_summary', []):
                 refs = entry.get('refs', [])
@@ -667,6 +700,7 @@ class ChapterEndnotesAssembler(FootnoteAssembler):
                         cumulative += ch_max
                         ch_max = ref_max
                         ref_ch_max = ref_max
+                        body_chapter_offsets.append(cumulative)
                         for j in range(entry['index'], len(pages)):
                             chapter_fn_offsets[j] = cumulative
                     else:
@@ -680,15 +714,46 @@ class ChapterEndnotesAssembler(FootnoteAssembler):
                 if entry.get('refs'):
                     last_ref_page = max(last_ref_page, entry['index'])
 
-            # Drive the notes-section offsets so each new chapter starts ABOVE every global number
-            # emitted so far (`running_max`) — NOT by indexing into body_offsets. WHY: body offsets
-            # come from ref-reset detection, which OCR noise can make under-count chapters; once
-            # notes_ch_idx ran past len(body_offsets) the old guard left later chapters with NO fresh
-            # offset → their numbers collided with earlier chapters (Cox: 19-24 colliding numbers).
-            # Anchoring each chapter's offset to `running_max` makes global uniqueness PROVABLE and is
-            # immune to segmentation noise: even a false restart only opens a harmless numbering gap,
-            # never a collision. Chapter 1 still gets offset 0, so it stays aligned with the body; and
-            # when body/notes agree (the clean & synthetic case) the offsets are IDENTICAL to before.
+            # PAIRED MODE: when the notes walk detects the SAME number of sections as the body
+            # detected chapters, section k simply takes body chapter k's offset — refs and defs
+            # of a chapter then share one offset BY CONSTRUCTION and every marker binds its own
+            # chapter's note. The previous running_max anchoring computed the two sides
+            # INDEPENDENTLY, so any chapter holding more defs than its highest surviving ref
+            # drifted the def side upward — compounding: f07b7fff's chapters 4-11 sat 1/2/6/9
+            # above their bodies, so EVERY ref bound the wrong note ("Conceiving Open Systems"
+            # note 1 opened the previous chapter's note 42). FALLBACK: when the section counts
+            # DISAGREE (ref-reset detection under-counts on OCR noise — the Cox fusion case),
+            # keep running_max anchoring: numbering gaps, but no within-notes collisions.
+            # Dry-run the reset/transition decisions first to learn the section count (branch
+            # choices depend only on the raw def numbers, never on the offsets).
+            _sections = 0
+            _ndm = 0
+            for entry in footnote_meta.get('page_summary', []):
+                if entry['index'] <= last_ref_page:
+                    continue
+                defs = entry.get('defs', [])
+                if not defs:
+                    continue
+                if _sections == 0:
+                    _sections = 1
+                def_max, def_min = max(defs), min(defs)
+                if _ndm > 5 and def_min < _ndm * 0.3:
+                    _sections += 1
+                    sd = sorted(set(defs))
+                    gap, cut = 0, None
+                    for k in range(len(sd) - 1):
+                        if sd[k + 1] - sd[k] > gap:
+                            gap, cut = sd[k + 1] - sd[k], sd[k + 1]
+                    if cut is not None and gap >= _ndm * 0.3 and max(sd) >= _ndm * 0.7:
+                        new_ch_defs = [d for d in defs if d < cut]
+                        _ndm = max(new_ch_defs) if new_ch_defs else def_min
+                    else:
+                        _ndm = def_max
+                else:
+                    _ndm = max(_ndm, def_max)
+            paired = _sections == len(body_chapter_offsets)
+            notes_ch_idx = 0
+
             notes_offset = 0    # offset applied to the CURRENT notes chapter
             running_max = 0     # highest GLOBAL footnote number emitted in the notes so far
             notes_def_max = 0   # max RAW def number seen so far in the current chapter
@@ -714,6 +779,7 @@ class ChapterEndnotesAssembler(FootnoteAssembler):
                             gap, cut = sd[k + 1] - sd[k], sd[k + 1]
                     is_true_transition = (cut is not None and gap >= notes_def_max * 0.3
                                           and max(sd) >= notes_def_max * 0.7)
+                    notes_ch_idx += 1
                     if is_true_transition:
                         # old-chapter tail (>= cut) keeps the old offset; bank it into running_max
                         # first so the new chapter starts above it. New start (< cut) gets new offset.
@@ -721,7 +787,7 @@ class ChapterEndnotesAssembler(FootnoteAssembler):
                         if old_tail:
                             running_max = max(running_max, notes_offset + max(old_tail))
                         old_offset = notes_offset
-                        new_offset = running_max
+                        new_offset = body_chapter_offsets[notes_ch_idx] if paired else running_max
                         notes_offset = new_offset
                         new_ch_defs = [d for d in defs if d < cut]
                         notes_def_max = max(new_ch_defs) if new_ch_defs else def_min
@@ -731,8 +797,9 @@ class ChapterEndnotesAssembler(FootnoteAssembler):
                         for j in range(entry['index'] + 1, len(pages)):
                             chapter_fn_offsets[j] = new_offset
                     else:
-                        # pure new chapter — ONE offset (above everything so far) for the whole page
-                        notes_offset = running_max
+                        # pure new chapter — ONE offset for the whole page (the paired body
+                        # chapter's, else above everything emitted so far)
+                        notes_offset = body_chapter_offsets[notes_ch_idx] if paired else running_max
                         notes_def_max = def_max
                         running_max = max(running_max, notes_offset + def_max)
                         for j in range(entry['index'], len(pages)):
@@ -887,6 +954,74 @@ def _norm_heading(text):
     return re.sub(r'\s+', ' ', (text or '')).strip()
 
 
+_TOC_ENTRY_RE = re.compile(r'^(.{2,80}?)\s+(?:\d{1,4}|[ivxlc]{1,7})$')
+
+
+def _norm_title(t):
+    t = t.replace('“', '"').replace('”', '"').replace('’', "'").replace('‘', "'")
+    return re.sub(r'\s+', ' ', t).strip()
+
+
+def _toc_key(t):
+    """Matching key for a heading against the printed Contents: quote/whitespace-normalised,
+    casefolded, leading chapter number stripped ('6. Writing…' and 'WRITING…' both key
+    'writing copyright licenses')."""
+    t = _norm_title(t)
+    t = re.sub(r'^\d+[.)]?\s+', '', t)
+    return t.casefold()
+
+
+def _collect_toc_titles(pages):
+    """The book's own printed CONTENTS page — the first front-matter page carrying >= 5
+    'Title … N' lines — parsed into the authoritative structure. OCR routinely drops the big
+    styled chapter-opening headings entirely (f07b7fff chapters 7-9 opened as PLAIN text with
+    no heading anywhere in the body), and the print TOC is the one place the full structure
+    reliably survives.
+
+    Returns (titles, page_idx, numbered, all_keys, part_before):
+      titles      — promotion set: every entry normalised + leading-number-stripped variant
+      numbered    — {toc_key: full printed title} for NUMBERED chapter entries, so a body
+                    heading that lost its number ('Geeks and Recursive Publics') can be
+                    rewritten to the printed form ('1. Geeks and Recursive Publics')
+      all_keys    — toc_key of every entry (level normalisation: an h1 matching none demotes)
+      part_before — {successor toc_key: PART title} for 'PART …' divider entries, so a part
+                    heading OCR dropped can be re-injected above its first chapter"""
+    for idx, page in enumerate(pages[:15]):
+        md = page.get('markdown', '') or ''
+        lines = [re.sub(r'^#{1,6}\s+', '', l.strip()) for l in md.split('\n') if l.strip()]
+        # A List of Tables/Figures page has the same 'Caption … N' shape but supplies CAPTIONS,
+        # not section titles — never let it win the first-match over the real Contents.
+        if lines and re.match(r'(?i)^list of (tables|figures|illustrations|maps)', lines[0]):
+            continue
+        entries = [l for l in lines if _TOC_ENTRY_RE.match(l)]
+        if len(entries) >= 5:
+            titles = set()
+            ordered = []
+            for l in lines:
+                m = _TOC_ENTRY_RE.match(l)
+                t = _norm_title(m.group(1) if m else l)
+                if t:
+                    ordered.append(t)
+                    titles.add(t)
+                    titles.add(re.sub(r'^\d+[.)]\s+', '', t))
+            numbered = {}
+            all_keys = set()
+            part_before = {}
+            pending_part = None
+            for t in ordered:
+                all_keys.add(_toc_key(t))
+                if re.match(r'(?i)^part\b', t):
+                    pending_part = t
+                    continue
+                if re.match(r'^\d+[.)]?\s+\S', t):
+                    numbered.setdefault(_toc_key(t), t)
+                    if pending_part:
+                        part_before.setdefault(_toc_key(t), pending_part)
+                        pending_part = None
+            return titles, idx, numbered, all_keys, part_before
+    return set(), -1, {}, set(), {}
+
+
 def _collect_body_heading_texts(pages):
     """Every heading TEXT Mistral emitted anywhere in a page body, normalised — plus its
     leading-number-stripped form ('2 The development…' also as 'The development…') so it can be
@@ -941,6 +1076,7 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     # header-field section name already exists as a body heading somewhere, injecting a copy just
     # plants a duplicate at a PAGE top (usually mid-paragraph), so the body's own heading wins.
     body_heading_texts = _collect_body_heading_texts(pages)
+    toc_titles, toc_page_idx, toc_numbered, toc_all_keys, toc_part_before = _collect_toc_titles(pages)
     fence_lines_stripped = fence_pages = 0
 
     # The per-classification assembler owns setup (e.g. the chapter-offset precompute) + per_page +
@@ -1026,7 +1162,10 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         # Chapter/section titles dedupe against everything seen.
         _lead = _LEADING_HEADING_RE.match(md_stripped)
         _lead_text = _norm_heading(_lead.group(1)) if _lead else None
-        if _lead_text:
+        if _lead_text and not ctx.in_notes_section:
+            # in_notes_section exempt: a back-of-book Notes section legitimately REUSES the
+            # chapter titles as its per-chapter subheadings (f07b7fff: notes p326 opens
+            # '# Introduction' — the dedupe ate it and the TOC lost the section).
             if _STRUCTURAL_HEADING_RE.match(_lead_text):
                 _is_leak = _lead_text in ctx.recent_opening_headings
             else:
@@ -1049,6 +1188,22 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         if md_stripped:
             ctx.recent_opening_headings = (ctx.recent_opening_headings + [_lead_text])[-2:]
 
+        # TOC-guided heading PROMOTION: a chapter whose big styled opening OCR'd as plain text
+        # (f07b7fff chapters 7-9 — no heading anywhere in the body) gets it back when the line
+        # opening this page matches a printed-Contents title. Once per title, page-opening only,
+        # and never for a line whose heading form was already seen — a plain running-header
+        # LEAK matching a TOC title has its real heading in seen_sections (and was stripped
+        # above), so it can never be promoted into a duplicate.
+        if toc_titles and i != toc_page_idx and md_stripped and not md_stripped.startswith('#'):
+            _first_line = md_stripped.split('\n', 1)[0].strip()
+            if (len(_first_line) <= 80
+                    and _norm_title(_first_line) in toc_titles
+                    and _norm_heading(_first_line) not in ctx.seen_sections
+                    and _norm_title(_first_line) not in ctx.promoted_toc_titles):
+                ctx.promoted_toc_titles.add(_norm_title(_first_line))
+                md = re.sub(r'^\s*' + re.escape(_first_line), f'# {_first_line}', md, count=1)
+                md_stripped = md.strip()
+
         # Extract section name from header
         section_name = None
         for line in header.split('\n'):
@@ -1060,20 +1215,90 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         # Only inject a heading from the header when ALL of:
         # 1. We got a real section name (not a running header / page number)
         # 2. This section hasn't been seen before
-        # 3. The markdown body doesn't already start with a # heading
+        # 3. The markdown body doesn't already start with a # heading — EXCEPT when the section
+        #    name is STRUCTURAL (Notes/Bibliography/…) and differs from that opening heading:
+        #    OCR loses those divider headings constantly, and the body heading is the section's
+        #    first SUBSECTION, which the divider belongs above (f07b7fff: notes open directly
+        #    with '# Introduction'; without this the book has no Notes heading at all).
         # 4. The body starts with uppercase (new section, not a paragraph continuation)
         # 5. Mistral didn't emit the same heading in ANY page body (else the body's own copy at
         #    the real section start wins, and the injected one would sit at a page top duplicating
         #    it — 3f202e8f grew both '# The development of scientific communication' (injected)
         #    and Mistral's '# 2 The development of scientific communication').
+        _sec_norm = _norm_heading(section_name) if section_name else None
+        _body_opens_heading = md_stripped.startswith('#')
+        _structural_over_subsection = (_sec_norm and _body_opens_heading
+                                       and _STRUCTURAL_HEADING_RE.match(_sec_norm)
+                                       and _lead_text != _sec_norm)
         if (section_name
-                and _norm_heading(section_name) not in ctx.seen_sections
-                and not md_stripped.startswith('#')
+                and _sec_norm not in ctx.seen_sections
+                and (not _body_opens_heading or _structural_over_subsection)
                 and md_stripped
-                and md_stripped[0].isupper()
-                and _norm_heading(section_name) not in body_heading_texts):
-            ctx.seen_sections.add(_norm_heading(section_name))
+                and (md_stripped[0].isupper() or _structural_over_subsection)
+                and _sec_norm not in body_heading_texts):
+            ctx.seen_sections.add(_sec_norm)
             md = f"# {section_name}\n\n{md}"
+
+        # TOC-guided structure NORMALISATION (printed-Contents books only, outside the notes
+        # section, never on the Contents page or the front matter before it). Runs AFTER the
+        # header-field injection so injected headings are normalised too (this book's
+        # '# The Movement' / '# WRITING COPYRIGHT LICENSES' h1s exist ONLY via injection):
+        #  • the FIRST body heading matching a NUMBERED chapter entry is rewritten to the full
+        #    printed form at h1 ('Geeks and Recursive Publics' → '# 1. Geeks and Recursive
+        #    Publics'); number-stripped matching is H1-ONLY, so a genuine SUBSECTION reusing a
+        #    chapter's words ('## Coordinating Collaborations' inside chapter 3) never steals
+        #    chapter 7's slot — an h2 matches only when it carries the number itself;
+        #  • LATER matches of an already-used chapter are running-header leaks the exact-match
+        #    dedupe missed (case variants: 'WRITING COPYRIGHT LICENSES') — stripped;
+        #  • a PART divider the OCR dropped is re-injected above its first chapter;
+        #  • an h1 matching NO Contents entry (ad captions, pull quotes read as headings)
+        #    demotes to h2 — prefix-matching keeps 'CONCLUSION' under the printed
+        #    'Conclusion: The Cultural Consequences…' at h1.
+        if toc_numbered and not ctx.in_notes_section and i > toc_page_idx:
+            _lines = md.split('\n')
+            _changed = False
+            for _li, _line in enumerate(_lines):
+                _hm = re.match(r'^(#{1,6})\s+(.+?)\s*$', _line)
+                if not _hm:
+                    continue
+                _text = _hm.group(2)
+                _key = _toc_key(_text)
+                _numbered_self = bool(re.match(r'^\d+[.)]?\s+\S', _norm_title(_text)))
+                _full = toc_numbered.get(_key) if (_hm.group(1) == '#' or _numbered_self) else None
+                if _full:
+                    if _key not in ctx.toc_chapters_used:
+                        ctx.toc_chapters_used.add(_key)
+                        _part = toc_part_before.get(_key)
+                        if (_part and _norm_heading(_part) not in ctx.seen_sections
+                                and _norm_title(_part) not in ctx.promoted_toc_titles):
+                            _lines[_li] = f'# {_part}\n\n# {_full}'
+                        else:
+                            _lines[_li] = f'# {_full}'
+                    else:
+                        _lines[_li] = None
+                    _changed = True
+                elif (_hm.group(1) == '#' and _key in toc_all_keys
+                        and _STRUCTURAL_HEADING_RE.match(_key)):
+                    # CASE-VARIANT structural duplicate: '# BIBLIOGRAPHY' right after
+                    # '# Bibliography' is the divider page re-stating the injected heading in
+                    # caps — a repeat the case-sensitive dedupe can't see. ONLY a case variant
+                    # strips; an IDENTICAL-text repeat is genuine structure (93d34a74 has seven
+                    # legitimate per-chapter '# References' sections) and stays.
+                    _first = ctx.toc_structural_seen.get(_key)
+                    if _first is None:
+                        ctx.toc_structural_seen[_key] = _text
+                    elif _first != _text:
+                        _lines[_li] = None
+                        _changed = True
+                elif _hm.group(1) == '#':
+                    _matches_toc = (_key in toc_all_keys
+                                    or (len(_key) >= 8 and any(k.startswith(_key) for k in toc_all_keys)))
+                    if not _matches_toc:
+                        _lines[_li] = '## ' + _text
+                        _changed = True
+            if _changed:
+                md = '\n'.join(l for l in _lines if l is not None)
+                md_stripped = md.strip()
 
         # Track sections from EVERY heading in this page's body (page-opening AND mid-page —
         # a mid-page section heading must also arm the running-header dedupe above)
@@ -1136,6 +1361,10 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     if fence_lines_stripped:
         print(f"  Stripped {fence_lines_stripped} stray code-fence line(s) on {fence_pages} page(s) "
               f"(odd fence count = OCR noise; an unpaired fence swallows the rest of the document)")
+    if ctx.promoted_toc_titles:
+        print(f"  TOC-promoted {len(ctx.promoted_toc_titles)} heading(s) from the printed Contents "
+              f"(page {toc_page_idx}): {', '.join(sorted(ctx.promoted_toc_titles)[:6])}"
+              + (' …' if len(ctx.promoted_toc_titles) > 6 else ''))
 
     combined = "\n\n".join(ctx.md_parts)
     # Block quotations arrive as plain paragraphs (Mistral gives no structural signal) — mark the

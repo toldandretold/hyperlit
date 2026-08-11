@@ -153,8 +153,11 @@ def convert_bare_caret_footnotes(text):
     masked = re.sub(r'\^(\[\^?\d{1,3}\])\^?', r'\1', masked)
     # brace form "^{2}" without $-delimiters (79c3d8e4: "en masse^{2}.") — a naked LaTeX-style
     # superscript Mistral emits outside math mode. Genuine exponents live inside $…$ and are
-    # masked above, so a surviving ^{N} is a footnote marker.
-    masked = re.sub(r'\^\{(\d{1,3})\}', r'[^\1]', masked)
+    # masked above, so a surviving ^{N} is a footnote marker. Comma GROUPS expand to one marker
+    # per number ("^{6,7,8,9,10}" — 0fb751c1 stacks five citations on one superscript).
+    def _brace_sup(m):
+        return ''.join(f'[^{n}]' for n in re.findall(r'\d{1,3}', m.group(1)))
+    masked = re.sub(r'\^\{(\d{1,3}(?:\s*,\s*\d{1,3})*)\s*,?\}', _brace_sup, masked)
     # inline markers (preceded by a word/punct)
     masked = _BARE_CARET_FN_RE.sub(lambda m: f'[^{m.group(1)}]', masked)
     # line-start definition form "^24 Text"
@@ -206,16 +209,31 @@ def convert_inline_footnote_markers(md, strip_italic_brackets=False):
     # paren / digit before it marks an OPENING quote \u2014 'Peer. "10 Things for Curating\u2026' is a
     # TITLE number, not a marker (da18ab4f grew a footnote out of it). \u201c (an unambiguous
     # OPENING curly quote) is out of the closer class entirely for the same reason.
+    # ',' and the single quotes join the closer class (85542c5e: "preferable,30" and "it.'29"
+    # stayed literal text) \u2014 with guards: a digit before the comma is a thousands separator
+    # ("3,141"); a straight quote needs the closing context above; and after a mid-sentence
+    # comma the continuation is naturally LOWERCASE ("preferable,30 but"), so the comma closer
+    # accepts a lowercase follow where the sentence-ending closers still demand a capital.
     def _bare_after_punct(m, _md=md):
         pos = m.start(1)
         closer = _md[pos - 1]
+        before = _md[pos - 2] if pos >= 2 else ''
         if closer in ('"', "'"):
-            before = _md[pos - 2] if pos >= 2 else ''
             if not (before.isalpha() or before in '.,;:!?'):
                 return m.group(0)
-        return f'[^{m.group(1)}]'
+        elif closer == ',' and before.isdigit():
+            return m.group(0)
+        fm = re.match(r'\s+(\S)', _md[m.end(1):])
+        if not fm:
+            return m.group(0)
+        follow = fm.group(1)
+        if closer == ',':
+            ok = follow.isalpha() or follow in '\u201c\u201d"\u2018\'(#'
+        else:
+            ok = follow.isupper() or follow in '\u201c\u201d"\u2018\'(#'
+        return f'[^{m.group(1)}]' if ok else m.group(0)
     md = re.sub(
-        r'(?<!\d\.)(?<![A-Z]\.)(?<!\.\.)(?<!\u2026)(?<=[.!?"\u201d)])(\d{1,3})(?=\s+[A-Z\u201c\u201d"\u2018\'(#])',
+        r"(?<!\d\.)(?<![A-Z]\.)(?<!\.\.)(?<!\u2026)(?<=[.,!?\"'\u201d\u2019)])(\d{1,3})(?=\s+\S)",
         _bare_after_punct,
         md,
         flags=re.DOTALL,
@@ -844,6 +862,9 @@ class AssemblyContext:
         self.md_parts = []
         self.seen_sections = set()
         self.recent_opening_headings = []   # last 2 content pages' opening headings (leak dedupe)
+        self.promoted_toc_titles = set()    # TOC-guided heading promotions already made
+        self.toc_chapters_used = set()      # numbered TOC chapters already normalised in the body
+        self.toc_structural_seen = {}       # structural TOC headings: casefold key -> first exact text
         self.global_fn_counter = 1          # for page_bottom renumbering
         self.fn_defs_parts = []             # collected footnote definitions for page_bottom
         self.deferred_defs_parts = []       # defs deferred to doc end: inline splits + footer recoveries (Default path)

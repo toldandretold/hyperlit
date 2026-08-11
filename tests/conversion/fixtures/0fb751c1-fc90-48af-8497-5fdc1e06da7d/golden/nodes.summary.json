@@ -23,6 +23,10 @@
         },
         {
           "id": "FN0004",
+          "marker": "4"
+        },
+        {
+          "id": "FN0005",
           "marker": "5"
         }
       ],
@@ -33,12 +37,47 @@
     {
       "footnotes": [
         {
-          "id": "FN0005",
+          "id": "FN0006",
+          "marker": "6"
+        },
+        {
+          "id": "FN0007",
+          "marker": "7"
+        },
+        {
+          "id": "FN0008",
+          "marker": "8"
+        },
+        {
+          "id": "FN0009",
+          "marker": "9"
+        },
+        {
+          "id": "FN0010",
+          "marker": "10"
+        }
+      ],
+      "i": 43,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0011",
           "marker": "11"
         },
         {
-          "id": "FN0006",
+          "id": "FN0012",
           "marker": "12"
+        },
+        {
+          "id": "FN0013",
+          "marker": "13"
+        },
+        {
+          "id": "FN0014",
+          "marker": "14"
         }
       ],
       "i": 45,
@@ -48,7 +87,7 @@
     {
       "footnotes": [
         {
-          "id": "FN0007",
+          "id": "FN0015",
           "marker": "15"
         }
       ],
@@ -59,7 +98,7 @@
     {
       "footnotes": [
         {
-          "id": "FN0008",
+          "id": "FN0016",
           "marker": "16"
         }
       ],
@@ -70,11 +109,11 @@
     {
       "footnotes": [
         {
-          "id": "FN0009",
+          "id": "FN0017",
           "marker": "17"
         },
         {
-          "id": "FN0010",
+          "id": "FN0018",
           "marker": "20"
         }
       ],
@@ -85,7 +124,7 @@
     {
       "footnotes": [
         {
-          "id": "FN0011",
+          "id": "FN0019",
           "marker": "21"
         }
       ],
@@ -96,11 +135,11 @@
     {
       "footnotes": [
         {
-          "id": "FN0012",
+          "id": "FN0020",
           "marker": "22"
         },
         {
-          "id": "FN0013",
+          "id": "FN0021",
           "marker": "23"
         }
       ],
@@ -111,11 +150,11 @@
     {
       "footnotes": [
         {
-          "id": "FN0014",
+          "id": "FN0022",
           "marker": "24"
         },
         {
-          "id": "FN0015",
+          "id": "FN0023",
           "marker": "25"
         }
       ],
@@ -126,15 +165,15 @@
     {
       "footnotes": [
         {
-          "id": "FN0016",
+          "id": "FN0024",
           "marker": "26"
         },
         {
-          "id": "FN0017",
+          "id": "FN0025",
           "marker": "27"
         },
         {
-          "id": "FN0018",
+          "id": "FN0026",
           "marker": "28"
         }
       ],
@@ -145,7 +184,7 @@
     {
       "footnotes": [
         {
-          "id": "FN0019",
+          "id": "FN0027",
           "marker": "29"
         }
       ],
@@ -156,11 +195,11 @@
     {
       "footnotes": [
         {
-          "id": "FN0020",
+          "id": "FN0028",
           "marker": "30"
         },
         {
-          "id": "FN0021",
+          "id": "FN0029",
           "marker": "31"
         }
       ],
@@ -171,7 +210,7 @@
     {
       "footnotes": [
         {
-          "id": "FN0022",
+          "id": "FN0030",
           "marker": "32"
         }
       ],
@@ -182,7 +221,7 @@
     {
       "footnotes": [
         {
-          "id": "FN0023",
+          "id": "FN0031",
           "marker": "33"
         }
       ],
@@ -193,7 +232,7 @@
     {
       "footnotes": [
         {
-          "id": "FN0024",
+          "id": "FN0032",
           "marker": "34"
         }
       ],
@@ -204,7 +243,7 @@
     {
       "footnotes": [
         {
-          "id": "FN0025",
+          "id": "FN0033",
           "marker": "35"
         }
       ],
@@ -215,7 +254,7 @@
     {
       "footnotes": [
         {
-          "id": "FN0026",
+          "id": "FN0034",
           "marker": "36"
         }
       ],
@@ -226,15 +265,15 @@
     {
       "footnotes": [
         {
-          "id": "FN0027",
+          "id": "FN0035",
           "marker": "37"
         },
         {
-          "id": "FN0028",
+          "id": "FN0036",
           "marker": "38"
         },
         {
-          "id": "FN0029",
+          "id": "FN0037",
           "marker": "39"
         }
       ],

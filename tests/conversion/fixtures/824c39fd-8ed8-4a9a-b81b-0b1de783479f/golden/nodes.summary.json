@@ -8,7 +8,13 @@
         }
       ],
       "i": 22,
-      "references": [],
+      "references": [
+        "garfield1972",
+        "po1997",
+        "dn2011",
+        "curry2016",
+        "casadevall2014"
+      ],
       "type": "p"
     },
     {
@@ -19,7 +25,100 @@
         }
       ],
       "i": 23,
-      "references": [],
+      "references": [
+        "po1997",
+        "dn2011",
+        "archambault2009",
+        "pulverer2015",
+        "rossner2007",
+        "royle2016",
+        "bm2009",
+        "pulverer2015",
+        "editorial2006",
+        "br2016",
+        "ga2012"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 24,
+      "references": [
+        "hicks2015",
+        "biologyeuropeanmolecularorganisation2016",
+        "australian2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 28,
+      "references": [
+        "royle2016",
+        "po1992",
+        "pulverer2015",
+        "editorial2013",
+        "po1992"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 71,
+      "references": [
+        "royle2016",
+        "po1992"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 72,
+      "references": [
+        "pulverer2015",
+        "editorial2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 73,
+      "references": [
+        "davis2010",
+        "tv2010",
+        "lariviere2010",
+        "cantrill2016a",
+        "royle2016",
+        "cantrill2016b"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 74,
+      "references": [
+        "royle2016",
+        "berg2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 75,
+      "references": [
+        "patterson2016",
+        "bilder2016",
+        "bilder2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 77,
+      "references": [
+        "dustrang2015",
+        "europe2016"
+      ],
       "type": "p"
     },
     {

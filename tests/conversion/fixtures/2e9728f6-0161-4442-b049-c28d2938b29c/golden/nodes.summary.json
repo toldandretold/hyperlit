@@ -60,9 +60,9 @@
       "type": "p"
     }
   ],
-  "node_count": 87,
+  "node_count": 86,
   "type_histogram": {
-    "a": 3,
+    "a": 2,
     "h1": 6,
     "h2": 7,
     "p": 71

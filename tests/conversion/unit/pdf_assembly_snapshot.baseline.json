@@ -84,7 +84,7 @@
     "classification": "none",
     "confidence": 1.0,
     "md_len": 627366,
-    "md_sha256": "14920a81512441aae2644a63c512102faa51f78fccad96c051db257d09e3375e",
+    "md_sha256": "1ff9e727db3214a3166f7cd301f98c5b2f7112b925837a55d020478cef7e0732",
     "segments": [
       275
     ],
@@ -111,8 +111,8 @@
   "tests/conversion/corpus/production_power_and_world_order_social_forces_i/ocr_response.json": {
     "classification": "chapter_endnotes",
     "confidence": 1.0,
-    "md_len": 1234459,
-    "md_sha256": "591519f7c90b7c1c67c3943e4280b761d1ca0ac6b918d76e47be36998560c552",
+    "md_len": 1234463,
+    "md_sha256": "3d389f6ced1809561173968faf6298f37a21651469552401a1c7a7774a308447",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,
@@ -139,8 +139,8 @@
   "tests/conversion/corpus/soviet_marxism_a_critical_analysis_herbert_marcu/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.95,
-    "md_len": 460429,
-    "md_sha256": "4cf88c95d45459bdebc6a74da09104a180cc39e636853d897232c2b089f0ab43",
+    "md_len": 460374,
+    "md_sha256": "5ce75ccf5a3cbe3ad7d97bac99f70685bf076a05d6b7e735b1279b0866ca3794",
     "segments": [
       86,
       101,
@@ -174,8 +174,8 @@
   "tests/conversion/corpus/towards_a_new_international_economic_order_pour_/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.8,
-    "md_len": 772321,
-    "md_sha256": "1c85297aa2afa4208508f843b4f36967abfa1418719402ff8395f6b473a6804b",
+    "md_len": 772323,
+    "md_sha256": "21504f6c8fbdda09e426b9b2ed9dc509fffef5338fcfc985dac7c27c2947fc68",
     "segments": [
       29,
       189
@@ -333,8 +333,8 @@
   "tests/conversion/fixtures-local/pdf/no_footnotes/37344d6e-7d43-42bf-83da-989c1818894e/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 54717,
-    "md_sha256": "5e6fff0a0d75c5f874d7450e70342ed1b65e28899ca2bb29f86cfa6004857a87",
+    "md_len": 54719,
+    "md_sha256": "06eb8434efe1789e1c76954e7d2af59d83d8d3624dbc5ba460ee72aed87cc3a8",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.2857,
@@ -411,8 +411,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/1ee13ed9-49e7-4c42-aefd-ce04107064a1/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.6,
-    "md_len": 135500,
-    "md_sha256": "8798d16798b53831523dad07d3f18887da57a034ddee32fea5f9b9f9f7d182e1",
+    "md_len": 135506,
+    "md_sha256": "16e3e46bab7b551208a11af67290e9cb0956b7d4163683e4c45f0b14736aa82f",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,
@@ -437,8 +437,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/218d6d3d-cd86-44e1-ac3a-c4d970e7d6ab/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 107142,
-    "md_sha256": "797c986f68fde9fbeb9812774530958d02145134069307c0bcea699f801d3cab",
+    "md_len": 107148,
+    "md_sha256": "6a2140d18b4390ccdea369bce0027d13bd3fbf24dbf5f53bbbcc19d990abd397",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,
@@ -541,8 +541,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/bedjaoui0000towards-ocr3/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.8,
-    "md_len": 764671,
-    "md_sha256": "5e0cc67ab6457fd74528d7ae0bd1719eed0e1a129bc4b1ea8779d1e44d60abbb",
+    "md_len": 764673,
+    "md_sha256": "ca81f17d516e7a2b762b2e7f4d41a769dbc7008bc1fbb5008f47039b56399094",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,
@@ -645,8 +645,8 @@
   "tests/conversion/fixtures-local/pdf/whole_document/whole_document_example/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 107142,
-    "md_sha256": "797c986f68fde9fbeb9812774530958d02145134069307c0bcea699f801d3cab",
+    "md_len": 107148,
+    "md_sha256": "6a2140d18b4390ccdea369bce0027d13bd3fbf24dbf5f53bbbcc19d990abd397",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,

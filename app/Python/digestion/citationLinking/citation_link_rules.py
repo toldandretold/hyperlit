@@ -326,6 +326,91 @@ class SquareBracketCitationLinker(LinkRule):
             _link_citations_in_text_node(ctx, text_node, r"\[([^\]]*?\d{4}[^\]]*?)\]", "[", "]")
 
 
+class NumberedParenCitationLinker(LinkRule):
+    """2A-numparen: link `(4)` / `(1-3)` / `(4, 7)` PARENTHESIZED-NUMBER citations against an
+    ORDINAL-numbered bibliography (PNAS style — 965f6773 cites "(1-3)" and "Dewatripont et al.
+    (4)" into a "1. Bergstrom TC (2001)…" list). Bare parenthesized numbers are wildly ambiguous
+    in general prose (equation numbers, years, counts), so the rule self-gates hard:
+      • the extracted bibliography must itself be ordinal-numbered, DENSE (>= 80% of 1..max)
+        and non-trivial (>= 5 entries) — no such bibliography, no scan;
+      • a paren group links only when EVERY number in it resolves to an entry (years and
+        equation numbers overflow the ordinal range and drop the whole group);
+      • runs regardless of the author-year pattern gate — numbered citations carry no year.
+    A range links as one anchor to its first entry; comma members link individually."""
+
+    name = 'numbered_paren_citation_linker'
+    description = 'Link (N) / (N-M) parenthesized-number citations to an ordinal-numbered bibliography.'
+
+    _GROUP_RE = re.compile(r'\((\d{1,3}(?:\s*[-–]\s*\d{1,3})?(?:\s*,\s*\d{1,3})*)\)')
+
+    def _ordinal_map(self, ctx):
+        omap = {}
+        for anchor in ctx.soup.find_all('a', class_='bib-entry'):
+            p = anchor.find_parent('p')
+            if not p:
+                continue
+            m = re.match(r'\s*(\d{1,3})[.)]\s', p.get_text())
+            if m and anchor.get('id'):
+                omap.setdefault(int(m.group(1)), anchor['id'])
+        if len(omap) < 5:
+            return None
+        span = max(omap)
+        if span <= 0 or len(omap) / span < 0.8:
+            return None
+        return omap
+
+    def apply(self, ctx, log=None):
+        if not ctx.bibliography_map:
+            return
+        omap = self._ordinal_map(ctx)
+        if not omap:
+            return
+        span = max(omap)
+        for text_node in list(ctx.soup.find_all(string=True)):
+            if text_node.find_parent('a'):
+                continue
+            p = text_node.find_parent('p')
+            if not p or p.find('a', class_='bib-entry'):
+                continue
+            text = str(text_node)
+            matches = [m for m in self._GROUP_RE.finditer(text)]
+            if not matches:
+                continue
+            new_content, last = [], 0
+            changed = False
+            for m in matches:
+                nums = [int(n) for n in re.findall(r'\d{1,3}', m.group(1))]
+                is_range = bool(re.search(r'[-–]', m.group(1)))
+                expanded = list(range(nums[0], nums[1] + 1)) if (is_range and len(nums) == 2) else nums
+                if not expanded or not all(1 <= n <= span and n in omap for n in expanded):
+                    continue                      # a year / equation number / gap — leave the group
+                new_content.append(NavigableString(text[last:m.start()] + '('))
+                if is_range and len(nums) == 2:
+                    a = ctx.soup.new_tag('a', href=f'#{omap[nums[0]]}')
+                    a['class'] = 'in-text-citation'
+                    # Same contract as wackSTEM range cites: data-refs carries EVERY member so
+                    # the popup renders all of them, not just the first (detection.ts splits it).
+                    a['data-refs'] = ','.join(omap[n] for n in expanded)
+                    a.string = m.group(1)
+                    new_content.append(a)
+                else:
+                    for k, n in enumerate(nums):
+                        if k:
+                            new_content.append(NavigableString(', '))
+                        a = ctx.soup.new_tag('a', href=f'#{omap[n]}')
+                        a['class'] = 'in-text-citation'
+                        a.string = str(n)
+                        new_content.append(a)
+                new_content.append(NavigableString(')'))
+                ctx.citations_found += len(expanded)
+                ctx.citations_linked += len(expanded)
+                last = m.end()
+                changed = True
+            if changed:
+                new_content.append(NavigableString(text[last:]))
+                text_node.replace_with(*new_content)
+
+
 class AssessmentRecorder(LinkRule):
     """Record the citation-linking pass to the assessment trace. AGGREGATE fork: the "roads not
     taken" are the citations we could NOT link (their tried keys), plus the two known SKIP gates."""
@@ -446,6 +531,7 @@ CITATION_LINK_RULES = [
     CitationPatternGate(),
     ParenthesizedCitationLinker(),
     SquareBracketCitationLinker(),
+    NumberedParenCitationLinker(),
     AssessmentRecorder(),
 ]
 

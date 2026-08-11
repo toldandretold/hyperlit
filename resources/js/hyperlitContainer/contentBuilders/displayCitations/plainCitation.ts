@@ -124,10 +124,14 @@ export async function buildCitationContent(contentType: any, db: any = null) {
     const loaded = await readBibliographyRecords(database, lookupBook, ids);
 
     // Phase 2: resolve + build each section (async work runs AFTER the read tx closed).
+    // One heading for the whole popup — "References" pluralised for a range/multi cite; the
+    // per-entry cards repeat everything else but a "Reference" title per entry read as clutter.
     let sections = '';
-    for (const { refId, result } of loaded) {
+    for (let i = 0; i < loaded.length; i++) {
+      const { refId, result } = loaded[i];
       const record: BibliographyRecord | null = result;
-      sections += await buildOneSection(database, lookupBook, refId, record, isOwner);
+      const heading = i === 0 ? (loaded.length > 1 ? 'References' : 'Reference') : null;
+      sections += await buildOneSection(database, lookupBook, refId, record, isOwner, heading);
     }
     return sections;
   } catch (error) {
@@ -149,11 +153,13 @@ async function buildOneSection(
   refId: string,
   result: BibliographyRecord | null,
   isOwner: boolean,
+  heading: string | null = 'Reference',
 ): Promise<string> {
+  const headingHtml = heading ? `<h3 style="margin-bottom: 0.5em;">${heading}</h3>` : '';
   if (!result || !result.content) {
     return `
       <div class="citations-section" data-content-id="${escapeHtml(refId)}">
-        <h3>Reference</h3>
+        ${headingHtml}
         <div class="error">Reference not found: ${escapeHtml(refId)}</div>
         <hr style="margin: 2em 0; opacity: 0.5;">
       </div>`;
@@ -207,7 +213,7 @@ async function buildOneSection(
 
   return `
     <div class="citations-section" data-content-id="${escapeHtml(refId)}" data-reference-id="${escapeHtml(refId)}">
-      <h3 style="margin-bottom: 0.5em;">Reference</h3>
+      ${headingHtml}
       <blockquote style="margin: 0; padding: 0.5em 0; font-style: normal;">${leadingIcon}${displayContent}</blockquote>
       ${statusHtml}
       ${navHtml}
