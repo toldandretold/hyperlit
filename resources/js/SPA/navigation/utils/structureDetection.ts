@@ -7,11 +7,18 @@
 
 /**
  * Get page structure type based on DOM elements
- * Returns 'reader', 'home', or 'user'
+ * Returns 'reader', 'home', 'journal', or 'user'
  */
 export function getPageStructure() {
   if (document.querySelector('.reader-content-wrapper')) {
     return 'reader';
+  }
+  // BEFORE the home check: the journal page carries BOTH classes
+  // (home-content-wrapper so homepageHero/homepageDisplayUnit selectors work
+  // unchanged, journal-content-wrapper for structure identity so journal↔home
+  // navigations take the full-body-swap path, never a content swap).
+  if (document.querySelector('.journal-content-wrapper')) {
+    return 'journal';
   }
   if (document.querySelector('.home-content-wrapper')) {
     return 'home';

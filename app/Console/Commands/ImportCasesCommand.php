@@ -27,7 +27,8 @@ class ImportCasesCommand extends Command
     protected $signature = 'book:import-cases
         {--downloads : Also sweep ~/Downloads for valid case bundles first}
         {--from= : Sweep an additional directory for bundles}
-        {--no-fixture : Import only; skip regression-fixture capture}';
+        {--no-fixture : Import only; skip regression-fixture capture}
+        {--owner= : Local username to claim imported PRIVATE case books (default: most recently active admin)}';
 
     protected $description = 'Ingest all case bundles from tests/conversion/cases/ (import + fixture capture)';
 
@@ -82,6 +83,7 @@ class ImportCasesCommand extends Command
                 continue;
             }
             $this->info('  imported → open locally at /' . $book);
+            $this->claimPrivateBook($book);
             $this->printReportsFor($book);
 
             if ($kind === BookExport::KIND_HARVEST) {
@@ -114,6 +116,54 @@ class ImportCasesCommand extends Command
         }
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * Claim an imported PRIVATE case book for a local maintainer account.
+     *
+     * A private bundle keeps its production creator — a username that does not exist in the
+     * local dev DB, so nobody here can pass the reader's owner check and the maintainer pane
+     * renders "Access Denied" over the very conversion being triaged. Re-own the imported copy
+     * (and its footnote sub-books) to a LOCAL admin: --owner=<name>, defaulting to the most
+     * recently active admin (that's who is sitting at /maintainer/conversion). Public books
+     * (commons harvests, "Added automatically from …" provenance) are left untouched, and this
+     * never runs in production — there the book belongs to a real user.
+     */
+    private function claimPrivateBook(string $book): void
+    {
+        if (app()->environment('production')) {
+            return;
+        }
+
+        $db = DB::connection('pgsql_admin');
+        $row = $db->table('library')->where('book', $book)->first(['creator', 'visibility']);
+        if (!$row || $row->visibility !== 'private') {
+            return;
+        }
+
+        $owner = $this->option('owner');
+        if ($owner && !$db->table('users')->where('name', $owner)->exists()) {
+            $this->warn("  --owner={$owner} is not a local user — private book keeps creator \"{$row->creator}\"");
+            return;
+        }
+        $owner = $owner ?: $db->table('users')
+            ->leftJoin('sessions', 'sessions.user_id', '=', 'users.id')
+            ->where('users.is_admin', true)
+            ->groupBy('users.id', 'users.name')
+            ->orderByRaw('max(sessions.last_activity) DESC NULLS LAST')
+            ->value('users.name');
+        if (!$owner) {
+            $this->warn("  private book keeps creator \"{$row->creator}\" — no local admin to claim it (pass --owner=)");
+            return;
+        }
+        if ($owner === $row->creator) {
+            return;
+        }
+
+        $db->table('library')
+            ->where(fn ($q) => $q->where('book', $book)->orWhere('book', 'like', $book . '/%'))
+            ->update(['creator' => $owner, 'creator_token' => null]);
+        $this->line("  private book claimed for local triage: creator \"{$row->creator}\" → \"{$owner}\" (view it logged in as {$owner})");
     }
 
     /** The bundle's book id, or null if it isn't a book:export bundle. */

@@ -68,15 +68,23 @@ export class DifferentTemplateTransition {
         if (target) (window as any)._pendingChunkTarget = target;
       }
 
-      // Step 4: Structure-aware initialization (using shared utility)
       // Resolve real bookId from DOM — server renders <main id="realBookId">,
       // so slugs (e.g. "welcome") get resolved to the actual book ID.
       const rawBookId = toBook || getBookIdFromUrl(targetUrlResolved);
       const bookId = document.querySelector('.main-content')?.id || rawBookId;
-      await initializeToStructure(toStructure, bookId, progress);
 
-      // Step 5: Update URL with state preservation for back button (using shared utility)
-      const newUrl = hash ? `${targetUrlResolved}${hash}` : targetUrlResolved;
+      // Step 4: Update URL BEFORE initialization (using shared utility).
+      // Init can take seconds on a cold cache (reader chunk fetches); pushing
+      // the URL only afterwards left a window where the new page was showing
+      // under the OLD URL — back/reload/share did the wrong thing, and if this
+      // was the first pushState of the session, Back EXITED THE SITE entirely
+      // (about:blank + aborted chunk fetches). fromBook must be computed here,
+      // while window.location still holds the pre-navigation URL.
+      // Strip any hash already on targetUrl before appending: callers pass
+      // link.href WITH its hash, and `href#2900 + #2900` produced the
+      // "#2900#2900" URLs whose chunk targeting silently fell back to chunk 0.
+      const targetUrlBase = targetUrlResolved.split('#')[0];
+      const newUrl = hash ? `${targetUrlBase}${hash}` : targetUrlResolved;
       updateUrl(newUrl, {
         fromBook: fromStructure === 'reader' ? getBookIdFromUrl(window.location.pathname) : null,
         toBook: bookId,
@@ -85,6 +93,9 @@ export class DifferentTemplateTransition {
         transitionType: 'template-switch',
         isPopstate
       });
+
+      // Step 5: Structure-aware initialization (using shared utility)
+      await initializeToStructure(toStructure, bookId, progress);
 
       // Step 6: Handle hash navigation if present (using shared utility)
       if (hash) {
@@ -121,9 +132,15 @@ export class DifferentTemplateTransition {
       return 'home';
     }
 
+    const pathSegments = path.split('/').filter(Boolean);
+
+    // /j/{slug} is a journal home page
+    if (pathSegments[0] === 'j' && pathSegments.length >= 2) {
+      return 'journal';
+    }
+
     // Check if it's a user page by path
     // This is a simplified check - could enhance with user existence check
-    const pathSegments = path.split('/').filter(Boolean);
     if (pathSegments.length === 1) {
       // Could be user page or reader page
       // For now, assume reader unless we can determine it's a user

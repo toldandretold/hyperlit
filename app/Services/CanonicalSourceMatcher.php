@@ -673,6 +673,8 @@ class CanonicalSourceMatcher
             'work_license'        => $n['work_license'] ?? null,
             'first_page'          => $n['first_page'] ?? null,
             'last_page'           => $n['last_page'] ?? null,
+            'volume'              => $n['volume'] ?? null,
+            'issue'               => $n['issue'] ?? null,
             'cited_by_count'      => $n['cited_by_count'] ?? null,
             'semantic_scholar_id' => $n['semantic_scholar_id'] ?? null,
             'authorships'         => !empty($n['authorships']) ? $n['authorships'] : null,
@@ -691,7 +693,10 @@ class CanonicalSourceMatcher
         if ($dryRun) return $existing;
 
         $fill = [];
-        foreach (['oa_url', 'pdf_url', 'oa_status', 'work_license'] as $f) {
+        // volume/issue ride the same only-fill-nulls contract: journal-harvest
+        // re-enumeration is the heal path for canonicals created before the
+        // columns existed (publication-order sorting needs them).
+        foreach (['oa_url', 'pdf_url', 'oa_status', 'work_license', 'volume', 'issue'] as $f) {
             if (($existing->$f === null || $existing->$f === '') && !empty($n[$f])) {
                 $fill[$f] = $n[$f];
             }

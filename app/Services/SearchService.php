@@ -255,7 +255,8 @@ class SearchService
         int $limit = 10,
         string $sourceScope = 'public',
         ?string $creatorName = null,
-        ?string $shelfId = null
+        ?string $shelfId = null,
+        ?array $books = null
     ): array {
         $tsQuery = $this->buildTsQuery($query);
 
@@ -277,7 +278,15 @@ class SearchService
             ->where('library.type', '!=', 'sub_book');
 
         // Scope filtering — private books are NEVER returned, regardless of scope
-        if ($sourceScope === 'shelf' && $shelfId) {
+        if ($sourceScope === 'books' && $books !== null) {
+            // Caller-resolved book list (e.g. ShelfController::publicSearch,
+            // which resolves a PUBLIC shelf's books via pgsql_admin — the
+            // 'shelf' scope below joins shelf_items on the RLS'd connection,
+            // whose select policy is OWNER-ONLY, so it returns nothing for
+            // guests even on public shelves).
+            $dbQuery->whereIn('library.book', $books)
+                ->where('library.visibility', 'public');
+        } elseif ($sourceScope === 'shelf' && $shelfId) {
             $dbQuery->join('shelf_items', 'shelf_items.book', '=', 'library.book')
                 ->where('shelf_items.shelf_id', $shelfId)
                 ->where('library.visibility', 'public');

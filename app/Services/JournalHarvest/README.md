@@ -67,7 +67,15 @@ Re-run until it says "journal fully harvested" (each run resumes where the last 
 
 ## The public pages
 
-Every registry journal gets a page at `/j/{slug}` (e.g. `/j/global-social-challenges-journal`), and `/j` lists all diamond journals ranked by citations. The page shows the journal header (publisher, ISSN, diamond badge, website) and its works most-cited first; each work links to its best readable version via the version-pointer precedence. Linking rule: a visible version WITH content links immediately, marked *unreviewed* until a maintainer has looked at it — junk gets flagged and retracted (which deletes it and drops it off the page), so the page never has to wait for per-article approval. The shelf link and these pages both rely on the `canonicalizer_v1` system user seeded by migration `2026_08_12_000003` (commons shelves live under `/u/canonicalizer_v1/shelf/…`).
+Every registry journal gets a homepage-class page at `/j/{slug}` (e.g. `/j/global-social-challenges-journal`) — the lava-lamp hero with the hyperlit logo + the journal's name, about copy, and three feed buttons: **Most Recent** (publication order: year → volume → issue), **Most Connected**, **Most Lit** — scoped to that journal's articles. `/j` lists all diamond journals ranked by citations.
+
+The feeds are **shelf-backed**: the buttons drive the existing public shelf render endpoint (`sort=published|connected|lit`) against the journal's shelf, so a feed costs nothing until someone actually visits it and rides all the existing shelf machinery (lazy render, cache invalidation, scoped search). `journal:sync-shelves {slug?}` reconciles shelf membership with the canonical truth (`canonical_source.journal_source_id`) and heals year/volume/issue onto version rows; `journal:harvest` runs the same reconcile in its stage 4. The search box on the page searches THIS journal only (public shelf search endpoint).
+
+The about copy auto-composes from DOAJ metadata (keywords, LCC subjects, license, peer-review process, links to the journal website / aims & scope / editorial board — synced by `journal:sync-registry`); override it wholesale with `php artisan journal:set-about {slug} "..."` (`--clear` reverts to the composed default).
+
+Publication-order sorting needs volume/issue: they flow OpenAlex work → `canonical_source.volume/issue` → minted library row. Journals enumerated before those columns existed heal on the next `journal:harvest` run (stage 1 backfills canonicals; `--max-works=0` = enumerate/backfill only, fetch nothing) followed by `journal:sync-shelves`.
+
+The shelf link and commons shelves rely on the `canonicalizer_v1` system user seeded by migration `2026_08_12_000003` (commons shelves live under `/u/canonicalizer_v1/shelf/…`).
 
 Useful flags: `--skip-ocr` (fetch PDFs but don't OCR — nothing charged), `--sleep=N` (seconds between works, default 2), `--type=` (empty for all citable work types, default `article`).
 
@@ -75,7 +83,9 @@ Useful flags: `--skip-ocr` (fetch PDFs but don't OCR — nothing charged), `--sl
 
 - `DoajJournalDirectory.php` (this folder) — the diamond-OA authority: DOAJ CSV/API lookups + the `isDiamond` rule. OpenAlex's `apc_usd` can NOT detect diamond (null = unknown, not free).
 - `app/Console/Commands/JournalSyncRegistryCommand.php` / `JournalListCommand.php` / `JournalHarvestCommand.php` — the three commands.
-- `app/Http/Controllers/JournalPageController.php` + `resources/views/journal.blade.php` / `journal-index.blade.php` — the `/j` pages.
+- `app/Http/Controllers/JournalPageController.php` + `resources/views/journal-home.blade.php` / `journal-index.blade.php` — the `/j` pages; `JournalAboutComposer.php` (this folder) — the default about copy.
+- `app/Console/Commands/JournalSyncShelvesCommand.php` / `JournalSetAboutCommand.php` — shelf reconcile + operator copy.
+- `resources/js/components/journal/journalSearch.ts` — journal-scoped search; SPA structure `'journal'` lives in `resources/js/SPA/` (structureDetection, initHelpers, viewManager gates).
 - `app/Models/JournalSource.php` — the `journal_sources` registry row.
 - `app/Services/OpenAlex/SourcesApi.php` + `SourceNormaliser.php` — the `/sources` client; `WorksApi::fetchBySourcePage` — journal works enumeration (cursor paging).
 - `app/Services/SourceHarvest/HarvestEligibility.php::eligibleCanonicalsForJournal` — the journal-rooted select stage; `HarvestShelf::ensureJournalShelfFor` — the public shelf; `WorkOcrCharger.php` — the ONE home of the set-both-RLS-vars OCR billing pattern.

@@ -258,23 +258,14 @@ def fetch_ocr_chunked(pdf_path, api_key, work_dir, model="mistral-ocr-2512"):
 def _collect_page_refs_and_defs(md):
     """Return (sorted unique refs, sorted unique defs) for a single page's markdown.
 
-    Lightweight version of classify_footnotes per-page logic — used by
-    renumber_chunk_footnotes which runs *before* the classifier.
+    Thin wrapper over the ONE shared detector (pdf_shared.collect_page_refs_and_defs, also
+    used by classify_footnotes). This used to be a drifting lightweight copy — its junk
+    signals (a dotless TOC page read as defs 1-13) primed running_max so a page-bottom doc's
+    first real [^1] page looked like an anthology reset and everything after it was offset
+    +13 (deloitte2025independent), which then re-classified the doc to unknown.
     """
-    md = convert_footnotes(md)
-    refs = set()
-    for m in re.finditer(r'\[\^?(\d+)\]', md):
-        num = int(m.group(1))
-        if num > 500 or num < 1:
-            continue
-        pos = m.start()
-        if pos == 0 or md[pos - 1] == '\n':
-            continue
-        refs.add(num)
-    defs = set(int(n) for n in re.findall(r'^\[\^(\d+)\]', md, re.MULTILINE))
-    defs |= set(int(n) for n in re.findall(r'^(\d{1,3})\. \S', md, re.MULTILINE))
-    defs |= set(int(n) for n in re.findall(r'^(\d{1,3}) [A-Z‘“\'"]', md, re.MULTILINE))
-    return sorted(refs), sorted(defs)
+    refs, defs = collect_page_refs_and_defs(md)
+    return sorted(r for r in refs if r >= 1), sorted(defs)
 
 
 def renumber_chunk_footnotes(response_dict, chunk_boundary_indices=None):

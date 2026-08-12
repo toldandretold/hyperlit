@@ -2,7 +2,7 @@
  * Initialization Helpers - Shared init logic for navigation transitions
  * Extracted from DifferentTemplateTransition and SameTemplateTransition for reusability
  */
-import { verbose } from '../../../utilities/logger';
+import { log, verbose } from '../../../utilities/logger';
 import { setCurrentBook } from '../../../app';
 import { updateDatabaseBookId } from '../../../indexedDB/index';
 import { universalPageInitializer } from '../../viewManager';
@@ -93,6 +93,46 @@ export async function initializeHome(bookId: any, progressCallback: any) {
 
   } catch (error) {
     console.error('Home initialization failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Initialize journal home page state (/j/{slug}). Same shape as
+ * initializeHome — the journal page is the homepage chrome scoped to one
+ * journal — but stamps data-page="journal" so ButtonRegistry initializes the
+ * journal component set (journalSearch instead of the global homepageSearch).
+ */
+export async function initializeJournal(bookId: any, progressCallback: any) {
+  verbose.nav('Initializing journal page', '/navigation/utils/initHelpers.js');
+
+  try {
+    setCurrentBook(bookId);
+    updateDatabaseBookId(bookId);
+
+    document.body.setAttribute('data-page', 'journal');
+    (window as any).isUserPage = false;
+    // user.blade stamps this true; it leaks across SPA transitions and must
+    // not survive onto a journal page (it gated the feed buttons dead).
+    (window as any).isOwner = false;
+
+    // CRITICAL: Reinitialize container managers BEFORE universalPageInitializer
+    await reinitializeContainerManagers();
+
+    try {
+      // Set flag to prevent double initialization
+      (window as any).containersAlreadyInitialized = true;
+      await universalPageInitializer(progressCallback);
+    } finally {
+      delete (window as any).containersAlreadyInitialized;
+    }
+
+    if (typeof initializeLogoNav === 'function') {
+      initializeLogoNav();
+    }
+
+  } catch (error) {
+    log.error('Journal initialization failed', '/navigation/utils/initHelpers.js', error);
     throw error;
   }
 }
@@ -236,6 +276,10 @@ export async function initializeToStructure(toStructure: any, bookId: any, progr
 
       case 'home':
         await initializeHome(bookId, progressCallback);
+        break;
+
+      case 'journal':
+        await initializeJournal(bookId, progressCallback);
         break;
 
       case 'user':

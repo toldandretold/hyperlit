@@ -108,6 +108,19 @@ window.addEventListener("pageshow", async (event) => {
     const pageType = document.body.getAttribute("data-page");
     const hasReaderContent = pageType === "reader" || document.querySelector('.main-content, .book-content');
 
+    // Hero pages (home/journal/user): Safari can resume the page UNPAINTED —
+    // the composited glass hero (backdrop-filter + position:fixed) stays blank
+    // until user interaction invalidates the layer. Force one repaint.
+    if (pageType === 'home' || pageType === 'journal' || pageType === 'user') {
+      requestAnimationFrame(() => {
+        const body = document.body;
+        const prev = body.style.display;
+        body.style.display = 'none';
+        void body.offsetHeight; // forced reflow — flushes within the same frame
+        body.style.display = prev;
+      });
+    }
+
     if (hasReaderContent) {
       // Small delay to ensure DOM is fully restored from bfcache
       setTimeout(async () => {
@@ -298,8 +311,8 @@ export async function universalPageInitializer(progressCallback = null) {
   // ⚠️ IMPORTANT: Skip loadHyperText for home/user pages to prevent double-load race condition
   // For home/user pages, content is already loaded by initializeHomepageButtons() → transitionToBookContent()
   let loadPromise;
-  if (currentPageType === 'home' || currentPageType === 'user') {
-    loadPromise = Promise.resolve(); // No-op promise
+  if (currentPageType === 'home' || currentPageType === 'user' || currentPageType === 'journal') {
+    loadPromise = Promise.resolve(); // No-op promise (journal: currentBookId would be 'j')
   } else {
     loadPromise = loadHyperText(currentBookId, progressCallback);
   }
@@ -334,9 +347,9 @@ export async function universalPageInitializer(progressCallback = null) {
     initializeAuthBroadcastListener();  // Cross-tab sync
     initializeAuthStateListener();       // Same-tab UI updates
 
-    // For homepage and user pages, skip reader-specific initialization
+    // For homepage, journal and user pages, skip reader-specific initialization
     // Content loading is handled by initializeHomepageButtons() for these page types
-    if (currentPageType === 'home' || currentPageType === 'user') {
+    if (currentPageType === 'home' || currentPageType === 'user' || currentPageType === 'journal') {
       return; // Exit early - everything is handled by homepage/user page system
     }
 
@@ -523,9 +536,9 @@ async function initializeUniversalComponents(pageType: any) {
   try {
     verbose.init(`Initializing universal components for page type: ${pageType}`, 'viewManager.js');
 
-    // ✅ Initialize all registered components for this page type (home/user)
-    // Components registered for 'home' and 'user' page types will be initialized
-    if (pageType === 'home' || pageType === 'user') {
+    // ✅ Initialize all registered components for this page type (home/user/journal)
+    // Components registered for these page types will be initialized
+    if (pageType === 'home' || pageType === 'user' || pageType === 'journal') {
       await buttonRegistry.initializeAll(pageType);
     }
 
@@ -537,9 +550,9 @@ async function initializeUniversalComponents(pageType: any) {
         // ✅ NOTE: userContainer initialization now handled by ButtonRegistry above
         // Legacy manual initialization removed to prevent duplicates
 
-        // Initialize homepage-specific components for both home AND user pages
-        // User pages share the same structure as home pages (book grid, etc.)
-        if (pageType === 'home' || pageType === 'user') {
+        // Initialize homepage-specific components for home, user AND journal
+        // pages — they share the same structure (hero/feed wrapper, book cards)
+        if (pageType === 'home' || pageType === 'user' || pageType === 'journal') {
           try {
             verbose.init(`Initializing homepage components for ${pageType} page`, 'viewManager.js');
             const { initializeHomepage } = await import('../components/homepage/homepage');

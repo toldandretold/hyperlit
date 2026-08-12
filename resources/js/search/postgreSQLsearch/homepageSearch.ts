@@ -24,6 +24,7 @@ let debounceTimer: any = null;
 let isFullTextMode = false;
 let abortController: any = null;
 let currentSearchQuery = ''; // Track current query for highlighting on navigation
+let pageshowHandler: ((e: PageTransitionEvent) => void) | null = null;
 
 /**
  * Initialize the homepage search functionality
@@ -67,6 +68,33 @@ export function initializeHomepageSearch() {
     // Close results when clicking outside
     document.addEventListener('click', handleOutsideClick);
 
+    // Safari bfcache: Back resumes the frozen page — NO init re-runs, the
+    // stale results dropdown is still open, and Safari clears
+    // autocomplete="off" text inputs on restore (possibly AFTER pageshow, so
+    // re-apply again a beat later). Empty the dropdown so a focus can't
+    // resurrect stale results. (Same fix as journalSearch.)
+    pageshowHandler = (e: PageTransitionEvent) => {
+        if (!e.persisted || !searchInput) return;
+        if (resultsContainer) resultsContainer.innerHTML = '';
+        hideResults();
+        const applySaved = () => {
+            const savedFT = localStorage.getItem(STORAGE_KEY_FULLTEXT);
+            if (savedFT !== null && searchToggle) {
+                searchToggle.checked = savedFT === 'true';
+            }
+            isFullTextMode = !!searchToggle?.checked;
+            if (searchInput) {
+                searchInput.placeholder = isFullTextMode
+                    ? 'Search all content...'
+                    : 'Search titles & authors...';
+                searchInput.value = localStorage.getItem(STORAGE_KEY_QUERY) || '';
+            }
+        };
+        applySaved();
+        setTimeout(applySaved, 150);
+    };
+    window.addEventListener('pageshow', pageshowHandler);
+
     verbose.init('Homepage search initialized', 'homepageSearch.js');
 }
 
@@ -85,6 +113,11 @@ export function destroyHomepageSearch() {
     }
 
     document.removeEventListener('click', handleOutsideClick);
+
+    if (pageshowHandler) {
+        window.removeEventListener('pageshow', pageshowHandler);
+        pageshowHandler = null;
+    }
 
     if (debounceTimer) {
         clearTimeout(debounceTimer);

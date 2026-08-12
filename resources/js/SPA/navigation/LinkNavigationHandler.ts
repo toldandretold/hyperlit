@@ -187,7 +187,11 @@ export class LinkNavigationHandler {
     // Skip standalone non-SPA pages by path — /3d/* is the reserved namespace
     // for them (docuverse, harvest networks); they have no reader shell to
     // transition into, so even a same-tab click must be a full page load.
-    const isStandalonePage = linkUrl.pathname.startsWith('/3d/');
+    // The bare /j journal index is the same class (a standalone no-layout
+    // blade); /j/{slug} journal pages are NOT skipped — they SPA-route via
+    // the 'journal' structure.
+    const isStandalonePage = linkUrl.pathname.startsWith('/3d/')
+      || linkUrl.pathname === '/j' || linkUrl.pathname === '/j/';
 
     // Skip the accessibility skip-to-content link (layout.blade.php): native
     // fragment navigation must handle it — routing it through SPA nav builds

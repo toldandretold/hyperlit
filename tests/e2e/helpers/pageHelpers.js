@@ -73,7 +73,7 @@ export async function getPageStructure(page) {
   return page.evaluate(() => {
     // Most reliable signal: body[data-page] is set by the server layout
     const dataPage = document.body.getAttribute('data-page');
-    if (dataPage === 'reader' || dataPage === 'home' || dataPage === 'user') {
+    if (dataPage === 'reader' || dataPage === 'home' || dataPage === 'user' || dataPage === 'journal') {
       return dataPage;
     }
     // Fallback heuristics
@@ -170,6 +170,11 @@ const EXPECTED_COMPONENTS = {
     'logoNav', 'userContainer', 'perimeterButtons', 'settings', 'searchToolbar',
     'newBookButton', 'homepageDisplayUnit', 'homepageBookActions',
     'userProfilePage', 'shelfTabs',
+  ],
+  journal: [
+    'logoNav', 'userContainer', 'perimeterButtons', 'settings', 'searchToolbar',
+    'newBookButton', 'journalSearch', 'homepageDisplayUnit', 'homepageBookActions',
+    'lavaLampBackground', 'homepageHero',
   ],
 };
 

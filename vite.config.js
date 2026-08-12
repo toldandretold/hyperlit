@@ -126,6 +126,7 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/css/pages/reader.css',
                 'resources/css/pages/home.css',
+                'resources/css/pages/journal.css',
                 'resources/css/pages/user.css',
                 'resources/css/pages/auth.css',
                 'resources/css/pages/user-home.css',

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1736,
+    "fnCount": 1737,
     "moduleCount": 367,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3572,
+    "edgeCount": 3579,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -15497,6 +15497,14 @@
       "leaf": false
     },
     {
+      "id": "SPA/navigation/utils/initHelpers:initializeJournal",
+      "label": "initializeJournal",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/utils/initHelpers",
+      "leaf": false
+    },
+    {
       "id": "SPA/navigation/utils/initHelpers:initializeReader",
       "label": "initializeReader",
       "kind": "fn",
@@ -20314,6 +20322,7 @@
       "fnIds": [
         "SPA/navigation/utils/initHelpers:ensureContentLoaded",
         "SPA/navigation/utils/initHelpers:initializeHome",
+        "SPA/navigation/utils/initHelpers:initializeJournal",
         "SPA/navigation/utils/initHelpers:initializeReader",
         "SPA/navigation/utils/initHelpers:initializeToStructure",
         "SPA/navigation/utils/initHelpers:initializeUser",
@@ -40062,6 +40071,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch__domwrite__dom",
+      "source": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "SPA/createNewBook:createNewBook__call__indexedDB/core/connection:openDatabase",
       "source": "SPA/createNewBook:createNewBook",
       "target": "indexedDB/core/connection:openDatabase",
@@ -41290,6 +41305,37 @@
       "rel": "domwrite"
     },
     {
+      "id": "SPA/navigation/utils/initHelpers:initializeJournal__call__components/logoNav/logoNav:initializeLogoNav",
+      "source": "SPA/navigation/utils/initHelpers:initializeJournal",
+      "target": "components/logoNav/logoNav:initializeLogoNav",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/utils/initHelpers:initializeJournal__call__indexedDB/index:updateDatabaseBookId",
+      "source": "SPA/navigation/utils/initHelpers:initializeJournal",
+      "target": "indexedDB/index:updateDatabaseBookId",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/utils/initHelpers:initializeJournal__call__SPA/navigation/utils/initHelpers:reinitializeContainerManagers",
+      "source": "SPA/navigation/utils/initHelpers:initializeJournal",
+      "target": "SPA/navigation/utils/initHelpers:reinitializeContainerManagers",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/utils/initHelpers:initializeJournal__call__SPA/viewManager:universalPageInitializer",
+      "source": "SPA/navigation/utils/initHelpers:initializeJournal",
+      "target": "SPA/viewManager:universalPageInitializer",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/utils/initHelpers:initializeJournal__domwrite__dom",
+      "source": "SPA/navigation/utils/initHelpers:initializeJournal",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "SPA/navigation/utils/initHelpers:initializeReader__call__components/logoNav/logoNav:initializeLogoNav",
       "source": "SPA/navigation/utils/initHelpers:initializeReader",
       "target": "components/logoNav/logoNav:initializeLogoNav",
@@ -41330,6 +41376,13 @@
       "id": "SPA/navigation/utils/initHelpers:initializeToStructure__call__SPA/navigation/utils/initHelpers:initializeHome",
       "source": "SPA/navigation/utils/initHelpers:initializeToStructure",
       "target": "SPA/navigation/utils/initHelpers:initializeHome",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/utils/initHelpers:initializeToStructure__call__SPA/navigation/utils/initHelpers:initializeJournal",
+      "source": "SPA/navigation/utils/initHelpers:initializeToStructure",
+      "target": "SPA/navigation/utils/initHelpers:initializeJournal",
       "rel": "call",
       "dataPath": true
     },

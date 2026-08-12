@@ -194,6 +194,12 @@ export async function cleanupFromStructure(fromStructure: any) {
         await cleanupHome();
         break;
 
+      // The journal page has the same managers as home (buttonRegistry set +
+      // user/new-book containers) — cleanupHome covers it.
+      case 'journal':
+        await cleanupHome();
+        break;
+
       case 'user':
         await cleanupUser();
         break;

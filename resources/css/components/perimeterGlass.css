@@ -83,7 +83,9 @@
 /* Home page: no text scrolls behind buttons, so blur picks up dark theme
    and creates visible dark circles against the solid background. Hide glass. */
 body[data-page="home"] #userButtonContainer::after,
-body[data-page="home"] #topRightContainer::after {
+body[data-page="home"] #topRightContainer::after,
+body[data-page="journal"] #userButtonContainer::after,
+body[data-page="journal"] #topRightContainer::after {
   display: none;
 }
 

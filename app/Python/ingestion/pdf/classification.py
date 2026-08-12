@@ -330,30 +330,15 @@ def classify_footnotes(response_dict):
     # --- Step 1: Per-page signal collection ---
     page_data = []  # list of {refs, defs, trailing_number}
     for page in pages:
-        md = page.get("markdown", "")
+        md_raw = page.get("markdown", "")
         header = page.get("header") or ""
-        md = convert_footnotes(md)
-
-        # Inline refs: [^N] or [N] NOT at start of a line
-        # Filter out numbers > 500 to avoid matching years like [2015]
-        refs = set()
-        for m in re.finditer(r'\[\^?(\d+)\]', md):
-            num = int(m.group(1))
-            if num > 500:
-                continue
-            pos = m.start()
-            if pos == 0:
-                continue
-            if md[pos - 1] == '\n':
-                # start of a line — likely a definition, not an inline ref
-                continue
-            refs.add(num)
-
-        # Definitions: [^N] at start of line, or numbered list "1. Text" format,
-        # or "N Text" format (no period — common in document endnotes)
-        defs = set(int(n) for n in re.findall(r'^\[\^(\d+)\]', md, re.MULTILINE))
-        defs |= set(int(n) for n in re.findall(r'^(\d{1,3})\. \S', md, re.MULTILINE))
-        defs |= set(int(n) for n in re.findall(r'^(\d{1,3}) [A-Z\u2018\u201c\'"]', md, re.MULTILINE))
+        # The ONE per-page ref/def detector (pdf_shared.collect_page_refs_and_defs), shared
+        # with renumber_chunk_footnotes: caret-rendering normalization plus the pinpoint /
+        # TOC-entry / date-line guards. This function and the chunk renumberer carrying
+        # DRIFTING copies of this scan is how deloitte2025independent got a false +13
+        # renumber AND an unknown classification from the same junk signals.
+        refs, defs = collect_page_refs_and_defs(md_raw)
+        md = convert_bare_caret_footnotes(convert_footnotes(md_raw))
 
         # Trailing standalone number (page number candidate)
         trailing_num = None

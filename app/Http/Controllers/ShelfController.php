@@ -340,6 +340,19 @@ class ShelfController extends Controller
      * half-built render. Here only ONE caller writes; the rest wait, see the rows
      * now exist (double-check), and skip. The lock TTL is a crash backstop.
      */
+    /**
+     * Numeric sort key for a biblio volume/issue string: the first integer in
+     * it ("12" → 12, "S1" → 1, "3-4" → 3), 0 when absent so missing values
+     * sink in a descending sort.
+     */
+    private static function biblioNumber(?string $value): int
+    {
+        if ($value !== null && preg_match('/\d+/', $value, $m)) {
+            return (int) $m[0];
+        }
+        return 0;
+    }
+
     private function writeRenderNodes(string $syntheticBookId, array $chunks): void
     {
         $admin = DB::connection('pgsql_admin');
@@ -403,6 +416,7 @@ class ShelfController extends Controller
             ->where('library.visibility', '!=', 'deleted')
             ->select([
                 'library.book', 'library.title', 'library.author', 'library.year',
+                'library.volume', 'library.issue',
                 'library.publisher', 'library.journal', 'library.bibtex', 'library.created_at',
                 'library.total_views', 'library.total_citations', 'library.total_highlights',
                 'shelf_items.added_at', 'shelf_items.manual_position',
@@ -418,6 +432,17 @@ class ShelfController extends Controller
             'lit' => $items->sortByDesc(fn($i) => ($i->total_citations ?? 0) + ($i->total_highlights ?? 0)),
             'added' => $items->sortByDesc('added_at'),
             'manual' => $items->sortBy('manual_position'),
+            // Publication order for journals: year → volume → issue, all desc.
+            // Stable sorts applied in reverse so year is primary and issues
+            // stay ordered within a volume. Volume/issue are strings ("12",
+            // "S1", "3-4") — compare by their first integer, missing sinks.
+            'published' => $items->sortByDesc('created_at')
+                ->sortByDesc(fn($i) => self::biblioNumber($i->issue ?? null))
+                ->sortByDesc(fn($i) => self::biblioNumber($i->volume ?? null))
+                ->sortByDesc(fn($i) => (int) ($i->year ?: 0)),
+            // Plain publication year, for non-journal archives.
+            'year' => $items->sortByDesc('created_at')
+                ->sortByDesc(fn($i) => (int) ($i->year ?: 0)),
             default => $items->sortByDesc('created_at'), // 'recent'
         };
 
@@ -511,6 +536,7 @@ class ShelfController extends Controller
             ->where('library.visibility', '!=', 'deleted')
             ->select([
                 'library.book', 'library.title', 'library.author', 'library.year',
+                'library.volume', 'library.issue',
                 'library.publisher', 'library.journal', 'library.bibtex', 'library.created_at',
                 'library.total_views', 'library.total_citations', 'library.total_highlights',
                 'library.visibility as book_visibility',
@@ -527,6 +553,17 @@ class ShelfController extends Controller
             'lit' => $items->sortByDesc(fn($i) => ($i->total_citations ?? 0) + ($i->total_highlights ?? 0)),
             'added' => $items->sortByDesc('added_at'),
             'manual' => $items->sortBy('manual_position'),
+            // Publication order for journals: year → volume → issue, all desc.
+            // Stable sorts applied in reverse so year is primary and issues
+            // stay ordered within a volume. Volume/issue are strings ("12",
+            // "S1", "3-4") — compare by their first integer, missing sinks.
+            'published' => $items->sortByDesc('created_at')
+                ->sortByDesc(fn($i) => self::biblioNumber($i->issue ?? null))
+                ->sortByDesc(fn($i) => self::biblioNumber($i->volume ?? null))
+                ->sortByDesc(fn($i) => (int) ($i->year ?: 0)),
+            // Plain publication year, for non-journal archives.
+            'year' => $items->sortByDesc('created_at')
+                ->sortByDesc(fn($i) => (int) ($i->year ?: 0)),
             default => $items->sortByDesc('created_at'), // 'recent'
         };
 
@@ -598,6 +635,37 @@ class ShelfController extends Controller
         }
 
         $searchService = app(SearchService::class);
+
+        // mode=library: titles & authors within the shelf's public books —
+        // the journal page's default search mode (homepage parity: its toggle
+        // switches titles↔full-text exactly like home's, just shelf-scoped).
+        // Book list resolved via pgsql_admin (like the full-text branch):
+        // shelf_items' RLS select policy is owner-only, so the service's
+        // 'shelf' scope joins to nothing for guests.
+        if ($request->input('mode') === 'library') {
+            $shelfBooks = DB::connection('pgsql_admin')->table('shelf_items')
+                ->join('library', 'shelf_items.book', '=', 'library.book')
+                ->where('shelf_items.shelf_id', $id)
+                ->where('library.visibility', 'public')
+                ->pluck('library.book')
+                ->toArray();
+
+            $results = $searchService->searchLibraryByKeyword($query, min($limit, 20), 'books', null, null, $shelfBooks);
+
+            return response()->json([
+                'success' => true,
+                'mode'    => 'library',
+                'results' => array_map(fn ($r) => [
+                    'book'     => $r->book,
+                    'title'    => $r->title,
+                    'author'   => $r->author,
+                    'year'     => $r->year,
+                    'headline' => e(trim(($r->title ?? '') . ($r->author ? ' — ' . $r->author : ''))),
+                ], $results),
+                'query'   => $query,
+            ]);
+        }
+
         $tsQuery = $searchService->buildTsQuery($query);
 
         if (empty($tsQuery)) {

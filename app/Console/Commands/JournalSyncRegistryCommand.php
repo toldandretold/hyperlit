@@ -187,6 +187,14 @@ class JournalSyncRegistryCommand extends Command
             'languages'               => $doajRow['languages'] ?? null,
             'homepage_url'            => $source['homepage_url'],
             'topics'                  => $source['topics'],
+            // About-copy parts (DOAJ). `about` itself is deliberately NOT here:
+            // it is operator-set copy and a refresh must never clobber it.
+            'keywords'                => $doajRow['keywords'] ?? null,
+            'subjects'                => $doajRow['subjects'] ?? null,
+            'doaj_license'            => $doajRow['license'] ?? null,
+            'review_process'          => $doajRow['review_process'] ?? null,
+            'institution'             => $doajRow['institution'] ?? null,
+            'ref_urls'                => $doajRow['ref_urls'] ?? null,
             'last_synced_at'          => now(),
         ];
 

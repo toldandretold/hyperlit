@@ -13,6 +13,7 @@ from pypdf import PdfReader, PdfWriter
 from ingestion.pdf.pdf_shared import *  # noqa: F401,F403
 from ingestion.pdf.recovery import (  # noqa: F401
     fix_mangled_urls, extract_pypdf_footnote_defs, recover_missing_defs,
+    extract_pypdf_page_texts, resurrect_glued_markers_from_pypdf,
 )
 
 # A footer line that opens a footnote DEFINITION, restricted to the marker shapes the shared
@@ -467,7 +468,18 @@ class PageBottomAssembler(FootnoteAssembler):
              'so they stay globally unique, then re-attach them as a definition list at the end.')
 
     def per_page(self, ctx, i, page, md, md_stripped):
-        md, ctx.global_fn_counter = renumber_page_footnotes(md, ctx.global_fn_counter)
+        page_map = {}
+        pypdf_nums = {n for n, _t in (getattr(ctx, 'pypdf_page_defs', None) or {}).get(i, [])}
+        # Markers Mistral dropped ENTIRELY (no digit left to license) — resurrect from the PDF
+        # text layer's glued-superscript seams before renumbering, so they enter the page map
+        # and the missing-def recovery can pair them.
+        ptext = (getattr(ctx, 'pypdf_page_texts', None) or {}).get(i)
+        if pypdf_nums and ptext:
+            md, _n = resurrect_glued_markers_from_pypdf(md, ptext, pypdf_nums, f' (page {i})')
+        md, ctx.global_fn_counter = renumber_page_footnotes(
+            md, ctx.global_fn_counter, page_map, pypdf_licensed=pypdf_nums)
+        if page_map:
+            ctx.page_local_to_global[i] = page_map
         body, fn_text = split_body_and_footnotes(md)
         if body.strip():
             ctx.md_parts.append(body)
@@ -1126,6 +1138,19 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     assembler = PDF_ASSEMBLERS.get(classification, _DEFAULT_ASSEMBLER)
     assembler.setup(ctx)
 
+    # page_bottom + real PDF: extract the PDF text layer's per-page defs ONCE, up front. Two
+    # consumers: per_page marker licensing (a line-end bare digit whose number the PDF's own
+    # note area carries IS a marker, even when Mistral dropped/mis-numbered the def — deloitte
+    # p9) and the missing-def recovery tail below (which otherwise re-extracts).
+    ctx.pypdf_page_defs = None
+    ctx.pypdf_page_texts = None
+    if pdf_path and classification == 'page_bottom':
+        try:
+            ctx.pypdf_page_defs = extract_pypdf_footnote_defs(pdf_path, running_headers)
+            ctx.pypdf_page_texts = extract_pypdf_page_texts(pdf_path)
+        except Exception as e:
+            print(f"  pypdf pre-extraction skipped (cannot read PDF: {e.__class__.__name__})")
+
     # Sticky notes section tracking: once we enter "Notes" at the end of the
     # book, stay in notes mode until we hit Acknowledgements/Bibliography/etc.
     if footnote_meta:
@@ -1440,11 +1465,14 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         missing = ref_nums - ocr_def_nums
         if missing:
             max_ref = max(ref_nums) if ref_nums else 0
-            try:
-                pypdf_defs = extract_pypdf_footnote_defs(pdf_path, running_headers)
-            except Exception as e:
-                print(f"  pypdf fallback skipped (cannot read PDF: {e.__class__.__name__})")
-                pypdf_defs = {}
+            if ctx.pypdf_page_defs is not None:
+                pypdf_defs = ctx.pypdf_page_defs     # extracted once before the page loop
+            else:
+                try:
+                    pypdf_defs = extract_pypdf_footnote_defs(pdf_path, running_headers)
+                except Exception as e:
+                    print(f"  pypdf fallback skipped (cannot read PDF: {e.__class__.__name__})")
+                    pypdf_defs = {}
             # Build per-page offsets map so pypdf-extracted numbers (always
             # originals) line up with the shifted IDs we wrote into `combined`.
             renumber_offsets = response_dict.get("_footnote_renumber_page_offsets") or []
@@ -1469,6 +1497,23 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                         clean.append((fn_num, fn_text))
                 if clean:
                     clean_pypdf_defs[page_idx] = clean
+
+            # page_bottom docs are renumbered PER PAGE (local print numbers → global sequential),
+            # so pypdf's print-space numbers mean nothing globally — matching them raw is how a
+            # TOC line ("01 Executive Summary 05", pypdf page 3) became the definition of marker
+            # [^1] (deloitte2025independent). Translate each pypdf def through that page's
+            # recorded local→global map instead: page-anchored, so only a def sitting on a page
+            # that actually carries the marker's number can pair with it; pages with no markers
+            # (covers, TOCs) have no map and can never contribute.
+            if classification == 'page_bottom':
+                translated = {}
+                for page_idx, page_defs in clean_pypdf_defs.items():
+                    page_map = ctx.page_local_to_global.get(page_idx) or {}
+                    kept = [(page_map[n], t) for n, t in page_defs if n in page_map]
+                    if kept:
+                        translated[page_idx] = kept
+                clean_pypdf_defs = translated
+                page_offsets_map = {}
 
             recovered = recover_missing_defs(
                 ocr_def_nums, clean_pypdf_defs, max_ref,

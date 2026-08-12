@@ -1,13 +1,14 @@
-// Quality feedback for auto-harvested COMMONS books. These texts were
-// converted by the automatic open-access harvester with no human owner, so
-// there's otherwise no one to flag a bad conversion (mismatched footnotes /
-// citations / headings). Two surfaces:
-//   1. a transient toast on opening a commons book (first impression), and
-//   2. a persistent note in the source panel's Librarian section (in case the
-//      reader dismisses the toast but later spots an issue).
+// Conversion-quality feedback ("Report an issue"). Two surfaces:
+//   1. a transient toast on opening a COMMONS book (auto-harvested, owner-less
+//      — otherwise no one would flag a bad conversion), and
+//   2. a persistent note in the source panel's Librarian section — on EVERY
+//      book, including private ones: the book's own librarian is often the
+//      first to spot mismatched footnotes / citations / headings and wants the
+//      book on the maintainer reconvert queue too.
 // Both route a report to the maintainers via the existing conversion-feedback
-// endpoint (audit.json / assessment.json attached server-side). Honest framing:
-// this feeds a converter-fix + batch-reconvert loop, not an instant self-heal.
+// endpoint (audit.json / assessment.json attached server-side); a 'bad' rating
+// also raises a ConversionFlag onto the reconvert queue. Honest framing: this
+// feeds a converter-fix + batch-reconvert loop, not an instant self-heal.
 import { book } from '../../app';
 import { checklistDialog, alertDialog } from '../dialog/dialog';
 import { isCommonsBook } from './researchWorkflows';
@@ -29,11 +30,13 @@ function postHeaders(): Record<string, string> {
   return { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf };
 }
 
-/** Persistent note + report button for the Librarian section (commons books only). */
+/** Persistent note + report button for the Librarian section — every book. */
 export function commonsFeedbackNoteHtml(record: any): string {
-  if (!isCommonsBook(record)) return '';
+  const lead = isCommonsBook(record)
+    ? 'Converted automatically by the Knowledge Commons Harvester. Spot a problem — footnotes, citations, headings?'
+    : 'Spot a conversion problem — footnotes, citations, headings?';
   return `<p id="commons-feedback-note" style="font-size: var(--sc-11); color: var(--color-text-faint); margin: 8px 0 0; line-height: 1.5;">
-      Converted automatically by the Knowledge Commons Harvester. Spot a problem — footnotes, citations, headings?
+      ${lead}
       <button type="button" id="commons-feedback-btn" style="background: none; border: none; color: var(--hyperlit-aqua, #4EACAE); text-decoration: underline; cursor: pointer; padding: 0; font-size: var(--sc-11);">Report an issue</button>
     </p>`;
 }
@@ -42,7 +45,7 @@ export function commonsFeedbackNoteHtml(record: any): string {
 export async function handleCommonsFeedback(): Promise<void> {
   const result = await checklistDialog({
     title: 'Report a conversion issue',
-    message: 'Thanks for helping improve the commons. This goes to the maintainers, who fix the converter and re-run it — so it may not change instantly, but it makes every future copy better.',
+    message: 'This goes to the maintainers, who fix the converter and re-run it — so it may not change instantly, but it makes this text and every future conversion better.',
     items: ISSUE_TYPES,
     comment: { label: 'Anything to add? (optional)', placeholder: 'e.g. footnote 12 links to the wrong note' },
     confirmLabel: 'Send report',

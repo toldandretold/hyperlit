@@ -54,6 +54,10 @@ class SystemVersionMinter
             'pdf_url'                => $canonical->pdf_url,
             'work_license'           => $canonical->work_license,
             'cited_by_count'         => $canonical->cited_by_count,
+            // Biblio identity for publication-order sorting on journal pages
+            // (year → volume → issue).
+            'volume'                 => $canonical->volume,
+            'issue'                  => $canonical->issue,
             'has_nodes'              => false,
             'visibility'             => 'public',
             'listed'                 => false,

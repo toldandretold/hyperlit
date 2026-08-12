@@ -4,26 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Models\JournalSource;
 use App\Services\CanonicalVersions\BestVersionService;
+use App\Services\JournalHarvest\JournalAboutComposer;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Public journal pages: /j (diamond-OA registry index) and /j/{slug} (one
- * journal's works, most-cited first, linking each to its best readable
- * version). Read-only over journal_sources + canonical_source; the harvest
- * populates both (see app/Services/JournalHarvest/README.md).
+ * Public journal pages: /j (diamond-OA registry index, static blade) and
+ * /j/{slug} — a homepage-class hero page (lava lamp + shelf-backed feeds).
+ * The feeds themselves are the journal's public shelf rendered with
+ * sort=published|connected|lit through the existing shelf pipeline; this
+ * controller only serves the hero shell + about copy + counts. See
+ * app/Services/JournalHarvest/README.md and docs/journal-harvest.md.
  *
- * Reads go through the DEFAULT connection so library visibility is the
- * caller's RLS view. A version is linked when it is visible AND has content
- * (has_nodes); versions that have not yet passed /maintainer/conversion
- * review (listed=false) are linked but marked "unreviewed" — hiding them
- * would hide the whole corpus, since only FLAGGED books have an approval
- * path, and junk gets flagged → retracted → deleted (dropping off this page)
- * rather than sitting unlisted.
+ * Count reads go through the DEFAULT connection so library visibility is the
+ * caller's RLS view.
  */
 class JournalPageController extends Controller
 {
-    private const WORKS_PER_PAGE = 100;
-
     public function index()
     {
         $journals = JournalSource::query()
@@ -41,38 +37,61 @@ class JournalPageController extends Controller
             abort(404, 'Journal not found');
         }
 
-        // One query for the whole page: canonicals + (via the registry's
-        // precedence COALESCE) each work's best version's library row. RLS on
-        // the join hides rows this caller may not see; has_nodes gates the link.
         $bestVersion = BestVersionService::sqlCoalesceExpression('cs');
-        $works = DB::table('canonical_source as cs')
-            ->leftJoin('library as l', 'l.book', '=', DB::raw("({$bestVersion})"))
+
+        $readable = DB::table('canonical_source as cs')
+            ->join('library as l', 'l.book', '=', DB::raw("({$bestVersion})"))
             ->where('cs.journal_source_id', $journal->id)
-            ->orderByRaw('cs.cited_by_count DESC NULLS LAST')
-            ->select([
-                'cs.title', 'cs.author', 'cs.year', 'cs.doi',
-                'cs.cited_by_count', 'cs.type',
-                'l.book as version_book',
-                'l.has_nodes as version_has_nodes',
-                'l.listed as version_listed',
-            ])
-            ->paginate(self::WORKS_PER_PAGE);
+            ->where('l.has_nodes', true)
+            ->count();
 
-        $shelf = $journal->shelf_id
-            ? DB::table('shelves')->where('id', $journal->shelf_id)->first(['slug', 'creator', 'visibility'])
-            : null;
+        $total = DB::table('canonical_source')
+            ->where('journal_source_id', $journal->id)
+            ->count();
 
-        return view('journal', [
-            'journal'   => $journal,
-            'works'     => $works,
-            'readable'  => DB::table('canonical_source as cs')
-                ->join('library as l', 'l.book', '=', DB::raw("({$bestVersion})"))
-                ->where('cs.journal_source_id', $journal->id)
-                ->where('l.has_nodes', true)
-                ->count(),
-            'shelfUrl'  => ($shelf && $shelf->visibility === 'public')
-                ? '/u/' . rawurlencode($shelf->creator) . '/shelf/' . rawurlencode($shelf->slug)
+        // Feeds only exist for a PUBLIC shelf — the arranger buttons hit the
+        // public render endpoint. Read via pgsql_admin (shelves is RLS'd and a
+        // guest's default connection can't see other creators' rows); the
+        // explicit visibility check is the gate, mirroring publicRender.
+        $shelfId = null;
+        if ($journal->shelf_id) {
+            $shelfId = DB::connection('pgsql_admin')->table('shelves')
+                ->where('id', $journal->shelf_id)
+                ->where('visibility', 'public')
+                ->value('id');
+        }
+
+        $description = $journal->display_name
+            . ($journal->publisher ? ' (' . $journal->publisher . ')' : '')
+            . ' — ' . ($journal->is_diamond ? 'diamond open access' : 'open access')
+            . " journal on Hyperlit: {$readable} readable article" . ($readable === 1 ? '' : 's') . '.';
+
+        return view('journal-home', [
+            'pageType'        => 'journal',
+            'pageTitle'       => $journal->display_name . ' — Hyperlit',
+            'pageDescription' => $description,
+            'canonicalUrl'    => url('/j/' . $journal->slug),
+            'jsonLd'          => $this->buildJournalJsonLd($journal),
+            'journal'         => $journal,
+            'shelfId'         => $shelfId,
+            'about'           => app(JournalAboutComposer::class)->compose($journal),
+            'readable'        => $readable,
+            'total'           => $total,
+        ]);
+    }
+
+    private function buildJournalJsonLd(JournalSource $journal): array
+    {
+        return array_filter([
+            '@context'  => 'https://schema.org',
+            '@type'     => 'Periodical',
+            'name'      => $journal->display_name,
+            'issn'      => $journal->issn_l,
+            'publisher' => $journal->publisher
+                ? ['@type' => 'Organization', 'name' => $journal->publisher]
                 : null,
+            'url'       => url('/j/' . $journal->slug),
+            'sameAs'    => $journal->homepage_url,
         ]);
     }
 }

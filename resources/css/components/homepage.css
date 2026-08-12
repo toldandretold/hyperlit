@@ -58,7 +58,8 @@
    is set by homepageHero from scrollTop, so the card rises/widens/squishes at
    the SAME speed as the text — a live interpolation, not a triggered
    animation. NO transitions here: scroll drives every frame directly. */
-body[data-page="home"] #app-container.lava-lamp-background .fixed-header {
+body[data-page="home"] #app-container.lava-lamp-background .fixed-header,
+body[data-page="journal"] #app-container.lava-lamp-background .fixed-header {
   --p: var(--hero-p, 0);
   /* docked pose floats 10px below the top edge — corners stay rounded */
   top: calc(50% * (1 - var(--p)) + 6px * var(--p));
@@ -92,13 +93,16 @@ body[data-page="home"] #app-container.lava-lamp-background .fixed-header {
   gap: calc(28px - 12px * var(--p));
 }
 
-body[data-page="home"] .fixed-header {
+body[data-page="home"] .fixed-header,
+body[data-page="journal"] .fixed-header {
    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45)
 }
 
 
 body[data-page="home"] #user-overlay,
-body[data-page="home"] #source-overlay {
+body[data-page="journal"] #user-overlay,
+body[data-page="home"] #source-overlay,
+body[data-page="journal"] #source-overlay {
 
   opacity: 1.0;
   background-color: transparent; /* Fully transparent so page content shows through */
@@ -109,7 +113,9 @@ body[data-page="home"] #source-overlay {
   }
 
 body[data-page="home"] #user-container,
-body[data-page="home"] #newbook-container {
+body[data-page="journal"] #user-container,
+body[data-page="home"] #newbook-container,
+body[data-page="journal"] #newbook-container {
    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
 }
 
@@ -141,10 +147,12 @@ body[data-page="home"] #newbook-container {
    the buttons off the card. Park them 14px inside the card's minimum edge
    instead (static; ≥768px the JS inline styles override this with the
    column-derived position, which uses the same floor). */
-body[data-page="home"] #app-container.lava-lamp-background #userButtonContainer {
+body[data-page="home"] #app-container.lava-lamp-background #userButtonContainer,
+body[data-page="journal"] #app-container.lava-lamp-background #userButtonContainer {
   left: calc(var(--hero-edge-min) + 14px);
 }
-body[data-page="home"] #app-container.lava-lamp-background #topRightContainer {
+body[data-page="home"] #app-container.lava-lamp-background #topRightContainer,
+body[data-page="journal"] #app-container.lava-lamp-background #topRightContainer {
   right: calc(var(--hero-edge-min) + 14px);
 }
 
@@ -345,7 +353,8 @@ body[data-page="home"] #app-container.lava-lamp-background #topRightContainer {
 
 /* risen state: same card glides into the normal home header position;
    keeps the glass (cards scrolling beneath blur through it) */
-body[data-page="home"] #app-container.lava-lamp-background.content-active .fixed-header {
+body[data-page="home"] #app-container.lava-lamp-background.content-active .fixed-header,
+body[data-page="journal"] #app-container.lava-lamp-background.content-active .fixed-header {
   top: 0;
   transform: translate(-50%, 0);
   width: 100%;

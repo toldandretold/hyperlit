@@ -167,6 +167,104 @@ def convert_bare_caret_footnotes(text):
     return masked
 
 
+# A TOC entry masquerading as a bare-number footnote def: "01 Executive Summary 05" /
+# "06 Background & Methodology 44 Analysis 50" — leading number, no terminal punctuation,
+# ENDING in a standalone 1-3-digit page number (deloitte2025independent's dotless Contents
+# page became defs 1-13, priming a false anthology reset AND poisoning classification).
+# Real "N Text" endnotes end in punctuation or a 4-digit year, so they never match.
+_TOC_ENTRY_TAIL_RE = re.compile(r'\s\d{1,3}$')
+# A standalone date line ("4 July 2025" on a report cover) — leading day-number read as def 4.
+_DATE_LINE_RE = re.compile(
+    r'^\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|'
+    r'November|December)\s+\d{4}$', re.IGNORECASE)
+
+
+def collect_page_refs_and_defs(md_raw):
+    """The ONE per-page footnote ref/def detector — shared by classify_footnotes (signal
+    collection) and renumber_chunk_footnotes (anthology-reset detection). These two carried
+    drifting copies of this scan; a doc that fooled one fooled the other differently, which is
+    exactly how deloitte2025independent got a false +13 renumber AND an unknown classification.
+
+    Returns (refs, defs) as sets of ints, computed on the SAME normalization conversion applies
+    (unicode superscripts + Mistral's caret renderings), with the junk guards: legal pinpoints
+    are not refs; TOC entries, date lines and caret-stripped evidence are handled for defs.
+    """
+    md = convert_footnotes(md_raw)
+    # Unwrap Mistral's caret-BRACKET superscript rendering ("^[48]^" refs → "[48]", line-start
+    # "^[48]" defs → "[48]") — without this, every def line "^[48] Text" is invisible to the
+    # def scan while its inner [48] counts as an inline REF, so a page-bottom doc in this
+    # rendering reads as refs-without-defs and falls through to unknown. Deliberately NOT the
+    # full convert_bare_caret_footnotes: its naked-brace rule ("^{33}" → [^33]) would count a
+    # STEM paper's citation superscripts as footnote refs and flip its classification (fixture
+    # 37344d6e: a no-footnotes doc whose "described previously^{34}" cites reference 34).
+    md = re.sub(r'\^(\[\^?\d{1,3}\])\^?', r'\1', md)
+
+    # Inline refs: [^N] or [N] NOT at start of a line; numbers > 500 are years/junk.
+    refs = set()
+    for m in re.finditer(r'\[\^?(\d+)\]', md):
+        num = int(m.group(1))
+        if num > 500:
+            continue
+        pos = m.start()
+        if pos == 0 or md[pos - 1] == '\n':
+            continue                # line start — a definition, not an inline ref
+        if is_pinpoint_bracket(md, pos):
+            continue                # "626 [25]" / "at [25]-[26]" judgment pinpoints
+        refs.add(num)
+
+    # Definitions: [^N] at line start, numbered "N. Text", or bare "N Text" (document endnotes).
+    defs = set(int(n) for n in re.findall(r'^\[\^(\d+)\]', md, re.MULTILINE))
+    defs |= set(int(n) for n in re.findall(r'^(\d{1,3})\. \S', md, re.MULTILINE))
+    for line in md.split('\n'):
+        m = re.match(r'^(\d{1,3}) [A-Z‘“\'"]', line)
+        if not m:
+            continue
+        stripped = line.rstrip()
+        if _TOC_ENTRY_TAIL_RE.search(stripped) or _DATE_LINE_RE.match(stripped):
+            continue                # TOC entry / cover date, not a footnote definition
+        defs.add(int(m.group(1)))
+    # Caret-prefixed line-start def ("^[48] Lisa…" / "^[48]^ …") — the caret is Mistral's
+    # superscript rendering, so unlike a plain "[N] Text" line (just as often a bibliography
+    # entry) this form is unambiguously a definition. Scan the RAW text: the normalization
+    # above strips the caret evidence.
+    defs |= set(int(n) for n in re.findall(r'^\^\[\^?(\d{1,3})\]\^?[.:]?\s', md_raw, re.MULTILINE))
+    return refs, defs
+
+
+def is_pinpoint_bracket(text, pos):
+    """Is the "[N]" starting at `pos` a legal-citation PARAGRAPH PINPOINT, not a footnote marker?
+
+    Law-report pinpoints cite judgment paragraphs in brackets, SPACE-separated from what precedes:
+    "626 [25] (Gummow ACJ…)", "[2021] FCA 1019, [47] – [50]", "stated at [25]-[26]:" (deloitte2025).
+    A real footnote marker is a rendered superscript, so OCR glues it to the preceding word or
+    punctuation — but STEM prose legitimately cites space-separated too ("field, [1], in analogy",
+    a "- [1] Author…" bulleted reference list), so each preceding-token rule is kept narrow:
+    a digit ("626 [25]"), a digit-then-comma ("1019, [47]" — but NOT "field, [1]"), a closing
+    bracket, a dash that itself follows "]" ("[47] – [50]" / "[25]-[26]" ranges — but NOT a
+    line-start "- [1]" bullet), or the word "at". Linking a pinpoint to footnote N is the
+    wrong-link failure class, so both the classifier's ref scan and the marker converters skip it.
+    """
+    j = pos - 1
+    while j >= 0 and text[j] in ' \t':
+        j -= 1
+    if j == pos - 1 or j < 0:
+        return False                    # glued (or line start) — not space-separated
+    ch = text[j]
+    if ch.isdigit() or ch == ']':
+        return True
+    if ch == ',':
+        return j >= 1 and text[j - 1].isdigit()
+    if ch in '–—-':
+        k = j - 1
+        while k >= 0 and text[k] in ' \t':
+            k -= 1
+        return k >= 0 and text[k] == ']'
+    if ch in 'tT' and j >= 1 and text[j - 1] in 'aA' \
+            and (j < 2 or not text[j - 2].isalnum()):
+        return True                     # "… at [25]"
+    return False
+
+
 def convert_inline_footnote_markers(md, strip_italic_brackets=False):
     """The PER-PAGE inline footnote-MARKER converter, shared by the page_bottom / chapter_endnotes /
     document_endnotes assemblers (it was copy-pasted verbatim in all three). Turns OCR's varied marker
@@ -196,6 +294,8 @@ def convert_inline_footnote_markers(md, strip_italic_brackets=False):
             return m.group(0)            # part of a markdown link / image
         if m.end() < len(_md) and _md[m.end()] == '(':
             return m.group(0)
+        if is_pinpoint_bracket(_md, pos):
+            return m.group(0)            # judgment-paragraph pinpoint "at [25]" — not a marker
         return f'[^{m.group(1)}]'
     md = re.sub(r'\[(\d+)\]', _convert_bracket, md)
 
@@ -287,6 +387,8 @@ def normalize_all_footnote_refs(text):
         if pos > 0 and text[pos - 1] in (']', '!'):
             continue
         if m.end() < len(text) and text[m.end()] == '(':
+            continue
+        if is_pinpoint_bracket(text, pos):
             continue
         bracket_candidates.append((pos, num, m.start(), m.end(), 'bracket'))
 
@@ -416,11 +518,22 @@ def normalize_footnote_defs(text):
     return text
 
 
-def renumber_page_footnotes(page_md, global_counter):
+def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_licensed=None):
     """Renumber footnotes on a single page from local numbering to global sequential.
 
     For "page_bottom" documents where each page restarts at [^1].
     Converts superscripts first, then maps local numbers to global ones.
+
+    `mapping_out` (optional dict): filled with {local_number: global_number} for this page —
+    the ONLY record of the print→assembled numbering, which the pypdf missing-def recovery
+    needs to pair a pypdf-extracted def (print-local number) with its renumbered marker.
+
+    `pypdf_licensed` (optional set of ints): def numbers the PDF's own text layer carries on
+    THIS page (pypdf extraction). They license line-end bare-marker conversion exactly like the
+    OCR def block does — for the page whose defs Mistral dropped or mis-numbered but whose
+    marker survived as a bare digit ("…three lines of defence. 10", deloitte p9: footer def
+    misread 9→10 and "10 Ibid." dropped, so the OCR side had nothing to license the marker;
+    once converted, the marker enters the page map and pypdf recovery injects the RIGHT text).
 
     Returns (processed_md, new_global_counter).
     """
@@ -438,6 +551,15 @@ def renumber_page_footnotes(page_md, global_counter):
         # leading "[^12]." / "[^12] ". Recognise that so those defs aren't stranded in the body as
         # inline-ref-looking text (ad752a46: notes 10-13 on the superscript-numbered pages).
         m = re.match(r'^\[\^(\d{1,3})\]\.?\s+(\S.+)', stripped)
+        if m:
+            return int(m.group(1)), m.group(1), m.group(2)
+        # GLUED converted-superscript def: "¹Senate Education…" (no space after the superscript)
+        # converts to "[^1]Senate…" — without this the def fails every candidate shape, strands
+        # in the BODY as a paragraph whose leading [^1] renders as an in-text ref, and the pypdf
+        # recovery then appends a colon-form DUPLICATE at the doc end (deloitte p5, defs 1-4).
+        # Line-start [^N] glued to text is def-shaped everywhere in this pipeline (an inline ref
+        # glues to the PRECEDING word); the ascending-run + ref-overlap licensing still gates it.
+        m = re.match(r'^\[\^(\d{1,3})\]([A-Za-z\d"\'(*“‘].+)', stripped)
         if m:
             return int(m.group(1)), m.group(1), m.group(2)
         # Bracket-form def: "[17] Mackenzie Owen 2002." — Mistral renders some page-bottom notes
@@ -491,11 +613,15 @@ def renumber_page_footnotes(page_md, global_counter):
     # directly after sentence-closing punctuation, that equals one of the trailing block's numbers
     # is that note's marker: convert it to [^N]. Gated hard — the number must be in the ascending
     # def block AND not already a converted ref, so years/counts in running prose never convert.
-    if ascending:
-        first_def_line = block[0][0]
-        for li in range(first_def_line):
+    licensed_bare = set(nums) if ascending else set()
+    licensed_bare |= set(pypdf_licensed or ())
+    if licensed_bare:
+        bound = block[0][0] if (block and ascending) else len(lines)
+        for li in range(bound):
+            if lines[li].lstrip().startswith('[^'):
+                continue                            # a def line itself, not body carrying a marker
             m = re.search(r"[.!?]['’”\"]?\s+(\d{1,3})\s*$", lines[li])
-            if m and int(m.group(1)) in nums and int(m.group(1)) not in ref_nums:
+            if m and int(m.group(1)) in licensed_bare and int(m.group(1)) not in ref_nums:
                 lines[li] = lines[li][:m.start(1)] + f'[^{m.group(1)}]'
                 ref_nums.add(int(m.group(1)))
 
@@ -546,6 +672,8 @@ def renumber_page_footnotes(page_md, global_counter):
     for local_num in local_numbers:
         local_to_global[local_num] = str(global_counter)
         global_counter += 1
+    if mapping_out is not None:
+        mapping_out.update({int(k): int(v) for k, v in local_to_global.items()})
 
     # Single-pass replacement using a callback
     def replace_local(m):
@@ -874,6 +1002,9 @@ class AssemblyContext:
         self.open_def_continuation = False  # a deferred def was cut mid-sentence at the page turn (Default path)
         self.footer_bare_candidates = {}     # {num: text} bare-number footer defs, injected only if [^N] is orphaned
         self.def_heavy_pages = set()
+        self.page_local_to_global = {}       # page_idx → {local fn num: global fn num} (page_bottom renumber)
+        self.pypdf_page_defs = None          # page_idx → [(num, text)] from the PDF text layer (page_bottom + real PDF)
+        self.pypdf_page_texts = None         # page_idx → raw pypdf page text (marker resurrection)
         self.chapter_fn_offsets = None
         self.notes_transition_pages = {}    # page_idx → (threshold, old_offset, new_offset)
         self.in_notes_section = False

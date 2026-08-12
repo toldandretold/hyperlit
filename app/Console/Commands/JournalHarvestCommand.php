@@ -28,7 +28,7 @@ class JournalHarvestCommand extends Command
 {
     protected $signature = 'journal:harvest
                             {journal : Registry slug, OpenAlex S-id, or ISSN}
-                            {--max-works=25 : Cap on works attempted this run}
+                            {--max-works=25 : Cap on works attempted this run (0 = enumerate/backfill only, fetch nothing)}
                             {--user= : Hyperlit username to bill OCR to (required unless --skip-ocr or --dry-run)}
                             {--skip-ocr : Fetch but do not run OCR (stubs stay deferred)}
                             {--dry-run : Enumerate + report eligibility only; no canonical writes, no fetches}
@@ -62,7 +62,7 @@ class JournalHarvestCommand extends Command
         }
 
         $user = null;
-        if (!$dryRun && !$skipOcr) {
+        if (!$dryRun && !$skipOcr && $maxWorks > 0) {
             $user = $this->resolveBillingUser();
             if (!$user) {
                 return 1;
@@ -129,6 +129,14 @@ class JournalHarvestCommand extends Command
             return 0;
         }
 
+        if ($maxWorks < 1) {
+            // Enumerate-only run: canonicals upserted/backfilled above; no
+            // fetching. (Without this, 0 would fall through to eligibility's
+            // "0 = unlimited" and fetch the whole journal.)
+            $this->info('max-works=0 — enumeration/backfill only, nothing fetched.');
+            return 0;
+        }
+
         $eligible = $eligibility->eligibleCanonicalsForJournal($journal->id, $maxWorks);
         if ($eligible->isEmpty()) {
             $this->info('Nothing eligible — the journal is fully harvested (or nothing fetchable).');
@@ -187,7 +195,10 @@ class JournalHarvestCommand extends Command
         $shelfRow = null;
         try {
             $shelfRow = $shelf->ensureJournalShelfFor($journal);
-            $shelf->addBooks($shelfRow->id, $assignedBooks);
+            // Full reconcile (superset of this run's assigned books): also
+            // repairs drift from earlier runs and heals biblio fields.
+            $added = $shelf->syncJournalShelfMembership($journal);
+            $this->line("  shelf sync: {$added} book(s) added");
         } catch (\Throwable $e) {
             // A shelf failure must never fail the harvest itself.
             $this->warn('Shelf step failed: ' . $e->getMessage());

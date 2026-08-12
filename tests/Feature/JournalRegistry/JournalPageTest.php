@@ -1,11 +1,12 @@
 <?php
 
 /**
- * /j and /j/{slug} — the public journal pages. Locks: 404 for unknown slugs,
- * journal header rendering, the linking rule (a visible version WITH CONTENT
- * links regardless of listed; listed=false gets the "unreviewed" marker;
- * content-less stubs and version-less canonicals render unlinked), and the
- * index listing diamond journals.
+ * /j and /j/{slug} — the public journal pages. /j/{slug} is a homepage-class
+ * hero page (journal-home.blade.php): locks the auto-load deferral contract
+ * (no <main>, no active arranger — mirror of HomeSeoTest), the three
+ * shelf-backed feed buttons (data-filter="shelf" + sort published/connected/lit),
+ * the journal-scoped search container, the about copy (custom verbatim vs
+ * composed default), counts, JSON-LD, and 404. /j is the static diamond index.
  *
  * Seeds via pgsql_admin with beforeEach-only cleanup (afterEach admin deletes
  * deadlock against the open RefreshDatabase transaction — docs/journal-harvest.md).
@@ -23,6 +24,11 @@ function jpageCleanup(): void
 {
     jpageDb()->table('canonical_source')->where('title', 'LIKE', 'JPage %')->delete();
     jpageDb()->table('library')->where('title', 'LIKE', 'JPage %')->delete();
+    $shelfIds = jpageDb()->table('shelves')->where('name', 'LIKE', 'Journal: JPage%')->pluck('id');
+    if ($shelfIds->isNotEmpty()) {
+        jpageDb()->table('shelf_items')->whereIn('shelf_id', $shelfIds)->delete();
+        jpageDb()->table('shelves')->whereIn('id', $shelfIds)->delete();
+    }
     jpageDb()->table('journal_sources')->where('display_name', 'LIKE', 'JPage %')->delete();
 }
 
@@ -44,8 +50,28 @@ function jpageSeedJournal(array $opts = []): object
         'created_at'         => now(),
         'updated_at'         => now(),
     ], $opts);
-    jpageDb()->table('journal_sources')->insert($row);
+    jpageDb()->table('journal_sources')->insert(
+        collect($row)->map(fn ($v) => is_array($v) ? json_encode($v) : $v)->all()
+    );
     return (object) $row;
+}
+
+/** Give a journal a public shelf and point shelf_id at it. Returns shelf id. */
+function jpageSeedShelf(object $journal): string
+{
+    $shelfId = (string) Str::uuid();
+    jpageDb()->table('shelves')->insert([
+        'id'           => $shelfId,
+        'creator'      => \App\Services\CanonicalVersions\AutoVersionResolver::CREATOR,
+        'name'         => 'Journal: ' . $journal->display_name,
+        'slug'         => 'journal-' . Str::lower(Str::random(10)),
+        'visibility'   => 'public',
+        'default_sort' => 'recent',
+        'created_at'   => now(),
+        'updated_at'   => now(),
+    ]);
+    jpageDb()->table('journal_sources')->where('id', $journal->id)->update(['shelf_id' => $shelfId]);
+    return $shelfId;
 }
 
 function jpageSeedWork(string $journalId, array $canonical = [], ?array $version = null): void
@@ -80,40 +106,94 @@ test('unknown slug is a 404', function () {
     $this->get('/j/no-such-journal-slug')->assertNotFound();
 });
 
-test('journal page renders header, links content-bearing versions, marks unreviewed', function () {
+test('journal hero: page type, lava mount, deferral contract, feed buttons, scoped search, counts', function () {
     $journal = jpageSeedJournal();
+    $shelfId = jpageSeedShelf($journal);
 
-    // Unreviewed but converted → linked + "unreviewed" marker.
-    jpageSeedWork($journal->id, ['title' => 'JPage Linked Work', 'cited_by_count' => 9], ['title' => 'JPage Version Linked']);
-    // Content-less stub → unlinked.
-    jpageSeedWork($journal->id, ['title' => 'JPage Stub Work', 'cited_by_count' => 5], ['title' => 'JPage Version Stub', 'has_nodes' => false]);
-    // No version at all → unlinked.
-    jpageSeedWork($journal->id, ['title' => 'JPage Versionless Work', 'cited_by_count' => 1]);
+    jpageSeedWork($journal->id, ['title' => 'JPage Readable Work'], ['title' => 'JPage Version Readable']);
+    jpageSeedWork($journal->id, ['title' => 'JPage Stub Work'], ['title' => 'JPage Version Stub', 'has_nodes' => false]);
+    jpageSeedWork($journal->id, ['title' => 'JPage Versionless Work']);
 
     $response = $this->get('/j/' . $journal->slug)->assertOk();
+    $html = $response->getContent();
 
-    $response->assertSee('JPage Test Journal');
-    $response->assertSee('JPage Press');
-    $response->assertSee('diamond open access');
-    $response->assertSee('1 of 3 articles readable');
+    // Homepage-class chrome + journal identity: the logo lockup is the
+    // hyperlit colon squares + the journal name (no wordmark, no badge).
+    expect($html)->toContain('data-page="journal"');
+    expect($html)->toContain('id="lava-lamp-mount"');
+    expect($html)->toContain('home-content-wrapper journal-content-wrapper');
+    expect($html)->toContain('journal-colon');
+    expect($html)->toContain('JPage Test Journal');
 
-    $linkedBook = jpageDb()->table('library')->where('title', 'JPage Version Linked')->value('book');
-    $response->assertSee('href="/' . $linkedBook . '"', false);
-    $response->assertSee('<span class="jp-unreviewed"', false);
+    // Auto-load deferral contract (mirror of HomeSeoTest): NO server-rendered
+    // main-content, NO pre-activated arranger button.
+    expect($html)->not->toContain('class="main-content');
+    expect($html)->not->toContain('arranger-button active');
 
-    $stubBook = jpageDb()->table('library')->where('title', 'JPage Version Stub')->value('book');
-    $response->assertDontSee('href="/' . $stubBook . '"', false);
+    // The three shelf-backed feed buttons.
+    expect($html)->toContain('data-filter="shelf" data-shelf-id="' . $shelfId . '" data-sort="published"');
+    expect($html)->toContain('data-filter="shelf" data-shelf-id="' . $shelfId . '" data-sort="connected"');
+    expect($html)->toContain('data-filter="shelf" data-shelf-id="' . $shelfId . '" data-sort="lit"');
+
+    // Journal-scoped search container carries the shelf id, with the same
+    // titles↔full-text toggle as home.
+    expect($html)->toContain('id="journal-search-container"');
+    expect($html)->toContain('data-shelf-id="' . $shelfId . '"');
+    expect($html)->toContain('id="journal-fulltext-toggle"');
+    expect($html)->toContain('fulltext-toggle-label');
+
+    // Counts: readable = visible content-bearing best versions.
+    expect($html)->toContain('1 of 3 articles readable');
+
+    // JSON-LD Periodical.
+    expect($html)->toContain('"@type":"Periodical"');
+    expect($html)->toContain('application/ld+json');
 });
 
-test('a reviewed (listed) version links without the unreviewed marker', function () {
+test('custom about copy renders verbatim; composed default when null', function () {
+    $journal = jpageSeedJournal([
+        'about'          => null,
+        'keywords'       => ['climate change', 'social justice'],
+        'subjects'       => ['Economic growth, development, planning'],
+        'doaj_license'   => 'CC BY',
+        'review_process' => 'Double anonymous peer review',
+        'ref_urls'       => ['aims_scope' => 'https://example.org/aims', 'board' => 'https://example.org/board'],
+        'homepage_url'   => 'https://example.org/journal',
+    ]);
+    jpageSeedShelf($journal);
+
+    // Composed default: paragraph + keywords + license + links.
+    $response = $this->get('/j/' . $journal->slug)->assertOk();
+    $response->assertSee('diamond open access journal', false);
+    $response->assertSee('climate change');
+    $response->assertSee('CC BY');
+    $response->assertSee('double anonymous peer review');
+    $response->assertSee('https://example.org/aims', false);
+    $response->assertSee('Aims &amp; scope', false);
+    $response->assertSee('Editorial board');
+    $response->assertSee('Journal website');
+
+    // Custom copy replaces the composed parts wholesale.
+    jpageDb()->table('journal_sources')->where('id', $journal->id)
+        ->update(['about' => 'JPage custom about copy, hand written.']);
+    $response = $this->get('/j/' . $journal->slug)->assertOk();
+    $response->assertSee('JPage custom about copy, hand written.');
+    // Composed parts (keywords line) are replaced; the meta description in
+    // <head> still legitimately says "diamond open access", so assert on a
+    // composed-only string.
+    $response->assertDontSee('climate change');
+});
+
+test('a journal without a shelf renders the hero without feed buttons', function () {
     $journal = jpageSeedJournal();
-    jpageSeedWork($journal->id, ['title' => 'JPage Approved Work'], ['title' => 'JPage Version Approved', 'listed' => true]);
 
     $response = $this->get('/j/' . $journal->slug)->assertOk();
+    $html = $response->getContent();
 
-    $book = jpageDb()->table('library')->where('title', 'JPage Version Approved')->value('book');
-    $response->assertSee('href="/' . $book . '"', false);
-    $response->assertDontSee('<span class="jp-unreviewed"', false);
+    expect($html)->not->toContain('data-filter="shelf"');
+    expect($html)->toContain('Not yet harvested');
+    // Deferral contract still holds.
+    expect($html)->not->toContain('class="main-content');
 });
 
 test('the /j index lists diamond journals ranked by citations', function () {

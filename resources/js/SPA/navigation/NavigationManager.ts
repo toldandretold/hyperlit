@@ -265,6 +265,12 @@ export class NavigationManager {
         return 'user';
       }
 
+      // /j/{slug} is a journal home page (back-button into it must
+      // rebuild the journal hero, not try to load a book named 'j').
+      if (pathSegments[0] === 'j' && pathSegments.length >= 2) {
+        return 'journal';
+      }
+
       // Everything else is reader (/{book}, /{book}/HL_xxx, etc.)
       return 'reader';
 

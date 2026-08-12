@@ -80,6 +80,11 @@ import {
 } from '../../search/postgreSQLsearch/homepageSearch';
 
 import {
+  initializeJournalSearch,
+  destroyJournalSearch
+} from '../journal/journalSearch';
+
+import {
   initializeHomepageButtons,
   destroyHomepageDisplayUnit
 } from '../homepage/homepageDisplayUnit';
@@ -167,7 +172,7 @@ export function registerAllComponents() {
     name: 'logoNav',
     initFn: initializeLogoNav,
     destroyFn: destroyLogoNav,
-    pages: ['reader', 'home', 'user'],
+    pages: ['reader', 'home', 'user', 'journal'],
     dependencies: [],
     required: false
   });
@@ -179,7 +184,7 @@ export function registerAllComponents() {
     name: 'contentHopper',
     initFn: initContentHopper,
     destroyFn: destroyContentHopper,
-    pages: ['reader', 'home', 'user'],
+    pages: ['reader', 'home', 'user', 'journal'],
     dependencies: [],
     required: false
   });
@@ -200,7 +205,7 @@ export function registerAllComponents() {
     name: 'userContainer',
     initFn: initializeUserContainer,
     destroyFn: destroyUserContainer,
-    pages: ['reader', 'home', 'user'],
+    pages: ['reader', 'home', 'user', 'journal'],
     dependencies: [],
     required: false
   });
@@ -244,7 +249,7 @@ export function registerAllComponents() {
         perimeterButtonsInstance = null;
       }
     },
-    pages: ['reader', 'home', 'user'],
+    pages: ['reader', 'home', 'user', 'journal'],
     dependencies: [],
     required: false
   });
@@ -285,7 +290,7 @@ export function registerAllComponents() {
     name: 'settings',
     initFn: initializeSettingsManager,
     destroyFn: destroySettingsManager,
-    pages: ['reader', 'home', 'user'],
+    pages: ['reader', 'home', 'user', 'journal'],
     dependencies: [],
     required: false
   });
@@ -298,7 +303,7 @@ export function registerAllComponents() {
       checkHighlightParam();
     },
     destroyFn: destroySearchToolbar,
-    pages: ['reader', 'home', 'user'],
+    pages: ['reader', 'home', 'user', 'journal'],
     dependencies: [],
     required: false
   });
@@ -331,7 +336,7 @@ export function registerAllComponents() {
     name: 'containerDragger',
     initFn: initContainerDragger,
     destroyFn: destroyContainerDragger,
-    pages: ['reader', 'home', 'user'], // containers can open anywhere; the dragger is inert without a .resize-edge under the pointer
+    pages: ['reader', 'home', 'user', 'journal'], // containers can open anywhere; the dragger is inert without a .resize-edge under the pointer
     dependencies: [],
     required: false
   });
@@ -360,7 +365,7 @@ export function registerAllComponents() {
     destroyFn: destroyCustomScrollbar,
     // home/user: plain-DOM mode drives the feed/hero scroll; chunk mode engages
     // once an arranger collection loads a lazy loader into the wrapper.
-    pages: ['reader', 'home', 'user'],
+    pages: ['reader', 'home', 'user', 'journal'],
     dependencies: [],
     required: false
   });
@@ -416,7 +421,7 @@ export function registerAllComponents() {
     name: 'newBookButton',
     initFn: initializeNewBookContainer,
     destroyFn: destroyNewBookContainer,
-    pages: ['home', 'user', 'reader'],
+    pages: ['home', 'user', 'reader', 'journal'],
     dependencies: ['userContainer'], // Needs user auth state
     required: false
   });
@@ -425,7 +430,7 @@ export function registerAllComponents() {
     name: 'fileDropTarget',
     initFn: initializeFileDropTarget,
     destroyFn: destroyFileDropTarget,
-    pages: ['home', 'user'],
+    pages: ['home', 'user', 'journal'],
     dependencies: ['newBookButton'], // Drop opens the import form via #importBook
     required: false
   });
@@ -439,6 +444,17 @@ export function registerAllComponents() {
     required: false
   });
 
+  // Journal pages get journal-SCOPED search (the public shelf search
+  // endpoint), deliberately not the global homepageSearch.
+  buttonRegistry.register({
+    name: 'journalSearch',
+    initFn: initializeJournalSearch,
+    destroyFn: destroyJournalSearch,
+    pages: ['journal'],
+    dependencies: [],
+    required: false
+  });
+
   // Homepage lava-lamp background + centered glass hero. Both no-op unless
   // their marker DOM exists (#lava-lamp-mount / #app-container.lava-lamp-background),
   // so they are inert everywhere but the homepage.
@@ -446,7 +462,7 @@ export function registerAllComponents() {
     name: 'lavaLampBackground',
     initFn: initLavaLampBackground,
     destroyFn: destroyLavaLampBackground,
-    pages: ['home'],
+    pages: ['home', 'journal'],
     dependencies: [],
     required: false
   });
@@ -455,7 +471,7 @@ export function registerAllComponents() {
     name: 'homepageHero',
     initFn: initHomepageHero,
     destroyFn: destroyHomepageHero,
-    pages: ['home'],
+    pages: ['home', 'journal'],
     dependencies: [],
     required: false
   });
@@ -469,7 +485,7 @@ export function registerAllComponents() {
     name: 'homepageDisplayUnit',
     initFn: initializeHomepageButtons,
     destroyFn: destroyHomepageDisplayUnit,
-    pages: ['home', 'user'],
+    pages: ['home', 'user', 'journal'],
     dependencies: [],
     required: false
   });
@@ -481,7 +497,7 @@ export function registerAllComponents() {
     name: 'wheelScrollForwarder',
     initFn: initWheelScrollForwarder,
     destroyFn: destroyWheelScrollForwarder,
-    pages: ['home', 'user', 'reader'],
+    pages: ['home', 'user', 'reader', 'journal'],
     dependencies: [],
     required: false
   });
@@ -490,7 +506,7 @@ export function registerAllComponents() {
     name: 'homepageBookActions',
     initFn: initializeHomepageBookActions,
     destroyFn: destroyHomepageListeners,
-    pages: ['home', 'user'],
+    pages: ['home', 'user', 'journal'],
     dependencies: ['homepageDisplayUnit'],
     required: false
   });
@@ -502,7 +518,7 @@ export function registerAllComponents() {
     name: 'lockedCardTitles',
     initFn: initLockedCardTitles,
     destroyFn: destroyLockedCardTitles,
-    pages: ['home', 'user'],
+    pages: ['home', 'user', 'journal'],
     dependencies: ['homepageDisplayUnit'],
     required: false
   });

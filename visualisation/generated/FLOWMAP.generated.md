@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1736 functions in 367 modules · 10 object stores · 10 PG tables · 3572 edges
+**MarkdownDB** schema v28 · 1737 functions in 367 modules · 10 object stores · 10 PG tables · 3579 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1550,7 +1550,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SearchToolbarManager.updateNavigationButtons` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `toggleSearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `destroyHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | — | — | — | — |
-| `initializeHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | `localStorage` | — | read | — |
+| `initializeHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | `localStorage` | — | read/write | — |
 | `searchCacheClear` | `search/searchResultCache` | — | — | — | — |
 | `searchCacheGet` | `search/searchResultCache` | — | — | — | — |
 | `searchCacheSet` | `search/searchResultCache` | — | — | — | — |
@@ -1733,6 +1733,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `updateUrl` | `SPA/navigation/utils/contentSwapHelpers` | — | — | — | — |
 | `ensureContentLoaded` | `SPA/navigation/utils/initHelpers` | — | — | read | — |
 | `initializeHome` | `SPA/navigation/utils/initHelpers` | — | — | write | — |
+| `initializeJournal` | `SPA/navigation/utils/initHelpers` | — | — | write | — |
 | `initializeReader` | `SPA/navigation/utils/initHelpers` | — | — | write | — |
 | `initializeToStructure` | `SPA/navigation/utils/initHelpers` | — | — | — | — |
 | `initializeUser` | `SPA/navigation/utils/initHelpers` | — | — | write | — |

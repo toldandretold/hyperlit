@@ -128,6 +128,79 @@ class HarvestShelf
     }
 
     /**
+     * Reconcile a journal's shelf with the canonical truth: every canonical of
+     * the journal whose best version is public and content-bearing belongs on
+     * the shelf. Additive only (BookDeletionService handles removals). Also
+     * heals biblio fields (year/volume/issue) on the version library rows from
+     * their canonicals — version books minted before those columns were copied
+     * need them for the journal page's publication-order sort.
+     *
+     * Returns the number of shelf_items inserted.
+     */
+    public function syncJournalShelfMembership(\App\Models\JournalSource $journal): int
+    {
+        $db = DB::connection('pgsql_admin');
+
+        $shelfRow = $this->ensureJournalShelfFor($journal);
+        if ($journal->shelf_id !== $shelfRow->id) {
+            // A never-harvested journal reconciled by the command alone still
+            // gets its shelf pointer.
+            $db->table('journal_sources')->where('id', $journal->id)->update(['shelf_id' => $shelfRow->id]);
+            $journal->shelf_id = $shelfRow->id;
+        }
+
+        $bestVersion = \App\Services\CanonicalVersions\BestVersionService::sqlCoalesceExpression('cs');
+
+        // Heal biblio fields first, so a flushed re-render sorts correctly.
+        // library.year is TEXT (display column); canonical_source.year is int.
+        $db->statement("
+            UPDATE library l SET
+                year   = COALESCE(NULLIF(l.year, ''), cs.year::text),
+                volume = COALESCE(NULLIF(l.volume, ''), cs.volume),
+                issue  = COALESCE(NULLIF(l.issue, ''), cs.issue)
+            FROM canonical_source cs
+            WHERE cs.journal_source_id = ?
+              AND l.book = ({$bestVersion})
+              AND (
+                    ((l.year IS NULL OR l.year = '') AND cs.year IS NOT NULL)
+                 OR ((l.volume IS NULL OR l.volume = '') AND cs.volume IS NOT NULL)
+                 OR ((l.issue IS NULL OR l.issue = '') AND cs.issue IS NOT NULL)
+              )
+        ", [$journal->id]);
+
+        $eligible = $db->table('canonical_source as cs')
+            ->join('library as l', 'l.book', '=', DB::raw("({$bestVersion})"))
+            ->where('cs.journal_source_id', $journal->id)
+            ->where('l.has_nodes', true)
+            ->where('l.visibility', 'public')
+            ->distinct()
+            ->pluck('l.book');
+
+        $existing = $db->table('shelf_items')
+            ->where('shelf_id', $shelfRow->id)
+            ->pluck('book');
+
+        $missing = $eligible->diff($existing)->values();
+        if ($missing->isEmpty()) {
+            return 0;
+        }
+
+        foreach ($missing->chunk(500) as $chunk) {
+            $db->table('shelf_items')->insert(
+                $chunk->map(fn ($book) => [
+                    'shelf_id' => $shelfRow->id,
+                    'book'     => $book,
+                    'added_at' => now(),
+                ])->all()
+            );
+        }
+
+        app(ShelfCacheInvalidator::class)->flush($shelfRow->id);
+
+        return $missing->count();
+    }
+
+    /**
      * Upsert harvested books onto the shelf and flush its render cache.
      */
     public function addBooks(string $shelfId, array $bookIds): void

@@ -53,6 +53,8 @@ class CanonicalSource extends Model
         'first_page',
         'last_page',
         'journal_source_id',
+        'volume',
+        'issue',
     ];
 
     protected $casts = [

@@ -11,6 +11,7 @@ from mistralai.client import Mistral
 from pypdf import PdfReader, PdfWriter
 
 from ingestion.pdf.pdf_shared import *  # noqa: F401,F403
+from ingestion.pdf.pdf_shared import _TOC_ENTRY_TAIL_RE, _DATE_LINE_RE  # underscored — not in import *
 
 def fix_mangled_urls(text, pdf_path):
     """Fix URLs mangled by Mistral OCR into HTML-attribute format.
@@ -119,8 +120,12 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
         current_text = None
 
         for line in lines:
-            # Match: number (1-3 digits), 1-3 spaces, then text starting with uppercase, quote, or open paren
-            m = re.match(r'^(\d{1,3})\s{1,3}([A-Z"\'(\u201c\u2018].{2,})', line)
+            # Match: number (1-3 digits), 1-3 spaces, then text starting with uppercase, quote, or open paren.
+            # GLUED fallback: pypdf renders some superscript def numbers with NO space at all
+            # ("1Senate Education and Employment\u2026", deloitte fn 1) \u2014 accept zero-space only when
+            # followed by Uppercase-then-lowercase, so "42AM" (a legal section id) never splits.
+            m = re.match(r'^(\d{1,3})\s{1,3}([A-Z"\'(\u201c\u2018].{2,})', line) \
+                or re.match(r'^(\d{1,3})([A-Z][a-z].{2,})', line)
             if m:
                 num = int(m.group(1))
                 def_text = m.group(2).strip()
@@ -137,6 +142,13 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
                 if is_page_num:
                     continue
 
+                # TOC entry ("01 Executive Summary 05") / cover date ("4 July 2025") \u2014 the same
+                # junk shapes the OCR-side def scan guards against (pdf_shared): a def never
+                # ends in a bare 1-3-digit page number, and a day-number is not a footnote.
+                stripped_line = line.rstrip()
+                if _TOC_ENTRY_TAIL_RE.search(stripped_line) or _DATE_LINE_RE.match(stripped_line.strip()):
+                    continue
+
                 # Save previous definition if any
                 if current_num is not None:
                     defs.append((current_num, current_text))
@@ -144,12 +156,28 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
                 current_num = num
                 current_text = def_text
             elif current_num is not None:
-                # Continuation line: non-empty, starts with lowercase, space, or quote
+                # Continuation line: non-empty, starts with lowercase, space, or quote.
+                # CAPPED: pypdf's content-stream order can put the page BODY right after the
+                # footnote region, and unbounded gluing swallowed it whole (deloitte: a def
+                # carrying "1.3.4 Compliance Model Design\u2026" \u2014 an entire page in one footnote).
+                # A real citation def (title + report id + wrapped URL) fits well inside the
+                # cap; when a continuation would blow past it, close the def instead.
                 stripped = line.strip()
-                if stripped and not re.match(r'^\d{1,3}\s{1,3}[A-Z"\'(\u201c\u2018]', line):
+                # Page chrome ends the def: a running-header line, a "A | B" header, or a
+                # numbered HEADING ("1. Executive Summary") \u2014 pypdf's content stream puts these
+                # right after the note area, and gluing them gave "Ibid. 1. Executive Summary
+                # Independent Review of \u2026" (deloitte p9 fn 10).
+                low = stripped.lower()
+                is_chrome = (' | ' in stripped
+                             or re.match(r'^\d{1,3}\.\s+\S', stripped)
+                             or any(low.startswith(rh) for rh in running_lower if rh))
+                if stripped and not is_chrome \
+                        and not re.match(r'^\d{1,3}\s{1,3}[A-Z"\'(\u201c\u2018]', line) \
+                        and not re.match(r'^\d{1,3}[A-Z][a-z]', line) \
+                        and len(current_text) + len(stripped) <= 700:
                     current_text += ' ' + stripped
                 else:
-                    # Non-continuation: save current and reset
+                    # Non-continuation (or cap reached): save current and reset
                     defs.append((current_num, current_text))
                     current_num = None
                     current_text = None
@@ -162,6 +190,59 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
             result[page_idx] = defs
 
     return result
+
+
+def extract_pypdf_page_texts(pdf_path):
+    """Raw per-page text from the PDF's own text layer: {page_index: text}. Companion to
+    extract_pypdf_footnote_defs for consumers that need the BODY text (marker resurrection)."""
+    reader = PdfReader(pdf_path)
+    out = {}
+    for i in range(len(reader.pages)):
+        text = reader.pages[i].extract_text()
+        if text:
+            out[i] = text
+    return out
+
+
+# A GLUED superscript marker in pypdf text: "risk.9 This" — word + sentence punctuation with the
+# digit attached directly (no space; a spaced digit is ordinary prose, "by 9 percent"), then the
+# next word. Captures (word+punct seam, number, following word).
+_PYPDF_GLUED_MARKER_RE = re.compile(
+    r"([A-Za-z]{2,}[.,;:!?)\'\"’”])(\d{1,3})\s+([A-Za-z]{2,})")
+
+
+def resurrect_glued_markers_from_pypdf(ocr_md, pypdf_text, def_nums, page_label=''):
+    """Re-inject in-text markers Mistral dropped ENTIRELY, using the PDF text layer as witness.
+
+    deloitte p9: printed "…mitigate risk.9 This ensures…" OCR'd as "…mitigate risk. This
+    ensures…" — no digit at all, so no licensing rule can ever resurrect it from the OCR side.
+    But pypdf keeps the glued superscript ("risk.9 This"). For each def number the page's own
+    note area carries with NO marker in the OCR text: find pypdf's word-punct+N+word seam, then
+    find that exact seam (digit-less) in the OCR markdown — insert [^N] there. Gated hard: the
+    number must be glued in pypdf (superscript signature), must be one of THIS page's def
+    numbers, must not already appear as a marker, and the seam must match EXACTLY ONCE in the
+    OCR page — a wrong link is worse than a missing one, so any ambiguity skips.
+
+    Returns (updated_md, resurrected_count).
+    """
+    existing = set(int(n) for n in re.findall(r'\[\^?(\d{1,3})\]', ocr_md))
+    count = 0
+    for m in _PYPDF_GLUED_MARKER_RE.finditer(pypdf_text):
+        num = int(m.group(2))
+        if num not in def_nums or num in existing:
+            continue
+        seam, follow = m.group(1), m.group(3)
+        pattern = re.escape(seam) + r'\s+' + re.escape(follow)
+        hits = list(re.finditer(pattern, ocr_md))
+        if len(hits) != 1:
+            continue                     # absent (OCR reworded) or ambiguous — skip, never guess
+        h = hits[0]
+        ocr_md = ocr_md[:h.start() + len(seam)] + f'[^{num}]' + ocr_md[h.start() + len(seam):]
+        existing.add(num)
+        count += 1
+    if count:
+        print(f"  pypdf marker resurrection: re-injected {count} dropped in-text marker(s){page_label}")
+    return ocr_md, count
 
 
 def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,

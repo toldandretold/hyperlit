@@ -107,6 +107,77 @@ test('parseCsvIndex keys by both ISSNs, reads APC by header name, fails loudly o
         ->toThrow(RuntimeException::class, 'drifted');
 });
 
+test('parseCsvIndex reads the about-copy columns; absent columns degrade to nulls', function () {
+    $dir = sys_get_temp_dir();
+
+    // Full-format dump: about-copy columns present.
+    $full = $dir . '/jsync_doaj_full.csv';
+    file_put_contents($full,
+        'Journal title,APC,Journal ISSN (print version),Journal EISSN (online version),Publisher,'
+        . 'Keywords,Subjects,Journal license,Review process,Other organisation,'
+        . "URL for journal's aims & scope,URL for the Editorial Board page,Journal URL\n"
+        . 'Rich Journal,No,1234-5678,,Small Press,'
+        . '"climate change, social justice","Social Sciences: Economic growth",CC BY,Double anonymous peer review,Uni of Testing,'
+        . "https://x.test/aims,https://x.test/board,https://x.test\n"
+    );
+
+    $row = (new DoajJournalDirectory())->parseCsvIndex($full)['1234-5678'];
+    expect($row['keywords'])->toBe(['climate change', 'social justice']);
+    expect($row['subjects'])->toBe(['Social Sciences: Economic growth']);
+    expect($row['license'])->toBe('CC BY');
+    expect($row['review_process'])->toBe('Double anonymous peer review');
+    expect($row['institution'])->toBe('Uni of Testing');
+    expect($row['ref_urls'])->toBe(['aims_scope' => 'https://x.test/aims', 'journal' => 'https://x.test', 'board' => 'https://x.test/board']);
+
+    // Old-format dump (about-copy columns absent) still parses — optional columns.
+    $old = $dir . '/jsync_doaj_old.csv';
+    file_put_contents($old,
+        "Journal title,APC,Journal ISSN (print version),Journal EISSN (online version),Publisher\n"
+        . "Sparse Journal,No,1111-2222,,Old Press\n"
+    );
+    $row = (new DoajJournalDirectory())->parseCsvIndex($old)['1111-2222'];
+    expect($row['has_apc'])->toBeFalse();
+    expect($row['keywords'])->toBe([]);
+    expect($row['license'])->toBeNull();
+    expect($row['ref_urls'])->toBeNull();
+});
+
+test('sync stores the about-copy metadata and a refresh never clobbers operator about', function () {
+    fakeDoajIndex([
+        '1111-1111' => [
+            'has_apc'        => false,
+            'publisher'      => 'P',
+            'languages'      => ['English'],
+            'keywords'       => ['kw one', 'kw two'],
+            'subjects'       => ['Subject A'],
+            'license'        => 'CC BY-SA',
+            'review_process' => 'Peer review',
+            'institution'    => 'Inst',
+            'ref_urls'       => ['aims_scope' => 'https://x.test/aims'],
+        ],
+    ]);
+    fakeSourcesPage([jsyncRawSource()]);
+
+    $this->artisan('journal:sync-registry')->assertExitCode(0);
+
+    $row = JournalSource::where('openalex_source_id', 'SJSYNC1')->first();
+    expect($row->keywords)->toBe(['kw one', 'kw two']);
+    expect($row->subjects)->toBe(['Subject A']);
+    expect($row->doaj_license)->toBe('CC BY-SA');
+    expect($row->review_process)->toBe('Peer review');
+    expect($row->institution)->toBe('Inst');
+    expect($row->ref_urls)->toBe(['aims_scope' => 'https://x.test/aims']);
+    expect($row->about)->toBeNull();
+
+    // Operator sets copy; a re-sync must leave it alone.
+    $row->update(['about' => 'Hand-written copy.']);
+    fakeSourcesPage([jsyncRawSource()]);
+    fakeDoajIndex(['1111-1111' => ['has_apc' => false, 'publisher' => 'P', 'languages' => []]]);
+    $this->artisan('journal:sync-registry')->assertExitCode(0);
+
+    expect($row->fresh()->about)->toBe('Hand-written copy.');
+});
+
 // ── Full sync ──
 
 test('full sync stores diamonds with provenance, skips non-diamond and unknown', function () {

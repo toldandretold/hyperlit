@@ -36,6 +36,7 @@ function jhCleanup(): void
         jhDb()->table('shelves')->whereIn('id', $shelfIds)->delete();
     }
     jhDb()->table('canonical_source')->where('openalex_id', 'LIKE', 'WJHTEST%')->delete();
+    jhDb()->table('library')->where('book', 'LIKE', 'book_jhtest%')->delete();
     jhDb()->table('journal_sources')->where('openalex_source_id', 'LIKE', 'SJHTEST%')->delete();
     jhDb()->table('users')->where('email', 'LIKE', '%@jhtest.test')->delete();
 }
@@ -173,11 +174,23 @@ test('fetch loop: max-works caps attempts, billing fires for assigned ONLY, shel
 
     $this->mock(AutoVersionCreator::class, function ($m) use ($c1, $c2) {
         $m->shouldReceive('create')->twice()->andReturnUsing(function ($canonical) use ($c1, $c2) {
-            return match ($canonical->id) {
-                $c1 => ['status' => 'assigned', 'book' => 'book_jhtest_new', 'lane' => 'pdf', 'via' => 'pdf_url', 'reason' => null],
-                $c2 => ['status' => 'assigned_existing', 'book' => 'book_jhtest_prior', 'lane' => null, 'via' => null, 'reason' => null],
-                default => throw new RuntimeException('unexpected canonical ' . $canonical->id),
-            };
+            if ($canonical->id === $c1) {
+                // Materialize what a real `assigned` produces — the stage-4
+                // membership sync reconciles from these rows, not from the
+                // return value.
+                jhDb()->table('library')->insert([
+                    'book' => 'book_jhtest_new', 'title' => 'JHTest Version New',
+                    'visibility' => 'public', 'listed' => false, 'has_nodes' => true,
+                    'type' => 'book', 'raw_json' => '[]', 'timestamp' => 0, 'created_at' => now(),
+                ]);
+                jhDb()->table('canonical_source')->where('id', $c1)
+                    ->update(['auto_version_book' => 'book_jhtest_new']);
+                return ['status' => 'assigned', 'book' => 'book_jhtest_new', 'lane' => 'pdf', 'via' => 'pdf_url', 'reason' => null];
+            }
+            if ($canonical->id === $c2) {
+                return ['status' => 'assigned_existing', 'book' => 'book_jhtest_prior', 'lane' => null, 'via' => null, 'reason' => null];
+            }
+            throw new RuntimeException('unexpected canonical ' . $canonical->id);
         });
     });
 

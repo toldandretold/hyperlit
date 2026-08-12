@@ -164,8 +164,16 @@ export async function initializeHomepageButtons() {
   if (activeButton) {
     const filter = activeButton.dataset.filter;
 
-    // Visitor shelf tab: load via public API
-    if (filter === 'shelf' && !(window as any).isOwner && (window as any).isUserPage) {
+    // Visitor shelf tab (user page) or journal feed button: load via public API.
+    // Journal pages reuse the exact same public-shelf render path but get no
+    // shelf header (its sort dropdown would fight the three feed buttons).
+    // NOTE: the journal check must NOT look at window.isOwner — that global is
+    // stamped true by the user page and leaks across SPA transitions (visiting
+    // My Library and coming back silently killed the feed buttons), and a
+    // journal feed is a public shelf where owner-ness is irrelevant anyway.
+    if (filter === 'shelf'
+        && (document.body.dataset.page === 'journal'
+            || (!(window as any).isOwner && (window as any).isUserPage))) {
       const shelfId = activeButton.dataset.shelfId;
       const sort = activeButton.dataset.sort || 'recent';
       const shelfName = activeButton.dataset.shelfName || 'Shelf';
@@ -176,17 +184,19 @@ export async function initializeHomepageButtons() {
         if (data.bookId) {
           activeButton.dataset.content = data.bookId;
           await transitionToBookContent(data.bookId, false);
-          const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
-          showShelfHeader({
-            shelfId,
-            shelfName,
-            visibility: 'public',
-            currentSort: sort,
-            isSystemShelf: false,
-            isOwner: false,
-            username: (window as any).username,
-            slug: shelfSlug,
-          });
+          if ((window as any).isUserPage) {
+            const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
+            showShelfHeader({
+              shelfId,
+              shelfName,
+              visibility: 'public',
+              currentSort: sort,
+              isSystemShelf: false,
+              isOwner: false,
+              username: (window as any).username,
+              slug: shelfSlug,
+            });
+          }
         }
       } catch (err) {
         console.error('Failed to load public shelf:', err);
@@ -263,8 +273,13 @@ export async function initializeHomepageButtons() {
 
       const filter = this.dataset.filter;
 
-      // Visitor shelf tab click
-      if (filter === 'shelf' && !(window as any).isOwner && (window as any).isUserPage) {
+      // Visitor shelf tab click (user page) or journal feed button click —
+      // same public-shelf render path; journal pages skip the shelf header
+      // (its sort dropdown would fight the three feed buttons). Journal check
+      // is deliberately isOwner-blind — see the restore-path comment above.
+      if (filter === 'shelf'
+          && (document.body.dataset.page === 'journal'
+              || (!(window as any).isOwner && (window as any).isUserPage))) {
         const shelfId = this.dataset.shelfId;
         const sort = this.dataset.sort || 'recent';
         const shelfName = this.dataset.shelfName || 'Shelf';
@@ -287,17 +302,19 @@ export async function initializeHomepageButtons() {
 
         if (bookId) {
           await transitionToBookContent(bookId, true);
-          const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
-          showShelfHeader({
-            shelfId,
-            shelfName,
-            visibility: 'public',
-            currentSort: sort,
-            isSystemShelf: false,
-            isOwner: false,
-            username: (window as any).username,
-            slug: shelfSlug,
-          });
+          if ((window as any).isUserPage) {
+            const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
+            showShelfHeader({
+              shelfId,
+              shelfName,
+              visibility: 'public',
+              currentSort: sort,
+              isSystemShelf: false,
+              isOwner: false,
+              username: (window as any).username,
+              slug: shelfSlug,
+            });
+          }
           persistActiveTabToHistory('shelf', bookId, shelfId);
         }
         return;
