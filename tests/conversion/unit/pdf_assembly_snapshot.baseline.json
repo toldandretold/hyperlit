@@ -111,8 +111,8 @@
   "tests/conversion/corpus/production_power_and_world_order_social_forces_i/ocr_response.json": {
     "classification": "chapter_endnotes",
     "confidence": 1.0,
-    "md_len": 1234463,
-    "md_sha256": "3d389f6ced1809561173968faf6298f37a21651469552401a1c7a7774a308447",
+    "md_len": 1234514,
+    "md_sha256": "6e2e18bea5a33f0874621b44581b75011ebdbff9e646bde845a505619b9097fc",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,
@@ -139,8 +139,8 @@
   "tests/conversion/corpus/soviet_marxism_a_critical_analysis_herbert_marcu/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.95,
-    "md_len": 460374,
-    "md_sha256": "5ce75ccf5a3cbe3ad7d97bac99f70685bf076a05d6b7e735b1279b0866ca3794",
+    "md_len": 460375,
+    "md_sha256": "d97cd054c32c718c38978baa9e0b4c1cdfbac365074c5fbfa944f98752f29be5",
     "segments": [
       86,
       101,

@@ -954,11 +954,13 @@ def _norm_heading(text):
     return re.sub(r'\s+', ' ', (text or '')).strip()
 
 
-_TOC_ENTRY_RE = re.compile(r'^(.{2,80}?)\s+(?:\d{1,4}|[ivxlc]{1,7})$')
+_TOC_ENTRY_RE = re.compile(r'^(.{2,130}?)(?:\s*\.{2,}\s*|\s+)(?:\d{1,4}|[ivxlc]{1,7})$')
 
 
 def _norm_title(t):
     t = t.replace('“', '"').replace('”', '"').replace('’', "'").replace('‘', "'")
+    t = t.replace('&amp;', '&')
+    t = re.sub(r'[‒–—―]', '-', t)
     return re.sub(r'\s+', ' ', t).strip()
 
 
@@ -986,20 +988,43 @@ def _collect_toc_titles(pages):
       all_keys    — toc_key of every entry (level normalisation: an h1 matching none demotes)
       part_before — {successor toc_key: PART title} for 'PART …' divider entries, so a part
                     heading OCR dropped can be re-injected above its first chapter"""
-    for idx, page in enumerate(pages[:15]):
+    def _page_lines(page):
         md = page.get('markdown', '') or ''
-        lines = [re.sub(r'^#{1,6}\s+', '', l.strip()) for l in md.split('\n') if l.strip()]
+        return [re.sub(r'^#{1,6}\s+', '', l.strip()) for l in md.split('\n') if l.strip()]
+
+    for idx, page in enumerate(pages[:15]):
+        lines = _page_lines(page)
         # A List of Tables/Figures page has the same 'Caption … N' shape but supplies CAPTIONS,
         # not section titles — never let it win the first-match over the real Contents.
         if lines and re.match(r'(?i)^list of (tables|figures|illustrations|maps)', lines[0]):
             continue
         entries = [l for l in lines if _TOC_ENTRY_RE.match(l)]
         if len(entries) >= 5:
+            # A long Contents CONTINUES onto following pages (ad752a46's III/IV/CONCLUSION sat
+            # on page 2 and were never harvested) — keep consuming while a page still carries
+            # >= 2 entry-shaped lines.
+            toc_pages = [idx]
+            for nxt in range(idx + 1, min(idx + 4, len(pages))):
+                nlines = _page_lines(pages[nxt])
+                if sum(1 for l in nlines if _TOC_ENTRY_RE.match(l)) >= 2:
+                    toc_pages.append(nxt)
+                    lines = lines + nlines
+                else:
+                    break
             titles = set()
             ordered = []
             for l in lines:
                 m = _TOC_ENTRY_RE.match(l)
-                t = _norm_title(m.group(1) if m else l)
+                if m:
+                    t = _norm_title(m.group(1))
+                else:
+                    # Non-entry lines on the Contents page are titles only in DIVIDER shape
+                    # (short + 'PART …' or ALL CAPS) — a Contents block embedded mid-page
+                    # (law-review abstracts) must not leak its prose paragraphs into the
+                    # title set (ad752a46 promoted an abstract paragraph to h1).
+                    t = _norm_title(l)
+                    if not (len(t) <= 60 and (re.match(r'(?i)^part\b', t) or t.isupper())):
+                        continue
                 if t:
                     ordered.append(t)
                     titles.add(t)
@@ -1013,13 +1038,30 @@ def _collect_toc_titles(pages):
                 if re.match(r'(?i)^part\b', t):
                     pending_part = t
                     continue
-                if re.match(r'^\d+[.)]?\s+\S', t):
-                    numbered.setdefault(_toc_key(t), t)
-                    if pending_part:
-                        part_before.setdefault(_toc_key(t), pending_part)
-                        pending_part = None
-            return titles, idx, numbered, all_keys, part_before
-    return set(), -1, {}, set(), {}
+                # Sectioning grammars, each with its target LEVEL: arabic chapters ('1. Title')
+                # and roman sections ('IV. FROM TAXI WORK…' — law-review style) are top-level;
+                # DOTTED-DECIMAL entries nest by depth ('1.1 …' → h2, '2.1.5 …' → h3);
+                # single-LETTER entries ('A. The Chauffeurs' Union…') are subsections at h2;
+                # an ALL-CAPS unnumbered entry (INTRODUCTION, CONCLUSION) is a top-level
+                # division. 'I.' is roman, not the letter I; other single letters (incl.
+                # V/X/C) read as letters — a lone 'C.' section is a subsection in every book.
+                _dotted = re.match(r'^\d+(\.\d+)+\s+\S', t)
+                if _dotted:
+                    level = min(1 + t.split(' ')[0].count('.'), 4)
+                elif re.match(r'^\d+[.)]?\s+\S', t) or re.match(r'^(?:I|[IVX]{2,})[.)]\s+\S', t):
+                    level = 1
+                elif re.match(r'^[A-Z][.)]\s+\S', t):
+                    level = 2
+                elif t.isupper() and len(t) >= 6 and not _STRUCTURAL_HEADING_RE.match(_toc_key(t)):
+                    level = 1
+                else:
+                    continue
+                numbered.setdefault(_toc_key(t), (t, level))
+                if pending_part and level == 1:
+                    part_before.setdefault(_toc_key(t), pending_part)
+                    pending_part = None
+            return titles, set(toc_pages), numbered, all_keys, part_before
+    return set(), set(), {}, set(), {}
 
 
 def _collect_body_heading_texts(pages):
@@ -1076,7 +1118,7 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     # header-field section name already exists as a body heading somewhere, injecting a copy just
     # plants a duplicate at a PAGE top (usually mid-paragraph), so the body's own heading wins.
     body_heading_texts = _collect_body_heading_texts(pages)
-    toc_titles, toc_page_idx, toc_numbered, toc_all_keys, toc_part_before = _collect_toc_titles(pages)
+    toc_titles, toc_pages, toc_numbered, toc_all_keys, toc_part_before = _collect_toc_titles(pages)
     fence_lines_stripped = fence_pages = 0
 
     # The per-classification assembler owns setup (e.g. the chapter-offset precompute) + per_page +
@@ -1194,7 +1236,7 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         # and never for a line whose heading form was already seen — a plain running-header
         # LEAK matching a TOC title has its real heading in seen_sections (and was stripped
         # above), so it can never be promoted into a duplicate.
-        if toc_titles and i != toc_page_idx and md_stripped and not md_stripped.startswith('#'):
+        if toc_titles and i not in toc_pages and md_stripped and not md_stripped.startswith('#'):
             _first_line = md_stripped.split('\n', 1)[0].strip()
             if (len(_first_line) <= 80
                     and _norm_title(_first_line) in toc_titles
@@ -1254,7 +1296,7 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         #  • an h1 matching NO Contents entry (ad captions, pull quotes read as headings)
         #    demotes to h2 — prefix-matching keeps 'CONCLUSION' under the printed
         #    'Conclusion: The Cultural Consequences…' at h1.
-        if toc_numbered and not ctx.in_notes_section and i > toc_page_idx:
+        if toc_numbered and not ctx.in_notes_section and toc_pages and i > max(toc_pages):
             _lines = md.split('\n')
             _changed = False
             for _li, _line in enumerate(_lines):
@@ -1263,17 +1305,19 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                     continue
                 _text = _hm.group(2)
                 _key = _toc_key(_text)
-                _numbered_self = bool(re.match(r'^\d+[.)]?\s+\S', _norm_title(_text)))
-                _full = toc_numbered.get(_key) if (_hm.group(1) == '#' or _numbered_self) else None
-                if _full:
+                _numbered_self = bool(re.match(r'^(?:\d+(?:\.\d+)*|[IVXLC]+|[A-Z])[.)]?\s+\S', _norm_title(_text)))
+                _entry = toc_numbered.get(_key) if (_hm.group(1) == '#' or _numbered_self) else None
+                if _entry:
+                    _full, _level = _entry
+                    _hashes = '#' * _level
                     if _key not in ctx.toc_chapters_used:
                         ctx.toc_chapters_used.add(_key)
                         _part = toc_part_before.get(_key)
                         if (_part and _norm_heading(_part) not in ctx.seen_sections
                                 and _norm_title(_part) not in ctx.promoted_toc_titles):
-                            _lines[_li] = f'# {_part}\n\n# {_full}'
+                            _lines[_li] = f'# {_part}\n\n{_hashes} {_full}'
                         else:
-                            _lines[_li] = f'# {_full}'
+                            _lines[_li] = f'{_hashes} {_full}'
                     else:
                         _lines[_li] = None
                     _changed = True
@@ -1363,7 +1407,7 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
               f"(odd fence count = OCR noise; an unpaired fence swallows the rest of the document)")
     if ctx.promoted_toc_titles:
         print(f"  TOC-promoted {len(ctx.promoted_toc_titles)} heading(s) from the printed Contents "
-              f"(page {toc_page_idx}): {', '.join(sorted(ctx.promoted_toc_titles)[:6])}"
+              f"(page {min(toc_pages)}): {', '.join(sorted(ctx.promoted_toc_titles)[:6])}"
               + (' …' if len(ctx.promoted_toc_titles) > 6 else ''))
 
     combined = "\n\n".join(ctx.md_parts)
