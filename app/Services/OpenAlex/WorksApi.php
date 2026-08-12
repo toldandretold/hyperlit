@@ -165,6 +165,42 @@ class WorksApi
     }
 
     /**
+     * One cursor page of a journal's works (filter by primary_location source
+     * S-id). Powers the journal-level harvest's enumeration stage. Pass cursor
+     * '*' to start, then the returned next_cursor until it comes back null.
+     * $typeFilter defaults to 'article'; pass null for all types.
+     *
+     * @return array{works: array<int, array>, next_cursor: ?string, count: ?int}
+     */
+    public function fetchBySourcePage(string $sourceId, ?string $cursor = '*', int $perPage = 200, ?string $typeFilter = 'article'): array
+    {
+        $filter = 'primary_location.source.id:' . $sourceId;
+        if ($typeFilter !== null && $typeFilter !== '') {
+            $filter .= ',type:' . $typeFilter;
+        }
+
+        $response = $this->http->retryableGet(OpenAlexHttpClient::BASE_URL . '/works', [
+            'filter'   => $filter,
+            'per_page' => $perPage,
+            'cursor'   => $cursor ?? '*',
+            'select'   => OpenAlexHttpClient::SELECT_FIELDS,
+        ]);
+
+        if (!$response->successful()) {
+            Log::warning('OpenAlex works-by-source returned ' . $response->status(), ['source' => $sourceId]);
+            throw new \RuntimeException('OpenAlex works-by-source returned ' . $response->status());
+        }
+
+        $works = $response->json('results') ?? [];
+
+        return [
+            'works'       => array_map(fn(array $work) => $this->normaliser->normaliseWork($work), $works),
+            'next_cursor' => $response->json('meta.next_cursor'),
+            'count'       => $response->json('meta.count'),
+        ];
+    }
+
+    /**
      * The OpenAlex ids of every work this work cites (its outbound citation
      * graph). Not part of SELECT_FIELDS — referenced_works can be hundreds of
      * entries, so it is fetched on demand per work. Empty array when OpenAlex

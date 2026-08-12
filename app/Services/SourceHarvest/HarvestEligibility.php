@@ -57,6 +57,57 @@ class HarvestEligibility
     }
 
     /**
+     * Eligible canonicals for one journal (journal_sources row), most-cited
+     * first. Same predicate as eligibleCanonicalsFor but rooted on the
+     * journal_source_id stamped at enumeration time instead of a book's
+     * reached-citations subquery. Powers journal:harvest's select stage.
+     *
+     * @return \Illuminate\Support\Collection<int, object> canonical_source rows
+     */
+    public function eligibleCanonicalsForJournal(string $journalSourceId, int $limit = 0)
+    {
+        $query = DB::connection('pgsql_admin')
+            ->table('canonical_source as cs')
+            ->where('cs.journal_source_id', $journalSourceId)
+            ->whereNull('cs.auto_version_book')
+            ->where('cs.is_oa', true)
+            // Same deliberate choice as eligibleCanonicalsFor: no OA-colour
+            // exclusion — partial copies import flagged, empty ones get dropped
+            // by the post-OCR text floor.
+            ->where(function ($q) {
+                $q->where(fn ($q2) => $q2->whereNotNull('cs.pdf_url')->where('cs.pdf_url', '!=', ''))
+                  ->orWhere(fn ($q2) => $q2->whereNotNull('cs.oa_url')->where('cs.oa_url', '!=', ''))
+                  ->orWhere(fn ($q2) => $q2->whereNotNull('cs.doi')->where('cs.doi', '!=', ''));
+            })
+            ->orderByRaw('cs.cited_by_count DESC NULLS LAST')
+            ->select('cs.*');
+
+        if ($limit > 0) {
+            $query->limit($limit);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Pure-SQL pre-flight numbers for journal:harvest.
+     *
+     * @return array{total: int, eligible: int, already_harvested: int}
+     */
+    public function estimateForJournal(string $journalSourceId): array
+    {
+        $db = DB::connection('pgsql_admin');
+
+        $base = $db->table('canonical_source')->where('journal_source_id', $journalSourceId);
+
+        return [
+            'total'             => (clone $base)->count(),
+            'eligible'          => $this->eligibleCanonicalsForJournal($journalSourceId)->count(),
+            'already_harvested' => (clone $base)->whereNotNull('auto_version_book')->count(),
+        ];
+    }
+
+    /**
      * The DURABLE harvested network for a root book: every canonical reachable
      * from the book's citations (recursively, through the version books it has
      * already imported) that now carries an auto_version_book — i.e. everything

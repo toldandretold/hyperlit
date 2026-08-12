@@ -217,6 +217,56 @@ def is_separator_row(line):
     inner = stripped[1:-1]
     return bool(re.match(r'^[\s|:\-]+$', inner))
 
+def _split_row_math_aware(line):
+    """Split a table row on '|' delimiters, treating a pipe inside balanced parentheses or a
+    $…$ math span as CONTENT — the conditional-probability bar in 'pr(⊗|λσ;T)' is not a cell
+    boundary (1313c1a2: the first column split in two and every row gained a phantom cell)."""
+    cells, cur, depth, in_math = [], [], 0, False
+    for ch in line:
+        if ch == '$':
+            in_math = not in_math
+        elif not in_math and ch in '([{':
+            depth += 1
+        elif not in_math and ch in ')]}':
+            depth = max(0, depth - 1)
+        if ch == '|' and depth == 0 and not in_math:
+            cells.append(''.join(cur))
+            cur = []
+        else:
+            cur.append(ch)
+    cells.append(''.join(cur))
+    return cells
+
+
+def _split_row_space_aware(line):
+    """Split a table row treating only SPACE-PADDED pipes (' | ') as delimiters — a glued pipe
+    is content, which is how absolute-value bars survive: '|er(T)|/|T|' in a cell has no
+    whitespace around its bars, while the real cell boundaries always do (1313c1a2 Table 4)."""
+    s = line.strip()
+    if s.startswith('|'):
+        s = s[1:]
+    if s.endswith('|'):
+        s = s[:-1]
+    return re.split(r'(?<=\s)\|(?=\s)', s)
+
+
+def _row_cells(row_line, expected):
+    """Cells for one body row. The naive split is the historical default; the recovery splits
+    are used ONLY when the naive split over-produces (> expected) and a recovery lands exactly
+    on the header width — so a table with unbalanced stray parens can never regress. Recovery
+    order: paren/$-aware (pipes inside brackets or math), then space-aware (only ' | ' pipes
+    delimit; glued absolute-value bars are content)."""
+    naive = [cell.strip() for cell in row_line.split('|')[1:-1]]
+    if expected and len(naive) > expected:
+        smart = [cell.strip() for cell in _split_row_math_aware(row_line)[1:-1]]
+        if len(smart) == expected:
+            return smart
+        spaced = [cell.strip() for cell in _split_row_space_aware(row_line)]
+        if len(spaced) == expected:
+            return spaced
+    return naive
+
+
 def convert_table_block(lines, start_index):
     """
     Convert a markdown table to HTML.
@@ -244,8 +294,7 @@ def convert_table_block(lines, start_index):
     body_start = 2 if has_separator else 1
     body_rows = []
     for row_line in table_lines[body_start:]:
-        cells = [cell.strip() for cell in row_line.split('|')[1:-1]]
-        body_rows.append(cells)
+        body_rows.append(_row_cells(row_line, len(header_cells)))
 
     # Build HTML table
     html_parts = ['<table>', '<thead>', '<tr>']

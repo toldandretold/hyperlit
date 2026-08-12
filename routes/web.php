@@ -84,6 +84,17 @@ Route::prefix('maintainer')->group(function () {
         ->name('maintainer.storage');
 });
 
+// Public journal pages (diamond-OA registry) — PREFIXED like /maintainer
+// above: one reserved word ('j' in config/reserved-routes.php), pages live a
+// segment deeper, out of book-URL space. See docs/journal-harvest.md.
+Route::prefix('j')->group(function () {
+    Route::get('/', [App\Http\Controllers\JournalPageController::class, 'index'])
+        ->name('journal.index');
+    Route::get('/{slug}', [App\Http\Controllers\JournalPageController::class, 'show'])
+        ->where('slug', '[a-z0-9-]+')
+        ->name('journal.show');
+});
+
 // File import route - requires authentication (logged in or valid anonymous session)
 Route::post('/import-file', [App\Http\Controllers\ImportController::class, 'store'])
     ->middleware('author')

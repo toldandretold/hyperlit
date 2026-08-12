@@ -613,8 +613,11 @@ def rejoin_page_breaks(text):
         line = lines[i]
         stripped = line.rstrip()
 
-        # Skip empty lines, headings, HRs
-        if not stripped or stripped.startswith('#') or stripped == '---':
+        # Skip empty lines, headings, HRs — and TABLE lines: a table row ends with '|' (no
+        # sentence punctuation), so the continuation rule glued the table's LAST row onto a
+        # lowercase-starting next paragraph, breaking the row out of the table entirely
+        # (1313c1a2 Table 2: '| Sentiment | 64.4 … |' + 'taken from Christopher Potts…').
+        if not stripped or stripped.startswith('#') or stripped == '---' or stripped.lstrip().startswith('|'):
             result.append(line)
             i += 1
             continue

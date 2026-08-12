@@ -81,6 +81,52 @@ class HarvestShelf
         return (object) ['id' => $id, 'name' => $name, 'slug' => $slug, 'creator' => $root->creator];
     }
 
+    /** Shelf display-name prefix for journal-level harvests. */
+    public const JOURNAL_NAME_PREFIX = 'Journal: ';
+
+    /**
+     * Find-or-create the public shelf for a journal-level harvest. Owned by
+     * the system creator (like commons harvest shelves): the journal's corpus
+     * is a shared commons artifact, not any user's collection.
+     * Returns {id, name, slug, creator}.
+     */
+    public function ensureJournalShelfFor(\App\Models\JournalSource $journal): object
+    {
+        $db = DB::connection('pgsql_admin');
+        $creator = \App\Services\CanonicalVersions\AutoVersionResolver::CREATOR;
+
+        $name = self::JOURNAL_NAME_PREFIX . Str::limit($journal->display_name, 230, '…');
+
+        $existing = $db->table('shelves')
+            ->where('creator', $creator)
+            ->where('name', $name)
+            ->select(['id', 'name', 'slug', 'creator'])
+            ->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $id = (string) Str::uuid();
+        $slug = ShelfSlug::unique($name, $creator);
+
+        $db->table('shelves')->insert([
+            'id'            => $id,
+            'creator'       => $creator,
+            'creator_token' => null,
+            'name'          => $name,
+            'slug'          => $slug,
+            'description'   => 'Open-access articles from ' . $journal->display_name
+                . ($journal->is_diamond ? ' (diamond open access)' : '')
+                . ', imported by the journal harvester.',
+            'visibility'    => 'public',
+            'default_sort'  => 'recent',
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        return (object) ['id' => $id, 'name' => $name, 'slug' => $slug, 'creator' => $creator];
+    }
+
     /**
      * Upsert harvested books onto the shelf and flush its render cache.
      */

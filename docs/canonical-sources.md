@@ -2,6 +2,8 @@
 
 How Hyperlit distinguishes "the work being cited" from "the particular uploaded version of it," and how the system reasons about how legitimate each piece is.
 
+Related: `docs/journal-harvest.md` — the diamond-OA journal registry (`journal_sources`) and the journal-level harvest that populates canonicals per journal (`canonical_source.journal_source_id`).
+
 ## The problem
 
 A single work (say, Marx's *Capital Vol 1*, Penguin/Fowkes 1976) can end up in the database multiple times: one user uploads a scanned PDF, another paste-imports the EPUB, a third lets the auto-pipeline ingest an OpenAlex stub. Pre-canonical-source, those were three unrelated rows in `library`; there was no notion that they referred to the same work, no way to compare a citation against the *most trustworthy* version, no way to express "this PDF was put here by the publisher" vs. "this is some user's sloppy retype."

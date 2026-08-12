@@ -52,6 +52,7 @@ class CanonicalSource extends Model
         'oa_locations_fetched_at',
         'first_page',
         'last_page',
+        'journal_source_id',
     ];
 
     protected $casts = [

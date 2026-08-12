@@ -61,6 +61,7 @@ return [
     'based',     // standalone sub-book view
     'dev',       // developer tools (/dev/conversion-tests)
     'maintainer', // operator triage (/maintainer/conversion, /maintainer/jobs)
+    'j',         // journal pages (/j/{slug} — planned; slugs already minted in journal_sources)
 
     // Data + misc
     'books',

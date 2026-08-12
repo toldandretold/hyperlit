@@ -530,30 +530,11 @@ class HarvestRunner
     /**
      * Charge the harvest owner for one work's Mistral OCR, returning the dollars
      * debited (0 for anonymous owners, native/BYO OCR, and non-OCR lanes).
-     *
-     * Mirrors GenerateBookAudioJob::chargeFor: charge() re-reads the user on the
-     * DEFAULT connection whose users_select_policy needs BOTH app.current_user
-     * AND app.current_token, but only sets the former. In a queue worker (no HTTP
-     * session) we must set both — or the charge silently matches zero rows.
+     * Body lives in WorkOcrCharger (shared with the journal-level harvest);
+     * see its docblock for the both-RLS-vars gotcha.
      */
     private function chargeWorkOcr(?User $user, string $bookId): float
     {
-        if (!$user) {
-            return 0.0;
-        }
-
-        DB::statement("SELECT set_config('app.current_user', ?, false)", [$user->name]);
-        DB::statement("SELECT set_config('app.current_token', ?, false)", [(string) $user->user_token]);
-        try {
-            return app(BillingService::class)->billOcrForBook(
-                $user,
-                $bookId,
-                resource_path("markdown/{$bookId}"),
-                "Harvest OCR: {$bookId}",
-            );
-        } finally {
-            DB::statement("SELECT set_config('app.current_user', '', false)");
-            DB::statement("SELECT set_config('app.current_token', '', false)");
-        }
+        return app(WorkOcrCharger::class)->charge($user, $bookId);
     }
 }
