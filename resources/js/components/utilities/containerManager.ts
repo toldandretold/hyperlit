@@ -178,9 +178,13 @@ export class ContainerManager {
             // jumps me to a different book / can't get home" glitch). Only go back when the entry's
             // container actually belongs to the rendered book; otherwise close in place (a pure
             // replaceState in closeHyperlitContainer — no navigation).
+            // Embedded (a maintainer harness frames the reader): session history is JOINT with
+            // the host, so back() would step ANOTHER frame — the reader pane to about:blank, the
+            // source pane off its PDF, or the host page itself. Close in place instead.
+            const { isEmbeddedReader } = await import('../../utilities/embeddedReader');
             const renderedBookId = (document.querySelector('main.main-content') as any)?.id || null;
             const stateBookId = history.state?.containerStackBookId || null;
-            if (stateBookId && renderedBookId && stateBookId === renderedBookId) {
+            if (!isEmbeddedReader() && stateBookId && renderedBookId && stateBookId === renderedBookId) {
               history.back();
             } else {
               const { closeHyperlitContainer } = await import('../../hyperlitContainer/core');

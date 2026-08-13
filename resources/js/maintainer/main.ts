@@ -194,10 +194,14 @@ function select(entry: QueueEntry): void {
       // Same-origin, so the raw source document gets painted in the app's theme rather than
       // sitting as a white slab beside the dark reader (utilities/sourceFrameTheme.ts). A PDF
       // can't be skinned — the pane falls back to a light canvas, which its viewer overpaints.
+      // Decide the canvas NOW, from the artifacts — a PDF frame may never fire load, which would
+      // leave the class at the previous case's value.
       const skinnable = sourceIsSkinnable(entry.artifacts);
+      const pane = document.querySelector('.mt-original');
+      pane?.classList.toggle('mt-original-unskinned', !skinnable);
       frame.onload = (): void => {
-        const skinned = skinnable && applySourceFrameTheme(frame);
-        document.querySelector('.mt-original')?.classList.toggle('mt-original-unskinned', !skinned);
+        if (!skinnable) return;
+        pane?.classList.toggle('mt-original-unskinned', !applySourceFrameTheme(frame));
       };
       frame.src = originalUrl;
     } else {

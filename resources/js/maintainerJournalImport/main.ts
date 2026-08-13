@@ -430,10 +430,15 @@ async function selectLane(lane: Lane): Promise<void> {
     if (probe.ok) {
       // Paint the fetched page in the operator's theme once it lands. A PDF can't be skinned, so
       // the pane falls back to a light canvas — the viewer paints its own background anyway.
+      // Decide the canvas NOW, from the artifacts — not inside onload. A PDF frame may never
+      // fire load, which would leave the class at the PREVIOUS lane's value and paint a PDF on a
+      // dark canvas (or a themed page on a white one).
       const skinnable = sourceIsSkinnable(lane.artifacts);
+      const pane = document.querySelector('.ji-source');
+      pane?.classList.toggle('ji-source-unskinned', !skinnable);
       source.onload = (): void => {
-        const skinned = skinnable && applySourceFrameTheme(source);
-        document.querySelector('.ji-source')?.classList.toggle('ji-source-unskinned', !skinned);
+        if (!skinnable) return;
+        pane?.classList.toggle('ji-source-unskinned', !applySourceFrameTheme(source));
       };
       source.src = sourceUrl;
       sourcePlaceholder.hidden = true;

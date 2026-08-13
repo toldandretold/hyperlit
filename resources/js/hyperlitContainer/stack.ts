@@ -10,6 +10,7 @@ import { book } from '../app';
 import { destroySubBook, restoreSubBookState } from './subBookActions';
 import { flushPendingEdits } from '../utilities/pendingEditsRegistry';
 import { log, verbose } from '../utilities/logger';
+import { isEmbeddedReader } from '../utilities/embeddedReader';
 
 // ============================================================================
 // STACK DATA STRUCTURE
@@ -386,7 +387,11 @@ export function syncStackToHistoryState({ pushHistoryEntry = false, urlOverride 
       : null,
   };
 
-  if (pushHistoryEntry) {
+  // Embedded readers never PUSH: the entry would land in the host page's joint history, so the
+  // host's Back button would walk through our container states instead of leaving the page — and
+  // the matching back() on close would step one of the host's frames. replaceState still records
+  // the state, so restoration and the book-identity checks are unaffected.
+  if (pushHistoryEntry && !isEmbeddedReader()) {
     history.pushState(newState, '', newUrl);
     verbose.nav(`📚 Stack PUSHED to new history entry (${depth} layers), URL: ${newUrl}`, 'hyperlitContainer/stack.ts');
   } else {

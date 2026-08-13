@@ -6,7 +6,7 @@
     "moduleCount": 369,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3614,
+    "edgeCount": 3616,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -34050,6 +34050,13 @@
       "rel": "call"
     },
     {
+      "id": "hyperlitContainer/history:restoreStackedLayer__call__hyperlitContainer/stack:popTopLayer",
+      "source": "hyperlitContainer/history:restoreStackedLayer",
+      "target": "hyperlitContainer/stack:popTopLayer",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "hyperlitContainer/history:restoreStackedLayer__call__hyperlitContainer/stack:pushLayer",
       "source": "hyperlitContainer/history:restoreStackedLayer",
       "target": "hyperlitContainer/stack:pushLayer",
@@ -34276,6 +34283,13 @@
       "source": "hyperlitContainer/index:handleUnifiedContentClick",
       "target": "hyperlitContainer/stack:popLayer",
       "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/index:handleUnifiedContentClick__call__hyperlitContainer/stack:popTopLayer",
+      "source": "hyperlitContainer/index:handleUnifiedContentClick",
+      "target": "hyperlitContainer/stack:popTopLayer",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/index:handleUnifiedContentClick__call__hyperlitContainer/stack:pushLayer",

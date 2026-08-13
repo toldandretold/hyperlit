@@ -623,7 +623,16 @@ async function pushStackedLayer(element: any, highlightIds: any, newHighlightIds
     } catch (err) {
       log.error('Pre-back flush failed for stacked overlay (non-fatal)', 'hyperlitContainer/index.ts', err as any);
     }
+    // Embedded in a maintainer harness: back() would step the HOST's history, not this
+    // layer's entry (which was never pushed). Peel the layer directly.
+    const { isEmbeddedReader } = await import('../utilities/embeddedReader');
+    if (isEmbeddedReader()) {
+      const { popTopLayer } = await import('./stack');
+      await popTopLayer();
+      return;
+    }
     history.back();
+
   });
 
   // Push the new layer entry (representing the active layer)

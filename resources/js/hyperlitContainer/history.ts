@@ -342,7 +342,16 @@ export async function restoreStackedLayer(containerState: any) {
       } catch (err) {
         console.warn('Pre-back flush failed for restored stacked overlay (non-fatal):', err);
       }
+      // Embedded in a maintainer harness: back() would step the HOST's history, not this
+      // layer's entry (which was never pushed). Peel the layer directly.
+      const { isEmbeddedReader } = await import('../utilities/embeddedReader');
+      if (isEmbeddedReader()) {
+        const { popTopLayer } = await import('./stack');
+        await popTopLayer();
+        return;
+      }
       history.back();
+
     });
 
     // Push the new layer entry
