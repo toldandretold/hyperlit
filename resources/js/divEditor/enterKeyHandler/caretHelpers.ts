@@ -26,6 +26,10 @@ export function isElementInViewport(el: HTMLElement): boolean {
  * Uses .reader-content-wrapper as the scroll container (not window)
  */
 export function scrollCaretIntoView(): void {
+  // Deferred callers (moveCaretTo's 50ms settle timer) can outlive the page —
+  // in vitest that timer fires after the jsdom environment is torn down and
+  // `document` no longer exists, crashing the whole run as an uncaught error.
+  if (typeof document === 'undefined') return;
   verbose.content("scrollCaretIntoView start", 'divEditor/enterKeyHandler.js');
   const sel = document.getSelection();
   if (!sel || !sel.rangeCount) {

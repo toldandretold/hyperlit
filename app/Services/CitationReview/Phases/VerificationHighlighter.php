@@ -5,6 +5,7 @@ namespace App\Services\CitationReview\Phases;
 use App\Services\BackendHighlightService;
 use App\Services\CitationReview\Support\SourceHtmlBuilder;
 use App\Services\CitationReview\Support\SourceTypeClassifier;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -12,11 +13,19 @@ use Illuminate\Support\Facades\Log;
  * the reviewed text, with a reasoning sub-book attached. Unresolved citations
  * get a distinct "Source Not Found" highlight. Clears prior AIreview highlights
  * first. Marks each highlighted claim with 'has_highlight' and returns the count.
+ * Finally, flips the book's gate default so the highlights it just created are
+ * actually VISIBLE (see revealAiHighlightsByDefault).
  *
  * Extracted verbatim from CitationReviewService::createVerificationHighlights.
  */
 final class VerificationHighlighter
 {
+    /** Mirror of the client's GLOBAL_DEFAULT_FLAGS (components/utilities/gateFilter.ts). */
+    private const GLOBAL_DEFAULT_FLAGS = [
+        'hyperlight' => ['hideAI' => true,  'hideAnonymous' => false, 'hideNoAnnotation' => true],
+        'hypercite'  => ['hideAI' => true,  'hideAnonymous' => true,  'hideNoAnnotation' => false],
+    ];
+
     public function __construct(
         private BackendHighlightService $highlights,
         private SourceHtmlBuilder $sourceHtml,
@@ -250,6 +259,90 @@ final class VerificationHighlighter
             }
         }
 
+        if ($count > 0) {
+            $this->revealAiHighlightsByDefault($bookId);
+        }
+
         return $count;
+    }
+
+    /**
+     * Flip this book's gate default so the AI review highlights are NOT hidden.
+     *
+     * The global default hides AI highlights (sensible for books nobody asked to have
+     * reviewed) — but a book that HAS a citation review is a book whose owner wanted
+     * one, and highlights nobody can see are worthless: the report links to them, and
+     * a reader arriving at the book saw nothing. So running a review sets
+     * `library.gate_defaults.hyperlight.hideAI = false` for that book only.
+     *
+     * This is a DEFAULT, not a lock: the owner flips it back any time via the gate
+     * panel's "Save as Book Default" (or "Reset to Global Default"), and any reader's
+     * own Custom / Hide All choice still outranks it. Only the hyperlight column is
+     * touched — the hypercite column and every other flag are preserved as-is (legacy
+     * FLAT gate_defaults are normalized to the per-type shape on the way through).
+     */
+    private function revealAiHighlightsByDefault(string $bookId): void
+    {
+        try {
+            $db = DB::connection('pgsql_admin');
+            $row = $db->table('library')->where('book', $bookId)->first(['gate_defaults']);
+            if (!$row) return;
+
+            $existing = $row->gate_defaults;
+            if (is_string($existing)) $existing = json_decode($existing, true);
+            if (!is_array($existing)) $existing = null;
+
+            $defaults = [
+                'hyperlight' => $this->normalizeFlags($existing, 'hyperlight'),
+                'hypercite'  => $this->normalizeFlags($existing, 'hypercite'),
+            ];
+
+            if ($defaults['hyperlight']['hideAI'] === false) return; // already visible — no write
+
+            $defaults['hyperlight']['hideAI'] = false;
+
+            // Bump timestamp as well as annotations_updated_at: the client only reloads the
+            // library row (which carries gate_defaults) on the CONTENT-changed branch of its
+            // freshness check — an annotations-only sync would leave the stale defaults cached.
+            $nowMs = (int) round(microtime(true) * 1000);
+            $db->table('library')->where('book', $bookId)->update([
+                'gate_defaults'          => json_encode($defaults),
+                'timestamp'              => $nowMs,
+                'annotations_updated_at' => $nowMs,
+            ]);
+
+            Log::info('Citation review made AI highlights visible by default for book', [
+                'book' => $bookId,
+                'gate_defaults' => $defaults,
+            ]);
+        } catch (\Throwable $e) {
+            // Never fail a completed review over the visibility default — the highlights
+            // exist either way and the owner can unhide them from the gate panel.
+            Log::warning('Could not update gate_defaults after citation review', [
+                'book' => $bookId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Normalize a nested-per-type OR legacy-flat gate_defaults object to one type's
+     * flag triple, falling back to the global default for that type. Mirror of
+     * DatabaseToIndexedDBController::normalizeGateFlags + the client's normalizeGateFlags.
+     */
+    private function normalizeFlags(?array $flags, string $type): array
+    {
+        if ($flags === null) return self::GLOBAL_DEFAULT_FLAGS[$type];
+
+        if (array_key_exists('hyperlight', $flags) || array_key_exists('hypercite', $flags)) {
+            $flags = $flags[$type] ?? null;
+            if (!is_array($flags)) return self::GLOBAL_DEFAULT_FLAGS[$type];
+        }
+
+        return [
+            'hideAI'           => (bool) ($flags['hideAI'] ?? false),
+            'hideAnonymous'    => (bool) ($flags['hideAnonymous'] ?? false),
+            'hideNoAnnotation' => (bool) ($flags['hideNoAnnotation'] ?? false),
+        ];
     }
 }

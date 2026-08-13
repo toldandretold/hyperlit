@@ -235,12 +235,13 @@ export function navigateToInternalId(targetId: string, lazyLoader: any, showOver
   // swap in hyperlitContainer/highlightNav) scrolls WITHOUT the auto-open below
   // — otherwise the 200ms open would stack a second container over the swap.
   (lazyLoader as any)._suppressContainerOpenFor = opts.suppressContainerOpen ? targetId : null;
-  // Pin hypercite deep-link targets: the pinned set exempts them from the client gate and
-  // rides every bulk fetch as `pinned=` so later re-syncs can't strip the record either.
-  // (Harmless for ordinary couple/poly targets; essential for gated/'single' ones.)
-  if (targetId.startsWith('hypercite_')) {
+  // Pin deep-link targets: the pinned set exempts them from the client gate and rides
+  // every bulk fetch as `pinned=` / `pinned_hl=` so later re-syncs can't strip the
+  // record either. (Harmless for ungated targets; essential for gated/'single' ones —
+  // a shared #HL_ link is explicit intent to see that highlight, whatever the gate says.)
+  if (targetId.startsWith('hypercite_') || targetId.startsWith('HL_')) {
     void import('../components/utilities/gateFilter')
-      .then(m => m.pinHypercite(targetId))
+      .then(m => targetId.startsWith('hypercite_') ? m.pinHypercite(targetId) : m.pinHyperlight(targetId))
       .catch(() => { /* non-fatal — fetch-on-demand still pins later */ });
   }
   // Where to land the target's top, in px from the scroll container's top edge. Deep-link targets
@@ -468,17 +469,23 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
       );
     }
 
-    // 🔗 Fetch-on-demand: a hypercite target absent from the bulk sync (gate-filtered, or a
-    // foreign 'single' — e.g. an externally-pasted link that hasn't been cited yet) is not in
-    // IDB at all. Pull just that record (scope=record), pin it, rebuild its nodes' embedded
-    // arrays, and re-resolve so the normal render/scroll/glow path runs. A truly-deleted cite
-    // still falls through to the existing toast fallback below.
-    if (!resolution.resolved && targetId.startsWith('hypercite_')) {
+    // 🔗 Fetch-on-demand: a hypercite/hyperlight target absent from the bulk sync
+    // (gate-filtered, or a foreign 'single' — e.g. an externally-pasted link that hasn't
+    // been cited yet) is not in IDB at all. Pull just that record, pin it, rebuild its
+    // nodes' embedded arrays, and re-resolve so the normal render/scroll/glow path runs.
+    // A truly-deleted target still falls through to the existing toast fallback below.
+    if (!resolution.resolved && (targetId.startsWith('hypercite_') || targetId.startsWith('HL_'))) {
       if (progressIndicator) {
-        progressIndicator.updateProgress(45, "Fetching citation target...");
+        progressIndicator.updateProgress(45, targetId.startsWith('HL_') ? "Fetching highlight target..." : "Fetching citation target...");
       }
-      const { fetchAndPinHypercite } = await import('../indexedDB/hypercites/helpers');
-      const fetched = await fetchAndPinHypercite(lazyLoader.bookId, targetId);
+      let fetched: any = null;
+      if (targetId.startsWith('hypercite_')) {
+        const { fetchAndPinHypercite } = await import('../indexedDB/hypercites/helpers');
+        fetched = await fetchAndPinHypercite(lazyLoader.bookId, targetId);
+      } else {
+        const { fetchAndPinHyperlight } = await import('../indexedDB/highlights/helpers');
+        fetched = await fetchAndPinHyperlight(lazyLoader.bookId, targetId);
+      }
       if (fetched) {
         const freshNodes = await getNodesFromIndexedDB(lazyLoader.bookId);
         if (freshNodes && freshNodes.length > 0) {

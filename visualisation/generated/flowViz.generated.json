@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1737,
-    "moduleCount": 367,
+    "fnCount": 1742,
+    "moduleCount": 368,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3579,
+    "edgeCount": 3600,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -4497,6 +4497,22 @@
       "leaf": false
     },
     {
+      "id": "components/utilities/gateFilter:getPinnedHyperlightIds",
+      "label": "getPinnedHyperlightIds",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/gateFilter:hydrateBookGateDefaults",
+      "label": "hydrateBookGateDefaults",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": true
+    },
+    {
       "id": "components/utilities/gateFilter:isAiCreator",
       "label": "isAiCreator",
       "kind": "fn",
@@ -4515,6 +4531,14 @@
     {
       "id": "components/utilities/gateFilter:pinHypercite",
       "label": "pinHypercite",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/gateFilter",
+      "leaf": false
+    },
+    {
+      "id": "components/utilities/gateFilter:pinHyperlight",
+      "label": "pinHyperlight",
       "kind": "fn",
       "stage": "components",
       "module": "components/utilities/gateFilter",
@@ -5303,6 +5327,36 @@
         "creator",
         "creator_token",
         "hyperlight_id"
+      ]
+    },
+    {
+      "id": "controller:DbHyperlightController@find",
+      "label": "find",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DbHyperlightController",
+      "method": "find",
+      "group": "content",
+      "tables": [
+        "hyperlights",
+        "library"
+      ],
+      "shape": [
+        "_ghost_anchor_node",
+        "annotation",
+        "book",
+        "charData",
+        "creator",
+        "hidden",
+        "highlightedHTML",
+        "highlightedText",
+        "hyperlight_id",
+        "is_user_highlight",
+        "node_id",
+        "preview_nodes",
+        "raw_json",
+        "startLine",
+        "time_since"
       ]
     },
     {
@@ -10397,6 +10451,29 @@
       "leaf": false,
       "types": [
         "FootnoteRecord"
+      ]
+    },
+    {
+      "id": "indexedDB/highlights/helpers:fetchAndPinHyperlight",
+      "label": "fetchAndPinHyperlight",
+      "kind": "fn",
+      "stage": "domain",
+      "module": "indexedDB/highlights/helpers",
+      "leaf": true,
+      "types": [
+        "HyperlightRecord",
+        "NodeRecord"
+      ]
+    },
+    {
+      "id": "indexedDB/highlights/helpers:fetchHyperlightRecord",
+      "label": "fetchHyperlightRecord",
+      "kind": "fn",
+      "stage": "domain",
+      "module": "indexedDB/highlights/helpers",
+      "leaf": false,
+      "types": [
+        "HyperlightRecord"
       ]
     },
     {
@@ -17104,9 +17181,12 @@
         "components/utilities/gateFilter:getBookGateDefaults",
         "components/utilities/gateFilter:getGateSettings",
         "components/utilities/gateFilter:getPinnedHyperciteIds",
+        "components/utilities/gateFilter:getPinnedHyperlightIds",
+        "components/utilities/gateFilter:hydrateBookGateDefaults",
         "components/utilities/gateFilter:isAiCreator",
         "components/utilities/gateFilter:normalizeGateFlags",
         "components/utilities/gateFilter:pinHypercite",
+        "components/utilities/gateFilter:pinHyperlight",
         "components/utilities/gateFilter:pinnedQueryParam",
         "components/utilities/gateFilter:reapplyAnnotationsWithGate",
         "components/utilities/gateFilter:setBookGateDefaults"
@@ -18603,6 +18683,16 @@
       "band": "sync",
       "fnIds": [
         "indexedDB/footnotes/syncFootnotesToPostgreSQL:syncFootnotesToPostgreSQL"
+      ]
+    },
+    {
+      "id": "indexedDB/highlights/helpers",
+      "label": "indexedDB/highlights/helpers",
+      "stage": "domain",
+      "band": "sync",
+      "fnIds": [
+        "indexedDB/highlights/helpers:fetchAndPinHyperlight",
+        "indexedDB/highlights/helpers:fetchHyperlightRecord"
       ]
     },
     {
@@ -21980,6 +22070,13 @@
       "dataPath": true
     },
     {
+      "id": "components/settingsContainer/gate:_openGatePanel__call__components/utilities/gateFilter:hydrateBookGateDefaults",
+      "source": "components/settingsContainer/gate:_openGatePanel",
+      "target": "components/utilities/gateFilter:hydrateBookGateDefaults",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/settingsContainer/gate:_openGatePanel__call__components/utilities/gateFilter:normalizeGateFlags",
       "source": "components/settingsContainer/gate:_openGatePanel",
       "target": "components/utilities/gateFilter:normalizeGateFlags",
@@ -24806,6 +24903,12 @@
       "dataPath": true
     },
     {
+      "id": "components/utilities/gateFilter:applyGateFilter__call__components/utilities/gateFilter:getBookGateDefaults",
+      "source": "components/utilities/gateFilter:applyGateFilter",
+      "target": "components/utilities/gateFilter:getBookGateDefaults",
+      "rel": "call"
+    },
+    {
       "id": "components/utilities/gateFilter:applyGateFilter__call__components/utilities/gateFilter:getGateSettings",
       "source": "components/utilities/gateFilter:applyGateFilter",
       "target": "components/utilities/gateFilter:getGateSettings",
@@ -24831,8 +24934,27 @@
       "rel": "write"
     },
     {
+      "id": "components/utilities/gateFilter:gateQueryParam__call__components/utilities/gateFilter:getBookGateDefaults",
+      "source": "components/utilities/gateFilter:gateQueryParam",
+      "target": "components/utilities/gateFilter:getBookGateDefaults",
+      "rel": "call"
+    },
+    {
+      "id": "components/utilities/gateFilter:hydrateBookGateDefaults__call__indexedDB/core/library:getLibraryObjectFromIndexedDB",
+      "source": "components/utilities/gateFilter:hydrateBookGateDefaults",
+      "target": "indexedDB/core/library:getLibraryObjectFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/utilities/gateFilter:pinHypercite__write__store:sessionStorage",
       "source": "components/utilities/gateFilter:pinHypercite",
+      "target": "store:sessionStorage",
+      "rel": "write"
+    },
+    {
+      "id": "components/utilities/gateFilter:pinHyperlight__write__store:sessionStorage",
+      "source": "components/utilities/gateFilter:pinHyperlight",
       "target": "store:sessionStorage",
       "rel": "write"
     },
@@ -27164,6 +27286,18 @@
       "id": "dom__domread__components/utilities/fileMetadataExtractor:extractFileMetadata",
       "source": "dom",
       "target": "components/utilities/fileMetadataExtractor:extractFileMetadata",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/gateFilter:applyGateFilter",
+      "source": "dom",
+      "target": "components/utilities/gateFilter:applyGateFilter",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/gateFilter:gateQueryParam",
+      "source": "dom",
+      "target": "components/utilities/gateFilter:gateQueryParam",
       "rel": "domread"
     },
     {
@@ -34879,6 +35013,47 @@
       "label": "/api/db/footnotes/upsert"
     },
     {
+      "id": "indexedDB/highlights/helpers:fetchAndPinHyperlight__call__components/utilities/gateFilter:pinHyperlight",
+      "source": "indexedDB/highlights/helpers:fetchAndPinHyperlight",
+      "target": "components/utilities/gateFilter:pinHyperlight",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/highlights/helpers:fetchAndPinHyperlight__call__indexedDB/highlights/helpers:fetchHyperlightRecord",
+      "source": "indexedDB/highlights/helpers:fetchAndPinHyperlight",
+      "target": "indexedDB/highlights/helpers:fetchHyperlightRecord",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/highlights/helpers:fetchAndPinHyperlight__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "indexedDB/highlights/helpers:fetchAndPinHyperlight",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/highlights/helpers:fetchAndPinHyperlight__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "indexedDB/highlights/helpers:fetchAndPinHyperlight",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/highlights/helpers:fetchHyperlightRecord__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/highlights/helpers:fetchHyperlightRecord",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/highlights/helpers:fetchHyperlightRecord__write__store:hyperlights",
+      "source": "indexedDB/highlights/helpers:fetchHyperlightRecord",
+      "target": "store:hyperlights",
+      "rel": "write"
+    },
+    {
       "id": "indexedDB/highlights/syncHighlightsToPostgreSQL:syncHyperlightDeletionsToPostgreSQL__push__route:/api/db/hyperlights/delete",
       "source": "indexedDB/highlights/syncHighlightsToPostgreSQL:syncHyperlightDeletionsToPostgreSQL",
       "target": "route:/api/db/hyperlights/delete",
@@ -36956,9 +37131,23 @@
       "dataPath": true
     },
     {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__components/utilities/gateFilter:getPinnedHyperlightIds",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "components/utilities/gateFilter:getPinnedHyperlightIds",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "pageLoad/initialChunk:fetchInitialChunk__call__components/utilities/gateFilter:pinHypercite",
       "source": "pageLoad/initialChunk:fetchInitialChunk",
       "target": "components/utilities/gateFilter:pinHypercite",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__components/utilities/gateFilter:pinHyperlight",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "components/utilities/gateFilter:pinHyperlight",
       "rel": "call",
       "dataPath": true
     },
@@ -37137,6 +37326,13 @@
       "id": "pageLoad/loadHyperText:loadFromJSONFiles__call__indexedDB/nodes/write:saveAllNodesToIndexedDB",
       "source": "pageLoad/loadHyperText:loadFromJSONFiles",
       "target": "indexedDB/nodes/write:saveAllNodesToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__components/utilities/gateFilter:hydrateBookGateDefaults",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "components/utilities/gateFilter:hydrateBookGateDefaults",
       "rel": "call",
       "dataPath": true
     },
@@ -38988,6 +39184,12 @@
       "rel": "pull"
     },
     {
+      "id": "pg:hyperlights__pull__controller:DbHyperlightController@find",
+      "source": "pg:hyperlights",
+      "target": "controller:DbHyperlightController@find",
+      "rel": "pull"
+    },
+    {
       "id": "pg:library__pull__controller:DatabaseToIndexedDBController@getBookAnnotations",
       "source": "pg:library",
       "target": "controller:DatabaseToIndexedDBController@getBookAnnotations",
@@ -39051,6 +39253,12 @@
       "id": "pg:library__pull__controller:DbHyperciteController@find",
       "source": "pg:library",
       "target": "controller:DbHyperciteController@find",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DbHyperlightController@find",
+      "source": "pg:library",
+      "target": "controller:DbHyperlightController@find",
       "rel": "pull"
     },
     {
@@ -39472,6 +39680,13 @@
       "source": "scrolling/internalNav:navigateToInternalId",
       "target": "indexedDB/core/utilities:getLocalStorageKey",
       "rel": "call"
+    },
+    {
+      "id": "scrolling/internalNav:navigateToInternalId__call__indexedDB/highlights/helpers:fetchAndPinHyperlight",
+      "source": "scrolling/internalNav:navigateToInternalId",
+      "target": "indexedDB/highlights/helpers:fetchAndPinHyperlight",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "scrolling/internalNav:navigateToInternalId__call__indexedDB/hypercites/helpers:fetchAndPinHypercite",
@@ -42501,9 +42716,21 @@
       "rel": "read"
     },
     {
+      "id": "store:sessionStorage__read__components/utilities/gateFilter:getPinnedHyperlightIds",
+      "source": "store:sessionStorage",
+      "target": "components/utilities/gateFilter:getPinnedHyperlightIds",
+      "rel": "read"
+    },
+    {
       "id": "store:sessionStorage__read__components/utilities/gateFilter:pinHypercite",
       "source": "store:sessionStorage",
       "target": "components/utilities/gateFilter:pinHypercite",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__components/utilities/gateFilter:pinHyperlight",
+      "source": "store:sessionStorage",
+      "target": "components/utilities/gateFilter:pinHyperlight",
       "rel": "read"
     },
     {
@@ -44488,6 +44715,11 @@
     },
     {
       "source": "components/utilities/gateFilter",
+      "target": "indexedDB/core/library",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/utilities/gateFilter",
       "target": "indexedDB/hydration/rebuild",
       "kind": "lazy"
     },
@@ -46447,6 +46679,21 @@
       "kind": "static"
     },
     {
+      "source": "indexedDB/highlights/helpers",
+      "target": "indexedDB/core/connection",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/highlights/helpers",
+      "target": "components/utilities/gateFilter",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/highlights/helpers",
+      "target": "indexedDB/hydration/rebuild",
+      "kind": "lazy"
+    },
+    {
       "source": "indexedDB/hydration/rebuild",
       "target": "indexedDB/core/connection",
       "kind": "static"
@@ -47258,6 +47505,11 @@
     },
     {
       "source": "pageLoad/loadHyperText",
+      "target": "components/utilities/gateFilter",
+      "kind": "lazy"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
       "target": "hyperlights/deletion",
       "kind": "lazy"
     },
@@ -47978,6 +48230,11 @@
     },
     {
       "source": "scrolling/internalNav",
+      "target": "indexedDB/highlights/helpers",
+      "kind": "lazy"
+    },
+    {
+      "source": "scrolling/internalNav",
       "target": "indexedDB/hypercites/helpers",
       "kind": "lazy"
     },
@@ -48153,6 +48410,6 @@
       ]
     ],
     "breakerCount": 4,
-    "lazyCount": 257
+    "lazyCount": 262
   }
 }

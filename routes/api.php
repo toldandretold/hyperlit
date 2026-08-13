@@ -450,6 +450,15 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     )->where('book', '.+')->where('hyperciteId', 'hypercite_[A-Za-z0-9]+')
      ->withoutMiddleware('author');
 
+    // Hyperlight mirror of the find route above (deep-link fetch-on-demand for a
+    // #HL_ target gate-filtered out of the bulk sync) — same public-book allowance
+    // rationale, controller enforces visibility + the private-sub-book pass.
+    Route::get(
+        '/db/hyperlights/find/{book}/{hyperlightId}',
+        [DbHyperlightController::class, 'find']
+    )->where('book', '.+')->where('hyperlightId', 'HL_[A-Za-z0-9]+')
+     ->withoutMiddleware('author');
+
     Route::post('/db/footnotes/upsert', [DbFootnoteController::class, 'upsert']);
     Route::post('/db/references/upsert', [DbReferencesController::class, 'upsertReferences']);
 

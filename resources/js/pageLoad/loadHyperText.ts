@@ -141,6 +141,13 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
       updatePageLoadProgress(30, "Loading from cache...");
       verbose.content(`Found ${cached.length} nodes in IndexedDB`, 'initializePage.js');
 
+      // Populate the gate filter's book-defaults cache from the local library
+      // record BEFORE first render — the server-pull loader that normally sets it
+      // never runs on a cache hit, and without it the client gate filters the
+      // book's annotations by the GLOBAL defaults instead of the creator's.
+      const { hydrateBookGateDefaults } = await import('../components/utilities/gateFilter');
+      await hydrateBookGateDefaults(currentBook);
+
       // Capture any pending SPA navigation target before clearing it — we need to
       // resolve it against the cache so initializeLazyLoader renders the correct chunk.
       const spaTarget = (window as any)._pendingChunkTarget || null;

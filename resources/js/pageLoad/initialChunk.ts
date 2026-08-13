@@ -9,7 +9,7 @@ import {
 } from '../indexedDB/serverSync/index';
 import { log, verbose } from '../utilities/logger';
 import { OpenHyperlightID, OpenFootnoteID } from '../app';
-import { gateQueryParam, getPinnedHyperciteIds, pinHypercite } from '../components/utilities/gateFilter';
+import { gateQueryParam, getPinnedHyperciteIds, getPinnedHyperlightIds, pinHypercite, pinHyperlight } from '../components/utilities/gateFilter';
 import type { ReadingPosition } from '../scrolling/readingPosition';
 
 /**
@@ -21,7 +21,7 @@ export async function fetchInitialChunk(bookId: string): Promise<any> {
     try {
         // Build query params based on URL context
         const params = buildInitialChunkParams();
-        injectGateParam(params);
+        injectGateParam(params, bookId);
         const queryString = params.toString();
         const url = buildApiUrl(bookId, queryString);
 
@@ -135,9 +135,10 @@ function buildInitialChunkParams() {
         (window as any)._pendingChunkFallbackTarget = null;
         if (spaTarget.startsWith('hypercite_') || spaTarget.startsWith('HL_') || spaTarget.startsWith('Fn') || spaTarget.includes('_Fn')) {
             params.set('target', spaTarget);
-            // Pin hypercite deep-link targets so the target-exempted record (server
-            // sends it even if gated/'single') also survives the CLIENT gate at render.
+            // Pin deep-link targets so the target-exempted record (server sends it
+            // even if gated/'single') also survives the CLIENT gate at render.
             if (spaTarget.startsWith('hypercite_')) pinHypercite(spaTarget);
+            if (spaTarget.startsWith('HL_')) pinHyperlight(spaTarget);
             if (spaFallback) {
                 params.set('fallback_target', spaFallback);
             }
@@ -156,8 +157,9 @@ function buildInitialChunkParams() {
     if (hash) {
         if (hash.startsWith('hypercite_') || hash.startsWith('HL_') || hash.startsWith('Fn') || hash.includes('_Fn')) {
             params.set('target', hash);
-            // Pin hypercite deep-link targets (see SPA branch above)
+            // Pin deep-link targets (see SPA branch above)
             if (hash.startsWith('hypercite_')) pinHypercite(hash);
+            if (hash.startsWith('HL_')) pinHyperlight(hash);
             // If hash took priority but a hyperlight/footnote exists from the path,
             // send it as fallback so the backend loads the right chunk if hash target is stale
             if (OpenHyperlightID) {
@@ -192,12 +194,12 @@ function buildInitialChunkParams() {
 }
 
 /**
- * Inject gate filter + pinned-hypercite params into a URLSearchParams (mutates in place).
+ * Inject gate filter + pinned-annotation params into a URLSearchParams (mutates in place).
  * Pinned rides independently of gate settings (fresh users have no stored gate but a
  * followed deep link must still be exempted server-side).
  */
-function injectGateParam(params: URLSearchParams) {
-    const gp = gateQueryParam();
+function injectGateParam(params: URLSearchParams, bookId?: string) {
+    const gp = gateQueryParam(bookId);
     if (gp) {
         // gp is "gate=..." — extract the value part
         const val = gp.substring(5); // skip "gate="
@@ -206,6 +208,10 @@ function injectGateParam(params: URLSearchParams) {
     const pinned = getPinnedHyperciteIds();
     if (pinned.length > 0) {
         params.set('pinned', pinned.join(','));
+    }
+    const pinnedHl = getPinnedHyperlightIds();
+    if (pinnedHl.length > 0) {
+        params.set('pinned_hl', pinnedHl.join(','));
     }
     return params;
 }

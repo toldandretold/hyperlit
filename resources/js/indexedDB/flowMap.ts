@@ -147,6 +147,7 @@ export const FLOW_STAGES: FlowStage[] = [
       { path: 'hypercites/read', plain: 'Hypercite read primitive (leaf, no sibling imports — breaks the index↔helpers cycle).' },
       { path: 'hypercites/helpers', plain: 'Hypercite helper utilities.' },
       { path: 'highlights/index', plain: 'Hyperlight store CRUD.' },
+      { path: 'highlights/helpers', plain: 'Hyperlight deep-link fetch-on-demand (single-record fetch + pin, mirror of hypercites/helpers).' },
     ],
   },
   {

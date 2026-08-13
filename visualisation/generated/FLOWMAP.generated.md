@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1737 functions in 367 modules · 10 object stores · 10 PG tables · 3579 edges
+**MarkdownDB** schema v28 · 1742 functions in 368 modules · 10 object stores · 10 PG tables · 3600 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -541,15 +541,18 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `isAcceptableImportExt` | `components/utilities/fileImportHelpers` | — | — | — | — |
 | `extractFileMetadata` | `components/utilities/fileMetadataExtractor` | — | — | read | — |
 | `appendGateParam` | `components/utilities/gateFilter` | — | — | — | — |
-| `applyGateFilter` | `components/utilities/gateFilter` | `sessionStorage` | — | — | — |
+| `applyGateFilter` | `components/utilities/gateFilter` | `sessionStorage` | — | read | — |
 | `clearPinnedHypercites` | `components/utilities/gateFilter` | — | `sessionStorage` | — | — |
-| `gateQueryParam` | `components/utilities/gateFilter` | `localStorage` | — | — | — |
+| `gateQueryParam` | `components/utilities/gateFilter` | `localStorage` | — | read | — |
 | `getBookGateDefaults` | `components/utilities/gateFilter` | — | — | — | — |
 | `getGateSettings` | `components/utilities/gateFilter` | `localStorage` | — | — | — |
 | `getPinnedHyperciteIds` | `components/utilities/gateFilter` | `sessionStorage` | — | — | — |
+| `getPinnedHyperlightIds` | `components/utilities/gateFilter` | `sessionStorage` | — | — | — |
+| `hydrateBookGateDefaults` | `components/utilities/gateFilter` | — | — | — | — |
 | `isAiCreator` | `components/utilities/gateFilter` | — | — | — | — |
 | `normalizeGateFlags` | `components/utilities/gateFilter` | — | — | — | — |
 | `pinHypercite` | `components/utilities/gateFilter` | `sessionStorage` | `sessionStorage` | — | — |
+| `pinHyperlight` | `components/utilities/gateFilter` | `sessionStorage` | `sessionStorage` | — | — |
 | `pinnedQueryParam` | `components/utilities/gateFilter` | `sessionStorage` | — | — | — |
 | `reapplyAnnotationsWithGate` | `components/utilities/gateFilter` | — | — | read | — |
 | `setBookGateDefaults` | `components/utilities/gateFilter` | — | — | — | — |
@@ -1142,6 +1145,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initFootnotesDependencies` | `indexedDB/footnotes/index` | — | — | — | — |
 | `saveAllFootnotesToIndexedDB` | `indexedDB/footnotes/index` | — | `footnotes` | — | — |
 | `syncFootnotesToPostgreSQL` | `indexedDB/footnotes/syncFootnotesToPostgreSQL` | — | — | read | `↑route:/api/db/footnotes/upsert` |
+| `fetchAndPinHyperlight` | `indexedDB/highlights/helpers` | — | — | — | — |
+| `fetchHyperlightRecord` | `indexedDB/highlights/helpers` | — | `hyperlights` | — | — |
 | `syncHyperlightDeletionsToPostgreSQL` | `indexedDB/highlights/syncHighlightsToPostgreSQL` | — | — | read | `↑route:/api/db/hyperlights/delete` `↑route:/api/db/hyperlights/hide` |
 | `syncHyperlightToPostgreSQL` | `indexedDB/highlights/syncHighlightsToPostgreSQL` | — | — | read | `↑route:/api/db/hyperlights/upsert` |
 | `getNodesByDataNodeIDs` | `indexedDB/hydration/rebuild` | `nodes` | — | — | — |
@@ -1750,7 +1755,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 4 · dynamic cycle-breakers (debt): 4 · lazy-loads (code-split): 257
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 4 · dynamic cycle-breakers (debt): 4 · lazy-loads (code-split): 262
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1851,6 +1856,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/userProfile/userProfilePage` → `indexedDB/index`
 - `components/utilities/containerManager` → `hyperlitContainer/stack`
 - `components/utilities/gateFilter` → `hyperlights/deletion`
+- `components/utilities/gateFilter` → `indexedDB/core/library`
 - `components/utilities/gateFilter` → `indexedDB/hydration/rebuild`
 - `components/utilities/gateFilter` → `indexedDB/index`
 - `divEditor/chunkMutationHandler/index` → `hypercites/database`
@@ -1924,6 +1930,8 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/subBookLoader` → `hyperlights/index`
 - `hyperlitContainer/subBookLoader` → `indexedDB/core/library`
 - `hyperlitContainer/subBookLoader` → `indexedDB/hydration/rebuild`
+- `indexedDB/highlights/helpers` → `components/utilities/gateFilter`
+- `indexedDB/highlights/helpers` → `indexedDB/hydration/rebuild`
 - `indexedDB/hypercites/helpers` → `components/utilities/gateFilter`
 - `indexedDB/hypercites/helpers` → `indexedDB/hydration/rebuild`
 - `indexedDB/hypercites/helpers` → `indexedDB/nodes/read`
@@ -1959,6 +1967,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `pageLoad/lazyLoaderRegistry` → `hyperlitContainer/index`
 - `pageLoad/loadHyperText` → `SPA/navigation/resolveTargetChunk`
 - `pageLoad/loadHyperText` → `components/toast/toast`
+- `pageLoad/loadHyperText` → `components/utilities/gateFilter`
 - `pageLoad/loadHyperText` → `hyperlights/deletion`
 - `pageLoad/loadHyperText` → `indexedDB/hydration/rebuild`
 - `pageLoad/loadHyperText` → `lazyLoader/utilities/cacheState`
@@ -1981,6 +1990,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `scrolling/internalNav` → `components/toast/toast`
 - `scrolling/internalNav` → `components/utilities/gateFilter`
 - `scrolling/internalNav` → `hypercites/animations`
+- `scrolling/internalNav` → `indexedDB/highlights/helpers`
 - `scrolling/internalNav` → `indexedDB/hypercites/helpers`
 - `scrolling/internalNav` → `lazyLoader/utilities/fillViewport`
 - `scrolling/internalNav` → `pageLoad/backgroundDownload`

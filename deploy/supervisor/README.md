@@ -8,12 +8,12 @@ Production `hyperlit.io` runs queue workers under Supervisor (`/etc/supervisor/c
 
 ## Poking workers by hand
 
-`workers.sh` wraps the chores so you never have to remember the six program names. Run it on the droplet after `cd /var/www/hyperlit`, or from your laptop via the `hw` alias (defined in `../README.md`):
+`workers.sh` wraps the chores so you never have to remember the seven program names. Run it on the droplet after `cd /var/www/hyperlit`, or from your laptop via the `hw` alias (defined in `../README.md`):
 
 ```bash
-hw status              # are all 6 workers RUNNING?
+hw status              # are all 7 workers RUNNING?
 hw restart             # graceful: finish current job, reload new code (what deploy.sh does)
-hw restart citation    # hard-restart ONE program (worker|citation|vibe|audio|embeddings|search)
+hw restart citation    # hard-restart ONE program (worker|citation|vibe|audio|package|embeddings|search)
 hw logs citation -f    # tail a worker's log (-f follows)
 hw health              # queue:probe + citation:doctor --fast
 hw backlog             # what's queued/reserved per queue + failed count
@@ -43,6 +43,11 @@ hw force-restart       # hard SIGTERM all — can WAIT on an in-flight job, avoi
 
 - Job: `GenerateBookAudioJob` (per-node TTS audiobook generation, docs/audio.md).
 - Minutes of batched TTS-API calls per book (job `$timeout` 3600s); resumable + charge-after-success, so interrupting it loses nothing but the in-flight batch. Needs `TTS_API_KEY` in the droplet `.env`.
+
+### `audio-package` → worker `hyperlit-audio-package`
+
+- Job: `BuildAudiobookJob` (packages a book's per-node MP3s into one downloadable `.m4b`, docs/audio.md).
+- A ~1–2 minute ffmpeg encode that used to share the `audio` queue — until a prod download sat at "Packaging 0%" for 18 minutes behind someone else's hour-long narration (2026-08-13). Same lesson as vibe/citation/search: a job a user actively waits on must never queue behind a slow one.
 
 ### `embeddings` → worker `hyperlit-embeddings`
 
@@ -81,7 +86,7 @@ php artisan citation:doctor                # preflight: node/playwright/chromium
 
 ## Local dev
 
-`npm run dev:all` / `dev:network` mirror this topology with a dedicated worker per queue: **IMP1+IMP2** (`queue:import` — two import workers, so concurrent-import testing works locally), **CITE** (`queue:citation`), **VIBE** (`queue:vibe`), **AUD** (`queue:audio`), **EMBED** (`queue:embeddings`), **SRCH** (`queue:search`). `php artisan work` remains as a single catch-all for one-off manual shells only — it is serial and reintroduces the blocking.
+`npm run dev:all` / `dev:network` mirror this topology with a dedicated worker per queue: **IMP1+IMP2** (`queue:import` — two import workers, so concurrent-import testing works locally), **CITE** (`queue:citation`), **VIBE** (`queue:vibe`), **AUD** (`queue:audio`), **AUDP** (`queue:audio-package`), **EMBED** (`queue:embeddings`), **SRCH** (`queue:search`). `php artisan work` remains as a single catch-all for one-off manual shells only — it is serial and reintroduces the blocking.
 
 ## The RAM budget (measured) — and why more concurrency means more RAM
 
@@ -94,8 +99,9 @@ Peaks measured 2026-06-12 with real jobs (`tests/load/memprobe.sh`; full method 
 - **vibe conversion — 182 MB.** PHP worker + Python sandbox re-conversion + gate.
 - **embeddings — 50 MB.** PHP worker, small HTTP calls.
 - **search-supplement — ~50 MB (estimated).** PHP worker, OpenAlex + Open Library fetch; same profile as embeddings (two HTTP fetches + small upserts) — re-measure with memprobe when convenient.
-- **audio (TTS) — ~50 MB (estimated).** PHP worker, DeepInfra TTS calls + file writes; embeddings profile with a 5-wide `Http::pool` of ~150 KB base64 audio responses — re-measure with memprobe when convenient.
-- **All six truly simultaneous — ~620 MB observed-basis, ~745 MB worst-case sum.**
+- **audio (TTS) — ~300 MB (measured on prod, 2026-08-13).** PHP worker mid-narration held ~300–340 MB RSS — the original ~50 MB estimate was way short; the batched base64 audio responses add up.
+- **audio-package (m4b) — ~200 MB (estimated).** Light PHP worker (~60 MB) + an ffmpeg child (~100–150 MB, one core flat out during the encode) — re-measure with memprobe when convenient.
+- **All seven truly simultaneous — ~1.0 GB observed-basis, ~1.2 GB worst-case sum.**
 
 (Citation was measured with `--skip-fetch`. A live vacuum phase launches headless chromium per fetch — ~150–300 MB transient on top of the citation worker — so worst case during vacuum trends toward ~900 MB. Check `free -m` during the first real run after installing chromium.)
 
@@ -103,12 +109,12 @@ The arithmetic for this droplet (~1.9 GB physical + 2 GB swap, OOM history):
 
 ```
 baseline (nginx + PHP-FPM + Postgres + idle workers)   ~700–1000 MB  ← read it: ssh marx@… 'free -m'
-max overlap, current topology (numprocs=1 everywhere)   ~745 MB
+max overlap, current topology (numprocs=1 everywhere)   ~1.2 GB
                                                         ─────────────
-                                                        ~1.4–1.7 GB of 1.9 GB
+                                                        ~1.9–2.2 GB of 1.9 GB
 ```
 
-**Fits — that's why shipping one-worker-per-class is safe on current hardware.**
+**Full seven-way overlap no longer fits the 2 GB box** — the 2026-08-13 measurement of a real narration run (~300 MB, not the ~50 MB estimated) plus the new packaging worker moved the math past physical RAM. In practice all seven classes rarely peak at once and swap absorbs the excursions (2026-08-13 reading: 1.15 GB used, 217 MB into swap with one narration mid-run), but this is exactly the OOM-roulette regime — resize to 4 GB / 2 vCPU before leaning on audio concurrency, and the second vCPU also stops a packaging encode from stealing the narration worker's core.
 
 Raising any `numprocs` re-runs this math. `numprocs=2` on imports adds another 212 MB *at peak*, pushing worst case to the edge of physical RAM — and past it if the baseline sits at the high end. Falling into swap means every import crawls; OOM means the kernel kills PHP-FPM and *everyone* gets Cloudflare 502s. That's the whole "more concurrency requires more RAM" rule: the topology change was free because it only reorganised existing workers; **capacity** (N simultaneous users *per feature*) is the thing you buy with hardware.
 

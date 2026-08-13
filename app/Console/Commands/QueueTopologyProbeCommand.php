@@ -46,7 +46,7 @@ class QueueTopologyProbeCommand extends Command
     /** @var Process[] */
     private array $workers = [];
 
-    private const QUEUES = ['default', 'citation-pipeline', 'vibe', 'embeddings', 'search-supplement'];
+    private const QUEUES = ['default', 'citation-pipeline', 'vibe', 'audio', 'audio-package', 'embeddings', 'search-supplement'];
 
     public function handle(): int
     {
@@ -209,7 +209,10 @@ class QueueTopologyProbeCommand extends Command
             'default', 'default',   // IMP1 + IMP2 (standby)
             'citation-pipeline',
             'vibe',
+            'audio',
+            'audio-package',
             'embeddings',
+            'search-supplement',
         ];
         foreach ($spec as $queue) {
             $p = new Process(
@@ -219,7 +222,7 @@ class QueueTopologyProbeCommand extends Command
             $p->start();
             $this->workers[] = $p;
         }
-        $this->info('Spawned reference topology: 2x default, 1x citation-pipeline, 1x vibe, 1x embeddings.');
+        $this->info('Spawned reference topology: 2x default, 1x each of '.implode(', ', array_slice(self::QUEUES, 1)).'.');
         sleep(2); // let workers boot before dispatching
     }
 

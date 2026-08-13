@@ -20,9 +20,46 @@
  */
 
 // ─── Book-level gate defaults (set by book creator) ─────────────────────
-let _bookGateDefaults: any = null;
-export function setBookGateDefaults(defaults: any) { _bookGateDefaults = defaults; }
-export function getBookGateDefaults() { return _bookGateDefaults; }
+// Keyed per book. A single mutable slot broke two ways: (1) a book opened from
+// the IndexedDB cache (no server pull) never populated it, so saved book
+// defaults were silently ignored — the "I unchecked hideAI but Default still
+// hides AI highlights" bug; (2) opening a sub-book (its library row has no
+// gate_defaults) clobbered the parent's value. Sub-book reads fall back to the
+// parent segment ("book_x/Fn2" → "book_x") since gate defaults are a property
+// of the parent book.
+const _bookGateDefaults = new Map<string, any>();
+
+export function setBookGateDefaults(bookId: any, defaults: any) {
+  if (!bookId) return;
+  _bookGateDefaults.set(String(bookId), defaults ?? null);
+}
+
+export function getBookGateDefaults(bookId: any): any {
+  if (!bookId) return null;
+  const id = String(bookId);
+  const own = _bookGateDefaults.get(id);
+  if (own != null) return own;
+  const parent = id.split('/')[0] ?? id;
+  return _bookGateDefaults.get(parent) ?? null;
+}
+
+/**
+ * Ensure the keyed cache holds this book's gate defaults, reading the IndexedDB
+ * library record when the entry is missing. The server-pull path populates the
+ * cache via loadLibraryToIndexedDB; this covers the cache-hit open path (no pull)
+ * and the settings panel, where the record is already local.
+ */
+export async function hydrateBookGateDefaults(bookId: any): Promise<void> {
+  if (!bookId) return;
+  const id = String(bookId);
+  if (_bookGateDefaults.has(id)) return;
+  try {
+    const { getLibraryObjectFromIndexedDB } = await import('../../indexedDB/core/library');
+    const record: any = await getLibraryObjectFromIndexedDB(id);
+    // Store even a null result so we don't re-read IDB on every call.
+    _bookGateDefaults.set(id, record?.gate_defaults ?? null);
+  } catch { /* IDB unavailable — global defaults apply */ }
+}
 
 const STORAGE_KEY = 'hyperlit_gate_filter';
 
@@ -80,38 +117,63 @@ export function normalizeGateFlags(flags: any, type: GateType): GateFlags {
 // targets survive SPA nav + reloads but don't leak across sessions.
 
 const PINNED_KEY = 'hyperlit_pinned_hypercites';
+const PINNED_HL_KEY = 'hyperlit_pinned_hyperlights';
 const PINNED_CAP = 20;
 const HYPERCITE_ID_RE = /^hypercite_[A-Za-z0-9]+$/;
+const HYPERLIGHT_ID_RE = /^HL_[A-Za-z0-9]+$/;
 
 let _pinned: string[] | null = null;
+let _pinnedHl: string[] | null = null;
+
+function loadPinnedFor(key: string, re: RegExp): string[] {
+  try {
+    const raw = sessionStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string' && re.test(id)) : [];
+  } catch {
+    return [];
+  }
+}
 
 function loadPinned(): string[] {
-  if (_pinned) return _pinned;
-  try {
-    const raw = sessionStorage.getItem(PINNED_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    _pinned = Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string' && HYPERCITE_ID_RE.test(id)) : [];
-  } catch {
-    _pinned = [];
-  }
+  if (!_pinned) _pinned = loadPinnedFor(PINNED_KEY, HYPERCITE_ID_RE);
   return _pinned;
 }
 
-/** Pin a deep-link hypercite target so gate/singles filtering never strips it this session. */
-export function pinHypercite(id: string): void {
-  if (!HYPERCITE_ID_RE.test(id)) return;
-  const pinned = loadPinned();
+function loadPinnedHl(): string[] {
+  if (!_pinnedHl) _pinnedHl = loadPinnedFor(PINNED_HL_KEY, HYPERLIGHT_ID_RE);
+  return _pinnedHl;
+}
+
+function pinInto(pinned: string[], id: string, key: string): void {
   const existing = pinned.indexOf(id);
   if (existing !== -1) pinned.splice(existing, 1); // re-pin moves to freshest slot
   pinned.push(id);
   while (pinned.length > PINNED_CAP) pinned.shift(); // FIFO cap
   try {
-    sessionStorage.setItem(PINNED_KEY, JSON.stringify(pinned));
+    sessionStorage.setItem(key, JSON.stringify(pinned));
   } catch { /* storage full/unavailable — in-memory pin still works this page */ }
+}
+
+/** Pin a deep-link hypercite target so gate/singles filtering never strips it this session. */
+export function pinHypercite(id: string): void {
+  if (!HYPERCITE_ID_RE.test(id)) return;
+  pinInto(loadPinned(), id, PINNED_KEY);
+}
+
+/** Pin a deep-link hyperlight target so gate filtering never strips it this session —
+ *  following a #HL_ link is explicit intent to see that highlight, gated or not. */
+export function pinHyperlight(id: string): void {
+  if (!HYPERLIGHT_ID_RE.test(id)) return;
+  pinInto(loadPinnedHl(), id, PINNED_HL_KEY);
 }
 
 export function getPinnedHyperciteIds(): string[] {
   return [...loadPinned()];
+}
+
+export function getPinnedHyperlightIds(): string[] {
+  return [...loadPinnedHl()];
 }
 
 /**
@@ -123,8 +185,10 @@ export function getPinnedHyperciteIds(): string[] {
  */
 export function clearPinnedHypercites(): void {
   _pinned = [];
+  _pinnedHl = [];
   try {
     sessionStorage.removeItem(PINNED_KEY);
+    sessionStorage.removeItem(PINNED_HL_KEY);
   } catch { /* storage unavailable — in-memory clear still applies */ }
 }
 
@@ -132,15 +196,23 @@ function isPinnedHypercite(id: unknown): boolean {
   return typeof id === 'string' && loadPinned().includes(id);
 }
 
+function isPinnedHyperlight(id: unknown): boolean {
+  return typeof id === 'string' && loadPinnedHl().includes(id);
+}
+
 /**
  * Return the pinned ids as a URL query fragment (no leading ? or &), or '' when none.
  * Emitted INDEPENDENTLY of gate settings — fresh users have no stored gate but a
- * followed deep link must still ride every refetch.
+ * followed deep link must still ride every refetch. Hypercites ride as `pinned=`,
+ * hyperlights as `pinned_hl=`.
  */
 export function pinnedQueryParam(): string {
+  const parts: string[] = [];
   const pinned = loadPinned();
-  if (pinned.length === 0) return '';
-  return `pinned=${encodeURIComponent(pinned.join(','))}`;
+  if (pinned.length > 0) parts.push(`pinned=${encodeURIComponent(pinned.join(','))}`);
+  const pinnedHl = loadPinnedHl();
+  if (pinnedHl.length > 0) parts.push(`pinned_hl=${encodeURIComponent(pinnedHl.join(','))}`);
+  return parts.join('&');
 }
 
 // ─── Settings persistence ───────────────────────────────────────────────
@@ -157,18 +229,33 @@ function saveGateSettings(settings: any) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
 }
 
+/** The book whose gate defaults apply to a fetch: the given id, else the open book. */
+function resolveGateBookId(bookId?: any): string | null {
+  if (bookId) return String(bookId);
+  const mainId = (document.querySelector('.main-content') as HTMLElement | null)?.id;
+  return mainId || null;
+}
+
 /**
  * Return the current gate settings as a URL query string fragment (no leading ? or &).
- * Returns empty string when no settings stored (server uses its default).
- * Used by fetch helpers to pass gate settings to the server.
+ * Returns empty string when no settings stored AND the book has no creator defaults
+ * (server uses its own default). Book defaults ride along explicitly whenever the
+ * effective mode is 'default' — including for users with no stored setting — so a
+ * just-saved default applies immediately instead of racing the async library sync.
  */
-export function gateQueryParam() {
+export function gateQueryParam(bookId?: any) {
+  const bookDefaults = getBookGateDefaults(resolveGateBookId(bookId));
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return '';            // no setting stored — let server use its default
+  if (!raw) {
+    // No stored setting — the server's fallback is 'default' mode; send the book
+    // defaults with it so they win over a stale library row server-side.
+    if (!bookDefaults) return '';
+    return `gate=${encodeURIComponent(JSON.stringify({ mode: 'default', bookDefaults }))}`;
+  }
   try {
     const parsed = JSON.parse(raw);
-    if (parsed.mode === 'default' && _bookGateDefaults) {
-      parsed.bookDefaults = _bookGateDefaults;
+    if (parsed.mode === 'default' && bookDefaults) {
+      parsed.bookDefaults = bookDefaults;
     }
     return `gate=${encodeURIComponent(JSON.stringify(parsed))}`;
   } catch {
@@ -177,12 +264,13 @@ export function gateQueryParam() {
 }
 
 /**
- * Append gate filter + pinned-hypercite query params to a URL string.
+ * Append gate filter + pinned-annotation + AI-reveal query params to a URL string.
  * Handles URLs with or without existing query params. Each param is
  * independently optional (a fresh user with no gate setting still sends pinned).
+ * Pass the bookId the fetch is FOR so its book-level defaults and reveal ride along.
  */
-export function appendGateParam(url: any) {
-  const params = [gateQueryParam(), pinnedQueryParam()].filter(Boolean);
+export function appendGateParam(url: any, bookId?: any) {
+  const params = [gateQueryParam(bookId), pinnedQueryParam()].filter(Boolean);
   if (params.length === 0) return url;
   return url + (url.includes('?') ? '&' : '?') + params.join('&');
 }
@@ -235,8 +323,25 @@ export function applyGateFilter(items: any, type: any) {
     if (type === 'hyperlight' && item.is_user_highlight) return true;
     if (type === 'hypercite' && item.is_user_hypercite) return true;
     if (type === 'hypercite' && isPinnedHypercite(item.hyperciteId)) return true;
+    if (type === 'hyperlight' && isPinnedHyperlight(item.hyperlight_id)) return true;
     return false;
   });
+
+  // Per-book default flags, resolved once per book seen in this batch (items carry
+  // their own `book`, so sub-book annotations resolve through the parent's defaults).
+  const defaultFlagsCache = new Map<string, GateFlags>();
+  const defaultFlagsFor = (itemBook: any): GateFlags => {
+    const key = String(itemBook ?? '');
+    let flags = defaultFlagsCache.get(key);
+    if (!flags) {
+      const bookDefaults = getBookGateDefaults(key || resolveGateBookId());
+      flags = bookDefaults
+        ? normalizeGateFlags(bookDefaults, type as GateType)
+        : GLOBAL_DEFAULT_FLAGS[type as GateType];
+      defaultFlagsCache.set(key, flags);
+    }
+    return flags;
+  };
 
   return items.filter((item: any) => {
     // User's own annotations always pass
@@ -245,6 +350,7 @@ export function applyGateFilter(items: any, type: any) {
 
     // Pinned deep-link targets always pass
     if (type === 'hypercite' && isPinnedHypercite(item.hyperciteId)) return true;
+    if (type === 'hyperlight' && isPinnedHyperlight(item.hyperlight_id)) return true;
 
     if (dropForeignSingle(item)) return false;
 
@@ -252,9 +358,7 @@ export function applyGateFilter(items: any, type: any) {
     // book defaults > global per-type defaults; nested and legacy-flat shapes accepted)
     let flags: GateFlags | null = null;
     if (settings.mode === 'default') {
-      flags = _bookGateDefaults
-        ? normalizeGateFlags(_bookGateDefaults, type as GateType)
-        : GLOBAL_DEFAULT_FLAGS[type as GateType];
+      flags = defaultFlagsFor(item.book);
     } else if (settings.mode === 'custom') {
       flags = normalizeGateFlags(settings.custom, type as GateType);
     }

@@ -24,10 +24,14 @@ use Illuminate\Support\Facades\Log;
  * droplet). The client polls audiobookStatus() the same way playback generation
  * polls progress().
  *
- * Shares the `audio` queue with GenerateBookAudioJob deliberately — that worker
- * already exists (Supervisor hyperlit-audio.conf), a new queue name would need
- * a new supervisor conf or it would silently never run, and the two jobs should
- * not compete for CPU on a 2GB droplet anyway.
+ * Runs on its own `audio-package` queue (Supervisor hyperlit-audio-package.conf,
+ * `npm run queue:audio-package` in dev). It originally shared `audio` with
+ * GenerateBookAudioJob, which head-of-line-blocked a ~2-minute packaging behind
+ * up to an hour of someone else's narration (observed on prod 2026-08-13: a
+ * download sat at "0%" for 18 minutes waiting for a narration job to finish).
+ * Invariant: a queue nobody listens on silently never runs — this queue name,
+ * the supervisor conf, the package.json dev workers, and queue:probe's QUEUES
+ * list must stay in sync.
  */
 class BuildAudiobookJob implements ShouldQueue
 {
@@ -39,7 +43,7 @@ class BuildAudiobookJob implements ShouldQueue
 
     public function __construct(private string $bookId)
     {
-        $this->onQueue('audio');
+        $this->onQueue('audio-package');
     }
 
     public function handle(AudiobookBuilder $builder, BookAudioStore $store): void

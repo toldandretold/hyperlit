@@ -599,6 +599,86 @@ class DbHyperlightController extends Controller
     }
 
     /**
+     * Finds a single hyperlight — the deep-link fetch-on-demand resolution endpoint
+     * (frontend caller: resources/js/indexedDB/highlights/helpers.ts fetchHyperlightRecord).
+     * Mirror of DbHyperciteController::find()'s ?scope=record variant: a followed #HL_ link
+     * whose record was gate-filtered out of the bulk sync pulls just that record so the
+     * marker can render. Wire shape matches DatabaseToIndexedDBController::getHyperlights()
+     * — `creator_token` is never sent (top-level nor inside raw_json); only the computed
+     * `is_user_highlight` boolean is exposed (co-author access_granted grant included).
+     * SECURITY: enforces book visibility/ownership, and the same private-sub-book pass as
+     * the bulk fetch (a highlight whose annotation sub-book is private stays invisible to
+     * everyone but its creator — a deep link must not become a privacy bypass).
+     */
+    public function find(Request $request, $bookId, $hyperlightId)
+    {
+        $user = Auth::user();
+        $anonToken = $request->cookie('anon_token');
+
+        // SECURITY: book visibility check (public → anyone, private → owner only)
+        $library = PgLibrary::where('book', $bookId)->first();
+        if ($library && $library->visibility !== 'public') {
+            $isOwner = ($user && $library->creator === $user->name) ||
+                       ($anonToken && $library->creator_token === $anonToken);
+            if (!$isOwner) {
+                return response()->json(['error' => 'Access denied.'], 403);
+            }
+        }
+
+        $hyperlight = PgHyperlight::where('book', $bookId)
+            ->where('hyperlight_id', $hyperlightId)
+            ->first();
+
+        if (!$hyperlight) {
+            return response()->json(['error' => 'Hyperlight not found.'], 404);
+        }
+
+        // Ownership (same prioritised creator > token logic as getHyperlights())
+        $isUserHighlight = false;
+        if ($hyperlight->creator) {
+            $isUserHighlight = $user && $hyperlight->creator === $user->name;
+        } elseif ($hyperlight->creator_token) {
+            $isUserHighlight = $anonToken && $hyperlight->creator_token === $anonToken;
+        }
+
+        // Private-sub-book pass (mirror of the bulk getHyperlights filter): the highlight's
+        // annotation sub-book being private hides the whole highlight from non-creators.
+        if ($hyperlight->sub_book_id && !$isUserHighlight) {
+            $subBook = DB::connection('pgsql_admin')->table('library')
+                ->where('book', $hyperlight->sub_book_id)
+                ->where('visibility', 'private')
+                ->first(['creator', 'creator_token']);
+            if ($subBook) {
+                $isSubBookOwner = ($user && $subBook->creator === $user->name) ||
+                                  ($anonToken && $subBook->creator_token && $subBook->creator_token === $anonToken);
+                if (!$isSubBookOwner) {
+                    return response()->json(['error' => 'Hyperlight not found.'], 404);
+                }
+            }
+        }
+
+        // Explicit wire shape — matches getHyperlights() row (raw_json accessor already
+        // strips creator_token).
+        return response()->json(['hyperlight' => [
+            'book' => $hyperlight->book,
+            'hyperlight_id' => $hyperlight->hyperlight_id,
+            'node_id' => $hyperlight->node_id ?? [],
+            'charData' => $hyperlight->charData ?? (object) [],
+            'annotation' => $hyperlight->annotation,
+            'preview_nodes' => $hyperlight->preview_nodes,
+            'highlightedHTML' => $hyperlight->highlightedHTML,
+            'highlightedText' => $hyperlight->highlightedText,
+            'startLine' => $hyperlight->startLine,
+            '_ghost_anchor_node' => $hyperlight->ghost_anchor_node ?? null,
+            'raw_json' => $hyperlight->raw_json ?? [],
+            'time_since' => $hyperlight->time_since,
+            'hidden' => (bool) ($hyperlight->hidden ?? false),
+            'is_user_highlight' => $isUserHighlight,
+            'creator' => $hyperlight->creator,
+        ]]);
+    }
+
+    /**
      * HIDE path for the `hyperlights` store — sets `hidden = true` so the highlight stops being served by
      * getHyperlights(). Per-row key shape array{book: string, hyperlight_id: string}. SECURITY: book-owner
      * only (NOT the highlight's creator) — the book owner moderates annotations on their book.

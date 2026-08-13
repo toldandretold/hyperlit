@@ -194,6 +194,102 @@ describe('applyGateFilter: nested per-type custom shape', () => {
   });
 });
 
+describe('pinned hyperlights (deep-link #HL_ exemption, mirror of hypercites)', () => {
+  const aiHl = (over = {}) => ({
+    hyperlight_id: 'HL_ai1', creator: 'AIreview:gpt', annotation: '',
+    is_user_highlight: false, ...over,
+  });
+
+  it('pins, persists under its own sessionStorage key, and rejects wrong shapes', async () => {
+    let gf = await freshGateFilter();
+    gf.pinHyperlight('HL_123abc');
+    gf.pinHyperlight('hypercite_notahl');
+    gf.pinHyperlight('HL_bad!chars');
+    expect(gf.getPinnedHyperlightIds()).toEqual(['HL_123abc']);
+    expect(JSON.parse(sessionStorage.getItem('hyperlit_pinned_hyperlights'))).toEqual(['HL_123abc']);
+    // Fresh module instance rehydrates
+    gf = await freshGateFilter();
+    expect(gf.getPinnedHyperlightIds()).toEqual(['HL_123abc']);
+  });
+
+  it('a pinned AI hyperlight passes the default gate (AI + empty-annotation would hide it)', async () => {
+    const gf = await freshGateFilter();
+    localStorage.setItem('hyperlit_gate_filter', JSON.stringify({ mode: 'default', custom: {} }));
+    expect(gf.applyGateFilter([aiHl()], 'hyperlight')).toHaveLength(0); // gated without the pin
+    gf.pinHyperlight('HL_ai1');
+    expect(gf.applyGateFilter([aiHl()], 'hyperlight')).toHaveLength(1); // pinned → passes
+  });
+
+  it('hideAll keeps only own + pinned hyperlights', async () => {
+    const gf = await freshGateFilter();
+    gf.pinHyperlight('HL_pinned1');
+    localStorage.setItem('hyperlit_gate_filter', JSON.stringify({ mode: 'hideAll' }));
+    const own = aiHl({ hyperlight_id: 'HL_mine', is_user_highlight: true });
+    const pinned = aiHl({ hyperlight_id: 'HL_pinned1' });
+    const foreign = aiHl({ hyperlight_id: 'HL_other' });
+    const out = gf.applyGateFilter([own, pinned, foreign], 'hyperlight');
+    expect(out.map((h) => h.hyperlight_id)).toEqual(['HL_mine', 'HL_pinned1']);
+  });
+
+  it('clearPinnedHypercites clears hyperlight pins too (gate Apply outranks all pins)', async () => {
+    const gf = await freshGateFilter();
+    gf.pinHyperlight('HL_deep1');
+    gf.clearPinnedHypercites();
+    expect(gf.getPinnedHyperlightIds()).toEqual([]);
+    expect(sessionStorage.getItem('hyperlit_pinned_hyperlights')).toBeNull();
+  });
+
+  it('appendGateParam emits pinned_hl= independently of a stored gate setting', async () => {
+    const gf = await freshGateFilter();
+    gf.pinHyperlight('HL_deep1');
+    expect(gf.appendGateParam('/api/x')).toBe(`/api/x?pinned_hl=${encodeURIComponent('HL_deep1')}`);
+  });
+});
+
+describe('book-level gate defaults (keyed per book)', () => {
+  const showAiDefaults = {
+    hyperlight: { hideAI: false, hideAnonymous: false, hideNoAnnotation: false },
+    hypercite: { hideAI: true, hideAnonymous: true, hideNoAnnotation: false },
+  };
+  const aiHlIn = (book, over = {}) => ({
+    hyperlight_id: 'HL_ai1', book, creator: 'AIreview:gpt', annotation: 'note',
+    is_user_highlight: false, ...over,
+  });
+
+  it('default mode uses the item book\'s saved defaults (creator unchecked hideAI → AI highlights show)', async () => {
+    const gf = await freshGateFilter();
+    localStorage.setItem('hyperlit_gate_filter', JSON.stringify({ mode: 'default', custom: {} }));
+    gf.setBookGateDefaults('bookA', showAiDefaults);
+    expect(gf.applyGateFilter([aiHlIn('bookA')], 'hyperlight')).toHaveLength(1); // book default wins
+    expect(gf.applyGateFilter([aiHlIn('bookB')], 'hyperlight')).toHaveLength(0); // other book → global default
+  });
+
+  it('a sub-book resolves through its parent\'s defaults; setting a sub-book row never clobbers the parent', async () => {
+    const gf = await freshGateFilter();
+    localStorage.setItem('hyperlit_gate_filter', JSON.stringify({ mode: 'default', custom: {} }));
+    gf.setBookGateDefaults('bookA', showAiDefaults);
+    gf.setBookGateDefaults('bookA/Fn2', null); // sub-book library row has no gate_defaults
+    expect(gf.getBookGateDefaults('bookA/Fn2')).toEqual(showAiDefaults); // falls back to parent
+    expect(gf.getBookGateDefaults('bookA')).toEqual(showAiDefaults);     // parent untouched
+    expect(gf.applyGateFilter([aiHlIn('bookA/Fn2')], 'hyperlight')).toHaveLength(1);
+  });
+
+  it('gateQueryParam attaches bookDefaults in default mode — even with NO stored gate setting', async () => {
+    const gf = await freshGateFilter();
+    document.body.innerHTML = '<div class="main-content" id="bookA"></div>';
+    gf.setBookGateDefaults('bookA', showAiDefaults);
+    // No localStorage gate: previously returned '' and the server raced the async
+    // library save — now the just-saved defaults ride the fetch explicitly.
+    const noStored = decodeURIComponent(gf.gateQueryParam());
+    expect(JSON.parse(noStored.replace(/^gate=/, ''))).toEqual({ mode: 'default', bookDefaults: showAiDefaults });
+    // With a stored default-mode setting they ride too
+    localStorage.setItem('hyperlit_gate_filter', JSON.stringify({ mode: 'default', custom: {} }));
+    const stored = decodeURIComponent(gf.gateQueryParam('bookA'));
+    expect(JSON.parse(stored.replace(/^gate=/, '')).bookDefaults).toEqual(showAiDefaults);
+    document.body.innerHTML = '';
+  });
+});
+
 describe('appendGateParam', () => {
   it('emits pinned= even when NO gate setting is stored (fresh user following a deep link)', async () => {
     const gf = await freshGateFilter();

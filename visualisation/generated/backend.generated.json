@@ -611,6 +611,38 @@
             ]
         },
         {
+            "id": "controller:DbHyperlightController@find",
+            "label": "DbHyperlightController@find",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DbHyperlightController",
+            "method": "find",
+            "tables": [
+                "hyperlights",
+                "library"
+            ],
+            "shape": [
+                "_ghost_anchor_node",
+                "annotation",
+                "book",
+                "charData",
+                "creator",
+                "hidden",
+                "highlightedHTML",
+                "highlightedText",
+                "hyperlight_id",
+                "is_user_highlight",
+                "node_id",
+                "preview_nodes",
+                "raw_json",
+                "startLine",
+                "time_since"
+            ],
+            "endpoints": [
+                "/api/db/hyperlights/find/{}/{}"
+            ]
+        },
+        {
             "id": "controller:DbHyperlightController@hide",
             "label": "DbHyperlightController@hide",
             "kind": "controller",
@@ -1396,6 +1428,11 @@
             "rel": "read"
         },
         {
+            "source": "pg:hyperlights",
+            "target": "controller:DbHyperlightController@find",
+            "rel": "read"
+        },
+        {
             "source": "pg:library",
             "target": "controller:DatabaseToIndexedDBController@getBookAnnotations",
             "rel": "read"
@@ -1448,6 +1485,11 @@
         {
             "source": "pg:library",
             "target": "controller:DbHyperciteController@find",
+            "rel": "read"
+        },
+        {
+            "source": "pg:library",
+            "target": "controller:DbHyperlightController@find",
             "rel": "read"
         },
         {
@@ -1511,6 +1553,7 @@
         "/api/db/hypercites/upsert": "controller:DbHyperciteController@upsert",
         "/api/db/hyperlights/bulk-create": "controller:DbHyperlightController@bulkCreate",
         "/api/db/hyperlights/delete": "controller:DbHyperlightController@delete",
+        "/api/db/hyperlights/find/{}/{}": "controller:DbHyperlightController@find",
         "/api/db/hyperlights/hide": "controller:DbHyperlightController@hide",
         "/api/db/hyperlights/upsert": "controller:DbHyperlightController@upsert",
         "/api/db/library/bulk-create": "controller:DbLibraryController@bulkCreate",

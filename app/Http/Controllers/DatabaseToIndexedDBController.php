@@ -532,15 +532,17 @@ class DatabaseToIndexedDBController extends Controller
      * @param mixed  $user          Auth::user() or null
      * @param string|null $anonToken Anonymous token cookie
      * @param array|null $bookGateDefaults Book-level default overrides (from library.gate_defaults)
-     * @param array  $pinnedIds     Deep-link target hypercite ids that bypass every gate clause
-     *                              (explicit navigation intent — see getPinnedHyperciteIds()).
+     * @param array  $pinnedIds     Deep-link target ids that bypass every gate clause (explicit
+     *                              navigation intent — see getPinnedHyperciteIds() /
+     *                              getPinnedHyperlightIds(); pass the list matching $type).
      */
     private function applyGateFilters($query, array $gate, string $type, $user, ?string $anonToken, ?array $bookGateDefaults = null, array $pinnedIds = []): void
     {
         if ($gate['mode'] === 'all') return;
 
-        // Pinned exemption only applies to hypercites (deep-link targets navigated by id).
-        $pinned = ($type === 'hypercite') ? $pinnedIds : [];
+        // Pinned deep-link exemption — id column differs per table.
+        $pinned = $pinnedIds;
+        $idColumn = $type === 'hypercite' ? 'hyperciteId' : 'hyperlight_id';
 
         // Co-author escape (hypercites only): the AI Archivist stamps its cites
         // creator='AIarchivist' with the ASKING user in access_granted as co-author —
@@ -549,12 +551,12 @@ class DatabaseToIndexedDBController extends Controller
 
         // "hideAll" — exclude everything except the user's own rows (and pinned deep-link targets)
         if ($gate['mode'] === 'hideAll') {
-            $query->where(function ($q) use ($user, $anonToken, $pinned, $coAuthor) {
+            $query->where(function ($q) use ($user, $anonToken, $pinned, $coAuthor, $idColumn) {
                 $q->whereRaw('1 = 0'); // exclude everything...
                 if ($user) $q->orWhere('creator', $user->name);
                 if ($anonToken) $q->orWhere('creator_token', $anonToken);
                 if ($coAuthor) $q->orWhereRaw('"access_granted" ->> ? IS NOT NULL', [$coAuthor]);
-                if (!empty($pinned)) $q->orWhereIn('hyperciteId', $pinned);
+                if (!empty($pinned)) $q->orWhereIn($idColumn, $pinned);
             });
             return;
         }
@@ -595,7 +597,7 @@ class DatabaseToIndexedDBController extends Controller
         if ($hideAI) {
             // AI creators: 'AIreview:%' (citation review — highlights) and 'AIarchivist%'
             // (the AI Archivist — the one that mints hypercites).
-            $query->where(function ($q) use ($user, $anonToken, $pinned, $coAuthor) {
+            $query->where(function ($q) use ($user, $anonToken, $pinned, $coAuthor, $idColumn) {
                 $q->where(function ($notAi) {
                     $notAi->where('creator', 'NOT LIKE', 'AIreview:%')
                           ->where('creator', 'NOT LIKE', 'AIarchivist%');
@@ -604,22 +606,22 @@ class DatabaseToIndexedDBController extends Controller
                 if ($user) $q->orWhere('creator', $user->name);
                 if ($anonToken) $q->orWhere('creator_token', $anonToken);
                 if ($coAuthor) $q->orWhereRaw('"access_granted" ->> ? IS NOT NULL', [$coAuthor]);
-                if (!empty($pinned)) $q->orWhereIn('hyperciteId', $pinned);
+                if (!empty($pinned)) $q->orWhereIn($idColumn, $pinned);
             });
         }
 
         if ($hideAnonymous) {
-            $query->where(function ($q) use ($user, $anonToken, $pinned, $coAuthor) {
+            $query->where(function ($q) use ($user, $anonToken, $pinned, $coAuthor, $idColumn) {
                 $q->whereNotNull('creator');
                 if ($user) $q->orWhere('creator', $user->name);
                 if ($anonToken) $q->orWhere('creator_token', $anonToken);
                 if ($coAuthor) $q->orWhereRaw('"access_granted" ->> ? IS NOT NULL', [$coAuthor]);
-                if (!empty($pinned)) $q->orWhereIn('hyperciteId', $pinned);
+                if (!empty($pinned)) $q->orWhereIn($idColumn, $pinned);
             });
         }
 
         if ($hideNoAnnotation && $type === 'hyperlight') {
-            $query->where(function ($q) use ($user, $anonToken) {
+            $query->where(function ($q) use ($user, $anonToken, $pinned, $idColumn) {
                 $q->where(function ($inner) {
                     $inner->where(function ($sub) {
                         $sub->whereNotNull('annotation')
@@ -632,6 +634,7 @@ class DatabaseToIndexedDBController extends Controller
                 });
                 if ($user) $q->orWhere('creator', $user->name);
                 if ($anonToken) $q->orWhere('creator_token', $anonToken);
+                if (!empty($pinned)) $q->orWhereIn($idColumn, $pinned);
             });
         }
     }
@@ -701,10 +704,12 @@ class DatabaseToIndexedDBController extends Controller
                 }
             });
 
-        // Server-side gate filter — exclude gated highlights before download
+        // Server-side gate filter — exclude gated highlights before download.
+        // Pinned deep-link targets (a followed #HL_ link) bypass every gate clause.
         $gate = $this->getGatePreferences();
         $bookGateDefaults = $this->getBookGateDefaults($bookId);
-        $this->applyGateFilters($query, $gate, 'hyperlight', $user, $anonymousToken, $bookGateDefaults);
+        $pinnedHl = $this->getPinnedHyperlightIds();
+        $this->applyGateFilters($query, $gate, 'hyperlight', $user, $anonymousToken, $bookGateDefaults, $pinnedHl);
 
         $rows = $query
             ->orderBy('hyperlight_id')
@@ -1019,9 +1024,24 @@ class DatabaseToIndexedDBController extends Controller
      */
     private function getPinnedHyperciteIds(): array
     {
+        return $this->collectPinnedIds('pinned', '/^hypercite_[A-Za-z0-9]+$/');
+    }
+
+    /**
+     * Pinned deep-link HYPERLIGHT ids (`pinned_hl=` + a `target=HL_…`) — the mirror of
+     * getPinnedHyperciteIds(). Following a #HL_ link is explicit intent to see that
+     * highlight, so it bypasses every gate clause (never the sub-book privacy pass).
+     */
+    private function getPinnedHyperlightIds(): array
+    {
+        return $this->collectPinnedIds('pinned_hl', '/^HL_[A-Za-z0-9]+$/');
+    }
+
+    private function collectPinnedIds(string $param, string $pattern): array
+    {
         $candidates = [];
 
-        $pinnedParam = request()->query('pinned');
+        $pinnedParam = request()->query($param);
         if (is_string($pinnedParam) && $pinnedParam !== '') {
             $candidates = explode(',', $pinnedParam);
         }
@@ -1033,7 +1053,7 @@ class DatabaseToIndexedDBController extends Controller
 
         $valid = array_values(array_unique(array_filter(
             array_map('trim', $candidates),
-            fn ($id) => is_string($id) && preg_match('/^hypercite_[A-Za-z0-9]+$/', $id) === 1
+            fn ($id) => is_string($id) && preg_match($pattern, $id) === 1
         )));
 
         return array_slice($valid, 0, 20);

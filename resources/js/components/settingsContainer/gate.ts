@@ -16,13 +16,17 @@ export async function _openGatePanel(self: any) {
     self.updateButtonStates();
   };
 
-  const { getGateSettings, getBookGateDefaults, setBookGateDefaults, reapplyAnnotationsWithGate, clearPinnedHypercites } = await import('../utilities/gateFilter');
+  const { getGateSettings, getBookGateDefaults, setBookGateDefaults, hydrateBookGateDefaults, reapplyAnnotationsWithGate, clearPinnedHypercites } = await import('../utilities/gateFilter');
   const { canUserEditBook } = await import('../../utilities/auth/index');
   const currentSettings = getGateSettings();
 
   const bookId = (document.querySelector('.main-content') as any)?.id;
   const isOwner = bookId ? await canUserEditBook(bookId) : false;
-  const bookGateDefaults = getBookGateDefaults();
+  // A cache-hit book open never ran the server-pull loader that populates the
+  // gate-defaults cache — read the local library record so the panel shows the
+  // book's REAL defaults instead of falling back to the global ones.
+  await hydrateBookGateDefaults(bookId);
+  const bookGateDefaults = getBookGateDefaults(bookId);
 
   await showGatePanel(container, currentSettings, {
     onApply: async (newSettings: any) => {
@@ -43,7 +47,7 @@ export async function _openGatePanel(self: any) {
     onCancel: restorePanel,
     onSaveBookDefault: async (defaults: any) => {
       // 1. Update module cache
-      setBookGateDefaults(defaults);
+      setBookGateDefaults(bookId, defaults);
 
       // 2. Update IndexedDB library record + queue for sync
       if (bookId) {

@@ -240,6 +240,10 @@ it('dispatches a build and reports building, and a second press joins it instead
         ->assertStatus(202)
         ->assertJson(['success' => true, 'state' => 'building']);
     Queue::assertPushed(BuildAudiobookJob::class, 1);
+    // Its own queue, NOT `audio` — packaging must never wait behind an
+    // hour-long narration run. Renaming this requires the matching worker
+    // (supervisor conf + package.json + queue:probe) or it silently never runs.
+    Queue::assertPushedOn('audio-package', BuildAudiobookJob::class);
 
     // The lock is still held, so a second requester rides the same build.
     $this->postJson("/api/book-audio/{$book}/audiobook")

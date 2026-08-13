@@ -36,7 +36,7 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<PullResu
 
     // Include gate filter as query param so server-side annotation filtering matches client
     const { appendGateParam } = await import('../../components/utilities/gateFilter');
-    const response = await fetch(appendGateParam(`/api/database-to-indexeddb/books/${bookId}/data`));
+    const response = await fetch(appendGateParam(`/api/database-to-indexeddb/books/${bookId}/data`, bookId));
 
     verbose.content(`API response received: ${response.status}`, 'serverSync/pull');
 
@@ -181,6 +181,12 @@ export async function syncAnnotationsOnly(bookId: string): Promise<PullResult> {
   verbose.content(`Starting annotations-only sync for: ${bookId}`, 'serverSync/pull');
 
   try {
+    // 0. Flush pending edits FIRST — a gate reapply may have just queued a
+    // library update (gate_defaults save/reset); the server must see it before
+    // it computes the gate-filtered annotation set, or a "Reset to Global
+    // Default" refetch is filtered by the STALE book defaults.
+    await flushAllPendingEdits();
+
     // 1. Fetch only annotations (not the full book with all nodes)
     // Include gate filter as query param so server applies it immediately
     // (avoids race with async preference save, works for anonymous users)
@@ -196,7 +202,7 @@ export async function syncAnnotationsOnly(bookId: string): Promise<PullResult> {
     const annotationsUrl = annSlash !== -1
       ? `/api/database-to-indexeddb/books/${annId.substring(0, annSlash)}/${annId.substring(annSlash + 1)}/annotations`
       : `/api/database-to-indexeddb/books/${annId}/annotations`;
-    const response = await fetch(appendGateParam(annotationsUrl));
+    const response = await fetch(appendGateParam(annotationsUrl, bookId));
 
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
@@ -207,9 +213,6 @@ export async function syncAnnotationsOnly(bookId: string): Promise<PullResult> {
 
     // 2. Open IndexedDB
     const db = await openDatabase();
-
-    // 2.5 Flush any pending edits to the server before clearing
-    await flushAllPendingEdits();
 
     // 3. Clear only annotations for this book (not nodes)
     await clearAnnotationsFromIndexedDB(db, bookId);
