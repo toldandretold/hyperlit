@@ -170,6 +170,115 @@ class ContentFetchService
         }
     }
 
+    /**
+     * Import ONLY the publisher-HTML lane for a record — strategy 5 on its own, ladder skipped.
+     *
+     * `fetch()` is PDF-first by design: it tries JATS, then every discoverable PDF copy, and
+     * only reaches the paste engine when all of those fail. That is right when we want the one
+     * best copy, and wrong when we deliberately want the HTML copy — for an HTML-native journal
+     * the publisher page carries structure the PDF's OCR loses (GSCJ: OCR dropped 'References'
+     * and 'Conflict of interest' from its output entirely, while the HTML keeps every heading).
+     *
+     * Same two calls, same gates, same persistence as strategy 5 — this adds no conversion path,
+     * it just makes the existing one reachable on purpose. The caller supplies a record whose
+     * `book` is its own lane row (see JournalHarvest\HtmlLaneCreator), so this never overwrites
+     * the PDF lane's content.
+     *
+     * @return array{status: string, reason: string, node_count?: int}
+     */
+    public function importHtmlLane(object $libraryRecord, ?string $pageUrl = null): array
+    {
+        $bookId = $libraryRecord->book;
+        $doi = $libraryRecord->doi ?? null;
+        $oaUrl = $libraryRecord->oa_url ?? null;
+
+        $this->lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null, 'body_verdict' => null, 'body_reason' => null];
+        $this->currentSession = Str::random(12);
+        $this->lastFetchTrace['session'] = $this->currentSession;
+        if (($proxyUrl = self::stickyProxy($this->currentSession)) !== null) {
+            $this->lastFetchTrace['proxy'] = self::maskProxy($proxyUrl);
+        }
+
+        try {
+            $url = $pageUrl ?: ($doi ? ('https://doi.org/' . $doi) : $oaUrl);
+            if (! $url) {
+                return ['status' => 'failed', 'reason' => 'no page URL (no doi, oa_url, or explicit url)'];
+            }
+
+            $this->lastFetchTrace['won_host'] = parse_url($url, PHP_URL_HOST) ?: null;
+            $this->lastFetchTrace['won_source'] = 'html_lane';
+
+            $html = $this->fetchHtmlViaBrowser($url);
+            if ($html === null) {
+                $reason = "could not fetch the article page ({$url})";
+                $this->setPdfUrlStatus($bookId, $reason);
+
+                return ['status' => 'failed', 'reason' => $reason];
+            }
+
+            return $this->importViaPasteEngine($html, $bookId, $url);
+        } finally {
+            $this->persistFetchTrace($bookId);
+        }
+    }
+
+    /**
+     * Re-run the paste engine over the page we ALREADY have on disk — no network, no publisher
+     * hit, no cost. This is the second half of the maintainer fix loop: spot a bad conversion on
+     * prod, bundle it, fix the processor locally, ship, then reconvert every affected article
+     * from its stored page. Re-FETCHING for that would be wrong twice over: it re-hammers the
+     * publisher, and it changes the input, so you can no longer tell whether the output changed
+     * because of your fix or because the page did.
+     *
+     * The distinction the console draws with it: a bad conversion off a good page is OUR bug
+     * (reconvert fixes it); an empty or walled page is an acquisition bug (re-fetch is the tool).
+     *
+     * @return array{status: string, reason: ?string, node_count?: int}
+     */
+    public function reconvertHtmlLaneFromStoredPage(object $libraryRecord): array
+    {
+        $bookId = $libraryRecord->book;
+        $path = resource_path("markdown/{$bookId}/fetched_page.html");
+
+        if (! File::exists($path)) {
+            return ['status' => 'failed', 'reason' => 'no stored page on disk (fetched_page.html) — re-fetch first'];
+        }
+
+        $html = File::get($path);
+        if (trim($html) === '') {
+            return ['status' => 'failed', 'reason' => 'stored page is empty — re-fetch first'];
+        }
+
+        // The trace describes ACQUISITION, and this path acquires nothing. Seed it so the
+        // gates inside importViaPasteEngine can record their verdicts without clobbering the
+        // original run's won_host/won_source, which are still the truth about where it came from.
+        $existing = $this->readFetchTrace($bookId);
+        $this->lastFetchTrace = array_merge(
+            ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null, 'body_verdict' => null, 'body_reason' => null],
+            $existing,
+            ['reconverted_at' => now()->toIso8601String()],
+        );
+
+        $url = $libraryRecord->doi ? ('https://doi.org/' . $libraryRecord->doi) : ($libraryRecord->oa_url ?? 'https://localhost/');
+
+        try {
+            return $this->importViaPasteEngine($html, $bookId, $url);
+        } finally {
+            $this->persistFetchTrace($bookId);
+        }
+    }
+
+    /** The stored acquisition evidence, or [] when a lane has none yet. */
+    private function readFetchTrace(string $bookId): array
+    {
+        $path = resource_path("markdown/{$bookId}/fetch_trace.json");
+        if (! File::exists($path)) {
+            return [];
+        }
+
+        return json_decode(File::get($path), true) ?: [];
+    }
+
     private function fetchInner(object $libraryRecord): array
     {
         $bookId = $libraryRecord->book;

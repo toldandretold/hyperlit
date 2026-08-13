@@ -6,10 +6,13 @@ import re
 import time
 import argparse
 import base64
+import io
+import zlib
 from pathlib import Path
 from statistics import median
 from mistralai.client import Mistral
 from pypdf import PdfReader, PdfWriter
+from pypdf.generic import BooleanObject, NameObject, NumberObject
 
 from ingestion.pdf.pdf_shared import *  # noqa: F401,F403
 
@@ -17,6 +20,58 @@ MISTRAL_MAX_BYTES = 50 * 1024 * 1024
 
 
 CHUNK_TARGET_BYTES = 40 * 1024 * 1024
+
+
+# An image XObject bigger than this is not a page scan — it is a scanning mistake, and
+# Mistral's document parser REJECTS the whole file over it with a 400 that says nothing
+# about images: {"message": "Document is not a valid PDF.", "code": "3740"}. Book a22004
+# (a 2004 Distiller/PageMaker journal PDF) carried four CCITT stencil masks of 131–257
+# megapixels — ~1200dpi scans of figures — and failed all three job attempts on that 400
+# while pypdf read the file perfectly. Bisection proved it: drop the giant image's draw
+# op and the same page OCRs fine; drop the ordinary photo next to it instead and it still
+# fails. 40MP is the separator that leaves real scans alone — a 600dpi full-page letter
+# scan is 5100x6600 = 34MP, so nothing legitimate crosses this line.
+MAX_IMAGE_PIXELS = 40_000_000
+
+# Downsample target for an oversized image (long edge). Far above what OCR needs, and
+# small enough that the re-encoded page stays well inside the chunking thresholds.
+NORMALIZED_IMAGE_MAX_DIM = 2500
+
+# Hard ceiling on what we will DECODE. Pillow expands a 1-bit mask to a byte per pixel,
+# so the 257MP mask above peaks at ~584MB RSS — on the 2GB/1-CPU production box that is
+# most of the free memory, and an OOM-killed python is just another mysterious import
+# failure. Above this we drop the image to a 1x1 blank instead of decoding it: the figure
+# is lost, the book converts. Below it we downsample and keep the figure.
+MAX_DECODE_PIXELS = 300_000_000
+
+# Measured peak RSS per source pixel for the decode+resize (584MB for 257MP ≈ 2.3), rounded
+# up. Used to price a decode against the memory actually free right now.
+DECODE_BYTES_PER_PIXEL = 2.5
+
+
+def _decode_budget_pixels():
+    """How many pixels we can afford to decode right now, in pixels.
+
+    The static MAX_DECODE_PIXELS ceiling assumes a machine with room. Production is a 2GB
+    box that also runs the queue worker, so "how big is the image" is the wrong question on
+    its own — "is there memory for it" is the real one. On Linux we price the decode against
+    MemAvailable and spend at most half of it; elsewhere (dev macs, where nothing is at
+    stake) the static ceiling stands. Coming in under budget means we downsample and keep
+    the figure; over it we blank that one image rather than risk the OOM killer taking the
+    whole import with it.
+    """
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    available_bytes = int(line.split()[1]) * 1024
+                    break
+            else:
+                return MAX_DECODE_PIXELS
+    except (OSError, ValueError, IndexError):
+        return MAX_DECODE_PIXELS
+    affordable = int((available_bytes * 0.5) / DECODE_BYTES_PER_PIXEL)
+    return max(0, min(MAX_DECODE_PIXELS, affordable))
 
 
 # PDFs at or under this size skip the upload+signed-url round-trip and are sent
@@ -108,6 +163,218 @@ def _upload_and_get_signed_url(client, pdf_path, upload_attempts=2):
                 raise
             print(f"  file still not queryable after retries — re-uploading (attempt {attempt + 2}/{upload_attempts})...")
     raise last_err
+
+
+def _iter_image_xobjects(node, seen, out, depth=0):
+    """Collect every image XObject reachable from `node`, recursing through Form XObjects.
+
+    The offenders are NOT page-level images: in a22004 each giant mask sat two Form
+    XObjects deep (page → /Fm8 → /Fm7 → /Im4), which is how a naive page-level scan
+    misses them entirely. Dict reads only — nothing is decoded here, so this stays free
+    for the overwhelming majority of books that have no oversized image at all.
+    """
+    if depth > 8:
+        return
+    node = node.get_object()
+    if not hasattr(node, "get"):
+        return
+    resources = node.get("/Resources")
+    if resources is None:
+        return
+    xobjects = resources.get_object().get("/XObject")
+    if xobjects is None:
+        return
+    for name, ref in xobjects.get_object().items():
+        obj = ref.get_object()
+        subtype = obj.get("/Subtype")
+        if subtype == "/Image":
+            if id(obj) in seen:
+                continue
+            seen.add(id(obj))
+            out.append((str(name), obj))
+        elif subtype == "/Form":
+            _iter_image_xobjects(obj, seen, out, depth + 1)
+
+
+def find_oversized_images(pages, limit=None):
+    """Return [(name, obj, width, height)] for images above `limit` pixels, in page order.
+
+    `limit` resolves at CALL time rather than defaulting to the constant in the signature,
+    so a test can lower MAX_IMAGE_PIXELS and exercise the real path with a small fixture
+    instead of allocating a 40-megapixel one.
+    """
+    if limit is None:
+        limit = MAX_IMAGE_PIXELS
+    seen, found = set(), []
+    for page in pages:
+        _iter_image_xobjects(page, seen, found)
+    oversized = []
+    for name, obj in found:
+        try:
+            width = int(obj.get("/Width", 0) or 0)
+            height = int(obj.get("/Height", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if width * height > limit:
+            oversized.append((name, obj, width, height))
+    return oversized
+
+
+def _pdf_bool(value):
+    """Read a PDF boolean truthfully.
+
+    `bool(BooleanObject(False))` is True — pypdf's BooleanObject defines no __bool__, so
+    every instance is truthy, and its __eq__ compares equal to both True and False. Only
+    `.value` tells the truth. An explicit `/ImageMask false` (legal, and some producers do
+    write it) read through plain bool() would send a real greyscale image down the stencil
+    path and re-embed it as a 1-bit mask — a solid painted blob where the figure was.
+    """
+    return bool(getattr(value, "value", value))
+
+
+def _shrink_image_xobject(obj, width, height):
+    """Downsample one oversized image XObject in place. Returns (new_w, new_h) or None.
+
+    Stencil masks (`/ImageMask true`, which is what oversized scans usually are) are
+    re-embedded AS masks — 1 bit per component, Flate, no colourspace. Converting one to
+    an opaque greyscale image would change its meaning: a mask paints the current fill
+    colour where the sample is 0 and leaves everything else untransparent, so an opaque
+    replacement paints a white box over whatever sits beneath it. Pillow's mode "1"
+    packs rows MSB-first padded to a byte boundary, which is exactly the PDF 1-bit
+    layout, and pypdf decodes sample 0 to pixel 0 — so the round-trip is polarity-clean.
+
+    Everything else is re-encoded as greyscale JPEG, which is all OCR needs.
+    """
+    from PIL import Image
+
+    is_mask = _pdf_bool(obj.get("/ImageMask"))
+    previous_limit = Image.MAX_IMAGE_PIXELS
+    Image.MAX_IMAGE_PIXELS = None  # our own MAX_DECODE_PIXELS is the real guard
+    try:
+        pil = obj.decode_as_image()
+    except Exception as e:  # noqa: BLE001 — any decoder failure falls back to the blank path
+        print(f"    could not decode {width}x{height} image ({type(e).__name__}: {e})")
+        return None
+    finally:
+        Image.MAX_IMAGE_PIXELS = previous_limit
+
+    scale = min(NORMALIZED_IMAGE_MAX_DIM / width, NORMALIZED_IMAGE_MAX_DIM / height)
+    new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
+
+    if is_mask:
+        # Resize in mode "1" directly (nearest). Converting to "L" for a smooth resize
+        # would DOUBLE the peak RSS on images that are already the memory problem.
+        small = pil.resize(new_size)
+        if small.mode != "1":
+            small = small.convert("1", dither=Image.NONE)
+        obj[NameObject("/Filter")] = NameObject("/FlateDecode")
+        obj._data = zlib.compress(small.tobytes(), 6)
+        obj[NameObject("/BitsPerComponent")] = NumberObject(1)
+        obj[NameObject("/ImageMask")] = BooleanObject(True)
+        for key in ("/DecodeParms", "/ColorSpace"):
+            if key in obj:
+                del obj[NameObject(key)]
+    else:
+        small = pil.convert("L").resize(new_size)
+        buffer = io.BytesIO()
+        small.save(buffer, format="JPEG", quality=75)
+        obj[NameObject("/Filter")] = NameObject("/DCTDecode")
+        obj._data = buffer.getvalue()
+        obj[NameObject("/ColorSpace")] = NameObject("/DeviceGray")
+        obj[NameObject("/BitsPerComponent")] = NumberObject(8)
+        for key in ("/DecodeParms", "/Decode"):
+            if key in obj:
+                del obj[NameObject(key)]
+
+    obj[NameObject("/Width")] = NumberObject(new_size[0])
+    obj[NameObject("/Height")] = NumberObject(new_size[1])
+    return new_size
+
+
+def _blank_image_xobject(obj):
+    """Replace an image XObject with a 1x1 transparent-ish blank, decoding nothing.
+
+    The escape hatch for an image too big to decode safely (or one whose decoder threw).
+    The figure is lost; the book converts — which beats the whole import dying on a 400.
+    """
+    is_mask = _pdf_bool(obj.get("/ImageMask"))
+    obj[NameObject("/Filter")] = NameObject("/FlateDecode")
+    obj._data = zlib.compress(b"\xff" if is_mask else b"\xff", 6)
+    obj[NameObject("/Width")] = NumberObject(1)
+    obj[NameObject("/Height")] = NumberObject(1)
+    obj[NameObject("/BitsPerComponent")] = NumberObject(1 if is_mask else 8)
+    if is_mask:
+        obj[NameObject("/ImageMask")] = BooleanObject(True)
+        if "/ColorSpace" in obj:
+            del obj[NameObject("/ColorSpace")]
+    else:
+        obj[NameObject("/ColorSpace")] = NameObject("/DeviceGray")
+    for key in ("/DecodeParms", "/Decode"):
+        if key in obj:
+            del obj[NameObject(key)]
+
+
+def normalize_oversized_images(pdf_path, work_dir):
+    """Rewrite `pdf_path` without absurdly oversized images, if it has any.
+
+    Returns (path_to_use_for_ocr, report). When nothing is oversized the ORIGINAL path
+    comes back untouched and no file is written — the detection is a dict walk, so books
+    without the problem pay nothing and their conversion is bit-for-bit unchanged.
+
+    The original is never modified. It stays the user's source of truth and the input the
+    downstream pypdf text-recovery passes re-read (image resolution cannot affect text
+    extraction, but keeping the blast radius to the OCR call means those passes see
+    exactly the bytes they always saw).
+    """
+    pdf_path = Path(pdf_path)
+    report = {"oversized": [], "downsampled": [], "blanked": []}
+    try:
+        reader = PdfReader(str(pdf_path))
+        oversized = find_oversized_images(reader.pages)
+    except Exception as e:  # noqa: BLE001 — a scan failure must never block the OCR attempt
+        print(f"Oversized-image scan failed ({type(e).__name__}: {e}); sending the PDF as-is")
+        return pdf_path, report
+
+    if not oversized:
+        return pdf_path, report
+
+    report["oversized"] = [
+        {"name": n, "width": w, "height": h, "megapixels": round(w * h / 1e6, 1)}
+        for n, _obj, w, h in oversized
+    ]
+    biggest = max(w * h for _n, _o, w, h in oversized)
+    emit_progress(
+        3, "pdf_normalize",
+        f"Shrinking {len(oversized)} oversized scan(s) (up to {biggest / 1e6:.0f} megapixels) "
+        f"so the OCR engine can read this PDF"
+    )
+    print(f"Normalizing {len(oversized)} oversized image(s) before OCR:")
+
+    budget = _decode_budget_pixels()
+    writer = PdfWriter(clone_from=str(pdf_path))
+    for name, obj, width, height in find_oversized_images(writer.pages):
+        print(f"  {name} {width}x{height} ({width * height / 1e6:.0f}MP)")
+        entry = {"name": name, "width": width, "height": height}
+        new_size = None
+        if width * height <= budget:
+            new_size = _shrink_image_xobject(obj, width, height)
+        else:
+            print(f"    {width * height / 1e6:.0f}MP exceeds the {budget / 1e6:.0f}MP memory "
+                  f"budget — blanking instead")
+            entry["reason"] = "decode_budget"
+        if new_size:
+            entry["new_width"], entry["new_height"] = new_size
+            report["downsampled"].append(entry)
+        else:
+            _blank_image_xobject(obj)
+            report["blanked"].append(entry)
+
+    normalized_path = Path(work_dir) / "normalized.pdf"
+    writer.write(str(normalized_path))
+    size_mb = normalized_path.stat().st_size / 1024 / 1024
+    print(f"  wrote {normalized_path.name} ({size_mb:.1f}MB) — "
+          f"{len(report['downsampled'])} downsampled, {len(report['blanked'])} blanked")
+    return normalized_path, report
 
 
 def fetch_ocr(pdf_path, api_key, model="mistral-ocr-2512"):

@@ -3,6 +3,7 @@
 namespace App\Services\Audiobook;
 
 use App\Services\BookAudioStore;
+use App\Services\Media\FfmpegLocator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -41,10 +42,7 @@ class AudiobookBuilder
     /** Chapter boundaries come from these heading levels. */
     private const CHAPTER_TAGS = ['h1', 'h2'];
 
-    /** @var array<string, ?string> resolved absolute paths, per request */
-    private array $resolved = [];
-
-    public function __construct(private BookAudioStore $store) {}
+    public function __construct(private BookAudioStore $store, private FfmpegLocator $locator) {}
 
     /**
      * Is the ffmpeg toolchain available on this host?
@@ -347,59 +345,14 @@ class AudiobookBuilder
         return preg_replace('/([=;#\\\\])/', '\\\\$1', $value) ?? '';
     }
 
+    /** Binary resolution lives in FfmpegLocator — shared with Tts\Mp3Joiner. */
     private function ffmpeg(): ?string
     {
-        return $this->resolve((string) config('services.audiobook.ffmpeg', 'ffmpeg'));
+        return $this->locator->ffmpeg();
     }
 
     private function ffprobe(): ?string
     {
-        return $this->resolve((string) config('services.audiobook.ffprobe', 'ffprobe'));
-    }
-
-    /**
-     * Absolute path to a working binary, or null.
-     *
-     * PHP-FPM does NOT inherit a login shell's PATH — under Herd the bare name
-     * `ffmpeg` is unfindable even with Homebrew's copy installed, which made the
-     * feature report itself unavailable on a machine that had it. So probe the
-     * usual install locations too. Set FFMPEG_BINARY to an absolute path to
-     * skip all of this.
-     */
-    private function resolve(string $configured): ?string
-    {
-        if (array_key_exists($configured, $this->resolved)) {
-            return $this->resolved[$configured];
-        }
-
-        $candidates = str_contains($configured, '/')
-            ? [$configured]
-            : [
-                $configured,                     // whatever PATH gives us
-                "/opt/homebrew/bin/{$configured}", // Homebrew, Apple silicon
-                "/usr/local/bin/{$configured}",    // Homebrew, Intel + common Linux
-                "/usr/bin/{$configured}",          // apt
-            ];
-
-        foreach ($candidates as $candidate) {
-            if ($this->binaryWorks($candidate)) {
-                return $this->resolved[$configured] = $candidate;
-            }
-        }
-
-        return $this->resolved[$configured] = null;
-    }
-
-    private function binaryWorks(string $binary): bool
-    {
-        $process = new Process([$binary, '-version']);
-        $process->setTimeout(10);
-        try {
-            $process->run();
-        } catch (\Throwable) {
-            return false;
-        }
-
-        return $process->isSuccessful();
+        return $this->locator->ffprobe();
     }
 }

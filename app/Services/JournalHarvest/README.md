@@ -65,6 +65,48 @@ php artisan journal:harvest global-social-challenges-journal --max-works=25 --us
 
 Re-run until it says "journal fully harvested" (each run resumes where the last stopped; `remaining eligible` is printed at the end). Assigned books collect on a public `Journal: <name>` shelf. Then `php artisan journal:list` shows `last harvested` and you pick the next journal down the citation ranking.
 
+## The operator console: /maintainer/journal-import
+
+`/maintainer/journal-import` lists journals — what's already underway (with imported/remaining counts) and the ranked worklist of what's next, straight off the registry. Clicking one opens `/maintainer/journal-import/{slug}`: every article the journal has, and under each article every imported **lane**.
+
+A lane is one system version of a work. A work can carry two — the vacuumed PDF (`foundation_source: canonical_pdf_vacuum`) and the publisher HTML (`journal_html`) — as sibling library rows with their own book ids and artifacts. That's the ar5iv pattern, not new machinery. Click a lane to see what we produced beside what we produced it from (the PDF, or the fetched publisher page), with the acquisition evidence from `fetch_trace.json` shown as badges.
+
+**★ make version** promotes the selected lane: it points `canonical_source.auto_version_book` at that book, lists it, unlists its siblings, and swaps it onto the journal's shelf so the feeds follow. Only one lane is ever public; the other stays imported and unlisted so you can keep comparing. Same thing from the CLI: `php artisan journal:promote-version <book>`. Promotion refuses a lane with no content, and refuses `html_scrape_unverified` — that method means the authenticity gate never confirmed the page IS the article.
+
+Importing the HTML lane: `php artisan journal:harvest <slug> --lane=html --max-works=N` (or `--lane=both`). It's free — only the PDF lane runs OCR — and it selects on its own predicate: works with no converted HTML lane yet, INCLUDING ones the PDF pass already claimed (the normal eligibility rule skips those, and they're exactly the ones worth comparing).
+
+### Acting on an article from the console
+
+Selecting a **lane** gives you, besides `open ↗` and `★ make version`:
+
+- **↻ reconvert** — re-run the converter over the page already on disk. No network, no cost. This is the second half of the fix loop: spot a bad conversion on prod, bundle it, fix the processor locally, ship, then reconvert. The input is held constant, so anything that changes in the output is your fix — re-fetching instead would change the input too and you'd no longer know which one moved. The PDF lane's reconvert runs through the shared `/maintainer/conversion` path (it has an `original.pdf` plus an OCR cache, so re-running is free); re-acquiring a PDF is a retract-and-re-harvest, not a button.
+- **⇩ re-fetch** (HTML lane) — go back to the publisher. For when what we stored isn't the article: empty, paywalled, or the wrong page.
+- **⤓ conversion** / **⤓ harvest** — the same fork in bundle form. `conversion` blames the converter and replays through `run_regression.py`; `harvest` blames acquisition and ships `canonical_source` + `fetch_trace.json`. Choosing one IS the diagnosis, which is why neither is the default.
+
+The **source pane is painted in your current theme** (dark / light / sepia). It renders a raw fetched publisher page whose own stylesheets mostly don't resolve here, so left alone it paints no background and falls back to near-black text — black on dark. The frame is same-origin, so `resources/js/utilities/sourceFrameTheme.ts` injects a stylesheet into it, reading the live custom properties so a theme change needs no work. Fidelity isn't the goal — this pane is for READING what we fetched; the publisher's real design is one `open ↗` away. A PDF lane is deliberately left alone and gets a light canvas instead: the decision comes from the artifacts on disk, never from the loaded document, because WebKit hands its PDF viewer a real `body` and a "has a body" check would happily inject a stylesheet into the viewer.
+
+Above the converted output sits the same detail strip `/maintainer/conversion` has: the **book id, click to copy**, an `open ↗` link, the lane and its conversion method, and a **note** button. The editor is collapsed behind that button — it's occasional, and a permanent textarea steals height from the conversion you're here to read — and carries a **dot when a note is saved**, so you can see which lanes you've already written up while scanning with it shut. It collapses when you change lane (an editor left open over another lane's note is how the right words get saved against the wrong book) but stays open across a save, so ✓ fixed / ✕ dismiss are still under your cursor. The note is stored on the book's open conversion flags and travels with the case bundle, so the dev side reads your diagnosis beside the artifacts. A lane nobody has flagged gets a `manual` flag opened for it — you spotted the bad conversion, so that IS the report, and a note with nowhere to live would never reach the bundle.
+
+**✓ fixed** / **✕ dismiss** close the case here — they appear only once there is an open one. They deliberately do NOT call the shared `/maintainer/conversion` resolve: that one treats approval as the listing gate (`promoteApprovedHarvest`) because a flagged book is the only version of its work, but a journal work has sibling lanes and exactly one may be public — so closing a case on the LOSING lane there would quietly publish a second version of the same article. Here listing follows only when the lane is already the promoted one, and `★ make version` stays the only way to publish a lane.
+
+### What a bundle tells the dev side
+
+`manifest.json` now carries, besides `book` / `case_kind`:
+
+- **`origin`** — which console exported it (`journal-import`), so a case off a journal lane is distinguishable from one off the generic conversion queue.
+- **`lane`** — `foundation_source`, `conversion_method`, whether this is the promoted version, and every **sibling** lane with the same three facts. A journal article carries two conversions of one work, so "which book is this" doesn't say which lane broke or whether the other is fine — and for a harvest case that IS the diagnosis ("the HTML lane came back empty" points somewhere different from "the PDF lane won the wrong edition").
+- **`journal`** — slug, display name, publisher, ISSN-L and the console URL. The `journal_sources` row is dumped into `db/` and imported insert-if-absent, because otherwise `canonical_source.journal_source_id` resolves to nothing locally and you can't open the case you just pulled in your own journal-import console.
+
+Selecting an **article with no lanes** offers `PDF`, `HTML` or `both`. HTML is free; PDF runs OCR and is charged to whoever pressed it.
+
+All of these queue a `JournalImportActionJob` on `citation-pipeline` (the source harvester's worker) and write to a `journal_import_runs` row that the page polls — they fetch, OCR and cost money, so none of them run inside the request. A run that stops reporting for 30 minutes is failed by the poll's watchdog rather than spinning forever. A second run against the same target joins the first instead of starting a rival one: these actions replace a book's nodes, and two at once would interleave their writes.
+
+GOTCHA worth knowing before you add another re-import path: every one of them ends in `ContentFetchService::persistArticle`, which rewrites the row with `listed = false`. On the promoted lane that is a silent demotion — the article drops out of `/j` and the journal shelf with nothing said. Both the job and `--force-html` re-promote afterwards; `tests/Feature/JournalRegistry/JournalLaneTest.php` locks it.
+
+Re-converting after a processor fix from the CLI: `--force-html` re-fetches and re-converts lanes that ALREADY have content, which is the only way an improvement to a publisher processor reaches articles imported before it. Nodes are replaced wholesale, not appended. It also re-promotes afterwards when the lane was the version: the import rewrites the row with `listed = false`, so without that step a reconvert would quietly drop the article out of the journal's feeds.
+
+Worked example, the GSCJ pilot article: the PDF lane gives 4 headings and 46 references (OCR dropped "References" and "Conflict of interest" from its output entirely); the HTML lane gives all 6 headings and 50 references — the publisher's real count.
+
 ## The public pages
 
 Every registry journal gets a homepage-class page at `/j/{slug}` (e.g. `/j/global-social-challenges-journal`) — the lava-lamp hero with the hyperlit logo + the journal's name, about copy, and three feed buttons: **Most Recent** (publication order: year → volume → issue), **Most Connected**, **Most Lit** — scoped to that journal's articles. `/j` lists all diamond journals ranked by citations.

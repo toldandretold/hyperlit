@@ -14,6 +14,7 @@ import { SpringerProcessor } from '../format-processors/springer-processor';
 import { SubstackProcessor } from '../format-processors/substack-processor';
 import { WileyProcessor } from '../format-processors/wiley-processor';
 import { MitPressProcessor } from '../format-processors/mit-press-processor';
+import { BristolUPProcessor } from '../format-processors/bristol-up-processor';
 
 /**
  * Format registry structure:
@@ -132,6 +133,22 @@ export const FORMAT_REGISTRY = {
     processor: TaylorFrancisProcessor,
     priority: 4,
     description: 'Taylor & Francis content with CIT IDs'
+  },
+
+  // Bristol University Press Digital - Priority 5
+  // Must outrank sage (3): a BUP page matches sage's generic `[role="listitem"]` selector and
+  // was being processed by SageProcessor, which left the hidden mixed-citation duplicates and
+  // the whole surrounding site in the imported book.
+  'bristol-up': {
+    selectors: [
+      'a[href*="bristoluniversitypressdigital.com"]',
+      '.content-references-list',
+      '.reference[id^="CIT"]',
+      '#articleBody',
+    ],
+    processor: BristolUPProcessor,
+    priority: 5,
+    description: 'Bristol University Press Digital (Global Social Challenges Journal et al.)'
   },
 
   // Sage - Priority 3

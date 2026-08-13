@@ -24,6 +24,7 @@
         <nav class="ms-header-nav">
             <a href="/maintainer/conversion">conversions &rarr;</a>
             <a href="/maintainer/jobs">jobs &rarr;</a>
+            <a href="/maintainer/journal-import">journals &rarr;</a>
             <a href="/">&larr; Hyperlit</a>
         </nav>
         <button type="button" id="ms-rescan" title="Measure now — walks the file trees (~2s)">↻ rescan</button>

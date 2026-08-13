@@ -1,0 +1,521 @@
+/* Journal import console — standalone non-SPA (maintainer-journal-import*.blade.php).
+   Entry-only file: @vite'd by the blades, never an @import target (cssStructure gate 3).
+   Theme parity with the reader via the shared variable/theme files. */
+
+@import url('../theme/variables.css');
+@import url('../theme/light-theme.css');
+@import url('../theme/sepia-theme.css');
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--color-background, #221f20);
+  color: var(--color-text, #cbcccc);
+  font-family: system-ui, sans-serif;
+}
+
+/* The detail page is a full-height three-pane app; the index scrolls normally.
+   The ROOT element must carry the height too: `.ji-columns` is sized with a
+   percentage, and a percentage height resolves to `auto` unless every ancestor
+   up to <html> has a definite one. Hence the class on <html> in the detail
+   blade — a `body.ji-detail html` descendant selector can never match (<html>
+   is not inside <body>), which silently let the grid grow to the full article
+   list (~8300px) and pushed the source iframe's PDF viewer off-screen. */
+html.ji-detail-root,
+body.ji-detail {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Header (shared) ── */
+.ji-header {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 10px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+}
+.ji-header h1 {
+  margin: 0;
+  font-size: 1.05rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40vw;
+}
+.ji-header-sub {
+  color: var(--color-text-faint, #888);
+  font-size: 0.85rem;
+}
+.ji-header-nav {
+  margin-left: auto;
+  display: flex;
+  gap: 14px;
+}
+.ji-header a {
+  color: var(--color-text-faint, #888);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+.ji-header a:hover {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+#ji-help-toggle {
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--color-text) 30%, transparent);
+  color: var(--color-text-faint, #888);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+/* ── Index ── */
+.ji-main {
+  padding: 16px 18px 60px;
+  max-width: 1100px;
+}
+.ji-filter-row {
+  margin-bottom: 18px;
+}
+.ji-filter {
+  width: 100%;
+  max-width: 420px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 25%, transparent);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+.ji-section {
+  margin-bottom: 26px;
+}
+.ji-section h2 {
+  font-size: 0.9rem;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-faint, #888);
+}
+.ji-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.ji-section-note {
+  font-size: 0.75rem;
+  color: var(--color-text-faint, #888);
+  margin-bottom: 8px;
+}
+.ji-journal {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  border-radius: 7px;
+  margin-bottom: 6px;
+  text-decoration: none;
+  color: inherit;
+}
+.ji-journal:hover {
+  border-color: color-mix(in srgb, var(--hyperlit-aqua, #4eacae) 60%, transparent);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+.ji-journal-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.ji-journal-meta,
+.ji-journal-stats {
+  font-size: 0.78rem;
+  color: var(--color-text-faint, #888);
+}
+.ji-journal-stats {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.ji-empty {
+  color: var(--color-text-faint, #888);
+  font-size: 0.85rem;
+}
+
+/* ── Detail: three panes ── */
+.ji-columns {
+  display: grid;
+  grid-template-columns: 360px 1fr 1fr;
+  height: calc(100% - 45px);
+}
+.ji-articles {
+  overflow-y: auto;
+  border-right: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+  padding: 8px;
+}
+.ji-articles-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--color-text-faint, #888);
+  padding: 2px 4px 8px;
+}
+.ji-only-imported {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.ji-article {
+  padding: 8px 8px 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+.ji-article-title {
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+.ji-article-meta {
+  font-size: 0.72rem;
+  color: var(--color-text-faint, #888);
+  margin: 2px 0 4px;
+}
+.ji-lane {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  margin: 3px 0;
+  border-radius: 5px;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+.ji-lane:hover {
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+.ji-lane-selected {
+  outline: 1px solid var(--hyperlit-aqua, #4eacae);
+  background: color-mix(in srgb, var(--hyperlit-aqua, #4eacae) 14%, transparent);
+}
+/* Selecting the ARTICLE (rather than one of its lanes) is how an un-imported work is acted on. */
+.ji-article-title {
+  cursor: pointer;
+}
+.ji-article-selected {
+  background: color-mix(in srgb, var(--hyperlit-aqua, #4eacae) 8%, transparent);
+}
+.ji-article-selected .ji-article-title {
+  color: var(--hyperlit-aqua, #4eacae);
+}
+.ji-lane-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ji-lane-pdf { color: var(--hyperlit-orange, #ff8700); }
+.ji-lane-html { color: var(--hyperlit-aqua, #4eacae); }
+.ji-lane-ar5iv { color: var(--hyperlit-pink, #ee4b96); }
+
+.ji-badge {
+  font-size: 0.66rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+  color: var(--color-text-faint, #888);
+  white-space: nowrap;
+}
+.ji-badge-version {
+  background: color-mix(in srgb, var(--hyperlit-aqua, #4eacae) 26%, transparent);
+  color: var(--color-text);
+}
+.ji-badge-warn {
+  background: color-mix(in srgb, var(--hyperlit-orange, #ff8700) 26%, transparent);
+  color: var(--color-text);
+}
+.ji-badge-flag {
+  background: color-mix(in srgb, var(--hyperlit-pink, #ee4b96) 30%, transparent);
+  color: var(--color-text);
+}
+.ji-badge-diamond {
+  background: color-mix(in srgb, var(--hyperlit-aqua, #4eacae) 20%, transparent);
+  margin-left: 8px;
+}
+
+/* Panes: each is a positioning context for its own placeholder. */
+.ji-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+  min-width: 0;
+}
+.ji-pane-label {
+  font-size: 0.7rem;
+  color: var(--color-text-faint, #888);
+  padding: 4px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 10%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ji-pane iframe {
+  flex: 1 1 auto;
+  width: 100%;
+  border: 0;
+  background: var(--color-background);
+}
+/* The SOURCE pane renders a raw fetched publisher page whose own stylesheets are absolute URLs
+   that mostly don't resolve here, so it paints no background and its text falls back to the UA's
+   near-black — black on dark, unreadable. It's same-origin, so utilities/sourceFrameTheme.ts
+   injects the app's current theme INTO the document (see its docblock). This background just
+   covers the moment before that lands. */
+.ji-source iframe {
+  background: var(--color-background);
+}
+/* Fallback when the frame can't be skinned (a PDF, or a document with no body): the light canvas
+   the page was authored for. A PDF viewer paints its own background, so this is invisible there. */
+.ji-source-unskinned iframe {
+  background: #fff;
+  color-scheme: light;
+}
+.ji-pane-placeholder {
+  position: absolute;
+  inset: 22px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-faint, #888);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 0 20px;
+  pointer-events: none;
+}
+/* Explicit: the flex display above would otherwise beat the UA [hidden] rule. */
+.ji-pane-placeholder[hidden] {
+  display: none;
+}
+
+/* ── Floating action bar ── */
+.ji-actions {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-background) 92%, var(--color-text));
+  border: 1px solid color-mix(in srgb, var(--color-text) 22%, transparent);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 40%);
+  z-index: 20;
+}
+.ji-actions[hidden] {
+  display: none;
+}
+.ji-actions-grip {
+  cursor: grab;
+  color: var(--color-text-faint, #888);
+  user-select: none;
+}
+.ji-actions-book {
+  font-size: 0.72rem;
+  color: var(--color-text-faint, #888);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ji-actions button {
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--color-text) 28%, transparent);
+  color: var(--color-text);
+  border-radius: 5px;
+  padding: 3px 9px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.ji-actions button:hover:not(:disabled) {
+  border-color: var(--hyperlit-aqua, #4eacae);
+}
+.ji-actions button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ji-actions-status {
+  font-size: 0.72rem;
+  color: var(--color-text-faint, #888);
+}
+
+/* ── Toast (index) ── */
+.ji-status {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  padding: 7px 14px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--color-background) 88%, var(--color-text));
+  border: 1px solid color-mix(in srgb, var(--color-text) 22%, transparent);
+  font-size: 0.82rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.ji-status.ji-visible {
+  opacity: 1;
+}
+
+/* ── Help panel ── */
+.ji-help-panel {
+  position: fixed;
+  right: 18px;
+  top: 52px;
+  width: min(520px, 90vw);
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 14px 18px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--color-background) 94%, var(--color-text));
+  border: 1px solid color-mix(in srgb, var(--color-text) 22%, transparent);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 45%);
+  z-index: 30;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.ji-help-panel[hidden] {
+  display: none;
+}
+.ji-help-panel h2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+  margin: 0 0 10px;
+}
+.ji-help-panel #ji-help-close {
+  background: none;
+  border: 0;
+  color: var(--color-text-faint, #888);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.ji-help-panel code {
+  font-size: 0.8em;
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.ji-help-doc {
+  color: var(--color-text-faint, #888);
+  font-size: 0.8rem;
+}
+
+/* ── Import bar (shown for an article with no lanes yet) ── */
+.ji-import-bar[hidden] {
+  display: none;
+}
+.ji-import-label {
+  font-size: 0.75rem;
+  color: var(--color-text-faint, #888);
+  white-space: nowrap;
+}
+
+/* ── Detail strip (book id + maintainer note), above the converted output ── */
+.ji-detail-strip {
+  flex: 0 0 auto;
+  padding: 6px 10px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+.ji-detail-strip[hidden] {
+  display: none;
+}
+.ji-bookid-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ji-bookid {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.74rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+  cursor: pointer;
+  user-select: all;
+}
+.ji-bookid:hover {
+  background: color-mix(in srgb, var(--hyperlit-aqua, #4eacae) 25%, transparent);
+}
+.ji-bookid-open,
+.ji-bookid-meta {
+  font-size: 0.72rem;
+  color: var(--color-text-faint, #888);
+  text-decoration: none;
+}
+/* Collapsed by default — the editor is occasional, and a permanent textarea steals height from
+   the conversion being reviewed. */
+.ji-note-toggle {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 25%, transparent);
+  background: transparent;
+  color: var(--color-text-faint, #888);
+  cursor: pointer;
+}
+.ji-note-toggle:hover,
+.ji-note-toggle-open {
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+/* A note is saved for this lane — visible with the editor shut, which is the point. */
+.ji-note-dot {
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--color-text, #fff);
+}
+.ji-note-dot[hidden] {
+  display: none;
+}
+.ji-note-row[hidden] {
+  display: none;
+}
+.ji-note-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+}
+.ji-note-row textarea {
+  flex: 1 1 auto;
+  resize: vertical;
+  padding: 5px 7px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 22%, transparent);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.78rem;
+}
+.ji-note-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ji-note-buttons button[hidden] {
+  display: none;
+}
+

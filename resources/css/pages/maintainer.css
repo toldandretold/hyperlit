@@ -145,7 +145,16 @@ body {
   flex: 1 1 auto;
   width: 100%;
   border: 0;
+  /* This pane renders a raw source document (a fetched publisher page whose own stylesheets
+     don't resolve here), which paints no background and falls back to near-black text. It is
+     same-origin, so utilities/sourceFrameTheme.ts paints the app's theme INTO it; this covers
+     the moment before that lands. */
   background: var(--color-background, #221f20);
+}
+/* Fallback when the document can't be skinned (a PDF, or one with no body). */
+.mt-original-unskinned iframe {
+  background: #fff;
+  color-scheme: light;
 }
 .mt-pane-placeholder {
   position: absolute;

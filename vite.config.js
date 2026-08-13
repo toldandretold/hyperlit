@@ -161,6 +161,10 @@ export default defineConfig({
                 // Storage analysis page (standalone, non-SPA, admin-only — /maintainer/storage)
                 'resources/css/pages/maintainer-storage.css',
                 'resources/js/maintainerStorage/main.ts',
+
+                // Journal import console (standalone, non-SPA, admin-only — /maintainer/journal-import)
+                'resources/css/pages/maintainer-journal-import.css',
+                'resources/js/maintainerJournalImport/main.ts',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],

@@ -578,6 +578,24 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     // The whole snapshot as a JSON file, for analysis off the box.
     Route::get('/maintainer/storage/export', [\App\Http\Controllers\Maintainer\StorageController::class, 'export'])
         ->middleware('throttle:10,1');
+
+    // Journal import console. `journals` is the picker (registry + per-journal article counts);
+    // `articles` is one journal's works with every imported LANE nested under each — the
+    // canonical_source_id join, not the pointer join, so PDF and HTML siblings both appear.
+    Route::get('/maintainer/journal-import/journals', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'journals']);
+    Route::get('/maintainer/journal-import/{slug}/articles', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'articles'])
+        ->where('slug', '[a-z0-9-]+');
+    // Choose which imported lane is THE version (pointer + listing + shelf membership).
+    // Article-scoped actions (import a lane / reconvert it from the stored page / re-fetch it) +
+    // their status poll. Queued: see JournalImportActionJob.
+    Route::get('/maintainer/journal-import/runs/{id}', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'runStatus'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::post('/maintainer/journal-import/{slug}/run', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'run'])
+        ->where('slug', '[a-z0-9-]+');
+    Route::post('/maintainer/journal-import/resolve/{book}', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'resolveFlags'])
+        ->where('book', '[A-Za-z0-9_-]+');
+    Route::post('/maintainer/journal-import/promote/{book}', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'promote'])
+        ->where('book', '[A-Za-z0-9_-]+');
 });
 
 // Snapshots endpoint — outside author middleware so public book readers can see version history

@@ -7,6 +7,7 @@
 
 import { log } from '../utilities/logger';
 import { ensureCsrfToken } from '../utilities/auth/csrf';
+import { applySourceFrameTheme, sourceIsSkinnable } from '../utilities/sourceFrameTheme';
 
 interface QueueFlag {
   source: string;
@@ -190,6 +191,14 @@ function select(entry: QueueEntry): void {
   void fetch(originalUrl, { method: 'HEAD', credentials: 'include' }).then((r) => {
     if (selected?.book !== entry.book) return; // superseded by a newer click
     if (r.ok) {
+      // Same-origin, so the raw source document gets painted in the app's theme rather than
+      // sitting as a white slab beside the dark reader (utilities/sourceFrameTheme.ts). A PDF
+      // can't be skinned — the pane falls back to a light canvas, which its viewer overpaints.
+      const skinnable = sourceIsSkinnable(entry.artifacts);
+      frame.onload = (): void => {
+        const skinned = skinnable && applySourceFrameTheme(frame);
+        document.querySelector('.mt-original')?.classList.toggle('mt-original-unskinned', !skinned);
+      };
       frame.src = originalUrl;
     } else {
       placeholder.hidden = false;

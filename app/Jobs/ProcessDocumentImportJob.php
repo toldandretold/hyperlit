@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use App\Exceptions\PermanentImportException;
 use App\Models\PgLibrary;
 use App\Models\PgNode;
 use App\Models\PgFootnote;
@@ -347,7 +348,11 @@ class ProcessDocumentImportJob implements ShouldQueue
         } catch (\Throwable $e) {
             // $tries > 1, so this catch runs on EVERY failed attempt, not just the
             // last. Only the final attempt is terminal — earlier ones will retry.
-            $isFinalAttempt = $this->attempts() >= $this->tries;
+            // A PermanentImportException is terminal on attempt 1: it cannot succeed on a
+            // retry, and retrying it costs the user another two uploads and ~a minute of
+            // "retrying automatically..." before landing on the same failure.
+            $isPermanent = $e instanceof PermanentImportException;
+            $isFinalAttempt = $isPermanent || $this->attempts() >= $this->tries;
 
             Log::error('ProcessDocumentImportJob failed', [
                 'book' => $this->bookId,
@@ -368,6 +373,15 @@ class ProcessDocumentImportJob implements ShouldQueue
                 // failure. The fresh updated_at dodges the poller's 5-min staleness
                 // timeout while the backoff delay elapses before the next attempt.
                 $this->writeProgress($path, 'processing', 0, 'retrying', 'Import hit a snag — retrying automatically...');
+            }
+
+            if ($isPermanent) {
+                // fail() marks the job failed now — it runs failed() (which owns the single
+                // ImportFailedMail) and drops the job from the queue. Re-throwing instead
+                // would just hand it back to the worker, which would release it for attempt
+                // 2 of 3: exactly the retry we determined is pointless.
+                $this->fail($e);
+                return;
             }
 
             throw $e;

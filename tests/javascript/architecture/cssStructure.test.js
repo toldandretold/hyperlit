@@ -18,6 +18,11 @@
  *     The sets must not intersect.
  *  4. NO ORPHANS — every css file must be reachable from an entry via @import, be an
  *     entry itself, or be on the explicit not-yet-wired allowlist.
+ *  5. NO UNMATCHABLE ROOT SELECTORS — a descendant selector ending in `html` / `:root`
+ *     (e.g. `body.ji-detail html`) can never match, because the root element is not
+ *     inside <body>. It reads as "give the root a height when this page is active" and
+ *     silently does nothing — which left the journal-import panes sized to their whole
+ *     content (~8300px) and pushed the source PDF viewer off screen.
  *
  * Runs in `npm test` (vitest, no server).
  */
@@ -142,6 +147,30 @@ describe('CSS structure (reorg gates + mega-file ratchet)', () => {
       orphans,
       `unreachable css file(s) — not a vite entry, not @imported by one: ${orphans.join(', ')}. ` +
       `Wire it into a pages/*.css entry (or add to UNWIRED_ALLOWLIST with a reason).`
+    ).toEqual([]);
+  });
+
+  // Gate 5: a descendant selector can never resolve to the root element.
+  it('has no descendant selector ending in html/:root (can never match)', () => {
+    const offenders = [];
+    for (const file of walkCss(CSS)) {
+      const css = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+      // Selector lists sit before a `{`; split on commas to test each selector alone.
+      for (const block of css.matchAll(/([^{}]+)\{/g)) {
+        for (const selector of block[1].split(',')) {
+          const s = selector.trim();
+          if (!s || s.startsWith('@')) continue;
+          // Ends in html/:root preceded by a combinator (descendant, >, +, ~).
+          if (/[\s>+~](html|:root)\s*$/.test(s)) {
+            offenders.push(`${rel(file)}: "${s}"`);
+          }
+        }
+      }
+    }
+    expect(
+      offenders,
+      `selector(s) that can NEVER match — <html>/:root is not a descendant of anything: ` +
+      `${offenders.join(' | ')}. Put the class ON <html> in the blade instead.`
     ).toEqual([]);
   });
 });

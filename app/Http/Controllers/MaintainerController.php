@@ -7,6 +7,7 @@ use App\Models\ConversionFlag;
 use App\Services\Conversion\ReconvertQueue;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
 /**
@@ -71,9 +72,28 @@ class MaintainerController extends Controller
         $data = $request->validate(['note' => 'present|nullable|string|max:4000']);
         $note = trim((string) ($data['note'] ?? ''));
 
-        $flags = ConversionFlag::where('book', $this->cleanBookId($book))->where('status', 'open')->get();
+        $book = $this->cleanBookId($book);
+        $flags = ConversionFlag::where('book', $book)->where('status', 'open')->get();
+
+        // No flag yet? Open one. The journal-import console notes lanes nobody has reported —
+        // you spotted the bad conversion yourself — and a note with nowhere to live is a note
+        // that never reaches the bundle. Writing it as a `manual` flag both gives it a home and
+        // puts the lane in the review queue, which is where a known-bad conversion belongs.
         if ($flags->isEmpty()) {
-            return response()->json(['message' => 'No open flags for this book.'], 404);
+            if ($note === '') {
+                return response()->json(['saved' => 0, 'note' => null]);
+            }
+            if (! DB::connection('pgsql_admin')->table('library')->where('book', $book)->exists()) {
+                return response()->json(['message' => 'Book not found.'], 404);
+            }
+
+            $flags = collect([ConversionFlag::create([
+                'book'    => $book,
+                'source'  => ConversionFlag::SOURCE_MANUAL,
+                'reason'  => 'Maintainer note',
+                'status'  => 'open',
+                'details' => [],
+            ])]);
         }
 
         foreach ($flags as $flag) {
@@ -193,6 +213,14 @@ class MaintainerController extends Controller
         $args = ['book' => $book];
         if (in_array($kind, [BookExport::KIND_CONVERSION, BookExport::KIND_HARVEST], true)) {
             $args['--kind'] = $kind;
+        }
+
+        // Which console exported it. Recorded in the manifest so the importing side knows the
+        // case came off a journal lane rather than the generic conversion queue — which changes
+        // what you look at first for a harvest case.
+        $origin = (string) $request->query('origin', '');
+        if (preg_match('/^[a-z-]{1,32}$/', $origin)) {
+            $args['--origin'] = $origin;
         }
 
         $exit = Artisan::call('book:export', $args);

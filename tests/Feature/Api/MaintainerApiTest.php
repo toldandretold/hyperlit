@@ -122,7 +122,7 @@ test('resolve endpoint closes all open flags for the book', function () {
         ->assertStatus(422);
 });
 
-test('maintainer note lands on every open flag and can be cleared; 404 with no open flags', function () {
+test('maintainer note lands on every open flag and can be cleared; 404 for an unknown book', function () {
     $this->loginUser(['is_admin' => true]);
     ConversionFlag::raise('apitest_mtnote', ConversionFlag::SOURCE_USER_REPORT, 'footnotes broken');
     ConversionFlag::raise('apitest_mtnote', ConversionFlag::SOURCE_AUTO_SWEEP, 'sweep signal');
@@ -142,6 +142,34 @@ test('maintainer note lands on every open flag and can be cleared; 404 with no o
     }
 
     $this->postJson('/api/maintainer/conversion/flags/apitest_nothing/note', ['note' => 'x'])->assertStatus(404);
+});
+
+/**
+ * The journal-import console notes lanes nobody has reported — you spotted the bad conversion
+ * yourself. A note with no flag to live in would never reach the case bundle, so noting an
+ * unflagged book opens a `manual` case for it.
+ */
+test('noting an unflagged book opens a manual flag to carry the note', function () {
+    $admin = $this->loginUser(['is_admin' => true]);
+    $book = $this->makeBook($admin, ['visibility' => 'public']);
+
+    expect(ConversionFlag::where('book', $book)->count())->toBe(0);
+
+    $this->postJson("/api/maintainer/conversion/flags/{$book}/note", ['note' => 'front matter missing'])
+        ->assertOk()
+        ->assertJson(['saved' => 1]);
+
+    $flag = ConversionFlag::where('book', $book)->where('status', 'open')->first();
+    expect($flag)->not->toBeNull();
+    expect($flag->source)->toBe(ConversionFlag::SOURCE_MANUAL);
+    expect($flag->details['maintainer_note'])->toBe('front matter missing');
+
+    // An EMPTY note on an unflagged book must not open an empty case.
+    $other = $this->makeBook($admin, ['visibility' => 'public']);
+    $this->postJson("/api/maintainer/conversion/flags/{$other}/note", ['note' => ''])
+        ->assertOk()
+        ->assertJson(['saved' => 0]);
+    expect(ConversionFlag::where('book', $other)->count())->toBe(0);
 });
 
 test('resolving a flag on a harvested version promotes it to listed — a user upload stays untouched', function () {

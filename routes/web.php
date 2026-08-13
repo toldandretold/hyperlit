@@ -82,6 +82,13 @@ Route::prefix('maintainer')->group(function () {
     // What we're storing, and how much of it is waste.
     Route::get('/storage', [App\Http\Controllers\Maintainer\StorageController::class, 'show'])
         ->name('maintainer.storage');
+
+    // Journal pipeline console: pick a journal, then import + compare its lanes.
+    Route::get('/journal-import', [App\Http\Controllers\Maintainer\JournalImportController::class, 'index'])
+        ->name('maintainer.journal-import');
+    Route::get('/journal-import/{slug}', [App\Http\Controllers\Maintainer\JournalImportController::class, 'show'])
+        ->where('slug', '[a-z0-9-]+')
+        ->name('maintainer.journal-import.show');
 });
 
 // Public journal pages (diamond-OA registry) — PREFIXED like /maintainer

@@ -7,6 +7,7 @@ use App\Models\JournalSource;
 use App\Models\User;
 use App\Services\CanonicalSourceMatcher;
 use App\Services\CanonicalVersions\AutoVersionCreator;
+use App\Services\JournalHarvest\HtmlLaneCreator;
 use App\Services\OpenAlex\WorksApi;
 use App\Services\OpenAlex\WorkScorer;
 use App\Services\SourceHarvest\HarvestEligibility;
@@ -33,7 +34,9 @@ class JournalHarvestCommand extends Command
                             {--skip-ocr : Fetch but do not run OCR (stubs stay deferred)}
                             {--dry-run : Enumerate + report eligibility only; no canonical writes, no fetches}
                             {--sleep=2 : Seconds between works}
-                            {--type=article : OpenAlex type filter for enumeration (empty = all citable types)}';
+                            {--type=article : OpenAlex type filter for enumeration (empty = all citable types)}
+                            {--lane=pdf : Which lane(s) to import: pdf | html | both}
+                            {--force-html : Re-fetch and re-convert HTML lanes that are already imported (to apply a processor fix)}';
 
     protected $description = 'Harvest all open-access works of one registry journal into the commons: enumerate via OpenAlex, fetch + convert via the shared harvest machinery, land in /maintainer/conversion for review.';
 
@@ -48,6 +51,7 @@ class JournalHarvestCommand extends Command
         AutoVersionCreator $creator,
         WorkOcrCharger $charger,
         HarvestShelf $shelf,
+        HtmlLaneCreator $htmlLane,
     ): int {
         $maxWorks = (int) $this->option('max-works');
         $skipOcr = (bool) $this->option('skip-ocr');
@@ -55,14 +59,21 @@ class JournalHarvestCommand extends Command
         $sleep = (int) $this->option('sleep');
         $type = trim((string) $this->option('type')) ?: null;
 
+        $lane = strtolower(trim((string) $this->option('lane'))) ?: 'pdf';
+        if (!in_array($lane, ['pdf', 'html', 'both'], true)) {
+            $this->error("--lane must be pdf, html, or both (got \"{$lane}\").");
+            return 1;
+        }
+
         $journal = $this->resolveJournal((string) $this->argument('journal'));
         if (!$journal) {
             $this->error('No registry row matches — sync it first: php artisan journal:sync-registry --issn=<issn>');
             return 1;
         }
 
+        // Only the PDF lane runs OCR; an html-only run is free and needs no payer.
         $user = null;
-        if (!$dryRun && !$skipOcr && $maxWorks > 0) {
+        if (!$dryRun && !$skipOcr && $maxWorks > 0 && $lane !== 'html') {
             $user = $this->resolveBillingUser();
             if (!$user) {
                 return 1;
@@ -135,6 +146,60 @@ class JournalHarvestCommand extends Command
             // "0 = unlimited" and fetch the whole journal.)
             $this->info('max-works=0 — enumeration/backfill only, nothing fetched.');
             return 0;
+        }
+
+        // ── Stage 2b: the HTML lane, when asked for ──
+        // A sibling system version per work (foundation_source journal_html), imported straight
+        // from the publisher page. Runs on its OWN selection: the eligibility predicate above
+        // requires auto_version_book IS NULL, which skips every work the PDF pass already
+        // claimed — exactly the ones we most want a second lane for. Free (no OCR).
+        $htmlStats = ['imported' => 0, 'reimported' => 0, 'already_imported' => 0, 'fetch_failed' => 0, 'error' => 0];
+        if (in_array($lane, ['html', 'both'], true)) {
+            // --force-html re-converts lanes that already have content: the only way a processor
+            // fix reaches articles imported before it. Promotion is preserved across the rewrite.
+            $forceHtml = (bool) $this->option('force-html');
+            $pending = $htmlLane->pendingForJournal($journal->id, $maxWorks, $forceHtml);
+            $this->newLine();
+            $this->info($forceHtml
+                ? "HTML lane: re-converting {$pending->count()} work(s)"
+                : "HTML lane: {$pending->count()} work(s) without a converted HTML version");
+
+            foreach ($pending as $i => $row) {
+                $n = $i + 1;
+                $this->line("→ [html {$n}/" . count($pending) . '] ' . substr($row->title ?? '(untitled)', 0, 66));
+                $canonical = CanonicalSource::find($row->id);
+                if (!$canonical) {
+                    $htmlStats['error']++;
+                    continue;
+                }
+
+                $result = $htmlLane->create($canonical, $forceHtml);
+                $status = $result['status'];
+                $htmlStats[array_key_exists($status, $htmlStats) ? $status : 'error']++;
+
+                match ($status) {
+                    'imported',
+                    'reimported'       => $this->line("   <fg=green>html {$status}</> ({$result['book']}"
+                                            . (isset($result['node_count']) ? ", {$result['node_count']} nodes" : '') . ')'),
+                    'already_imported' => $this->line('   <fg=yellow>html already imported</>'),
+                    default            => $this->warn("   html {$status}: " . ($result['reason'] ?? 'unknown')),
+                };
+
+                if ($sleep > 0 && $n < count($pending)) {
+                    sleep($sleep);
+                }
+            }
+
+            if ($lane === 'html') {
+                $this->newLine();
+                $this->info('HTML lane summary:');
+                foreach ($htmlStats as $k => $v) {
+                    $this->line(sprintf('  %-18s %d', $k, $v));
+                }
+                $this->line("  journal page: /j/{$journal->slug}");
+                $this->line("  compare lanes at /maintainer/journal-import/{$journal->slug}");
+                return 0;
+            }
         }
 
         $eligible = $eligibility->eligibleCanonicalsForJournal($journal->id, $maxWorks);

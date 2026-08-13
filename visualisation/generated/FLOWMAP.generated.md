@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1742 functions in 368 modules · 10 object stores · 10 PG tables · 3600 edges
+**MarkdownDB** schema v28 · 1749 functions in 369 modules · 10 object stores · 10 PG tables · 3614 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1319,6 +1319,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `BaseFormatProcessor.process` | `paste/format-processors/base-processor` | — | — | write | — |
 | `BaseFormatProcessor.processLite` | `paste/format-processors/base-processor` | — | — | — | — |
 | `BaseFormatProcessor.transformStructure` | `paste/format-processors/base-processor` | — | — | — | — |
+| `BristolUPProcessor.buildArticleHeader` | `paste/format-processors/bristol-up-processor` | — | — | read/write | — |
+| `BristolUPProcessor.constructor` | `paste/format-processors/bristol-up-processor` | — | — | — | — |
+| `BristolUPProcessor.extractFootnotes` | `paste/format-processors/bristol-up-processor` | — | — | read/write | — |
+| `BristolUPProcessor.extractReferences` | `paste/format-processors/bristol-up-processor` | — | — | read/write | — |
+| `BristolUPProcessor.linkCitations` | `paste/format-processors/bristol-up-processor` | — | — | read/write | — |
+| `BristolUPProcessor.linkFootnotes` | `paste/format-processors/bristol-up-processor` | — | — | read/write | — |
+| `BristolUPProcessor.transformStructure` | `paste/format-processors/bristol-up-processor` | — | — | read/write | — |
 | `CambridgeProcessor.constructor` | `paste/format-processors/cambridge-processor` | — | — | — | — |
 | `CambridgeProcessor.extractAndPreserveTitle` | `paste/format-processors/cambridge-processor` | — | — | read/write | — |
 | `CambridgeProcessor.extractFootnotes` | `paste/format-processors/cambridge-processor` | — | — | read/write | — |

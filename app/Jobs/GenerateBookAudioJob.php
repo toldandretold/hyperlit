@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\BillingService;
 use App\Services\BookAudioStore;
 use App\Services\E2ee\EncryptedBookGuard;
+use App\Services\Tts\Mp3Joiner;
 use App\Services\Tts\SpeakableText;
 use App\Services\Tts\TtsProviderInterface;
 use App\Services\Tts\TtsResult;
@@ -53,6 +54,9 @@ class GenerateBookAudioJob implements ShouldQueue
 
     /** The last progress payload written, so heartbeats can re-stamp it. */
     private array $lastProgress = [];
+
+    /** Resolved lazily: only sentence-split nodes ever need it (not serialized). */
+    private ?Mp3Joiner $joiner = null;
 
     public function __construct(
         private string $bookId,
@@ -325,17 +329,27 @@ class GenerateBookAudioJob implements ShouldQueue
 
     private function synthesizeLong(TtsProviderInterface $tts, string $text, int $maxChars): ?TtsResult
     {
-        $bytes = '';
+        $parts = [];
         foreach ($this->splitSentences($text, $maxChars) as $segment) {
             try {
                 $this->touchProgress(); // a split node is many sequential calls
-                $bytes .= $tts->synthesize($segment, $this->voice)->bytes;
+                $parts[] = $tts->synthesize($segment, $this->voice)->bytes;
             } catch (\Throwable) {
                 return null; // a hole mid-node is worse than a missing node
             }
         }
 
+        // NOT implode() — each segment carries its own Xing header frame, so a
+        // byte-concat declares only the first segment's duration and the player
+        // truncates the node mid-sentence. See Mp3Joiner.
+        $bytes = $this->joiner()->join($parts);
+
         return $bytes === '' ? null : new TtsResult(bytes: $bytes);
+    }
+
+    private function joiner(): Mp3Joiner
+    {
+        return $this->joiner ??= app(Mp3Joiner::class);
     }
 
     /**

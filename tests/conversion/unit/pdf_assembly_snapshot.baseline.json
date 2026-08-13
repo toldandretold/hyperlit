@@ -229,8 +229,8 @@
   "tests/conversion/fixtures-local/pdf/author_year_bracket/433d423b-9a1c-487a-ba86-39657bf34509/ocr_response.json": {
     "classification": "chapter_endnotes",
     "confidence": 0.5,
-    "md_len": 60646,
-    "md_sha256": "9cf09c9a5c0da7598e926e93bb2ada608e76260e40af0582c42b7ae48c228e49",
+    "md_len": 60648,
+    "md_sha256": "c778671e797d82a32422b7561de7bcce670d08bd8005e3791784c51163d566e8",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0312,
@@ -281,8 +281,8 @@
   "tests/conversion/fixtures-local/pdf/author_year_bracket/whereneoliberalismcomefrom/ocr_response.json": {
     "classification": "none",
     "confidence": 1.0,
-    "md_len": 80620,
-    "md_sha256": "a21f10388509bcca4a5d9f46077c91d39c8a2fda289ccdc0f83d467172c35691",
+    "md_len": 80589,
+    "md_sha256": "4eea2fcf3ec984b4a150189438442b7f02cb9bf082400c146b2871fe74d4d5dd",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,
@@ -359,8 +359,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/013dfc18-cfc5-4eb1-b79a-b3886fbc544d/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 51338,
-    "md_sha256": "27b8358401591a03302baf83f83210247d14d02828c0ea49519644034de7b12e",
+    "md_len": 51293,
+    "md_sha256": "6230c97978aaa57d0e76ad58d0b1666d432389d303c4462e315111c8f4605575",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.1136,
@@ -515,8 +515,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/9045b32e-33f4-4793-92d2-0e3efb7e31c4/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 72200,
-    "md_sha256": "0d6abb1c242af818ff3fd0f9b397bff2057e119e6bfeafb1d6c14b252e940a99",
+    "md_len": 72167,
+    "md_sha256": "ec762fe682ae835f972ec63f64b2b2eb775f95e82f52b032f4717824e3b65beb",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,
@@ -619,8 +619,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/d4c0b31e-3c47-4abc-8e2a-d24851bfda1e/ocr_response.json": {
     "classification": "none",
     "confidence": 1.0,
-    "md_len": 28447,
-    "md_sha256": "38b991af9faf27cf6cefffc3a8920599c53bbd88deea11b2099c3e24d52225ab",
+    "md_len": 28455,
+    "md_sha256": "8546d683b23905d48bc7fa896325b1601ef12c1c85e85df8e50e3222b84826da",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,

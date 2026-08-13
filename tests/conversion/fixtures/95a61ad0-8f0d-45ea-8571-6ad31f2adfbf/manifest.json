@@ -1,19 +1,19 @@
 {
-    "name": "95a61ad0-8f0d-45ea-8571-6ad31f2adfbf",
-    "description": "pulled prod case: 95a61ad0 ('Open access through Subscribe to Open', ~10pp). Superscript footnote markers -> a numbered 'References' list = document endnotes (footnotes). Was captured as no_footnotes (nothing linked); the short-doc document_endnotes branch now converts the list to [^N]: defs so markers link. 4 residual orphans = OCR-dropped in-text markers.",
-    "license": "is_oa=true oa_status=diamond work_license=cc-by — license cc-by -> committable",
-    "book_id": "95a61ad0-8f0d-45ea-8571-6ad31f2adfbf",
-    "citation_style": "author-year-bracket",
-    "footnote_strategy": "sequential",
-    "pipeline": "full",
-    "expected": {
-        "references_count": 4,
-        "citations_linked": 0,
-        "citations_total": 30,
-        "footnotes_count": 29,
-        "audit_gaps": 2,
-        "max_unmatched_defs": 4,
-        "max_unmatched_defs_note": "in-text markers dropped by OCR; the numbered reference/endnote list is complete, so the defs survive without a body marker. Numbered footnote markers cited in order -> a trailing numbered list = document endnotes (footnotes), NOT wackSTEM citations.",
-        "citations_note": "these papers ALSO carry an author-year citation layer ((Author, year) -> a small reference list) alongside the numeric footnotes; 0 link because the OCR'd body author-year forms don't cleanly match the sparse extracted refs — separate from the footnote fix."
-    }
+  "name": "95a61ad0-8f0d-45ea-8571-6ad31f2adfbf",
+  "description": "pulled prod case: 95a61ad0 ('Open access through Subscribe to Open', ~10pp). Superscript footnote markers -> a numbered 'References' list = document endnotes (footnotes). Was captured as no_footnotes (nothing linked); the short-doc document_endnotes branch now converts the list to [^N]: defs so markers link. 4 residual orphans = OCR-dropped in-text markers.",
+  "license": "is_oa=true oa_status=diamond work_license=cc-by — license cc-by -> committable",
+  "book_id": "95a61ad0-8f0d-45ea-8571-6ad31f2adfbf",
+  "citation_style": "author-year-bracket",
+  "footnote_strategy": "sequential",
+  "pipeline": "full",
+  "expected": {
+    "references_count": 0,
+    "citations_linked": 0,
+    "citations_total": 0,
+    "footnotes_count": 29,
+    "audit_gaps": 2,
+    "max_unmatched_defs": 4,
+    "max_unmatched_defs_note": "in-text markers dropped by OCR; the numbered reference/endnote list is complete, so the defs survive without a body marker. Numbered footnote markers cited in order -> a trailing numbered list = document endnotes (footnotes), NOT wackSTEM citations.",
+    "citations_note": "0 references is CORRECT: this article's only reference layer is its numbered footnotes. The 'references' this fixture used to expect were UKSG Insights back-matter chrome — the copyright statement, ORCID line, the article's own 'to cite this article' self-citation and the publisher imprint — each of which starts with a capital and carries a 4-digit year, all rule #5 of shared/refkeys.is_likely_reference asked for. With no bibliography to match against, the author-year citation layer correctly finds nothing either (the footnote layer is unaffected — footnotes_count still holds)."
+  }
 }

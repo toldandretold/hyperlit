@@ -23,6 +23,7 @@
         <span class="mj-header-sub" id="mj-summary">loading…</span>
         <nav class="mj-header-nav">
             <a href="/maintainer/conversion">conversions →</a>
+            <a href="/maintainer/journal-import">journals →</a>
             <a href="/maintainer/storage">storage →</a>
             <a href="/">&larr; Hyperlit</a>
         </nav>

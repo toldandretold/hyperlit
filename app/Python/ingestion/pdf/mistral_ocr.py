@@ -116,8 +116,15 @@ def main():
         emit_progress(45, "ocr", "Using cached OCR result — skipping the page scan")
         response_dict = json.loads(json_cache.read_text(encoding="utf-8"))
     else:
-        if pdf_path.stat().st_size > CHUNK_TARGET_BYTES:
-            response_dict = fetch_ocr_chunked(pdf_path, api_key, output_dir, model=ocr_model)
+        # Strip absurdly oversized image XObjects (see ocrFetch.MAX_IMAGE_PIXELS) BEFORE the
+        # size branch below — normalising changes the file size, and that size is what picks
+        # chunked-vs-single and upload-vs-inline delivery. A book with no oversized image gets
+        # its original path straight back, so this is a no-op for everything else.
+        # `pdf_path` itself stays the ORIGINAL: the mojibake scan and assembly re-read it for
+        # pypdf text recovery, and only the OCR fetch should ever see the rewritten copy.
+        ocr_pdf_path, normalize_report = normalize_oversized_images(pdf_path, output_dir)
+        if ocr_pdf_path.stat().st_size > CHUNK_TARGET_BYTES:
+            response_dict = fetch_ocr_chunked(ocr_pdf_path, api_key, output_dir, model=ocr_model)
         else:
             # The OCR request is one opaque blocking call that scales with book
             # length — tell the user what's happening (page count + rough ETA)
@@ -138,10 +145,19 @@ def main():
                 detail = "Reading the PDF with OCR — this can take a few minutes"
             emit_progress(4, "ocr", detail)
             with progress_heartbeat(5, 44, "ocr", detail, est_seconds):
-                response_dict = fetch_ocr(pdf_path, api_key, model=ocr_model)
+                response_dict = fetch_ocr(ocr_pdf_path, api_key, model=ocr_model)
             emit_progress(45, "ocr", f"OCR complete — read {len(response_dict.get('pages', []))} pages")
+        if normalize_report["oversized"]:
+            response_dict["_normalized_images"] = normalize_report
         json_cache.write_text(json.dumps(response_dict), encoding="utf-8")
         print(f"Cached raw response to: {json_cache}")
+        # The rewritten copy exists only to satisfy the OCR request; ocr_response.json is
+        # the artifact replays read, so keep nothing else around (it can be 20MB+).
+        if ocr_pdf_path != pdf_path:
+            try:
+                ocr_pdf_path.unlink()
+            except OSError:
+                pass
 
     # Initial classification (used to gate the renumber pass — chapter_endnotes
     # books have their own per-chapter offset machinery and we must not double-shift).

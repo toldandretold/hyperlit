@@ -1092,6 +1092,126 @@ def _collect_body_heading_texts(pages):
     return texts
 
 
+# Scholarly section dividers OCR routinely emits as PLAIN text (they are set in bold rather than
+# a larger face, so Mistral sees no heading). Exact, whole-line matches only — these are titles,
+# never sentence openings. Kept deliberately tight: a name here promotes a bare line to a heading,
+# so anything that could legitimately open a paragraph ('Background', 'Summary') stays out.
+_PLAIN_SECTION_NAMES = frozenset({
+    'introduction', 'conclusion', 'conclusions', 'discussion', 'results', 'methods',
+    'methodology', 'materials and methods', 'references', 'bibliography', 'works cited',
+    'notes', 'endnotes', 'footnotes', 'acknowledgement', 'acknowledgements',
+    'acknowledgment', 'acknowledgments', 'conflict of interest', 'conflicts of interest',
+    'competing interests', 'declaration of competing interest', 'funding',
+    'data availability', 'data availability statement', 'author contributions',
+    'ethics statement', 'abstract', 'key messages', 'limitations',
+})
+
+
+def _promote_plain_sections(md, level, seen_norm):
+    """Promote standalone scholarly section names OCR left as plain text into headings.
+
+    Mistral loses these constantly: they are bold-but-not-bigger in most journal layouts, so the
+    heading never reaches the markdown (e938f76f lost 'Introduction' this way — it survived as a
+    bare line, while 'Conflict of interest' and 'References' were dropped from the OCR text
+    outright and are beyond recovery here).
+
+    A line qualifies only when it IS the whole block: exact match against the curated name set,
+    no trailing prose, and blank-line separated. Returns (md, [promoted names]).
+    """
+    if not md or '\n' not in md and not md.strip():
+        return md, []
+
+    lines = md.split('\n')
+    out, promoted = [], []
+    for idx, line in enumerate(lines):
+        bare = line.strip().rstrip(':').strip()
+        key = re.sub(r'\s+', ' ', bare).lower()
+        prev_blank = idx == 0 or not lines[idx - 1].strip()
+        next_blank = idx + 1 >= len(lines) or not lines[idx + 1].strip()
+        if (key in _PLAIN_SECTION_NAMES
+                and not line.strip().startswith('#')
+                and prev_blank and next_blank
+                and _norm_heading(bare) not in seen_norm):
+            seen_norm.add(_norm_heading(bare))
+            promoted.append(bare)
+            out.append(f"{'#' * level} {bare}")
+        else:
+            out.append(line)
+    return '\n'.join(out), promoted
+
+
+def _body_section_level(pages):
+    """The heading level this document uses for TOP-LEVEL sections, so promoted dividers
+    ('References', 'Funding') sit as siblings of the sections they divide.
+
+    The SHALLOWEST tier that occurs more than once — not the most common one. Documents with a
+    numbered hierarchy ('3. Sanctions' h3 → '4.1.1 …' h5) have their deepest tier as the most
+    common, and a divider promoted there would be buried under the subsections it should follow.
+    Requiring 2+ occurrences ignores a lone h1 that is really the article title. Clamped to h3:
+    a structural divider is never a sub-subsection.
+    """
+    counts = {}
+    for page in pages[1:]:
+        for m in re.finditer(r'^(#{1,6})\s+\S', page.get('markdown', '') or '', re.M):
+            lvl = len(m.group(1))
+            counts[lvl] = counts.get(lvl, 0) + 1
+    tiers = [lvl for lvl, n in counts.items() if n >= 2] or list(counts)
+    return min(min(tiers), 3) if tiers else 2
+
+
+def _front_matter_chrome(pages, header_names):
+    """Header-field names that merely restate the document's OWN title or byline — page chrome
+    at any repeat count, never a section divider.
+
+    A journal article's running heads alternate verso=authors / recto=short-title. With patchy
+    extract_header those can each surface on a single page, sliding under the repeat threshold
+    and getting injected as headings (e938f76f: '# More than a metaphor' + '# Gurminder K.
+    Bhambra and Peter Newell' landed inside the reference list). Both are recoverable from the
+    first page alone: the short-title is a prefix of the title heading, and every author named
+    in a verso head appears in the byline.
+
+    Returns the subset of header_names to treat as running headers.
+    """
+    if not pages:
+        return set()
+
+    first_md = pages[0].get('markdown', '') or ''
+    if not first_md.strip():
+        return set()
+
+    # A Contents page lists every chapter verbatim; this rule would then suppress the very
+    # chapter-name injections books depend on. Leave those documents alone. (toc_pages is a
+    # SET of page indices — comparing it to 0 silently disabled this guard.)
+    _, toc_pages, _, _, _ = _collect_toc_titles(pages)
+    if 0 in toc_pages:
+        return set()
+
+    def _norm(t):
+        t = _norm_title(t) if '_norm_title' in globals() else _norm_heading(t)
+        return re.sub(r'[^a-z0-9 ]+', '', (t or '').lower()).strip()
+
+    first_norm = _norm(re.sub(r'^#{1,6}\s+', '', first_md, flags=re.M))
+    if not first_norm:
+        return set()
+
+    chrome = set()
+    for name in header_names:
+        key = _norm(name)
+        # Too short to be distinctive ('II', 'Notes') — the repeat threshold governs those.
+        if len(key) < 8:
+            continue
+        # Title / short-title: the header text appears verbatim in the front matter.
+        if key in first_norm:
+            chrome.add(name)
+            continue
+        # Byline: every person named in the header appears on the first page.
+        parts = [p for p in re.split(r'\s+and\s+|\s*&\s*|\s*,\s*', name) if p.strip()]
+        if len(parts) >= 2 and all(len(_norm(p)) >= 6 and _norm(p) in first_norm for p in parts):
+            chrome.add(name)
+
+    return chrome
+
+
 def assemble_markdown(response_dict, classification="unknown", footnote_meta=None, pdf_path=None,
                        segment_boundaries=None, footnote_warnings=None):
     """Assemble pages into markdown, injecting section headings from headers. Thin conductor over the
@@ -1116,21 +1236,41 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
 
     # Track repeated headers to identify running headers (book title etc.)
     header_counts = {}
+    pages_with_header = 0
     for page in pages:
         header = page.get("header") or ""
+        if header.strip():
+            pages_with_header += 1
         for line in header.split('\n'):
             name = extract_section_name(line)
             if name:
                 header_counts[name] = header_counts.get(name, 0) + 1
-    # Headers appearing on >40% of pages are likely running headers (book title)
-    threshold = max(3, len(pages) * 0.4)
+    # Headers appearing on >40% of the pages that HAVE a header are likely running headers
+    # (book title / article short-title). The denominator is deliberately the header-bearing
+    # population, not len(pages): Mistral's extract_header is patchy — on e938f76f it populated
+    # `header` on 4 of 9 pages — and against the full page count an every-header-page running
+    # head (2 of those 4) fell under the bar, got treated as a fresh section name, and was
+    # INJECTED as a heading into the middle of the reference list.
+    header_population = pages_with_header or len(pages)
+    threshold = max(2, header_population * 0.4)
     running_headers = {name for name, count in header_counts.items() if count >= threshold}
+
+    # Front-matter chrome: a header naming the article's own title or authors is a running head
+    # at ANY count. Journal articles alternate verso=authors / recto=short-title, so with patchy
+    # extraction each side can legitimately appear once — below any sane repeat threshold — yet
+    # neither is ever a section divider. Both are recoverable from page 1 without any metadata:
+    # the title heading contains the short-title as a prefix, and the byline lists each author.
+    # Skipped when page 1 is a table of contents, where every chapter name appears verbatim and
+    # this rule would suppress the legitimate chapter-name injections books rely on.
+    running_headers |= _front_matter_chrome(pages, header_counts.keys())
 
     # Headings Mistral emitted in page BODIES, document-wide. Injection consults this: when the
     # header-field section name already exists as a body heading somewhere, injecting a copy just
     # plants a duplicate at a PAGE top (usually mid-paragraph), so the body's own heading wins.
     body_heading_texts = _collect_body_heading_texts(pages)
     toc_titles, toc_pages, toc_numbered, toc_all_keys, toc_part_before = _collect_toc_titles(pages)
+    _section_level = _body_section_level(pages)
+    promoted_plain_sections = []
     fence_lines_stripped = fence_pages = 0
 
     # The per-classification assembler owns setup (e.g. the chapter-offset precompute) + per_page +
@@ -1269,6 +1409,15 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                     and _norm_title(_first_line) not in ctx.promoted_toc_titles):
                 ctx.promoted_toc_titles.add(_norm_title(_first_line))
                 md = re.sub(r'^\s*' + re.escape(_first_line), f'# {_first_line}', md, count=1)
+                md_stripped = md.strip()
+
+        # Structural-divider PROMOTION: 'Introduction' / 'References' / 'Conflict of interest'
+        # and friends that OCR left as bare lines (bold-not-bigger in most journal layouts).
+        # Skipped on the Contents page, where these names are TOC entries, not dividers.
+        if i not in toc_pages:
+            md, _promoted_plain = _promote_plain_sections(md, _section_level, ctx.seen_sections)
+            if _promoted_plain:
+                promoted_plain_sections.extend(_promoted_plain)
                 md_stripped = md.strip()
 
         # Extract section name from header
@@ -1430,6 +1579,10 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     if fence_lines_stripped:
         print(f"  Stripped {fence_lines_stripped} stray code-fence line(s) on {fence_pages} page(s) "
               f"(odd fence count = OCR noise; an unpaired fence swallows the rest of the document)")
+    if promoted_plain_sections:
+        print(f"  Promoted {len(promoted_plain_sections)} plain-text section divider(s) to h{_section_level}: "
+              + ', '.join(promoted_plain_sections[:6])
+              + (' …' if len(promoted_plain_sections) > 6 else ''))
     if ctx.promoted_toc_titles:
         print(f"  TOC-promoted {len(ctx.promoted_toc_titles)} heading(s) from the printed Contents "
               f"(page {min(toc_pages)}): {', '.join(sorted(ctx.promoted_toc_titles)[:6])}"

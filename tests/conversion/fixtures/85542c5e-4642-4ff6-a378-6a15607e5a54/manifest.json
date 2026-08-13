@@ -1,17 +1,18 @@
 {
-    "name": "85542c5e-4642-4ff6-a378-6a15607e5a54",
-    "description": "pulled prod case: 85542c5e-4642-4ff6-a378-6a15607e5a54",
-    "license": "is_oa=true oa_status=diamond work_license=cc-by — license cc-by -> committable",
-    "book_id": "85542c5e-4642-4ff6-a378-6a15607e5a54",
-    "citation_style": "author-year-bracket",
-    "footnote_strategy": "sequential",
-    "pipeline": "full",
-    "expected": {
-        "references_count": 3,
-        "citations_linked": 1,
-        "citations_total": 94,
-        "footnotes_count": 90,
-        "audit_gaps": 21,
-        "max_unmatched_defs": 2
-    }
+  "name": "85542c5e-4642-4ff6-a378-6a15607e5a54",
+  "description": "pulled prod case: 85542c5e-4642-4ff6-a378-6a15607e5a54",
+  "license": "is_oa=true oa_status=diamond work_license=cc-by — license cc-by -> committable",
+  "book_id": "85542c5e-4642-4ff6-a378-6a15607e5a54",
+  "citation_style": "author-year-bracket",
+  "footnote_strategy": "sequential",
+  "pipeline": "full",
+  "expected": {
+    "references_count": 0,
+    "citations_linked": 0,
+    "citations_total": 0,
+    "footnotes_count": 90,
+    "audit_gaps": 21,
+    "max_unmatched_defs": 2,
+    "citations_note": "0 references is CORRECT: this article's only reference layer is its numbered footnotes. The 'references' this fixture used to expect were UKSG Insights back-matter chrome — the copyright statement, ORCID line, the article's own 'to cite this article' self-citation and the publisher imprint — each of which starts with a capital and carries a 4-digit year, all rule #5 of shared/refkeys.is_likely_reference asked for. With no bibliography to match against, the author-year citation layer correctly finds nothing either (the footnote layer is unaffected — footnotes_count still holds)."
+  }
 }

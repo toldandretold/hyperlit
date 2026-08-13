@@ -22,6 +22,7 @@
         <h1>Maintainer</h1>
         <span class="mt-header-sub">flagged conversions</span>
         <a href="/maintainer/jobs">job failures &rarr;</a>
+        <a href="/maintainer/journal-import">journals &rarr;</a>
         <a href="/maintainer/storage">storage &rarr;</a>
         <a href="/">&larr; Hyperlit</a>
         <button type="button" id="mt-regressions-toggle" aria-pressed="false" hidden

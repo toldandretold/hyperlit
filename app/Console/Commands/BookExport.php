@@ -26,11 +26,12 @@ class BookExport extends Command
         {book : The book id to export}
         {--out= : Output path for the .tar.gz (default storage/app/book-exports/{book}.tar.gz)}
         {--kind= : Case kind: conversion|harvest (default: auto-detected from the book)}
-        {--with-logs : Grep storage/logs/laravel*.log for the book id into the bundle}';
+        {--with-logs : Grep storage/logs/laravel*.log for the book id into the bundle}
+        {--origin= : Which console exported this (e.g. journal-import), recorded in the manifest}';
 
     protected $description = 'Export a book (all DB rows + conversion artifacts) as a case bundle';
 
-    private const SCHEMA_VERSION = 2;
+    private const SCHEMA_VERSION = 3;
 
     /**
      * The two kinds of case a bad book can be, because they have two different
@@ -157,10 +158,65 @@ class BookExport extends Command
             $counts['log_lines'] = count($grep);
         }
 
+        // ── Lane + journal context ──
+        // A journal article can carry SIBLING versions (the OCR'd PDF and the publisher HTML of
+        // the same work), so "which book is this" doesn't say which LANE broke, nor whether the
+        // other one is fine. For a harvest case that IS the diagnosis — 'the HTML lane of a
+        // Bristol UP journal came back empty' points at a different fix from 'the PDF lane won a
+        // repository copy of the wrong edition'. canonical_source.json alone gives the importing
+        // side a bare journal_source_id uuid and no way to resolve it, so name the journal here.
+        $lane = [
+            'foundation_source'   => $libraryRow->foundation_source ?? null,
+            'conversion_method'   => $libraryRow->conversion_method ?? null,
+            'is_promoted_version' => false,
+            'siblings'            => [],
+        ];
+        $journalContext = null;
+
+        if ($libraryRow->canonical_source_id) {
+            $canonical = $db->table('canonical_source')->where('id', $libraryRow->canonical_source_id)->first();
+            $lane['is_promoted_version'] = ($canonical->auto_version_book ?? null) === $book;
+
+            foreach ($db->table('library')
+                ->where('canonical_source_id', $libraryRow->canonical_source_id)
+                ->where('book', '!=', $book)
+                ->where('visibility', '!=', 'deleted')
+                ->get() as $sibling) {
+                $lane['siblings'][] = [
+                    'book'                => $sibling->book,
+                    'foundation_source'   => $sibling->foundation_source,
+                    'conversion_method'   => $sibling->conversion_method,
+                    'has_nodes'           => (bool) $sibling->has_nodes,
+                    'is_promoted_version' => ($canonical->auto_version_book ?? null) === $sibling->book,
+                ];
+            }
+
+            if ($canonical->journal_source_id ?? null) {
+                $journal = $db->table('journal_sources')->where('id', $canonical->journal_source_id)->first();
+                if ($journal) {
+                    $counts['journal_sources'] = $this->dumpJson(
+                        "{$stage}/db/journal_sources.json",
+                        'journal_sources',
+                        collect([$journal]),
+                    );
+                    $journalContext = [
+                        'slug'         => $journal->slug,
+                        'display_name' => $journal->display_name,
+                        'publisher'    => $journal->publisher,
+                        'issn_l'       => $journal->issn_l,
+                        'console'      => "/maintainer/journal-import/{$journal->slug}",
+                    ];
+                }
+            }
+        }
+
         file_put_contents("{$stage}/manifest.json", json_encode([
             'schema_version' => self::SCHEMA_VERSION,
             'book'           => $book,
             'case_kind'      => $kind,
+            'origin'         => $this->option('origin') ?: null,
+            'lane'           => $lane,
+            'journal'        => $journalContext,
             'exported_at'    => now()->toIso8601String(),
             'counts'         => $counts,
         ], JSON_PRETTY_PRINT));
@@ -180,6 +236,11 @@ class BookExport extends Command
         }
         if ($kind === self::KIND_HARVEST) {
             $this->line('  → acquisition case: fix ContentFetchService, not app/Python.');
+        }
+        if ($journalContext) {
+            $this->line("  → journal lane: {$journalContext['display_name']}"
+                . ' (' . ($lane['foundation_source'] ?: 'unknown lane') . ')'
+                . (count($lane['siblings']) ? ', ' . count($lane['siblings']) . ' sibling lane(s)' : ''));
         }
 
         return self::SUCCESS;

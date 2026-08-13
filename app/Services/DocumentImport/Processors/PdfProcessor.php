@@ -2,6 +2,7 @@
 
 namespace App\Services\DocumentImport\Processors;
 
+use App\Exceptions\PermanentImportException;
 use App\Services\DocumentImport\FileHelpers;
 use App\Services\DocumentImport\ValidationService;
 use Illuminate\Support\Facades\File;
@@ -36,6 +37,35 @@ class PdfProcessor implements ProcessorInterface
     public function supports(string $extension): bool
     {
         return in_array(strtolower($extension), $this->supportedExtensions());
+    }
+
+    /**
+     * Classify an OCR stderr dump as a permanent failure, returning the user-facing message.
+     *
+     * Mistral answers an unparseable document with a 400 whose `type` is stable
+     * (`document_parser_invalid_file`) even though its `message` — "Document is not a valid
+     * PDF." — is a lie for the cases we've actually seen: book a22004's PDF was structurally
+     * perfect and pypdf read every page of it. Whatever the cause, the verdict is
+     * deterministic: the same bytes get the same 400 on every attempt, so this must not
+     * consume the retry budget. Matching on `type` rather than the prose keeps that true if
+     * they reword the message.
+     *
+     * ocrFetch.normalize_oversized_images already removes the ONE cause we have diagnosed
+     * (absurdly oversized image XObjects) before the request is made, so reaching this
+     * branch means a cause we haven't seen yet — hence a message that asks for the file
+     * rather than pretending to know what is wrong with it.
+     */
+    private function permanentOcrFailureMessage(string $stderr): ?string
+    {
+        if (!str_contains($stderr, 'document_parser_invalid_file')) {
+            return null;
+        }
+
+        return 'The OCR engine could not read this PDF. It parses correctly on our side, so '
+            . 'this is something in the file the OCR engine specifically refuses — often an '
+            . 'unusual embedded image or font. Re-saving or re-exporting the PDF (in Preview, '
+            . 'Acrobat, or your browser\'s print-to-PDF) usually fixes it. If it keeps failing, '
+            . 'send us the file and we will take a look.';
     }
 
     public function process(string $inputPath, string $outputPath, string $bookId): void
@@ -95,6 +125,9 @@ class PdfProcessor implements ProcessorInterface
                 'stdout' => $process->getOutput(),
                 'stderr' => $process->getErrorOutput(),
             ]);
+            if ($message = $this->permanentOcrFailureMessage($process->getErrorOutput())) {
+                throw new PermanentImportException($message);
+            }
             throw new ProcessFailedException($process);
         }
 

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1742,
-    "moduleCount": 368,
+    "fnCount": 1749,
+    "moduleCount": 369,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3600,
+    "edgeCount": 3614,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -11996,6 +11996,62 @@
       "leaf": true
     },
     {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.buildArticleHeader",
+      "label": "BristolUPProcessor.buildArticleHeader",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/bristol-up-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.constructor",
+      "label": "BristolUPProcessor.constructor",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/bristol-up-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractFootnotes",
+      "label": "BristolUPProcessor.extractFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/bristol-up-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractReferences",
+      "label": "BristolUPProcessor.extractReferences",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/bristol-up-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.linkCitations",
+      "label": "BristolUPProcessor.linkCitations",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/bristol-up-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.linkFootnotes",
+      "label": "BristolUPProcessor.linkFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/bristol-up-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.transformStructure",
+      "label": "BristolUPProcessor.transformStructure",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/bristol-up-processor",
+      "leaf": false
+    },
+    {
       "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.constructor",
       "label": "CambridgeProcessor.constructor",
       "kind": "fn",
@@ -19353,6 +19409,21 @@
         "paste/format-processors/base-processor:BaseFormatProcessor.process",
         "paste/format-processors/base-processor:BaseFormatProcessor.processLite",
         "paste/format-processors/base-processor:BaseFormatProcessor.transformStructure"
+      ]
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor",
+      "label": "paste/format-processors/bristol-up-processor",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/format-processors/bristol-up-processor:BristolUPProcessor.buildArticleHeader",
+        "paste/format-processors/bristol-up-processor:BristolUPProcessor.constructor",
+        "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractFootnotes",
+        "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractReferences",
+        "paste/format-processors/bristol-up-processor:BristolUPProcessor.linkCitations",
+        "paste/format-processors/bristol-up-processor:BristolUPProcessor.linkFootnotes",
+        "paste/format-processors/bristol-up-processor:BristolUPProcessor.transformStructure"
       ]
     },
     {
@@ -29053,6 +29124,42 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__paste/format-processors/bristol-up-processor:BristolUPProcessor.buildArticleHeader",
+      "source": "dom",
+      "target": "paste/format-processors/bristol-up-processor:BristolUPProcessor.buildArticleHeader",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/bristol-up-processor:BristolUPProcessor.extractFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/bristol-up-processor:BristolUPProcessor.extractReferences",
+      "source": "dom",
+      "target": "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractReferences",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/bristol-up-processor:BristolUPProcessor.linkCitations",
+      "source": "dom",
+      "target": "paste/format-processors/bristol-up-processor:BristolUPProcessor.linkCitations",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/bristol-up-processor:BristolUPProcessor.linkFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/bristol-up-processor:BristolUPProcessor.linkFootnotes",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/bristol-up-processor:BristolUPProcessor.transformStructure",
+      "source": "dom",
+      "target": "paste/format-processors/bristol-up-processor:BristolUPProcessor.transformStructure",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__paste/format-processors/cambridge-processor:CambridgeProcessor.extractAndPreserveTitle",
       "source": "dom",
       "target": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractAndPreserveTitle",
@@ -37764,6 +37871,54 @@
     {
       "id": "paste/format-processors/base-processor:BaseFormatProcessor.process__domwrite__dom",
       "source": "paste/format-processors/base-processor:BaseFormatProcessor.process",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.buildArticleHeader__domwrite__dom",
+      "source": "paste/format-processors/bristol-up-processor:BristolUPProcessor.buildArticleHeader",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractFootnotes__domwrite__dom",
+      "source": "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractReferences__domwrite__dom",
+      "source": "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractReferences",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.linkCitations__domwrite__dom",
+      "source": "paste/format-processors/bristol-up-processor:BristolUPProcessor.linkCitations",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.linkFootnotes__call__paste/utils/footnote-linker:createFootnoteSupElement",
+      "source": "paste/format-processors/bristol-up-processor:BristolUPProcessor.linkFootnotes",
+      "target": "paste/utils/footnote-linker:createFootnoteSupElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.linkFootnotes__domwrite__dom",
+      "source": "paste/format-processors/bristol-up-processor:BristolUPProcessor.linkFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.transformStructure__call__paste/utils/transform-helpers:unwrapContainers",
+      "source": "paste/format-processors/bristol-up-processor:BristolUPProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:unwrapContainers",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.transformStructure__domwrite__dom",
+      "source": "paste/format-processors/bristol-up-processor:BristolUPProcessor.transformStructure",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -47605,6 +47760,11 @@
     },
     {
       "source": "paste/format-detection/format-registry",
+      "target": "paste/format-processors/bristol-up-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-detection/format-registry",
       "target": "paste/format-processors/cambridge-processor",
       "kind": "static"
     },
@@ -47676,6 +47836,21 @@
     {
       "source": "paste/format-processors/base-processor",
       "target": "paste/utils/reference-key-generator",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/bristol-up-processor",
+      "target": "paste/format-processors/base-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/bristol-up-processor",
+      "target": "paste/utils/footnote-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/bristol-up-processor",
+      "target": "paste/utils/transform-helpers",
       "kind": "static"
     },
     {

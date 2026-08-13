@@ -68,6 +68,11 @@ class BookImport extends Command
             // re-import of one book must not clobber (or delete) it.
             $counts['canonical_source'] = $this->insertCanonicalSource($db, "{$stage}/db/canonical_source.json");
 
+            // The journal registry row, when the case came off a journal lane. Insert-if-absent
+            // like the canonical: without it `canonical_source.journal_source_id` points at
+            // nothing locally and /maintainer/journal-import can't open the case you just pulled.
+            $counts['journal_sources'] = $this->insertIfAbsent($db, 'journal_sources', "{$stage}/db/journal_sources.json");
+
             $counts['library'] = $this->insertJson($db, 'library', "{$stage}/db/library.json");
             $counts['nodes'] = $this->insertNodesJsonl($db, "{$stage}/db/nodes.jsonl");
             foreach (['footnotes', 'bibliography', 'hyperlights', 'hypercites'] as $table) {
@@ -128,6 +133,25 @@ class BookImport extends Command
                 continue;
             }
             $db->table('canonical_source')->insert($this->scrub($row));
+            $inserted++;
+        }
+
+        return $inserted;
+    }
+
+    /** Insert rows whose primary key isn't already present — shared state a case merely references. */
+    private function insertIfAbsent($db, string $table, string $path): int
+    {
+        if (!is_file($path)) {
+            return 0;
+        }
+        $rows = json_decode((string) file_get_contents($path), true) ?: [];
+        $inserted = 0;
+        foreach ($rows as $row) {
+            if (empty($row['id']) || $db->table($table)->where('id', $row['id'])->exists()) {
+                continue;
+            }
+            $db->table($table)->insert($this->scrub($row));
             $inserted++;
         }
 

@@ -3791,6 +3791,189 @@ var MitPressProcessor = class extends BaseFormatProcessor {
   }
 };
 
+// resources/js/paste/format-processors/bristol-up-processor.ts
+var BristolUPProcessor = class extends BaseFormatProcessor {
+  constructor() {
+    super("bristol-up");
+  }
+  /**
+   * Footnote definitions. GSCJ articles carry none, so this is written defensively against the
+   * platform's note markup and simply yields nothing when a paper has no notes.
+   */
+  async extractFootnotes(dom, bookId) {
+    const footnotes = [];
+    const els = dom.querySelectorAll(
+      'div.footnote[id^="FN"], li.footnote[id^="FN"], .fnSection .footnote'
+    );
+    els.forEach((element) => {
+      const m = (element.getAttribute("id") || "").match(/FN0*(\d+)/i);
+      if (!m) return;
+      if (element.closest("table, figure, .table-wrap, .fig")) return;
+      const identifier = parseInt(m[1] ?? "", 10).toString();
+      const clone = element.cloneNode(true);
+      clone.querySelectorAll('.label, .fn-label, a[href^="#ref_FN"]').forEach((el) => el.remove());
+      clone.querySelectorAll("[style]").forEach((el) => el.removeAttribute("style"));
+      const html = clone.innerHTML.trim();
+      if (!html) return;
+      const footnoteId = this.generateFootnoteId(bookId, identifier);
+      footnotes.push(this.createFootnote(
+        footnoteId,
+        html,
+        identifier,
+        this.generateFootnoteRefId(footnoteId),
+        "bristol-up"
+      ));
+      element.remove();
+    });
+    return footnotes;
+  }
+  /** In-text note refs: <a href="#FN0001">. Map to the app's <sup fn-count-id> form. */
+  linkFootnotes(dom, footnotes) {
+    if (!footnotes || footnotes.length === 0) return;
+    dom.querySelectorAll('a[href^="#FN"]').forEach((link) => {
+      const m = (link.getAttribute("href") || "").match(/#FN0*(\d+)/i);
+      if (!m) return;
+      const identifier = parseInt(m[1] ?? "", 10).toString();
+      const footnote = footnotes.find((fn) => fn.originalIdentifier === identifier);
+      if (!footnote) return;
+      const newSup = createFootnoteSupElement(footnote.refId, identifier);
+      const parentSup = link.parentElement;
+      if (parentSup && parentSup.tagName === "SUP") {
+        parentSup.replaceWith(newSup);
+      } else {
+        link.replaceWith(newSup);
+      }
+    });
+  }
+  /**
+   * References: `div.reference[id^="CIT"]`, clean text in `p.citationText`.
+   * referenceId IS the CIT id, so the in-text `href="#CIT0026"` anchors map exactly.
+   */
+  async extractReferences(dom, bookId) {
+    const references = [];
+    const seen = /* @__PURE__ */ new Set();
+    dom.querySelectorAll('.reference[id^="CIT"]').forEach((item) => {
+      const citId = item.getAttribute("id");
+      if (!citId || seen.has(citId)) return;
+      const citation = item.querySelector("p.citationText");
+      if (!citation) return;
+      const clone = citation.cloneNode(true);
+      clone.querySelectorAll(".debug, .citationActions, a.googleScholar, a.exportCitation").forEach((el) => el.remove());
+      const text = (clone.textContent || "").replace(/\s+/g, " ").trim();
+      if (!text || text.length < 10) return;
+      seen.add(citId);
+      references.push({
+        content: clone.innerHTML.trim() || text,
+        originalText: text,
+        type: "bristol-up-bibliography",
+        needsKeyGeneration: false,
+        referenceId: citId,
+        refKeys: [citId],
+        originalAnchorId: citId
+      });
+    });
+    return references;
+  }
+  /** In-text citations: <a href="#CIT0026"> — exact id, so link directly. */
+  linkCitations(dom, references) {
+    super.linkCitations(dom, references);
+    const refIds = new Set((references || []).map((r) => r.referenceId));
+    dom.querySelectorAll('a[href^="#CIT"]').forEach((link) => {
+      const citId = (link.getAttribute("href") || "").slice(1);
+      if (!refIds.has(citId)) return;
+      link.setAttribute("href", `#${citId}`);
+      link.setAttribute("class", "in-text-citation");
+      ["id", "onclick", "target", "title", "data-popover-anchor"].forEach((attr) => link.removeAttribute(attr));
+      link.removeAttribute("style");
+    });
+  }
+  /**
+   * The article's front matter — title, authors, affiliation, abstract, keywords — sits OUTSIDE
+   * `#articleBody`, in the page's metadata card ABOVE it. Scoping to the body therefore threw all
+   * of it away and the book opened cold on "Key messages" (the PDF lane, which sees the printed
+   * page, keeps it). So it is rebuilt here from the header markup and prepended.
+   *
+   * Deliberately unlabelled — no "Abstract" heading — because the printed article presents it as
+   * the opening paragraph, and the two lanes are meant to be compared side by side.
+   */
+  buildArticleHeader(dom) {
+    const box = document.createElement("div");
+    const titleEl = dom.querySelector(
+      '[data-testid="block-title"] h1, [data-testid="block-title"] h2, [data-testid="block-title"] .title'
+    );
+    const title = titleEl?.textContent?.trim();
+    if (title) {
+      const h1 = document.createElement("h1");
+      h1.textContent = title;
+      box.appendChild(h1);
+    }
+    const authors = [];
+    dom.querySelectorAll('[data-testid="author-name"]').forEach((el) => {
+      const name = el.textContent?.trim();
+      if (name && !authors.includes(name)) authors.push(name);
+    });
+    if (authors.length) {
+      const p = document.createElement("p");
+      p.textContent = authors.join(", ");
+      box.appendChild(p);
+    }
+    const affiliations = [];
+    dom.querySelectorAll(".contributor-details-pop-up-affiliation").forEach((el) => {
+      const institution = el.querySelector(".institution")?.textContent?.trim() ?? "";
+      const country = el.querySelector(".country")?.textContent?.trim() ?? "";
+      const affiliation = [institution, country].filter(Boolean).join(", ");
+      if (affiliation && !affiliations.includes(affiliation)) affiliations.push(affiliation);
+    });
+    for (const affiliation of affiliations) {
+      const p = document.createElement("p");
+      p.textContent = affiliation;
+      box.appendChild(p);
+    }
+    const abstract = dom.querySelector("section.abstract, .abstract_or_excerpt section");
+    if (abstract) {
+      const clone = abstract.cloneNode(true);
+      clone.querySelectorAll(".counterData, script, style").forEach((el) => el.remove());
+      const paragraphs = clone.querySelectorAll("p");
+      if (paragraphs.length) {
+        paragraphs.forEach((p) => box.appendChild(p.cloneNode(true)));
+      } else {
+        const text = clone.textContent?.trim();
+        if (text) {
+          const p = document.createElement("p");
+          p.textContent = text;
+          box.appendChild(p);
+        }
+      }
+    }
+    const keywords = dom.querySelector("dd.keywords")?.textContent?.replace(/\s+/g, " ").trim();
+    if (keywords) {
+      const p = document.createElement("p");
+      p.textContent = `Key words: ${keywords}`;
+      box.appendChild(p);
+    }
+    return box.innerHTML;
+  }
+  /**
+   * Scope to `#articleBody` — re-attaching the front matter that lives above it — and strip the
+   * reference block (the base class re-appends references cleanly) plus the hidden
+   * structured-citation duplicates and export widgets.
+   */
+  async transformStructure(dom, bookId) {
+    const header = this.buildArticleHeader(dom);
+    const article = dom.querySelector("#articleBody, .articleBody");
+    if (article) {
+      dom.innerHTML = header + article.innerHTML;
+    } else if (header) {
+      dom.insertAdjacentHTML("afterbegin", header);
+    }
+    dom.querySelectorAll(
+      '.refSection, .content-references-list, .citationActions, .debug, a.googleScholar, a.exportCitation, .c-IconButton, [data-popover], [role="tooltip"]'
+    ).forEach((el) => el.remove());
+    dom.querySelectorAll("button").forEach((el) => el.remove());
+    unwrapContainers(dom);
+  }
+};
+
 // resources/js/paste/format-detection/format-registry.ts
 var FORMAT_REGISTRY = {
   // NOTE: Formats are checked in priority order (highest first)
@@ -3895,6 +4078,21 @@ var FORMAT_REGISTRY = {
     processor: TaylorFrancisProcessor,
     priority: 4,
     description: "Taylor & Francis content with CIT IDs"
+  },
+  // Bristol University Press Digital - Priority 5
+  // Must outrank sage (3): a BUP page matches sage's generic `[role="listitem"]` selector and
+  // was being processed by SageProcessor, which left the hidden mixed-citation duplicates and
+  // the whole surrounding site in the imported book.
+  "bristol-up": {
+    selectors: [
+      'a[href*="bristoluniversitypressdigital.com"]',
+      ".content-references-list",
+      '.reference[id^="CIT"]',
+      "#articleBody"
+    ],
+    processor: BristolUPProcessor,
+    priority: 5,
+    description: "Bristol University Press Digital (Global Social Challenges Journal et al.)"
   },
   // Sage - Priority 3
   "sage": {

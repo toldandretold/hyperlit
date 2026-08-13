@@ -136,6 +136,65 @@ def generate_ref_keys(text, context_text=""):
     return keys
 
 
+# Journal article back-matter: the copyright statement, ORCID line, "to cite this article"
+# self-citation and publisher imprint that sit AFTER the references on the last page. Every
+# one of them starts with a capital and carries a 4-digit year, which is all rule #5 below
+# asks for, so they read as bibliography entries — and the heading-anchored collector in
+# bibliography.py walks to the end of the document whenever the section under "References"
+# holds nothing it recognises (fixture 42be715c: its references are footnote-shaped, so the
+# collector found zero entries there and swept up these four instead, inventing 4 references
+# and 18 citations in a document that has none). They are chrome wherever they appear —
+# including under a real References heading — so the rejection belongs here, at the one gate
+# every collection path goes through, rather than in any single caller's walk.
+_ARTICLE_CHROME_RE = re.compile(
+    r'^\s*(?:'
+    r'article\s+copyright\b'
+    r'|copyright\s*[:©]'
+    r'|©\s*\d{4}'
+    r'|orcid(?:\s+id)?\s*[:.]'
+    r'|(?:how\s+)?to\s+cite\s+this\s+(?:article|paper|work)\b'
+    r'|cite\s+this\s+(?:article|paper|work)\s+as\b'
+    r'|published\s+by\s+.{0,80}?\bon\s+\d{1,2}\s+\w+\s+\d{4}\s*$'
+    # Publication-history line: "Submitted on 5 November 2018 Revised on … Published on …".
+    # Anchored on the leading verb AND a following date so a genuine entry that merely opens
+    # with one of these words cannot match.
+    r'|(?:submitted|received|revised|accepted)\s+on\s+\d{1,2}\s+\w+\s+\d{4}\b'
+    r'|competing\s+interests?\s*[:.]'
+    r'|conflicts?\s+of\s+interest\s*[:.]'
+    r'|correspondence\s*[:.]'
+    r'|e-?mail\s*[:.]'
+    r'|received\s*[:.].{0,60}accepted\s*[:.]'
+    r'|this\s+is\s+an\s+open[- ]access\s+article\b'
+    r')',
+    re.IGNORECASE,
+)
+
+
+def is_article_chrome(text):
+    """True when a paragraph is journal front/back-matter, never a bibliography entry."""
+    return bool(_ARTICLE_CHROME_RE.match(text or ''))
+
+
+# The self-citation an article prints for itself ("Lawson, S, Access, ethics and piracy,
+# Insights, 2017, 30(1), 25-30; DOI: …") is shaped EXACTLY like a bibliography entry, because
+# it is one — of this very work. Nothing in the line itself distinguishes it; the only signal
+# is the label paragraph above it, so this is a look-behind rather than a pattern.
+_CITE_LABEL_RE = re.compile(r'^\s*(?:how\s+)?to\s+cite\s+this\s+(?:article|paper|work)\b',
+                            re.IGNORECASE)
+
+
+def _follows_cite_label(p_tag):
+    """True when the previous paragraph is a 'To cite this article:' label."""
+    previous = p_tag.find_previous_sibling() if hasattr(p_tag, 'find_previous_sibling') else None
+    hops = 0
+    while previous is not None and hops < 2:
+        if getattr(previous, 'name', None) == 'p':
+            return bool(_CITE_LABEL_RE.match(previous.get_text(" ", strip=True)))
+        previous = previous.find_previous_sibling()
+        hops += 1
+    return False
+
+
 def is_likely_reference(p_tag):
     """
     Detect if a paragraph looks like a bibliography reference entry.
@@ -150,6 +209,10 @@ def is_likely_reference(p_tag):
 
     # Must contain a 4-digit year
     if not re.search(r'\d{4}', text):
+        return False
+
+    # Article chrome (copyright / ORCID / self-citation / imprint) is never an entry.
+    if is_article_chrome(text) or _follows_cite_label(p_tag):
         return False
 
     # Check various reference formats:
