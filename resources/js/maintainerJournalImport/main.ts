@@ -13,7 +13,9 @@
 
 import { log } from '../utilities/logger';
 import { ensureCsrfToken } from '../utilities/auth/csrf';
-import { applySourceFrameTheme, sourceIsSkinnable } from '../utilities/sourceFrameTheme';
+import {
+  applySourceFrameTheme, skinnableContentType, sourceIsSkinnable,
+} from '../utilities/sourceFrameTheme';
 
 interface JournalRow {
   slug: string;
@@ -430,12 +432,26 @@ async function selectLane(lane: Lane): Promise<void> {
     if (probe.ok) {
       // Paint the fetched page in the operator's theme once it lands. A PDF can't be skinned, so
       // the pane falls back to a light canvas — the viewer paints its own background anyway.
+      // Sandbox the fetched page's SCRIPTS. We serve it from our own origin, so left alone the
+      // publisher's JS runs same-origin with this admin console and could drive the maintainer
+      // API as the logged-in admin (the session cookie is HttpOnly, but same-origin fetch doesn't
+      // need to read it). `allow-same-origin` WITHOUT `allow-scripts` is the exact combination we
+      // want: nothing executes, but the document keeps our origin so the theme injection below
+      // still reaches it. (allow-scripts + allow-same-origin together would let a frame remove
+      // its own sandbox — with no scripts there is nothing to do that.)
+      // PDFs are left unsandboxed: they execute nothing of ours and the browser's viewer is
+      // fussy enough already.
       // Decide the canvas NOW, from the artifacts — not inside onload. A PDF frame may never
       // fire load, which would leave the class at the PREVIOUS lane's value and paint a PDF on a
       // dark canvas (or a themed page on a white one).
-      const skinnable = sourceIsSkinnable(lane.artifacts);
+      // What the server SAID it is beats what we think is on disk (see skinnableContentType).
+      const skinnable = skinnableContentType(probe.headers.get('content-type'))
+        ?? sourceIsSkinnable(lane.artifacts);
       const pane = document.querySelector('.ji-source');
       pane?.classList.toggle('ji-source-unskinned', !skinnable);
+      // Must be set BEFORE the src assignment — sandbox applies at load time.
+      if (skinnable) source.setAttribute('sandbox', 'allow-same-origin');
+      else source.removeAttribute('sandbox');
       source.onload = (): void => {
         if (!skinnable) return;
         pane?.classList.toggle('ji-source-unskinned', !applySourceFrameTheme(source));

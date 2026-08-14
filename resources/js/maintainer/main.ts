@@ -7,7 +7,9 @@
 
 import { log } from '../utilities/logger';
 import { ensureCsrfToken } from '../utilities/auth/csrf';
-import { applySourceFrameTheme, sourceIsSkinnable } from '../utilities/sourceFrameTheme';
+import {
+  applySourceFrameTheme, skinnableContentType, sourceIsSkinnable,
+} from '../utilities/sourceFrameTheme';
 
 interface QueueFlag {
   source: string;
@@ -196,9 +198,18 @@ function select(entry: QueueEntry): void {
       // can't be skinned — the pane falls back to a light canvas, which its viewer overpaints.
       // Decide the canvas NOW, from the artifacts — a PDF frame may never fire load, which would
       // leave the class at the previous case's value.
-      const skinnable = sourceIsSkinnable(entry.artifacts);
+      // Sandbox the fetched page's SCRIPTS (see the journal-import twin): served from our own
+      // origin, the publisher's JS would otherwise run same-origin with this admin console.
+      // `allow-same-origin` without `allow-scripts` blocks execution but keeps the origin, so the
+      // theme injection still works. PDFs stay unsandboxed for the browser's viewer.
+      // From the response, not the artifact list: a deep-linked book has no artifacts, which read
+      // as "not skinnable" and left the frame UNSANDBOXED — scripts running same-origin again.
+      const skinnable = skinnableContentType(r.headers.get('content-type'))
+        ?? sourceIsSkinnable(entry.artifacts);
       const pane = document.querySelector('.mt-original');
       pane?.classList.toggle('mt-original-unskinned', !skinnable);
+      if (skinnable) frame.setAttribute('sandbox', 'allow-same-origin');
+      else frame.removeAttribute('sandbox');
       frame.onload = (): void => {
         if (!skinnable) return;
         pane?.classList.toggle('mt-original-unskinned', !applySourceFrameTheme(frame));

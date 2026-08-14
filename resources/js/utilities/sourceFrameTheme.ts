@@ -70,6 +70,32 @@ function buildCss(): string {
 }
 
 /**
+ * The authoritative answer, from what the server actually said it was sending.
+ *
+ * Preferred over the artifact list because the artifact list can be absent: a book opened by deep
+ * link on /maintainer/conversion isn't in the flag queue, so it gets a synthetic entry with no
+ * artifacts — which read as "not skinnable" and therefore silently UNSANDBOXED the frame. The
+ * Content-Type of the HEAD probe we already send costs nothing extra and can't be missing.
+ *
+ * @returns true = restyle it, false = leave it alone (PDF/binary), null = unknown, ask the artifacts.
+ */
+export function skinnableContentType(contentType: string | null | undefined): boolean | null {
+  if (!contentType) {
+    return null;
+  }
+  const type = contentType.toLowerCase();
+  if (type.includes('application/pdf')) {
+    return false;
+  }
+  if (type.includes('text/html') || type.includes('text/plain')) {
+    return true;
+  }
+
+  // Anything else (epub, docx, octet-stream) the browser downloads rather than frames.
+  return false;
+}
+
+/**
  * Is this source a text document we may restyle, or a PDF/binary we must leave alone?
  *
  * Decided from the artifacts we KNOW are on disk, never from the loaded document: WebKit hands
