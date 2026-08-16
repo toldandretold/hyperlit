@@ -52,6 +52,13 @@ class SystemVersionMinter
             'oa_status'              => $canonical->oa_status,
             'oa_url'                 => $canonical->oa_url,
             'pdf_url'                => $canonical->pdf_url,
+            // The citation's outward link. DOI first: `oa_url`/`pdf_url` are wherever the
+            // harvester found a COPY (Bristol hands OpenAlex a `/downloadpdf/…` deep link that
+            // 403s on a click), while the DOI always resolves. Left NULL, every consumer fell
+            // through to the dead PDF — same precedence CitationReview\Report\ReportBuilder uses.
+            'url'                    => $canonical->doi
+                ? 'https://doi.org/' . $canonical->doi
+                : ($canonical->oa_url ?: null),
             'work_license'           => $canonical->work_license,
             'cited_by_count'         => $canonical->cited_by_count,
             // Biblio identity for publication-order sorting on journal pages

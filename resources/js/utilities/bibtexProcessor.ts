@@ -5,6 +5,17 @@ const CITATION_ARTICLE_TYPES = new Set(['article', 'journal-article', 'journal a
 const CITATION_CHAPTER_TYPES = new Set(['incollection', 'book-chapter', 'chapter', 'book chapter']);
 
 /**
+ * A DOI as a resolvable link. Accepts a bare DOI (`10.1332/knjy6381`), a `doi:` prefixed one, or an
+ * already-resolved doi.org URL, and returns `https://doi.org/<doi>` — null for anything that isn't a
+ * DOI. The persistent identifier is the citation link of record: publisher deep links (especially the
+ * `/downloadpdf/` URLs OpenAlex reports as `oa_url`) rot or 403 when clicked, the DOI never does.
+ */
+export function doiToUrl(doi: any): string | null {
+  const raw = String(doi ?? '').trim().replace(/^doi:\s*/i, '').replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '');
+  return /^10\.\d{4,9}\/\S+$/.test(raw) ? `https://doi.org/${raw}` : null;
+}
+
+/**
  * Format a citation from plain metadata (title/author/year/journal/publisher/doi/type + optional
  * volume/issue/pages/booktitle/chapter/editor/url). The shared core behind formatBibtexToCitation,
  * and used directly to render a canonical_source's citation (from /best-version metadata) — e.g. the
@@ -19,7 +30,10 @@ export function formatMetadataToCitation(meta: any): string {
   const publisher = meta?.publisher || null;
   const year = meta?.year ?? null;
   const pages = meta?.pages || null;
-  const url = meta?.url || null;
+  // An explicit `url` wins (a caller that picked one — e.g. the hypercite card preferring the
+  // readable full text — means it); otherwise the DOI is the link. Never leave a bare DOI here:
+  // it isn't http(s), so it would silently render as an unlinked title.
+  const url = meta?.url || doiToUrl(meta?.doi) || null;
   const volume = meta?.volume || null;
   const issue = meta?.issue || meta?.number || null;
   const booktitle = meta?.booktitle || null;
@@ -122,6 +136,7 @@ export async function formatBibtexToCitation(bibtex: any, preResolvedUserId = nu
     year: fields.year || "Unknown Year",
     pages: fields.pages || null,
     url: fields.url || null,
+    doi: fields.doi || null,
     volume: fields.volume || null,
     issue: fields.number || null,
     booktitle: fields.booktitle || null,

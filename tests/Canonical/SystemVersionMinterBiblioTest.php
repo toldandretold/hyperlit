@@ -38,3 +38,45 @@ test('mintSystemRow copies volume and issue from the canonical', function () {
     // Cleanup guard: the minted row carries the CanonV title prefix.
     expect($row->title)->toBe('CanonV Biblio Work');
 });
+
+/**
+ * library.url is the citation's outward link. It must be the DOI, not the copy the harvester
+ * happened to find: publisher deep links (Bristol's `/downloadpdf/…`) 403 on a click, and left
+ * NULL the source container fell through to that dead PDF.
+ */
+test('mintSystemRow sets url to the DOI resolver, not the harvested PDF', function () {
+    $id = canonvSeedCanonical([
+        'title'   => 'CanonV Doi Link Work',
+        'doi'     => '10.1332/canonv-doi-link',
+        'oa_url'  => 'https://publisher.example/downloadpdf/article.pdf',
+        'pdf_url' => 'https://publisher.example/downloadpdf/article.pdf',
+    ]);
+
+    $book = app(SystemVersionMinter::class)->mintSystemRow(
+        CanonicalSource::on('pgsql_admin')->find($id),
+        AutoVersionResolver::CONVERSION_METHOD,
+        AutoVersionResolver::FOUNDATION_SOURCE,
+    );
+
+    $row = canonvDb()->table('library')->where('book', $book)->first(['url', 'doi', 'oa_url']);
+    expect($row->url)->toBe('https://doi.org/10.1332/canonv-doi-link');
+    // The copy is still recorded — it's the fetch target, just not the citation link.
+    expect($row->oa_url)->toBe('https://publisher.example/downloadpdf/article.pdf');
+});
+
+test('mintSystemRow falls back to the OA url when the canonical has no DOI', function () {
+    $id = canonvSeedCanonical([
+        'title'  => 'CanonV No Doi Work',
+        'doi'    => null,
+        'oa_url' => 'https://repository.example/paper.html',
+    ]);
+
+    $book = app(SystemVersionMinter::class)->mintSystemRow(
+        CanonicalSource::on('pgsql_admin')->find($id),
+        AutoVersionResolver::CONVERSION_METHOD,
+        AutoVersionResolver::FOUNDATION_SOURCE,
+    );
+
+    expect(canonvDb()->table('library')->where('book', $book)->value('url'))
+        ->toBe('https://repository.example/paper.html');
+});

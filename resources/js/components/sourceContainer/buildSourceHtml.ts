@@ -5,7 +5,7 @@
 // HTML is injected. Kept in its own leaf so editForm/index can both import it
 // without a static import cycle.
 import { openDatabase } from '../../indexedDB/index';
-import { formatBibtexToCitation } from '../../utilities/bibtexProcessor';
+import { formatBibtexToCitation, doiToUrl } from '../../utilities/bibtexProcessor';
 import { book } from '../../app';
 import { canUserEditBook, getAuthContextSync } from '../../utilities/auth/index';
 import { getRecord, isSyntheticBook } from './helpers';
@@ -57,7 +57,11 @@ export async function buildSourceHtml(currentBookId: any): Promise<string> {
   // If no bibtex exists, generate one from available record data
   if (!bibtex && record) {
     const year = new Date(record.timestamp ?? Date.now()).getFullYear();
-    const url = record.url || record.oa_url || record.pdf_url || record.doi;
+    // DOI first — it's the citation link of record and it always resolves. `oa_url`/`pdf_url` are
+    // wherever the harvester happened to find a copy (Bristol's `/downloadpdf/…` deep links 403 on
+    // a click), and every canonicalizer-minted row has `url` NULL, so the old chain landed on the
+    // dead PDF. Same precedence PHP's CitationReview\Report\ReportBuilder already uses.
+    const url = doiToUrl(record.doi) || record.url || record.oa_url || record.pdf_url;
     const urlField = url ? `  url = {${url}},\n` : '';
     const publisherField = record.publisher ? `  publisher = {${record.publisher}},\n` : '';
     const journalField = record.journal ? `  journal = {${record.journal}},\n` : '';
@@ -76,6 +80,13 @@ export async function buildSourceHtml(currentBookId: any): Promise<string> {
   year = {${year}},
 ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteField}${volumeField}${issueField}${booktitleField}${chapterField}${editorField}}`;
 
+  }
+
+  // A STORED bibtex predates the DOI living on the row (harvested rows carry `doi` as a column and
+  // an empty/urlless bibtex). Inject it so the formatter's DOI fallback can reach it rather than
+  // rendering an unlinked title.
+  if (bibtex && record?.doi && !/^\s*doi\s*=/im.test(bibtex) && !/^\s*url\s*=/im.test(bibtex)) {
+    bibtex = bibtex.replace(/\s*\}\s*$/, `,\n  doi = {${record.doi}}\n}`);
   }
 
   const citation = (await formatBibtexToCitation(bibtex)).trim();
