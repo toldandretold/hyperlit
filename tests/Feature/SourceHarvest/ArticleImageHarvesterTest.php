@@ -312,6 +312,44 @@ it('never fetches an internal URL, whatever the injected fetcher would do', func
     'http://192.168.1.1/',
 ]);
 
+/**
+ * The sweep waits 2s between ARTICLES, but that pacing predates images — a figure-heavy page
+ * fires every image request inside that gap unless the downloads are spaced too. The delay sits
+ * only BETWEEN fetches, so one figure costs nothing and the gap never trails the last download.
+ */
+it('spaces image downloads apart without trailing the last one', function () {
+    $html = '<img src="/fig/a.png"><img src="/fig/b.png"><img src="/fig/c.png">';
+    $urls = ['https://example.org/fig/a.png', 'https://example.org/fig/b.png', 'https://example.org/fig/c.png'];
+
+    $started = microtime(true);
+    $result = $this->harvester->harvest(
+        $html,
+        'https://example.org/article/1',
+        $this->book,
+        aihFetcher($urls),
+        40, // ms
+    );
+    $elapsed = (microtime(true) - $started) * 1000;
+
+    expect($result['stored'])->toBe(3);
+    // Two gaps for three downloads — never three.
+    expect($elapsed)->toBeGreaterThanOrEqual(80.0);
+    expect($elapsed)->toBeLessThan(300.0);
+});
+
+it('never pauses when there is only one image to fetch', function () {
+    $started = microtime(true);
+    $this->harvester->harvest(
+        '<img src="/fig/a.png">',
+        'https://example.org/article/1',
+        $this->book,
+        aihFetcher(['https://example.org/fig/a.png']),
+        400,
+    );
+
+    expect((microtime(true) - $started) * 1000)->toBeLessThan(300.0);
+});
+
 it('is a no-op on html with no images', function () {
     $html = '<p>Just prose.</p>';
 

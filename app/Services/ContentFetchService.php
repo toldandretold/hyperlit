@@ -60,6 +60,14 @@ class ContentFetchService
      */
     private ?string $lastFinalUrl = null;
 
+    /**
+     * Pause between an article's image downloads. The journal sweep already waits 2s between
+     * ARTICLES, but that was set when an article was a single request — a figure-heavy page now
+     * fires a dozen image requests inside that gap, which is the burst a publisher actually
+     * notices. Cheap insurance against getting the harvester blocked.
+     */
+    private const IMAGE_FETCH_DELAY_MS = 400;
+
     public function __construct(FileHelpers $fileHelpers, HtmlProcessor $htmlProcessor, PdfProcessor $pdfProcessor, LlmService $llmService)
     {
         $this->fileHelpers = $fileHelpers;
@@ -1765,6 +1773,7 @@ class ContentFetchService
             $url,
             $bookId,
             fn (string $imageUrl): ?array => $this->fetchImageBytes($imageUrl, $url),
+            self::IMAGE_FETCH_DELAY_MS,
         );
         $this->lastFetchTrace['images_stored'] = $images['stored'];
         $this->lastFetchTrace['images_failed'] = $images['failed'];

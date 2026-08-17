@@ -70,11 +70,21 @@ class ArticleImageHarvester
     /**
      * Rewrite every remote `<img>` in `$html` to a stored copy under `/{book}/media/…`.
      *
+     * `$delayMs` paces the DOWNLOADS. The journal sweep already waits between articles, but that
+     * pacing was set when an article was one request; a figure-heavy page now fires a dozen image
+     * requests back-to-back inside that gap, which is exactly the burst a publisher notices. Zero
+     * by default so tests stay instant — the caller decides how polite to be.
+     *
      * @param  callable(string):?array{body:string, mime:?string}  $fetch  absolute URL → bytes
      * @return array{html:string, stored:int, failed:int, skipped:int}
      */
-    public function harvest(string $html, string $pageUrl, string $bookId, callable $fetch): array
-    {
+    public function harvest(
+        string $html,
+        string $pageUrl,
+        string $bookId,
+        callable $fetch,
+        int $delayMs = 0,
+    ): array {
         $stats = ['html' => $html, 'stored' => 0, 'failed' => 0, 'skipped' => 0];
         if (stripos($html, '<img') === false) {
             return $stats;
@@ -147,6 +157,12 @@ class ArticleImageHarvester
                 $img->setAttribute('src', $absolute);
                 $stats['skipped']++;
                 continue;
+            }
+
+            // Space the requests out — but only BETWEEN them, so a single-figure article pays
+            // nothing and the gap never trails the last download.
+            if ($taken > 0 && $delayMs > 0) {
+                usleep($delayMs * 1000);
             }
 
             $filename = $this->download($absolute, $handoff, $fetch);
