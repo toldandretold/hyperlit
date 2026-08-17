@@ -348,7 +348,9 @@ body[data-page="journal"] #app-container.lava-lamp-background #topRightContainer
   box-sizing: border-box;
   display: flex !important;
   justify-content: center !important;
-  align-items: center;
+  /* flex-start, not center: the search field is an auto-growing textarea —
+     the toggle stack stays pinned to its top line as it grows */
+  align-items: flex-start;
 }
 
 /* risen state: same card glides into the normal home header position;

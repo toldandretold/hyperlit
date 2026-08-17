@@ -6,7 +6,7 @@
     "moduleCount": 369,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3616,
+    "edgeCount": 3617,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -40459,6 +40459,12 @@
       "source": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch__write__store:localStorage",
+      "source": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
+      "target": "store:localStorage",
+      "rel": "write"
     },
     {
       "id": "SPA/createNewBook:createNewBook__call__indexedDB/core/connection:openDatabase",

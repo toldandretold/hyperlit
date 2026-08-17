@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\CitationSearchService;
+use App\Services\EmbeddingService;
 use App\Services\SearchService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ class SearchController extends Controller
     public function __construct(
         private SearchService $searchService,
         private CitationSearchService $citationSearchService,
+        private EmbeddingService $embeddingService,
     ) {}
 
     /**
@@ -402,6 +404,133 @@ class SearchController extends Controller
             ], 500);
         } catch (\Exception $e) {
             Log::error('Nodes search failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Search failed',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Semantic search over node embeddings - opt-in homepage mode.
+     *
+     * Embeds the query via EmbeddingService (nomic 'search_query: ' prefix —
+     * mandatory, the wrong prefix silently degrades recall), then runs a pure
+     * cosine-distance HNSW scan (SearchService::buildSemanticNodeSearchQuery).
+     * Free feature: per-query embedding cost is ~$0.00000008, covered by the
+     * route throttle — deliberately NOT routed through BillingService (its
+     * 0.0001 floor would over-bill ~1000× and guests have no billing path).
+     */
+    public function searchSemantic(Request $request)
+    {
+        $query = trim($request->input('q', ''));
+        $limit = max(1, min((int) $request->input('limit', 20), self::MAX_RESULTS));
+
+        // 3+ chars: shorter fragments embed to near-noise and each cache miss
+        // costs an embedding API round-trip.
+        if (mb_strlen($query) < 3) {
+            return response()->json([
+                'success' => true,
+                'results' => [],
+                'query' => $query,
+                'mode' => 'semantic'
+            ]);
+        }
+
+        try {
+            $norm = mb_strtolower($query);
+
+            // Query vectors are user-independent — cache 1h shared across all
+            // users. Only cache on success: a null (provider outage) cached for
+            // an hour would pin the 503 long after recovery.
+            $vecCacheKey = 'search:semantic:vec:' . md5($norm);
+            $embedMs = 0.0;
+            $queryEmbedding = Cache::get($vecCacheKey);
+            if ($queryEmbedding === null) {
+                $t = hrtime(true);
+                $queryEmbedding = $this->embeddingService->embed($norm, 'search_query: ', maxRetries: 1);
+                $embedMs = round((hrtime(true) - $t) / 1e6, 1);
+                if ($queryEmbedding === null) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Semantic search is temporarily unavailable',
+                    ], 503);
+                }
+                Cache::put($vecCacheKey, $queryEmbedding, 3600);
+            }
+
+            $userKey = Auth::id() ?? $request->cookie('anon_token') ?? 'guest';
+            $cacheKey = 'search:semantic:' . $userKey . ':' . md5($norm) . ':' . $limit;
+
+            $t = hrtime(true);
+            $payload = Cache::remember($cacheKey, 60, function () use ($request, $queryEmbedding, $limit) {
+                $visibleBooks = $this->searchService->getVisibleSemanticSearchBooks(
+                    Auth::user()?->name,
+                    $request->cookie('anon_token'),
+                );
+
+                [$sql, $params] = $this->searchService->buildSemanticNodeSearchQuery(
+                    $queryEmbedding,
+                    $limit,
+                    $visibleBooks,
+                );
+
+                // Search connection (BYPASSRLS): the visibility clause inside
+                // the query is the only access guard — see buildSemanticNodeSearchQuery.
+                //
+                // iterative_scan (pgvector ≥0.8) is REQUIRED for correctness,
+                // not a tuning knob: without it the HNSW scan emits at most
+                // hnsw.ef_search (40) tuples, so a query whose nearest raw
+                // neighbours are dominated by filtered-out nodes under-fills
+                // ("marxism" reproduced this — see the builder's doc block).
+                // relaxed_order is fine — the outer query re-orders by
+                // distance. SET LOCAL needs the transaction.
+                $conn = DB::connection(config('database.search_read_connection'));
+                $rows = $conn->transaction(function () use ($conn, $sql, $params) {
+                    $conn->statement('SET LOCAL hnsw.iterative_scan = relaxed_order');
+                    return $conn->select($sql, $params);
+                });
+
+                // Distance cutoff applied here, not in SQL, to keep the HNSW
+                // ordered scan clean.
+                $maxDistance = (float) config('services.llm.semantic_max_distance');
+
+                // Floor-only rescale for the badge (see the config comment):
+                // shifts the zero point to the measured noise floor, top stays
+                // a true 100%. `similarity` stays raw for API consumers.
+                $matchFloor = min((float) config('services.llm.semantic_match_floor'), 0.99);
+
+                $results = collect($rows)
+                    ->filter(fn ($r) => (float) $r->distance <= $maxDistance)
+                    ->map(function ($r) use ($matchFloor) {
+                        $sim = 1 - (float) $r->distance;
+                        return [
+                            'book' => $r->book,
+                            'node_id' => $r->node_id,
+                            'startLine' => $r->startLine,
+                            'title' => $r->title,
+                            'author' => $r->author,
+                            'excerpt' => $r->excerpt,
+                            'similarity' => round($sim, 3),
+                            'match' => (int) round(max(0, ($sim - $matchFloor) / (1 - $matchFloor)) * 100),
+                        ];
+                    })->values();
+
+                return ['results' => $results, 'count' => $results->count()];
+            });
+            $dbMs = round((hrtime(true) - $t) / 1e6, 1);
+
+            return response()->json([
+                'success' => true,
+                'results' => $payload['results'],
+                'query' => $query,
+                'mode' => 'semantic',
+                'count' => $payload['count'],
+            ])->header('Server-Timing', $this->serverTimingHeader(['embed_ms' => $embedMs, 'db_ms' => $dbMs]));
+
+        } catch (\Exception $e) {
+            Log::error('Semantic search failed: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Search failed',

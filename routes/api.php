@@ -74,6 +74,7 @@ Route::post('/register', [AuthController::class, 'register'])
 Route::prefix('search')->middleware('throttle:60,1')->group(function () {
     Route::get('/library', [SearchController::class, 'searchLibrary']);
     Route::get('/nodes', [SearchController::class, 'searchNodes']);
+    Route::get('/semantic', [SearchController::class, 'searchSemantic']);
     Route::get('/openalex', [OpenAlexController::class, 'search']);
     Route::get('/combined', [SearchController::class, 'searchWithOpenAlex']);
 });

@@ -9,22 +9,89 @@ import { searchCacheGet, searchCacheSet } from '../searchResultCache';
 
 // Configuration
 const DEBOUNCE_MS = 300;
+// Longer debounce + higher minimum for semantic: every uncached keystroke is
+// an embedding API round-trip, and 2-char fragments embed to near-noise.
+const DEBOUNCE_SEMANTIC_MS = 500;
 const MIN_QUERY_LENGTH = 2;
+const MIN_QUERY_LENGTH_SEMANTIC = 3;
 const RESULTS_LIMIT = 20;
 
 // Storage keys for state persistence
 const STORAGE_KEY_QUERY = 'homepage_search_query';
+const STORAGE_KEY_MODE = 'homepage_search_mode';
+// Legacy boolean key, migrated to STORAGE_KEY_MODE on init
 const STORAGE_KEY_FULLTEXT = 'homepage_search_fulltext';
+
+type SearchMode = 'library' | 'fulltext' | 'semantic';
+
+const MODE_PLACEHOLDERS: Record<SearchMode, string> = {
+    library: 'Search titles & authors...',
+    fulltext: 'Search all content...',
+    semantic: 'Search by meaning...',
+};
 
 // State
 let searchInput: any = null;
 let searchToggle: any = null;
+let semanticToggle: HTMLInputElement | null = null;
 let resultsContainer: any = null;
 let debounceTimer: any = null;
-let isFullTextMode = false;
+let searchMode: SearchMode = 'library';
 let abortController: any = null;
 let currentSearchQuery = ''; // Track current query for highlighting on navigation
 let pageshowHandler: ((e: PageTransitionEvent) => void) | null = null;
+
+function minLen(): number {
+    return searchMode === 'semantic' ? MIN_QUERY_LENGTH_SEMANTIC : MIN_QUERY_LENGTH;
+}
+
+function debounceMs(): number {
+    return searchMode === 'semantic' ? DEBOUNCE_SEMANTIC_MS : DEBOUNCE_MS;
+}
+
+function isSearchMode(value: string | null): value is SearchMode {
+    return value === 'library' || value === 'fulltext' || value === 'semantic';
+}
+
+/**
+ * Read the persisted mode, migrating the legacy fulltext boolean key.
+ */
+function readStoredMode(): SearchMode {
+    const stored = localStorage.getItem(STORAGE_KEY_MODE);
+    if (isSearchMode(stored)) {
+        return stored;
+    }
+    const legacy = localStorage.getItem(STORAGE_KEY_FULLTEXT);
+    if (legacy !== null) {
+        const migrated: SearchMode = legacy === 'true' ? 'fulltext' : 'library';
+        localStorage.setItem(STORAGE_KEY_MODE, migrated);
+        localStorage.removeItem(STORAGE_KEY_FULLTEXT);
+        return migrated;
+    }
+    return 'library';
+}
+
+/**
+ * Grow the textarea to fit its content (CSS min/max-height clamp the range;
+ * beyond the cap it scrolls internally). Runs on every input — including
+ * pastes — and after programmatic value restores.
+ */
+function autosizeSearchInput() {
+    if (!searchInput) return;
+    searchInput.style.height = 'auto';
+    searchInput.style.height = `${searchInput.scrollHeight}px`;
+}
+
+/**
+ * Sync toggles + placeholder to a mode. The two toggles are mutually
+ * exclusive (three effective modes), so both checkboxes are always set.
+ */
+function applyMode(mode: SearchMode) {
+    searchMode = mode;
+    if (searchToggle) searchToggle.checked = mode === 'fulltext';
+    if (semanticToggle) semanticToggle.checked = mode === 'semantic';
+    if (searchInput) searchInput.placeholder = MODE_PLACEHOLDERS[mode];
+}
 
 /**
  * Initialize the homepage search functionality
@@ -32,6 +99,7 @@ let pageshowHandler: ((e: PageTransitionEvent) => void) | null = null;
 export function initializeHomepageSearch() {
     searchInput = document.getElementById('homepage-search-input');
     searchToggle = document.getElementById('fulltext-search-toggle');
+    semanticToggle = document.getElementById('semantic-search-toggle') as HTMLInputElement | null;
     resultsContainer = document.getElementById('search-results-container');
 
     if (!searchInput || !resultsContainer) {
@@ -39,21 +107,13 @@ export function initializeHomepageSearch() {
         return;
     }
 
-    // Restore state from localStorage
-    const savedFulltext = localStorage.getItem(STORAGE_KEY_FULLTEXT);
-    if (savedFulltext !== null) {
-        isFullTextMode = savedFulltext === 'true';
-        if (searchToggle) {
-            searchToggle.checked = isFullTextMode;
-        }
-        searchInput.placeholder = isFullTextMode
-            ? 'Search all content...'
-            : 'Search titles & authors...';
-    }
+    // Restore state from localStorage (migrates the legacy fulltext key)
+    applyMode(readStoredMode());
 
     const savedQuery = localStorage.getItem(STORAGE_KEY_QUERY);
     if (savedQuery) {
         searchInput.value = savedQuery;
+        autosizeSearchInput();
     }
 
     // Bind event listeners
@@ -63,6 +123,9 @@ export function initializeHomepageSearch() {
 
     if (searchToggle) {
         searchToggle.addEventListener('change', handleToggleChange);
+    }
+    if (semanticToggle) {
+        semanticToggle.addEventListener('change', handleSemanticToggleChange);
     }
 
     // Close results when clicking outside
@@ -78,16 +141,10 @@ export function initializeHomepageSearch() {
         if (resultsContainer) resultsContainer.innerHTML = '';
         hideResults();
         const applySaved = () => {
-            const savedFT = localStorage.getItem(STORAGE_KEY_FULLTEXT);
-            if (savedFT !== null && searchToggle) {
-                searchToggle.checked = savedFT === 'true';
-            }
-            isFullTextMode = !!searchToggle?.checked;
+            applyMode(readStoredMode());
             if (searchInput) {
-                searchInput.placeholder = isFullTextMode
-                    ? 'Search all content...'
-                    : 'Search titles & authors...';
                 searchInput.value = localStorage.getItem(STORAGE_KEY_QUERY) || '';
+                autosizeSearchInput();
             }
         };
         applySaved();
@@ -112,6 +169,10 @@ export function destroyHomepageSearch() {
         searchToggle.removeEventListener('change', handleToggleChange);
     }
 
+    if (semanticToggle) {
+        semanticToggle.removeEventListener('change', handleSemanticToggleChange);
+    }
+
     document.removeEventListener('click', handleOutsideClick);
 
     if (pageshowHandler) {
@@ -130,8 +191,9 @@ export function destroyHomepageSearch() {
     // Reset state
     searchInput = null;
     searchToggle = null;
+    semanticToggle = null;
     resultsContainer = null;
-    isFullTextMode = false;
+    searchMode = 'library';
 
     verbose.init('Homepage search destroyed', 'homepageSearch.js');
 }
@@ -140,6 +202,8 @@ export function destroyHomepageSearch() {
  * Handle search input with debouncing
  */
 function handleSearchInput(event: any) {
+    autosizeSearchInput();
+
     const query = event.target.value.trim();
 
     // Clear previous timer
@@ -153,7 +217,7 @@ function handleSearchInput(event: any) {
     }
 
     // Clear results if query is too short
-    if (query.length < MIN_QUERY_LENGTH) {
+    if (query.length < minLen()) {
         hideResults();
         // Clear stored query if input is cleared
         if (query.length === 0) {
@@ -171,7 +235,7 @@ function handleSearchInput(event: any) {
     // Debounce the search
     debounceTimer = setTimeout(() => {
         performSearch(query);
-    }, DEBOUNCE_MS);
+    }, debounceMs());
 }
 
 /**
@@ -181,7 +245,11 @@ async function performSearch(query: any) {
     // Store query for use in navigation links
     currentSearchQuery = query;
 
-    const endpoint = isFullTextMode ? '/api/search/nodes' : '/api/search/library';
+    const endpoint = {
+        library: '/api/search/library',
+        fulltext: '/api/search/nodes',
+        semantic: '/api/search/semantic',
+    }[searchMode];
     const url = `${endpoint}?q=${encodeURIComponent(query)}&limit=${RESULTS_LIMIT}`;
 
     // Client-side cache (URL key encodes endpoint/mode/query) — backspacing or
@@ -206,6 +274,12 @@ async function performSearch(query: any) {
         });
 
         if (!response.ok) {
+            // The semantic endpoint 503s when the embedding provider is down —
+            // a dependency outage worth naming, not a generic failure.
+            if (response.status === 503) {
+                showError('Semantic search is temporarily unavailable');
+                return;
+            }
             throw new Error(`Search failed: ${response.status}`);
         }
 
@@ -246,6 +320,31 @@ function renderResults(results: any, mode: any) {
                 <li class="search-result-item">
                     <a href="/${encodeURIComponent(result.book)}" class="search-result-link">
                         <span class="search-result-headline">${DOMPurify.sanitize(result.headline, { ALLOWED_TAGS: ['b', 'mark'] })}</span>
+                    </a>
+                </li>
+            `;
+        });
+    } else if (mode === 'semantic') {
+        // Semantic results: flat ranked list (rank IS the signal — no book
+        // grouping), plain excerpts (no exact matched term to <mark>).
+        // `match` is the server's floor-rescaled percentage: 0% = the measured
+        // cosine noise floor (unrelated English), 100% = identical — the top
+        // of the scale is real, not clamped.
+        results.forEach((result: any) => {
+            const nodeAnchor = result.startLine ? `#${result.startLine}` : '';
+            const matchPct = typeof result.match === 'number'
+                ? `<span class="search-result-similarity">${result.match}% match</span>`
+                : '';
+            html += `
+                <li class="search-result-semantic">
+                    <a href="/${encodeURIComponent(result.book)}${nodeAnchor}"
+                       class="search-result-match-link"
+                       data-highlight-query="${escapeHtml(currentSearchQuery)}">
+                        <span class="search-result-snippet">${escapeHtml(result.excerpt)}</span>
+                        <span class="search-result-semantic-source">
+                            <span class="search-result-book-title">${escapeHtml(result.title || 'Untitled')}</span>${matchPct}
+                            <span class="search-result-book-author">${escapeHtml(result.author || 'Unknown')}</span>
+                        </span>
                     </a>
                 </li>
             `;
@@ -327,7 +426,10 @@ function renderResults(results: any, mode: any) {
  * Show loading state
  */
 function showLoading() {
-    resultsContainer.innerHTML = '<div class="search-loading">Searching...</div>';
+    // Semantic gets its own copy: the query-embedding round-trip adds
+    // ~100-300ms on cache miss, so set the expectation.
+    const text = searchMode === 'semantic' ? 'Searching by meaning...' : 'Searching...';
+    resultsContainer.innerHTML = `<div class="search-loading">${text}</div>`;
     resultsContainer.classList.remove('hidden');
     resultsContainer.classList.add('visible');
 }
@@ -336,8 +438,12 @@ function showLoading() {
  * Show no results message
  */
 function showNoResults() {
-    const mode = isFullTextMode ? 'content' : 'titles and authors';
-    resultsContainer.innerHTML = `<div class="search-no-results">No results found in ${mode}</div>`;
+    // Semantic "no results" usually means nothing cleared the similarity
+    // cutoff — distinguish that from a keyword miss.
+    const message = searchMode === 'semantic'
+        ? 'No sufficiently similar passages found'
+        : `No results found in ${searchMode === 'fulltext' ? 'content' : 'titles and authors'}`;
+    resultsContainer.innerHTML = `<div class="search-no-results">${message}</div>`;
     resultsContainer.classList.remove('hidden');
     resultsContainer.classList.add('visible');
 }
@@ -361,26 +467,36 @@ function hideResults() {
 }
 
 /**
- * Handle toggle between library and full-text search
+ * Persist + apply a mode change from either toggle, re-running the search if
+ * a long-enough query is present.
  */
-function handleToggleChange(event: any) {
-    isFullTextMode = event.target.checked;
+function changeMode(mode: SearchMode) {
+    applyMode(mode);
+    localStorage.setItem(STORAGE_KEY_MODE, mode);
 
-    // Save toggle state to localStorage
-    localStorage.setItem(STORAGE_KEY_FULLTEXT, isFullTextMode.toString());
-
-    // Update placeholder text
-    searchInput.placeholder = isFullTextMode
-        ? 'Search all content...'
-        : 'Search titles & authors...';
-
-    // Re-run search if there's a query
     const query = searchInput.value.trim();
-    if (query.length >= MIN_QUERY_LENGTH) {
+    if (query.length >= minLen()) {
         performSearch(query);
+    } else {
+        hideResults();
     }
 
-    verbose.content(`Search mode changed to: ${isFullTextMode ? 'fulltext' : 'library'}`, 'homepageSearch.js');
+    verbose.content(`Search mode changed to: ${mode}`, 'homepageSearch.js');
+}
+
+/**
+ * Full-text toggle. Mutually exclusive with the semantic toggle: checking one
+ * unchecks the other (applyMode handles both checkboxes).
+ */
+function handleToggleChange(event: any) {
+    changeMode(event.target.checked ? 'fulltext' : 'library');
+}
+
+/**
+ * Semantic toggle — see handleToggleChange for the exclusivity contract.
+ */
+function handleSemanticToggleChange(event: any) {
+    changeMode(event.target.checked ? 'semantic' : 'library');
 }
 
 /**
@@ -399,7 +515,7 @@ function handleKeyDown(event: any) {
  */
 function handleFocus() {
     const query = searchInput.value.trim();
-    if (query.length >= MIN_QUERY_LENGTH) {
+    if (query.length >= minLen()) {
         // Re-search if we have a query but no results showing
         if (!resultsContainer.innerHTML || resultsContainer.classList.contains('hidden')) {
             performSearch(query);

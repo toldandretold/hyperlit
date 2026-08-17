@@ -501,20 +501,7 @@ class SearchService
         ?string $anonToken = null,
     ): array {
         $tsExpr = self::nodeTsExpression($config);
-        $visibilityConditions = ["(library.listed = true AND library.visibility NOT IN ('private', 'deleted'))"];
-        $visibilityParams = [];
-
-        if ($creatorName) {
-            $visibilityConditions[] = "(library.creator = ? AND library.visibility != 'deleted')";
-            $visibilityParams[] = $creatorName;
-        }
-
-        if ($anonToken) {
-            $visibilityConditions[] = "(library.creator_token = ? AND library.visibility != 'deleted')";
-            $visibilityParams[] = $anonToken;
-        }
-
-        $visibilityClause = '(' . implode(' OR ', $visibilityConditions) . ')';
+        [$visibilityClause, $visibilityParams] = $this->nodeVisibilityClause($creatorName, $anonToken);
 
         // Shape notes (each stage measured via `php artisan search:profile -v`):
         //
@@ -594,6 +581,137 @@ class SearchService
             $visibilityParams,
             [$limit, $tsQuery]
         );
+
+        return [$sql, $params];
+    }
+
+    /**
+     * The homepage-search visibility contract, single-sourced for both the
+     * full-text and semantic node builders: public listed books, plus the
+     * caller's own non-deleted books (by creator name or anon token).
+     * Expects the joined library table to be addressable as `library`.
+     *
+     * @return array{0: string, 1: array} [whereClause, params]
+     */
+    private function nodeVisibilityClause(?string $creatorName, ?string $anonToken): array
+    {
+        $conditions = ["(library.listed = true AND library.visibility NOT IN ('private', 'deleted'))"];
+        $params = [];
+
+        if ($creatorName) {
+            $conditions[] = "(library.creator = ? AND library.visibility != 'deleted')";
+            $params[] = $creatorName;
+        }
+
+        if ($anonToken) {
+            $conditions[] = "(library.creator_token = ? AND library.visibility != 'deleted')";
+            $params[] = $anonToken;
+        }
+
+        return ['(' . implode(' OR ', $conditions) . ')', $params];
+    }
+
+    /**
+     * The book set the semantic node search may surface: non-sub_book rows
+     * passing the homepage visibility contract. Fetched as a SEPARATE cheap
+     * query (library_listed_visible_idx) and pushed INTO the HNSW scan as a
+     * nodes-local filter — see buildSemanticNodeSearchQuery for why a
+     * post-scan visibility join is not merely slower but WRONG.
+     *
+     * @return string[] book ids
+     */
+    public function getVisibleSemanticSearchBooks(?string $creatorName, ?string $anonToken): array
+    {
+        [$visibilityClause, $visibilityParams] = $this->nodeVisibilityClause($creatorName, $anonToken);
+
+        $rows = DB::connection(config('database.search_read_connection'))->select(
+            "SELECT library.book FROM library WHERE library.type != 'sub_book' AND {$visibilityClause}",
+            $visibilityParams,
+        );
+
+        return array_map(fn ($r) => $r->book, $rows);
+    }
+
+    /**
+     * Assemble the /api/search/semantic SQL + params for a pre-computed query
+     * embedding and a pre-computed visible-book set (from
+     * getVisibleSemanticSearchBooks). Lives here (not the controller) for the
+     * same reason as buildNodeSearchQuery: `php artisan search:profile`
+     * EXPLAINs the exact production query.
+     *
+     * Shape notes:
+     * - Runs on the search connection (BYPASSRLS): pgvector's distance
+     *   operators are not LEAKPROOF, so under RLS the planner refuses the
+     *   HNSW ordered scan (see EmbeddingService::searchConnection). The
+     *   book-set filter below is the ONLY access guard.
+     * - `hits` is a MATERIALIZED CTE over nodes ONLY with the ordered scan +
+     *   LIMIT inside the fence — the same trick as buildNodeSearchQuery, and
+     *   for the same measured reason: joined to library in one query, the
+     *   planner drives from library and brute-force sorts EVERY visible
+     *   node's distance (no HNSW; ~425ms on a 165k-node dev DB, seconds at
+     *   prod scale). Fenced, the CTE is the canonical HNSW shape.
+     * - Visibility MUST be a nodes-local filter (book = ANY(visible set))
+     *   INSIDE the scan, not a post-scan join, and the CALLER MUST run this
+     *   with `SET LOCAL hnsw.iterative_scan = relaxed_order` (in a
+     *   transaction — see SearchController::searchSemantic). Measured failure
+     *   ("marxism" on the dev DB): with post-scan filtering, the top
+     *   candidates were ALL nodes of five private copies of one relevant
+     *   book, every candidate died at the visibility join, and the search
+     *   returned zero rows despite visible matches existing. Filtering inside
+     *   the iterative scan streams until the cap is filled with VISIBLE rows.
+     * - No distance predicate in the CTE WHERE — that would force pgvector
+     *   post-filtering; the caller applies the max-distance cutoff in PHP.
+     * - Sub-books are excluded (via the book set, matching
+     *   EmbeddingService::searchSimilar): highlight/footnote fragments are
+     *   short and embed weakly. NOTE this is an asymmetry with full-text
+     *   search, which includes them.
+     *
+     * @param array $queryEmbedding 768-dim query vector
+     * @param string[] $visibleBooks from getVisibleSemanticSearchBooks
+     * @return array{0: string, 1: array} [sql, params]
+     */
+    public function buildSemanticNodeSearchQuery(
+        array $queryEmbedding,
+        int $limit,
+        array $visibleBooks,
+    ): array {
+        $vectorStr = '[' . implode(',', $queryEmbedding) . ']';
+        $booksArrayLiteral = '{' . implode(',', array_map(
+            fn (string $b) => '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $b) . '"',
+            $visibleBooks,
+        )) . '}';
+        $candidateCap = max($limit * 3, 60);
+
+        $sql = "
+            WITH hits AS MATERIALIZED (
+                SELECT
+                    nodes.book,
+                    nodes.node_id,
+                    nodes.\"startLine\",
+                    LEFT(COALESCE(nodes.\"plainText\", ''), 300) AS excerpt,
+                    (nodes.embedding <=> ?::halfvec) AS distance
+                FROM nodes
+                WHERE nodes.embedding IS NOT NULL
+                    AND nodes.book = ANY(?::text[])
+                    AND nodes.book NOT IN ('most-recent', 'most-connected', 'most-lit')
+                ORDER BY nodes.embedding <=> ?::halfvec
+                LIMIT {$candidateCap}
+            )
+            SELECT
+                hits.book,
+                hits.node_id,
+                hits.\"startLine\",
+                hits.excerpt,
+                hits.distance,
+                library.title,
+                library.author
+            FROM hits
+            JOIN library ON hits.book = library.book
+            ORDER BY hits.distance
+            LIMIT ?
+        ";
+
+        $params = [$vectorStr, $booksArrayLiteral, $vectorStr, $limit];
 
         return [$sql, $params];
     }

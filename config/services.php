@@ -48,6 +48,22 @@ return [
         'verification_model' => 'accounts/fireworks/models/deepseek-v4-pro',
         'embedding_model'    => 'nomic-ai/nomic-embed-text-v1.5',
 
+        // Homepage semantic search: max cosine distance for a node to count as
+        // a match (results beyond this are dropped in PHP after the HNSW scan).
+        // Deliberately permissive — the UI shows the match % so users judge
+        // closeness themselves. For scale (measured 2026-08-17): pure
+        // gibberish still scores distance ~0.47 against this corpus (cosine has
+        // a high noise floor), verbatim text ~0.015.
+        'semantic_max_distance' => (float) env('SEMANTIC_SEARCH_MAX_DISTANCE', 0.6),
+
+        // Zero point for the user-facing match %: cosine similarity never goes
+        // near 0 for English-vs-English (gibberish measures ~0.53-0.55 against
+        // this corpus), so the badge rescales the floor only —
+        // match = (sim - floor) / (1 - floor) — leaving the top anchored at a
+        // TRUE 100% (verbatim text ≈ 97, identical vectors = 100). One anchor,
+        // no ceiling, no collapsed band.
+        'semantic_match_floor' => (float) env('SEMANTIC_MATCH_FLOOR', 0.55),
+
         // BYO-key inference tickets — ClientTicketTransport defaults (callers may
         // pass explicit values). Tests shrink these to avoid real waits.
         'ticket_ttl_seconds'  => (int) env('LLM_TICKET_TTL', 300),

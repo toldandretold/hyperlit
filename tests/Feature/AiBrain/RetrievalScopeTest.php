@@ -38,13 +38,14 @@ function seedBook(array $opts): string
 {
     $book = $opts['book'] ?? ('book_test_' . Str::random(8));
     adminDb()->table('library')->insert([
-        'book'       => $book,
-        'title'      => $opts['title'] ?? 'Test book',
-        'author'     => $opts['author'] ?? 'Test author',
-        'creator'    => $opts['creator'] ?? null,
-        'visibility' => $opts['visibility'] ?? 'public',
-        'listed'     => $opts['listed'] ?? true,
-        'type'       => 'book',
+        'book'          => $book,
+        'title'         => $opts['title'] ?? 'Test book',
+        'author'        => $opts['author'] ?? 'Test author',
+        'creator'       => $opts['creator'] ?? null,
+        'creator_token' => $opts['creator_token'] ?? null,
+        'visibility'    => $opts['visibility'] ?? 'public',
+        'listed'        => $opts['listed'] ?? true,
+        'type'          => $opts['type'] ?? 'book',
         'has_nodes'  => true,
         'raw_json'   => '[]',
         'timestamp'  => 0,
@@ -303,4 +304,78 @@ test('searchSimilar: shelf scope with empty shelf returns nothing', function () 
     $rows = app(EmbeddingService::class)->searchSimilar(queryEmbedding(), 50, null, 'shelf', $user->name, $shelfId);
 
     expect($rows)->toBe([]);
+});
+
+// =============================================================================
+// SearchService::buildSemanticNodeSearchQuery (homepage semantic search)
+//
+// Deliberately LAXER than searchSimilar's scopes: it mirrors the homepage
+// full-text visibility contract (public listed + the caller's OWN books,
+// including private ones, by creator name or anon token). Runs on the search
+// connection (BYPASSRLS), so this clause is the only guard.
+// =============================================================================
+
+function runSemanticSearch(?string $creator = null, ?string $anonToken = null): array
+{
+    $service = app(SearchService::class);
+    // Two-step production shape: the visible-book set is computed first and
+    // pushed INTO the HNSW scan (post-scan visibility filtering starves the
+    // candidate cap when invisible books dominate the neighbourhood).
+    $visibleBooks = $service->getVisibleSemanticSearchBooks($creator, $anonToken);
+    [$sql, $params] = $service->buildSemanticNodeSearchQuery(queryEmbedding(), 50, $visibleBooks);
+    return DB::connection(config('database.search_read_connection'))->select($sql, $params);
+}
+
+test('semantic homepage search: guests see public listed books only', function () {
+    $public   = seedBook(['visibility' => 'public']);
+    $private  = seedBook(['visibility' => 'private']);
+    $unlisted = seedBook(['visibility' => 'public', 'listed' => false]);
+
+    $books = array_column(runSemanticSearch(), 'book');
+
+    expect($books)->toContain($public)
+        ->and($books)->not->toContain($private, 'private book leaked to a guest')
+        ->and($books)->not->toContain($unlisted, 'unlisted book leaked to a guest');
+});
+
+test('semantic homepage search: caller sees their own private books (full-text parity)', function () {
+    $user = seedUser('semantic_scope_own');
+    // In tests DB_SEARCH_CONNECTION=pgsql (RLS-enforced), so own-private reads
+    // need the session vars the HTTP middleware would set. In prod the search
+    // connection is BYPASSRLS and the builder's clause alone decides.
+    actAsPgUser($user);
+
+    $myPrivate    = seedBook(['creator' => $user->name, 'visibility' => 'private']);
+    $otherPrivate = seedBook(['visibility' => 'private']);
+
+    $books = array_column(runSemanticSearch($user->name), 'book');
+
+    // (own private visible here is full-text parity — deliberate)
+    expect($books)->toContain($myPrivate)
+        ->and($books)->not->toContain($otherPrivate, "another user's private book leaked");
+});
+
+test('semantic homepage search: anon token surfaces that tokens own books only', function () {
+    $token = (string) Str::uuid();
+    // Same RLS note as above — replay the middleware's anon session context.
+    DB::statement("SELECT set_config('app.current_user', '', true)");
+    DB::statement("SELECT set_config('app.current_token', ?, true)", [$token]);
+
+    $mine  = seedBook(['creator_token' => $token, 'visibility' => 'private']);
+    $other = seedBook(['creator_token' => (string) Str::uuid(), 'visibility' => 'private']);
+
+    $books = array_column(runSemanticSearch(null, $token), 'book');
+
+    expect($books)->toContain($mine)
+        ->and($books)->not->toContain($other);
+});
+
+test('semantic homepage search: excludes sub_books and unembedded nodes', function () {
+    $subBook    = seedBook(['visibility' => 'public', 'type' => 'sub_book']);
+    $unembedded = seedBook(['visibility' => 'public', 'withEmbedding' => false]);
+
+    $books = array_column(runSemanticSearch(), 'book');
+
+    expect($books)->not->toContain($subBook)
+        ->and($books)->not->toContain($unembedded);
 });

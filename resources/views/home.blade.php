@@ -87,25 +87,39 @@
         <!-- Homepage search (same logic as home: homepageSearch keys off these ids) -->
         <div id="homepage-search-container" class="search-container">
           <div class="search-input-anchor">
-            <input
-              type="text"
+            {{-- textarea, not input: wraps + grows downward for long/pasted
+                 queries (semantic search takes whole passages) --}}
+            <textarea
               id="homepage-search-input"
               class="search-input"
               placeholder="Search titles & authors..."
               autocomplete="off"
               spellcheck="false"
-            >
+              rows="2"
+              maxlength="2000"
+            ></textarea>
             <div id="search-results-container" class="search-results hidden"></div>
           </div>
-          <label class="fulltext-toggle-label" title="Search within book content">
-            <input
-              type="checkbox"
-              id="fulltext-search-toggle"
-              class="fulltext-toggle-checkbox"
-            >
-            <span class="fulltext-toggle-slider"></span>
-            <span class="fulltext-toggle-text">Full text</span>
-          </label>
+          <div class="search-toggle-stack">
+            <label class="fulltext-toggle-label" title="Search within book content">
+              <input
+                type="checkbox"
+                id="fulltext-search-toggle"
+                class="fulltext-toggle-checkbox"
+              >
+              <span class="fulltext-toggle-slider"></span>
+              <span class="fulltext-toggle-text">Full text</span>
+            </label>
+            <label class="fulltext-toggle-label" title="Search by meaning">
+              <input
+                type="checkbox"
+                id="semantic-search-toggle"
+                class="fulltext-toggle-checkbox"
+              >
+              <span class="fulltext-toggle-slider"></span>
+              <span class="fulltext-toggle-text">Semantic</span>
+            </label>
+          </div>
         </div>
         {{-- NO `active` class here: that is what defers the initial content load --}}
         <button class="arranger-button" data-content="most-recent">Most Recent</button>

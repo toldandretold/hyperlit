@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1749 functions in 369 modules · 10 object stores · 10 PG tables · 3616 edges
+**MarkdownDB** schema v28 · 1749 functions in 369 modules · 10 object stores · 10 PG tables · 3617 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1562,7 +1562,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SearchToolbarManager.updateNavigationButtons` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `toggleSearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `destroyHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | — | — | — | — |
-| `initializeHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | `localStorage` | — | read/write | — |
+| `initializeHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | `localStorage` | `localStorage` | read/write | — |
 | `searchCacheClear` | `search/searchResultCache` | — | — | — | — |
 | `searchCacheGet` | `search/searchResultCache` | — | — | — | — |
 | `searchCacheSet` | `search/searchResultCache` | — | — | — | — |

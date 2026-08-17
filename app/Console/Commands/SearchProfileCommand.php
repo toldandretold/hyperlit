@@ -149,6 +149,22 @@ class SearchProfileCommand extends Command
         $shapes['nodes (exact/simple)'] = $search->buildNodeSearchQuery($tsQuery, 'simple', self::LIMIT, $creator, null);
         $shapes['nodes (stemmed/english)'] = $search->buildNodeSearchQuery($tsQuery, 'english', self::LIMIT, $creator, null);
 
+        // Semantic shape needs a REAL query vector (a zero-vector EXPLAIN shows
+        // a plan but meaningless distances) — embed live when a key is present,
+        // otherwise skip honestly.
+        if (config('services.llm.api_key')) {
+            $embedding = app(\App\Services\EmbeddingService::class)
+                ->embed((string) $this->argument('query'), 'search_query: ', maxRetries: 1);
+            if ($embedding !== null) {
+                $visibleBooks = $search->getVisibleSemanticSearchBooks($creator, null);
+                $shapes['nodes (semantic/hnsw)'] = $search->buildSemanticNodeSearchQuery($embedding, self::LIMIT, $visibleBooks);
+            } else {
+                $this->warn('Embedding API unavailable — skipping the semantic shape.');
+            }
+        } else {
+            $this->warn('LLM_API_KEY not configured — skipping the semantic shape.');
+        }
+
         return $shapes;
     }
 
@@ -172,6 +188,10 @@ class SearchProfileCommand extends Command
                 [$creator ?? '', $userToken, '']
             );
         }
+
+        // Production parity for the semantic shape (harmless for GIN shapes):
+        // searchSemantic runs with iterative scan on, so profile the same plan.
+        $connection->statement('SET hnsw.iterative_scan = relaxed_order');
 
         $verb = $this->option('analyze') ? 'EXPLAIN (ANALYZE, BUFFERS, VERBOSE)' : 'EXPLAIN (VERBOSE)';
         $rows = $connection->select("{$verb} {$sql}", $params);

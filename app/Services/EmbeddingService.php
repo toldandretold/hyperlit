@@ -37,11 +37,13 @@ class EmbeddingService
      * Embed a single text string.
      * @param string $text The text to embed
      * @param string $prefix 'search_document: ' for indexing, 'search_query: ' for queries
+     * @param int $maxRetries Interactive callers (homepage search) pass 1 to fail
+     *                        fast instead of hanging ~6s behind the 2s/4s backoff
      * @return array|null The embedding vector, or null on failure
      */
-    public function embed(string $text, string $prefix = 'search_document: '): ?array
+    public function embed(string $text, string $prefix = 'search_document: ', int $maxRetries = 3): ?array
     {
-        $result = $this->embedBatch([$prefix . $text]);
+        $result = $this->embedBatch([$prefix . $text], $maxRetries);
         return $result[0] ?? null;
     }
 

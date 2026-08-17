@@ -48,8 +48,20 @@
   white-space: nowrap;
 }
 
+/* Visually hidden but focusable — display:none removed the checkboxes from
+   the tab order entirely (keyboard users couldn't reach the toggles).
+   Same pattern as .import-encrypt-toggle in newbookContainer.css. */
 .fulltext-toggle-checkbox {
-  display: none;
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.fulltext-toggle-checkbox:focus-visible + .fulltext-toggle-slider {
+  outline: 2px solid var(--color-accent, #4EACAE);
+  outline-offset: 2px;
 }
 
 .fulltext-toggle-slider {
@@ -85,6 +97,40 @@
   font-size: 9px;
   color: var(--color-text);
   opacity: 0.7;
+}
+
+/* Homepage-only: the Full text + Semantic toggles stack vertically beside a
+   two-line-high search bar, the pair matching the bar's height. Scoped to
+   #homepage-search-container — journal-home reuses .fulltext-toggle-* with a
+   single toggle and the default one-line bar. */
+.search-toggle-stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* The homepage field is a TEXTAREA (journal keeps a one-line input): wraps
+   long/pasted queries and auto-grows downward (JS sets height from
+   scrollHeight on input), capped before internal scroll takes over. Text
+   seats at line one naturally — textareas are top-aligned. */
+#homepage-search-container .search-input {
+  min-height: 58px;
+  max-height: 220px;
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+
+#homepage-search-container .search-toggle-stack {
+  min-height: 58px;
+}
+
+/* Keep the toggles pinned to the top line when the field has grown tall
+   (the lava-lamp hero override in homepage.css does the same) */
+#homepage-search-container.search-container {
+  align-items: flex-start;
 }
 
 /* Positioning anchor: wraps the input + dropdown so the dropdown centers
@@ -239,6 +285,33 @@
   color: color-mix(in srgb, var(--color-text) 50%, transparent);
   padding: 4px 0 0 12px;
   font-style: italic;
+}
+
+/* Semantic mode: flat ranked list of passages */
+.search-result-semantic {
+  padding: 8px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+
+.search-result-semantic:last-of-type {
+  border-bottom: none;
+}
+
+.search-result-semantic-source {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  margin-top: 4px;
+}
+
+.search-result-similarity {
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent, #4EACAE) 18%, transparent);
+  color: var(--color-accent, #4EACAE);
+  white-space: nowrap;
 }
 
 /* Loading and status states */

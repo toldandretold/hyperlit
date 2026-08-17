@@ -58,6 +58,13 @@ export function initWheelScrollForwarder(): void {
     const target = e.target instanceof Element ? e.target : null;
     // scrollable overlay inside the fixed header (search results) → let it scroll natively
     if (target && target.closest(SCROLLABLE_OVERLAY_SEL)) return;
+    // the homepage search textarea scrolls internally once its auto-grow hits
+    // max-height — exempt it ONLY while it actually overflows, so a wheel over
+    // a short query still forwards to the page instead of dying on the field
+    if (target) {
+      const searchField = target.closest<HTMLElement>('#homepage-search-input');
+      if (searchField && searchField.scrollHeight > searchField.clientHeight) return;
+    }
     // over the reading content (and not the fixed card): let native scroll run
     if (target && target.closest(CONTENT_SEL) && !target.closest('.fixed-header')) return;
     // dead zone (fixed header or side margins) → forward the wheel to the scroller
