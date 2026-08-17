@@ -99,10 +99,10 @@
   opacity: 0.7;
 }
 
-/* Homepage-only: the Full text + Semantic toggles stack vertically beside a
-   two-line-high search bar, the pair matching the bar's height. Scoped to
-   #homepage-search-container — journal-home reuses .fulltext-toggle-* with a
-   single toggle and the default one-line bar. */
+/* The Full text + Semantic toggles stack vertically beside a two-line-high
+   search bar, the pair matching the bar's height. Emitted by
+   partials/search-box.blade.php on every page that mounts a searchBox
+   instance (home + journals). */
 .search-toggle-stack {
   display: flex;
   flex-direction: column;
@@ -111,11 +111,11 @@
   flex-shrink: 0;
 }
 
-/* The homepage field is a TEXTAREA (journal keeps a one-line input): wraps
-   long/pasted queries and auto-grows downward (JS sets height from
-   scrollHeight on input), capped before internal scroll takes over. Text
-   seats at line one naturally — textareas are top-aligned. */
-#homepage-search-container .search-input {
+/* The search field is a TEXTAREA: wraps long/pasted queries and auto-grows
+   downward (JS sets height from scrollHeight on input), capped before
+   internal scroll takes over. Text seats at line one naturally — textareas
+   are top-aligned. `--multiline` comes from the shared partial. */
+.search-container--multiline .search-input {
   min-height: 58px;
   max-height: 220px;
   resize: none;
@@ -123,13 +123,13 @@
   line-height: 1.5;
 }
 
-#homepage-search-container .search-toggle-stack {
+.search-container--multiline .search-toggle-stack {
   min-height: 58px;
 }
 
 /* Keep the toggles pinned to the top line when the field has grown tall
    (the lava-lamp hero override in homepage.css does the same) */
-#homepage-search-container.search-container {
+.search-container--multiline.search-container {
   align-items: flex-start;
 }
 

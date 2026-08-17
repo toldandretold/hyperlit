@@ -76,12 +76,31 @@ test('journal hero: glass card renders in-viewport, feeds open/close, about copy
   await expect(page.locator('#journal-fulltext-toggle')).toBeAttached(); // homepage-parity toggle
   await expect(page.locator('.arranger-button[data-sort="published"]')).toBeVisible();
 
-  // 3b. journal-scoped search, both modes (homepage parity). Titles mode
+  // 3b. journal-scoped search, all three modes (homepage parity). Titles mode
   //     (default) matches the harvested article's title; Full text mode
-  //     returns grouped match snippets from inside it.
+  //     returns grouped match snippets from inside it; Semantic mode returns
+  //     ranked passages with a match% badge.
   await page.fill('#journal-search-input', 'colonialism');
   await expect(page.locator('#journal-search-results .search-result-link').first()).toBeVisible({ timeout: 10_000 });
-  await page.locator('.fulltext-toggle-label').click();
+  await page.locator('label:has(#journal-fulltext-toggle)').click();
+  await expect(page.locator('#journal-search-results .search-result-match-link').first()).toBeVisible({ timeout: 10_000 });
+
+  // Semantic: checking it UNCHECKS full text (mutual exclusion), and the
+  // shelf-scoped embedding search renders the flat ranked list. The query
+  // embed needs the live provider (LLM_API_KEY) — a 503 renders the
+  // "temporarily unavailable" error; skip (env gap), don't fail.
+  await page.locator('label:has(#journal-semantic-toggle)').click();
+  await expect(page.locator('#journal-fulltext-toggle')).not.toBeChecked();
+  const semanticResult = page.locator('#journal-search-results .search-result-semantic').first();
+  const semanticUnavailable = page.locator('#journal-search-results .search-error');
+  await expect(semanticResult.or(semanticUnavailable).first()).toBeVisible({ timeout: 15_000 });
+  test.skip(await semanticUnavailable.isVisible(), 'embedding provider unavailable in this environment');
+  await expect(semanticResult.locator('.search-result-similarity')).toBeVisible(); // the match% badge
+  await expect(semanticResult.locator('.search-result-similarity')).toHaveText(/\d+% match/);
+
+  // back to Full text (unchecks semantic) for the persistence check below
+  await page.locator('label:has(#journal-fulltext-toggle)').click();
+  await expect(page.locator('#journal-semantic-toggle')).not.toBeChecked();
   await expect(page.locator('#journal-search-results .search-result-match-link').first()).toBeVisible({ timeout: 10_000 });
 
   // 3c. persistence parity with home: query + toggle survive a reload
@@ -93,7 +112,7 @@ test('journal hero: glass card renders in-viewport, feeds open/close, about copy
 
   // reset search state so the rest of the spec starts clean
   await page.fill('#journal-search-input', '');
-  await page.locator('.fulltext-toggle-label').click(); // back to titles mode
+  await page.locator('label:has(#journal-fulltext-toggle)').click(); // back to titles mode
   await page.keyboard.press('Escape');
 
   // 4. scroll reveals the about copy and docks the hero

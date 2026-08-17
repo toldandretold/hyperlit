@@ -67,7 +67,7 @@ test('GET /api/search/semantic returns the envelope with a seeded hit', function
     // Query vector identical to the seeded node vector → distance 0, passes
     // any sane max-distance cutoff.
     $this->mock(EmbeddingService::class)
-        ->shouldReceive('embed')
+        ->shouldReceive('embedSearchQuery')
         ->once()
         ->andReturn(array_fill(0, 768, 0.1));
 
@@ -91,7 +91,7 @@ test('GET /api/search/semantic returns the envelope with a seeded hit', function
 
 test('short query returns empty results without embedding', function () {
     $this->mock(EmbeddingService::class)
-        ->shouldReceive('embed')
+        ->shouldReceive('embedSearchQuery')
         ->never();
 
     $this->getJson('/api/search/semantic?q=ab')
@@ -100,7 +100,9 @@ test('short query returns empty results without embedding', function () {
 });
 
 test('embedding provider outage returns 503, and the failure is not cached', function () {
-    $mock = $this->mock(EmbeddingService::class);
+    // Partial mock: embedSearchQuery runs for real (exercising its vector
+    // cache), only the underlying provider call is faked.
+    $mock = $this->partialMock(EmbeddingService::class);
     $mock->shouldReceive('embed')->once()->andReturn(null);
 
     $this->assertApiError($this->getJson('/api/search/semantic?q=provider outage probe'), 503);
@@ -121,7 +123,7 @@ test('results beyond the max-distance cutoff are dropped', function () {
     $far = array_fill(0, 768, 0.0);
     $far[0] = 1.0;
     $this->mock(EmbeddingService::class)
-        ->shouldReceive('embed')
+        ->shouldReceive('embedSearchQuery')
         ->once()
         ->andReturn($far);
 

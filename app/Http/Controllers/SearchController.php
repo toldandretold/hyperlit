@@ -441,23 +441,14 @@ class SearchController extends Controller
         try {
             $norm = mb_strtolower($query);
 
-            // Query vectors are user-independent — cache 1h shared across all
-            // users. Only cache on success: a null (provider outage) cached for
-            // an hour would pin the 503 long after recovery.
-            $vecCacheKey = 'search:semantic:vec:' . md5($norm);
-            $embedMs = 0.0;
-            $queryEmbedding = Cache::get($vecCacheKey);
+            $t = hrtime(true);
+            $queryEmbedding = $this->embeddingService->embedSearchQuery($norm);
+            $embedMs = round((hrtime(true) - $t) / 1e6, 1);
             if ($queryEmbedding === null) {
-                $t = hrtime(true);
-                $queryEmbedding = $this->embeddingService->embed($norm, 'search_query: ', maxRetries: 1);
-                $embedMs = round((hrtime(true) - $t) / 1e6, 1);
-                if ($queryEmbedding === null) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Semantic search is temporarily unavailable',
-                    ], 503);
-                }
-                Cache::put($vecCacheKey, $queryEmbedding, 3600);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Semantic search is temporarily unavailable',
+                ], 503);
             }
 
             $userKey = Auth::id() ?? $request->cookie('anon_token') ?? 'guest';
@@ -470,52 +461,7 @@ class SearchController extends Controller
                     $request->cookie('anon_token'),
                 );
 
-                [$sql, $params] = $this->searchService->buildSemanticNodeSearchQuery(
-                    $queryEmbedding,
-                    $limit,
-                    $visibleBooks,
-                );
-
-                // Search connection (BYPASSRLS): the visibility clause inside
-                // the query is the only access guard — see buildSemanticNodeSearchQuery.
-                //
-                // iterative_scan (pgvector ≥0.8) is REQUIRED for correctness,
-                // not a tuning knob: without it the HNSW scan emits at most
-                // hnsw.ef_search (40) tuples, so a query whose nearest raw
-                // neighbours are dominated by filtered-out nodes under-fills
-                // ("marxism" reproduced this — see the builder's doc block).
-                // relaxed_order is fine — the outer query re-orders by
-                // distance. SET LOCAL needs the transaction.
-                $conn = DB::connection(config('database.search_read_connection'));
-                $rows = $conn->transaction(function () use ($conn, $sql, $params) {
-                    $conn->statement('SET LOCAL hnsw.iterative_scan = relaxed_order');
-                    return $conn->select($sql, $params);
-                });
-
-                // Distance cutoff applied here, not in SQL, to keep the HNSW
-                // ordered scan clean.
-                $maxDistance = (float) config('services.llm.semantic_max_distance');
-
-                // Floor-only rescale for the badge (see the config comment):
-                // shifts the zero point to the measured noise floor, top stays
-                // a true 100%. `similarity` stays raw for API consumers.
-                $matchFloor = min((float) config('services.llm.semantic_match_floor'), 0.99);
-
-                $results = collect($rows)
-                    ->filter(fn ($r) => (float) $r->distance <= $maxDistance)
-                    ->map(function ($r) use ($matchFloor) {
-                        $sim = 1 - (float) $r->distance;
-                        return [
-                            'book' => $r->book,
-                            'node_id' => $r->node_id,
-                            'startLine' => $r->startLine,
-                            'title' => $r->title,
-                            'author' => $r->author,
-                            'excerpt' => $r->excerpt,
-                            'similarity' => round($sim, 3),
-                            'match' => (int) round(max(0, ($sim - $matchFloor) / (1 - $matchFloor)) * 100),
-                        ];
-                    })->values();
+                $results = $this->searchService->runSemanticNodeSearch($queryEmbedding, $limit, $visibleBooks);
 
                 return ['results' => $results, 'count' => $results->count()];
             });

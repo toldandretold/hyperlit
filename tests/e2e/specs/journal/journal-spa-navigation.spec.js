@@ -52,7 +52,7 @@ test('full-text search result opens the reader highlighted at the match', async 
   await page.waitForLoadState('networkidle');
 
   // Full-text mode, search, click the first match snippet.
-  await page.locator('.fulltext-toggle-label').click();
+  await page.locator('label:has(#journal-fulltext-toggle)').click();
   await page.fill('#journal-search-input', 'colonialism');
   const match = page.locator('#journal-search-results .search-result-match-link').first();
   await expect(match).toBeVisible({ timeout: 10_000 });

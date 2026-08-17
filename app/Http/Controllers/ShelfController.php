@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Shelf;
 use App\Models\ShelfItem;
 use App\Models\ShelfPin;
+use App\Services\EmbeddingService;
 use App\Services\LibraryCardGenerator;
 use App\Services\SearchService;
 use App\Services\ShelfCacheInvalidator;
@@ -609,8 +610,24 @@ class ShelfController extends Controller
     }
 
     /**
-     * Public full-text search within a public shelf's books (no auth required).
-     * Only searches public books in the shelf.
+     * The shelf's public member books — the visibility scope for every
+     * publicSearch mode. Resolved via pgsql_admin: shelf_items' RLS select
+     * policy is owner-only, so a guest-context join yields nothing.
+     */
+    private function shelfPublicBooks(string $id): array
+    {
+        return DB::connection('pgsql_admin')->table('shelf_items')
+            ->join('library', 'shelf_items.book', '=', 'library.book')
+            ->where('shelf_items.shelf_id', $id)
+            ->where('library.visibility', 'public')
+            ->pluck('library.book')
+            ->toArray();
+    }
+
+    /**
+     * Public search within a public shelf's books (no auth required) —
+     * mode=library (titles), mode=semantic (embeddings), default full-text.
+     * Only ever searches public books in the shelf.
      */
     public function publicSearch(Request $request, string $id)
     {
@@ -639,16 +656,8 @@ class ShelfController extends Controller
         // mode=library: titles & authors within the shelf's public books —
         // the journal page's default search mode (homepage parity: its toggle
         // switches titles↔full-text exactly like home's, just shelf-scoped).
-        // Book list resolved via pgsql_admin (like the full-text branch):
-        // shelf_items' RLS select policy is owner-only, so the service's
-        // 'shelf' scope joins to nothing for guests.
         if ($request->input('mode') === 'library') {
-            $shelfBooks = DB::connection('pgsql_admin')->table('shelf_items')
-                ->join('library', 'shelf_items.book', '=', 'library.book')
-                ->where('shelf_items.shelf_id', $id)
-                ->where('library.visibility', 'public')
-                ->pluck('library.book')
-                ->toArray();
+            $shelfBooks = $this->shelfPublicBooks($id);
 
             $results = $searchService->searchLibraryByKeyword($query, min($limit, 20), 'books', null, null, $shelfBooks);
 
@@ -666,6 +675,51 @@ class ShelfController extends Controller
             ]);
         }
 
+        // mode=semantic: same engine as the homepage semantic endpoint
+        // (shared embed cache + SearchService::runSemanticNodeSearch), scoped
+        // to the shelf's public members instead of the global visible set.
+        if ($request->input('mode') === 'semantic') {
+            if (mb_strlen($query) < 3) {
+                return response()->json([
+                    'success' => true,
+                    'results' => [],
+                    'query' => $query,
+                    'mode' => 'semantic',
+                ]);
+            }
+
+            $norm = mb_strtolower($query);
+            $queryEmbedding = app(EmbeddingService::class)->embedSearchQuery($norm);
+            if ($queryEmbedding === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Semantic search is temporarily unavailable',
+                ], 503);
+            }
+
+            // Public shelf → identical results for every viewer, cache per shelf.
+            $payload = Cache::remember(
+                'search:semantic:shelf:' . $id . ':' . md5($norm) . ':' . $limit,
+                60,
+                function () use ($searchService, $queryEmbedding, $limit, $id) {
+                    $results = $searchService->runSemanticNodeSearch(
+                        $queryEmbedding,
+                        $limit,
+                        $this->shelfPublicBooks($id),
+                    );
+                    return ['results' => $results, 'count' => $results->count()];
+                }
+            );
+
+            return response()->json([
+                'success' => true,
+                'results' => $payload['results'],
+                'query' => $query,
+                'mode' => 'semantic',
+                'count' => $payload['count'],
+            ]);
+        }
+
         $tsQuery = $searchService->buildTsQuery($query);
 
         if (empty($tsQuery)) {
@@ -677,12 +731,7 @@ class ShelfController extends Controller
         }
 
         // Only search public books in the shelf
-        $books = DB::connection('pgsql_admin')->table('shelf_items')
-            ->join('library', 'shelf_items.book', '=', 'library.book')
-            ->where('shelf_items.shelf_id', $id)
-            ->where('library.visibility', 'public')
-            ->pluck('library.book')
-            ->toArray();
+        $books = $this->shelfPublicBooks($id);
 
         if (empty($books)) {
             return response()->json([

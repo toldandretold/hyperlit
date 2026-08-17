@@ -36,13 +36,14 @@ const CONTENT_SEL =
   '.home-content-wrapper .main-content, .user-content-wrapper .main-content, .welcome-copy, .reader-content-wrapper';
 // overlays that are their own scrollers but sit outside the content wrapper, so the
 // dead-zone rule below would forward their wheel to the page — exempt them explicitly:
-// the search-results dropdown (inside .fixed-header), the newbook/import form, the glass
+// the search-results dropdowns (by CLASS — home's and every journal's searchBox
+// instance has its own id, inside .fixed-header), the newbook/import form, the glass
 // panels (TOC / user auth / source), each of which scrolls via its own inner .scroller,
 // the citation-mode results panel (sibling of #edit-toolbar, scrolls its own result list
 // via overflow-y:auto), and the shelf-preview overlay (appended to document.body). Without
 // these the capture-phase handler steals the wheel from the panel and scrolls the page behind it.
 const SCROLLABLE_OVERLAY_SEL =
-  '#search-results-container, #newbook-container, #toc-container, #user-container, #source-container, #citation-toolbar-results, .shelf-preview-overlay';
+  '.search-results, #newbook-container, #toc-container, #user-container, #source-container, #citation-toolbar-results, .shelf-preview-overlay';
 
 export function initWheelScrollForwarder(): void {
   if (wheelHandler) return; // document-delegated singleton — create once
@@ -58,11 +59,12 @@ export function initWheelScrollForwarder(): void {
     const target = e.target instanceof Element ? e.target : null;
     // scrollable overlay inside the fixed header (search results) → let it scroll natively
     if (target && target.closest(SCROLLABLE_OVERLAY_SEL)) return;
-    // the homepage search textarea scrolls internally once its auto-grow hits
-    // max-height — exempt it ONLY while it actually overflows, so a wheel over
-    // a short query still forwards to the page instead of dying on the field
+    // the search-box textarea (home + journal pages) scrolls internally once
+    // its auto-grow hits max-height — exempt it ONLY while it actually
+    // overflows, so a wheel over a short query still forwards to the page
+    // instead of dying on the field
     if (target) {
-      const searchField = target.closest<HTMLElement>('#homepage-search-input');
+      const searchField = target.closest<HTMLElement>('textarea.search-input');
       if (searchField && searchField.scrollHeight > searchField.clientHeight) return;
     }
     // over the reading content (and not the fixed card): let native scroll run

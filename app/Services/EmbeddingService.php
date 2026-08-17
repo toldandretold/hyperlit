@@ -48,6 +48,30 @@ class EmbeddingService
     }
 
     /**
+     * Embed a user search query for the semantic search endpoints (homepage +
+     * journal/shelf), with the shared 1h vector cache. Query vectors are
+     * user- and scope-independent, so the cache is global. Only successes are
+     * cached — a null (provider outage) cached for an hour would pin the
+     * caller's 503 long after recovery. Fails fast (maxRetries 1): these are
+     * interactive paths where a 503 beats a ~6s backoff hang.
+     *
+     * @param string $normQuery already-normalized (trimmed, lowercased) query
+     */
+    public function embedSearchQuery(string $normQuery): ?array
+    {
+        $cacheKey = 'search:semantic:vec:' . md5($normQuery);
+        $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+        $vector = $this->embed($normQuery, 'search_query: ', 1);
+        if ($vector !== null) {
+            \Illuminate\Support\Facades\Cache::put($cacheKey, $vector, 3600);
+        }
+        return $vector;
+    }
+
+    /**
      * Embed multiple texts in a single API call.
      * Texts should already include their prefix.
      * @return array Array of embedding vectors (null entries for failures)

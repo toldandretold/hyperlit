@@ -78,4 +78,19 @@ describe('homepage search textarea exemption', () => {
         expect(event.defaultPrevented).toBe(true);
         expect(wrapper.scrollTop).toBe(25);
     });
+
+    it('exempts any .search-results dropdown regardless of its id (journal regression)', () => {
+        // The journal dropdown is #journal-search-results — the exemption must
+        // match by class, not the homepage id.
+        const dropdown = document.createElement('div');
+        dropdown.id = 'journal-search-results';
+        dropdown.className = 'search-results visible';
+        document.querySelector('.fixed-header').appendChild(dropdown);
+
+        const wrapper = document.querySelector('.home-content-wrapper');
+        const event = wheelOn(dropdown, 30);
+
+        expect(event.defaultPrevented).toBe(false); // native dropdown scroll runs
+        expect(wrapper.scrollTop).toBe(0);
+    });
 });

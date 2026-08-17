@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1749,
-    "moduleCount": 369,
+    "fnCount": 1750,
+    "moduleCount": 370,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3617,
+    "edgeCount": 3620,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -14171,6 +14171,14 @@
       "kind": "fn",
       "stage": "infra",
       "module": "search/postgreSQLsearch/homepageSearch",
+      "leaf": true
+    },
+    {
+      "id": "search/searchBox:createSearchBox",
+      "label": "createSearchBox",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/searchBox",
       "leaf": false
     },
     {
@@ -20105,10 +20113,19 @@
       "id": "search/postgreSQLsearch/homepageSearch",
       "label": "search/postgreSQLsearch/homepageSearch",
       "stage": "infra",
-      "band": "capture",
+      "band": "store",
       "fnIds": [
         "search/postgreSQLsearch/homepageSearch:destroyHomepageSearch",
         "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch"
+      ]
+    },
+    {
+      "id": "search/searchBox",
+      "label": "search/searchBox",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "search/searchBox:createSearchBox"
       ]
     },
     {
@@ -29778,9 +29795,9 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
+      "id": "dom__domread__search/searchBox:createSearchBox",
       "source": "dom",
-      "target": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
+      "target": "search/searchBox:createSearchBox",
       "rel": "domread"
     },
     {
@@ -40455,15 +40472,33 @@
       "rel": "domwrite"
     },
     {
-      "id": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch__domwrite__dom",
-      "source": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
+      "id": "search/searchBox:createSearchBox__call__search/searchResultCache:searchCacheGet",
+      "source": "search/searchBox:createSearchBox",
+      "target": "search/searchResultCache:searchCacheGet",
+      "rel": "call"
+    },
+    {
+      "id": "search/searchBox:createSearchBox__call__search/searchResultCache:searchCacheSet",
+      "source": "search/searchBox:createSearchBox",
+      "target": "search/searchResultCache:searchCacheSet",
+      "rel": "call"
+    },
+    {
+      "id": "search/searchBox:createSearchBox__domwrite__dom",
+      "source": "search/searchBox:createSearchBox",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch__write__store:localStorage",
-      "source": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
+      "id": "search/searchBox:createSearchBox__write__store:localStorage",
+      "source": "search/searchBox:createSearchBox",
       "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "search/searchBox:createSearchBox__write__store:sessionStorage",
+      "source": "search/searchBox:createSearchBox",
+      "target": "store:sessionStorage",
       "rel": "write"
     },
     {
@@ -42669,9 +42704,9 @@
       "rel": "read"
     },
     {
-      "id": "store:localStorage__read__search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
+      "id": "store:localStorage__read__search/searchBox:createSearchBox",
       "source": "store:localStorage",
-      "target": "search/postgreSQLsearch/homepageSearch:initializeHomepageSearch",
+      "target": "search/searchBox:createSearchBox",
       "rel": "read"
     },
     {
@@ -48575,6 +48610,11 @@
     },
     {
       "source": "search/postgreSQLsearch/homepageSearch",
+      "target": "search/searchBox",
+      "kind": "static"
+    },
+    {
+      "source": "search/searchBox",
       "target": "search/searchResultCache",
       "kind": "static"
     }

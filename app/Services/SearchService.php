@@ -717,6 +717,58 @@ class SearchService
     }
 
     /**
+     * Execute the semantic node search end-to-end for a pre-computed query
+     * vector and book set: run the builder's SQL with iterative scan enabled,
+     * apply the distance cutoff, and shape rows for the search UIs. Shared by
+     * the homepage endpoint (global visible set) and the journal/shelf
+     * endpoint (shelf's public members) so cutoff/match semantics can't drift.
+     *
+     * `match` is the user-facing floor-rescaled percentage; `similarity` is
+     * the raw cosine (see the config comments on semantic_match_floor).
+     *
+     * @param string[] $books the visibility scope — the ONLY access guard
+     * @return \Illuminate\Support\Collection<int, array>
+     */
+    public function runSemanticNodeSearch(array $queryEmbedding, int $limit, array $books)
+    {
+        [$sql, $params] = $this->buildSemanticNodeSearchQuery($queryEmbedding, $limit, $books);
+
+        // iterative_scan (pgvector ≥0.8) is REQUIRED for correctness, not a
+        // tuning knob: without it the HNSW scan emits at most hnsw.ef_search
+        // (40) tuples, so a query whose nearest raw neighbours are dominated
+        // by out-of-scope nodes under-fills — see buildSemanticNodeSearchQuery.
+        // relaxed_order is fine (the outer query re-orders by distance);
+        // SET LOCAL needs the transaction.
+        $conn = DB::connection(config('database.search_read_connection'));
+        $rows = $conn->transaction(function () use ($conn, $sql, $params) {
+            $conn->statement('SET LOCAL hnsw.iterative_scan = relaxed_order');
+            return $conn->select($sql, $params);
+        });
+
+        // Distance cutoff applied here, not in SQL, to keep the HNSW ordered
+        // scan clean. Match% = floor-only rescale: zero point at the measured
+        // cosine noise floor, top unclamped (identical = a true 100).
+        $maxDistance = (float) config('services.llm.semantic_max_distance');
+        $matchFloor = min((float) config('services.llm.semantic_match_floor'), 0.99);
+
+        return collect($rows)
+            ->filter(fn ($r) => (float) $r->distance <= $maxDistance)
+            ->map(function ($r) use ($matchFloor) {
+                $sim = 1 - (float) $r->distance;
+                return [
+                    'book' => $r->book,
+                    'node_id' => $r->node_id,
+                    'startLine' => $r->startLine,
+                    'title' => $r->title,
+                    'author' => $r->author,
+                    'excerpt' => $r->excerpt,
+                    'similarity' => round($sim, 3),
+                    'match' => (int) round(max(0, ($sim - $matchFloor) / (1 - $matchFloor)) * 100),
+                ];
+            })->values();
+    }
+
+    /**
      * Scope clause for the canonical branch of searchForCitations.
      * Returns [whereClause, params].
      *

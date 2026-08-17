@@ -81,28 +81,16 @@
       <div class="arranger-buttons-container">
         <!-- Journal-scoped search (journalSearch component keys off these ids;
              deliberately NOT homepageSearch's ids — that component is global search) -->
-        <div id="journal-search-container" class="search-container" data-shelf-id="{{ $shelfId }}">
-          <div class="search-input-anchor">
-            <input
-              type="text"
-              id="journal-search-input"
-              class="search-input"
-              placeholder="Search titles & authors..."
-              autocomplete="off"
-              spellcheck="false"
-            >
-            <div id="journal-search-results" class="search-results hidden"></div>
-          </div>
-          <label class="fulltext-toggle-label" title="Search within article content">
-            <input
-              type="checkbox"
-              id="journal-fulltext-toggle"
-              class="fulltext-toggle-checkbox"
-            >
-            <span class="fulltext-toggle-slider"></span>
-            <span class="fulltext-toggle-text">Full text</span>
-          </label>
-        </div>
+        @include('partials.search-box', [
+          'containerId'      => 'journal-search-container',
+          'inputId'          => 'journal-search-input',
+          'resultsId'        => 'journal-search-results',
+          'fulltextToggleId' => 'journal-fulltext-toggle',
+          'semanticToggleId' => 'journal-semantic-toggle',
+          'placeholder'      => 'Search titles & authors...',
+          'fulltextTitle'    => 'Search within article content',
+          'shelfId'          => $shelfId,
+        ])
         {{-- NO `active` class here: that is what defers the initial content load.
              data-content stays EMPTY (parity with user.blade visitor shelf tabs):
              the shelf branch fetches the render endpoint and caches the bookId. --}}
