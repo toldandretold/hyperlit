@@ -358,3 +358,131 @@ test('fetchHtmlPlain yields null on non-200, non-HTML, or tiny responses', funct
     expect($m->invoke($svc, 'https://doi.invalid/b'))->toBeNull();
     expect($m->invoke($svc, 'https://doi.invalid/c'))->toBeNull();
 });
+
+// ── The shell retry ──
+//
+// Atypon answers intermittently with an HTTP-200 page carrying zero prose instead of a 403 (the
+// 2026-08-17 GSCJ batch lost ~1 in 5 works to it, and a bare GET from a clean IP returned the full
+// article seconds later). Both fetch channels inherit the work's single sticky-proxy session, so
+// one unlucky IP wrote the work off entirely. One retry on a fresh session is the fix; a genuinely
+// walled page must still fail fast rather than tripling the load on the publisher.
+//
+// These tests take the FAILING path, which means setPdfUrlStatus updates the library row inside
+// RefreshDatabase's open transaction. A pgsql_admin delete afterwards would block on that
+// transaction forever (docs/journal-harvest.md), so they seed deterministic ids and clean up at
+// the START — never in a finally.
+
+/** A 200 that is HTML, long enough to pass the size check, and has no prose at all. */
+function gateShellPage(): string
+{
+    return '<html><head><title>Global Social Challenges Journal</title></head><body>'
+        . '<nav class="site-nav">' . str_repeat('<div class="menu-item"><span>Browse</span></div>', 40) . '</nav>'
+        . '<div id="articleBody"></div></body></html>';
+}
+
+/**
+ * A synthetic article that clears the body gate (>= 5 blocks over 400 chars) and carries NO
+ * images. Deliberately not a real fixture: every image would cost a DNS resolution inside
+ * UrlGuard, which turned this test into a multi-minute crawl and measured the wrong thing.
+ */
+function gateArticlePage(): string
+{
+    $sentence = 'This paragraph exists so the body-presence gate sees a real article rather than '
+        . 'a navigation shell, and it is padded well past the four hundred character floor that '
+        . 'separates a body paragraph from a caption or a menu label in the assessor. ';
+    $para = '<p>' . str_repeat($sentence, 3) . '</p>';
+
+    return '<html><head><title>Gate Shell Work</title></head><body><article>'
+        . str_repeat($para, 8) . '</article></body></html>';
+}
+
+/** Seed a stub under a FIXED id, clearing any leftover from a previous run first. */
+function gateSeedShellStub(string $suffix): string
+{
+    $book = 'book_acqgate_shell_' . $suffix;
+    gateCleanup($book);
+
+    return gateSeedStub(['book' => $book]);
+}
+
+/**
+ * Plain rung only: Http::fake cannot stub the browser rung's Node subprocess, so leaving it on
+ * would burn its full 70s timeout on every failed attempt.
+ */
+function gateFakeShellFetch(string $url, callable $bodyForHit, ?int &$hits): void
+{
+    $hits = 0;
+    $counter = &$hits;
+    Http::fake(function ($request) use (&$counter, $url, $bodyForHit) {
+        if ($request->url() !== $url) {
+            return Http::response('', 404);
+        }
+        $counter++;
+
+        return Http::response($bodyForHit($counter), 200, ['Content-Type' => 'text/html; charset=utf-8']);
+    });
+}
+
+test('a body-absent shell is retried once on a fresh session, and the second IP wins', function () {
+    // A retry is only attempted when a proxy could hand us a different address.
+    config([
+        'services.source_fetch.proxy'   => 'http://user:pass@proxy.invalid:1234',
+        'services.source_fetch.browser' => false,
+    ]);
+
+    $url = 'https://doi.invalid/shell-then-article';
+    gateFakeShellFetch($url, fn (int $n) => $n === 1 ? gateShellPage() : gateArticlePage(), $hits);
+
+    $book = gateSeedShellStub('winner');
+    $result = app(ContentFetchService::class)->importHtmlLane(
+        (object) ['book' => $book, 'doi' => null, 'oa_url' => $url, 'title' => 'Gate Shell Work'],
+    );
+
+    expect($result['status'])->toBe('imported');
+    expect($hits)->toBe(2);   // exactly one retry, not a loop
+
+    // The evidence says a retry happened, so a later reader of the trace can tell a work that
+    // needed two goes from one that sailed through.
+    $trace = json_decode(file_get_contents(resource_path("markdown/{$book}/fetch_trace.json")), true);
+    expect($trace['shell_retry'] ?? false)->toBeTrue();
+});
+
+test('a page that is a shell from BOTH addresses fails once, without a third attempt', function () {
+    config([
+        'services.source_fetch.proxy'   => 'http://user:pass@proxy.invalid:1234',
+        'services.source_fetch.browser' => false,
+    ]);
+
+    $url = 'https://doi.invalid/always-a-shell';
+    gateFakeShellFetch($url, fn () => gateShellPage(), $hits);
+
+    $book = gateSeedShellStub('walled');
+    $result = app(ContentFetchService::class)->importHtmlLane(
+        (object) ['book' => $book, 'doi' => null, 'oa_url' => $url, 'title' => 'Gate Shell Work'],
+    );
+
+    expect($result['status'])->toBe('failed');
+    expect($result['gate'] ?? null)->toBe('body_absent');
+    expect($hits)->toBe(2);   // the original and ONE retry — never a third
+    expect(DB::connection('pgsql_admin')->table('nodes')->where('book', $book)->count())->toBe(0);
+});
+
+test('with no proxy configured the shell is not retried at all', function () {
+    config([
+        'services.source_fetch.proxy'   => null,
+        'services.source_fetch.browser' => false,
+    ]);
+    putenv('SOURCE_FETCH_PROXY=');
+
+    $url = 'https://doi.invalid/no-proxy-shell';
+    gateFakeShellFetch($url, fn () => gateShellPage(), $hits);
+
+    $book = gateSeedShellStub('noproxy');
+    $result = app(ContentFetchService::class)->importHtmlLane(
+        (object) ['book' => $book, 'doi' => null, 'oa_url' => $url, 'title' => 'Gate Shell Work'],
+    );
+
+    expect($result['status'])->toBe('failed');
+    // Same machine, same address — a second ask buys nothing and costs the publisher a request.
+    expect($hits)->toBe(1);
+});

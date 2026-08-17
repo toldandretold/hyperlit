@@ -68,6 +68,13 @@ class ContentFetchService
      */
     private const IMAGE_FETCH_DELAY_MS = 400;
 
+    /**
+     * Pause before re-asking for a page that came back as an empty shell. Long enough that the
+     * second attempt is not indistinguishable from a hammering retry loop, short enough that a
+     * sweep does not crawl.
+     */
+    private const SHELL_RETRY_DELAY_SECONDS = 3;
+
     public function __construct(FileHelpers $fileHelpers, HtmlProcessor $htmlProcessor, PdfProcessor $pdfProcessor, LlmService $llmService)
     {
         $this->fileHelpers = $fileHelpers;
@@ -234,10 +241,67 @@ class ContentFetchService
             $this->lastFetchTrace['won_host'] = parse_url($url, PHP_URL_HOST) ?: null;
             $this->lastFetchTrace['won_source'] = 'html_lane';
 
-            return $this->importHtmlPage($url, $bookId);
+            $result = $this->importHtmlPage($url, $bookId);
+
+            if (($result['gate'] ?? null) === 'body_absent' && $this->canRotateSession()) {
+                $result = $this->retryOnFreshSession($url, $bookId, $result);
+            }
+
+            return $result;
         } finally {
             $this->persistFetchTrace($bookId);
         }
+    }
+
+    /**
+     * One more go at a work that came back as an empty shell, from a DIFFERENT IP.
+     *
+     * Atypon hands out an HTTP-200 page with zero prose intermittently rather than a 403 (see
+     * importHtmlPage's docblock, and the 2026-08-17 GSCJ batch where it cost ~1 in 5 works). Both
+     * channels inherit the work's single sticky-proxy session, so one unlucky IP writes the work
+     * off entirely — while a bare GET from a clean IP demonstrably returns the full article. A
+     * fresh session is a fresh residential IP, which is the only variable worth changing.
+     *
+     * Exactly ONE retry: a genuinely walled or abstract-only page must still fail fast rather than
+     * tripling the load on a publisher we want to stay welcome at. Only fires when a proxy is
+     * configured at all — with none, the "retry" is this machine asking the same question from the
+     * same address, which buys nothing and costs the publisher a second request.
+     */
+    private function retryOnFreshSession(string $url, string $bookId, array $firstResult): array
+    {
+        sleep(self::SHELL_RETRY_DELAY_SECONDS);
+
+        $this->currentSession = Str::random(12);
+        $this->lastFetchTrace['session'] = $this->currentSession;
+        $this->lastFetchTrace['shell_retry'] = true;
+        if (($proxyUrl = self::stickyProxy($this->currentSession)) !== null) {
+            $this->lastFetchTrace['proxy'] = self::maskProxy($proxyUrl);
+        }
+
+        Log::info('Body-absent shell — retrying on a fresh proxy session', [
+            'book' => $bookId, 'url' => $url, 'session' => $this->currentSession,
+        ]);
+
+        $retry = $this->importHtmlPage($url, $bookId);
+
+        if ($retry['status'] !== 'failed') {
+            Log::info('Shell retry succeeded on the second IP', ['book' => $bookId, 'url' => $url]);
+            return $retry;
+        }
+
+        // Report the SECOND verdict only if it says something new; otherwise the first stands, so
+        // "walled twice from two IPs" reads as one honest failure rather than a louder one.
+        return ($retry['gate'] ?? null) === 'body_absent' ? $firstResult : $retry;
+    }
+
+    /**
+     * A retry is only meaningful when a fresh session can actually buy a different address —
+     * i.e. when there is a proxy in front of us at all. (A sticky-suffix pool rotates per session;
+     * a plain rotating pool rotates per connection. Either way, a new attempt gets a new IP.)
+     */
+    private function canRotateSession(): bool
+    {
+        return self::stickyProxy(Str::random(8)) !== null;
     }
 
     /**
@@ -545,6 +609,12 @@ class ContentFetchService
      */
     private function fetchHtmlViaBrowser(string $url): ?string
     {
+        // Optional host capability (see config/services.php). Absent, the plain rung is the whole
+        // ladder rather than a 70s wait for a process that was never going to work.
+        if (! config('services.source_fetch.browser', true)) {
+            return null;
+        }
+
         try {
             $proc = new \Symfony\Component\Process\Process(['node', base_path('scripts/fetch-html.mjs')], base_path());
             $proc->setInput(json_encode(['url' => $url, 'proxy' => $this->sessionProxyUrl()]));
@@ -1751,7 +1821,10 @@ class ContentFetchService
             // reconstructed by re-fetching). Overwritten each attempt, removed
             // by a later successful import.
             $this->persistRejectedPage($bookId, $html);
-            return ['status' => 'failed', 'reason' => $body['reason']];
+
+            // `gate` names WHICH gate refused, so a caller can tell "we were handed a shell"
+            // (worth another IP) from "this page is not the article" (never worth retrying).
+            return ['status' => 'failed', 'reason' => $body['reason'], 'gate' => 'body_absent'];
         }
 
         // 3. Persist. verified → paste_engine_html (canonical-eligible);

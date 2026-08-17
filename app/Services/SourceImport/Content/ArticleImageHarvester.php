@@ -63,6 +63,9 @@ class ArticleImageHarvester
     /** Ceiling on how many images one article may pull, so a pathological page can't run away. */
     private const MAX_IMAGES = 60;
 
+    /** host → UrlGuard verdict, reset per harvest (see hostIsSafe). */
+    private array $hostSafety = [];
+
     public function __construct(private BookImageStore $store)
     {
     }
@@ -86,6 +89,7 @@ class ArticleImageHarvester
         int $delayMs = 0,
     ): array {
         $stats = ['html' => $html, 'stored' => 0, 'failed' => 0, 'skipped' => 0];
+        $this->hostSafety = [];
         if (stripos($html, '<img') === false) {
             return $stats;
         }
@@ -145,7 +149,11 @@ class ArticleImageHarvester
             // these come out of a third-party page, so `<img src="http://169.254.169.254/…">` on a
             // hostile or compromised article would otherwise be pulled from inside our network.
             // Guarding here protects every caller, whatever fetcher they inject.
-            if (! UrlGuard::isSafeFetchUrl($absolute)) {
+            //
+            // Memoised per HOST because the guard resolves DNS: an article's figures are nearly
+            // always all on one host, so the un-memoised version paid a lookup per image — which
+            // on a figure-heavy page is the single slowest thing this class does.
+            if (! $this->hostIsSafe($absolute)) {
                 Log::warning('Article image URL refused by UrlGuard', ['url' => $absolute, 'book' => $bookId]);
                 $img->removeAttribute('src');
                 $stats['skipped']++;
@@ -323,6 +331,24 @@ class ArticleImageHarvester
         }
 
         return $fallback;
+    }
+
+    /**
+     * UrlGuard's verdict, cached per host for the life of this harvest.
+     *
+     * The guard resolves the hostname to decide whether the address is public, so the answer is a
+     * property of the HOST, not the path — and a figure set is nearly always one host. Scoped to
+     * one call rather than the process: a long-lived cache would be a way for a DNS answer to go
+     * stale in exactly the direction that matters.
+     */
+    private function hostIsSafe(string $url): bool
+    {
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        if ($host === '') {
+            return false;
+        }
+
+        return $this->hostSafety[$host] ??= UrlGuard::isSafeFetchUrl($url);
     }
 
     /** Is this URL obviously a spacer/blank rather than the figure? */

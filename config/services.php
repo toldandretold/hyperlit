@@ -285,6 +285,13 @@ return [
         // Run the challenge-solving browser headed (headless loses managed
         // challenges — proven by the Phase 0 spike). On Linux, wrap in xvfb.
         'headful' => env('SOURCE_FETCH_HEADFUL', true),
+        // The Playwright rung at all. It is an optional HOST capability (needs
+        // patchright installed) and the expensive one — a failed attempt costs
+        // the full 70s process timeout. Off = the plain proxied GET is the only
+        // channel, which is what tests want: Http::fake cannot reach into a Node
+        // subprocess, so an unstubbed browser rung turns a gate test into a
+        // multi-minute hang.
+        'browser' => env('SOURCE_FETCH_BROWSER', true),
     ],
 
     'stripe' => [
