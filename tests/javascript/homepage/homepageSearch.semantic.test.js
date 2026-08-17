@@ -211,6 +211,10 @@ describe('semantic rendering', () => {
 
         const link = resultsContainer().querySelector('.search-result-match-link');
         expect(link.getAttribute('href')).toBe('/book_7#7');
+        // No in-text-search handoff: a semantic hit doesn't contain the query
+        // words, so the reader must navigate by anchor alone, not hunt for a
+        // literal string that isn't there.
+        expect(link.hasAttribute('data-highlight-query')).toBe(false);
     });
 
     it('shows the provider-outage message on a 503', async () => {

@@ -258,6 +258,10 @@ export function createSearchBox(config: SearchBoxConfig) {
             // `match` is the server's floor-rescaled percentage: 0% = the
             // measured cosine noise floor (unrelated English), 100% =
             // identical — the top of the scale is real, not clamped.
+            // NO data-highlight-query handoff: the matched paragraph doesn't
+            // contain the query words, so the reader's in-text search would
+            // hunt for a literal string that isn't there and fail. The
+            // #startLine anchor alone lands on the paragraph.
             results.forEach((result: any) => {
                 const nodeAnchor = result.startLine ? `#${result.startLine}` : '';
                 const matchPct = typeof result.match === 'number'
@@ -266,8 +270,7 @@ export function createSearchBox(config: SearchBoxConfig) {
                 html += `
                     <li class="search-result-semantic">
                         <a href="/${encodeURIComponent(result.book)}${nodeAnchor}"
-                           class="search-result-match-link"
-                           data-highlight-query="${escapeHtml(currentSearchQuery)}">
+                           class="search-result-match-link">
                             <span class="search-result-snippet">${escapeHtml(result.excerpt)}</span>
                             <span class="search-result-semantic-source">
                                 <span class="search-result-book-title">${escapeHtml(result.title || 'Untitled')}</span>${matchPct}
