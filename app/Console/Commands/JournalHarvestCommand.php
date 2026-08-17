@@ -2,17 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Models\CanonicalSource;
 use App\Models\JournalSource;
 use App\Models\User;
-use App\Services\CanonicalSourceMatcher;
-use App\Services\CanonicalVersions\AutoVersionCreator;
-use App\Services\JournalHarvest\HtmlLaneCreator;
-use App\Services\OpenAlex\WorksApi;
-use App\Services\OpenAlex\WorkScorer;
-use App\Services\SourceHarvest\HarvestEligibility;
-use App\Services\SourceHarvest\HarvestShelf;
-use App\Services\SourceHarvest\WorkOcrCharger;
+use App\Services\JournalHarvest\JournalHarvestRunner;
 use Illuminate\Console\Command;
 
 /**
@@ -22,6 +14,11 @@ use Illuminate\Console\Command;
  * listed=false → /maintainer/conversion review). Runs inline — the operator
  * watches one journal at a time; Ctrl-C is free because every stage is
  * idempotent and a re-run resumes where it stopped.
+ *
+ * The stages themselves live in JournalHarvestRunner, shared with the console's
+ * buttons (JournalImportActionJob) so the two paths cannot drift; this command
+ * owns only option parsing, who-pays policy, and the coloured rendering of the
+ * runner's progress events.
  *
  * See docs/journal-harvest.md.
  */
@@ -40,19 +37,14 @@ class JournalHarvestCommand extends Command
 
     protected $description = 'Harvest all open-access works of one registry journal into the commons: enumerate via OpenAlex, fetch + convert via the shared harvest machinery, land in /maintainer/conversion for review.';
 
-    /** foundation_source stamped on canonicals first created by this path. */
-    public const FOUNDATION_SOURCE = 'journal_harvest';
+    /**
+     * foundation_source stamped on canonicals first created by this path.
+     * Defined by the runner now; kept here because callers and tests reference it.
+     */
+    public const FOUNDATION_SOURCE = JournalHarvestRunner::FOUNDATION_SOURCE;
 
-    public function handle(
-        WorksApi $worksApi,
-        WorkScorer $scorer,
-        CanonicalSourceMatcher $matcher,
-        HarvestEligibility $eligibility,
-        AutoVersionCreator $creator,
-        WorkOcrCharger $charger,
-        HarvestShelf $shelf,
-        HtmlLaneCreator $htmlLane,
-    ): int {
+    public function handle(JournalHarvestRunner $runner): int
+    {
         $maxWorks = (int) $this->option('max-works');
         $skipOcr = (bool) $this->option('skip-ocr');
         $dryRun = (bool) $this->option('dry-run');
@@ -87,50 +79,22 @@ class JournalHarvestCommand extends Command
         }
 
         // ── Stage 1: enumerate the journal's works and upsert canonicals ──
-        $enum = ['pages' => 0, 'works' => 0, 'upserted' => 0, 'skipped_type' => 0];
-        $cursor = '*';
-        while ($cursor !== null) {
-            $page = $worksApi->fetchBySourcePage($journal->openalex_source_id, $cursor, 200, $type);
-            $cursor = $page['next_cursor'];
-            $enum['pages']++;
-
-            if ($enum['pages'] === 1) {
-                $this->info('Enumerating ' . number_format((int) $page['count']) . ' works from OpenAlex…');
+        $runner->enumerate($journal, $type, $dryRun, function (array $e) {
+            if ($e['pages'] === 1) {
+                $this->info('Enumerating ' . number_format($e['count']) . ' works from OpenAlex…');
             }
-
-            foreach ($page['works'] as $normalised) {
-                $enum['works']++;
-                if (!$scorer->isCitableWork($normalised)) {
-                    $enum['skipped_type']++;
-                    continue;
-                }
-                if ($dryRun) {
-                    continue;
-                }
-
-                $canonical = $matcher->ingestExternal($normalised, self::FOUNDATION_SOURCE);
-                // Stamp unconditionally: the works filter guarantees this
-                // journal IS the work's primary location. Same (default)
-                // connection as ingestExternal's write — canonical_source has
-                // no RLS.
-                if ($canonical->journal_source_id !== $journal->id) {
-                    $canonical->journal_source_id = $journal->id;
-                    $canonical->save();
-                }
-                $enum['upserted']++;
-            }
-
-            $this->line("   page {$enum['pages']}: {$enum['works']} works seen, "
-                . ($dryRun ? 'dry-run (no writes)' : "{$enum['upserted']} upserted") . ", {$enum['skipped_type']} skipped (type)");
-        }
+            $this->line("   page {$e['pages']}: {$e['works']} works seen, "
+                . ($e['dry_run'] ? 'dry-run (no writes)' : "{$e['upserted']} upserted")
+                . ", {$e['skipped_type']} skipped (type)");
+        });
 
         // ── Stage 2: select eligible canonicals ──
-        $estimate = $eligibility->estimateForJournal($journal->id);
+        $estimate = $runner->estimate($journal);
         $this->newLine();
         $this->info("In registry: {$estimate['total']} canonicals | eligible now: {$estimate['eligible']} | already harvested: {$estimate['already_harvested']}");
 
         if ($dryRun) {
-            $preview = $eligibility->eligibleCanonicalsForJournal($journal->id, min($maxWorks, 25));
+            $preview = $runner->eligiblePreview($journal, min($maxWorks, 25));
             foreach ($preview as $row) {
                 $this->line('   would fetch → ' . substr($row->title ?? '(untitled)', 0, 70)
                     . ' (' . ($row->cited_by_count ?? 0) . ' citations)');
@@ -158,37 +122,26 @@ class JournalHarvestCommand extends Command
             // --force-html re-converts lanes that already have content: the only way a processor
             // fix reaches articles imported before it. Promotion is preserved across the rewrite.
             $forceHtml = (bool) $this->option('force-html');
-            $pending = $htmlLane->pendingForJournal($journal->id, $maxWorks, $forceHtml);
-            $this->newLine();
-            $this->info($forceHtml
-                ? "HTML lane: re-converting {$pending->count()} work(s)"
-                : "HTML lane: {$pending->count()} work(s) without a converted HTML version");
 
-            foreach ($pending as $i => $row) {
-                $n = $i + 1;
-                $this->line("→ [html {$n}/" . count($pending) . '] ' . substr($row->title ?? '(untitled)', 0, 66));
-                $canonical = CanonicalSource::find($row->id);
-                if (!$canonical) {
-                    $htmlStats['error']++;
-                    continue;
-                }
-
-                $result = $htmlLane->create($canonical, $forceHtml);
-                $status = $result['status'];
-                $htmlStats[array_key_exists($status, $htmlStats) ? $status : 'error']++;
-
-                match ($status) {
-                    'imported',
-                    'reimported'       => $this->line("   <fg=green>html {$status}</> ({$result['book']}"
-                                            . (isset($result['node_count']) ? ", {$result['node_count']} nodes" : '') . ')'),
-                    'already_imported' => $this->line('   <fg=yellow>html already imported</>'),
-                    default            => $this->warn("   html {$status}: " . ($result['reason'] ?? 'unknown')),
+            $htmlStats = $runner->importHtmlLanes($journal, $maxWorks, $forceHtml, $sleep, function (array $e) {
+                match ($e['stage']) {
+                    'html_start'  => (function () use ($e) {
+                        $this->newLine();
+                        $this->info($e['force']
+                            ? "HTML lane: re-converting {$e['total']} work(s)"
+                            : "HTML lane: {$e['total']} work(s) without a converted HTML version");
+                    })(),
+                    'html'        => $this->line("→ [html {$e['n']}/{$e['total']}] {$e['title']}"),
+                    'html_result' => match ($e['status']) {
+                        'imported',
+                        'reimported'       => $this->line("   <fg=green>html {$e['status']}</> ({$e['book']}"
+                                                . ($e['nodes'] !== null ? ", {$e['nodes']} nodes" : '') . ')'),
+                        'already_imported' => $this->line('   <fg=yellow>html already imported</>'),
+                        default            => $this->warn("   html {$e['status']}: " . ($e['reason'] ?? 'unknown')),
+                    },
+                    default       => null,
                 };
-
-                if ($sleep > 0 && $n < count($pending)) {
-                    sleep($sleep);
-                }
-            }
+            });
 
             if ($lane === 'html') {
                 $this->newLine();
@@ -202,74 +155,40 @@ class JournalHarvestCommand extends Command
             }
         }
 
-        $eligible = $eligibility->eligibleCanonicalsForJournal($journal->id, $maxWorks);
-        if ($eligible->isEmpty()) {
+        // ── Stage 3: fetch + convert, most-cited first ──
+        $pdfTotal = null;
+        $run = $runner->importPdfLanes($journal, $maxWorks, $user, $skipOcr, $sleep, function (array $e) use (&$pdfTotal) {
+            match ($e['stage']) {
+                'pdf_start'  => $pdfTotal = $e['total'],
+                'pdf'        => $this->line("→ [{$e['n']}/{$e['total']}] {$e['title']}"),
+                'pdf_result' => match ($e['status']) {
+                    'assigned'          => $this->line("   <fg=green>assigned</> ({$e['book']}, via " . ($e['via'] ?? '?')
+                                             . ($e['cost'] > 0 ? sprintf(', $%.4f', $e['cost']) : ', free') . ')'),
+                    'assigned_existing' => $this->line('   <fg=green>assigned (existing version)</>'),
+                    'deferred'          => $this->line('   <fg=yellow>deferred — stub has no converted content yet</>'),
+                    'error'             => $this->error('   error: ' . ($e['reason'] ?? 'unknown')),
+                    default             => $this->warn("   {$e['status']}: " . ($e['reason'] ?? 'unknown')),
+                },
+                default      => null,
+            };
+        });
+
+        if ($pdfTotal === 0) {
             $this->info('Nothing eligible — the journal is fully harvested (or nothing fetchable).');
             return 0;
         }
 
-        // ── Stage 3: fetch + convert, most-cited first ──
-        $stats = ['assigned' => 0, 'assigned_existing' => 0, 'fetch_failed' => 0, 'ocr_failed' => 0, 'deferred' => 0, 'error' => 0];
-        $assignedBooks = [];
-        $spend = 0.0;
-
-        foreach ($eligible as $i => $row) {
-            $n = $i + 1;
-            $this->line("→ [{$n}/" . count($eligible) . '] ' . substr($row->title ?? '(untitled)', 0, 70));
-
-            try {
-                $canonical = CanonicalSource::find($row->id);
-                if (!$canonical) {
-                    $stats['error']++;
-                    $this->error('   canonical row vanished mid-run');
-                    continue;
-                }
-
-                $result = $creator->create($canonical, $skipOcr);
-                $status = $result['status'] ?? 'error';
-                $stats[array_key_exists($status, $stats) ? $status : 'error']++;
-
-                switch ($status) {
-                    case 'assigned':
-                        $assignedBooks[] = $result['book'];
-                        $cost = $charger->charge($user, $result['book'], "Journal harvest OCR ({$journal->slug}): {$result['book']}");
-                        $spend += $cost;
-                        $this->line("   <fg=green>assigned</> ({$result['book']}, via " . ($result['via'] ?? '?') . ($cost > 0 ? sprintf(', $%.4f', $cost) : ', free') . ')');
-                        break;
-                    case 'assigned_existing':
-                        $this->line('   <fg=green>assigned (existing version)</>');
-                        break;
-                    case 'deferred':
-                        $this->line('   <fg=yellow>deferred — stub has no converted content yet</>');
-                        break;
-                    default:
-                        $this->warn("   {$status}: " . ($result['reason'] ?? 'unknown'));
-                }
-            } catch (\Throwable $e) {
-                // One bad work must never kill the journal run.
-                $stats['error']++;
-                $this->error('   error: ' . $e->getMessage());
-            }
-
-            if ($sleep > 0 && $n < count($eligible)) {
-                sleep($sleep);
-            }
-        }
+        $stats = $run['stats'];
+        $spend = $run['spend'];
 
         // ── Stage 4: shelf + registry bookkeeping ──
-        $shelfRow = null;
-        try {
-            $shelfRow = $shelf->ensureJournalShelfFor($journal);
-            // Full reconcile (superset of this run's assigned books): also
-            // repairs drift from earlier runs and heals biblio fields.
-            $added = $shelf->syncJournalShelfMembership($journal);
-            $this->line("  shelf sync: {$added} book(s) added");
-        } catch (\Throwable $e) {
-            // A shelf failure must never fail the harvest itself.
-            $this->warn('Shelf step failed: ' . $e->getMessage());
-        }
-
-        $this->updateJournalBookkeeping($journal, $stats, $spend, $shelfRow);
+        $shelfRow = $runner->finalise($journal, $stats, $spend, function (array $e) {
+            match ($e['stage']) {
+                'shelf'        => $this->line("  shelf sync: {$e['added']} book(s) added"),
+                'shelf_failed' => $this->warn('Shelf step failed: ' . $e['reason']),
+                default        => null,
+            };
+        });
 
         $this->newLine();
         $this->info('Summary:');
@@ -281,7 +200,7 @@ class JournalHarvestCommand extends Command
             $this->line("  shelf: /u/{$shelfRow->creator}/shelf/{$shelfRow->slug}");
         }
         $this->line("  journal page: /j/{$journal->slug}");
-        $remaining = $eligibility->estimateForJournal($journal->id)['eligible'];
+        $remaining = $runner->estimate($journal)['eligible'];
         $this->line($remaining > 0
             ? "  remaining eligible: {$remaining} — re-run to continue."
             : '  journal fully harvested.');
@@ -320,24 +239,4 @@ class JournalHarvestCommand extends Command
         return $user;
     }
 
-    /**
-     * Merge this run into the registry row's cumulative harvest_stats and
-     * stamp last_harvested_at / shelf_id.
-     */
-    private function updateJournalBookkeeping(JournalSource $journal, array $stats, float $spend, ?object $shelfRow): void
-    {
-        $cumulative = $journal->harvest_stats ?? [];
-        foreach ($stats as $k => $v) {
-            $cumulative[$k] = ($cumulative[$k] ?? 0) + $v;
-        }
-        $cumulative['spend'] = round(($cumulative['spend'] ?? 0) + $spend, 4);
-        $cumulative['runs'] = ($cumulative['runs'] ?? 0) + 1;
-        $cumulative['last_run'] = $stats + ['spend' => round($spend, 4)];
-
-        $journal->update([
-            'harvest_stats'     => $cumulative,
-            'last_harvested_at' => now(),
-            'shelf_id'          => $shelfRow->id ?? $journal->shelf_id,
-        ]);
-    }
 }

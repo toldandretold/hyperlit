@@ -612,10 +612,17 @@ async function runAction(
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    const payload = await resp.json().catch(() => ({})) as { run_id?: string; message?: string };
+    const payload = await resp.json().catch(() => ({})) as {
+      run_id?: string; message?: string; already_running?: boolean; action?: string;
+    };
     if (!resp.ok || !payload.run_id) {
       setter(payload.message || `failed (${resp.status})`);
       return;
+    }
+    // Joining a run you didn't press — a bulk import fired while an enumerate is still going —
+    // would otherwise report that other job's progress as if it were yours.
+    if (payload.already_running && payload.action && payload.action !== body.action) {
+      setter(`waiting: "${payload.action}" is already running on this journal`);
     }
     await pollRun(payload.run_id, setter);
   } catch (e) {
@@ -942,6 +949,43 @@ function wireDetailActions(): void {
   document.getElementById('ji-only-imported')?.addEventListener('change', renderArticles);
 }
 
+/**
+ * The two JOURNAL-scoped buttons.
+ *
+ * Everything else on this page targets one article, which left a journal nobody had enumerated
+ * with an empty list and no way to fill it — the article rows every other control hangs off did
+ * not exist yet. Enumerate creates them (free: OpenAlex only, no publisher, no OCR); import works
+ * the queue in bulk.
+ */
+function wireJournalActions(): void {
+  const buttons = ['ji-enumerate', 'ji-bulk-import'];
+  const setJournalStatus = (text: string): void => {
+    const node = document.getElementById('ji-journal-status');
+    if (node) node.textContent = text;
+  };
+
+  document.getElementById('ji-enumerate')?.addEventListener('click', () => {
+    void runAction({ action: 'enumerate' }, setJournalStatus, buttons);
+  });
+
+  document.getElementById('ji-bulk-import')?.addEventListener('click', () => {
+    const lanes = (el<HTMLSelectElement>('ji-bulk-lanes').value || 'html') as 'pdf' | 'html' | 'both';
+    const limit = el<HTMLSelectElement>('ji-bulk-limit').value || '5';
+    const howMany = limit === '0' ? 'EVERY eligible work' : `up to ${limit} works`;
+
+    // Two separate things worth stopping for: spending money, and unbounded scope. Either one
+    // alone deserves the prompt — "all eligible" on the free HTML lane still hammers a publisher.
+    if (lanes !== 'html' || limit === '0') {
+      const cost = lanes === 'html'
+        ? 'The HTML lane is free, but this fetches from the publisher repeatedly.'
+        : 'The PDF lane runs OCR, which is charged to your account.';
+      if (!window.confirm(`Import ${howMany} (${lanes}) for this journal?\n\n${cost}`)) return;
+    }
+
+    void runAction({ action: 'import_all', lanes, limit }, setJournalStatus, buttons);
+  });
+}
+
 // ── Boot ───────────────────────────────────────────────────────────────────
 
 wireHelp();
@@ -951,6 +995,7 @@ const detailSlug = (window as unknown as { __journalImport?: { slug: string } })
 if (detailSlug) {
   wireActionBar();
   wireDetailActions();
+  wireJournalActions();
   void loadDetail(detailSlug);
 } else if (has('ji-started-list')) {
   el<HTMLInputElement>('ji-filter')?.addEventListener('input', renderIndex);

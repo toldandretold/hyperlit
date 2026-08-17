@@ -73,6 +73,58 @@ body.ji-detail {
   line-height: 1;
 }
 
+/* ── Detail header: the journal-scoped controls (enumerate + bulk import) ──
+   Same visual weight as the floating lane bar's buttons, because they are the same KIND of
+   thing — an action that queues work — just aimed at the journal rather than one article. */
+.ji-journal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ji-journal-actions button,
+.ji-journal-actions select {
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--color-text) 28%, transparent);
+  color: var(--color-text);
+  border-radius: 5px;
+  padding: 3px 9px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.ji-journal-actions button:hover:not(:disabled),
+.ji-journal-actions select:hover {
+  border-color: var(--hyperlit-aqua, #4eacae);
+}
+.ji-journal-actions button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+/* The lane + cap + go trio reads as one control, so it is spaced tighter than the gap between
+   it and the free enumerate button beside it. */
+.ji-bulk-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ji-journal-actions select {
+  padding-right: 4px;
+}
+
+/* Labels the selects need for screen readers but that would only add noise on screen — the
+   visible text of each option already says what it is ("next 5", "HTML"). */
+.ji-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ── Index ── */
 .ji-main {
   padding: 16px 18px 60px;

@@ -22,6 +22,36 @@
     <header class="ji-header">
         <h1 id="ji-journal-name">…</h1>
         <span class="ji-header-sub" id="ji-journal-meta"></span>
+
+        {{-- The journal-scoped controls. Everything else on this page acts on ONE article, which
+             left an un-enumerated journal with an empty list and no way to fill it: enumerate is
+             the step that makes every other button reachable. Free (OpenAlex only) — the import
+             beside it is the one that spends money, hence the explicit lane + cap. --}}
+        <div class="ji-journal-actions">
+            <button type="button" id="ji-enumerate"
+                    title="Ask OpenAlex what this journal has published and list it here. Touches no publisher, runs no OCR, costs nothing.">⟳ enumerate</button>
+            <span class="ji-bulk-group">
+                <label class="ji-visually-hidden" for="ji-bulk-lanes">Lane to import</label>
+                <select id="ji-bulk-lanes">
+                    {{-- HTML first and selected: it is free, and on the pilot journal it converted
+                         BETTER than OCR (which dropped whole sections). PDF is opt-in. --}}
+                    <option value="html" selected>HTML</option>
+                    <option value="pdf">PDF</option>
+                    <option value="both">both</option>
+                </select>
+                <label class="ji-visually-hidden" for="ji-bulk-limit">How many works</label>
+                <select id="ji-bulk-limit">
+                    <option value="5" selected>next 5</option>
+                    <option value="25">next 25</option>
+                    <option value="100">next 100</option>
+                    <option value="0">all eligible</option>
+                </select>
+                <button type="button" id="ji-bulk-import"
+                        title="Import the most-cited eligible works that have no lane yet. HTML is free; PDF runs OCR and is charged to you.">⇩ import</button>
+            </span>
+            <span class="ji-actions-status" id="ji-journal-status" role="status" aria-live="polite"></span>
+        </div>
+
         <nav class="ji-header-nav">
             <a href="/maintainer/journal-import">&larr; all journals</a>
             <a id="ji-public-link" href="#" target="_blank" rel="noopener">public page →</a>
@@ -41,7 +71,11 @@
                 </label>
             </div>
             <div id="ji-articles-list" role="list"></div>
-            <p class="ji-empty" id="ji-articles-empty" hidden>No articles enumerated yet.</p>
+            {{-- Says what to DO, not just what is missing: an empty list here used to be a dead
+                 end, because every action on this page needs an article row to hang off. --}}
+            <p class="ji-empty" id="ji-articles-empty" hidden>No articles enumerated yet — press
+                <strong>⟳ enumerate</strong> above to ask OpenAlex what this journal has published.
+                It's free and touches no publisher.</p>
         </aside>
 
         <section class="ji-pane ji-converted">
@@ -111,6 +145,8 @@
     <div class="ji-help-panel" id="ji-help-panel" hidden>
         <h2>Reading this page <button type="button" id="ji-help-close" aria-label="Close help">✕</button></h2>
         <ol>
+            <li><strong>Start with ⟳ enumerate</strong> — it asks OpenAlex what this journal has published and lists it here. Nothing else on this page works until it has run, because every other action targets an article row. Free: no publisher is contacted and no OCR runs.</li>
+            <li><strong>Then ⇩ import</strong> to work the queue in bulk — most-cited eligible works first, in the lane you pick. <code>HTML</code> is free; <code>PDF</code> runs OCR and is charged to you. The cap is your spend control; <code>all eligible</code> is a real option but never the default, and a long run stops at its time limit and tells you to press again.</li>
             <li><strong>One row per article</strong>, most-cited first — every work OpenAlex lists for this journal, whether or not we've imported it.</li>
             <li><strong>Each imported lane is a sub-row</strong>: <code>pdf</code> (vacuumed PDF + OCR), <code>html</code> (publisher page via the paste engine), <code>ar5iv</code>. Lanes are sibling library rows on one canonical, each with its own book id and artifacts.</li>
             <li><strong>★ marks the promoted lane</strong> — the one <code>/j/&lt;slug&gt;</code>, the shelf and readers resolve to. The others stay imported but unlisted.</li>

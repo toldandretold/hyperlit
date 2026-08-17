@@ -19,6 +19,14 @@ use Illuminate\Support\Str;
 
 class ContentFetchService
 {
+    /**
+     * Failure-reason prefix for "no channel could even FETCH the article page".
+     * A constant because the fetchInner ladder must recognise it: it means the
+     * HTML strategy learned nothing, so `$lastFailure` (which may carry a
+     * Cloudflare hint that arms the FlareSolverr rung) should be preserved.
+     */
+    public const HTML_PAGE_FETCH_FAILED = 'could not fetch the article page';
+
     private FileHelpers $fileHelpers;
     private HtmlProcessor $htmlProcessor;
     private PdfProcessor $pdfProcessor;
@@ -32,7 +40,7 @@ class ContentFetchService
      * Yield Report, and to fetch_trace.json in the harvest case bundle.
      * @var array{candidates: int, won_host: ?string, won_source: ?string, won_license: ?string, won_version: ?string, completeness: ?string, completeness_reason: ?string, session: ?string, proxy: ?string, body_verdict: ?string, body_reason: ?string}
      */
-    private array $lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null, 'body_verdict' => null, 'body_reason' => null];
+    private array $lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null, 'body_verdict' => null, 'body_reason' => null, 'html_channel' => null];
 
     /**
      * Per-work sticky-proxy session id. Set once at the top of fetch() so every
@@ -192,7 +200,7 @@ class ContentFetchService
         $doi = $libraryRecord->doi ?? null;
         $oaUrl = $libraryRecord->oa_url ?? null;
 
-        $this->lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null, 'body_verdict' => null, 'body_reason' => null];
+        $this->lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null, 'body_verdict' => null, 'body_reason' => null, 'html_channel' => null];
         $this->currentSession = Str::random(12);
         $this->lastFetchTrace['session'] = $this->currentSession;
         if (($proxyUrl = self::stickyProxy($this->currentSession)) !== null) {
@@ -208,15 +216,7 @@ class ContentFetchService
             $this->lastFetchTrace['won_host'] = parse_url($url, PHP_URL_HOST) ?: null;
             $this->lastFetchTrace['won_source'] = 'html_lane';
 
-            $html = $this->fetchHtmlViaBrowser($url);
-            if ($html === null) {
-                $reason = "could not fetch the article page ({$url})";
-                $this->setPdfUrlStatus($bookId, $reason);
-
-                return ['status' => 'failed', 'reason' => $reason];
-            }
-
-            return $this->importViaPasteEngine($html, $bookId, $url);
+            return $this->importHtmlPage($url, $bookId);
         } finally {
             $this->persistFetchTrace($bookId);
         }
@@ -254,7 +254,7 @@ class ContentFetchService
         // original run's won_host/won_source, which are still the truth about where it came from.
         $existing = $this->readFetchTrace($bookId);
         $this->lastFetchTrace = array_merge(
-            ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null, 'body_verdict' => null, 'body_reason' => null],
+            ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null, 'body_verdict' => null, 'body_reason' => null, 'html_channel' => null],
             $existing,
             ['reconverted_at' => now()->toIso8601String()],
         );
@@ -287,7 +287,7 @@ class ContentFetchService
         $doi = $libraryRecord->doi ?? null;
 
         $lastFailure = null;
-        $this->lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null, 'body_verdict' => null, 'body_reason' => null];
+        $this->lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null, 'body_verdict' => null, 'body_reason' => null, 'html_channel' => null];
 
         // One sticky-proxy session per work: the CF solve and the PDF download
         // then share an IP (cf_clearance is IP-bound). Different works get
@@ -421,12 +421,13 @@ class ContentFetchService
         // become a canonical version.
         if ($doi || $oaUrl) {
             $pageUrl = $doi ? ('https://doi.org/' . $doi) : $oaUrl;
-            $html = $this->fetchHtmlViaBrowser($pageUrl);
-            if ($html !== null) {
-                $result = $this->importViaPasteEngine($html, $bookId, $pageUrl);
-                if ($result['status'] !== 'failed') {
-                    return $result;
-                }
+            $result = $this->importHtmlPage($pageUrl, $bookId);
+            if ($result['status'] !== 'failed') {
+                return $result;
+            }
+            // A could-not-fetch means this strategy learned nothing — keep the
+            // earlier $lastFailure, whose Cloudflare hint arms FlareSolverr.
+            if (! str_starts_with($result['reason'] ?? '', self::HTML_PAGE_FETCH_FAILED)) {
                 $lastFailure = $result['reason'];
             }
         }
@@ -542,6 +543,76 @@ class ContentFetchService
             'url' => $url, 'reason' => is_array($r) ? ($r['reason'] ?? 'unknown') : 'no output',
         ]);
         return null;
+    }
+
+    /**
+     * Plain proxied GET of an article page — the cheap rung below the browser.
+     * Null on any non-200 / non-HTML / tiny response; the caller falls through
+     * to the browser, and everything still passes the wall/identity/body gates
+     * in importViaPasteEngine, so a JS-challenge page fetched this way is
+     * condemned there rather than imported.
+     */
+    private function fetchHtmlPlain(string $url): ?string
+    {
+        try {
+            $response = Http::withHeaders(self::browserHeaders())
+                ->withOptions(array_merge(['allow_redirects' => ['max' => 5]], $this->sessionProxyOption()))
+                ->timeout(45)
+                ->get($url);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        if (!$response->successful()) {
+            return null;
+        }
+        $contentType = $response->header('Content-Type') ?? '';
+        if ($contentType && !str_contains($contentType, 'html')) {
+            return null;
+        }
+        $body = $response->body();
+
+        return strlen($body) >= 500 ? $body : null;
+    }
+
+    /**
+     * Acquire an article page and run it through the paste engine, cheapest
+     * channel first: a plain proxied GET, then the Playwright browser only when
+     * the plain page failed a gate. The browser used to be the only channel
+     * here, on the assumption it is the safer one — Bristol UP (Atypon) proved
+     * the opposite (2026-08-17): it serves the complete server-rendered article
+     * to a bare GET through the same proxy pool, while intermittently handing
+     * the headless browser an HTTP-200 shell with zero prose — which the body
+     * gate then rightly rejected, three GSCJ articles in a row. The plain rung
+     * also touches the publisher far more lightly than a full browser session.
+     */
+    private function importHtmlPage(string $url, string $bookId): array
+    {
+        $plainFailure = null;
+        if (($html = $this->fetchHtmlPlain($url)) !== null) {
+            $this->lastFetchTrace['html_channel'] = 'plain';
+            $result = $this->importViaPasteEngine($html, $bookId, $url);
+            if ($result['status'] !== 'failed') {
+                return $result;
+            }
+            $plainFailure = $result;
+        }
+
+        if (($html = $this->fetchHtmlViaBrowser($url)) === null) {
+            // The plain attempt's gate verdict is more informative than a
+            // generic fetch failure — and its pdf_url_status is already set.
+            if ($plainFailure !== null) {
+                return $plainFailure;
+            }
+            $reason = self::HTML_PAGE_FETCH_FAILED . " ({$url})";
+            $this->setPdfUrlStatus($bookId, $reason);
+
+            return ['status' => 'failed', 'reason' => $reason];
+        }
+
+        $this->lastFetchTrace['html_channel'] = 'browser';
+
+        return $this->importViaPasteEngine($html, $bookId, $url);
     }
 
     private function fetchPdfViaBrowser(string $url, string $landing, string $bookId): array
@@ -1573,6 +1644,12 @@ class ContentFetchService
                 'prose_blocks' => $body['prose_blocks'], 'prose_chars' => $body['prose_chars'],
                 'refs' => count($engine['references'] ?? []),
             ]);
+            // Keep the condemned page as evidence — without it there is no way
+            // to tell a soft bot-block from a genuine abstract-only landing
+            // page after the fact (the 2026-08-17 Bristol incident had to be
+            // reconstructed by re-fetching). Overwritten each attempt, removed
+            // by a later successful import.
+            $this->persistRejectedPage($bookId, $html);
             return ['status' => 'failed', 'reason' => $body['reason']];
         }
 
@@ -1734,8 +1811,22 @@ class ContentFetchService
             if (!File::exists("{$dir}/fetched_page.html")) {
                 File::put("{$dir}/fetched_page.html", $html);
             }
+            // A success supersedes any earlier rejection evidence.
+            File::delete("{$dir}/rejected_page.html");
         } catch (\Throwable $e) {
             Log::warning('Could not persist fetched_page.html', ['book' => $bookId, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /** Best-effort evidence write for a body-absent rejection — never throws. */
+    private function persistRejectedPage(string $bookId, string $html): void
+    {
+        try {
+            $dir = resource_path("markdown/{$bookId}");
+            File::ensureDirectoryExists($dir);
+            File::put("{$dir}/rejected_page.html", $html);
+        } catch (\Throwable $e) {
+            Log::warning('Could not persist rejected_page.html', ['book' => $bookId, 'error' => $e->getMessage()]);
         }
     }
 

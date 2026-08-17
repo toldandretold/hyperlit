@@ -214,6 +214,25 @@ test('full sync stores diamonds with provenance, skips non-diamond and unknown',
     expect(JournalSource::where('openalex_source_id', 'SJSYNC4')->exists())->toBeFalse();
 });
 
+/**
+ * OpenAlex's country_code is NOT reliably ISO 3166-1 alpha-2 — for a minority of sources it
+ * serves 3-char MARC-21 codes (XXK = United Kingdom, CAU = California, ENK = England…). The
+ * column was varchar(2), so the first one reached killed a 23k-source sync mid-run with a
+ * 22001. Stored verbatim: we don't own this vocabulary, so we don't reshape it either.
+ */
+test('sync stores an over-long MARC country code instead of dying on it', function () {
+    fakeSourcesPage([
+        jsyncRawSource(['id' => 'https://openalex.org/SJSYNCM1', 'display_name' => 'JSync Marc Uk', 'apc_usd' => 0, 'issn_l' => '6161-6161', 'issn' => ['6161-6161'], 'country_code' => 'XXK']),
+        jsyncRawSource(['id' => 'https://openalex.org/SJSYNCM2', 'display_name' => 'JSync Marc Cal', 'apc_usd' => 0, 'issn_l' => '6262-6262', 'issn' => ['6262-6262'], 'country_code' => 'CAU']),
+    ]);
+    fakeDoajIndex([]);
+
+    $this->artisan('journal:sync-registry')->assertExitCode(0);
+
+    expect(JournalSource::where('openalex_source_id', 'SJSYNCM1')->value('country_code'))->toBe('XXK');
+    expect(JournalSource::where('openalex_source_id', 'SJSYNCM2')->value('country_code'))->toBe('CAU');
+});
+
 test('--include-non-diamond stores them with is_diamond false', function () {
     fakeSourcesPage([
         jsyncRawSource(['id' => 'https://openalex.org/SJSYNC3', 'display_name' => 'JSync Doaj Paid', 'issn_l' => '3333-3333', 'issn' => ['3333-3333']]),

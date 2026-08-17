@@ -27,6 +27,7 @@ use App\Services\ContentFetchService;
 use App\Services\SourceImport\Content\AccessWallDetector;
 use App\Services\SourceImport\Content\BodyPresenceAssessor;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
@@ -245,6 +246,11 @@ test('importViaPasteEngine REJECTS the paywalled landing page and imports nothin
         expect($db->table('nodes')->where('book', $book)->count())->toBe(0);
         expect((bool) $db->table('library')->where('book', $book)->value('has_nodes'))->toBeFalse();
         expect($db->table('library')->where('book', $book)->value('conversion_method'))->toBeNull();
+
+        // But the condemned page IS kept as evidence — a soft bot-block and a
+        // genuine abstract-only landing page are indistinguishable after the
+        // fact without it (the 2026-08-17 Bristol incident).
+        expect(file_exists(resource_path("markdown/{$book}/rejected_page.html")))->toBeTrue();
     } finally {
         gateCleanup($book);
     }
@@ -295,4 +301,60 @@ test('assessBlocks reproduces the verdict from stored node text', function () {
 
     expect((new BodyPresenceAssessor())->assessBlocks($texts)['verdict'])
         ->toBe(BodyPresenceAssessor::ABSENT);
+});
+
+// ── The acquisition channel ladder: plain GET before the browser ────
+//
+// Bristol UP (Atypon) serves the complete server-rendered article to a bare
+// GET yet intermittently hands the headless browser an HTTP-200 shell with
+// zero prose (2026-08-17: three GSCJ articles in a row, each rightly rejected
+// by the body gate). The plain rung is therefore FIRST — cheaper, lighter on
+// the publisher, and for HTML-native journals more reliable. Every plain
+// result still passes the same wall/identity/body gates, so a JS-challenge
+// page fetched plainly is condemned there and falls through to the browser.
+
+test('importHtmlPage imports via the plain channel without touching the browser', function () {
+    $fixture = articleFixture('MITpress.html');
+    if (!file_exists($fixture)) {
+        $this->markTestSkipped('MITpress.html fixture not present');
+    }
+
+    // A URL no browser could ever resolve: if the plain rung were skipped or
+    // its result discarded, the fallback would fail and so would the import.
+    Http::fake(['*' => Http::response(file_get_contents($fixture), 200, ['Content-Type' => 'text/html; charset=utf-8'])]);
+
+    $book = gateSeedStub();
+    try {
+        $svc = app(ContentFetchService::class);
+        $m = new ReflectionMethod($svc, 'importHtmlPage');
+        $m->setAccessible(true);
+        $res = $m->invoke($svc, 'https://doi.invalid/plain-first', $book);
+
+        expect($res['status'])->toBe('imported');
+        expect(DB::connection('pgsql_admin')->table('nodes')->where('book', $book)->count())->toBeGreaterThan(50);
+        // Exactly one plain GET of the page itself (the persist path's
+        // reference-enrichment calls also land in this fake — ignore them).
+        expect(Http::recorded(fn ($req) => $req->url() === 'https://doi.invalid/plain-first')->count())->toBe(1);
+
+        // Success persists the page and clears any earlier rejection evidence.
+        expect(file_exists(resource_path("markdown/{$book}/fetched_page.html")))->toBeTrue();
+        expect(file_exists(resource_path("markdown/{$book}/rejected_page.html")))->toBeFalse();
+    } finally {
+        gateCleanup($book);
+    }
+});
+
+test('fetchHtmlPlain yields null on non-200, non-HTML, or tiny responses', function () {
+    Http::fakeSequence()
+        ->push('Forbidden', 403)
+        ->push('%PDF-1.4 …', 200, ['Content-Type' => 'application/pdf'])
+        ->push('<html>tiny</html>', 200, ['Content-Type' => 'text/html']);
+
+    $svc = app(ContentFetchService::class);
+    $m = new ReflectionMethod($svc, 'fetchHtmlPlain');
+    $m->setAccessible(true);
+
+    expect($m->invoke($svc, 'https://doi.invalid/a'))->toBeNull();
+    expect($m->invoke($svc, 'https://doi.invalid/b'))->toBeNull();
+    expect($m->invoke($svc, 'https://doi.invalid/c'))->toBeNull();
 });

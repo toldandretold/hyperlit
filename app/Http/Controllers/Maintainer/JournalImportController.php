@@ -36,8 +36,19 @@ use Illuminate\Support\Str;
  */
 class JournalImportController extends Controller
 {
-    /** The three operator diagnoses; see JournalImportActionJob. */
-    private const ACTIONS = ['import', 'reconvert_html', 'refetch_html'];
+    /** Everything the console can fire; see JournalImportActionJob for what each one means. */
+    private const ACTIONS = ['import', 'reconvert_html', 'refetch_html', 'enumerate', 'import_all'];
+
+    /**
+     * The actions that act on the JOURNAL rather than one article. They take no `canonical_id`
+     * and no `book`, and they cannot safely overlap anything else on the same journal — an
+     * `import_all` and a per-article `import` racing on the same work would interleave node
+     * writes on one book.
+     */
+    private const JOURNAL_ACTIONS = ['enumerate', 'import_all'];
+
+    /** Caps offered for a bulk import. 0 = every eligible work — deliberate, never the default. */
+    private const WORK_LIMITS = [5, 25, 100, 0];
 
     /** Lane identity: which foundation_source minted a row, and what to call it in the UI. */
     private const LANE_LABELS = [
@@ -279,13 +290,16 @@ class JournalImportController extends Controller
     }
 
     /**
-     * POST .../journal-import/{slug}/run — fire one article-scoped action and return its run id.
+     * POST .../journal-import/{slug}/run — fire one action and return its run id.
      *
      * Queued (JournalImportActionJob), because each of these either hits a publisher or runs OCR.
-     * The three actions are the three diagnoses an operator makes about a lane; see the job's
-     * docblock. Deliberately NOT a "reconvert" for the PDF lane: that book has an `original.pdf`
-     * and an OCR cache on disk, so it goes through the existing, proven `/api/books/{book}/reconvert`
-     * — one reconvert implementation, not two.
+     * Two scopes: the article actions are the diagnoses an operator makes about a lane, and the
+     * journal actions (`enumerate`, `import_all`) are the steps that fill the page in the first
+     * place — see the job's docblock. Deliberately NOT a "reconvert" for the PDF lane: that book
+     * has an `original.pdf` and an OCR cache on disk, so it goes through the existing, proven
+     * `/api/books/{book}/reconvert` — one reconvert implementation, not two.
+     *
+     * `import_all` bills the admin who pressed it (`user_id`), exactly as the CLI bills `--user`.
      */
     public function run(Request $request, string $slug)
     {
@@ -307,6 +321,23 @@ class JournalImportController extends Controller
         $db = DB::connection('pgsql_admin');
         $canonicalId = $request->input('canonical_id');
         $book = $request->input('book');
+        $journalScoped = in_array($action, self::JOURNAL_ACTIONS, true);
+        $workLimit = null;
+
+        if ($journalScoped) {
+            // A journal action names no article; its target IS the journal, already resolved.
+            $canonicalId = null;
+            $book = null;
+
+            if ($action === 'import_all') {
+                $workLimit = (int) $request->input('limit', 5);
+                if (! in_array($workLimit, self::WORK_LIMITS, true)) {
+                    return response()->json([
+                        'message' => 'limit must be one of: ' . implode(', ', self::WORK_LIMITS) . ' (0 = all eligible).',
+                    ], 422);
+                }
+            }
+        }
 
         // Validate the target up front so the operator gets a real error instead of a run row
         // that fails a second later on the worker.
@@ -315,7 +346,7 @@ class JournalImportController extends Controller
                 ->where('journal_source_id', $journal->id)->exists()) {
                 return response()->json(['message' => 'canonical_id must be a work of this journal.'], 422);
             }
-        } else {
+        } elseif (! $journalScoped) {
             $lane = $book ? $db->table('library')->where('book', $book)->first() : null;
             if (! $lane) {
                 return response()->json(['message' => 'Lane not found.'], 404);
@@ -329,14 +360,31 @@ class JournalImportController extends Controller
         }
 
         // Refuse to pile a second run onto the same target — the actions replace a book's nodes,
-        // so two at once would interleave writes.
+        // so two at once would interleave writes. A JOURNAL-scoped run has no single target: it
+        // may touch any work of the journal, so it excludes and is excluded by everything else on
+        // that journal, in both directions.
         $inFlight = $db->table('journal_import_runs')
             ->whereIn('status', ['pending', 'running'])
-            ->where(fn ($q) => $q->where('canonical_source_id', $canonicalId)->orWhere('book', $book))
             ->where('updated_at', '>', now()->subHour())
+            ->where(function ($q) use ($journal, $journalScoped, $canonicalId, $book) {
+                // Always blocked by a journal-wide run already underway.
+                $q->where(fn ($j) => $j->where('journal_source_id', $journal->id)
+                    ->whereIn('action', self::JOURNAL_ACTIONS));
+
+                $journalScoped
+                    // A new journal-wide run also waits for any single article still being worked.
+                    ? $q->orWhere('journal_source_id', $journal->id)
+                    : $q->orWhere(fn ($a) => $a->where('canonical_source_id', $canonicalId)->orWhere('book', $book));
+            })
             ->first();
         if ($inFlight) {
-            return response()->json(['run_id' => $inFlight->id, 'already_running' => true]);
+            return response()->json([
+                'run_id'         => $inFlight->id,
+                'already_running' => true,
+                // Which run you joined matters when it isn't the one you pressed: pressing
+                // "import 5" during an enumerate should say so, not silently show its progress.
+                'action'         => $inFlight->action,
+            ]);
         }
 
         $runId = (string) Str::uuid();
@@ -349,6 +397,7 @@ class JournalImportController extends Controller
             'lanes'               => $lanes,
             'status'              => 'pending',
             'book'                => $book,
+            'work_limit'          => $workLimit,
             'counts'              => '{}',
             'created_at'          => now(),
             'updated_at'          => now(),

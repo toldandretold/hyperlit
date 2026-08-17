@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\CanonicalVersions\AutoVersionCreator;
 use App\Services\ContentFetchService;
 use App\Services\JournalHarvest\HtmlLaneCreator;
+use App\Services\JournalHarvest\JournalHarvestRunner;
 use App\Services\SourceHarvest\HarvestShelf;
 use App\Services\SourceHarvest\WorkOcrCharger;
 use Illuminate\Bus\Queueable;
@@ -26,13 +27,24 @@ use Illuminate\Support\Facades\Log;
  * the source harvester uses, so acquisition work stays serialized against rate-limited hosts
  * instead of racing it.
  *
- * The three actions are the three questions an operator actually asks of a bad lane:
+ * Article-scoped actions — the three questions an operator asks of a bad lane:
  *   - `import`         — there is no lane yet; go get one (pdf | html | both).
  *   - `reconvert_html` — the page is fine, OUR conversion of it was wrong. Re-runs the paste
  *                        engine over the STORED page: no network, no cost, and the input is held
  *                        constant so the only thing that changed is the processor fix.
  *   - `refetch_html`   — what we stored isn't the article (empty, walled, wrong page). Re-acquires
  *                        from the publisher.
+ *
+ * Journal-scoped actions — the two steps that used to exist only as `journal:harvest` flags, so a
+ * journal could not be started from the console at all (an un-enumerated journal shows an empty
+ * list and, because every other button is per-article, no way to fill it):
+ *   - `enumerate`  — ask OpenAlex what this journal has published and upsert those works as
+ *                    canonicals. Touches no publisher, runs no OCR, costs nothing.
+ *   - `import_all` — work the queue: up to `work_limit` eligible works (0 = all), lane-by-lane.
+ *                    This one spends money on the PDF lane, hence the cap and the confirm.
+ *
+ * Both run the SAME JournalHarvestRunner stages the CLI runs — the console is a second face on
+ * one implementation, not a second implementation.
  *
  * tries = 1, matching SourceNetworkHarvestJob: re-triggering is cheap and idempotent, and an
  * explicit operator retry beats automatic retries against a rate-limited publisher.
@@ -43,6 +55,20 @@ class JournalImportActionJob implements ShouldQueue
 
     public int $timeout = 3600;
     public int $tries = 1;
+
+    /**
+     * Seconds between works in a bulk run — the CLI's `--sleep` default. A journal harvest hits
+     * one publisher over and over; going flat out is how a harvester earns a block.
+     */
+    private const WORK_SLEEP = 2;
+
+    /**
+     * How long a bulk run may keep taking new work. Comfortably inside `$timeout` (3600s) so the
+     * loop exits and REPORTS rather than being killed mid-article — and `$timeout` in turn stays
+     * under the database queue's `retry_after` (7500s), without which a long job is re-dispatched
+     * while the first copy is still writing.
+     */
+    private const WORK_BUDGET = 3000;
 
     public function __construct(private string $runId)
     {
@@ -55,6 +81,7 @@ class JournalImportActionJob implements ShouldQueue
         ContentFetchService $fetcher,
         WorkOcrCharger $charger,
         HarvestShelf $shelf,
+        JournalHarvestRunner $runner,
     ): void {
         $db = DB::connection('pgsql_admin');
         $run = $db->table('journal_import_runs')->where('id', $this->runId)->first();
@@ -70,6 +97,8 @@ class JournalImportActionJob implements ShouldQueue
                 'import'         => $this->runImport($run, $creator, $htmlLane, $charger, $shelf),
                 'reconvert_html' => $this->runHtmlAction($run, $fetcher, $htmlLane, reconvertOnly: true),
                 'refetch_html'   => $this->runHtmlAction($run, $fetcher, $htmlLane, reconvertOnly: false),
+                'enumerate'      => $this->runEnumerate($run, $runner),
+                'import_all'     => $this->runImportAll($run, $runner),
                 default          => throw new \RuntimeException("unknown action \"{$run->action}\""),
             };
 
@@ -137,6 +166,114 @@ class JournalImportActionJob implements ShouldQueue
         }
 
         $counts['summary'] = implode(', ', $done);
+
+        return $counts;
+    }
+
+    /**
+     * Ask OpenAlex what this journal has published and upsert the answer as canonicals.
+     *
+     * The step that makes a journal exist for every other button: the console lists
+     * `canonical_source WHERE journal_source_id = <journal>`, so until this runs the page is empty
+     * and — since every other action is article-scoped — unactionable. Free: OpenAlex only, no
+     * publisher fetch, no OCR.
+     */
+    private function runEnumerate(object $run, JournalHarvestRunner $runner): array
+    {
+        $journal = JournalSource::find($run->journal_source_id);
+        if (! $journal) {
+            throw new \RuntimeException('journal row not found');
+        }
+
+        $stats = $runner->enumerate($journal, 'article', false, function (array $e) {
+            // Also the watchdog heartbeat: runStatus fails a run with no progress for 30 minutes,
+            // and a big journal's enumeration is many pages long.
+            $this->mark(['step_detail' => "enumerating: page {$e['pages']}, {$e['works']} works seen, {$e['upserted']} stored"]);
+        });
+
+        $estimate = $runner->estimate($journal);
+
+        return $stats + [
+            'eligible' => $estimate['eligible'],
+            'summary'  => "{$stats['upserted']} works enumerated, {$estimate['eligible']} eligible to import",
+        ];
+    }
+
+    /**
+     * Work the journal's queue: up to `work_limit` works (0 = every eligible one), lane by lane.
+     *
+     * The HTML lane runs first and is free; the PDF lane runs OCR and is charged to whoever
+     * pressed the button (`user_id`), per successful NEW import only — the same rule the CLI
+     * applies, because it is literally the same code.
+     */
+    private function runImportAll(object $run, JournalHarvestRunner $runner): array
+    {
+        $journal = JournalSource::find($run->journal_source_id);
+        if (! $journal) {
+            throw new \RuntimeException('journal row not found');
+        }
+
+        $limit = (int) ($run->work_limit ?? 0);
+        $payer = $run->user_id ? User::on('pgsql_admin')->find($run->user_id) : null;
+        $counts = [];
+        $spend = 0.0;
+        $done = [];
+        $stoppedEarly = false;
+
+        // "All" on a 107-article journal is genuinely longer than one job may live: `timeout` must
+        // stay under the queue's `retry_after` (7500s) or a still-running job gets picked up a
+        // second time and two workers write the same books. So the loop stops itself with time to
+        // spare and reports how far it got — every stage is idempotent and works are taken
+        // most-cited-first, so the next press resumes rather than repeats.
+        $deadline = time() + self::WORK_BUDGET;
+        $outOfTime = function () use ($deadline, &$stoppedEarly): bool {
+            $stop = time() >= $deadline;
+            $stoppedEarly = $stoppedEarly || $stop;
+            return $stop;
+        };
+
+        if (in_array($run->lanes, ['html', 'both'], true)) {
+            $html = $runner->importHtmlLanes($journal, $limit, false, self::WORK_SLEEP, function (array $e) {
+                if ($e['stage'] === 'html') {
+                    $this->mark(['step_detail' => "html {$e['n']}/{$e['total']}: {$e['title']}"]);
+                }
+            }, $outOfTime);
+            unset($html['stopped_early']);
+            $counts['html'] = $html;
+            $done[] = "html: {$html['imported']} imported, {$html['already_imported']} already there, "
+                . ($html['fetch_failed'] + $html['error']) . ' failed';
+        }
+
+        if (in_array($run->lanes, ['pdf', 'both'], true)) {
+            $pdf = $runner->importPdfLanes($journal, $limit, $payer, false, self::WORK_SLEEP, function (array $e) {
+                if ($e['stage'] === 'pdf') {
+                    $this->mark(['step_detail' => "pdf {$e['n']}/{$e['total']} (fetch + OCR): {$e['title']}"]);
+                }
+            }, $outOfTime);
+            $counts['pdf'] = $pdf['stats'];
+            $counts['spend'] = round($pdf['spend'], 4);
+            $spend = $pdf['spend'];
+            $done[] = "pdf: {$pdf['stats']['assigned']} imported, "
+                . ($pdf['stats']['fetch_failed'] + $pdf['stats']['ocr_failed'] + $pdf['stats']['error']) . ' failed'
+                . ($pdf['spend'] > 0 ? sprintf(', $%.4f', $pdf['spend']) : '');
+        }
+
+        // Shelf reconcile + registry bookkeeping, so the journal's public feeds and the index
+        // page's "started" split reflect what just landed. Deliberately runs for an HTML-only run
+        // too: the CLI's html-only path returns before this, which leaves `last_harvested_at`
+        // null and a journal that has been worked still sitting in the console's "next up" list.
+        $stats = ($counts['pdf'] ?? []) + ($counts['html'] ?? []);
+        $runner->finalise($journal, $stats, $spend, function (array $e) {
+            if ($e['stage'] === 'shelf') {
+                $this->mark(['step_detail' => "shelf sync: {$e['added']} book(s) added"]);
+            }
+        });
+
+        $counts['remaining_eligible'] = $runner->estimate($journal)['eligible'];
+        $counts['stopped_early'] = $stoppedEarly;
+        $counts['summary'] = implode(' · ', $done)
+            . ", {$counts['remaining_eligible']} still eligible"
+            . ($stoppedEarly ? ' — stopped at the time limit, press again to continue' : '');
 
         return $counts;
     }

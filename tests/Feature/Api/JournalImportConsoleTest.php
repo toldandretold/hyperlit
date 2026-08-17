@@ -388,6 +388,126 @@ test('a fresh run is left alone by the watchdog', function () {
         ->assertJsonPath('status', 'pending');
 });
 
+// ── Journal-scoped actions (the console's own enumerate / bulk import) ──
+
+/**
+ * Enumerate is the step that makes a journal actionable AT ALL: every other control on the page
+ * targets an article row, and those rows do not exist until this has run.
+ */
+test('enumerate queues a journal-scoped run that names no article', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    $runId = $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'enumerate'])->assertOk()->json('run_id');
+
+    Queue::assertPushed(\App\Jobs\JournalImportActionJob::class);
+
+    $row = jconDb()->table('journal_import_runs')->where('id', $runId)->first();
+    expect($row->action)->toBe('enumerate');
+    expect($row->journal_source_id)->toBe($journal->id);
+    // The journal IS the target — a stray canonical/book here would make the in-flight guard
+    // treat this as an article run and let a bulk import start beside it.
+    expect($row->canonical_source_id)->toBeNull();
+    expect($row->book)->toBeNull();
+});
+
+test('import_all records the cap and the lane, and bills whoever pressed it', function () {
+    Queue::fake();
+    $admin = $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    $runId = $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'import_all', 'lanes' => 'pdf', 'limit' => 25])->assertOk()->json('run_id');
+
+    $row = jconDb()->table('journal_import_runs')->where('id', $runId)->first();
+    expect($row->action)->toBe('import_all');
+    expect($row->lanes)->toBe('pdf');
+    expect((int) $row->work_limit)->toBe(25);
+    expect((int) $row->user_id)->toBe($admin->id);
+    expect($row->canonical_source_id)->toBeNull();
+});
+
+test('import_all takes 0 as "all eligible" but refuses an unoffered cap', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    // 0 is a real choice — unbounded, deliberate, confirmed in the UI.
+    $runId = $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'import_all', 'lanes' => 'html', 'limit' => 0])->assertOk()->json('run_id');
+    expect((int) jconDb()->table('journal_import_runs')->where('id', $runId)->value('work_limit'))->toBe(0);
+
+    // Anything else is a typo or a hand-rolled request, not an operator choice.
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'import_all', 'lanes' => 'html', 'limit' => 7])
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'limit must be one of: 5, 25, 100, 0 (0 = all eligible).');
+});
+
+/**
+ * A journal-wide run may touch ANY work of the journal, so it cannot overlap anything else on
+ * that journal in either direction — two runs writing the same book would interleave node writes.
+ */
+test('a journal-wide run blocks another journal run AND a single-article run', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $article = jconSeedArticle($journal->id);
+
+    $first = $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'import_all', 'lanes' => 'html', 'limit' => 5])->json('run_id');
+
+    // Same scope: joins rather than starting a second sweep.
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'enumerate'])
+        ->assertOk()
+        ->assertJsonPath('run_id', $first)
+        ->assertJsonPath('already_running', true)
+        ->assertJsonPath('action', 'import_all');
+
+    // Narrower scope: the article might be one the sweep is about to take.
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'import', 'lanes' => 'html', 'canonical_id' => $article['canonical_id']])
+        ->assertOk()
+        ->assertJsonPath('run_id', $first)
+        ->assertJsonPath('already_running', true);
+
+    expect(jconDb()->table('journal_import_runs')->where('journal_source_id', $journal->id)->count())->toBe(1);
+});
+
+test('a single-article run in flight holds off a journal-wide sweep', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $article = jconSeedArticle($journal->id);
+
+    $first = $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'import', 'lanes' => 'html', 'canonical_id' => $article['canonical_id']])->json('run_id');
+
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'import_all', 'lanes' => 'html', 'limit' => 5])
+        ->assertOk()
+        ->assertJsonPath('run_id', $first)
+        ->assertJsonPath('already_running', true);
+});
+
+test('a journal run does not block a DIFFERENT journal', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $other   = jconSeedJournal(['display_name' => 'JCon Other']);
+
+    $first = $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'enumerate'])->json('run_id');
+
+    $second = $this->postJson("/api/maintainer/journal-import/{$other->slug}/run",
+        ['action' => 'enumerate'])->assertOk()->assertJsonPath('already_running', false)->json('run_id');
+
+    expect($second)->not->toBe($first);
+});
+
 // ── Closing a case from the journal-import page ──
 
 /**
