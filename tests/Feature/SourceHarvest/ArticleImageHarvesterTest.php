@@ -15,12 +15,20 @@ use App\Services\BookImageStore;
 use App\Services\SourceImport\Content\ArticleImageHarvester;
 use Illuminate\Support\Facades\DB;
 
-/** A real 1x1 PNG — the harvester decodes bytes before storing, so this must be genuine. */
-function aihPngBytes(): string
+/**
+ * A real, decodable PNG big enough to be a figure. Deliberately NOT 1x1: the harvester rejects
+ * placeholder-sized images, so a 1x1 fixture would be thrown out by the very guard that makes
+ * these assertions meaningful (it is used on purpose in the tracking-pixel test below).
+ */
+function aihPngBytes(int $size = 8): string
 {
-    return base64_decode(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC'
-    );
+    $image = imagecreatetruecolor($size, $size);
+    ob_start();
+    imagepng($image);
+    $bytes = (string) ob_get_clean();
+    imagedestroy($image);
+
+    return $bytes;
 }
 
 /** A fetcher that serves PNG bytes for the listed URLs and refuses everything else. */
@@ -90,20 +98,97 @@ it('stores an absolute CDN image instead of leaving it hotlinked', function () {
 });
 
 /**
- * srcset out-ranks src in the browser, so leaving it would send the reader straight back to the
- * publisher and undo the whole exercise.
+ * The Atypon (Bristol UP) shape, and the reason figures came back BLANK rather than broken: the
+ * `src` is a placeholder the page swaps out in JavaScript, and the real path lives in
+ * `data-image-src`. Reading `src` stored a blank SVG and called it a figure.
  */
-it('strips srcset so the rewritten src actually wins', function () {
+it('takes the lazy-load attribute over a placeholder src', function () {
+    $html = '<figure><img src="/skin/a024b58/img/Blank.svg"'
+        . ' data-image-src="/gsc/view/journals/gscj/2/1/full-gscj-02-01-024_f001.jpg"></figure>';
+
+    $result = $this->harvester->harvest(
+        $html,
+        'https://bristoluniversitypressdigital.com/view/journals/gscj/2/1/article-p1.xml',
+        $this->book,
+        aihFetcher(['https://bristoluniversitypressdigital.com/gsc/view/journals/gscj/2/1/full-gscj-02-01-024_f001.jpg'], $calls),
+    );
+
+    expect($result['stored'])->toBe(1);
+    expect($calls)->toBe(['https://bristoluniversitypressdigital.com/gsc/view/journals/gscj/2/1/full-gscj-02-01-024_f001.jpg']);
+    expect($result['html'])->toContain('full-gscj-02-01-024_f001.jpg');
+    expect($result['html'])->not->toContain('Blank.svg');
+    // The attribute must go too — left behind, it still points at the publisher.
+    expect($result['html'])->not->toContain('data-image-src');
+});
+
+/** The same page's tables carry a real `src` and no data-attribute — that path must keep working. */
+it('still uses a real src when there is no lazy attribute', function () {
+    $html = '<img src="/gsc/view/journals/gscj/2/1/table-1.png">';
+
+    $result = $this->harvester->harvest(
+        $html,
+        'https://bristoluniversitypressdigital.com/view/journals/gscj/2/1/article-p1.xml',
+        $this->book,
+        aihFetcher(['https://bristoluniversitypressdigital.com/gsc/view/journals/gscj/2/1/table-1.png']),
+    );
+
+    expect($result['stored'])->toBe(1);
+    expect($result['html'])->toContain('/' . $this->book . '/media/');
+});
+
+it('falls back to srcset when the src is a placeholder', function () {
+    $html = '<img src="/skin/img/spacer.gif" srcset="/fig/real-figure.png 1x, /fig/real-figure-2x.png 2x">';
+
+    $result = $this->harvester->harvest(
+        $html,
+        'https://example.org/article/1',
+        $this->book,
+        aihFetcher(['https://example.org/fig/real-figure.png'], $calls),
+    );
+
+    expect($result['stored'])->toBe(1);
+    expect($calls)->toBe(['https://example.org/fig/real-figure.png']);
+});
+
+/** A spacer that slipped past the filename check is still not a figure. */
+it('rejects a 1x1 tracking pixel', function () {
+    $onePixelGif = base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+    $html = '<img src="/fig/f001.gif">';
+
+    $result = $this->harvester->harvest(
+        $html,
+        'https://example.org/article/1',
+        $this->book,
+        fn () => ['body' => $onePixelGif, 'mime' => 'image/gif'],
+    );
+
+    expect($result['stored'])->toBe(0);
+    expect($result['failed'])->toBe(1);
+    expect(aihRows($this->book))->toHaveCount(0);
+});
+
+/**
+ * srcset out-ranks src in the browser, so any surviving srcset would send the reader straight back
+ * to the publisher and undo the whole exercise. A lazy `data-srcset` is also where the real image
+ * lives, so it is preferred as the source AND stripped afterwards.
+ */
+it('strips every srcset variant so the rewritten src actually wins', function () {
     $html = '<img src="/fig/a.png" srcset="/fig/a-2x.png 2x" data-srcset="/fig/a-3x.png 3x" loading="lazy">';
 
     $result = $this->harvester->harvest(
         $html,
         'https://example.org/article/1',
         $this->book,
-        aihFetcher(['https://example.org/fig/a.png']),
+        aihFetcher([
+            'https://example.org/fig/a.png',
+            'https://example.org/fig/a-2x.png',
+            'https://example.org/fig/a-3x.png',
+        ]),
     );
 
+    expect($result['stored'])->toBe(1);
     expect($result['html'])->not->toContain('srcset');
+    expect($result['html'])->not->toContain('example.org');
     expect($result['html'])->toContain('/' . $this->book . '/media/');
 });
 

@@ -31,6 +31,32 @@ use Illuminate\Support\Facades\Log;
  */
 class ArticleImageHarvester
 {
+    /**
+     * Where a lazy-loading platform actually keeps the image, in priority order.
+     *
+     * This is not a nicety — it is where the figure IS. Atypon (Bristol UP) ships
+     * `<img src="/skin/…/img/Blank.svg" data-image-src="/gsc/view/…/f001.jpg">`: the `src` is a
+     * blank placeholder the page swaps out in JavaScript, so reading `src` stores a blank and
+     * calls it a figure. The article's tables came through fine because those `<img>`s carry a
+     * real `src` — same page, two behaviours, which is why only some figures were empty.
+     */
+    private const LAZY_ATTRIBUTES = [
+        'data-image-src',   // Atypon / Silverchair (Bristol UP, OUP)
+        'data-original',    // lazysizes / older jQuery lazyload
+        'data-lazy-src',
+        'data-full-src',
+        'data-hires',
+        'data-src',
+        'data-srcset',       // lazy srcset — parsed like srcset, so it comes last of the lazies
+    ];
+
+    /**
+     * Filenames that are transparently NOT the figure. A platform that lazy-loads without a
+     * usable data-attribute leaves only these, and storing one turns a broken image into a blank
+     * one — visibly "working" and far harder to notice.
+     */
+    private const PLACEHOLDER_NAMES = '/(^|[\/_-])(blank|spacer|placeholder|transparent|pixel|loading|grey|gray)([_-]|\.|$)/i';
+
     /** Refuse a single image bigger than this — a figure is not a video. */
     private const MAX_BYTES = 15 * 1024 * 1024;
 
@@ -83,25 +109,21 @@ class ArticleImageHarvester
 
         /** @var \DOMElement $img */
         foreach (iterator_to_array($doc->getElementsByTagName('img')) as $img) {
-            $src = trim($img->getAttribute('src'));
+            $absolute = $this->pickSourceUrl($img, $pageUrl);
 
-            // A data: URI is already self-contained, and a src we have already rewritten (or that
-            // a previous run stored) must not be re-fetched from ourselves.
-            if ($src === '' || str_starts_with($src, 'data:') || $this->isLocalMedia($src)) {
-                $stats['skipped']++;
-                continue;
-            }
-
-            $absolute = $this->absolutise($src, $pageUrl);
-            if (! $absolute) {
+            // Nothing usable: a data: URI (already self-contained) or a src we already store.
+            if ($absolute === null) {
                 $stats['skipped']++;
                 continue;
             }
 
             // srcset would out-rank the src we are about to rewrite and send the browser straight
-            // back to the publisher, so it goes regardless of whether the download works.
+            // back to the publisher; the lazy-load attributes are where the REAL url was hiding,
+            // and leaving them behind invites something downstream to follow them home.
+            foreach (self::LAZY_ATTRIBUTES as $attr) {
+                $img->removeAttribute($attr);
+            }
             $img->removeAttribute('srcset');
-            $img->removeAttribute('data-srcset');
             $img->removeAttribute('loading');
 
             if (isset($seen[$absolute])) {
@@ -180,9 +202,18 @@ class ArticleImageHarvester
 
         // The bytes must actually BE an image: a publisher that blocks hotlinks often answers 200
         // with an HTML "access denied" page, which would otherwise be stored as `figure1.jpg`.
-        if ($extension !== 'svg' && @getimagesizefromstring($body) === false) {
-            Log::info('Article image rejected — not decodable as an image', ['url' => $url]);
-            return null;
+        if ($extension !== 'svg') {
+            $size = @getimagesizefromstring($body);
+            if ($size === false) {
+                Log::info('Article image rejected — not decodable as an image', ['url' => $url]);
+                return null;
+            }
+            // A tracking pixel or spacer that got past the filename check. Storing it would make
+            // a missing figure look like a present one.
+            if (($size[0] ?? 0) <= 2 && ($size[1] ?? 0) <= 2) {
+                Log::info('Article image rejected — placeholder-sized', ['url' => $url, 'w' => $size[0], 'h' => $size[1]]);
+                return null;
+            }
         }
 
         $filename = $this->filenameFor($url, $extension);
@@ -229,6 +260,61 @@ class ArticleImageHarvester
             'image/svg+xml'           => 'svg',
             default                   => null,
         };
+    }
+
+    /**
+     * Which URL on this `<img>` is actually the figure.
+     *
+     * A lazy-loading platform puts a placeholder in `src` and the real path in a data-attribute,
+     * so the attributes are tried in LAZY_ATTRIBUTES order first and `src` last. A candidate whose
+     * filename is transparently a placeholder loses to any real one, but is still returned if it
+     * is all there is — a blank we can see beats no src at all.
+     *
+     * @return string|null absolute URL, or null when nothing here is worth fetching
+     */
+    private function pickSourceUrl(\DOMElement $img, string $pageUrl): ?string
+    {
+        $fallback = null;
+
+        // `src` before `srcset`: when both are real they are the same figure at different sizes,
+        // and preferring the plain one keeps the choice predictable. A placeholder `src` still
+        // loses to a real `srcset` via the fallback below.
+        foreach ([...self::LAZY_ATTRIBUTES, 'src', 'srcset'] as $attr) {
+            $raw = trim($img->getAttribute($attr));
+            if ($raw === '') {
+                continue;
+            }
+
+            // srcset is a comma-separated candidate list ("a.jpg 1x, b.jpg 2x"); take the first.
+            if (str_contains($attr, 'srcset')) {
+                $raw = trim(explode(' ', trim(explode(',', $raw)[0]))[0]);
+            }
+
+            // Already self-contained, or already ours — either way, not something to fetch.
+            if ($raw === '' || str_starts_with($raw, 'data:') || $this->isLocalMedia($raw)) {
+                continue;
+            }
+
+            $absolute = $this->absolutise($raw, $pageUrl);
+            if (! $absolute) {
+                continue;
+            }
+
+            if (! $this->looksLikePlaceholder($absolute)) {
+                return $absolute;
+            }
+            $fallback ??= $absolute;
+        }
+
+        return $fallback;
+    }
+
+    /** Is this URL obviously a spacer/blank rather than the figure? */
+    private function looksLikePlaceholder(string $url): bool
+    {
+        $path = parse_url($url, PHP_URL_PATH) ?: '';
+
+        return (bool) preg_match(self::PLACEHOLDER_NAMES, basename($path));
     }
 
     /** Resolve a page-relative src against the article URL. Null for anything unusable. */
