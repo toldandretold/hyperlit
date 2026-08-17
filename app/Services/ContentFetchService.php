@@ -6,7 +6,9 @@ use App\Helpers\SubBookIdHelper;
 use App\Services\DocumentImport\FileHelpers;
 use App\Services\DocumentImport\Processors\HtmlProcessor;
 use App\Services\DocumentImport\Processors\PdfProcessor;
+use App\Services\Security\UrlGuard;
 use App\Services\SourceImport\Content\AccessWallDetector;
+use App\Services\SourceImport\Content\ArticleImageHarvester;
 use App\Services\SourceImport\Content\BodyPresenceAssessor;
 use App\Services\SourceImport\Content\FlareSolverrClient;
 use App\Services\SourceImport\Content\LandingPagePdfLocator;
@@ -49,6 +51,14 @@ class ContentFetchService
      * sticky session (plain rotating proxy, or no proxy).
      */
     private ?string $currentSession = null;
+
+    /**
+     * Where the last HTML fetch actually LANDED, after redirects. We are nearly always handed a
+     * DOI, and doi.org redirects to the publisher — so the URL we requested is the wrong base for
+     * resolving the page's own relative links, and every relative figure src would be pointed at
+     * doi.org. Set by both HTML channels, consumed by landedUrl().
+     */
+    private ?string $lastFinalUrl = null;
 
     public function __construct(FileHelpers $fileHelpers, HtmlProcessor $htmlProcessor, PdfProcessor $pdfProcessor, LlmService $llmService)
     {
@@ -259,7 +269,11 @@ class ContentFetchService
             ['reconverted_at' => now()->toIso8601String()],
         );
 
-        $url = $libraryRecord->doi ? ('https://doi.org/' . $libraryRecord->doi) : ($libraryRecord->oa_url ?? 'https://localhost/');
+        // The page URL recorded when this lane was FETCHED. A reconvert has no network, so without
+        // it the DOI is the only candidate — and resolving the article's own relative image paths
+        // against doi.org points every figure at a host that never served them.
+        $url = $existing['page_url']
+            ?? ($libraryRecord->doi ? ('https://doi.org/' . $libraryRecord->doi) : ($libraryRecord->oa_url ?? 'https://localhost/'));
 
         try {
             return $this->importViaPasteEngine($html, $bookId, $url);
@@ -537,6 +551,9 @@ class ContentFetchService
 
         $r = json_decode(trim($proc->getOutput()), true);
         if (is_array($r) && ($r['ok'] ?? false) === true && !empty($r['html'])) {
+            // The page we landed on after the DOI redirect — the only correct base for the
+            // article's own relative URLs (see fetchHtmlPlain).
+            $this->lastFinalUrl = ! empty($r['finalUrl']) ? (string) $r['finalUrl'] : $url;
             return $r['html'];
         }
         Log::info('Browser HTML fetch did not yield a page', [
@@ -556,7 +573,10 @@ class ContentFetchService
     {
         try {
             $response = Http::withHeaders(self::browserHeaders())
-                ->withOptions(array_merge(['allow_redirects' => ['max' => 5]], $this->sessionProxyOption()))
+                ->withOptions(array_merge(
+                    ['allow_redirects' => ['max' => 5, 'track_redirects' => true]],
+                    $this->sessionProxyOption(),
+                ))
                 ->timeout(45)
                 ->get($url);
         } catch (\Throwable $e) {
@@ -571,8 +591,17 @@ class ContentFetchService
             return null;
         }
         $body = $response->body();
+        if (strlen($body) < 500) {
+            return null;
+        }
 
-        return strlen($body) >= 500 ? $body : null;
+        // Where we ACTUALLY landed. We are nearly always handed a DOI, and doi.org redirects to
+        // the publisher — so the request URL is the wrong base for resolving the page's own
+        // relative links, images included.
+        $history = $response->header('X-Guzzle-Redirect-History');
+        $this->lastFinalUrl = $history ? last(explode(', ', $history)) : $url;
+
+        return $body;
     }
 
     /**
@@ -589,15 +618,18 @@ class ContentFetchService
     private function importHtmlPage(string $url, string $bookId): array
     {
         $plainFailure = null;
+        $this->lastFinalUrl = null;
+
         if (($html = $this->fetchHtmlPlain($url)) !== null) {
             $this->lastFetchTrace['html_channel'] = 'plain';
-            $result = $this->importViaPasteEngine($html, $bookId, $url);
+            $result = $this->importViaPasteEngine($html, $bookId, $this->landedUrl($url));
             if ($result['status'] !== 'failed') {
                 return $result;
             }
             $plainFailure = $result;
         }
 
+        $this->lastFinalUrl = null;
         if (($html = $this->fetchHtmlViaBrowser($url)) === null) {
             // The plain attempt's gate verdict is more informative than a
             // generic fetch failure — and its pdf_url_status is already set.
@@ -612,7 +644,23 @@ class ContentFetchService
 
         $this->lastFetchTrace['html_channel'] = 'browser';
 
-        return $this->importViaPasteEngine($html, $bookId, $url);
+        return $this->importViaPasteEngine($html, $bookId, $this->landedUrl($url));
+    }
+
+    /**
+     * The URL the page actually came from, falling back to the one we asked for.
+     *
+     * Recorded on the trace so a RECONVERT can resolve the article's relative URLs too: that path
+     * has no network and would otherwise fall back to the DOI, resolving `/gsc/view/…` against
+     * doi.org.
+     */
+    private function landedUrl(string $requested): string
+    {
+        $landed = $this->lastFinalUrl ?: $requested;
+        $this->lastFetchTrace['page_url'] = $landed;
+        $this->lastFetchTrace['won_host'] = parse_url($landed, PHP_URL_HOST) ?: ($this->lastFetchTrace['won_host'] ?? null);
+
+        return $landed;
     }
 
     private function fetchPdfViaBrowser(string $url, string $landing, string $bookId): array
@@ -1028,6 +1076,51 @@ class ContentFetchService
     }
 
     /** The sticky proxy URL for the CURRENT work's session (null = none). */
+    /**
+     * GET one of the article's images, wearing the same identity that just fetched the page.
+     *
+     * The Referer is the load-bearing part: publishers that serve a figure happily to a reader who
+     * is on the article will 403 the identical URL requested cold, which is the "they are blocking
+     * it" symptom. The sticky-session proxy matters for the same reason the PDF download uses it —
+     * a Cloudflare clearance is bound to the IP that earned it.
+     *
+     * @return array{body:string, mime:?string}|null
+     */
+    private function fetchImageBytes(string $imageUrl, string $pageUrl): ?array
+    {
+        // SSRF: these URLs come out of a THIRD-PARTY page, so they are attacker-influenceable in
+        // exactly the way the guard exists for — an `<img src="http://169.254.169.254/…">` on a
+        // compromised or hostile article would otherwise be fetched from inside our network.
+        if (! UrlGuard::isSafeFetchUrl($imageUrl)) {
+            Log::warning('Article image URL refused by UrlGuard', ['url' => $imageUrl]);
+            return null;
+        }
+
+        try {
+            $response = Http::withHeaders(array_merge(self::browserHeaders(), [
+                // An image request is not a navigation; the document headers would be a tell.
+                'Accept'         => 'image/avif,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5',
+                'Sec-Fetch-Dest' => 'image',
+                'Sec-Fetch-Mode' => 'no-cors',
+                'Sec-Fetch-Site' => 'same-origin',
+                'Referer'        => $pageUrl,
+            ]))
+                ->withOptions($this->sessionProxyOption())
+                ->timeout(30)
+                ->get($imageUrl);
+        } catch (\Throwable $e) {
+            Log::info('Article image request failed', ['url' => $imageUrl, 'error' => $e->getMessage()]);
+            return null;
+        }
+
+        if (! $response->successful()) {
+            Log::info('Article image request rejected', ['url' => $imageUrl, 'status' => $response->status()]);
+            return null;
+        }
+
+        return ['body' => $response->body(), 'mime' => $response->header('Content-Type') ?: null];
+    }
+
     private function sessionProxyUrl(): ?string
     {
         return self::stickyProxy($this->currentSession);
@@ -1662,7 +1755,21 @@ class ContentFetchService
             return ($id && !empty($f['content'])) ? ['footnoteId' => $id, 'content' => $f['content']] : null;
         }, $engine['footnotes'] ?? [])));
 
-        $result = $this->persistArticle($engine['html'] ?? '', $engine['references'] ?? [], $footnotes, $bookId, $conversionMethod);
+        // 3a. Bring the figures with us. The publisher's own `src` is either page-relative (so it
+        // resolves against OUR origin and 404s) or an absolute CDN hotlink (which dies the day
+        // they block the referer) — either way the reader gets a broken-image placeholder on a
+        // book we supposedly host. The fetch policy stays HERE because publisher image endpoints
+        // care about the session, proxy IP and Referer that fetched the page.
+        $images = app(ArticleImageHarvester::class)->harvest(
+            $engine['html'] ?? '',
+            $url,
+            $bookId,
+            fn (string $imageUrl): ?array => $this->fetchImageBytes($imageUrl, $url),
+        );
+        $this->lastFetchTrace['images_stored'] = $images['stored'];
+        $this->lastFetchTrace['images_failed'] = $images['failed'];
+
+        $result = $this->persistArticle($images['html'], $engine['references'] ?? [], $footnotes, $bookId, $conversionMethod);
         if ($result['status'] === 'failed') {
             return $result;
         }
