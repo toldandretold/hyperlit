@@ -74,7 +74,17 @@ class ContentFetchService
      * second attempt is not indistinguishable from a hammering retry loop, short enough that a
      * sweep does not crawl.
      */
-    private const SHELL_RETRY_DELAY_SECONDS = 3;
+    private const IP_RETRY_DELAY_SECONDS = 3;
+
+    /**
+     * Verdicts worth a second ADDRESS. All three are properties of who asked, not of the work:
+     * an empty shell, a bot wall and a failed fetch are what a publisher hands a suspect IP.
+     *
+     * `engine_crash` is deliberately absent — that one is deterministic on page size, so a second
+     * IP fetches identical bytes and dies identically. Nor is a rejected IDENTITY here: if the page
+     * is not the article, it will not be the article from anywhere else either.
+     */
+    private const RETRYABLE_GATES = ['body_absent', 'access_wall', 'fetch_failed'];
 
     public function __construct(FileHelpers $fileHelpers, HtmlProcessor $htmlProcessor, PdfProcessor $pdfProcessor, LlmService $llmService)
     {
@@ -244,7 +254,7 @@ class ContentFetchService
 
             $result = $this->importHtmlPage($url, $bookId);
 
-            if (($result['gate'] ?? null) === 'body_absent' && $this->canRotateSession()) {
+            if (in_array($result['gate'] ?? null, self::RETRYABLE_GATES, true) && $this->canRotateSession()) {
                 $result = $this->retryOnFreshSession($url, $bookId, $result);
             }
 
@@ -255,13 +265,14 @@ class ContentFetchService
     }
 
     /**
-     * One more go at a work that came back as an empty shell, from a DIFFERENT IP.
+     * One more go from a DIFFERENT IP, for the failures that are about the ASKER rather than the work.
      *
      * Atypon hands out an HTTP-200 page with zero prose intermittently rather than a 403 (see
      * importHtmlPage's docblock, and the 2026-08-17 GSCJ batch where it cost ~1 in 5 works). Both
      * channels inherit the work's single sticky-proxy session, so one unlucky IP writes the work
      * off entirely — while a bare GET from a clean IP demonstrably returns the full article. A
-     * fresh session is a fresh residential IP, which is the only variable worth changing.
+     * fresh session is a fresh residential IP, which is the only variable worth changing. The same
+     * reasoning covers a bot wall and a failed fetch: all three are verdicts on the address.
      *
      * Exactly ONE retry: a genuinely walled or abstract-only page must still fail fast rather than
      * tripling the load on a publisher we want to stay welcome at. Only fires when a proxy is
@@ -270,29 +281,30 @@ class ContentFetchService
      */
     private function retryOnFreshSession(string $url, string $bookId, array $firstResult): array
     {
-        sleep(self::SHELL_RETRY_DELAY_SECONDS);
+        sleep(self::IP_RETRY_DELAY_SECONDS);
 
         $this->currentSession = Str::random(12);
         $this->lastFetchTrace['session'] = $this->currentSession;
-        $this->lastFetchTrace['shell_retry'] = true;
+        $this->lastFetchTrace['ip_retry'] = true;
         if (($proxyUrl = self::stickyProxy($this->currentSession)) !== null) {
             $this->lastFetchTrace['proxy'] = self::maskProxy($proxyUrl);
         }
 
-        Log::info('Body-absent shell — retrying on a fresh proxy session', [
+        Log::info('Retrying on a fresh proxy session', [
             'book' => $bookId, 'url' => $url, 'session' => $this->currentSession,
+            'first_gate' => $firstResult['gate'] ?? null,
         ]);
 
         $retry = $this->importHtmlPage($url, $bookId);
 
         if ($retry['status'] !== 'failed') {
-            Log::info('Shell retry succeeded on the second IP', ['book' => $bookId, 'url' => $url]);
+            Log::info('Retry succeeded on the second IP', ['book' => $bookId, 'url' => $url]);
             return $retry;
         }
 
         // Report the SECOND verdict only if it says something new; otherwise the first stands, so
         // "walled twice from two IPs" reads as one honest failure rather than a louder one.
-        return ($retry['gate'] ?? null) === 'body_absent' ? $firstResult : $retry;
+        return in_array($retry['gate'] ?? null, self::RETRYABLE_GATES, true) ? $firstResult : $retry;
     }
 
     /**
@@ -728,7 +740,7 @@ class ContentFetchService
             $reason = self::HTML_PAGE_FETCH_FAILED . " ({$url})";
             $this->setPdfUrlStatus($bookId, $reason);
 
-            return ['status' => 'failed', 'reason' => $reason];
+            return ['status' => 'failed', 'reason' => $reason, 'gate' => 'fetch_failed'];
         }
 
         $landed = $this->landedUrl($url);
@@ -1788,13 +1800,26 @@ class ContentFetchService
             $this->lastFetchTrace['body_verdict'] = 'blocked';
             $this->lastFetchTrace['body_reason'] = $wall;
             $this->setPdfUrlStatus($bookId, $wall);
-            return ['status' => 'failed', 'reason' => $wall];
+            // Keep the wall itself: which vendor's check we tripped is the whole diagnosis, and
+            // it is also what tells you later whether a retry hit a DIFFERENT wall or the same one.
+            $this->persistRejectedPage($bookId, $html);
+
+            return ['status' => 'failed', 'reason' => $wall, 'gate' => 'access_wall'];
         }
 
         // 1. Convert via the shared engine (Node + happy-dom).
         $run = $this->runPasteEngine($html);
         if ($run['engine'] === null) {
-            return ['status' => 'failed', 'reason' => $run['reason']];
+            $this->setPdfUrlStatus($bookId, $run['reason']);
+            // Keep the page that killed the converter. This is the ONE case where the input is
+            // most worth having and we used to discard it: `fetched_page.html` is written only on
+            // success and `rejected_page.html` only on a body verdict, so an engine crash left
+            // nothing to measure or replay — a big-page failure could only be guessed at.
+            $this->persistRejectedPage($bookId, $html);
+
+            // Deliberately NOT retryable: an engine crash is deterministic on page size, so a
+            // second IP would fetch the same bytes and die the same way.
+            return ['status' => 'failed', 'reason' => $run['reason'], 'gate' => 'engine_crash'];
         }
         $engine = $run['engine'];
 

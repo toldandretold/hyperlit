@@ -449,7 +449,7 @@ test('a body-absent shell is retried once on a fresh session, and the second IP 
     // The evidence says a retry happened, so a later reader of the trace can tell a work that
     // needed two goes from one that sailed through.
     $trace = json_decode(file_get_contents(resource_path("markdown/{$book}/fetch_trace.json")), true);
-    expect($trace['shell_retry'] ?? false)->toBeTrue();
+    expect($trace['ip_retry'] ?? false)->toBeTrue();
 });
 
 test('a page that is a shell from BOTH addresses fails once, without a third attempt', function () {
@@ -490,4 +490,63 @@ test('with no proxy configured the shell is not retried at all', function () {
     expect($result['status'])->toBe('failed');
     // Same machine, same address — a second ask buys nothing and costs the publisher a request.
     expect($hits)->toBe(1);
+});
+
+/**
+ * A bot wall and a failed fetch are verdicts on the ADDRESS, not the work — the same class as an
+ * empty shell — so they earn the same one retry from a fresh IP. (An engine crash does not: it is
+ * deterministic on page size, so a second IP fetches identical bytes and dies identically.)
+ */
+it('retries an interstitial on a fresh session', function () {
+    Queue::fake();
+    config([
+        'services.source_fetch.proxy'   => 'http://user:pass@proxy.invalid:1234',
+        'services.source_fetch.browser' => false,
+    ]);
+
+    $wall = '<html><body><div class="cf-browser-verification">Checking your browser…</div>'
+        . str_repeat('<span>please wait</span>', 60) . '</body></html>';
+
+    $url = 'https://doi.invalid/wall-then-article';
+    gateFakeShellFetch($url, fn (int $n) => $n === 1 ? $wall : gateArticlePage(), $hits);
+
+    $book = gateSeedShellStub('wall');
+    $result = app(ContentFetchService::class)->importHtmlLane(
+        (object) ['book' => $book, 'doi' => null, 'oa_url' => $url, 'title' => 'Gate Wall Work'],
+    );
+
+    expect($result['status'])->toBe('imported');
+    expect($hits)->toBe(2);
+
+    // The wall itself is kept: which vendor's check we tripped is the diagnosis.
+    expect(file_exists(resource_path("markdown/{$book}/rejected_page.html")))->toBeFalse(); // cleared by the win
+});
+
+it('retries a failed fetch on a fresh session', function () {
+    Queue::fake();
+    config([
+        'services.source_fetch.proxy'   => 'http://user:pass@proxy.invalid:1234',
+        'services.source_fetch.browser' => false,
+    ]);
+
+    $url = 'https://doi.invalid/500-then-article';
+    $hits = 0;
+    Http::fake(function ($request) use (&$hits, $url) {
+        if ($request->url() !== $url) {
+            return Http::response('', 404);
+        }
+        $hits++;
+
+        return $hits === 1
+            ? Http::response('nope', 503)
+            : Http::response(gateArticlePage(), 200, ['Content-Type' => 'text/html; charset=utf-8']);
+    });
+
+    $book = gateSeedShellStub('fetchfail');
+    $result = app(ContentFetchService::class)->importHtmlLane(
+        (object) ['book' => $book, 'doi' => null, 'oa_url' => $url, 'title' => 'Gate Fetch Work'],
+    );
+
+    expect($result['status'])->toBe('imported');
+    expect($hits)->toBe(2);
 });
