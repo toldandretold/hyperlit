@@ -116,6 +116,31 @@ test('detects the AWS WAF human-verification interstitial', function () {
     expect($reason)->toContain('AWS WAF');
 });
 
+/**
+ * The false positive that cost a real article. GarbageDetector's vocabulary contains "results for"
+ * (next to "search results"), which a genuine academic title can contain — GSCJ's "…institutional
+ * change and results for gender equality?" was condemned on its title while the page carried
+ * ~88,000 characters of the paper. A blocky title now has to be corroborated by an empty page.
+ */
+test('a real article is not condemned for a block phrase in its TITLE', function () {
+    $html = file_get_contents(walledFixture('real-article-with-block-phrase-title.html'));
+
+    // The title genuinely trips the shared vocabulary — that is the point.
+    expect(app(\App\Services\Conversion\GarbageDetector::class)->isBlockPhrase(
+        'Can organizational frameworks drive institutional change and results for gender equality?'
+    ))->toBeTrue();
+
+    // …but the page is plainly an article, so the detector must let it through.
+    expect(app(AccessWallDetector::class)->detect($html))->toBeNull();
+});
+
+test('the SAME blocky title on an empty page is still caught', function () {
+    $wall = '<html><head><title>Search results for this request</title></head>'
+        . '<body><p>Please verify your request.</p></body></html>';
+
+    expect(app(AccessWallDetector::class)->detect($wall))->toContain('interstitial');
+});
+
 test('does NOT fire on any real article fixture (no false positives)', function () {
     $detector = app(AccessWallDetector::class);
 

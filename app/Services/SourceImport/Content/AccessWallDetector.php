@@ -71,6 +71,13 @@ class AccessWallDetector
         'awswaf.com'                => 'blocked by an AWS WAF bot check',
     ];
 
+    /**
+     * Above this much visible text, a block-phrase TITLE is not enough to condemn a page. A wall is
+     * a few hundred characters; the smallest thing we would still call an article is far above
+     * this. Matches GarbageDetector::MIN_TOTAL_CHARS so the two agree on "suspiciously empty".
+     */
+    private const INTERSTITIAL_TEXT_CEILING = 2000;
+
     public function __construct(private GarbageDetector $garbage)
     {
     }
@@ -87,20 +94,38 @@ class AccessWallDetector
             }
         }
 
-        // Prose wording ("Access Check", "Just a moment", "unusual traffic") is
-        // NOT duplicated here — GarbageDetector::isBlockPhrase is the one
-        // vocabulary, already shared with WebArticleVerifier and
-        // library:flag-sweep. It is deliberately loose (it also covers "sign in
-        // to", "cookie consent", "search results"), which is safe on a PAGE
-        // TITLE and unsafe anywhere else — so it is applied to <title> only.
-        // Section headings are excluded on purpose: a genuine article can be
-        // headed "Results for the primary endpoint".
+        // Prose wording ("Access Check", "Just a moment", "unusual traffic") is NOT duplicated
+        // here — GarbageDetector::isBlockPhrase is the one vocabulary, already shared with
+        // WebArticleVerifier and library:flag-sweep. It is deliberately loose (it also covers
+        // "sign in to", "cookie consent", "search results"), so it is applied to the <title> only
+        // and ONLY when the page is also suspiciously empty.
+        //
+        // Both halves are load-bearing. Section headings were always excluded because a genuine
+        // article can be headed "Results for the primary endpoint" — but a TITLE can contain the
+        // same words, and GSCJ's "Can organizational frameworks drive institutional change and
+        // results for gender equality?" was thrown away on that basis while carrying 88,000
+        // characters of the actual article. An interstitial is a few hundred characters of "prove
+        // you are human"; a paper is tens of thousands. Requiring both closes the hole without
+        // weakening the vocabulary for its other consumers.
         $title = $this->title($html);
-        if ($title !== '' && $this->garbage->isBlockPhrase($title)) {
+        if ($title !== '' && $this->garbage->isBlockPhrase($title)
+            && $this->visibleTextLength($html) < self::INTERSTITIAL_TEXT_CEILING) {
             return sprintf('the page served was an interstitial, not the article (title: "%s")', $title);
         }
 
         return null;
+    }
+
+    /**
+     * Rough visible-text length: enough to tell "prove you are human" from a paper, and no more.
+     * Deliberately not the body gate's job — that one measures PROSE BLOCKS on converted output
+     * and runs later; this is a cheap pre-check on raw HTML that only has to avoid being absurd.
+     */
+    private function visibleTextLength(string $html): int
+    {
+        $stripped = preg_replace('#<(script|style)\b.*?</\1>#is', ' ', $html) ?? $html;
+
+        return mb_strlen(trim(preg_replace('/\s+/', ' ', strip_tags($stripped)) ?? ''));
     }
 
     /** Collapsed, tag-stripped <title> text; '' when the page has none. */
