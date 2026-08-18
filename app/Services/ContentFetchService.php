@@ -1792,20 +1792,11 @@ class ContentFetchService
         }
 
         // 1. Convert via the shared engine (Node + happy-dom).
-        try {
-            $proc = new \Symfony\Component\Process\Process(['node', base_path('scripts/paste-convert.mjs')], base_path());
-            $proc->setInput(json_encode(['html' => $html]));
-            $proc->setTimeout(60);
-            $proc->run();
-        } catch (\Throwable $e) {
-            return ['status' => 'failed', 'reason' => 'paste engine unavailable: ' . Str::limit($e->getMessage(), 120)];
+        $run = $this->runPasteEngine($html);
+        if ($run['engine'] === null) {
+            return ['status' => 'failed', 'reason' => $run['reason']];
         }
-
-        $engine = json_decode(trim($proc->getOutput()), true);
-        if (!is_array($engine) || ($engine['ok'] ?? false) !== true) {
-            $detail = is_array($engine) ? ($engine['reason'] ?? 'unknown') : 'no parseable output';
-            return ['status' => 'failed', 'reason' => "paste engine failed: {$detail}"];
-        }
+        $engine = $run['engine'];
 
         // 2. Authenticity gate — is this actually THE article? (requirement 3)
         $verdict = $this->assessArticleAuthenticity($html, $engine, $bookId);
@@ -1934,17 +1925,10 @@ class ContentFetchService
         }
 
         // Convert body + footnotes via the shared paste engine.
-        try {
-            $proc = new \Symfony\Component\Process\Process(['node', base_path('scripts/paste-convert.mjs')], base_path());
-            $proc->setInput(json_encode(['html' => $html]));
-            $proc->setTimeout(60);
-            $proc->run();
-        } catch (\Throwable $e) {
-            return ['status' => 'failed', 'reason' => 'paste engine unavailable: ' . Str::limit($e->getMessage(), 120)];
-        }
-        $engine = json_decode(trim($proc->getOutput()), true);
-        if (!is_array($engine) || ($engine['ok'] ?? false) !== true) {
-            return ['status' => 'failed', 'reason' => 'paste engine failed on web page'];
+        $run = $this->runPasteEngine($html);
+        $engine = $run['engine'];
+        if ($engine === null) {
+            return ['status' => 'failed', 'reason' => $run['reason']];
         }
 
         // Body gate — a subscriber-only news page serves headline + standfirst +
@@ -2045,6 +2029,76 @@ class ContentFetchService
      * already linked), and writes nodes + bibliography + footnotes, then wires
      * canonical pointers. NOT paste-specific.
      */
+    /**
+     * Run the shared Node + happy-dom paste engine over a page. One implementation for both the
+     * academic and web lanes, and one place that knows how to DESCRIBE a failure.
+     *
+     * A signalled process is the case worth naming: the engine being killed rather than exiting is
+     * almost always memory (SIGKILL 9 from the kernel's OOM killer, or SIGABRT 6 from Node's own
+     * heap limit), and it scales with page size — which is why the failure clusters on a journal's
+     * biggest articles rather than being random. The old message truncated at 120 characters, which
+     * cut the signal number off the end and left "signalled with signal" as the entire diagnosis.
+     * `pdf_url_status` is a text column, so the truncation bought nothing.
+     *
+     * @return array{engine: ?array, reason: ?string}
+     */
+    private function runPasteEngine(string $html): array
+    {
+        $bytes = number_format(strlen($html) / 1024, 0) . 'KB';
+
+        // Pin the heap rather than inheriting Node's RAM-derived default, which is what made this
+        // failure host-dependent and invisible: ~4GB on a dev machine, a fraction of that on a 2GB
+        // droplet, so the same article converted locally and aborted in production.
+        $heapMb = (int) config('services.source_fetch.paste_engine_heap_mb', 0);
+        $command = $heapMb > 0
+            ? ['node', "--max-old-space-size={$heapMb}", base_path('scripts/paste-convert.mjs')]
+            : ['node', base_path('scripts/paste-convert.mjs')];
+
+        try {
+            $proc = new \Symfony\Component\Process\Process($command, base_path());
+            $proc->setInput(json_encode(['html' => $html]));
+            $proc->setTimeout(60);
+            $proc->run();
+        } catch (\Symfony\Component\Process\Exception\ProcessSignaledException $e) {
+            $signal = $e->getSignal();
+            // The two are told apart by dmesg, and they need opposite fixes: a SIGABRT means Node
+            // hit ITS ceiling and wants a bigger one; a SIGKILL means the host ran out and a
+            // bigger ceiling would only make it worse.
+            $likely = match ($signal) {
+                6  => " — SIGABRT, Node's own heap ceiling (raise PASTE_ENGINE_HEAP_MB, currently {$heapMb}MB); nothing appears in dmesg for this",
+                9  => ' — SIGKILL, the kernel OOM killer: the HOST is out of memory, so lower the ceiling or add RAM',
+                11 => ' — SIGSEGV, a crash inside the parser',
+                default => '',
+            };
+
+            return [
+                'engine' => null,
+                'reason' => "paste engine killed by signal {$signal} on a {$bytes} page{$likely}",
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'engine' => null,
+                'reason' => "paste engine unavailable on a {$bytes} page: " . Str::limit($e->getMessage(), 200),
+            ];
+        }
+
+        $engine = json_decode(trim($proc->getOutput()), true);
+        if (is_array($engine) && ($engine['ok'] ?? false) === true) {
+            return ['engine' => $engine, 'reason' => null];
+        }
+
+        // Not signalled but no usable output: keep the exit code and whatever the engine said on
+        // stderr, which is where a Node stack trace lands.
+        $detail = is_array($engine) ? ($engine['reason'] ?? 'unknown') : 'no parseable output';
+        $stderr = Str::limit(trim($proc->getErrorOutput()), 200);
+
+        return [
+            'engine' => null,
+            'reason' => "paste engine failed on a {$bytes} page (exit {$proc->getExitCode()}): {$detail}"
+                . ($stderr !== '' ? " — {$stderr}" : ''),
+        ];
+    }
+
     private function persistArticle(string $html, array $references, array $footnotes, string $bookId, string $conversionMethod): array
     {
         $path = resource_path("markdown/{$bookId}");

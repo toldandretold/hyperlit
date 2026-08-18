@@ -292,6 +292,12 @@ return [
         // subprocess, so an unstubbed browser rung turns a gate test into a
         // multi-minute hang.
         'browser' => env('SOURCE_FETCH_BROWSER', true),
+        // Heap ceiling (MB) for the paste-engine Node subprocess. EXPLICIT on purpose: Node
+        // derives its default from total system RAM, so the same article converts on a dev
+        // machine (4GB ceiling) and aborts on a 2GB droplet — with nothing in dmesg, because
+        // Node self-aborts (SIGABRT) rather than the kernel OOM-killing it. Measured: a 900KB
+        // Atypon page peaks around 580MB. 0 = don't pass the flag (use Node's default).
+        'paste_engine_heap_mb' => (int) env('PASTE_ENGINE_HEAP_MB', 1024),
     ],
 
     'stripe' => [

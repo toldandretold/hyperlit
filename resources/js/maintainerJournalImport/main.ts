@@ -981,7 +981,13 @@ let lastFailures: RunFailure[] = [];
  */
 function failureKey(f: RunFailure): string {
   const raw = (f.reason || f.status || 'unknown').replace(/\s+/g, ' ').trim();
-  return raw.replace(/\s*\([^)]*\)\s*$/, '').replace(/["'].*$/, '').trim().slice(0, 90) || f.status;
+  return raw
+    .replace(/\s*\([^)]*\)\s*$/, '')   // a complete trailing parenthetical: the per-work URL
+    .replace(/["'].*$/, '')            // a quoted page title — differs per work, groups the same
+    .replace(/\s*\([^)]*$/, '')        // …and the now-dangling "(title:" the line above leaves
+    .replace(/[\s:,\-–—]+$/, '')       // trailing punctuation orphaned by the strips above
+    .trim()
+    .slice(0, 90) || f.status;
 }
 
 function groupFailures(failures: RunFailure[]): Map<string, RunFailure[]> {

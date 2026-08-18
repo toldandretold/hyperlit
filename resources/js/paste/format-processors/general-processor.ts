@@ -124,9 +124,9 @@ export class GeneralProcessor extends BaseFormatProcessor {
       const bracketDefs = new Map<string, Element>();
       dom.querySelectorAll('p, li').forEach((el: Element) => {
         const elText = (el.textContent || '').trim();
-        const defMatch = elText.match(/^\[(\d+)\]\s+\S/);
-        if (defMatch && !bracketDefs.has(defMatch[1])) {
-          bracketDefs.set(defMatch[1], el);
+        const defNumber = elText.match(/^\[(\d+)\]\s+\S/)?.[1];
+        if (defNumber && !bracketDefs.has(defNumber)) {
+          bracketDefs.set(defNumber, el);
         }
       });
 
@@ -137,7 +137,8 @@ export class GeneralProcessor extends BaseFormatProcessor {
         let m;
         while ((m = markerPattern.exec(elText)) !== null) {
           if (m.index === 0) continue; // a definition's own prefix, not a marker
-          markerIds.add(m[1]);
+          const markerNumber = m[1];
+          if (markerNumber) markerIds.add(markerNumber);
         }
       });
 
