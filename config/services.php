@@ -298,6 +298,22 @@ return [
         // Node self-aborts (SIGABRT) rather than the kernel OOM-killing it. Measured: a 900KB
         // Atypon page peaks around 580MB. 0 = don't pass the flag (use Node's default).
         'paste_engine_heap_mb' => (int) env('PASTE_ENGINE_HEAP_MB', 1024),
+
+        // ── Pacing ──
+        // How hard a harvest leans on one publisher. Tunable because the right answer is a
+        // property of THEIR rate rules, not ours: Bristol (AWS WAF) began issuing CAPTCHAs partway
+        // through a 25-work batch, which is the signature of a rate-based rule rather than a ban.
+        // Raise these if a publisher starts challenging mid-run; both cost only wall-clock.
+        //
+        // Seconds between WORKS in a bulk run (the CLI's --sleep default too, so both paths agree).
+        'work_sleep_seconds' => (int) env('HARVEST_WORK_SLEEP', 2),
+        // Milliseconds between an article's IMAGE downloads. Load-bearing alongside the above: a
+        // figure-heavy article otherwise fires a dozen requests at the same host inside one
+        // inter-work gap, which is a burst no per-article pause smooths out.
+        'image_delay_ms' => (int) env('HARVEST_IMAGE_DELAY_MS', 400),
+        // Seconds before the one fresh-IP retry. Not a rate lever — just politeness about
+        // re-asking a question that was already refused once.
+        'retry_delay_seconds' => (int) env('HARVEST_RETRY_DELAY', 3),
     ],
 
     'stripe' => [

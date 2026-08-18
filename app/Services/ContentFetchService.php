@@ -62,19 +62,33 @@ class ContentFetchService
     private ?string $lastFinalUrl = null;
 
     /**
+     * A wall the PLAIN rung was told about in a header rather than a body. AWS WAF answers a
+     * challenged request with 405 + `x-amzn-waf-action: captcha`, which the non-200 check would
+     * otherwise discard as a nondescript null — sending us on to a 70s browser fetch that renders
+     * the CAPTCHA as a normal 200 and reports it as "no article body".
+     */
+    private ?string $lastPlainWall = null;
+
+    /**
      * Pause between an article's image downloads. The journal sweep already waits 2s between
      * ARTICLES, but that was set when an article was a single request — a figure-heavy page now
      * fires a dozen image requests inside that gap, which is the burst a publisher actually
      * notices. Cheap insurance against getting the harvester blocked.
      */
-    private const IMAGE_FETCH_DELAY_MS = 400;
+    private function imageFetchDelayMs(): int
+    {
+        return (int) config('services.source_fetch.image_delay_ms', 400);
+    }
 
     /**
      * Pause before re-asking for a page that came back as an empty shell. Long enough that the
      * second attempt is not indistinguishable from a hammering retry loop, short enough that a
      * sweep does not crawl.
      */
-    private const IP_RETRY_DELAY_SECONDS = 3;
+    private function ipRetryDelaySeconds(): int
+    {
+        return (int) config('services.source_fetch.retry_delay_seconds', 3);
+    }
 
     /**
      * Verdicts worth a second ADDRESS. All three are properties of who asked, not of the work:
@@ -281,7 +295,7 @@ class ContentFetchService
      */
     private function retryOnFreshSession(string $url, string $bookId, array $firstResult): array
     {
-        sleep(self::IP_RETRY_DELAY_SECONDS);
+        sleep($this->ipRetryDelaySeconds());
 
         $this->currentSession = Str::random(12);
         $this->lastFetchTrace['session'] = $this->currentSession;
@@ -674,6 +688,16 @@ class ContentFetchService
             return null;
         }
 
+        // The server SAYS it challenged us. Believe it: this is cheaper and far more reliable than
+        // recognising the rendered puzzle later, and it is the difference between "blocked by a
+        // bot check" and the misleading "publisher landing page or abstract only".
+        $wafAction = trim((string) $response->header('x-amzn-waf-action'));
+        if ($wafAction !== '') {
+            $this->lastPlainWall = "blocked by an AWS WAF bot check (x-amzn-waf-action: {$wafAction})";
+
+            return null;
+        }
+
         if (!$response->successful()) {
             return null;
         }
@@ -710,6 +734,7 @@ class ContentFetchService
     {
         $plainFailure = null;
         $this->lastFinalUrl = null;
+        $this->lastPlainWall = null;
 
         if (($html = $this->fetchHtmlPlain($url)) !== null) {
             $landed = $this->landedUrl($url);
@@ -728,6 +753,18 @@ class ContentFetchService
                 return $result;
             }
             $plainFailure = $result;
+        }
+
+        // The plain rung was told IN A HEADER that we were challenged. Escalating to the browser
+        // only renders the puzzle, which comes back HTTP 200 with no prose and gets filed as
+        // "no article body" — 70 wasted seconds and a diagnosis pointing at the publisher's
+        // content rather than at our address. Fail honestly and cheaply instead.
+        if ($this->lastPlainWall !== null) {
+            $this->lastFetchTrace['body_verdict'] = 'blocked';
+            $this->lastFetchTrace['body_reason'] = $this->lastPlainWall;
+            $this->setPdfUrlStatus($bookId, $this->lastPlainWall);
+
+            return ['status' => 'failed', 'reason' => $this->lastPlainWall, 'gate' => 'access_wall'];
         }
 
         $this->lastFinalUrl = null;
@@ -1880,7 +1917,7 @@ class ContentFetchService
             $url,
             $bookId,
             fn (string $imageUrl): ?array => $this->fetchImageBytes($imageUrl, $url),
-            self::IMAGE_FETCH_DELAY_MS,
+            $this->imageFetchDelayMs(),
         );
         $this->lastFetchTrace['images_stored'] = $images['stored'];
         $this->lastFetchTrace['images_failed'] = $images['failed'];

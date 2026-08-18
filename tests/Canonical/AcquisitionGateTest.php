@@ -100,6 +100,22 @@ test('detects the JSTOR PerimeterX interstitial that shipped as a published book
     expect($reason)->toContain('PerimeterX');
 });
 
+/**
+ * AWS WAF Bot Control, which Bristol UP served to proxy IPs during the 2026-08 GSCJ harvest. It
+ * carries none of the other vendors' markers, so before this it fell through to the BODY gate and
+ * was reported as "no article body / 0 prose" — indistinguishable from a thin landing page, and a
+ * diagnosis pointing in exactly the wrong direction (the publisher was not being flaky; our
+ * addresses were being challenged).
+ */
+test('detects the AWS WAF human-verification interstitial', function () {
+    $reason = app(AccessWallDetector::class)->detect(
+        file_get_contents(walledFixture('bristol-aws-waf-human-verification.html'))
+    );
+
+    expect($reason)->not->toBeNull();
+    expect($reason)->toContain('AWS WAF');
+});
+
 test('does NOT fire on any real article fixture (no false positives)', function () {
     $detector = app(AccessWallDetector::class);
 
@@ -550,3 +566,40 @@ it('retries a failed fetch on a fresh session', function () {
     expect($result['status'])->toBe('imported');
     expect($hits)->toBe(2);
 });
+
+/**
+ * AWS WAF answers a challenged request with 405 + `x-amzn-waf-action: captcha`. The non-200 check
+ * used to discard that as a nondescript null, so we escalated to the browser — which renders the
+ * puzzle, returns HTTP 200 with no prose, and gets filed as "no article body". Believe the header:
+ * it is one request instead of a 70s browser session, and it blames the address rather than the
+ * publisher's content.
+ */
+test('a WAF captcha header fails immediately as a wall, without escalating to the browser', function () {
+    $url = 'https://doi.invalid/waf-challenged';
+    $hits = 0;
+    Http::fake(function ($request) use (&$hits, $url) {
+        $hits++;
+
+        return Http::response('<html><body>challenge</body></html>', 405, [
+            'Content-Type'      => 'text/html',
+            'x-amzn-waf-action' => 'captcha',
+        ]);
+    });
+
+    $book = gateSeedShellStub('waf');
+    $svc = app(ContentFetchService::class);
+    $m = new ReflectionMethod($svc, 'importHtmlPage');
+    $m->setAccessible(true);
+    $result = $m->invoke($svc, $url, $book);
+
+    expect($result['status'])->toBe('failed');
+    expect($result['gate'])->toBe('access_wall');
+    expect($result['reason'])->toContain('AWS WAF');
+    expect($hits)->toBe(1);   // no second, expensive attempt
+
+    // Recorded on the row as a block, not as a thin page — the distinction the whole
+    // investigation turned on. (fetch_trace.json is written by importHtmlLane's finally, which
+    // this reflection call deliberately bypasses to keep the retry out of the way.)
+    $status = DB::connection('pgsql_admin')->table('library')->where('book', $book)->value('pdf_url_status');
+    expect($status)->toContain('AWS WAF');
+})->skip(fn () => !file_exists(base_path('scripts/paste-convert.mjs')), 'paste engine absent');

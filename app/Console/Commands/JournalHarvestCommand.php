@@ -30,7 +30,7 @@ class JournalHarvestCommand extends Command
                             {--user= : Hyperlit username to bill OCR to (required unless --skip-ocr or --dry-run)}
                             {--skip-ocr : Fetch but do not run OCR (stubs stay deferred)}
                             {--dry-run : Enumerate + report eligibility only; no canonical writes, no fetches}
-                            {--sleep=2 : Seconds between works}
+                            {--sleep= : Seconds between works (default: services.source_fetch.work_sleep_seconds)}
                             {--type=article : OpenAlex type filter for enumeration (empty = all citable types)}
                             {--lane=pdf : Which lane(s) to import: pdf | html | both}
                             {--force-html : Re-fetch and re-convert HTML lanes that are already imported (to apply a processor fix)}';
@@ -48,7 +48,12 @@ class JournalHarvestCommand extends Command
         $maxWorks = (int) $this->option('max-works');
         $skipOcr = (bool) $this->option('skip-ocr');
         $dryRun = (bool) $this->option('dry-run');
-        $sleep = (int) $this->option('sleep');
+        // Falls back to the SAME config the console's bulk run uses, so pacing is one setting
+        // rather than two that can disagree about how hard to lean on a publisher.
+        $sleepOption = $this->option('sleep');
+        $sleep = ($sleepOption === null || $sleepOption === '')
+            ? (int) config('services.source_fetch.work_sleep_seconds', 2)
+            : (int) $sleepOption;
         $type = trim((string) $this->option('type')) ?: null;
 
         $lane = strtolower(trim((string) $this->option('lane'))) ?: 'pdf';

@@ -61,6 +61,14 @@ class AccessWallDetector
 
         // Akamai bot manager interstitial.
         '/akam/13/'                 => 'blocked by an Akamai bot check',
+
+        // AWS WAF Bot Control ("Human Verification" puzzle). Bristol UP serves this to proxy IPs
+        // it distrusts, and it carries NONE of the markers above — so before this entry it fell
+        // through to the body gate and was reported as "no article body / 0 prose", which reads
+        // as a thin landing page and sent the diagnosis in exactly the wrong direction. The host
+        // is the durable identifier: the visible prose is localised (the captured page carried
+        // Arabic), and the token path segments are per-request.
+        'awswaf.com'                => 'blocked by an AWS WAF bot check',
     ];
 
     public function __construct(private GarbageDetector $garbage)

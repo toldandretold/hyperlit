@@ -57,10 +57,15 @@ class JournalImportActionJob implements ShouldQueue
     public int $tries = 1;
 
     /**
-     * Seconds between works in a bulk run — the CLI's `--sleep` default. A journal harvest hits
-     * one publisher over and over; going flat out is how a harvester earns a block.
+     * Seconds between works in a bulk run. Config-driven (`HARVEST_WORK_SLEEP`) because the right
+     * value is a property of the PUBLISHER's rate rules, not ours — Bristol's AWS WAF started
+     * issuing CAPTCHAs partway through a 25-work batch, which is what a rate-based rule looks
+     * like. A journal harvest hits one host over and over; going flat out is how one earns a block.
      */
-    private const WORK_SLEEP = 2;
+    private function workSleep(): int
+    {
+        return (int) config('services.source_fetch.work_sleep_seconds', 2);
+    }
 
     /**
      * How long a bulk run may keep taking new work. Comfortably inside `$timeout` (3600s) so the
@@ -262,7 +267,7 @@ class JournalImportActionJob implements ShouldQueue
         };
 
         if (in_array($run->lanes, ['html', 'both'], true)) {
-            $html = $runner->importHtmlLanes($journal, $limit, false, self::WORK_SLEEP, function (array $e) use ($collect) {
+            $html = $runner->importHtmlLanes($journal, $limit, false, $this->workSleep(), function (array $e) use ($collect) {
                 if ($e['stage'] === 'html') {
                     $this->mark(['step_detail' => "html {$e['n']}/{$e['total']}: {$e['title']}"]);
                 }
@@ -277,7 +282,7 @@ class JournalImportActionJob implements ShouldQueue
         }
 
         if (in_array($run->lanes, ['pdf', 'both'], true)) {
-            $pdf = $runner->importPdfLanes($journal, $limit, $payer, false, self::WORK_SLEEP, function (array $e) use ($collect) {
+            $pdf = $runner->importPdfLanes($journal, $limit, $payer, false, $this->workSleep(), function (array $e) use ($collect) {
                 if ($e['stage'] === 'pdf') {
                     $this->mark(['step_detail' => "pdf {$e['n']}/{$e['total']} (fetch + OCR): {$e['title']}"]);
                 }
