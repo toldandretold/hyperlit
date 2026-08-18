@@ -70,6 +70,12 @@ class JournalImportActionJob implements ShouldQueue
      */
     private const WORK_BUDGET = 3000;
 
+    /**
+     * Ceiling on the per-work failure list carried back on the run row. Enough to triage a batch;
+     * bounded so a journal where everything fails cannot bloat the jsonb the page polls.
+     */
+    private const MAX_REPORTED_FAILURES = 100;
+
     public function __construct(private string $runId)
     {
         $this->onQueue('citation-pipeline');
@@ -232,10 +238,36 @@ class JournalImportActionJob implements ShouldQueue
             return $stop;
         };
 
+        // Which works failed and WHY. "13 failed" is not a diagnosis: 13 empty shells is publisher
+        // intermittency (press again), while 3 identity mismatches is our bug. The runner already
+        // reports both per work — this just stops throwing them away.
+        $failures = [];
+        $current = null;
+        $collect = function (string $lane, array $e, array $successStatuses) use (&$failures, &$current): void {
+            if ($e['stage'] === $lane) {
+                $current = ['title' => $e['title'], 'canonical_id' => $e['canonical_id'] ?? null];
+                return;
+            }
+            if (in_array($e['status'] ?? '', $successStatuses, true) || count($failures) >= self::MAX_REPORTED_FAILURES) {
+                return;
+            }
+            $failures[] = [
+                'lane'   => $lane,
+                'title'  => $current['title'] ?? '(untitled)',
+                'canonical_id' => $current['canonical_id'] ?? null,
+                'book'   => $e['book'] ?? null,
+                'status' => $e['status'] ?? 'error',
+                'reason' => $e['reason'] ?? null,
+            ];
+        };
+
         if (in_array($run->lanes, ['html', 'both'], true)) {
-            $html = $runner->importHtmlLanes($journal, $limit, false, self::WORK_SLEEP, function (array $e) {
+            $html = $runner->importHtmlLanes($journal, $limit, false, self::WORK_SLEEP, function (array $e) use ($collect) {
                 if ($e['stage'] === 'html') {
                     $this->mark(['step_detail' => "html {$e['n']}/{$e['total']}: {$e['title']}"]);
+                }
+                if (in_array($e['stage'], ['html', 'html_result'], true)) {
+                    $collect('html', $e, ['imported', 'reimported', 'already_imported']);
                 }
             }, $outOfTime);
             unset($html['stopped_early']);
@@ -245,9 +277,12 @@ class JournalImportActionJob implements ShouldQueue
         }
 
         if (in_array($run->lanes, ['pdf', 'both'], true)) {
-            $pdf = $runner->importPdfLanes($journal, $limit, $payer, false, self::WORK_SLEEP, function (array $e) {
+            $pdf = $runner->importPdfLanes($journal, $limit, $payer, false, self::WORK_SLEEP, function (array $e) use ($collect) {
                 if ($e['stage'] === 'pdf') {
                     $this->mark(['step_detail' => "pdf {$e['n']}/{$e['total']} (fetch + OCR): {$e['title']}"]);
+                }
+                if (in_array($e['stage'], ['pdf', 'pdf_result'], true)) {
+                    $collect('pdf', $e, ['assigned', 'assigned_existing']);
                 }
             }, $outOfTime);
             $counts['pdf'] = $pdf['stats'];
@@ -271,6 +306,7 @@ class JournalImportActionJob implements ShouldQueue
 
         $counts['remaining_eligible'] = $runner->estimate($journal)['eligible'];
         $counts['stopped_early'] = $stoppedEarly;
+        $counts['failures'] = $failures;
         $counts['summary'] = implode(' · ', $done)
             . ", {$counts['remaining_eligible']} still eligible"
             . ($stoppedEarly ? ' — stopped at the time limit, press again to continue' : '');

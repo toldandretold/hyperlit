@@ -28,6 +28,7 @@ use App\Services\SourceImport\Content\AccessWallDetector;
 use App\Services\SourceImport\Content\BodyPresenceAssessor;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
@@ -424,6 +425,10 @@ function gateFakeShellFetch(string $url, callable $bodyForHit, ?int &$hits): voi
 }
 
 test('a body-absent shell is retried once on a fresh session, and the second IP wins', function () {
+    // phpunit.xml runs the queue SYNC, so the embeddings job saveNodesToDatabase dispatches would
+    // run inline — 48 seconds of it, for a test that has nothing to say about embeddings.
+    Queue::fake();
+
     // A retry is only attempted when a proxy could hand us a different address.
     config([
         'services.source_fetch.proxy'   => 'http://user:pass@proxy.invalid:1234',

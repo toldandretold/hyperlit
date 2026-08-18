@@ -142,6 +142,8 @@ class JournalHarvestRunner
             $this->emit($progress, [
                 'stage' => 'html', 'n' => $n, 'total' => $total,
                 'title' => mb_substr($row->title ?? '(untitled)', 0, 66),
+                // Carried so a caller collecting failures can link each one back to its article.
+                'canonical_id' => $row->id,
             ]);
 
             $canonical = CanonicalSource::find($row->id);
@@ -217,6 +219,7 @@ class JournalHarvestRunner
             $this->emit($progress, [
                 'stage' => 'pdf', 'n' => $n, 'total' => $total,
                 'title' => mb_substr($row->title ?? '(untitled)', 0, 70),
+                'canonical_id' => $row->id,
             ]);
 
             try {

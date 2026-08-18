@@ -69,6 +69,11 @@
                 <label class="ji-only-imported">
                     <input type="checkbox" id="ji-only-imported"> imported only
                 </label>
+                {{-- A failed work still mints its lane row, so "failed" is a lane with no content.
+                     Without this you hunt 100+ rows for the handful a run reported. --}}
+                <label class="ji-only-imported">
+                    <input type="checkbox" id="ji-only-failed"> failed only
+                </label>
             </div>
             <div id="ji-articles-list" role="list"></div>
             {{-- Says what to DO, not just what is missing: an empty list here used to be a dead
@@ -140,6 +145,18 @@
         <button type="button" id="ji-import-html" title="Fetch the publisher page and run the paste engine (free)">HTML</button>
         <button type="button" id="ji-import-both" title="Both lanes, so you can compare them">both</button>
         <span class="ji-actions-status" id="ji-import-status" role="status" aria-live="polite"></span>
+    </div>
+
+    {{-- Why the last bulk run's failures happened, grouped by reason. A run that says "13 failed"
+         has not told you anything actionable: 13 empty shells is publisher intermittency (press
+         again), 3 identity mismatches is our bug. Copy ships the same grouping as plain text. --}}
+    <div class="ji-failures" id="ji-failures" hidden>
+        <div class="ji-failures-head">
+            <strong id="ji-failures-title"></strong>
+            <button type="button" id="ji-failures-copy" title="Copy this list as plain text">copy</button>
+            <button type="button" id="ji-failures-close" aria-label="Close failures">✕</button>
+        </div>
+        <div class="ji-failures-body" id="ji-failures-body"></div>
     </div>
 
     <div class="ji-help-panel" id="ji-help-panel" hidden>

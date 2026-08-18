@@ -215,7 +215,13 @@ async function loadDetail(slug: string): Promise<void> {
 
 function renderArticles(): void {
   const onlyImported = el<HTMLInputElement>('ji-only-imported')?.checked ?? false;
-  const rows = onlyImported ? articles.filter((a) => a.lanes.length > 0) : articles;
+  // A failed import still mints its lane row — it just never gets content — so "failed" is a lane
+  // with no nodes. A work nobody has attempted has no lanes at all and is correctly excluded.
+  const onlyFailed = el<HTMLInputElement>('ji-only-failed')?.checked ?? false;
+
+  let rows = articles;
+  if (onlyImported) rows = rows.filter((a) => a.lanes.length > 0);
+  if (onlyFailed) rows = rows.filter((a) => a.lanes.some((l) => !l.has_nodes));
 
   const list = el<HTMLDivElement>('ji-articles-list');
   list.textContent = '';
@@ -646,13 +652,16 @@ async function pollRun(runId: string, setter: (text: string) => void): Promise<v
     }
     const run = await resp.json() as {
       status: string; step_detail: string | null; error: string | null;
-      counts: { summary?: string };
+      counts: { summary?: string; failures?: RunFailure[] };
     };
 
     if (run.status === 'completed') {
       setter(run.counts.summary ? `done — ${run.counts.summary}` : 'done');
       const slug = detailSlugOf();
+      // Reload FIRST: the failure rows link into the article list, which must hold the fresh
+      // lanes before a click can find them.
       if (slug) await loadDetail(slug);
+      renderFailures(run.counts.failures ?? []);
       return;
     }
     if (run.status === 'failed') {
@@ -947,6 +956,117 @@ function wireDetailActions(): void {
   document.getElementById('ji-dismiss')?.addEventListener('click', () => { void resolveCase('dismissed'); });
 
   document.getElementById('ji-only-imported')?.addEventListener('change', renderArticles);
+  document.getElementById('ji-only-failed')?.addEventListener('change', renderArticles);
+}
+
+interface RunFailure {
+  lane: string;
+  title: string;
+  canonical_id: string | null;
+  book: string | null;
+  status: string;
+  reason: string | null;
+}
+
+/** The failures of the last bulk run, kept so the copy button can reproduce exactly what is shown. */
+let lastFailures: RunFailure[] = [];
+
+/**
+ * Group failures by REASON rather than listing them flat.
+ *
+ * "13 failed" is not a diagnosis and neither is a list of 13 titles. The split is: are these empty
+ * shells (publisher intermittency — press the button again) or identity/converter failures (ours to
+ * fix)? Reasons carry per-work detail like a URL in brackets, so the key strips that to make works
+ * that failed the SAME way land together.
+ */
+function failureKey(f: RunFailure): string {
+  const raw = (f.reason || f.status || 'unknown').replace(/\s+/g, ' ').trim();
+  return raw.replace(/\s*\([^)]*\)\s*$/, '').replace(/["'].*$/, '').trim().slice(0, 90) || f.status;
+}
+
+function groupFailures(failures: RunFailure[]): Map<string, RunFailure[]> {
+  const groups = new Map<string, RunFailure[]>();
+  for (const f of failures) {
+    const key = failureKey(f);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(f);
+  }
+  // Biggest cause first — that is the one worth acting on.
+  return new Map([...groups.entries()].sort((a, b) => b[1].length - a[1].length));
+}
+
+function renderFailures(failures: RunFailure[]): void {
+  lastFailures = failures;
+  const panel = document.getElementById('ji-failures');
+  if (!panel) return;
+
+  if (!failures.length) {
+    panel.hidden = true;
+    return;
+  }
+
+  const groups = groupFailures(failures);
+  el<HTMLElement>('ji-failures-title').textContent =
+    `${failures.length} failed · ${groups.size} cause${groups.size === 1 ? '' : 's'}`;
+
+  const body = el<HTMLDivElement>('ji-failures-body');
+  body.textContent = '';
+
+  for (const [reason, items] of groups) {
+    const group = document.createElement('div');
+    group.className = 'ji-failure-group';
+
+    const head = document.createElement('div');
+    head.className = 'ji-failure-reason';
+    head.textContent = `${items.length}× ${reason}`;
+    group.appendChild(head);
+
+    for (const f of items) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'ji-failure-row';
+      row.textContent = `${f.lane} · ${f.title}`;
+      row.title = f.reason || f.status;
+      // Straight to the article, where the lane's badge, its stored page and the harvest bundle are.
+      row.addEventListener('click', () => {
+        const article = articles.find((a) => a.canonical_id === f.canonical_id);
+        if (article) selectArticle(article);
+      });
+      group.appendChild(row);
+    }
+
+    body.appendChild(group);
+  }
+
+  panel.hidden = false;
+}
+
+/** The same grouping as plain text, for pasting into a bug report or a chat. */
+function failuresAsText(): string {
+  const groups = groupFailures(lastFailures);
+  const lines: string[] = [`${lastFailures.length} failed · ${groups.size} cause(s)`];
+
+  for (const [reason, items] of groups) {
+    lines.push('', `${items.length}× ${reason}`);
+    for (const f of items) {
+      lines.push(`  - [${f.lane}] ${f.title}${f.book ? ` (${f.book})` : ''}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+function wireFailuresPanel(): void {
+  document.getElementById('ji-failures-close')?.addEventListener('click', () => {
+    el<HTMLElement>('ji-failures').hidden = true;
+  });
+
+  document.getElementById('ji-failures-copy')?.addEventListener('click', () => {
+    void navigator.clipboard?.writeText(failuresAsText()).then(
+      () => setStatus('failures copied'),
+      () => setStatus('copy failed — select the text manually'),
+    );
+  });
 }
 
 /**
@@ -996,6 +1116,7 @@ if (detailSlug) {
   wireActionBar();
   wireDetailActions();
   wireJournalActions();
+  wireFailuresPanel();
   void loadDetail(detailSlug);
 } else if (has('ji-started-list')) {
   el<HTMLInputElement>('ji-filter')?.addEventListener('input', renderIndex);
