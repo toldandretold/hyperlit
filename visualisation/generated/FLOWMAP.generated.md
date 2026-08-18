@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1750 functions in 370 modules · 10 object stores · 10 PG tables · 3620 edges
+**MarkdownDB** schema v28 · 1752 functions in 370 modules · 10 object stores · 10 PG tables · 3623 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1335,6 +1335,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `GeneralProcessor.constructor` | `paste/format-processors/general-processor` | — | — | — | — |
 | `GeneralProcessor.extractFootnotes` | `paste/format-processors/general-processor` | — | — | read/write | — |
 | `GeneralProcessor.extractReferences` | `paste/format-processors/general-processor` | — | — | read/write | — |
+| `GeneralProcessor.hasReferenceSectionHeading` | `paste/format-processors/general-processor` | — | — | read | — |
+| `GeneralProcessor.stripLeadingBracketNumber` | `paste/format-processors/general-processor` | — | — | read/write | — |
 | `GeneralProcessor.transformStructure` | `paste/format-processors/general-processor` | — | — | read | — |
 | `MitPressProcessor.constructor` | `paste/format-processors/mit-press-processor` | — | — | — | — |
 | `MitPressProcessor.extractFootnotes` | `paste/format-processors/mit-press-processor` | — | — | read/write | — |

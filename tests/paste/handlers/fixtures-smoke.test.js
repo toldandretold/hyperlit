@@ -120,6 +120,19 @@ const BASELINES = [
     footnoteMarkers: 13, // some footnotes referenced more than once
   },
   {
+    // Synthetic fixture (shape of prod case book_1786957563012): Word/GDocs-style
+    // paste with plain-text [N] body markers and "[N] …" endnote paragraphs —
+    // no <sup>, no anchors, no References heading. Locks the GeneralProcessor
+    // bracket-endnote heuristic: defs become footnotes (NOT bibliography) and
+    // body markers link. Regression: body prose was hoovered into references.
+    file: 'generic-bracket-endnotes.html',
+    format: 'general',
+    footnotes: 5,
+    references: 0,
+    inTextCitations: 0,
+    footnoteMarkers: 5,
+  },
+  {
     file: 'substack.html',
     format: 'substack',
     footnotes: 35, // .footnote-content divs (bare footnote-anchor-N id format)

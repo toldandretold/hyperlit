@@ -114,6 +114,51 @@ export class GeneralProcessor extends BaseFormatProcessor {
       }
     }
 
+    // 2d. Fallback: plain-text bracket endnotes (Word / Google-Docs style pastes).
+    // Shape: body paragraphs carry mid-text "[N]" markers and the note definitions
+    // are paragraphs starting "[N] content" — no <sup>, no anchors. Only attempted
+    // when no markup-based refs exist, and never when the document has a
+    // references/bibliography heading (there, "[N]" markers are numeric CITATIONS
+    // into a reference list, which extractReferences owns).
+    if (refIdentifiers.size === 0 && !this.hasReferenceSectionHeading(dom)) {
+      const bracketDefs = new Map<string, Element>();
+      dom.querySelectorAll('p, li').forEach((el: Element) => {
+        const elText = (el.textContent || '').trim();
+        const defMatch = elText.match(/^\[(\d+)\]\s+\S/);
+        if (defMatch && !bracketDefs.has(defMatch[1])) {
+          bracketDefs.set(defMatch[1], el);
+        }
+      });
+
+      const markerIds = new Set<string>();
+      dom.querySelectorAll('p, li').forEach((el: Element) => {
+        const elText = el.textContent || '';
+        const markerPattern = /\[(\d+)\]/g;
+        let m;
+        while ((m = markerPattern.exec(elText)) !== null) {
+          if (m.index === 0) continue; // a definition's own prefix, not a marker
+          markerIds.add(m[1]);
+        }
+      });
+
+      // Definitions must form a contiguous 1..N list and every in-text marker
+      // must resolve into it — otherwise this isn't an endnote list and we
+      // leave everything alone (no link where ambiguous).
+      const defNumbers = [...bracketDefs.keys()].map(Number).sort((a, b) => a - b);
+      const isContiguous = defNumbers.length > 0
+        && defNumbers[0] === 1
+        && defNumbers[defNumbers.length - 1] === defNumbers.length;
+      const allMarkersResolve = markerIds.size > 0
+        && [...markerIds].every((id) => bracketDefs.has(id));
+
+      if (isContiguous && allMarkersResolve) {
+        bracketDefs.forEach((el, id) => {
+          refIdentifiers.add(id);
+          potentialParagraphDefs.set(id, el);
+        });
+      }
+    }
+
     // 3. Sanity check: Do all references have definitions?
     let allRefsHaveDefs = refIdentifiers.size > 0;
     for (const refId of refIdentifiers) {
@@ -134,9 +179,16 @@ export class GeneralProcessor extends BaseFormatProcessor {
 
         // Extract content, removing the number prefix
         // Handles both plain "7." and <a href="...">7</a> patterns
-        const content = pElement.innerHTML.trim()
+        let content = pElement.innerHTML.trim()
           .replace(/^\s*<a[^>]*>\s*\d+\s*<\/a>\s*/, '')
           .replace(/^\s*\d+[\.)]\s*/, '');
+
+        // Bracket-endnote defs ("[7] content") may carry the prefix inside a
+        // wrapper (<span>[7] …</span>), invisible to the string-level regexes
+        // above — strip it at the text-node level instead.
+        if (/^\s*\[\d+\]/.test(pElement.textContent)) {
+          content = this.stripLeadingBracketNumber(pElement);
+        }
 
         const uniqueId = this.generateFootnoteId(bookId, identifier);
         const uniqueRefId = this.generateFootnoteRefId(bookId, identifier);
@@ -195,6 +247,35 @@ export class GeneralProcessor extends BaseFormatProcessor {
     });
 
     return footnotes;
+  }
+
+  /**
+   * Does the document contain a references/bibliography section heading?
+   * Used to decide ownership of "[N]" markers: with such a heading they are
+   * numeric citations into a reference list, not endnote markers.
+   */
+  hasReferenceSectionHeading(dom: Element) {
+    const refHeadings = /^(references|bibliography|works cited|sources)$/i;
+    return Array.from(dom.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+      .some((el: Element) => refHeadings.test((el.textContent || '').trim()));
+  }
+
+  /**
+   * Remove a leading "[N]" identifier from a definition element's first
+   * non-empty text node and return the resulting innerHTML — works even when
+   * the prefix is nested inside inline wrappers like <span>/<b>.
+   */
+  stripLeadingBracketNumber(element: Element) {
+    const clone = element.cloneNode(true) as Element;
+    const walker = document.createTreeWalker(clone, NodeFilter.SHOW_TEXT, null);
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+      const text = node.textContent || '';
+      if (!text.trim()) continue;
+      node.textContent = text.replace(/^\s*\[\d+\]\s*/, '');
+      break;
+    }
+    return clone.innerHTML.trim();
   }
 
   /**
@@ -344,6 +425,15 @@ export class GeneralProcessor extends BaseFormatProcessor {
 
       // Skip if this looks like body text with in-text citations (not a reference list item)
       if (!isInRefSection) {
+        // A "[N]" marker mid-paragraph means body prose citing notes
+        // ("…of his own land.[2] In this way…"), not a reference entry —
+        // a genuine numbered entry only has "[N]" at position 0.
+        const markerPattern = /\[\d+\]/g;
+        let markerMatch;
+        while ((markerMatch = markerPattern.exec(text)) !== null) {
+          if (markerMatch.index > 0) return;
+        }
+
         const citeMatch = text.match(inTextCitePattern);
         if (citeMatch) {
           const content = citeMatch[1];

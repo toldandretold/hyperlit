@@ -1134,6 +1134,35 @@ var GeneralProcessor = class extends BaseFormatProcessor {
         console.log(`  - Found ${anchorDefsFound.length} additional definitions via anchor names`);
       }
     }
+    if (refIdentifiers.size === 0 && !this.hasReferenceSectionHeading(dom)) {
+      const bracketDefs = /* @__PURE__ */ new Map();
+      dom.querySelectorAll("p, li").forEach((el) => {
+        const elText = (el.textContent || "").trim();
+        const defMatch = elText.match(/^\[(\d+)\]\s+\S/);
+        if (defMatch && !bracketDefs.has(defMatch[1])) {
+          bracketDefs.set(defMatch[1], el);
+        }
+      });
+      const markerIds = /* @__PURE__ */ new Set();
+      dom.querySelectorAll("p, li").forEach((el) => {
+        const elText = el.textContent || "";
+        const markerPattern = /\[(\d+)\]/g;
+        let m;
+        while ((m = markerPattern.exec(elText)) !== null) {
+          if (m.index === 0) continue;
+          markerIds.add(m[1]);
+        }
+      });
+      const defNumbers = [...bracketDefs.keys()].map(Number).sort((a, b) => a - b);
+      const isContiguous = defNumbers.length > 0 && defNumbers[0] === 1 && defNumbers[defNumbers.length - 1] === defNumbers.length;
+      const allMarkersResolve = markerIds.size > 0 && [...markerIds].every((id) => bracketDefs.has(id));
+      if (isContiguous && allMarkersResolve) {
+        bracketDefs.forEach((el, id) => {
+          refIdentifiers.add(id);
+          potentialParagraphDefs.set(id, el);
+        });
+      }
+    }
     let allRefsHaveDefs = refIdentifiers.size > 0;
     for (const refId of refIdentifiers) {
       if (!potentialParagraphDefs.has(refId)) {
@@ -1147,7 +1176,10 @@ var GeneralProcessor = class extends BaseFormatProcessor {
       for (const identifier of refIdentifiers) {
         const pElement = potentialParagraphDefs.get(identifier);
         if (!pElement) continue;
-        const content = pElement.innerHTML.trim().replace(/^\s*<a[^>]*>\s*\d+\s*<\/a>\s*/, "").replace(/^\s*\d+[\.)]\s*/, "");
+        let content = pElement.innerHTML.trim().replace(/^\s*<a[^>]*>\s*\d+\s*<\/a>\s*/, "").replace(/^\s*\d+[\.)]\s*/, "");
+        if (/^\s*\[\d+\]/.test(pElement.textContent)) {
+          content = this.stripLeadingBracketNumber(pElement);
+        }
         const uniqueId = this.generateFootnoteId(bookId, identifier);
         const uniqueRefId = this.generateFootnoteRefId(bookId, identifier);
         footnotes.push(this.createFootnote(
@@ -1191,6 +1223,32 @@ var GeneralProcessor = class extends BaseFormatProcessor {
       }
     });
     return footnotes;
+  }
+  /**
+   * Does the document contain a references/bibliography section heading?
+   * Used to decide ownership of "[N]" markers: with such a heading they are
+   * numeric citations into a reference list, not endnote markers.
+   */
+  hasReferenceSectionHeading(dom) {
+    const refHeadings = /^(references|bibliography|works cited|sources)$/i;
+    return Array.from(dom.querySelectorAll("h1, h2, h3, h4, h5, h6")).some((el) => refHeadings.test((el.textContent || "").trim()));
+  }
+  /**
+   * Remove a leading "[N]" identifier from a definition element's first
+   * non-empty text node and return the resulting innerHTML — works even when
+   * the prefix is nested inside inline wrappers like <span>/<b>.
+   */
+  stripLeadingBracketNumber(element) {
+    const clone = element.cloneNode(true);
+    const walker = document.createTreeWalker(clone, NodeFilter.SHOW_TEXT, null);
+    let node;
+    while (node = walker.nextNode()) {
+      const text = node.textContent || "";
+      if (!text.trim()) continue;
+      node.textContent = text.replace(/^\s*\[\d+\]\s*/, "");
+      break;
+    }
+    return clone.innerHTML.trim();
   }
   /**
    * Extract references - prioritizes anchor-based detection over heuristics
@@ -1299,6 +1357,11 @@ var GeneralProcessor = class extends BaseFormatProcessor {
       const text = p.textContent.trim();
       if (!text) return;
       if (!isInRefSection) {
+        const markerPattern = /\[\d+\]/g;
+        let markerMatch;
+        while ((markerMatch = markerPattern.exec(text)) !== null) {
+          if (markerMatch.index > 0) return;
+        }
         const citeMatch = text.match(inTextCitePattern);
         if (citeMatch) {
           const content = citeMatch[1];

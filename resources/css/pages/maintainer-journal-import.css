@@ -91,6 +91,10 @@ body.ji-detail {
   z-index: 1003;
   font-size: 0.8rem;
 }
+/* display:flex above beats the UA's [hidden]{display:none} — restate it or the ✕ can't close the panel */
+.ji-failures[hidden] {
+  display: none;
+}
 .ji-failures-head {
   display: flex;
   align-items: center;

@@ -44,15 +44,14 @@ publisher redesigns their site, and tests run instantly with no network.
 <publisher>-<short-slug>.html
 ```
 
-| publisher prefix | source                          |
-|------------------|---------------------------------|
-| `cambridge-`     | cambridge.org/core              |
-| `oup-`           | academic.oup.com                |
-| `tandf-`         | tandfonline.com                 |
-| `sciencedirect-` | sciencedirect.com               |
-| `sage-`          | journals.sagepub.com            |
-| `springer-fn-`   | Springer (footnote style)       |
-| `springer-ad-`   | Springer (author-date style)    |
+- **`cambridge-`** — cambridge.org/core
+- **`oup-`** — academic.oup.com
+- **`tandf-`** — tandfonline.com
+- **`sciencedirect-`** — sciencedirect.com
+- **`sage-`** — journals.sagepub.com
+- **`springer-fn-`** — Springer (footnote style)
+- **`springer-ad-`** — Springer (author-date style)
+- **`generic-`** — synthetic fixture for the GeneralProcessor fallback (no publisher markup). Used when the real payload can't be committed — e.g. `generic-bracket-endnotes.html` mirrors the *shape* of a private user paste (prod case book_1786957563012: plain-text `[N]` markers + `[N] …` endnote paragraphs) with neutral stand-in text.
 
 ## Reference URLs used to seed this corpus
 

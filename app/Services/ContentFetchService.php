@@ -10,6 +10,7 @@ use App\Services\Security\UrlGuard;
 use App\Services\SourceImport\Content\AccessWallDetector;
 use App\Services\SourceImport\Content\ArticleImageHarvester;
 use App\Services\SourceImport\Content\BodyPresenceAssessor;
+use App\Services\SourceImport\Content\CrossrefChooserResolver;
 use App\Services\SourceImport\Content\FlareSolverrClient;
 use App\Services\SourceImport\Content\LandingPagePdfLocator;
 use App\Services\SourceImport\Content\OaLocationResolver;
@@ -693,14 +694,24 @@ class ContentFetchService
      * gate then rightly rejected, three GSCJ articles in a row. The plain rung
      * also touches the publisher far more lightly than a full browser session.
      */
-    private function importHtmlPage(string $url, string $bookId): array
+    private function importHtmlPage(string $url, string $bookId, bool $chooserFollowed = false): array
     {
         $plainFailure = null;
         $this->lastFinalUrl = null;
 
         if (($html = $this->fetchHtmlPlain($url)) !== null) {
+            $landed = $this->landedUrl($url);
+            // Crossref multiple-resolution DOIs don't redirect to the publisher —
+            // doi.org serves a zero-prose chooser page listing where the article
+            // lives. Follow its first location once instead of letting the body
+            // gate reject the chooser itself.
+            if (!$chooserFollowed && ($target = app(CrossrefChooserResolver::class)->target($landed, $html)) !== null) {
+                $this->lastFetchTrace['chooser_followed'] = $target;
+
+                return $this->importHtmlPage($target, $bookId, true);
+            }
             $this->lastFetchTrace['html_channel'] = 'plain';
-            $result = $this->importViaPasteEngine($html, $bookId, $this->landedUrl($url));
+            $result = $this->importViaPasteEngine($html, $bookId, $landed);
             if ($result['status'] !== 'failed') {
                 return $result;
             }
@@ -720,9 +731,16 @@ class ContentFetchService
             return ['status' => 'failed', 'reason' => $reason];
         }
 
+        $landed = $this->landedUrl($url);
+        if (!$chooserFollowed && ($target = app(CrossrefChooserResolver::class)->target($landed, $html)) !== null) {
+            $this->lastFetchTrace['chooser_followed'] = $target;
+
+            return $this->importHtmlPage($target, $bookId, true);
+        }
+
         $this->lastFetchTrace['html_channel'] = 'browser';
 
-        return $this->importViaPasteEngine($html, $bookId, $this->landedUrl($url));
+        return $this->importViaPasteEngine($html, $bookId, $landed);
     }
 
     /**

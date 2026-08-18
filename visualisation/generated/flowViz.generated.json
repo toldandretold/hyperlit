@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1750,
+    "fnCount": 1752,
     "moduleCount": 370,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3620,
+    "edgeCount": 3623,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -12124,6 +12124,22 @@
       "leaf": false
     },
     {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.hasReferenceSectionHeading",
+      "label": "GeneralProcessor.hasReferenceSectionHeading",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.stripLeadingBracketNumber",
+      "label": "GeneralProcessor.stripLeadingBracketNumber",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": false
+    },
+    {
       "id": "paste/format-processors/general-processor:GeneralProcessor.transformStructure",
       "label": "GeneralProcessor.transformStructure",
       "kind": "fn",
@@ -19457,6 +19473,8 @@
         "paste/format-processors/general-processor:GeneralProcessor.constructor",
         "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes",
         "paste/format-processors/general-processor:GeneralProcessor.extractReferences",
+        "paste/format-processors/general-processor:GeneralProcessor.hasReferenceSectionHeading",
+        "paste/format-processors/general-processor:GeneralProcessor.stripLeadingBracketNumber",
         "paste/format-processors/general-processor:GeneralProcessor.transformStructure"
       ]
     },
@@ -29219,6 +29237,18 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__paste/format-processors/general-processor:GeneralProcessor.hasReferenceSectionHeading",
+      "source": "dom",
+      "target": "paste/format-processors/general-processor:GeneralProcessor.hasReferenceSectionHeading",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/general-processor:GeneralProcessor.stripLeadingBracketNumber",
+      "source": "dom",
+      "target": "paste/format-processors/general-processor:GeneralProcessor.stripLeadingBracketNumber",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__paste/format-processors/general-processor:GeneralProcessor.transformStructure",
       "source": "dom",
       "target": "paste/format-processors/general-processor:GeneralProcessor.transformStructure",
@@ -38022,6 +38052,12 @@
     {
       "id": "paste/format-processors/general-processor:GeneralProcessor.extractReferences__domwrite__dom",
       "source": "paste/format-processors/general-processor:GeneralProcessor.extractReferences",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.stripLeadingBracketNumber__domwrite__dom",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.stripLeadingBracketNumber",
       "target": "dom",
       "rel": "domwrite"
     },
