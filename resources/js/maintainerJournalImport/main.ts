@@ -415,15 +415,22 @@ async function selectLane(lane: Lane): Promise<void> {
     ? 'Fetch the publisher page again — for when what we stored is not the article'
     : 'PDF lanes re-acquire by retract + re-harvest, not from here';
 
-  // Only a converted, gate-passing lane can become the version — the same rule the promoter
-  // enforces server-side, surfaced here so the button never lies about what it will do.
-  const promotable = lane.has_nodes && !lane.is_version
-    && lane.conversion_method !== 'html_scrape_unverified';
+  // Disable only for the STRUCTURAL blocks — no content, or already the version. A lane the
+  // AUTHENTICITY gate refused stays clickable on purpose: that is precisely what the operator
+  // override is for, and greying it out here made the override unreachable (an editorial can
+  // never clear the gate, so the article was permanently unpublishable through the UI).
   const promote = el<HTMLButtonElement>('ji-promote');
-  promote.disabled = !promotable;
+  promote.disabled = !lane.has_nodes || lane.is_version;
+  // Say what the click will actually do — pressing "make version" on a lane that is about to
+  // refuse and ask you to override reads as a broken button.
+  promote.textContent = lane.needs_approval ? '★ publish anyway' : '★ make version';
   promote.title = lane.is_version
     ? 'Already the version readers get'
-    : (promotable ? 'Make this lane the version readers get' : 'Not promotable: no content, or the page was never confirmed to be the article');
+    : !lane.has_nodes
+      ? 'Nothing to publish — this lane has no content'
+      : lane.needs_approval
+        ? 'This lane did not pass automatic verification (usually no reference list). You have read it — publish it anyway.'
+        : 'Make this lane the version readers get';
 
   renderDetailStrip(lane);
 
