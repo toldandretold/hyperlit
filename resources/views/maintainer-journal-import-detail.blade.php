@@ -75,6 +75,9 @@
                     <input type="checkbox" id="ji-only-failed"> failed only
                 </label>
             </div>
+            {{-- 107 rows is past the point where scrolling finds anything. Title/DOI, live. --}}
+            <input type="search" id="ji-article-search" class="ji-article-search"
+                   placeholder="Find an article by title or DOI…" aria-label="Find an article">
             <div id="ji-articles-list" role="list"></div>
             {{-- Says what to DO, not just what is missing: an empty list here used to be a dead
                  end, because every action on this page needs an article row to hang off. --}}

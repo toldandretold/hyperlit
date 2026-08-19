@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Maintainer;
 use App\Http\Controllers\Controller;
 use App\Jobs\JournalImportActionJob;
 use App\Models\JournalSource;
+use App\Services\CanonicalVersions\AutoVersionResolver;
 use App\Services\Conversion\ReconvertQueue;
 use App\Services\JournalHarvest\HtmlLaneCreator;
 use App\Services\JournalHarvest\JournalVersionPromoter;
@@ -196,6 +197,14 @@ class JournalImportController extends Controller
                 'completeness_reason' => $r->completeness_reason,
                 'pdf_url_status'    => $r->pdf_url_status,
                 'is_version'        => $r->book === $r->auto_version_book,
+                // Has content, is not public, and cannot make itself public: the authenticity gate
+                // did not confirm it, so no sweep will ever promote it. Distinct from a plain
+                // `unlisted` sibling, which is unlisted precisely BECAUSE another lane won — that
+                // one is correct and needs nobody. This one is waiting on a person.
+                'needs_approval'    => (bool) $r->has_nodes
+                    && ! $r->listed
+                    && $r->book !== $r->auto_version_book
+                    && ! in_array($r->conversion_method, AutoVersionResolver::SYSTEM_CONVERSION_METHODS, true),
                 'open_flags'        => $flagged[$r->book]['count'] ?? 0,
                 'maintainer_note'   => $flagged[$r->book]['note'] ?? null,
                 'artifacts'         => $queue->artifactsFor($r->book),
@@ -233,7 +242,12 @@ class JournalImportController extends Controller
      */
     public function promote(Request $request, string $book, JournalVersionPromoter $promoter)
     {
-        $result = $promoter->promote($book);
+        // `force` is the operator overruling the authenticity gate on a lane they have read. The
+        // gate's job is to refuse when UNSURE, which is right for automation and wrong as a veto
+        // over a person who has checked — an editorial with no reference list can never clear it,
+        // and without an override such a work is importable but permanently unpublishable.
+        $force = $request->boolean('force');
+        $result = $promoter->promote($book, $force);
 
         if (! $result['promoted']) {
             $status = $result['reason'] === 'not_found' ? 404 : 422;
@@ -241,6 +255,10 @@ class JournalImportController extends Controller
             return response()->json([
                 'message' => "Cannot promote this lane: {$result['reason']}",
                 'refusal' => $result['reason'],
+                // Tells the console whether to offer "publish anyway": only the authenticity
+                // refusal is overridable. no_content / not_linked describe a lane that cannot be
+                // resolved at all, and no amount of human confidence changes that.
+                'overridable' => str_starts_with((string) $result['reason'], 'not_a_system_version'),
             ], $status);
         }
 

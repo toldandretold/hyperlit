@@ -31,9 +31,22 @@ class JournalVersionPromoter
     }
 
     /**
+     * Conversion method stamped on a lane an OPERATOR published despite it failing the automatic
+     * authenticity gate. A distinct value on purpose: "a person looked at this and vouched for it"
+     * is a different provenance claim from "the gate confirmed it", and collapsing the two would
+     * make `paste_engine_html` mean two things. It IS in SYSTEM_CONVERSION_METHODS, so the
+     * decision survives the next pointer re-resolution instead of being silently undone.
+     */
+    public const OPERATOR_APPROVED_METHOD = 'paste_engine_html_operator_approved';
+
+    /**
+     * @param  bool  $force  publish a lane the authenticity gate did not confirm. The operator has
+     *                       read it; the structural refusals below still apply, because those
+     *                       describe a lane that cannot be resolved at all rather than one we are
+     *                       merely unsure about.
      * @return array{promoted: bool, reason: ?string, canonical_id: ?string, demoted: array<int, string>}
      */
-    public function promote(string $book): array
+    public function promote(string $book, bool $force = false): array
     {
         $db = DB::connection('pgsql_admin');
 
@@ -54,8 +67,17 @@ class JournalVersionPromoter
         }
         if (! in_array($row->conversion_method, AutoVersionResolver::SYSTEM_CONVERSION_METHODS, true)) {
             // html_scrape_unverified lands here by design: the authenticity gate did not confirm
-            // the page IS the article, so it must never become the canonical version.
-            return $this->refuse('not_a_system_version:' . ($row->conversion_method ?? 'none'));
+            // the page IS the article, so it must never become the canonical version AUTOMATICALLY.
+            // An operator who has read the lane can overrule that — the gate's job is to refuse
+            // when unsure, not to outrank a human who has checked.
+            if (! $force) {
+                return $this->refuse('not_a_system_version:' . ($row->conversion_method ?? 'none'));
+            }
+
+            $db->table('library')->where('book', $book)->update([
+                'conversion_method' => self::OPERATOR_APPROVED_METHOD,
+                'updated_at'        => now(),
+            ]);
         }
 
         $db->table('canonical_source')

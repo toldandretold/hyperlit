@@ -53,17 +53,22 @@ export class BristolUPProcessor extends BaseFormatProcessor {
   }
 
   /**
-   * Footnote definitions. GSCJ articles carry none, so this is written defensively against the
-   * platform's note markup and simply yields nothing when a paper has no notes.
+   * Footnote definitions. The platform's real note markup (seen on GSCJ) is a
+   * `div.footnoteGroup` holding a "Note"/"Notes" <h2> plus one
+   * `<div id="fn1" class="footnote">` per note — lowercase `fn` ids, unpadded.
+   * The FN-prefixed selectors are kept for the Silverchair-flavoured variant this
+   * was originally written against; attribute selectors are case-sensitive, so
+   * both spellings must be listed.
    */
   async extractFootnotes(dom: HTMLElement, bookId: string): Promise<ExtractedFootnote[]> {
     const footnotes: ExtractedFootnote[] = [];
     const els = dom.querySelectorAll<HTMLElement>(
-      'div.footnote[id^="FN"], li.footnote[id^="FN"], .fnSection .footnote',
+      'div.footnote[id^="FN"], li.footnote[id^="FN"], .fnSection .footnote, ' +
+      'div.footnote[id^="fn"], .footnoteGroup .footnote',
     );
 
     els.forEach((element) => {
-      const m = (element.getAttribute('id') || '').match(/FN0*(\d+)/i);
+      const m = (element.getAttribute('id') || '').match(/fn0*(\d+)/i);
       if (!m) return;
 
       // Table/figure notes belong with their block, not the document's note list.
@@ -71,7 +76,8 @@ export class BristolUPProcessor extends BaseFormatProcessor {
 
       const identifier = parseInt(m[1] ?? '', 10).toString();
       const clone = element.cloneNode(true) as HTMLElement;
-      clone.querySelectorAll('.label, .fn-label, a[href^="#ref_FN"]').forEach((el) => el.remove());
+      clone.querySelectorAll('.label, .fn-label, a[href^="#ref_FN"], a[href^="#ref_fn"]')
+        .forEach((el) => el.remove());
       clone.querySelectorAll<HTMLElement>('[style]').forEach((el) => el.removeAttribute('style'));
 
       const html = clone.innerHTML.trim();
@@ -88,15 +94,21 @@ export class BristolUPProcessor extends BaseFormatProcessor {
       element.remove();
     });
 
+    // A drained footnoteGroup is just its "Note"/"Notes" heading — drop the whole
+    // group so the imported book doesn't end with an empty Note section.
+    dom.querySelectorAll<HTMLElement>('.footnoteGroup').forEach((group) => {
+      if (!group.querySelector('.footnote')) group.remove();
+    });
+
     return footnotes;
   }
 
-  /** In-text note refs: <a href="#FN0001">. Map to the app's <sup fn-count-id> form. */
+  /** In-text note refs: <a href="#fn1"> / <a href="#FN0001">. Map to the app's <sup fn-count-id> form. */
   linkFootnotes(dom: HTMLElement, footnotes: ExtractedFootnote[]): void {
     if (!footnotes || footnotes.length === 0) return;
 
-    dom.querySelectorAll<HTMLAnchorElement>('a[href^="#FN"]').forEach((link) => {
-      const m = (link.getAttribute('href') || '').match(/#FN0*(\d+)/i);
+    dom.querySelectorAll<HTMLAnchorElement>('a[href^="#FN"], a[href^="#fn"]').forEach((link) => {
+      const m = (link.getAttribute('href') || '').match(/#fn0*(\d+)/i);
       if (!m) return;
       const identifier = parseInt(m[1] ?? '', 10).toString();
       const footnote = footnotes.find((fn) => fn.originalIdentifier === identifier);

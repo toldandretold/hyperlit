@@ -46,7 +46,17 @@ class AutoVersionResolver extends BasePointerResolver
      * pass the authenticity gate must never become a canonical version. ar5iv is
      * NOT that: it is identity-confirmed arXiv-hosted markup, not an open scrape.
      */
-    public const SYSTEM_CONVERSION_METHODS = ['pdf_ocr_auto_raw', 'jats_fulltext', 'paste_engine_html', 'ar5iv_html'];
+    /**
+     * Conversion methods a canonical version may be resolved FROM. `paste_engine_html_operator_approved`
+     * is the human override (JournalVersionPromoter::OPERATOR_APPROVED_METHOD): a lane the automatic
+     * gate would not confirm but an operator read and vouched for. It belongs here so the decision
+     * survives re-resolution — without it, the next syncCanonicalVersionPointers would quietly drop
+     * the pointer the operator had just set.
+     */
+    public const SYSTEM_CONVERSION_METHODS = [
+        'pdf_ocr_auto_raw', 'jats_fulltext', 'paste_engine_html', 'ar5iv_html',
+        'paste_engine_html_operator_approved',
+    ];
 
     public function pointerColumn(): string
     {

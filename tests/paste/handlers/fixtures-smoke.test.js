@@ -133,6 +133,17 @@ const BASELINES = [
     footnoteMarkers: 5,
   },
   {
+    // Journal-import HTML lane (case 643bd65d…): full fetched page, not a
+    // clipboard capture — that IS this lane's real input. First BUP article
+    // with notes: lowercase `fn1` ids in a .footnoteGroup (not FN0001).
+    file: 'bristol-transdisciplinarity-bluff.html',
+    format: 'bristol-up',
+    footnotes: 1, // the lone .footnoteGroup note (lowercase id="fn1")
+    references: 21, // matches the 21 div.reference[id^="CIT"] entries exactly
+    inTextCitations: 28, // matches the 28 href="#CIT…" anchors (some refs cited twice)
+    footnoteMarkers: 1,
+  },
+  {
     file: 'substack.html',
     format: 'substack',
     footnotes: 35, // .footnote-content divs (bare footnote-anchor-N id format)

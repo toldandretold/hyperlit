@@ -55,6 +55,7 @@ interface Lane {
   completeness_reason: string | null;
   pdf_url_status: string | null;
   is_version: boolean;
+  needs_approval: boolean;
   open_flags: number;
   maintainer_note: string | null;
   artifacts: string[];
@@ -219,9 +220,15 @@ function renderArticles(): void {
   // with no nodes. A work nobody has attempted has no lanes at all and is correctly excluded.
   const onlyFailed = el<HTMLInputElement>('ji-only-failed')?.checked ?? false;
 
+  const needle = (el<HTMLInputElement>('ji-article-search')?.value || '').trim().toLowerCase();
+
   let rows = articles;
   if (onlyImported) rows = rows.filter((a) => a.lanes.length > 0);
   if (onlyFailed) rows = rows.filter((a) => a.lanes.some((l) => !l.has_nodes));
+  if (needle) {
+    rows = rows.filter((a) => (a.title || '').toLowerCase().includes(needle)
+      || (a.doi || '').toLowerCase().includes(needle));
+  }
 
   const list = el<HTMLDivElement>('ji-articles-list');
   list.textContent = '';
@@ -301,7 +308,18 @@ function buildLane(lane: Lane): HTMLElement {
   }
   if (lane.fetch_trace?.won_host) badges.push(['dim', lane.fetch_trace.won_host, 'winning OA host']);
   if (lane.open_flags) badges.push(['flag', `${lane.open_flags} flag${lane.open_flags === 1 ? '' : 's'}`, '']);
-  if (!lane.listed && lane.has_nodes) badges.push(['dim', 'unlisted', 'imported but not public']);
+  if (lane.needs_approval) {
+    // Not the same thing as `unlisted`. A losing sibling is unlisted BECAUSE another lane won —
+    // correct, and needs nobody. This one has content, is invisible to readers, and cannot ever
+    // publish itself: the authenticity gate did not confirm it, so no sweep will promote it. It is
+    // waiting on a person, and the old dim "unlisted" badge gave no hint of that.
+    badges.push(['warn', '⚑ needs approval',
+      'Imported but NOT public, and it cannot promote itself — the authenticity gate could not '
+      + 'confirm it (usually no reference list, e.g. an editorial). Select it and press ★ to '
+      + 'publish it yourself.']);
+  } else if (!lane.listed && lane.has_nodes) {
+    badges.push(['dim', 'unlisted', 'imported but not public — another lane is the version']);
+  }
 
   for (const [kind, text, title] of badges) {
     const b = document.createElement('span');
@@ -739,7 +757,7 @@ async function csrfHeaders(): Promise<Record<string, string> | null> {
  * than patching state locally: promotion moves the pointer, the listing AND shelf membership,
  * and a half-updated view of that is worse than a round-trip.
  */
-async function promoteSelected(): Promise<void> {
+async function promoteSelected(force = false): Promise<void> {
   if (!selected) return;
   if (selected.is_version) {
     setStatus('already the version');
@@ -751,17 +769,33 @@ async function promoteSelected(): Promise<void> {
 
   const button = el<HTMLButtonElement>('ji-promote');
   button.disabled = true;
-  setStatus('promoting…');
+  setStatus(force ? 'publishing anyway…' : 'promoting…');
 
   try {
     const resp = await fetch(`/api/maintainer/journal-import/promote/${encodeURIComponent(selected.book)}`, {
       method: 'POST',
       credentials: 'include',
-      headers,
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force }),
     });
     const body = await resp.json().catch(() => ({}));
 
     if (!resp.ok) {
+      // The authenticity gate refuses when UNSURE — which is right for automation and wrong as a
+      // veto over someone who has read the lane. An editorial with no reference list can never
+      // clear it, so without this the work is importable but permanently unpublishable.
+      if (body.overridable && !force) {
+        button.disabled = false;
+        if (window.confirm(
+          `This lane did not pass automatic verification (${body.refusal}).\n\n`
+          + 'That usually means the page carried no reference list, so we could not confirm it is '
+          + 'the full article — common for editorials and short front matter.\n\n'
+          + 'You have read it. Publish it anyway?'
+        )) {
+          await promoteSelected(true);
+        }
+        return;
+      }
       setStatus(body.message || `promote failed (${resp.status})`);
       return;
     }
@@ -957,6 +991,7 @@ function wireDetailActions(): void {
 
   document.getElementById('ji-only-imported')?.addEventListener('change', renderArticles);
   document.getElementById('ji-only-failed')?.addEventListener('change', renderArticles);
+  document.getElementById('ji-article-search')?.addEventListener('input', renderArticles);
 }
 
 interface RunFailure {

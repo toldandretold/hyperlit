@@ -49,6 +49,7 @@ publisher redesigns their site, and tests run instantly with no network.
 - **`tandf-`** — tandfonline.com
 - **`sciencedirect-`** — sciencedirect.com
 - **`sage-`** — journals.sagepub.com
+- **`bristol-`** — bristoluniversitypressdigital.com (Bristol UP journals; these fixtures are full `fetched_page.html` captures from the journal-import HTML lane, since a server-side fetch — not a clipboard copy — is that lane's real input)
 - **`springer-fn-`** — Springer (footnote style)
 - **`springer-ad-`** — Springer (author-date style)
 - **`generic-`** — synthetic fixture for the GeneralProcessor fallback (no publisher markup). Used when the real payload can't be committed — e.g. `generic-bracket-endnotes.html` mirrors the *shape* of a private user paste (prod case book_1786957563012: plain-text `[N]` markers + `[N] …` endnote paragraphs) with neutral stand-in text.

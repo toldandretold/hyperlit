@@ -1138,9 +1138,9 @@ var GeneralProcessor = class extends BaseFormatProcessor {
       const bracketDefs = /* @__PURE__ */ new Map();
       dom.querySelectorAll("p, li").forEach((el) => {
         const elText = (el.textContent || "").trim();
-        const defMatch = elText.match(/^\[(\d+)\]\s+\S/);
-        if (defMatch && !bracketDefs.has(defMatch[1])) {
-          bracketDefs.set(defMatch[1], el);
+        const defNumber = elText.match(/^\[(\d+)\]\s+\S/)?.[1];
+        if (defNumber && !bracketDefs.has(defNumber)) {
+          bracketDefs.set(defNumber, el);
         }
       });
       const markerIds = /* @__PURE__ */ new Set();
@@ -1150,7 +1150,8 @@ var GeneralProcessor = class extends BaseFormatProcessor {
         let m;
         while ((m = markerPattern.exec(elText)) !== null) {
           if (m.index === 0) continue;
-          markerIds.add(m[1]);
+          const markerNumber = m[1];
+          if (markerNumber) markerIds.add(markerNumber);
         }
       });
       const defNumbers = [...bracketDefs.keys()].map(Number).sort((a, b) => a - b);
@@ -3860,21 +3861,25 @@ var BristolUPProcessor = class extends BaseFormatProcessor {
     super("bristol-up");
   }
   /**
-   * Footnote definitions. GSCJ articles carry none, so this is written defensively against the
-   * platform's note markup and simply yields nothing when a paper has no notes.
+   * Footnote definitions. The platform's real note markup (seen on GSCJ) is a
+   * `div.footnoteGroup` holding a "Note"/"Notes" <h2> plus one
+   * `<div id="fn1" class="footnote">` per note — lowercase `fn` ids, unpadded.
+   * The FN-prefixed selectors are kept for the Silverchair-flavoured variant this
+   * was originally written against; attribute selectors are case-sensitive, so
+   * both spellings must be listed.
    */
   async extractFootnotes(dom, bookId) {
     const footnotes = [];
     const els = dom.querySelectorAll(
-      'div.footnote[id^="FN"], li.footnote[id^="FN"], .fnSection .footnote'
+      'div.footnote[id^="FN"], li.footnote[id^="FN"], .fnSection .footnote, div.footnote[id^="fn"], .footnoteGroup .footnote'
     );
     els.forEach((element) => {
-      const m = (element.getAttribute("id") || "").match(/FN0*(\d+)/i);
+      const m = (element.getAttribute("id") || "").match(/fn0*(\d+)/i);
       if (!m) return;
       if (element.closest("table, figure, .table-wrap, .fig")) return;
       const identifier = parseInt(m[1] ?? "", 10).toString();
       const clone = element.cloneNode(true);
-      clone.querySelectorAll('.label, .fn-label, a[href^="#ref_FN"]').forEach((el) => el.remove());
+      clone.querySelectorAll('.label, .fn-label, a[href^="#ref_FN"], a[href^="#ref_fn"]').forEach((el) => el.remove());
       clone.querySelectorAll("[style]").forEach((el) => el.removeAttribute("style"));
       const html = clone.innerHTML.trim();
       if (!html) return;
@@ -3888,13 +3893,16 @@ var BristolUPProcessor = class extends BaseFormatProcessor {
       ));
       element.remove();
     });
+    dom.querySelectorAll(".footnoteGroup").forEach((group) => {
+      if (!group.querySelector(".footnote")) group.remove();
+    });
     return footnotes;
   }
-  /** In-text note refs: <a href="#FN0001">. Map to the app's <sup fn-count-id> form. */
+  /** In-text note refs: <a href="#fn1"> / <a href="#FN0001">. Map to the app's <sup fn-count-id> form. */
   linkFootnotes(dom, footnotes) {
     if (!footnotes || footnotes.length === 0) return;
-    dom.querySelectorAll('a[href^="#FN"]').forEach((link) => {
-      const m = (link.getAttribute("href") || "").match(/#FN0*(\d+)/i);
+    dom.querySelectorAll('a[href^="#FN"], a[href^="#fn"]').forEach((link) => {
+      const m = (link.getAttribute("href") || "").match(/#fn0*(\d+)/i);
       if (!m) return;
       const identifier = parseInt(m[1] ?? "", 10).toString();
       const footnote = footnotes.find((fn) => fn.originalIdentifier === identifier);

@@ -649,3 +649,20 @@ body.ji-detail {
   display: none;
 }
 
+
+/* Article search — at 100+ rows per journal, scrolling stops being a way to find anything. */
+.ji-article-search {
+  width: 100%;
+  margin: 6px 0 8px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 22%, transparent);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.78rem;
+}
+.ji-article-search:focus {
+  outline: none;
+  border-color: var(--hyperlit-aqua, #4eacae);
+}

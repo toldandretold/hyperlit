@@ -258,6 +258,94 @@ test('promote refuses an unverified lane with 422 and a refusal code', function 
 
 // ── Article-scoped actions (import / reconvert / re-fetch) ──
 
+/**
+ * The authenticity gate refuses when UNSURE, which is right for automation and wrong as a veto
+ * over an operator who has read the lane. An editorial carries no reference list, so it can never
+ * clear the bar — without an override such a work is importable but permanently unpublishable,
+ * and the journal's public "N of M readable" count can never reach M.
+ */
+test('force publishes a lane the authenticity gate refused, and records that a human did it', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $article = jconSeedArticle($journal->id, [], [[
+        'foundation_source' => 'journal_html',
+        'conversion_method' => 'html_scrape_unverified',
+        'has_nodes'         => true,
+    ]]);
+    $book = $article['books']['journal_html'];
+
+    // Without force: refused, and the console is told the refusal is overridable.
+    $this->postJson("/api/maintainer/journal-import/promote/{$book}")
+        ->assertStatus(422)
+        ->assertJsonPath('overridable', true);
+
+    // With force: published.
+    $this->postJson("/api/maintainer/journal-import/promote/{$book}", ['force' => true])
+        ->assertOk()
+        ->assertJsonPath('promoted', true);
+
+    expect(jconDb()->table('canonical_source')->where('id', $article['canonical_id'])->value('auto_version_book'))
+        ->toBe($book);
+
+    // Stamped distinctly: "a person vouched for this" is a different provenance claim from "the
+    // gate confirmed it", and it must survive the next pointer re-resolution.
+    expect(jconDb()->table('library')->where('book', $book)->value('conversion_method'))
+        ->toBe(\App\Services\JournalHarvest\JournalVersionPromoter::OPERATOR_APPROVED_METHOD);
+    expect(\App\Services\CanonicalVersions\AutoVersionResolver::SYSTEM_CONVERSION_METHODS)
+        ->toContain(\App\Services\JournalHarvest\JournalVersionPromoter::OPERATOR_APPROVED_METHOD);
+});
+
+test('force does NOT override the structural refusals', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    // A lane with no content cannot be resolved at all — no amount of human confidence fixes that.
+    $article = jconSeedArticle($journal->id, [], [[
+        'foundation_source' => 'journal_html',
+        'conversion_method' => 'html_scrape_unverified',
+        'has_nodes'         => false,
+    ]]);
+
+    $this->postJson("/api/maintainer/journal-import/promote/{$article['books']['journal_html']}", ['force' => true])
+        ->assertStatus(422)
+        ->assertJsonPath('refusal', 'no_content')
+        ->assertJsonPath('overridable', false);
+});
+
+/**
+ * `needs_approval` is what turns an invisible article into a visible to-do. It is deliberately
+ * NOT the same as `unlisted`: a losing sibling is unlisted BECAUSE another lane won, which is
+ * correct and needs nobody, while this one has content, cannot promote itself, and is waiting on
+ * a person. Conflating the two is how an article sits unpublished for a week unnoticed.
+ */
+test('needs_approval marks a lane that has content but can never promote itself', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    // The stuck one: content, unverified, nothing else claims the pointer.
+    $stuck = jconSeedArticle($journal->id, ['title' => 'JCon Stuck Work'], [[
+        'foundation_source' => 'journal_html',
+        'conversion_method' => 'html_scrape_unverified',
+        'has_nodes'         => true,
+    ]]);
+
+    // The correctly-unlisted one: a verified sibling lost to a promoted lane.
+    $pair = jconSeedArticle($journal->id, ['title' => 'JCon Paired Work'], [
+        ['foundation_source' => 'canonical_pdf_vacuum', 'conversion_method' => 'pdf_ocr_auto_raw', 'listed' => true],
+        ['foundation_source' => 'journal_html', 'conversion_method' => 'paste_engine_html'],
+    ]);
+    jconDb()->table('canonical_source')->where('id', $pair['canonical_id'])
+        ->update(['auto_version_book' => $pair['books']['canonical_pdf_vacuum']]);
+
+    $body = $this->getJson("/api/maintainer/journal-import/{$journal->slug}/articles")->assertOk()->json();
+    $lanes = collect($body['articles'])->flatMap(fn ($a) => $a['lanes'])->keyBy('book');
+
+    expect($lanes[$stuck['books']['journal_html']]['needs_approval'])->toBeTrue();
+    // The loser is unlisted but fine — it needs no one.
+    expect($lanes[$pair['books']['journal_html']]['needs_approval'])->toBeFalse();
+    // And the winner obviously not.
+    expect($lanes[$pair['books']['canonical_pdf_vacuum']]['needs_approval'])->toBeFalse();
+});
+
 test('the run + status endpoints are admin-gated', function () {
     $this->loginUser(); // authenticated, not admin
     $this->postJson('/api/maintainer/journal-import/anything/run', ['action' => 'import'])->assertStatus(403);

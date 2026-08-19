@@ -71,7 +71,14 @@ class BookImport extends Command
             // The journal registry row, when the case came off a journal lane. Insert-if-absent
             // like the canonical: without it `canonical_source.journal_source_id` points at
             // nothing locally and /maintainer/journal-import can't open the case you just pulled.
-            $counts['journal_sources'] = $this->insertIfAbsent($db, 'journal_sources', "{$stage}/db/journal_sources.json");
+            // Matched by natural key, not id: each env mints its own uuid for the same journal.
+            [$counts['journal_sources'], $journalIdMap] = $this->importJournalSources($db, "{$stage}/db/journal_sources.json");
+
+            // Re-point canonical rows still carrying the bundle's journal uuid at the local
+            // registry row — covers this run's inserts and any landed by an earlier partial import.
+            foreach ($journalIdMap as $bundleId => $localId) {
+                $db->table('canonical_source')->where('journal_source_id', $bundleId)->update(['journal_source_id' => $localId]);
+            }
 
             $counts['library'] = $this->insertJson($db, 'library', "{$stage}/db/library.json");
             $counts['nodes'] = $this->insertNodesJsonl($db, "{$stage}/db/nodes.jsonl");
@@ -139,23 +146,39 @@ class BookImport extends Command
         return $inserted;
     }
 
-    /** Insert rows whose primary key isn't already present — shared state a case merely references. */
-    private function insertIfAbsent($db, string $table, string $path): int
+    /**
+     * Land the journal registry rows a case references. The same journal usually
+     * already exists locally under a DIFFERENT uuid (each env mints its own), and
+     * journal_sources carries unique natural keys (openalex_source_id, slug) — so
+     * an id-only insert-if-absent hits the unique constraint. Match by natural key
+     * instead, and return [inserted, bundle-id → local-id map] so callers can
+     * re-point canonical_source.journal_source_id at the local row.
+     */
+    private function importJournalSources($db, string $path): array
     {
         if (!is_file($path)) {
-            return 0;
+            return [0, []];
         }
         $rows = json_decode((string) file_get_contents($path), true) ?: [];
         $inserted = 0;
+        $idMap = [];
         foreach ($rows as $row) {
-            if (empty($row['id']) || $db->table($table)->where('id', $row['id'])->exists()) {
+            if (empty($row['id']) || $db->table('journal_sources')->where('id', $row['id'])->exists()) {
                 continue;
             }
-            $db->table($table)->insert($this->scrub($row));
+            $localId = $db->table('journal_sources')
+                ->where('openalex_source_id', $row['openalex_source_id'] ?? '')
+                ->when(!empty($row['slug']), fn ($q) => $q->orWhere('slug', $row['slug']))
+                ->value('id');
+            if ($localId) {
+                $idMap[$row['id']] = $localId;
+                continue;
+            }
+            $db->table('journal_sources')->insert($this->scrub($row));
             $inserted++;
         }
 
-        return $inserted;
+        return [$inserted, $idMap];
     }
 
     private function insertJson($db, string $table, string $path): int
