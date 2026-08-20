@@ -269,6 +269,10 @@ test('candidates come back with both sides resolved and filters apply', function
     expect($c['cited_title'])->toBe('HX Cited Article');
     expect($c['match_method'])->toBe('exact');
     expect($c['match_node_ids'])->toBe([$fx['cited']['book'] . '_n5']);
+    // startLines ride along so the panes can deep-link — the reader's hash
+    // resolver understands NUMERIC startLine targets, not data-node-ids.
+    expect((int) $c['citing_start_line'])->toBe(1);
+    expect((int) $c['cited_start_line'])->toBe(5);
     expect($body['status_counts']['matched'])->toBe(1);
 
     // A filter that excludes it.
@@ -754,6 +758,53 @@ test('the detector runs over a public shelf and shelf candidates stay scoped to 
         ->assertOk()->json();
     expect($approve['applied'])->toBeTrue();
     expect(hxDb()->table('hypercites')->where('book', $cited['book'])->count())->toBe(1);
+});
+
+test('an out-of-budget detect slice dispatches its own continuation on the same run', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    // Two articles, both with attempted bibliographies (no scans in tests).
+    foreach ([1, 2] as $n) {
+        $work = hxSeedHeldWork($journal->id, "HX Slice Article {$n}");
+        hxSeedNode($work['book'], $work['book'] . '_n1', 1, '<p data-node-id="' . $work['book'] . '_n1">Plain text, no citations.</p>');
+        hxDb()->table('bibliography')->insert([
+            'book' => $work['book'], 'referenceId' => 'r1', 'content' => 'x',
+            'match_method' => 'no_match', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    $runId = (string) Str::uuid();
+    hxDb()->table('hypercite_runs')->insert([
+        'id'                => $runId,
+        'journal_source_id' => $journal->id,
+        'action'            => 'detect',
+        'status'            => 'pending',
+        'counts'            => '{}',
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ]);
+
+    // Budget 0 → the deadline is already past after the first book: the slice
+    // must walk exactly one, stay 'running', and queue a continuation.
+    (new \App\Jobs\DetectHyperciteCandidatesJob($runId, false, 0))
+        ->handle(app(\App\Services\Hypercites\CandidateDetector::class), app(\App\Services\Hypercites\HyperciteMinter::class));
+
+    $run = hxDb()->table('hypercite_runs')->where('id', $runId)->first();
+    expect($run->status)->toBe('running');
+    expect($run->step_detail)->toContain('continuing in a fresh job');
+    $counts = json_decode((string) $run->counts, true);
+    expect($counts['articles'])->toBe(1);
+    expect($counts['stopped_early'])->toBe(1);
+    Queue::assertPushed(\App\Jobs\DetectHyperciteCandidatesJob::class, 1);
+
+    // No budget (the --sync path) → runs to completion, no continuation queued.
+    (new \App\Jobs\DetectHyperciteCandidatesJob($runId, false, null))
+        ->handle(app(\App\Services\Hypercites\CandidateDetector::class), app(\App\Services\Hypercites\HyperciteMinter::class));
+    $run = hxDb()->table('hypercite_runs')->where('id', $runId)->first();
+    expect($run->status)->toBe('completed');
+    Queue::assertPushed(\App\Jobs\DetectHyperciteCandidatesJob::class, 1); // still just the one
 });
 
 test('shelf detect queues a run keyed to the shelf', function () {

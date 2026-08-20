@@ -38,8 +38,31 @@ class DetectHyperciteCandidatesJob implements ShouldQueue
     public int $timeout = 3600;
     public int $tries = 1;
 
-    public function __construct(private string $runId, private bool $autoApprove = false)
-    {
+    /**
+     * How long one SLICE may keep taking new citing books. Comfortably inside
+     * `$timeout` so the loop exits cleanly instead of being killed mid-article
+     * — the first GSCJ run proved the failure mode: 107 first-time
+     * bibliography scans blew the hour, the worker killed the job at 3600s
+     * and the run row sat 'running' until the watchdog called it dead,
+     * reading as a crash when it was just slow.
+     *
+     * A slice that runs out of budget DISPATCHES ITS OWN CONTINUATION on the
+     * same run row (status stays 'running', the page keeps polling one run
+     * id), so a whole-journal first run completes unattended overnight. The
+     * chain always terminates: the budget is only checked before STARTING a
+     * new book, so every slice completes at least one, and already-scanned
+     * books skip the expensive step on the next pass.
+     *
+     * `$budgetSeconds = null` disables slicing (the CLI's --sync path, which
+     * runs inline and must not queue continuations).
+     */
+    private const WORK_BUDGET = 3000;
+
+    public function __construct(
+        private string $runId,
+        private bool $autoApprove = false,
+        private ?int $budgetSeconds = self::WORK_BUDGET,
+    ) {
         $this->onQueue('citation-pipeline');
     }
 
@@ -70,7 +93,23 @@ class DetectHyperciteCandidatesJob implements ShouldQueue
         $this->mark(['status' => 'running', 'error' => null, 'step_detail' => 'starting']);
 
         try {
-            $counts = $detector->detect($scope, $this->runId);
+            $deadline = $this->budgetSeconds !== null ? time() + $this->budgetSeconds : null;
+            $counts = $detector->detect($scope, $this->runId, $deadline);
+
+            if (! empty($counts['stopped_early'])) {
+                // Out of budget, not out of work: hand the baton to a fresh job
+                // on the SAME run row. Auto-approve waits for the final slice —
+                // it filters by detection_run_id, which persists across slices.
+                $this->mark([
+                    'status'      => 'running',
+                    'counts'      => json_encode($counts),
+                    'step_detail' => "sliced: {$counts['articles']} books walked this pass, "
+                        . "{$counts['stopped_early']} to go — continuing in a fresh job",
+                ]);
+                self::dispatch($this->runId, $this->autoApprove, $this->budgetSeconds);
+
+                return;
+            }
 
             if ($this->autoApprove) {
                 $counts['auto_approved'] = $this->autoApprove($db, $minter);

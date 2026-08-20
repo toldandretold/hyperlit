@@ -63,9 +63,10 @@ class DetectHypercites extends Command
             'updated_at' => now(),
         ]);
 
-        $job = new DetectHyperciteCandidatesJob($runId, (bool) $this->option('auto-approve'));
-
         if ($this->option('sync')) {
+            // Inline runs get NO slice budget: slicing queues a continuation,
+            // which a --sync invocation has no worker to pick up.
+            $job = new DetectHyperciteCandidatesJob($runId, (bool) $this->option('auto-approve'), null);
             dispatch_sync($job);
             $run = $db->table('hypercite_runs')->where('id', $runId)->first();
             $this->line("status: {$run->status}");
@@ -80,7 +81,7 @@ class DetectHypercites extends Command
             return $run->status === 'completed' ? self::SUCCESS : self::FAILURE;
         }
 
-        dispatch($job);
+        dispatch(new DetectHyperciteCandidatesJob($runId, (bool) $this->option('auto-approve')));
         $this->info("Run {$runId} queued — watch it at {$watchUrl}");
 
         return self::SUCCESS;

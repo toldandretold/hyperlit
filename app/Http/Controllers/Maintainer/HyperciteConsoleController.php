@@ -282,6 +282,14 @@ class HyperciteConsoleController extends Controller
                 return $r;
             });
 
+        // The reader's URL-hash navigation resolves NUMERIC targets as a node's
+        // startLine (the DOM id — see SPA/navigation/resolveTargetChunk.ts);
+        // a data-node-id resolves to NOTHING and the pane opens at the top.
+        // So each candidate carries the live startLine of its citing node and
+        // of the first matched cited node, looked up at read time — startLines
+        // are positional and shift on reconvert, so they are never stored.
+        $this->attachStartLines($rows);
+
         $statusCounts = [];
         foreach ($db->table('hypercite_candidates')
             ->where($scope['column'], $scope['id'])
@@ -294,6 +302,48 @@ class HyperciteConsoleController extends Controller
             'status_counts' => $statusCounts,
             'candidates'    => $rows,
         ]);
+    }
+
+    /**
+     * Attach citing_start_line / cited_start_line to candidate rows in one
+     * batched (book, node_id) → startLine lookup.
+     *
+     * @param \Illuminate\Support\Collection<int, object> $rows
+     */
+    private function attachStartLines($rows): void
+    {
+        $pairs = [];
+        foreach ($rows as $r) {
+            $pairs["{$r->citing_book}\x00{$r->citing_node_id}"] = [$r->citing_book, $r->citing_node_id];
+            $firstCited = is_array($r->match_node_ids) ? ($r->match_node_ids[0] ?? null) : null;
+            if ($firstCited) {
+                $pairs["{$r->cited_book}\x00{$firstCited}"] = [$r->cited_book, $firstCited];
+            }
+        }
+        if ($pairs === []) {
+            return;
+        }
+
+        $db = DB::connection('pgsql_admin');
+        $startLines = [];
+        foreach (array_chunk(array_values($pairs), 500) as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '(?,?)'));
+            $bindings = array_merge(...$chunk);
+            foreach ($db->select(
+                "SELECT book, node_id, \"startLine\" FROM nodes WHERE (book, node_id) IN ({$placeholders})",
+                $bindings
+            ) as $n) {
+                $startLines["{$n->book}\x00{$n->node_id}"] = $n->startLine;
+            }
+        }
+
+        foreach ($rows as $r) {
+            $r->citing_start_line = $startLines["{$r->citing_book}\x00{$r->citing_node_id}"] ?? null;
+            $firstCited = is_array($r->match_node_ids) ? ($r->match_node_ids[0] ?? null) : null;
+            $r->cited_start_line = $firstCited
+                ? ($startLines["{$r->cited_book}\x00{$firstCited}"] ?? null)
+                : null;
+        }
     }
 
     /* ───────────────────────── Detect + poll ───────────────────────── */

@@ -43,6 +43,8 @@ export interface Candidate {
   reference_id: string;
   occurrence_index: number;
   citing_node_id: string;
+  citing_start_line: number | string | null;
+  cited_start_line: number | string | null;
   marker_offset: number;
   has_quote: boolean;
   quote_kind: 'inline' | 'blockquote' | null;

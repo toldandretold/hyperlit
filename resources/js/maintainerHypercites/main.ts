@@ -220,13 +220,15 @@ function initDetail(boot: ConsoleBoot): void {
     document.querySelectorAll('.hx-row').forEach((r) =>
       r.classList.toggle('hx-row-selected', (r as HTMLElement).dataset.id === c.id));
 
-    citingPane.show(c.citing_book, c.citing_node_id, `citing — ${c.citing_title ?? c.citing_book}`);
+    // Hash targets must be what the reader's resolver understands: a NUMERIC
+    // startLine (the node's DOM id) or a hypercite_ id — a data-node-id
+    // resolves to nothing and the pane would open at the top of the book.
+    const citingTarget = c.citing_start_line !== null ? String(c.citing_start_line) : null;
+    citingPane.show(c.citing_book, citingTarget, `citing — ${c.citing_title ?? c.citing_book}`);
     const citedTarget = c.status === 'applied' && c.hypercite_id
       ? c.hypercite_id
-      : (c.match_node_ids?.[0] ?? null);
-    if (citedTarget || c.cited_book) {
-      citedPane.show(c.cited_book, citedTarget, `cited — ${c.cited_title ?? c.cited_book}`);
-    }
+      : (c.cited_start_line !== null ? String(c.cited_start_line) : null);
+    citedPane.show(c.cited_book, citedTarget, `cited — ${c.cited_title ?? c.cited_book}`);
 
     const card = el<HTMLDivElement>('hx-selected');
     const metaEl = el<HTMLDivElement>('hx-selected-meta');

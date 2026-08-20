@@ -36,9 +36,16 @@ class CandidateDetector
     ) {}
 
     /**
-     * @return array<string,int> counts for the run row
+     * @param ?int $deadline unix timestamp to stop taking NEW citing books at.
+     *        A first run over a whole journal scans ~every bibliography (LLM +
+     *        external APIs, minutes per article) and cannot fit one queue job —
+     *        so the run stops itself with time to spare and the JOB dispatches
+     *        its own continuation; every stage is idempotent (scanned books
+     *        skip the scan, candidates upsert), so the next slice resumes.
+     * @return array<string,int> counts for the run row (`stopped_early` =
+     *         books not reached when the budget ran out)
      */
-    public function detect(DetectionScope $scope, string $runId): array
+    public function detect(DetectionScope $scope, string $runId, ?int $deadline = null): array
     {
         $db = DB::connection('pgsql_admin');
 
@@ -54,7 +61,11 @@ class CandidateDetector
         // many books of the same collection).
         $citedNodesCache = [];
 
-        foreach ($citing as $entry) {
+        foreach ($citing as $i => $entry) {
+            if ($deadline !== null && time() >= $deadline && $counts['articles'] > 0) {
+                $counts['stopped_early'] = count($citing) - $i;
+                break;
+            }
             $citingBook = $entry['book'];
             $citingCanonicalId = $entry['canonical_id'];
             $counts['articles']++;
