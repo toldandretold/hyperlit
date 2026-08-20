@@ -45,12 +45,16 @@ export class ReaderPane {
   /**
    * Load `/book#target`, forcing a reload even when only the hash changed,
    * then (optionally) mark the evidence spans once their nodes render.
+   *
+   * `force` reloads even when the URL is IDENTICAL — needed right after an
+   * approve/revert, when the citing book's content changed under an unchanged
+   * URL (the freshly spliced ↗ doesn't render otherwise).
    */
-  show(book: string, target: string | null, labelText: string, marks: MarkSpec[] = []): void {
+  show(book: string, target: string | null, labelText: string, marks: MarkSpec[] = [], force = false): void {
     const url = `/${book}${target ? `#${target}` : ''}`;
     if (this.label) this.label.textContent = labelText;
     if (this.placeholder) this.placeholder.hidden = true;
-    if (url === this.current) {
+    if (!force && url === this.current) {
       if (marks.length) this.applyMarksWhenReady(url, marks);
       return;
     }

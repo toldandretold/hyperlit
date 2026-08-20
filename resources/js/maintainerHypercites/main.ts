@@ -95,6 +95,7 @@ async function initIndex(): Promise<void> {
 interface DetailState {
   base: string;
   candidates: Candidate[];
+  applied: Candidate[];   // the permanent per-scope record, independent of filters
   selected: Candidate | null;
   pollTimer: number | null;
   pollingRunId: string | null;
@@ -104,6 +105,7 @@ function initDetail(boot: ConsoleBoot): void {
   const state: DetailState = {
     base: scopeBase(boot.slug, boot.shelfId),
     candidates: [],
+    applied: [],
     selected: null,
     pollTimer: null,
     pollingRunId: null,
@@ -143,8 +145,16 @@ function initDetail(boot: ConsoleBoot): void {
     if (!list) return;
 
     try {
-      const payload = await api.candidates(state.base, filters());
+      // Two fetches: the working list under the current filter, and the
+      // PERMANENT record of applied hypercites for this scope — the whole
+      // point of approving is that the result outlives the review session,
+      // so it must survive a refresh regardless of what the filter shows.
+      const [payload, appliedPayload] = await Promise.all([
+        api.candidates(state.base, filters()),
+        api.candidates(state.base, { status: 'applied' }),
+      ]);
       state.candidates = payload.candidates;
+      state.applied = appliedPayload.candidates;
 
       const title = el<HTMLHeadingElement>('hx-title');
       if (title) title.textContent = payload.scope.display_name;
@@ -200,7 +210,30 @@ function initDetail(boot: ConsoleBoot): void {
       list.appendChild(row);
     }
 
+    renderAppliedSection();
     updateBatchButton();
+  }
+
+  /** The permanent per-scope record: every applied hypercite, always visible. */
+  function renderAppliedSection(): void {
+    const section = el<HTMLDivElement>('hx-applied-section');
+    const list = el<HTMLDivElement>('hx-applied-list');
+    const count = el<HTMLSpanElement>('hx-applied-count');
+    if (!section || !list) return;
+
+    section.hidden = state.applied.length === 0;
+    if (count) count.textContent = String(state.applied.length);
+    list.textContent = '';
+
+    for (const c of state.applied) {
+      const row = buildRow(c);
+      // Flat section, so the row carries BOTH sides (the main list gets the
+      // citing side from its group headers).
+      const title = row.querySelector('.hx-row-title');
+      if (title) title.textContent = `${c.citing_title ?? c.citing_book} → ${c.cited_title ?? c.cited_book}`;
+      if (state.selected?.id === c.id) row.classList.add('hx-row-selected');
+      list.appendChild(row);
+    }
   }
 
   function buildRow(c: Candidate): HTMLElement {
@@ -273,7 +306,7 @@ function initDetail(boot: ConsoleBoot): void {
     }));
   }
 
-  function select(c: Candidate): void {
+  function select(c: Candidate, forcePanes = false): void {
     state.selected = c;
     document.querySelectorAll('.hx-row').forEach((r) =>
       r.classList.toggle('hx-row-selected', (r as HTMLElement).dataset.id === c.id));
@@ -281,12 +314,14 @@ function initDetail(boot: ConsoleBoot): void {
     // Hash targets must be what the reader's resolver understands: a NUMERIC
     // startLine (the node's DOM id) or a hypercite_ id — a data-node-id
     // resolves to nothing and the pane would open at the top of the book.
+    // forcePanes reloads even under an unchanged URL — approve/revert just
+    // changed the citing book's CONTENT (the ↗), not its URL.
     const citingTarget = c.citing_start_line !== null ? String(c.citing_start_line) : null;
-    citingPane.show(c.citing_book, citingTarget, `citing — ${c.citing_title ?? c.citing_book}`, citingMarks(c));
+    citingPane.show(c.citing_book, citingTarget, `citing — ${c.citing_title ?? c.citing_book}`, citingMarks(c), forcePanes);
     const citedTarget = c.status === 'applied' && c.hypercite_id
       ? c.hypercite_id
       : (c.cited_start_line !== null ? String(c.cited_start_line) : null);
-    citedPane.show(c.cited_book, citedTarget, `cited — ${c.cited_title ?? c.cited_book}`, citedMarks(c));
+    citedPane.show(c.cited_book, citedTarget, `cited — ${c.cited_title ?? c.cited_book}`, citedMarks(c), forcePanes);
 
     const card = el<HTMLDivElement>('hx-selected');
     const metaEl = el<HTMLDivElement>('hx-selected-meta');
@@ -332,8 +367,9 @@ function initDetail(boot: ConsoleBoot): void {
         // ↩ revert and the cited pane lands on the real hypercite.
         c.status = 'applied';
         c.hypercite_id = data.hyperciteId ?? null;
+        if (!state.applied.some((a) => a.id === c.id)) state.applied.unshift(c);
         renderCandidateList();
-        select(c);
+        select(c, true); // force: the citing pane's content changed under the same URL
         if (status) status.textContent = `✓ hypercited (${data.hyperciteId})`;
       } else if (http === 409) {
         if (status) status.textContent = `stale (${data.refusal}) — re-run detect, then re-review`;
@@ -356,8 +392,9 @@ function initDetail(boot: ConsoleBoot): void {
       if (data.reverted) {
         c.status = 'matched';
         c.hypercite_id = null;
+        state.applied = state.applied.filter((a) => a.id !== c.id);
         renderCandidateList();
-        select(c);
+        select(c, true);
         if (status) status.textContent = '↩ reverted — back to matched';
       } else if (http === 409) {
         if (status) status.textContent = `stale (${data.refusal}) — the citing text changed since apply; remove by hand in the reader`;

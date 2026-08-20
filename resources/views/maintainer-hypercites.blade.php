@@ -102,6 +102,14 @@
                 <p class="hx-empty" id="hx-candidates-empty" hidden>No candidates yet — press
                     <strong>⌕ detect candidates</strong> above. It scans every imported article's
                     citations against the works we hold. Free.</p>
+
+                {{-- The permanent record: every applied hypercite of this collection,
+                     independent of the working filter above — approving means the
+                     result OUTLIVES the review session. Click to review / revert. --}}
+                <div class="hx-applied" id="hx-applied-section" hidden>
+                    <h3 class="hx-group-title">✓ applied hypercites (<span id="hx-applied-count">0</span>)</h3>
+                    <div id="hx-applied-list" role="list"></div>
+                </div>
             </div>
 
             {{-- Most-cited tab --}}

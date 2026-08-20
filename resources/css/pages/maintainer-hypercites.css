@@ -304,6 +304,21 @@ body.hx-detail {
   border-color: #c96a6a;
 }
 
+/* Applied hypercites — the permanent per-collection record */
+.hx-applied {
+  border-top: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+  flex: none;
+  max-height: 30%;
+  overflow-y: auto;
+  padding-bottom: 6px;
+}
+.hx-applied[hidden] {
+  display: none;
+}
+.hx-applied .hx-row {
+  padding-left: 12px;
+}
+
 /* Most-cited rows */
 .hx-mc-row {
   display: flex;
