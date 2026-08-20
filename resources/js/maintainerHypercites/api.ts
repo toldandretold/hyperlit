@@ -58,6 +58,7 @@ export interface Candidate {
   match_score: number | null;
   match_occurrences: number | null;
   hypercite_id: string | null;
+  anchor_id: string | null; // the citing-side ↗ element id, applied rows only
   auto_approved: boolean;
   reviewed_at: string | null;
   applied_at: string | null;

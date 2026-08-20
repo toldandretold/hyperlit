@@ -277,9 +277,11 @@ function initDetail(boot: ConsoleBoot): void {
    * What to MARK in the citing pane: the quote beside the marker (found live,
    * nearest the marker offset — the stored text may have been truncated for
    * transport, and the node's text shifts once a ↗ is spliced in), the whole
-   * blockquote, or failing both the claim sentence.
+   * blockquote, or failing both the claim sentence. APPLIED rows get no marks
+   * at all — the real ↗ and the hypercite underline ARE the evidence then.
    */
   function citingMarks(c: Candidate): MarkSpec[] {
+    if (c.status === 'applied') return [];
     if (c.quote_kind === 'inline' && c.quote_text) {
       const text = c.quote_text.replace(/\.\.\.$|…$/u, ''); // transport truncation
       return [{ nodeId: c.citing_node_id, search: { text, near: c.marker_offset } }];
@@ -314,9 +316,12 @@ function initDetail(boot: ConsoleBoot): void {
     // Hash targets must be what the reader's resolver understands: a NUMERIC
     // startLine (the node's DOM id) or a hypercite_ id — a data-node-id
     // resolves to nothing and the pane would open at the top of the book.
+    // Applied rows deep-link the citing pane to the ↗ anchor itself.
     // forcePanes reloads even under an unchanged URL — approve/revert just
     // changed the citing book's CONTENT (the ↗), not its URL.
-    const citingTarget = c.citing_start_line !== null ? String(c.citing_start_line) : null;
+    const citingTarget = (c.status === 'applied' && c.anchor_id)
+      ? c.anchor_id
+      : (c.citing_start_line !== null ? String(c.citing_start_line) : null);
     citingPane.show(c.citing_book, citingTarget, `citing — ${c.citing_title ?? c.citing_book}`, citingMarks(c), forcePanes);
     const citedTarget = c.status === 'applied' && c.hypercite_id
       ? c.hypercite_id
@@ -367,6 +372,7 @@ function initDetail(boot: ConsoleBoot): void {
         // ↩ revert and the cited pane lands on the real hypercite.
         c.status = 'applied';
         c.hypercite_id = data.hyperciteId ?? null;
+        c.anchor_id = data.anchorId ?? null;
         if (!state.applied.some((a) => a.id === c.id)) state.applied.unshift(c);
         renderCandidateList();
         select(c, true); // force: the citing pane's content changed under the same URL
@@ -392,6 +398,7 @@ function initDetail(boot: ConsoleBoot): void {
       if (data.reverted) {
         c.status = 'matched';
         c.hypercite_id = null;
+        c.anchor_id = null;
         state.applied = state.applied.filter((a) => a.id !== c.id);
         renderCandidateList();
         select(c, true);

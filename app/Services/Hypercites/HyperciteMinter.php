@@ -296,13 +296,22 @@ class HyperciteMinter
      * Insert the hypercite anchor after the FIRST in-text citation marker for
      * this refId in the node's HTML (CitationParser records one position per
      * refId per node — the first — so this is the marker the stored offset
-     * describes). The insertion point then steps over a closing bracket and
-     * one trailing punctuation mark, so `(<a>Boss et al, 2023</a>).` becomes
-     * `(Boss et al, 2023).↗` rather than `(Boss et al, 2023↗).` — the ↗
-     * belongs to the sentence, not inside the citation's parentheses. The
-     * word joiner keeps it glued to whatever it lands after; format matches
-     * the client's paste convention (hyperciteHandler.ts), not the
-     * Archivist's legacy <sup> wrapper.
+     * describes). Placement rule — the ↗ belongs to the SENTENCE, never
+     * inside the citation's punctuation:
+     *
+     *   `(<a>Boss et al, 2023</a>).`        → `(Boss et al, 2023).↗`
+     *   `(<a>Flint et al, 2022</a>: 81).`   → `(Flint et al, 2022: 81).↗`
+     *   `(<a>A, 2020</a>; see also B 2021)` → `(A, 2020; see also B 2021)↗`
+     *   `<a>Masaka (2019)</a> writing`      → `Masaka (2019)↗ writing`
+     *
+     * A marker INSIDE a bracket group (detected by back-scanning for an
+     * unmatched opener) walks forward to the group's MATCHING close bracket —
+     * page numbers, semicolon co-citations and further anchors ride along —
+     * then past one trailing punctuation mark. A naive "skip one punctuation"
+     * here once dropped the ↗ mid-citation, before the page number:
+     * `(Flint et al, 2022:↗ 81)`. Non-bracketed markers just skip trailing
+     * punctuation. The word joiner keeps the ↗ glued to whatever it lands
+     * after; format matches the client's paste convention (hyperciteHandler.ts).
      */
     private function appendAfterMarker(string $content, string $refId, string $citedBook, string $hyperciteId, string $anchorId): ?string
     {
@@ -311,15 +320,102 @@ class HyperciteMinter
             return null;
         }
 
-        $insertAt = $m[0][1] + strlen($m[0][0]); // byte offsets — both from the same haystack
-        // Step over `)` / `]` then one of , . ; : — plain characters only, so a
-        // following tag (another citation anchor) is never crossed.
-        if (preg_match('/\G[\)\]]?[,.;:]?/', $content, $tail, 0, $insertAt)) {
+        $markerStart = $m[0][1];
+        $insertAt = $markerStart + strlen($m[0][0]); // byte offsets — same haystack throughout
+
+        if ($this->insideBrackets($content, $markerStart)) {
+            $afterClose = $this->afterMatchingClose($content, $insertAt);
+            if ($afterClose !== null) {
+                $insertAt = $afterClose;
+            }
+        }
+        // One trailing punctuation mark, plain character only — a following
+        // tag (another citation's anchor) is never crossed.
+        if (preg_match('/\G[,.;:]/', $content, $tail, 0, $insertAt)) {
             $insertAt += strlen($tail[0]);
         }
+
         $anchor = "\u{2060}<a href=\"/{$citedBook}#{$hyperciteId}\" id=\"{$anchorId}\" class=\"open-icon\">↗</a>";
 
         return substr($content, 0, $insertAt) . $anchor . substr($content, $insertAt);
+    }
+
+    /**
+     * Is the marker inside a bracket group? Walk BACKWARD over plain text
+     * (tags skipped wholesale), balancing brackets: an unmatched opener before
+     * the marker means yes. Stops at a sentence boundary or after a bounded
+     * window — citations don't span sentences.
+     */
+    private function insideBrackets(string $content, int $markerStart): bool
+    {
+        $depth = 0;
+        $scanned = 0;
+        $i = $markerStart - 1;
+
+        while ($i >= 0 && $scanned < 300) {
+            $ch = $content[$i];
+            if ($ch === '>') { // skip the whole tag
+                $lt = strrpos(substr($content, 0, $i), '<');
+                if ($lt === false) {
+                    return false;
+                }
+                $i = $lt - 1;
+                continue;
+            }
+            if ($ch === ')' || $ch === ']') {
+                $depth++;
+            } elseif ($ch === '(' || $ch === '[') {
+                if ($depth === 0) {
+                    return true; // unmatched opener — we're inside it
+                }
+                $depth--;
+            } elseif (($ch === '.' || $ch === '!' || $ch === '?') && $depth === 0) {
+                return false; // previous sentence — no open bracket reaches us
+            }
+            $i--;
+            $scanned++;
+        }
+
+        return false;
+    }
+
+    /**
+     * Byte offset just past the bracket group's matching close, scanning
+     * FORWARD from the marker's end (depth starts at 1; tags skipped
+     * wholesale, so an anchor whose text contains parens stays balanced and a
+     * multi-citation's sibling anchors are crossed safely). Null when no
+     * close is found within the window — caller keeps the marker-end position.
+     */
+    private function afterMatchingClose(string $content, int $from): ?int
+    {
+        $depth = 1;
+        $len = strlen($content);
+        $scanned = 0;
+        $i = $from;
+
+        while ($i < $len && $scanned < 400) {
+            $ch = $content[$i];
+            if ($ch === '<') { // skip the whole tag
+                $gt = strpos($content, '>', $i);
+                if ($gt === false) {
+                    return null;
+                }
+                $i = $gt + 1;
+                continue;
+            }
+            if ($ch === '(' || $ch === '[') {
+                $depth++;
+            } elseif ($ch === ')' || $ch === ']') {
+                $depth--;
+                if ($depth === 0) {
+                    return $i + 1;
+                }
+            }
+            $i++;
+            $scanned++;
+        }
+
+        return null;
     }
 
     private function refuse($db, object $candidate, string $code): array

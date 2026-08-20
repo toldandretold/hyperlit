@@ -338,6 +338,13 @@ test('approve mints the hypercite, splices one anchor after the marker, and bump
     expect(substr_count($content, 'class="open-icon"'))->toBe(1);
     expect($content)->toContain('(Ostrom 1990)</a>.' . "\u{2060}" . '<a href="/' . $fx['cited']['book'] . '#' . $body['hyperciteId'] . '"');
 
+    // The applied row surfaces its citing-side anchor id so the console can
+    // deep-link the citing pane to the ↗ itself.
+    $applied = $this->getJson("/api/maintainer/hypercites/{$journal->slug}/candidates?status=applied")
+        ->assertOk()->json();
+    expect($applied['candidates'][0]['anchor_id'])->toStartWith('hypercite_');
+    expect($applied['candidates'][0]['anchor_id'])->not->toBe($body['hyperciteId']);
+
     // Candidate bookkeeping + content clock: the citing book's timestamp moved so
     // clients refetch the spliced node, and the stored hash matches the NEW content.
     $candidate = hxDb()->table('hypercite_candidates')->where('id', $fx['candidate_id'])->first();
@@ -367,6 +374,23 @@ test('the ↗ steps over a closing bracket, but not a space or a following tag',
     $content2 = hxDb()->table('nodes')->where('book', $fx2['citing']['book'])->value('content');
     expect($content2)->toContain('Masaka (2019)</a>' . "\u{2060}" . '<a href="/' . $fx2['cited']['book'] . '#' . $body2['hyperciteId'] . '"');
     expect($content2)->toContain('</a> writing about');
+
+    // Page number after the marker INSIDE the brackets → the ↗ rides past the
+    // whole group AND the sentence's full stop. The naive skip-one-punctuation
+    // rule landed it mid-citation on prod: `(Flint et al, 2022:↗ 81)`.
+    $fx3 = hxSeedMatchedCandidate($journal, [], '<p id="10" data-node-id="{node}">He said "'
+        . $quote . '" (<a href="#ostrom1990" class="in-text-citation">Flint et al, 2022</a>: 81). During one FGD.</p>');
+    $body3 = $this->postJson("/api/maintainer/hypercites/candidates/{$fx3['candidate_id']}/approve")->assertOk()->json();
+    $content3 = hxDb()->table('nodes')->where('book', $fx3['citing']['book'])->value('content');
+    expect($content3)->toContain('Flint et al, 2022</a>: 81).' . "\u{2060}" . '<a href="/' . $fx3['cited']['book'] . '#' . $body3['hyperciteId'] . '"');
+
+    // Semicolon co-citation with a second anchor in the same brackets → the
+    // forward scan crosses the sibling tag and lands after the close.
+    $fx4 = hxSeedMatchedCandidate($journal, [], '<p id="10" data-node-id="{node}">She wrote "'
+        . $quote . '" (<a href="#ostrom1990" class="in-text-citation">Bhambra, 2022</a>: 8; see also <a href="#benson2021" class="in-text-citation">Benson (2021)</a>) and more.</p>');
+    $body4 = $this->postJson("/api/maintainer/hypercites/candidates/{$fx4['candidate_id']}/approve")->assertOk()->json();
+    $content4 = hxDb()->table('nodes')->where('book', $fx4['citing']['book'])->value('content');
+    expect($content4)->toContain('Benson (2021)</a>)' . "\u{2060}" . '<a href="/' . $fx4['cited']['book'] . '#' . $body4['hyperciteId'] . '"');
 });
 
 test('revert removes the anchor, deletes the hypercite, and re-arms the candidate', function () {

@@ -290,6 +290,10 @@ class HyperciteConsoleController extends Controller
         // of the first matched cited node, looked up at read time — startLines
         // are positional and shift on reconvert, so they are never stored.
         $this->attachStartLines($rows);
+        // Applied rows also carry the citing-side anchor id (the ↗'s element
+        // id, parsed from the hypercite row's citedIN) so the citing pane can
+        // deep-link to the exact arrow rather than just the paragraph.
+        $this->attachAnchorIds($rows);
 
         $statusCounts = [];
         foreach ($db->table('hypercite_candidates')
@@ -357,6 +361,43 @@ class HyperciteConsoleController extends Controller
             $r->cited_start_line = $firstCited
                 ? ($startLines["{$r->cited_book}\x00{$firstCited}"] ?? null)
                 : null;
+        }
+    }
+
+    /**
+     * For applied candidates: the ↗ anchor's element id in the citing book,
+     * parsed from the hypercites row's citedIN entry — the reader's hash
+     * resolver finds it by content scan, landing the pane on the arrow itself.
+     *
+     * @param \Illuminate\Support\Collection<int, object> $rows
+     */
+    private function attachAnchorIds($rows): void
+    {
+        $applied = $rows->filter(fn ($r) => $r->status === 'applied' && $r->hypercite_id);
+        foreach ($rows as $r) {
+            $r->anchor_id = null;
+        }
+        if ($applied->isEmpty()) {
+            return;
+        }
+
+        $db = DB::connection('pgsql_admin');
+        $hypercites = $db->table('hypercites')
+            ->whereIn('hyperciteId', $applied->pluck('hypercite_id')->all())
+            ->get(['book', 'hyperciteId', 'citedIN']);
+
+        $byKey = [];
+        foreach ($hypercites as $h) {
+            $byKey["{$h->book}\x00{$h->hyperciteId}"] = json_decode((string) $h->citedIN, true) ?: [];
+        }
+
+        foreach ($applied as $r) {
+            foreach ($byKey["{$r->cited_book}\x00{$r->hypercite_id}"] ?? [] as $entry) {
+                if (str_starts_with((string) $entry, "/{$r->citing_book}#")) {
+                    $r->anchor_id = substr((string) $entry, strlen("/{$r->citing_book}#"));
+                    break;
+                }
+            }
         }
     }
 
