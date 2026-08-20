@@ -279,6 +279,24 @@ test('candidates come back with both sides resolved and filters apply', function
     $filtered = $this->getJson("/api/maintainer/hypercites/{$journal->slug}/candidates?status=applied")
         ->assertOk()->json();
     expect($filtered['candidates'])->toHaveCount(0);
+
+    // No run in flight → active_run is null; with one running, it rides along
+    // so a refreshed page can re-attach its poll.
+    expect($body['active_run'])->toBeNull();
+    $runId = (string) Str::uuid();
+    hxDb()->table('hypercite_runs')->insert([
+        'id'                => $runId,
+        'journal_source_id' => $journal->id,
+        'action'            => 'detect',
+        'status'            => 'running',
+        'step_detail'       => 'scanning something',
+        'counts'            => '{}',
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ]);
+    $withRun = $this->getJson("/api/maintainer/hypercites/{$journal->slug}/candidates")->assertOk()->json();
+    expect($withRun['active_run']['id'])->toBe($runId);
+    expect($withRun['active_run']['step_detail'])->toBe('scanning something');
 });
 
 // ── Approve: the load-bearing path ──

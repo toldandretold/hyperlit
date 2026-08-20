@@ -97,6 +97,7 @@ interface DetailState {
   candidates: Candidate[];
   selected: Candidate | null;
   pollTimer: number | null;
+  pollingRunId: string | null;
 }
 
 function initDetail(boot: ConsoleBoot): void {
@@ -105,6 +106,7 @@ function initDetail(boot: ConsoleBoot): void {
     candidates: [],
     selected: null,
     pollTimer: null,
+    pollingRunId: null,
   };
   const titleEl = el<HTMLHeadingElement>('hx-title');
   if (titleEl && boot.scopeLabel) titleEl.textContent = boot.scopeLabel;
@@ -172,6 +174,14 @@ function initDetail(boot: ConsoleBoot): void {
       }
 
       updateBatchButton();
+
+      // A refreshed page re-attaches to an in-flight detect: the run lives on
+      // the queue worker, so without this the status line sits empty and the
+      // run looks dead until the operator presses detect again.
+      if (payload.active_run && state.pollingRunId !== payload.active_run.id) {
+        setRunStatus(payload.active_run.step_detail ?? payload.active_run.status);
+        poll(payload.active_run.id);
+      }
     } catch (err) {
       log.error('hypercites: candidates load failed', 'maintainer', err);
       if (count) count.textContent = 'failed to load';
@@ -343,21 +353,26 @@ function initDetail(boot: ConsoleBoot): void {
 
   function poll(runId: string): void {
     if (state.pollTimer !== null) window.clearTimeout(state.pollTimer);
+    state.pollingRunId = runId;
     const tick = async (): Promise<void> => {
+      if (state.pollingRunId !== runId) return; // a newer poll took over
       try {
         const run: RunStatus = await api.runStatus(runId);
         if (run.status === 'completed') {
+          state.pollingRunId = null;
           setRunStatus(`✓ ${run.step_detail ?? 'done'}`);
           await loadCandidates();
           return;
         }
         if (run.status === 'failed') {
+          state.pollingRunId = null;
           setRunStatus(`✗ ${run.error ?? 'failed'}`);
           return;
         }
         setRunStatus(run.step_detail ?? run.status);
         state.pollTimer = window.setTimeout(tick, 2500);
       } catch (err) {
+        state.pollingRunId = null;
         log.error('hypercites: poll failed', 'maintainer', err);
         setRunStatus('poll failed — refresh to check');
       }

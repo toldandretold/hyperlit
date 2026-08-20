@@ -69,6 +69,7 @@ export interface Candidate {
 export interface CandidatesPayload {
   scope: ScopeMeta;
   status_counts: Record<string, number>;
+  active_run: { id: string; status: string; step_detail: string | null } | null;
   candidates: Candidate[];
 }
 

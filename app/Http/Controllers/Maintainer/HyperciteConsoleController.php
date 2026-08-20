@@ -297,9 +297,22 @@ class HyperciteConsoleController extends Controller
             $statusCounts[$r->status] = (int) $r->n;
         }
 
+        // An in-flight detect rides along so a REFRESHED page re-attaches its
+        // poll instead of sitting silent until the operator presses detect
+        // again (harmless — the collision guard joins the same run — but it
+        // reads as "it stopped").
+        $activeRun = $db->table('hypercite_runs')
+            ->where($scope['column'], $scope['id'])
+            ->where('action', 'detect')
+            ->whereIn('status', ['pending', 'running'])
+            ->where('updated_at', '>', now()->subHour())
+            ->orderByDesc('created_at')
+            ->first(['id', 'status', 'step_detail']);
+
         return response()->json([
             'scope'         => $scope['meta'],
             'status_counts' => $statusCounts,
+            'active_run'    => $activeRun,
             'candidates'    => $rows,
         ]);
     }
