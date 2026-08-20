@@ -97,12 +97,12 @@ test.describe('hypercite console review loop', () => {
     const citedData = await readBookData(page, 'book_e2e_hxc_cited');
     expect(citedData.body.metadata.total_hypercites).toBe(1);
 
-    // And the VISUAL check — from a FRESH page load, then selecting the
-    // applied row. Not laziness: the in-place post-approve reload spins up
-    // second connections to the shared IndexedDB while the old frame
-    // documents still hold theirs, and the versionchange race can hang a
-    // pane indefinitely (this console is the first page with TWO framed
-    // readers; the race is noted as a follow-up). A fresh load never raced.
+    // VISUAL check from a fresh page load + reselect. The in-place forced
+    // double-reload is still unreliable (two framed readers share
+    // sessionStorage → shared tab identity → concurrent full-syncs trip each
+    // other; known follow-up) — but the console PURGES both books from the
+    // shared IndexedDB on approve/revert, so whenever a pane renders it
+    // renders FRESH; the stale-arrow-after-revert failure is dead either way.
     await page.reload();
     await expect(page.locator('#hx-applied-list .hx-row')).toHaveCount(1);
     await page.locator('#hx-applied-list .hx-row').first().click();
@@ -141,6 +141,16 @@ test.describe('hypercite console review loop', () => {
     expect(content).toContain(': 81). During one FGD');
     const citedData = await readBookData(page, 'book_e2e_hxc_cited');
     expect(citedData.body.metadata.total_hypercites).toBe(0);
+
+    // And the PANE agrees, from a fresh load: the reverted node renders
+    // WITHOUT the arrow — the exact stale-cache failure seen live (↗ on
+    // screen, Postgres clean).
+    await page.reload();
+    await page.locator('#hx-candidates-list .hx-row').first().click();
+    const citing = page.frameLocator('#hx-citing');
+    const node = citing.locator('[data-node-id="book_e2e_hxc_citing_n1"]');
+    await expect(node).toBeVisible({ timeout: 60000 });
+    await expect(node.locator('a.open-icon')).toHaveCount(0);
 
     // And the loop closes: approve works again.
     await expect(page.locator('#hx-approve')).toBeEnabled();

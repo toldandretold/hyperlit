@@ -12,6 +12,7 @@
 import { log } from '../utilities/logger';
 import { api, scopeBase, type Candidate, type MostCitedRow, type RunStatus } from './api';
 import { ReaderPane, type MarkSpec } from './panes';
+import { purgeBookFromIdb } from './idbPurge';
 
 interface ConsoleBoot {
   slug: string | null;
@@ -386,6 +387,10 @@ function initDetail(boot: ConsoleBoot): void {
         c.anchor_id = data.anchorId ?? null;
         if (!state.applied.some((a) => a.id === c.id)) state.applied.unshift(c);
         renderCandidateList();
+        // Evict BOTH mutated books from the shared local cache FIRST — a
+        // forced pane reload against the stale cache has rendered pre-splice
+        // citing content, and the cited pane misses its new underline.
+        await Promise.all([purgeBookFromIdb(c.citing_book), purgeBookFromIdb(c.cited_book)]);
         select(c, true); // force: the citing pane's content changed under the same URL
         if (status) status.textContent = `✓ hypercited (${data.hyperciteId})`;
       } else if (http === 409) {
@@ -412,6 +417,7 @@ function initDetail(boot: ConsoleBoot): void {
         c.anchor_id = null;
         state.applied = state.applied.filter((a) => a.id !== c.id);
         renderCandidateList();
+        await Promise.all([purgeBookFromIdb(c.citing_book), purgeBookFromIdb(c.cited_book)]);
         select(c, true);
         if (status) status.textContent = '↩ reverted — back to matched';
       } else if (http === 409) {
