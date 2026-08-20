@@ -118,14 +118,16 @@ function hxSeedNode(string $book, string $nodeId, int $line, string $html, strin
  * bibliography edge, and a `matched` candidate row shaped exactly as CandidateDetector
  * writes it. Returns everything a test needs to assert against.
  */
-function hxSeedMatchedCandidate(object $journal, array $candidateOpts = []): array
+function hxSeedMatchedCandidate(object $journal, array $candidateOpts = [], ?string $citingHtmlOverride = null): array
 {
     $citing = hxSeedHeldWork($journal->id, 'HX Citing Article');
     $cited = hxSeedHeldWork($journal->id, 'HX Cited Article');
 
     $quote = 'the commons is not a tragedy but a shared achievement of governance';
-    $citingHtml = '<p id="10" data-node-id="' . $citing['book'] . '_n1">As argued, "' . $quote
-        . '" <a href="#ostrom1990" class="in-text-citation">(Ostrom 1990)</a>.</p>';
+    $citingHtml = $citingHtmlOverride !== null
+        ? str_replace('{node}', $citing['book'] . '_n1', $citingHtmlOverride)
+        : '<p id="10" data-node-id="' . $citing['book'] . '_n1">As argued, "' . $quote
+            . '" <a href="#ostrom1990" class="in-text-citation">(Ostrom 1990)</a>.</p>';
     hxSeedNode($citing['book'], $citing['book'] . '_n1', 1, $citingHtml);
 
     $citedHtml = '<p id="20" data-node-id="' . $cited['book'] . '_n5">In sum, ' . $quote . ' for those who build it.</p>';
@@ -326,13 +328,15 @@ test('approve mints the hypercite, splices one anchor after the marker, and bump
     expect($citedIn)->toHaveCount(1);
     expect($citedIn[0])->toStartWith('/' . $fx['citing']['book'] . '#');
 
-    // Citing-side splice: exactly one ↗ anchor, immediately after the marker's </a>.
+    // Citing-side splice: exactly one ↗ anchor, after the marker AND its
+    // trailing full stop (the ↗ belongs to the sentence, not inside the
+    // citation's punctuation).
     $content = hxDb()->table('nodes')
         ->where('book', $fx['citing']['book'])
         ->where('node_id', $fx['citing']['book'] . '_n1')
         ->value('content');
     expect(substr_count($content, 'class="open-icon"'))->toBe(1);
-    expect($content)->toContain('(Ostrom 1990)</a>' . "\u{2060}" . '<a href="/' . $fx['cited']['book'] . '#' . $body['hyperciteId'] . '"');
+    expect($content)->toContain('(Ostrom 1990)</a>.' . "\u{2060}" . '<a href="/' . $fx['cited']['book'] . '#' . $body['hyperciteId'] . '"');
 
     // Candidate bookkeeping + content clock: the citing book's timestamp moved so
     // clients refetch the spliced node, and the stored hash matches the NEW content.
@@ -342,6 +346,71 @@ test('approve mints the hypercite, splices one anchor after the marker, and bump
     expect($candidate->citing_content_hash)->toBe(sha1($content));
     expect((int) hxDb()->table('library')->where('book', $fx['citing']['book'])->value('timestamp'))
         ->toBeGreaterThan(0);
+});
+
+test('the ↗ steps over a closing bracket, but not a space or a following tag', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $quote = 'the commons is not a tragedy but a shared achievement of governance';
+
+    // Marker inside parens, paren + comma after it → anchor lands after `),`.
+    $fx = hxSeedMatchedCandidate($journal, [], '<p id="10" data-node-id="{node}">He asked "'
+        . $quote . '" (<a href="#ostrom1990" class="in-text-citation">Boss et al, 2023</a>), which stands.</p>');
+    $body = $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")->assertOk()->json();
+    $content = hxDb()->table('nodes')->where('book', $fx['citing']['book'])->value('content');
+    expect($content)->toContain('Boss et al, 2023</a>),' . "\u{2060}" . '<a href="/' . $fx['cited']['book'] . '#' . $body['hyperciteId'] . '"');
+
+    // Marker followed by a space → anchor immediately after the marker.
+    $fx2 = hxSeedMatchedCandidate($journal, [], '<p id="10" data-node-id="{node}">"'
+        . $quote . '" <a href="#ostrom1990" class="in-text-citation">Masaka (2019)</a> writing about curricula.</p>');
+    $body2 = $this->postJson("/api/maintainer/hypercites/candidates/{$fx2['candidate_id']}/approve")->assertOk()->json();
+    $content2 = hxDb()->table('nodes')->where('book', $fx2['citing']['book'])->value('content');
+    expect($content2)->toContain('Masaka (2019)</a>' . "\u{2060}" . '<a href="/' . $fx2['cited']['book'] . '#' . $body2['hyperciteId'] . '"');
+    expect($content2)->toContain('</a> writing about');
+});
+
+test('revert removes the anchor, deletes the hypercite, and re-arms the candidate', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $fx = hxSeedMatchedCandidate($journal);
+
+    // Not applied yet → 422.
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/revert")->assertStatus(422);
+
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")->assertOk();
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/revert")
+        ->assertOk()->assertJson(['reverted' => true]);
+
+    // Content restored byte-for-byte, row gone, candidate back to matched.
+    $content = hxDb()->table('nodes')
+        ->where('book', $fx['citing']['book'])
+        ->where('node_id', $fx['citing']['book'] . '_n1')
+        ->value('content');
+    expect($content)->toBe($fx['citing_html']);
+    expect(hxDb()->table('hypercites')->where('book', $fx['cited']['book'])->count())->toBe(0);
+    $candidate = hxDb()->table('hypercite_candidates')->where('id', $fx['candidate_id'])->first();
+    expect($candidate->status)->toBe('matched');
+    expect($candidate->hypercite_id)->toBeNull();
+    expect($candidate->citing_content_hash)->toBe(sha1($fx['citing_html']));
+
+    // And the loop closes: it can be approved again.
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")->assertOk();
+    expect(hxDb()->table('hypercites')->where('book', $fx['cited']['book'])->count())->toBe(1);
+});
+
+test('revert refuses 409 when the citing node changed after the apply', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $fx = hxSeedMatchedCandidate($journal);
+
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")->assertOk();
+    hxDb()->table('nodes')
+        ->where('book', $fx['citing']['book'])
+        ->where('node_id', $fx['citing']['book'] . '_n1')
+        ->update(['content' => '<p data-node-id="x">edited since apply</p>']);
+
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/revert")
+        ->assertStatus(409)->assertJson(['refusal' => 'stale_citing']);
 });
 
 test('approve is idempotent — a double press returns the same hypercite and splices nothing new', function () {

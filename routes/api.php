@@ -634,6 +634,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('id', '[0-9a-f-]{36}');
     Route::post('/maintainer/hypercites/candidates/{id}/reject', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'reject'])
         ->where('id', '[0-9a-f-]{36}');
+    Route::post('/maintainer/hypercites/candidates/{id}/revert', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'revert'])
+        ->where('id', '[0-9a-f-]{36}');
     Route::get('/maintainer/hypercites/shelf/{id}/candidates', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'shelfCandidates'])
         ->where('id', '[0-9a-f-]{36}');
     Route::post('/maintainer/hypercites/shelf/{id}/detect', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'shelfDetect'])

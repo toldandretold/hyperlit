@@ -123,6 +123,7 @@
                 <div class="hx-selected-actions">
                     <button type="button" id="hx-approve" title="Mint the hypercite: the quoted passage in the cited article becomes the target, and a ↗ appears after the citation marker in the citing article.">✓ hypercite</button>
                     <button type="button" id="hx-reject" title="Not a valid link — recorded, and kept as labeled data for the auto-approve policy.">✕ reject</button>
+                    <button type="button" id="hx-revert" hidden title="Undo this hypercite: the ↗ is removed from the citing article and the link deleted; the candidate returns to matched for re-review.">↩ revert</button>
                     <span class="hx-actions-status" id="hx-selected-status" role="status" aria-live="polite"></span>
                 </div>
             </div>

@@ -46,11 +46,14 @@ export interface Candidate {
   citing_start_line: number | string | null;
   cited_start_line: number | string | null;
   marker_offset: number;
+  claim_start: number | null;
+  claim_end: number | null;
   has_quote: boolean;
   quote_kind: 'inline' | 'blockquote' | null;
   quote_text: string | null;
   quote_node_id: string | null;
   match_node_ids: string[] | null;
+  match_char_data: Record<string, { charStart: number; charEnd: number }> | null;
   match_method: 'exact' | 'normalized' | 'fts_fuzzy' | null;
   match_score: number | null;
   match_occurrences: number | null;
@@ -165,6 +168,12 @@ export const api = {
   reject: (id: string) =>
     postJson<{ rejected?: boolean; message?: string }>(
       `/api/maintainer/hypercites/candidates/${encodeURIComponent(id)}/reject`,
+      {},
+    ),
+
+  revert: (id: string) =>
+    postJson<{ reverted?: boolean; refusal?: string; message?: string }>(
+      `/api/maintainer/hypercites/candidates/${encodeURIComponent(id)}/revert`,
       {},
     ),
 

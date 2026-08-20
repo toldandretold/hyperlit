@@ -11,7 +11,7 @@
 
 import { log } from '../utilities/logger';
 import { api, scopeBase, type Candidate, type MostCitedRow, type RunStatus } from './api';
-import { ReaderPane } from './panes';
+import { ReaderPane, type MarkSpec } from './panes';
 
 interface ConsoleBoot {
   slug: string | null;
@@ -157,23 +157,9 @@ function initDetail(boot: ConsoleBoot): void {
           + (payload.status_counts.applied ? ` · ${payload.status_counts.applied} applied` : '');
       }
 
-      list.textContent = '';
       if (empty) empty.hidden = payload.candidates.length > 0 || total > 0;
 
-      let lastCiting = '';
-      for (const c of state.candidates) {
-        if (c.citing_book !== lastCiting) {
-          lastCiting = c.citing_book;
-          const group = document.createElement('div');
-          group.className = 'hx-citing-group';
-          group.textContent = c.citing_title ?? c.citing_book;
-          group.title = `${c.citing_author ?? ''} ${c.citing_year ?? ''}`.trim();
-          list.appendChild(group);
-        }
-        list.appendChild(buildRow(c));
-      }
-
-      updateBatchButton();
+      renderCandidateList();
 
       // A refreshed page re-attaches to an in-flight detect: the run lives on
       // the queue worker, so without this the status line sits empty and the
@@ -186,6 +172,35 @@ function initDetail(boot: ConsoleBoot): void {
       log.error('hypercites: candidates load failed', 'maintainer', err);
       if (count) count.textContent = 'failed to load';
     }
+  }
+
+  /**
+   * Re-render the list from state WITHOUT refetching — after approve/revert
+   * the row's status just flips in place, so the operator can still see (and
+   * revisit) what they just decided even when the active filter would exclude
+   * it on the next fetch.
+   */
+  function renderCandidateList(): void {
+    const list = el<HTMLDivElement>('hx-candidates-list');
+    if (!list) return;
+    list.textContent = '';
+
+    let lastCiting = '';
+    for (const c of state.candidates) {
+      if (c.citing_book !== lastCiting) {
+        lastCiting = c.citing_book;
+        const group = document.createElement('div');
+        group.className = 'hx-citing-group';
+        group.textContent = c.citing_title ?? c.citing_book;
+        group.title = `${c.citing_author ?? ''} ${c.citing_year ?? ''}`.trim();
+        list.appendChild(group);
+      }
+      const row = buildRow(c);
+      if (state.selected?.id === c.id) row.classList.add('hx-row-selected');
+      list.appendChild(row);
+    }
+
+    updateBatchButton();
   }
 
   function buildRow(c: Candidate): HTMLElement {
@@ -225,6 +240,39 @@ function initDetail(boot: ConsoleBoot): void {
     return row;
   }
 
+  /**
+   * What to MARK in the citing pane: the quote beside the marker (found live,
+   * nearest the marker offset — the stored text may have been truncated for
+   * transport, and the node's text shifts once a ↗ is spliced in), the whole
+   * blockquote, or failing both the claim sentence.
+   */
+  function citingMarks(c: Candidate): MarkSpec[] {
+    if (c.quote_kind === 'inline' && c.quote_text) {
+      const text = c.quote_text.replace(/\.\.\.$|…$/u, ''); // transport truncation
+      return [{ nodeId: c.citing_node_id, search: { text, near: c.marker_offset } }];
+    }
+    if (c.quote_kind === 'blockquote' && c.quote_node_id) {
+      return [{ nodeId: c.quote_node_id, wholeNode: true }];
+    }
+    if (c.claim_start !== null && c.claim_end !== null) {
+      return [{ nodeId: c.citing_node_id, range: { start: c.claim_start, end: c.claim_end } }];
+    }
+    return [];
+  }
+
+  /**
+   * What to MARK in the cited pane: the located span(s), exactly as charData
+   * would store them. Skipped once applied — the real hypercite underline is
+   * the mark then, and the pane deep-links to it.
+   */
+  function citedMarks(c: Candidate): MarkSpec[] {
+    if (c.status === 'applied' || !c.match_char_data) return [];
+    return Object.entries(c.match_char_data).map(([nodeId, span]) => ({
+      nodeId,
+      range: { start: span.charStart, end: span.charEnd },
+    }));
+  }
+
   function select(c: Candidate): void {
     state.selected = c;
     document.querySelectorAll('.hx-row').forEach((r) =>
@@ -234,11 +282,11 @@ function initDetail(boot: ConsoleBoot): void {
     // startLine (the node's DOM id) or a hypercite_ id — a data-node-id
     // resolves to nothing and the pane would open at the top of the book.
     const citingTarget = c.citing_start_line !== null ? String(c.citing_start_line) : null;
-    citingPane.show(c.citing_book, citingTarget, `citing — ${c.citing_title ?? c.citing_book}`);
+    citingPane.show(c.citing_book, citingTarget, `citing — ${c.citing_title ?? c.citing_book}`, citingMarks(c));
     const citedTarget = c.status === 'applied' && c.hypercite_id
       ? c.hypercite_id
       : (c.cited_start_line !== null ? String(c.cited_start_line) : null);
-    citedPane.show(c.cited_book, citedTarget, `cited — ${c.cited_title ?? c.cited_book}`);
+    citedPane.show(c.cited_book, citedTarget, `cited — ${c.cited_title ?? c.cited_book}`, citedMarks(c));
 
     const card = el<HTMLDivElement>('hx-selected');
     const metaEl = el<HTMLDivElement>('hx-selected-meta');
@@ -263,6 +311,8 @@ function initDetail(boot: ConsoleBoot): void {
     approve.title = c.status === 'matched'
       ? 'Mint the hypercite'
       : `Not appliable from status "${c.status}"${c.has_quote ? '' : ' — no quote was detected'}`;
+    const revert = el<HTMLButtonElement>('hx-revert');
+    if (revert) revert.hidden = c.status !== 'applied';
     if (status) status.textContent = '';
   }
 
@@ -277,10 +327,14 @@ function initDetail(boot: ConsoleBoot): void {
       const { status: http, data } = await api.approve(c.id);
       if (data.applied) {
         if (status) status.textContent = `✓ hypercited (${data.hyperciteId})`;
+        // Flip in place, no refetch — the active filter would drop the row and
+        // take the review context with it. select() re-runs so the card shows
+        // ↩ revert and the cited pane lands on the real hypercite.
         c.status = 'applied';
         c.hypercite_id = data.hyperciteId ?? null;
-        if (data.citedBook) citedPane.show(data.citedBook, data.hyperciteId ?? null, `cited — ${c.cited_title ?? data.citedBook}`);
-        await loadCandidates();
+        renderCandidateList();
+        select(c);
+        if (status) status.textContent = `✓ hypercited (${data.hyperciteId})`;
       } else if (http === 409) {
         if (status) status.textContent = `stale (${data.refusal}) — re-run detect, then re-review`;
       } else {
@@ -289,6 +343,30 @@ function initDetail(boot: ConsoleBoot): void {
     } catch (err) {
       log.error('hypercites: approve failed', 'maintainer', err);
       if (status) status.textContent = 'approve failed — see console';
+    }
+  });
+
+  el<HTMLButtonElement>('hx-revert')?.addEventListener('click', async () => {
+    const c = state.selected;
+    const status = el<HTMLSpanElement>('hx-selected-status');
+    if (!c) return;
+    if (status) status.textContent = 'reverting…';
+    try {
+      const { status: http, data } = await api.revert(c.id);
+      if (data.reverted) {
+        c.status = 'matched';
+        c.hypercite_id = null;
+        renderCandidateList();
+        select(c);
+        if (status) status.textContent = '↩ reverted — back to matched';
+      } else if (http === 409) {
+        if (status) status.textContent = `stale (${data.refusal}) — the citing text changed since apply; remove by hand in the reader`;
+      } else {
+        if (status) status.textContent = data.message ?? `refused (${data.refusal ?? http})`;
+      }
+    } catch (err) {
+      log.error('hypercites: revert failed', 'maintainer', err);
+      if (status) status.textContent = 'revert failed — see console';
     }
   });
 

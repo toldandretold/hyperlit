@@ -176,6 +176,108 @@ class HyperciteMinter
         });
     }
 
+    /**
+     * Revert an applied candidate: remove the spliced ↗ anchor from the citing
+     * node, delete the hypercites row, and put the candidate back to `matched`
+     * so it can be re-reviewed (or re-applied — a fresh mint generates fresh
+     * ids). Same transaction + lock discipline as mint; refuses `stale_citing`
+     * when the citing node changed since the apply (the stored post-splice
+     * hash no longer matches), because blind string surgery on drifted
+     * content could eat real text.
+     *
+     * @return array{reverted:bool, refusal?:string}
+     */
+    public function unmint(string $candidateId, ?int $reviewerId): array
+    {
+        $db = DB::connection('pgsql_admin');
+
+        return $db->transaction(function () use ($db, $candidateId, $reviewerId) {
+            $candidate = $db->table('hypercite_candidates')
+                ->where('id', $candidateId)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $candidate) {
+                return ['reverted' => false, 'refusal' => 'not_found'];
+            }
+            if ($candidate->status !== 'applied' || ! $candidate->hypercite_id) {
+                return ['reverted' => false, 'refusal' => "not_revertable_from_{$candidate->status}"];
+            }
+
+            $citingNode = $db->table('nodes')
+                ->where('book', $candidate->citing_book)
+                ->where('node_id', $candidate->citing_node_id)
+                ->first(['content']);
+            if (! $citingNode || sha1((string) $citingNode->content) !== $candidate->citing_content_hash) {
+                return ['reverted' => false, 'refusal' => 'stale_citing'];
+            }
+
+            // The anchor id lives in the hypercite row's citedIN entry.
+            $hypercite = $db->table('hypercites')
+                ->where('book', $candidate->cited_book)
+                ->where('hyperciteId', $candidate->hypercite_id)
+                ->first();
+            $anchorId = null;
+            foreach (json_decode((string) ($hypercite->citedIN ?? '[]'), true) ?: [] as $entry) {
+                if (str_starts_with((string) $entry, "/{$candidate->citing_book}#")) {
+                    $anchorId = substr((string) $entry, strlen("/{$candidate->citing_book}#"));
+                    break;
+                }
+            }
+
+            $oldContent = (string) $citingNode->content;
+            $newContent = $oldContent;
+            if ($anchorId !== null) {
+                $newContent = preg_replace(
+                    '/\x{2060}?<a\s[^>]*id="' . preg_quote($anchorId, '/') . '"[^>]*>[^<]*<\/a>/us',
+                    '',
+                    $oldContent,
+                    1
+                ) ?? $oldContent;
+            }
+            if ($newContent !== $oldContent) {
+                $db->table('nodes')
+                    ->where('book', $candidate->citing_book)
+                    ->where('node_id', $candidate->citing_node_id)
+                    ->update(['content' => $newContent, 'updated_at' => now()]);
+                CharDataRecalculator::recalcForNodes($candidate->citing_book, [
+                    $candidate->citing_node_id => ['old' => $oldContent, 'new' => $newContent],
+                ]);
+            }
+
+            $db->table('hypercites')
+                ->where('book', $candidate->cited_book)
+                ->where('hyperciteId', $candidate->hypercite_id)
+                ->delete();
+
+            $nowMs = (int) round(microtime(true) * 1000);
+            $db->table('library')->where('book', $candidate->citing_book)
+                ->update(['annotations_updated_at' => $nowMs, 'timestamp' => $nowMs]);
+            $db->table('library')->where('book', $candidate->cited_book)
+                ->update(['annotations_updated_at' => $nowMs]);
+
+            $db->table('hypercite_candidates')->where('id', $candidate->id)->update([
+                'status'              => 'matched',
+                'hypercite_id'        => null,
+                'citing_content_hash' => sha1($newContent),
+                'applied_at'          => null,
+                'auto_approved'       => false,
+                'reviewed_by'         => $reviewerId,
+                'reviewed_at'         => now(),
+                'error'               => null,
+                'updated_at'          => now(),
+            ]);
+
+            Log::info('hypercites: reverted', [
+                'candidate' => $candidate->id,
+                'citing'    => $candidate->citing_book,
+                'cited'     => $candidate->cited_book,
+            ]);
+
+            return ['reverted' => true];
+        });
+    }
+
     /** Reject: a pure status update, preserved across re-detects as labeled data. */
     public function reject(string $candidateId, ?int $reviewerId): bool
     {
@@ -191,12 +293,16 @@ class HyperciteMinter
     }
 
     /**
-     * Insert the hypercite anchor immediately after the FIRST in-text citation
-     * marker for this refId in the node's HTML (CitationParser records one
-     * position per refId per node — the first — so this is the marker the
-     * stored offset describes). The word joiner keeps the ↗ glued to the
-     * marker; format matches the client's paste convention
-     * (hyperciteHandler.ts), not the Archivist's legacy <sup> wrapper.
+     * Insert the hypercite anchor after the FIRST in-text citation marker for
+     * this refId in the node's HTML (CitationParser records one position per
+     * refId per node — the first — so this is the marker the stored offset
+     * describes). The insertion point then steps over a closing bracket and
+     * one trailing punctuation mark, so `(<a>Boss et al, 2023</a>).` becomes
+     * `(Boss et al, 2023).↗` rather than `(Boss et al, 2023↗).` — the ↗
+     * belongs to the sentence, not inside the citation's parentheses. The
+     * word joiner keeps it glued to whatever it lands after; format matches
+     * the client's paste convention (hyperciteHandler.ts), not the
+     * Archivist's legacy <sup> wrapper.
      */
     private function appendAfterMarker(string $content, string $refId, string $citedBook, string $hyperciteId, string $anchorId): ?string
     {
@@ -206,6 +312,11 @@ class HyperciteMinter
         }
 
         $insertAt = $m[0][1] + strlen($m[0][0]); // byte offsets — both from the same haystack
+        // Step over `)` / `]` then one of , . ; : — plain characters only, so a
+        // following tag (another citation anchor) is never crossed.
+        if (preg_match('/\G[\)\]]?[,.;:]?/', $content, $tail, 0, $insertAt)) {
+            $insertAt += strlen($tail[0]);
+        }
         $anchor = "\u{2060}<a href=\"/{$citedBook}#{$hyperciteId}\" id=\"{$anchorId}\" class=\"open-icon\">↗</a>";
 
         return substr($content, 0, $insertAt) . $anchor . substr($content, $insertAt);

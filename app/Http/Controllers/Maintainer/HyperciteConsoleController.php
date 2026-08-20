@@ -264,9 +264,9 @@ class HyperciteConsoleController extends Controller
                 'hc.id', 'hc.status', 'hc.error', 'hc.is_internal',
                 'hc.citing_canonical_source_id', 'hc.cited_canonical_source_id',
                 'hc.citing_book', 'hc.cited_book', 'hc.reference_id', 'hc.occurrence_index',
-                'hc.citing_node_id', 'hc.marker_offset',
+                'hc.citing_node_id', 'hc.marker_offset', 'hc.claim_start', 'hc.claim_end',
                 'hc.has_quote', 'hc.quote_kind', 'hc.quote_text', 'hc.quote_node_id',
-                'hc.match_node_ids', 'hc.match_method', 'hc.match_score', 'hc.match_occurrences',
+                'hc.match_node_ids', 'hc.match_char_data', 'hc.match_method', 'hc.match_score', 'hc.match_occurrences',
                 'hc.hypercite_id', 'hc.auto_approved', 'hc.reviewed_at', 'hc.applied_at',
                 DB::connection('pgsql_admin')->raw('COALESCE(citing.title, citing_lib.title) as citing_title'),
                 'citing.author as citing_author', 'citing.year as citing_year',
@@ -277,6 +277,7 @@ class HyperciteConsoleController extends Controller
             ->get()
             ->map(function ($r) {
                 $r->match_node_ids = json_decode((string) $r->match_node_ids, true);
+                $r->match_char_data = json_decode((string) $r->match_char_data, true);
                 $r->quote_text = $r->quote_text !== null ? Str::limit($r->quote_text, 600) : null;
 
                 return $r;
@@ -472,6 +473,32 @@ class HyperciteConsoleController extends Controller
         }
 
         return response()->json($result);
+    }
+
+    /**
+     * POST /api/maintainer/hypercites/candidates/{id}/revert — undo an apply:
+     * anchor unspliced, hypercites row deleted, candidate back to `matched`
+     * for re-review. 409 when the citing node drifted since the apply.
+     */
+    public function revert(Request $request, string $id, HyperciteMinter $minter)
+    {
+        $result = $minter->unmint($id, $request->user()?->id);
+
+        if (! ($result['reverted'] ?? false)) {
+            $refusal = $result['refusal'] ?? 'unknown';
+            $status = match (true) {
+                $refusal === 'not_found'            => 404,
+                str_starts_with($refusal, 'stale_') => 409,
+                default                             => 422,
+            };
+
+            return response()->json([
+                'message' => "Cannot revert this candidate: {$refusal}",
+                'refusal' => $refusal,
+            ], $status);
+        }
+
+        return response()->json(['reverted' => true]);
     }
 
     /** POST /api/maintainer/hypercites/candidates/{id}/reject */
