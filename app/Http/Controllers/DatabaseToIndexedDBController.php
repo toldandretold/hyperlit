@@ -669,12 +669,15 @@ class DatabaseToIndexedDBController extends Controller
      * server-side, and rows whose sub-book (annotation) is private and not the caller's are dropped;
      * `creator_token` is intentionally never sent (only `is_user_highlight` is exposed, and it is unset
      * from `raw_json` too). `node_id`/`charData`/`preview_nodes`/`raw_json` are JSON-decoded here (the
-     * loader normalizer `processHyperlight` re-parses defensively).
+     * loader normalizer `processHyperlight` re-parses defensively). `sub_book_visibility` reports the
+     * annotation sub-book's library visibility ('public' when no row exists) — rows that survive the
+     * private-sub-book filter with 'private' are by construction the caller's own.
      *
      * @return array<int, array{
      *   book: string, hyperlight_id: string, node_id: string[], charData: array<string, array{charStart: int, charEnd: int}>,
      *   annotation: ?string, preview_nodes: ?array, highlightedHTML: ?string, highlightedText: ?string,
-     *   startLine: ?string, raw_json: array, time_since: ?int, hidden: bool, is_user_highlight: bool, creator: ?string
+     *   startLine: ?string, raw_json: array, time_since: ?int, hidden: bool, is_user_highlight: bool, creator: ?string,
+     *   sub_book_visibility: 'public'|'private'
      * }>
      */
     private function getHyperlights(string $bookId): array
@@ -743,7 +746,7 @@ class DatabaseToIndexedDBController extends Controller
         });
 
         $hyperlights = $rows
-            ->map(function ($hyperlight) use ($user, $anonymousToken, $bookId) {
+            ->map(function ($hyperlight) use ($user, $anonymousToken, $bookId, $privateSubBookInfo) {
                 // Determine if this highlight belongs to the current user
                 // Prioritized auth: if highlight has username (creator), ONLY use username-based auth
                 $isUserHighlight = false;
@@ -804,6 +807,9 @@ class DatabaseToIndexedDBController extends Controller
                     'is_user_highlight' => $isUserHighlight,
                     'creator' => $hyperlight->creator,
                     // creator_token intentionally omitted - security sensitive
+                    'sub_book_visibility' => ($hyperlight->sub_book_id && array_key_exists($hyperlight->sub_book_id, $privateSubBookInfo))
+                        ? 'private'
+                        : 'public',
                 ];
             })
             ->toArray();

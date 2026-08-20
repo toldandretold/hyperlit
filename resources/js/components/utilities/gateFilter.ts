@@ -315,11 +315,22 @@ export function applyGateFilter(items: any, type: any) {
     item.is_user_hypercite === false &&
     !isPinnedHypercite(item.hyperciteId);
 
-  // "all" mode — nothing gate-filtered (singles rule still applies: it is not gate-wired)
-  if (settings.mode === 'all') return items.filter((item: any) => !dropForeignSingle(item));
+  // Private-annotation mirror (same defense-in-depth shape as dropForeignSingle): the
+  // server never serves a foreign private-sub-book highlight, but a stale IDB copy
+  // synced before the creator flipped it private must not render. EXPLICIT `=== false`
+  // ownership only — `undefined` (locally created) always passes. NO pinned exemption:
+  // unlike gate clauses, the server's privacy pass is never bypassed by a deep link.
+  const dropForeignPrivate = (item: any) =>
+    type === 'hyperlight' &&
+    item.sub_book_visibility === 'private' &&
+    item.is_user_highlight === false;
+
+  // "all" mode — nothing gate-filtered (singles/private rules still apply: not gate-wired)
+  if (settings.mode === 'all') return items.filter((item: any) => !dropForeignSingle(item) && !dropForeignPrivate(item));
 
   // "hideAll" mode — only the user's own annotations (and pinned deep-link targets) pass
   if (settings.mode === 'hideAll') return items.filter((item: any) => {
+    if (dropForeignPrivate(item)) return false;
     if (type === 'hyperlight' && item.is_user_highlight) return true;
     if (type === 'hypercite' && item.is_user_hypercite) return true;
     if (type === 'hypercite' && isPinnedHypercite(item.hyperciteId)) return true;
@@ -353,6 +364,7 @@ export function applyGateFilter(items: any, type: any) {
     if (type === 'hyperlight' && isPinnedHyperlight(item.hyperlight_id)) return true;
 
     if (dropForeignSingle(item)) return false;
+    if (dropForeignPrivate(item)) return false;
 
     // default and custom both resolve to a per-type flag triple (mirrors the server:
     // book defaults > global per-type defaults; nested and legacy-flat shapes accepted)

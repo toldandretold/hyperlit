@@ -4,6 +4,7 @@
 
 import { openDatabase } from '../indexedDB/index';
 import { getAuthContextSync, getAuthContext } from '../utilities/auth/index';
+import { getDefaultHighlightVisibility } from './visibilityDefault';
 import type { BookId, HyperlightRecord } from '../indexedDB/types';
 
 interface AuthUser { name?: string; username?: string; email?: string }
@@ -81,7 +82,10 @@ export async function addToHighlightsTable(bookId: BookId, highlightData: Highli
       creator: creator,
       creator_token: creator_token,
       time_since: Math.floor(Date.now() / 1000),
-      is_user_highlight: true  // Always true for locally-created highlights
+      is_user_highlight: true,  // Always true for locally-created highlights
+      // Sticky default (last visibility the user picked); the server honors this
+      // only at hyperlight-row creation — see DbHyperlightController::upsert.
+      sub_book_visibility: getDefaultHighlightVisibility()
     };
 
     console.log(`💾 Saving highlight to IndexedDB:`);

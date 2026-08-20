@@ -30,6 +30,32 @@ export async function handlePostOpenActions(contentTypes: any, newHighlightIds: 
     attachSubBookFocusSwitcher();
   }
 
+  // Insert edit button as direct child of container (NOT inside scroller)
+  // to avoid iOS Safari compositing clip from -webkit-overflow-scrolling: touch.
+  // Inserted SYNCHRONOUSLY (not in the deferred setTimeout below): on a
+  // read-mode open the pencil is the only way into edit mode, and deferring
+  // it 100ms left a window where the container looks fully open but cannot
+  // be edited. Targets options.containerEl (passed by every caller) rather
+  // than getCurrentContainer() — during a base-container open the stack
+  // layer isn't pushed yet, so getCurrentContainer() can point elsewhere.
+  if (hasAnyEditPermission && !options.brainModeHighlightId) {
+    const container = options.containerEl || getCurrentContainer();
+    if (container) {
+      const existing = container.querySelector('.hyperlit-edit-btn');
+      if (existing) existing.remove();
+
+      container.insertAdjacentHTML('beforeend', buildEditButtonHtml(editModeEnabled));
+      const editBtn = container.querySelector('.hyperlit-edit-btn');
+      if (editBtn) {
+        registerListener(editBtn, 'click', (e: any) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleEditButtonClick();
+        });
+      }
+    }
+  }
+
   // Shared, mutable across handlers: only the first user-owned sub-book gets the editor.
   const ctx: PostOpenCtx = {
     newHighlightIds, focusPreserver, skipAutoFocus, isNewFootnote, db,
@@ -64,26 +90,6 @@ export async function handlePostOpenActions(contentTypes: any, newHighlightIds: 
     if (manageCitationsBtn) {
       const { handleManageCitationsClick }: any = await import('./contentBuilders/displayHypercites');
       registerListener(manageCitationsBtn, 'click', handleManageCitationsClick);
-    }
-
-    // Insert edit button as direct child of container (NOT inside scroller)
-    // to avoid iOS Safari compositing clip from -webkit-overflow-scrolling: touch
-    if (hasAnyEditPermission && !options.brainModeHighlightId) {
-      const container = getCurrentContainer();
-      if (container) {
-        const existing = container.querySelector('.hyperlit-edit-btn');
-        if (existing) existing.remove();
-
-        container.insertAdjacentHTML('beforeend', buildEditButtonHtml(editModeEnabled));
-        const editBtn = container.querySelector('.hyperlit-edit-btn');
-        if (editBtn) {
-          registerListener(editBtn, 'click', (e: any) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleEditButtonClick();
-          });
-        }
-      }
     }
 
     // Prev/next arrows over the user's OWN annotations — highlights AND <u>

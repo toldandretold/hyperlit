@@ -67,15 +67,18 @@ export async function handleMarkClick(event: Event): Promise<void> {
     return;
   }
 
-  // Check which highlights are newly created
-  const newHighlightIds = markElement.getAttribute('data-new-hl');
-  const newIds = newHighlightIds ? newHighlightIds.split(',') : [];
-
-  console.log(`New highlight IDs: ${newIds.join(", ")}`);
+  // NOTE: data-new-hl is deliberately NOT forwarded as newHighlightIds here.
+  // The attribute persists on the mark for the whole page session (it also feeds
+  // positionCollector's boundary-protection skip), so treating it as "newly
+  // created" made every same-session REOPEN silently auto-enable container edit
+  // mode (hasJustCreatedItem in handleUnifiedContentClick) with the pencil
+  // rendered for the opposite state — the user's first pencil click then EXITED
+  // edit mode and typing went nowhere. The creation flow passes newHighlightIds
+  // explicitly (createHighlight.ts), so a mark click is always a plain reopen.
   console.log(`Opening highlights: ${highlightIds.join(", ")}`);
 
   // Use unified container system - pass the mark element, not the clicked target
-  await handleUnifiedContentClick(markElement, highlightIds, newIds);
+  await handleUnifiedContentClick(markElement, highlightIds, []);
 }
 
 /**

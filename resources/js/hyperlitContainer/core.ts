@@ -544,6 +544,14 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
         const { cleanupContainerListeners }: any = await import('./containerListeners');
         await cleanupContainerListeners();
 
+        // Reset the container edit-mode flag — it leaks otherwise: creating a
+        // highlight auto-enables it (index.ts hasJustCreatedItem), and a reopen
+        // then inherits edit-ON with the pencil rendered un-inverted, so the
+        // user's first pencil click EXITS edit mode instead of entering it
+        // (the "click edit and can't write" bug). Stack pops restore their own
+        // savedEditMode above; this is the base-layer full close.
+        setHyperlitEditMode(false);
+
         // STEP 1b: Run an integrity sweep against every sub-book mounted in
         // the container before we tear it down. This is the sub-book
         // equivalent of the main book's #editButton-exit sweep — without

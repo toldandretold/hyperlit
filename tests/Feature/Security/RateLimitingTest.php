@@ -136,11 +136,12 @@ test('api endpoints are rate limited at 120 per minute', function () {
     $rateLimitedCount = 0;
 
     // Attempt many rapid API calls against a real throttle:120,1 route (the old `/api/home` was a
-    // 404 — an unmatched route carries no throttle middleware, so it could never 429). The throttle
-    // fires in middleware before the controller, so the 121st request is 429 regardless of body.
+    // 404 — an unmatched route carries no throttle middleware, so it could never 429; and
+    // /api/import-progress moved to the named `import-progress` limiter). The throttle fires in
+    // middleware before the controller, so the 121st request is 429 regardless of body.
     for ($i = 0; $i < 130; $i++) {
         $response = $this->actingAs($user)
-            ->getJson('/api/import-progress/rate-limit-test-book');
+            ->getJson('/api/canonical/00000000-0000-0000-0000-000000000000/best-version');
 
         if ($response->status() === 429) {
             $rateLimitedCount++;
@@ -152,6 +153,40 @@ test('api endpoints are rate limited at 120 per minute', function () {
     // Should hit rate limit (120 per minute for general API)
     expect($rateLimitedCount)->toBeGreaterThan(0)
         ->and($successCount)->toBeLessThanOrEqual(120);
+});
+
+test('import progress polling has its own throttle bucket', function () {
+    // Regression: the poll + notify routes used inline throttle:120,1 / throttle:10,1, which share
+    // ONE per-user bucket with every other inline-throttled route. Several concurrent import cards
+    // polling every 2s starved the bucket, and clicking "Email me when done" 429'd with a raw
+    // "Too Many Attempts." rendered into the card. Both routes now sit on the named
+    // `import-progress` limiter (300/min, own bucket).
+    $user = $this->seedUser();
+
+    // 130 rapid polls: would 429 on the old shared 120/min bucket, must NOT on the named 300/min.
+    for ($i = 0; $i < 130; $i++) {
+        $response = $this->actingAs($user)
+            ->getJson('/api/import-progress/rate-limit-test-book');
+
+        expect($response->status())->not->toBe(429);
+    }
+
+    // The notify endpoint draws from the same named bucket, not a starved 10/min inline one:
+    // after 130 polls it must still respond (any status but 429 — the book has no progress file).
+    $notify = $this->actingAs($user)
+        ->postJson('/api/import-progress/rate-limit-test-book/notify');
+    expect($notify->status())->not->toBe(429);
+
+    // The named bucket still has a ceiling: exhaust the remaining headroom and confirm 429 at 301+.
+    $rateLimitedCount = 0;
+    for ($i = 0; $i < 180; $i++) {
+        $response = $this->actingAs($user)
+            ->getJson('/api/import-progress/rate-limit-test-book');
+        if ($response->status() === 429) {
+            $rateLimitedCount++;
+        }
+    }
+    expect($rateLimitedCount)->toBeGreaterThan(0);
 });
 
 test('rate limiting cannot be bypassed with X-Forwarded-For header', function () {

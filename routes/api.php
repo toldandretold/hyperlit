@@ -36,15 +36,18 @@ use App\Http\Controllers\PasskeyController;
 use App\Http\Controllers\E2eeVaultController;
 
 
-// Import progress polling — lightweight, no auth needed (bookId is unguessable)
+// Import progress polling — lightweight, no auth needed (bookId is unguessable).
+// Named limiter (own bucket): inline throttle:X,1 shares ONE per-user bucket with
+// every other inline-throttled route, so concurrent import pollers starved the
+// notify endpoint into a raw 429 "Too Many Attempts." in the card.
 Route::get('/import-progress/{bookId}', [ImportController::class, 'importProgress'])
     ->where('bookId', '[a-zA-Z0-9_-]+')
-    ->middleware('throttle:120,1');
+    ->middleware('throttle:import-progress');
 
 // Opt-in email notification for imports
 Route::post('/import-progress/{bookId}/notify', [ImportController::class, 'requestEmailNotification'])
     ->where('bookId', '[a-zA-Z0-9_-]+')
-    ->middleware('throttle:10,1');
+    ->middleware('throttle:import-progress');
 
 // Stripe webhook — must be outside auth (Stripe calls it directly)
 Route::post('/stripe/webhook', [StripeController::class, 'handleWebhook']);
@@ -247,6 +250,22 @@ Route::post('/anonymous-session', [AuthController::class, 'createAnonymousSessio
 Route::get('/auth-check', [AuthController::class, 'checkAuth']);
 
 Route::middleware(['author', 'throttle:120,1'])->group(function () {
+
+    /* ----------------  Import batches (the import-queue widget)  ---------------- */
+    // The aggregate poll rides the named import-progress limiter (own bucket —
+    // it is polled every ~2.5s while imports run; see AppServiceProvider).
+    Route::get('/my-imports', [\App\Http\Controllers\ImportBatchController::class, 'index'])
+        ->withoutMiddleware('throttle:120,1')
+        ->middleware('throttle:import-progress');
+    // Mutations are rare clicks — the group's inline 120/min is fine.
+    Route::post('/import-batches', [\App\Http\Controllers\ImportBatchController::class, 'store']);
+    Route::post('/import-batches/{id}/notify', [\App\Http\Controllers\ImportBatchController::class, 'notify'])
+        ->whereUuid('id');
+    Route::post('/import-batches/{id}/dismiss', [\App\Http\Controllers\ImportBatchController::class, 'dismiss'])
+        ->whereUuid('id');
+    Route::patch('/import-batches/{id}/items/{book}', [\App\Http\Controllers\ImportBatchController::class, 'updateItem'])
+        ->whereUuid('id')
+        ->where('book', '[a-zA-Z0-9_-]+');
 
     /* ----------------  Integrity Report  ---------------- */
     Route::post('/integrity/report', [IntegrityReportController::class, 'report'])
@@ -466,6 +485,9 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     /* ----------------  Sub-Books  ---------------- */
     Route::post('/db/sub-books/create', [SubBookController::class, 'create']);
     Route::post('/db/sub-books/migrate-existing', [SubBookController::class, 'migrateExisting']);
+    // Per-highlight privacy: flip a hyperlight's annotation sub-book visibility
+    // (highlight-creator-only; see SubBookController::setVisibility).
+    Route::post('/db/sub-books/visibility', [SubBookController::class, 'setVisibility']);
 
     /* ----------------  Node History / Version Control  ---------------- */
     // Get all versions of a specific node

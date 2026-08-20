@@ -6,6 +6,7 @@
 import { openDatabase } from '../../indexedDB/index';
 import { getAuthContextSync, getAuthContext } from "../../utilities/auth/index";
 import { buildSubBookId } from '../../utilities/subBookIdHelper';
+import { buildHyperlightVisibilityControlHtml } from '../hyperlightVisibilityControl';
 import DOMPurify from 'dompurify';
 
 /**
@@ -141,7 +142,17 @@ export async function buildHighlightContent(contentType: any, newHighlightIds: a
 `;
       html += `    <div style="display: flex; justify-content: space-between; align-items: center;">
 `;
-      html += `      <div><b>${authorName}</b><i class="time">・${relativeTime}</i></div>
+      // Per-highlight visibility pill — creator only (isUserHighlight covers fresh
+      // local highlights too via the creator_token fallback above; NOT hasPermission,
+      // which would leak the control to book owners on others' highlights).
+      const visControlHtml = isUserHighlight
+        ? buildHyperlightVisibilityControlHtml(
+            h.hyperlight_id,
+            h.book,
+            h.sub_book_visibility === 'private' ? 'private' : 'public',
+          )
+        : '';
+      html += `      <div><b>${authorName}</b><i class="time">・${relativeTime}</i>${visControlHtml}</div>
 `;
 
       // Add delete button if user has permission

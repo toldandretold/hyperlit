@@ -105,6 +105,20 @@ export function setupButtonListeners(host: ContainerHost): void {
     host.showImportForm();
     host.openContainer('form');
 
+    // The real submit handler arrives via a dynamic import (below, after a
+    // rAF + 100ms delay) — block NATIVE form submission in that window, or a
+    // fast submit does a full-page POST /import-file that bypasses every JS
+    // pathway (no progress card, no batch routing, state lost to a redirect).
+    // Once submission.ts attaches its handler (form._hasSubmitHandler) this
+    // becomes a no-op: that handler preventDefaults everything itself.
+    const earlyForm = document.getElementById('cite-form') as any;
+    if (earlyForm && !earlyForm._nativeSubmitBlocked) {
+      earlyForm._nativeSubmitBlocked = true;
+      earlyForm.addEventListener('submit', (e: Event) => {
+        if (!earlyForm._hasSubmitHandler) e.preventDefault();
+      });
+    }
+
     // Defensive wait for the form to land in the DOM: it should be present the moment
     // showImportForm returns, but during rapid open/close cycles getElementById can briefly
     // miss it. Retry quietly; only error after a generous budget.

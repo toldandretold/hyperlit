@@ -45,6 +45,11 @@ FIXTURES_DIR = os.path.join(SCRIPT_DIR, 'fixtures')
 # Optional, git-ignored tree of real-content fixtures kept for richer LOCAL testing
 # (proprietary books we can't host on a public repo). Discovered if present.
 FIXTURES_LOCAL_DIR = os.path.join(SCRIPT_DIR, 'fixtures-local')
+# Git-ignored cache of foreign-engine OCR responses (written by ocr_engine_compare.py).
+# --ocr-variant <engine> replays engine-cache/<fixture-leaf>/<engine>/ocr_response.<engine>.json
+# through the SAME chain instead of the fixture's committed Mistral response.
+ENGINE_CACHE_DIR = os.path.join(SCRIPT_DIR, 'engine-cache')
+OCR_VARIANT = None  # set from --ocr-variant in main()
 PATHWAYS_JSON = os.path.join(SCRIPT_DIR, 'pathways.json')
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..'))
 PY_DIR = os.path.join(PROJECT_ROOT, 'app', 'Python')
@@ -131,11 +136,27 @@ def discover_fixtures(filter_name=None):
 # the string 'skipped' when a tool is unavailable)
 # ---------------------------------------------------------------------------
 
+def variant_cache_key(fixture):
+    """Directory key under engine-cache/ for this fixture — the full fixture name
+    with path separators flattened (leaf names alone collide: many pathways have
+    a fixture called 'synthetic'). Shared with ocr_engine_compare.py."""
+    return fixture['name'].replace(' [local]', '').replace(os.sep, '__')
+
+
 def run_pdf_pipeline(fixture, tmp_dir):
-    """Replay cached OCR: ocr_response.json -> md -> html -> process_document."""
+    """Replay cached OCR: ocr_response.json -> md -> html -> process_document.
+    With --ocr-variant, the staged response comes from engine-cache/ instead —
+    the fixture's committed ocr_response.json is never touched either way."""
     book_id = fixture['manifest'].get('book_id', fixture['name'])
-    shutil.copy2(os.path.join(fixture['dir'], 'ocr_response.json'),
-                 os.path.join(tmp_dir, 'ocr_response.json'))
+    if OCR_VARIANT:
+        src = os.path.join(ENGINE_CACHE_DIR, variant_cache_key(fixture), OCR_VARIANT,
+                           f'ocr_response.{OCR_VARIANT}.json')
+        if not os.path.isfile(src):
+            return (f'skipped: no {OCR_VARIANT} OCR for this fixture '
+                    f'(expected {os.path.relpath(src, SCRIPT_DIR)} — run ocr_engine_compare.py first)')
+    else:
+        src = os.path.join(fixture['dir'], 'ocr_response.json')
+    shutil.copy2(src, os.path.join(tmp_dir, 'ocr_response.json'))
 
     # GROBID experiment mode ONLY (env GROBID_URL set): stage the fixture's source PDF so the
     # bibliography pass can exercise the ML path. Deliberately NOT done by default — the default
@@ -576,8 +597,9 @@ def run_fixture(fixture, verbose=False, update_golden=False):
     with tempfile.TemporaryDirectory(prefix=f'conv_test_{fixture["name"].replace(os.sep, "_")}_') as tmp_dir:
         error = runner(fixture, tmp_dir)
 
-        if error == 'skipped':
-            return 'skip', [('pipeline', True, f'{pipeline}: tool unavailable (pandoc) — skipped')], pipeline
+        if isinstance(error, str) and error.startswith('skipped'):
+            reason = error if ':' in error else f'{pipeline}: tool unavailable (pandoc) — skipped'
+            return 'skip', [('pipeline', True, reason)], pipeline
 
         if error:
             results.append(('pipeline', False,
@@ -594,6 +616,11 @@ def run_fixture(fixture, verbose=False, update_golden=False):
 
         all_passed = True
         for label, fn in COMPARATORS:
+            # Goldens byte-freeze Mistral-derived output — meaningless for a foreign
+            # engine's OCR. All manifest-expectation comparators still apply (a
+            # footnote_links/stats failure there is an engine-quality finding).
+            if OCR_VARIANT and label == 'golden':
+                continue
             outcome = fn(fixture, tmp_dir)
             if outcome is None:
                 continue
@@ -653,12 +680,26 @@ def main():
     parser.add_argument('--json', action='store_true', help='Output results as JSON')
     parser.add_argument('--coverage', action='store_true', help='Report pathway coverage and exit')
     parser.add_argument('--update-golden', action='store_true', help='Regenerate golden files instead of comparing')
+    parser.add_argument('--ocr-variant',
+                        help='Replay a foreign-engine OCR response from engine-cache/ '
+                             '(written by ocr_engine_compare.py) instead of the fixture '
+                             'ocr_response.json. PDF fixtures only; skips the golden comparator.')
     args = parser.parse_args()
 
     if args.coverage:
         sys.exit(cmd_coverage())
 
+    if args.ocr_variant and args.update_golden:
+        print('--ocr-variant with --update-golden would freeze foreign-engine output '
+              'as the fixture golden — refusing.', file=sys.stderr)
+        sys.exit(1)
+
+    global OCR_VARIANT
+    OCR_VARIANT = args.ocr_variant
+
     fixtures = discover_fixtures(args.fixture)
+    if OCR_VARIANT:
+        fixtures = [f for f in fixtures if f['pipeline'] == 'pdf']
     if not fixtures:
         if args.json:
             print(json.dumps({'error': 'No fixtures found', 'fixtures': []}))

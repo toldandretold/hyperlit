@@ -284,16 +284,20 @@ class ZipProcessor implements ProcessorInterface
             }
         }
 
-        // Update image references in markdown
+        // Update image references in markdown. The CONVERSION itself is NOT
+        // run here: this executes inside the web request (store()), which then
+        // dispatches ProcessDocumentImportJob — the job finds main-text.md and
+        // runs the full pipeline in the worker. Converting synchronously here
+        // (a) did the whole conversion twice, (b) blocked the HTTP request for
+        // its duration, and (c) ran python3 under PHP-FPM's bare PATH, where
+        // the digestion deps (bs4 et al.) are absent — every md+images folder
+        // upload 500'd on dev/Herd.
         if (File::exists($markdownPath)) {
             $imageFilenames = array_map(function($file) {
                 return $file->getClientOriginalName();
             }, $imageFiles);
 
             $this->helpers->updateMarkdownImagePaths($markdownPath, $imageFilenames, $bookId);
-
-            // Process markdown using existing pipeline
-            $this->markdownProcessor->process($markdownPath, $outputPath, $bookId);
         }
 
         Log::info('processFolderFiles completed', [

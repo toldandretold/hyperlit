@@ -145,6 +145,21 @@ class ProcessDocumentImportJob implements ShouldQueue
             // Run the appropriate processor
             $this->writeProgress($path, 'processing', 2, 'starting', 'Starting document processing');
 
+            // Test-only artificial processing window (same env-gated pattern as
+            // the X-Test-Fixture OCR side-load in ImportController): e2e specs
+            // that exercise "drop another file while one is processing" need a
+            // RELIABLE window — real conversions of small fixtures finish in
+            // seconds. store() writes the marker only in local/testing.
+            $slowMarker = "{$path}/test_slow.json";
+            if (app()->environment(['local', 'testing']) && File::exists($slowMarker)) {
+                $seconds = min((int) (json_decode(File::get($slowMarker), true)['seconds'] ?? 0), 120);
+                File::delete($slowMarker);
+                if ($seconds > 0) {
+                    Log::info('Test slow-import marker: sleeping', ['book' => $this->bookId, 'seconds' => $seconds]);
+                    sleep($seconds);
+                }
+            }
+
             // For docx (and .doc/.odt/.rtf, which PandocConversionJob first normalizes
             // to .docx via LibreOffice), run PandocConversionJob synchronously to avoid
             // queue deadlock (dispatching a child job from a running job blocks if
@@ -323,6 +338,17 @@ class ProcessDocumentImportJob implements ShouldQueue
                 'result' => $result,
             ]);
 
+            // Batch bookkeeping (import-queue widget, auto-shelf, batch email).
+            // Best-effort: a batch failure must never fail the import itself.
+            try {
+                app(\App\Services\DocumentImport\ImportBatches::class)
+                    ->onJobTerminal($this->bookId, true, null);
+            } catch (\Throwable $batchErr) {
+                Log::warning('Import batch terminal hook failed', [
+                    'book' => $this->bookId, 'error' => $batchErr->getMessage(),
+                ]);
+            }
+
             // Send success email (only if user opted in)
             if ($this->shouldSendEmail($path) && $this->userId) {
                 $user = User::find($this->userId);
@@ -396,6 +422,16 @@ class ProcessDocumentImportJob implements ShouldQueue
     {
         $path = resource_path("markdown/{$this->bookId}");
         $this->writeProgress($path, 'failed', 0, 'error', $exception->getMessage());
+
+        // Batch bookkeeping (import-queue widget, batch email). Best-effort.
+        try {
+            app(\App\Services\DocumentImport\ImportBatches::class)
+                ->onJobTerminal($this->bookId, false, $exception->getMessage());
+        } catch (\Throwable $batchErr) {
+            Log::warning('Import batch terminal hook failed (failed handler)', [
+                'book' => $this->bookId, 'error' => $batchErr->getMessage(),
+            ]);
+        }
 
         // Default OFF: a failed import costs the user nothing (hyperlit eats the
         // Mistral cost). Flip BILLING_CHARGE_OCR_ON_FAILED_IMPORT to bill the OCR

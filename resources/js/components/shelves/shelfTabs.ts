@@ -53,6 +53,33 @@ export function initializeShelfTabs() {
     picker.removeEventListener('click', toggleShelfPicker);
     picker.addEventListener('click', toggleShelfPicker);
 
+    // Deep link (/u/{name}/shelf/{slug}): the server resolved the shelf into
+    // window.activeShelfDeepLink — for the OWNER this includes PRIVATE shelves
+    // (every auto-created import/harvest shelf), which have no server-rendered
+    // tab, so open one dynamically. One-shot: consumed here, and it WINS over
+    // the persisted last-active tab (the user clicked a link to this shelf).
+    const deepLink = (window as any).activeShelfDeepLink;
+    if (deepLink?.id && (window as any).isOwner === true) {
+        (window as any).activeShelfDeepLink = null;
+        // Re-create the persisted tabs first so the deep-linked tab joins
+        // them instead of replacing them.
+        const persisted = localStorage.getItem(STORAGE_KEY);
+        if (persisted) {
+            try {
+                const tabs = JSON.parse(persisted);
+                if (Array.isArray(tabs)) {
+                    for (const tab of tabs) {
+                        createTabButton(tab.shelfId, tab.shelfName, tab.sort, false);
+                    }
+                }
+            } catch (e) {
+                localStorage.removeItem(STORAGE_KEY);
+            }
+        }
+        void openShelf(deepLink.id, deepLink.name, deepLink.default_sort || 'recent');
+        return;
+    }
+
     // Restore persisted shelf tabs
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {

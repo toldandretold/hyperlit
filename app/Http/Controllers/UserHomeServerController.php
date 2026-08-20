@@ -195,12 +195,20 @@ class UserHomeServerController extends Controller
             ->get(['id', 'name', 'slug', 'description', 'visibility', 'default_sort'])
             ->toArray();
 
-        // Validate activeShelfId: resolve by slug first, then fall back to UUID
+        // Validate activeShelfId: resolve by slug first, then fall back to UUID.
+        // The OWNER resolves against their full shelf list — private shelves
+        // (every auto-created import/harvest shelf) are deep-linkable for them;
+        // visitors resolve against public shelves only.
         $activeShelfId = null;
+        $activeShelf = null;
         if ($shelfId) {
-            $validShelf = collect($publicShelves)->firstWhere('slug', $shelfId)
-                       ?? collect($publicShelves)->firstWhere('id', $shelfId);
+            $candidates = $isOwner ? collect($shelves) : collect($publicShelves);
+            $validShelf = $candidates->firstWhere('slug', $shelfId)
+                       ?? $candidates->firstWhere('id', $shelfId);
             $activeShelfId = $validShelf ? $validShelf->id : null;
+            // Full row for the owner deep-link path: private shelves have no
+            // server-rendered tab, so the frontend opens this one dynamically.
+            $activeShelf = $validShelf;
         }
 
         // Return user.blade.php with user page data (use sanitized for book ID)
@@ -222,6 +230,7 @@ class UserHomeServerController extends Controller
             'shelves' => $shelves,
             'publicShelves' => $publicShelves,
             'activeShelfId' => $activeShelfId,
+            'activeShelf' => $activeShelf,
         ]);
     }
 

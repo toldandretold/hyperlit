@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1752 functions in 370 modules · 10 object stores · 10 PG tables · 3623 edges
+**MarkdownDB** schema v28 · 1757 functions in 372 modules · 10 object stores · 10 PG tables · 3637 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -976,6 +976,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `attachPlaceholderBehavior` | `hyperlights/utils` | — | — | read/write | — |
 | `generateHighlightID` | `hyperlights/utils` | — | — | — | — |
 | `openHighlightById` | `hyperlights/utils` | — | — | read | — |
+| `getDefaultHighlightVisibility` | `hyperlights/visibilityDefault` | `localStorage` | — | — | — |
+| `setDefaultHighlightVisibility` | `hyperlights/visibilityDefault` | — | `localStorage` | — | — |
 | `cleanupPendingBrainHighlight` | `hyperlitContainer/brainQuery` | — | — | — | — |
 | `injectBrainInput` | `hyperlitContainer/brainQuery` | `hyperlights` `localStorage` | `hypercites` `hyperlights` `library` `localStorage` `nodes` | read/write | `↓route:/api/shelves` |
 | `injectBrainPolling` | `hyperlitContainer/brainQuery` | `hyperlights` | `hyperlights` | read/write | — |
@@ -1063,6 +1065,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `restoreContainerStack` | `hyperlitContainer/history` | — | — | read | — |
 | `restoreHyperlitContainerFromHistory` | `hyperlitContainer/history` | — | — | read | — |
 | `restoreStackedLayer` | `hyperlitContainer/history` | — | — | write | — |
+| `buildHyperlightVisibilityControlHtml` | `hyperlitContainer/hyperlightVisibilityControl` | — | — | — | — |
+| `destroyHyperlightVisibility` | `hyperlitContainer/hyperlightVisibilityControl` | — | — | read/write | — |
+| `initHyperlightVisibility` | `hyperlitContainer/hyperlightVisibilityControl` | `hyperlights` `library` | `hyperlights` `library` | read/write | — |
 | `handleUnifiedContentClick` | `hyperlitContainer/index` | — | — | read/write | — |
 | `attachNoteListeners` | `hyperlitContainer/noteListener` | — | — | — | — |
 | `detachNoteListeners` | `hyperlitContainer/noteListener` | — | — | read | — |

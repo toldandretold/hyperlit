@@ -16,10 +16,17 @@
 import { log, verbose } from '../../utilities/logger';
 import { isLoggedIn } from '../../utilities/auth/index';
 import { initializeUserContainer } from '../userButton/userButton';
+import { attachFilesToInput } from '../utilities/fileImportHelpers';
 import {
-  attachFilesToInput,
-  isAcceptableImportExt,
-} from '../utilities/fileImportHelpers';
+  buildIngestPlan,
+  captureDropEntries,
+  collectEntries,
+  planAsBatch,
+  type CollectedFile,
+  type IngestPlan,
+} from '../importQueue/folderIngest';
+import { uploadBatch } from '../importQueue/batchUploader';
+import { showImportQueuePreparing, clearImportQueuePreparing } from '../importQueue/importQueue';
 
 const OVERLAY_ID = 'page-drop-overlay';
 
@@ -182,6 +189,57 @@ function renderAnonAlert() {
   cardEl.appendChild(actions);
 }
 
+/** Info/error card in the drop overlay with a Close button (clickable). */
+function renderBatchMessage(title: string, detail: string, autoHideMs: number | null) {
+  if (!cardEl) return;
+  cardEl.innerHTML = '';
+  cardEl.style.borderStyle = 'solid';
+  cardEl.style.borderColor = 'rgba(239,141,52,0.6)';
+
+  const titleEl = document.createElement('div');
+  titleEl.textContent = title;
+  titleEl.style.cssText = 'font-size: 18px; font-weight: 600; margin-bottom: 6px;';
+
+  const msg = document.createElement('div');
+  msg.textContent = detail;
+  msg.style.cssText = 'font-size: 13px; opacity: 0.85; margin-bottom: 16px;';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.textContent = 'Close';
+  closeBtn.style.cssText = 'padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; background: transparent; color: #aaa; border: 1px solid rgba(255,255,255,0.2); font-family: inherit;';
+  closeBtn.addEventListener('click', () => hideOverlay());
+
+  cardEl.appendChild(titleEl);
+  cardEl.appendChild(msg);
+  cardEl.appendChild(closeBtn);
+
+  if (overlayEl) {
+    overlayEl.style.display = 'flex';
+    overlayEl.style.pointerEvents = 'auto';
+  }
+  if (autoHideMs) {
+    setTimeout(() => {
+      // Only auto-hide if this card is still the one showing.
+      if (cardEl && cardEl.contains(closeBtn)) hideOverlay();
+    }, autoHideMs);
+  }
+}
+
+function showBatchStartedOverlay(count: number) {
+  renderBatchMessage(
+    `Importing ${count} text${count === 1 ? '' : 's'}…`,
+    count === 1
+      ? 'Queued — track progress in the corner panel.'
+      : 'Track progress in the corner panel. Books land on a shelf as they finish.',
+    4000,
+  );
+}
+
+function showBatchMessageOverlay(title: string, detail: string) {
+  renderBatchMessage(title, detail, null);
+}
+
 function openUserContainerThenHide(mode: any) {
   hideOverlay();
   const userManager = initializeUserContainer();
@@ -240,19 +298,21 @@ function waitForFileInput(timeoutMs = 1500) {
   });
 }
 
-async function handleAcceptedDrop(file: any) {
+async function checkLoggedInOrPrompt(): Promise<boolean> {
   // Gate on auth — anonymous users can't upload, so morph the overlay into
-  // a login/register prompt instead of opening the import form.
+  // a login/register prompt instead of proceeding.
   let loggedIn = false;
   try {
     loggedIn = await isLoggedIn();
   } catch (e) {
     verbose.init(`fileDropTarget: isLoggedIn() threw — assuming anonymous (${(e as any).message})`, '/components/fileDropTarget/fileDropTarget.ts');
   }
-  if (!loggedIn) {
-    showAnonAlertOverlay();
-    return;
-  }
+  if (!loggedIn) showAnonAlertOverlay();
+  return loggedIn;
+}
+
+async function handleAcceptedDrop(files: File[]) {
+  if (!(await checkLoggedInOrPrompt())) return;
 
   // Logged-in path: open the import form by clicking the Import button.
   const importBtn = document.getElementById('importBook');
@@ -268,8 +328,101 @@ async function handleAcceptedDrop(file: any) {
     log.error('fileDropTarget: #markdown_file did not appear in time', '/components/fileDropTarget/fileDropTarget.ts');
     return;
   }
-  attachFilesToInput(fileInput, [file]);
-  verbose.init(`fileDropTarget: attached "${file.name}" (${file.size} bytes) to import form`, '/components/fileDropTarget/fileDropTarget.ts');
+  attachFilesToInput(fileInput, files);
+  verbose.init(`fileDropTarget: attached ${files.length} file(s) to import form`, '/components/fileDropTarget/fileDropTarget.ts');
+}
+
+/**
+ * Multi-book drop (folder of PDFs / an Obsidian vault): register a batch and
+ * upload sequentially — the corner import-queue widget is the progress UI.
+ */
+async function handleBatchDrop(plan: IngestPlan) {
+  if (!(await checkLoggedInOrPrompt())) return;
+
+  // Multi-book drops get an auto-shelf (folder name, or a dated label for
+  // loose files). A batch of ONE (a file queued behind a running import)
+  // gets no shelf — one book is not a collection.
+  const single = plan.bundles.length === 1 ? plan.bundles[0] : null;
+  const label = plan.folderName
+    || (single ? single.title : `Import ${new Date().toISOString().slice(0, 10)}`);
+
+  // Show the queue widget IMMEDIATELY, panel expanded — the progress plays
+  // out in place. Pages without the widget (journal) fall back to the
+  // drop-overlay info card.
+  if (!showImportQueuePreparing(plan.bundles.length)) {
+    showBatchStartedOverlay(plan.bundles.length);
+  }
+
+  try {
+    const result = await uploadBatch(plan.bundles, {
+      label,
+      source: plan.source,
+      autoShelf: plan.bundles.length > 1,
+    });
+    verbose.content(`fileDropTarget: batch ${result.batchId} — ${result.uploaded} uploaded, ${result.failed} failed`, '/components/fileDropTarget/fileDropTarget.ts');
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log.error('fileDropTarget: batch import failed to start', '/components/fileDropTarget/fileDropTarget.ts', message);
+    clearImportQueuePreparing();
+    showBatchMessageOverlay('Could not start the batch import', message);
+  }
+}
+
+/** Route a completed drop by what it contains. */
+async function routeDrop(entries: ReturnType<typeof captureDropEntries>, plainFiles: File[]) {
+  let collected: CollectedFile[];
+  let rootDirName: string | null = null;
+
+  if (entries) {
+    const res = await collectEntries(entries);
+    collected = res.files;
+    rootDirName = res.rootDirName;
+    // Entries API present but yielded nothing (rare) — fall back to files.
+    if (!collected.length && plainFiles.length) {
+      collected = plainFiles.map((f) => ({ file: f, relPath: f.name }));
+    }
+  } else {
+    // No entries API: a real folder yields an empty FileList here.
+    if (!plainFiles.length) {
+      showBatchMessageOverlay(
+        'Folder drop is not supported in this browser',
+        'Use the Import form’s file picker instead.',
+      );
+      return;
+    }
+    collected = plainFiles.map((f) => ({ file: f, relPath: f.name }));
+  }
+
+  let plan = await buildIngestPlan(collected, rootDirName);
+
+  if (plan.kind === 'none') {
+    verbose.init('fileDropTarget: rejected drop — nothing importable', '/components/fileDropTarget/fileDropTarget.ts');
+    showBatchMessageOverlay('Nothing importable in that drop', 'PDF, EPUB, DOCX, MD, HTML or image files.');
+    return;
+  }
+
+  // Form already open: single-book shapes attach to the existing input (its
+  // change pipeline takes over); multi-book shapes go straight to the batch.
+  if (isImportFormOpen() && plan.kind !== 'batch') {
+    const fileInput = document.getElementById('markdown_file');
+    if (fileInput) {
+      attachFilesToInput(fileInput, plan.files);
+      return;
+    }
+    // #cite-form exists but its input is gone — an import is RUNNING and its
+    // progress card has replaced the form's children. This drop used to be a
+    // silent no-op; queue it as a batch instead, so the widget shows it
+    // waiting behind the running import (the queue grows as you add).
+    plan = planAsBatch(plan);
+    if (plan.kind !== 'batch') return;
+  }
+
+  if (plan.kind === 'single' || plan.kind === 'one-book-folder') {
+    await handleAcceptedDrop(plan.files);
+    return;
+  }
+
+  await handleBatchDrop(plan);
 }
 
 /* ── Lifecycle ──────────────────────────────────────────────────────────── */
@@ -314,31 +467,24 @@ export function initializeFileDropTarget() {
     e.preventDefault();
     // Reset drag depth — drop ends the drag sequence.
     dragDepth = 0;
-    const files = (e.dataTransfer && e.dataTransfer.files) || [];
-    if (!files.length) {
+
+    // Capture directory entries SYNCHRONOUSLY — webkitGetAsEntry() results
+    // are invalidated the moment this handler yields, so this cannot happen
+    // inside the async router.
+    const entries = e.dataTransfer ? captureDropEntries(e.dataTransfer) : null;
+    const plainFiles: File[] = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+
+    if (!entries && !plainFiles.length) {
       hideOverlay();
       return;
     }
-    const file = files[0];
-    if (!isAcceptableImportExt(file)) {
-      verbose.init(`fileDropTarget: rejected drop "${file.name}" — extension not in allowlist`, '/components/fileDropTarget/fileDropTarget.ts');
-      hideOverlay();
-      return;
-    }
-    // Form already open: skip the overlay/auth dance entirely. Either the drop
-    // landed on the inline dropzone (it has stopPropagation, so this handler
-    // never runs) or it landed on empty page area — in which case attach the
-    // file directly to the existing input. The form's own submit-time auth
-    // gate covers anonymous users.
-    if (isImportFormOpen()) {
-      const fileInput = document.getElementById('markdown_file');
-      if (fileInput) attachFilesToInput(fileInput, [file]);
-      return;
-    }
-    // Hand off to async handler. If anon, it'll re-show the overlay as alert;
-    // if logged in, it hides the overlay and opens the form.
+
+    // Hand off to the async router: single file → existing form flow;
+    // one md + images → the one-book folder path; folder of docs / an
+    // Obsidian vault → batch import with the corner widget as UI. If anon,
+    // the router re-shows the overlay as a login alert.
     hideOverlay();
-    handleAcceptedDrop(file);
+    void routeDrop(entries, plainFiles);
   };
 
   window.addEventListener('dragenter', onDragEnter);

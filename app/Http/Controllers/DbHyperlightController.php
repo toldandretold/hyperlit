@@ -383,7 +383,11 @@ class DbHyperlightController extends Controller
                     );
 
                     // When creating a new hyperlight, also create the sub-book library record
-                    // so the annotation sub-book infrastructure exists after first sync
+                    // so the annotation sub-book infrastructure exists after first sync.
+                    // `sub_book_visibility` is the client's sticky default (last visibility the
+                    // user picked): honored ONLY at row creation — sync updates never touch
+                    // visibility, so a stale client echo can't clobber a flip made elsewhere
+                    // (SubBookController::setVisibility is the only post-create writer).
                     if (!$existingRecord) {
                         $subBookId = SubBookIdHelper::build($bookId, $item['hyperlight_id'] ?? '');
                         PgLibrary::firstOrCreate(
@@ -391,7 +395,9 @@ class DbHyperlightController extends Controller
                             [
                                 'creator'       => $creator,
                                 'creator_token' => $creator_token,
-                                'visibility'    => 'public',
+                                'visibility'    => (($item['sub_book_visibility'] ?? null) === 'private')
+                                    ? 'private'
+                                    : 'public',
                                 'listed'        => false,
                                 'title'         => 'Annotation: ' . ($item['hyperlight_id'] ?? ''),
                                 'type'          => 'sub_book',
@@ -643,16 +649,22 @@ class DbHyperlightController extends Controller
 
         // Private-sub-book pass (mirror of the bulk getHyperlights filter): the highlight's
         // annotation sub-book being private hides the whole highlight from non-creators.
-        if ($hyperlight->sub_book_id && !$isUserHighlight) {
+        // The lookup always runs (when a sub_book_id exists) so the wire row can report
+        // sub_book_visibility to the creator's own client.
+        $subBookVisibility = 'public';
+        if ($hyperlight->sub_book_id) {
             $subBook = DB::connection('pgsql_admin')->table('library')
                 ->where('book', $hyperlight->sub_book_id)
                 ->where('visibility', 'private')
                 ->first(['creator', 'creator_token']);
             if ($subBook) {
-                $isSubBookOwner = ($user && $subBook->creator === $user->name) ||
-                                  ($anonToken && $subBook->creator_token && $subBook->creator_token === $anonToken);
-                if (!$isSubBookOwner) {
-                    return response()->json(['error' => 'Hyperlight not found.'], 404);
+                $subBookVisibility = 'private';
+                if (!$isUserHighlight) {
+                    $isSubBookOwner = ($user && $subBook->creator === $user->name) ||
+                                      ($anonToken && $subBook->creator_token && $subBook->creator_token === $anonToken);
+                    if (!$isSubBookOwner) {
+                        return response()->json(['error' => 'Hyperlight not found.'], 404);
+                    }
                 }
             }
         }
@@ -675,6 +687,7 @@ class DbHyperlightController extends Controller
             'hidden' => (bool) ($hyperlight->hidden ?? false),
             'is_user_highlight' => $isUserHighlight,
             'creator' => $hyperlight->creator,
+            'sub_book_visibility' => $subBookVisibility,
         ]]);
     }
 

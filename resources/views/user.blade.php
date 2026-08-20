@@ -213,6 +213,10 @@
     window.userShelves = @json($shelves ?? []);
     window.publicShelves = @json($publicShelves ?? []);
     window.activeShelfId = @json($activeShelfId ?? null);
+    // Deep-link target (/u/{name}/shelf/{slug}) — consumed one-shot by
+    // initializeShelfTabs to open PRIVATE owner shelves that have no
+    // server-rendered tab (visitor public shelves use the active tab above).
+    window.activeShelfDeepLink = @json($activeShelf ?? null);
 </script>
 @vite([
     'resources/js/pageLoad/readerEntry.ts'

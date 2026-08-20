@@ -1,0 +1,162 @@
+/* ── Per-highlight visibility control (hyperlit container) ─────────────────
+   The book-style Public/Private picker rendered inline in each hyperlight's
+   author row (built by hyperlitContainer/hyperlightVisibilityControl.ts).
+   LOOK duplicated from components/sourceContainer.css ("Visibility control"
+   section) — that file is the source of truth for the visual style; these
+   copies are re-scoped under `:is(#hyperlit-container, .hyperlit-container-stacked)
+   .hl-visibility-control` (`:is()` keeps id-level specificity for BOTH the base
+   container and stacked layers — a highlight-in-a-highlight renders in
+   .hyperlit-container-stacked, which unstyled rendered the panel inline as a
+   row of always-checked buttons). Differences from the source copy: the
+   wrapper is inline in the row (not corner-absolute), the panel drops
+   left-aligned under the trigger, and there is no content-blur :has() rule
+   (nested backdrop-filters inside the hyperlit container only smear). The
+   .visibility-overlay click-catcher rule is shared (sourceContainer.css). */
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 6px;
+  overflow: visible; /* the dropdown hangs below the trigger — never clip it */
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-trigger {
+  position: relative;
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  transition: opacity 0.2s ease;
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-trigger:hover {
+  opacity: 0.7;
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-trigger svg {
+  pointer-events: none;
+}
+
+/* Frosted glass pill behind the trigger */
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-trigger::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border-radius: 999px;
+  background-color: var(--container-glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-trigger-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-trigger-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-chevron {
+  opacity: 0.7;
+  transition: transform 0.2s ease;
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control.vis-open .visibility-chevron {
+  transform: rotate(180deg);
+}
+
+/* The glass popover of options — left-aligned under the trigger (the control
+   sits at the row's left cell, so a right-anchored panel would overflow). */
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 170px;
+  max-width: none; /* defeat the global `* { max-width: 100% }` clamp (foundation.css) */
+  padding: 4px;
+  border-radius: 10px;
+  background-color: var(--container-glass-bg);
+  -webkit-backdrop-filter: var(--container-glass-blur);
+  backdrop-filter: var(--container-glass-blur);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 1003;
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--sc-13);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-option:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+  color: var(--color-text);
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-option:disabled {
+  cursor: default;
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-option.active {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--hyperlit-aqua) 18%, transparent);
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-option-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-option-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-option-label {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-option-check {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--hyperlit-aqua);
+  opacity: 0;
+}
+
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-option.active .visibility-option-check {
+  opacity: 1;
+}
+
+/* Dark-row override for the shared .btn-spinner (tuned for light buttons) */
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-option-icon .btn-spinner {
+  margin: 0;
+  border-color: color-mix(in srgb, var(--color-text) 25%, transparent);
+  border-top-color: var(--color-text);
+}

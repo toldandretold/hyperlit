@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1752,
-    "moduleCount": 370,
+    "fnCount": 1757,
+    "moduleCount": 372,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3623,
+    "edgeCount": 3637,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -4760,6 +4760,7 @@
         "preview_nodes",
         "raw_json",
         "startLine",
+        "sub_book_visibility",
         "time_since"
       ]
     },
@@ -5027,6 +5028,7 @@
         "preview_nodes",
         "raw_json",
         "startLine",
+        "sub_book_visibility",
         "time_since"
       ]
     },
@@ -5356,6 +5358,7 @@
         "preview_nodes",
         "raw_json",
         "startLine",
+        "sub_book_visibility",
         "time_since"
       ]
     },
@@ -9039,6 +9042,22 @@
       "leaf": false
     },
     {
+      "id": "hyperlights/visibilityDefault:getDefaultHighlightVisibility",
+      "label": "getDefaultHighlightVisibility",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/visibilityDefault",
+      "leaf": false
+    },
+    {
+      "id": "hyperlights/visibilityDefault:setDefaultHighlightVisibility",
+      "label": "setDefaultHighlightVisibility",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/visibilityDefault",
+      "leaf": false
+    },
+    {
       "id": "hyperlitContainer/brainQuery:cleanupPendingBrainHighlight",
       "label": "cleanupPendingBrainHighlight",
       "kind": "fn",
@@ -9738,6 +9757,30 @@
       "kind": "fn",
       "stage": "hyperlitContainer",
       "module": "hyperlitContainer/history",
+      "leaf": false
+    },
+    {
+      "id": "hyperlitContainer/hyperlightVisibilityControl:buildHyperlightVisibilityControlHtml",
+      "label": "buildHyperlightVisibilityControlHtml",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/hyperlightVisibilityControl",
+      "leaf": true
+    },
+    {
+      "id": "hyperlitContainer/hyperlightVisibilityControl:destroyHyperlightVisibility",
+      "label": "destroyHyperlightVisibility",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/hyperlightVisibilityControl",
+      "leaf": false
+    },
+    {
+      "id": "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility",
+      "label": "initHyperlightVisibility",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/hyperlightVisibilityControl",
       "leaf": false
     },
     {
@@ -18269,6 +18312,16 @@
       ]
     },
     {
+      "id": "hyperlights/visibilityDefault",
+      "label": "hyperlights/visibilityDefault",
+      "stage": "hyperlights",
+      "band": "store",
+      "fnIds": [
+        "hyperlights/visibilityDefault:getDefaultHighlightVisibility",
+        "hyperlights/visibilityDefault:setDefaultHighlightVisibility"
+      ]
+    },
+    {
       "id": "hyperlitContainer/brainQuery",
       "label": "hyperlitContainer/brainQuery",
       "stage": "hyperlitContainer",
@@ -18529,6 +18582,17 @@
         "hyperlitContainer/history:restoreContainerStack",
         "hyperlitContainer/history:restoreHyperlitContainerFromHistory",
         "hyperlitContainer/history:restoreStackedLayer"
+      ]
+    },
+    {
+      "id": "hyperlitContainer/hyperlightVisibilityControl",
+      "label": "hyperlitContainer/hyperlightVisibilityControl",
+      "stage": "hyperlitContainer",
+      "band": "sync",
+      "fnIds": [
+        "hyperlitContainer/hyperlightVisibilityControl:buildHyperlightVisibilityControlHtml",
+        "hyperlitContainer/hyperlightVisibilityControl:destroyHyperlightVisibility",
+        "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility"
       ]
     },
     {
@@ -20886,12 +20950,6 @@
       "rel": "call"
     },
     {
-      "id": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget__call__components/utilities/fileImportHelpers:isAcceptableImportExt",
-      "source": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget",
-      "target": "components/utilities/fileImportHelpers:isAcceptableImportExt",
-      "rel": "call"
-    },
-    {
       "id": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget__domwrite__dom",
       "source": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget",
       "target": "dom",
@@ -22854,6 +22912,13 @@
       "id": "components/shelves/shelfTabs:initializeShelfTabs__call__components/shelves/shelfTabs:closeTab",
       "source": "components/shelves/shelfTabs:initializeShelfTabs",
       "target": "components/shelves/shelfTabs:closeTab",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfTabs:initializeShelfTabs__call__components/shelves/shelfTabs:openShelf",
+      "source": "components/shelves/shelfTabs:initializeShelfTabs",
+      "target": "components/shelves/shelfTabs:openShelf",
       "rel": "call",
       "dataPath": true
     },
@@ -28733,6 +28798,18 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__hyperlitContainer/hyperlightVisibilityControl:destroyHyperlightVisibility",
+      "source": "dom",
+      "target": "hyperlitContainer/hyperlightVisibilityControl:destroyHyperlightVisibility",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility",
+      "source": "dom",
+      "target": "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__hyperlitContainer/index:handleUnifiedContentClick",
       "source": "dom",
       "target": "hyperlitContainer/index:handleUnifiedContentClick",
@@ -31909,6 +31986,13 @@
       "rel": "write"
     },
     {
+      "id": "hyperlights/database:addToHighlightsTable__call__hyperlights/visibilityDefault:getDefaultHighlightVisibility",
+      "source": "hyperlights/database:addToHighlightsTable",
+      "target": "hyperlights/visibilityDefault:getDefaultHighlightVisibility",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "hyperlights/database:addToHighlightsTable__call__indexedDB/core/connection:openDatabase",
       "source": "hyperlights/database:addToHighlightsTable",
       "target": "indexedDB/core/connection:openDatabase",
@@ -32527,6 +32611,12 @@
       "rel": "call"
     },
     {
+      "id": "hyperlights/visibilityDefault:setDefaultHighlightVisibility__write__store:localStorage",
+      "source": "hyperlights/visibilityDefault:setDefaultHighlightVisibility",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "hyperlitContainer/brainQuery:cleanupPendingBrainHighlight__call__hyperlights/deletion:deleteHighlightById",
       "source": "hyperlitContainer/brainQuery:cleanupPendingBrainHighlight",
       "target": "hyperlights/deletion:deleteHighlightById",
@@ -33068,6 +33158,12 @@
       "rel": "call"
     },
     {
+      "id": "hyperlitContainer/contentBuilders/displayHyperlights:buildHighlightContent__call__hyperlitContainer/hyperlightVisibilityControl:buildHyperlightVisibilityControlHtml",
+      "source": "hyperlitContainer/contentBuilders/displayHyperlights:buildHighlightContent",
+      "target": "hyperlitContainer/hyperlightVisibilityControl:buildHyperlightVisibilityControlHtml",
+      "rel": "call"
+    },
+    {
       "id": "hyperlitContainer/contentBuilders/displayHyperlights:buildHighlightContent__call__hyperlitContainer/utils:formatRelativeTime",
       "source": "hyperlitContainer/contentBuilders/displayHyperlights:buildHighlightContent",
       "target": "hyperlitContainer/utils:formatRelativeTime",
@@ -33124,6 +33220,12 @@
       "target": "hyperlitContainer/core:prepareContainerClose",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/core:closeHyperlitContainer__call__hyperlitContainer/core:setHyperlitEditMode",
+      "source": "hyperlitContainer/core:closeHyperlitContainer",
+      "target": "hyperlitContainer/core:setHyperlitEditMode",
+      "rel": "call"
     },
     {
       "id": "hyperlitContainer/core:closeHyperlitContainer__call__hyperlitContainer/noteListener:detachNoteListeners",
@@ -34134,6 +34236,44 @@
       "rel": "domwrite"
     },
     {
+      "id": "hyperlitContainer/hyperlightVisibilityControl:destroyHyperlightVisibility__domwrite__dom",
+      "source": "hyperlitContainer/hyperlightVisibilityControl:destroyHyperlightVisibility",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility__call__hyperlights/visibilityDefault:setDefaultHighlightVisibility",
+      "source": "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility",
+      "target": "hyperlights/visibilityDefault:setDefaultHighlightVisibility",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility__domwrite__dom",
+      "source": "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility__write__store:hyperlights",
+      "source": "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility",
+      "target": "store:hyperlights",
+      "rel": "write"
+    },
+    {
+      "id": "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility__write__store:library",
+      "source": "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
       "id": "hyperlitContainer/index:handleUnifiedContentClick__call__divEditor/editSessionManager:getActiveEditSession",
       "source": "hyperlitContainer/index:handleUnifiedContentClick",
       "target": "divEditor/editSessionManager:getActiveEditSession",
@@ -34563,12 +34703,6 @@
       "source": "hyperlitContainer/stack:createStackedContainerDOM",
       "target": "dom",
       "rel": "domwrite"
-    },
-    {
-      "id": "hyperlitContainer/stack:getCurrentContainer__call__hyperlitContainer/stack:getTopLayer",
-      "source": "hyperlitContainer/stack:getCurrentContainer",
-      "target": "hyperlitContainer/stack:getTopLayer",
-      "rel": "call"
     },
     {
       "id": "hyperlitContainer/stack:getCurrentScroller__call__hyperlitContainer/stack:getCurrentContainer",
@@ -42362,6 +42496,12 @@
       "rel": "read"
     },
     {
+      "id": "store:hyperlights__read__hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility",
+      "source": "store:hyperlights",
+      "target": "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility",
+      "rel": "read"
+    },
+    {
       "id": "store:hyperlights__read__indexedDB/core/connection:openDatabase",
       "source": "store:hyperlights",
       "target": "indexedDB/core/connection:openDatabase",
@@ -42437,6 +42577,12 @@
       "id": "store:library__read__hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
       "source": "store:library",
       "target": "hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent:buildHyperciteContent",
+      "rel": "read"
+    },
+    {
+      "id": "store:library__read__hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility",
+      "source": "store:library",
+      "target": "hyperlitContainer/hyperlightVisibilityControl:initHyperlightVisibility",
       "rel": "read"
     },
     {
@@ -42665,6 +42811,12 @@
       "id": "store:localStorage__read__editToolbar/citationMode/index:CitationMode.constructor",
       "source": "store:localStorage",
       "target": "editToolbar/citationMode/index:CitationMode.constructor",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__hyperlights/visibilityDefault:getDefaultHighlightVisibility",
+      "source": "store:localStorage",
+      "target": "hyperlights/visibilityDefault:getDefaultHighlightVisibility",
       "rel": "read"
     },
     {
@@ -45071,6 +45223,11 @@
     },
     {
       "source": "components/utilities/registerComponents",
+      "target": "hyperlitContainer/hyperlightVisibilityControl",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
       "target": "scrolling/paginatedSelectionBand",
       "kind": "static"
     },
@@ -45896,6 +46053,11 @@
     },
     {
       "source": "hyperlights/database",
+      "target": "hyperlights/visibilityDefault",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/database",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -46331,6 +46493,11 @@
     },
     {
       "source": "hyperlitContainer/contentBuilders/displayHyperlights",
+      "target": "hyperlitContainer/hyperlightVisibilityControl",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/contentBuilders/displayHyperlights",
       "target": "indexedDB/index",
       "kind": "static"
     },
@@ -46583,6 +46750,26 @@
       "source": "hyperlitContainer/history",
       "target": "pageLoad/currentLazyLoaderState",
       "kind": "lazy"
+    },
+    {
+      "source": "hyperlitContainer/hyperlightVisibilityControl",
+      "target": "components/sourceContainer/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/hyperlightVisibilityControl",
+      "target": "components/sourceContainer/visibilityControl",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/hyperlightVisibilityControl",
+      "target": "hyperlights/visibilityDefault",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/hyperlightVisibilityControl",
+      "target": "indexedDB/index",
+      "kind": "static"
     },
     {
       "source": "hyperlitContainer/index",

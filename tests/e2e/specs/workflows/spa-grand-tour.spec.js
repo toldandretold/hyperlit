@@ -417,6 +417,11 @@ test.describe.serial('SPA Grand Tour', () => {
     const markCount = await page.locator('.main-content mark.user-highlight, .main-content mark.highlight').count();
     expect(markCount).toBeGreaterThanOrEqual(1);
 
+    // The per-highlight visibility pill renders for the creator, born public.
+    // (The actual FLIP is driven later in this phase, after sync + SPA cycles —
+    // the endpoint 404s until the highlight row has reached Postgres.)
+    await page.waitForSelector('#hyperlit-container .hl-visibility-control[data-state="public"]', { timeout: 5000 });
+
     // ── Resize the just-opened container with a REAL drag ──
     // The hyperlight above opened #hyperlit-container from content WE created — no
     // dependence on READER_BOOK having a pre-existing footnote. This is the gesture
@@ -510,6 +515,72 @@ test.describe.serial('SPA Grand Tour', () => {
     // corrupted book in the test user's library.
     await setupTourAnchor(page, spa);
     await runTour(page, spa, { loops: 1 });
+
+    // ── Per-highlight visibility pill survives SPA nav (ButtonRegistry) ──
+    // 'hyperlightVisibility' is a document-delegated singleton; the tour lap above
+    // destroyed/re-inited the registry across several SPA transitions. Revisit the
+    // created book (full load), hop home in-SPA, popstate back — then drive the
+    // pill with REAL clicks. A dead document listener here means the trigger click
+    // does nothing and the vis-open wait times out (the containerDragger bug class).
+    await page.goto(`/${bookId}`);
+    await page.waitForLoadState('networkidle');
+    expect(await spa.getStructure(page)).toBe('reader');
+    await navigateToHome(page);
+    await spa.waitForTransition(page);
+    expect(await spa.getStructure(page)).toBe('home');
+    await page.goBack();
+    await spa.waitForTransition(page);
+    expect(await spa.getStructure(page)).toBe('reader');
+    expect(await spa.getCurrentBookId(page)).toBe(bookId);
+
+    // Open the highlight's container from its mark (read mode).
+    await page.click('.main-content mark.user-highlight, .main-content mark.highlight');
+    await page.waitForFunction(() => {
+      const c = document.getElementById('hyperlit-container');
+      return c && c.classList.contains('open');
+    }, null, { timeout: 10000 });
+    await page.waitForSelector('#hyperlit-container .hl-visibility-control[data-state="public"]', { timeout: 5000 });
+
+    const flipVisibility = async (target) => {
+      await page.click('#hyperlit-container .hl-visibility-control .visibility-trigger');
+      await page.waitForSelector('#hyperlit-container .hl-visibility-control.vis-open', { timeout: 3000 });
+      await page.click(`#hyperlit-container .hl-visibility-control .visibility-option[data-target="${target}"]`);
+      // data-state flips only after the endpoint 200s; the panel then auto-closes.
+      await page.waitForSelector(`#hyperlit-container .hl-visibility-control[data-state="${target}"]`, { timeout: 10000 });
+      await page.waitForFunction(
+        () => !document.querySelector('#hyperlit-container .hl-visibility-control.vis-open'),
+        null, { timeout: 3000 }
+      );
+    };
+
+    await flipVisibility('private');
+
+    // The flip landed in IDB (wire field on the hyperlights record)…
+    const idbVis = await page.evaluate((bid) => new Promise((resolve) => {
+      const req = indexedDB.open('MarkdownDB');
+      req.onsuccess = () => {
+        const db = req.result;
+        const getAll = db.transaction('hyperlights', 'readonly').objectStore('hyperlights').getAll();
+        getAll.onsuccess = () => {
+          const rec = (getAll.result || []).find((r) => r.book === bid);
+          db.close();
+          resolve(rec ? (rec.sub_book_visibility || 'public') : null);
+        };
+        getAll.onerror = () => { db.close(); resolve('idb-error'); };
+      };
+      req.onerror = () => resolve('idb-open-error');
+    }), bookId);
+    expect(idbVis, 'IDB hyperlights record did not pick up sub_book_visibility').toBe('private');
+
+    // …and set the sticky default for future highlights.
+    expect(await page.evaluate(() => localStorage.getItem('hyperlit_default_hl_visibility'))).toBe('private');
+
+    // Flip back: proves the other direction and resets the sticky default so
+    // later specs' highlights are born public again.
+    await flipVisibility('public');
+    expect(await page.evaluate(() => localStorage.getItem('hyperlit_default_hl_visibility'))).toBe('public');
+
+    await spa.closeHyperlitContainer(page);
   });
 
   /* ── Phase 7: authoring originating FROM reader (new transition path) ── */

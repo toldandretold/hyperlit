@@ -1,0 +1,177 @@
+/* Import-queue widget: fixed corner pill + expandable per-item panel.
+ * Non-modal (no focus trap, page stays interactive); class names deliberately
+ * avoid the overlay-gate patterns (-overlay|-backdrop|-modal|-sheet|-menu). */
+
+#import-queue-root {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 9500; /* above page chrome, below true modals (99999 toasts) */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: min(360px, calc(100vw - 40px));
+  font-family: inherit;
+}
+
+.import-queue-pill {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text, #fff);
+  background: color-mix(in srgb, var(--color-background, #221f20) 82%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.import-queue-pill:hover,
+.import-queue-pill:focus-visible {
+  border-color: #4eacae;
+  outline: none;
+}
+
+.import-queue-panel {
+  width: min(360px, calc(100vw - 40px));
+  max-height: min(60vh, 480px);
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 14px;
+  background: color-mix(in srgb, var(--color-background, #221f20) 92%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.import-queue-waiting {
+  font-size: 12px;
+  color: var(--text-muted, #aaa);
+  border-left: 3px solid #ef8d34;
+  padding-left: 8px;
+}
+
+.import-queue-batch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.import-queue-batch-heading {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #999);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.import-queue-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+  color: var(--color-text, #ddd);
+}
+
+.import-queue-row:last-of-type {
+  border-bottom: none;
+}
+
+.import-queue-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-queue-row-name a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.import-queue-row-status {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.import-queue-row-status.is-done {
+  color: #4eacae;
+}
+
+.import-queue-row-status.is-failed {
+  color: #cc8888;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-queue-bar {
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+.import-queue-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #4eacae, #ef8d34);
+  transition: width 0.4s ease;
+}
+
+/* Registration/upload phase: no percent yet — sweep the bar. */
+.import-queue-bar-fill.is-indeterminate {
+  width: 40%;
+  animation: import-queue-sweep 1.2s ease-in-out infinite;
+}
+
+@keyframes import-queue-sweep {
+  0% { margin-left: 0%; }
+  50% { margin-left: 60%; }
+  100% { margin-left: 0%; }
+}
+
+.import-queue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.import-queue-action {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--text-muted, #999);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.import-queue-action:hover,
+.import-queue-action:focus-visible {
+  color: #4eacae;
+  outline: none;
+}
+
+.import-queue-action:disabled {
+  cursor: default;
+  text-decoration: none;
+}
+
+.import-queue-note {
+  font-size: 12px;
+  color: var(--text-muted, #999);
+}

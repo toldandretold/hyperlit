@@ -25,6 +25,9 @@ import { initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { openDatabase, updateDatabaseBookId } from '../../../indexedDB/index';
 import { showConversionFeedbackToast } from '../../../conversion/feedbackToast.js';
 import { showImportFailureModal } from '../../../conversion/bugReportModal.js';
+import { registerImportPoll, clearImportPoll } from '../../../utilities/importPollRegistry';
+import { IMPORT_STAGE_LABELS } from '../../../utilities/importStageLabels';
+import { claimCardBook, releaseCardBook } from '../../../components/importQueue/importQueuePoller';
 import type { BookId } from '../../../utilities/idHelpers';
 
 export class ImportBookTransition {
@@ -308,38 +311,9 @@ export class ImportBookTransition {
     }
   }
 
-  // Stage labels for progress UI
-  static STAGE_LABELS: any = {
-    queued: 'Waiting to start...',
-    starting: 'Starting document processing...',
-    pdf_splitting: 'Splitting large PDF for OCR...',
-    ocr: 'Reading pages with OCR...',
-    ocr_chunk: 'Reading pages with OCR...',
-    ocr_analyze: 'Analyzing document structure...',
-    ocr_assemble: 'Assembling document...',
-    metadata: 'Checking metadata...',
-    retrying: 'Retrying...',
-    epub_load: 'Loading EPUB content...',
-    epub_transforms: 'Normalizing document structure...',
-    epub_footnotes: 'Detecting footnotes...',
-    epub_sanitize: 'Sanitizing HTML...',
-    epub_write: 'Writing output files...',
-    epub_complete: 'EPUB normalization complete',
-    doc_parse: 'Parsing document...',
-    doc_bibliography: 'Scanning bibliography...',
-    doc_footnotes: 'Processing footnotes...',
-    doc_linking: 'Linking citations...',
-    doc_footnote_linking: 'Linking footnotes...',
-    doc_audit: 'Validating footnotes...',
-    doc_json_gen: 'Building content...',
-    doc_sanitize: 'Sanitizing output...',
-    doc_json_written: 'Output files written',
-    docx_converting: 'Converting document...',
-    db_write: 'Saving to database...',
-    db_footnotes: 'Saving footnotes...',
-    db_references: 'Saving references...',
-    complete: 'Import complete!',
-  };
+  // Stage labels for progress UI — shared with the import-queue widget via the
+  // importStageLabels leaf (neither side may import the other).
+  static STAGE_LABELS: Record<string, string> = IMPORT_STAGE_LABELS;
 
   /**
    * Create progress UI by replacing form content
@@ -352,6 +326,11 @@ export class ImportBookTransition {
     if (!targetEl) {
       return null;
     }
+
+    // While this card is visible it owns the import's UI — suppress the
+    // import-queue widget's copy. Released when the poll loop ends or the
+    // form is restored.
+    claimCardBook(String(bookId));
 
     // Save original content and layout for potential restoration
     const savedHtml = targetEl.innerHTML;
@@ -437,8 +416,11 @@ export class ImportBookTransition {
           if (resp.ok) {
             notifyRow.textContent = "We'll email you when done. You can close this tab.";
           } else {
-            const data = await resp.json().catch(() => ({}));
-            notifyRow.textContent = data.message || 'Could not set up email notification.';
+            // Never render the raw server message — a throttled response's literal
+            // "Too Many Attempts." used to land verbatim inside the progress card.
+            notifyRow.textContent = resp.status === 429
+              ? 'Too many requests right now — please try again in a minute.'
+              : 'Could not set up email notification.';
           }
         } catch {
           notifyRow.textContent = 'Could not set up email notification.';
@@ -467,6 +449,7 @@ export class ImportBookTransition {
         if (progressBar) progressBar.style.background = '#CC8888';
       },
       restoreForm() {
+        releaseCardBook(String(bookId)); // idempotent; covers pre-poll failures
         targetEl.innerHTML = savedHtml;
         if (scroller) {
           scroller.style.position = savedScrollerPosition || '';
@@ -485,13 +468,22 @@ export class ImportBookTransition {
   }
 
   /**
-   * Poll import progress endpoint
+   * Poll import progress endpoint.
+   *
+   * Registers a cancellation token in importPollRegistry (checked each tick);
+   * closing the newbook container cancels all tokens, so the loop no longer
+   * runs forever against detached DOM nodes burning the rate bucket. Resolves
+   * null when cancelled — callers bail quietly (the import continues
+   * server-side).
    */
   static async pollImportProgress(bookId: any, progressUI: any) {
     let networkRetries = 0;
     const MAX_NETWORK_RETRIES = 30;
 
-    const poll = async () => {
+    const token = registerImportPoll(String(bookId));
+
+    const poll = async (): Promise<any> => {
+      if (token.cancelled) return null;
       try {
         const resp = await fetch(`/api/import-progress/${bookId}`);
         if (!resp.ok) {
@@ -525,8 +517,18 @@ export class ImportBookTransition {
           }
         }
 
-        const label = this.STAGE_LABELS[data.stage] || data.stage || '';
-        progressUI.update(data.percent || 0, label, data.detail || '');
+        let label = this.STAGE_LABELS[data.stage] || data.stage || '';
+        // A queued import isn't "about to start" — it's behind the serial
+        // conversion worker. Show its actual place in line when the server
+        // provides one, instead of an indefinite "Waiting to start...".
+        if (data.status === 'queued' && typeof data.queue_position === 'number' && data.queue_position > 0) {
+          label = `Waiting in queue — ${data.queue_position} ahead`;
+        }
+        // The server's initial detail string equals the stage label ("Waiting to
+        // start...") — rendering both printed the same line twice in the card.
+        const detail = data.detail === label || data.detail === this.STAGE_LABELS[data.stage]
+          ? '' : (data.detail || '');
+        progressUI.update(data.percent || 0, label, detail);
 
         await new Promise(r => setTimeout(r, 2000));
         return poll();
@@ -547,7 +549,15 @@ export class ImportBookTransition {
       }
     };
 
-    return poll();
+    try {
+      return await poll();
+    } finally {
+      clearImportPoll(String(bookId), token);
+      // The card's poll is over (complete, failed, or cancelled) — hand the
+      // book back to the import-queue widget. If the import still runs
+      // server-side (cancelled card), the widget picks it up.
+      releaseCardBook(String(bookId));
+    }
   }
 
   /**
@@ -612,6 +622,7 @@ export class ImportBookTransition {
     }
 
     const completeData = await this.pollImportProgress(bookId, progressUI);
+    if (completeData === null) return null; // poller cancelled (container closed) — import continues server-side
     const completedResult = completeData?.result || completeData;
 
     this.clearFormData();
@@ -699,6 +710,37 @@ export class ImportBookTransition {
       // (no Mistral call, no charge). Falls back to server OCR on failure,
       // but only with the user's consent (server OCR is billed per page).
       await ImportBookTransition.attachNativeOcrIfAvailable(formData, submitButton);
+
+      // Register this import as a batch of one so the import-queue widget can
+      // pick it up if the user closes the container or navigates away
+      // mid-import. Best-effort: a batch failure never blocks the import.
+      try {
+        if (!formData.get('import_batch_id')) {
+          const book = String(formData.get('book') || '');
+          const title = String(formData.get('title') || '') || book;
+          if (book) {
+            const batchResp = await fetch('/api/import-batches', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                label: title,
+                source: 'files',
+                auto_shelf: false,
+                items: [{ book, title }],
+              }),
+            });
+            if (batchResp.ok) {
+              const batchData = await batchResp.json();
+              if (batchData?.id) formData.append('import_batch_id', batchData.id);
+            }
+          }
+        }
+      } catch { /* widget tracking only */ }
 
       // Sum total bytes of File entries in the FormData so we can show an
       // accurate "X / Y MB" during upload (large PDFs can take 30s+ to upload
@@ -842,6 +884,10 @@ export class ImportBookTransition {
             restoreForm() {},
           });
 
+          // Poller cancelled (user closed the container) — the import keeps
+          // running server-side; just stop driving the now-detached card.
+          if (completeData === null) return null;
+
           // Footnote-audit issues are no longer gated by a blocking pre-scan modal:
           // the same audit rides into the conversion feedback toast below, whose
           // "✨ Try vibe fix" button is the proper way to repair footnotes now.
@@ -869,6 +915,18 @@ export class ImportBookTransition {
 
           if (progressUI) {
             progressUI.update(100, 'Import complete! Opening book...', '');
+          }
+
+          // The card saw this batch-of-one through to completion and we're
+          // about to open the book — auto-dismiss it so the widget doesn't
+          // re-announce an import the user already watched finish.
+          const watchedBatchId = formData.get('import_batch_id');
+          if (watchedBatchId) {
+            fetch(`/api/import-batches/${watchedBatchId}/dismiss`, {
+              method: 'POST',
+              headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+              credentials: 'include',
+            }).catch(() => { /* best-effort */ });
           }
 
           this.clearFormData();

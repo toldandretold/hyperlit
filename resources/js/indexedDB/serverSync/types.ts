@@ -54,6 +54,10 @@ export interface ServerHyperlightRow {
   preview_nodes?: unknown[] | null;
   time_since?: number;
   startLine?: number | string | null;
+  /** Annotation sub-book's library visibility ('public' when no row exists). Rows served
+   *  with 'private' are by construction the caller's own — foreign private ones are
+   *  dropped server-side (getHyperlights private-sub-book pass). */
+  sub_book_visibility?: 'public' | 'private';
   /** @deprecated Denormalized copy slated for removal — do not add new readers. */
   raw_json?: JsonColumn<object>;
 }

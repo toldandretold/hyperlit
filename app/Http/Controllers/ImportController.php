@@ -164,7 +164,7 @@ class ImportController extends Controller
         // ocr_response.json / ocr_charged.json are included so a re-import never
         // replays a previous PDF's cached OCR (or its billing marker) — any cache
         // must come from THIS request's ocr_response upload or the test header below.
-        foreach (['footnotes.json', 'footnotes.jsonl', 'nodes.json', 'nodes.jsonl', 'audit.json', 'references.json', 'intermediate.html', 'progress.json', 'notify_email.json', 'ocr_response.json', 'ocr_charged.json'] as $staleFile) {
+        foreach (['footnotes.json', 'footnotes.jsonl', 'nodes.json', 'nodes.jsonl', 'audit.json', 'references.json', 'intermediate.html', 'progress.json', 'notify_email.json', 'ocr_response.json', 'ocr_charged.json', 'test_slow.json'] as $staleFile) {
             $staleFilePath = "{$path}/{$staleFile}";
             if (File::exists($staleFilePath)) {
                 File::delete($staleFilePath);
@@ -179,21 +179,34 @@ class ImportController extends Controller
 
             // Check if this is a folder upload (multiple files with .md + images)
             if (is_array($files) && count($files) > 1) {
-                $hasMd = false;
+                $mdCount = 0;
                 foreach ($files as $f) {
                     if (strtolower($f->getClientOriginalExtension()) === 'md') {
-                        $hasMd = true;
-                        break;
+                        $mdCount++;
                     }
                 }
 
-                if ($hasMd) {
+                // One import = ONE book. >1 markdown file would silently take the
+                // first (processFolderFiles uses $markdownFiles[0]); >1 non-md docs
+                // used to silently take $files[0] and DISCARD the rest — both are
+                // now hard errors. The batch importer splits multi-doc/vault drops
+                // client-side into one request per book before reaching here.
+                if ($mdCount > 1) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'One markdown file per import. To import several markdown documents as separate books, drop the folder on the page to queue them individually.',
+                    ], 422);
+                }
+
+                if ($mdCount === 1) {
                     $this->zipProcessor->processFolderFiles($files, $path, $bookId);
                     $extension = 'md'; // folder upload produces main-text.md
                     // No $file — processFolderFiles already handled the move/cleanup.
                 } else {
-                    $file = is_array($files) ? $files[0] : $files;
-                    $extension = strtolower($file->getClientOriginalExtension());
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Multiple documents must be imported one per book. Import them individually, or drop the folder on the page to queue them as separate books.',
+                    ], 422);
                 }
             } else {
                 $file = is_array($files) ? $files[0] : $files;
@@ -397,6 +410,17 @@ class ImportController extends Controller
             'volume', 'issue', 'booktitle', 'chapter', 'editor',
         ]);
 
+        // Test-only artificial processing window: the e2e "queue grows while
+        // adding" spec needs the first import to stay in 'processing' long
+        // enough to drop a second file into. Header is a silent no-op outside
+        // local/testing. The job consumes + deletes the marker.
+        if (app()->environment(['local', 'testing'])
+            && ($slowSecs = (int) $request->header('X-Test-Slow-Import')) > 0
+        ) {
+            File::put("{$path}/test_slow.json", json_encode(['seconds' => min($slowSecs, 120)]));
+            Log::info('Test slow-import marker written', ['book' => $bookId, 'seconds' => min($slowSecs, 120)]);
+        }
+
         // Test-only OCR side-load: copy a fixture's cached ocr_response.json
         // into the book dir so mistral_ocr.py skips the API call. Header is a
         // silent no-op outside local/testing envs and for non-PDF uploads.
@@ -424,6 +448,22 @@ class ImportController extends Controller
             $formData,
             $creatorInfo,
         );
+
+        // Batch import (the queue widget): link this upload to its pre-created
+        // import_items row. RLS proves ownership — the update matches zero rows
+        // for a forged/foreign batch id, which we log and ignore (the import
+        // itself proceeds standalone).
+        if ($batchId = $request->input('import_batch_id')) {
+            $linked = \App\Models\ImportItem::where('batch_id', $batchId)
+                ->where('book', $bookId)
+                ->where('status', 'pending_upload')
+                ->update(['status' => 'queued', 'updated_at' => now()]);
+            if ($linked === 0) {
+                Log::warning('import_batch_id did not match a pending item', [
+                    'book' => $bookId, 'batch' => $batchId,
+                ]);
+            }
+        }
 
         Log::info('Import job dispatched', ['book' => $bookId, 'extension' => $extension]);
 
@@ -458,6 +498,16 @@ class ImportController extends Controller
         $updatedAt = isset($progress['updated_at']) ? strtotime($progress['updated_at']) : 0;
         $progress['maintenance'] = in_array($progress['status'] ?? '', ['queued', 'processing'], true)
             && $updatedAt && (time() - $updatedAt) < 1800;
+
+        // A queued import is behind the serial conversion worker — tell the
+        // client its place in line so it can render "Waiting in queue — N ahead"
+        // instead of an indefinite "Waiting to start...".
+        if (($progress['status'] ?? '') === 'queued') {
+            $ahead = \App\Services\DocumentImport\ImportQueuePosition::jobsAhead($bookId);
+            if ($ahead !== null) {
+                $progress['queue_position'] = $ahead;
+            }
+        }
 
         return response()->json($progress);
     }

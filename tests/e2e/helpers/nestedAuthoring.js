@@ -328,6 +328,21 @@ export async function copyHyperciteFromActiveEditor(page) {
  * state of `.sub-book-content` first and only click if we need to.
  */
 export async function ensureEditModeInActiveContainer(page) {
+  // Wait (bounded) for the container to be actionable: either the sub-book is
+  // already contenteditable, or the edit pencil is present to click. The pencil
+  // is inserted by handlePostOpenActions after the container opens, so a
+  // one-shot check right after open can race its insertion. On timeout we fall
+  // through to the evaluate below, which produces the precise diagnostic.
+  await page.waitForFunction(() => {
+    const stacked = [...document.querySelectorAll('.hyperlit-container-stacked.open')];
+    const top = stacked[stacked.length - 1] || document.querySelector('#hyperlit-container.open');
+    if (!top) return false;
+    const editable = top.querySelector('.sub-book-content');
+    if (!editable) return false;
+    return editable.getAttribute('contenteditable') === 'true'
+      || !!top.querySelector('.hyperlit-edit-btn');
+  }, null, { timeout: 8000 }).catch(() => {});
+
   const ok = await page.evaluate(() => {
     const stacked = [...document.querySelectorAll('.hyperlit-container-stacked.open')];
     const top = stacked[stacked.length - 1] || document.querySelector('#hyperlit-container.open');

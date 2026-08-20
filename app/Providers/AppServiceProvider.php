@@ -145,6 +145,17 @@ class AppServiceProvider extends ServiceProvider
                 ->by($request->user()?->id ?: $request->ip());
         });
 
+        // Import status traffic (the /api/import-progress poll, its notify
+        // opt-in, and the /api/my-imports aggregate) shares the same
+        // shared-bucket failure mode as blob-swap: N concurrent import cards
+        // polling every 2s starved the rest of the SPA's 120/min bucket and a
+        // "Email me when done" click 429'd with a raw "Too Many Attempts."
+        // in the card. Own bucket, generous ceiling.
+        \Illuminate\Support\Facades\RateLimiter::for('import-progress', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(300)
+                ->by($request->user()?->id ?: $request->ip());
+        });
+
         // Register authorization policies
         Gate::policy(PgLibrary::class, LibraryPolicy::class);
         Gate::policy(PgHyperlight::class, HyperlightPolicy::class);

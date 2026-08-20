@@ -61,6 +61,7 @@
                 "preview_nodes",
                 "raw_json",
                 "startLine",
+                "sub_book_visibility",
                 "time_since"
             ],
             "endpoints": [
@@ -306,6 +307,7 @@
                 "preview_nodes",
                 "raw_json",
                 "startLine",
+                "sub_book_visibility",
                 "time_since"
             ],
             "endpoints": [
@@ -636,6 +638,7 @@
                 "preview_nodes",
                 "raw_json",
                 "startLine",
+                "sub_book_visibility",
                 "time_since"
             ],
             "endpoints": [

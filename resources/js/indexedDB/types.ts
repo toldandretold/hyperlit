@@ -194,6 +194,11 @@ export interface HyperlightRecord extends AnnotationRecordBase {
   is_user_highlight?: boolean;
   hidden?: boolean;
   time_since?: number;
+  /** Server-computed visibility of the annotation sub-book's library row ('public' when absent).
+   *  On locally-created records it carries the user's sticky default and is honored by the
+   *  server ONLY at hyperlight-row creation; post-create the sole writer is the
+   *  /db/sub-books/visibility endpoint (hyperlitContainer/hyperlightVisibilityControl.ts). */
+  sub_book_visibility?: 'public' | 'private';
   /** @deprecated Denormalized JSON copy — phase-out (no new readers). */
   raw_json?: unknown;
 }

@@ -11,6 +11,10 @@ import { isLoggedIn } from '../../../utilities/auth/index';
 import { escapeHtml } from '../../../paste/utils/normalizer';
 import { showImportFailureModal } from '../../../conversion/bugReportModal.js';
 import { getImportEncryptIntent } from '../encryptIntent';
+import { log } from '../../../utilities/logger';
+import { buildIngestPlan, collectPickedFiles } from '../../importQueue/folderIngest';
+import { uploadBatch } from '../../importQueue/batchUploader';
+import { showImportQueuePreparing, failImportQueuePreparing } from '../../importQueue/importQueue';
 
 export function setupFormSubmission() {
   const form = $('cite-form');
@@ -60,6 +64,37 @@ export function setupFormSubmission() {
 
     // Force blur active element so any pending validation completes
     try { if (document.activeElement) (document.activeElement as any).blur(); } catch(_) {}
+
+    // Multi-BOOK selection (several documents, or several markdown files —
+    // e.g. an Obsidian vault via the folder picker): route to the batch
+    // importer, one book per document, instead of one merged POST. Single-doc
+    // and one-md-plus-images selections fall through to the normal pipeline
+    // (validateFileInput still rejects genuinely invalid mixes).
+    const pickedInput = $('markdown_file');
+    const pickedFiles: File[] = pickedInput?.files ? Array.from(pickedInput.files) : [];
+    if (pickedFiles.length > 1) {
+      const { files: collected, rootDirName } = collectPickedFiles(pickedFiles);
+      const plan = await buildIngestPlan(collected, rootDirName);
+      if (plan.kind === 'batch') {
+        form._submitting = false;
+        const label = plan.folderName || `Import ${new Date().toISOString().slice(0, 10)}`;
+        // Close the form now and let the queue widget (already expanded, with
+        // an indeterminate bar) be the progress UI from the first moment.
+        (window as any).newBookManager?.closeContainer();
+        showImportQueuePreparing(plan.bundles.length);
+        void uploadBatch(plan.bundles, {
+          label,
+          source: plan.source,
+          autoShelf: true,
+        }).catch((err) => {
+          const message = err instanceof Error ? err.message : String(err);
+          log.error('Batch import failed to start', '/components/newbookContainer/citeForm/submission.ts', message);
+          // The form is already closed — surface the failure in the widget shell.
+          failImportQueuePreparing(message);
+        });
+        return false;
+      }
+    }
 
     // Quick file validation
     if (!validateFileInput()) {

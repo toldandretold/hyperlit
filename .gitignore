@@ -78,6 +78,9 @@ tests/conversion/vibe_eval_report.md
 # REPORT.md land in -out/ (base64-heavy, real book content). The script itself IS tracked.
 tests/conversion/ocr-compare-in/
 tests/conversion/ocr-compare-out/
+# Multi-engine OCR eval harness (ocr_engine_compare.py): per-engine page caches,
+# assembled foreign ocr_response.<engine>.json blobs, and ENGINES_REPORT.md.
+tests/conversion/engine-cache/
 .css-cascade-snapshots/
 .css-style-parity/
 

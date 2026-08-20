@@ -191,12 +191,19 @@ class FileHelpers
         $updatedContent = preg_replace_callback($pattern, function($matches) use ($imageMap, &$updatedCount, $bookId) {
             $altText = $matches[1];
             $imagePath = $matches[2];
-            $filename = basename($imagePath);
+            // Obsidian (and the client's vault splitter) URL-encodes spaces in
+            // image refs — `attachments/fig%201.png` must match the uploaded
+            // `fig 1.png`, so decode BEFORE the basename lookup. Decode only
+            // the lookup key: the emitted path is rebuilt from the on-disk
+            // filename below either way.
+            $filename = basename(rawurldecode($imagePath));
 
             // Check if this image exists in our uploaded images
             if (isset($imageMap[$filename])) {
                 $actualFilename = $imageMap[$filename]; // Get the actual filename (might be different if mapped)
-                $newPath = "/{$bookId}/media/{$actualFilename}"; // Use absolute path with book name
+                // Re-encode the emitted segment: an on-disk "fig 1.png" must
+                // become fig%201.png or the markdown/URL breaks on the space.
+                $newPath = "/{$bookId}/media/" . rawurlencode($actualFilename);
                 $updatedCount++;
 
                 Log::debug('Updated image reference', [

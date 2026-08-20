@@ -198,7 +198,12 @@ export class LinkNavigationHandler {
     // a `/${book}` path, which on home (book=null) rewrote the URL to /null.
     const isSkipLink = link.classList.contains('skip-link');
 
-    if (isHypercite || isTocLink || isDeleteButton || isBookActions || isStripeTopup || isTierSelector || isTierOption || isBlobUrl || isFootnoteLink || isSkipLink || isNewTab || isStandalonePage) {
+    // Explicit opt-out: links whose TARGET page depends on inline blade script
+    // state (e.g. shelf deep links reading window.activeShelfDeepLink) must be
+    // full page loads — replaceBodyContent never executes inline scripts.
+    const isFullNav = link.hasAttribute('data-full-nav');
+
+    if (isHypercite || isTocLink || isDeleteButton || isBookActions || isStripeTopup || isTierSelector || isTierOption || isBlobUrl || isFootnoteLink || isSkipLink || isNewTab || isStandalonePage || isFullNav) {
       return true;
     }
 

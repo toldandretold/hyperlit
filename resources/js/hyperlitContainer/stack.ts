@@ -136,10 +136,23 @@ export function isStacked() {
 /**
  * Get the container element for the current (top) layer.
  * Falls back to the base #hyperlit-container if stack is empty.
+ *
+ * Self-heal: a state-DOM desync (the zombie class closeHyperlitContainer's
+ * safety sweep documents) can leave layer entries whose container is DETACHED.
+ * Returning one silently redirects every consumer — postOpen mounts sub-books
+ * into invisible DOM ("annotation editor missing" on an otherwise-fine
+ * container), edit toggles no-op, etc. Drop disconnected entries instead.
  */
 export function getCurrentContainer() {
-  const top = getTopLayer();
-  if (top) return top.container;
+  while (layers.length > 0) {
+    const top = layers[layers.length - 1];
+    if (top.container && top.container.isConnected) return top.container;
+    layers.pop();
+    log.error(
+      `[stack] getCurrentContainer: dropped stale layer with a detached container (depth now ${layers.length}) — state-DOM desync self-heal`,
+      '/hyperlitContainer/stack.ts'
+    );
+  }
   return document.getElementById('hyperlit-container');
 }
 

@@ -120,15 +120,22 @@ export async function initializeHomepageButtons() {
   let deferToShelfTabs = false;
   const hasShelfTabsUI = !!document.getElementById('shelf-picker-trigger');
   if (hasShelfTabsUI && (window as any).isOwner === true) {
-    const histShelfId = histActiveTab?.filter === 'shelf' ? histActiveTab.shelfId : null;
-    const lsShelfId = !histActiveTab ? localStorage.getItem('homepage_active_shelf_id') : null;
-    const targetShelfId = histShelfId || lsShelfId;
-    if (targetShelfId) {
-      try {
-        const openShelves = JSON.parse(localStorage.getItem('homepage_open_shelves') || '[]');
-        deferToShelfTabs = Array.isArray(openShelves) && openShelves.some(t => t.shelfId === targetShelfId);
-      } catch (e) {
-        // malformed JSON — fall through to default content load
+    if ((window as any).activeShelfDeepLink?.id) {
+      // Deep link (/u/{name}/shelf/{slug}) — initializeShelfTabs opens the
+      // linked shelf (incl. PRIVATE ones with no server-rendered tab); loading
+      // the default library first would just flash and get replaced.
+      deferToShelfTabs = true;
+    } else {
+      const histShelfId = histActiveTab?.filter === 'shelf' ? histActiveTab.shelfId : null;
+      const lsShelfId = !histActiveTab ? localStorage.getItem('homepage_active_shelf_id') : null;
+      const targetShelfId = histShelfId || lsShelfId;
+      if (targetShelfId) {
+        try {
+          const openShelves = JSON.parse(localStorage.getItem('homepage_open_shelves') || '[]');
+          deferToShelfTabs = Array.isArray(openShelves) && openShelves.some(t => t.shelfId === targetShelfId);
+        } catch (e) {
+          // malformed JSON — fall through to default content load
+        }
       }
     }
   }

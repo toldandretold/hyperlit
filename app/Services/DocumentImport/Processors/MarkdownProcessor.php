@@ -13,6 +13,8 @@ class MarkdownProcessor implements ProcessorInterface
 {
     use StreamsProgress;
 
+    private const VENV_PYTHON = '/var/www/hyperlit/venv/bin/python3';
+
     private ?\Closure $onProgress = null;
 
     public function __construct(
@@ -94,7 +96,7 @@ class MarkdownProcessor implements ProcessorInterface
             $mdToHtmlStart = microtime(true);
             $markdownConverterPath = base_path('app/Python/simple_md_to_html.py');
             $markdownProcess = new Process([
-                'python3',
+                $this->getPythonPath(),
                 $markdownConverterPath,
                 $inputPath,
                 $htmlOutputPath
@@ -149,7 +151,7 @@ class MarkdownProcessor implements ProcessorInterface
             ]);
 
             $pythonProcess = new Process([
-                'python3',
+                $this->getPythonPath(),
                 $pythonScriptPath,
                 $htmlOutputPath,
                 $outputPath,
@@ -209,5 +211,18 @@ class MarkdownProcessor implements ProcessorInterface
                 'total_process_duration_ms' => $totalProcessDuration
             ]);
         }
+    }
+
+    /**
+     * Python executable — the prod virtualenv when present (so the digestion
+     * package finds bs4/PIL/bleach), else PATH python3. Mirrors HtmlProcessor
+     * and EpubProcessor, which run the same script.
+     */
+    private function getPythonPath(): string
+    {
+        if (file_exists(self::VENV_PYTHON)) {
+            return self::VENV_PYTHON;
+        }
+        return 'python3';
     }
 }

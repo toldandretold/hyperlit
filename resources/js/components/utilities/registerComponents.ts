@@ -112,6 +112,11 @@ import {
 import { initFootnoteTapExtender } from '../../hyperlitContainer/footnoteTapExtender';
 
 import {
+  initHyperlightVisibility,
+  destroyHyperlightVisibility
+} from '../../hyperlitContainer/hyperlightVisibilityControl';
+
+import {
   initContainerDragger,
   destroyContainerDragger
 } from '../containerDragger/containerDragger';
@@ -150,6 +155,11 @@ import {
   initCommonsHarvestNotice,
   destroyCommonsHarvestNotice
 } from '../commonsHarvestNotice/commonsHarvestNotice';
+
+import {
+  initImportQueue,
+  destroyImportQueue
+} from '../importQueue/importQueue';
 
 import {
   initCustomScrollbar,
@@ -341,6 +351,18 @@ export function registerAllComponents() {
     required: false
   });
 
+  // Per-highlight visibility picker in the hyperlit container (.hl-visibility-control).
+  // Document-delegated singleton — inert unless a control is in the DOM, so it survives
+  // container open/close and SPA nav; init clears stale open-panel state on re-entry.
+  buttonRegistry.register({
+    name: 'hyperlightVisibility',
+    initFn: initHyperlightVisibility,
+    destroyFn: destroyHyperlightVisibility,
+    pages: ['reader', 'home', 'user', 'journal'], // the hyperlit container can open anywhere
+    dependencies: [],
+    required: false
+  });
+
   // Tames the native selection auto-scroll that races the reader upward during a drag-select
   // (caused by scroll-padding-top:192px inflating the browser's auto-scroll trigger band).
   // Document-level listeners → session singleton, re-init just clears stale state.
@@ -432,6 +454,18 @@ export function registerAllComponents() {
     destroyFn: destroyFileDropTarget,
     pages: ['home', 'user', 'journal'],
     dependencies: ['newBookButton'], // Drop opens the import form via #importBook
+    required: false
+  });
+
+  // Import-queue widget: corner pill + panel for multi-file/folder imports.
+  // The poller is a module singleton (survives SPA navs); this init only
+  // rebuilds the DOM from its state on each home/user page entry.
+  buttonRegistry.register({
+    name: 'importQueue',
+    initFn: initImportQueue,
+    destroyFn: destroyImportQueue,
+    pages: ['home', 'user'],
+    dependencies: [],
     required: false
   });
 
