@@ -62,8 +62,15 @@ class CandidateDetector
             $this->step($db, $runId, "scanning {$citingBook} — " . Str::limit((string) ($entry['title'] ?? ''), 60), $counts);
 
             // ── Ensure the bibliography has been resolved to canonicals ──
-            if (! $db->table('bibliography')->where('book', $citingBook)->exists()
-                && ! $db->table('footnotes')->where('book', $citingBook)->where('is_citation', true)->exists()) {
+            // Conversion extracts bibliography ROWS but never matches them —
+            // only citation:scan-bibliography stamps canonical_source_id (the
+            // Source Network Harvester's stage 1; journal:harvest never runs
+            // it). So the trigger is "any entry never ATTEMPTED" (all match
+            // columns null — a scanned-but-unmatched entry carries
+            // match_method='no_match'), not "no rows". Footnote-only books
+            // scan once ever, tracked via citation_scans.
+            if ($this->needsBibliographyScan($citingBook)) {
+                $this->step($db, $runId, "resolving bibliography of {$citingBook} (LLM + external lookups)", $counts);
                 $exit = Artisan::call('citation:scan-bibliography', ['target' => $citingBook]);
                 if ($exit !== 0) {
                     Log::warning('hypercites: scan-bibliography failed', ['book' => $citingBook, 'exit' => $exit]);
@@ -177,6 +184,31 @@ class CandidateDetector
         }
 
         return $counts;
+    }
+
+    private function needsBibliographyScan(string $book): bool
+    {
+        $db = DB::connection('pgsql_admin');
+
+        $hasUnattempted = $db->table('bibliography')
+            ->where('book', $book)
+            ->whereNull('match_method')
+            ->whereNull('canonical_source_id')
+            ->whereNull('source_id')
+            ->whereNull('foundation_source')
+            ->exists();
+        if ($hasUnattempted) {
+            return true;
+        }
+        if ($db->table('bibliography')->where('book', $book)->exists()) {
+            return false; // every entry was attempted (or is already linked)
+        }
+
+        // No bibliography at all: footnote-carrying books get ONE scan ever
+        // (classification sets is_citation; unmatched footnotes keep null
+        // match columns, so re-checking those would loop). Empty books never scan.
+        return $db->table('footnotes')->where('book', $book)->exists()
+            && ! $db->table('citation_scans')->where('book', $book)->where('status', 'completed')->exists();
     }
 
     /**

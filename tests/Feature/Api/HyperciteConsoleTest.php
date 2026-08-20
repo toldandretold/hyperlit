@@ -563,6 +563,7 @@ test('the detector builds a matched, quote-bearing candidate from seeded article
         'book'        => $cited['book'],
         'referenceId' => 'placeholder',
         'content'     => 'placeholder',
+        'match_method' => 'no_match', // reads as ATTEMPTED — else the detector fires a real scan (LLM) in tests
         'created_at'  => now(),
         'updated_at'  => now(),
     ]);
@@ -712,6 +713,7 @@ test('the detector runs over a public shelf and shelf candidates stay scoped to 
         'book'        => $cited['book'],
         'referenceId' => 'placeholder',
         'content'     => 'placeholder',
+        'match_method' => 'no_match', // reads as ATTEMPTED — else the detector fires a real scan (LLM) in tests
         'created_at'  => now(),
         'updated_at'  => now(),
     ]);

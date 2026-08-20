@@ -95,3 +95,6 @@ macOShyperlit/**/*.xcuserstate
 # `php tests/translation/run-eval.php`. The fixtures ARE committed; the outputs
 # are not (they cost money to produce and change every run).
 tests/translation/out/
+
+# Prod pull config (ssh target for pull_case.sh / pull_journal.sh) — machine-local.
+tests/conversion/.env.pull
