@@ -619,6 +619,41 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('book', '[A-Za-z0-9_-]+');
     Route::post('/maintainer/journal-import/promote/{book}', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'promote'])
         ->where('book', '[A-Za-z0-9_-]+');
+
+    // Hypercite console. `journals` is the picker (journal registry + public shelves);
+    // `candidates` is one scope's detected hypercite candidates (flat — the page groups by
+    // citing book); `detect` walks the scope's citation graph on the queue; approve/reject act
+    // on one candidate (approve mints the real hypercite, synchronously); `most-cited`
+    // aggregates what the scope's books cite so `import-source` can pull the big external OA
+    // works into the library. Shelf routes register BEFORE the {slug} routes — "shelf" itself
+    // matches the slug pattern.
+    Route::get('/maintainer/hypercites/journals', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'journals']);
+    Route::get('/maintainer/hypercites/runs/{id}', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'runStatus'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::post('/maintainer/hypercites/candidates/{id}/approve', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'approve'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::post('/maintainer/hypercites/candidates/{id}/reject', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'reject'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::get('/maintainer/hypercites/shelf/{id}/candidates', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'shelfCandidates'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::post('/maintainer/hypercites/shelf/{id}/detect', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'shelfDetect'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::post('/maintainer/hypercites/shelf/{id}/batch-approve', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'shelfBatchApprove'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::get('/maintainer/hypercites/shelf/{id}/most-cited', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'shelfMostCited'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::post('/maintainer/hypercites/shelf/{id}/import-source', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'shelfImportSource'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::get('/maintainer/hypercites/{slug}/candidates', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'candidates'])
+        ->where('slug', '[a-z0-9-]+');
+    Route::post('/maintainer/hypercites/{slug}/detect', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'detect'])
+        ->where('slug', '[a-z0-9-]+');
+    Route::post('/maintainer/hypercites/{slug}/batch-approve', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'batchApprove'])
+        ->where('slug', '[a-z0-9-]+');
+    Route::get('/maintainer/hypercites/{slug}/most-cited', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'mostCited'])
+        ->where('slug', '[a-z0-9-]+');
+    Route::post('/maintainer/hypercites/{slug}/import-source', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'importSource'])
+        ->where('slug', '[a-z0-9-]+');
 });
 
 // Snapshots endpoint — outside author middleware so public book readers can see version history

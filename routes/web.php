@@ -89,6 +89,19 @@ Route::prefix('maintainer')->group(function () {
     Route::get('/journal-import/{slug}', [App\Http\Controllers\Maintainer\JournalImportController::class, 'show'])
         ->where('slug', '[a-z0-9-]+')
         ->name('maintainer.journal-import.show');
+
+    // Citation-graph review console: a scope's (journal OR public shelf)
+    // detected hypercite candidates, citing and cited books side by side;
+    // approve mints the hypercite. The shelf route registers FIRST — "shelf"
+    // itself matches the slug pattern.
+    Route::get('/hypercites', [App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'index'])
+        ->name('maintainer.hypercites');
+    Route::get('/hypercites/shelf/{id}', [App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'showShelf'])
+        ->where('id', '[0-9a-f-]{36}')
+        ->name('maintainer.hypercites.shelf');
+    Route::get('/hypercites/{slug}', [App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'show'])
+        ->where('slug', '[a-z0-9-]+')
+        ->name('maintainer.hypercites.show');
 });
 
 // Public journal pages (diamond-OA registry) — PREFIXED like /maintainer

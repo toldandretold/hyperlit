@@ -1,0 +1,770 @@
+<?php
+
+/**
+ * /maintainer/hypercites — the citation-graph review console. Admin-only everywhere
+ * (pages 404 for non-admins, like their siblings), detection is queued with a collision
+ * guard + stale-run watchdog, and APPROVE is the load-bearing part: it must mint the
+ * hypercites row on the CITED book, splice exactly one ↗ anchor after the citation
+ * marker in the CITING node, refuse with 409 when either side's content drifted since
+ * detection, and be idempotent on a double-press.
+ *
+ * Seeds via pgsql_admin, beforeEach-only cleanup (an afterEach admin delete deadlocks
+ * against the still-open RefreshDatabase transaction — docs/journal-harvest.md).
+ */
+
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
+
+function hxDb()
+{
+    return DB::connection('pgsql_admin');
+}
+
+function hxCleanup(): void
+{
+    hxDb()->table('hypercite_candidates')->where('citing_book', 'LIKE', 'book_hx%')->delete();
+    hxDb()->table('hypercite_runs')->whereIn(
+        'journal_source_id',
+        hxDb()->table('journal_sources')->where('display_name', 'LIKE', 'HX %')->pluck('id')
+    )->delete();
+    hxDb()->table('hypercite_runs')->whereIn(
+        'shelf_id',
+        hxDb()->table('shelves')->where('name', 'LIKE', 'HX %')->pluck('id')
+    )->delete();
+    hxDb()->table('hypercites')->where('book', 'LIKE', 'book_hx%')->delete();
+    hxDb()->table('nodes')->where('book', 'LIKE', 'book_hx%')->delete();
+    hxDb()->table('bibliography')->where('book', 'LIKE', 'book_hx%')->delete();
+    hxDb()->table('canonical_source')->where('title', 'LIKE', 'HX %')->delete();
+    hxDb()->table('library')->where('book', 'LIKE', 'book_hx%')->delete();
+    hxDb()->table('shelf_items')->whereIn(
+        'shelf_id',
+        hxDb()->table('shelves')->where('name', 'LIKE', 'HX %')->pluck('id')
+    )->delete();
+    hxDb()->table('shelves')->where('name', 'LIKE', 'HX %')->delete();
+    hxDb()->table('journal_sources')->where('display_name', 'LIKE', 'HX %')->delete();
+}
+
+beforeEach(fn () => hxCleanup());
+
+function hxSeedJournal(array $opts = []): object
+{
+    $row = array_merge([
+        'id'                 => (string) Str::uuid(),
+        'openalex_source_id' => 'SHX' . Str::upper(Str::random(6)),
+        'display_name'       => 'HX Journal',
+        'publisher'          => 'HX Press',
+        'slug'               => 'hx-' . Str::lower(Str::random(8)),
+        'is_diamond'         => true,
+        'cited_by_count'     => 500,
+        'created_at'         => now(),
+        'updated_at'         => now(),
+    ], $opts);
+    hxDb()->table('journal_sources')->insert($row);
+
+    return (object) $row;
+}
+
+/** A held work: canonical (optionally journal-stamped) + a public content-bearing version book. */
+function hxSeedHeldWork(?string $journalId, string $title, array $canonicalOpts = []): array
+{
+    $canonicalId = (string) Str::uuid();
+    $book = 'book_hx_' . Str::lower(Str::random(8));
+
+    hxDb()->table('library')->insert([
+        'book'                => $book,
+        'title'               => $title,
+        'visibility'          => 'public',
+        'listed'              => false,
+        'has_nodes'           => true,
+        'type'                => 'book',
+        'raw_json'            => '[]',
+        'timestamp'           => 0,
+        'canonical_source_id' => $canonicalId,
+        'created_at'          => now(),
+    ]);
+
+    hxDb()->table('canonical_source')->insert(array_merge([
+        'id'                => $canonicalId,
+        'title'             => $title,
+        'journal_source_id' => $journalId,
+        'is_oa'             => true,
+        'auto_version_book' => $book,
+        'cited_by_count'    => 10,
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ], $canonicalOpts));
+
+    return ['canonical_id' => $canonicalId, 'book' => $book];
+}
+
+function hxSeedNode(string $book, string $nodeId, int $line, string $html, string $type = 'p'): void
+{
+    hxDb()->table('nodes')->insert([
+        'book'       => $book,
+        'node_id'    => $nodeId,
+        'chunk_id'   => 1,
+        'startLine'  => $line,
+        'content'    => $html,
+        'plainText'  => strip_tags($html),
+        'type'       => $type,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+}
+
+/**
+ * The full approve fixture: citing article whose node quotes the cited one, the
+ * bibliography edge, and a `matched` candidate row shaped exactly as CandidateDetector
+ * writes it. Returns everything a test needs to assert against.
+ */
+function hxSeedMatchedCandidate(object $journal, array $candidateOpts = []): array
+{
+    $citing = hxSeedHeldWork($journal->id, 'HX Citing Article');
+    $cited = hxSeedHeldWork($journal->id, 'HX Cited Article');
+
+    $quote = 'the commons is not a tragedy but a shared achievement of governance';
+    $citingHtml = '<p id="10" data-node-id="' . $citing['book'] . '_n1">As argued, "' . $quote
+        . '" <a href="#ostrom1990" class="in-text-citation">(Ostrom 1990)</a>.</p>';
+    hxSeedNode($citing['book'], $citing['book'] . '_n1', 1, $citingHtml);
+
+    $citedHtml = '<p id="20" data-node-id="' . $cited['book'] . '_n5">In sum, ' . $quote . ' for those who build it.</p>';
+    hxSeedNode($cited['book'], $cited['book'] . '_n5', 5, $citedHtml);
+
+    hxDb()->table('bibliography')->insert([
+        'book'                => $citing['book'],
+        'referenceId'         => 'ostrom1990',
+        'content'             => 'Ostrom, E. (1990) Governing the Commons.',
+        'canonical_source_id' => $cited['canonical_id'],
+        'created_at'          => now(),
+        'updated_at'          => now(),
+    ]);
+
+    $charStart = mb_strpos(strip_tags($citedHtml), $quote);
+    $candidateId = (string) Str::uuid();
+    hxDb()->table('hypercite_candidates')->insert(array_merge([
+        'id'                         => $candidateId,
+        'journal_source_id'          => $journal->id,
+        'citing_canonical_source_id' => $citing['canonical_id'],
+        'cited_canonical_source_id'  => $cited['canonical_id'],
+        'citing_book'                => $citing['book'],
+        'cited_book'                 => $cited['book'],
+        'is_internal'                => true,
+        'reference_id'               => 'ostrom1990',
+        'occurrence_index'           => 0,
+        'citing_node_id'             => $citing['book'] . '_n1',
+        'marker_offset'              => 12,
+        'has_quote'                  => true,
+        'quote_kind'                 => 'inline',
+        'quote_text'                 => $quote,
+        'quote_node_id'              => $citing['book'] . '_n1',
+        'citing_content_hash'        => sha1($citingHtml),
+        'match_node_ids'             => json_encode([$cited['book'] . '_n5']),
+        'match_char_data'            => json_encode([
+            $cited['book'] . '_n5' => ['charStart' => $charStart, 'charEnd' => $charStart + mb_strlen($quote)],
+        ]),
+        'match_method'               => 'exact',
+        'match_score'                => 1.0,
+        'match_occurrences'          => 1,
+        'cited_content_hash'         => sha1($citedHtml),
+        'status'                     => 'matched',
+        'created_at'                 => now(),
+        'updated_at'                 => now(),
+    ], $candidateOpts));
+
+    return [
+        'candidate_id' => $candidateId,
+        'citing'       => $citing,
+        'cited'        => $cited,
+        'quote'        => $quote,
+        'citing_html'  => $citingHtml,
+    ];
+}
+
+// ── Gating ──
+
+test('both pages 404 for guests and non-admins, render for admins', function () {
+    $journal = hxSeedJournal();
+
+    $this->get('/maintainer/hypercites')->assertNotFound();
+    $this->get('/maintainer/hypercites/' . $journal->slug)->assertNotFound();
+
+    $this->loginUser();
+    $this->get('/maintainer/hypercites')->assertNotFound();
+
+    $this->loginUser(['is_admin' => true]);
+    $this->get('/maintainer/hypercites')->assertOk()->assertViewIs('maintainer-hypercites');
+    $this->get('/maintainer/hypercites/' . $journal->slug)->assertOk()->assertViewIs('maintainer-hypercites');
+});
+
+test('an unknown journal slug 404s even for an admin', function () {
+    $this->loginUser(['is_admin' => true]);
+    $this->get('/maintainer/hypercites/no-such-journal')->assertNotFound();
+    $this->getJson('/api/maintainer/hypercites/no-such-journal/candidates')->assertStatus(404);
+});
+
+test('the API endpoints are admin-gated', function () {
+    $this->loginUser(); // authenticated, not admin
+    $this->getJson('/api/maintainer/hypercites/journals')->assertStatus(403);
+    $this->getJson('/api/maintainer/hypercites/anything/candidates')->assertStatus(403);
+    $this->postJson('/api/maintainer/hypercites/anything/detect')->assertStatus(403);
+    $this->postJson('/api/maintainer/hypercites/candidates/' . Str::uuid() . '/approve')->assertStatus(403);
+    $this->getJson('/api/maintainer/hypercites/anything/most-cited')->assertStatus(403);
+});
+
+// ── Detect runs ──
+
+test('detect queues a run and a second press joins the in-flight one', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    $first = $this->postJson("/api/maintainer/hypercites/{$journal->slug}/detect")
+        ->assertOk()->json();
+    expect($first['already_running'])->toBeFalse();
+    Queue::assertPushed(\App\Jobs\DetectHyperciteCandidatesJob::class, 1);
+
+    $run = hxDb()->table('hypercite_runs')->where('id', $first['run_id'])->first();
+    expect($run->action)->toBe('detect');
+    expect($run->journal_source_id)->toBe($journal->id);
+
+    $second = $this->postJson("/api/maintainer/hypercites/{$journal->slug}/detect")
+        ->assertOk()->json();
+    expect($second['already_running'])->toBeTrue();
+    expect($second['run_id'])->toBe($first['run_id']);
+    Queue::assertPushed(\App\Jobs\DetectHyperciteCandidatesJob::class, 1); // still one
+});
+
+test('the run poll fails a stalled run via the 30-minute watchdog', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    $runId = (string) Str::uuid();
+    hxDb()->table('hypercite_runs')->insert([
+        'id'                => $runId,
+        'journal_source_id' => $journal->id,
+        'action'            => 'detect',
+        'status'            => 'running',
+        'counts'            => '{}',
+        'created_at'        => now()->subHour(),
+        'updated_at'        => now()->subHour(),
+    ]);
+
+    $body = $this->getJson("/api/maintainer/hypercites/runs/{$runId}")->assertOk()->json();
+    expect($body['status'])->toBe('failed');
+    expect($body['error'])->toContain('30 minutes');
+});
+
+// ── Candidates payload ──
+
+test('candidates come back with both sides resolved and filters apply', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $fx = hxSeedMatchedCandidate($journal);
+
+    $body = $this->getJson("/api/maintainer/hypercites/{$journal->slug}/candidates")->assertOk()->json();
+    expect($body['candidates'])->toHaveCount(1);
+    $c = $body['candidates'][0];
+    expect($c['citing_title'])->toBe('HX Citing Article');
+    expect($c['cited_title'])->toBe('HX Cited Article');
+    expect($c['match_method'])->toBe('exact');
+    expect($c['match_node_ids'])->toBe([$fx['cited']['book'] . '_n5']);
+    expect($body['status_counts']['matched'])->toBe(1);
+
+    // A filter that excludes it.
+    $filtered = $this->getJson("/api/maintainer/hypercites/{$journal->slug}/candidates?status=applied")
+        ->assertOk()->json();
+    expect($filtered['candidates'])->toHaveCount(0);
+});
+
+// ── Approve: the load-bearing path ──
+
+test('approve mints the hypercite, splices one anchor after the marker, and bumps both clocks', function () {
+    $admin = $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $fx = hxSeedMatchedCandidate($journal);
+
+    $body = $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")
+        ->assertOk()->json();
+    expect($body['applied'])->toBeTrue();
+    expect($body['citedBook'])->toBe($fx['cited']['book']);
+    expect($body['citedNodeId'])->toBe($fx['cited']['book'] . '_n5');
+
+    // Cited-side row: right book, right span, creator = the pressing admin.
+    $hc = hxDb()->table('hypercites')
+        ->where('book', $fx['cited']['book'])
+        ->where('hyperciteId', $body['hyperciteId'])
+        ->first();
+    expect($hc)->not->toBeNull();
+    expect(json_decode($hc->node_id, true))->toBe([$fx['cited']['book'] . '_n5']);
+    expect($hc->hypercitedText)->toContain('shared achievement');
+    expect($hc->relationshipStatus)->toBe('couple');
+    expect($hc->creator)->toBe($admin->name);
+    $citedIn = json_decode($hc->citedIN, true);
+    expect($citedIn)->toHaveCount(1);
+    expect($citedIn[0])->toStartWith('/' . $fx['citing']['book'] . '#');
+
+    // Citing-side splice: exactly one ↗ anchor, immediately after the marker's </a>.
+    $content = hxDb()->table('nodes')
+        ->where('book', $fx['citing']['book'])
+        ->where('node_id', $fx['citing']['book'] . '_n1')
+        ->value('content');
+    expect(substr_count($content, 'class="open-icon"'))->toBe(1);
+    expect($content)->toContain('(Ostrom 1990)</a>' . "\u{2060}" . '<a href="/' . $fx['cited']['book'] . '#' . $body['hyperciteId'] . '"');
+
+    // Candidate bookkeeping + content clock: the citing book's timestamp moved so
+    // clients refetch the spliced node, and the stored hash matches the NEW content.
+    $candidate = hxDb()->table('hypercite_candidates')->where('id', $fx['candidate_id'])->first();
+    expect($candidate->status)->toBe('applied');
+    expect($candidate->hypercite_id)->toBe($body['hyperciteId']);
+    expect($candidate->citing_content_hash)->toBe(sha1($content));
+    expect((int) hxDb()->table('library')->where('book', $fx['citing']['book'])->value('timestamp'))
+        ->toBeGreaterThan(0);
+});
+
+test('approve is idempotent — a double press returns the same hypercite and splices nothing new', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $fx = hxSeedMatchedCandidate($journal);
+
+    $first = $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")
+        ->assertOk()->json();
+    $second = $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")
+        ->assertOk()->json();
+
+    expect($second['hyperciteId'])->toBe($first['hyperciteId']);
+    expect(hxDb()->table('hypercites')->where('book', $fx['cited']['book'])->count())->toBe(1);
+
+    $content = hxDb()->table('nodes')
+        ->where('book', $fx['citing']['book'])
+        ->where('node_id', $fx['citing']['book'] . '_n1')
+        ->value('content');
+    expect(substr_count($content, 'class="open-icon"'))->toBe(1);
+});
+
+test('approve refuses 409 stale_citing when the citing node changed since detection', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $fx = hxSeedMatchedCandidate($journal);
+
+    hxDb()->table('nodes')
+        ->where('book', $fx['citing']['book'])
+        ->where('node_id', $fx['citing']['book'] . '_n1')
+        ->update(['content' => '<p data-node-id="x">reconverted content</p>']);
+
+    $body = $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")
+        ->assertStatus(409)->json();
+    expect($body['refusal'])->toBe('stale_citing');
+    expect(hxDb()->table('hypercite_candidates')->where('id', $fx['candidate_id'])->value('status'))
+        ->toBe('failed');
+    expect(hxDb()->table('hypercites')->where('book', $fx['cited']['book'])->count())->toBe(0);
+});
+
+test('approve refuses 409 stale_cited when the matched cited node changed since detection', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $fx = hxSeedMatchedCandidate($journal);
+
+    hxDb()->table('nodes')
+        ->where('book', $fx['cited']['book'])
+        ->where('node_id', $fx['cited']['book'] . '_n5')
+        ->update(['content' => '<p data-node-id="y">the passage moved</p>']);
+
+    $body = $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")
+        ->assertStatus(409)->json();
+    expect($body['refusal'])->toBe('stale_cited');
+});
+
+test('a no-quote pending candidate cannot be approved', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $fx = hxSeedMatchedCandidate($journal, [
+        'status'          => 'pending',
+        'has_quote'       => false,
+        'quote_text'      => null,
+        'match_node_ids'  => null,
+        'match_char_data' => null,
+        'match_method'    => null,
+    ]);
+
+    $body = $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")
+        ->assertStatus(422)->json();
+    expect($body['refusal'])->toBe('not_appliable_from_pending');
+});
+
+// ── Reject ──
+
+test('reject records the verdict and is final for re-approval', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $fx = hxSeedMatchedCandidate($journal);
+
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/reject")
+        ->assertOk()->assertJson(['rejected' => true]);
+    expect(hxDb()->table('hypercite_candidates')->where('id', $fx['candidate_id'])->value('status'))
+        ->toBe('rejected');
+
+    // Not appliable any more, and a second reject is a 422 (already rejected).
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")->assertStatus(422);
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/reject")->assertStatus(422);
+});
+
+// ── Batch approve ──
+
+test('batch-approve re-checks the policy per row and refuses oversized batches', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    $exact = hxSeedMatchedCandidate($journal);
+    $fuzzy = hxSeedMatchedCandidate($journal, ['match_method' => 'fts_fuzzy', 'match_score' => 0.9]);
+
+    $body = $this->postJson("/api/maintainer/hypercites/{$journal->slug}/batch-approve", [
+        'ids' => [$exact['candidate_id'], $fuzzy['candidate_id']],
+    ])->assertOk()->json();
+    expect($body['applied'])->toBe(1);
+    expect($body['skipped_policy'])->toBe(1); // fuzzy never auto-applies
+
+    $tooMany = array_map(fn () => (string) Str::uuid(), range(1, 26));
+    $this->postJson("/api/maintainer/hypercites/{$journal->slug}/batch-approve", ['ids' => $tooMany])
+        ->assertStatus(422)->assertJson(['refusal' => 'too_many']);
+
+    $this->postJson("/api/maintainer/hypercites/{$journal->slug}/batch-approve", ['ids' => []])
+        ->assertStatus(422);
+});
+
+// ── Most cited + import ──
+
+test('most-cited splits internal vs external and flags what is importable', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    // One held article of the journal, citing three works: an internal sibling,
+    // a held external, and an unheld-but-importable external.
+    $article = hxSeedHeldWork($journal->id, 'HX Root Article');
+    $internal = hxSeedHeldWork($journal->id, 'HX Internal Sibling');
+    $heldExternal = hxSeedHeldWork(null, 'HX Held External');
+
+    $unheldId = (string) Str::uuid();
+    hxDb()->table('canonical_source')->insert([
+        'id'             => $unheldId,
+        'title'          => 'HX Unheld OA External',
+        'is_oa'          => true,
+        'pdf_url'        => 'https://example.org/unheld.pdf',
+        'cited_by_count' => 999,
+        'created_at'     => now(),
+        'updated_at'     => now(),
+    ]);
+
+    foreach ([
+        ['ref1', $internal['canonical_id']],
+        ['ref2', $heldExternal['canonical_id']],
+        ['ref3', $unheldId],
+    ] as [$refId, $canonicalId]) {
+        hxDb()->table('bibliography')->insert([
+            'book'                => $article['book'],
+            'referenceId'         => $refId,
+            'content'             => 'HX ref',
+            'canonical_source_id' => $canonicalId,
+            'created_at'          => now(),
+            'updated_at'          => now(),
+        ]);
+    }
+
+    $body = $this->getJson("/api/maintainer/hypercites/{$journal->slug}/most-cited")->assertOk()->json();
+
+    $internalRows = collect($body['internal']);
+    $externalRows = collect($body['external']);
+
+    expect($internalRows->pluck('canonical_id'))->toContain($internal['canonical_id']);
+
+    $held = $externalRows->firstWhere('canonical_id', $heldExternal['canonical_id']);
+    expect($held['held'])->toBeTrue();
+    expect($held['importable'])->toBeFalse();
+
+    $unheld = $externalRows->firstWhere('canonical_id', $unheldId);
+    expect($unheld['held'])->toBeFalse();
+    expect($unheld['importable'])->toBeTrue();
+    expect($unheld['citing_count'])->toBe(1);
+});
+
+test('import-source queues a run for an importable work and refuses a non-OA one', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    $oaId = (string) Str::uuid();
+    hxDb()->table('canonical_source')->insert([
+        'id'         => $oaId,
+        'title'      => 'HX Importable',
+        'is_oa'      => true,
+        'pdf_url'    => 'https://example.org/x.pdf',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $closedId = (string) Str::uuid();
+    hxDb()->table('canonical_source')->insert([
+        'id'         => $closedId,
+        'title'      => 'HX Paywalled',
+        'is_oa'      => false,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $ok = $this->postJson("/api/maintainer/hypercites/{$journal->slug}/import-source", [
+        'canonical_source_id' => $oaId,
+    ])->assertOk()->json();
+    expect($ok['already_running'])->toBeFalse();
+    Queue::assertPushed(\App\Jobs\ImportCitedSourceJob::class, 1);
+
+    $this->postJson("/api/maintainer/hypercites/{$journal->slug}/import-source", [
+        'canonical_source_id' => $closedId,
+    ])->assertStatus(422)->assertJson(['refusal' => 'not_importable']);
+
+    $this->postJson("/api/maintainer/hypercites/{$journal->slug}/import-source", [
+        'canonical_source_id' => 'nonsense',
+    ])->assertStatus(422);
+});
+
+// ── Detection end-to-end (inline, no queue) ──
+
+test('the detector builds a matched, quote-bearing candidate from seeded articles', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    $citing = hxSeedHeldWork($journal->id, 'HX Detect Citing');
+    $cited = hxSeedHeldWork($journal->id, 'HX Detect Cited');
+
+    $quote = 'a genuinely distinctive passage about planetary social policy that is long enough';
+    hxSeedNode(
+        $citing['book'],
+        $citing['book'] . '_n1',
+        1,
+        '<p id="10" data-node-id="' . $citing['book'] . '_n1">They argue that "' . $quote
+            . '" <a href="#smith2024" class="in-text-citation">(Smith 2024)</a>.</p>'
+    );
+    hxSeedNode(
+        $cited['book'],
+        $cited['book'] . '_n3',
+        3,
+        '<p id="30" data-node-id="' . $cited['book'] . '_n3">We contend that ' . $quote . ', now and here.</p>'
+    );
+
+    hxDb()->table('bibliography')->insert([
+        'book'                => $citing['book'],
+        'referenceId'         => 'smith2024',
+        'content'             => 'Smith (2024) HX Detect Cited.',
+        'canonical_source_id' => $cited['canonical_id'],
+        'created_at'          => now(),
+        'updated_at'          => now(),
+    ]);
+    // The cited article carries a bibliography row too, so the detector doesn't
+    // try to citation:scan it (which would hit external APIs in a test).
+    hxDb()->table('bibliography')->insert([
+        'book'        => $cited['book'],
+        'referenceId' => 'placeholder',
+        'content'     => 'placeholder',
+        'created_at'  => now(),
+        'updated_at'  => now(),
+    ]);
+
+    $runId = (string) Str::uuid();
+    hxDb()->table('hypercite_runs')->insert([
+        'id'                => $runId,
+        'journal_source_id' => $journal->id,
+        'action'            => 'detect',
+        'status'            => 'running',
+        'counts'            => '{}',
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ]);
+
+    $counts = app(\App\Services\Hypercites\CandidateDetector::class)
+        ->detect(
+            \App\Services\Hypercites\DetectionScope::forJournal(\App\Models\JournalSource::find($journal->id)),
+            $runId,
+        );
+
+    expect($counts['candidates'])->toBe(1);
+    expect($counts['matched'])->toBe(1);
+
+    $candidate = hxDb()->table('hypercite_candidates')
+        ->where('citing_book', $citing['book'])
+        ->where('reference_id', 'smith2024')
+        ->first();
+    expect($candidate)->not->toBeNull();
+    expect($candidate->status)->toBe('matched');
+    expect((bool) $candidate->has_quote)->toBeTrue();
+    expect($candidate->quote_kind)->toBe('inline');
+    expect($candidate->match_method)->toBe('exact');
+    expect(json_decode($candidate->match_node_ids, true))->toBe([$cited['book'] . '_n3']);
+    expect((bool) $candidate->is_internal)->toBeTrue();
+
+    $span = json_decode($candidate->match_char_data, true)[$cited['book'] . '_n3'];
+    $citedPlain = hxDb()->table('nodes')->where('book', $cited['book'])->value('plainText');
+    expect(mb_substr($citedPlain, $span['charStart'], $span['charEnd'] - $span['charStart']))->toBe($quote);
+
+    // Re-running upserts rather than duplicating, and a rejection survives it.
+    hxDb()->table('hypercite_candidates')->where('id', $candidate->id)->update(['status' => 'rejected']);
+    app(\App\Services\Hypercites\CandidateDetector::class)
+        ->detect(
+            \App\Services\Hypercites\DetectionScope::forJournal(\App\Models\JournalSource::find($journal->id)),
+            $runId,
+        );
+    expect(hxDb()->table('hypercite_candidates')->where('citing_book', $citing['book'])->count())->toBe(1);
+    expect(hxDb()->table('hypercite_candidates')->where('id', $candidate->id)->value('status'))->toBe('rejected');
+});
+
+// ── Shelf scopes: a public shelf reuses the whole pipeline ──
+
+function hxSeedShelf(string $visibility = 'public'): object
+{
+    $row = [
+        'id'         => (string) Str::uuid(),
+        'creator'    => 'hx_shelf_owner',
+        'name'       => 'HX Shelf ' . Str::random(6),
+        'slug'       => 'hx-shelf-' . Str::lower(Str::random(8)),
+        'visibility' => $visibility,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ];
+    hxDb()->table('shelves')->insert($row);
+
+    return (object) $row;
+}
+
+function hxShelveBook(string $shelfId, string $book): void
+{
+    hxDb()->table('shelf_items')->insert([
+        'shelf_id' => $shelfId,
+        'book'     => $book,
+        'added_at' => now(),
+    ]);
+}
+
+test('the shelf detail page renders for a public shelf and 404s for a private one', function () {
+    $public = hxSeedShelf('public');
+    $private = hxSeedShelf('private');
+
+    $this->get('/maintainer/hypercites/shelf/' . $public->id)->assertNotFound(); // guest
+
+    $this->loginUser(['is_admin' => true]);
+    $this->get('/maintainer/hypercites/shelf/' . $public->id)->assertOk()->assertViewIs('maintainer-hypercites');
+    $this->get('/maintainer/hypercites/shelf/' . $private->id)->assertNotFound();
+    $this->getJson('/api/maintainer/hypercites/shelf/' . $private->id . '/candidates')->assertStatus(404);
+});
+
+test('the picker lists public shelves (journal shelves excluded) with item counts', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $shelf = hxSeedShelf('public');
+    hxSeedShelf('private'); // never listed
+
+    $work = hxSeedHeldWork(null, 'HX Shelved Book');
+    hxShelveBook($shelf->id, $work['book']);
+
+    // A journal's own shelf must not appear twice — it's already the journal row.
+    $journalShelf = hxSeedShelf('public');
+    hxDb()->table('journal_sources')->where('id', $journal->id)->update(['shelf_id' => $journalShelf->id]);
+
+    $body = $this->getJson('/api/maintainer/hypercites/journals')->assertOk()->json();
+    $shelves = collect($body['shelves']);
+
+    $row = $shelves->firstWhere('shelf_id', $shelf->id);
+    expect($row)->not->toBeNull();
+    expect($row['item_count'])->toBe(1);
+    expect($shelves->pluck('shelf_id'))->not->toContain($journalShelf->id);
+    expect($shelves->filter(fn ($s) => str_starts_with((string) $s['name'], 'HX '))->pluck('shelf_id'))
+        ->not->toContain(hxDb()->table('shelves')->where('visibility', 'private')->where('name', 'LIKE', 'HX %')->value('id'));
+});
+
+test('the detector runs over a public shelf and shelf candidates stay scoped to it', function () {
+    $this->loginUser(['is_admin' => true]);
+    $shelf = hxSeedShelf('public');
+
+    $citing = hxSeedHeldWork(null, 'HX Shelf Citing');
+    $cited = hxSeedHeldWork(null, 'HX Shelf Cited');
+    hxShelveBook($shelf->id, $citing['book']);
+    hxShelveBook($shelf->id, $cited['book']);
+
+    $quote = 'shelves are just collections of citing books and deserve the same machinery';
+    hxSeedNode(
+        $citing['book'],
+        $citing['book'] . '_n1',
+        1,
+        '<p id="10" data-node-id="' . $citing['book'] . '_n1">Indeed, "' . $quote
+            . '" <a href="#doe2025" class="in-text-citation">(Doe 2025)</a>.</p>'
+    );
+    hxSeedNode(
+        $cited['book'],
+        $cited['book'] . '_n2',
+        2,
+        '<p id="20" data-node-id="' . $cited['book'] . '_n2">We hold that ' . $quote . ' in the end.</p>'
+    );
+    hxDb()->table('bibliography')->insert([
+        'book'                => $citing['book'],
+        'referenceId'         => 'doe2025',
+        'content'             => 'Doe (2025) HX Shelf Cited.',
+        'canonical_source_id' => $cited['canonical_id'],
+        'created_at'          => now(),
+        'updated_at'          => now(),
+    ]);
+    hxDb()->table('bibliography')->insert([
+        'book'        => $cited['book'],
+        'referenceId' => 'placeholder',
+        'content'     => 'placeholder',
+        'created_at'  => now(),
+        'updated_at'  => now(),
+    ]);
+
+    $runId = (string) Str::uuid();
+    hxDb()->table('hypercite_runs')->insert([
+        'id'         => $runId,
+        'shelf_id'   => $shelf->id,
+        'action'     => 'detect',
+        'status'     => 'running',
+        'counts'     => '{}',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $shelfRow = hxDb()->table('shelves')->where('id', $shelf->id)->first();
+    $counts = app(\App\Services\Hypercites\CandidateDetector::class)
+        ->detect(\App\Services\Hypercites\DetectionScope::forShelf($shelfRow), $runId);
+
+    expect($counts['matched'])->toBe(1);
+
+    $candidate = hxDb()->table('hypercite_candidates')->where('citing_book', $citing['book'])->first();
+    expect($candidate->shelf_id)->toBe($shelf->id);
+    expect($candidate->journal_source_id)->toBeNull();
+    expect((bool) $candidate->is_internal)->toBeTrue(); // cited book is on the same shelf
+
+    // The shelf candidates endpoint returns it; an unrelated journal's doesn't.
+    $body = $this->getJson('/api/maintainer/hypercites/shelf/' . $shelf->id . '/candidates')->assertOk()->json();
+    expect($body['scope']['scope_type'])->toBe('shelf');
+    expect(collect($body['candidates'])->pluck('id'))->toContain($candidate->id);
+
+    $journal = hxSeedJournal();
+    $other = $this->getJson("/api/maintainer/hypercites/{$journal->slug}/candidates")->assertOk()->json();
+    expect(collect($other['candidates'])->pluck('id'))->not->toContain($candidate->id);
+
+    // And approve works identically from a shelf-scoped candidate.
+    $approve = $this->postJson("/api/maintainer/hypercites/candidates/{$candidate->id}/approve")
+        ->assertOk()->json();
+    expect($approve['applied'])->toBeTrue();
+    expect(hxDb()->table('hypercites')->where('book', $cited['book'])->count())->toBe(1);
+});
+
+test('shelf detect queues a run keyed to the shelf', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $shelf = hxSeedShelf('public');
+
+    $body = $this->postJson('/api/maintainer/hypercites/shelf/' . $shelf->id . '/detect')
+        ->assertOk()->json();
+    expect($body['already_running'])->toBeFalse();
+    Queue::assertPushed(\App\Jobs\DetectHyperciteCandidatesJob::class, 1);
+
+    $run = hxDb()->table('hypercite_runs')->where('id', $body['run_id'])->first();
+    expect($run->shelf_id)->toBe($shelf->id);
+    expect($run->journal_source_id)->toBeNull();
+});

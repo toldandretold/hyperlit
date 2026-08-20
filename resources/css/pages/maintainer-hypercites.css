@@ -1,0 +1,435 @@
+/* Hypercite console — standalone non-SPA (maintainer-hypercites.blade.php).
+   Entry-only file: @vite'd by the blade, never an @import target (cssStructure gate 3).
+   Theme parity with the reader via the shared variable/theme files. */
+
+@import url('../theme/variables.css');
+@import url('../theme/light-theme.css');
+@import url('../theme/sepia-theme.css');
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--color-background, #221f20);
+  color: var(--color-text, #cbcccc);
+  font-family: system-ui, sans-serif;
+}
+
+/* Detail is a full-height three-pane app; the index scrolls normally. The ROOT
+   element must carry the height too — a percentage height resolves to `auto`
+   unless every ancestor up to <html> has a definite one (the journal-import
+   console's 8300px-pane bug). */
+html.hx-root-detail,
+body.hx-detail {
+  height: 100%;
+  overflow: hidden;
+}
+/* Flex column: the pane grid takes whatever the (wrappable) header leaves,
+   with no magic-number header height to drift out of date. */
+body.hx-detail {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ── */
+.hx-header {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 10px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+  flex-wrap: wrap;
+}
+.hx-header h1 {
+  margin: 0;
+  font-size: 1.05rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 32vw;
+}
+.hx-header-sub {
+  color: var(--color-text-faint, #888);
+  font-size: 0.85rem;
+}
+.hx-header-nav {
+  margin-left: auto;
+  display: flex;
+  gap: 14px;
+}
+.hx-header a {
+  color: var(--color-text-faint, #888);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+.hx-header a:hover {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+#hx-help-toggle {
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--color-text) 30%, transparent);
+  color: var(--color-text-faint, #888);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.hx-journal-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hx-journal-actions button,
+.hx-selected-actions button,
+.hx-list-head button,
+.hx-import-btn {
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--color-text) 28%, transparent);
+  color: var(--color-text);
+  border-radius: 5px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.hx-journal-actions button:hover,
+.hx-selected-actions button:hover,
+.hx-list-head button:hover,
+.hx-import-btn:hover {
+  border-color: var(--hyperlit-aqua, #4eacae);
+}
+.hx-journal-actions button:disabled,
+.hx-selected-actions button:disabled,
+.hx-import-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.hx-auto-approve,
+.hx-chk {
+  font-size: 0.75rem;
+  color: var(--color-text-faint, #888);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.hx-actions-status {
+  font-size: 0.75rem;
+  color: var(--color-text-faint, #888);
+}
+
+/* ── Tabs ── */
+.hx-tabs {
+  display: flex;
+  gap: 4px;
+}
+.hx-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-faint, #888);
+  font-size: 0.85rem;
+  font-family: inherit;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.hx-tab-active {
+  color: var(--color-text);
+  border-bottom-color: var(--hyperlit-aqua, #4eacae);
+}
+
+/* ── Index ── */
+.hx-index-main {
+  max-width: 860px;
+  margin: 24px auto;
+  padding: 0 18px;
+}
+.hx-journal-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  text-decoration: none;
+  color: var(--color-text);
+}
+.hx-journal-row:hover {
+  border-color: var(--hyperlit-aqua, #4eacae);
+}
+.hx-journal-row .hx-jname {
+  font-weight: 600;
+  flex: 1;
+}
+.hx-journal-row .hx-jcounts {
+  font-size: 0.8rem;
+  color: var(--color-text-faint, #888);
+  white-space: nowrap;
+}
+
+/* ── Detail: three panes ── */
+.hx-columns {
+  display: grid;
+  grid-template-columns: 380px 1fr 1fr;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+}
+.hx-list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+#hx-candidates-tab,
+#hx-mostcited-tab {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+#hx-candidates-tab[hidden],
+#hx-mostcited-tab[hidden] {
+  display: none;
+}
+.hx-list-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  color: var(--color-text-faint, #888);
+}
+.hx-list-head span {
+  flex: 1;
+}
+.hx-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 8px;
+  flex-wrap: wrap;
+}
+.hx-filters select {
+  background: var(--color-background, #221f20);
+  color: var(--color-text);
+  border: 1px solid color-mix(in srgb, var(--color-text) 25%, transparent);
+  border-radius: 5px;
+  font-size: 0.75rem;
+  padding: 2px 4px;
+}
+#hx-candidates-list,
+#hx-external-list,
+#hx-internal-list {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+#hx-external-list,
+#hx-internal-list {
+  flex: none;
+  max-height: 40%;
+}
+.hx-mostcited-note {
+  font-size: 0.75rem;
+  color: var(--color-text-faint, #888);
+  padding: 0 12px;
+  margin: 4px 0 8px;
+}
+.hx-group-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-faint, #888);
+  margin: 10px 12px 4px;
+}
+
+/* Candidate rows, grouped by citing article */
+.hx-citing-group {
+  padding: 8px 12px 2px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-top: 1px solid color-mix(in srgb, var(--color-text) 10%, transparent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hx-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px 6px 18px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+.hx-row:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+}
+.hx-row.hx-row-selected {
+  border-left-color: var(--hyperlit-aqua, #4eacae);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+.hx-row .hx-row-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-faint, #999);
+}
+.hx-badge {
+  font-size: 0.66rem;
+  border: 1px solid color-mix(in srgb, var(--color-text) 25%, transparent);
+  border-radius: 4px;
+  padding: 0 4px;
+  white-space: nowrap;
+  color: var(--color-text-faint, #888);
+}
+.hx-badge-quote {
+  color: var(--hyperlit-aqua, #4eacae);
+  border-color: var(--hyperlit-aqua, #4eacae);
+}
+.hx-badge-applied {
+  color: #6fbf73;
+  border-color: #6fbf73;
+}
+.hx-badge-rejected,
+.hx-badge-failed {
+  color: #c96a6a;
+  border-color: #c96a6a;
+}
+
+/* Most-cited rows */
+.hx-mc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+}
+.hx-mc-row .hx-mc-count {
+  font-weight: 700;
+  min-width: 2ch;
+  text-align: right;
+}
+.hx-mc-row .hx-mc-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Selected candidate card */
+.hx-selected {
+  border-top: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  max-height: 38%;
+  overflow-y: auto;
+}
+.hx-selected-meta {
+  color: var(--color-text-faint, #888);
+  margin-bottom: 6px;
+}
+.hx-selected-quote {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--hyperlit-aqua, #4eacae);
+  font-style: italic;
+  max-height: 9em;
+  overflow-y: auto;
+}
+.hx-selected-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Panes */
+.hx-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+.hx-pane:last-child {
+  border-right: none;
+}
+.hx-pane-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-faint, #888);
+  padding: 5px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 10%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hx-pane iframe {
+  border: none;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  background: transparent;
+}
+.hx-pane-placeholder {
+  position: absolute;
+  inset: 30px 0 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-faint, #666);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+.hx-pane-placeholder[hidden] {
+  display: none;
+}
+
+.hx-empty {
+  padding: 14px;
+  color: var(--color-text-faint, #888);
+  font-size: 0.85rem;
+}
+
+/* ── Help panel ── */
+.hx-help-panel {
+  position: fixed;
+  top: 54px;
+  right: 12px;
+  width: 460px;
+  max-width: calc(100vw - 24px);
+  max-height: 75vh;
+  overflow-y: auto;
+  background: color-mix(in srgb, var(--color-background) 94%, var(--color-text));
+  border: 1px solid color-mix(in srgb, var(--color-text) 22%, transparent);
+  border-radius: 8px;
+  padding: 12px 16px;
+  z-index: 1004;
+  font-size: 0.82rem;
+}
+.hx-help-panel h2 {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  margin: 0 0 8px;
+}
+.hx-help-panel button {
+  background: none;
+  border: none;
+  color: var(--color-text-faint, #888);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.hx-help-panel li {
+  margin-bottom: 6px;
+}
+.hx-help-doc {
+  color: var(--color-text-faint, #888);
+}

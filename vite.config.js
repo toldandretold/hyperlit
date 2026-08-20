@@ -165,6 +165,10 @@ export default defineConfig({
                 // Journal import console (standalone, non-SPA, admin-only — /maintainer/journal-import)
                 'resources/css/pages/maintainer-journal-import.css',
                 'resources/js/maintainerJournalImport/main.ts',
+
+                // Hypercite review console (standalone, non-SPA, admin-only — /maintainer/hypercites)
+                'resources/css/pages/maintainer-hypercites.css',
+                'resources/js/maintainerHypercites/main.ts',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],
