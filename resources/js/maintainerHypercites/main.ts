@@ -257,7 +257,7 @@ function initDetail(boot: ConsoleBoot): void {
       const m = document.createElement('span');
       m.className = 'hx-badge';
       m.textContent = c.match_method === 'fts_fuzzy'
-        ? `fuzzy ${Math.round((c.match_score ?? 0) * 100)}%`
+        ? `fuzzy ${Math.round(Number(c.match_score ?? 0) * 100)}%`
         : c.match_method + ((c.match_occurrences ?? 1) > 1 ? ` ×${c.match_occurrences}` : '');
       row.appendChild(m);
     }
@@ -314,14 +314,14 @@ function initDetail(boot: ConsoleBoot): void {
       r.classList.toggle('hx-row-selected', (r as HTMLElement).dataset.id === c.id));
 
     // Hash targets must be what the reader's resolver understands: a NUMERIC
-    // startLine (the node's DOM id) or a hypercite_ id — a data-node-id
-    // resolves to nothing and the pane would open at the top of the book.
-    // Applied rows deep-link the citing pane to the ↗ anchor itself.
-    // forcePanes reloads even under an unchanged URL — approve/revert just
-    // changed the citing book's CONTENT (the ↗), not its URL.
-    const citingTarget = (c.status === 'applied' && c.anchor_id)
-      ? c.anchor_id
-      : (c.citing_start_line !== null ? String(c.citing_start_line) : null);
+    // startLine (the node's DOM id) or a REAL hypercite record's id — a
+    // data-node-id resolves to nothing, and the citing-side ↗ anchor id is a
+    // plain <a id>, NOT a hypercite record: hypercite_-prefixed hashes route
+    // into store lookups + fetch-on-demand that can never resolve it (flaked
+    // the e2e). So the citing pane always targets the paragraph's startLine —
+    // the ↗ is right there. forcePanes reloads even under an unchanged URL:
+    // approve/revert changed the citing book's CONTENT, not its URL.
+    const citingTarget = c.citing_start_line !== null ? String(c.citing_start_line) : null;
     citingPane.show(c.citing_book, citingTarget, `citing — ${c.citing_title ?? c.citing_book}`, citingMarks(c), forcePanes);
     const citedTarget = c.status === 'applied' && c.hypercite_id
       ? c.hypercite_id
@@ -339,7 +339,10 @@ function initDetail(boot: ConsoleBoot): void {
     const bits = [
       `ref ${c.reference_id}`,
       c.is_internal ? 'internal' : 'external',
-      c.match_method ? `${c.match_method} ${(c.match_score ?? 0).toFixed(2)}` : null,
+      // Number() first: Postgres floats arrive as STRINGS through PDO/JSON,
+      // and "1".toFixed throws — which silently killed select() right here,
+      // leaving the revert button permanently hidden (caught by the e2e spec).
+      c.match_method ? `${c.match_method} ${Number(c.match_score ?? 0).toFixed(2)}` : null,
       (c.match_occurrences ?? 0) > 1 ? `${c.match_occurrences} occurrences — check it's the right one` : null,
       c.error,
     ].filter(Boolean);
@@ -351,8 +354,16 @@ function initDetail(boot: ConsoleBoot): void {
     approve.title = c.status === 'matched'
       ? 'Mint the hypercite'
       : `Not appliable from status "${c.status}"${c.has_quote ? '' : ' — no quote was detected'}`;
+    // Mirror approve's pattern: always VISIBLE, disabled when inapplicable —
+    // a button that only exists in one state is a button nobody can find.
     const revert = el<HTMLButtonElement>('hx-revert');
-    if (revert) revert.hidden = c.status !== 'applied';
+    if (revert) {
+      revert.hidden = false;
+      revert.disabled = c.status !== 'applied';
+      revert.title = c.status === 'applied'
+        ? 'Undo this hypercite: the ↗ is removed from the citing article and the link deleted; the candidate returns to matched.'
+        : 'Only an applied hypercite can be reverted — select one under “applied hypercites”.';
+    }
     if (status) status.textContent = '';
   }
 

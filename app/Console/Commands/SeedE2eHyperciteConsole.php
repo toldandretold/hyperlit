@@ -1,0 +1,203 @@
+<?php
+
+namespace App\Console\Commands;
+
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+/**
+ * Seed (and RESET) the fixture the /maintainer/hypercites e2e spec drives:
+ * a journal with a citing article and a cited article, both held, plus a
+ * `matched` hypercite candidate between them — the exact shape a detect run
+ * produces, so the spec can exercise the whole review loop (select → marks →
+ * approve → applied section → reload → revert) against real books in the
+ * real reader. Also promotes the e2e user to admin: the console 404s for
+ * everyone else.
+ *
+ * Idempotent AND destructive-by-design for its own fixtures: every run wipes
+ * the previous run's hypercites/candidates and restores the node content, so
+ * a spec that died mid-approve can't poison the next run.
+ */
+class SeedE2eHyperciteConsole extends Command
+{
+    protected $signature = 'e2e:seed-hypercite-console {--email= : e2e user email (default: E2E_USER_EMAIL or what@na.com)}';
+
+    protected $description = 'Seed the journal + candidate fixture for the /maintainer/hypercites e2e spec (idempotent)';
+
+    public const JOURNAL_SLUG = 'e2e-hypercite-journal';
+    public const CITING_BOOK = 'book_e2e_hxc_citing';
+    public const CITED_BOOK = 'book_e2e_hxc_cited';
+    public const QUOTE = 'the dominance of the global north with respect to agenda setting in partnerships';
+
+    public function handle(): int
+    {
+        $email = $this->option('email') ?: env('E2E_USER_EMAIL', 'what@na.com');
+        $admin = DB::connection('pgsql_admin');
+
+        $user = $admin->table('users')->where('email', $email)->first();
+        if (! $user) {
+            $this->error("No user with email {$email} — create the e2e user first (see tests/e2e/README.md).");
+
+            return self::FAILURE;
+        }
+
+        // The console is admin-gated; the e2e session must clear it.
+        if (! ($user->is_admin ?? false)) {
+            $admin->table('users')->where('id', $user->id)->update(['is_admin' => true]);
+            $this->line("Promoted {$email} to admin (console gate).");
+        }
+
+        // ── Wipe the previous run's artifacts ──
+        $admin->table('hypercite_candidates')->whereIn('citing_book', [self::CITING_BOOK])->delete();
+        $admin->table('hypercites')->where('book', self::CITED_BOOK)->delete();
+        $admin->table('nodes')->whereIn('book', [self::CITING_BOOK, self::CITED_BOOK])->delete();
+        $admin->table('bibliography')->whereIn('book', [self::CITING_BOOK, self::CITED_BOOK])->delete();
+
+        // ── Journal ──
+        $journalId = $admin->table('journal_sources')->where('slug', self::JOURNAL_SLUG)->value('id');
+        if (! $journalId) {
+            $journalId = (string) Str::uuid();
+            $admin->table('journal_sources')->insert([
+                'id'                 => $journalId,
+                'openalex_source_id' => 'SE2EHXC',
+                'display_name'       => 'E2E Hypercite Journal',
+                'publisher'          => 'E2E Press',
+                'slug'               => self::JOURNAL_SLUG,
+                'is_diamond'         => true,
+                'created_at'         => now(),
+                'updated_at'         => now(),
+            ]);
+        }
+
+        // ── Two held works ──
+        $citingCanonical = $this->work($admin, $user, $journalId, self::CITING_BOOK, 'E2E Citing Article');
+        $citedCanonical = $this->work($admin, $user, $journalId, self::CITED_BOOK, 'E2E Cited Article');
+
+        // Citing node: quote + Flint-style bracketed marker WITH page number —
+        // the shape that regressed on prod ((Flint et al, 2022:↗ 81)).
+        $quote = self::QUOTE;
+        $citingNode = self::CITING_BOOK . '_n1';
+        $citingHtml = '<p id="1" data-node-id="' . $citingNode . '">The requirement compounds "'
+            . $quote . '" (<a href="#flint2022" class="in-text-citation">Flint et al, 2022</a>: 81). During one FGD it was said.</p>';
+        $this->node($admin, self::CITING_BOOK, $citingNode, 1, $citingHtml);
+
+        $citedNode = self::CITED_BOOK . '_n5';
+        $citedHtml = '<p id="5" data-node-id="' . $citedNode . '">One criticism is '
+            . $quote . ' and its feedback loops.</p>';
+        $this->node($admin, self::CITED_BOOK, $citedNode, 5, $citedHtml);
+
+        $admin->table('bibliography')->insert([
+            'book'                => self::CITING_BOOK,
+            'referenceId'         => 'flint2022',
+            'content'             => 'Flint, A. et al (2022) E2E Cited Article.',
+            'canonical_source_id' => $citedCanonical,
+            'match_method'        => 'doi',
+            'created_at'          => now(),
+            'updated_at'          => now(),
+        ]);
+
+        // ── The matched candidate, exactly as CandidateDetector writes it ──
+        $plainCiting = html_entity_decode(strip_tags($citingHtml), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $plainCited = html_entity_decode(strip_tags($citedHtml), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $markerOffset = mb_strlen(html_entity_decode(
+            strip_tags(substr($citingHtml, 0, (int) strpos($citingHtml, '<a href="#flint2022"'))),
+            ENT_QUOTES | ENT_HTML5,
+            'UTF-8'
+        ));
+        $charStart = mb_strpos($plainCited, $quote);
+
+        $admin->table('hypercite_candidates')->insert([
+            'id'                         => (string) Str::uuid(),
+            'journal_source_id'          => $journalId,
+            'citing_canonical_source_id' => $citingCanonical,
+            'cited_canonical_source_id'  => $citedCanonical,
+            'citing_book'                => self::CITING_BOOK,
+            'cited_book'                 => self::CITED_BOOK,
+            'is_internal'                => true,
+            'reference_id'               => 'flint2022',
+            'occurrence_index'           => 0,
+            'citing_node_id'             => $citingNode,
+            'marker_offset'              => $markerOffset,
+            'claim_start'                => 0,
+            'claim_end'                  => mb_strlen($plainCiting),
+            'has_quote'                  => true,
+            'quote_kind'                 => 'inline',
+            'quote_text'                 => $quote,
+            'quote_node_id'              => $citingNode,
+            'citing_content_hash'        => sha1($citingHtml),
+            'match_node_ids'             => json_encode([$citedNode]),
+            'match_char_data'            => json_encode([
+                $citedNode => ['charStart' => $charStart, 'charEnd' => $charStart + mb_strlen($quote)],
+            ]),
+            'match_method'               => 'exact',
+            'match_score'                => 1.0,
+            'match_occurrences'          => 1,
+            'cited_content_hash'         => sha1($citedHtml),
+            'status'                     => 'matched',
+            'created_at'                 => now(),
+            'updated_at'                 => now(),
+        ]);
+
+        $this->info('Seeded /maintainer/hypercites/' . self::JOURNAL_SLUG
+            . ' with one matched candidate (' . self::CITING_BOOK . ' → ' . self::CITED_BOOK . ').');
+
+        return self::SUCCESS;
+    }
+
+    /** Upsert a canonical + held public version book; returns the canonical id. */
+    private function work($admin, object $user, string $journalId, string $book, string $title): string
+    {
+        $canonicalId = $admin->table('library')->where('book', $book)->value('canonical_source_id');
+
+        if (! $canonicalId) {
+            $canonicalId = (string) Str::uuid();
+            $admin->table('canonical_source')->insert([
+                'id'                => $canonicalId,
+                'title'             => $title,
+                'journal_source_id' => $journalId,
+                'is_oa'             => true,
+                'auto_version_book' => $book,
+                'created_at'        => now(),
+                'updated_at'        => now(),
+            ]);
+        }
+
+        $existing = $admin->table('library')->where('book', $book)->exists();
+        $row = [
+            'title'               => $title,
+            'author'              => 'E2E Fixtures',
+            'creator'             => $user->name,
+            'creator_token'       => $user->user_token,
+            'visibility'          => 'public',
+            'listed'              => false,
+            'has_nodes'           => true,
+            'type'                => 'book',
+            'raw_json'            => '[]',
+            'timestamp'           => (int) round(microtime(true) * 1000),
+            'canonical_source_id' => $canonicalId,
+        ];
+        if ($existing) {
+            $admin->table('library')->where('book', $book)->update($row);
+        } else {
+            $admin->table('library')->insert($row + ['book' => $book, 'created_at' => now()]);
+        }
+
+        return $canonicalId;
+    }
+
+    private function node($admin, string $book, string $nodeId, int $line, string $html): void
+    {
+        $admin->table('nodes')->insert([
+            'book'       => $book,
+            'node_id'    => $nodeId,
+            'chunk_id'   => 1,
+            'startLine'  => $line,
+            'content'    => $html,
+            'plainText'  => strip_tags($html),
+            'type'       => 'p',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+}

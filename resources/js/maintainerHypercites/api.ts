@@ -55,7 +55,7 @@ export interface Candidate {
   match_node_ids: string[] | null;
   match_char_data: Record<string, { charStart: number; charEnd: number }> | null;
   match_method: 'exact' | 'normalized' | 'fts_fuzzy' | null;
-  match_score: number | null;
+  match_score: number | string | null; // Postgres floats arrive as strings via PDO
   match_occurrences: number | null;
   hypercite_id: string | null;
   anchor_id: string | null; // the citing-side ↗ element id, applied rows only
