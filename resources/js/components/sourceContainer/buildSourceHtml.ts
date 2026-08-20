@@ -56,7 +56,13 @@ export async function buildSourceHtml(currentBookId: any): Promise<string> {
 
   // If no bibtex exists, generate one from available record data
   if (!bibtex && record) {
-    const year = new Date(record.timestamp ?? Date.now()).getFullYear();
+    // PUBLICATION year lives in the `year` column (harvested rows carry it from
+    // the canonical; journal:sync-shelves heals it). `timestamp` is the SYNC
+    // clock — it bumps on every content write, so deriving the year from it
+    // stamped auto-imported articles with the year they were last touched
+    // (GSCJ's 2022 articles all read "(2026)"). Timestamp-year survives only
+    // as the last resort for rows with no year at all.
+    const year = record.year ?? new Date(record.timestamp ?? Date.now()).getFullYear();
     // DOI first — it's the citation link of record and it always resolves. `oa_url`/`pdf_url` are
     // wherever the harvester happened to find a copy (Bristol's `/downloadpdf/…` deep links 403 on
     // a click), and every canonicalizer-minted row has `url` NULL, so the old chain landed on the
