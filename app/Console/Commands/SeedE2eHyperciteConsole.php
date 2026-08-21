@@ -30,6 +30,14 @@ class SeedE2eHyperciteConsole extends Command
     public const CITED_BOOK = 'book_e2e_hxc_cited';
     public const QUOTE = 'the dominance of the global north with respect to agenda setting in partnerships';
 
+    /**
+     * Extra citing books (each with one candidate against CITED_BOOK) so the
+     * list has several rows to WALK — the click-down-the-list e2e needs
+     * multiple pane loads in sequence. Named to sort AFTER the primary book,
+     * keeping "first row" stable for the approve/revert tests.
+     */
+    public const EXTRA_CITING = ['book_e2e_hxc_citing2', 'book_e2e_hxc_citing3', 'book_e2e_hxc_citing4'];
+
     public function handle(): int
     {
         $email = $this->option('email') ?: env('E2E_USER_EMAIL', 'what@na.com');
@@ -49,10 +57,12 @@ class SeedE2eHyperciteConsole extends Command
         }
 
         // ── Wipe the previous run's artifacts ──
-        $admin->table('hypercite_candidates')->whereIn('citing_book', [self::CITING_BOOK])->delete();
+        $citingBooks = array_merge([self::CITING_BOOK], self::EXTRA_CITING);
+        $allBooks = array_merge($citingBooks, [self::CITED_BOOK]);
+        $admin->table('hypercite_candidates')->whereIn('citing_book', $citingBooks)->delete();
         $admin->table('hypercites')->where('book', self::CITED_BOOK)->delete();
-        $admin->table('nodes')->whereIn('book', [self::CITING_BOOK, self::CITED_BOOK])->delete();
-        $admin->table('bibliography')->whereIn('book', [self::CITING_BOOK, self::CITED_BOOK])->delete();
+        $admin->table('nodes')->whereIn('book', $allBooks)->delete();
+        $admin->table('bibliography')->whereIn('book', $allBooks)->delete();
 
         // ── Journal ──
         $journalId = $admin->table('journal_sources')->where('slug', self::JOURNAL_SLUG)->value('id');
@@ -70,7 +80,7 @@ class SeedE2eHyperciteConsole extends Command
             ]);
         }
 
-        // ── Two held works ──
+        // ── Held works: the primary citing/cited pair + extra citing books ──
         $citingCanonical = $this->work($admin, $user, $journalId, self::CITING_BOOK, 'E2E Citing Article');
         $citedCanonical = $this->work($admin, $user, $journalId, self::CITED_BOOK, 'E2E Cited Article');
 
@@ -139,8 +149,65 @@ class SeedE2eHyperciteConsole extends Command
             'updated_at'                 => now(),
         ]);
 
+        // ── Extra citing books, one matched candidate each (list-walking) ──
+        foreach (self::EXTRA_CITING as $i => $book) {
+            $n = $i + 2;
+            $extraCanonical = $this->work($admin, $user, $journalId, $book, "E2E Citing Article {$n}");
+            $nodeId = $book . '_n1';
+            $html = '<p id="1" data-node-id="' . $nodeId . '">Article ' . $n . ' also quotes "'
+                . $quote . '" (<a href="#flint2022" class="in-text-citation">Flint et al, 2022</a>: 81) in passing.</p>';
+            $this->node($admin, $book, $nodeId, 1, $html);
+            $admin->table('bibliography')->insert([
+                'book'                => $book,
+                'referenceId'         => 'flint2022',
+                'content'             => 'Flint, A. et al (2022) E2E Cited Article.',
+                'canonical_source_id' => $citedCanonical,
+                'match_method'        => 'doi',
+                'created_at'          => now(),
+                'updated_at'          => now(),
+            ]);
+            $extraPlain = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $extraMarker = mb_strlen(html_entity_decode(
+                strip_tags(substr($html, 0, (int) strpos($html, '<a href="#flint2022"'))),
+                ENT_QUOTES | ENT_HTML5,
+                'UTF-8'
+            ));
+            $admin->table('hypercite_candidates')->insert([
+                'id'                         => (string) Str::uuid(),
+                'journal_source_id'          => $journalId,
+                'citing_canonical_source_id' => $extraCanonical,
+                'cited_canonical_source_id'  => $citedCanonical,
+                'citing_book'                => $book,
+                'cited_book'                 => self::CITED_BOOK,
+                'is_internal'                => true,
+                'reference_id'               => 'flint2022',
+                'occurrence_index'           => 0,
+                'citing_node_id'             => $nodeId,
+                'marker_offset'              => $extraMarker,
+                'claim_start'                => 0,
+                'claim_end'                  => mb_strlen($extraPlain),
+                'has_quote'                  => true,
+                'quote_kind'                 => 'inline',
+                'quote_text'                 => $quote,
+                'quote_node_id'              => $nodeId,
+                'citing_content_hash'        => sha1($html),
+                'match_node_ids'             => json_encode([$citedNode]),
+                'match_char_data'            => json_encode([
+                    $citedNode => ['charStart' => $charStart, 'charEnd' => $charStart + mb_strlen($quote)],
+                ]),
+                'match_method'               => 'exact',
+                'match_score'                => 1.0,
+                'match_occurrences'          => 1,
+                'cited_content_hash'         => sha1($citedHtml),
+                'status'                     => 'matched',
+                'created_at'                 => now(),
+                'updated_at'                 => now(),
+            ]);
+        }
+
         $this->info('Seeded /maintainer/hypercites/' . self::JOURNAL_SLUG
-            . ' with one matched candidate (' . self::CITING_BOOK . ' → ' . self::CITED_BOOK . ').');
+            . ' with ' . (1 + count(self::EXTRA_CITING)) . ' matched candidates across '
+            . (1 + count(self::EXTRA_CITING)) . ' citing books → ' . self::CITED_BOOK . '.');
 
         return self::SUCCESS;
     }

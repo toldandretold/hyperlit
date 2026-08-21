@@ -94,18 +94,34 @@ export class ReaderPane {
       return;
     }
 
-    // The node exists but its text may still be re-rendered by annotation
-    // hydration a beat after chunk paint — one settling delay keeps the marks
-    // from being wiped by that pass.
-    window.setTimeout(() => {
-      if (this.current !== url) return;
+    // The node exists but the reader keeps re-rendering it for a while
+    // (annotation hydration, then a background content re-sync when the
+    // book's clock moved) — and every re-render WIPES injected marks. So
+    // marks are applied and then RE-applied whenever they disappear, for a
+    // grace window after load. Cheap check (one selector), self-limiting.
+    const applyAll = () => {
+      const liveDoc = this.frame.contentDocument;
+      if (!liveDoc) return;
       for (const spec of marks) {
         try {
-          this.applyOne(doc, spec);
+          this.applyOne(liveDoc, spec);
         } catch (err) {
           verbose.nav(`hypercites: mark failed for ${spec.nodeId}: ${String(err)}`, 'maintainerHypercites');
         }
       }
+    };
+
+    window.setTimeout(() => {
+      if (this.current !== url) return;
+      applyAll();
+      let checks = 0;
+      const keepAlive = () => {
+        if (this.current !== url || checks++ > 25) return; // ~20s grace
+        const liveDoc = this.frame.contentDocument;
+        if (liveDoc && !liveDoc.querySelector('[data-hx-mark]')) applyAll();
+        window.setTimeout(keepAlive, 800);
+      };
+      window.setTimeout(keepAlive, 800);
     }, 600);
   }
 

@@ -50,6 +50,54 @@ test.describe('hypercite console review loop', () => {
     await expect(page.locator('#hx-title')).toContainText('E2E Hypercite Journal');
   });
 
+  test('walking down the candidate list loads panes at every stop', async ({ page }) => {
+    // The live failure: clicking row after row, the panes go BLANK and stay
+    // blank. Reproduce it like a human — click each row at reading pace and
+    // require the CITING pane to actually render each citing book's node.
+    // Every frame error is captured so a failure names its cause.
+    const errors = [];
+    page.on('pageerror', (err) => errors.push(`[pageerror] ${String(err).slice(0, 300)}`));
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(`[console.error] ${msg.text().slice(0, 300)}`);
+    });
+
+    const rows = page.locator('#hx-candidates-list .hx-row');
+    await expect(rows.first()).toBeVisible(); // list is fetched async
+    const count = await rows.count();
+    expect(count).toBeGreaterThanOrEqual(4); // seeder provides 4 citing books
+
+    for (let i = 0; i < count; i++) {
+      await rows.nth(i).click();
+      await page.waitForTimeout(700); // human pace between clicks
+      // The citing pane must render SOMETHING for the selected candidate:
+      // its book's node carries the quote text in a <p> with a data-node-id.
+      const citing = page.frameLocator('#hx-citing');
+      try {
+        await expect(citing.locator('[data-node-id]').first()).toBeVisible({ timeout: 20000 });
+      } catch (err) {
+        throw new Error(
+          `pane blank after clicking row ${i + 1}/${count}.\nFrame errors so far:\n${errors.join('\n') || '(none captured)'}`,
+          { cause: err },
+        );
+      }
+    }
+
+    // And walk back UP fast (re-selections of already-visited books).
+    for (let i = count - 1; i >= 0; i--) {
+      await rows.nth(i).click();
+      await page.waitForTimeout(250);
+    }
+    const citing = page.frameLocator('#hx-citing');
+    try {
+      await expect(citing.locator('[data-node-id]').first()).toBeVisible({ timeout: 20000 });
+    } catch (err) {
+      throw new Error(
+        `pane blank after walking back up the list.\nFrame errors:\n${errors.join('\n') || '(none captured)'}`,
+        { cause: err },
+      );
+    }
+  });
+
   test('candidate selection marks the quote in both panes and arms approve', async ({ page }) => {
     const row = page.locator('#hx-candidates-list .hx-row').first();
     await expect(row).toBeVisible();
