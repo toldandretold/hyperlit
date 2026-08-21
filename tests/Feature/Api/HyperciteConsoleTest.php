@@ -384,6 +384,21 @@ test('the ↗ steps over a closing bracket, but not a space or a following tag',
     $content3 = hxDb()->table('nodes')->where('book', $fx3['citing']['book'])->value('content');
     expect($content3)->toContain('Flint et al, 2022</a>: 81).' . "\u{2060}" . '<a href="/' . $fx3['cited']['book'] . '#' . $body3['hyperciteId'] . '"');
 
+    // NARRATIVE citation — marker BEFORE the quote. The ↗ belongs after the
+    // quote's clause (closing mark + `(IMT)` + full stop), not beside the
+    // author's name at the head of the sentence.
+    $imtQuote = 'Inclusive Masculinity Theory and its liberal Western discourse';
+    $fx5 = hxSeedMatchedCandidate(
+        $journal,
+        ['quote_text' => $imtQuote],
+        '<p id="10" data-node-id="{node}"><a href="#ostrom1990" class="in-text-citation">Lawton-Westerland\'s (2026)</a>'
+            . ' article sets out a debate based on a critique of \'' . $imtQuote . '\' (IMT). He argues further.</p>'
+    );
+    $body5 = $this->postJson("/api/maintainer/hypercites/candidates/{$fx5['candidate_id']}/approve")->assertOk()->json();
+    $content5 = hxDb()->table('nodes')->where('book', $fx5['citing']['book'])->value('content');
+    expect($content5)->toContain('(IMT).' . "\u{2060}" . '<a href="/' . $fx5['cited']['book'] . '#' . $body5['hyperciteId'] . '"');
+    expect($content5)->toContain('(2026)</a> article sets out'); // marker left untouched
+
     // Semicolon co-citation with a second anchor in the same brackets → the
     // forward scan crosses the sibling tag and lands after the close.
     $fx4 = hxSeedMatchedCandidate($journal, [], '<p id="10" data-node-id="{node}">She wrote "'
@@ -728,6 +743,169 @@ test('the detector builds a matched, quote-bearing candidate from seeded article
         );
     expect(hxDb()->table('hypercite_candidates')->where('citing_book', $citing['book'])->count())->toBe(1);
     expect(hxDb()->table('hypercite_candidates')->where('id', $candidate->id)->value('status'))->toBe('rejected');
+});
+
+test('a quoted title containing a possessive plural is resolved against the cited text', function () {
+    // The GSCJ failure: single-quote house style makes `learners'` identical
+    // to a closing mark, so the quote was truncated mid-title. The cited
+    // article's own h1 is the disambiguator — detection must store the FULL
+    // title and locate it, not the truncated prefix.
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    $citing = hxSeedHeldWork($journal->id, 'HX Reform Article');
+    $cited = hxSeedHeldWork($journal->id, 'HX Nepal Article');
+
+    $title = "(Dis)connection between curriculum, pedagogy and learners' lived experience "
+        . "in Nepal's secondary schools: an environmental (in)justice perspective";
+    $truncated = '(Dis)connection between curriculum, pedagogy and learners';
+
+    hxSeedNode(
+        $citing['book'],
+        $citing['book'] . '_n1',
+        1,
+        '<p id="10" data-node-id="' . $citing['book'] . '_n1">In \'' . $title
+            . '\', for example, the authors (<a href="#paudel2024" class="in-text-citation">Paudel et al, 2024</a>) show the gap.</p>'
+    );
+    // The cited article carries the title as its h1 — exactly the shape the
+    // live corpus had.
+    hxSeedNode($cited['book'], $cited['book'] . '_h1', 1,
+        '<h1 id="1" data-node-id="' . $cited['book'] . '_h1">' . $title . '</h1>', 'h1');
+    hxSeedNode($cited['book'], $cited['book'] . '_n2', 2,
+        '<p id="2" data-node-id="' . $cited['book'] . '_n2">This paper offers a novel analysis of Nepal\'s provision.</p>');
+
+    hxDb()->table('bibliography')->insert([
+        'book'                => $citing['book'],
+        'referenceId'         => 'paudel2024',
+        'content'             => 'Paudel et al (2024) HX Nepal Article.',
+        'canonical_source_id' => $cited['canonical_id'],
+        'match_method'        => 'doi',
+        'created_at'          => now(),
+        'updated_at'          => now(),
+    ]);
+    hxDb()->table('bibliography')->insert([
+        'book'         => $cited['book'],
+        'referenceId'  => 'placeholder',
+        'content'      => 'placeholder',
+        'match_method' => 'no_match',
+        'created_at'   => now(),
+        'updated_at'   => now(),
+    ]);
+
+    $runId = (string) Str::uuid();
+    hxDb()->table('hypercite_runs')->insert([
+        'id'                => $runId,
+        'journal_source_id' => $journal->id,
+        'action'            => 'detect',
+        'status'            => 'running',
+        'counts'            => '{}',
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ]);
+
+    app(\App\Services\Hypercites\CandidateDetector::class)
+        ->detect(
+            \App\Services\Hypercites\DetectionScope::forJournal(\App\Models\JournalSource::find($journal->id)),
+            $runId,
+        );
+
+    $candidate = hxDb()->table('hypercite_candidates')
+        ->where('citing_book', $citing['book'])
+        ->where('reference_id', 'paudel2024')
+        ->first();
+
+    expect($candidate)->not->toBeNull();
+    expect($candidate->status)->toBe('matched');
+    expect($candidate->quote_text)->toBe($title);          // NOT the truncated prefix
+    expect($candidate->quote_text)->not->toBe($truncated);
+    expect($candidate->match_method)->toBe('exact');
+    expect(json_decode($candidate->match_node_ids, true))->toBe([$cited['book'] . '_h1']);
+
+    // The stored span covers the whole title in the cited h1.
+    $span = json_decode($candidate->match_char_data, true)[$cited['book'] . '_h1'];
+    $citedPlain = hxDb()->table('nodes')->where('book', $cited['book'])
+        ->where('node_id', $cited['book'] . '_h1')->value('plainText');
+    expect(mb_substr($citedPlain, $span['charStart'], $span['charEnd'] - $span['charStart']))->toBe($title);
+});
+
+test('a quote is not attributed to a later citation whose own text repeats it', function () {
+    // The GSCJ mis-pairing: the citing paragraph quotes Mehta and cites
+    // Srivastava later in the same sentence. Srivastava's article ALSO quotes
+    // Mehta, so the text matched there — producing a hypercite claiming the
+    // words came from Srivastava. Both cited works are held here, so the only
+    // thing that can separate them is WHICH marker attributes the quote.
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    $citing = hxSeedHeldWork($journal->id, 'HX Transformative Environments');
+    $mehta = hxSeedHeldWork($journal->id, 'HX Transformation as Praxis');       // the true source
+    $srivastava = hxSeedHeldWork($journal->id, 'HX Praxis of Transformation');  // quotes Mehta too
+
+    $quote = 'reflexive process involving both a critique of the existing social '
+        . 'arrangements/status quo and the search for alternatives';
+
+    hxSeedNode(
+        $citing['book'],
+        $citing['book'] . '_n1',
+        1,
+        '<p id="10" data-node-id="' . $citing['book'] . '_n1">In TAPESTRY, praxis is understood as a \''
+            . $quote . '\' (<a href="#mehta2021" class="in-text-citation">Mehta et al, 2021a</a>: 112). '
+            . 'The articles in this collection (especially <a href="#srivastava2026" class="in-text-citation">Srivastava et al, 2026</a>) unpack the dynamics.</p>'
+    );
+
+    // Both cited books contain the quote — Mehta as its author, Srivastava as
+    // a quoter of Mehta.
+    hxSeedNode($mehta['book'], $mehta['book'] . '_n1', 1,
+        '<p id="1" data-node-id="' . $mehta['book'] . '_n1">We define praxis as a ' . $quote . ' in this project.</p>');
+    hxSeedNode($srivastava['book'], $srivastava['book'] . '_n1', 1,
+        '<p id="1" data-node-id="' . $srivastava['book'] . '_n1">Mehta et al describe praxis as \'a ' . $quote . '\' (2021a).</p>');
+
+    foreach ([['mehta2021', $mehta], ['srivastava2026', $srivastava]] as [$refId, $work]) {
+        hxDb()->table('bibliography')->insert([
+            'book'                => $citing['book'],
+            'referenceId'         => $refId,
+            'content'             => 'HX ref ' . $refId,
+            'canonical_source_id' => $work['canonical_id'],
+            'match_method'        => 'doi',
+            'created_at'          => now(),
+            'updated_at'          => now(),
+        ]);
+    }
+    foreach ([$mehta['book'], $srivastava['book']] as $book) {
+        hxDb()->table('bibliography')->insert([
+            'book' => $book, 'referenceId' => 'placeholder', 'content' => 'placeholder',
+            'match_method' => 'no_match', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    $runId = (string) Str::uuid();
+    hxDb()->table('hypercite_runs')->insert([
+        'id' => $runId, 'journal_source_id' => $journal->id, 'action' => 'detect',
+        'status' => 'running', 'counts' => '{}', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    app(\App\Services\Hypercites\CandidateDetector::class)
+        ->detect(
+            \App\Services\Hypercites\DetectionScope::forJournal(\App\Models\JournalSource::find($journal->id)),
+            $runId,
+        );
+
+    // Mehta — the attributing citation — owns the quote and matches.
+    $mehtaCandidate = hxDb()->table('hypercite_candidates')
+        ->where('citing_book', $citing['book'])->where('reference_id', 'mehta2021')->first();
+    expect($mehtaCandidate)->not->toBeNull();
+    expect((bool) $mehtaCandidate->has_quote)->toBeTrue();
+    expect($mehtaCandidate->status)->toBe('matched');
+    expect($mehtaCandidate->cited_book)->toBe($mehta['book']);
+
+    // Srivastava — cited later, and their article repeats the same words —
+    // gets NO quote, so it can never be minted as a quote hypercite.
+    $srivastavaCandidate = hxDb()->table('hypercite_candidates')
+        ->where('citing_book', $citing['book'])->where('reference_id', 'srivastava2026')->first();
+    expect($srivastavaCandidate)->not->toBeNull();
+    expect((bool) $srivastavaCandidate->has_quote)->toBeFalse();
+    expect($srivastavaCandidate->status)->toBe('pending');
+    expect($srivastavaCandidate->quote_text)->toBeNull();
 });
 
 // ── Shelf scopes: a public shelf reuses the whole pipeline ──

@@ -23,6 +23,13 @@ use App\Services\Annotations\AnnotationReattachmentService;
  */
 class QuoteDetector
 {
+    /**
+     * How many closing marks one single-quoted span may offer as alternative
+     * readings (see detectInline). Bounds the scan; three covers a title with
+     * two possessive plurals inside it.
+     */
+    private const MAX_CANDIDATES = 3;
+
     private const OPEN_MARKS = ["\u{201C}", '"', "\u{2018}", "'"];
     private const CLOSE_FOR = [
         "\u{201C}" => "\u{201D}",
@@ -34,37 +41,94 @@ class QuoteDetector
     /**
      * Find the quote (if any) belonging to a citation marker.
      *
+     * `text` is the best single reading (the closer NEAREST the marker) and is
+     * what gets stored when nothing can be verified. `candidates` holds every
+     * plausible reading, LONGEST FIRST, for the caller to resolve against the
+     * cited text — see detectInline for why a single reading is not enough.
+     *
      * @param string $plainText   the citing node's decoded plainText
      * @param int    $markerOffset char offset of the citation marker in $plainText
      * @param array{node_id:string, plainText:string, is_blockquote:bool} $node       the citing node
      * @param ?array{node_id:string, plainText:string, is_blockquote:bool} $prevNode
      * @param ?array{node_id:string, plainText:string, is_blockquote:bool} $nextNode
-     * @return ?array{kind:string, text:string, node_id:string}
+     * @param int[] $markerOffsets EVERY citation-marker offset in the node,
+     *        this one included. A quote belongs to the citation that
+     *        attributes it, and only that one — see spanOwner.
+     * @return ?array{kind:string, text:string, node_id:string, candidates:string[]}
      */
-    public function detect(string $plainText, int $markerOffset, array $node, ?array $prevNode, ?array $nextNode): ?array
-    {
-        $inline = $this->detectInline($plainText, $markerOffset);
-        if ($inline !== null) {
-            return ['kind' => 'inline', 'text' => $inline, 'node_id' => $node['node_id']];
+    public function detect(
+        string $plainText,
+        int $markerOffset,
+        array $node,
+        ?array $prevNode,
+        ?array $nextNode,
+        array $markerOffsets = [],
+    ): ?array {
+        // Our own marker always counts, whether the caller passed "all
+        // markers" or only the others (and an empty list means "just me" —
+        // no competition, so ownership can't spuriously reject).
+        $markerOffsets = array_values(array_unique(array_merge($markerOffsets, [$markerOffset])));
+
+        $spans = $this->detectInline($plainText, $markerOffset, $markerOffsets);
+        if ($spans !== []) {
+            // Fallback reading: closer nearest the marker (what a single-pass
+            // scanner picks). Candidates: longest first — a longer span that
+            // appears verbatim in the source is strictly better evidence than
+            // its own prefix.
+            $byDistance = $spans;
+            usort($byDistance, fn ($a, $b) => $a['distance'] <=> $b['distance']);
+            $primary = $byDistance[0]['text'];
+
+            $byLength = $spans;
+            usort($byLength, fn ($a, $b) => $b['len'] <=> $a['len']);
+            $candidates = [];
+            foreach ($byLength as $span) {
+                if (! in_array($span['text'], $candidates, true)) {
+                    $candidates[] = $span['text'];
+                }
+            }
+            $candidates = array_slice($candidates, 0, self::MAX_CANDIDATES);
+            if (! in_array($primary, $candidates, true)) {
+                $candidates[] = $primary;
+            }
+
+            return [
+                'kind'       => 'inline',
+                'text'       => $primary,
+                'node_id'    => $node['node_id'],
+                'candidates' => $candidates,
+            ];
         }
 
         // Blockquote attribution, nearest-first: the marker's own node, then ±1.
         if ($node['is_blockquote']) {
-            return ['kind' => 'blockquote', 'text' => trim($plainText), 'node_id' => $node['node_id']];
+            return $this->blockquote(trim($plainText), $node['node_id']);
         }
 
         // Marker in the first sentence of the node AFTER a blockquote → the
         // blockquote is the quote ("…quote…\n(Author 2020) argues that…" is rare;
         // the common shape is quote then attribution, so prev wins over next).
-        if ($prevNode && $prevNode['is_blockquote'] && $this->inFirstSentence($plainText, $markerOffset)) {
-            return ['kind' => 'blockquote', 'text' => trim($prevNode['plainText']), 'node_id' => $prevNode['node_id']];
+        // Only the FIRST marker of that sentence may claim it: in "…(see A
+        // 2020), unlike B (2021)" the block belongs to A.
+        if ($prevNode && $prevNode['is_blockquote']
+            && $this->inFirstSentence($plainText, $markerOffset)
+            && ! $this->hasMarkerBefore($markerOffsets, $markerOffset)) {
+            return $this->blockquote(trim($prevNode['plainText']), $prevNode['node_id']);
         }
 
-        if ($nextNode && $nextNode['is_blockquote'] && $this->inLastSentence($plainText, $markerOffset)) {
-            return ['kind' => 'blockquote', 'text' => trim($nextNode['plainText']), 'node_id' => $nextNode['node_id']];
+        if ($nextNode && $nextNode['is_blockquote']
+            && $this->inLastSentence($plainText, $markerOffset)
+            && ! $this->hasMarkerAfter($markerOffsets, $markerOffset)) {
+            return $this->blockquote(trim($nextNode['plainText']), $nextNode['node_id']);
         }
 
         return null;
+    }
+
+    /** @return array{kind:string, text:string, node_id:string, candidates:string[]} */
+    private function blockquote(string $text, string $nodeId): array
+    {
+        return ['kind' => 'blockquote', 'text' => $text, 'node_id' => $nodeId, 'candidates' => [$text]];
     }
 
     /**
@@ -87,11 +151,30 @@ class QuoteDetector
     }
 
     /**
-     * Nearest paired quoted span whose closing mark is within the configured
-     * gap of the marker, at least the configured normalized length, and inside
-     * the claim sentence. Returns the inner text (marks stripped) or null.
+     * Every plausible paired quoted span whose closing mark is within the
+     * configured gap of the marker and at least the configured normalized
+     * length — inner text, marks stripped.
+     *
+     * WHY A LIST, not a single answer: in single-quote house styles (this is
+     * the British-journal norm) a possessive plural is character-identical to
+     * a closing quote. In
+     *
+     *   In '(Dis)connection between curriculum, pedagogy and learners' lived
+     *   experience in Nepal's secondary schools: an … perspective', …
+     *
+     * the apostrophe after `learners` is followed by a space, exactly like the
+     * real closer after `perspective` — so a first-closer-wins scan truncates
+     * the quote mid-title. (`Nepal's` is safe: a letter follows, so it is
+     * rejected as a closer.) No amount of local text analysis settles this;
+     * the disambiguator is the CITED DOCUMENT, which the caller already has —
+     * it tries these candidates longest-first and keeps whichever actually
+     * appears in the source. Double-quote spans are unambiguous, so they still
+     * stop at their first closer.
+     *
+     * @param int[] $markerOffsets every citation-marker offset in the node
+     * @return array<int, array{text:string, distance:int, len:int}>
      */
-    private function detectInline(string $plainText, int $markerOffset): ?string
+    private function detectInline(string $plainText, int $markerOffset, array $markerOffsets = []): array
     {
         [$sentStart, $sentEnd] = $this->sentenceBounds($plainText, $markerOffset);
         $maxGap = (int) config('hypercites.max_quote_marker_gap', 300);
@@ -105,7 +188,7 @@ class QuoteDetector
         $scanEnd = min(mb_strlen($plainText), max($sentEnd, $markerOffset));
         $window = mb_substr($plainText, $scanStart, $scanEnd - $scanStart);
 
-        $best = null;      // [distance to marker, innerText]
+        $spans = [];
         $chars = mb_str_split($window);
         $n = count($chars);
 
@@ -120,28 +203,109 @@ class QuoteDetector
                 continue;
             }
             $close = self::CLOSE_FOR[$open];
+            $singleQuoted = in_array($close, ["'", "\u{2019}"], true);
+            $closersSeen = 0;
+
             for ($j = $i + 1; $j < $n; $j++) {
                 if ($chars[$j] !== $close) {
                     continue;
                 }
-                // An apostrophe inside a '-quoted span is a closer only at a word end.
-                if ($close === "'" && $j + 1 < $n && preg_match('/[\p{L}\p{N}]/u', $chars[$j + 1])) {
+                // An apostrophe inside a single-quoted span is a closer only at
+                // a word END — `Nepal's` can never close, `learners'` can.
+                if ($singleQuoted && $j + 1 < $n && preg_match('/[\p{L}\p{N}]/u', $chars[$j + 1])) {
                     continue;
                 }
                 $inner = implode('', array_slice($chars, $i + 1, $j - $i - 1));
                 $normLen = mb_strlen(AnnotationReattachmentService::normalize($inner)['text']);
-                if ($normLen >= $minChars) {
-                    $closeAbs = $scanStart + $j;
-                    $distance = abs($markerOffset - $closeAbs);
-                    if ($distance <= $maxGap && ($best === null || $distance < $best[0])) {
-                        $best = [$distance, trim($inner)];
-                    }
+                $openAbs = $scanStart + $i;
+                $closeAbs = $scanStart + $j;
+                $distance = abs($markerOffset - $closeAbs);
+                if ($normLen >= $minChars
+                    && $distance <= $maxGap
+                    && $this->spanOwner($markerOffsets, $openAbs, $closeAbs, $maxGap) === $markerOffset) {
+                    $spans[] = ['text' => trim($inner), 'distance' => $distance, 'len' => $normLen];
                 }
-                break; // first closer ends this span; move to the next opener
+
+                $closersSeen++;
+                // Double quotes: the first closer is THE closer. Single quotes:
+                // keep going — a possessive plural reads exactly like one, and
+                // the cited text decides between the readings (bounded scan).
+                if (! $singleQuoted || $closersSeen >= self::MAX_CANDIDATES) {
+                    break;
+                }
             }
         }
 
-        return $best[1] ?? null;
+        return $spans;
+    }
+
+    /**
+     * Which citation marker OWNS this quoted span?
+     *
+     * Academic prose attributes a quotation to the citation that FOLLOWS it —
+     * "…'quoted words' (Author 2020: 5)" — and only when nothing follows does
+     * a preceding narrative citation own it — "Author (2020) writes that
+     * '…'". So: the nearest marker after the closing mark wins; failing that,
+     * the nearest before the opening mark. Both live failures this settles
+     * come from one GSCJ paragraph:
+     *
+     *   …praxis is understood as a 'QUOTE' (Mehta et al, 2021a: 112). The
+     *   articles in this collection (especially Srivastava et al, 2026)…
+     *
+     * — Srivastava is inside the gap window and their article quotes Mehta
+     * too, so the words located there and minted a hypercite claiming they
+     * were Srivastava's. Mehta follows the quote, so Mehta owns it. And:
+     *
+     *   Masaka (2019) … needs to go beyond 'QUOTE' (Keet, 2014: 27) to…
+     *
+     * — a preceding-marker-wins rule would hand Keet's words to Masaka.
+     *
+     * @param int[] $markers every citation-marker offset in the node
+     */
+    private function spanOwner(array $markers, int $openAbs, int $closeAbs, int $maxGap): ?int
+    {
+        $after = null;
+        foreach ($markers as $pos) {
+            if ($pos >= $closeAbs && $pos - $closeAbs <= $maxGap && ($after === null || $pos < $after)) {
+                $after = $pos;
+            }
+        }
+        if ($after !== null) {
+            return $after;
+        }
+
+        $before = null;
+        foreach ($markers as $pos) {
+            if ($pos <= $openAbs && $openAbs - $pos <= $maxGap && ($before === null || $pos > $before)) {
+                $before = $pos;
+            }
+        }
+
+        return $before;
+    }
+
+    /** @param int[] $markerOffsets */
+    private function hasMarkerBefore(array $markerOffsets, int $markerOffset): bool
+    {
+        foreach ($markerOffsets as $pos) {
+            if ($pos < $markerOffset) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param int[] $markerOffsets */
+    private function hasMarkerAfter(array $markerOffsets, int $markerOffset): bool
+    {
+        foreach ($markerOffsets as $pos) {
+            if ($pos > $markerOffset) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function inFirstSentence(string $plainText, int $charPos): bool

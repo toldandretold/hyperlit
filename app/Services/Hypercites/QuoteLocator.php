@@ -31,6 +31,10 @@ class QuoteLocator
 
     /**
      * @param array<int, object{node_id:string, plainText:?string}> $nodes ordered by startLine
+     * @param bool $allowFuzzy false = exact/normalized evidence only. Used when
+     *        DISAMBIGUATING competing readings of one quote (the apostrophe
+     *        case in QuoteDetector): a fuzzy hit is not strong enough to
+     *        choose between them, and it is the expensive stage.
      * @return ?array{
      *   node_ids: string[],
      *   char_data: array<string, array{charStart:int, charEnd:int}>,
@@ -39,7 +43,7 @@ class QuoteLocator
      *   occurrences: int
      * }
      */
-    public function locate(array $nodes, string $quote): ?array
+    public function locate(array $nodes, string $quote, bool $allowFuzzy = true): ?array
     {
         $quote = trim($quote);
         if ($quote === '' || $nodes === []) {
@@ -78,7 +82,7 @@ class QuoteLocator
         }
 
         // ── Stage C: fuzzy ──
-        return $this->locateFuzzy($nodes, $quote);
+        return $allowFuzzy ? $this->locateFuzzy($nodes, $quote) : null;
     }
 
     /** @param object $node */

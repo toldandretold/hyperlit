@@ -2,6 +2,7 @@
 
 namespace App\Services\Hypercites;
 
+use App\Services\Annotations\AnnotationReattachmentService;
 use App\Services\Annotations\CharDataRecalculator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -10,7 +11,7 @@ use Illuminate\Support\Str;
 /**
  * Apply an approved hypercite candidate: insert the `hypercites` row on the
  * CITED book and splice the citing-side ↗ anchor into the citing node's HTML,
- * immediately after the in-text citation marker (`appendAfterMarker` — kept as
+ * immediately after the in-text citation marker (`spliceAnchor` — kept as
  * a private method so a `replaceMarker` variant can slot in later without
  * touching the row logic; replacing would first need a story for preserving
  * the marker's open-the-bibliography-entry click behaviour).
@@ -90,7 +91,14 @@ class HyperciteMinter
             $hyperciteId = 'hypercite_' . Str::random(8);
             $anchorId = 'hypercite_' . Str::random(8);
             $oldContent = (string) $citingNode->content;
-            $newContent = $this->appendAfterMarker($oldContent, $candidate->reference_id, $candidate->cited_book, $hyperciteId, $anchorId);
+            $newContent = $this->spliceAnchor(
+                $oldContent,
+                $candidate->reference_id,
+                $candidate->quote_text,
+                $candidate->cited_book,
+                $hyperciteId,
+                $anchorId,
+            );
             if ($newContent === null) {
                 return $this->refuse($db, $candidate, 'marker_not_found');
             }
@@ -313,7 +321,7 @@ class HyperciteMinter
      * punctuation. The word joiner keeps the ↗ glued to whatever it lands
      * after; format matches the client's paste convention (hyperciteHandler.ts).
      */
-    private function appendAfterMarker(string $content, string $refId, string $citedBook, string $hyperciteId, string $anchorId): ?string
+    private function spliceAnchor(string $content, string $refId, ?string $quoteText, string $citedBook, string $hyperciteId, string $anchorId): ?string
     {
         $pattern = '/<a\s[^>]*href="#' . preg_quote($refId, '/') . '"[^>]*>.*?<\/a>/is';
         if (! preg_match($pattern, $content, $m, PREG_OFFSET_CAPTURE)) {
@@ -321,7 +329,28 @@ class HyperciteMinter
         }
 
         $markerStart = $m[0][1];
-        $insertAt = $markerStart + strlen($m[0][0]); // byte offsets — same haystack throughout
+        $markerEnd = $markerStart + strlen($m[0][0]); // byte offsets — same haystack throughout
+
+        // NARRATIVE CITATION ("Author (2026) … critiques 'QUOTE' (IMT)."):
+        // the marker opens the sentence and the quote comes later, so anchoring
+        // to the marker would drop the ↗ mid-sentence, before the words it
+        // links to. Anchor after the QUOTE's clause instead.
+        $afterQuote = $this->insertOffsetAfterQuote($content, $markerEnd, $quoteText);
+        $insertAt = $afterQuote ?? $this->insertOffsetAfterMarker($content, $markerStart, $markerEnd);
+
+        $anchor = "\u{2060}<a href=\"/{$citedBook}#{$hyperciteId}\" id=\"{$anchorId}\" class=\"open-icon\">↗</a>";
+
+        return substr($content, 0, $insertAt) . $anchor . substr($content, $insertAt);
+    }
+
+    /**
+     * The usual case: the citation follows the quote, so the ↗ goes after the
+     * citation's own bracket group and one trailing punctuation mark —
+     * `(Flint et al, 2022: 81).↗`, never `(Flint et al, 2022:↗ 81)`.
+     */
+    private function insertOffsetAfterMarker(string $content, int $markerStart, int $markerEnd): int
+    {
+        $insertAt = $markerEnd;
 
         if ($this->insideBrackets($content, $markerStart)) {
             $afterClose = $this->afterMatchingClose($content, $insertAt);
@@ -335,9 +364,140 @@ class HyperciteMinter
             $insertAt += strlen($tail[0]);
         }
 
-        $anchor = "\u{2060}<a href=\"/{$citedBook}#{$hyperciteId}\" id=\"{$anchorId}\" class=\"open-icon\">↗</a>";
+        return $insertAt;
+    }
 
-        return substr($content, 0, $insertAt) . $anchor . substr($content, $insertAt);
+    /**
+     * Narrative-citation placement: byte offset just past the quote's own
+     * clause — closing mark, an immediately following parenthetical, and one
+     * punctuation mark — so `… a critique of 'IMT' (IMT).` lands the ↗ after
+     * the full stop rather than beside the author's name at the sentence head.
+     *
+     * Null when the quote does not follow the marker (the ordinary case) or
+     * cannot be located, leaving the marker-anchored path in charge.
+     */
+    private function insertOffsetAfterQuote(string $content, int $markerEnd, ?string $quoteText): ?int
+    {
+        $quoteText = $quoteText !== null ? trim($quoteText) : '';
+        if ($quoteText === '') {
+            return null;
+        }
+
+        // Scanning happens in PLAIN text (tags and entities can't split a
+        // bracket group there), then maps back to a byte offset in the HTML.
+        $map = $this->plainMap($content);
+        $plain = $map['text'];
+        $markerEndPlain = 0;
+        foreach ($map['starts'] as $plainIdx => $htmlStart) {
+            if ($htmlStart >= $markerEnd) {
+                break;
+            }
+            $markerEndPlain = $plainIdx + 1;
+        }
+
+        $found = mb_strpos($plain, $quoteText, $markerEndPlain);
+        if ($found === false) {
+            $located = AnnotationReattachmentService::findInText($quoteText, mb_substr($plain, $markerEndPlain));
+            if ($located === null) {
+                return null;
+            }
+            $found = $markerEndPlain + $located[0];
+            $end = $markerEndPlain + $located[1];
+        } else {
+            $end = $found + mb_strlen($quoteText);
+        }
+        if ($found < $markerEndPlain) {
+            return null; // quote precedes the marker — ordinary placement
+        }
+
+        $chars = mb_str_split($plain);
+        $n = count($chars);
+        $p = $end;
+
+        // The stored quote excludes its own marks; step over the closer.
+        if ($p < $n && in_array($chars[$p], ["'", "\u{2019}", '"', "\u{201D}"], true)) {
+            $p++;
+        }
+        // An immediately following parenthetical belongs to the clause: `(IMT)`.
+        $q = $p;
+        if ($q < $n && $chars[$q] === ' ') {
+            $q++;
+        }
+        if ($q < $n && ($chars[$q] === '(' || $chars[$q] === '[')) {
+            $depth = 0;
+            for ($k = $q; $k < $n && $k - $q < 200; $k++) {
+                if ($chars[$k] === '(' || $chars[$k] === '[') {
+                    $depth++;
+                } elseif ($chars[$k] === ')' || $chars[$k] === ']') {
+                    $depth--;
+                    if ($depth === 0) {
+                        $p = $k + 1;
+                        break;
+                    }
+                }
+            }
+        }
+        // …and one trailing punctuation mark, as in the marker-anchored path.
+        if ($p < $n && in_array($chars[$p], [',', '.', ';', ':'], true)) {
+            $p++;
+        }
+
+        return $p > 0 ? ($map['ends'][$p - 1] ?? null) : null;
+    }
+
+    /**
+     * Character-by-character map from the node's HTML to its plain text: tags
+     * skipped, entities decoded, so plain offsets can be mapped back to the
+     * byte offset just after the character that produced them.
+     *
+     * @return array{text:string, starts:int[], ends:int[]}
+     */
+    private function plainMap(string $html): array
+    {
+        $text = '';
+        $starts = [];
+        $ends = [];
+        $len = strlen($html);
+        $i = 0;
+
+        while ($i < $len) {
+            $ch = $html[$i];
+
+            if ($ch === '<') {
+                $gt = strpos($html, '>', $i);
+                if ($gt === false) {
+                    break;
+                }
+                $i = $gt + 1;
+                continue;
+            }
+
+            if ($ch === '&') {
+                $semi = strpos($html, ';', $i);
+                if ($semi !== false && $semi - $i <= 10) {
+                    $entity = substr($html, $i, $semi - $i + 1);
+                    $decoded = html_entity_decode($entity, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    if ($decoded !== $entity) {
+                        foreach (mb_str_split($decoded) as $decodedChar) {
+                            $text .= $decodedChar;
+                            $starts[] = $i;
+                            $ends[] = $semi + 1;
+                        }
+                        $i = $semi + 1;
+                        continue;
+                    }
+                }
+            }
+
+            $ord = ord($ch);
+            $charLen = $ord >= 0xF0 ? 4 : ($ord >= 0xE0 ? 3 : ($ord >= 0xC0 ? 2 : 1));
+            $text .= substr($html, $i, $charLen);
+            $starts[] = $i;
+            $ends[] = $i + $charLen;
+            $i += $charLen;
+        }
+
+        return ['text' => $text, 'starts' => $starts, 'ends' => $ends];
     }
 
     /**

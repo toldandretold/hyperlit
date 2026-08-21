@@ -116,6 +116,10 @@ class CandidateDetector
             foreach ($parsed as $entry) {
                 $nodeId = $entry['node_id'];
                 $plain = $entry['plainText'];
+                // Every marker in this node — a quote belongs to the citation
+                // that attributes it, so the detector needs to know which
+                // OTHER citations stand between a quote and each marker.
+                $allMarkerOffsets = array_map('intval', array_values($entry['citationPositions']));
 
                 foreach ($entry['citationPositions'] as $refId => $markerOffset) {
                     if (! isset($refMap[$refId])) {
@@ -131,6 +135,10 @@ class CandidateDetector
                         $this->nodeShape($nodesById[$nodeId] ?? null, $nodeId, $plain),
                         $idx !== null && $idx > 0 ? $this->nodeShape($nodesById[$orderedIds[$idx - 1]], $orderedIds[$idx - 1]) : null,
                         $idx !== null && $idx < count($orderedIds) - 1 ? $this->nodeShape($nodesById[$orderedIds[$idx + 1]], $orderedIds[$idx + 1]) : null,
+                        // ALL markers, ours included: the detector decides which
+                        // citation a quote belongs to. Co-citations share one
+                        // offset ("(A 2020; B 2021)"), so both legitimately own it.
+                        $allMarkerOffsets,
                     );
 
                     [$claimStart, $claimEnd] = $this->quotes->sentenceBounds($plain, (int) $markerOffset);
@@ -168,13 +176,34 @@ class CandidateDetector
                             ??= $db->table('nodes')->where('book', $cited['book'])
                                 ->orderBy('startLine')->get(['node_id', 'content', 'plainText'])->all();
 
-                        $searchText = $quote['kind'] === 'blockquote'
-                            ? mb_substr($quote['text'], 0, (int) config('hypercites.blockquote_search_cap', 600))
-                            : $quote['text'];
+                        // Resolve competing readings of the quote against the
+                        // CITED TEXT, longest first: a single-quote house style
+                        // makes a possessive plural (`learners'`) identical to a
+                        // closing mark, so the citing side alone cannot say
+                        // where the quote ends — but the source can. Strict
+                        // evidence only (no fuzzy) while choosing; the fallback
+                        // reading below still gets the full ladder.
+                        $candidates = $quote['candidates'] ?? [$quote['text']];
+                        $match = null;
+                        $matchedText = $quote['text'];
 
-                        $match = $this->locator->locate($citedNodes, $searchText);
+                        if (count($candidates) > 1) {
+                            foreach ($candidates as $candidate) {
+                                $found = $this->locator->locate($citedNodes, $this->searchText($quote['kind'], $candidate), allowFuzzy: false);
+                                if ($found !== null) {
+                                    $match = $found;
+                                    $matchedText = $candidate;
+                                    break;
+                                }
+                            }
+                        }
+                        // Nothing verified (or only one reading): the
+                        // nearest-closer reading, full ladder including fuzzy.
+                        $match ??= $this->locator->locate($citedNodes, $this->searchText($quote['kind'], $quote['text']));
+
                         if ($match !== null) {
                             $counts['matched']++;
+                            $row['quote_text'] = $matchedText;
                             $row['match_node_ids'] = json_encode($match['node_ids']);
                             $row['match_char_data'] = json_encode($match['char_data']);
                             $row['match_method'] = $match['method'];
@@ -281,6 +310,14 @@ class CandidateDetector
         }
 
         return $out;
+    }
+
+    /** Blockquotes search on a capped prefix; inline quotes search whole. */
+    private function searchText(?string $kind, string $text): string
+    {
+        return $kind === 'blockquote'
+            ? mb_substr($text, 0, (int) config('hypercites.blockquote_search_cap', 600))
+            : $text;
     }
 
     /** @param string[] $nodeIds */
