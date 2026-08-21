@@ -48,6 +48,38 @@ test('POST /api/billing/checkout 422s on an out-of-range amount (before Stripe)'
     $this->assertApiError($this->postJson('/api/billing/checkout', ['amount' => 1]), 422);
 });
 
+test('POST /api/billing/checkout 422s on an off-site return_url (open-redirect guard)', function () {
+    $this->loginUser();
+    $this->assertApiError(
+        $this->postJson('/api/billing/checkout', ['amount' => 10, 'return_url' => 'https://evil.example/phish']),
+        422
+    );
+});
+
+// return_path is what every client actually sends: an absolute return_url 422s
+// whenever the browsed origin isn't byte-identical to APP_URL (www vs apex, a
+// LAN IP, a tunnel), which silently killed every "Top Up Balance" button.
+dataset('bad_return_paths', [
+    'protocol-relative'          => ['//evil.example/phish'],
+    'backslash protocol-relative' => ['/\\evil.example/phish'],
+    'absolute url'               => ['https://evil.example/phish'],
+    'no leading slash'           => ['book/x'],
+    'newline injection'          => ["/book\nX"],
+]);
+
+test('POST /api/billing/checkout 422s on a return_path that could leave our origin', function (string $path) {
+    $this->loginUser();
+    $this->assertApiError($this->postJson('/api/billing/checkout', ['amount' => 10, 'return_path' => $path]), 422);
+})->with('bad_return_paths');
+
+test('POST /api/billing/checkout accepts a site-relative return_path', function () {
+    $this->loginUser();
+    // Passes validation, then fails at the Stripe call (no live key in tests) —
+    // anything other than 422 proves the path itself was accepted.
+    $resp = $this->postJson('/api/billing/checkout', ['amount' => 10, 'return_path' => '/some-book?x=1#hl=3']);
+    expect($resp->status())->not->toBe(422);
+});
+
 test('POST /api/stripe/webhook 400s without a valid signature', function () {
     // Public endpoint (no auth); guarded by Stripe signature verification.
     $this->postJson('/api/stripe/webhook', ['type' => 'checkout.session.completed'])

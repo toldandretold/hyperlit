@@ -45,7 +45,7 @@ return [
         // role model lands in retired_models or loses its pricing entry.
         'model'              => 'accounts/fireworks/models/gpt-oss-120b',
         'extraction_model'   => 'accounts/fireworks/models/gpt-oss-120b',
-        'verification_model' => 'accounts/fireworks/models/deepseek-v4-pro',
+        'verification_model' => 'accounts/fireworks/models/deepseek-v4-pro-0813',
         'embedding_model'    => 'nomic-ai/nomic-embed-text-v1.5',
 
         // Homepage semantic search: max cosine distance for a node to count as
@@ -72,6 +72,11 @@ return [
 
         'pricing' => [
             // Fireworks AI — cost per 1M tokens (USD). Verified live 2026-05-27.
+            // 0813 = GA release replacing the preview deepseek-v4-pro (Fireworks
+            // decommissions the old id from serverless 2026-08-27 — move it into
+            // retired_models then). Fireworks' docs price the V4 Pro family as one
+            // row; verified 2026-08-21.
+            'accounts/fireworks/models/deepseek-v4-pro-0813'    => ['input' => 1.74, 'output' => 3.48],
             'accounts/fireworks/models/deepseek-v4-pro'         => ['input' => 1.74, 'output' => 3.48],
             'accounts/fireworks/models/kimi-k2p6'               => ['input' => 0.95, 'output' => 4.00],
             'accounts/fireworks/models/kimi-k2p5'               => ['input' => 0.60, 'output' => 3.00],

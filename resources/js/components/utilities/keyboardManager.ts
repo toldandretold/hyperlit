@@ -2,6 +2,7 @@
 
 import { getKeyboardWasRecentlyClosed, setKeyboardWasRecentlyClosed } from '../../utilities/operationState';
 import { verbose } from '../../utilities/logger';
+import { getPanelMaxHeight, resizeOpenPanels } from '../../utilities/viewportMetrics';
 
 class KeyboardManager {
   [key: string]: any;
@@ -274,6 +275,19 @@ processViewportChange() {
     return;
   }
 
+  // SETTLED-VIEWPORT RESIZE: every branch below is gated on the keyboard being
+  // open, or on `keyboardOpen !== this.isKeyboardOpen`. handleFocusOut() already
+  // flipped isKeyboardOpen to false and re-measured the panels WHILE the keyboard
+  // was still animating down, so those panels are pinned to a stale keyboard-sized
+  // height — and the transition gate can never undo it, because by the time the
+  // real resize lands both sides are already false. This debounced handler only
+  // runs 150ms after the LAST resize event, so the viewport here is settled:
+  // re-measure any open panel against it. Also the only thing that recomputes on
+  // NON-keyboard resizes (rotation, mobile URL-bar collapse, desktop drag).
+  if (!keyboardOpen && !this.isKeyboardOpen) {
+    resizeOpenPanels(vv);
+  }
+
   // REFOCUS FIX: Detect when offsetTop changes significantly while keyboard is already open
   // This happens on search-toolbar refocus when iOS fires viewport events twice
   const offsetTopChanged = Math.abs(vv.offsetTop - this.lastOffsetTop) > 50;
@@ -449,7 +463,6 @@ scrollCaretIntoView(element: any) {
     const searchToolbar = document.querySelector("#search-toolbar");
     const citationToolbar = document.querySelector("#citation-toolbar");
     const bottomRightButtons = document.querySelector("#bottom-right-buttons");
-    const hyperlitContainer = document.querySelector("#hyperlit-container");
 
     // CITATION/BRAIN MODE LOCK: If citation or brain mode is active and keyboard WAS already open,
     // REFUSE to adjust anything - toolbar position is locked
@@ -489,18 +502,8 @@ scrollCaretIntoView(element: any) {
       this.state.keyboardTop = newKeyboardTop;
       this.moveToolbarAboveKeyboard(editToolbar, searchToolbar, citationToolbar, bottomRightButtons, mainContent);
 
-      // Also adjust hyperlit-container if it's open
-      if (hyperlitContainer && hyperlitContainer.classList.contains('open')) {
-        this.adjustHyperlitContainerHeight(hyperlitContainer, vv);
-      }
-
-      // Adjust stacked containers height when keyboard opens
-      document.querySelectorAll('.hyperlit-container-stacked.open').forEach((c: any) => {
-        const stackedEditToolbar = document.getElementById('edit-toolbar');
-        const stackedBottomGap = stackedEditToolbar ? stackedEditToolbar.offsetHeight : 4;
-        const maxH = vv.offsetTop + vv.height - 16 - stackedBottomGap;
-        c.style.maxHeight = `${maxH}px`;
-      });
+      // Shrink the open panels onto the keyboard-reduced viewport.
+      resizeOpenPanels(vv);
     } else {
       if (editToolbar) {
         editToolbar.removeEventListener("touchstart", this.preventToolbarScroll);
@@ -531,17 +534,11 @@ scrollCaretIntoView(element: any) {
       const citationResults = document.querySelector("#citation-toolbar-results");
       this.resetInlineStyles(appContainer, mainContent, editToolbar, searchToolbar, citationToolbar, bottomRightButtons, citationResults);
 
-      // Reset hyperlit-container height if it's open
-      if (hyperlitContainer && hyperlitContainer.classList.contains('open')) {
-        this.adjustHyperlitContainerHeight(hyperlitContainer, window.visualViewport);
-      }
-
-      // Reset stacked containers to full height
-      document.querySelectorAll('.hyperlit-container-stacked').forEach((c: any) => {
-        const stackedEditToolbar = document.getElementById('edit-toolbar');
-        const stackedBottomGap = stackedEditToolbar ? stackedEditToolbar.offsetHeight : 4;
-        c.style.maxHeight = `${window.innerHeight - 16 - stackedBottomGap}px`;
-      });
+      // Grow the open panels back. NOTE: on iOS this necessarily runs while the
+      // keyboard is still animating down, so visualViewport is still shrunken and
+      // this measurement is provisional — processViewportChange() re-measures once
+      // the resize settles. Don't remove that pass thinking this one covers it.
+      resizeOpenPanels();
 
       this.state.keyboardTop = null;
     }
@@ -708,21 +705,9 @@ scrollCaretIntoView(element: any) {
   }
 
   adjustHyperlitContainerHeight(container: any, vv: any) {
-    const topMargin = 16; // 1em top spacing (matches CSS top: 1em)
-    const editToolbar = document.getElementById('edit-toolbar');
-    const bottomGap = editToolbar ? editToolbar.offsetHeight : 4;
-
-    if (!vv) {
-      // Fallback if Visual Viewport API not available
-      const maxHeight = window.innerHeight - topMargin - bottomGap;
-      container.style.maxHeight = `${maxHeight}px`;
-      return;
-    }
-
-    const maxHeight = vv.offsetTop + vv.height - topMargin - bottomGap;
-    container.style.maxHeight = `${maxHeight}px`;
+    container.style.maxHeight = `${getPanelMaxHeight(vv ?? null)}px`;
   }
-   
+
 
   resetInlineStyles(...elements: any[]) {
     const props = [

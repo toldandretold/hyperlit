@@ -116,7 +116,7 @@ SANDBOX_PATHS = ['app/Python', 'tests/conversion', 'pytest.ini']
 # Per-engine model defaults. `--model` defaults to None so it cleanly overrides EITHER engine (a true
 # all-else-equal LLM A/B); when unset each engine fills its own default. The native loop reasons in one
 # pass (a heavy model earns its keep); aider runs its own ~3-reflection retry loop, so it wants a FAST one.
-DEFAULT_DEEPSEEK_MODEL = 'accounts/fireworks/models/deepseek-v4-pro'
+DEFAULT_DEEPSEEK_MODEL = 'accounts/fireworks/models/deepseek-v4-pro-0813'
 
 
 

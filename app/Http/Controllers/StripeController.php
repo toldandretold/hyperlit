@@ -25,8 +25,18 @@ class StripeController extends Controller
     public function createCheckoutSession(Request $request): JsonResponse
     {
         $request->validate([
-            'amount'     => 'required|numeric|min:5|max:500',
-            // return_url must be a real URL on OUR domain. Without this an
+            'amount' => 'required|numeric|min:5|max:500',
+            // PREFERRED: a site-relative path ("/some/book?x=1#hash"). The client
+            // can't know whether the origin it is being browsed on matches
+            // APP_URL (www vs apex, a LAN IP, a tunnel, a staging host), and an
+            // absolute return_url that doesn't match 422s the whole top-up. A
+            // path is rebuilt server-side, so it is both origin-proof and
+            // impossible to point off-site. Reject "//evil.com" and "/\evil.com"
+            // — both are protocol-relative URLs, not paths.
+            // The D modifier anchors $ at the true end of the string — without it
+            // a trailing newline slips through the pattern.
+            'return_path' => ['sometimes', 'string', 'max:2048', 'regex:#^/(?![/\\\\])[^\x00-\x20\x7f]*$#D'],
+            // LEGACY: an absolute URL on OUR domain. Without the starts_with an
             // attacker can supply an off-site URL that becomes Stripe's
             // post-payment redirect (open redirect / phishing primitive).
             'return_url' => 'sometimes|url|max:2048|starts_with:' . config('app.url'),
@@ -34,12 +44,16 @@ class StripeController extends Controller
 
         $user = Auth::user();
         $amount = (float) $request->input('amount');
-        $returnUrl = $request->input('return_url', config('app.url'));
+        $appUrl = rtrim(config('app.url'), '/');
 
-        // Defence in depth: even if the rule above is ever relaxed/bypassed,
+        $returnUrl = $request->filled('return_path')
+            ? $appUrl . $request->input('return_path')
+            : $request->input('return_url', $appUrl);
+
+        // Defence in depth: even if the rules above are ever relaxed/bypassed,
         // never let the redirect leave our origin — clamp to the app URL.
-        if (! str_starts_with($returnUrl, config('app.url'))) {
-            $returnUrl = config('app.url');
+        if (! str_starts_with($returnUrl, $appUrl)) {
+            $returnUrl = $appUrl;
         }
 
         $stripe = new StripeClient(config('services.stripe.secret'));
@@ -60,14 +74,31 @@ class StripeController extends Controller
                 'user_id'       => $user->id,
                 'credit_amount' => $amount,
             ],
-            'success_url' => $returnUrl . (str_contains($returnUrl, '?') ? '&' : '?') . 'checkout=success',
-            'cancel_url'  => $returnUrl . (str_contains($returnUrl, '?') ? '&' : '?') . 'checkout=cancel',
+            'success_url' => $this->withCheckoutFlag($returnUrl, 'success'),
+            'cancel_url'  => $this->withCheckoutFlag($returnUrl, 'cancel'),
         ]);
 
         return response()->json([
             'checkout_url' => $session->url,
             'session_id'   => $session->id,
         ]);
+    }
+
+    /**
+     * Append ?checkout=success|cancel to a return URL, keeping any #fragment
+     * LAST. Reader URLs carry hashes (#hl=…, #fn…) and a naive concat produced
+     * "/book#hl=3?checkout=success" — the flag lands inside the fragment, so the
+     * post-payment page never sees it.
+     */
+    private function withCheckoutFlag(string $url, string $flag): string
+    {
+        $hash = '';
+        if (($pos = strpos($url, '#')) !== false) {
+            $hash = substr($url, $pos);
+            $url = substr($url, 0, $pos);
+        }
+
+        return $url . (str_contains($url, '?') ? '&' : '?') . 'checkout=' . $flag . $hash;
     }
 
     /**

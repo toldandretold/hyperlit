@@ -24,7 +24,7 @@ import threading
 import vibe_convert as vc
 from conversion import fix_categories
 
-DEFAULT_MODEL = 'accounts/fireworks/models/deepseek-v4-pro'
+DEFAULT_MODEL = 'accounts/fireworks/models/deepseek-v4-pro-0813'
 # aider wants a FAST model, NOT a heavy reasoning one. deepseek-v4-pro emits ~34k of reasoning per turn —
 # it overflows its own 32k output limit (truncating the edit) AND accumulates across aider's reflect loop
 # until it blows the 131k context (measured: gpt-oss = 53k flat, deepseek = 156k on the same input). So

@@ -4,6 +4,7 @@
  * components/vibeCSS.js.
  */
 import { savePreference } from '../../../utilities/preferences';
+import { createTopUpLink } from '../../../utilities/billing/topUp';
 import { submitVibeRequest } from './api';
 import {
   applyVibeCSS, clearVibeCSS, hasVibeCSS,
@@ -20,34 +21,17 @@ export function showTopUpUI(container: any, onCancel: any) {
       <div class="vibe-title">Insufficient Balance</div>
       <p class="vibe-status">Top up your balance to generate a custom theme.</p>
       <div class="vibe-action-row">
-        <a href="#" class="vibe-submit-btn vibe-topup-btn">Top Up Balance</a>
         <button type="button" class="vibe-cancel-btn">Cancel</button>
       </div>
     </div>
   `;
 
-  const topUpBtn = container.querySelector('.vibe-topup-btn');
+  const actionRow = container.querySelector('.vibe-action-row');
   const cancelBtn = container.querySelector('.vibe-cancel-btn');
 
-  topUpBtn.addEventListener('click', async (e: any) => {
-    e.preventDefault();
-    try {
-      const resp = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-XSRF-TOKEN': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || ''),
-        },
-        credentials: 'include',
-        body: JSON.stringify({ amount: 5, return_url: window.location.href }),
-      });
-      const d = await resp.json();
-      if (d.checkout_url) window.location.href = d.checkout_url;
-    } catch (err) {
-      console.warn('Vibe: Top-up checkout failed:', err);
-    }
-  });
+  const topUpBtn = createTopUpLink();
+  topUpBtn.className = 'vibe-submit-btn vibe-topup-btn';
+  actionRow.insertBefore(topUpBtn, cancelBtn);
 
   cancelBtn.addEventListener('click', () => onCancel());
 }

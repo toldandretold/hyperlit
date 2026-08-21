@@ -11,6 +11,7 @@ import { destroySubBook, restoreSubBookState } from './subBookActions';
 import { flushPendingEdits } from '../utilities/pendingEditsRegistry';
 import { log, verbose } from '../utilities/logger';
 import { isEmbeddedReader } from '../utilities/embeddedReader';
+import { getPanelMaxHeight } from '../utilities/viewportMetrics';
 
 // ============================================================================
 // STACK DATA STRUCTURE
@@ -246,10 +247,7 @@ export function createStackedContainerDOM(depth: any) {
   const scroller = container.querySelector('.scroller');
 
   // Set initial max-height same as base container logic
-  const viewportHeight = window.innerHeight;
-  const topMargin = 16;
-  const bottomGap = 4;
-  container.style.maxHeight = `${viewportHeight - topMargin - bottomGap}px`;
+  container.style.maxHeight = `${getPanelMaxHeight()}px`;
 
   // Append to body
   document.body.appendChild(overlay);

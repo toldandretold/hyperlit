@@ -7,6 +7,7 @@
   top: 1em;
   height: auto; /* Grow to fit content */
   max-height: calc(100vh - 2em); /* Don't exceed viewport */
+  max-height: calc(100dvh - 2em); /* see #hyperlit-container — vh overshoots on mobile */
   width: 300px; /* Fixed width, narrower than hyperlit */
   /* Panel type tracks the reader's --font-size-base setting on a curve (not a
      flat ratio): --sc-base EQUALS the body size at its 14px minimum and grows at
@@ -77,6 +78,7 @@
 #source-container #source-content {
   overflow: auto;
   max-height: calc(100vh - 2em);
+  max-height: calc(100dvh - 2em);
   padding: 1em;
   padding-left: 1.5em;
   border-radius: 1em;
@@ -161,6 +163,7 @@
   position: relative;
   background: transparent;
   border: none;
+  color: var(--color-text-secondary); /* else the currentColor chevron goes iOS system blue */
   padding: 4px;
   cursor: pointer;
   display: flex;

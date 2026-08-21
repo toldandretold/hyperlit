@@ -6,7 +6,7 @@
     "moduleCount": 372,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3637,
+    "edgeCount": 3636,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -4574,7 +4574,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/utilities/keyboardManager",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "components/utilities/keyboardManager:KeyboardManager.adjustLayout",
@@ -22658,8 +22658,7 @@
       "id": "components/settingsContainer/vibeCSS/inputUI:showVibeInput__call__components/settingsContainer/vibeCSS/inputUI:showTopUpUI",
       "source": "components/settingsContainer/vibeCSS/inputUI:showVibeInput",
       "target": "components/settingsContainer/vibeCSS/inputUI:showTopUpUI",
-      "rel": "call",
-      "dataPath": true
+      "rel": "call"
     },
     {
       "id": "components/settingsContainer/vibeCSS/inputUI:showVibeInput__call__components/settingsContainer/vibeCSS/storage:applyVibeCSS",
@@ -27475,12 +27474,6 @@
       "id": "dom__domread__components/utilities/gateFilter:reapplyAnnotationsWithGate",
       "source": "dom",
       "target": "components/utilities/gateFilter:reapplyAnnotationsWithGate",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__components/utilities/keyboardManager:KeyboardManager.adjustHyperlitContainerHeight",
-      "source": "dom",
-      "target": "components/utilities/keyboardManager:KeyboardManager.adjustHyperlitContainerHeight",
       "rel": "domread"
     },
     {

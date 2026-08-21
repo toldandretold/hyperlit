@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1757 functions in 372 modules · 10 object stores · 10 PG tables · 3637 edges
+**MarkdownDB** schema v28 · 1757 functions in 372 modules · 10 object stores · 10 PG tables · 3636 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -556,7 +556,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `pinnedQueryParam` | `components/utilities/gateFilter` | `sessionStorage` | — | — | — |
 | `reapplyAnnotationsWithGate` | `components/utilities/gateFilter` | — | — | read | — |
 | `setBookGateDefaults` | `components/utilities/gateFilter` | — | — | — | — |
-| `KeyboardManager.adjustHyperlitContainerHeight` | `components/utilities/keyboardManager` | — | — | read | — |
+| `KeyboardManager.adjustHyperlitContainerHeight` | `components/utilities/keyboardManager` | — | — | — | — |
 | `KeyboardManager.adjustLayout` | `components/utilities/keyboardManager` | — | — | read | — |
 | `KeyboardManager.constructor` | `components/utilities/keyboardManager` | — | — | — | — |
 | `KeyboardManager.createOrUpdateSpacer` | `components/utilities/keyboardManager` | — | — | read | — |

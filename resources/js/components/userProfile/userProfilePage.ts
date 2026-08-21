@@ -128,18 +128,11 @@ export function initializeUserProfilePage() {
         e.stopPropagation();
 
         const amount = topup.dataset.topupAmount || 5;
-        try {
-            const xsrf = decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '');
-            const resp = await fetch('/api/billing/checkout', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': xsrf },
-                credentials: 'include',
-                body: JSON.stringify({ amount: Number(amount), return_url: window.location.href }),
-            });
-            const data = await resp.json();
-            if (data.checkout_url) window.location.href = data.checkout_url;
-        } catch (err) {
-            log.error('Stripe checkout failed:', '/components/userProfile/userProfilePage.ts', err);
+        const { startTopUpCheckout } = await import('../../utilities/billing/topUp');
+        const result = await startTopUpCheckout(Number(amount));
+        if (!result.ok) {
+            const { alertDialog } = await import('../dialog/dialog');
+            await alertDialog({ title: 'Top up failed', message: result.error ?? 'Could not start checkout.' });
         }
     };
     document.addEventListener('click', stripeTopUpHandler);

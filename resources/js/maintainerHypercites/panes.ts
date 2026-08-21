@@ -49,6 +49,15 @@ export class ReaderPane {
    * `force` reloads even when the URL is IDENTICAL — needed right after an
    * approve/revert, when the citing book's content changed under an unchanged
    * URL (the freshly spliced ↗ doesn't render otherwise).
+   *
+   * NAVIGATION DISCIPLINE (hard-won): a different BOOK gets one direct src
+   * assignment — the blank-hop-then-set dance under rapid clicks lost the
+   * second assignment in WebKit and left panes on about:blank (Safari-blank
+   * on prod, reproduced by the list-walk e2e under the webkit config). Only
+   * a same-document target needs the blank hop (the reader resolves hashes
+   * at LOAD time only), chained on the blank's `load` event rather than a
+   * rAF. A watchdog reasserts the URL if the frame is still blank after 2s —
+   * whatever the churn dropped, the pane converges on the selection.
    */
   show(book: string, target: string | null, labelText: string, marks: MarkSpec[] = [], force = false): void {
     const url = `/${book}${target ? `#${target}` : ''}`;
@@ -58,15 +67,65 @@ export class ReaderPane {
       if (marks.length) this.applyMarksWhenReady(url, marks);
       return;
     }
+    const prevPath = this.current.split('#')[0];
     this.current = url;
 
-    this.frame.src = 'about:blank';
-    requestAnimationFrame(() => {
-      // Selection may have moved on while we yielded a frame.
-      if (this.current !== url) return;
+    if (prevPath !== `/${book}`) {
+      // Fresh document — one navigation, nothing deferred to lose.
       this.frame.src = url;
-      if (marks.length) this.applyMarksWhenReady(url, marks);
-    });
+    } else {
+      // Same document, new target (or forced reload): hop through about:blank
+      // so the reader re-runs its load-time hash navigation.
+      const onBlankLoad = () => {
+        this.frame.removeEventListener('load', onBlankLoad);
+        if (this.current === url) this.frame.src = url;
+      };
+      this.frame.addEventListener('load', onBlankLoad);
+      this.frame.src = 'about:blank';
+      window.setTimeout(() => {
+        // The blank's load event can be missed if the frame was already
+        // blank — converge regardless.
+        this.frame.removeEventListener('load', onBlankLoad);
+        if (this.current === url && this.frameHref() === 'about:blank') {
+          this.frame.src = url;
+        }
+      }, 200);
+    }
+
+    window.setTimeout(() => {
+      if (this.current === url && this.frameHref() === 'about:blank') {
+        verbose.nav(`hypercites: pane stuck blank — reasserting ${url}`, 'maintainerHypercites');
+        this.frame.src = url;
+      }
+    }, 2000);
+
+    // Second-stage watchdog: the frame NAVIGATED but the reader died booting —
+    // rapid selection churn aborts its module imports/fetches mid-flight and
+    // the last document can come up empty (seen under WebKit: "Importing a
+    // module script failed" + fresh-page-load pathway failure). One reload
+    // from a settled frame recovers it.
+    window.setTimeout(() => {
+      if (this.current !== url) return;
+      const doc = this.frame.contentDocument;
+      const rendered = doc?.querySelector('[data-node-id], .chunk');
+      if (doc && this.frameHref() !== 'about:blank' && !rendered) {
+        verbose.nav(`hypercites: reader never rendered — reloading ${url}`, 'maintainerHypercites');
+        this.frame.src = 'about:blank';
+        window.setTimeout(() => {
+          if (this.current === url) this.frame.src = url;
+        }, 100);
+      }
+    }, 8000);
+
+    if (marks.length) this.applyMarksWhenReady(url, marks);
+  }
+
+  private frameHref(): string {
+    try {
+      return this.frame.contentWindow?.location.href ?? '';
+    } catch {
+      return ''; // never cross-origin here, but stay defensive
+    }
   }
 
   clear(placeholderText: string): void {

@@ -28,7 +28,12 @@
   top: 1em;
   height: auto; /* Allow height to adapt to content */
   min-height: 10em; /* Minimum height for very small content */
-  max-height: calc(100vh - 2em); /* Maximum height (roughly 90% of viewport) */
+  /* dvh, not vh: on mobile 100vh is the LARGE viewport (browser chrome collapsed),
+     so a vh-sized panel runs under the URL/tab bar and its bottom is unreachable.
+     JS overrides this inline via utilities/viewportMetrics; vh stays as the fallback
+     for engines without dvh. */
+  max-height: calc(100vh - 2em);
+  max-height: calc(100dvh - 2em);
   width: 60%;
   max-width: 30ch; /* 70ch text plus ~6ch padding (2em left + 1em right) */
   background-color: var(--container-glass-bg);

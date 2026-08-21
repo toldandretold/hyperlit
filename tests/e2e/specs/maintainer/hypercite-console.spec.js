@@ -73,7 +73,8 @@ test.describe('hypercite console review loop', () => {
       // its book's node carries the quote text in a <p> with a data-node-id.
       const citing = page.frameLocator('#hx-citing');
       try {
-        await expect(citing.locator('[data-node-id]').first()).toBeVisible({ timeout: 20000 });
+        // 30s allows one pane self-heal cycle (8s watchdog + reload).
+        await expect(citing.locator('[data-node-id]').first()).toBeVisible({ timeout: 30000 });
       } catch (err) {
         throw new Error(
           `pane blank after clicking row ${i + 1}/${count}.\nFrame errors so far:\n${errors.join('\n') || '(none captured)'}`,
@@ -89,7 +90,7 @@ test.describe('hypercite console review loop', () => {
     }
     const citing = page.frameLocator('#hx-citing');
     try {
-      await expect(citing.locator('[data-node-id]').first()).toBeVisible({ timeout: 20000 });
+      await expect(citing.locator('[data-node-id]').first()).toBeVisible({ timeout: 30000 });
     } catch (err) {
       throw new Error(
         `pane blank after walking back up the list.\nFrame errors:\n${errors.join('\n') || '(none captured)'}`,

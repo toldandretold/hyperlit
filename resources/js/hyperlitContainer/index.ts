@@ -92,6 +92,7 @@ import { attachNoteListeners, initializePlaceholders } from './noteListener.js';
 import { getCurrentContainer, isStackPopping } from './stack.js';
 import { registerContainerActions } from './containerActions';
 import { buildSubBookId } from '../utilities/subBookIdHelper';
+import { getPanelMaxHeight } from '../utilities/viewportMetrics';
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -684,8 +685,7 @@ async function pushStackedLayer(element: any, highlightIds: any, newHighlightIds
   newScroller.innerHTML = unifiedContent;
 
   // Set max-height dynamically
-  const viewportHeight = window.innerHeight;
-  newContainer.style.maxHeight = `${viewportHeight - 16 - 4}px`;
+  newContainer.style.maxHeight = `${getPanelMaxHeight()}px`;
 
   // Lock body scroll (should already be locked from base layer, but ensure)
   document.body.classList.add('hyperlit-container-open');

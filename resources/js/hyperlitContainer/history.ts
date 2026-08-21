@@ -5,6 +5,7 @@
 
 import { detectHypercites, detectHighlights } from './detection.js';
 import { resetSubBookState, saveSubBookState } from './subBookActions';
+import { getPanelMaxHeight } from '../utilities/viewportMetrics';
 import { buildUnifiedContent } from './contentBuild';
 import { handlePostOpenActions } from './postOpen';
 import { checkIfUserHasAnyEditPermission } from './permissions';
@@ -378,8 +379,7 @@ export async function restoreStackedLayer(containerState: any) {
     newScroller.innerHTML = html;
 
     // Set max-height dynamically
-    const viewportHeight = window.innerHeight;
-    newContainer.style.maxHeight = `${viewportHeight - 16 - 4}px`;
+    newContainer.style.maxHeight = `${getPanelMaxHeight()}px`;
 
     // Lock body scroll
     document.body.classList.add('hyperlit-container-open');

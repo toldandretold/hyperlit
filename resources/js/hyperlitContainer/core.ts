@@ -10,6 +10,7 @@ import { ProgressOverlayConductor } from '../SPA/navigation/ProgressOverlayCondu
 import { clearCascadeOriginId } from '../scrolling/index';
 import { freezePaginator, unfreezePaginator } from '../scrolling/paginator';
 import { flushPendingEdits } from '../utilities/pendingEditsRegistry';
+import { getPanelMaxHeight } from '../utilities/viewportMetrics';
 // Note: cleanupContainerListeners and cleanupFootnoteListeners are imported dynamically
 // to avoid circular dependency (index.js imports from core.js)
 
@@ -184,17 +185,10 @@ export function openHyperlitContainer(content: any, isBackNavigation: any = fals
   // ordinary back/forward keeps the browser default. See close-path reset below.
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
-  // Set initial max-height
-  // KeyboardManager will dynamically adjust this when keyboard opens/closes
-  const viewportHeight = window.innerHeight;
-  const topMargin = 16; // 1em top spacing (matches CSS top: 1em)
-  const editToolbar = document.getElementById('edit-toolbar');
-  const bottomGap = editToolbar ? editToolbar.offsetHeight : 4;
-  const maxHeight = viewportHeight - topMargin - bottomGap;
-
-
-  // Apply max-height as inline style
-  container.style.maxHeight = `${maxHeight}px`;
+  // Set initial max-height from the VISIBLE viewport (see utilities/viewportMetrics
+  // — window.innerHeight overshoots on mobile and buries the panel's bottom under
+  // the browser chrome). KeyboardManager re-measures on keyboard + resize.
+  container.style.maxHeight = `${getPanelMaxHeight()}px`;
 
   // Clear any existing content first to prevent duplicates
   const existingScroller = container.querySelector('.scroller');
@@ -277,14 +271,8 @@ export function prepareHyperlitContainer(content: any, isBackNavigation: any = f
   // Scoped manual scroll restoration — see openHyperlitContainer for rationale.
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
-  // Set initial max-height
-  const viewportHeight = window.innerHeight;
-  const topMargin = 16;
-  const editToolbar = document.getElementById('edit-toolbar');
-  const bottomGap = editToolbar ? editToolbar.offsetHeight : 4;
-  const maxHeight = viewportHeight - topMargin - bottomGap;
-
-  container.style.maxHeight = `${maxHeight}px`;
+  // Set initial max-height from the VISIBLE viewport (see openHyperlitContainer).
+  container.style.maxHeight = `${getPanelMaxHeight()}px`;
 
   // Reset container to initial structure (ensures .scroller, masks, controls exist)
   container.innerHTML = hyperlitManager.initialContent;

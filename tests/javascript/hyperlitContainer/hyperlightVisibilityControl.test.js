@@ -190,3 +190,66 @@ describe('applying a flip', () => {
     expect(localStorage.getItem('hyperlit_default_hl_visibility')).toBeNull();
   });
 });
+
+describe('panel edge flip', () => {
+  /**
+   * happy-dom does no layout, so model the two CSS anchorings by hand: unflipped the
+   * panel's LEFT edge sits at the control's left (`left: 0`); flipped, its RIGHT edge
+   * sits at the control's right (`right: 0`).
+   */
+  function stubRects(control, { hostLeft, hostRight, ctrlLeft, ctrlRight, panelWidth = 170 }) {
+    const host = document.getElementById('hyperlit-container');
+    const panel = control.querySelector('.visibility-panel');
+    host.getBoundingClientRect = () => ({
+      left: hostLeft, right: hostRight, top: 0, bottom: 400,
+      width: hostRight - hostLeft, height: 400,
+    });
+    panel.getBoundingClientRect = () => {
+      const left = control.classList.contains('vis-flip-left') ? ctrlRight - panelWidth : ctrlLeft;
+      return { left, right: left + panelWidth, top: 0, bottom: 80, width: panelWidth, height: 80 };
+    };
+  }
+
+  it('flips left when the default rightward drop would spill past the clip edge', () => {
+    const control = mountContainer();
+    // Phone-ish: 300px-wide container, control sitting two thirds along the author row.
+    stubRects(control, { hostLeft: 0, hostRight: 300, ctrlLeft: 200, ctrlRight: 230 });
+    initHyperlightVisibility();
+
+    control.querySelector('.visibility-trigger').click();
+    // Unflipped the panel would end at 370, well past the 300 clip edge — labels cut off.
+    expect(control.classList.contains('vis-flip-left')).toBe(true);
+  });
+
+  it('leaves the panel left-aligned when it already fits', () => {
+    const control = mountContainer();
+    stubRects(control, { hostLeft: 0, hostRight: 300, ctrlLeft: 10, ctrlRight: 40 });
+    initHyperlightVisibility();
+
+    control.querySelector('.visibility-trigger').click();
+    expect(control.classList.contains('vis-flip-left')).toBe(false);
+  });
+
+  it('does not flip when flipping would only overflow the OTHER edge', () => {
+    const control = mountContainer();
+    // Container narrower than the panel: it overflows either way, so keep the default
+    // anchoring, which at least keeps the meaning-bearing icons on screen.
+    stubRects(control, { hostLeft: 0, hostRight: 150, ctrlLeft: 100, ctrlRight: 130 });
+    initHyperlightVisibility();
+
+    control.querySelector('.visibility-trigger').click();
+    expect(control.classList.contains('vis-flip-left')).toBe(false);
+  });
+
+  it('clears the flip on close so a reopen re-measures from scratch', () => {
+    const control = mountContainer();
+    stubRects(control, { hostLeft: 0, hostRight: 300, ctrlLeft: 200, ctrlRight: 230 });
+    initHyperlightVisibility();
+
+    control.querySelector('.visibility-trigger').click();
+    expect(control.classList.contains('vis-flip-left')).toBe(true);
+
+    document.body.click();
+    expect(control.classList.contains('vis-flip-left')).toBe(false);
+  });
+});

@@ -8,6 +8,8 @@ import { isLoggedIn } from '../utilities/auth/index';
 import { isByoLlmActive } from '../aiProviders/profiles';
 import { executeTicketRequest } from '../aiProviders/execute';
 import { log } from '../utilities/logger';
+import { createTopUpLink } from '../utilities/billing/topUp';
+import { resizeOpenPanels } from '../utilities/viewportMetrics';
 
 /**
  * BYO-key leg: the server parked an LLM prompt as an inference ticket and pushed
@@ -96,6 +98,18 @@ function createStepManager(statusEl: HTMLElement, stepsEl: HTMLElement) {
   const clean = (m: string): string => String(m).replace(/[.…]+\s*$/, '').trim();
   const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
+  // The checklist grows while the request is in flight and the panel is height-capped,
+  // so without this the live row — the one carrying the goo blob — stacks below the fold
+  // and the user watches a frozen list instead of the progress animation. Follow the
+  // bottom on every append; rAF so the new row is laid out before we measure.
+  const scrollerEl = statusEl.closest('.scroller') as HTMLElement | null;
+  const keepStepVisible = (): void => {
+    if (!scrollerEl) return;
+    requestAnimationFrame(() => {
+      scrollerEl.scrollTo({ top: scrollerEl.scrollHeight, behavior: 'smooth' });
+    });
+  };
+
   const finalizeCurrent = (): void => {
     const cur = stepsEl.querySelector('.brain-step.current');
     if (cur) { cur.classList.remove('current'); cur.classList.add('done'); }
@@ -111,6 +125,7 @@ function createStepManager(statusEl: HTMLElement, stepsEl: HTMLElement) {
     if (blobEl) step.appendChild(blobEl);
     stepsEl.appendChild(step);
     statusEl.style.display = 'flex';
+    keepStepVisible();
   };
 
   const drain = async (): Promise<void> => {
@@ -143,6 +158,7 @@ function createStepManager(statusEl: HTMLElement, stepsEl: HTMLElement) {
       const t = cur.querySelector('.brain-step-text');
       if (t) t.textContent = clean(msg);
       statusEl.style.display = 'flex';
+      keepStepVisible();
     },
     /** Finalize the checklist and append a red error row (returns it, for extra UI). */
     setError(msg: string): HTMLElement {
@@ -156,6 +172,7 @@ function createStepManager(statusEl: HTMLElement, stepsEl: HTMLElement) {
       step.append(mark, text);
       stepsEl.appendChild(step);
       statusEl.style.display = 'flex';
+      keepStepVisible();
       return step;
     },
     /** Reset to empty (queue + rendered rows). */
@@ -494,30 +511,9 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
 
     const showBillingError = (msg: any) => {
       const step = steps.setError(msg);
-      const topUpBtn = document.createElement('a');
-      topUpBtn.href = '#';
-      topUpBtn.textContent = 'Top Up Balance';
-      topUpBtn.style.cssText = 'display:inline-block;margin-left:8px;padding:4px 12px;background:#d63384;color:#fff;border-radius:4px;text-decoration:none;font-size:12px;font-weight:500;';
-      topUpBtn.addEventListener('click', async (e: any) => {
-        e.preventDefault();
-        try {
-          const resp: any = await fetch('/api/billing/checkout', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'X-XSRF-TOKEN': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || ''),
-            },
-            credentials: 'include',
-            body: JSON.stringify({ amount: 5, return_url: window.location.href }),
-          });
-          const d: any = await resp.json();
-          if (d.checkout_url) window.location.href = d.checkout_url;
-        } catch (err) {
-          console.warn('Top-up checkout failed:', err);
-        }
-      });
-      step.appendChild(topUpBtn);
+      step.appendChild(createTopUpLink({
+        style: 'display:inline-block;margin-left:8px;padding:4px 12px;background:#d63384;color:#fff;border-radius:4px;text-decoration:none;font-size:12px;font-weight:500;',
+      }));
     };
 
     // BYO-key mode (native shell + active LLM profile): the server parks its
@@ -541,7 +537,7 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
           highlightId,
           nodeIds: Array.isArray(nodeIds) ? nodeIds : Object.keys(charData),
           charData,
-          model: 'accounts/fireworks/models/deepseek-v4-pro',
+          model: 'accounts/fireworks/models/deepseek-v4-pro-0813',
           sourceScope,
           mode,
           shelfId,
@@ -661,15 +657,7 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
       });
 
       // Force container to recalculate layout after replacing brain query form with sub-book content
-      const container = document.getElementById('hyperlit-container');
-      if (container) {
-        const vv = window.visualViewport || { height: window.innerHeight, offsetTop: 0 };
-        const topMargin = 16;
-        const editToolbar2 = document.getElementById('edit-toolbar');
-        const toolbarGap = editToolbar2 ? editToolbar2.offsetHeight : 4;
-        const maxH = (vv.offsetTop || 0) + vv.height - topMargin - toolbarGap;
-        container.style.maxHeight = `${maxH}px`;
-      }
+      resizeOpenPanels();
 
       // Success — highlight now has content, so it must persist.
       pendingBrainHighlightId = null;
@@ -760,15 +748,7 @@ export async function injectBrainPolling(highlight: any, scroller: any) {
                 });
 
                 // Force container to recalculate layout after loading sub-book content
-                const container = document.getElementById('hyperlit-container');
-                if (container) {
-                    const vv = window.visualViewport || { height: window.innerHeight, offsetTop: 0 };
-                    const topMargin = 16;
-                    const editToolbar = document.getElementById('edit-toolbar');
-                    const toolbarGap = editToolbar ? editToolbar.offsetHeight : 4;
-                    const maxH = (vv.offsetTop || 0) + vv.height - topMargin - toolbarGap;
-                    container.style.maxHeight = `${maxH}px`;
-                }
+                resizeOpenPanels();
                 return;
             }
 

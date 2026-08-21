@@ -81,9 +81,34 @@ function closeOpenPanel(): void {
   if (control) {
     const panel = control.querySelector<HTMLElement>('.visibility-panel');
     if (panel) panel.style.display = 'none';
-    control.classList.remove('vis-open');
+    control.classList.remove('vis-open', 'vis-flip-left');
     control.querySelector('.visibility-trigger')?.setAttribute('aria-expanded', 'false');
   }
+}
+
+/**
+ * Pick which side the panel hangs off. It defaults to dropping rightward from the
+ * trigger's left edge, but the control sits partway along the author row and the
+ * container clips at `overflow: hidden` — on a phone (75vw wide) a 170px panel from a
+ * control that far across runs off the edge and its labels get cut in half. Measure the
+ * laid-out panel against the container's clip box and flip it leftward when it spills.
+ *
+ * Flips back only if the flipped position ALSO fits: on a narrow container a panel
+ * wider than the available room overflows either way, and left-aligned at least keeps
+ * the icons (which carry the meaning) on screen.
+ */
+function orientPanel(control: HTMLElement, panel: HTMLElement, host: HTMLElement | null): void {
+  control.classList.remove('vis-flip-left');
+  if (!host) return;
+
+  const GUTTER = 8;
+  const clip = host.getBoundingClientRect();
+  const dropped = panel.getBoundingClientRect();
+  if (dropped.right <= clip.right - GUTTER) return; // fits as-is
+
+  control.classList.add('vis-flip-left');
+  const flipped = panel.getBoundingClientRect();
+  if (flipped.left < clip.left + GUTTER) control.classList.remove('vis-flip-left');
 }
 
 function openPanel(control: HTMLElement): void {
@@ -102,6 +127,10 @@ function openPanel(control: HTMLElement): void {
   // STACKED layer (.hyperlit-container-stacked) — the overlay must cover the
   // layer the control actually lives in, not the base container beneath it.
   const host = control.closest<HTMLElement>('#hyperlit-container, .hyperlit-container-stacked');
+
+  // Panel is already display:block, so it is laid out and measurable right here.
+  if (panel) orientPanel(control, panel, host);
+
   if (host) {
     openOverlay = document.createElement('div');
     openOverlay.className = 'visibility-overlay';

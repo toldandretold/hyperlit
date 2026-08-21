@@ -25,6 +25,11 @@
   position: relative;
   background: transparent;
   border: none;
+  /* Explicit colour is load-bearing: the chevron below is stroke="currentColor", and a
+     borderless <button> with no colour of its own falls through to the UA button default
+     — which iOS Safari paints in system blue. The state icons carry their own stroke
+     (green globe / red lock), so only the chevron is affected. */
+  color: var(--color-text-secondary);
   padding: 4px;
   cursor: pointer;
   display: flex;
@@ -77,8 +82,12 @@
   transform: rotate(180deg);
 }
 
-/* The glass popover of options — left-aligned under the trigger (the control
-   sits at the row's left cell, so a right-anchored panel would overflow). */
+/* The glass popover of options — left-aligned under the trigger by default (the
+   control sits at the row's left cell). The container clips at overflow:hidden and
+   is only 75vw on a phone, so a 170px panel dropped from a control sitting partway
+   along the author row runs off the edge and loses its labels; openPanel() measures
+   after paint and adds .vis-flip-left to hang it the other way. See the flip rule
+   below — the class goes on the CONTROL, not the panel. */
 :is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-panel {
   position: absolute;
   top: calc(100% + 6px);
@@ -92,6 +101,13 @@
   backdrop-filter: var(--container-glass-blur);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   z-index: 1003;
+}
+
+/* Flipped: hang the panel leftward from the trigger's right edge instead. Applied by
+   openPanel() only when the default drop would spill past the container's clip edge. */
+:is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control.vis-flip-left .visibility-panel {
+  left: auto;
+  right: 0;
 }
 
 :is(#hyperlit-container, .hyperlit-container-stacked) .hl-visibility-control .visibility-option {

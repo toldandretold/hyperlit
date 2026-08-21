@@ -13,6 +13,7 @@
   height: auto;
   min-height: 10em;
   max-height: calc(100vh - 2em);
+  max-height: calc(100dvh - 2em); /* see #hyperlit-container — vh overshoots on mobile */
   /* width & max-width set inline per layer */
   background-color: var(--container-glass-bg);
   backdrop-filter: blur(10px);

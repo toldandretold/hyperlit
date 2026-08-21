@@ -10,6 +10,7 @@ import { showImportFailureModal } from '../../../conversion/bugReportModal.js';
 import { attachFilesToInput } from '../../utilities/fileImportHelpers';
 import { isNativeShell } from '../../../utilities/nativeBridge';
 import { sanitizeYearForAutofill, sanitizeTitleForAutofill } from './autofillRules';
+import { createTopUpLink } from '../../../utilities/billing/topUp';
 
 // ─── PDF Cost Estimate ───────────────────────────────────────────────
 // RAW $/1K pages for the pinned production OCR model (OCR 3 = mistral-ocr-2512).
@@ -172,8 +173,10 @@ export function showInsufficientBalanceBanner(errorContext: any = null) {
   banner.id = 'insufficient-balance-banner';
   banner.style.cssText = 'display:block; color:#d63384; font-size:13px; margin-top:8px; padding:10px 12px; border-radius:4px; background:rgba(214,51,132,0.08); border:1px solid rgba(214,51,132,0.3);';
   banner.innerHTML =
-    '<strong>Insufficient balance.</strong> PDF import is billed per page. Please top up your credits to continue.' +
-    '<br><a href="#" onclick="event.preventDefault(); fetch(\'/api/billing/checkout\', { method: \'POST\', headers: { \'Content-Type\': \'application/json\', \'Accept\': \'application/json\', \'X-XSRF-TOKEN\': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || \'\') }, credentials: \'include\', body: JSON.stringify({ amount: 5, return_url: window.location.href }) }).then(r => r.json()).then(d => { if (d.checkout_url) window.location.href = d.checkout_url; })" style="display:inline-block; margin-top:8px; padding:6px 14px; background:#d63384; color:#fff; border-radius:4px; text-decoration:none; font-size:13px; font-weight:500;">Top Up Balance</a>';
+    '<strong>Insufficient balance.</strong> PDF import is billed per page. Please top up your credits to continue.<br>';
+  banner.appendChild(createTopUpLink({
+    style: 'display:inline-block; margin-top:8px; padding:6px 14px; background:#d63384; color:#fff; border-radius:4px; text-decoration:none; font-size:13px; font-weight:500;',
+  }));
 
   if (errorContext) {
     const reportLine = document.createElement('div');
