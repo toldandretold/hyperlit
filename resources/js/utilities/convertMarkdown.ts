@@ -241,6 +241,38 @@ export function parseInlineMarkdown(text: any) {
 }
 
 
+// A stored node whose ROOT is a text container opening straight onto an <li>.
+// Anchored deliberately: only the "wrapper holds nothing but list items" shape
+// is repairable, mixed content (`<p>text<li>…`) is left alone.
+const ORPHAN_LI_ROOT = /^(\s*)<(p|h[1-6]|blockquote|div)((?:\s[^>]*)?)>(\s*<li[\s>][\s\S]*)$/i;
+
+/**
+ * Repair stored content whose root element wraps <li> children.
+ *
+ * `<p …><li>…</li></p>` is INVALID HTML and no parser keeps it: the "li" start
+ * tag closes the open <p>, so re-parsing the stored string yields an EMPTY node
+ * plus loose <li> siblings — the node's text vanishes from the node, and the
+ * next save writes that emptiness back. Records in this shape exist in the wild
+ * because a small paste that split a bullet list used to build the tail as a
+ * hardcoded <p> (fixed in paste/handlers/smallPasteHandler.ts createTailElement).
+ *
+ * Rewriting the wrapper to a <ul> keeps the id/data-node-id and makes the
+ * content survive the parse, so the node renders — and then saves — intact.
+ * Repairing at RENDER is what reaches the already-damaged records: the corruption
+ * only becomes data loss at the moment the stored string is parsed.
+ */
+export function repairListNodeContent(content: string): string {
+  const match = content ? ORPHAN_LI_ROOT.exec(content) : null;
+  if (!match) return content;
+
+  const [, lead, tag, attrs, body] = match;
+  const closingTag = new RegExp(`</${tag}>\\s*$`, 'i');
+  // No matching close = not a single well-formed root; don't guess.
+  if (!closingTag.test(body!)) return content;
+
+  return `${lead}<ul${attrs}>${body!.replace(closingTag, '')}</ul>`;
+}
+
 /**
  * (Optional) A simple render function to return a block's pre-rendered HTML.
  * Since each block already contains the final HTML, this may simply return it.
@@ -250,5 +282,5 @@ export function renderBlockToHtml(block: any) {
     console.error("❌ Invalid block detected:", block);
     return "";
   }
-  return block.content;
+  return repairListNodeContent(block.content);
 }

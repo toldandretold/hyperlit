@@ -226,13 +226,17 @@ class TextController extends Controller
             $finalSubBookId = $book . '/' . $rest;
         }
 
-        // Walk backwards from leaf to root to discover full chain
-        $chain = $this->walkChainToRoot($book, $finalSubBookId);
+        // Walk backwards from leaf to root to discover full chain, falling back to the
+        // deepest ANCESTOR that still resolves when the requested one is gone.
+        $resolved = $this->resolveDeepestSurvivingChain($book, $finalSubBookId);
+        $chain = $resolved['chain'];
 
-        if ($chain === null) {
+        if ($resolved['subBookId'] !== $finalSubBookId) {
             // Check if the root book is private (RLS blocked the chain queries).
             // If so, serve the reader view — the client-side fetchInitialChunk() will
             // get a 403 and show the "Private Book" login prompt, same as /book does.
+            // This case is NOT a deletion, so it must not redirect: a would-be reader
+            // needs the login prompt, not a bounce to a book they equally can't see.
             $bookInfo = DB::selectOne('SELECT * FROM check_book_visibility(?)', [$book]);
             if ($bookInfo && $bookInfo->visibility === 'private') {
                 return view('reader', array_merge([
@@ -245,7 +249,15 @@ class TextController extends Controller
                 ], $this->buildSeoData($book)));
             }
 
-            abort(404, 'Sub-book chain not found.');
+            // The requested sub-book no longer exists — deleting a highlight destroys its
+            // sub-book, so any link or restored history entry pointing at it used to 404.
+            // Redirect ONCE to the deepest surviving ancestor (or the plain book when none
+            // survives), which both lands the reader somewhere real and clears the dead
+            // segments out of the address bar. Each hop is strictly shorter than the last
+            // and the terminal case is a bare book URL, so this cannot loop.
+            return redirect()->to(
+                $this->subBookUrl($slug ?: $book, $book, $resolved['subBookId'])
+            );
         }
 
         $editMode = $request->boolean('edit') || $request->routeIs('book.edit');
@@ -292,13 +304,90 @@ class TextController extends Controller
             $finalSubBookId = $book . '/' . $rest;
         }
 
-        $chain = $this->walkChainToRoot($book, $finalSubBookId);
+        // Degrade to the deepest surviving ancestor rather than 404 — the client's
+        // buildChainFromUrl() calls this to recover a level-3+ chain, and a hard 404
+        // there left it opening the dead leaf anyway. `truncated` lets the caller know
+        // the chain it got back is shorter than the one it asked for.
+        $resolved = $this->resolveDeepestSurvivingChain($book, $finalSubBookId);
 
-        if ($chain === null) {
-            return response()->json(['success' => false, 'message' => 'Chain not found'], 404);
+        return response()->json([
+            'success'           => true,
+            'chain'             => $resolved['chain'],
+            'truncated'         => $resolved['subBookId'] !== $finalSubBookId,
+            'resolvedSubBookId' => $resolved['subBookId'],
+        ]);
+    }
+
+    /**
+     * Resolve the requested sub-book chain, or — when it or an ancestor has been deleted —
+     * the deepest ancestor that still resolves.
+     *
+     * Stepping down cannot be done by string surgery: a sub-book id only ever encodes its
+     * last two items ("book/item" or "book/N/parentItem/item"), so the grandparent is not
+     * derivable from the id. The parent ITEM id is in there though, and an item's own
+     * sub_book_id is a direct lookup — that is what walks us down one real level at a time.
+     *
+     * @return array{chain: array, subBookId: ?string} subBookId is null at the root book.
+     */
+    private function resolveDeepestSurvivingChain(string $rootBook, string $leafSubBookId): array
+    {
+        $currentSubBookId = $leafSubBookId;
+        $maxHops = 20;
+
+        for ($i = 0; $i < $maxHops; $i++) {
+            $chain = $this->walkChainToRoot($rootBook, $currentSubBookId);
+            if ($chain !== null) {
+                return ['chain' => $chain, 'subBookId' => $currentSubBookId];
+            }
+
+            $parentItemId = \App\Helpers\SubBookIdHelper::parse($currentSubBookId)['parentItemId'];
+            if (!$parentItemId) {
+                break; // level 1 — the only thing below it is the root book
+            }
+
+            $parentSubBookId = $this->findSubBookIdForItem($rootBook, $parentItemId);
+            if ($parentSubBookId === null || $parentSubBookId === $currentSubBookId) {
+                break;
+            }
+
+            $currentSubBookId = $parentSubBookId;
         }
 
-        return response()->json(['success' => true, 'chain' => $chain]);
+        return ['chain' => [], 'subBookId' => null];
+    }
+
+    /**
+     * The sub_book_id owned by a given item id, scoped to one foundation book.
+     * split_part rather than a LIKE prefix: book ids contain underscores, which LIKE
+     * would treat as single-character wildcards.
+     */
+    private function findSubBookIdForItem(string $rootBook, string $itemId): ?string
+    {
+        $subBookId = DB::table('hyperlights')
+            ->where('hyperlight_id', $itemId)
+            ->whereRaw("split_part(sub_book_id, '/', 1) = ?", [$rootBook])
+            ->value('sub_book_id');
+
+        if ($subBookId !== null) return $subBookId;
+
+        return DB::table('footnotes')
+            ->where('footnoteId', $itemId)
+            ->whereRaw("split_part(sub_book_id, '/', 1) = ?", [$rootBook])
+            ->value('sub_book_id');
+    }
+
+    /**
+     * Reader URL for a sub-book id, or the plain book URL when $subBookId is null.
+     * A sub-book id is "<foundation>/<rest>" and the reader route is "/<slug>/<rest>",
+     * so the foundation prefix is simply swapped for the slug.
+     */
+    private function subBookUrl(string $slugOrBook, string $rootBook, ?string $subBookId): string
+    {
+        if ($subBookId === null || !str_starts_with($subBookId, $rootBook . '/')) {
+            return '/' . $slugOrBook;
+        }
+
+        return '/' . $slugOrBook . '/' . substr($subBookId, strlen($rootBook) + 1);
     }
 
     private function walkChainToRoot(string $rootBook, string $leafSubBookId): ?array

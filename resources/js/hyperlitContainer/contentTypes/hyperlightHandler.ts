@@ -6,11 +6,70 @@
  */
 import type { ContentTypeHandler, BuildCtx, PostOpenCtx, PermissionCtx } from './types';
 import { buildHighlightContent } from '../contentBuilders/displayHyperlights';
-import { getCurrentContainer } from '../stack';
+import { getCurrentContainer, isStacked } from '../stack';
 import { containerState, registerListener } from '../containerState';
 import { buildSubBookId } from '../../utilities/subBookIdHelper';
 import { openDatabase } from '../../indexedDB/index';
 import { getAuthContextSync, getAuthContext } from '../../utilities/auth/index';
+import { log } from '../../utilities/logger';
+
+/**
+ * Strip one highlight's rendered block from an open container.
+ *
+ * displayHyperlights emits a FLAT run of siblings per highlight with no wrapper element
+ * (author row → blockquote → annotation target → br → separating hr), so the block is
+ * "everything from this author row up to the next one".
+ */
+export function removeHighlightBlock(container: Element, highlightId: string): void {
+  const start = container.querySelector<HTMLElement>(`[id="author-${highlightId}"]`);
+  if (!start) return;
+
+  const doomed: Element[] = [];
+  let node: Element | null = start;
+  while (node) {
+    doomed.push(node);
+    const next: Element | null = node.nextElementSibling;
+    if (next && next.classList.contains('author')) break;
+    node = next;
+  }
+  doomed.forEach((el) => el.remove());
+
+  // Deleting the last highlight leaves the previous one's separator dangling.
+  const scroller = container.querySelector('.scroller') ?? container;
+  const tail = scroller.lastElementChild;
+  if (tail && tail.tagName === 'HR') tail.remove();
+}
+
+/**
+ * Retire the UI that was showing a highlight we just deleted.
+ *
+ * Without this the container keeps rendering the deleted highlight — which reads as a
+ * freeze — and, in a stacked layer, the URL still names the sub-book that the delete just
+ * destroyed, so a refresh lands on a sub-book that no longer exists. Popping the layer (or
+ * closing the base container) is what restores the parent's URL; both paths already do
+ * that cleanup, they were simply never invoked from the delete path.
+ *
+ * When the layer lists several overlapping highlights, only the deleted one's block goes —
+ * the others are still live content and the URL still describes them correctly.
+ */
+export async function dismissDeletedHighlight(highlightId: string): Promise<void> {
+  const container = getCurrentContainer();
+  if (!container) return;
+
+  if (container.querySelectorAll('.author[id^="author-"]').length > 1) {
+    removeHighlightBlock(container, highlightId);
+    return;
+  }
+
+  if (isStacked()) {
+    const { popTopLayer }: any = await import('../stack');
+    await popTopLayer();
+  } else {
+    // Dynamic: core ↔ contentTypes would otherwise close an import cycle.
+    const { closeHyperlitContainer }: any = await import('../core.js');
+    await closeHyperlitContainer();
+  }
+}
 
 export const hyperlightHandler: ContentTypeHandler = {
   type: 'highlight',
@@ -281,19 +340,46 @@ export const hyperlightHandler: ContentTypeHandler = {
         const { deleteHighlightById, hideHighlightById }: any = await import('../../hyperlights/index');
         const container = getCurrentContainer();
         if (container) {
+          const { confirmDialog, alertDialog }: any = await import('../../components/dialog/dialog');
+
           const handler = async (e: any) => {
             const button = e.target.closest('.delete-highlight-btn');
             if (!button) return;
 
             const highlightId = button.getAttribute('data-highlight-id');
             const action = button.getAttribute('data-action'); // 'delete' or 'hide'
+            if (!highlightId || button.dataset.busy === 'true') return;
 
-            if (action === 'hide') {
-              // Book owner hiding someone else's highlight - sets hidden=true
-              await hideHighlightById(highlightId);
-            } else {
-              // User deleting their own highlight - permanent removal
-              await deleteHighlightById(highlightId);
+            // Confirm first: this is irreversible (a delete destroys the highlight's
+            // sub-book and everything written in it) and the trash sits a thumb's width
+            // from the Public/Private pill, so a mis-tap used to be unrecoverable.
+            const confirmed = await confirmDialog({
+              title: action === 'hide' ? 'Delete this highlight?' : 'Delete your highlight?',
+              message: action === 'hide'
+                ? 'It will be hidden for everyone, along with its annotation.'
+                : 'The highlight and everything written under it go with it. This cannot be undone.',
+              confirmLabel: 'Delete',
+              danger: true,
+            });
+            if (!confirmed) return;
+
+            button.dataset.busy = 'true';
+            try {
+              if (action === 'hide') {
+                // Book owner hiding someone else's highlight - sets hidden=true
+                await hideHighlightById(highlightId);
+              } else {
+                // User deleting their own highlight - permanent removal
+                await deleteHighlightById(highlightId);
+              }
+              await dismissDeletedHighlight(highlightId);
+            } catch (err) {
+              button.dataset.busy = 'false';
+              log.error('Highlight delete failed', '/hyperlitContainer/contentTypes/hyperlightHandler.ts', err as any);
+              await alertDialog({
+                title: "Couldn't delete that highlight",
+                message: (err as Error)?.message ?? 'Unknown error',
+              });
             }
           };
           registerListener(container, 'click', handler);

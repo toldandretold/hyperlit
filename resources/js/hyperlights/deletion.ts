@@ -10,6 +10,9 @@ import { setProgrammaticUpdateInProgress } from '../utilities/operationState';
 import { getCascadeOriginId } from '../scrolling/index';
 import { buildSubBookId } from '../utilities/subBookIdHelper';
 import { deleteBookFromIndexedDB } from '../indexedDB/utilities/cleanup';
+// Zero-import DI leaf — safe to reach into from here (the real impl lives in the
+// heavy subBookLoader, which would close an import cycle if pulled in directly).
+import { destroySubBook } from '../hyperlitContainer/subBookActions';
 
 interface HighlightActionResult {
   success: boolean;
@@ -131,10 +134,19 @@ export async function deleteHighlightById(highlightId: string): Promise<Highligh
       queueForSync("hyperlights", highlightId, "delete", deletedHyperlight);
     }
 
-    // Clean up sub-book content from IndexedDB
+    // Clean up sub-book content from IndexedDB, and unmount whatever the container is
+    // still rendering of it. The DOM MUST come down with the store: the sub-book's nodes
+    // no longer exist anywhere, so a still-mounted copy is a corpse — and the sweep that
+    // runs on container close compares live DOM against IndexedDB, so leaving it up
+    // reports the deliberate deletion as an integrity mismatch (DOM 1 / IDB 0 / PG 0).
     try {
       const subBookId = buildSubBookId(bookId, highlightId);
       await deleteBookFromIndexedDB(asBookId(subBookId));
+      destroySubBook(subBookId);
+      // destroySubBook is a no-op for a sub-book that was rendered without registering
+      // with subBookLoader, so sweep the DOM for stragglers by id as well.
+      document.querySelectorAll(`.sub-book-content[data-book-id="${subBookId}"]`)
+        .forEach((el) => el.remove());
       console.log(`🧹 Cleaned up sub-book: ${subBookId}`);
     } catch (e) {
       console.warn(`Sub-book cleanup failed (non-fatal):`, e);

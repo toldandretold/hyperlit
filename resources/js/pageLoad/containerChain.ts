@@ -149,8 +149,13 @@ export async function buildChainFromUrl(bookId: string, pathSegments: string[]):
     const response = await fetch(`/api/resolve-chain/${bookId}/${rest}`);
     if (response.ok) {
       const data = await response.json();
-      if (data.success && data.chain?.length > 0) {
-        console.log(`🔗 buildChainFromUrl: Server resolved chain with ${data.chain.length} items`);
+      // Trust ANY chain the server resolves, including an empty one. The endpoint now
+      // degrades to the deepest surviving ancestor rather than 404ing, so an empty chain
+      // is a definite answer — "every segment you asked for is deleted, stay on the book"
+      // — not a failure. Falling through to the URL segments there would send
+      // openContainerChain hunting for elements that cannot exist, at ~18s of escalating
+      // retries per dead segment.
+      if (data.success && Array.isArray(data.chain)) {
         return data.chain;
       }
     }

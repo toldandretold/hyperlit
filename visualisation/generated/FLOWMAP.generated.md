@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1757 functions in 372 modules · 10 object stores · 10 PG tables · 3636 edges
+**MarkdownDB** schema v28 · 1759 functions in 373 modules · 10 object stores · 10 PG tables · 3645 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1017,6 +1017,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `enableButtonEl` | `hyperlitContainer/contentBuilders/sourceAccessButton` | — | — | read/write | — |
 | `lockButtonEl` | `hyperlitContainer/contentBuilders/sourceAccessButton` | — | — | read/write | — |
 | `privateLockIcon` | `hyperlitContainer/contentBuilders/sourceAccessButton` | — | — | — | — |
+| `dismissDeletedHighlight` | `hyperlitContainer/contentTypes/hyperlightHandler` | — | — | read | — |
+| `removeHighlightBlock` | `hyperlitContainer/contentTypes/hyperlightHandler` | — | — | read/write | — |
 | `getHandler` | `hyperlitContainer/contentTypes/registry` | — | — | — | — |
 | `priorityOf` | `hyperlitContainer/contentTypes/registry` | — | — | — | — |
 | `animateHyperlitContainerOpen` | `hyperlitContainer/core` | — | — | read | — |
@@ -1913,6 +1915,13 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/contentBuilders/displayHypercites/citationPanelButtons` → `hyperlitContainer/core`
 - `hyperlitContainer/contentBuilders/displayHypercites/hyperciteContent` → `hyperlitContainer/utils`
 - `hyperlitContainer/contentBuilders/displayHyperlights` → `hyperlitContainer/utils`
+- `hyperlitContainer/contentTypes/hyperlightHandler` → `divEditor/index`
+- `hyperlitContainer/contentTypes/hyperlightHandler` → `editToolbar/index`
+- `hyperlitContainer/contentTypes/hyperlightHandler` → `hyperlights/index`
+- `hyperlitContainer/contentTypes/hyperlightHandler` → `hyperlitContainer/brainQuery`
+- `hyperlitContainer/contentTypes/hyperlightHandler` → `hyperlitContainer/core`
+- `hyperlitContainer/contentTypes/hyperlightHandler` → `hyperlitContainer/subBookLoader`
+- `hyperlitContainer/contentTypes/hyperlightHandler` → `paste/index`
 - `hyperlitContainer/core` → `footnotes/footnoteAnnotations`
 - `hyperlitContainer/core` → `hyperlitContainer/brainQuery`
 - `hyperlitContainer/core` → `hyperlitContainer/containerListeners`

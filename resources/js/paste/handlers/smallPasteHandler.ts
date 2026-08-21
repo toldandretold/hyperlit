@@ -15,6 +15,110 @@ import { BLOCK_ELEMENT_SELECTOR } from '../../utilities/blockElements';
 
 const SMALL_NODE_LIMIT = 10;
 
+// ---------------------------------------------------------------------------
+// Structural containers — a node whose children are NOT inline.
+//
+// These drive the "never put a structural child inside a <p>" rule below.
+// `<p><li>…</li></p>` is invalid HTML and the parser does not keep it: the
+// "li" start tag CLOSES the open <p>, so the moment the markup is re-parsed
+// (page reload, DOMPurify, the integrity read-back via DOMParser) the node
+// collapses to an EMPTY <p> and the user's text is gone. It survives in the
+// live DOM only because DOM manipulation never re-parses — which is exactly
+// why it reaches IndexedDB looking fine and blows up later.
+// ---------------------------------------------------------------------------
+const LIST_TAGS = new Set(['UL', 'OL']);
+const CELLULAR_TAGS = new Set(['UL', 'OL', 'TABLE']);
+
+/**
+ * Wrap runs of orphan <li> elements in a <ul>.
+ *
+ * Clipboard HTML can arrive with bare <li>s (a partial list selection, or a
+ * wrapper a sanitizer dropped). Left orphaned they get treated as inline
+ * content and end up inside a <p> — the corruption described above. Giving
+ * them a real list parent also makes the hasBlockElements probe classify them
+ * correctly, so they take the block-insert path instead of the inline one.
+ */
+function wrapOrphanListItems(html: string): string {
+  if (!/<li[\s>]/i.test(html)) return html;
+
+  const template = document.createElement('template');
+  template.innerHTML = html; // SAFE: caller sanitized before calling us
+  const root = template.content;
+
+  const isListItem = (node: ChildNode | null): boolean =>
+    !!node && node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'LI';
+  const isBlankText = (node: ChildNode | null): boolean =>
+    !!node && node.nodeType === Node.TEXT_NODE && !node.textContent?.trim();
+
+  let wrapped = false;
+  let child: ChildNode | null = root.firstChild;
+  while (child) {
+    if (!isListItem(child)) {
+      child = child.nextSibling;
+      continue;
+    }
+    // Absorb this <li> and every consecutive sibling <li> into one list
+    // (inter-item whitespace text nodes are dropped, not orphaned mid-run).
+    const list = document.createElement('ul');
+    root.insertBefore(list, child);
+    let cursor: ChildNode | null = child;
+    while (isListItem(cursor) || isBlankText(cursor)) {
+      const after: ChildNode | null = cursor!.nextSibling;
+      if (isListItem(cursor)) list.appendChild(cursor!);
+      else cursor!.remove();
+      cursor = after;
+    }
+    wrapped = true;
+    child = cursor;
+  }
+  if (!wrapped) return html;
+
+  const out = document.createElement('div');
+  out.appendChild(root);
+  return out.innerHTML;
+}
+
+/**
+ * Build the element that will hold the TAIL — the half of currentBlock left
+ * after the cursor when a block paste splits the node.
+ *
+ * The tail must mirror currentBlock's tag, because Range.extractContents()
+ * hands back the partially-selected ancestors: splitting a <ul> yields a run of
+ * <li>, a <blockquote> yields <p>s, a <table> yields a <tbody>, a <pre> yields
+ * preformatted text. A hardcoded <p> wrapper is wrong for every one of those,
+ * and for the list/table cases it is the silent-data-loss shape above.
+ *
+ * Headings are the deliberate exception: their content is inline, so a <p> is
+ * legal, and cloning would mint a duplicate heading into the book's structure.
+ */
+function createTailElement(currentBlock: HTMLElement): HTMLElement {
+  if (/^H[1-6]$/.test(currentBlock.tagName)) return document.createElement('p');
+
+  const tail = currentBlock.cloneNode(false) as HTMLElement; // shallow: tag + attributes
+  tail.removeAttribute('id');
+  tail.removeAttribute('data-node-id');
+  tail.removeAttribute('no-delete-id');
+  return tail;
+}
+
+/**
+ * Where leading inline content from the paste should land.
+ *
+ * Normally that's currentBlock itself, but text may not sit directly inside a
+ * <ul>/<ol>/<table> — it belongs in the <li>/<td> the cursor is in, which is
+ * also where the user expects it to appear.
+ */
+function resolveInlineHost(currentBlock: HTMLElement, range: Range): Element {
+  if (!CELLULAR_TAGS.has(currentBlock.tagName)) return currentBlock;
+
+  const start = range.startContainer;
+  const startEl = start.nodeType === Node.TEXT_NODE
+    ? start.parentElement
+    : (start instanceof Element ? start : null);
+  const cell = startEl ? startEl.closest('li, td, th') : null;
+  return cell && currentBlock.contains(cell) ? cell : currentBlock;
+}
+
 /**
  * Handle small paste operations (≤ SMALL_NODE_LIMIT nodes)
  * @param {Event} event - The paste event
@@ -99,6 +203,9 @@ export function handleSmallPaste(event: any, htmlContent: any, plainText: any, n
   // Strip style attributes — browser bakes computed CSS (e.g. font-family: var(--font-family-base))
   // into clipboard HTML when copying from contenteditable; these are visual noise, not user intent
   finalHtmlToInsert = finalHtmlToInsert.replace(/\sstyle="[^"]*"/gi, '');
+
+  // Give orphan <li>s a real list parent BEFORE anything decides where they go
+  finalHtmlToInsert = wrapOrphanListItems(finalHtmlToInsert);
 
   // If pasting HTML with a single <p> wrapper into an existing <p>, unwrap it
   // SAFE: Content is already sanitized above
@@ -292,15 +399,23 @@ function _blockPaste(currentBlock: any, html: any, book: any, undoManager: any, 
 
   // Merge leading inline content into currentBlock (normal case)
   if (cursorInsideBlock && leadingInlines.length > 0) {
+    const inlineHost = resolveInlineHost(currentBlock, range);
     for (const node of leadingInlines) {
-      currentBlock.appendChild(node);
+      inlineHost.appendChild(node);
     }
   }
 
-  // Ensure currentBlock has content if it was emptied by tail extraction
+  // Ensure currentBlock has content if it was emptied by tail extraction.
+  // A bare <br> is only legal filler in a text container: a list needs an <li>
+  // to hang it on, and a <table> would foster-parent it straight back out on
+  // the next re-parse (leaving the <br> loose before the table).
   if (cursorInsideBlock && !currentBlock.textContent.trim() &&
       !currentBlock.querySelector('img, sup, br')) {
-    currentBlock.innerHTML = '<br>';
+    if (LIST_TAGS.has(currentBlock.tagName)) {
+      currentBlock.innerHTML = '<li><br></li>';
+    } else if (currentBlock.tagName !== 'TABLE') {
+      currentBlock.innerHTML = '<br>';
+    }
   }
 
   // Insert new block elements as siblings after currentBlock
@@ -347,17 +462,29 @@ function _blockPaste(currentBlock: any, html: any, book: any, undoManager: any, 
     insertAfter = elementToInsert;
   }
 
-  // Create tail <p> from extracted content (if non-empty)
+  // Create the tail element from extracted content (if non-empty).
+  // Its TAG mirrors currentBlock — see createTailElement: a <ul> tail is a run
+  // of <li>s, and `<p><li>…</li></p>` loses the text on the next re-parse.
   if (tailFragment) {
-    const tailP = document.createElement('p');
-    tailP.appendChild(tailFragment);
-    if (tailP.textContent.trim() || tailP.querySelector('img, sup')) {
+    const tailEl = createTailElement(currentBlock);
+    tailEl.appendChild(tailFragment);
+
+    // A caret sitting at the END of a list item contributes an EMPTY <li> to the
+    // extracted tail (the partially-selected item had no characters left to give)
+    // — a stray bullet the user never typed. Drop it.
+    const firstItem = LIST_TAGS.has(tailEl.tagName) ? tailEl.firstElementChild : null;
+    if (firstItem && firstItem.tagName === 'LI' &&
+        !firstItem.textContent.trim() && !firstItem.querySelector('img, sup')) {
+      firstItem.remove();
+    }
+
+    if (tailEl.textContent.trim() || tailEl.querySelector('img, sup')) {
       if (insertAfter.nextSibling) {
-        container.insertBefore(tailP, insertAfter.nextSibling);
+        container.insertBefore(tailEl, insertAfter.nextSibling);
       } else {
-        container.appendChild(tailP);
+        container.appendChild(tailEl);
       }
-      insertedElements.push(tailP);
+      insertedElements.push(tailEl);
     }
   }
 
