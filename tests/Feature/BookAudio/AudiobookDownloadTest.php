@@ -272,6 +272,52 @@ it('reports building while the lock is held, before the worker has written any p
     Cache::lock(BuildAudiobookJob::lockKey($book))->forceRelease();
 })->skip(fn () => ! app(AudiobookBuilder::class)->isAvailable(), 'ffmpeg not installed on this host');
 
+it('recovers from a stale audiobook build — reports buildable and re-dispatches', function () {
+    // A build killed without its failed() handler leaves the lock held (for the
+    // full TTL) and audiobook_progress.json saying 'building' forever. Without
+    // stale detection the download button spins on a corpse and every re-press
+    // gets 'building' back — the exact "cancelled mid-generation, can't re-do"
+    // bug. The narration flow solved this with runIsStale(); packaging now does
+    // the same.
+    Queue::fake();
+    $owner = $this->seedUser();
+    $book = abBook();
+    $this->seedLibrary(['book' => $book, 'creator' => $owner->name, 'creator_token' => $owner->user_token, 'visibility' => 'public']);
+    $this->seedNode(['book' => $book, 'startLine' => 1, 'node_id' => $book.'_a', 'content' => '<p>Hi.</p>', 'plainText' => 'Hi.']);
+    abPutAudioFile($book, abSeedAudioRow($book, $book.'_a', 'Hi.'));
+
+    $store = app(\App\Services\BookAudioStore::class);
+    $progressPath = $store->audiobookProgressPath($book);
+    \Illuminate\Support\Facades\File::ensureDirectoryExists(dirname($progressPath));
+    \Illuminate\Support\Facades\File::put($progressPath, json_encode([
+        'status' => 'building',
+        'progress' => 0.35,
+        'message' => null,
+        'filename' => null,
+        'bytes' => 0,
+        'updated_at' => now()->subSeconds(600)->toIso8601String(),
+    ]));
+
+    // Lock still held — the dead job's TTL hasn't expired yet.
+    Cache::lock(BuildAudiobookJob::lockKey($book), 3900)->get();
+
+    // audiobookStatus must see through the corpse: 'buildable', not 'building'.
+    $this->getJson("/api/book-audio/{$book}/audiobook")
+        ->assertOk()
+        ->assertJson(['state' => 'buildable']);
+
+    // buildAudiobook must take over the stale lock and re-dispatch.
+    $this->postJson("/api/book-audio/{$book}/audiobook")
+        ->assertStatus(202)
+        ->assertJson(['success' => true, 'state' => 'building']);
+    Queue::assertPushed(BuildAudiobookJob::class, 1);
+
+    // The stale progress file must be gone.
+    expect(is_file($progressPath))->toBeFalse();
+
+    Cache::lock(BuildAudiobookJob::lockKey($book))->forceRelease();
+})->skip(fn () => ! app(AudiobookBuilder::class)->isAvailable(), 'ffmpeg not installed on this host');
+
 it('404s a download when nothing has been packaged yet', function () {
     $owner = $this->seedUser();
     $book = abBook();

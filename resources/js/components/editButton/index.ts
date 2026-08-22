@@ -319,6 +319,15 @@ export function disableEditMode({ skipPersistence = false }: DisableEditModeOpti
 
     await flushAllPendingSaves();
 
+    // Flush any pending render-heals (footnote renumbering, dl→div conversion)
+    // so IDB converges with the live DOM before the integrity check compares them.
+    try {
+      const { flushRenderHeal } = await import('../../lazyLoader/footnoteSelfHeal');
+      await flushRenderHeal();
+    } catch (e) {
+      verbose.content(`[editButton] flushRenderHeal failed: ${(e as Error)?.message}`, 'components/editButton/index.ts');
+    }
+
     // [diagnostic] diff IDB content after flush
     if (__preFlushSnapshot) {
       try {

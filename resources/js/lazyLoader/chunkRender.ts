@@ -140,6 +140,50 @@ export function normalizeHyperciteElements(container: any) {
 }
 
 /**
+ * Convert <dl>/<dt>/<dd> definition list elements to <div> wrappers so they
+ * survive the sanitizer's element extraction (which needs a first Element child
+ * to attach id/data-node-id onto). The server-side NodeHtmlSanitizer allows
+ * these tags (they're not XSS vectors), so imported article metadata stored as
+ * <dl> arrives intact — but without this conversion the client render strips
+ * them to bare text and the node vanishes from the DOM, creating a persistent
+ * DOM-vs-IDB integrity mismatch.
+ *
+ * Returns true if any conversion happened (caller queues a render heal so IDB
+ * and Postgres eventually converge on the <div> form).
+ */
+function convertDefinitionLists(container: HTMLElement): boolean {
+  const dls = container.querySelectorAll('dl');
+  if (dls.length === 0) return false;
+
+  dls.forEach((dl: any) => {
+    const div = document.createElement('div');
+    // Preserve all attributes (id, data-node-id, class, style, etc.)
+    for (const attr of Array.from(dl.attributes) as Attr[]) {
+      div.setAttribute(attr.name, attr.value);
+    }
+    // Move children (including converted dt/dd) into the new div
+    while (dl.firstChild) {
+      div.appendChild(dl.firstChild);
+    }
+    dl.replaceWith(div);
+  });
+
+  // Convert dt/dd to div (they nest inside the already-converted dl→div)
+  container.querySelectorAll('dt, dd').forEach((el: any) => {
+    const div = document.createElement('div');
+    for (const attr of Array.from(el.attributes) as Attr[]) {
+      div.setAttribute(attr.name, attr.value);
+    }
+    while (el.firstChild) {
+      div.appendChild(el.firstChild);
+    }
+    el.replaceWith(div);
+  });
+
+  return true;
+}
+
+/**
  * Helper: Creates a chunk element given an array of node objects.
  */
 // Keep createChunkElement function signature unchanged
@@ -182,6 +226,14 @@ export function createChunkElement(nodes: NodeRecord[], instance: any) {
     const temp = document.createElement("div");
     // SECURITY: Sanitize HTML to prevent stored XSS from malicious EPUB uploads
     temp.innerHTML = sanitizeHtml(html);
+
+    // 🔄 CONVERT: <dl>/<dt>/<dd> → <div> so imported article metadata (stored as
+    // definition lists) survives the element-extraction below. Without this, the
+    // node produces no Element child and vanishes from the DOM — a persistent
+    // DOM-vs-IDB integrity mismatch. Queue a heal so IDB converges on the <div> form.
+    if (convertDefinitionLists(temp) && !instance.offscreen) {
+      queueRenderHeal(node.book, node.startLine);
+    }
 
     // 🔄 NORMALIZE: Unwrap <p> inside <li> (marked produces these on paste, but the
     // editor/mutation observer expects bare inline content inside <li>)

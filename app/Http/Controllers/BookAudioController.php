@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Jobs\BuildAudiobookJob;
 use App\Jobs\GenerateBookAudioJob;
 use App\Models\PgBookAudio;
-use App\Services\Audiobook\AudiobookBuilder;
 use App\Models\PgBookAudioMeta;
 use App\Models\PgLibrary;
+use App\Services\Audiobook\AudiobookBuilder;
 use App\Services\BillingService;
 use App\Services\BookAudioStore;
 use App\Services\E2ee\EncryptedBookGuard;
@@ -217,9 +217,9 @@ class BookAudioController extends Controller
     }
 
     /** A progress record that claims to be running but has gone cold. */
-    private function runIsStale(?array $progress): bool
+    private function runIsStale(?array $progress, string $status = 'generating'): bool
     {
-        if (! $progress || ($progress['status'] ?? null) !== 'generating') {
+        if (! $progress || ($progress['status'] ?? null) !== $status) {
             return false;
         }
         $updatedAt = $progress['updated_at'] ?? null;
@@ -237,6 +237,18 @@ class BookAudioController extends Controller
     private function readProgress(string $book): ?array
     {
         $path = app(BookAudioStore::class)->progressPath($book);
+        if (! is_file($path)) {
+            return null;
+        }
+        $data = json_decode(File::get($path), true);
+
+        return is_array($data) ? $data : null;
+    }
+
+    /** The on-disk audiobook packaging progress record for a book, or null. */
+    private function readAudiobookProgress(string $book): ?array
+    {
+        $path = app(BookAudioStore::class)->audiobookProgressPath($book);
         if (! is_file($path)) {
             return null;
         }
@@ -295,8 +307,13 @@ class BookAudioController extends Controller
         // it's taken before dispatch, so it covers the gap between dispatch and
         // the worker writing its first progress line. Reading only the file
         // made a just-dispatched build look idle, and the button gave up on it.
+        //
+        // A stale 'building' progress file — the worker was killed without its
+        // failed() handler — must NOT read as building, or the download button
+        // spins on a corpse forever. Same heartbeat check as the narration flow.
         $building = ! $ready
-            && ($this->isLocked(BuildAudiobookJob::lockKey($book)) || ($progress['status'] ?? null) === 'building');
+            && ($this->isLocked(BuildAudiobookJob::lockKey($book)) || ($progress['status'] ?? null) === 'building')
+            && ! $this->runIsStale($progress, 'building');
 
         return response()->json([
             'supported' => true,
@@ -341,13 +358,33 @@ class BookAudioController extends Controller
         }
 
         // A second requester joins the build in flight rather than starting a
-        // duplicate encode — the lock is released by the job.
+        // duplicate encode — the lock is released by the job. But a job killed
+        // without its failed() handler keeps the lock for the full 3900s TTL and
+        // leaves audiobook_progress.json saying 'building' forever, so a dead
+        // build blocks every re-press for over an hour. Take over a stale lock
+        // the same way generate() does for narration.
         $lock = Cache::lock(BuildAudiobookJob::lockKey($book), 3900);
         if (! $lock->get()) {
-            return response()->json(['success' => true, 'state' => 'building']);
+            if (! $this->runIsStale($this->readAudiobookProgress($book), 'building')) {
+                return response()->json(['success' => true, 'state' => 'building']);
+            }
+            Log::warning('BookAudio: taking over a stale audiobook build lock', ['book' => $book]);
+            $lock->forceRelease();
+            if (! $lock->get()) {
+                return response()->json(['success' => true, 'state' => 'building']);
+            }
         }
 
-        BuildAudiobookJob::dispatch($book);
+        // Clear any stale progress so audiobookStatus() doesn't read a corpse's
+        // 'building' status between dispatch and the worker's first write. Same
+        // reason generate() deletes audio_progress.json before dispatching.
+        try {
+            File::delete(app(BookAudioStore::class)->audiobookProgressPath($book));
+            BuildAudiobookJob::dispatch($book);
+        } catch (\Throwable $e) {
+            $lock->forceRelease();
+            throw $e;
+        }
 
         return response()->json(['success' => true, 'state' => 'building'], 202);
     }

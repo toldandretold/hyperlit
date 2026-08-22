@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1759,
+    "fnCount": 1760,
     "moduleCount": 373,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3645,
+    "edgeCount": 3646,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -11494,6 +11494,14 @@
       "leaf": false
     },
     {
+      "id": "lazyLoader/footnoteSelfHeal:flushRenderHeal",
+      "label": "flushRenderHeal",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/footnoteSelfHeal",
+      "leaf": true
+    },
+    {
       "id": "lazyLoader/footnoteSelfHeal:queueRenderHeal",
       "label": "queueRenderHeal",
       "kind": "fn",
@@ -19262,6 +19270,7 @@
       "band": "capture",
       "fnIds": [
         "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
+        "lazyLoader/footnoteSelfHeal:flushRenderHeal",
         "lazyLoader/footnoteSelfHeal:queueRenderHeal"
       ]
     },
@@ -20789,6 +20798,12 @@
       "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "components/editButton/index:disableEditMode__call__lazyLoader/footnoteSelfHeal:flushRenderHeal",
+      "source": "components/editButton/index:disableEditMode",
+      "target": "lazyLoader/footnoteSelfHeal:flushRenderHeal",
+      "rel": "call"
     },
     {
       "id": "components/editButton/index:disableEditMode__call__scrolling/paginator:resumeAfterEdit",
@@ -44118,6 +44133,11 @@
     },
     {
       "source": "components/editButton/index",
+      "target": "lazyLoader/footnoteSelfHeal",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/editButton/index",
       "target": "paste/index",
       "kind": "lazy"
     },
@@ -49008,6 +49028,6 @@
       ]
     ],
     "breakerCount": 4,
-    "lazyCount": 262
+    "lazyCount": 263
   }
 }

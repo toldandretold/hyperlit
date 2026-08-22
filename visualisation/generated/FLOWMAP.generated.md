@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1759 functions in 373 modules · 10 object stores · 10 PG tables · 3645 edges
+**MarkdownDB** schema v28 · 1760 functions in 373 modules · 10 object stores · 10 PG tables · 3646 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1257,6 +1257,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hydrateEncryptedImages` | `lazyLoader/encryptedImages` | — | — | read/write | — |
 | `restoreCanonicalImageSrcs` | `lazyLoader/encryptedImages` | — | — | — | — |
 | `applyDynamicFootnoteNumbers` | `lazyLoader/footnoteSelfHeal` | — | — | read/write | — |
+| `flushRenderHeal` | `lazyLoader/footnoteSelfHeal` | — | — | — | — |
 | `queueRenderHeal` | `lazyLoader/footnoteSelfHeal` | — | — | — | — |
 | `renderHarvestNetworks` | `lazyLoader/graphRenderer` | — | — | read/write | — |
 | `handleBrokenImages` | `lazyLoader/imageState` | — | — | read/write | — |
@@ -1772,7 +1773,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 4 · dynamic cycle-breakers (debt): 4 · lazy-loads (code-split): 262
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 4 · dynamic cycle-breakers (debt): 4 · lazy-loads (code-split): 263
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1832,6 +1833,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/editButton/index` → `editToolbar/index`
 - `components/editButton/index` → `hyperlights/index`
 - `components/editButton/index` → `indexedDB/index`
+- `components/editButton/index` → `lazyLoader/footnoteSelfHeal`
 - `components/editButton/index` → `paste/index`
 - `components/homepage/homepage` → `components/floatingActionMenu/floatingActionMenu`
 - `components/homepage/homepage` → `components/newBookButton/newBookButton`

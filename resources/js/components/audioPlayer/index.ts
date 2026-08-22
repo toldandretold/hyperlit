@@ -18,7 +18,7 @@ import { isBookEncrypted } from '../../e2ee/registry';
 import { isNativeShell } from '../../utilities/nativeBridge';
 import { isByoTtsActive } from '../../aiProviders/profiles';
 import { startLocalGeneration, type LocalGenerationHandle } from '../../aiProviders/tts/localGeneration';
-import { loadLocalAudio, toPlayerManifest, localResolveSrc } from './localSource';
+import { loadLocalAudio, toPlayerManifest, localResolveSrc, countLocalIncomplete } from './localSource';
 import { alertDialog, confirmDialog } from '../dialog/dialog';
 import { fetchAudioManifest, staleCount, type AudioManifest } from './manifest';
 import { confirmAndGenerate, formatPrice, pollGenerationProgress, refreshStatus, requestGeneration, stopProgressPolling } from './generation';
@@ -99,8 +99,10 @@ async function handlePlayPress(): Promise<void> {
       const local = await loadLocalAudio(id);
       if (local) {
         manifest = await toPlayerManifest(id, local);
-        if (staleCount(manifest) > 0 && await offerLocalStaleUpdate(id, staleCount(manifest))) {
-          return; // update accepted — local generation replays when done
+        const stale = staleCount(manifest);
+        const incomplete = await countLocalIncomplete(id, local);
+        if (await offerLocalContinueOrUpdate(id, stale, incomplete)) {
+          return; // update/continue accepted — local generation replays when done
         }
         usingLocalAudio = true;
         await startPlayback(id);
@@ -174,10 +176,10 @@ async function handlePlayPress(): Promise<void> {
       return;
     }
 
-    // Audio exists but some paragraphs were edited since: decide HERE, at the
-    // press, not via chrome on the player (the pill stays clean).
-    if (manifest && staleCount(manifest) > 0 && await offerStaleUpdate(id)) {
-      return; // update accepted — watchGeneration takes over and auto-plays
+    // Audio exists: offer to continue/update if narration is incomplete or
+    // stale. Decided HERE, at the press — the pill stays clean during playback.
+    if (manifest && await offerContinueOrUpdate(id)) {
+      return; // accepted — watchGeneration takes over and auto-plays
     }
 
     await startPlayback(id);
@@ -187,18 +189,49 @@ async function handlePlayPress(): Promise<void> {
 }
 
 /**
- * "Audio is out of date — update (price) | listen anyway". Returns true when
- * an update run was accepted (caller stops; the watcher plays when ready).
- * Any decline/failure falls back to listening to the current audio.
+ * "Narration is incomplete and/or out of date — continue (price) | listen
+ * anyway". Returns true when a run was accepted (caller stops; the watcher
+ * plays when ready). Any decline/failure falls back to listening to the
+ * current audio.
+ *
+ * The server job is idempotent (hash-skip), so "continue" and "update" are the
+ * SAME POST /generate call — only the dialog wording differs. A cancelled run
+ * left nodes un-narrated; this detects that gap via audio_nodes < total_nodes
+ * and offers to finish the job rather than silently playing a partial book.
  */
-async function offerStaleUpdate(id: string): Promise<boolean> {
+async function offerContinueOrUpdate(id: string): Promise<boolean> {
   const status = await refreshStatus(id);
-  if (!status || status.stale_nodes === 0) return false;
+  if (!status) return false;
+
+  const missing = status.total_nodes - status.audio_nodes;
+  const stale = status.stale_nodes;
+  if (missing <= 0 && stale <= 0) return false;
+
+  const billableChars = status.missing_chars + status.stale_chars;
+  const price = formatPrice(status);
+
+  let title: string;
+  let message: string;
+  let confirmLabel: string;
+
+  if (missing > 0 && stale > 0) {
+    title = 'Continue audiobook?';
+    message = `${missing} section(s) haven't been narrated yet and ${stale} have been edited (${billableChars.toLocaleString()} characters, ${price}). Continue narration? Everyone who reads this book gets the update.`;
+    confirmLabel = `Continue (${price})`;
+  } else if (missing > 0) {
+    title = 'Continue audiobook?';
+    message = `${missing} section(s) haven't been narrated yet (${billableChars.toLocaleString()} characters, ${price}). Continue narration? Everyone who reads this book can listen for free.`;
+    confirmLabel = `Continue (${price})`;
+  } else {
+    title = 'Audio is out of date';
+    message = `${stale} section(s) have been edited since this audiobook was narrated (${billableChars.toLocaleString()} characters, ${price}). Update now or listen to the current audio.`;
+    confirmLabel = `Update (${price})`;
+  }
 
   const wantsUpdate = await confirmDialog({
-    title: 'Audio is out of date',
-    message: `${status.stale_nodes} section(s) have been edited since this audiobook was narrated (update: ${formatPrice(status)}). You can update now or listen to the current audio.`,
-    confirmLabel: `Update (${formatPrice(status)})`,
+    title,
+    message,
+    confirmLabel,
     cancelLabel: 'Listen anyway',
   });
   if (!wantsUpdate) return false;
@@ -209,24 +242,44 @@ async function offerStaleUpdate(id: string): Promise<boolean> {
   generating = true;
   bar?.show();
   bar?.setGenerating(true);
-  bar?.setStatus('Updating audio…');
+  bar?.setStatus(missing > 0 ? 'Generating audio…' : 'Updating audio…');
   watchGeneration(id, /*playWhenDone*/ true);
 
   return true;
 }
 
 /**
- * Local flavour of offerStaleUpdate: edits since the last LOCAL narration are
- * re-narrated with the user's own provider (free) — hash-skip means only the
- * changed nodes are synthesized. Declining just plays the current audio.
+ * Local flavour: incomplete narration and/or edits since the last LOCAL
+ * narration — re-narrate with the user's own provider (free). Hash-skip means
+ * only the missing/changed nodes are synthesized. Declining just plays the
+ * current audio.
  */
-async function offerLocalStaleUpdate(id: string, staleNodes: number): Promise<boolean> {
+async function offerLocalContinueOrUpdate(
+  id: string,
+  stale: number,
+  incomplete: number,
+): Promise<boolean> {
+  if (stale === 0 && incomplete === 0) return false;
   if (!(await isByoTtsActive())) return false; // no provider — play what exists
 
+  let title: string;
+  let message: string;
+
+  if (incomplete > 0 && stale > 0) {
+    title = 'Continue audiobook?';
+    message = `${incomplete} section(s) haven't been narrated yet and ${stale} have been edited. Continue with your own voice provider (free)?`;
+  } else if (incomplete > 0) {
+    title = 'Continue audiobook?';
+    message = `${incomplete} section(s) haven't been narrated yet. Continue with your own voice provider (free)?`;
+  } else {
+    title = 'Audio is out of date';
+    message = `${stale} section(s) have been edited since this audiobook was narrated on this Mac. Update with your own voice provider (free), or listen to the current audio.`;
+  }
+
   const wantsUpdate = await confirmDialog({
-    title: 'Audio is out of date',
-    message: `${staleNodes} section(s) have been edited since this audiobook was narrated on this Mac. Update with your own voice provider (free), or listen to the current audio.`,
-    confirmLabel: 'Update locally',
+    title,
+    message,
+    confirmLabel: 'Continue locally',
     cancelLabel: 'Listen anyway',
   });
   if (!wantsUpdate) return false;

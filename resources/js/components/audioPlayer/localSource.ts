@@ -47,6 +47,24 @@ export async function toPlayerManifest(book: string, local: LocalAudioManifest):
   return toAudioManifest(local, currentHashes);
 }
 
+/** Count speakable nodes that have no local audio yet (incomplete narration). */
+export async function countLocalIncomplete(book: string, local: LocalAudioManifest): Promise<number> {
+  try {
+    const nodes = await getNodesFromIndexedDB(asBookId(book));
+    let missing = 0;
+    for (const node of nodes) {
+      const nodeId = (node as { node_id?: string }).node_id;
+      if (!nodeId || local.nodes[nodeId]) continue;
+      const text = speakableTextFromContent((node as { content?: string }).content);
+      if (text !== '') missing++;
+    }
+
+    return missing;
+  } catch {
+    return 0;
+  }
+}
+
 /** resolveSrc for PlaybackController: filename → hyperlit-local:// URL. */
 export function localResolveSrc(book: string): (filename: string) => Promise<string> {
   return async (filename: string) => {

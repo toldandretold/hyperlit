@@ -595,11 +595,7 @@ var FORBID_TAGS = [
   "template",
   "slot",
   "noscript",
-  "canvas",
-  "dl",
-  "dt",
-  "dd"
-  // Definition list tags - not supported in editor
+  "canvas"
 ];
 var FORBID_ATTR = [
   // Event handlers

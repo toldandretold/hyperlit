@@ -31,36 +31,54 @@ function _scheduleRenderHealFlush() {
   // find it via [data-node-id]/[id] selectors.
   _renderHealTimer = setTimeout(async () => {
     _renderHealTimer = null;
-    if (_renderHealQueue.size === 0) return;
-
-    // Snapshot + clear so concurrent appends accumulate to a fresh queue
-    const snapshot: any[] = [];
-    for (const [bookId, set] of _renderHealQueue) {
-      snapshot.push({ bookId, startLines: [...set] });
-    }
-    _renderHealQueue.clear();
-
-    let batchUpdateIndexedDBRecords: any;
-    try {
-      ({ batchUpdateIndexedDBRecords } = await import('../indexedDB/nodes/batch'));
-    } catch (e) {
-      console.warn('[render-heal] failed to import batch module:', e);
-      return;
-    }
-
-    for (const { bookId, startLines } of snapshot) {
-      try {
-        const records = startLines.map((id: any) => ({ id }));
-        await batchUpdateIndexedDBRecords(records, { bookId, skipFootnoteRenumber: true });
-        verbose.content(
-          `[render-heal] persisted ${startLines.length} node(s) for ${bookId}`,
-          'lazyLoaderFactory.js'
-        );
-      } catch (e) {
-        console.warn(`[render-heal] persist failed for ${bookId}:`, e);
-      }
-    }
+    await _drainRenderHealQueue();
   }, 0);
+}
+
+/**
+ * Immediately drain the render-heal queue, bypassing the setTimeout(0) deferral.
+ * Called at edit-mode-exit (before the integrity check) so any footnote-number
+ * or dl→div conversion heals are written to IDB before DOM and IDB are compared.
+ * Returns a Promise that resolves when all pending heals are complete.
+ */
+export async function flushRenderHeal(): Promise<void> {
+  if (_renderHealTimer) {
+    clearTimeout(_renderHealTimer);
+    _renderHealTimer = null;
+  }
+  await _drainRenderHealQueue();
+}
+
+async function _drainRenderHealQueue(): Promise<void> {
+  if (_renderHealQueue.size === 0) return;
+
+  // Snapshot + clear so concurrent appends accumulate to a fresh queue
+  const snapshot: any[] = [];
+  for (const [bookId, set] of _renderHealQueue) {
+    snapshot.push({ bookId, startLines: [...set] });
+  }
+  _renderHealQueue.clear();
+
+  let batchUpdateIndexedDBRecords: any;
+  try {
+    ({ batchUpdateIndexedDBRecords } = await import('../indexedDB/nodes/batch'));
+  } catch (e) {
+    console.warn('[render-heal] failed to import batch module:', e);
+    return;
+  }
+
+  for (const { bookId, startLines } of snapshot) {
+    try {
+      const records = startLines.map((id: any) => ({ id }));
+      await batchUpdateIndexedDBRecords(records, { bookId, skipFootnoteRenumber: true });
+      verbose.content(
+        `[render-heal] persisted ${startLines.length} node(s) for ${bookId}`,
+        'lazyLoaderFactory.js'
+      );
+    } catch (e) {
+      console.warn(`[render-heal] persist failed for ${bookId}:`, e);
+    }
+  }
 }
 
 /**
