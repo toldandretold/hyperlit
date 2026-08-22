@@ -1,40 +1,37 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-
-use App\Http\Controllers\DbNodeController;
-use App\Http\Controllers\SubBookController;
-use App\Http\Controllers\DbHyperlightController;
-use App\Http\Controllers\DbHyperciteController;
-use App\Http\Controllers\DbLibraryController;
-use App\Http\Controllers\DatabaseToIndexedDBController;
-use App\Http\Controllers\HomePageServerController;
-use App\Http\Controllers\BeaconSyncController;
-use App\Http\Controllers\DbReferencesController;
-use App\Http\Controllers\DbFootnoteController;
+use App\Http\Controllers\AiBrainController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\UnifiedSyncController;
-use App\Http\Controllers\SearchController;
+use App\Http\Controllers\BeaconSyncController;
+use App\Http\Controllers\BillingController;
+use App\Http\Controllers\CitationScannerController;
+use App\Http\Controllers\DatabaseToIndexedDBController;
+use App\Http\Controllers\DbFootnoteController;
+use App\Http\Controllers\DbHyperciteController;
+use App\Http\Controllers\DbHyperlightController;
+use App\Http\Controllers\DbLibraryController;
+use App\Http\Controllers\DbNodeController;
+use App\Http\Controllers\DbReferencesController;
+use App\Http\Controllers\E2eeVaultController;
+use App\Http\Controllers\HomePageServerController;
+use App\Http\Controllers\ImportController;
+use App\Http\Controllers\InferenceTicketController;
+use App\Http\Controllers\IntegrityReportController;
 use App\Http\Controllers\NodeHistoryController;
 use App\Http\Controllers\OpenAlexController;
-use App\Http\Controllers\CitationScannerController;
-use App\Http\Controllers\ImportController;
-use App\Http\Controllers\BillingController;
-use App\Http\Controllers\StripeController;
-use App\Http\Controllers\UserHomeServerController;
-use App\Http\Controllers\AiBrainController;
-use App\Http\Controllers\VibeCSSController;
-use App\Http\Controllers\InferenceTicketController;
-use App\Http\Controllers\VibeConvertController;
-use App\Http\Controllers\UserPreferencesController;
-use App\Http\Controllers\VibesController;
-use App\Http\Controllers\IntegrityReportController;
-use App\Http\Controllers\ScrapeController;
-use App\Http\Controllers\ShelfController;
 use App\Http\Controllers\PasskeyController;
-use App\Http\Controllers\E2eeVaultController;
-
+use App\Http\Controllers\ScrapeController;
+use App\Http\Controllers\SearchController;
+use App\Http\Controllers\ShelfController;
+use App\Http\Controllers\StripeController;
+use App\Http\Controllers\SubBookController;
+use App\Http\Controllers\UnifiedSyncController;
+use App\Http\Controllers\UserHomeServerController;
+use App\Http\Controllers\UserPreferencesController;
+use App\Http\Controllers\VibeConvertController;
+use App\Http\Controllers\VibeCSSController;
+use App\Http\Controllers\VibesController;
+use Illuminate\Support\Facades\Route;
 
 // Import progress polling — lightweight, no auth needed (bookId is unguessable).
 // Named limiter (own bucket): inline throttle:X,1 shares ONE per-user bucket with
@@ -208,10 +205,11 @@ Route::middleware('throttle:120,1')->where(['book' => '[a-zA-Z0-9_-]+'])->group(
     Route::get('/book-audio/{book}/audiobook', [\App\Http\Controllers\BookAudioController::class, 'audiobookStatus']);
 });
 
-// Packaging the .m4b is CPU work, so it gets its own tighter throttle. Still
-// no auth: RLS decides visibility, and the artifact is cached + lock-guarded.
+// Packaging the .m4b: no throttle — the per-book cache lock prevents
+// duplicate builds, the digest cache makes re-presses free, and the
+// separate audio-package queue contains any flooding to this lane only.
+// Still no auth: RLS decides visibility, and the artifact is lock-guarded.
 Route::post('/book-audio/{book}/audiobook', [\App\Http\Controllers\BookAudioController::class, 'buildAudiobook'])
-    ->middleware('throttle:10,1')
     ->where(['book' => '[a-zA-Z0-9_-]+']);
 
 // Password reset routes (throttled to prevent abuse)
@@ -294,7 +292,7 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         '/homepage/books',
         [HomePageServerController::class, 'getHomePageBooks']
     );
-    
+
     Route::post(
         '/homepage/books/update',
         [HomePageServerController::class, 'updateHomePageBooks']
@@ -330,7 +328,6 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         '/db/library/bulk-create',
         [DbLibraryController::class, 'bulkCreate']
     );
-
 
     /* ----------------  Upsert / targeted / delete  ---------------- */
     Route::post(
@@ -400,7 +397,6 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     Route::post('/source-harvest/{harvestId}/finish', [\App\Http\Controllers\SourceHarvestController::class, 'finish'])
         ->middleware('throttle:10,1');
 
-
     Route::post(
         '/db/library/update-timestamp',
         [DbLibraryController::class, 'updateTimestamp']
@@ -424,9 +420,9 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     );
 
     Route::post(
-        '/db/sync/beacon', 
+        '/db/sync/beacon',
         [BeaconSyncController::class, 'handleSync']
-        );
+    );
 
     Route::delete('/books/{book}', [DbLibraryController::class, 'destroy'])->middleware('auth:sanctum');
 
@@ -453,22 +449,22 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         ->where('filename', '[a-zA-Z0-9\-_.]+\.mp3')
         ->withoutMiddleware('throttle:120,1')->middleware('throttle:blob-swap');
 
-     // {book} is greedy ('.+') so sub-book ids containing '/' (book_x/Fn1) route; the
-     // strictly-constrained trailing {hyperciteId} anchors where the book id ends.
-     //
-     // withoutMiddleware('author'): this is a READ used by fetch-on-demand when an
-     // anonymous reader deep-links to a #hypercite_ that was gate-filtered out of the
-     // book's bulk sync (open a PUBLIC book, then paste its own hypercite link — the
-     // marker never appeared because this 401'd in a fresh window with no anon_token).
-     // The controller's find() already enforces visibility/ownership (public → anyone,
-     // private → owner only, non-owner → 403), so RequireAuthor is redundant here and
-     // its blanket 401 pre-empts the public-book allowance. Matches the public bulk
-     // data endpoint (canAccessBookContent). Throttle from the group is retained.
-     Route::get(
+    // {book} is greedy ('.+') so sub-book ids containing '/' (book_x/Fn1) route; the
+    // strictly-constrained trailing {hyperciteId} anchors where the book id ends.
+    //
+    // withoutMiddleware('author'): this is a READ used by fetch-on-demand when an
+    // anonymous reader deep-links to a #hypercite_ that was gate-filtered out of the
+    // book's bulk sync (open a PUBLIC book, then paste its own hypercite link — the
+    // marker never appeared because this 401'd in a fresh window with no anon_token).
+    // The controller's find() already enforces visibility/ownership (public → anyone,
+    // private → owner only, non-owner → 403), so RequireAuthor is redundant here and
+    // its blanket 401 pre-empts the public-book allowance. Matches the public bulk
+    // data endpoint (canAccessBookContent). Throttle from the group is retained.
+    Route::get(
         '/db/hypercites/find/{book}/{hyperciteId}',
         [DbHyperciteController::class, 'find']
     )->where('book', '.+')->where('hyperciteId', 'hypercite_[A-Za-z0-9]+')
-     ->withoutMiddleware('author');
+        ->withoutMiddleware('author');
 
     // Hyperlight mirror of the find route above (deep-link fetch-on-demand for a
     // #HL_ target gate-filtered out of the bulk sync) — same public-book allowance
@@ -477,7 +473,7 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         '/db/hyperlights/find/{book}/{hyperlightId}',
         [DbHyperlightController::class, 'find']
     )->where('book', '.+')->where('hyperlightId', 'HL_[A-Za-z0-9]+')
-     ->withoutMiddleware('author');
+        ->withoutMiddleware('author');
 
     Route::post('/db/footnotes/upsert', [DbFootnoteController::class, 'upsert']);
     Route::post('/db/references/upsert', [DbReferencesController::class, 'upsertReferences']);
@@ -733,4 +729,3 @@ Route::prefix('database-to-indexeddb')->group(function () {
     Route::get('books/{bookId}/library', [DatabaseToIndexedDBController::class, 'getBookLibrary'])
         ->name('api.database-to-indexeddb.book-library');
 });
-
