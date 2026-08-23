@@ -2,75 +2,75 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\ConversionFeedbackMail;
+use App\Mail\ImportFailureReportMail;
+use App\Mail\IntegrityReportMail;
+use App\Mail\PasteGlitchReportMail;
+use App\Models\PgNode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use App\Mail\IntegrityReportMail;
-use App\Mail\PasteGlitchReportMail;
-use App\Mail\ConversionFeedbackMail;
-use App\Mail\ImportFailureReportMail;
-use App\Models\PgNode;
 
 class IntegrityReportController extends Controller
 {
     public function report(Request $request)
     {
         $data = $request->validate([
-            'bookId'         => 'required|string|max:500|regex:/^[A-Za-z0-9_\/-]+$/',
-            'mismatches'     => 'nullable|array|max:50',
-            'mismatches.*.nodeId'    => 'nullable|string|max:500',
+            'bookId' => 'required|string|max:500|regex:/^[A-Za-z0-9_\/-]+$/',
+            'mismatches' => 'nullable|array|max:50',
+            'mismatches.*.nodeId' => 'nullable|string|max:500',
             'mismatches.*.startLine' => 'nullable|string|max:50',
-            'mismatches.*.domText'   => 'nullable|string|max:20000',
-            'mismatches.*.idbText'   => 'nullable|string|max:20000',
-            'mismatches.*.diff'             => 'nullable|array',
-            'mismatches.*.diff.diffIndex'   => 'nullable|integer',
-            'mismatches.*.diff.snippetA'    => 'nullable|string|max:2000',
-            'mismatches.*.diff.snippetB'    => 'nullable|string|max:2000',
-            'mismatches.*.diff.aLen'        => 'nullable|integer',
-            'mismatches.*.diff.bLen'        => 'nullable|integer',
-            'missingFromIDB'             => 'nullable|array|max:50',
-            'missingFromIDB.*.nodeId'    => 'nullable|string|max:500',
+            'mismatches.*.domText' => 'nullable|string|max:20000',
+            'mismatches.*.idbText' => 'nullable|string|max:20000',
+            'mismatches.*.diff' => 'nullable|array',
+            'mismatches.*.diff.diffIndex' => 'nullable|integer',
+            'mismatches.*.diff.snippetA' => 'nullable|string|max:2000',
+            'mismatches.*.diff.snippetB' => 'nullable|string|max:2000',
+            'mismatches.*.diff.aLen' => 'nullable|integer',
+            'mismatches.*.diff.bLen' => 'nullable|integer',
+            'missingFromIDB' => 'nullable|array|max:50',
+            'missingFromIDB.*.nodeId' => 'nullable|string|max:500',
             'missingFromIDB.*.startLine' => 'nullable|string|max:50',
-            'missingFromIDB.*.tag'     => 'nullable|string|max:20',
+            'missingFromIDB.*.tag' => 'nullable|string|max:20',
             'missingFromIDB.*.domText' => 'nullable|string|max:20000',
-            'duplicateIds'        => 'nullable|array|max:50',
-            'duplicateIds.*.id'   => 'nullable|string|max:50',
+            'duplicateIds' => 'nullable|array|max:50',
+            'duplicateIds.*.id' => 'nullable|string|max:50',
             'duplicateIds.*.count' => 'nullable|integer|min:2',
-            'duplicateIds.*.elements'                => 'nullable|array|max:20',
-            'duplicateIds.*.elements.*.tag'          => 'nullable|string|max:20',
-            'duplicateIds.*.elements.*.dataNodeId'   => 'nullable|string|max:500',
-            'duplicateIds.*.elements.*.outerHTML'    => 'nullable|string|max:2000',
+            'duplicateIds.*.elements' => 'nullable|array|max:20',
+            'duplicateIds.*.elements.*.tag' => 'nullable|string|max:20',
+            'duplicateIds.*.elements.*.dataNodeId' => 'nullable|string|max:500',
+            'duplicateIds.*.elements.*.outerHTML' => 'nullable|string|max:2000',
             'suspiciousWipe' => 'nullable|boolean',
-            'orphanedNodes'               => 'nullable|array|max:50',
-            'orphanedNodes.*.tag'         => 'nullable|string|max:20',
+            'orphanedNodes' => 'nullable|array|max:50',
+            'orphanedNodes.*.tag' => 'nullable|string|max:20',
             'orphanedNodes.*.textSnippet' => 'nullable|string|max:500',
-            'orphanedNodes.*.assignedId'  => 'nullable|string|max:50',
-            'orphanedNodes.*.healFailed'  => 'nullable|boolean',
-            'orphanedNodes.*.error'       => 'nullable|string|max:500',
-            'recentLogs'        => 'nullable|array|max:50',
+            'orphanedNodes.*.assignedId' => 'nullable|string|max:50',
+            'orphanedNodes.*.healFailed' => 'nullable|boolean',
+            'orphanedNodes.*.error' => 'nullable|string|max:500',
+            'recentLogs' => 'nullable|array|max:50',
             'recentLogs.*.level' => 'nullable|string|max:10',
-            'recentLogs.*.ts'    => 'nullable|numeric',
-            'recentLogs.*.msg'   => 'nullable|string|max:2000',
-            'trigger'        => 'nullable|string|max:50',
-            'url'            => 'nullable|string|max:2000',
-            'userAgent'      => 'nullable|string|max:1000',
-            'timestamp'      => 'nullable|string|max:100',
-            'context'                    => 'nullable|array',
-            'context.totalDomNodes'      => 'nullable|integer',
-            'context.totalIdbNodes'      => 'nullable|integer',
-            'context.sessionAgeSec'      => 'nullable|integer',
-            'context.idbBroken'          => 'nullable|boolean',
-            'selfHealed'         => 'nullable|boolean',
-            'selfHealedNodeIds'  => 'nullable|array|max:100',
+            'recentLogs.*.ts' => 'nullable|numeric',
+            'recentLogs.*.msg' => 'nullable|string|max:2000',
+            'trigger' => 'nullable|string|max:50',
+            'url' => 'nullable|string|max:2000',
+            'userAgent' => 'nullable|string|max:1000',
+            'timestamp' => 'nullable|string|max:100',
+            'context' => 'nullable|array',
+            'context.totalDomNodes' => 'nullable|integer',
+            'context.totalIdbNodes' => 'nullable|integer',
+            'context.sessionAgeSec' => 'nullable|integer',
+            'context.idbBroken' => 'nullable|boolean',
+            'selfHealed' => 'nullable|boolean',
+            'selfHealedNodeIds' => 'nullable|array|max:100',
             'selfHealedNodeIds.*' => 'string|max:50',
-            'comment'            => 'nullable|string|max:2000',
+            'comment' => 'nullable|string|max:2000',
             // Persistent server-error reports (trigger = 'sync-server-error') carry the
             // failing HTTP status + message instead of DOM/IDB mismatch data.
-            'serverError'          => 'nullable|array',
-            'serverError.status'   => 'nullable|integer',
-            'serverError.message'  => 'nullable|string|max:2000',
+            'serverError' => 'nullable|array',
+            'serverError.status' => 'nullable|integer',
+            'serverError.message' => 'nullable|string|max:2000',
         ]);
 
         $user = Auth::user();
@@ -99,21 +99,21 @@ class IntegrityReportController extends Controller
     public function pasteGlitchReport(Request $request)
     {
         $data = $request->validate([
-            'bookId'              => 'required|string|max:500|regex:/^[A-Za-z0-9_\/-]+$/',
-            'conversionSummary'   => 'nullable|array',
-            'comment'             => 'nullable|string|max:2000',
-            'recentLogs'          => 'nullable|array|max:50',
-            'recentLogs.*.level'  => 'nullable|string|max:10',
-            'recentLogs.*.ts'     => 'nullable|numeric',
-            'recentLogs.*.msg'    => 'nullable|string|max:2000',
-            'pasteLogs'           => 'nullable|array|max:2000',
-            'pasteLogs.*.level'   => 'nullable|string|max:10',
-            'pasteLogs.*.ts'      => 'nullable|numeric',
-            'pasteLogs.*.msg'     => 'nullable|string|max:2000',
-            'pastedContent'       => 'nullable|string|max:2000000',
-            'url'                 => 'nullable|string|max:2000',
-            'userAgent'           => 'nullable|string|max:1000',
-            'timestamp'           => 'nullable|string|max:100',
+            'bookId' => 'required|string|max:500|regex:/^[A-Za-z0-9_\/-]+$/',
+            'conversionSummary' => 'nullable|array',
+            'comment' => 'nullable|string|max:2000',
+            'recentLogs' => 'nullable|array|max:50',
+            'recentLogs.*.level' => 'nullable|string|max:10',
+            'recentLogs.*.ts' => 'nullable|numeric',
+            'recentLogs.*.msg' => 'nullable|string|max:2000',
+            'pasteLogs' => 'nullable|array|max:2000',
+            'pasteLogs.*.level' => 'nullable|string|max:10',
+            'pasteLogs.*.ts' => 'nullable|numeric',
+            'pasteLogs.*.msg' => 'nullable|string|max:2000',
+            'pastedContent' => 'nullable|string|max:2000000',
+            'url' => 'nullable|string|max:2000',
+            'userAgent' => 'nullable|string|max:1000',
+            'timestamp' => 'nullable|string|max:100',
         ]);
 
         $user = Auth::user();
@@ -135,14 +135,14 @@ class IntegrityReportController extends Controller
                 \App\Models\ConversionFlag::SOURCE_USER_REPORT,
                 ($data['comment'] ?? null) ?: 'paste conversion glitch',
                 [
-                    'lane'       => 'paste',
+                    'lane' => 'paste',
                     'issueTypes' => [],
-                    'userName'   => $data['userName'],
-                    'summary'    => $data['conversionSummary'] ?? null,
+                    'userName' => $data['userName'],
+                    'summary' => $data['conversionSummary'] ?? null,
                 ],
             );
 
-            if (!empty($data['pastedContent'])) {
+            if (! empty($data['pastedContent'])) {
                 $row = \Illuminate\Support\Facades\DB::connection('pgsql_admin')
                     ->table('library')->where('book', $data['bookId'])->first(['creator', 'creator_token']);
                 $creatorInfo = app(DbLibraryController::class)->getCreatorInfo($request);
@@ -159,7 +159,7 @@ class IntegrityReportController extends Controller
         } catch (\Throwable $e) {
             Log::warning('Paste glitch flag/artifact failed (continuing)', [
                 'bookId' => $data['bookId'],
-                'error'  => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
 
@@ -177,7 +177,7 @@ class IntegrityReportController extends Controller
     public function claimPremium(Request $request)
     {
         $user = Auth::user();
-        if (!$user) {
+        if (! $user) {
             return response()->json(['error' => 'Not authenticated'], 401);
         }
 
@@ -194,19 +194,19 @@ class IntegrityReportController extends Controller
     public function conversionFeedback(Request $request)
     {
         $data = $request->validate([
-            'bookId'              => 'required|string|max:500|regex:/^[A-Za-z0-9_\/-]+$/',
-            'rating'              => 'required|string|in:good,bad',
-            'conversionStats'     => 'nullable|array',
-            'footnoteAudit'       => 'nullable|array',
-            'comment'             => 'nullable|string|max:2000',
-            'issueTypes'          => 'nullable|array|max:8',
-            'issueTypes.*'        => 'string|in:citations_not_matched,citations_wrongly_matched,footnotes_not_matched,footnotes_wrongly_matched,headings_wrong',
-            'recentLogs'          => 'nullable|array|max:50',
-            'recentLogs.*.level'  => 'nullable|string|max:10',
-            'recentLogs.*.ts'     => 'nullable|numeric',
-            'recentLogs.*.msg'    => 'nullable|string|max:2000',
-            'userAgent'           => 'nullable|string|max:1000',
-            'timestamp'           => 'nullable|string|max:100',
+            'bookId' => 'required|string|max:500|regex:/^[A-Za-z0-9_\/-]+$/',
+            'rating' => 'required|string|in:good,bad',
+            'conversionStats' => 'nullable|array',
+            'footnoteAudit' => 'nullable|array',
+            'comment' => 'nullable|string|max:2000',
+            'issueTypes' => 'nullable|array|max:8',
+            'issueTypes.*' => 'string|in:citations_not_matched,citations_wrongly_matched,footnotes_not_matched,footnotes_wrongly_matched,headings_wrong',
+            'recentLogs' => 'nullable|array|max:50',
+            'recentLogs.*.level' => 'nullable|string|max:10',
+            'recentLogs.*.ts' => 'nullable|numeric',
+            'recentLogs.*.msg' => 'nullable|string|max:2000',
+            'userAgent' => 'nullable|string|max:1000',
+            'timestamp' => 'nullable|string|max:100',
         ]);
 
         $user = Auth::user();
@@ -248,7 +248,7 @@ class IntegrityReportController extends Controller
         } catch (\Throwable $e) {
             Log::warning('Conversion feedback enrichment failed (continuing)', [
                 'bookId' => $data['bookId'],
-                'error'  => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
 
@@ -263,13 +263,13 @@ class IntegrityReportController extends Controller
                     $data['comment'] ?? null,
                     [
                         'issueTypes' => $data['issueTypes'] ?? [],
-                        'userName'   => $data['userName'],
+                        'userName' => $data['userName'],
                     ],
                 );
             } catch (\Throwable $e) {
                 Log::warning('Conversion flag upsert failed (continuing)', [
                     'bookId' => $data['bookId'],
-                    'error'  => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
             }
         }
@@ -293,26 +293,26 @@ class IntegrityReportController extends Controller
     public function importFailureReport(Request $request)
     {
         $data = $request->validate([
-            'bookId'              => 'nullable|string|max:500|regex:/^[A-Za-z0-9_\/-]+$/',
-            'errorMessage'        => 'nullable|string|max:5000',
-            'status'              => 'nullable|string|max:50',
-            'source'              => 'nullable|string|in:pre_conversion,poll_failure',
-            'comment'             => 'nullable|string|max:2000',
-            'recentLogs'          => 'nullable|array|max:50',
-            'recentLogs.*.level'  => 'nullable|string|max:10',
-            'recentLogs.*.ts'     => 'nullable|numeric',
-            'recentLogs.*.msg'    => 'nullable|string|max:2000',
-            'userAgent'           => 'nullable|string|max:1000',
-            'timestamp'           => 'nullable|string|max:100',
-            'original'            => 'nullable|file|max:25600',
+            'bookId' => 'nullable|string|max:500|regex:/^[A-Za-z0-9_\/-]+$/',
+            'errorMessage' => 'nullable|string|max:5000',
+            'status' => 'nullable|string|max:50',
+            'source' => 'nullable|string|in:pre_conversion,poll_failure',
+            'comment' => 'nullable|string|max:2000',
+            'recentLogs' => 'nullable|array|max:50',
+            'recentLogs.*.level' => 'nullable|string|max:10',
+            'recentLogs.*.ts' => 'nullable|numeric',
+            'recentLogs.*.msg' => 'nullable|string|max:2000',
+            'userAgent' => 'nullable|string|max:1000',
+            'timestamp' => 'nullable|string|max:100',
+            'original' => 'nullable|file|max:25600',
         ]);
 
         $user = Auth::user();
-        $data['userId']   = $user?->id;
+        $data['userId'] = $user?->id;
         $data['userName'] = $user?->name ?? 'anonymous';
 
         $data['serverOriginalPath'] = null;
-        if (!empty($data['bookId'])) {
+        if (! empty($data['bookId'])) {
             $data['laravelLogs'] = $this->grepLaravelLog($data['bookId'], 30);
             $bookDir = resource_path("markdown/{$data['bookId']}");
             if (is_dir($bookDir)) {
@@ -324,24 +324,32 @@ class IntegrityReportController extends Controller
         }
 
         if ($request->hasFile('original')) {
-            $f = $request->file('original');
-            $uploadDir = storage_path('app/import-failure-uploads');
-            if (!is_dir($uploadDir)) {
-                @mkdir($uploadDir, 0750, true);
+            // A failed store must not 500 the report — the error details are the value,
+            // the file is a bonus. Send the report without the attachment instead.
+            try {
+                $f = $request->file('original');
+                $uploadDir = storage_path('app/import-failure-uploads');
+                if (! is_dir($uploadDir)) {
+                    @mkdir($uploadDir, 0750, true);
+                }
+                $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $f->getClientOriginalName() ?: 'upload');
+                $storedName = Str::uuid().'-'.$safeName;
+                $f->move($uploadDir, $storedName);
+                $data['storedUploadPath'] = "{$uploadDir}/{$storedName}";
+                $data['uploadedFilename'] = $f->getClientOriginalName() ?: $storedName;
+                $data['uploadedSize'] = filesize($data['storedUploadPath']) ?: null;
+            } catch (\Throwable $e) {
+                Log::error('Import failure report: could not store uploaded file', [
+                    'error' => $e->getMessage(),
+                ]);
             }
-            $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $f->getClientOriginalName() ?: 'upload');
-            $storedName = Str::uuid() . '-' . $safeName;
-            $f->move($uploadDir, $storedName);
-            $data['storedUploadPath'] = "{$uploadDir}/{$storedName}";
-            $data['uploadedFilename'] = $f->getClientOriginalName() ?: $storedName;
-            $data['uploadedSize']     = filesize($data['storedUploadPath']) ?: null;
         }
 
         Log::warning('Import failure report', array_diff_key($data, ['storedUploadPath' => 1]));
 
         try {
             Mail::send(new ImportFailureReportMail($data));
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send import-failure report email', [
                 'error' => $e->getMessage(),
             ]);
@@ -355,7 +363,7 @@ class IntegrityReportController extends Controller
         try {
             $path = storage_path('logs/laravel.log');
 
-            if (!is_file($path) || !is_readable($path)) {
+            if (! is_file($path) || ! is_readable($path)) {
                 return [];
             }
 
@@ -364,7 +372,7 @@ class IntegrityReportController extends Controller
             $lines = [];
             exec("grep {$escaped} {$path} | tail -n {$limit}", $lines);
 
-            return array_map(fn($line) => mb_substr($line, 0, 500), $lines);
+            return array_map(fn ($line) => mb_substr($line, 0, 500), $lines);
         } catch (\Throwable $e) {
             return [];
         }

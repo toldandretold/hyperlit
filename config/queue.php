@@ -71,7 +71,11 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            // Same rule as the database driver above: MUST exceed the longest job
+            // timeout (CitationPipelineJob: 7200s), or long jobs get re-reserved
+            // and run TWICE. Unused today (QUEUE_CONNECTION=database) — this closes
+            // the trap for any future switch to redis.
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 7500),
             'block_for' => null,
             'after_commit' => false,
         ],

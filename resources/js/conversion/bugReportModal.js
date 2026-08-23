@@ -339,6 +339,11 @@ async function sendReport({ bookId, errorMessage, status, source, comment, file 
     if (res.status === 429) {
       return { ok: false, message: 'Throttled — try again in a minute.' };
     }
+    if (res.status === 419 || res.status === 401) {
+      // Likely after a long import poll: the session/CSRF token went stale while
+      // the modal sat open, so the report never reached the server.
+      return { ok: false, message: 'Session expired — refresh the page and try again.' };
+    }
     if (!res.ok) {
       return { ok: false, message: `Server returned ${res.status}.` };
     }

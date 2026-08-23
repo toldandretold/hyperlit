@@ -15,6 +15,7 @@ dataset('integrity_routes', [
     '/api/integrity/report',
     '/api/integrity/paste-glitch',
     '/api/integrity/conversion-feedback',
+    '/api/integrity/import-failure',
     '/api/integrity/claim-premium',
 ]);
 
@@ -48,9 +49,9 @@ test('POST /api/integrity/conversion-feedback accepts a report and never 500s', 
     Mail::fake();
     $this->loginUser();
     $this->postJson('/api/integrity/conversion-feedback', [
-        'bookId'     => 'apitest_book',
-        'rating'     => 'bad',
+        'bookId' => 'apitest_book',
+        'rating' => 'bad',
         'issueTypes' => ['citations_not_matched'],
-        'comment'    => 'the harvested source is just a table of contents',
+        'comment' => 'the harvested source is just a table of contents',
     ])->assertStatus(200)->assertJson(['status' => 'received']);
 });

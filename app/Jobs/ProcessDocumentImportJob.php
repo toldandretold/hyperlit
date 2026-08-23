@@ -2,34 +2,31 @@
 
 namespace App\Jobs;
 
+use App\Exceptions\PermanentImportException;
+use App\Helpers\SubBookIdHelper;
+use App\Mail\ImportCompleteMail;
+use App\Mail\ImportFailedMail;
+use App\Models\PgLibrary;
+use App\Models\User;
+use App\Services\BillingService;
+use App\Services\DocumentImport\FileHelpers;
+use App\Services\DocumentImport\MetadataExtractor;
+use App\Services\DocumentImport\Processors\DocxProcessor;
+use App\Services\DocumentImport\Processors\EpubProcessor;
+use App\Services\DocumentImport\Processors\HtmlProcessor;
+use App\Services\DocumentImport\Processors\MarkdownProcessor;
+use App\Services\DocumentImport\Processors\PdfProcessor;
+use App\Services\DocumentImport\Processors\ZipProcessor;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use App\Exceptions\PermanentImportException;
-use App\Models\PgLibrary;
-use App\Models\PgNode;
-use App\Models\PgFootnote;
-use App\Helpers\SubBookIdHelper;
-use App\Services\DocumentImport\FileHelpers;
-use App\Services\DocumentImport\Processors\EpubProcessor;
-use App\Services\DocumentImport\Processors\MarkdownProcessor;
-use App\Services\DocumentImport\Processors\HtmlProcessor;
-use App\Services\DocumentImport\Processors\PdfProcessor;
-use App\Services\DocumentImport\Processors\DocxProcessor;
-use App\Services\DocumentImport\Processors\ZipProcessor;
-use App\Services\BillingService;
-use App\Services\DocumentImport\MetadataExtractor;
-use App\Mail\ImportCompleteMail;
-use App\Mail\ImportFailedMail;
-use App\Models\User;
-use App\Jobs\PandocConversionJob;
-use Illuminate\Support\Facades\DB;
 
 class ProcessDocumentImportJob implements ShouldQueue
 {
@@ -71,7 +68,7 @@ class ProcessDocumentImportJob implements ShouldQueue
         $inputPath = "{$path}/original.{$this->extension}";
 
         // Folder uploads create main-text.md directly (no original.md)
-        if (!File::exists($inputPath) && $this->extension === 'md' && File::exists("{$path}/main-text.md")) {
+        if (! File::exists($inputPath) && $this->extension === 'md' && File::exists("{$path}/main-text.md")) {
             $inputPath = "{$path}/main-text.md";
         }
 
@@ -183,12 +180,12 @@ class ProcessDocumentImportJob implements ShouldQueue
             // Wait for nodes.jsonl if not yet present
             $nodesPath = "{$path}/nodes.jsonl";
             $attempts = 0;
-            while (!File::exists($nodesPath) && $attempts < 15) {
+            while (! File::exists($nodesPath) && $attempts < 15) {
                 sleep(2);
                 $attempts++;
             }
 
-            if (!File::exists($nodesPath)) {
+            if (! File::exists($nodesPath)) {
                 throw new \RuntimeException('nodes.jsonl was not created after processing');
             }
 
@@ -212,7 +209,7 @@ class ProcessDocumentImportJob implements ShouldQueue
             try {
                 $report = app(\App\Services\Annotations\AnnotationReattachmentService::class)
                     ->reattach($this->bookId);
-                if (!isset($report['skipped'])) {
+                if (! isset($report['skipped'])) {
                     Log::info('Reconvert annotation reattachment', ['book' => $this->bookId] + array_diff_key($report, ['per_id' => 0]));
                 }
             } catch (\Throwable $e) {
@@ -310,7 +307,7 @@ class ProcessDocumentImportJob implements ShouldQueue
                     // Check if arrays are non-empty by looking for first element
                     foreach (['gaps', 'duplicates', 'unmatched_refs', 'unmatched_defs'] as $key) {
                         // Match "key": [ followed by non-] (i.e. array has at least one element)
-                        if (preg_match('/"' . $key . '":\s*\[\s*\{/', file_get_contents($auditPath, false, null, 0, 64 * 1024), $m)) {
+                        if (preg_match('/"'.$key.'":\s*\[\s*\{/', file_get_contents($auditPath, false, null, 0, 64 * 1024), $m)) {
                             $auditSummary["{$key}_count"] = -1; // unknown but non-zero
                             $hasIssues = true;
                         }
@@ -407,6 +404,7 @@ class ProcessDocumentImportJob implements ShouldQueue
                 // would just hand it back to the worker, which would release it for attempt
                 // 2 of 3: exactly the retry we determined is pointless.
                 $this->fail($e);
+
                 return;
             }
 
@@ -509,7 +507,7 @@ class ProcessDocumentImportJob implements ShouldQueue
         }
 
         $pdo = $this->db()->getPdo();
-        $fields = implode(', ', array_map(fn($c) => '"' . $c . '"', $columns));
+        $fields = implode(', ', array_map(fn ($c) => '"'.$c.'"', $columns));
 
         // Process in batches of 10000 to limit memory for the formatted lines array
         foreach (array_chunk($rows, 10000) as $batch) {
@@ -545,8 +543,9 @@ class ProcessDocumentImportJob implements ShouldQueue
     {
         $nodesPath = "{$path}/nodes.jsonl";
 
-        if (!File::exists($nodesPath)) {
+        if (! File::exists($nodesPath)) {
             Log::warning('nodes.jsonl not found for database save', ['book' => $bookId]);
+
             return;
         }
 
@@ -581,7 +580,7 @@ class ProcessDocumentImportJob implements ShouldQueue
         try {
             // Only delete if this book already has nodes (re-import). Skip for fresh imports.
             if ($this->db()->table('nodes')->where('book', $bookId)->exists()) {
-                $this->writeProgress(resource_path("markdown/{$bookId}"), 'processing', 88, 'db_write', "Deleting old nodes");
+                $this->writeProgress(resource_path("markdown/{$bookId}"), 'processing', 88, 'db_write', 'Deleting old nodes');
                 $this->db()->table('nodes')->where('book', $bookId)->delete();
                 $this->db()->table('nodes')->where('book', 'LIKE', "{$bookId}/%")->delete();
             }
@@ -598,10 +597,14 @@ class ProcessDocumentImportJob implements ShouldQueue
             $handle = fopen($nodesPath, 'r');
             while (($line = fgets($handle)) !== false) {
                 $line = trim($line);
-                if ($line === '') continue;
+                if ($line === '') {
+                    continue;
+                }
 
                 $chunk = json_decode($line, true);
-                if ($chunk === null) continue;
+                if ($chunk === null) {
+                    continue;
+                }
 
                 $newStartLine = ($index + 1) * 100;
                 $chunkIndex = floor($index / $nodesPerChunk);
@@ -628,14 +631,16 @@ class ProcessDocumentImportJob implements ShouldQueue
                 ];
 
                 // Stream renumbered node to nodes.json
-                if (!$firstJsonNode) fwrite($jsonOut, ',');
+                if (! $firstJsonNode) {
+                    fwrite($jsonOut, ',');
+                }
                 fwrite($jsonOut, json_encode($chunk, JSON_UNESCAPED_SLASHES));
                 $firstJsonNode = false;
 
                 // Flush batch every 5000 rows to limit memory
                 if (count($batch) >= 5000) {
                     $this->bulkCopy('nodes', $columns, $batch);
-                    $this->writeProgress(resource_path("markdown/{$bookId}"), 'processing', 89, 'db_write', "Inserted " . ($index + 1) . " / {$totalNodes} nodes");
+                    $this->writeProgress(resource_path("markdown/{$bookId}"), 'processing', 89, 'db_write', 'Inserted '.($index + 1)." / {$totalNodes} nodes");
                     $batch = [];
                 }
 
@@ -644,7 +649,7 @@ class ProcessDocumentImportJob implements ShouldQueue
             fclose($handle);
 
             // Flush remaining
-            if (!empty($batch)) {
+            if (! empty($batch)) {
                 $this->bulkCopy('nodes', $columns, $batch);
             }
             unset($batch);
@@ -665,7 +670,7 @@ class ProcessDocumentImportJob implements ShouldQueue
     private function saveFootnotesToDatabase(string $path, string $bookId): void
     {
         $footnotesJsonlPath = "{$path}/footnotes.jsonl";
-        if (!File::exists($footnotesJsonlPath)) {
+        if (! File::exists($footnotesJsonlPath)) {
             return;
         }
 
@@ -682,16 +687,14 @@ class ProcessDocumentImportJob implements ShouldQueue
         }
 
         $library = $this->db()->table('library')->where('book', $bookId)->first();
-        if (!$library) {
+        if (! $library) {
             Log::warning('Cannot save footnotes: parent library not found', ['book' => $bookId]);
+
             return;
         }
 
         $now = now();
         $this->writeProgress($path, 'processing', 91, 'db_footnotes', "Preparing {$totalFootnotes} footnotes");
-
-        // Only delete if this book already has footnotes (re-import)
-        $hasExisting = $this->db()->table('footnotes')->where('book', $bookId)->exists();
 
         // Stream enriched footnotes.json output
         $enrichedJsonPath = "{$path}/footnotes.json";
@@ -701,12 +704,25 @@ class ProcessDocumentImportJob implements ShouldQueue
 
         $this->db()->statement('ALTER TABLE nodes DISABLE TRIGGER USER');
         try {
-            if ($hasExisting) {
-                $this->writeProgress($path, 'processing', 92, 'db_footnotes', "Clearing old footnotes");
-                $this->db()->table('footnotes')->where('book', $bookId)->delete();
-                $this->db()->table('library')->where('book', 'LIKE', "{$bookId}/Fn%")->where('type', 'sub_book')->delete();
-                $this->db()->table('nodes')->where('book', 'LIKE', "{$bookId}/Fn%")->delete();
-            }
+            // Always clear the prior footnote set before inserting: a retry after a
+            // partial failure (or a re-import) would otherwise collide on library_pkey.
+            // The pattern must be the broad "{$bookId}/%" — footnote sub-book ids look
+            // like "seq1_Fn…", so the old "{$bookId}/Fn%" matched nothing and a retry
+            // died on duplicate key. Sub-books named by hyperlights.sub_book_id are
+            // user annotation documents — they survive (same keep-list as
+            // BookContentClearer / ContentFetchService).
+            $keepSubBooks = $this->db()->table('hyperlights')
+                ->whereNotNull('sub_book_id')
+                ->where('sub_book_id', 'LIKE', "{$bookId}/%")
+                ->distinct()
+                ->pluck('sub_book_id')
+                ->all();
+            $this->writeProgress($path, 'processing', 92, 'db_footnotes', 'Clearing old footnotes');
+            $this->db()->table('footnotes')->where('book', $bookId)->delete();
+            $this->db()->table('library')->where('book', 'LIKE', "{$bookId}/%")->where('type', 'sub_book')
+                ->whereNotIn('book', $keepSubBooks)->delete();
+            $this->db()->table('nodes')->where('book', 'LIKE', "{$bookId}/%")
+                ->whereNotIn('book', $keepSubBooks)->delete();
 
             $this->writeProgress($path, 'processing', 93, 'db_footnotes', "Inserting {$totalFootnotes} footnotes");
 
@@ -720,14 +736,18 @@ class ProcessDocumentImportJob implements ShouldQueue
             $handle = fopen($footnotesJsonlPath, 'r');
             while (($line = fgets($handle)) !== false) {
                 $line = trim($line);
-                if ($line === '') continue;
+                if ($line === '') {
+                    continue;
+                }
 
                 $footnote = json_decode($line, true);
-                if ($footnote === null) continue;
+                if ($footnote === null) {
+                    continue;
+                }
 
                 $footnoteId = $footnote['footnoteId'] ?? null;
                 $content = $footnote['content'] ?? '';
-                if (!$footnoteId) {
+                if (! $footnoteId) {
                     continue;
                 }
 
@@ -735,8 +755,8 @@ class ProcessDocumentImportJob implements ShouldQueue
                 $uuid = (string) Str::uuid();
                 $plainText = strip_tags($content);
                 $safeHtml = strip_tags($content, '<a><em><strong><i><b>');
-                $nodeHtml = '<p data-node-id="' . e($uuid) . '" no-delete-id="please" '
-                    . 'style="min-height:1.5em;">' . $safeHtml . '</p>';
+                $nodeHtml = '<p data-node-id="'.e($uuid).'" no-delete-id="please" '
+                    .'style="min-height:1.5em;">'.$safeHtml.'</p>';
 
                 $previewNodes = [[
                     'book' => $subBookId,
@@ -791,7 +811,7 @@ class ProcessDocumentImportJob implements ShouldQueue
                     'content' => $content,
                     'preview_nodes' => $previewNodes,
                 ], JSON_UNESCAPED_SLASHES);
-                if (!$firstEnriched) {
+                if (! $firstEnriched) {
                     fwrite($enrichedFile, ',');
                 }
                 fwrite($enrichedFile, $enrichedEntry);
@@ -813,7 +833,7 @@ class ProcessDocumentImportJob implements ShouldQueue
             fclose($handle);
 
             // Flush remaining
-            if (!empty($footnoteInserts)) {
+            if (! empty($footnoteInserts)) {
                 $this->db()->table('footnotes')->insert($footnoteInserts);
                 $this->db()->table('library')->insert($libraryInserts);
                 $this->db()->table('nodes')->insert($nodeInserts);
@@ -835,7 +855,7 @@ class ProcessDocumentImportJob implements ShouldQueue
     private function saveReferencesToDatabase(string $path, string $bookId): void
     {
         $referencesPath = "{$path}/references.json";
-        if (!File::exists($referencesPath)) {
+        if (! File::exists($referencesPath)) {
             return;
         }
 
@@ -850,7 +870,7 @@ class ProcessDocumentImportJob implements ShouldQueue
         $insertData = [];
         foreach ($referencesData as $ref) {
             $referenceId = $ref['referenceId'] ?? null;
-            if (!$referenceId) {
+            if (! $referenceId) {
                 continue;
             }
 
@@ -923,19 +943,19 @@ class ProcessDocumentImportJob implements ShouldQueue
     private function updateLibraryMetadata(string $path, MetadataExtractor $extractor): void
     {
         $library = PgLibrary::where('book', $this->bookId)->first();
-        if (!$library) {
+        if (! $library) {
             return;
         }
 
-        $isEmpty = fn($val) => !$val || $val === 'Untitled' || trim($val) === '';
+        $isEmpty = fn ($val) => ! $val || $val === 'Untitled' || trim($val) === '';
 
         // If all fields already populated, skip
-        if (!$isEmpty($library->title) && !$isEmpty($library->author) && !$isEmpty($library->year)) {
+        if (! $isEmpty($library->title) && ! $isEmpty($library->author) && ! $isEmpty($library->year)) {
             return;
         }
 
         $inputPath = "{$path}/original.{$this->extension}";
-        if (!File::exists($inputPath) && $this->extension === 'md' && File::exists("{$path}/main-text.md")) {
+        if (! File::exists($inputPath) && $this->extension === 'md' && File::exists("{$path}/main-text.md")) {
             $inputPath = "{$path}/main-text.md";
         }
 
@@ -956,11 +976,11 @@ class ProcessDocumentImportJob implements ShouldQueue
         if ($isEmpty($library->year) && $meta['year']) {
             $updates['year'] = $meta['year'];
         }
-        if (empty($library->publisher) && !empty($meta['publisher'])) {
+        if (empty($library->publisher) && ! empty($meta['publisher'])) {
             $updates['publisher'] = $meta['publisher'];
         }
 
-        if (!empty($updates)) {
+        if (! empty($updates)) {
             PgLibrary::where('book', $this->bookId)->update($updates);
             Log::info('Library metadata updated from file extraction', [
                 'book' => $this->bookId,
